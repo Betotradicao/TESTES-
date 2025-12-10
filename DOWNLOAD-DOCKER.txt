@@ -1,0 +1,137 @@
+========================================
+  COMO BAIXAR E INSTALAR O DOCKER
+========================================
+
+PASSO 1: DOWNLOAD
+==================
+
+Acesse este link no navegador:
+https://www.docker.com/products/docker-desktop
+
+OU
+
+Link direto para Windows:
+https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe
+
+Clique no botao azul "Download for Windows"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📥 OPÇÃO 2: Via Documentação Docker
+
+  1. Acesse: https://docs.docker.com/desktop/install/windows-install/
+
+  2. Procure a seção "Install Docker Desktop on Windows"
+
+  3. Clique no link "Docker Desktop for Windows"
+
+  4. Salve em: roberto-prevencao-no-radar\INSTALADORAUTOMATICO\
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📥 OPÇÃO 3: Via Winget (Windows 11)
+
+  1. Abra PowerShell como Administrador
+
+  2. Execute o comando:
+
+     winget download Docker.DockerDesktop --download-directory C:\Downloads
+
+  3. Copie o arquivo baixado para:
+     roberto-prevencao-no-radar\INSTALADORAUTOMATICO\
+
+  4. Renomeie para: "Docker Desktop Installer.exe"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📥 OPÇÃO 4: Link Direto Alternativo
+
+  Se as opções acima não funcionarem, tente este link:
+
+  https://desktop.docker.com/win/main/amd64/Docker Desktop Installer.exe
+
+  ⚠️  Se abrir página em branco:
+     - Clique com botão DIREITO no link
+     - Selecione "Salvar link como..."
+     - Escolha a pasta INSTALADORAUTOMATICO
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📥 OPÇÃO 5: Usando wget (Git Bash ou WSL)
+
+  Se você tem Git Bash instalado:
+
+  1. Abra Git Bash
+
+  2. Navegue até a pasta:
+     cd /c/Users/seu-usuario/Desktop/roberto-prevencao-no-radar/INSTALADORAUTOMATICO
+
+  3. Execute:
+     wget https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📥 OPÇÃO 6: Pedir para Baixar Online
+
+  Se NADA funcionar, você pode:
+
+  1. No primeiro cliente, deixar conectado à internet
+
+  2. O script INSTALAR.bat pode baixar automaticamente
+     usando o comando winget (Windows 11)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ VERIFICAÇÃO
+
+  Após baixar, verifique:
+
+  □ Nome do arquivo: "Docker Desktop Installer.exe"
+
+  □ Tamanho: Entre 500 MB e 700 MB
+
+  □ Local correto:
+    roberto-prevencao-no-radar\INSTALADORAUTOMATICO\Docker Desktop Installer.exe
+
+  □ Consegue executar (teste duplo clique)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 PROBLEMAS COMUNS
+
+  ❌ "Download não inicia"
+     → Tente outro navegador
+     → Desabilite bloqueador de pop-up
+     → Tente em modo anônimo
+
+  ❌ "Link abre página em branco"
+     → Use botão DIREITO → "Salvar link como..."
+     → Use uma das opções alternativas acima
+
+  ❌ "Antivírus bloqueia"
+     → Desabilite temporariamente
+     → Adicione exceção para o arquivo
+     → Baixe de fonte confiável
+
+  ❌ "Arquivo corrompido"
+     → Verifique tamanho (deve ser >400MB)
+     → Baixe novamente
+     → Tente outra fonte
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📞 ÚLTIMA OPÇÃO
+
+  Se REALMENTE não conseguir baixar de jeito nenhum:
+
+  1. Leve o pen drive SEM o Docker Desktop Installer
+
+  2. Na máquina do cliente (com internet):
+     - Execute: winget install Docker.DockerDesktop
+     - OU baixe direto lá do site
+
+  3. Execute o INSTALAR.bat normalmente
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Data: 2025-12-07

@@ -1,0 +1,599 @@
+import { Response } from 'express';
+import { AppDataSource } from '../config/database';
+import { Bip, BipStatus, MotivoCancelamento } from '../entities/Bip';
+import { Sell } from '../entities/Sell';
+import { AuthRequest } from '../middleware/auth';
+import { Between } from 'typeorm';
+import { VideoUploadService } from '../services/video-upload.service';
+import { ImageUploadService } from '../services/image-upload.service';
+
+export class BipsController {
+  static async getBips(req: AuthRequest, res: Response) {
+    try {
+      const {
+        page = '1',
+        limit = '10',
+        date,
+        date_from,
+        date_to,
+        status,
+        notified_filter,
+        product_id,
+        product_description,
+        search,
+        sector_id,
+        employee_id
+      } = req.query;
+
+      // LOG: Debug dos parâmetros recebidos
+      console.log('📥 GET /bips - Parâmetros recebidos:', {
+        page,
+        limit,
+        date,
+        date_from,
+        date_to,
+        status,
+        notified_filter,
+        product_id,
+        product_description,
+        search,
+        sector_id,
+        employee_id
+      });
+
+      // Parse pagination
+      const pageNumber = parseInt(page as string, 10);
+      const limitNumber = parseInt(limit as string, 10);
+      const offset = (pageNumber - 1) * limitNumber;
+
+      // Validate pagination
+      if (pageNumber < 1 || limitNumber < 1 || limitNumber > 100) {
+        console.log('❌ Erro de paginação:', { pageNumber, limitNumber });
+        return res.status(400).json({
+          error: 'Invalid pagination parameters. Page must be >= 1, limit must be between 1 and 100'
+        });
+      }
+
+      // Validate required date filters
+      if (!date_from || !date_to) {
+        console.log('❌ Datas obrigatórias faltando:', { date_from, date_to });
+        return res.status(400).json({
+          error: 'As datas inicial e final são obrigatórias.'
+        });
+      }
+
+      // Validate search length
+      if (search && (search as string).length < 2) {
+        return res.status(400).json({
+          error: 'A busca deve ter pelo menos 2 caracteres.'
+        });
+      }
+
+      const bipRepository = AppDataSource.getRepository(Bip);
+
+      // Build query with joins
+      let query = bipRepository
+        .createQueryBuilder('bip')
+        .leftJoinAndSelect('bip.equipment', 'equipment')
+        .leftJoinAndSelect('equipment.sector', 'sector')
+        .leftJoinAndSelect('bip.employee', 'employee')
+        .leftJoinAndSelect('employee.sector', 'employeeSector')
+        .leftJoinAndSelect('bip.employee_responsavel', 'employee_responsavel');
+
+      // Date filter with range support
+      if (date_from && date_to) {
+        // Validate date range
+        const dateFromObj = new Date(date_from as string);
+        const dateToObj = new Date(date_to as string);
+
+        if (isNaN(dateFromObj.getTime()) || isNaN(dateToObj.getTime())) {
+          return res.status(400).json({ error: 'Formato de data inválido. Use o formato correto.' });
+        }
+
+        if (dateFromObj > dateToObj) {
+          return res.status(400).json({ error: 'A data inicial não pode ser maior que a data final.' });
+        }
+
+        const startOfDay = new Date(dateFromObj);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        const endOfDay = new Date(dateToObj);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+
+        query = query.andWhere('bip.event_date BETWEEN :date_from AND :date_to', {
+          date_from: startOfDay,
+          date_to: endOfDay
+        });
+      } else if (date_from) {
+        const dateFromObj = new Date(date_from as string);
+        if (isNaN(dateFromObj.getTime())) {
+          return res.status(400).json({ error: 'Formato de data inicial inválido.' });
+        }
+        const startOfDay = new Date(dateFromObj);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        query = query.andWhere('bip.event_date >= :date_from', { date_from: startOfDay });
+      } else if (date_to) {
+        const dateToObj = new Date(date_to as string);
+        if (isNaN(dateToObj.getTime())) {
+          return res.status(400).json({ error: 'Formato de data final inválido.' });
+        }
+        const endOfDay = new Date(dateToObj);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+        query = query.andWhere('bip.event_date <= :date_to', { date_to: endOfDay });
+      } else if (date) {
+        // Backward compatibility: single date filter
+        const filterDate = new Date(date as string);
+        if (isNaN(filterDate.getTime())) {
+          return res.status(400).json({ error: 'Formato de data inválido.' });
+        }
+        const startOfDay = new Date(filterDate);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        const endOfDay = new Date(filterDate);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+        query = query.andWhere('bip.event_date BETWEEN :start AND :end', {
+          start: startOfDay,
+          end: endOfDay
+        });
+      }
+
+      // Status filter
+      if (status) {
+        const statusArray = Array.isArray(status) ? status : [status];
+        console.log('🔍 Validando status:', {
+          statusRecebido: status,
+          statusArray,
+          valoresValidos: Object.values(BipStatus)
+        });
+
+        const validStatuses = statusArray.filter(s => Object.values(BipStatus).includes(s as BipStatus));
+        console.log('✅ Status válidos após filtro:', validStatuses);
+
+        if (validStatuses.length === 0) {
+          console.log('❌ Nenhum status válido! Retornando erro 400');
+          return res.status(400).json({
+            error: 'Invalid status. Valid values: pending, verified, cancelled'
+          });
+        }
+
+        query = query.andWhere('bip.status IN (:...statuses)', { statuses: validStatuses });
+      }
+
+      // Notified filter
+      if (notified_filter === 'notified_only') {
+        query = query.andWhere('bip.notified_at IS NOT NULL');
+      }
+
+      // Combined search filter (product_id OR product_description) - case insensitive
+      if (search) {
+        query = query.andWhere(
+          '(bip.product_id ILIKE :search OR bip.product_description ILIKE :search)',
+          { search: `%${search}%` }
+        );
+      } else {
+        // Backward compatibility: individual filters
+        if (product_id) {
+          query = query.andWhere('bip.product_id = :product_id', { product_id });
+        }
+
+        if (product_description) {
+          query = query.andWhere('bip.product_description ILIKE :product_description', {
+            product_description: `%${product_description}%`
+          });
+        }
+      }
+
+      // Sector filter
+      if (sector_id) {
+        query = query.andWhere('equipment.sector_id = :sector_id', { sector_id: parseInt(sector_id as string, 10) });
+      }
+
+      // Employee filter
+      if (employee_id) {
+        query = query.andWhere('bip.employee_id = :employee_id', { employee_id });
+      }
+
+      // Get total count
+      const total = await query.getCount();
+
+      // Apply pagination and ordering
+      query = query
+        .orderBy('bip.event_date', 'DESC')
+        .skip(offset)
+        .take(limitNumber);
+
+      // Get bipages
+      const bips = await query.getMany();
+
+      // Fetch sell data for each bip using a single query
+      const bipIds = bips.map(b => b.id);
+      const sellRepository = AppDataSource.getRepository(Sell);
+
+      const sells = await sellRepository
+        .createQueryBuilder('sell')
+        .select(['sell.sellDate', 'sell.numCupomFiscal', 'sell.pointOfSaleCode', 'sell.bipId'])
+        .where('sell.bipId IN (:...bipIds)', { bipIds: bipIds.length > 0 ? bipIds : [-1] })
+        .getMany();
+
+      // Create a map of bip_id -> sell data for quick lookup
+      const sellsMap = new Map(
+        sells.map(sell => [sell.bipId, {
+          sell_date: sell.sellDate,
+          sell_num_cupom_fiscal: sell.numCupomFiscal,
+          sell_point_of_sale_code: sell.pointOfSaleCode
+        }])
+      );
+
+      // Map results to include sell data
+      const bipsWithSellData = bips.map((bip) => {
+        const sellData = sellsMap.get(bip.id);
+        return {
+          ...bip,
+          sell_date: sellData?.sell_date || null,
+          sell_num_cupom_fiscal: sellData?.sell_num_cupom_fiscal || null,
+          sell_point_of_sale_code: sellData?.sell_point_of_sale_code || null
+        };
+      });
+
+      // Calculate pagination info
+      const totalPages = Math.ceil(total / limitNumber);
+      const hasNextPage = pageNumber < totalPages;
+      const hasPreviousPage = pageNumber > 1;
+
+      res.json({
+        data: bipsWithSellData,
+        pagination: {
+          page: pageNumber,
+          limit: limitNumber,
+          total,
+          totalPages,
+          hasNextPage,
+          hasPreviousPage
+        },
+        filters: {
+          date: date || null,
+          date_from: date_from || null,
+          date_to: date_to || null,
+          status: status || null,
+          notified_filter: notified_filter || 'all',
+          product_id: product_id || null,
+          product_description: product_description || null,
+          search: search || null,
+          sector_id: sector_id || null,
+          employee_id: employee_id || null
+        }
+      });
+
+    } catch (error) {
+      console.error('Get bips error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async cancelBip(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const { motivo_cancelamento, employee_responsavel_id } = req.body;
+
+      // Validar motivo de cancelamento
+      if (!motivo_cancelamento) {
+        return res.status(400).json({ error: 'Motivo de cancelamento é obrigatório' });
+      }
+
+      if (!Object.values(MotivoCancelamento).includes(motivo_cancelamento)) {
+        return res.status(400).json({
+          error: 'Motivo de cancelamento inválido',
+          motivos_validos: Object.values(MotivoCancelamento)
+        });
+      }
+
+      // Validar se funcionário responsável é obrigatório para erros de operador/balconista
+      const motivosQueRequeremFuncionario = [
+        MotivoCancelamento.ERRO_OPERADOR,
+        MotivoCancelamento.ERRO_BALCONISTA
+      ];
+
+      if (motivosQueRequeremFuncionario.includes(motivo_cancelamento) && !employee_responsavel_id) {
+        return res.status(400).json({
+          error: 'Funcionário responsável é obrigatório para este motivo de cancelamento'
+        });
+      }
+
+      const bipRepository = AppDataSource.getRepository(Bip);
+      const bip = await bipRepository.findOne({ where: { id: parseInt(id) } });
+
+      if (!bip) {
+        return res.status(404).json({ error: 'Bipagem não encontrada' });
+      }
+
+      if (bip.status !== BipStatus.PENDING) {
+        return res.status(400).json({ error: 'Somente bipagens pendentes podem ser canceladas' });
+      }
+
+      // Buscar todas as bipagens com o mesmo EAN registradas no mesmo dia
+      const bipDate = new Date(bip.event_date);
+      const startOfDay = new Date(bipDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(bipDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const relatedBips = await bipRepository.find({
+        where: {
+          ean: bip.ean,
+          event_date: Between(startOfDay, endOfDay),
+          status: BipStatus.PENDING
+        }
+      });
+
+      // Cancelar todas as bipagens relacionadas
+      const cancelledBips = [];
+      for (const relatedBip of relatedBips) {
+        relatedBip.status = BipStatus.CANCELLED;
+        relatedBip.motivo_cancelamento = motivo_cancelamento;
+        relatedBip.employee_responsavel_id = employee_responsavel_id || null;
+        const savedBip = await bipRepository.save(relatedBip);
+        cancelledBips.push(savedBip);
+      }
+
+      const logMessage = employee_responsavel_id
+        ? `✅ ${cancelledBips.length} bipagens canceladas com motivo: ${motivo_cancelamento} (Responsável: ${employee_responsavel_id})`
+        : `✅ ${cancelledBips.length} bipagens canceladas com motivo: ${motivo_cancelamento}`;
+
+      console.log(logMessage);
+
+      res.json({
+        success: true,
+        cancelledCount: cancelledBips.length,
+        cancelledBips
+      });
+    } catch (error) {
+      console.error('Erro ao cancelar bipagem:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+
+  static async reactivateBip(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+
+      const bipRepository = AppDataSource.getRepository(Bip);
+      const bip = await bipRepository.findOne({ where: { id: parseInt(id) } });
+
+      if (!bip) {
+        return res.status(404).json({ error: 'Bipagem não encontrada' });
+      }
+
+      if (bip.status !== BipStatus.CANCELLED) {
+        return res.status(400).json({ error: 'Somente bipagens canceladas podem ser reativadas' });
+      }
+
+      // Buscar todas as bipagens com o mesmo EAN registradas no mesmo dia
+      const startOfDay = new Date(bip.event_date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(bip.event_date);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const relatedBips = await bipRepository.find({
+        where: {
+          ean: bip.ean,
+          event_date: Between(startOfDay, endOfDay),
+          status: BipStatus.CANCELLED
+        }
+      });
+
+      // Reativar todas as bipagens relacionadas
+      const sellRepository = AppDataSource.getRepository(Sell);
+      const reactivatedBips = [];
+
+      for (const relatedBip of relatedBips) {
+        // Verificar se existe venda vinculada a esta bipagem
+        const linkedSell = await sellRepository.findOne({
+          where: { bipId: relatedBip.id }
+        });
+
+        // Se tiver venda vinculada, bipagem vai para 'verified'
+        // Se não tiver venda, bipagem vai para 'pending'
+        relatedBip.status = linkedSell ? BipStatus.VERIFIED : BipStatus.PENDING;
+
+        const savedBip = await bipRepository.save(relatedBip);
+        reactivatedBips.push(savedBip);
+      }
+
+      res.json({
+        success: true,
+        reactivatedCount: reactivatedBips.length,
+        reactivatedBips
+      });
+    } catch (error) {
+      console.error('Erro ao reativar bipagem:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+
+  // Buscar funcionários que têm bipagens registradas
+  static async getEmployeesWithBips(req: AuthRequest, res: Response) {
+    try {
+      const bipRepository = AppDataSource.getRepository(Bip);
+
+      // Query para buscar funcionários únicos que têm bipagens
+      const employeesWithBips = await bipRepository
+        .createQueryBuilder('bip')
+        .leftJoinAndSelect('bip.employee', 'employee')
+        .where('bip.employee_id IS NOT NULL')
+        .andWhere('employee.active = :active', { active: true })
+        .select([
+          'DISTINCT employee.id as id',
+          'employee.name as name',
+          'employee.avatar as avatar'
+        ])
+        .groupBy('employee.id, employee.name, employee.avatar')
+        .orderBy('employee.name', 'ASC')
+        .getRawMany();
+
+      res.json(employeesWithBips);
+    } catch (error) {
+      console.error('Erro ao buscar funcionários com bipagens:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+
+  // Upload de vídeo para uma bipagem
+  static async uploadVideo(req: AuthRequest, res: Response) {
+    try {
+      const bipId = parseInt(req.params.id);
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+      }
+
+      const bipRepository = AppDataSource.getRepository(Bip);
+      const bip = await bipRepository.findOne({ where: { id: bipId } });
+
+      if (!bip) {
+        // Se o bip não existe, deletar o arquivo enviado
+        const videoUploadService = new VideoUploadService();
+        videoUploadService.deleteVideo(file.filename);
+        return res.status(404).json({ error: 'Bipagem não encontrada' });
+      }
+
+      // Se já existe um vídeo, deletar o antigo
+      if (bip.video_url) {
+        const videoUploadService = new VideoUploadService();
+        const oldFilename = videoUploadService.extractFilenameFromUrl(bip.video_url);
+        videoUploadService.deleteVideo(oldFilename);
+      }
+
+      // Atualizar com novo vídeo
+      bip.video_url = file.filename;
+      await bipRepository.save(bip);
+
+      console.log(`🎥 Vídeo enviado para bipagem ${bipId}: ${file.filename}`);
+
+      res.json({
+        success: true,
+        videoUrl: file.filename,
+        message: 'Vídeo enviado com sucesso'
+      });
+    } catch (error) {
+      console.error('Erro ao fazer upload de vídeo:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+
+  // Deletar vídeo de uma bipagem
+  static async deleteVideo(req: AuthRequest, res: Response) {
+    try {
+      const bipId = parseInt(req.params.id);
+
+      const bipRepository = AppDataSource.getRepository(Bip);
+      const bip = await bipRepository.findOne({ where: { id: bipId } });
+
+      if (!bip) {
+        return res.status(404).json({ error: 'Bipagem não encontrada' });
+      }
+
+      if (!bip.video_url) {
+        return res.status(400).json({ error: 'Esta bipagem não possui vídeo' });
+      }
+
+      // Deletar arquivo do sistema
+      const videoUploadService = new VideoUploadService();
+      const filename = videoUploadService.extractFilenameFromUrl(bip.video_url);
+      videoUploadService.deleteVideo(filename);
+
+      // Remover URL do banco
+      bip.video_url = null;
+      await bipRepository.save(bip);
+
+      console.log(`🗑️ Vídeo removido da bipagem ${bipId}`);
+
+      res.json({
+        success: true,
+        message: 'Vídeo deletado com sucesso'
+      });
+    } catch (error) {
+      console.error('Erro ao deletar vídeo:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+
+  // Upload de imagem para uma bipagem
+  static async uploadImage(req: AuthRequest, res: Response) {
+    try {
+      const bipId = parseInt(req.params.id);
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+      }
+
+      const bipRepository = AppDataSource.getRepository(Bip);
+      const bip = await bipRepository.findOne({ where: { id: bipId } });
+
+      if (!bip) {
+        // Se o bip não existe, deletar o arquivo enviado
+        const imageUploadService = new ImageUploadService();
+        imageUploadService.deleteImage(file.filename);
+        return res.status(404).json({ error: 'Bipagem não encontrada' });
+      }
+
+      // Se já existe uma imagem, deletar a antiga
+      if (bip.image_url) {
+        const imageUploadService = new ImageUploadService();
+        const oldFilename = imageUploadService.extractFilenameFromUrl(bip.image_url);
+        imageUploadService.deleteImage(oldFilename);
+      }
+
+      // Atualizar com nova imagem
+      bip.image_url = file.filename;
+      await bipRepository.save(bip);
+
+      console.log(`📸 Imagem enviada para bipagem ${bipId}: ${file.filename}`);
+
+      res.json({
+        success: true,
+        imageUrl: file.filename,
+        message: 'Imagem enviada com sucesso'
+      });
+    } catch (error) {
+      console.error('Erro ao fazer upload de imagem:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+
+  // Deletar imagem de uma bipagem
+  static async deleteImage(req: AuthRequest, res: Response) {
+    try {
+      const bipId = parseInt(req.params.id);
+
+      const bipRepository = AppDataSource.getRepository(Bip);
+      const bip = await bipRepository.findOne({ where: { id: bipId } });
+
+      if (!bip) {
+        return res.status(404).json({ error: 'Bipagem não encontrada' });
+      }
+
+      if (!bip.image_url) {
+        return res.status(400).json({ error: 'Esta bipagem não possui imagem' });
+      }
+
+      // Deletar arquivo do sistema
+      const imageUploadService = new ImageUploadService();
+      const filename = imageUploadService.extractFilenameFromUrl(bip.image_url);
+      imageUploadService.deleteImage(filename);
+
+      // Remover URL do banco
+      bip.image_url = null;
+      await bipRepository.save(bip);
+
+      console.log(`🗑️ Imagem removida da bipagem ${bipId}`);
+
+      res.json({
+        success: true,
+        message: 'Imagem deletada com sucesso'
+      });
+    } catch (error) {
+      console.error('Erro ao deletar imagem:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+}

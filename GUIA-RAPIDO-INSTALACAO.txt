@@ -1,0 +1,210 @@
+╔════════════════════════════════════════════════════════════════════════╗
+║                                                                        ║
+║             GUIA RÁPIDO DE INSTALAÇÃO - Para Técnicos                 ║
+║          Roberto Prevenção no Radar - Sistema Anti-Fraude             ║
+║                                                                        ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ ANTES DE IR AO CLIENTE - Preparar Pen Drive                           │
+└────────────────────────────────────────────────────────────────────────┘
+
+  [1] Baixar Docker Desktop Installer
+      → https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe
+      → Salvar em: E:\instaladores\Docker Desktop Installer.exe
+
+  [2] Copiar pasta completa do projeto
+      → Copiar: roberto-prevencao-no-radar-main
+      → Para: E:\roberto-prevencao-no-radar-main
+
+  [3] Anotar dados do cliente:
+      □ Nome da Empresa: _________________________________
+      □ CNPJ: ____________________________________________
+      □ IP do Zanthus: ___________________________________
+      □ Porta do Zanthus: ________________________________
+      □ Token Zanthus: ___________________________________
+
+═══════════════════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ CENÁRIO 1: UMA ÚNICA MÁQUINA (Mais Simples)                           │
+└────────────────────────────────────────────────────────────────────────┘
+
+  Passo 1: Inserir pen drive na máquina do cliente
+
+  Passo 2: Botão DIREITO em "INSTALAR.bat"
+           → Executar como Administrador
+
+  Passo 3: Seguir assistente:
+           → Informar nome da empresa
+           → Informar CNPJ
+           → Informar IP do Zanthus
+           → Informar porta do Zanthus
+           → Informar token
+           → Aguardar (5-15 min)
+
+  Passo 4: Se pedir para reiniciar:
+           → Reiniciar computador
+           → Executar INSTALAR.bat novamente
+
+  Passo 5: Sistema abre automaticamente no navegador!
+           → URL: http://localhost:3002
+           → Usuário: admin@tradicaosjc.com.br
+           → Senha: admin123
+
+  Passo 6: TROCAR A SENHA! (obrigatório)
+
+  ✅ PRONTO! Sistema instalado!
+
+═══════════════════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ CENÁRIO 2: MÚLTIPLAS MÁQUINAS (Cliente com 2+ computadores)           │
+└────────────────────────────────────────────────────────────────────────┘
+
+  ┌──────────────────────────────────────────────────────────────────┐
+  │ MÁQUINA 1 - SERVIDOR (Onde ficam os scanners)                   │
+  └──────────────────────────────────────────────────────────────────┘
+
+    Passo 1: Executar INSTALAR.bat (como Admin)
+
+    Passo 2: Configurar IP FIXO
+             Painel de Controle → Rede → Adaptador → IPv4
+
+             IP: 192.168.1.100
+             Máscara: 255.255.255.0
+             Gateway: 192.168.1.1
+             DNS: 8.8.8.8
+
+    Passo 3: Executar configurar-firewall.bat (como Admin)
+             → Anote o IP mostrado: _________________
+
+    Passo 4: Testar local
+             → Abrir: http://localhost:3002
+             → Fazer login
+             → Deve funcionar!
+
+    Passo 5: Testar na rede
+             → Abrir: http://192.168.1.100:3002
+             → Fazer login
+             → Deve funcionar!
+
+  ┌──────────────────────────────────────────────────────────────────┐
+  │ MÁQUINA 2 - CLIENTE (Apenas visualização)                       │
+  └──────────────────────────────────────────────────────────────────┘
+
+    Passo 1: Testar ping
+             cmd → ping 192.168.1.100
+             → Deve responder!
+
+    Passo 2: Abrir navegador
+             → Digitar: http://192.168.1.100:3002
+             → Fazer login
+             → Sistema funciona!
+
+    Passo 3: Criar atalho
+             → Botão direito → Novo → Atalho
+             → Colar: http://192.168.1.100:3002
+             → Nome: "Roberto Prevenção"
+
+  ✅ PRONTO! Ambas máquinas configuradas!
+
+═══════════════════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ TESTES OBRIGATÓRIOS (Fazer antes de sair do cliente)                  │
+└────────────────────────────────────────────────────────────────────────┘
+
+  □ Sistema abre no navegador
+  □ Login funciona
+  □ Consegue acessar todas as telas
+  □ Simulador de Bipagens funciona
+  □ Senha do admin foi trocada
+  □ Se múltiplas máquinas: acesso funciona de todas
+  □ Criar pelo menos 1 usuário teste
+  □ Fazer 1 backup de teste
+
+═══════════════════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ COMANDOS ÚTEIS - Ensinar ao Cliente                                   │
+└────────────────────────────────────────────────────────────────────────┘
+
+  Pasta do Sistema: C:\roberto-prevencao-no-radar
+
+  Iniciar:    C:\roberto-prevencao-no-radar\iniciar.bat
+  Parar:      C:\roberto-prevencao-no-radar\parar.bat
+  Reiniciar:  C:\roberto-prevencao-no-radar\restart.bat
+  Ver Logs:   C:\roberto-prevencao-no-radar\logs.bat
+  Backup:     C:\roberto-prevencao-no-radar\backup-database.bat
+
+═══════════════════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ PROBLEMAS COMUNS E SOLUÇÕES RÁPIDAS                                   │
+└────────────────────────────────────────────────────────────────────────┘
+
+  ❌ "Docker não inicia"
+     → BIOS → Habilitar Virtualização
+     → cmd (Admin): bcdedit /set hypervisorlaunchtype auto
+     → Reiniciar
+
+  ❌ "Não acessa de outra máquina"
+     → Executar configurar-firewall.bat
+     → Testar ping entre máquinas
+     → Verificar IP correto
+
+  ❌ "Porta 3002 já em uso"
+     → Verificar se não tem outro processo
+     → netstat -ano | findstr :3002
+     → Matar processo ou mudar porta
+
+  ❌ "Erro ao conectar Zanthus"
+     → Verificar IP e porta
+     → Testar: telnet IP_ZANTHUS 8080
+     → Verificar token
+
+═══════════════════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ INFORMAÇÕES PARA DEIXAR COM O CLIENTE                                 │
+└────────────────────────────────────────────────────────────────────────┘
+
+  Sistema: Roberto Prevenção no Radar
+
+  Acesso Local: http://localhost:3002
+
+  Acesso Rede: http://___________________:3002
+
+  Login: ___________________________
+
+  Senha: ___________________________ (TROCAR IMEDIATAMENTE!)
+
+  Instalado em: ___/___/2025
+
+  Instalado por: _________________________
+
+  Telefone Suporte: _________________________
+
+═══════════════════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ DOCUMENTAÇÃO COMPLETA                                                  │
+└────────────────────────────────────────────────────────────────────────┘
+
+  Para instruções detalhadas, consultar:
+
+  □ README-INSTALACAO.txt           - Guia básico
+  □ INSTALACAO-CLIENTE.md           - Guia completo
+  □ INSTALACAO-MULTIPLAS-MAQUINAS.md - Guia para múltiplas máquinas
+  □ CHECKLIST-INSTALACAO-CLIENTE.md - Checklist detalhado
+  □ DOCKER-24-7.md                  - Informações Docker
+
+═══════════════════════════════════════════════════════════════════════════
+
+  Versão: 1.0
+  Data: 2025-12-07
+
+  Criado por: Roberto Sistemas de Prevenção
+
+═══════════════════════════════════════════════════════════════════════════

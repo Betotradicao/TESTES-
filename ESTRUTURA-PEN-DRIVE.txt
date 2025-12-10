@@ -1,0 +1,138 @@
+╔════════════════════════════════════════════════════════════════════════╗
+║                                                                        ║
+║              ESTRUTURA DO PEN DRIVE PARA INSTALAÇÃO                   ║
+║                                                                        ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+🔍 ESTRUTURA COMPLETA:
+
+PEN_DRIVE:\ (ou E:\ ou F:\)
+│
+└── roberto-prevencao-no-radar-main\  📁 Pasta principal do projeto
+    │
+    ├── INSTALADORAUTOMATICO\         📁 ⭐ NOVA PASTA - Instaladores
+    │   ├── Docker Desktop Installer.exe  📄 ~600MB ⚠️  OBRIGATÓRIO
+    │   └── README.txt                    📄 Instruções de download
+    │
+    ├── packages\                     📁 Código-fonte do sistema
+    │   ├── backend\
+    │   └── frontend\
+    │
+    ├── docs\                         📁 Documentação técnica
+    │
+    ├── 📄 INSTALAR.bat               ⭐ SCRIPT PRINCIPAL
+    ├── 📄 iniciar.bat
+    ├── 📄 parar.bat
+    ├── 📄 restart.bat
+    ├── 📄 logs.bat
+    ├── 📄 configurar-firewall.bat
+    ├── 📄 backup-database.bat
+    │
+    ├── 📄 docker-compose.yml
+    ├── 📄 Dockerfile
+    ├── 📄 package.json
+    │
+    ├── 📄 README-INSTALACAO.txt      📖 Leia primeiro
+    ├── 📄 INSTALACAO-CLIENTE.md      📖 Guia completo
+    ├── 📄 INSTALACAO-MULTIPLAS-MAQUINAS.md
+    ├── 📄 CHECKLIST-INSTALACAO-CLIENTE.md
+    ├── 📄 GUIA-RAPIDO-INSTALACAO.txt 📖 Cole para o técnico
+    ├── 📄 DOWNLOAD-DOCKER.txt        📖 Como baixar Docker
+    ├── 📄 DOCKER-24-7.md
+    │
+    └── ... (outros arquivos do projeto)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ CHECKLIST DE PREPARAÇÃO DO PEN DRIVE:
+
+ANTES DE IR AO CLIENTE:
+
+□ Baixou Docker Desktop Installer
+  Arquivo: INSTALADORAUTOMATICO\Docker Desktop Installer.exe
+  Tamanho: ~600MB
+  Como baixar: Ver DOWNLOAD-DOCKER.txt
+
+□ Copiou pasta completa do projeto
+  roberto-prevencao-no-radar-main\ com TODOS os arquivos
+
+□ Verificou scripts .bat estão presentes
+  INSTALAR.bat ⭐
+  iniciar.bat
+  parar.bat
+  restart.bat
+  logs.bat
+  configurar-firewall.bat
+
+□ Verificou documentação está presente
+  README-INSTALACAO.txt
+  GUIA-RAPIDO-INSTALACAO.txt
+  CHECKLIST-INSTALACAO-CLIENTE.md
+
+□ Testou instalador em VM ou máquina de testes
+
+□ Anotou dados do cliente
+  Nome empresa: ___________________
+  CNPJ: ___________________________
+  IP Zanthus: _____________________
+  Porta Zanthus: __________________
+  Token Zanthus: __________________
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️  ATENÇÃO - ARQUIVO OBRIGATÓRIO:
+
+  INSTALADORAUTOMATICO\Docker Desktop Installer.exe
+
+  ❌ SEM este arquivo, a instalação NÃO funcionará!
+
+  Se não conseguiu baixar:
+  - Ver instruções em: DOWNLOAD-DOCKER.txt
+  - OU instalar Docker manualmente no cliente
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 TAMANHO ESTIMADO DO PEN DRIVE:
+
+  Código do projeto:        ~100 MB
+  Docker Installer:         ~600 MB
+  Documentação:             ~5 MB
+  ────────────────────────────────
+  TOTAL:                    ~700 MB
+
+  💾 Pen drive recomendado: 2 GB ou maior
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 COMO USAR NO CLIENTE:
+
+  1. Inserir pen drive na máquina do cliente
+
+  2. Ir até: E:\roberto-prevencao-no-radar-main\
+     (E: pode ser F: ou outra letra)
+
+  3. Botão DIREITO em INSTALAR.bat
+
+  4. Selecionar "Executar como Administrador"
+
+  5. Seguir instruções na tela
+
+  6. Aguardar (5-15 minutos)
+
+  7. ✅ Sistema instalado e funcionando!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📖 DOCUMENTAÇÃO PARA LEVAR IMPRESSA:
+
+  Recomendo imprimir estes arquivos:
+
+  □ GUIA-RAPIDO-INSTALACAO.txt       (2 páginas)
+  □ CHECKLIST-INSTALACAO-CLIENTE.md  (5 páginas)
+
+  Deixe uma cópia com o cliente!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Criado em: 2025-12-07
+Versão: 1.0

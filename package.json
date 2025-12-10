@@ -1,0 +1,25 @@
+{
+  "name": "market-security-monorepo",
+  "version": "1.0.0",
+  "description": "Sistema de prevenção e inteligência contra furtos em mercado",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "docker-compose up",
+    "dev:backend": "npm run dev --workspace=@market-security/backend",
+    "dev:frontend": "npm run dev --workspace=@market-security/frontend",
+    "build": "npm run build --workspaces",
+    "clean": "npm run clean --workspaces --if-present",
+    "docker:up": "docker-compose up",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.11.0"
+  }
+}

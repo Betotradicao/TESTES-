@@ -1,0 +1,63 @@
+========================================
+  GUIA RAPIDO - INSTALAR DOCKER
+========================================
+
+PASSO 1: BAIXAR DOCKER
+========================
+
+Link: https://www.docker.com/products/docker-desktop
+
+1. Clique em "Download for Windows"
+2. Aguarde o download (arquivo ~600 MB)
+
+
+PASSO 2: INSTALAR DOCKER
+=========================
+
+1. Execute o instalador baixado
+
+2. MARQUE a opcao:
+   [X] Use WSL 2 instead of Hyper-V
+
+3. Clique em "Ok"
+
+4. Aguarde instalacao (~5 minutos)
+
+5. Quando terminar, REINICIE o computador
+
+
+PASSO 3: ABRIR DOCKER DESKTOP
+==============================
+
+1. Apos reiniciar, abra o "Docker Desktop"
+
+2. Aguarde aparecer "Docker Desktop is running"
+   (bolinha verde no canto inferior esquerdo)
+
+
+PASSO 4: VERIFICAR
+==================
+
+1. Abra o Prompt de Comando
+
+2. Digite: VERIFICAR-DOCKER.bat
+
+3. Se aparecer tudo [OK], esta pronto!
+
+
+PASSO 5: INSTALAR O SISTEMA
+============================
+
+1. Execute COMO ADMINISTRADOR: INSTALAR-DOCKER.bat
+
+2. Aguarde 5-10 minutos
+
+3. Acesse: http://localhost:3004
+
+4. Login:
+   Email: beto@master.com
+   Senha: Beto2025
+
+
+PRONTO! Sistema instalado com Docker!
+======================================

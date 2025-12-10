@@ -1,0 +1,115 @@
+import 'reflect-metadata';
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import path from 'path';
+import swaggerUi from 'swagger-ui-express';
+import { AppDataSource } from './config/database';
+import { swaggerSpec } from './config/swagger';
+import healthRouter from './routes/health.routes';
+import authRouter from './routes/auth.routes';
+import bipsRouter from './routes/bips.routes';
+import bipagesRouter from './routes/bipages.routes';
+import productsRouter from './routes/products.routes';
+import salesRouter from './routes/sales.routes';
+import sellsRouter from './routes/sells.routes';
+import sectorsRouter from './routes/sectors.routes';
+import equipmentsRouter from './routes/equipments.routes';
+import employeesRouter from './routes/employees.routes';
+import equipmentSessionsRouter from './routes/equipment-sessions.routes';
+import configRouter from './routes/config.routes';
+import companiesRouter from './routes/companies.routes';
+import systemRouter from './routes/system.routes';
+import { minioService } from './services/minio.service';
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Servir arquivos estáticos da pasta uploads
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.get('/api-docs/swagger.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
+app.use('/api', healthRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/bips', bipsRouter);
+app.use('/api/bipagens', bipagesRouter);
+app.use('/api/products', productsRouter);
+app.use('/api/sales', salesRouter);
+app.use('/api/sells', sellsRouter);
+app.use('/api/sectors', sectorsRouter);
+app.use('/api/equipments', equipmentsRouter);
+app.use('/api/employees', employeesRouter);
+app.use('/api/equipment-sessions', equipmentSessionsRouter);
+app.use('/api/config', configRouter);
+app.use('/api/companies', companiesRouter);
+app.use('/api/system', systemRouter);
+
+const startServer = async () => {
+  try {
+    await AppDataSource.initialize();
+    console.log('✅ Database connected successfully');
+
+    // Health check automático para manter conexão viva
+    // Executa a cada 20 segundos
+    setInterval(async () => {
+      try {
+        await AppDataSource.query('SELECT 1');
+        console.log('🔄 Database connection alive');
+      } catch (error) {
+        console.error('❌ Database connection lost, attempting to reconnect...');
+        try {
+          if (!AppDataSource.isInitialized) {
+            await AppDataSource.initialize();
+            console.log('✅ Database reconnected successfully');
+          }
+        } catch (reconnectError) {
+          console.error('❌ Failed to reconnect:', reconnectError);
+        }
+      }
+    }, 20000); // 20 segundos
+
+  } catch (error) {
+    console.warn('⚠️ Database connection failed:', error);
+    console.log('Starting server without database connection...');
+
+    // Tentar reconectar a cada 30 segundos
+    setInterval(async () => {
+      if (!AppDataSource.isInitialized) {
+        try {
+          console.log('🔄 Attempting to connect to database...');
+          await AppDataSource.initialize();
+          console.log('✅ Database connected successfully');
+        } catch (retryError: any) {
+          console.error('❌ Retry failed:', retryError?.message || retryError);
+        }
+      }
+    }, 30000);
+  }
+
+  // Initialize MinIO bucket
+  try {
+    await minioService.ensureBucketExists();
+    console.log('✅ MinIO initialized successfully');
+  } catch (error) {
+    console.error('❌ MinIO initialization failed:', error);
+    console.log('Continuing without MinIO (avatar uploads will fail)');
+  }
+
+  app.listen(PORT, () => {
+    console.log(`🚀 Server is running on port ${PORT}`);
+    console.log(`📚 Swagger docs available at http://localhost:${PORT}/api-docs`);
+  });
+};
+
+startServer();

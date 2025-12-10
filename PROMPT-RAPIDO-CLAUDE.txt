@@ -1,0 +1,129 @@
+╔════════════════════════════════════════════════════════════════════════╗
+║                                                                        ║
+║           PROMPT RÁPIDO PARA CLAUDE - Copie e Cole                    ║
+║                                                                        ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 COPIE ESTE TEXTO E COLE NO CLAUDE CODE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Claude, você é um assistente de instalação do sistema "Roberto Prevenção no Radar".
+
+Execute a instalação completa nesta ordem:
+
+1. VERIFICAR DOCKER
+   - Executar: docker --version
+   - Se não instalado, verificar: INSTALADORAUTOMATICO\Docker Desktop Installer.exe
+   - Instalar se necessário
+   - Verificar se está rodando: docker ps
+
+2. COLETAR DADOS DO CLIENTE
+   Pergunte:
+   - Nome da Empresa
+   - CNPJ
+   - IP do servidor Zanthus
+   - Porta do Zanthus (padrão: 8080)
+   - Token da API Zanthus
+   - É instalação em rede? (S/N)
+   - Se sim, qual IP desejado para este servidor?
+
+3. CRIAR ARQUIVO .ENV
+   Criar: packages/backend/.env
+
+   Conteúdo:
+   ```
+   DATABASE_HOST=postgres
+   DATABASE_PORT=5432
+   DATABASE_NAME=market_security
+   DATABASE_USER=admin
+   DATABASE_PASSWORD=admin123
+
+   PORT=3001
+   NODE_ENV=production
+
+   JWT_SECRET=[gerar string aleatória]
+   API_TOKEN=[gerar string aleatória]
+
+   ZANTHUS_BASE_URL=http://[IP_COLETADO]:[PORTA_COLETADA]
+   ZANTHUS_API_TOKEN=[TOKEN_COLETADO]
+
+   MINIO_ENDPOINT=minio
+   MINIO_PORT=9000
+   MINIO_USE_SSL=false
+   MINIO_ACCESS_KEY=f0a02f9d4320abc34679f4742eecbad1
+   MINIO_SECRET_KEY=3e928e13c609385d81df326d680074f2d69434d752c44fa3161ddf89dcdaca55
+   MINIO_BUCKET=market-security
+
+   INTERSOLID_ENABLED=false
+   EVOLUTION_ENABLED=false
+   ```
+
+4. SALVAR CONFIG DO CLIENTE
+   Criar: config-cliente.txt com dados coletados
+
+5. INICIAR SISTEMA
+   Executar: docker-compose up -d --build
+
+   Aguardar 2 minutos
+
+   Monitorar: docker-compose logs
+
+6. VERIFICAR
+   - Backend: http://localhost:3001/api/health
+   - Frontend: http://localhost:3002
+   - Containers: docker ps
+
+7. FIREWALL (se instalação em rede)
+   Executar como Admin: configurar-firewall.bat
+   Anotar IP mostrado
+
+8. RELATÓRIO FINAL
+   Informar:
+   - URLs de acesso
+   - IP da máquina (se servidor)
+   - Login: admin@tradicaosjc.com.br
+   - Senha: admin123
+   - Lembrar de TROCAR A SENHA
+   - Comandos úteis (iniciar.bat, parar.bat)
+
+Execute todos os passos e me informe o resultado!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+═══════════════════════════════════════════════════════════════════════
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 VERSÃO SUPER RESUMIDA (se tiver pressa):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Claude, instale o sistema Roberto Prevenção:
+
+1. Verificar Docker (instalar se necessário)
+2. Coletar: Empresa, CNPJ, IP Zanthus, Porta, Token
+3. Criar packages/backend/.env com configurações
+4. Executar: docker-compose up -d --build
+5. Verificar: http://localhost:3002
+6. Se rede: configurar-firewall.bat
+7. Gerar relatório
+
+Execute agora!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+═══════════════════════════════════════════════════════════════════════
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 ALTERNATIVA: Ler arquivo de instruções completo
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Claude, leia o arquivo INSTRUCOES-PARA-CLAUDE.md e execute a
+instalação completa do sistema conforme descrito.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+═══════════════════════════════════════════════════════════════════════
+
+DICA: Imprima esta página e leve ao cliente!
+
+Data: 2025-12-07

@@ -1,0 +1,61 @@
+========================================
+  BEM-VINDO AO PREVENCAO NO RADAR
+========================================
+
+PROBLEMA: Aplicacao cai e precisa reiniciar manualmente?
+
+SOLUCAO RAPIDA (1 clique):
+========================================
+
+1. Clique com botao direito em:
+   INSTALAR-SERVICO-AUTOMATICO.bat
+
+2. Selecione "Executar como administrador"
+
+3. Pronto! Sistema vai funcionar 24/7
+   - Inicia automaticamente com Windows
+   - Reinicia sozinho se cair
+   - Roda em background (sem janelas)
+
+
+ACESSAR A APLICACAO:
+========================================
+
+Depois de instalar, acesse em:
+
+http://localhost:3004
+
+
+OUTROS COMANDOS UTEIS:
+========================================
+
+PARAR.bat
+  -> Para a aplicacao
+
+INICIAR.bat
+  -> Inicia a aplicacao manualmente
+
+DESINSTALAR-SERVICO-AUTOMATICO.bat
+  -> Remove a inicializacao automatica
+
+
+E O DOCKER?
+========================================
+
+Voce NAO precisa do Docker para usar a aplicacao!
+
+A solucao acima funciona SEM Docker e e mais simples.
+
+Se voce REALMENTE precisa usar Docker:
+1. Leia: GUIA-DOCKER-24-7.txt
+2. Execute: INSTALAR-DOCKER-COMPLETO.bat
+
+
+PRECISA DE AJUDA?
+========================================
+
+Leia os arquivos:
+- GUIA-DOCKER-24-7.txt (guia completo)
+- INSTALAR-24-7.txt (mais detalhes)
+
+========================================

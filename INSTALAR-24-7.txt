@@ -1,0 +1,59 @@
+========================================
+  INSTALACAO AUTOMATICA 24/7
+  Prevencao no Radar
+========================================
+
+PASSO UNICO:
+
+1. Clique com o botao direito em "INSTALAR-SERVICO-AUTOMATICO.bat"
+2. Selecione "Executar como administrador"
+3. Pronto! A aplicacao vai iniciar automaticamente sempre que o Windows iniciar
+
+========================================
+O QUE FOI CONFIGURADO:
+========================================
+
+- Tarefa agendada do Windows para iniciar com o login
+- Atalho na Startup para redundancia
+- Sistema de monitoramento que reinicia automaticamente se cair
+- Tudo roda em background (sem janelas)
+
+========================================
+URLS DA APLICACAO:
+========================================
+
+Frontend: http://localhost:3004
+Backend:  http://localhost:3001
+Scanner:  Rodando em background
+
+========================================
+COMANDOS UTEIS:
+========================================
+
+Para PARAR manualmente:
+  parar.bat
+
+Para VER STATUS:
+  status-docker.bat
+
+Para DESINSTALAR o servico automatico:
+  DESINSTALAR-SERVICO-AUTOMATICO.bat
+
+Para INICIAR manualmente (se desinstalou):
+  iniciar.bat
+
+========================================
+TROUBLESHOOTING:
+========================================
+
+Se a aplicacao nao estiver respondendo:
+1. Execute parar.bat
+2. Aguarde 5 segundos
+3. Execute iniciar.bat
+
+Se quiser verificar se esta rodando:
+- Abra o Gerenciador de Tarefas (Ctrl+Shift+Esc)
+- Procure por processos "node.exe" e "pythonw.exe"
+- Se estiverem la, esta rodando!
+
+========================================

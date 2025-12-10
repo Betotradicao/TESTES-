@@ -1,0 +1,107 @@
+========================================
+  GUIA COMPLETO - DOCKER 24/7
+  Prevencao no Radar
+========================================
+
+OPCAO 1: SEM DOCKER (Recomendado se Docker nao esta instalado)
+================================================================
+
+PASSO UNICO:
+1. Execute como administrador: INSTALAR-SERVICO-AUTOMATICO.bat
+2. Pronto! Sistema vai rodar 24/7 sem Docker
+
+Vantagens:
+- Mais rapido para iniciar
+- Nao precisa instalar Docker
+- Usa menos recursos do sistema
+
+URLs:
+- Frontend: http://localhost:3004
+- Backend: http://localhost:3001
+
+
+OPCAO 2: COM DOCKER (Se voce precisa usar Docker)
+================================================================
+
+PASSO 1: Instalar Docker
+1. Execute como administrador: INSTALAR-DOCKER-COMPLETO.bat
+2. Aguarde o download e instalacao (pode levar 10-15 minutos)
+3. Abra Docker Desktop quando solicitado
+4. Configure para iniciar com Windows:
+   - Settings > General > "Start Docker Desktop when you log in"
+
+PASSO 2: Iniciar aplicacao
+1. Execute: INICIAR-DOCKER-COMPOSE.bat
+2. Aguarde os containers iniciarem
+
+URLs com Docker:
+- Frontend: http://localhost:3002
+- Backend: http://localhost:3001
+- MinIO: http://localhost:9001
+- Swagger: http://localhost:8080
+
+Vantagens:
+- Isola completamente a aplicacao
+- Facil de fazer backup
+- Usa PostgreSQL e MinIO em containers
+
+
+========================================
+QUAL ESCOLHER?
+========================================
+
+Use OPCAO 1 (SEM DOCKER) se:
+- Voce quer algo simples e rapido
+- Docker nao esta instalado
+- Voce tem recursos limitados no PC
+
+Use OPCAO 2 (COM DOCKER) se:
+- Voce precisa de isolamento total
+- Quer usar em multiplas maquinas com mesma config
+- Precisa de PostgreSQL e MinIO
+
+
+========================================
+TROUBLESHOOTING
+========================================
+
+Problema: "Docker nao encontrado"
+Solucao: Execute INSTALAR-DOCKER-COMPLETO.bat
+
+Problema: "Docker Desktop nao inicia"
+Solucao:
+1. Verifique se WSL2 esta instalado (Windows 10/11)
+2. Abra PowerShell como Admin e execute:
+   wsl --install
+3. Reinicie o computador
+4. Tente iniciar Docker Desktop novamente
+
+Problema: "Containers nao iniciam"
+Solucao:
+1. Abra Docker Desktop
+2. Va em Settings > Resources
+3. Aumente Memory para 4GB ou mais
+4. Aumente CPU para 2 cores ou mais
+5. Clique em "Apply and Restart"
+
+Problema: "Porta ja em uso"
+Solucao:
+1. Se esta usando OPCAO 1, pare com: parar.bat
+2. Se esta usando OPCAO 2, pare com: docker-compose down
+3. Execute netstat -ano | findstr :3001 para ver quem esta usando
+
+========================================
+MONITORAMENTO
+========================================
+
+Para ver se esta tudo rodando:
+
+SEM DOCKER:
+- Abra Gerenciador de Tarefas
+- Procure por "node.exe" e "pythonw.exe"
+
+COM DOCKER:
+- Execute: docker-compose ps
+- Todos devem estar "Up"
+
+========================================
