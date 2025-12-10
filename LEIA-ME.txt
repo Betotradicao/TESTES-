@@ -12,6 +12,8 @@
    ✅ LEIA-ME.txt                 - Este arquivo
 
 📁 scripts/
+   ├─ INICIAR-CRON.bat  - ⭐ IMPORTANTE: Inicia verificação automática
+   ├─ VER-LOGS-CRON.bat - Ver logs da verificação automática
    ├─ docker/           - Scripts relacionados ao Docker (não usados atualmente)
    ├─ obsoletos/        - Scripts antigos substituídos por INICIAR-TUDO.bat
    ├─ manutencao/       - Scripts de backup e manutenção
@@ -31,7 +33,8 @@
 🚀 INICIAR O SISTEMA:
    1. Clique duplo em: INICIAR-TUDO.bat
    2. Aguarde todos os serviços iniciarem
-   3. Acesse: http://localhost:3004
+   3. ⭐ IMPORTANTE: Execute scripts\INICIAR-CRON.bat (apenas primeira vez)
+   4. Acesse: http://localhost:3004
 
 🔄 INICIALIZAÇÃO AUTOMÁTICA:
    - Execute: criar-tarefa-windows.ps1 (como administrador)
@@ -46,6 +49,13 @@
 👤 LOGIN MASTER:
    - Usuário: Beto
    - Senha: Beto3107@
+
+⚡ VERIFICAÇÃO AUTOMÁTICA (CRÍTICO):
+   - O sistema precisa do CRON para verificar vendas automaticamente
+   - Execute: scripts\INICIAR-CRON.bat (apenas primeira vez)
+   - Depois fica rodando automático, verificando a cada 2 minutos
+   - Para ver logs: scripts\VER-LOGS-CRON.bat
+   - Mais detalhes: docs\PROBLEMA-CRON-RESOLVIDO.md
 
 ========================================
   ARQUIVOS ORGANIZADOS

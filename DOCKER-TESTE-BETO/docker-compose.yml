@@ -114,6 +114,46 @@ services:
     depends_on:
       - backend
 
+  # ==========================================
+  # CRON - VERIFICAÇÃO AUTOMÁTICA (CRÍTICO!)
+  # ==========================================
+  cron:
+    build:
+      context: ../packages/backend
+      dockerfile: Dockerfile.cron
+    container_name: prevencao-cron-prod
+    restart: always
+    environment:
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres123
+      DB_NAME: prevencao_db
+
+      # MinIO (conexão interna entre containers)
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: f0a02f9d4320abc34679f4742eecbad1
+      MINIO_SECRET_KEY: 3e928e13c609385d81df326d680074f2d69434d752c44fa3161ddf89dcdaca55
+      MINIO_USE_SSL: "false"
+      MINIO_BUCKET_NAME: market-security
+
+      # MinIO Public URLs
+      MINIO_PUBLIC_ENDPOINT: ${HOST_IP}
+      MINIO_PUBLIC_PORT: 9010
+      MINIO_PUBLIC_USE_SSL: "false"
+
+      # App
+      NODE_ENV: production
+    networks:
+      - prevencao-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
 # ==========================================
 # VOLUMES PERSISTENTES
 # ==========================================

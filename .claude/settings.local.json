@@ -131,7 +131,11 @@
       "Bash(git commit -m \"$(cat <<''EOF''\nfeat: Sistema completo de scanner de códigos de barras USB\n\n- Serviço de scanner com detecção automática de dispositivos USB\n- Suporte para múltiplos scanners simultâneos\n- Integração com API REST para envio de bipagens\n- Interface de configuração e gerenciamento\n- Sistema de instalação automática como serviço Windows\n- Monitoramento e logs detalhados\n- Configuração de mapeamento de scanners por dispositivo\n\nComponentes principais:\n- scanner_service.py: Serviço principal de escaneamento\n- device_manager.py: Gerenciamento de dispositivos USB\n- api_client.py: Cliente HTTP para comunicação com backend\n- Instaladores e scripts de build incluídos\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git config:*)",
       "Bash(git remote add:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: Adiciona versão Docker para produção\n\n- Pasta DOCKER-TESTE-BETO com instalação completa\n- docker-compose.yml com PostgreSQL, MinIO, Backend e Frontend\n- Dockerfiles otimizados (multi-stage build)\n- Scripts de gerenciamento (INSTALAR, INICIAR, PARAR, ATUALIZAR)\n- Documentação completa (README.md)\n- Script para gerar pacote de distribuição\n\nPortas utilizadas (diferentes do Docker dev):\n- Frontend: 8080\n- Backend: 3011\n- MinIO: 9010/9011\n- PostgreSQL: 5434\n\nIsolamento completo - não conflita com Docker de desenvolvimento.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(powershell.exe -Command \"cd ''C:\\Users\\Administrator\\Desktop\\roberto-prevencao-no-radar-main'' ; docker compose ps\")",
+      "Bash(npm run build:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,0 +1,9 @@
+version: "2"
+authtoken: YOUR_NGROK_TOKEN_HERE
+tunnels:
+  frontend:
+    proto: http
+    addr: 3004
+  backend:
+    proto: http
+    addr: 3001

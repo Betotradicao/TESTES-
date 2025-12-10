@@ -42,6 +42,7 @@ Esta versão usa portas **DIFERENTES** do Docker de desenvolvimento para **não 
 | MinIO Storage | **9010** | 9000 | http://IP:9010 |
 | MinIO Console | **9011** | 9001 | http://IP:9011 |
 | PostgreSQL | **5434** | 5432 | localhost:5434 |
+| **CRON** (automático) | - | - | Verificação automática |
 
 ---
 
@@ -58,6 +59,7 @@ docker compose logs -f backend
 docker compose logs -f frontend
 docker compose logs -f postgres
 docker compose logs -f minio
+docker compose logs -f cron       # ⭐ IMPORTANTE: Ver logs da verificação automática
 ```
 
 ### Parar o sistema:
@@ -140,6 +142,109 @@ docker run --rm -v prevencao-minio-prod:/data -v C:\Backup:/backup alpine sh -c 
 # 3. Reiniciar
 docker compose up -d
 ```
+
+---
+
+## ⚡ VERIFICAÇÃO AUTOMÁTICA (CRON) - **MUITO IMPORTANTE!**
+
+### O que é e para que serve?
+
+O sistema inclui um **serviço de CRON** que roda automaticamente em background e faz:
+
+**A cada 2 minutos:**
+- 🔄 Busca vendas do PDV (Zanthus API)
+- 🔄 Cruza com bipagens pendentes
+- 🔄 Muda status de "Pendente" → "Verificado" quando encontra match
+
+**Às 8h da manhã:**
+- 📊 Verificação completa do dia anterior
+- 📧 Envia notificações (se configurado)
+
+**A cada 1 hora:**
+- ⚠️ Verifica se está recebendo bipagens
+- ⚠️ Alerta se sistema parou de receber (mais de 1h sem bipagens)
+
+### Como funciona?
+
+O CRON **inicia automaticamente** quando você executa `INSTALAR.bat`. Não precisa fazer nada manual!
+
+### Como verificar se está rodando?
+
+```bash
+# Ver containers rodando
+docker compose ps
+
+# Deve mostrar o container "prevencao-cron-prod" com status "Up"
+```
+
+### Como ver os logs do CRON?
+
+```bash
+# Ver logs em tempo real
+docker compose logs -f cron
+
+# Ver últimas 100 linhas
+docker compose logs --tail=100 cron
+```
+
+### O que esperar nos logs?
+
+**Logs normais (tudo OK):**
+```
+🚀 Iniciando verificação diária unificada...
+Processed 2110 sales from Zanthus response
+✅ 15 vendas inseridas/atualizadas
+✅ 3 bipagens verificadas com sucesso
+```
+
+**Logs com erro (precisa corrigir):**
+```
+❌ Zanthus API not configured
+❌ Cannot connect to database
+❌ Connection timeout
+```
+
+### Resolução de Problemas:
+
+**1. CRON não está rodando**
+```bash
+docker compose up -d cron
+```
+
+**2. CRON reinicia constantemente**
+```bash
+# Ver o erro nos logs
+docker compose logs cron
+
+# Geralmente é erro de configuração da API Zanthus
+# Configure no sistema: Configurações → API Zanthus
+```
+
+**3. Bipagens não mudam de status**
+
+Possíveis causas:
+- API Zanthus não configurada
+- EAN da bipagem está incorreto
+- Diferença de preço maior que R$ 0,03
+- Venda ainda não foi registrada no PDV
+
+**Debug:**
+```bash
+docker compose logs cron | findstr "bipagens verificadas"
+```
+
+### Configuração da API Zanthus:
+
+O CRON precisa que a API Zanthus esteja configurada no sistema:
+
+1. Acesse o sistema: `http://IP:8080`
+2. Vá em **Configurações**
+3. Configure:
+   - **URL da API Zanthus**: `http://IP-DO-SERVIDOR/manager/restful/...`
+   - **Porta**: (se necessário)
+   - **Endpoint**: (se necessário)
+
+Sem essa configuração, o CRON **não consegue buscar vendas** e as bipagens ficam pendentes para sempre!
 
 ---
 

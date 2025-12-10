@@ -4,9 +4,9 @@ import { ConfigurationService } from './configuration.service';
 export class WhatsAppService {
   private static async validateEnvironment(): Promise<{ apiToken: string; apiUrl: string; instance: string }> {
     // Busca configurações do banco de dados (fallback para .env)
-    const apiToken = await ConfigurationService.get('evolution_api_token', process.env.EVOLUTION_API_TOKEN || '');
-    const apiUrl = await ConfigurationService.get('evolution_api_url', process.env.EVOLUTION_API_URL || '');
-    const instance = await ConfigurationService.get('evolution_instance', process.env.EVOLUTION_INSTANCE || '');
+    const apiToken = await ConfigurationService.get('evolution_api_token', process.env.EVOLUTION_API_TOKEN || '') || '';
+    const apiUrl = await ConfigurationService.get('evolution_api_url', process.env.EVOLUTION_API_URL || '') || '';
+    const instance = await ConfigurationService.get('evolution_instance', process.env.EVOLUTION_INSTANCE || '') || '';
 
     const missingConfigs: string[] = [];
     if (!apiToken) missingConfigs.push('evolution_api_token');

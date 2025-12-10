@@ -101,6 +101,30 @@ services:
     networks:
       - market-security-network
 
+  cron:
+    build:
+      context: ./packages/backend
+      dockerfile: Dockerfile.cron
+    container_name: market-security-cron
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://admin:admin123@postgres:5432/market_security
+      MINIO_ENDPOINT: minio
+      MINIO_PUBLIC_ENDPOINT: localhost
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_USE_SSL: false
+      MINIO_BUCKET_NAME: employee-avatars
+    depends_on:
+      postgres:
+        condition: service_started
+      minio:
+        condition: service_healthy
+    networks:
+      - market-security-network
+
 volumes:
   postgres_data:
   minio_data:
