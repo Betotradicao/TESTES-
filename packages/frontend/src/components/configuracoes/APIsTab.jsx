@@ -838,6 +838,191 @@ AND ROWNUM &lt;= 5</pre>
     </div>
   );
 
+  const [evolutionGroups, setEvolutionGroups] = useState([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [testMessage, setTestMessage] = useState('');
+  const [sendingTestMessage, setSendingTestMessage] = useState(false);
+  const [instanceStatus, setInstanceStatus] = useState(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [showToken, setShowToken] = useState(false);
+  const [isEditingGroup, setIsEditingGroup] = useState(false);
+  const [savedGroup, setSavedGroup] = useState(null);
+
+  // Carregar grupo salvo do localStorage quando o componente montar
+  useEffect(() => {
+    const savedGroupData = localStorage.getItem('evolution_saved_group');
+    if (savedGroupData) {
+      try {
+        const parsedGroup = JSON.parse(savedGroupData);
+        setSavedGroup(parsedGroup);
+        setSelectedGroup(parsedGroup);
+      } catch (error) {
+        console.error('Erro ao carregar grupo salvo:', error);
+      }
+    }
+  }, []);
+
+  const checkInstanceStatus = async () => {
+    setCheckingStatus(true);
+    try {
+      const config = apiConfigs.evolution;
+      const response = await fetch(`${config.apiUrl}/instance/connectionState/${config.instance}`, {
+        headers: { 'apikey': config.apiToken }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setInstanceStatus({ active: data.state === 'open', state: data.state });
+      } else {
+        setInstanceStatus({ active: false, state: 'disconnected' });
+      }
+    } catch (error) {
+      setInstanceStatus({ active: false, state: 'error' });
+    } finally {
+      setCheckingStatus(false);
+    }
+  };
+
+  const loadWhatsAppGroups = async () => {
+    setLoadingGroups(true);
+    setEvolutionGroups([]);
+
+    try {
+      const config = apiConfigs.evolution;
+
+      console.log('🔍 Carregando grupos da Evolution API...');
+      console.log('📝 Config:', {
+        apiUrl: config.apiUrl,
+        instance: config.instance,
+        hasToken: !!config.apiToken
+      });
+
+      const url = `${config.apiUrl}/group/fetchAllGroups/${config.instance}?getParticipants=false`;
+      console.log('🌐 URL completa:', url);
+
+      const response = await fetch(url, {
+        headers: {
+          'apikey': config.apiToken,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('📡 Status da resposta:', response.status);
+      console.log('📋 Headers da resposta:', Object.fromEntries(response.headers.entries()));
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Tipo de dados recebidos:', typeof data);
+        console.log('✅ Dados completos:', JSON.stringify(data, null, 2));
+
+        let groups = [];
+
+        // Tentar diferentes formatos de resposta da API Evolution
+        if (Array.isArray(data)) {
+          // Formato 1: Array direto
+          groups = data;
+          console.log('📦 Formato: Array direto');
+        } else if (data && Array.isArray(data.groups)) {
+          // Formato 2: { groups: [...] }
+          groups = data.groups;
+          console.log('📦 Formato: Objeto com propriedade groups');
+        } else if (data && data.data && Array.isArray(data.data)) {
+          // Formato 3: { data: [...] }
+          groups = data.data;
+          console.log('📦 Formato: Objeto com propriedade data');
+        } else if (data && typeof data === 'object') {
+          // Formato 4: Objeto com valores sendo os grupos
+          groups = Object.values(data);
+          console.log('📦 Formato: Objeto convertido para array');
+        }
+
+        console.log(`📋 ${groups.length} grupos encontrados`);
+        console.log('📋 Primeiro grupo (exemplo):', groups[0]);
+
+        setEvolutionGroups(groups);
+
+        if (groups.length === 0) {
+          alert('⚠️ Nenhum grupo encontrado nesta instância');
+        } else {
+          alert(`✅ ${groups.length} grupos carregados com sucesso!`);
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Erro HTTP:', response.status, errorText);
+        alert(`Erro ao carregar grupos (${response.status}): ${errorText}`);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao conectar:', error);
+      alert('Erro ao conectar com a API: ' + error.message);
+    } finally {
+      setLoadingGroups(false);
+    }
+  };
+
+  const handleSelectGroup = (group) => {
+    setSelectedGroup(group);
+    handleInputChange('evolution', 'whatsappGroupId', group.id);
+  };
+
+  const handleSaveGroup = () => {
+    if (selectedGroup) {
+      setSavedGroup(selectedGroup);
+      setIsEditingGroup(false);
+      setEvolutionGroups([]);
+
+      // Salvar no localStorage
+      localStorage.setItem('evolution_saved_group', JSON.stringify(selectedGroup));
+
+      alert('✅ Grupo salvo com sucesso!');
+    }
+  };
+
+  const handleEditGroup = () => {
+    setIsEditingGroup(true);
+    setSavedGroup(null);
+  };
+
+  const handleCancelEditGroup = () => {
+    setIsEditingGroup(false);
+    setEvolutionGroups([]);
+    setSelectedGroup(savedGroup);
+  };
+
+  const sendTestMessage = async () => {
+    if (!testMessage.trim()) {
+      alert('Digite uma mensagem de teste');
+      return;
+    }
+
+    setSendingTestMessage(true);
+    try {
+      const config = apiConfigs.evolution;
+      const response = await fetch(`${config.apiUrl}/message/sendText/${config.instance}`, {
+        method: 'POST',
+        headers: {
+          'apikey': config.apiToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          number: apiConfigs.evolution.whatsappGroupId,
+          text: testMessage
+        })
+      });
+
+      if (response.ok) {
+        alert('✅ Mensagem enviada com sucesso!');
+        setTestMessage('');
+      } else {
+        alert('❌ Erro ao enviar mensagem');
+      }
+    } catch (error) {
+      alert('❌ Erro: ' + error.message);
+    } finally {
+      setSendingTestMessage(false);
+    }
+  };
+
   const renderEvolutionForm = () => (
     <div className="space-y-4">
       <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
@@ -863,13 +1048,31 @@ AND ROWNUM &lt;= 5</pre>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Token da API
         </label>
-        <input
-          type="password"
-          value={apiConfigs.evolution.apiToken}
-          onChange={(e) => handleInputChange('evolution', 'apiToken', e.target.value)}
-          placeholder="Token de autenticação"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
+        <div className="relative">
+          <input
+            type={showToken ? 'text' : 'password'}
+            value={apiConfigs.evolution.apiToken}
+            onChange={(e) => handleInputChange('evolution', 'apiToken', e.target.value)}
+            placeholder="Token de autenticação"
+            className="w-full px-4 py-2 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <button
+            type="button"
+            onClick={() => setShowToken(!showToken)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+          >
+            {showToken ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            )}
+          </button>
+        </div>
       </div>
 
       <div>
@@ -886,17 +1089,168 @@ AND ROWNUM &lt;= 5</pre>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          ID do Grupo WhatsApp (Prevenção)
-        </label>
-        <input
-          type="text"
-          value={apiConfigs.evolution.whatsappGroupId}
-          onChange={(e) => handleInputChange('evolution', 'whatsappGroupId', e.target.value)}
-          placeholder="ID do grupo"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-medium text-gray-700">
+            Grupo WhatsApp (Prevenção)
+          </label>
+          {!savedGroup && !isEditingGroup && (
+            <button
+              onClick={loadWhatsAppGroups}
+              disabled={loadingGroups}
+              className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded-lg transition flex items-center gap-2"
+            >
+              {loadingGroups ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Carregando...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Carregar Grupos
+                </>
+              )}
+            </button>
+          )}
+          {isEditingGroup && (
+            <button
+              onClick={loadWhatsAppGroups}
+              disabled={loadingGroups}
+              className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded-lg transition flex items-center gap-2"
+            >
+              {loadingGroups ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Carregando...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Carregar Grupos
+                </>
+              )}
+            </button>
+          )}
+        </div>
+
+        {/* Grupo Salvo */}
+        {savedGroup && !isEditingGroup && (
+          <div className="border-2 border-green-500 bg-green-50 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <p className="font-semibold text-sm text-green-900">Grupo Selecionado</p>
+                </div>
+                <p className="font-medium text-gray-900">{savedGroup.subject || 'Sem nome'}</p>
+                <p className="text-xs text-gray-600 mt-1">{savedGroup.id}</p>
+              </div>
+              <button
+                onClick={handleEditGroup}
+                className="ml-4 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Editar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Lista de Grupos (modo seleção ou edição) */}
+        {evolutionGroups.length > 0 && (!savedGroup || isEditingGroup) && (
+          <>
+            <div className="border border-gray-300 rounded-lg p-3 max-h-64 overflow-y-auto">
+              <p className="text-xs text-gray-600 mb-2">Clique em um grupo para selecioná-lo:</p>
+              {evolutionGroups.map((group) => (
+                <div
+                  key={group.id}
+                  onClick={() => handleSelectGroup(group)}
+                  className={`p-3 mb-2 rounded-lg cursor-pointer transition ${
+                    selectedGroup?.id === group.id
+                      ? 'bg-green-100 border-2 border-green-500'
+                      : 'bg-gray-50 hover:bg-gray-100 border border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-sm">{group.subject || 'Sem nome'}</p>
+                      <p className="text-xs text-gray-500">{group.id}</p>
+                    </div>
+                    {selectedGroup?.id === group.id && (
+                      <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Botões de Salvar/Cancelar */}
+            {selectedGroup && (
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={handleSaveGroup}
+                  className="flex-1 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition font-medium"
+                >
+                  Salvar Grupo
+                </button>
+                {isEditingGroup && (
+                  <button
+                    onClick={handleCancelEditGroup}
+                    className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition font-medium"
+                  >
+                    Cancelar
+                  </button>
+                )}
+              </div>
+            )}
+          </>
+        )}
       </div>
+
+      {(selectedGroup || savedGroup) && (
+        <div className="border-t pt-4 mt-4">
+          <h4 className="text-sm font-medium text-gray-700 mb-3">Testar Envio de Mensagem</h4>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Mensagem de Teste</label>
+              <textarea
+                value={testMessage}
+                onChange={(e) => setTestMessage(e.target.value)}
+                placeholder="Digite uma mensagem de teste..."
+                rows="3"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <button
+              onClick={sendTestMessage}
+              disabled={sendingTestMessage || !selectedGroup}
+              className={`px-4 py-2 rounded-lg font-medium transition ${
+                sendingTestMessage || !selectedGroup
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              }`}
+            >
+              {sendingTestMessage ? 'Enviando...' : 'Enviar Mensagem de Teste'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="pt-4 border-t">
         {renderTestButton('evolution')}
