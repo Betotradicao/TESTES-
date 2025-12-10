@@ -1,11 +1,43 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Logo from './Logo';
 
 export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileMenuOpen }) {
   const [expandedSections, setExpandedSections] = useState({});
+  const [modulesConfig, setModulesConfig] = useState([]);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Carregar configuração de módulos do localStorage
+  useEffect(() => {
+    const loadModulesConfig = () => {
+      const savedModules = localStorage.getItem('modules_config');
+      if (savedModules) {
+        try {
+          setModulesConfig(JSON.parse(savedModules));
+        } catch (err) {
+          console.error('Erro ao carregar módulos:', err);
+        }
+      }
+    };
+
+    loadModulesConfig();
+
+    // Listener para atualizar quando módulos mudarem
+    const handleStorageChange = () => {
+      loadModulesConfig();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  // Função para verificar se um módulo está ativo
+  const isModuleActive = (moduleId) => {
+    if (modulesConfig.length === 0) return true; // Default: todos ativos
+    const module = modulesConfig.find(m => m.id === moduleId);
+    return module ? module.active : true;
+  };
 
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
@@ -19,6 +51,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       id: 'dashboards',
       title: 'Dashboard',
       path: '/dashboard',
+      moduleId: 'dashboard', // ID do módulo para verificar status
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <rect x="3" y="3" width="7" height="7" strokeWidth="2"/>
@@ -32,6 +65,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     {
       id: 'cameras',
       title: 'Cameras',
+      moduleId: 'cameras', // ID do módulo para verificar status
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
@@ -55,44 +89,13 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
           )
-        },
-        {
-          title: 'Reconhecimento Facial',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-            </svg>
-          )
-        },
-        {
-          title: 'Capturar Facial',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-            </svg>
-          )
-        },
-        {
-          title: 'Cadastrar Facial',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-            </svg>
-          )
-        },
-        {
-          title: 'Reconhecidos do...',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-            </svg>
-          )
         }
       ]
     },
     {
       id: 'etiquetas',
       title: 'Prevenção de Bipagens',
+      moduleId: 'bipagens', // ID do módulo para verificar status
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
@@ -141,6 +144,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     {
       id: 'pdv',
       title: 'Prevenção PDV',
+      moduleId: 'pdv', // ID do módulo para verificar status
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/>
@@ -170,6 +174,51 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+          )
+        }
+      ]
+    },
+    {
+      id: 'facial',
+      title: 'Prevenção Facial',
+      moduleId: 'facial', // ID do módulo para verificar status
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+        </svg>
+      ),
+      expandable: true,
+      items: [
+        {
+          title: 'Reconhecimento Facial',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+            </svg>
+          )
+        },
+        {
+          title: 'Capturar Facial',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+            </svg>
+          )
+        },
+        {
+          title: 'Cadastrar Facial',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+            </svg>
+          )
+        },
+        {
+          title: 'Reconhecidos do Dia',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
             </svg>
           )
         }
@@ -219,10 +268,18 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             return false;
           }
           return true;
-        }).map((item) => (
+        }).map((item) => {
+          const moduleActive = item.moduleId ? isModuleActive(item.moduleId) : true;
+
+          return (
           <div key={item.id} className="mb-2">
             <button
               onClick={() => {
+                // Se o módulo estiver desativado, não faz nada
+                if (!moduleActive) {
+                  return;
+                }
+
                 if (item.expandable) {
                   toggleSection(item.id);
                 } else if (item.path) {
@@ -230,10 +287,15 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
                   setIsMobileMenuOpen(false);
                 }
               }}
-              className="w-full flex items-center justify-between px-6 py-3 text-left text-gray-700 hover:bg-gray-50 transition-colors"
+              className={`w-full flex items-center justify-between px-6 py-3 text-left transition-colors ${
+                moduleActive
+                  ? 'text-gray-700 hover:bg-gray-50 cursor-pointer'
+                  : 'text-gray-400 cursor-not-allowed opacity-60'
+              }`}
+              disabled={!moduleActive}
             >
               <div className="flex items-center space-x-3">
-                <span className="text-gray-500">{item.icon}</span>
+                <span className={moduleActive ? 'text-gray-500' : 'text-gray-400'}>{item.icon}</span>
                 <span className="text-sm font-medium">{item.title}</span>
               </div>
               {item.expandable && (
@@ -257,25 +319,34 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
                   <button
                     key={index}
                     onClick={() => {
+                      // Se o módulo estiver desativado, não permite navegação
+                      if (!moduleActive) {
+                        return;
+                      }
+
                       if (subItem.path) {
                         navigate(subItem.path);
                         setIsMobileMenuOpen(false);
                       }
                     }}
                     className={`flex items-center space-x-3 w-full text-left py-2 text-sm transition-colors ${
-                      subItem.path && location.pathname === subItem.path
+                      !moduleActive
+                        ? 'text-gray-400 cursor-not-allowed opacity-60'
+                        : subItem.path && location.pathname === subItem.path
                         ? 'text-orange-500 font-medium'
                         : 'text-gray-600 hover:text-orange-500'
                     }`}
+                    disabled={!moduleActive}
                   >
-                    <span className="text-gray-400">{subItem.icon}</span>
+                    <span className={moduleActive ? 'text-gray-400' : 'text-gray-300'}>{subItem.icon}</span>
                     <span>{subItem.title}</span>
                   </button>
                 ))}
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* User Section at Bottom */}

@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSearchParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import TabsNavigation from '../components/configuracoes/TabsNavigation';
+import ModulosTab from '../components/configuracoes/ModulosTab';
 import EmpresaTab from '../components/configuracoes/EmpresaTab';
 import SectorsTab from '../components/configuracoes/SectorsTab';
 import EmployeesTab from '../components/configuracoes/EmployeesTab';
@@ -15,12 +16,12 @@ export default function Configuracoes() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(() => {
-    return searchParams.get('tab') || 'empresa';
+    return searchParams.get('tab') || 'modulos';
   });
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && (tabFromUrl === 'empresa' || tabFromUrl === 'sectors' || tabFromUrl === 'employees' || tabFromUrl === 'prevention' || tabFromUrl === 'apis' || tabFromUrl === 'security')) {
+    if (tabFromUrl && (tabFromUrl === 'modulos' || tabFromUrl === 'empresa' || tabFromUrl === 'sectors' || tabFromUrl === 'employees' || tabFromUrl === 'prevention' || tabFromUrl === 'apis' || tabFromUrl === 'security')) {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -72,6 +73,7 @@ export default function Configuracoes() {
           <TabsNavigation activeTab={activeTab} onChange={handleTabChange} />
 
           <div className="mt-6">
+            {activeTab === 'modulos' && <ModulosTab />}
             {activeTab === 'empresa' && <EmpresaTab />}
             {activeTab === 'sectors' && <SectorsTab />}
             {activeTab === 'employees' && <EmployeesTab />}

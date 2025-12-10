@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { fetchMyCompany, updateMyCompany, fetchAllCompanies, createCompany } from '../../services/companies.service';
+import { fetchMyCompany, updateMyCompany, fetchAllCompanies, createCompany, updateCompany, deleteCompany } from '../../services/companies.service';
 
 export default function EmpresaTab() {
   const { user } = useAuth();
@@ -11,6 +11,7 @@ export default function EmpresaTab() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingCompany, setEditingCompany] = useState(null); // Empresa sendo editada
 
   const [formData, setFormData] = useState({
     nomeFantasia: '',
@@ -83,7 +84,12 @@ export default function EmpresaTab() {
 
   const handleCreateCompany = async (e) => {
     e.preventDefault();
+
+    // Prevenir múltiplos cliques
+    if (isLoading) return;
+
     try {
+      setIsLoading(true);
       setError(null);
       setSuccess(null);
 
@@ -102,12 +108,83 @@ export default function EmpresaTab() {
     } catch (err) {
       setError(err.response?.data?.error || 'Erro ao criar empresa');
       console.error('Create company error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditCompany = (company) => {
+    setEditingCompany(company);
+    setFormData({
+      nomeFantasia: company.nomeFantasia || '',
+      razaoSocial: company.razaoSocial || '',
+      cnpj: company.cnpj || '',
+      adminEmail: '',
+      adminPassword: ''
+    });
+    setShowCreateForm(false);
+  };
+
+  const handleUpdateCompany = async (e) => {
+    e.preventDefault();
+
+    if (!editingCompany) return;
+
+    // Prevenir múltiplos cliques
+    if (isLoading) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      setSuccess(null);
+
+      await updateCompany(editingCompany.id, {
+        nomeFantasia: formData.nomeFantasia,
+        razaoSocial: formData.razaoSocial,
+        cnpj: formData.cnpj
+      });
+
+      setSuccess('Empresa atualizada com sucesso!');
+      setEditingCompany(null);
+      setFormData({
+        nomeFantasia: '',
+        razaoSocial: '',
+        cnpj: '',
+        adminEmail: '',
+        adminPassword: ''
+      });
+      await loadCompanyData();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Erro ao atualizar empresa');
+      console.error('Update company error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteCompany = async (companyId) => {
+    if (!confirm('Tem certeza que deseja excluir esta empresa? Esta ação não pode ser desfeita e todos os dados relacionados serão perdidos!')) {
+      return;
+    }
+
+    try {
+      setError(null);
+      setSuccess(null);
+
+      await deleteCompany(companyId);
+
+      setSuccess('Empresa excluída com sucesso!');
+      await loadCompanyData();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Erro ao excluir empresa');
+      console.error('Delete company error:', err);
     }
   };
 
   const handleCancel = () => {
     setIsEditing(false);
     setShowCreateForm(false);
+    setEditingCompany(null);
     if (company) {
       setFormData({
         nomeFantasia: company.nomeFantasia || '',
@@ -238,14 +315,82 @@ export default function EmpresaTab() {
               <div className="flex gap-2 mt-4">
                 <button
                   type="submit"
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
+                  disabled={isLoading}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Criar Empresa
+                  {isLoading ? 'Criando...' : 'Criar Empresa'}
                 </button>
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg transition"
+                  disabled={isLoading}
+                  className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Formulário de Edição */}
+          {editingCompany && (
+            <form onSubmit={handleUpdateCompany} className="mb-6 p-6 bg-blue-50 rounded-lg border-2 border-blue-300">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Editar Empresa</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nome Fantasia *
+                  </label>
+                  <input
+                    type="text"
+                    name="nomeFantasia"
+                    value={formData.nomeFantasia}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Razão Social *
+                  </label>
+                  <input
+                    type="text"
+                    name="razaoSocial"
+                    value={formData.razaoSocial}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    CNPJ *
+                  </label>
+                  <input
+                    type="text"
+                    name="cnpj"
+                    value={formData.cnpj}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="00.000.000/0000-00"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? 'Salvando...' : 'Salvar Alterações'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={isLoading}
+                  className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancelar
                 </button>
@@ -259,18 +404,42 @@ export default function EmpresaTab() {
             ) : (
               allCompanies.map(comp => (
                 <div key={comp.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-500">Nome Fantasia</p>
-                      <p className="font-medium text-gray-900">{comp.nomeFantasia}</p>
+                  <div className="flex items-start justify-between">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
+                      <div>
+                        <p className="text-sm text-gray-500">Nome Fantasia</p>
+                        <p className="font-medium text-gray-900">{comp.nomeFantasia}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Razão Social</p>
+                        <p className="font-medium text-gray-900">{comp.razaoSocial}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">CNPJ</p>
+                        <p className="font-medium text-gray-900">{comp.cnpj}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Razão Social</p>
-                      <p className="font-medium text-gray-900">{comp.razaoSocial}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">CNPJ</p>
-                      <p className="font-medium text-gray-900">{comp.cnpj}</p>
+                    <div className="flex gap-2 ml-4">
+                      <button
+                        onClick={() => handleEditCompany(comp)}
+                        className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition flex items-center gap-1"
+                        title="Editar empresa"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCompany(comp.id)}
+                        className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition flex items-center gap-1"
+                        title="Excluir empresa"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Excluir
+                      </button>
                     </div>
                   </div>
                 </div>

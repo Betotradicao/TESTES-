@@ -1,5 +1,6 @@
 export default function TabsNavigation({ activeTab, onChange }) {
   const tabs = [
+    { id: 'modulos', label: 'Módulos' },
     { id: 'empresa', label: 'Empresa' },
     { id: 'sectors', label: 'Setores' },
     { id: 'employees', label: 'Colaboradores' },

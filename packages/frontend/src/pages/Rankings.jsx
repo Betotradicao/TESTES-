@@ -66,16 +66,16 @@ export default function Rankings() {
     bip: null
   });
 
-  // Filtros específicos para rankings - padrão: último mês
-  const getDefaultDateFrom = () => {
-    const date = new Date();
-    date.setDate(date.getDate() - 30); // 30 dias atrás
-    return date.toISOString().split('T')[0];
+  const [imageZoom, setImageZoom] = useState(100); // Zoom percentage (50% to 200%)
+
+  // Filtros específicos para rankings - padrão: DIA ATUAL
+  const getTodayDate = () => {
+    return new Date().toISOString().split('T')[0];
   };
 
   const [filters, setFilters] = useState({
-    date_from: getDefaultDateFrom(),
-    date_to: new Date().toISOString().split('T')[0],
+    date_from: getTodayDate(), // Dia atual (não últimos 30 dias)
+    date_to: getTodayDate(), // Dia atual
     sector_id: '',
     employee_id: '',
     motivo_cancelamento: ''
@@ -100,6 +100,11 @@ export default function Rankings() {
       console.error('Erro ao carregar funcionários:', error);
     }
   };
+
+  // Debug: Monitorar mudanças no estado do modal
+  useEffect(() => {
+    console.log('🎬 Modal state changed:', imageViewerModal);
+  }, [imageViewerModal]);
 
   // Buscar bipagens canceladas
   const fetchCancelledBipages = async () => {
@@ -455,9 +460,14 @@ export default function Rankings() {
 
   // Funções para modal de visualização de imagem
   const openImageViewer = (bip) => {
+    if (!bip || !bip.image_url) {
+      console.error('❌ Bip inválido ou sem imagem:', bip);
+      return;
+    }
+
     setImageViewerModal({
       isOpen: true,
-      bip
+      bip: bip
     });
   };
 
@@ -466,6 +476,19 @@ export default function Rankings() {
       isOpen: false,
       bip: null
     });
+    setImageZoom(100); // Reset zoom
+  };
+
+  const handleZoomIn = () => {
+    setImageZoom(prev => Math.min(prev + 25, 200)); // Max 200%
+  };
+
+  const handleZoomOut = () => {
+    setImageZoom(prev => Math.max(prev - 25, 50)); // Min 50%
+  };
+
+  const handleZoomReset = () => {
+    setImageZoom(100);
   };
 
   const handleDeleteImage = async (bip) => {
@@ -492,7 +515,7 @@ export default function Rankings() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
+    <div className="h-screen bg-gray-100 flex overflow-hidden">
       <Sidebar
         user={user}
         currentPage="rankings"
@@ -1015,17 +1038,28 @@ export default function Rankings() {
                         <td className="px-4 py-3 whitespace-nowrap text-center">
                           {bip.image_url ? (
                             <div className="flex items-center justify-center gap-2">
-                              <img
-                                src={
-                                  bip.image_url.startsWith('http')
-                                    ? bip.image_url
-                                    : `http://10.6.1.171:3001/uploads/images/${bip.image_url}`
-                                }
-                                alt="Foto da bipagem"
-                                onClick={() => openImageViewer(bip)}
-                                className="w-10 h-10 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity border-2 border-gray-300"
-                                title="Clique para ampliar"
-                              />
+                              <div className="relative group">
+                                <img
+                                  src={
+                                    bip.image_url.startsWith('http')
+                                      ? bip.image_url
+                                      : `http://10.6.1.171:3001/uploads/images/${bip.image_url}`
+                                  }
+                                  alt="Foto da bipagem"
+                                  onClick={() => openImageViewer(bip)}
+                                  className="w-10 h-10 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity border-2 border-gray-300"
+                                  title="Clique para ampliar"
+                                />
+                                <button
+                                  onClick={() => openImageViewer(bip)}
+                                  className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-40 transition-all rounded opacity-0 group-hover:opacity-100"
+                                  title="Ampliar foto"
+                                >
+                                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                  </svg>
+                                </button>
+                              </div>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1326,28 +1360,73 @@ export default function Rankings() {
         </div>
       )}
 
-      {/* Modal de Visualização de Imagem */}
+      {/* Modal de Visualização de Imagem com Zoom */}
       {imageViewerModal.isOpen && imageViewerModal.bip && (
-        <div className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-[95vw] w-full max-h-[95vh] overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center"
+          style={{ zIndex: 9999 }}
+          onClick={closeImageViewer}
+        >
+          <div
+            className="w-full h-full flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header com controles de zoom */}
+            <div className="px-6 py-3 bg-gray-900 bg-opacity-90 flex items-center justify-between text-white">
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">Foto da Bipagem</h3>
-                <p className="text-sm text-gray-600 mt-1">
+                <h3 className="text-lg font-semibold">Foto da Bipagem</h3>
+                <p className="text-sm text-gray-300">
                   #{imageViewerModal.bip.id} - {imageViewerModal.bip.product_description}
                 </p>
               </div>
-              <button
-                onClick={closeImageViewer}
-                className="text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+
+              {/* Controles de Zoom */}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
+                  <button
+                    onClick={handleZoomOut}
+                    disabled={imageZoom <= 50}
+                    className="text-white hover:text-blue-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="Diminuir zoom"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+                    </svg>
+                  </button>
+
+                  <button
+                    onClick={handleZoomReset}
+                    className="text-white hover:text-blue-400 transition-colors text-sm font-mono px-2"
+                    title="Resetar zoom (100%)"
+                  >
+                    {imageZoom}%
+                  </button>
+
+                  <button
+                    onClick={handleZoomIn}
+                    disabled={imageZoom >= 200}
+                    className="text-white hover:text-blue-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="Aumentar zoom"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                    </svg>
+                  </button>
+                </div>
+
+                <button
+                  onClick={closeImageViewer}
+                  className="text-white hover:text-gray-300 transition-colors p-2"
+                >
+                  <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
-            <div className="flex-1 bg-gray-100 flex items-center justify-center p-6 overflow-auto">
+            {/* Imagem com zoom ajustável */}
+            <div className="flex-1 bg-black flex items-center justify-center p-4 overflow-auto">
               <img
                 src={
                   imageViewerModal.bip.image_url.startsWith('http')
@@ -1355,14 +1434,24 @@ export default function Rankings() {
                     : `http://10.6.1.171:3001/uploads/images/${imageViewerModal.bip.image_url}`
                 }
                 alt="Foto da bipagem"
-                className="max-w-full h-auto object-contain rounded shadow-2xl cursor-zoom-in"
-                style={{ maxHeight: 'calc(95vh - 180px)' }}
+                className="object-contain transition-all duration-200"
+                style={{
+                  width: `${imageZoom}%`,
+                  height: 'auto',
+                  maxHeight: `calc((100vh - 140px) * ${imageZoom / 100})`
+                }}
               />
             </div>
 
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between">
+            {/* Footer */}
+            <div className="px-6 py-3 bg-gray-900 bg-opacity-90 flex justify-between">
               <button
-                onClick={() => handleDeleteImage()}
+                onClick={() => {
+                  if (confirm('Tem certeza que deseja deletar esta foto?')) {
+                    handleDeleteImage(imageViewerModal.bip);
+                    closeImageViewer();
+                  }
+                }}
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
               >
                 🗑️ Deletar Foto
