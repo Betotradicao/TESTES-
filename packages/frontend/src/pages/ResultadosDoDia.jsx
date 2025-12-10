@@ -142,6 +142,19 @@ export default function ResultadosDoDia() {
     fetchSells(1);
   }, [filters.date_from, filters.date_to, filters.status, filters.search, filters.sector_id, filters.employee_id]);
 
+  // Auto-refresh: atualiza vendas a cada 2 minutos
+  useEffect(() => {
+    const AUTO_REFRESH_INTERVAL = 2 * 60 * 1000; // 2 minutos em milissegundos
+
+    const intervalId = setInterval(() => {
+      // Recarrega a página atual mantendo os filtros
+      fetchSells(pagination.page);
+    }, AUTO_REFRESH_INTERVAL);
+
+    // Limpa o intervalo quando o componente for desmontado
+    return () => clearInterval(intervalId);
+  }, [pagination.page, filters]); // Recriar intervalo se página ou filtros mudarem
+
   // Função para navegar páginas
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= pagination.totalPages) {
@@ -178,19 +191,16 @@ export default function ResultadosDoDia() {
   // Função para formatar data e hora
   const formatDateTime = (dateTimeString) => {
     if (!dateTimeString) return '-';
-    // Interpretar como horário local do Brasil
+    // JavaScript automaticamente converte UTC para horário local do navegador
     const date = new Date(dateTimeString);
-    // Adicionar offset do fuso horário de Brasília (+3h) se vier como UTC
-    if (dateTimeString.includes('Z')) {
-      date.setHours(date.getHours() + 3);
-    }
     return date.toLocaleString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit'
+      second: '2-digit',
+      timeZone: 'America/Sao_Paulo' // Força timezone de Brasília
     });
   };
 

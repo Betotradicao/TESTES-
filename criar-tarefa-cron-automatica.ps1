@@ -56,9 +56,8 @@ $xml = @"
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>$nodePath</Command>
-      <Arguments>dist/commands/daily-verification.command.js</Arguments>
-      <WorkingDirectory>$scriptPath</WorkingDirectory>
+      <Command>powershell.exe</Command>
+      <Arguments>-WindowStyle Hidden -Command "cd '$scriptPath'; node dist/commands/daily-verification.command.js"</Arguments>
     </Exec>
   </Actions>
 </Task>

@@ -1,13 +1,20 @@
-export default function TabsNavigation({ activeTab, onChange }) {
-  const tabs = [
+export default function TabsNavigation({ activeTab, onChange, pageType = 'config' }) {
+  // Abas para Configurações de REDE
+  const redeTabs = [
     { id: 'modulos', label: 'Módulos' },
     { id: 'empresa', label: 'Empresa' },
-    { id: 'sectors', label: 'Setores' },
-    { id: 'employees', label: 'Colaboradores' },
-    { id: 'prevention', label: 'Prevenção' },
     { id: 'apis', label: 'APIs' },
     { id: 'security', label: 'Segurança' }
   ];
+
+  // Abas para Configurações normais
+  const configTabs = [
+    { id: 'sectors', label: 'Setores' },
+    { id: 'employees', label: 'Colaboradores' },
+    { id: 'prevention', label: 'Prevenção' }
+  ];
+
+  const tabs = pageType === 'rede' ? redeTabs : configTabs;
 
   return (
     <div className="border-b border-gray-200">

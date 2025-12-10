@@ -3,25 +3,21 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSearchParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import TabsNavigation from '../components/configuracoes/TabsNavigation';
-import ModulosTab from '../components/configuracoes/ModulosTab';
-import EmpresaTab from '../components/configuracoes/EmpresaTab';
 import SectorsTab from '../components/configuracoes/SectorsTab';
 import EmployeesTab from '../components/configuracoes/EmployeesTab';
 import PreventionTab from '../components/configuracoes/PreventionTab';
-import APIsTab from '../components/configuracoes/APIsTab';
-import SecurityTab from '../components/configuracoes/SecurityTab';
 
 export default function Configuracoes() {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(() => {
-    return searchParams.get('tab') || 'modulos';
+    return searchParams.get('tab') || 'sectors';
   });
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && (tabFromUrl === 'modulos' || tabFromUrl === 'empresa' || tabFromUrl === 'sectors' || tabFromUrl === 'employees' || tabFromUrl === 'prevention' || tabFromUrl === 'apis' || tabFromUrl === 'security')) {
+    if (tabFromUrl && (tabFromUrl === 'sectors' || tabFromUrl === 'employees' || tabFromUrl === 'prevention')) {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -73,13 +69,9 @@ export default function Configuracoes() {
           <TabsNavigation activeTab={activeTab} onChange={handleTabChange} />
 
           <div className="mt-6">
-            {activeTab === 'modulos' && <ModulosTab />}
-            {activeTab === 'empresa' && <EmpresaTab />}
             {activeTab === 'sectors' && <SectorsTab />}
             {activeTab === 'employees' && <EmployeesTab />}
             {activeTab === 'prevention' && <PreventionTab />}
-            {activeTab === 'apis' && <APIsTab />}
-            {activeTab === 'security' && <SecurityTab />}
           </div>
         </div>
       </div>

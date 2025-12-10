@@ -8,6 +8,7 @@ import Rankings from './pages/Rankings';
 import AtivarProdutos from './pages/AtivarProdutos';
 import ResultadosDoDia from './pages/ResultadosDoDia';
 import Configuracoes from './pages/Configuracoes';
+import ConfiguracoesRede from './pages/ConfiguracoesRede';
 import Perfil from './pages/Perfil';
 
 function App() {
@@ -61,6 +62,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Configuracoes />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/configuracoes-rede"
+            element={
+              <ProtectedRoute>
+                <ConfiguracoesRede />
               </ProtectedRoute>
             }
           />
