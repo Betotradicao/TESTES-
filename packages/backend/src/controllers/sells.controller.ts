@@ -44,22 +44,28 @@ export class SellsController {
 
       // Date filter with range support
       if (date_from && date_to) {
-        // Validate date range
-        const dateFromObj = new Date(date_from as string);
-        const dateToObj = new Date(date_to as string);
+        // Parse dates in Brazil timezone (UTC-3)
+        // Input format: YYYY-MM-DD
+        const dateFromStr = date_from as string;
+        const dateToStr = date_to as string;
 
-        if (isNaN(dateFromObj.getTime()) || isNaN(dateToObj.getTime())) {
-          return res.status(400).json({ error: 'Formato de data inválido. Use o formato correto.' });
+        // Validate date format
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateFromStr) || !/^\d{4}-\d{2}-\d{2}$/.test(dateToStr)) {
+          return res.status(400).json({ error: 'Formato de data inválido. Use o formato YYYY-MM-DD.' });
         }
 
-        if (dateFromObj > dateToObj) {
+        // Create dates in Brazil timezone by parsing the string with timezone offset
+        // This ensures 2025-12-10 means 2025-12-10 00:00:00 in São Paulo time, not UTC
+        const startOfDay = new Date(`${dateFromStr}T00:00:00-03:00`);
+        const endOfDay = new Date(`${dateToStr}T23:59:59.999-03:00`);
+
+        if (isNaN(startOfDay.getTime()) || isNaN(endOfDay.getTime())) {
+          return res.status(400).json({ error: 'Formato de data inválido. Use o formato YYYY-MM-DD.' });
+        }
+
+        if (startOfDay > endOfDay) {
           return res.status(400).json({ error: 'A data inicial não pode ser maior que a data final.' });
         }
-
-        const startOfDay = new Date(dateFromObj);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(dateToObj);
-        endOfDay.setHours(23, 59, 59, 999);
 
         query = query.andWhere('sell.sellDate BETWEEN :date_from AND :date_to', {
           date_from: startOfDay,
