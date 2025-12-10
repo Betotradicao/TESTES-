@@ -8,6 +8,13 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 3004,
     strictPort: true, // 🔒 NÃO MUDA DE PORTA! Dá erro se 3004 estiver ocupada
+    allowedHosts: [
+      '.ngrok-free.dev',
+      '.ngrok.io',
+      'prevencaonoradar.com.br',
+      'www.prevencaonoradar.com.br',
+      'localhost',
+    ],
     watch: {
       usePolling: true,
     },
