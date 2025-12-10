@@ -1,0 +1,60 @@
+========================================
+  SISTEMA PREVENÇÃO NO RADAR
+========================================
+
+📋 ESTRUTURA ORGANIZADA:
+
+📁 RAIZ (Arquivos Essenciais):
+   ✅ INICIAR-TUDO.bat           - PRINCIPAL: Inicia todo o sistema
+   ✅ minio-config.bat            - Configuração do MinIO
+   ✅ criar-tarefa-windows.ps1    - Configura inicialização automática
+   ✅ ORGANIZAR-PASTAS.bat        - Script de organização (este)
+   ✅ LEIA-ME.txt                 - Este arquivo
+
+📁 scripts/
+   ├─ docker/           - Scripts relacionados ao Docker (não usados atualmente)
+   ├─ obsoletos/        - Scripts antigos substituídos por INICIAR-TUDO.bat
+   ├─ manutencao/       - Scripts de backup e manutenção
+   └─ testes/           - Scripts de teste e desenvolvimento (JS, SQL)
+
+📁 packages/
+   ├─ backend/          - Código do servidor (Node.js + TypeORM)
+   └─ frontend/         - Interface web (React + Vite)
+
+📁 minio-data/          - Armazenamento de arquivos (MinIO)
+📁 node_modules/        - Dependências do Node.js
+
+========================================
+  COMO USAR O SISTEMA
+========================================
+
+🚀 INICIAR O SISTEMA:
+   1. Clique duplo em: INICIAR-TUDO.bat
+   2. Aguarde todos os serviços iniciarem
+   3. Acesse: http://localhost:3004
+
+🔄 INICIALIZAÇÃO AUTOMÁTICA:
+   - Execute: criar-tarefa-windows.ps1 (como administrador)
+   - O sistema iniciará automaticamente quando o Windows reiniciar
+
+🌐 ACESSOS:
+   - Frontend:  http://localhost:3004
+   - Backend:   http://localhost:3001
+   - MinIO:     http://localhost:9001
+   - Ngrok:     http://localhost:4040 (para ver URL pública)
+
+👤 LOGIN MASTER:
+   - Usuário: Beto
+   - Senha: Beto3107@
+
+========================================
+  ARQUIVOS ORGANIZADOS
+========================================
+
+✅ 39 arquivos foram organizados em pastas
+✅ Apenas 5 scripts essenciais ficaram na raiz
+✅ Estrutura limpa e organizada
+
+Para mais informações, consulte o README.md principal.
+
+Data da organização: 10/12/2025

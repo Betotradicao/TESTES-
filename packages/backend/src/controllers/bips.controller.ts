@@ -4,8 +4,7 @@ import { Bip, BipStatus, MotivoCancelamento } from '../entities/Bip';
 import { Sell } from '../entities/Sell';
 import { AuthRequest } from '../middleware/auth';
 import { Between } from 'typeorm';
-import { VideoUploadService } from '../services/video-upload.service';
-import { ImageUploadService } from '../services/image-upload.service';
+import { uploadService } from '../services/upload.service';
 
 export class BipsController {
   static async getBips(req: AuthRequest, res: Response) {
@@ -449,28 +448,24 @@ export class BipsController {
       const bip = await bipRepository.findOne({ where: { id: bipId } });
 
       if (!bip) {
-        // Se o bip não existe, deletar o arquivo enviado
-        const videoUploadService = new VideoUploadService();
-        videoUploadService.deleteVideo(file.filename);
         return res.status(404).json({ error: 'Bipagem não encontrada' });
       }
 
-      // Se já existe um vídeo, deletar o antigo
+      // Se já existe um vídeo, deletar o antigo do MinIO
       if (bip.video_url) {
-        const videoUploadService = new VideoUploadService();
-        const oldFilename = videoUploadService.extractFilenameFromUrl(bip.video_url);
-        videoUploadService.deleteVideo(oldFilename);
+        await uploadService.deleteFile(bip.video_url);
       }
 
-      // Atualizar com novo vídeo
-      bip.video_url = file.filename;
-      await bipRepository.save(bip);
+      // Upload do novo vídeo para o MinIO
+      const videoUrl = await uploadService.uploadVideo(file, bipId);
 
-      console.log(`🎥 Vídeo enviado para bipagem ${bipId}: ${file.filename}`);
+      // Atualizar com novo vídeo (URL completa do MinIO)
+      bip.video_url = videoUrl;
+      await bipRepository.save(bip);
 
       res.json({
         success: true,
-        videoUrl: file.filename,
+        videoUrl: videoUrl,
         message: 'Vídeo enviado com sucesso'
       });
     } catch (error) {
@@ -495,10 +490,8 @@ export class BipsController {
         return res.status(400).json({ error: 'Esta bipagem não possui vídeo' });
       }
 
-      // Deletar arquivo do sistema
-      const videoUploadService = new VideoUploadService();
-      const filename = videoUploadService.extractFilenameFromUrl(bip.video_url);
-      videoUploadService.deleteVideo(filename);
+      // Deletar arquivo do MinIO
+      await uploadService.deleteFile(bip.video_url);
 
       // Remover URL do banco
       bip.video_url = null;
@@ -530,28 +523,24 @@ export class BipsController {
       const bip = await bipRepository.findOne({ where: { id: bipId } });
 
       if (!bip) {
-        // Se o bip não existe, deletar o arquivo enviado
-        const imageUploadService = new ImageUploadService();
-        imageUploadService.deleteImage(file.filename);
         return res.status(404).json({ error: 'Bipagem não encontrada' });
       }
 
-      // Se já existe uma imagem, deletar a antiga
+      // Se já existe uma imagem, deletar a antiga do MinIO
       if (bip.image_url) {
-        const imageUploadService = new ImageUploadService();
-        const oldFilename = imageUploadService.extractFilenameFromUrl(bip.image_url);
-        imageUploadService.deleteImage(oldFilename);
+        await uploadService.deleteFile(bip.image_url);
       }
 
-      // Atualizar com nova imagem
-      bip.image_url = file.filename;
-      await bipRepository.save(bip);
+      // Upload da nova imagem para o MinIO
+      const imageUrl = await uploadService.uploadImage(file, bipId);
 
-      console.log(`📸 Imagem enviada para bipagem ${bipId}: ${file.filename}`);
+      // Atualizar com nova imagem (URL completa do MinIO)
+      bip.image_url = imageUrl;
+      await bipRepository.save(bip);
 
       res.json({
         success: true,
-        imageUrl: file.filename,
+        imageUrl: imageUrl,
         message: 'Imagem enviada com sucesso'
       });
     } catch (error) {
@@ -576,10 +565,8 @@ export class BipsController {
         return res.status(400).json({ error: 'Esta bipagem não possui imagem' });
       }
 
-      // Deletar arquivo do sistema
-      const imageUploadService = new ImageUploadService();
-      const filename = imageUploadService.extractFilenameFromUrl(bip.image_url);
-      imageUploadService.deleteImage(filename);
+      // Deletar arquivo do MinIO
+      await uploadService.deleteFile(bip.image_url);
 
       // Remover URL do banco
       bip.image_url = null;

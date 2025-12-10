@@ -15,6 +15,14 @@ export default defineConfig({
       'www.prevencaonoradar.com.br',
       'localhost',
     ],
+    // Proxy para encaminhar chamadas /api para o backend na porta 3001
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
     watch: {
       usePolling: true,
     },

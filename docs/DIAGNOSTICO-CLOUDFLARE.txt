@@ -1,0 +1,60 @@
+========================================
+  DIAGNÓSTICO CLOUDFLARE - 10/12/2025
+========================================
+
+✅ DNS CONFIGURADO:
+   api.prevencaonoradar.com.br → 104.21.49.178, 172.67.165.131
+
+✅ BACKEND LOCAL FUNCIONANDO:
+   http://localhost:3001/api/health → {"status":"ok",...}
+
+✅ TÚNEL CLOUDFLARE RODANDO:
+   Serviço: Cloudflared → RUNNING
+
+❌ PROBLEMA:
+   https://api.prevencaonoradar.com.br/api/health → erro 1033
+
+========================================
+  POSSÍVEIS CAUSAS
+========================================
+
+1. DNS no Cloudflare NÃO está apontando para o túnel correto
+   → Verifique se o Target do DNS é:
+     c4ff0fa1-6de9-4b4d-a6ee-67805224336c.cfargotunnel.com
+
+2. Proxy Status INCORRETO
+   → Deve estar: ☁️ Proxied (nuvem LARANJA)
+   → Se estiver: ☁️ DNS only (nuvem CINZA) = ERRO!
+
+3. Túnel precisa reiniciar mas está protegido
+   → Solução: Reiniciar o servidor
+
+========================================
+  SOLUÇÃO RECOMENDADA
+========================================
+
+OPÇÃO 1: Verificar DNS no Painel Cloudflare
+   1. Acesse: https://dash.cloudflare.com
+   2. Domínio: prevencaonoradar.com.br
+   3. Menu: DNS → Records
+   4. Procure: api
+   5. Verifique:
+      - Type: CNAME
+      - Target: c4ff0fa1-6de9-4b4d-a6ee-67805224336c.cfargotunnel.com
+      - Proxy: ☁️ Proxied (LARANJA, não cinza!)
+
+OPÇÃO 2: Reiniciar Servidor (mais rápido)
+   - Reinicie o Windows
+   - O sistema iniciará automaticamente (tarefa agendada)
+   - Cloudflare Tunnel reiniciará e pegará as novas rotas
+
+========================================
+  TESTE ALTERNATIVO
+========================================
+
+Enquanto isso, USE O NGROK que está funcionando:
+   https://unculpable-nonfallaciously-albertha.ngrok-free.dev
+
+O Ngrok está 100% funcional e configurado com proxy!
+
+========================================

@@ -27,7 +27,15 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+// Configuração CORS para permitir acesso via Ngrok e rede local
+app.use(cors({
+  origin: true, // Permite qualquer origem
+  credentials: true, // Permite cookies e autenticação
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range']
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import { BipsController } from '../controllers/bips.controller';
 import { authenticateToken } from '../middleware/auth';
-import { VideoUploadService } from '../services/video-upload.service';
-import { ImageUploadService } from '../services/image-upload.service';
+import { uploadService } from '../services/upload.service';
 
 const router: Router = Router();
 
@@ -283,9 +282,8 @@ router.put('/:id/cancel', authenticateToken, BipsController.cancelBip);
  */
 router.put('/:id/reactivate', authenticateToken, BipsController.reactivateBip);
 
-// Instanciar serviço de upload
-const videoUploadService = new VideoUploadService();
-const upload = videoUploadService.getMulterConfig();
+// Configurar multer para upload de vídeos
+const videoUpload = uploadService.getVideoMulterConfig();
 
 /**
  * @swagger
@@ -320,7 +318,7 @@ const upload = videoUploadService.getMulterConfig();
  *       404:
  *         description: Bipagem não encontrada
  */
-router.post('/:id/video', authenticateToken, upload.single('video'), BipsController.uploadVideo);
+router.post('/:id/video', authenticateToken, videoUpload.single('video'), BipsController.uploadVideo);
 
 /**
  * @swagger
@@ -347,9 +345,8 @@ router.post('/:id/video', authenticateToken, upload.single('video'), BipsControl
  */
 router.delete('/:id/video', authenticateToken, BipsController.deleteVideo);
 
-// Instanciar serviço de upload de imagens
-const imageUploadService = new ImageUploadService();
-const imageUpload = imageUploadService.getMulterConfig();
+// Configurar multer para upload de imagens
+const imageUpload = uploadService.getImageMulterConfig();
 
 /**
  * @swagger

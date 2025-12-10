@@ -1,0 +1,142 @@
+========================================
+  GUIA: CONFIGURAR DNS NO CLOUDFLARE
+========================================
+
+🔧 INFORMAÇÕES DO SEU TÚNEL:
+   Tunnel ID: c4ff0fa1-6de9-4b4d-a6ee-67805224336c
+   Status: ✅ RUNNING (serviço Windows ativo)
+
+📋 O QUE ESTÁ CONFIGURADO:
+   ✅ prevencaonoradar.com.br      → Frontend (porta 3004)
+   ✅ www.prevencaonoradar.com.br  → Frontend (porta 3004)
+   ⚠️ api.prevencaonoradar.com.br  → Backend (porta 3001) - FALTA DNS!
+
+========================================
+  PASSO A PASSO - CONFIGURAR DNS
+========================================
+
+1️⃣ ACESSAR PAINEL DO CLOUDFLARE:
+   🌐 Acesse: https://dash.cloudflare.com
+   🔐 Faça login com sua conta
+   📁 Clique no domínio: prevencaonoradar.com.br
+
+2️⃣ IR PARA CONFIGURAÇÕES DE DNS:
+   📍 No menu lateral esquerdo, clique em: DNS
+   📍 Você verá uma lista de registros DNS
+
+3️⃣ VERIFICAR REGISTROS EXISTENTES:
+   
+   Verifique se já existem estes registros:
+   
+   ✅ prevencaonoradar.com.br
+      Tipo: CNAME
+      Target: c4ff0fa1-6de9-4b4d-a6ee-67805224336c.cfargotunnel.com
+      Proxy: ☁️ Proxied (nuvem laranja)
+   
+   ✅ www.prevencaonoradar.com.br
+      Tipo: CNAME
+      Target: c4ff0fa1-6de9-4b4d-a6ee-67805224336c.cfargotunnel.com
+      Proxy: ☁️ Proxied (nuvem laranja)
+
+4️⃣ ADICIONAR REGISTRO DNS PARA API:
+   
+   Se NÃO existir "api.prevencaonoradar.com.br":
+   
+   📍 Clique no botão: "Add record" (Adicionar registro)
+   
+   📝 Preencha:
+      Type:         CNAME
+      Name:         api
+      Target:       c4ff0fa1-6de9-4b4d-a6ee-67805224336c.cfargotunnel.com
+      Proxy status: ☁️ Proxied (deixe a nuvem laranja ATIVA)
+      TTL:          Auto
+   
+   💾 Clique em: Save
+
+5️⃣ AGUARDAR PROPAGAÇÃO:
+   ⏱️ Aguarde 2-5 minutos para o DNS propagar
+   🔄 A propagação pode levar até 10 minutos
+
+========================================
+  TESTAR SE FUNCIONOU
+========================================
+
+Após configurar, teste:
+
+1. Abra o navegador em modo anônimo
+2. Acesse: https://prevencaonoradar.com.br
+   ✅ Deve mostrar o sistema (frontend)
+
+3. Acesse: https://api.prevencaonoradar.com.br/api/health
+   ✅ Deve retornar JSON: {"status":"ok",...}
+
+========================================
+  VERIFICAR DNS (Windows)
+========================================
+
+No prompt de comando (CMD):
+
+   nslookup prevencaonoradar.com.br
+   nslookup api.prevencaonoradar.com.br
+
+✅ Deve retornar IPs do Cloudflare (104.x.x.x ou 172.x.x.x)
+❌ Se retornar "Non-existent domain" = DNS ainda não configurado
+
+========================================
+  PROBLEMAS COMUNS
+========================================
+
+❌ Erro 522 (Connection timed out):
+   → Backend não está rodando na porta 3001
+   → Execute: INICIAR-TUDO.bat
+   → Verifique: netstat -ano | findstr :3001
+
+❌ Erro 525 (SSL handshake failed):
+   → Proxy status deve estar: ☁️ Proxied (laranja)
+   → Vá em SSL/TLS → Escolha: Full ou Full (strict)
+
+❌ Página em branco ou 404:
+   → Túnel não está rodando
+   → Execute: sc query Cloudflared
+   → Se parado: net start Cloudflared
+
+❌ DNS não resolve:
+   → Limpe cache DNS: ipconfig /flushdns
+   → Aguarde mais tempo (até 10 minutos)
+   → Use DNS do Google: 8.8.8.8
+
+========================================
+  COMANDOS ÚTEIS
+========================================
+
+# Ver status do túnel
+sc query Cloudflared
+
+# Reiniciar túnel
+net stop Cloudflared
+net start Cloudflared
+
+# Limpar cache DNS local
+ipconfig /flushdns
+
+# Testar API local
+curl http://localhost:3001/api/health
+
+# Testar API via Cloudflare (após configurar)
+curl https://api.prevencaonoradar.com.br/api/health
+
+========================================
+  RESUMO
+========================================
+
+O Cloudflare Tunnel JÁ ESTÁ CONFIGURADO no seu servidor!
+
+Você só precisa:
+1. Adicionar o registro DNS "api" no painel Cloudflare
+2. Aguardar 2-5 minutos
+3. Testar o acesso
+
+Depois disso, o domínio prevencaonoradar.com.br vai funcionar
+perfeitamente, sem depender do Ngrok! 🚀
+
+Data: 10/12/2025

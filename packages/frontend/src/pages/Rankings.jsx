@@ -1016,7 +1016,11 @@ export default function Rankings() {
                           {bip.image_url ? (
                             <div className="flex items-center justify-center gap-2">
                               <img
-                                src={`http://localhost:3001/uploads/images/${bip.image_url}`}
+                                src={
+                                  bip.image_url.startsWith('http')
+                                    ? bip.image_url
+                                    : `http://10.6.1.171:3001/uploads/images/${bip.image_url}`
+                                }
                                 alt="Foto da bipagem"
                                 onClick={() => openImageViewer(bip)}
                                 className="w-10 h-10 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity border-2 border-gray-300"
@@ -1202,7 +1206,11 @@ export default function Rankings() {
                 controls
                 autoPlay
                 className="max-w-full max-h-full"
-                src={`http://localhost:3001/uploads/videos/${playerModal.bip.video_url}`}
+                src={
+                  playerModal.bip.video_url.startsWith('http')
+                    ? playerModal.bip.video_url
+                    : `http://10.6.1.171:3001/uploads/videos/${playerModal.bip.video_url}`
+                }
               >
                 Seu navegador não suporta a tag de vídeo.
               </video>
@@ -1320,8 +1328,8 @@ export default function Rankings() {
 
       {/* Modal de Visualização de Imagem */}
       {imageViewerModal.isOpen && imageViewerModal.bip && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-[95vw] w-full max-h-[95vh] overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
               <div>
                 <h3 className="text-xl font-semibold text-gray-900">Foto da Bipagem</h3>
@@ -1339,11 +1347,16 @@ export default function Rankings() {
               </button>
             </div>
 
-            <div className="flex-1 bg-gray-100 flex items-center justify-center p-4">
+            <div className="flex-1 bg-gray-100 flex items-center justify-center p-6 overflow-auto">
               <img
-                src={`http://localhost:3001/uploads/images/${imageViewerModal.bip.image_url}`}
+                src={
+                  imageViewerModal.bip.image_url.startsWith('http')
+                    ? imageViewerModal.bip.image_url
+                    : `http://10.6.1.171:3001/uploads/images/${imageViewerModal.bip.image_url}`
+                }
                 alt="Foto da bipagem"
-                className="max-w-full max-h-full object-contain rounded shadow-lg"
+                className="max-w-full h-auto object-contain rounded shadow-2xl cursor-zoom-in"
+                style={{ maxHeight: 'calc(95vh - 180px)' }}
               />
             </div>
 

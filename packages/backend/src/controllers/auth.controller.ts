@@ -9,8 +9,10 @@ export class AuthController {
   static async login(req: Request, res: Response) {
     try {
       const { email, password } = req.body;
+      console.log('🔐 Tentativa de login:', { email, origin: req.headers.origin });
 
       if (!email || !password) {
+        console.log('❌ Login falhou: campos vazios');
         return res.status(400).json({ error: 'Email/username and password are required' });
       }
 
@@ -22,12 +24,15 @@ export class AuthController {
       });
 
       if (user) {
+        console.log('✅ Usuário admin encontrado:', user.email);
         // User found - validate password
         const isValidPassword = await user.validatePassword(password);
         if (!isValidPassword) {
+          console.log('❌ Senha inválida para admin');
           return res.status(401).json({ error: 'Invalid credentials' });
         }
 
+        console.log('✅ Login admin bem-sucedido!');
         const token = jwt.sign(
           {
             id: user.id,
