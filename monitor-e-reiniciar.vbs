@@ -32,6 +32,10 @@ Do While True
     Set colProcesses = objWMIService.ExecQuery("Select * from Win32_Process Where Name = 'minio.exe'")
     minioRunning = (colProcesses.Count > 0)
 
+    ' Verificar se Ngrok esta rodando
+    Set colProcesses = objWMIService.ExecQuery("Select * from Win32_Process Where Name = 'ngrok.exe'")
+    ngrokRunning = (colProcesses.Count > 0)
+
     ' Se algum nao esta rodando, reiniciar
     If Not backendRunning Or Not frontendRunning Then
         ' Reiniciar via PM2 (invisivel)
@@ -72,6 +76,13 @@ Do While True
         WshShell.CurrentDirectory = appDir
         WshShell.Run "cmd /c set MINIO_ROOT_USER=" & minioUser & "&& set MINIO_ROOT_PASSWORD=" & minioPassword & "&& minio.exe server minio-data --console-address :9011 --address :9010", 0, False
         WScript.Sleep 5000
+    End If
+
+    If Not ngrokRunning Then
+        ' Reiniciar Ngrok (invisivel)
+        WshShell.CurrentDirectory = appDir
+        WshShell.Run appDir & "\ngrok.exe start --all --config """ & appDir & "\ngrok.yml""", 0, False
+        WScript.Sleep 3000
     End If
 
     ' Aguardar 30 segundos antes de verificar novamente

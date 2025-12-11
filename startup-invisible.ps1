@@ -70,7 +70,29 @@ if (-not $backendRunning -or -not $frontendRunning) {
     & pm2 save --force 2>$null
 }
 
-# 6. Iniciar Scanner Service se existir
+# 6. Iniciar Ngrok (túneis para frontend e backend)
+$ngrokPath = Join-Path $appDir "ngrok.exe"
+$ngrokConfig = Join-Path $appDir "ngrok.yml"
+
+if (Test-Path $ngrokPath) {
+    # Verificar se ngrok já está rodando
+    $ngrokRunning = Get-Process -Name "ngrok" -ErrorAction SilentlyContinue
+
+    if (-not $ngrokRunning) {
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $ngrokPath
+        $psi.Arguments = "start --all --config `"$ngrokConfig`""
+        $psi.WorkingDirectory = $appDir
+        $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+        $psi.CreateNoWindow = $true
+        $psi.UseShellExecute = $false
+
+        [System.Diagnostics.Process]::Start($psi) | Out-Null
+        Start-Sleep -Seconds 3
+    }
+}
+
+# 7. Iniciar Scanner Service se existir
 $scannerDir = "C:\Users\Administrator\Desktop\barcode-service-main\INSTALADOR"
 if (Test-Path $scannerDir) {
     $scannerScript = Join-Path $scannerDir "scanner_service.py"
