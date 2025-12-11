@@ -11,7 +11,7 @@ services:
     environment:
       POSTGRES_DB: prevencao_db
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:
@@ -32,8 +32,8 @@ services:
     container_name: prevencao-minio-prod
     restart: always
     environment:
-      MINIO_ROOT_USER: f0a02f9d4320abc34679f4742eecbad1
-      MINIO_ROOT_PASSWORD: 3e928e13c609385d81df326d680074f2d69434d752c44fa3161ddf89dcdaca55
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
       - minio-data:/data
     ports:
@@ -62,14 +62,14 @@ services:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: postgres
-      DB_PASSWORD: postgres123
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_NAME: prevencao_db
 
       # MinIO (conexão interna entre containers)
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
-      MINIO_ACCESS_KEY: f0a02f9d4320abc34679f4742eecbad1
-      MINIO_SECRET_KEY: 3e928e13c609385d81df326d680074f2d69434d752c44fa3161ddf89dcdaca55
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_USE_SSL: "false"
       MINIO_BUCKET_NAME: market-security
 
@@ -128,14 +128,14 @@ services:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: postgres
-      DB_PASSWORD: postgres123
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_NAME: prevencao_db
 
       # MinIO (conexão interna entre containers)
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
-      MINIO_ACCESS_KEY: f0a02f9d4320abc34679f4742eecbad1
-      MINIO_SECRET_KEY: 3e928e13c609385d81df326d680074f2d69434d752c44fa3161ddf89dcdaca55
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_USE_SSL: "false"
       MINIO_BUCKET_NAME: market-security
 

@@ -36,8 +36,10 @@ if errorlevel 1 (
 )
 echo Docker Compose OK
 
-REM ETAPA 3: Detectar IP
-echo [3/5] Detectando IP da maquina...
+REM ETAPA 3: Detectar IP e Gerar Senhas Seguras
+echo [3/5] Detectando IP e gerando senhas seguras...
+
+REM Detectar IP
 for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /C:"IPv4" ^| findstr /V "127.0.0.1"') do (
     set DETECTED_IP=%%a
     goto :ip_found
@@ -58,8 +60,44 @@ if "%DETECTED_IP%"=="" (
     )
 )
 
+echo Gerando senhas aleatorias seguras...
+
+REM Gerar senha aleatoria para PostgreSQL (16 caracteres alfanumericos)
+for /f %%i in ('powershell -Command "[guid]::NewGuid().ToString('N').Substring(0,16)"') do set POSTGRES_PASSWORD=%%i
+
+REM Gerar access key para MinIO (32 caracteres hex)
+for /f %%i in ('powershell -Command "[guid]::NewGuid().ToString('N')"') do set MINIO_USER=%%i
+
+REM Gerar secret key para MinIO (64 caracteres hex)
+for /f %%i in ('powershell -Command "[guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')"') do set MINIO_PASSWORD=%%i
+
+REM Criar arquivo .env com todas as configurações
 echo HOST_IP=%HOST_IP% > .env
+echo POSTGRES_PASSWORD=%POSTGRES_PASSWORD% >> .env
+echo MINIO_ROOT_USER=%MINIO_USER% >> .env
+echo MINIO_ROOT_PASSWORD=%MINIO_PASSWORD% >> .env
+
+echo.
+echo ========================================
+echo  SENHAS GERADAS COM SUCESSO!
+echo ========================================
+echo.
 echo IP configurado: %HOST_IP%
+echo.
+echo PostgreSQL:
+echo   Usuario: postgres
+echo   Senha: %POSTGRES_PASSWORD%
+echo   Porta: 5434
+echo.
+echo MinIO:
+echo   Access Key: %MINIO_USER%
+echo   Secret Key: %MINIO_PASSWORD%
+echo   Console: http://%HOST_IP%:9011
+echo.
+echo IMPORTANTE: Anote estas senhas em local seguro!
+echo Elas estao salvas no arquivo .env
+echo.
+pause
 
 REM ETAPA 4: Build
 echo.

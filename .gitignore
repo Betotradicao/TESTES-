@@ -53,10 +53,14 @@ uploads/
 # Logs do backend
 packages/backend/backend.log
 packages/backend/*.log
+logs/
 
 # MinIO executável (arquivo grande)
 minio.exe
 *.exe
+
+# MinIO data (arquivos de usuários)
+minio-data/
 
 # Docker
 docker-compose.override.yml

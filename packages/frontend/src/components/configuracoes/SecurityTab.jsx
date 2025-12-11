@@ -8,8 +8,16 @@ export default function SecurityTab() {
   const [copying, setCopying] = useState(false);
   const [generating, setGenerating] = useState(false);
 
+  // Estados para senhas do banco e MinIO
+  const [showPostgresPassword, setShowPostgresPassword] = useState(false);
+  const [showMinioPassword, setShowMinioPassword] = useState(false);
+  const [postgresPassword, setPostgresPassword] = useState('');
+  const [minioUser, setMinioUser] = useState('');
+  const [minioPassword, setMinioPassword] = useState('');
+
   useEffect(() => {
     loadToken();
+    loadDatabaseCredentials();
   }, []);
 
   const loadToken = async () => {
@@ -23,6 +31,17 @@ export default function SecurityTab() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadDatabaseCredentials = () => {
+    // Carregar do localStorage (serão salvos na instalação)
+    const savedPostgresPassword = localStorage.getItem('postgres_password') || 'postgres123';
+    const savedMinioUser = localStorage.getItem('minio_user') || 'f0a02f9d4320abc34679f4742eecbad1';
+    const savedMinioPassword = localStorage.getItem('minio_password') || '3e928e13c609385d81df326d680074f2d69434d752c44fa3161ddf89dcdaca55';
+
+    setPostgresPassword(savedPostgresPassword);
+    setMinioUser(savedMinioUser);
+    setMinioPassword(savedMinioPassword);
   };
 
   const handleGenerateToken = async () => {
@@ -152,6 +171,142 @@ export default function SecurityTab() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Credenciais do Banco de Dados */}
+      <div className="bg-white shadow rounded-lg p-6">
+        <div className="space-y-4">
+          <div>
+            <h4 className="text-base font-medium text-gray-900 flex items-center">
+              🗄️ PostgreSQL - Banco de Dados
+            </h4>
+            <p className="mt-1 text-sm text-gray-500">
+              Credenciais de acesso ao banco de dados PostgreSQL (somente leitura).
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Usuário
+              </label>
+              <input
+                type="text"
+                value="postgres"
+                readOnly
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 font-mono text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Senha
+              </label>
+              <div className="flex space-x-2">
+                <div className="flex-1 relative">
+                  <input
+                    type={showPostgresPassword ? 'text' : 'password'}
+                    value={postgresPassword}
+                    readOnly
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 font-mono text-sm"
+                  />
+                </div>
+                <button
+                  onClick={() => setShowPostgresPassword(!showPostgresPassword)}
+                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  {showPostgresPassword ? '🙈 Ocultar' : '👁️ Mostrar'}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Porta
+              </label>
+              <input
+                type="text"
+                value="5434"
+                readOnly
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 font-mono text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+            <p className="text-xs text-blue-800">
+              💡 Use estas credenciais para conectar ferramentas como pgAdmin, DBeaver ou outras aplicações que precisam acessar o banco de dados.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Credenciais do MinIO */}
+      <div className="bg-white shadow rounded-lg p-6">
+        <div className="space-y-4">
+          <div>
+            <h4 className="text-base font-medium text-gray-900 flex items-center">
+              📦 MinIO - Armazenamento de Arquivos
+            </h4>
+            <p className="mt-1 text-sm text-gray-500">
+              Credenciais de acesso ao MinIO para gerenciamento de arquivos (imagens/vídeos).
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Access Key (Usuário)
+              </label>
+              <input
+                type="text"
+                value={minioUser}
+                readOnly
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 font-mono text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Secret Key (Senha)
+              </label>
+              <div className="flex space-x-2">
+                <div className="flex-1 relative">
+                  <input
+                    type={showMinioPassword ? 'text' : 'password'}
+                    value={minioPassword}
+                    readOnly
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 font-mono text-sm"
+                  />
+                </div>
+                <button
+                  onClick={() => setShowMinioPassword(!showMinioPassword)}
+                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  {showMinioPassword ? '🙈 Ocultar' : '👁️ Mostrar'}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Console (Interface Web)
+              </label>
+              <input
+                type="text"
+                value="http://localhost:9011"
+                readOnly
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 font-mono text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+            <p className="text-xs text-blue-800">
+              💡 Acesse a interface web do MinIO através da porta 9011 para visualizar e gerenciar todos os arquivos armazenados (fotos e vídeos das bipagens).
+            </p>
           </div>
         </div>
       </div>

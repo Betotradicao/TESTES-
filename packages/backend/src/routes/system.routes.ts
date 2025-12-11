@@ -9,6 +9,10 @@ const router: Router = Router();
  * Requer autenticação
  */
 
+// ========================================
+// ROTAS DE TOKEN
+// ========================================
+
 // Visualizar token atual (apenas admin)
 router.get('/token', authenticateToken, (req: Request, res: Response) => SystemController.getToken(req, res));
 
