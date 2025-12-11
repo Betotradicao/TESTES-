@@ -6,21 +6,30 @@ import { fetchSectors } from '../services/sectors.service';
 import { fetchEmployees } from '../services/employees.service';
 
 const MOTIVOS_ICONS = {
+  devolucao_mercadoria: '↩️',
   produto_abandonado: '📦',
   falta_cancelamento: '❌',
-  devolucao_mercadoria: '↩️',
   erro_operador: '👤',
   erro_balconista: '🛒',
   furto: '🚨'
 };
 
 const MOTIVOS_LABELS = {
+  devolucao_mercadoria: 'Cancelamento de Bipagem',
   produto_abandonado: 'Produto Abandonado',
   falta_cancelamento: 'Falta de Cancelamento',
-  devolucao_mercadoria: 'Devolução de Mercadoria',
   erro_operador: 'Erro do Operador',
   erro_balconista: 'Erro do Balconista',
   furto: 'Furto'
+};
+
+const MOTIVOS_DESCRIPTIONS = {
+  devolucao_mercadoria: 'Representa quando o Balconista faz corretamente a operação de cancelamento de uma bipagem.',
+  produto_abandonado: 'Representa produtos que são retirados no balcão pelo cliente porém são esquecidos ou descartados pelo mesmo em alguma área na loja.',
+  falta_cancelamento: 'Representa produtos que o Balconista acaba bipando e o cliente muitas vezes pede para aumentar ou diminuir a quantidade, gerando uma nova bipagem onde o balconista por sua vez acaba bipando novamente e esquecendo de cancelar aquela primeira bipagem.',
+  erro_operador: 'Representa quando a mercadoria sai do setor porém ao ser passada no PDV o Operador de caixa acaba não registrando essa mercadoria, seja intencionalmente ou não.',
+  erro_balconista: 'Representa o erro detectado pelo cliente ao receber uma mercadoria com código errado. Isso só é possível descobrir se o Balconista esquecer de fazer o Cancelamento da Etiqueta ao trocar.',
+  furto: 'Representa o Furto causado pela pessoa que retirou a mercadoria no Balcão.'
 };
 
 export default function Rankings() {
@@ -594,12 +603,30 @@ export default function Rankings() {
                   <div
                     key={motivo}
                     onClick={() => motivoData.count > 0 && openMotivoDetails(motivo)}
-                    className={`bg-white rounded-lg shadow-md p-4 transition-all border-2 border-gray-100 ${
+                    className={`bg-white rounded-lg shadow-md p-4 transition-all border-2 border-gray-100 relative group ${
                       motivoData.count > 0
                         ? 'cursor-pointer hover:shadow-lg hover:border-orange-300'
                         : 'opacity-60'
                     }`}
+                    title={MOTIVOS_DESCRIPTIONS[motivo]}
                   >
+                    {/* Ícone de informação no canto superior direito */}
+                    <div className="absolute top-2 right-2 text-gray-400 group-hover:text-orange-500 transition-colors">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+
+                    {/* Tooltip customizado que aparece no hover */}
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10 w-64">
+                      <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl">
+                        <p className="text-center leading-relaxed">{MOTIVOS_DESCRIPTIONS[motivo]}</p>
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                          <div className="border-8 border-transparent border-t-gray-900"></div>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="text-center">
                       <div className="text-4xl mb-2">{motivoData.icon}</div>
                       <p className="text-xs font-medium text-gray-600 mb-2 line-clamp-2">
