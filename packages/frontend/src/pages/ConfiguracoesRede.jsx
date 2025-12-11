@@ -87,6 +87,7 @@ export default function ConfiguracoesRede() {
                   onChange={(e) => setAuthUsername(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                   placeholder=""
+                  autoComplete="off"
                   autoFocus
                   required
                 />
@@ -103,6 +104,7 @@ export default function ConfiguracoesRede() {
                   onChange={(e) => setAuthPassword(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                   placeholder=""
+                  autoComplete="off"
                   required
                 />
               </div>
