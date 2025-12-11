@@ -42,6 +42,133 @@ cd InstaladorINTERNO
 
 ---
 
+## 📥 Pré-requisitos e Downloads
+
+Antes de instalar, você precisará baixar alguns programas dependendo do método escolhido:
+
+### 🐳 Para instalação via **Docker** (InstaladorDOCKER):
+
+#### 1️⃣ Docker Desktop (Obrigatório)
+- 📦 **O que é:** Motor que roda os containers Docker
+- 💾 **Tamanho:** ~500 MB
+- 🖥️ **Compatível:** Windows 10/11 (com interface gráfica)
+- 🔗 **Download:** https://www.docker.com/products/docker-desktop/
+- 📖 **Instruções:**
+  1. Baixar Docker Desktop
+  2. Executar instalador
+  3. Reiniciar o computador
+  4. Abrir Docker Desktop (precisa estar rodando para usar)
+
+⚠️ **Nota:** Docker Desktop NÃO funciona em Windows Server sem interface gráfica!
+
+---
+
+### 🏠 Para instalação **Manual/Interno** (InstaladorINTERNO):
+
+Os instaladores automáticos (`INSTALAR-AUTO.bat`) já baixam tudo, mas você pode baixar manualmente:
+
+#### 1️⃣ Node.js 20 LTS (Obrigatório)
+- 📦 **O que é:** Ambiente de execução JavaScript (roda Backend + Frontend)
+- 💾 **Tamanho:** ~50 MB
+- 🔗 **Download:** https://nodejs.org/
+- 📖 **Instruções:**
+  1. Baixar versão **LTS** (20.x)
+  2. Executar instalador
+  3. Marcar **"Add to PATH"** durante instalação
+  4. Verificar: abrir CMD e digitar `node --version`
+
+#### 2️⃣ PostgreSQL 16 (Obrigatório)
+- 📦 **O que é:** Banco de dados relacional
+- 💾 **Tamanho:** ~350 MB
+- 🔗 **Download:** https://www.postgresql.org/download/windows/
+- 📖 **Instruções:**
+  1. Baixar PostgreSQL 16
+  2. Executar instalador
+  3. **ANOTAR A SENHA** que você criar para o usuário `postgres`
+  4. Porta padrão: `5432` (deixar como está)
+  5. Instalar todos os componentes oferecidos
+
+#### 3️⃣ Git (Opcional, mas recomendado)
+- 📦 **O que é:** Controle de versão (para atualizar o sistema)
+- 💾 **Tamanho:** ~50 MB
+- 🔗 **Download:** https://git-scm.com/download/win
+- 📖 **Instruções:**
+  1. Baixar Git for Windows
+  2. Executar instalador (pode deixar opções padrão)
+  3. Verificar: abrir CMD e digitar `git --version`
+
+#### 4️⃣ Python 3.11+ (Opcional - apenas se usar Scanner Service)
+- 📦 **O que é:** Necessário para o serviço de scanner de código de barras
+- 💾 **Tamanho:** ~30 MB
+- 🔗 **Download:** https://www.python.org/downloads/
+- 📖 **Instruções:**
+  1. Baixar Python 3.11 ou superior
+  2. **IMPORTANTE:** Marcar **"Add Python to PATH"** durante instalação
+  3. Verificar: abrir CMD e digitar `python --version`
+
+---
+
+### ☁️ Para VPS (Servidor Linux):
+
+Se você vai instalar em uma VPS Linux (Ubuntu/Debian):
+
+#### Docker + Docker Compose (Recomendado)
+```bash
+# Instalar Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+
+# Instalar Docker Compose
+sudo apt-get update
+sudo apt-get install docker-compose-plugin
+
+# Verificar instalação
+docker --version
+docker compose version
+```
+
+#### Alternativa Manual (não recomendado)
+```bash
+# Instalar Node.js 20
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Instalar PostgreSQL 16
+sudo apt-get install postgresql-16
+
+# Instalar PM2
+sudo npm install -g pm2
+```
+
+---
+
+### 🎯 Resumo por Método:
+
+| Método | Programas Necessários | Download Total | Tempo Instalação |
+|--------|----------------------|----------------|------------------|
+| **🐳 Docker** | Docker Desktop | ~500 MB | ~10 min |
+| **🏠 Manual** | Node.js + PostgreSQL + Git | ~450 MB | ~30-45 min |
+| **☁️ VPS Linux + Docker** | Via terminal (apt/curl) | ~600 MB | ~15 min |
+
+---
+
+### ✅ Checklist Antes de Instalar:
+
+#### Para Docker:
+- [ ] Windows 10/11 com interface gráfica
+- [ ] Mínimo 4 GB RAM (recomendado 8 GB)
+- [ ] Docker Desktop instalado e **rodando**
+- [ ] Hyper-V ou WSL2 ativado (Docker Desktop ativa automaticamente)
+
+#### Para Manual/Interno:
+- [ ] Windows 10/11 ou Windows Server
+- [ ] Node.js 20 LTS instalado
+- [ ] PostgreSQL 16 instalado (senha anotada!)
+- [ ] Git instalado (opcional)
+- [ ] Executar instalador como **Administrador**
+
+---
+
 ## ⚖️ Como Escolher: ONDE hospedar + COMO instalar
 
 ### 🤔 Entendendo as 2 Decisões:
