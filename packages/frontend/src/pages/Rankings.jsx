@@ -617,16 +617,6 @@ export default function Rankings() {
                       </svg>
                     </div>
 
-                    {/* Tooltip customizado que aparece no hover */}
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10 w-64">
-                      <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl">
-                        <p className="text-center leading-relaxed">{MOTIVOS_DESCRIPTIONS[motivo]}</p>
-                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
-                          <div className="border-8 border-transparent border-t-gray-900"></div>
-                        </div>
-                      </div>
-                    </div>
-
                     <div className="text-center">
                       <div className="text-4xl mb-2">{motivoData.icon}</div>
                       <p className="text-xs font-medium text-gray-600 mb-2 line-clamp-2">
