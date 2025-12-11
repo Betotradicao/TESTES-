@@ -75,7 +75,11 @@ export default function ConfiguracoesRede() {
               </p>
             </div>
 
-            <form onSubmit={handleAuthSubmit} className="space-y-4">
+            <form onSubmit={handleAuthSubmit} className="space-y-4" autoComplete="off">
+              {/* Campos fake escondidos para enganar autocomplete do navegador */}
+              <input type="text" name="fake-username" style={{ display: 'none' }} autoComplete="off" />
+              <input type="password" name="fake-password" style={{ display: 'none' }} autoComplete="new-password" />
+
               <div>
                 <label htmlFor="auth-username" className="block text-sm font-medium text-gray-700 mb-1">
                   Usuário
@@ -83,6 +87,7 @@ export default function ConfiguracoesRede() {
                 <input
                   id="auth-username"
                   type="text"
+                  name="username"
                   value={authUsername}
                   onChange={(e) => setAuthUsername(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -100,11 +105,12 @@ export default function ConfiguracoesRede() {
                 <input
                   id="auth-password"
                   type="password"
+                  name="password"
                   value={authPassword}
                   onChange={(e) => setAuthPassword(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                   placeholder=""
-                  autoComplete="off"
+                  autoComplete="new-password"
                   required
                 />
               </div>
