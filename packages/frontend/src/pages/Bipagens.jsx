@@ -261,7 +261,27 @@ export default function Bipagens() {
   };
 
   // Formatação de data e hora (mantém horário original do banco)
+  // Formatação de data/hora da BIPAGEM (event_date)
+  // Bipagens já são salvas com horário local correto
   const formatDateTime = (dateString) => {
+    if (!dateString) return '-';
+
+    const date = new Date(dateString);
+
+    // Formata normalmente sem conversão de timezone
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+
+    return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
+  };
+
+  // Formatação de data/hora da VENDA DO PDV (sell_date)
+  // Vendas do Zanthus precisam de conversão de timezone
+  const formatSellDateTime = (dateString) => {
     if (!dateString) return '-';
 
     // A data vem do Zanthus como 'YYYY-MM-DD HH:MM:SS' sem timezone
@@ -775,7 +795,7 @@ export default function Bipagens() {
                         <div>{formatDateTime(bip.event_date)}</div>
                         {bip.sell_date && (
                           <div className="text-xs text-gray-500 mt-1">
-                            {formatDateTime(bip.sell_date)}
+                            {formatSellDateTime(bip.sell_date)}
                           </div>
                         )}
                         {bip.sell_point_of_sale_code && (
@@ -869,7 +889,7 @@ export default function Bipagens() {
                     <div>{formatDateTime(bip.event_date)}</div>
                     {bip.sell_date && (
                       <div className="text-xs text-gray-400 mt-0.5">
-                        {formatDateTime(bip.sell_date)}
+                        {formatSellDateTime(bip.sell_date)}
                       </div>
                     )}
                     {bip.sell_point_of_sale_code && (
