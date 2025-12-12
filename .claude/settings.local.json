@@ -153,7 +153,17 @@
       "Bash(powershell.exe -Command \"docker --version\")",
       "Bash(powershell.exe -Command \"Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, OsBuildNumber | Format-List\")",
       "Bash(powershell.exe -Command \"Get-ScheduledTask -TaskName ''Prevencao-Verificacao-Automatica'' | Get-ScheduledTaskInfo\")",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\ndocs: Atualiza README com informações detalhadas do MinIO\n\n- Adiciona seção explicando as duas portas do MinIO (9010 e 9011)\n- Documenta configuração de URLs públicas para acesso externo\n- Esclarece diferença entre API de arquivos e Console de gerenciamento\n- Melhora instruções de configuração para novos usuários\n\nFixes:\n- Resolve confusão sobre portas do MinIO\n- Facilita configuração correta em novas instalações\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit -m \"$(cat <<''EOF''\ndocs: Adiciona documentação completa dos scripts SQL de manutenção\n\n- Documenta propósito e uso de clear-equipments.sql\n- Documenta propósito e uso de fix-minio-urls.sql\n- Adiciona instruções de segurança e boas práticas\n- Inclui exemplos de uso para Windows e Linux/Mac\n- Define guidelines para criação de novos scripts\n\nFacilita troubleshooting e manutenção do sistema para novos desenvolvedores.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: Adiciona instalador automático completo e corrige bugs\n\n## Correções:\n- fix: Corrige bug de diretório ao executar INSTALAR.bat como Admin\n  - Adiciona `cd /d \"%~dp0\"` para garantir execução no diretório correto\n  - Resolve erro \"can't open file 'C:WindowsSystem32instalador_visual.py '\"\n\n## Novos Recursos:\n- feat: Cria INSTALAR-COMPLETO.bat (instalador totalmente automático)\n  - Detecta automaticamente se Python está instalado\n  - Baixa e instala Python 3.11.9 se necessário\n  - Instala todas as dependências automaticamente (keyboard, requests, pywin32, python-dotenv)\n  - Cria arquivo .env padrão automaticamente\n  - Interface com feedback visual em cada etapa\n  - Instalação em 3-5 minutos sem intervenção manual\n\n## Documentação:\n- docs: Atualiza README.md com instruções completas\n  - Adiciona seção \"Instalação em 3 Cliques\" no topo\n  - Documenta link direto para download do Python\n  - Adiciona tabela comparativa entre instaladores\n  - Inclui avisos sobre \"Add Python to PATH\"\n  - Atualiza estrutura do projeto\n\n## Benefícios:\n- ✅ Clientes não precisam mais instalar Python manualmente\n- ✅ Reduz erros de instalação em máquinas de clientes\n- ✅ Instalação 100% automática e guiada\n- ✅ Mantém compatibilidade com instalador antigo\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push)",
+      "Bash(test:*)",
+      "Bash(node criar-usuario.js:*)",
+      "Bash(npm run typeorm:*)",
+      "Bash(PGPASSWORD=admin123 psql:*)",
+      "Bash(find:*)",
+      "Bash(powershell -ExecutionPolicy Bypass -File criar-tarefa-cron-automatica.ps1)"
     ],
     "deny": [],
     "ask": []

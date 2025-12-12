@@ -1,9 +1,7 @@
 # Script para criar tarefa agendada de verificação automática
-# Executa a cada 2 minutos - COMPLETAMENTE AUTOMÁTICO - SEM JANELAS
+# Executa a cada 1 minuto - COMPLETAMENTE AUTOMÁTICO - SEM JANELAS
 
 $taskName = "Prevencao-Verificacao-Automatica"
-$scriptPath = "C:\Users\Administrator\Desktop\roberto-prevencao-no-radar-main\packages\backend"
-$nodePath = (Get-Command node).Source  # Pega caminho completo do Node
 
 Write-Host "Criando tarefa automática (sem janelas)..." -ForegroundColor Yellow
 Write-Host ""
@@ -16,12 +14,12 @@ $xml = @"
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
-    <Description>Verificação automática de vendas da Zanthus - Cruza com bipagens a cada 2 minutos (executa em segundo plano, sem janelas)</Description>
+    <Description>Verificação automática de vendas da Zanthus - Cruza com bipagens a cada 1 minuto (executa em segundo plano, sem janelas)</Description>
   </RegistrationInfo>
   <Triggers>
     <TimeTrigger>
       <Repetition>
-        <Interval>PT2M</Interval>
+        <Interval>PT1M</Interval>
         <StopAtDurationEnd>false</StopAtDurationEnd>
       </Repetition>
       <StartBoundary>$(Get-Date -Format "yyyy-MM-ddTHH:mm:ss")</StartBoundary>
@@ -56,8 +54,8 @@ $xml = @"
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>powershell.exe</Command>
-      <Arguments>-WindowStyle Hidden -Command "cd '$scriptPath'; node dist/commands/daily-verification.command.js"</Arguments>
+      <Command>wscript.exe</Command>
+      <Arguments>"C:\Users\Administrator\Desktop\roberto-prevencao-no-radar-main\InstaladorINTERNO\executar-verificacao-invisivel.vbs"</Arguments>
     </Exec>
   </Actions>
 </Task>
@@ -79,7 +77,7 @@ Write-Host "  TAREFA CRIADA COM SUCESSO!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Nome da tarefa: $taskName" -ForegroundColor Cyan
-Write-Host "Frequência: A cada 2 minutos" -ForegroundColor Cyan
+Write-Host "Frequência: A cada 1 minuto" -ForegroundColor Cyan
 Write-Host "Execução: EM SEGUNDO PLANO (SEM JANELAS)" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "A tarefa vai rodar AUTOMATICAMENTE em segundo plano!" -ForegroundColor Yellow
