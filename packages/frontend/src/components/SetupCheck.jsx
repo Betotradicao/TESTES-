@@ -17,19 +17,25 @@ export default function SetupCheck({ children }) {
 
   const checkSetupStatus = async () => {
     try {
+      console.log('🔍 SetupCheck: Verificando status do setup...');
       const response = await api.get('/setup/status');
       const { needsSetup } = response.data;
 
+      console.log('🔍 SetupCheck: needsSetup =', needsSetup);
       setNeedsSetup(needsSetup);
 
       // Se precisa de setup, redireciona para a página de primeiro acesso
       if (needsSetup) {
-        console.log('🔧 Sistema precisa de configuração inicial');
+        console.log('🔧 SetupCheck: Sistema precisa de configuração inicial - Redirecionando para /first-setup');
         navigate('/first-setup', { replace: true });
+      } else {
+        console.log('✅ SetupCheck: Sistema já configurado - Permitindo acesso normal');
       }
     } catch (error) {
-      console.error('Erro ao verificar status do setup:', error);
+      console.error('❌ SetupCheck: Erro ao verificar status do setup:', error);
+      console.error('❌ SetupCheck: Assumindo que NÃO precisa de setup (para evitar loop)');
       // Em caso de erro, assume que não precisa de setup e continua
+      // Isso evita loop infinito se o backend estiver offline
     } finally {
       setIsChecking(false);
     }

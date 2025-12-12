@@ -20,17 +20,24 @@ export default function Login() {
 
   const checkSetupStatus = async () => {
     try {
+      console.log('🔍 Login: Verificando status do setup...');
       const response = await api.get('/setup/status');
       const needsSetup = response.data.needsSetup;
+
+      console.log('🔍 Login: needsSetup =', needsSetup);
+      console.log('🔍 Login: response.data =', response.data);
 
       setSetupCompleted(!needsSetup);
 
       // Se setup é necessário, redirecionar para FirstSetup
       if (needsSetup) {
+        console.log('🔧 Login: Redirecionando para /first-setup');
         window.location.href = '/first-setup';
+      } else {
+        console.log('✅ Login: Setup já concluído, mostrando tela de login');
       }
     } catch (error) {
-      console.error('Erro ao verificar status de setup:', error);
+      console.error('❌ Login: Erro ao verificar status de setup:', error);
       // Em caso de erro, assume que setup está completo para não bloquear login
       setSetupCompleted(true);
     }
