@@ -22,9 +22,8 @@ import companiesRouter from './routes/companies.routes';
 import systemRouter from './routes/system.routes';
 import setupRouter from './routes/setup.routes';
 import passwordRecoveryRouter from './routes/password-recovery.routes';
-import userSecurityRouter from './routes/user-security.routes';
 import { minioService } from './services/minio.service';
-import { checkSetupMiddleware } from './middleware/check-setup.middleware';
+// import { checkSetupMiddleware } from './middleware/check-setup.middleware';
 
 dotenv.config();
 
@@ -52,12 +51,9 @@ app.get('/api-docs/swagger.json', (req, res) => {
   res.send(swaggerSpec);
 });
 
-// Rotas públicas (setup e recuperação de senha)
+// Rotas públicas (setup precisa estar disponível antes do login)
 app.use('/api/setup', setupRouter);
 app.use('/api/password-recovery', passwordRecoveryRouter);
-
-// Middleware de verificação de setup (aplica-se a todas as rotas abaixo)
-app.use(checkSetupMiddleware);
 
 // Rotas protegidas
 app.use('/api', healthRouter);
@@ -74,7 +70,7 @@ app.use('/api/equipment-sessions', equipmentSessionsRouter);
 app.use('/api/config', configRouter);
 app.use('/api/companies', companiesRouter);
 app.use('/api/system', systemRouter);
-app.use('/api/user-security', userSecurityRouter);
+// app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {
   try {

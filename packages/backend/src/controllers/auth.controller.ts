@@ -6,6 +6,117 @@ import { User } from '../entities/User';
 import { Employee } from '../entities/Employee';
 
 export class AuthController {
+  static async me(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const userRepository = AppDataSource.getRepository(User);
+      const user = await userRepository.findOne({
+        where: { id: userId },
+        relations: ['company']
+      });
+
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      return res.json({
+        user: {
+          id: user.id,
+          name: user.name,
+          username: user.username,
+          email: user.email,
+          type: 'admin',
+          role: user.role,
+          isMaster: user.isMaster,
+          company: user.company ? {
+            id: user.company.id,
+            nomeFantasia: user.company.nomeFantasia,
+            razaoSocial: user.company.razaoSocial,
+            cnpj: user.company.cnpj
+          } : null
+        }
+      });
+    } catch (error) {
+      console.error('Get user error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async updateProfile(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+      const { name, username, email, currentPassword, newPassword } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const userRepository = AppDataSource.getRepository(User);
+      const user = await userRepository.findOne({ where: { id: userId } });
+
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Atualizar nome
+      if (name) user.name = name;
+
+      // Atualizar username (verificar se não está em uso)
+      if (username && username !== user.username) {
+        const existingUser = await userRepository.findOne({ where: { username } });
+        if (existingUser && existingUser.id !== userId) {
+          return res.status(400).json({ error: 'Username already in use' });
+        }
+        user.username = username;
+      }
+
+      // Atualizar email (verificar se não está em uso)
+      if (email && email !== user.email) {
+        const existingUser = await userRepository.findOne({ where: { email } });
+        if (existingUser && existingUser.id !== userId) {
+          return res.status(400).json({ error: 'Email already in use' });
+        }
+        user.email = email;
+      }
+
+      // Atualizar senha se fornecida
+      if (newPassword) {
+        if (!currentPassword) {
+          return res.status(400).json({ error: 'Current password is required to change password' });
+        }
+
+        const isValidPassword = await user.validatePassword(currentPassword);
+        if (!isValidPassword) {
+          return res.status(401).json({ error: 'Current password is incorrect' });
+        }
+
+        user.password = await bcrypt.hash(newPassword, 10);
+      }
+
+      await userRepository.save(user);
+
+      return res.json({
+        message: 'Profile updated successfully',
+        user: {
+          id: user.id,
+          name: user.name,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          isMaster: user.isMaster
+        }
+      });
+    } catch (error) {
+      console.error('Update profile error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
   static async login(req: Request, res: Response) {
     try {
       const { email, password } = req.body;
@@ -16,12 +127,20 @@ export class AuthController {
         return res.status(400).json({ error: 'Email/username and password are required' });
       }
 
-      // Try to find user by email first (admin users)
+      // Try to find user by email OR username (admin users)
       const userRepository = AppDataSource.getRepository(User);
-      const user = await userRepository.findOne({
+      let user = await userRepository.findOne({
         where: { email },
         relations: ['company']
       });
+
+      // Se não encontrou por email, tenta por username
+      if (!user) {
+        user = await userRepository.findOne({
+          where: { username: email }, // O campo 'email' do form pode ser username
+          relations: ['company']
+        });
+      }
 
       if (user) {
         console.log('✅ Usuário admin encontrado:', user.email);

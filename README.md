@@ -656,11 +656,23 @@ O MinIO usa **duas portas diferentes**:
 - Relatórios detalhados
 - Alertas automáticos
 
+### Autenticação e Recuperação de Senha
+- **Login Seguro**: Autenticação JWT com hash bcrypt
+- **Recuperação de Senha por Email**: Sistema completo de reset de senha
+  - Envio de email com link de recuperação (válido por 1 hora)
+  - Token seguro com hash SHA-256
+  - Email profissional estilizado com template HTML
+  - Integração com Gmail via SMTP (nodemailer)
+  - Fallback para console caso email falhe
+- **Primeiro Acesso**: Wizard de configuração inicial
+- **Gerenciamento de Usuários**: CRUD completo de usuários com roles (master, admin, user)
+
 ### Configurações
 - **APIs**: Integração com Zanthus, Intersolid, Evolution API
 - **WhatsApp**: Notificações automáticas via Evolution API
 - **Rede**: Gerenciamento de equipamentos e scanners
 - **Segurança**: Controle de acesso e permissões
+- **Email**: Configuração de SMTP para recuperação de senha
 - **Simulador**: Teste de bipagens para desenvolvimento
 
 ---
@@ -720,14 +732,63 @@ O sistema foi desenvolvido com **mobile-first approach**:
 
 ---
 
+## 📧 Configuração de Email (Recuperação de Senha)
+
+O sistema possui recuperação de senha via email. Para configurar:
+
+### 1. Configurar Gmail com Senha de App
+
+1. Acesse sua conta Google: https://myaccount.google.com
+2. Vá em **Segurança** → **Verificação em duas etapas** (ative se não estiver)
+3. Acesse **Senhas de app**: https://myaccount.google.com/apppasswords
+4. Crie uma nova senha de app:
+   - Nome do app: "Prevenção no Radar"
+   - Copie a senha gerada (16 caracteres)
+
+### 2. Configurar no .env
+
+Edite o arquivo `packages/backend/.env`:
+
+```env
+# Email (Recuperação de Senha)
+EMAIL_USER=seuemail@gmail.com
+EMAIL_PASS=senha_app_16_caracteres
+FRONTEND_URL=http://localhost:3004
+```
+
+### 3. Testar
+
+Execute o script de teste:
+```bash
+cd packages/backend
+node test-email.js
+```
+
+### Troubleshooting
+
+**Erro "Username and Password not accepted"**:
+- Verifique se a Verificação em 2 etapas está ATIVADA
+- Confirme que copiou a senha de app corretamente (sem espaços)
+- Verifique se o email está correto
+- Crie uma NOVA senha de app
+
+**Email não chega**:
+- Verifique a pasta de SPAM
+- Confirme que o email está cadastrado no sistema
+- Veja os logs do backend para confirmar envio
+
+---
+
 ## 🔒 Segurança
 
 - Autenticação JWT
 - Middleware de autenticação em todas as rotas protegidas
-- Hash de senhas com bcrypt
+- Hash de senhas com bcrypt (10 rounds)
 - Validação de entrada com express-validator
 - CORS configurado
 - Sistema de proteção de arquivos (ver `CREDENCIAIS/seguranca-sistema.md`)
+- Recuperação de senha com token SHA-256 (válido por 1 hora)
+- Senhas de app para email (não expõe senha principal)
 
 ---
 

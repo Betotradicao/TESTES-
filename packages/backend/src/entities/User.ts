@@ -13,6 +13,12 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ nullable: true })
+  name?: string;
+
+  @Column({ unique: true, nullable: true })
+  username?: string;
+
   @Column({ unique: true })
   email: string;
 
@@ -34,6 +40,12 @@ export class User {
   @ManyToOne(() => Company, { nullable: true })
   @JoinColumn({ name: 'company_id' })
   company: Company;
+
+  @Column({ name: 'reset_password_token', type: 'varchar', nullable: true })
+  resetPasswordToken: string | null;
+
+  @Column({ name: 'reset_password_expires', type: 'timestamp', nullable: true })
+  resetPasswordExpires: Date | null;
 
   @CreateDateColumn()
   created_at: Date;

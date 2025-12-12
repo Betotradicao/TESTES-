@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/auth.controller';
+import { authenticateToken } from '../middleware/auth';
 
 const router: Router = Router();
 
@@ -74,5 +75,7 @@ const router: Router = Router();
  *         description: Invalid credentials
  */
 router.post('/login', AuthController.login);
+router.get('/me', authenticateToken, AuthController.me);
+router.put('/update-profile', authenticateToken, AuthController.updateProfile);
 
 export default router;

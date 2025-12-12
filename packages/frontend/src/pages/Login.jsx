@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Logo from '../components/Logo';
+import api from '../services/api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -9,7 +10,31 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [setupCompleted, setSetupCompleted] = useState(true); // Assume true por padrão
   const { login, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    // Verificar se o setup foi concluído
+    checkSetupStatus();
+  }, []);
+
+  const checkSetupStatus = async () => {
+    try {
+      const response = await api.get('/setup/status');
+      const needsSetup = response.data.needsSetup;
+
+      setSetupCompleted(!needsSetup);
+
+      // Se setup é necessário, redirecionar para FirstSetup
+      if (needsSetup) {
+        window.location.href = '/first-setup';
+      }
+    } catch (error) {
+      console.error('Erro ao verificar status de setup:', error);
+      // Em caso de erro, assume que setup está completo para não bloquear login
+      setSetupCompleted(true);
+    }
+  };
 
   // Se já estiver autenticado, redirecionar para dashboard
   if (isAuthenticated) {
@@ -132,6 +157,18 @@ export default function Login() {
               )}
             </button>
           </form>
+
+          {/* Forgot Password Link - Só aparece se setup estiver completo */}
+          {setupCompleted && (
+            <div className="mt-6 text-center">
+              <Link
+                to="/forgot-password"
+                className="text-sm text-orange-600 hover:text-orange-700 font-medium"
+              >
+                Esqueci minha senha
+              </Link>
+            </div>
+          )}
 
         </div>
       </div>

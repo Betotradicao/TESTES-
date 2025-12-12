@@ -1,145 +1,228 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
 import api from '../services/api';
 
 export default function FirstSetup() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
+  const [cepError, setCepError] = useState('');
+  const [addressReadonly, setAddressReadonly] = useState(false);
 
-  // Dados do administrador
-  const [adminData, setAdminData] = useState({
+  const [formData, setFormData] = useState({
+    // Dados do Endereço
+    cep: '',
+    rua: '',
+    numero: '',
+    complemento: '',
+    bairro: '',
+    cidade: '',
+    estado: '',
+
+    // Dados da Empresa
+    nomeFantasia: '',
+    razaoSocial: '',
+    cnpj: '',
+    responsavelNome: '',
+    responsavelEmail: '',
+    responsavelTelefone: '',
+    telefone: '',
+    email: '',
+
+    // Dados do Administrador
     adminName: '',
+    adminUsername: '',
     adminEmail: '',
     adminPassword: '',
     confirmPassword: '',
-    recoveryEmail: '',
   });
 
-  // Dados SMTP
-  const [smtpData, setSmtpData] = useState({
-    smtpHost: '',
-    smtpPort: '587',
-    smtpUser: '',
-    smtpPassword: '',
-    smtpSecure: true,
-    smtpFromEmail: '',
-    smtpFromName: 'Sistema Prevenção no Radar',
-  });
-
-  const [showPassword, setShowPassword] = useState(false);
-  const [showSmtpPassword, setShowSmtpPassword] = useState(false);
-
-  const handleAdminChange = (e) => {
-    setAdminData({
-      ...adminData,
-      [e.target.name]: e.target.value,
-    });
+  // Formatar CEP enquanto digita
+  const formatCEP = (value) => {
+    const digits = value.replace(/\D/g, '').slice(0, 8);
+    if (digits.length <= 5) {
+      return digits;
+    }
+    return `${digits.slice(0, 5)}-${digits.slice(5)}`;
   };
 
-  const handleSmtpChange = (e) => {
-    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    setSmtpData({
-      ...smtpData,
-      [e.target.name]: value,
-    });
+  // Buscar CEP no ViaCEP
+  useEffect(() => {
+    const searchCEP = async () => {
+      const cleanCep = formData.cep.replace(/\D/g, '');
+
+      if (cleanCep.length === 8) {
+        setCepLoading(true);
+        setCepError('');
+
+        try {
+          const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+          const data = await response.json();
+
+          if (data.erro) {
+            setCepError('CEP não encontrado');
+            setAddressReadonly(false);
+          } else {
+            setFormData(prev => ({
+              ...prev,
+              rua: data.logradouro || '',
+              bairro: data.bairro || '',
+              cidade: data.localidade || '',
+              estado: data.uf || '',
+            }));
+            setAddressReadonly(true);
+            setCepError('');
+          }
+        } catch (err) {
+          setCepError('Erro ao buscar CEP');
+          setAddressReadonly(false);
+        } finally {
+          setCepLoading(false);
+        }
+      } else {
+        setAddressReadonly(false);
+      }
+    };
+
+    const timer = setTimeout(searchCEP, 500);
+    return () => clearTimeout(timer);
+  }, [formData.cep]);
+
+  const handleChange = (e) => {
+    let value = e.target.value;
+    const name = e.target.name;
+
+    // Máscara CEP
+    if (name === 'cep') {
+      value = formatCEP(value);
+    }
+
+    // CNPJ: apenas números
+    if (name === 'cnpj') {
+      value = value.replace(/\D/g, '').slice(0, 14);
+    }
+
+    // Username: letras (maiúsculas/minúsculas), números, underscore, hífen (sem espaços)
+    if (name === 'adminUsername') {
+      value = value.replace(/[^a-zA-Z0-9_-]/g, '');
+    }
+
+    // Estado: apenas 2 letras maiúsculas
+    if (name === 'estado') {
+      value = value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
-  const validateStep1 = () => {
-    if (!adminData.adminName || !adminData.adminEmail || !adminData.adminPassword) {
-      setError('Todos os campos são obrigatórios');
+  const validateForm = () => {
+    // Validar Endereço
+    if (!formData.cep || !formData.rua || !formData.numero || !formData.bairro || !formData.cidade || !formData.estado) {
+      setError('Todos os campos de endereço são obrigatórios');
       return false;
     }
 
-    if (adminData.adminPassword.length < 6) {
-      setError('A senha deve ter no mínimo 6 caracteres');
+    const cleanCep = formData.cep.replace(/\D/g, '');
+    if (cleanCep.length !== 8) {
+      setError('CEP deve conter 8 dígitos');
       return false;
     }
 
-    if (adminData.adminPassword !== adminData.confirmPassword) {
-      setError('As senhas não coincidem');
+    // Validar Empresa
+    if (!formData.nomeFantasia || !formData.razaoSocial || !formData.cnpj) {
+      setError('Nome Fantasia, Razão Social e CNPJ são obrigatórios');
       return false;
     }
 
+    if (formData.cnpj.length !== 14) {
+      setError('CNPJ deve conter exatamente 14 dígitos');
+      return false;
+    }
+
+    // Validar Administrador
+    if (!formData.adminName || !formData.adminUsername || !formData.adminEmail || !formData.adminPassword) {
+      setError('Dados do administrador são obrigatórios');
+      return false;
+    }
+
+    // Validar username
+    const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+    if (!usernameRegex.test(formData.adminUsername)) {
+      setError('Nome de usuário deve conter apenas letras, números, underscore e hífen');
+      return false;
+    }
+
+    if (formData.adminUsername.length < 3) {
+      setError('Nome de usuário deve ter no mínimo 3 caracteres');
+      return false;
+    }
+
+    // Validar email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(adminData.adminEmail)) {
+    if (!emailRegex.test(formData.adminEmail)) {
       setError('Email do administrador inválido');
       return false;
     }
 
-    if (!emailRegex.test(adminData.recoveryEmail)) {
-      setError('Email de recuperação inválido');
+    // Validar senha
+    if (formData.adminPassword.length < 6) {
+      setError('A senha deve ter no mínimo 6 caracteres');
+      return false;
+    }
+
+    if (formData.adminPassword !== formData.confirmPassword) {
+      setError('As senhas não coincidem');
       return false;
     }
 
     return true;
-  };
-
-  const validateStep2 = () => {
-    if (!smtpData.smtpHost || !smtpData.smtpPort || !smtpData.smtpUser ||
-        !smtpData.smtpPassword || !smtpData.smtpFromEmail) {
-      setError('Todos os campos SMTP são obrigatórios');
-      return false;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(smtpData.smtpFromEmail)) {
-      setError('Email de envio inválido');
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleNextStep = () => {
-    setError('');
-
-    if (step === 1 && validateStep1()) {
-      setStep(2);
-    }
-  };
-
-  const handlePreviousStep = () => {
-    setError('');
-    setStep(1);
-  };
-
-  const testSmtpConnection = async () => {
-    if (!validateStep2()) return;
-
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      const response = await api.post('/setup/test-smtp', smtpData);
-      setSuccess(response.data.message || 'Conexão SMTP testada com sucesso!');
-    } catch (err) {
-      setError(err.response?.data?.error || 'Erro ao testar conexão SMTP');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validateStep2()) return;
+    if (!validateForm()) return;
 
     setLoading(true);
     setError('');
     setSuccess('');
 
     try {
-      const setupData = {
-        ...adminData,
-        ...smtpData,
+      const submitData = {
+        // Endereço
+        cep: formData.cep.replace(/\D/g, ''),
+        rua: formData.rua,
+        numero: formData.numero,
+        complemento: formData.complemento || null,
+        bairro: formData.bairro,
+        cidade: formData.cidade,
+        estado: formData.estado,
+
+        // Empresa
+        nomeFantasia: formData.nomeFantasia,
+        razaoSocial: formData.razaoSocial,
+        cnpj: formData.cnpj,
+        responsavelNome: formData.responsavelNome || null,
+        responsavelEmail: formData.responsavelEmail || null,
+        responsavelTelefone: formData.responsavelTelefone || null,
+        telefone: formData.telefone || null,
+        email: formData.email || null,
+
+        // Administrador
+        adminName: formData.adminName,
+        adminUsername: formData.adminUsername,
+        adminEmail: formData.adminEmail,
+        adminPassword: formData.adminPassword,
       };
 
-      await api.post('/setup/perform', setupData);
+      await api.post('/setup/initialize', submitData);
 
       setSuccess('Sistema configurado com sucesso! Redirecionando para login...');
 
@@ -156,44 +239,19 @@ export default function FirstSetup() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full space-y-8">
+      <div className="max-w-4xl w-full space-y-8">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           {/* Logo/Header */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-6">
               <Logo size="large" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Configuração Inicial do Sistema
+            <h1 className="text-3xl font-bold text-gray-900">
+              Bem-vindo ao Sistema Prevenção no Radar
             </h1>
-            <p className="mt-2 text-sm text-gray-600">
-              {step === 1
-                ? 'Crie o primeiro usuário administrador'
-                : 'Configure o servidor de email (SMTP)'}
+            <p className="mt-3 text-base text-gray-600">
+              Configure sua empresa e crie o primeiro usuário administrador
             </p>
-          </div>
-
-          {/* Progress Indicator */}
-          <div className="mb-8">
-            <div className="flex items-center justify-center space-x-4">
-              <div className={`flex items-center ${step >= 1 ? 'text-orange-600' : 'text-gray-400'}`}>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${
-                  step >= 1 ? 'border-orange-600 bg-orange-50' : 'border-gray-300'
-                }`}>
-                  1
-                </div>
-                <span className="ml-2 text-sm font-medium">Administrador</span>
-              </div>
-              <div className={`w-16 h-0.5 ${step >= 2 ? 'bg-orange-600' : 'bg-gray-300'}`} />
-              <div className={`flex items-center ${step >= 2 ? 'text-orange-600' : 'text-gray-400'}`}>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${
-                  step >= 2 ? 'border-orange-600 bg-orange-50' : 'border-gray-300'
-                }`}>
-                  2
-                </div>
-                <span className="ml-2 text-sm font-medium">Email SMTP</span>
-              </div>
-            </div>
           </div>
 
           {/* Error Message */}
@@ -228,196 +286,335 @@ export default function FirstSetup() {
             </div>
           )}
 
-          {/* Step 1: Admin User */}
-          {step === 1 && (
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nome Completo *
-                </label>
-                <input
-                  type="text"
-                  name="adminName"
-                  value={adminData.adminName}
-                  onChange={handleAdminChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  placeholder="Digite o nome do administrador"
-                />
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Seção: Dados da Empresa */}
+            <div className="border-b border-gray-200 pb-8">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                <svg className="w-6 h-6 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                Dados da Empresa
+              </h2>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email de Login *
-                </label>
-                <input
-                  type="email"
-                  name="adminEmail"
-                  value={adminData.adminEmail}
-                  onChange={handleAdminChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  placeholder="email@exemplo.com"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Este email será usado para fazer login no sistema
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email de Recuperação *
-                </label>
-                <input
-                  type="email"
-                  name="recoveryEmail"
-                  value={adminData.recoveryEmail}
-                  onChange={handleAdminChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  placeholder="recuperacao@exemplo.com"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Para recuperação de senha (pode ser o mesmo email acima)
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Senha *
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    name="adminPassword"
-                    value={adminData.adminPassword}
-                    onChange={handleAdminChange}
-                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Mínimo 6 caracteres"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  >
-                    {showPassword ? (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Confirmar Senha *
-                </label>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  name="confirmPassword"
-                  value={adminData.confirmPassword}
-                  onChange={handleAdminChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  placeholder="Digite a senha novamente"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={handleNextStep}
-                className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors font-medium"
-              >
-                Próximo: Configurar Email
-              </button>
-            </div>
-          )}
-
-          {/* Step 2: SMTP Configuration */}
-          {step === 2 && (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Servidor SMTP *
+                    Nome Fantasia *
                   </label>
                   <input
                     type="text"
-                    name="smtpHost"
-                    value={smtpData.smtpHost}
-                    onChange={handleSmtpChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="smtp.gmail.com"
+                    name="nomeFantasia"
+                    value={formData.nomeFantasia}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
+                    placeholder="Nome que aparece na nota"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Razão Social *
+                  </label>
+                  <input
+                    type="text"
+                    name="razaoSocial"
+                    value={formData.razaoSocial}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
+                    placeholder="Razão social da empresa"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    CNPJ * (apenas números)
+                  </label>
+                  <input
+                    type="text"
+                    name="cnpj"
+                    value={formData.cnpj}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
+                    placeholder="00000000000000"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Ex: smtp.gmail.com, smtp-mail.outlook.com
+                    {formData.cnpj.length}/14 dígitos
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Porta *
-                  </label>
-                  <input
-                    type="number"
-                    name="smtpPort"
-                    value={smtpData.smtpPort}
-                    onChange={handleSmtpChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="587"
-                  />
-                </div>
-
-                <div className="flex items-end">
-                  <label className="flex items-center space-x-3 pb-3">
-                    <input
-                      type="checkbox"
-                      name="smtpSecure"
-                      checked={smtpData.smtpSecure}
-                      onChange={handleSmtpChange}
-                      className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
-                    />
-                    <span className="text-sm font-medium text-gray-700">
-                      Usar SSL/TLS
-                    </span>
-                  </label>
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Usuário SMTP *
+                    Telefone da Empresa
                   </label>
                   <input
                     type="text"
-                    name="smtpUser"
-                    value={smtpData.smtpUser}
-                    onChange={handleSmtpChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="seu-email@exemplo.com"
+                    name="telefone"
+                    value={formData.telefone}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
+                    placeholder="(00) 0000-0000"
                   />
                 </div>
 
-                <div className="col-span-2">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Senha SMTP *
+                    Email da Empresa
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
+                    placeholder="contato@empresa.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nome do Responsável
+                  </label>
+                  <input
+                    type="text"
+                    name="responsavelNome"
+                    value={formData.responsavelNome}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
+                    placeholder="Nome do responsável"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email do Responsável
+                  </label>
+                  <input
+                    type="email"
+                    name="responsavelEmail"
+                    value={formData.responsavelEmail}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
+                    placeholder="responsavel@empresa.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Telefone do Responsável
+                  </label>
+                  <input
+                    type="text"
+                    name="responsavelTelefone"
+                    value={formData.responsavelTelefone}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
+                    placeholder="(00) 00000-0000"
+                  />
+                </div>
+              </div>
+
+              {/* Sub-seção: Endereço */}
+              <div className="mt-8 pt-8 border-t border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Endereço</h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      CEP * (00000-000)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="cep"
+                        value={formData.cep}
+                        onChange={handleChange}
+                        maxLength="9"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
+                        placeholder="00000-000"
+                      />
+                      {cepLoading && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <svg className="animate-spin h-5 w-5 text-orange-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    {cepError && (
+                      <p className="mt-1 text-xs text-red-600">{cepError}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Rua *
+                    </label>
+                    <input
+                      type="text"
+                      name="rua"
+                      value={formData.rua}
+                      onChange={handleChange}
+                      readOnly={addressReadonly}
+                      className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors ${addressReadonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                      placeholder="Rua"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Número *
+                    </label>
+                    <input
+                      type="text"
+                      name="numero"
+                      value={formData.numero}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
+                      placeholder="123"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Complemento
+                    </label>
+                    <input
+                      type="text"
+                      name="complemento"
+                      value={formData.complemento}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
+                      placeholder="Apto 101 (opcional)"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Bairro *
+                    </label>
+                    <input
+                      type="text"
+                      name="bairro"
+                      value={formData.bairro}
+                      onChange={handleChange}
+                      readOnly={addressReadonly}
+                      className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors ${addressReadonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                      placeholder="Bairro"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Cidade *
+                    </label>
+                    <input
+                      type="text"
+                      name="cidade"
+                      value={formData.cidade}
+                      onChange={handleChange}
+                      readOnly={addressReadonly}
+                      className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors ${addressReadonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                      placeholder="Cidade"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Estado * (UF)
+                    </label>
+                    <input
+                      type="text"
+                      name="estado"
+                      value={formData.estado}
+                      onChange={handleChange}
+                      readOnly={addressReadonly}
+                      maxLength="2"
+                      className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors ${addressReadonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                      placeholder="SP"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Seção: Usuário Administrador */}
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                <svg className="w-6 h-6 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Usuário Administrador
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nome Completo *
+                  </label>
+                  <input
+                    type="text"
+                    name="adminName"
+                    value={formData.adminName}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
+                    placeholder="João Silva Santos"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nome de Usuário * (para login)
+                  </label>
+                  <input
+                    type="text"
+                    name="adminUsername"
+                    value={formData.adminUsername}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
+                    placeholder="joao_silva"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Letras, números, underscore e hífen (min. 3 caracteres)
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    name="adminEmail"
+                    value={formData.adminEmail}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
+                    placeholder="admin@empresa.com"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Será usado para login e recuperação de senha
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Senha *
                   </label>
                   <div className="relative">
                     <input
-                      type={showSmtpPassword ? "text" : "password"}
-                      name="smtpPassword"
-                      value={smtpData.smtpPassword}
-                      onChange={handleSmtpChange}
-                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      placeholder="Senha do email"
+                      type={showPassword ? "text" : "password"}
+                      name="adminPassword"
+                      value={formData.adminPassword}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
+                      placeholder="Mínimo 6 caracteres"
                     />
                     <button
                       type="button"
-                      onClick={() => setShowSmtpPassword(!showSmtpPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
                     >
-                      {showSmtpPassword ? (
+                      {showPassword ? (
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                         </svg>
@@ -429,71 +626,47 @@ export default function FirstSetup() {
                       )}
                     </button>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Para Gmail, use uma Senha de App (não a senha normal)
-                  </p>
                 </div>
 
-                <div className="col-span-2">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email de Envio *
+                    Confirmar Senha *
                   </label>
                   <input
-                    type="email"
-                    name="smtpFromEmail"
-                    value={smtpData.smtpFromEmail}
-                    onChange={handleSmtpChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="noreply@empresa.com"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Email que aparecerá como remetente
-                  </p>
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nome do Remetente
-                  </label>
-                  <input
-                    type="text"
-                    name="smtpFromName"
-                    value={smtpData.smtpFromName}
-                    onChange={handleSmtpChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Sistema Prevenção no Radar"
+                    type={showPassword ? "text" : "password"}
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
+                    placeholder="Digite a senha novamente"
                   />
                 </div>
               </div>
+            </div>
 
-              <div className="flex space-x-4">
-                <button
-                  type="button"
-                  onClick={handlePreviousStep}
-                  className="flex-1 bg-gray-100 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors font-medium"
-                >
-                  Voltar
-                </button>
-                <button
-                  type="button"
-                  onClick={testSmtpConnection}
-                  disabled={loading}
-                  className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium disabled:opacity-50"
-                >
-                  {loading ? 'Testando...' : 'Testar Conexão'}
-                </button>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors font-medium disabled:opacity-50"
-              >
-                {loading ? 'Configurando...' : 'Finalizar Configuração'}
-              </button>
-            </form>
-          )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-orange-600 text-white py-4 px-6 rounded-lg hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+            >
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Configurando sistema...
+                </div>
+              ) : (
+                'Finalizar Configuração e Criar Conta'
+              )}
+            </button>
+          </form>
         </div>
+
+        <p className="text-center text-sm text-gray-500">
+          Após a configuração, você poderá fazer login com seu nome de usuário ou email e senha cadastrados
+        </p>
       </div>
     </div>
   );

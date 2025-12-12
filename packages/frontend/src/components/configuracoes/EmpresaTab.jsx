@@ -1,209 +1,181 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { fetchMyCompany, updateMyCompany, fetchAllCompanies, createCompany, updateCompany, deleteCompany } from '../../services/companies.service';
+import { fetchMyCompany, updateMyCompany } from '../../services/companies.service';
+import api from '../../services/api';
 
 export default function EmpresaTab() {
   const { user } = useAuth();
   const [company, setCompany] = useState(null);
-  const [allCompanies, setAllCompanies] = useState([]);
-  const [isEditing, setIsEditing] = useState(false);
+  const [masterUser, setMasterUser] = useState(null);
+  const [isEditingCompany, setIsEditingCompany] = useState(false);
+  const [isEditingUser, setIsEditingUser] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingCompany, setEditingCompany] = useState(null); // Empresa sendo editada
+  const [showPassword, setShowPassword] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const [companyFormData, setCompanyFormData] = useState({
     nomeFantasia: '',
     razaoSocial: '',
     cnpj: '',
-    adminEmail: '',
-    adminPassword: ''
+    cep: '',
+    rua: '',
+    numero: '',
+    complemento: '',
+    bairro: '',
+    cidade: '',
+    estado: '',
+    telefone: '',
+    email: '',
+    responsavelNome: '',
+    responsavelEmail: '',
+    responsavelTelefone: ''
+  });
+
+  const [userFormData, setUserFormData] = useState({
+    name: '',
+    username: '',
+    email: '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
   });
 
   useEffect(() => {
-    loadCompanyData();
+    loadData();
   }, []);
 
-  const loadCompanyData = async () => {
+  const loadData = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      if (user?.type === 'admin') {
-        if (user?.isMaster) {
-          // Master can see all companies
-          const companies = await fetchAllCompanies();
-          setAllCompanies(companies || []);
-        } else {
-          // Regular admin sees their company
-          const companyData = await fetchMyCompany();
-          setCompany(companyData);
-          setFormData({
-            nomeFantasia: companyData.nomeFantasia || '',
-            razaoSocial: companyData.razaoSocial || '',
-            cnpj: companyData.cnpj || '',
-            adminEmail: '',
-            adminPassword: ''
-          });
-        }
+      // Carregar dados da empresa
+      const companyData = await fetchMyCompany();
+      setCompany(companyData);
+      setCompanyFormData({
+        nomeFantasia: companyData.nomeFantasia || '',
+        razaoSocial: companyData.razaoSocial || '',
+        cnpj: companyData.cnpj || '',
+        cep: companyData.cep || '',
+        rua: companyData.rua || '',
+        numero: companyData.numero || '',
+        complemento: companyData.complemento || '',
+        bairro: companyData.bairro || '',
+        cidade: companyData.cidade || '',
+        estado: companyData.estado || '',
+        telefone: companyData.telefone || '',
+        email: companyData.email || '',
+        responsavelNome: companyData.responsavelNome || '',
+        responsavelEmail: companyData.responsavelEmail || '',
+        responsavelTelefone: companyData.responsavelTelefone || ''
+      });
+
+      // Carregar dados do usuário master
+      if (user?.isMaster) {
+        const response = await api.get('/auth/me');
+        const userData = response.data.user;
+        setMasterUser(userData);
+        setUserFormData({
+          name: userData.name || '',
+          username: userData.username || '',
+          email: userData.email || '',
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
       }
     } catch (err) {
-      setError('Erro ao carregar dados da empresa');
-      console.error('Load company error:', err);
+      setError('Erro ao carregar dados');
+      console.error('Load data error:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleInputChange = (e) => {
+  const handleCompanyInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setCompanyFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSave = async (e) => {
+  const handleUserInputChange = (e) => {
+    const { name, value } = e.target;
+    setUserFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveCompany = async (e) => {
     e.preventDefault();
     try {
       setError(null);
       setSuccess(null);
 
-      await updateMyCompany({
-        nomeFantasia: formData.nomeFantasia,
-        razaoSocial: formData.razaoSocial,
-        cnpj: formData.cnpj
-      });
+      await updateMyCompany(companyFormData);
 
-      setSuccess('Empresa atualizada com sucesso!');
-      setIsEditing(false);
-      await loadCompanyData();
+      setSuccess('Dados da empresa atualizados com sucesso!');
+      setIsEditingCompany(false);
+      await loadData();
     } catch (err) {
       setError(err.response?.data?.error || 'Erro ao salvar empresa');
       console.error('Save company error:', err);
     }
   };
 
-  const handleCreateCompany = async (e) => {
+  const handleSaveUser = async (e) => {
     e.preventDefault();
-
-    // Prevenir múltiplos cliques
-    if (isLoading) return;
-
-    try {
-      setIsLoading(true);
-      setError(null);
-      setSuccess(null);
-
-      await createCompany(formData);
-
-      setSuccess('Empresa criada com sucesso!');
-      setShowCreateForm(false);
-      setFormData({
-        nomeFantasia: '',
-        razaoSocial: '',
-        cnpj: '',
-        adminEmail: '',
-        adminPassword: ''
-      });
-      await loadCompanyData();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Erro ao criar empresa');
-      console.error('Create company error:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleEditCompany = (company) => {
-    setEditingCompany(company);
-    setFormData({
-      nomeFantasia: company.nomeFantasia || '',
-      razaoSocial: company.razaoSocial || '',
-      cnpj: company.cnpj || '',
-      adminEmail: '',
-      adminPassword: ''
-    });
-    setShowCreateForm(false);
-  };
-
-  const handleUpdateCompany = async (e) => {
-    e.preventDefault();
-
-    if (!editingCompany) return;
-
-    // Prevenir múltiplos cliques
-    if (isLoading) return;
-
-    try {
-      setIsLoading(true);
-      setError(null);
-      setSuccess(null);
-
-      await updateCompany(editingCompany.id, {
-        nomeFantasia: formData.nomeFantasia,
-        razaoSocial: formData.razaoSocial,
-        cnpj: formData.cnpj
-      });
-
-      setSuccess('Empresa atualizada com sucesso!');
-      setEditingCompany(null);
-      setFormData({
-        nomeFantasia: '',
-        razaoSocial: '',
-        cnpj: '',
-        adminEmail: '',
-        adminPassword: ''
-      });
-      await loadCompanyData();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Erro ao atualizar empresa');
-      console.error('Update company error:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDeleteCompany = async (companyId) => {
-    if (!confirm('Tem certeza que deseja excluir esta empresa? Esta ação não pode ser desfeita e todos os dados relacionados serão perdidos!')) {
-      return;
-    }
-
     try {
       setError(null);
       setSuccess(null);
 
-      await deleteCompany(companyId);
+      // Validar senhas se estiver alterando
+      if (userFormData.newPassword) {
+        if (!userFormData.currentPassword) {
+          setError('Senha atual é obrigatória para alterar a senha');
+          return;
+        }
+        if (userFormData.newPassword !== userFormData.confirmPassword) {
+          setError('As senhas não coincidem');
+          return;
+        }
+        if (userFormData.newPassword.length < 6) {
+          setError('A nova senha deve ter no mínimo 6 caracteres');
+          return;
+        }
+      }
 
-      setSuccess('Empresa excluída com sucesso!');
-      await loadCompanyData();
+      const updateData = {
+        name: userFormData.name,
+        username: userFormData.username,
+        email: userFormData.email
+      };
+
+      if (userFormData.newPassword) {
+        updateData.currentPassword = userFormData.currentPassword;
+        updateData.newPassword = userFormData.newPassword;
+      }
+
+      await api.put('/auth/update-profile', updateData);
+
+      setSuccess('Dados do usuário atualizados com sucesso!');
+      setIsEditingUser(false);
+      setUserFormData(prev => ({
+        ...prev,
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      }));
+      await loadData();
     } catch (err) {
-      setError(err.response?.data?.error || 'Erro ao excluir empresa');
-      console.error('Delete company error:', err);
+      setError(err.response?.data?.error || 'Erro ao salvar usuário');
+      console.error('Save user error:', err);
     }
   };
 
   const handleCancel = () => {
-    setIsEditing(false);
-    setShowCreateForm(false);
-    setEditingCompany(null);
-    if (company) {
-      setFormData({
-        nomeFantasia: company.nomeFantasia || '',
-        razaoSocial: company.razaoSocial || '',
-        cnpj: company.cnpj || '',
-        adminEmail: '',
-        adminPassword: ''
-      });
-    } else {
-      setFormData({
-        nomeFantasia: '',
-        razaoSocial: '',
-        cnpj: '',
-        adminEmail: '',
-        adminPassword: ''
-      });
-    }
+    setIsEditingCompany(false);
+    setIsEditingUser(false);
     setError(null);
     setSuccess(null);
+    loadData();
   };
 
   if (isLoading) {
@@ -214,252 +186,27 @@ export default function EmpresaTab() {
     );
   }
 
-  // Master user view - can create and manage multiple companies
-  if (user?.isMaster) {
-    return (
-      <div className="space-y-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">Gerenciar Empresas</h2>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
-            >
-              Criar Nova Empresa
-            </button>
-          </div>
-
-          {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">
-              {success}
-            </div>
-          )}
-
-          {showCreateForm && (
-            <form onSubmit={handleCreateCompany} className="mb-6 p-6 bg-gray-50 rounded-lg border border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Nova Empresa</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nome Fantasia *
-                  </label>
-                  <input
-                    type="text"
-                    name="nomeFantasia"
-                    value={formData.nomeFantasia}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Razão Social *
-                  </label>
-                  <input
-                    type="text"
-                    name="razaoSocial"
-                    value={formData.razaoSocial}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    CNPJ *
-                  </label>
-                  <input
-                    type="text"
-                    name="cnpj"
-                    value={formData.cnpj}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="00.000.000/0000-00"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email do Administrador *
-                  </label>
-                  <input
-                    type="email"
-                    name="adminEmail"
-                    value={formData.adminEmail}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Senha Inicial do Administrador *
-                  </label>
-                  <input
-                    type="password"
-                    name="adminPassword"
-                    value={formData.adminPassword}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2 mt-4">
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoading ? 'Criando...' : 'Criar Empresa'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  disabled={isLoading}
-                  className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Formulário de Edição */}
-          {editingCompany && (
-            <form onSubmit={handleUpdateCompany} className="mb-6 p-6 bg-blue-50 rounded-lg border-2 border-blue-300">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Editar Empresa</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nome Fantasia *
-                  </label>
-                  <input
-                    type="text"
-                    name="nomeFantasia"
-                    value={formData.nomeFantasia}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Razão Social *
-                  </label>
-                  <input
-                    type="text"
-                    name="razaoSocial"
-                    value={formData.razaoSocial}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    CNPJ *
-                  </label>
-                  <input
-                    type="text"
-                    name="cnpj"
-                    value={formData.cnpj}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="00.000.000/0000-00"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2 mt-4">
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoading ? 'Salvando...' : 'Salvar Alterações'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  disabled={isLoading}
-                  className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
-          )}
-
-          <div className="space-y-4">
-            {allCompanies.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">Nenhuma empresa cadastrada</p>
-            ) : (
-              allCompanies.map(comp => (
-                <div key={comp.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-                  <div className="flex items-start justify-between">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
-                      <div>
-                        <p className="text-sm text-gray-500">Nome Fantasia</p>
-                        <p className="font-medium text-gray-900">{comp.nomeFantasia}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Razão Social</p>
-                        <p className="font-medium text-gray-900">{comp.razaoSocial}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">CNPJ</p>
-                        <p className="font-medium text-gray-900">{comp.cnpj}</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 ml-4">
-                      <button
-                        onClick={() => handleEditCompany(comp)}
-                        className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition flex items-center gap-1"
-                        title="Editar empresa"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCompany(comp.id)}
-                        className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition flex items-center gap-1"
-                        title="Excluir empresa"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        Excluir
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Regular admin view - can only edit their company
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">
+          {success}
+        </div>
+      )}
+
+      {/* Dados da Empresa */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold text-gray-900">Dados da Empresa</h2>
-          {!isEditing && (
+          {!isEditingCompany && (
             <button
-              onClick={() => setIsEditing(true)}
+              onClick={() => setIsEditingCompany(true)}
               className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
             >
               Editar
@@ -467,64 +214,217 @@ export default function EmpresaTab() {
           )}
         </div>
 
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">
-            {success}
-          </div>
-        )}
-
         {!company ? (
           <p className="text-gray-500 text-center py-8">Nenhuma empresa vinculada a este usuário</p>
-        ) : isEditing ? (
-          <form onSubmit={handleSave}>
-            <div className="space-y-4">
+        ) : isEditingCompany ? (
+          <form onSubmit={handleSaveCompany}>
+            <div className="space-y-6">
+              {/* Dados Básicos */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nome Fantasia *
-                </label>
-                <input
-                  type="text"
-                  name="nomeFantasia"
-                  value={formData.nomeFantasia}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Dados Básicos</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nome Fantasia *
+                    </label>
+                    <input
+                      type="text"
+                      name="nomeFantasia"
+                      value={companyFormData.nomeFantasia}
+                      onChange={handleCompanyInputChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Razão Social *
+                    </label>
+                    <input
+                      type="text"
+                      name="razaoSocial"
+                      value={companyFormData.razaoSocial}
+                      onChange={handleCompanyInputChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      CNPJ *
+                    </label>
+                    <input
+                      type="text"
+                      name="cnpj"
+                      value={companyFormData.cnpj}
+                      onChange={handleCompanyInputChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Telefone
+                    </label>
+                    <input
+                      type="text"
+                      name="telefone"
+                      value={companyFormData.telefone}
+                      onChange={handleCompanyInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={companyFormData.email}
+                      onChange={handleCompanyInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Razão Social *
-                </label>
-                <input
-                  type="text"
-                  name="razaoSocial"
-                  value={formData.razaoSocial}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+
+              {/* Endereço */}
+              <div className="pt-6 border-t border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Endereço</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      CEP
+                    </label>
+                    <input
+                      type="text"
+                      name="cep"
+                      value={companyFormData.cep}
+                      onChange={handleCompanyInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Rua
+                    </label>
+                    <input
+                      type="text"
+                      name="rua"
+                      value={companyFormData.rua}
+                      onChange={handleCompanyInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Número
+                    </label>
+                    <input
+                      type="text"
+                      name="numero"
+                      value={companyFormData.numero}
+                      onChange={handleCompanyInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Complemento
+                    </label>
+                    <input
+                      type="text"
+                      name="complemento"
+                      value={companyFormData.complemento}
+                      onChange={handleCompanyInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Bairro
+                    </label>
+                    <input
+                      type="text"
+                      name="bairro"
+                      value={companyFormData.bairro}
+                      onChange={handleCompanyInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Cidade
+                    </label>
+                    <input
+                      type="text"
+                      name="cidade"
+                      value={companyFormData.cidade}
+                      onChange={handleCompanyInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Estado (UF)
+                    </label>
+                    <input
+                      type="text"
+                      name="estado"
+                      value={companyFormData.estado}
+                      onChange={handleCompanyInputChange}
+                      maxLength="2"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  CNPJ *
-                </label>
-                <input
-                  type="text"
-                  name="cnpj"
-                  value={formData.cnpj}
-                  onChange={handleInputChange}
-                  required
-                  placeholder="00.000.000/0000-00"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+
+              {/* Responsável */}
+              <div className="pt-6 border-t border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Responsável</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nome do Responsável
+                    </label>
+                    <input
+                      type="text"
+                      name="responsavelNome"
+                      value={companyFormData.responsavelNome}
+                      onChange={handleCompanyInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email do Responsável
+                    </label>
+                    <input
+                      type="email"
+                      name="responsavelEmail"
+                      value={companyFormData.responsavelEmail}
+                      onChange={handleCompanyInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Telefone do Responsável
+                    </label>
+                    <input
+                      type="text"
+                      name="responsavelTelefone"
+                      value={companyFormData.responsavelTelefone}
+                      onChange={handleCompanyInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
+
             <div className="flex gap-2 mt-6">
               <button
                 type="submit"
@@ -542,22 +442,252 @@ export default function EmpresaTab() {
             </div>
           </form>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* Dados Básicos */}
             <div>
-              <p className="text-sm text-gray-500">Nome Fantasia</p>
-              <p className="text-lg font-medium text-gray-900">{company.nomeFantasia}</p>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Dados Básicos</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Nome Fantasia</p>
+                  <p className="text-lg font-medium text-gray-900">{company.nomeFantasia}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Razão Social</p>
+                  <p className="text-lg font-medium text-gray-900">{company.razaoSocial}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">CNPJ</p>
+                  <p className="text-lg font-medium text-gray-900">{company.cnpj}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Telefone</p>
+                  <p className="text-lg font-medium text-gray-900">{company.telefone || '-'}</p>
+                </div>
+                <div className="md:col-span-2">
+                  <p className="text-sm text-gray-500">Email</p>
+                  <p className="text-lg font-medium text-gray-900">{company.email || '-'}</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-gray-500">Razão Social</p>
-              <p className="text-lg font-medium text-gray-900">{company.razaoSocial}</p>
+
+            {/* Endereço */}
+            <div className="pt-6 border-t border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Endereço</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">CEP</p>
+                  <p className="text-lg font-medium text-gray-900">{company.cep || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Rua</p>
+                  <p className="text-lg font-medium text-gray-900">{company.rua || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Número</p>
+                  <p className="text-lg font-medium text-gray-900">{company.numero || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Complemento</p>
+                  <p className="text-lg font-medium text-gray-900">{company.complemento || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Bairro</p>
+                  <p className="text-lg font-medium text-gray-900">{company.bairro || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Cidade</p>
+                  <p className="text-lg font-medium text-gray-900">{company.cidade || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Estado</p>
+                  <p className="text-lg font-medium text-gray-900">{company.estado || '-'}</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-gray-500">CNPJ</p>
-              <p className="text-lg font-medium text-gray-900">{company.cnpj}</p>
+
+            {/* Responsável */}
+            <div className="pt-6 border-t border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Responsável</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Nome</p>
+                  <p className="text-lg font-medium text-gray-900">{company.responsavelNome || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Email</p>
+                  <p className="text-lg font-medium text-gray-900">{company.responsavelEmail || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Telefone</p>
+                  <p className="text-lg font-medium text-gray-900">{company.responsavelTelefone || '-'}</p>
+                </div>
+              </div>
             </div>
           </div>
         )}
       </div>
+
+      {/* Dados do Usuário Master - Só aparece se for master */}
+      {user?.isMaster && masterUser && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">Usuário Administrador Master</h2>
+            {!isEditingUser && (
+              <button
+                onClick={() => setIsEditingUser(true)}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
+              >
+                Editar
+              </button>
+            )}
+          </div>
+
+          {isEditingUser ? (
+            <form onSubmit={handleSaveUser}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nome Completo *
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={userFormData.name}
+                    onChange={handleUserInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nome de Usuário *
+                  </label>
+                  <input
+                    type="text"
+                    name="username"
+                    value={userFormData.username}
+                    onChange={handleUserInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={userFormData.email}
+                    onChange={handleUserInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="pt-6 border-t border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Alterar Senha (opcional)</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Senha Atual
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          name="currentPassword"
+                          value={userFormData.currentPassword}
+                          onChange={handleUserInputChange}
+                          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        >
+                          {showPassword ? (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nova Senha
+                      </label>
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        name="newPassword"
+                        value={userFormData.newPassword}
+                        onChange={handleUserInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Confirmar Nova Senha
+                      </label>
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        name="confirmPassword"
+                        value={userFormData.confirmPassword}
+                        onChange={handleUserInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 mt-6">
+                <button
+                  type="submit"
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
+                >
+                  Salvar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg transition"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-500">Nome Completo</p>
+                <p className="text-lg font-medium text-gray-900">{masterUser.name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Nome de Usuário</p>
+                <p className="text-lg font-medium text-gray-900">{masterUser.username}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Email</p>
+                <p className="text-lg font-medium text-gray-900">{masterUser.email}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Tipo</p>
+                <p className="text-lg font-medium text-gray-900">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+                    Administrador Master
+                  </span>
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
