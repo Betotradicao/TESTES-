@@ -99,43 +99,25 @@ echo Elas estao salvas no arquivo .env
 echo.
 pause
 
-REM ETAPA 4: Parar e limpar containers antigos
+REM ETAPA 4: Parar e limpar containers antigos (SEMPRE LIMPA TUDO)
 echo.
-echo [4/7] Parando containers antigos (se existirem)...
-docker compose -f docker-compose-producao.yml down >nul 2>&1
-echo Containers parados (se existiam)
-
-REM Perguntar se quer limpar volumes (dados do banco)
+echo [4/7] Removendo instalacao anterior (se existir)...
+docker compose -f docker-compose-producao.yml down -v >nul 2>&1
+echo Instalacao anterior removida!
 echo.
 echo ========================================
-echo  ATENCAO: LIMPEZA DE DADOS
+echo  INSTALACAO LIMPA
 echo ========================================
 echo.
-echo Deseja LIMPAR TODOS OS DADOS do banco?
-echo (Isso vai apagar usuarios, bipagens, vendas, etc)
+echo Este instalador sempre cria uma instalacao limpa.
+echo No primeiro acesso voce vai configurar:
 echo.
-echo Digite:
-echo   S = Sim, limpar tudo (instalacao limpa)
-echo   N = Nao, manter dados existentes
+echo  1. Dados da Empresa
+echo  2. Usuario Master (administrador)
+echo  3. Senhas de acesso
 echo.
-set /p LIMPAR_DADOS="Sua escolha (S/N): "
-
-if /i "%LIMPAR_DADOS%"=="S" (
-    echo.
-    echo Removendo volumes antigos...
-    docker compose -f docker-compose-producao.yml down -v
-    echo Volumes removidos! Banco de dados sera criado do zero.
-    echo.
-    echo IMPORTANTE: No primeiro acesso voce vai configurar:
-    echo   - Dados da empresa
-    echo   - Usuario Master inicial
-    echo   - Senhas de acesso
-    echo.
-    pause
-) else (
-    echo.
-    echo Mantendo dados existentes...
-)
+set BANCO_LIMPO=SIM
+pause
 
 REM ETAPA 5: Build
 echo.
@@ -171,7 +153,7 @@ echo.
 echo  Acesse: http://%HOST_IP%:8080
 echo.
 
-if /i "%LIMPAR_DADOS%"=="S" (
+if /i "%BANCO_LIMPO%"=="SIM" (
     echo ========================================
     echo  PRIMEIRO ACESSO
     echo ========================================
