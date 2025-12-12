@@ -7,6 +7,15 @@ export class SetupController {
   // Verifica se o sistema precisa de setup inicial
   static async checkSetupStatus(req: Request, res: Response) {
     try {
+      // Verificar se o banco de dados está inicializado
+      if (!AppDataSource.isInitialized) {
+        console.log('⚠️ Setup Status: Banco de dados ainda não está pronto, aguardando...');
+        return res.json({
+          needsSetup: true,
+          message: 'Banco de dados inicializando... Aguarde alguns segundos.'
+        });
+      }
+
       const userRepository = AppDataSource.getRepository(User);
       const userCount = await userRepository.count();
 
@@ -23,6 +32,14 @@ export class SetupController {
   // Realiza o setup inicial: cria empresa e usuário admin vinculado
   static async performSetup(req: Request, res: Response) {
     try {
+      // Verificar se o banco de dados está inicializado
+      if (!AppDataSource.isInitialized) {
+        console.log('⚠️ Setup Initialize: Banco de dados ainda não está pronto');
+        return res.status(503).json({
+          error: 'Banco de dados ainda não está pronto. Aguarde alguns segundos e tente novamente.'
+        });
+      }
+
       const {
         // Dados do Admin
         adminUsername,
