@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
 import path from 'path';
+import { Pool } from 'pg';
 
 dotenv.config();
 
@@ -32,4 +33,12 @@ export const AppDataSource = new DataSource({
 
   // Reconectar automaticamente se a conexão cair
   connectTimeoutMS: 10000,
+});
+
+// Pool pg para queries raw (usado em autenticação e serviços)
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 3000,
 });
