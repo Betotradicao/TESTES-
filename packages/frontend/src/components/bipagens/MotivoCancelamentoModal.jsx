@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { fetchEmployees } from '../../services/employees.service';
 
 const MOTIVOS_CANCELAMENTO = [
+  { value: 'devolucao_mercadoria', label: '↩️ Cancelamento de Bipagem', icon: '↩️' },
   { value: 'produto_abandonado', label: '📦 Produto Abandonado', icon: '📦' },
   { value: 'falta_cancelamento', label: '❌ Falta de Cancelamento', icon: '❌' },
-  { value: 'devolucao_mercadoria', label: '↩️ Devolução de Mercadoria', icon: '↩️' },
   { value: 'erro_operador', label: '👤 Erro do Operador(a)', icon: '👤', requiresEmployee: true },
   { value: 'erro_balconista', label: '🛒 Erro do Balconista', icon: '🛒', requiresEmployee: true },
   { value: 'furto', label: '🚨 Furto', icon: '🚨' }
