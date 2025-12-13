@@ -167,7 +167,9 @@
       "Bash(schtasks /query:*)",
       "Bash(powershell:*)",
       "Bash(del temp_old_version.txt)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(curl -X POST \"https://developers.hostinger.com/api/vps/v1/virtual-machines/1196003/ssh-command\" )",
+      "Bash(ssh:*)"
     ],
     "deny": [],
     "ask": []
