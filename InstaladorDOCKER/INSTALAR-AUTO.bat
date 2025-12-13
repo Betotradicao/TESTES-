@@ -153,24 +153,33 @@ timeout /t 15 /nobreak >nul
 
 echo.
 echo ========================================
-echo  INSTALACAO CONCLUIDA!
+echo  INSTALACAO CONCLUIDA COM SUCESSO!
 echo ========================================
 echo.
-echo  Acesse: http://%HOST_IP%:8080
+echo  Sistema instalado e rodando!
 echo.
+echo ========================================
+echo  CONFIGURACAO INICIAL
+echo ========================================
+echo.
+echo Acesse o sistema para configurar:
+echo.
+echo  1. Dados da Empresa (Nome, CNPJ, Endereco)
+echo  2. Usuario Administrador Master
+echo  3. Configuracoes de Rede (API Zanthus)
+echo.
+echo URL de Acesso:
+echo  http://%HOST_IP%:8080/first-setup
+echo.
+echo Abrindo navegador automaticamente...
+echo.
+timeout /t 3 /nobreak >nul
 
-echo ========================================
-echo  PRIMEIRO ACESSO
-echo ========================================
-echo.
-echo Como o banco foi limpo, no primeiro acesso
-echo voce vai configurar:
-echo.
-echo  1. Dados da Empresa
-echo  2. Usuario Master (administrador)
-echo  3. Configuracoes iniciais
-echo.
-echo Acesse agora: http://%HOST_IP%:8080
-echo.
+REM Abrir navegador automaticamente
+start http://%HOST_IP%:8080/first-setup
 
+echo.
+echo Navegador aberto!
+echo Configure o sistema e aproveite!
+echo.
 pause
