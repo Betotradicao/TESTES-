@@ -8,7 +8,10 @@ dotenv.config();
 export const AppDataSource = new DataSource({
   type: 'postgres',
   url: process.env.DATABASE_URL,
+  // IMPORTANTE: synchronize desligado, usar migrations
   synchronize: false,
+  // Rodar migrations automaticamente na inicialização (todos os ambientes)
+  migrationsRun: true,
   logging: process.env.NODE_ENV === 'development',
   entities: [path.join(__dirname, '../entities/*.{ts,js}')],
   migrations: [path.join(__dirname, '../migrations/*.{ts,js}')],
