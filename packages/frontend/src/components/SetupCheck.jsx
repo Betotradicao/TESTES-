@@ -78,11 +78,12 @@ export default function SetupCheck({ children }) {
     );
   }
 
-  // Se precisa de setup, não renderiza os children (o navigate já foi chamado)
-  if (needsSetup) {
+  // Se precisa de setup E não está em /first-setup, não renderiza nada (navegação acontecendo)
+  // Se precisa de setup MAS está em /first-setup, renderiza normalmente para mostrar a página
+  if (needsSetup && location.pathname !== '/first-setup') {
     return null;
   }
 
-  // Se não precisa de setup, renderiza normalmente
+  // Renderiza normalmente (ou está configurado, ou está em /first-setup)
   return children;
 }
