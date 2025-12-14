@@ -677,6 +677,61 @@ O MinIO usa **duas portas diferentes**:
 
 ---
 
+## 🎬 Primeiro Acesso - Configuração Inicial (First-Setup)
+
+Após instalar o sistema, ao acessar pela primeira vez, você será direcionado automaticamente para o **First-Setup**.
+
+### O que é o First-Setup?
+
+É um wizard de configuração inicial que cria:
+- ✅ Dados da empresa (Nome, CNPJ, Endereço)
+- ✅ Primeiro usuário administrador
+- ✅ Configurações básicas do sistema
+
+### Como usar:
+
+1. **Acesse o sistema** (ex: `http://192.168.0.145:8080` ou `http://localhost:8080`)
+2. Você será **redirecionado automaticamente** para `/first-setup`
+3. Preencha os dados solicitados:
+   - **Dados da Empresa**: Nome Fantasia, Razão Social, CNPJ, Endereço
+   - **Usuário Administrador**: Nome, Username, Email, Senha
+4. Clique em **"Finalizar Configuração"**
+5. Você será redirecionado para o **Login**
+
+### ⚠️ IMPORTANTE - Migration Manual (Docker)
+
+Ao instalar via Docker pela primeira vez, você **pode precisar** executar uma migration manualmente para adicionar os campos de endereço no banco de dados.
+
+**Sintomas do problema:**
+- Erro `column Company.cep does not exist` ao salvar o first-setup
+- Erro 500 no console do navegador
+
+**Solução rápida:**
+
+```bash
+# 1. Executar migration automática (tente primeiro)
+docker exec -it prevencao-backend-prod npm run migration:run:prod
+
+# 2. Se disser "No migrations are pending", execute manualmente:
+docker exec -it prevencao-postgres-prod psql -U postgres -d prevencao_db -c "ALTER TABLE companies ADD COLUMN IF NOT EXISTS cep VARCHAR(9); ALTER TABLE companies ADD COLUMN IF NOT EXISTS rua VARCHAR(255); ALTER TABLE companies ADD COLUMN IF NOT EXISTS numero VARCHAR(20); ALTER TABLE companies ADD COLUMN IF NOT EXISTS complemento VARCHAR(100); ALTER TABLE companies ADD COLUMN IF NOT EXISTS bairro VARCHAR(100); ALTER TABLE companies ADD COLUMN IF NOT EXISTS cidade VARCHAR(100); ALTER TABLE companies ADD COLUMN IF NOT EXISTS estado VARCHAR(2);"
+
+# 3. Registrar migration como executada
+docker exec -it prevencao-postgres-prod psql -U postgres -d prevencao_db -c "INSERT INTO migrations (timestamp, name) VALUES (1765580000000, 'AddAddressFieldsToCompanies1765580000000');"
+```
+
+**Por que isso acontece?**
+- A migration TypeScript não é automaticamente compilada para JavaScript no build do Docker
+- Estamos trabalhando em uma solução permanente para automatizar isso
+
+### Após o First-Setup:
+
+- ✅ Sistema configurado
+- ✅ Banco de dados populado
+- ✅ Você pode fazer login com o usuário criado
+- ✅ Acesse o Dashboard e comece a usar!
+
+---
+
 ## 🔄 Processo de Cron Jobs
 
 O sistema possui cron jobs automáticos que rodam às **5h da manhã**:
