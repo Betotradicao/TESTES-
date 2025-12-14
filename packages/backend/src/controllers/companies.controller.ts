@@ -162,23 +162,40 @@ export class CompaniesController {
   async getMyCompany(req: Request, res: Response) {
     try {
       const userId = (req as any).userId;
+      console.log('🔍 getMyCompany - userId:', userId);
 
       const user = await userRepository.findOne({
         where: { id: userId },
         relations: ['company']
       });
 
+      console.log('🔍 getMyCompany - user:', user ? { id: user.id, companyId: user.companyId, hasCompany: !!user.company } : null);
+
       if (!user) {
+        console.log('❌ getMyCompany - User not found');
         return res.status(404).json({ error: 'User not found' });
       }
 
       if (!user.company) {
+        console.log('❌ getMyCompany - No company loaded. companyId:', user.companyId);
+
+        // Tentar buscar a empresa diretamente
+        if (user.companyId) {
+          const company = await companyRepository.findOne({ where: { id: user.companyId } });
+          console.log('🔍 getMyCompany - Buscou empresa diretamente:', company ? { id: company.id, nome: company.nomeFantasia } : null);
+
+          if (company) {
+            return res.json(company);
+          }
+        }
+
         return res.status(404).json({ error: 'No company associated with this user' });
       }
 
+      console.log('✅ getMyCompany - Company found:', { id: user.company.id, nome: user.company.nomeFantasia });
       return res.json(user.company);
     } catch (error) {
-      console.error('Error fetching user company:', error);
+      console.error('❌ Error fetching user company:', error);
       return res.status(500).json({ error: 'Failed to fetch company' });
     }
   }
