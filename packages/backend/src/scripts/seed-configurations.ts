@@ -67,7 +67,7 @@ async function seedConfigurations() {
       // PostgreSQL
       {
         key: 'postgres_host',
-        value: process.env.DB_HOST || 'localhost',
+        value: process.env.HOST_IP || 'localhost',
         description: 'Host do PostgreSQL'
       },
       {
