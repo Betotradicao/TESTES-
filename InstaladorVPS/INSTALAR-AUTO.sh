@@ -60,9 +60,9 @@ echo ""
 
 echo "🔐 Gerando senhas seguras aleatórias..."
 
-# Função para gerar senha aleatória (sem caracteres especiais problemáticos em shells)
+# Função para gerar senha aleatória (APENAS letras e números - sem caracteres especiais)
 generate_password() {
-    tr -dc 'A-Za-z0-9@#' < /dev/urandom | head -c 24
+    tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32
 }
 
 # Gerar senhas
