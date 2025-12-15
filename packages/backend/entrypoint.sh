@@ -12,5 +12,8 @@ done
 echo "🔄 Executando migrations automaticamente..."
 npm run migration:run:prod || echo "⚠️ Nenhuma migration pendente ou erro ao executar migrations"
 
+echo "🌱 Populando configurações iniciais..."
+npm run seed:configurations:prod || echo "⚠️ Seed já executado ou erro ao popular configurações"
+
 echo "✅ Iniciando servidor..."
 exec node dist/index.js

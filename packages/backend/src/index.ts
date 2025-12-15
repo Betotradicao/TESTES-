@@ -22,6 +22,7 @@ import companiesRouter from './routes/companies.routes';
 import systemRouter from './routes/system.routes';
 import setupRouter from './routes/setup.routes';
 import passwordRecoveryRouter from './routes/password-recovery.routes';
+import configurationsRouter from './routes/configurations.routes';
 import { minioService } from './services/minio.service';
 import { seedMasterUser } from './database/seeds/masterUser.seed';
 // import { checkSetupMiddleware } from './middleware/check-setup.middleware';
@@ -71,6 +72,7 @@ app.use('/api/equipment-sessions', equipmentSessionsRouter);
 app.use('/api/config', configRouter);
 app.use('/api/companies', companiesRouter);
 app.use('/api/system', systemRouter);
+app.use('/api/configurations', configurationsRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {

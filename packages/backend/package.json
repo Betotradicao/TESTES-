@@ -19,7 +19,9 @@
     "check:last:bip": "ts-node src/commands/check-last-bip.command.ts",
     "check:last:bip:prod": "node dist/commands/check-last-bip.command.js",
     "run:daily:verification": "ts-node src/commands/daily-verification.command.ts",
-    "run:daily:verification:prod": "node dist/commands/daily-verification.command.js"
+    "run:daily:verification:prod": "node dist/commands/daily-verification.command.js",
+    "seed:configurations": "ts-node src/scripts/seed-configurations.ts",
+    "seed:configurations:prod": "node dist/scripts/seed-configurations.js"
   },
   "keywords": [],
   "author": "",
