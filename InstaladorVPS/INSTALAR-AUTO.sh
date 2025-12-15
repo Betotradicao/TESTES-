@@ -43,8 +43,8 @@ echo ""
 
 echo "🔍 Detectando IP público da VPS..."
 
-# Tentar múltiplos serviços para obter IP público
-HOST_IP=$(curl -s ifconfig.me || curl -s icanhazip.com || curl -s ipinfo.io/ip || echo "")
+# Tentar múltiplos serviços para obter IP público IPv4
+HOST_IP=$(curl -4 -s ifconfig.me || curl -4 -s icanhazip.com || curl -4 -s ipinfo.io/ip || echo "")
 
 if [ -z "$HOST_IP" ]; then
     echo "⚠️  Não foi possível detectar o IP automaticamente"
@@ -60,9 +60,9 @@ echo ""
 
 echo "🔐 Gerando senhas seguras aleatórias..."
 
-# Função para gerar senha aleatória
+# Função para gerar senha aleatória (sem caracteres especiais problemáticos em shells)
 generate_password() {
-    tr -dc 'A-Za-z0-9!@#$%' < /dev/urandom | head -c 24
+    tr -dc 'A-Za-z0-9@#' < /dev/urandom | head -c 24
 }
 
 # Gerar senhas
