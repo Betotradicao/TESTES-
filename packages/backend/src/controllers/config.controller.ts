@@ -149,7 +149,8 @@ export class ConfigController {
       const config: any = {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
-        }
+        },
+        timeout: 10000 // 10 segundos
       };
 
       // Nota: Token não é usado pois causa erro 500 na API Zanthus
@@ -282,7 +283,9 @@ export class ConfigController {
       const salesUrl = `${baseUrl}${salesEndpoint}?dta_de=${dataFormatada}&dta_ate=${dataFormatada}`;
       const productsUrl = productsEndpoint ? `${baseUrl}${productsEndpoint}` : null;
 
-      const config: any = {};
+      const config: any = {
+        timeout: 10000 // 10 segundos
+      };
 
       // Adiciona autenticação Basic se tiver usuário e senha
       if (username && password) {
