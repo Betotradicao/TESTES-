@@ -119,11 +119,7 @@ if [ -z "$VPS_IP" ]; then
   echo "⚠️  Não foi possível detectar automaticamente"
   read -p "Digite o IP público desta VPS: " VPS_IP </dev/tty
 else
-  echo "✅ IP detectado: $VPS_IP"
-  read -p "Confirma? (Enter=sim / digite outro IP): " IP_CUSTOM </dev/tty
-  if [ ! -z "$IP_CUSTOM" ]; then
-    VPS_IP="$IP_CUSTOM"
-  fi
+  echo "✅ IP da VPS detectado: $VPS_IP"
 fi
 
 echo ""
