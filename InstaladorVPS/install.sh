@@ -161,59 +161,61 @@ echo "⚙️  Criando arquivo de configuração..."
 cd "$PROJECT_DIR/InstaladorVPS"
 
 cat > .env << EOF
-# URLs e Hosts
-NODE_ENV=production
-FRONTEND_URL=http://${VPS_IP}:3000
-BACKEND_URL=http://${VPS_IP}:3001
+# ============================================
+# IP da VPS
+# ============================================
+HOST_IP=${VPS_IP}
 
-# Banco de Dados PostgreSQL
-DB_HOST=postgres
-DB_PORT=5432
-DB_USERNAME=postgres
-DB_PASSWORD=postgres123
-DB_NAME=prevencao_db
+# ============================================
+# TAILSCALE (Opcional)
+# ============================================
+TAILSCALE_CLIENT_IP=${TAILSCALE_IP}
 
-# PostgreSQL (variáveis do container)
-POSTGRES_DB=prevencao_db
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres123
-
-# MinIO - Conexão interna (backend -> MinIO)
-MINIO_ENDPOINT=minio
-MINIO_PORT=9000
+# ============================================
+# MINIO - Armazenamento de Arquivos
+# ============================================
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=minioadmin123
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin123
-MINIO_BUCKET_NAME=employee-avatars
-MINIO_USE_SSL=false
-
-# MinIO - URLs públicas (navegador -> MinIO)
+MINIO_BUCKET_NAME=market-security
 MINIO_PUBLIC_ENDPOINT=${VPS_IP}
 MINIO_PUBLIC_PORT=9010
 MINIO_PUBLIC_USE_SSL=false
 
-# MinIO - Credenciais do container
-MINIO_ROOT_USER=minioadmin
-MINIO_ROOT_PASSWORD=minioadmin123
+# ============================================
+# POSTGRESQL - Banco de Dados
+# ============================================
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres123
+POSTGRES_DB=prevencao_db
 
-# Portas da aplicação
-BACKEND_PORT=3003
-FRONTEND_PORT=3004
-PORT=3003
+# Conexão do Backend ao PostgreSQL (interno Docker)
+DB_HOST=postgres
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres123
+DB_NAME=prevencao_db
 
-# Email (configurável no primeiro acesso)
+# ============================================
+# BACKEND - API
+# ============================================
+NODE_ENV=production
+PORT=3001
+JWT_SECRET=$(openssl rand -base64 32)
+API_TOKEN=$(openssl rand -base64 32)
+
+# ============================================
+# EMAIL - Recuperação de Senha
+# ============================================
 EMAIL_USER=betotradicao76@gmail.com
 EMAIL_PASS=ylljjijqstxnwogk
 WELCOME_MESSAGE=Bem-vindo ao Sistema Prevenção no Radar! Estamos felizes em tê-lo conosco. Sua conta foi criada com sucesso e você já pode começar a utilizar todas as funcionalidades do sistema.
 
-# JWT Secret
-JWT_SECRET=$(openssl rand -base64 32)
-
-# Configurações extras
-LOG_LEVEL=info
-HOST_IP=${VPS_IP}
+# ============================================
+# FRONTEND - Interface Web
+# ============================================
 VITE_API_URL=http://${VPS_IP}:3001/api
-DB_USER=postgres
-API_TOKEN=$(openssl rand -base64 32)
 EOF
 
 echo "✅ Configuração criada"
