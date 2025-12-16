@@ -19,8 +19,10 @@ PROJECT_DIR="$HOME/roberto-prevencao-no-radar-main"
 echo "🧹 Limpando instalação anterior..."
 echo ""
 
-# Parar containers
-cd "$PROJECT_DIR/InstaladorVPS" 2>/dev/null && docker compose -f docker-compose-producao.yml down -v 2>/dev/null || true
+# Parar containers se existirem
+if [ -d "$PROJECT_DIR/InstaladorVPS" ]; then
+  cd "$PROJECT_DIR/InstaladorVPS" && docker compose -f docker-compose-producao.yml down -v 2>/dev/null || true
+fi
 
 # Remover containers relacionados
 docker ps -a | grep prevencao | awk '{print $1}' | xargs -r docker rm -f 2>/dev/null || true
@@ -31,21 +33,32 @@ docker volume ls | grep prevencao | awk '{print $2}' | xargs -r docker volume rm
 # Limpar imagens antigas
 docker image prune -af 2>/dev/null || true
 
+# Remover diretório antigo
+if [ -d "$PROJECT_DIR" ]; then
+  rm -rf "$PROJECT_DIR"
+fi
+
 echo "✅ Limpeza concluída"
 echo ""
 
 # ============================================
-# ATUALIZAR CÓDIGO
+# CLONAR/ATUALIZAR CÓDIGO
 # ============================================
 
-echo "📥 Atualizando código do GitHub..."
+if [ ! -d "$PROJECT_DIR" ]; then
+  echo "📥 Clonando repositório do GitHub..."
+  cd "$HOME"
+  git clone https://github.com/Betotradicao/NOVO-PREVEN-O.git roberto-prevencao-no-radar-main
+  echo "✅ Repositório clonado"
+else
+  echo "📥 Atualizando código do GitHub..."
+  cd "$PROJECT_DIR"
+  git fetch origin
+  git reset --hard origin/main
+  git pull origin main
+  echo "✅ Código atualizado"
+fi
 
-cd "$PROJECT_DIR"
-git fetch origin
-git reset --hard origin/main
-git pull origin main
-
-echo "✅ Código atualizado"
 echo ""
 
 # ============================================
