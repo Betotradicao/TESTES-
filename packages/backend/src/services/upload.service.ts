@@ -83,14 +83,25 @@ export class UploadService {
     const ext = this.getFileExtension(file.originalname);
     const filename = `bip_${bipId}_${timestamp}${ext}`;
 
-    const url = await minioService.uploadFile(
-      filename,
-      file.buffer,
-      file.mimetype
-    );
+    console.log(`📸 Iniciando upload de imagem: ${filename} (${(file.buffer.length / 1024).toFixed(2)} KB)`);
+    const startTime = Date.now();
 
-    console.log(`📸 Imagem enviada para MinIO: ${filename}`);
-    return url;
+    try {
+      const url = await minioService.uploadFile(
+        filename,
+        file.buffer,
+        file.mimetype
+      );
+
+      const duration = Date.now() - startTime;
+      console.log(`✅ Imagem enviada para MinIO em ${duration}ms: ${filename}`);
+      console.log(`🔗 URL: ${url}`);
+      return url;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error(`❌ Erro ao enviar imagem após ${duration}ms:`, error);
+      throw error;
+    }
   }
 
   /**
@@ -104,14 +115,25 @@ export class UploadService {
     const ext = this.getFileExtension(file.originalname);
     const filename = `bip_${bipId}_${timestamp}${ext}`;
 
-    const url = await minioService.uploadFile(
-      filename,
-      file.buffer,
-      file.mimetype
-    );
+    console.log(`🎥 Iniciando upload de vídeo: ${filename} (${(file.buffer.length / 1024 / 1024).toFixed(2)} MB)`);
+    const startTime = Date.now();
 
-    console.log(`🎥 Vídeo enviado para MinIO: ${filename}`);
-    return url;
+    try {
+      const url = await minioService.uploadFile(
+        filename,
+        file.buffer,
+        file.mimetype
+      );
+
+      const duration = Date.now() - startTime;
+      console.log(`✅ Vídeo enviado para MinIO em ${duration}ms: ${filename}`);
+      console.log(`🔗 URL: ${url}`);
+      return url;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error(`❌ Erro ao enviar vídeo após ${duration}ms:`, error);
+      throw error;
+    }
   }
 
   /**

@@ -135,12 +135,20 @@ export class MinioService {
    */
   async uploadFile(fileName: string, fileBuffer: Buffer, contentType: string): Promise<string> {
     try {
+      console.log(`📤 MinIO: Enviando arquivo ${fileName} (${(fileBuffer.length / 1024).toFixed(2)} KB)`);
+      console.log(`📤 MinIO: Bucket=${this.bucketName}, Endpoint=${this.endpoint}:${this.port}`);
+
+      const uploadStart = Date.now();
+
       await this.s3Client.send(new PutObjectCommand({
         Bucket: this.bucketName,
         Key: fileName,
         Body: fileBuffer,
         ContentType: contentType,
       }));
+
+      const uploadDuration = Date.now() - uploadStart;
+      console.log(`✅ MinIO: Arquivo enviado com sucesso em ${uploadDuration}ms`);
 
       // Return the URL to access the file
       // Use separate config for public URLs (browser-accessible)
@@ -153,9 +161,19 @@ export class MinioService {
       const shouldIncludePort = publicPort && publicPort !== '80' && publicPort !== '443';
       const portPart = shouldIncludePort ? `:${publicPort}` : '';
 
-      return `${publicUseSSL ? 'https' : 'http'}://${publicEndpoint}${portPart}/${this.bucketName}/${fileName}`;
+      const url = `${publicUseSSL ? 'https' : 'http'}://${publicEndpoint}${portPart}/${this.bucketName}/${fileName}`;
+      console.log(`🔗 MinIO: URL gerada: ${url}`);
+
+      return url;
     } catch (error) {
-      console.error('Error uploading file to MinIO:', error);
+      console.error('❌ MinIO: Erro ao fazer upload:', error);
+      console.error('❌ MinIO: Detalhes:', {
+        fileName,
+        bucket: this.bucketName,
+        endpoint: `${this.endpoint}:${this.port}`,
+        contentType,
+        bufferSize: fileBuffer.length
+      });
       throw new Error('Failed to upload file');
     }
   }
