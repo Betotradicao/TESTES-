@@ -211,7 +211,7 @@ JWT_SECRET=$(openssl rand -base64 32)
 # Configurações extras
 LOG_LEVEL=info
 HOST_IP=${VPS_IP}
-VITE_API_URL=http://${VPS_IP}:3001
+VITE_API_URL=http://${VPS_IP}:3001/api
 DB_USER=postgres
 API_TOKEN=$(openssl rand -base64 32)
 EOF
