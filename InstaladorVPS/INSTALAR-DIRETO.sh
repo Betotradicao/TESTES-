@@ -3,14 +3,27 @@ set -e
 
 echo "╔════════════════════════════════════════════════════════════════╗"
 echo "║                                                                ║"
-echo "║   🚀 INSTALAÇÃO AUTOMÁTICA - SEM CONFIRMAÇÃO                   ║"
-echo "║   Prevenção no Radar                                          ║"
+echo "║   🚀 INSTALAÇÃO RÁPIDA - PREVENÇÃO NO RADAR                    ║"
 echo "║                                                                ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
 # Detectar diretório do projeto
 PROJECT_DIR="$HOME/roberto-prevencao-no-radar-main"
+
+# ============================================
+# CONFIRMAÇÃO DE LIMPEZA
+# ============================================
+
+echo "⚠️  ATENÇÃO: Este script vai reinstalar o sistema do ZERO."
+echo ""
+read -p "Deseja EXCLUIR tudo e reinstalar? (SIM/não): " CONFIRMA_LIMPEZA
+echo ""
+
+if [ "$CONFIRMA_LIMPEZA" != "SIM" ]; then
+  echo "❌ Instalação cancelada pelo usuário."
+  exit 0
+fi
 
 # ============================================
 # LIMPEZA COMPLETA
@@ -42,13 +55,27 @@ echo "✅ Limpeza concluída"
 echo ""
 
 # ============================================
-# CLONAR/ATUALIZAR CÓDIGO
+# CLONAR REPOSITÓRIO
 # ============================================
 
 echo "📥 Clonando repositório do GitHub..."
 cd "$HOME"
 git clone https://github.com/Betotradicao/NOVO-PREVEN-O.git roberto-prevencao-no-radar-main
 echo "✅ Repositório clonado"
+echo ""
+
+# ============================================
+# CONFIGURAÇÃO DO TAILSCALE DO CLIENTE
+# ============================================
+
+echo "🏪 Configuração do Cliente (Loja)"
+echo ""
+echo "Se o cliente possui Tailscale instalado na máquina onde roda o ERP,"
+echo "informe o IP Tailscale para conectar automaticamente."
+echo ""
+echo "Exemplo: 100.69.131.40"
+echo ""
+read -p "IP Tailscale da máquina do cliente (deixe vazio se não usar): " TAILSCALE_CLIENT_IP
 echo ""
 
 # ============================================
@@ -59,6 +86,10 @@ echo "🚀 Iniciando instalação automática..."
 echo ""
 
 cd "$PROJECT_DIR/InstaladorVPS"
+
+# Exportar variável para o INSTALAR-AUTO.sh usar
+export TAILSCALE_CLIENT_IP_AUTO="$TAILSCALE_CLIENT_IP"
+
 bash INSTALAR-AUTO.sh
 
 echo ""
