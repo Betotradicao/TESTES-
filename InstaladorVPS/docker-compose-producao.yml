@@ -82,6 +82,10 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       API_TOKEN: ${API_TOKEN}
 
+      # Email
+      EMAIL_USER: ${EMAIL_USER}
+      EMAIL_PASS: ${EMAIL_PASS}
+
       # App
       PORT: ${PORT}
       NODE_ENV: ${NODE_ENV}
