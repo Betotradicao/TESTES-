@@ -43,6 +43,7 @@ export default function FirstSetup() {
     // Configuração de Email de Envio
     emailUser: 'betotradicao76@gmail.com',
     emailPass: 'ylljjijqstxnwogk',
+    welcomeMessage: 'Bem-vindo ao Sistema Prevenção no Radar! Estamos felizes em tê-lo conosco. Sua conta foi criada com sucesso e você já pode começar a utilizar todas as funcionalidades do sistema.',
   });
 
   // Formatar CEP enquanto digita
@@ -245,6 +246,7 @@ export default function FirstSetup() {
         // Email de Envio
         emailUser: formData.emailUser,
         emailPass: formData.emailPass,
+        welcomeMessage: formData.welcomeMessage,
       };
 
       await api.post('/setup/initialize', submitData);
@@ -740,6 +742,24 @@ export default function FirstSetup() {
                   </div>
                   <p className="mt-1 text-xs text-gray-500">
                     {formData.emailPass.length}/16 caracteres
+                  </p>
+                </div>
+
+                {/* Mensagem de Boas-Vindas */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Mensagem de Boas-Vindas
+                  </label>
+                  <textarea
+                    name="welcomeMessage"
+                    value={formData.welcomeMessage}
+                    onChange={handleChange}
+                    rows="4"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors resize-none"
+                    placeholder="Mensagem que será enviada por email aos novos usuários"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Esta mensagem será enviada por email quando novos usuários forem criados no sistema
                   </p>
                 </div>
               </div>

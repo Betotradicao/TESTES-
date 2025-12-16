@@ -67,7 +67,8 @@ export class SetupController {
         email,
         // Email de Envio
         emailUser,
-        emailPass
+        emailPass,
+        welcomeMessage
       } = req.body;
 
       // Validações
@@ -172,12 +173,26 @@ export class SetupController {
           envContent += `\nEMAIL_PASS=${emailPass}`;
         }
 
+        // Atualizar ou adicionar WELCOME_MESSAGE
+        if (welcomeMessage) {
+          // Escapar aspas na mensagem
+          const escapedMessage = welcomeMessage.replace(/"/g, '\\"');
+          if (envContent.includes('WELCOME_MESSAGE=')) {
+            envContent = envContent.replace(/WELCOME_MESSAGE=.*/, `WELCOME_MESSAGE="${escapedMessage}"`);
+          } else {
+            envContent += `\nWELCOME_MESSAGE="${escapedMessage}"`;
+          }
+        }
+
         fs.writeFileSync(envPath, envContent, 'utf8');
         console.log('✅ Configurações de email salvas no .env');
 
         // Atualizar variáveis de ambiente em memória
         process.env.EMAIL_USER = emailUser;
         process.env.EMAIL_PASS = emailPass;
+        if (welcomeMessage) {
+          process.env.WELCOME_MESSAGE = welcomeMessage;
+        }
       } catch (error) {
         console.error('⚠️ Erro ao salvar configurações de email no .env:', error);
         // Não retornar erro pois o setup principal foi concluído
