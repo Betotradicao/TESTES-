@@ -3,19 +3,13 @@
 echo "🔧 Corrigindo configuração do MinIO no banco de dados..."
 echo ""
 
-# Entrar no container do PostgreSQL e atualizar as configurações
-docker exec -it prevencao-postgres-prod psql -U postgres -d prevencao_db << EOF
+# Entrar no container do PostgreSQL e atualizar as configurações (sem -it para funcionar no pipe)
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "UPDATE configurations SET value = 'minio' WHERE key = 'minio_endpoint';"
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "UPDATE configurations SET value = '9000' WHERE key = 'minio_port';"
 
--- Atualizar endpoint interno do MinIO
-UPDATE configurations SET value = 'minio' WHERE key = 'minio_endpoint';
-
--- Atualizar porta interna do MinIO
-UPDATE configurations SET value = '9000' WHERE key = 'minio_port';
-
--- Verificar as configurações atualizadas
-SELECT key, value FROM configurations WHERE key LIKE 'minio%' ORDER BY key;
-
-EOF
+echo ""
+echo "📋 Configurações atualizadas:"
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "SELECT key, value FROM configurations WHERE key LIKE 'minio%' ORDER BY key;"
 
 echo ""
 echo "✅ Configuração atualizada! Reiniciando backend..."
