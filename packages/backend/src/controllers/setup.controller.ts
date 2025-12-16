@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { AppDataSource } from '../config/database';
 import { User, UserRole } from '../entities/User';
 import { Company } from '../entities/Company';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export class SetupController {
   // Verifica se o sistema precisa de setup inicial
@@ -62,7 +64,10 @@ export class SetupController {
         cidade,
         estado,
         telefone,
-        email
+        email,
+        // Email de Envio
+        emailUser,
+        emailPass
       } = req.body;
 
       // Validações
@@ -72,6 +77,10 @@ export class SetupController {
 
       if (!nomeFantasia || !razaoSocial || !cnpj) {
         return res.status(400).json({ error: 'Dados da empresa são obrigatórios' });
+      }
+
+      if (!emailUser || !emailPass) {
+        return res.status(400).json({ error: 'Email e senha de envio são obrigatórios' });
       }
 
       // Verificar se já existe algum usuário
@@ -139,6 +148,40 @@ export class SetupController {
 
       await userRepository.save(adminUser);
       console.log('✅ Usuário admin criado:', adminUser.username, '/', adminUser.email);
+
+      // Atualizar .env com as credenciais de email
+      try {
+        const envPath = path.resolve(__dirname, '../../.env');
+        let envContent = '';
+
+        if (fs.existsSync(envPath)) {
+          envContent = fs.readFileSync(envPath, 'utf8');
+        }
+
+        // Atualizar ou adicionar EMAIL_USER
+        if (envContent.includes('EMAIL_USER=')) {
+          envContent = envContent.replace(/EMAIL_USER=.*/, `EMAIL_USER=${emailUser}`);
+        } else {
+          envContent += `\nEMAIL_USER=${emailUser}`;
+        }
+
+        // Atualizar ou adicionar EMAIL_PASS
+        if (envContent.includes('EMAIL_PASS=')) {
+          envContent = envContent.replace(/EMAIL_PASS=.*/, `EMAIL_PASS=${emailPass}`);
+        } else {
+          envContent += `\nEMAIL_PASS=${emailPass}`;
+        }
+
+        fs.writeFileSync(envPath, envContent, 'utf8');
+        console.log('✅ Configurações de email salvas no .env');
+
+        // Atualizar variáveis de ambiente em memória
+        process.env.EMAIL_USER = emailUser;
+        process.env.EMAIL_PASS = emailPass;
+      } catch (error) {
+        console.error('⚠️ Erro ao salvar configurações de email no .env:', error);
+        // Não retornar erro pois o setup principal foi concluído
+      }
 
       return res.status(201).json({
         message: 'Setup realizado com sucesso',
