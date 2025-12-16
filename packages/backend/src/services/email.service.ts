@@ -25,15 +25,45 @@ class EmailService {
     }
 
     try {
-      this.transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: emailUser,
-          pass: emailPass
-        }
-      });
+      // Detecta se é Gmail ou Yahoo baseado no domínio do email
+      const isGmail = emailUser.includes('@gmail.com');
+      const isYahoo = emailUser.includes('@yahoo.com');
 
-      console.log('✅ Serviço de email inicializado');
+      if (isGmail) {
+        // Configuração para Gmail
+        this.transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: emailUser,
+            pass: emailPass
+          }
+        });
+        console.log('✅ Serviço de email inicializado (Gmail)');
+      } else if (isYahoo) {
+        // Configuração para Yahoo
+        this.transporter = nodemailer.createTransport({
+          host: 'smtp.mail.yahoo.com',
+          port: 465,
+          secure: true,
+          auth: {
+            user: emailUser,
+            pass: emailPass
+          }
+        });
+        console.log('✅ Serviço de email inicializado (Yahoo)');
+      } else {
+        // Configuração genérica SMTP (pode configurar manualmente no .env)
+        this.transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST || 'smtp.gmail.com',
+          port: parseInt(process.env.SMTP_PORT || '587'),
+          secure: process.env.SMTP_SECURE === 'true',
+          auth: {
+            user: emailUser,
+            pass: emailPass
+          }
+        });
+        console.log('✅ Serviço de email inicializado (SMTP customizado)');
+      }
     } catch (error) {
       console.error('❌ Erro ao inicializar serviço de email:', error);
     }

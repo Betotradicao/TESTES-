@@ -134,6 +134,39 @@ fi
 echo ""
 
 # ============================================
+# CONFIGURAÇÃO DE EMAIL (GMAIL)
+# ============================================
+
+echo "📧 Configuração de Email para Recuperação de Senha"
+echo ""
+echo "Para enviar emails de recuperação de senha, você precisa configurar"
+echo "uma conta Gmail com senha de app."
+echo ""
+echo "Como gerar senha de app do Gmail:"
+echo "1. Acesse https://myaccount.google.com/security"
+echo "2. Ative 'Verificação em duas etapas'"
+echo "3. Vá em 'Senhas de app' ou https://myaccount.google.com/apppasswords"
+echo "4. Gere uma senha de app para 'Outro (nome personalizado)'"
+echo ""
+read -p "Email do Gmail (ou deixe vazio para configurar depois): " EMAIL_USER
+
+if [ -n "$EMAIL_USER" ]; then
+    read -p "Senha de app do Gmail (16 caracteres sem espaços): " EMAIL_PASS
+
+    if [ -n "$EMAIL_PASS" ]; then
+        echo "✅ Email configurado: $EMAIL_USER"
+    else
+        echo "⚠️  Senha de app não informada. Email não será configurado."
+        EMAIL_USER=""
+    fi
+else
+    echo "⚠️  Email não configurado. Recuperação de senha não funcionará."
+    EMAIL_PASS=""
+fi
+
+echo ""
+
+# ============================================
 # GERAÇÃO DE SENHAS ALEATÓRIAS
 # ============================================
 
@@ -213,6 +246,12 @@ NODE_ENV=production
 PORT=3001
 JWT_SECRET=$JWT_SECRET
 API_TOKEN=$API_TOKEN
+
+# ============================================
+# EMAIL - Recuperação de Senha
+# ============================================
+EMAIL_USER=$EMAIL_USER
+EMAIL_PASS=$EMAIL_PASS
 
 # ============================================
 # FRONTEND - Interface Web
