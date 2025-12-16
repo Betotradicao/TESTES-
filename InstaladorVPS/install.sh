@@ -113,7 +113,7 @@ echo "📋 Configuração do Sistema"
 echo ""
 
 echo "🔍 Detectando IP público da VPS..."
-VPS_IP=$(curl -s ifconfig.me || curl -s icanhazip.com || curl -s ipinfo.io/ip)
+VPS_IP=$(curl -4 -s ifconfig.me || curl -4 -s icanhazip.com || curl -4 -s ipinfo.io/ip)
 
 if [ -z "$VPS_IP" ]; then
   echo "⚠️  Não foi possível detectar automaticamente"
