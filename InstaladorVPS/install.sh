@@ -163,8 +163,8 @@ cd "$PROJECT_DIR/InstaladorVPS"
 cat > .env << EOF
 # URLs e Hosts
 NODE_ENV=production
-FRONTEND_URL=http://${VPS_IP}:3004
-BACKEND_URL=http://${VPS_IP}:3003
+FRONTEND_URL=http://${VPS_IP}:3000
+BACKEND_URL=http://${VPS_IP}:3001
 
 # Banco de Dados PostgreSQL
 DB_HOST=postgres
@@ -188,7 +188,7 @@ MINIO_USE_SSL=false
 
 # MinIO - URLs públicas (navegador -> MinIO)
 MINIO_PUBLIC_ENDPOINT=${VPS_IP}
-MINIO_PUBLIC_PORT=9000
+MINIO_PUBLIC_PORT=9010
 MINIO_PUBLIC_USE_SSL=false
 
 # MinIO - Credenciais do container
@@ -211,7 +211,7 @@ JWT_SECRET=$(openssl rand -base64 32)
 # Configurações extras
 LOG_LEVEL=info
 HOST_IP=${VPS_IP}
-VITE_API_URL=http://${VPS_IP}:3003
+VITE_API_URL=http://${VPS_IP}:3001
 DB_USER=postgres
 API_TOKEN=$(openssl rand -base64 32)
 EOF
@@ -254,9 +254,9 @@ echo ""
 docker compose -f docker-compose-producao.yml ps
 
 # Usar portas fixas (definidas no docker-compose-producao.yml)
-FRONTEND_PORT=3004
-BACKEND_PORT=3003
-MINIO_PORT=9000
+FRONTEND_PORT=3000
+BACKEND_PORT=3001
+MINIO_PORT=9010
 
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"

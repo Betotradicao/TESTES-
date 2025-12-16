@@ -37,8 +37,8 @@ services:
     volumes:
       - minio-data:/data
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9010:9000"
+      - "9011:9001"
     networks:
       - prevencao-network
     command: server /data --console-address ":9001"
@@ -91,7 +91,7 @@ services:
       NODE_ENV: ${NODE_ENV}
       HOST_IP: ${HOST_IP}
     ports:
-      - "3003:3001"
+      - "3001:3001"
     networks:
       - prevencao-network
     depends_on:
@@ -114,7 +114,7 @@ services:
     container_name: prevencao-frontend-prod
     restart: always
     ports:
-      - "3004:80"
+      - "3000:80"
     networks:
       - prevencao-network
     depends_on:
