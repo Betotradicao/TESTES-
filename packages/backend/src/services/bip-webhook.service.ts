@@ -19,7 +19,14 @@ export class BipWebhookService {
 
       if (!erpProduct) {
         console.log(`⚠️  Produto com PLU ${plu} não encontrado no ERP`);
-        return null;
+        console.log(`🎭 Criando produto mock para simulação/teste`);
+
+        // Retorna produto mock para permitir simulação sem ERP configurado
+        return {
+          descricao: `Produto Teste PLU ${plu}`,
+          valvenda: 10.99,
+          valoferta: null
+        };
       }
 
       console.log(`✅ Produto encontrado no ERP: ${erpProduct.descricao}`);
@@ -30,7 +37,14 @@ export class BipWebhookService {
       };
     } catch (error) {
       console.error(`❌ Erro ao buscar produto ${plu} no ERP:`, error);
-      return null;
+      console.log(`🎭 Criando produto mock para simulação/teste (erro no ERP)`);
+
+      // Fallback para produto mock em caso de erro de conexão com ERP
+      return {
+        descricao: `Produto Teste PLU ${plu}`,
+        valvenda: 10.99,
+        valoferta: null
+      };
     }
   }
 
