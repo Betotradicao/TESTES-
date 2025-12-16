@@ -21,7 +21,8 @@
     "run:daily:verification": "ts-node src/commands/daily-verification.command.ts",
     "run:daily:verification:prod": "node dist/commands/daily-verification.command.js",
     "seed:configurations": "ts-node src/scripts/seed-configurations.ts",
-    "seed:configurations:prod": "node dist/scripts/seed-configurations.js"
+    "seed:configurations:prod": "node dist/scripts/seed-configurations.js",
+    "seed": "node dist/scripts/seed-configurations.js"
   },
   "keywords": [],
   "author": "",
