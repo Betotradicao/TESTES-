@@ -70,12 +70,13 @@ export class ConfigController {
       const Minio = require('minio');
 
       // Usar credenciais internas do Docker para teste (backend está dentro da rede Docker)
+      // Sempre usar as credenciais do environment (MINIO_ROOT_USER/PASSWORD) para garantir que funcione
       const minioClient = new Minio.Client({
         endPoint: process.env.MINIO_ENDPOINT || 'minio',
         port: parseInt(process.env.MINIO_PORT || '9000'),
         useSSL: (process.env.MINIO_USE_SSL || 'false') === 'true',
-        accessKey,
-        secretKey
+        accessKey: process.env.MINIO_ROOT_USER || process.env.MINIO_ACCESS_KEY || accessKey,
+        secretKey: process.env.MINIO_ROOT_PASSWORD || process.env.MINIO_SECRET_KEY || secretKey
       });
 
       // Testa listando os buckets
