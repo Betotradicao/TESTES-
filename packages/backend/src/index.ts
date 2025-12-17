@@ -23,8 +23,11 @@ import systemRouter from './routes/system.routes';
 import setupRouter from './routes/setup.routes';
 import passwordRecoveryRouter from './routes/password-recovery.routes';
 import configurationsRouter from './routes/configurations.routes';
+import emailMonitorRouter from './routes/email-monitor.routes';
 import { minioService } from './services/minio.service';
+import { EmailMonitorService } from './services/email-monitor.service';
 import { seedMasterUser } from './database/seeds/masterUser.seed';
+import * as cron from 'node-cron';
 // import { checkSetupMiddleware } from './middleware/check-setup.middleware';
 
 dotenv.config();
@@ -73,6 +76,7 @@ app.use('/api/config', configRouter);
 app.use('/api/companies', companiesRouter);
 app.use('/api/system', systemRouter);
 app.use('/api/configurations', configurationsRouter);
+app.use('/api/email-monitor', emailMonitorRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {
@@ -133,6 +137,17 @@ const startServer = async () => {
     console.log(`🚀 Server is running on port ${PORT}`);
     console.log(`📚 Swagger docs available at http://localhost:${PORT}/api-docs`);
   });
+
+  // Email Monitor Cron Job - runs every 30 seconds
+  cron.schedule('*/30 * * * * *', async () => {
+    try {
+      await EmailMonitorService.checkNewEmails();
+    } catch (error) {
+      console.error('❌ Email monitor cron error:', error);
+    }
+  });
+
+  console.log('📧 Email monitor cron job started (every 30 seconds)');
 };
 
 startServer();

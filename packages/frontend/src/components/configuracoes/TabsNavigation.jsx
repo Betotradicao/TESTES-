@@ -5,7 +5,8 @@ export default function TabsNavigation({ activeTab, onChange, pageType = 'config
     { id: 'empresa', label: 'Empresa' },
     { id: 'apis', label: 'APIs' },
     { id: 'security', label: 'Segurança' },
-    { id: 'email', label: 'Email' }
+    { id: 'email', label: 'Email' },
+    { id: 'email-monitor', label: 'Monitor Email' }
   ];
 
   // Abas para Configurações normais
