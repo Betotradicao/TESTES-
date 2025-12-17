@@ -101,6 +101,12 @@ services:
         condition: service_healthy
     volumes:
       - backend-uploads:/app/uploads
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prevencao-backend.rule=Host(`prevencaonoradar.com.br`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.prevencao-backend.entrypoints=websecure"
+      - "traefik.http.routers.prevencao-backend.tls.certresolver=letsencryptresolver"
+      - "traefik.http.services.prevencao-backend.loadbalancer.server.port=3001"
 
   # ==========================================
   # FRONTEND (React + Vite) - BUILD ESTÁTICO
@@ -119,6 +125,12 @@ services:
       - prevencao-network
     depends_on:
       - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prevencao-frontend.rule=Host(`prevencaonoradar.com.br`) || Host(`www.prevencaonoradar.com.br`)"
+      - "traefik.http.routers.prevencao-frontend.entrypoints=websecure"
+      - "traefik.http.routers.prevencao-frontend.tls.certresolver=letsencryptresolver"
+      - "traefik.http.services.prevencao-frontend.loadbalancer.server.port=80"
 
   # ==========================================
   # CRON - VERIFICAÇÃO AUTOMÁTICA

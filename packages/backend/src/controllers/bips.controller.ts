@@ -215,7 +215,7 @@ export class BipsController {
       // Create a map of bip_id -> sell data for quick lookup
       const sellsMap = new Map(
         sells.map(sell => [sell.bipId, {
-          sell_date: sell.sellDate,
+          sell_date: sell.sellDate ? sell.sellDate.toISOString().replace("T", " ").substring(0, 19) : null,
           sell_num_cupom_fiscal: sell.numCupomFiscal,
           sell_point_of_sale_code: sell.pointOfSaleCode
         }])
