@@ -24,9 +24,9 @@ export default function APIsTab() {
       salesEndpoint: '/v1/vendas'
     },
     evolution: {
-      apiUrl: 'https://evolution.tradicaosjc.com.br',
-      apiToken: '47de291022054bdb65f49d59579338f7',
-      instance: 'PESSOAL',
+      apiUrl: 'http://31.97.82.235:8090',
+      apiToken: 'E73D57BB-5AEF-4560-87E6-966C933CE1DA',
+      instance: 'FACIAL_TRADICAO_L1',
       whatsappGroupId: '120363422563235781@g.us'
     },
     database: {
@@ -87,9 +87,9 @@ export default function APIsTab() {
             salesEndpoint: configs.intersolid_sales_endpoint || '/v1/vendas'
           },
           evolution: {
-            apiUrl: configs.evolution_api_url || 'https://evolution.tradicaosjc.com.br',
-            apiToken: configs.evolution_api_token || '47de291022054bdb65f49d59579338f7',
-            instance: configs.evolution_instance || 'PESSOAL',
+            apiUrl: configs.evolution_api_url || 'http://31.97.82.235:8090',
+            apiToken: configs.evolution_api_token || 'E73D57BB-5AEF-4560-87E6-966C933CE1DA',
+            instance: configs.evolution_instance || 'FACIAL_TRADICAO_L1',
             whatsappGroupId: configs.evolution_whatsapp_group_id || '120363422563235781@g.us'
           },
           database: {
