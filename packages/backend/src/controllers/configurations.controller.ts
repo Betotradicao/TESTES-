@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AppDataSource } from '../config/database';
 import { Configuration } from '../entities/Configuration';
+import { ConfigurationService } from '../services/configuration.service';
 
 const configRepository = AppDataSource.getRepository(Configuration);
 
@@ -84,12 +85,12 @@ export class ConfigurationsController {
 
   /**
    * GET /api/configurations/email
-   * Buscar configurações de email
+   * Buscar configurações de email (do banco de dados)
    */
   async getEmailConfig(req: Request, res: Response) {
     try {
-      const emailUser = process.env.EMAIL_USER || '';
-      const emailPass = process.env.EMAIL_PASS || '';
+      const emailUser = await ConfigurationService.get('email_user', process.env.EMAIL_USER || '');
+      const emailPass = await ConfigurationService.get('email_pass', process.env.EMAIL_PASS || '');
 
       return res.json({
         email_user: emailUser,
@@ -103,7 +104,7 @@ export class ConfigurationsController {
 
   /**
    * PUT /api/configurations/email
-   * Atualizar configurações de email no .env
+   * Atualizar configurações de email (salva no banco de dados)
    */
   async updateEmailConfig(req: Request, res: Response) {
     try {
@@ -113,39 +114,16 @@ export class ConfigurationsController {
         return res.status(400).json({ error: 'Email e senha são obrigatórios' });
       }
 
-      const fs = require('fs');
-      const path = require('path');
+      // Salvar no banco de dados
+      await ConfigurationService.set('email_user', email_user);
+      await ConfigurationService.set('email_pass', email_pass);
 
-      // Caminho do arquivo .env
-      const envPath = path.resolve(__dirname, '../../.env');
-
-      // Ler o arquivo .env atual
-      let envContent = '';
-      try {
-        envContent = fs.readFileSync(envPath, 'utf8');
-      } catch (error) {
-        return res.status(500).json({ error: 'Arquivo .env não encontrado' });
-      }
-
-      // Atualizar ou adicionar EMAIL_USER
-      if (envContent.includes('EMAIL_USER=')) {
-        envContent = envContent.replace(/EMAIL_USER=.*/g, `EMAIL_USER=${email_user}`);
-      } else {
-        envContent += `\nEMAIL_USER=${email_user}`;
-      }
-
-      // Atualizar ou adicionar EMAIL_PASS
-      if (envContent.includes('EMAIL_PASS=')) {
-        envContent = envContent.replace(/EMAIL_PASS=.*/g, `EMAIL_PASS=${email_pass}`);
-      } else {
-        envContent += `\nEMAIL_PASS=${email_pass}`;
-      }
-
-      // Escrever de volta no arquivo .env
-      fs.writeFileSync(envPath, envContent, 'utf8');
+      // Atualizar variáveis de ambiente em memória
+      process.env.EMAIL_USER = email_user;
+      process.env.EMAIL_PASS = email_pass;
 
       return res.json({
-        message: 'Configurações de email atualizadas. Reinicie o backend para aplicar.',
+        message: 'Configurações de email atualizadas com sucesso',
         email_user,
         email_pass: '***' // Não retornar a senha real
       });

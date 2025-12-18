@@ -274,7 +274,8 @@
       "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"ls -la /root/\")",
       "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"cd /root/prevencao-no-radar && git pull origin main\")",
       "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"cd /root/NOVO-PREVEN-O/InstaladorVPS && docker compose -f docker-compose-producao.yml up -d --build\")",
-      "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"cd /root/NOVO-PREVEN-O && git pull origin main && cd InstaladorVPS && docker compose -f docker-compose-producao.yml up -d --build backend\")"
+      "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"cd /root/NOVO-PREVEN-O && git pull origin main && cd InstaladorVPS && docker compose -f docker-compose-producao.yml up -d --build backend\")",
+      "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"grep -i ''AUTHENTICATION_API_KEY\\|GLOBAL_API_KEY'' /root/evolution.yaml\")"
     ],
     "deny": [],
     "ask": []

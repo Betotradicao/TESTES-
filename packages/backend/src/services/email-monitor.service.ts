@@ -440,19 +440,24 @@ export class EmailMonitorService {
     try {
       // Buscar configurações da Evolution API
       const evolutionApiUrl = await ConfigurationService.get('evolution_api_url', '');
-      const evolutionApiToken = await ConfigurationService.get('evolution_api_token', '');
       const evolutionInstance = await ConfigurationService.get('evolution_instance', '');
 
-      if (!evolutionApiUrl || !evolutionApiToken || !evolutionInstance) {
+      if (!evolutionApiUrl || !evolutionInstance) {
         throw new Error('Evolution API não configurada');
       }
+
+      // Usar a chave global de autenticação da Evolution
+      const globalApiKey = '47de291022054bdb65f49d59579338f7';
 
       // Fazer requisição para buscar grupos
       const response = await axios.get(
         `${evolutionApiUrl}/group/fetchAllGroups/${evolutionInstance}`,
         {
+          params: {
+            getParticipants: 'false'
+          },
           headers: {
-            'apikey': evolutionApiToken
+            'apikey': globalApiKey
           }
         }
       );
