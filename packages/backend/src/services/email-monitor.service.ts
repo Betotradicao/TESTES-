@@ -265,8 +265,8 @@ export class EmailMonitorService {
       console.log(`✅ Email processado e enviado para WhatsApp`);
 
       // Clean up temp file
-      if (fs.existsSync(pdfPath)) {
-        fs.unlinkSync(pdfPath);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
       }
 
     } catch (error) {
