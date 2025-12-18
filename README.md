@@ -701,6 +701,12 @@ O MinIO usa **duas portas diferentes**:
 ### Configurações
 - **APIs**: Integração com Zanthus, Intersolid, Evolution API
 - **WhatsApp**: Notificações automáticas via Evolution API
+- **Monitor de Email (DVR)**:
+  - Monitoramento automático de alertas de DVR via Gmail
+  - Extração de imagens de PDFs anexos
+  - Envio de notificações para WhatsApp com imagens
+  - Configuração de filtros de assunto e intervalo de verificação
+  - Logs de emails processados
 - **Rede**: Gerenciamento de equipamentos e scanners
 - **Segurança**: Controle de acesso e permissões
 - **Email**: Configuração de SMTP para recuperação de senha
