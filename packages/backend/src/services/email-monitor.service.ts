@@ -139,6 +139,34 @@ export class EmailMonitorService {
   }
 
   /**
+   * Salva uma cópia permanente da imagem para a galeria
+   */
+  private static async savePermanentImage(tempFilePath: string): Promise<string | null> {
+    try {
+      const uploadsDir = path.join(__dirname, '../../uploads/dvr_images');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      // Gerar nome único para a imagem permanente
+      const ext = path.extname(tempFilePath);
+      const filename = `dvr_${Date.now()}${ext}`;
+      const permanentPath = path.join(uploadsDir, filename);
+
+      // Copiar arquivo temporário para o diretório permanente
+      fs.copyFileSync(tempFilePath, permanentPath);
+
+      console.log(`💾 Imagem permanente salva: ${permanentPath}`);
+
+      // Retornar apenas o nome do arquivo (não o caminho completo)
+      return filename;
+    } catch (error) {
+      console.error('❌ Erro ao salvar imagem permanente:', error);
+      return null;
+    }
+  }
+
+  /**
    * Extrai imagem de PDF
    */
   private static async extractImageFromPDF(pdfBuffer: Buffer): Promise<string | null> {
@@ -248,6 +276,9 @@ export class EmailMonitorService {
         return;
       }
 
+      // Salvar cópia permanente da imagem para a galeria
+      const permanentImageFilename = await this.savePermanentImage(filePath);
+
       // Send to WhatsApp
       await this.sendToWhatsApp(config.whatsapp_group_id, textBody, filePath);
 
@@ -259,7 +290,8 @@ export class EmailMonitorService {
         status: 'success',
         error_message: null,
         has_attachment: true,
-        whatsapp_group_id: config.whatsapp_group_id
+        whatsapp_group_id: config.whatsapp_group_id,
+        image_path: permanentImageFilename
       });
 
       console.log(`✅ Email processado e enviado para WhatsApp`);

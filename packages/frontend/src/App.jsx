@@ -14,6 +14,7 @@ import ResultadosDoDia from './pages/ResultadosDoDia';
 import Configuracoes from './pages/Configuracoes';
 import ConfiguracoesRede from './pages/ConfiguracoesRede';
 import Perfil from './pages/Perfil';
+import ReconhecimentoFacial from './pages/ReconhecimentoFacial';
 
 function App() {
   return (
@@ -89,6 +90,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Perfil />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reconhecimento-facial"
+              element={
+                <ProtectedRoute>
+                  <ReconhecimentoFacial />
                 </ProtectedRoute>
               }
             />

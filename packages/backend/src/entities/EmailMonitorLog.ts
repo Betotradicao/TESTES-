@@ -26,6 +26,9 @@ export class EmailMonitorLog {
   @Column({ type: 'varchar', length: 255, nullable: true })
   whatsapp_group_id: string | null;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  image_path: string | null;
+
   @CreateDateColumn()
   processed_at: Date;
 }
