@@ -290,18 +290,32 @@ export class EmailMonitorService {
   private static formatEmailText(text: string): string {
     // Adicionar emojis ao texto baseado em palavras-chave
     let formattedText = text
+      // Evento de alarme
+      .replace(/Evento de alarme:/gi, '🚨 Evento de alarme:')
       // Reconhecimento Facial
       .replace(/Reconhecimento Facial/gi, '🧠 Reconhecimento Facial')
-      // Canal
+      // Alarme no Canal
+      .replace(/Alarme no Canal No\.:/gi, '📡 Alarme no Canal No.:')
+      .replace(/Canal No\.:/gi, '📡 Canal No.:')
       .replace(/Canal:/gi, '📡 Canal:')
+      // Nome do canal/grupo
+      .replace(/Nome: FACIAL/gi, '📱 Nome: FACIAL')
       // Horário
+      .replace(/Hor[aá]rio do inicio do alarme\(D\/M\/A H:M:S\):/gi, '🕐 Horário do inicio do alarme(D/M/A H:M:S):')
       .replace(/Hor[aá]rio:/gi, '🕐 Horário:')
       // Dispositivo
+      .replace(/Nome do dispositivo de alarme:/gi, '📷 Nome do dispositivo de alarme:')
       .replace(/Dispositivo:/gi, '📷 Dispositivo:')
+      // IP do DVR
+      .replace(/End\. IP DVR:/gi, '🌐 End. IP DVR:')
+      // Detalhes do alarme
+      .replace(/Detalhes do alarme:/gi, '📋 Detalhes do alarme:')
+      // Modo Comum
+      .replace(/Modo Comum/gi, '⚙️ Modo Comum')
       // Banco de imagens
       .replace(/Banco de imagens:/gi, '📂 Banco de imagens:')
-      // Nome
-      .replace(/Nome:/gi, '🧑 Nome:')
+      // Nome da pessoa
+      .replace(/(\s+)Nome:/gi, '$1🧑 Nome:')
       // Similaridade
       .replace(/Similaridade:/gi, '📊 Similaridade:')
       // Idade
@@ -315,9 +329,7 @@ export class EmailMonitorService {
       // Máscara
       .replace(/M[aá]scara:/gi, '😷 Máscara:')
       // Barba
-      .replace(/Barba:/gi, '🧔 Barba:')
-      // Evento de alarme
-      .replace(/Evento de alarme:/gi, '🚨 Evento de alarme:');
+      .replace(/Barba:/gi, '🧔 Barba:');
 
     return formattedText;
   }
