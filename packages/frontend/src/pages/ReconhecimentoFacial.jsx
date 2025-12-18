@@ -219,10 +219,10 @@ export default function ReconhecimentoFacial() {
 
           {/* Card de Resumo */}
           <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mb-8">
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white">
+            <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg p-6 text-white">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-purple-100 text-sm font-medium mb-1">Total de Reconhecimentos</p>
+                  <p className="text-orange-100 text-sm font-medium mb-1">Total de Reconhecimentos</p>
                   <p className="text-4xl font-bold">{totalReconhecimentos}</p>
                 </div>
                 <div className="bg-white bg-opacity-20 rounded-full p-4">
@@ -247,7 +247,7 @@ export default function ReconhecimentoFacial() {
                   type="date"
                   value={filters.date_from}
                   onChange={(e) => handleFilterChange({ ...filters, date_from: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
                 />
               </div>
 
@@ -261,7 +261,7 @@ export default function ReconhecimentoFacial() {
                   value={filters.date_to}
                   onChange={(e) => handleFilterChange({ ...filters, date_to: e.target.value })}
                   min={filters.date_from}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
                 />
               </div>
 
@@ -275,7 +275,7 @@ export default function ReconhecimentoFacial() {
                   placeholder="Ex: FURTANTES"
                   value={filters.banco_imagens}
                   onChange={(e) => handleFilterChange({ ...filters, banco_imagens: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
                 />
               </div>
 
@@ -289,7 +289,7 @@ export default function ReconhecimentoFacial() {
                   placeholder="Ex: João Silva"
                   value={filters.nome}
                   onChange={(e) => handleFilterChange({ ...filters, nome: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
                 />
               </div>
 
@@ -298,7 +298,7 @@ export default function ReconhecimentoFacial() {
                 <button
                   onClick={applyFilters}
                   disabled={loading}
-                  className="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:ring-4 focus:ring-purple-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 focus:ring-4 focus:ring-orange-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Carregando...' : 'Aplicar Filtros'}
                 </button>
@@ -312,7 +312,7 @@ export default function ReconhecimentoFacial() {
 
             {loading ? (
               <div className="text-center py-12">
-                <svg className="animate-spin h-10 w-10 text-purple-500 mx-auto" fill="none" viewBox="0 0 24 24">
+                <svg className="animate-spin h-10 w-10 text-orange-500 mx-auto" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
@@ -331,7 +331,7 @@ export default function ReconhecimentoFacial() {
                     <div
                       key={log.id}
                       onClick={() => openImageViewer(log)}
-                      className="bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-purple-400 transition-all cursor-pointer overflow-hidden group"
+                      className="bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-orange-400 transition-all cursor-pointer overflow-hidden group"
                     >
                       {/* Imagem */}
                       <div className="aspect-square bg-gray-200 relative overflow-hidden">
@@ -366,7 +366,7 @@ export default function ReconhecimentoFacial() {
                           {info.bancoImagens || 'Banco não identificado'}
                         </p>
                         {info.similaridade && (
-                          <p className="text-xs text-purple-600 font-medium mt-1">
+                          <p className="text-xs text-orange-600 font-medium mt-1">
                             {info.similaridade}
                           </p>
                         )}
@@ -409,7 +409,7 @@ export default function ReconhecimentoFacial() {
                   <button
                     onClick={handleZoomOut}
                     disabled={imageZoom <= 50}
-                    className="text-white hover:text-purple-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="text-white hover:text-orange-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     title="Diminuir zoom"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -419,7 +419,7 @@ export default function ReconhecimentoFacial() {
 
                   <button
                     onClick={handleZoomReset}
-                    className="text-white hover:text-purple-400 transition-colors text-sm font-mono px-2"
+                    className="text-white hover:text-orange-400 transition-colors text-sm font-mono px-2"
                     title="Resetar zoom (100%)"
                   >
                     {imageZoom}%
@@ -428,7 +428,7 @@ export default function ReconhecimentoFacial() {
                   <button
                     onClick={handleZoomIn}
                     disabled={imageZoom >= 200}
-                    className="text-white hover:text-purple-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="text-white hover:text-orange-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     title="Aumentar zoom"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
