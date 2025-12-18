@@ -267,7 +267,8 @@
       "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"docker exec -i prevencao-postgres-prod psql -U postgres -c \"\"\\l\"\"\")",
       "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"docker logs prevencao-backend-prod --tail 50\")",
       "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"cat /root/prevencao-no-radar/InstaladorVPS/docker-compose-producao.yml | grep -A 3 ''ports:''\")",
-      "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"cd /root/prevencao-no-radar/InstaladorVPS && sed -i ''/^VITE_API_URL=/d'' .env && grep -E ''BACKEND_URL|VITE'' .env\")"
+      "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"cd /root/prevencao-no-radar/InstaladorVPS && sed -i ''/^VITE_API_URL=/d'' .env && grep -E ''BACKEND_URL|VITE'' .env\")",
+      "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"curl -s http://31.97.82.235:3001/api/setup/status\")"
     ],
     "deny": [],
     "ask": []
