@@ -37,8 +37,8 @@ export default function APIsTab() {
       host: 'localhost',
       port: '5432',
       username: 'postgres',
-      password: 'admin123',
-      databaseName: 'market_security'
+      password: 'EgZoE5pHGefOV2mMmhIZE10Rp2wF9X02',
+      databaseName: 'prevencao_db'
     },
     minio: {
       endpoint: 'localhost',
