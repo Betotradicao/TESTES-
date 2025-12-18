@@ -75,8 +75,7 @@ export class EmailMonitorService {
     }
 
     return new Promise((resolve, reject) => {
-      const ImapConnection = Imap as any;
-      const imap = new ImapConnection({
+      const imap = new Imap({
         user: config.email,
         password: config.app_password,
         host: 'imap.gmail.com',
