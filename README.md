@@ -958,6 +958,156 @@ Para deploy em produção via Docker + Portainer:
 
 ---
 
+## 🔐 Acesso ao VPS (Servidor de Produção)
+
+### Informações de Acesso:
+- **IP do VPS**: `31.97.82.235`
+- **Usuário**: `root`
+- **Chave SSH**: `~/.ssh/vps_prevencao`
+- **Diretório do Projeto**: `/root/NOVO-PREVEN-O`
+
+### Comandos Úteis:
+
+#### 1. Acessar VPS via SSH:
+```bash
+ssh -i ~/.ssh/vps_prevencao root@31.97.82.235
+```
+
+#### 2. Navegação e Status:
+```bash
+# Ir para o diretório do projeto
+cd /root/NOVO-PREVEN-O
+
+# Ver status dos containers
+cd InstaladorVPS
+docker compose -f docker-compose-producao.yml ps
+
+# Ver logs em tempo real
+docker compose -f docker-compose-producao.yml logs -f
+
+# Ver logs de um serviço específico
+docker compose -f docker-compose-producao.yml logs -f frontend
+docker compose -f docker-compose-producao.yml logs -f backend
+```
+
+#### 3. Atualizar Aplicação (Deploy):
+```bash
+# Atualizar código do GitHub
+cd /root/NOVO-PREVEN-O
+git pull
+
+# Rebuild e restart do frontend
+cd InstaladorVPS
+docker compose -f docker-compose-producao.yml build --no-cache frontend
+docker compose -f docker-compose-producao.yml up -d frontend
+
+# Rebuild e restart do backend
+docker compose -f docker-compose-producao.yml build --no-cache backend
+docker compose -f docker-compose-producao.yml up -d backend
+
+# Rebuild e restart de todos os serviços
+docker compose -f docker-compose-producao.yml build --no-cache
+docker compose -f docker-compose-producao.yml up -d
+```
+
+#### 4. Reiniciar Serviços:
+```bash
+cd /root/NOVO-PREVEN-O/InstaladorVPS
+
+# Reiniciar um serviço específico
+docker compose -f docker-compose-producao.yml restart frontend
+docker compose -f docker-compose-producao.yml restart backend
+
+# Reiniciar todos os serviços
+docker compose -f docker-compose-producao.yml restart
+```
+
+#### 5. Verificar Git:
+```bash
+cd /root/NOVO-PREVEN-O
+
+# Ver status do repositório
+git status
+
+# Ver últimos commits
+git log --oneline -10
+
+# Ver branch atual
+git branch
+```
+
+#### 6. Banco de Dados:
+```bash
+# Acessar PostgreSQL
+docker exec -it prevencao-postgres-prod psql -U postgres -d prevencao_db
+
+# Backup do banco
+docker exec prevencao-postgres-prod pg_dump -U postgres prevencao_db > backup_$(date +%Y%m%d).sql
+
+# Restaurar backup
+docker exec -i prevencao-postgres-prod psql -U postgres prevencao_db < backup_20250101.sql
+```
+
+#### 7. Acesso Remoto via SSH (do Windows):
+```bash
+# Atualizar e fazer deploy em um único comando
+ssh -i ~/.ssh/vps_prevencao root@31.97.82.235 "cd /root/NOVO-PREVEN-O && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml up -d frontend"
+
+# Ver logs remotamente
+ssh -i ~/.ssh/vps_prevencao root@31.97.82.235 "cd /root/NOVO-PREVEN-O/InstaladorVPS && docker compose -f docker-compose-producao.yml logs --tail=50 backend"
+```
+
+### URLs de Acesso (Produção):
+- **Frontend**: `http://31.97.82.235:3000`
+- **Backend API**: `http://31.97.82.235:3001`
+- **MinIO Console**: `http://31.97.82.235:9011`
+
+### Domínios (quando configurado):
+- **Frontend**: `https://prevencaonoradar.com.br`
+- **Backend API**: `https://api.prevencaonoradar.com.br`
+
+### Portas Utilizadas:
+| Serviço | Porta Interna | Porta Externa |
+|---------|---------------|---------------|
+| Frontend | 80 | 3000 |
+| Backend | 3001 | 3001 |
+| PostgreSQL | 5432 | 5434 |
+| MinIO API | 9000 | 9010 |
+| MinIO Console | 9001 | 9011 |
+
+### Troubleshooting:
+
+**Container não inicia:**
+```bash
+# Ver logs do container com problema
+docker compose -f docker-compose-producao.yml logs backend
+
+# Remover container e recriar
+docker compose -f docker-compose-producao.yml down
+docker compose -f docker-compose-producao.yml up -d
+```
+
+**Aplicação não atualiza (cache):**
+```bash
+# Rebuild sem cache
+docker compose -f docker-compose-producao.yml build --no-cache frontend
+docker compose -f docker-compose-producao.yml up -d frontend
+```
+
+**Verificar espaço em disco:**
+```bash
+# Ver uso de disco
+df -h
+
+# Ver tamanho dos volumes Docker
+docker system df -v
+
+# Limpar imagens e containers antigos
+docker system prune -a
+```
+
+---
+
 ## 📝 Licença e Versão
 
 - **Versão**: 1.0
