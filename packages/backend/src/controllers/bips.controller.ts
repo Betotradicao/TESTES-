@@ -471,22 +471,31 @@ export class BipsController {
 
       // Upload do novo vídeo para o MinIO
       console.log(`☁️ [BIP ${bipId}] Enviando vídeo para MinIO...`);
-      const videoUrl = await uploadService.uploadVideo(file, bipId);
-      console.log(`✅ [BIP ${bipId}] Vídeo enviado para MinIO com sucesso`);
-      console.log(`🔗 [BIP ${bipId}] URL gerada: ${videoUrl}`);
 
-      // Atualizar com novo vídeo (URL completa do MinIO)
-      bip.video_url = videoUrl;
-      await bipRepository.save(bip);
-      console.log(`💾 [BIP ${bipId}] URL salva no banco de dados`);
+      try {
+        const videoUrl = await uploadService.uploadVideo(file, bipId);
+        console.log(`✅ [BIP ${bipId}] Vídeo enviado para MinIO com sucesso`);
+        console.log(`🔗 [BIP ${bipId}] URL gerada: ${videoUrl}`);
 
-      res.json({
-        success: true,
-        videoUrl: videoUrl,
-        message: 'Vídeo enviado com sucesso'
-      });
+        // Atualizar com novo vídeo (URL completa do MinIO)
+        bip.video_url = videoUrl;
+        await bipRepository.save(bip);
+        console.log(`💾 [BIP ${bipId}] URL salva no banco de dados`);
+
+        res.json({
+          success: true,
+          videoUrl: videoUrl,
+          message: 'Vídeo enviado com sucesso'
+        });
+      } catch (uploadError) {
+        console.error(`❌ [BIP ${bipId}] Erro no upload para MinIO:`, uploadError);
+        return res.status(503).json({
+          error: 'Serviço de armazenamento de vídeos indisponível',
+          details: 'O MinIO não está configurado ou não está acessível. Configure o MinIO para habilitar upload de vídeos.'
+        });
+      }
     } catch (error) {
-      console.error(`❌ [BIP ${req.params.id}] Erro ao fazer upload de vídeo:`, error);
+      console.error(`❌ [BIP ${req.params.id}] Erro ao processar upload de vídeo:`, error);
       console.error(`❌ [BIP ${req.params.id}] Stack trace:`, error instanceof Error ? error.stack : 'N/A');
       res.status(500).json({
         error: 'Erro interno do servidor',
@@ -575,22 +584,31 @@ export class BipsController {
 
       // Upload da nova imagem para o MinIO
       console.log(`☁️ [BIP ${bipId}] Enviando imagem para MinIO...`);
-      const imageUrl = await uploadService.uploadImage(file, bipId);
-      console.log(`✅ [BIP ${bipId}] Imagem enviada para MinIO com sucesso`);
-      console.log(`🔗 [BIP ${bipId}] URL gerada: ${imageUrl}`);
 
-      // Atualizar com nova imagem (URL completa do MinIO)
-      bip.image_url = imageUrl;
-      await bipRepository.save(bip);
-      console.log(`💾 [BIP ${bipId}] URL salva no banco de dados`);
+      try {
+        const imageUrl = await uploadService.uploadImage(file, bipId);
+        console.log(`✅ [BIP ${bipId}] Imagem enviada para MinIO com sucesso`);
+        console.log(`🔗 [BIP ${bipId}] URL gerada: ${imageUrl}`);
 
-      res.json({
-        success: true,
-        imageUrl: imageUrl,
-        message: 'Imagem enviada com sucesso'
-      });
+        // Atualizar com nova imagem (URL completa do MinIO)
+        bip.image_url = imageUrl;
+        await bipRepository.save(bip);
+        console.log(`💾 [BIP ${bipId}] URL salva no banco de dados`);
+
+        res.json({
+          success: true,
+          imageUrl: imageUrl,
+          message: 'Imagem enviada com sucesso'
+        });
+      } catch (uploadError) {
+        console.error(`❌ [BIP ${bipId}] Erro no upload para MinIO:`, uploadError);
+        return res.status(503).json({
+          error: 'Serviço de armazenamento de imagens indisponível',
+          details: 'O MinIO não está configurado ou não está acessível. Configure o MinIO para habilitar upload de imagens.'
+        });
+      }
     } catch (error) {
-      console.error(`❌ [BIP ${req.params.id}] Erro ao fazer upload de imagem:`, error);
+      console.error(`❌ [BIP ${req.params.id}] Erro ao processar upload de imagem:`, error);
       console.error(`❌ [BIP ${req.params.id}] Stack trace:`, error instanceof Error ? error.stack : 'N/A');
       res.status(500).json({
         error: 'Erro interno do servidor',
