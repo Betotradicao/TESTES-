@@ -49,7 +49,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
   const menuItems = [
     {
       id: 'dashboards',
-      title: 'Dashboard',
+      title: 'Boas Vindas',
       path: '/dashboard',
       moduleId: 'dashboard', // ID do módulo para verificar status
       icon: (
@@ -61,36 +61,6 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         </svg>
       ),
       items: []
-    },
-    {
-      id: 'cameras',
-      title: 'Cameras',
-      moduleId: 'cameras', // ID do módulo para verificar status
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
-        </svg>
-      ),
-      expandable: true,
-      items: [
-        {
-          title: 'Ao Vivo',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-            </svg>
-          )
-        },
-        {
-          title: 'Busca Agrupada',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-            </svg>
-          )
-        }
-      ]
     },
     {
       id: 'etiquetas',
@@ -181,15 +151,26 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     },
     {
       id: 'facial',
-      title: 'Reconhecimento Facial',
-      path: '/reconhecimento-facial',
+      title: 'Prevenção Facial',
       moduleId: 'facial', // ID do módulo para verificar status
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
         </svg>
       ),
-      items: []
+      expandable: true,
+      items: [
+        {
+          title: 'Reconhecimento Facial',
+          path: '/reconhecimento-facial',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+          )
+        }
+      ]
     },
     {
       id: 'configuracoes',

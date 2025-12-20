@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 
 export default function ModulosTab() {
   const [modules, setModules] = useState([
-    { id: 'dashboard', name: 'Dashboard', icon: '📊', active: true },
-    { id: 'cameras', name: 'Câmeras', icon: '📹', active: true },
+    { id: 'dashboard', name: 'Boas Vindas', icon: '📊', active: true },
     { id: 'bipagens', name: 'Prevenção de Bipagens', icon: '🔍', active: true },
     { id: 'pdv', name: 'Prevenção de PDV', icon: '💳', active: true },
     { id: 'facial', name: 'Prevenção Facial', icon: '👤', active: true }
