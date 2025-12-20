@@ -511,8 +511,13 @@ export class BipsController {
         return res.status(400).json({ error: 'Esta bipagem não possui vídeo' });
       }
 
-      // Deletar arquivo do MinIO
-      await uploadService.deleteFile(bip.video_url);
+      // Tentar deletar arquivo do MinIO (se falhar, apenas log o erro)
+      try {
+        await uploadService.deleteFile(bip.video_url);
+        console.log(`✅ Arquivo deletado do MinIO: ${bip.video_url}`);
+      } catch (deleteError) {
+        console.warn(`⚠️ Falha ao deletar arquivo do MinIO (continuando):`, deleteError);
+      }
 
       // Remover URL do banco
       bip.video_url = null;
@@ -526,7 +531,10 @@ export class BipsController {
       });
     } catch (error) {
       console.error('Erro ao deletar vídeo:', error);
-      res.status(500).json({ error: 'Erro interno do servidor' });
+      res.status(500).json({
+        error: 'Erro interno do servidor',
+        details: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
     }
   }
 
@@ -607,8 +615,13 @@ export class BipsController {
         return res.status(400).json({ error: 'Esta bipagem não possui imagem' });
       }
 
-      // Deletar arquivo do MinIO
-      await uploadService.deleteFile(bip.image_url);
+      // Tentar deletar arquivo do MinIO (se falhar, apenas log o erro)
+      try {
+        await uploadService.deleteFile(bip.image_url);
+        console.log(`✅ Arquivo deletado do MinIO: ${bip.image_url}`);
+      } catch (deleteError) {
+        console.warn(`⚠️ Falha ao deletar arquivo do MinIO (continuando):`, deleteError);
+      }
 
       // Remover URL do banco
       bip.image_url = null;
@@ -622,7 +635,10 @@ export class BipsController {
       });
     } catch (error) {
       console.error('Erro ao deletar imagem:', error);
-      res.status(500).json({ error: 'Erro interno do servidor' });
+      res.status(500).json({
+        error: 'Erro interno do servidor',
+        details: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
     }
   }
 }

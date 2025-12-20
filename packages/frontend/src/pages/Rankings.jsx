@@ -82,7 +82,10 @@ export default function Rankings() {
     isOpen: false,
     bip: null,
     creating: false,
-    nextNumber: null
+    nextNumber: null,
+    mode: 'new', // 'new' ou 'existing'
+    selectedExisting: '',
+    existingIdentifications: []
   });
 
   // Filtros específicos para rankings - padrão: DIA ATUAL
@@ -95,7 +98,8 @@ export default function Rankings() {
     date_to: getTodayDate(), // Dia atual
     sector_id: '',
     employee_id: '',
-    motivo_cancelamento: ''
+    motivo_cancelamento: '',
+    identification_number: ''
   });
 
   // Carregar setores
@@ -156,6 +160,14 @@ export default function Rankings() {
           bip => bip.motivo_cancelamento === filters.motivo_cancelamento
         );
         console.log('📊 Rankings - Bips após filtro de motivo:', cancelledBips.length);
+      }
+
+      // Filtrar por identificação se selecionado
+      if (filters.identification_number) {
+        cancelledBips = cancelledBips.filter(
+          bip => bip.suspect_identification?.identification_number === filters.identification_number
+        );
+        console.log('📊 Rankings - Bips após filtro de identificação:', cancelledBips.length);
       }
 
       console.log('📊 Rankings - Bips finais:', cancelledBips);
@@ -534,13 +546,20 @@ export default function Rankings() {
   // Funções para modal de identificação de suspeito
   const openIdentificationModal = async (bip) => {
     try {
-      // Buscar o próximo número disponível
-      const response = await api.get('/suspect-identifications/next-number');
+      // Buscar o próximo número disponível e todas as identificações existentes
+      const [nextNumberResponse, existingResponse] = await Promise.all([
+        api.get('/suspect-identifications/next-number'),
+        api.get('/suspect-identifications')
+      ]);
+
       setIdentificationModal({
         isOpen: true,
         bip,
         creating: false,
-        nextNumber: response.data.nextNumber
+        nextNumber: nextNumberResponse.data.nextNumber,
+        mode: 'new',
+        selectedExisting: '',
+        existingIdentifications: existingResponse.data || []
       });
     } catch (error) {
       console.error('Erro ao buscar próximo número:', error);
@@ -553,7 +572,10 @@ export default function Rankings() {
       isOpen: false,
       bip: null,
       creating: false,
-      nextNumber: null
+      nextNumber: null,
+      mode: 'new',
+      selectedExisting: '',
+      existingIdentifications: []
     });
   };
 
@@ -561,25 +583,47 @@ export default function Rankings() {
     try {
       setIdentificationModal(prev => ({ ...prev, creating: true }));
 
-      const response = await api.post('/suspect-identifications', {
-        bip_id: identificationModal.bip.id
-      });
+      let identification;
 
-      if (response.data.success) {
-        alert(`✅ Identificação #${response.data.data.identification_number} criada com sucesso!`);
+      if (identificationModal.mode === 'new') {
+        // Criar nova identificação
+        const response = await api.post('/suspect-identifications', {
+          identification_number: identificationModal.nextNumber,
+          bip_id: identificationModal.bip.id,
+          notes: ''
+        });
+        identification = response.data;
+        alert(`✅ Identificação #${identification.identification_number} criada com sucesso!`);
+      } else {
+        // Vincular a identificação existente
+        if (!identificationModal.selectedExisting) {
+          alert('⚠️ Por favor, selecione uma identificação');
+          return;
+        }
 
-        // Atualizar a lista de bipagens no modal de detalhes
-        setDetailsModal(prev => ({
-          ...prev,
-          bipages: prev.bipages.map(b =>
-            b.id === identificationModal.bip.id
-              ? { ...b, suspect_identification: response.data.data }
-              : b
-          )
-        }));
-
-        closeIdentificationModal();
+        const response = await api.post('/suspect-identifications', {
+          identification_number: identificationModal.selectedExisting,
+          bip_id: identificationModal.bip.id,
+          notes: ''
+        });
+        identification = response.data;
+        alert(`✅ Cancelamento vinculado à identificação #${identification.identification_number}!`);
       }
+
+      // Atualizar a lista de bipagens no modal de detalhes
+      setDetailsModal(prev => ({
+        ...prev,
+        bipages: prev.bipages.map(b =>
+          b.id === identificationModal.bip.id
+            ? { ...b, suspect_identification: identification }
+            : b
+        )
+      }));
+
+      // Recarregar as bipagens para atualizar a tabela principal
+      await fetchCancelledBipages();
+
+      closeIdentificationModal();
     } catch (error) {
       console.error('Erro ao criar identificação:', error);
       alert('❌ Erro ao criar identificação: ' + (error.response?.data?.error || error.message));
@@ -790,6 +834,20 @@ export default function Rankings() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Identificação */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  🔍 Identificação
+                </label>
+                <input
+                  type="text"
+                  value={filters.identification_number}
+                  onChange={(e) => handleFilterChange({ ...filters, identification_number: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="Ex: 01, 02, 03..."
+                />
               </div>
 
               {/* Botão Aplicar */}
@@ -1590,16 +1648,66 @@ export default function Rankings() {
 
             {/* Body */}
             <div className="p-6">
-              <div className="mb-4">
-                <p className="text-sm text-gray-600 mb-4">
-                  Ao criar uma identificação, este suspeito receberá o número:
-                </p>
-                <div className="flex items-center justify-center p-6 bg-red-50 border-2 border-red-200 rounded-lg">
-                  <span className="text-5xl font-bold text-red-600">
-                    #{identificationModal.nextNumber}
-                  </span>
-                </div>
+              {/* Abas para escolher modo */}
+              <div className="flex border-b border-gray-200 mb-4">
+                <button
+                  onClick={() => setIdentificationModal(prev => ({ ...prev, mode: 'new' }))}
+                  className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    identificationModal.mode === 'new'
+                      ? 'border-red-600 text-red-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Criar Novo
+                </button>
+                <button
+                  onClick={() => setIdentificationModal(prev => ({ ...prev, mode: 'existing' }))}
+                  className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    identificationModal.mode === 'existing'
+                      ? 'border-red-600 text-red-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Vincular Existente
+                </button>
               </div>
+
+              {/* Conteúdo baseado no modo */}
+              {identificationModal.mode === 'new' ? (
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600 mb-4">
+                    Ao criar uma identificação, este suspeito receberá o número:
+                  </p>
+                  <div className="flex items-center justify-center p-6 bg-red-50 border-2 border-red-200 rounded-lg">
+                    <span className="text-5xl font-bold text-red-600">
+                      #{identificationModal.nextNumber}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Selecione uma identificação existente:
+                  </label>
+                  <select
+                    value={identificationModal.selectedExisting}
+                    onChange={(e) => setIdentificationModal(prev => ({ ...prev, selectedExisting: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  >
+                    <option value="">-- Selecione --</option>
+                    {Array.from(new Set(identificationModal.existingIdentifications.map(i => i.identification_number)))
+                      .sort()
+                      .map(number => (
+                        <option key={number} value={number}>
+                          #{number} ({identificationModal.existingIdentifications.filter(i => i.identification_number === number).length} cancelamento(s))
+                        </option>
+                      ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Este cancelamento será vinculado à identificação selecionada
+                  </p>
+                </div>
+              )}
 
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
                 <p className="text-sm text-yellow-800">
@@ -1641,7 +1749,10 @@ export default function Rankings() {
                   </>
                 ) : (
                   <>
-                    ✓ Criar Identificação #{identificationModal.nextNumber}
+                    {identificationModal.mode === 'new'
+                      ? `✓ Criar Identificação #${identificationModal.nextNumber}`
+                      : '✓ Vincular Identificação'
+                    }
                   </>
                 )}
               </button>
