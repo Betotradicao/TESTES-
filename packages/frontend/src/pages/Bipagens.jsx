@@ -446,6 +446,206 @@ export default function Bipagens() {
     }
   };
 
+  // Função para exportar resultados em PDF
+  const handleExportPDF = () => {
+    const printWindow = window.open('', '_blank');
+
+    // Formatar data para o título
+    const formatDate = (dateStr) => {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('pt-BR');
+    };
+
+    const title = `Relatório de Bipagens - ${formatDate(filters.date_from)} a ${formatDate(filters.date_to)}`;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${title}</title>
+        <style>
+          @page {
+            size: A4 landscape;
+            margin: 1cm;
+          }
+
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+
+          body {
+            font-family: Arial, sans-serif;
+            font-size: 10px;
+            line-height: 1.4;
+            padding: 20px;
+            background: white;
+          }
+
+          .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #333;
+          }
+
+          .header h1 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 5px;
+          }
+
+          .header p {
+            font-size: 11px;
+            color: #666;
+          }
+
+          .summary {
+            background: #f5f5f5;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+          }
+
+          .summary strong {
+            font-size: 12px;
+          }
+
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9px;
+          }
+
+          th {
+            background: #ff6b35;
+            color: white;
+            padding: 8px 4px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 9px;
+          }
+
+          td {
+            padding: 6px 4px;
+            border-bottom: 1px solid #ddd;
+          }
+
+          tr:hover {
+            background: #f9f9f9;
+          }
+
+          .status {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 8px;
+            font-weight: 600;
+          }
+
+          .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+          }
+
+          .status-verified {
+            background: #d1fae5;
+            color: #065f46;
+          }
+
+          .status-cancelled {
+            background: #fee2e2;
+            color: #991b1b;
+          }
+
+          .footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 9px;
+            color: #666;
+            padding-top: 10px;
+            border-top: 1px solid #ddd;
+          }
+
+          @media print {
+            body {
+              padding: 0;
+            }
+
+            .no-print {
+              display: none !important;
+            }
+          }
+
+          .print-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: #ff6b35;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+          }
+
+          .print-btn:hover {
+            background: #ff5722;
+          }
+        </style>
+      </head>
+      <body>
+        <button class="print-btn no-print" onclick="window.print()">🖨️ Imprimir PDF</button>
+
+        <div class="header">
+          <h1>📊 PREVENÇÃO NO RADAR</h1>
+          <p>${title}</p>
+        </div>
+
+        <div class="summary">
+          <strong>Total de registros: ${pagination.total}</strong>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Vendedor</th>
+              <th>Bipagem</th>
+              <th>Produto</th>
+              <th>Data/Hora</th>
+              <th>Preço</th>
+              <th>Peso</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bipages.map(bip => `
+              <tr>
+                <td>${bip.employee?.name || '-'}<br><small style="color: #666;">${bip.employee?.sector?.name || ''}</small></td>
+                <td style="font-family: monospace;">${bip.ean}</td>
+                <td><strong>${bip.product_id}</strong><br><small style="color: #666;">${bip.product_description}</small></td>
+                <td>${formatDateTime(bip.event_date)}</td>
+                <td style="font-weight: 600;">${formatPrice(bip.bip_price_cents)}</td>
+                <td>${formatWeight(bip.bip_weight)}</td>
+                <td><span class="status status-${bip.status}">${getStatusText(bip.status)}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          <p>Documento gerado em ${new Date().toLocaleString('pt-BR')} | Prevenção no Radar - Sistema de Prevenção de Perdas</p>
+        </div>
+      </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+  };
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Toaster position="top-right" />
@@ -698,10 +898,19 @@ export default function Bipagens() {
 
       {/* Tabela de Bipagens */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <h3 className="text-lg font-medium text-gray-900">
             Resultados ({pagination.total} encontrados)
           </h3>
+          <button
+            onClick={handleExportPDF}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+          >
+            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clipRule="evenodd" />
+            </svg>
+            PDF
+          </button>
         </div>
 
         {loading ? (
