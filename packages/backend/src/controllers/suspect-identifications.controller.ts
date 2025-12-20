@@ -76,10 +76,13 @@ export const list = async (req: Request, res: Response) => {
   try {
     const identifications = await AppDataSource.query(`
       SELECT
-        si.*,
-        b.created_at as bip_created_at
+        si.id,
+        si.identification_number,
+        si.bip_id,
+        si.notes,
+        si.created_at,
+        si.updated_at
       FROM suspect_identifications si
-      LEFT JOIN bips b ON b.id = si.bip_id
       ORDER BY si.identification_number ASC
     `);
 
