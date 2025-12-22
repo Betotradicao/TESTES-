@@ -38,7 +38,12 @@ export default function MonitorarEmailDVR() {
       // Buscar configuração do DVR
       const responseDVR = await api.get('/dvr-monitor/config');
       if (responseDVR.data) {
-        setConfigDVR(responseDVR.data);
+        // Manter a senha que já está no estado (o backend não retorna senha por segurança)
+        setConfigDVR(prev => ({
+          ip: responseDVR.data.ip || prev.ip,
+          usuario: responseDVR.data.usuario || prev.usuario,
+          senha: prev.senha // Manter senha atual
+        }));
 
         // Converter intervalo de minutos para HH:MM
         const minutos = responseDVR.data.intervaloMinutos || 5;
@@ -133,12 +138,15 @@ export default function MonitorarEmailDVR() {
     try {
       // Converter HH:MM para minutos totais
       const totalMinutos = (parseInt(intervaloHoras) * 60) + parseInt(intervaloMinutos);
-      const configParaSalvar = {
-        ...configDVR,
-        intervaloMinutos: totalMinutos
-      };
 
-      await api.post('/dvr-monitor/config', configParaSalvar);
+      // Enviar dados no formato esperado pelo backend
+      await api.post('/dvr-monitor/config', {
+        ip: configDVR.ip,
+        usuario: configDVR.usuario,
+        senha: configDVR.senha,
+        intervaloMinutos: totalMinutos
+      });
+
       setMensagem({ tipo: 'success', texto: 'Configurações salvas!' });
     } catch (error) {
       setMensagem({ tipo: 'error', texto: error.response?.data?.error || 'Erro ao salvar configurações' });
