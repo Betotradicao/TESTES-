@@ -25,6 +25,7 @@ import passwordRecoveryRouter from './routes/password-recovery.routes';
 import configurationsRouter from './routes/configurations.routes';
 import emailMonitorRouter from './routes/email-monitor.routes';
 // import dvrRouter from './routes/dvr.routes'; // Desabilitado temporariamente
+import dvrMonitorRouter from './routes/dvr-monitor.routes';
 import suspectIdentificationsRouter from './routes/suspect-identifications.routes';
 import { minioService } from './services/minio.service';
 import { EmailMonitorService } from './services/email-monitor.service';
@@ -86,6 +87,7 @@ app.use('/api/system', systemRouter);
 app.use('/api/configurations', configurationsRouter);
 app.use('/api/email-monitor', emailMonitorRouter);
 // app.use('/api/dvr', dvrRouter); // Desabilitado temporariamente
+app.use('/api/dvr-monitor', dvrMonitorRouter);
 app.use('/api/suspect-identifications', suspectIdentificationsRouter);
 // app.use('/api/user-security', userSecurityRouter);
 

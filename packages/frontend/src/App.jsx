@@ -15,6 +15,7 @@ import Configuracoes from './pages/Configuracoes';
 import ConfiguracoesRede from './pages/ConfiguracoesRede';
 import Perfil from './pages/Perfil';
 import ReconhecimentoFacial from './pages/ReconhecimentoFacial';
+import MonitorarEmailDVR from './pages/MonitorarEmailDVR';
 
 function App() {
   return (
@@ -98,6 +99,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ReconhecimentoFacial />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/monitorar-email-dvr"
+              element={
+                <ProtectedRoute>
+                  <MonitorarEmailDVR />
                 </ProtectedRoute>
               }
             />
