@@ -287,7 +287,16 @@
       "Bash(docker stop:*)",
       "Bash(cp:*)",
       "Bash(ssh -i ~/.ssh/vps_prevencao root@31.97.82.235 \"docker ps | grep prevencao-backend\")",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: Corrige validação de campos obrigatórios no salvar config DVR\n\nProblema: Backend estava recebendo dados incorretos causando erro\nde validação \"IP, usuário e senha são obrigatórios\"\n\nSolução:\n- Frontend agora envia os campos no formato correto \\(ip, usuario, senha, intervaloMinutos\\) no nível superior do body\n- Mantém senha do DVR no estado local ao recarregar configurações \\(backend não retorna senha por segurança\\)\n- Preserva senha digitada pelo usuário durante carregamentos\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: Corrige validação de campos obrigatórios no salvar config DVR\n\nProblema: Backend estava recebendo dados incorretos causando erro\nde validação \"IP, usuário e senha são obrigatórios\"\n\nSolução:\n- Frontend agora envia os campos no formato correto \\(ip, usuario, senha, intervaloMinutos\\) no nível superior do body\n- Mantém senha do DVR no estado local ao recarregar configurações \\(backend não retorna senha por segurança\\)\n- Preserva senha digitada pelo usuário durante carregamentos\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@31.97.82.235 \"\n  cd /root/prevencao-no-radar &&\n  docker-compose -f InstaladorVPS/docker-compose.yml build frontend backend &&\n  docker-compose -f InstaladorVPS/docker-compose.yml up -d &&\n  docker ps | grep prevencao\n\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@31.97.82.235 \"\n  cd /root/prevencao-no-radar &&\n  docker compose -f InstaladorVPS/docker-compose-producao.yml build frontend backend\n\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@31.97.82.235 \"\n  cd /root/prevencao-no-radar &&\n  docker compose -f InstaladorVPS/docker-compose-producao.yml stop &&\n  docker compose -f InstaladorVPS/docker-compose-producao.yml up -d\n\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@31.97.82.235 \"\n  cd /root/prevencao-no-radar &&\n  docker compose -f InstaladorVPS/docker-compose-producao.yml build frontend\n\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@31.97.82.235 \"\n  cd /root/prevencao-no-radar &&\n  docker compose -f InstaladorVPS/docker-compose-producao.yml up -d frontend &&\n  docker ps | grep frontend\n\")",
+      "Bash(sshpass -p 'Beto3107@@##' ssh -o StrictHostKeyChecking=no root@46.202.150.64 \"uname -a && lsb_release -a 2>/dev/null || cat /etc/os-release\")",
+      "Bash(ssh -o StrictHostKeyChecking=no -o PreferredAuthentications=password root@46.202.150.64 \"uname -a\")",
+      "Bash(ssh -i ~/.ssh/vps_dev_prevencao root@46.202.150.64 \"ls -lh /root/backup_prod_prevencao.sql\")",
+      "Bash(ssh -i ~/.ssh/vps_dev_prevencao root@46.202.150.64 \"\n  sleep 10 &&\n  docker exec -i prevencao-postgres-prod psql -U postgres prevencao_db < /root/backup_prod_prevencao.sql &&\n  echo ''✅ Backup restaurado com sucesso''\n\")"
     ],
     "deny": [],
     "ask": []
