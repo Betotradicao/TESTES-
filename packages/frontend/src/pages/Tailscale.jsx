@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
-import logo from '../assets/logo-full.png';
 
 export default function Tailscale() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -116,12 +115,9 @@ export default function Tailscale() {
       <header className="bg-white shadow-md border-b-4 border-orange-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
-            <div className="flex items-center space-x-4">
-              <img src={logo} alt="Logo" className="h-12" />
-              <div>
-                <h1 className="text-2xl font-bold text-gray-800">Monitoramento Tailscale</h1>
-                <p className="text-sm text-gray-600">Diagnóstico de Conectividade VPN</p>
-              </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">Monitoramento Tailscale</h1>
+              <p className="text-sm text-gray-600">Diagnóstico de Conectividade VPN</p>
             </div>
 
             {/* Mobile menu button */}
