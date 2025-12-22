@@ -43,6 +43,7 @@ export default function ReconhecimentoFacial() {
     log: null
   });
   const [imageZoom, setImageZoom] = useState(100);
+  const [deletingImageId, setDeletingImageId] = useState(null);
 
   // Filtros - padrão: Dia 1 do mês corrente até hoje
   const getFirstDayOfMonth = () => {
@@ -167,6 +168,33 @@ export default function ReconhecimentoFacial() {
 
   const handleZoomReset = () => {
     setImageZoom(100);
+  };
+
+  // Função para deletar imagem
+  const handleDeleteImage = async (logId, imagePath, event) => {
+    event.stopPropagation(); // Evita abrir o modal ao clicar no botão deletar
+
+    if (!confirm('Tem certeza que deseja excluir esta imagem?')) {
+      return;
+    }
+
+    try {
+      setDeletingImageId(logId);
+      await api.delete(`/email-monitor/logs/${logId}`);
+
+      // Atualizar lista removendo o item deletado
+      setLogs(prevLogs => prevLogs.filter(log => log.id !== logId));
+
+      // Fechar modal se estava aberto
+      if (imageViewerModal.log?.id === logId) {
+        closeImageViewer();
+      }
+    } catch (error) {
+      console.error('Erro ao deletar imagem:', error);
+      alert('Erro ao deletar imagem: ' + (error.response?.data?.error || 'Erro desconhecido'));
+    } finally {
+      setDeletingImageId(null);
+    }
   };
 
   // Extrair informações do email body
@@ -367,8 +395,27 @@ export default function ReconhecimentoFacial() {
                     <div
                       key={log.id}
                       onClick={() => openImageViewer(log)}
-                      className="bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-orange-400 transition-all cursor-pointer overflow-hidden group"
+                      className="bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-orange-400 transition-all cursor-pointer overflow-hidden group relative"
                     >
+                      {/* Botão Deletar - Canto Superior Direito */}
+                      <button
+                        onClick={(e) => handleDeleteImage(log.id, log.image_path, e)}
+                        disabled={deletingImageId === log.id}
+                        className="absolute top-2 right-2 z-10 bg-red-500 hover:bg-red-600 text-white rounded-full p-2 shadow-lg transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Excluir imagem"
+                      >
+                        {deletingImageId === log.id ? (
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        )}
+                      </button>
+
                       {/* Imagem */}
                       <div className="aspect-square bg-gray-200 relative overflow-hidden">
                         {log.image_path ? (

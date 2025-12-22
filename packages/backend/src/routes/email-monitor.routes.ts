@@ -12,6 +12,7 @@ router.post('/test', authenticateToken, emailMonitorController.testConnection.bi
 router.post('/check', authenticateToken, emailMonitorController.checkEmails.bind(emailMonitorController));
 router.post('/reprocess-last', authenticateToken, emailMonitorController.reprocessLastEmail.bind(emailMonitorController));
 router.get('/logs', authenticateToken, emailMonitorController.getLogs.bind(emailMonitorController));
+router.delete('/logs/:id', authenticateToken, emailMonitorController.deleteLog.bind(emailMonitorController));
 router.get('/whatsapp-groups', authenticateToken, emailMonitorController.getWhatsAppGroups.bind(emailMonitorController));
 
 export default router;

@@ -692,4 +692,50 @@ export class EmailMonitorService {
       throw error;
     }
   }
+
+  /**
+   * Deletar um log específico e sua imagem associada
+   */
+  static async deleteLog(logId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const logRepository = AppDataSource.getRepository(EmailMonitorLog);
+
+      // Buscar o log
+      const log = await logRepository.findOne({ where: { id: logId } });
+
+      if (!log) {
+        return {
+          success: false,
+          message: 'Log não encontrado'
+        };
+      }
+
+      // Deletar arquivo físico da imagem se existir
+      if (log.image_path) {
+        const uploadsDir = path.join(__dirname, '..', '..', 'uploads', 'dvr_images');
+        const imagePath = path.join(uploadsDir, log.image_path);
+
+        try {
+          if (fs.existsSync(imagePath)) {
+            fs.unlinkSync(imagePath);
+            console.log(`🗑️ Imagem deletada: ${log.image_path}`);
+          }
+        } catch (error) {
+          console.error('Erro ao deletar arquivo de imagem:', error);
+          // Continua mesmo se falhar ao deletar o arquivo
+        }
+      }
+
+      // Deletar o log do banco
+      await logRepository.remove(log);
+
+      return {
+        success: true,
+        message: 'Log e imagem deletados com sucesso'
+      };
+    } catch (error) {
+      console.error('Erro ao deletar log:', error);
+      throw error;
+    }
+  }
 }

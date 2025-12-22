@@ -176,4 +176,40 @@ export class EmailMonitorController {
       });
     }
   }
+
+  /**
+   * DELETE /api/email-monitor/logs/:id
+   * Deletar um log específico e sua imagem associada
+   */
+  async deleteLog(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      if (!id) {
+        return res.status(400).json({
+          error: 'ID do log é obrigatório'
+        });
+      }
+
+      const result = await EmailMonitorService.deleteLog(id);
+
+      if (result.success) {
+        return res.json({
+          success: true,
+          message: result.message
+        });
+      } else {
+        return res.status(404).json({
+          success: false,
+          error: result.message
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting log:', error);
+      return res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao deletar log'
+      });
+    }
+  }
 }
