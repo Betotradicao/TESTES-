@@ -21,6 +21,9 @@ COPY . .
 # Build do TypeScript
 RUN npm run build
 
+# Copiar arquivo .js que não é compilado pelo TypeScript
+RUN cp src/services/dvr-email-monitor.js dist/services/ || true
+
 # ===== ESTÁGIO 2: PRODUÇÃO =====
 FROM node:18-alpine
 
