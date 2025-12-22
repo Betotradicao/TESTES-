@@ -164,17 +164,17 @@ export default function MonitorarEmailDVR() {
     <div className="min-h-screen bg-gray-50">
       <Sidebar user={user} onLogout={logout} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
 
-      <div className="lg:ml-64 pt-4 px-4 lg:pt-6 lg:px-8">
+      <div className="lg:ml-64 pt-2 px-4 lg:pt-4 lg:px-8 pb-8">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="mb-4">
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
               </svg>
               Monitor de Email DVR Intelbras
             </h1>
-            <p className="text-gray-600 mt-2">Monitore e corrija automaticamente problemas de email do DVR</p>
+            <p className="text-gray-600 mt-1 text-sm">Monitore e corrija automaticamente problemas de email do DVR</p>
           </div>
 
           {/* Mensagem */}
