@@ -9,6 +9,7 @@ import APIsTab from '../components/configuracoes/APIsTab';
 import SecurityTab from '../components/configuracoes/SecurityTab';
 import EmailTab from '../components/configuracoes/EmailTab';
 import EmailMonitorTab from '../components/configuracoes/EmailMonitorTab';
+import TailscaleTab from '../components/configuracoes/TailscaleTab';
 import api from '../services/api';
 
 export default function ConfiguracoesRede() {
@@ -30,7 +31,7 @@ export default function ConfiguracoesRede() {
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && (tabFromUrl === 'modulos' || tabFromUrl === 'empresa' || tabFromUrl === 'apis' || tabFromUrl === 'security' || tabFromUrl === 'email' || tabFromUrl === 'email-monitor')) {
+    if (tabFromUrl && (tabFromUrl === 'modulos' || tabFromUrl === 'empresa' || tabFromUrl === 'apis' || tabFromUrl === 'security' || tabFromUrl === 'email' || tabFromUrl === 'email-monitor' || tabFromUrl === 'tailscale')) {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -233,6 +234,7 @@ export default function ConfiguracoesRede() {
               {activeTab === 'security' && <SecurityTab />}
               {activeTab === 'email' && <EmailTab />}
               {activeTab === 'email-monitor' && <EmailMonitorTab />}
+              {activeTab === 'tailscale' && <TailscaleTab />}
             </div>
           </div>
         </div>

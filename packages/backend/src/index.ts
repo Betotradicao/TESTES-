@@ -27,6 +27,7 @@ import emailMonitorRouter from './routes/email-monitor.routes';
 // import dvrRouter from './routes/dvr.routes'; // Desabilitado temporariamente
 import dvrMonitorRouter from './routes/dvr-monitor.routes';
 import suspectIdentificationsRouter from './routes/suspect-identifications.routes';
+import tailscaleRouter from './routes/tailscale.routes';
 import { minioService } from './services/minio.service';
 import { EmailMonitorService } from './services/email-monitor.service';
 import { seedMasterUser } from './database/seeds/masterUser.seed';
@@ -89,6 +90,7 @@ app.use('/api/email-monitor', emailMonitorRouter);
 // app.use('/api/dvr', dvrRouter); // Desabilitado temporariamente
 app.use('/api/dvr-monitor', dvrMonitorRouter);
 app.use('/api/suspect-identifications', suspectIdentificationsRouter);
+app.use('/api/tailscale', tailscaleRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {

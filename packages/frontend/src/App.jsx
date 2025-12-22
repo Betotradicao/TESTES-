@@ -16,6 +16,7 @@ import ConfiguracoesRede from './pages/ConfiguracoesRede';
 import Perfil from './pages/Perfil';
 import ReconhecimentoFacial from './pages/ReconhecimentoFacial';
 import MonitorarEmailDVR from './pages/MonitorarEmailDVR';
+import Tailscale from './pages/Tailscale';
 
 function App() {
   return (
@@ -107,6 +108,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <MonitorarEmailDVR />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tailscale"
+              element={
+                <ProtectedRoute>
+                  <Tailscale />
                 </ProtectedRoute>
               }
             />
