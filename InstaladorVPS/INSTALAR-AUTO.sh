@@ -287,6 +287,15 @@ echo "💾 Configurando credenciais no banco de dados..."
 echo "⏳ Aguardando PostgreSQL inicializar..."
 sleep 10
 
+# LIMPAR configurações antigas (garantir instalação limpa)
+echo "🧹 Limpando configurações antigas..."
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
+-- Limpar TODAS as configurações antigas
+TRUNCATE TABLE configurations;
+" 2>/dev/null
+
+echo "✅ Banco limpo! Inserindo configurações novas..."
+
 # Inserir credenciais do banco de dados
 docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
 -- Credenciais do PostgreSQL
