@@ -3,11 +3,11 @@ export default function TabsNavigation({ activeTab, onChange, pageType = 'config
   const redeTabs = [
     { id: 'modulos', label: 'Módulos' },
     { id: 'empresa', label: 'Empresa' },
+    { id: 'tailscale', label: 'Tailscale' },
     { id: 'apis', label: 'APIs' },
     { id: 'security', label: 'Segurança' },
     { id: 'email', label: 'Email' },
-    { id: 'email-monitor', label: 'Monitor Email' },
-    { id: 'tailscale', label: 'Tailscale' }
+    { id: 'email-monitor', label: 'Monitor Email' }
   ];
 
   // Abas para Configurações normais

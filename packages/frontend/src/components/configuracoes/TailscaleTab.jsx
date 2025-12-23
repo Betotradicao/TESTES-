@@ -154,19 +154,6 @@ export default function TailscaleTab() {
             <p className="text-xs text-gray-500 mt-1">IP do computador do cliente na rede Tailscale</p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              IP Local do DVR (no cliente)
-            </label>
-            <input
-              type="text"
-              value={config.dvr_ip}
-              disabled
-              className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
-            />
-            <p className="text-xs text-gray-500 mt-1">Configurado automaticamente (10.6.1.123)</p>
-          </div>
-
           <button
             onClick={handleSaveConfig}
             disabled={loading}
@@ -258,22 +245,6 @@ export default function TailscaleTab() {
                 )}
               </div>
             </div>
-
-            {/* DVR HTTP */}
-            <div className={`p-4 rounded-lg border-2 ${getStatusColor(testResults.tests.dvr_http.color)}`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl">{getStatusIcon(testResults.tests.dvr_http.status)}</span>
-                  <div>
-                    <p className="font-semibold">{testResults.tests.dvr_http.description}</p>
-                    <p className="text-sm">{testResults.tests.dvr_http.message}</p>
-                  </div>
-                </div>
-                {testResults.tests.dvr_http.response_time_ms && (
-                  <span className="text-sm font-mono">{testResults.tests.dvr_http.response_time_ms}ms</span>
-                )}
-              </div>
-            </div>
           </div>
         )}
 
@@ -297,11 +268,7 @@ export default function TailscaleTab() {
           </li>
           <li className="flex items-start">
             <span className="mr-2">•</span>
-            <span><strong>VPS → DVR:</strong> Testa se a VPS consegue alcançar o DVR na rede local do cliente</span>
-          </li>
-          <li className="flex items-start">
-            <span className="mr-2">•</span>
-            <span><strong>DVR HTTP:</strong> Testa se o DVR está respondendo requisições HTTP corretamente</span>
+            <span><strong>VPS → DVR:</strong> Testa se a VPS consegue alcançar o DVR na rede local do cliente através do Tailscale</span>
           </li>
         </ul>
       </div>
