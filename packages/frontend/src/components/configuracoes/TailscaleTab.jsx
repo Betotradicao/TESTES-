@@ -78,6 +78,23 @@ export default function TailscaleTab() {
   };
 
   const handleTestConnectivity = async () => {
+    // Validar se tem IPs configurados
+    if (!config.vps_ip || !config.client_ip) {
+      alert('⚠️ Configure os IPs do Tailscale antes de testar a conectividade!');
+      return;
+    }
+
+    // Validar se os IPs estão corretos
+    if (!validateIP(config.vps_ip)) {
+      alert('❌ IP da VPS inválido! Corrija o IP antes de testar.');
+      return;
+    }
+
+    if (!validateIP(config.client_ip)) {
+      alert('❌ IP do Cliente inválido! Corrija o IP antes de testar.');
+      return;
+    }
+
     try {
       setTesting(true);
       const response = await api.post('/tailscale/test');
