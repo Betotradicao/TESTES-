@@ -33,6 +33,32 @@ export class TailscaleService {
   }
 
   /**
+   * Validar formato de IP Tailscale
+   */
+  private static validateIP(ip: string): boolean {
+    if (!ip || ip.trim() === '') return true; // Permite vazio
+
+    // Valida formato de IP (xxx.xxx.xxx.xxx)
+    const ipRegex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+    const match = ip.match(ipRegex);
+
+    if (!match) return false;
+
+    // Verifica se cada octeto está entre 0 e 255
+    for (let i = 1; i <= 4; i++) {
+      const num = parseInt(match[i]);
+      if (num < 0 || num > 255) return false;
+    }
+
+    // Valida se é um IP Tailscale (começa com 100.)
+    if (!ip.startsWith('100.')) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
    * Salvar configurações do Tailscale
    */
   static async saveConfig(updates: {
@@ -41,11 +67,18 @@ export class TailscaleService {
   }) {
     const configRepository = AppDataSource.getRepository(Configuration);
 
-    if (updates.vps_ip !== undefined) {
+    // Validar IPs antes de salvar
+    if (updates.vps_ip !== undefined && updates.vps_ip.trim() !== '') {
+      if (!this.validateIP(updates.vps_ip)) {
+        throw new Error('IP da VPS inválido! Deve ser um IP Tailscale no formato 100.x.x.x');
+      }
       await this.upsertConfig(configRepository, 'tailscale_vps_ip', updates.vps_ip);
     }
 
-    if (updates.client_ip !== undefined) {
+    if (updates.client_ip !== undefined && updates.client_ip.trim() !== '') {
+      if (!this.validateIP(updates.client_ip)) {
+        throw new Error('IP do Cliente inválido! Deve ser um IP Tailscale no formato 100.x.x.x');
+      }
       await this.upsertConfig(configRepository, 'tailscale_client_ip', updates.client_ip);
     }
 
