@@ -326,8 +326,14 @@ else
         echo ""
         echo "   Após autenticar, execute para ver o IP:"
         echo "      tailscale ip -4"
+        echo ""
+        echo "   📋 Para gerar nova Auth Key, acesse:"
+        echo "      https://login.tailscale.com/admin/settings/keys"
     else
         echo "   Execute: sudo tailscale up --authkey=SUA_CHAVE"
+        echo ""
+        echo "   📋 Para gerar Auth Key, acesse:"
+        echo "      https://login.tailscale.com/admin/settings/keys"
     fi
 fi
 echo ""
