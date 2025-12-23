@@ -318,6 +318,40 @@ export default function TailscaleTab() {
             </ol>
           </div>
 
+          {/* Configurar Subnet Routes */}
+          <div className="bg-white rounded-lg p-4 border-l-4 border-purple-500">
+            <h5 className="font-bold text-purple-700 mb-2 flex items-center">
+              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+              </svg>
+              Liberar Acesso ao DVR (Subnet Routes):
+            </h5>
+            <p className="text-xs text-gray-600 mb-2 italic">Permite que a VPS acesse a rede local do cliente (10.6.1.x) onde está o DVR</p>
+            <ol className="text-sm text-gray-700 space-y-2 ml-6 list-decimal">
+              <li>
+                <strong>No PC do cliente (Windows):</strong> Abra PowerShell como Administrador e execute:
+                <div className="mt-1 bg-gray-900 text-green-400 p-2 rounded font-mono text-xs overflow-x-auto">
+                  tailscale up --advertise-routes=10.6.1.0/24 --accept-routes
+                </div>
+              </li>
+              <li>
+                <strong>No painel web:</strong> Acesse <a href="https://login.tailscale.com/admin/machines" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline font-mono">login.tailscale.com/admin/machines</a>
+              </li>
+              <li>
+                Clique no computador do cliente (ex: srv-tradicao)
+              </li>
+              <li>
+                Na seção <strong>"Subnet routes"</strong>, marque o checkbox <code className="bg-gray-100 px-1 rounded">10.6.1.0/24</code>
+              </li>
+              <li>
+                Clique em <strong>Save</strong>
+              </li>
+              <li>
+                Pronto! Agora a VPS consegue acessar o DVR (10.6.1.123) através do Tailscale
+              </li>
+            </ol>
+          </div>
+
           {/* Dica Extra */}
           <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg p-3 border border-purple-300">
             <p className="text-sm text-purple-900 flex items-start">
