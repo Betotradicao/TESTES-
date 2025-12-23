@@ -27,7 +27,41 @@ export default function TailscaleTab() {
     }
   };
 
+  const validateIP = (ip) => {
+    if (!ip || ip.trim() === '') return true; // Permite vazio
+
+    // Valida formato de IP (xxx.xxx.xxx.xxx)
+    const ipRegex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+    const match = ip.match(ipRegex);
+
+    if (!match) return false;
+
+    // Verifica se cada octeto está entre 0 e 255
+    for (let i = 1; i <= 4; i++) {
+      const num = parseInt(match[i]);
+      if (num < 0 || num > 255) return false;
+    }
+
+    // Valida se é um IP Tailscale (começa com 100.)
+    if (!ip.startsWith('100.')) {
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSaveConfig = async () => {
+    // Validar IPs antes de salvar
+    if (config.vps_ip && !validateIP(config.vps_ip)) {
+      alert('❌ IP da VPS inválido! Deve ser um IP Tailscale no formato 100.x.x.x');
+      return;
+    }
+
+    if (config.client_ip && !validateIP(config.client_ip)) {
+      alert('❌ IP do Cliente inválido! Deve ser um IP Tailscale no formato 100.x.x.x');
+      return;
+    }
+
     try {
       setLoading(true);
       await api.put('/tailscale/config', {
@@ -135,9 +169,23 @@ export default function TailscaleTab() {
               value={config.vps_ip}
               onChange={(e) => setConfig({ ...config, vps_ip: e.target.value })}
               placeholder="100.x.x.x"
-              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none"
+              className={`w-full px-4 py-2 border-2 rounded-lg focus:outline-none ${
+                config.vps_ip && !validateIP(config.vps_ip)
+                  ? 'border-red-500 focus:border-red-600 bg-red-50'
+                  : 'border-gray-300 focus:border-orange-500'
+              }`}
             />
-            <p className="text-xs text-gray-500 mt-1">IP da VPS na rede Tailscale</p>
+            {config.vps_ip && !validateIP(config.vps_ip) && (
+              <p className="text-xs text-red-600 mt-1 flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                IP inválido! Deve ser um IP Tailscale no formato 100.x.x.x
+              </p>
+            )}
+            {(!config.vps_ip || validateIP(config.vps_ip)) && (
+              <p className="text-xs text-gray-500 mt-1">IP da VPS na rede Tailscale</p>
+            )}
           </div>
 
           <div>
@@ -149,9 +197,23 @@ export default function TailscaleTab() {
               value={config.client_ip}
               onChange={(e) => setConfig({ ...config, client_ip: e.target.value })}
               placeholder="100.y.y.y"
-              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none"
+              className={`w-full px-4 py-2 border-2 rounded-lg focus:outline-none ${
+                config.client_ip && !validateIP(config.client_ip)
+                  ? 'border-red-500 focus:border-red-600 bg-red-50'
+                  : 'border-gray-300 focus:border-orange-500'
+              }`}
             />
-            <p className="text-xs text-gray-500 mt-1">IP do computador do cliente na rede Tailscale</p>
+            {config.client_ip && !validateIP(config.client_ip) && (
+              <p className="text-xs text-red-600 mt-1 flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                IP inválido! Deve ser um IP Tailscale no formato 100.x.x.x
+              </p>
+            )}
+            {(!config.client_ip || validateIP(config.client_ip)) && (
+              <p className="text-xs text-gray-500 mt-1">IP do computador do cliente na rede Tailscale</p>
+            )}
           </div>
 
           <button
