@@ -27,41 +27,7 @@ export default function TailscaleTab() {
     }
   };
 
-  const validateIP = (ip) => {
-    if (!ip || ip.trim() === '') return true; // Permite vazio
-
-    // Valida formato de IP (xxx.xxx.xxx.xxx)
-    const ipRegex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
-    const match = ip.match(ipRegex);
-
-    if (!match) return false;
-
-    // Verifica se cada octeto está entre 0 e 255
-    for (let i = 1; i <= 4; i++) {
-      const num = parseInt(match[i]);
-      if (num < 0 || num > 255) return false;
-    }
-
-    // Valida se é um IP Tailscale (começa com 100.)
-    if (!ip.startsWith('100.')) {
-      return false;
-    }
-
-    return true;
-  };
-
   const handleSaveConfig = async () => {
-    // Validar IPs antes de salvar
-    if (config.vps_ip && !validateIP(config.vps_ip)) {
-      alert('❌ IP da VPS inválido! Deve ser um IP Tailscale no formato 100.x.x.x');
-      return;
-    }
-
-    if (config.client_ip && !validateIP(config.client_ip)) {
-      alert('❌ IP do Cliente inválido! Deve ser um IP Tailscale no formato 100.x.x.x');
-      return;
-    }
-
     try {
       setLoading(true);
       await api.put('/tailscale/config', {
@@ -78,23 +44,6 @@ export default function TailscaleTab() {
   };
 
   const handleTestConnectivity = async () => {
-    // Validar se tem IPs configurados
-    if (!config.vps_ip || !config.client_ip) {
-      alert('⚠️ Configure os IPs do Tailscale antes de testar a conectividade!');
-      return;
-    }
-
-    // Validar se os IPs estão corretos
-    if (!validateIP(config.vps_ip)) {
-      alert('❌ IP da VPS inválido! Corrija o IP antes de testar.');
-      return;
-    }
-
-    if (!validateIP(config.client_ip)) {
-      alert('❌ IP do Cliente inválido! Corrija o IP antes de testar.');
-      return;
-    }
-
     try {
       setTesting(true);
       const response = await api.post('/tailscale/test');
@@ -186,23 +135,9 @@ export default function TailscaleTab() {
               value={config.vps_ip}
               onChange={(e) => setConfig({ ...config, vps_ip: e.target.value })}
               placeholder="100.x.x.x"
-              className={`w-full px-4 py-2 border-2 rounded-lg focus:outline-none ${
-                config.vps_ip && !validateIP(config.vps_ip)
-                  ? 'border-red-500 focus:border-red-600 bg-red-50'
-                  : 'border-gray-300 focus:border-orange-500'
-              }`}
+              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none"
             />
-            {config.vps_ip && !validateIP(config.vps_ip) && (
-              <p className="text-xs text-red-600 mt-1 flex items-center">
-                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                IP inválido! Deve ser um IP Tailscale no formato 100.x.x.x
-              </p>
-            )}
-            {(!config.vps_ip || validateIP(config.vps_ip)) && (
-              <p className="text-xs text-gray-500 mt-1">IP da VPS na rede Tailscale</p>
-            )}
+            <p className="text-xs text-gray-500 mt-1">IP da VPS na rede Tailscale</p>
           </div>
 
           <div>
@@ -214,23 +149,9 @@ export default function TailscaleTab() {
               value={config.client_ip}
               onChange={(e) => setConfig({ ...config, client_ip: e.target.value })}
               placeholder="100.y.y.y"
-              className={`w-full px-4 py-2 border-2 rounded-lg focus:outline-none ${
-                config.client_ip && !validateIP(config.client_ip)
-                  ? 'border-red-500 focus:border-red-600 bg-red-50'
-                  : 'border-gray-300 focus:border-orange-500'
-              }`}
+              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none"
             />
-            {config.client_ip && !validateIP(config.client_ip) && (
-              <p className="text-xs text-red-600 mt-1 flex items-center">
-                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                IP inválido! Deve ser um IP Tailscale no formato 100.x.x.x
-              </p>
-            )}
-            {(!config.client_ip || validateIP(config.client_ip)) && (
-              <p className="text-xs text-gray-500 mt-1">IP do computador do cliente na rede Tailscale</p>
-            )}
+            <p className="text-xs text-gray-500 mt-1">IP do computador do cliente na rede Tailscale</p>
           </div>
 
           <button
@@ -324,6 +245,22 @@ export default function TailscaleTab() {
                 )}
               </div>
             </div>
+
+            {/* DVR HTTP */}
+            <div className={`p-4 rounded-lg border-2 ${getStatusColor(testResults.tests.dvr_http.color)}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <span className="text-2xl">{getStatusIcon(testResults.tests.dvr_http.status)}</span>
+                  <div>
+                    <p className="font-semibold">{testResults.tests.dvr_http.description}</p>
+                    <p className="text-sm">{testResults.tests.dvr_http.message}</p>
+                  </div>
+                </div>
+                {testResults.tests.dvr_http.response_time_ms && (
+                  <span className="text-sm font-mono">{testResults.tests.dvr_http.response_time_ms}ms</span>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -347,100 +284,13 @@ export default function TailscaleTab() {
           </li>
           <li className="flex items-start">
             <span className="mr-2">•</span>
-            <span><strong>VPS → DVR:</strong> Testa se a VPS consegue alcançar o DVR na rede local do cliente através do Tailscale</span>
+            <span><strong>VPS → DVR:</strong> Testa se a VPS consegue alcançar o DVR na rede local do cliente</span>
+          </li>
+          <li className="flex items-start">
+            <span className="mr-2">•</span>
+            <span><strong>DVR HTTP:</strong> Testa se o DVR está respondendo requisições HTTP corretamente</span>
           </li>
         </ul>
-      </div>
-
-      {/* Instruções de Configuração */}
-      <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl shadow p-6 border-2 border-orange-200">
-        <h4 className="font-bold text-gray-800 mb-4 flex items-center">
-          <svg className="w-5 h-5 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Como obter os IPs Tailscale:
-        </h4>
-
-        <div className="space-y-4">
-          {/* Cliente Windows */}
-          <div className="bg-white rounded-lg p-4 border-l-4 border-blue-500">
-            <h5 className="font-bold text-blue-700 mb-2 flex items-center">
-              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801" />
-              </svg>
-              Cliente Windows:
-            </h5>
-            <ol className="text-sm text-gray-700 space-y-1 ml-6 list-decimal">
-              <li>Acesse no PC do cliente: <a href="https://login.tailscale.com/admin/machines" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-mono">login.tailscale.com/admin/machines</a></li>
-              <li>Encontre o computador do cliente na lista</li>
-              <li>Copie o IP Tailscale (ex: 100.69.131.40)</li>
-              <li>Cole no campo "IP Tailscale do Cliente" acima</li>
-            </ol>
-          </div>
-
-          {/* VPS Linux */}
-          <div className="bg-white rounded-lg p-4 border-l-4 border-green-500">
-            <h5 className="font-bold text-green-700 mb-2 flex items-center">
-              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.84-.41 1.719-.287 2.589.214 1.505.962 2.735 2.179 3.548l.062.04c.651.408 1.446.65 2.315.65.869 0 1.664-.242 2.315-.65l.062-.04c1.217-.813 1.965-2.043 2.179-3.548.123-.87-.009-1.75-.287-2.589-.589-1.771-1.831-3.47-2.716-4.521-.75-1.067-.974-1.928-1.05-3.02-.065-1.491 1.056-5.965-3.17-6.298-.165-.013-.325-.021-.48-.021zm-.005 2.024c.044 0 .09.003.135.006 1.012.08 1.067.748 1.092 1.476.028.813.227 1.574.845 2.426.793.928 1.959 2.579 2.503 4.205.196.587.288 1.176.191 1.714-.121.675-.499 1.216-1.099 1.572-.281.177-.61.268-.964.268s-.683-.091-.964-.268c-.6-.356-.978-.897-1.099-1.572-.097-.538-.005-1.127.191-1.714.544-1.626 1.71-3.277 2.503-4.205.618-.852.817-1.613.845-2.426.025-.728.08-1.396 1.092-1.476.045-.003.091-.006.135-.006z" />
-              </svg>
-              VPS Linux:
-            </h5>
-            <ol className="text-sm text-gray-700 space-y-1 ml-6 list-decimal">
-              <li>Conecte via SSH na VPS</li>
-              <li>Execute: <code className="bg-gray-100 px-2 py-1 rounded font-mono text-xs">curl -fsSL https://tailscale.com/install.sh | sh</code></li>
-              <li>Execute: <code className="bg-gray-100 px-2 py-1 rounded font-mono text-xs">sudo tailscale up</code></li>
-              <li>Abra a URL que aparecer no navegador e autorize</li>
-              <li>Execute: <code className="bg-gray-100 px-2 py-1 rounded font-mono text-xs">tailscale ip -4</code></li>
-              <li>Copie o IP retornado (ex: 100.81.126.110)</li>
-              <li>Cole no campo "IP Tailscale da VPS" acima</li>
-            </ol>
-          </div>
-
-          {/* Configurar Subnet Routes */}
-          <div className="bg-white rounded-lg p-4 border-l-4 border-purple-500">
-            <h5 className="font-bold text-purple-700 mb-2 flex items-center">
-              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-              </svg>
-              Liberar Acesso ao DVR (Subnet Routes):
-            </h5>
-            <p className="text-xs text-gray-600 mb-2 italic">Permite que a VPS acesse a rede local do cliente (10.6.1.x) onde está o DVR</p>
-            <ol className="text-sm text-gray-700 space-y-2 ml-6 list-decimal">
-              <li>
-                <strong>No PC do cliente (Windows):</strong> Abra PowerShell como Administrador e execute:
-                <div className="mt-1 bg-gray-900 text-green-400 p-2 rounded font-mono text-xs overflow-x-auto">
-                  tailscale up --advertise-routes=10.6.1.0/24 --accept-routes
-                </div>
-              </li>
-              <li>
-                <strong>No painel web:</strong> Acesse <a href="https://login.tailscale.com/admin/machines" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline font-mono">login.tailscale.com/admin/machines</a>
-              </li>
-              <li>
-                Clique no computador do cliente (ex: srv-tradicao)
-              </li>
-              <li>
-                Na seção <strong>"Subnet routes"</strong>, marque o checkbox <code className="bg-gray-100 px-1 rounded">10.6.1.0/24</code>
-              </li>
-              <li>
-                Clique em <strong>Save</strong>
-              </li>
-              <li>
-                Pronto! Agora a VPS consegue acessar o DVR (10.6.1.123) através do Tailscale
-              </li>
-            </ol>
-          </div>
-
-          {/* Dica Extra */}
-          <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg p-3 border border-purple-300">
-            <p className="text-sm text-purple-900 flex items-start">
-              <svg className="w-5 h-5 mr-2 flex-shrink-0 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-              <span><strong>Dica:</strong> No painel do Tailscale você consegue ver TODAS as máquinas conectadas e seus IPs em um só lugar!</span>
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );

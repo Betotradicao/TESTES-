@@ -28,7 +28,7 @@ export class TailscaleService {
     return {
       vps_ip: configMap.tailscale_vps_ip || '',
       client_ip: configMap.tailscale_client_ip || '',
-      dvr_ip: configMap.dvr_ip || '10.6.1.123'
+      dvr_ip: configMap.dvr_ip || ''
     };
   }
 

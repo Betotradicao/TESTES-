@@ -36,11 +36,11 @@ async function obterConfigDVR() {
 
   return {
     dvr: {
-      ip: configMap.dvr_ip || '10.6.1.123',
+      ip: configMap.dvr_ip || '',
       usuario: configMap.dvr_usuario || 'admin',
-      senha: configMap.dvr_senha || 'beto3107@'
+      senha: configMap.dvr_senha || ''
     },
-    intervaloMinutos: parseInt(configMap.dvr_monitor_intervalo || '5'),
+    intervaloMinutos: parseInt(configMap.dvr_monitor_intervalo || '360'),
     emailSenha: configMap.dvr_email_senha || ''
   };
 }
