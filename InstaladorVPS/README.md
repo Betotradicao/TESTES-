@@ -4,6 +4,36 @@ Instalador automatizado para servidores Linux (VPS). Detecta automaticamente o I
 
 ---
 
+## 🎯 INSTALAÇÃO EM 1 COMANDO (RECOMENDADO)
+
+Cole este comando único no terminal da sua VPS para instalar tudo automaticamente:
+
+```bash
+cd /root && rm -rf prevencao-no-radar && git clone https://github.com/Betotradicao/NOVO-PREVEN-O.git prevencao-no-radar && cd prevencao-no-radar/InstaladorVPS && chmod +x INSTALAR-AUTO.sh && ./INSTALAR-AUTO.sh
+```
+
+**O que este comando faz:**
+1. ✅ Vai para /root
+2. 🧹 Remove instalação anterior (se existir)
+3. 📥 Clona repositório atualizado do GitHub
+4. 📂 Entra na pasta do instalador
+5. 🔓 Dá permissão de execução
+6. 🚀 Executa instalador automático
+
+**Durante a instalação:**
+- 📋 Instala Docker (se necessário)
+- 🔗 Instala e configura Tailscale
+- 🔐 Mostra link de autenticação do Tailscale (abra no navegador)
+- ⏳ Após autenticar, continua automaticamente
+- 💾 Salva todas credenciais no banco de dados
+- ✅ Sistema pronto em 5-10 minutos!
+
+**Após a instalação, acesse:**
+- Frontend: `http://IP_DA_VPS:3000`
+- Primeiro acesso: `http://IP_DA_VPS:3000/first-setup`
+
+---
+
 ## ⚡ VPS DO ZERO ABSOLUTO (Ubuntu/Debian novo)
 
 Se você acabou de criar uma VPS limpa, execute estes comandos na ordem:
