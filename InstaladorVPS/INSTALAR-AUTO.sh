@@ -96,32 +96,43 @@ else
     echo "✅ Tailscale já instalado"
 fi
 
-# Auth Key do Tailscale (gerada em: https://login.tailscale.com/admin/settings/keys)
-TAILSCALE_AUTH_KEY="tskey-auth-kLo2sjchU711CNTRL-pZf7CjM9vsWk1uXVn9EytWSGLNRCav1Xa"
-
-# Iniciar Tailscale com autenticação automática via Auth Key
-echo "🚀 Conectando ao Tailscale automaticamente (via Auth Key)..."
-tailscale up --authkey="$TAILSCALE_AUTH_KEY" --accept-routes --shields-up=false 2>&1 | tee /tmp/tailscale-auth.log &
+# Iniciar Tailscale e obter link de autenticação manual
+echo "🚀 Iniciando Tailscale..."
+tailscale up --accept-routes --shields-up=false 2>&1 | tee /tmp/tailscale-auth.log &
 TAILSCALE_PID=$!
 
-# Aguardar conexão ser estabelecida
-sleep 5
+# Aguardar link de autenticação ser gerado
+sleep 3
 
-# Obter IP do Tailscale
-TAILSCALE_IP=$(tailscale ip -4 2>/dev/null || echo "")
-
-# Tentar extrair link de autenticação manual (caso a Auth Key tenha expirado)
+# Extrair link de autenticação
 TAILSCALE_AUTH_URL=$(grep -o 'https://login.tailscale.com/a/[a-z0-9]*' /tmp/tailscale-auth.log 2>/dev/null | head -n 1)
 
+# Tentar obter IP (caso já esteja autenticado)
+TAILSCALE_IP=$(tailscale ip -4 2>/dev/null || echo "")
+
 if [ -n "$TAILSCALE_IP" ]; then
-    echo "✅ Tailscale conectado com sucesso via Auth Key!"
+    echo "✅ Tailscale já estava autenticado!"
     echo "📍 IP Tailscale da VPS: $TAILSCALE_IP"
 else
-    echo "⚠️  Aviso: Não foi possível conectar automaticamente"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🔐 AUTENTICAÇÃO TAILSCALE NECESSÁRIA"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
     if [ -n "$TAILSCALE_AUTH_URL" ]; then
-        echo "ℹ️  Auth Key pode ter expirado. Use autenticação manual:"
+        echo "   Abra este link no navegador para autenticar:"
+        echo ""
         echo "   $TAILSCALE_AUTH_URL"
+        echo ""
+        echo "   ⏳ Após autenticar, o sistema detectará automaticamente o IP"
+        echo "   💾 O IP será salvo automaticamente no banco de dados"
+    else
+        echo "   ⚠️  Link não encontrado. Execute manualmente:"
+        echo "   tailscale up --accept-routes --shields-up=false"
     fi
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
 fi
 
 echo ""
@@ -259,14 +270,63 @@ echo "⏳ Aguardando containers iniciarem..."
 sleep 10
 
 # ============================================
+# CONFIGURAR BANCO DE DADOS
+# ============================================
+
+echo "💾 Configurando credenciais no banco de dados..."
+
+# Aguardar PostgreSQL estar 100% pronto
+echo "⏳ Aguardando PostgreSQL inicializar..."
+sleep 10
+
+# Inserir credenciais do banco de dados
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
+-- Credenciais do PostgreSQL
+INSERT INTO configurations (key, value, encrypted, created_at, updated_at)
+VALUES
+  ('postgres_host', 'postgres', false, NOW(), NOW()),
+  ('postgres_port', '5432', false, NOW(), NOW()),
+  ('postgres_user', '$POSTGRES_USER', false, NOW(), NOW()),
+  ('postgres_password', '$POSTGRES_PASSWORD', false, NOW(), NOW()),
+  ('postgres_database', '$POSTGRES_DB', false, NOW(), NOW()),
+  ('db_host', 'postgres', false, NOW(), NOW()),
+  ('db_port', '5432', false, NOW(), NOW()),
+  ('db_user', '$POSTGRES_USER', false, NOW(), NOW()),
+  ('db_password', '$POSTGRES_PASSWORD', false, NOW(), NOW()),
+  ('db_name', '$POSTGRES_DB', false, NOW(), NOW())
+ON CONFLICT (key) DO UPDATE SET
+  value = EXCLUDED.value,
+  updated_at = NOW();
+" 2>/dev/null
+
+echo "✅ Credenciais do banco configuradas!"
+
+# Inserir configurações do MinIO
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
+INSERT INTO configurations (key, value, encrypted, created_at, updated_at)
+VALUES
+  ('minio_endpoint', 'minio', false, NOW(), NOW()),
+  ('minio_port', '9000', false, NOW(), NOW()),
+  ('minio_access_key', '$MINIO_ACCESS_KEY', false, NOW(), NOW()),
+  ('minio_secret_key', '$MINIO_SECRET_KEY', false, NOW(), NOW()),
+  ('minio_bucket_name', '$MINIO_BUCKET_NAME', false, NOW(), NOW()),
+  ('minio_public_endpoint', '$HOST_IP', false, NOW(), NOW()),
+  ('minio_public_port', '$MINIO_PUBLIC_PORT', false, NOW(), NOW()),
+  ('minio_use_ssl', 'false', false, NOW(), NOW())
+ON CONFLICT (key) DO UPDATE SET
+  value = EXCLUDED.value,
+  updated_at = NOW();
+" 2>/dev/null
+
+echo "✅ Configurações do MinIO salvas!"
+echo ""
+
+# ============================================
 # CONFIGURAR IP TAILSCALE NO BANCO
 # ============================================
 
 if [ -n "$TAILSCALE_IP" ]; then
     echo "💾 Salvando IP Tailscale da VPS no banco de dados..."
-
-    # Aguardar PostgreSQL estar pronto
-    sleep 5
 
     # Inserir IP Tailscale da VPS no banco
     docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
