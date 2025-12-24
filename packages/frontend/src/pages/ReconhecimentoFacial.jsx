@@ -23,9 +23,14 @@ function getBackendBaseUrl() {
     return 'https://api.prevencaonoradar.com.br';
   }
 
-  // Se acessando por IP
+  // FORÇAR: Se NÃO for localhost, usar o hostname atual com porta 3001
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    return `http://${hostname}:3001`;
+  }
+
+  // Se acessando por IP (código legado, não deve chegar aqui)
   const isIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
-  if (isIP || hostname.startsWith('10.') || hostname.startsWith('192.168.') || hostname.startsWith('172.')) {
+  if (isIP || hostname.startsWith('10.') || hostname.startsWith('192.168.') || hostname.startsWith('172.') || hostname.startsWith('31.')) {
     return `http://${hostname}:3001`;
   }
 
