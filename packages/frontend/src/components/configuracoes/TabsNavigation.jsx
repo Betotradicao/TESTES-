@@ -7,7 +7,8 @@ export default function TabsNavigation({ activeTab, onChange, pageType = 'config
     { id: 'security', label: 'Segurança' },
     { id: 'email', label: 'Email' },
     { id: 'email-monitor', label: 'Monitor Email' },
-    { id: 'tailscale', label: 'Tailscale' }
+    { id: 'tailscale', label: 'Tailscale' },
+    { id: 'cron-monitor', label: 'CRON Monitor' }
   ];
 
   // Abas para Configurações normais

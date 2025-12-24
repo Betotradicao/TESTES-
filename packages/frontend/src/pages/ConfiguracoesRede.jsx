@@ -10,6 +10,7 @@ import SecurityTab from '../components/configuracoes/SecurityTab';
 import EmailTab from '../components/configuracoes/EmailTab';
 import EmailMonitorTab from '../components/configuracoes/EmailMonitorTab';
 import TailscaleTab from '../components/configuracoes/TailscaleTab';
+import CronMonitorTab from '../components/configuracoes/CronMonitorTab';
 import api from '../services/api';
 
 export default function ConfiguracoesRede() {
@@ -31,7 +32,7 @@ export default function ConfiguracoesRede() {
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && (tabFromUrl === 'modulos' || tabFromUrl === 'empresa' || tabFromUrl === 'apis' || tabFromUrl === 'security' || tabFromUrl === 'email' || tabFromUrl === 'email-monitor' || tabFromUrl === 'tailscale')) {
+    if (tabFromUrl && (tabFromUrl === 'modulos' || tabFromUrl === 'empresa' || tabFromUrl === 'apis' || tabFromUrl === 'security' || tabFromUrl === 'email' || tabFromUrl === 'email-monitor' || tabFromUrl === 'tailscale' || tabFromUrl === 'cron-monitor')) {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -235,6 +236,7 @@ export default function ConfiguracoesRede() {
               {activeTab === 'email' && <EmailTab />}
               {activeTab === 'email-monitor' && <EmailMonitorTab />}
               {activeTab === 'tailscale' && <TailscaleTab />}
+              {activeTab === 'cron-monitor' && <CronMonitorTab />}
             </div>
           </div>
         </div>

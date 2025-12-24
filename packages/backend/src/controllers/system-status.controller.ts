@@ -19,30 +19,19 @@ export async function getCronStatus(req: Request, res: Response) {
 
     try {
       // Buscar última execução do cron (verificações de hoje)
+      // Última vez que vendas foram cruzadas com bipagens (updated_at da tabela sells)
       const lastRunQuery = `
         SELECT
-          MAX(verified_at) as last_run,
-          COUNT(*) FILTER (WHERE verified_at IS NOT NULL) as vendas_processadas,
-          COUNT(*) FILTER (WHERE status = 'verified') as bipagens_verificadas
-        FROM bips
-        WHERE DATE(verified_at) = CURRENT_DATE
+          MAX(s.updated_at) as last_run,
+          COUNT(DISTINCT s.id) as vendas_processadas,
+          COUNT(DISTINCT s.bip_id) as bipagens_verificadas
+        FROM sells s
+        WHERE s.bip_id IS NOT NULL
+          AND DATE(s.updated_at) = CURRENT_DATE
       `;
 
       const result = await client.query(lastRunQuery);
       const row = result.rows[0];
-
-      // Buscar último erro de log (se houver)
-      const errorQuery = `
-        SELECT message, created_at
-        FROM logs
-        WHERE level = 'error'
-          AND category = 'cron'
-        ORDER BY created_at DESC
-        LIMIT 1
-      `;
-
-      const errorResult = await client.query(errorQuery);
-      const lastError = errorResult.rows[0];
 
       // Determinar status
       let status = 'ok';
@@ -54,20 +43,12 @@ export async function getCronStatus(req: Request, res: Response) {
         status = 'warning';
       }
 
-      if (lastError && lastError.created_at) {
-        const errorTime = new Date(lastError.created_at);
-        if (now.getTime() - errorTime.getTime() < 300000) {
-          // Erro nos últimos 5 minutos
-          status = 'error';
-        }
-      }
-
       res.json({
         status,
         lastRun: lastRunTime,
         vendasProcessadas: parseInt(row.vendas_processadas) || 0,
         bipagensVerificadas: parseInt(row.bipagens_verificadas) || 0,
-        lastError: lastError ? lastError.message : null,
+        lastError: null,
       });
     } finally {
       client.release();
@@ -92,8 +73,8 @@ export async function getBarcodeStatus(req: Request, res: Response) {
       // Buscar estatísticas de bipagens
       const statsQuery = `
         SELECT
-          MAX(created_at) as last_bip_time,
-          COUNT(*) FILTER (WHERE DATE(created_at) = CURRENT_DATE) as total_today,
+          MAX(event_date) as last_bip_time,
+          COUNT(*) FILTER (WHERE DATE(event_date) = CURRENT_DATE) as total_today,
           COUNT(*) FILTER (WHERE status = 'pending') as pendentes
         FROM bips
       `;
