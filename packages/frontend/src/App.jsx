@@ -17,6 +17,7 @@ import Perfil from './pages/Perfil';
 import ReconhecimentoFacial from './pages/ReconhecimentoFacial';
 import MonitorarEmailDVR from './pages/MonitorarEmailDVR';
 import Tailscale from './pages/Tailscale';
+import CronMonitor from './pages/CronMonitor';
 
 function App() {
   return (
@@ -116,6 +117,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Tailscale />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/cron-monitor"
+              element={
+                <ProtectedRoute>
+                  <CronMonitor />
                 </ProtectedRoute>
               }
             />

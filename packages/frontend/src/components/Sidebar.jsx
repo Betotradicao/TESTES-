@@ -173,6 +173,17 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       ]
     },
     {
+      id: 'cron-monitor',
+      title: 'CRON DE BIPAGENS',
+      path: '/cron-monitor',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      ),
+      items: []
+    },
+    {
       id: 'configuracoes',
       title: 'Configurações',
       path: '/configuracoes',
