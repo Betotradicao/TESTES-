@@ -32,6 +32,7 @@ import systemStatusRouter from './routes/system-status.routes';
 import { minioService } from './services/minio.service';
 import { EmailMonitorService } from './services/email-monitor.service';
 import { seedMasterUser } from './database/seeds/masterUser.seed';
+import seedConfigurations from './scripts/seed-configurations';
 import * as cron from 'node-cron';
 // import { checkSetupMiddleware } from './middleware/check-setup.middleware';
 
@@ -99,6 +100,9 @@ const startServer = async () => {
   try {
     await AppDataSource.initialize();
     console.log('✅ Database connected successfully');
+
+    // Seed de configurações do sistema (popula com dados do .env)
+    await seedConfigurations();
 
     // Seed do usuário master (DESABILITADO - usar first-setup)
     // await seedMasterUser(AppDataSource);
