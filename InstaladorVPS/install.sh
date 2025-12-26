@@ -107,7 +107,12 @@ tailscale up --accept-routes --shields-up=false > /tmp/tailscale-auth.log 2>&1 &
 TAILSCALE_PID=$!
 
 # Aguardar alguns segundos para o link de autenticação aparecer
-sleep 3
+sleep 5
+
+# Mostrar o que está no log (para debug)
+echo "📋 Verificando log do Tailscale..."
+cat /tmp/tailscale-auth.log
+echo ""
 
 # Tentar extrair o link de autenticação
 TAILSCALE_AUTH_URL=$(grep -o 'https://login.tailscale.com/a/[a-z0-9]*' /tmp/tailscale-auth.log | head -n 1)
