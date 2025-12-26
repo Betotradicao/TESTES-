@@ -83,6 +83,10 @@ fi
 # Ir para diretório do instalador
 SCRIPT_DIR="$REPO_ROOT/InstaladorVPS"
 cd "$SCRIPT_DIR"
+
+echo "📂 Diretório de trabalho: $(pwd)"
+echo "📋 Arquivos disponíveis:"
+ls -la
 echo ""
 
 # ============================================
