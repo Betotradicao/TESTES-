@@ -43,11 +43,12 @@ echo ""
 
 echo "🔄 Verificando atualizações do código..."
 
-# Salvar diretório atual
-INSTALLER_DIR=$(pwd)
+# Descobrir diretório do script
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Voltar para raiz do repositório
-cd "$(dirname "$0")/.."
+cd "$SCRIPT_DIR/.."
+REPO_ROOT=$(pwd)
 
 # Verificar se é um repositório git
 if [ -d ".git" ]; then
@@ -60,8 +61,8 @@ else
     echo "⚠️  Não é um repositório git. Pulando atualização."
 fi
 
-# Voltar para diretório do instalador
-cd "$INSTALLER_DIR"
+# Ir para diretório do instalador
+cd "$SCRIPT_DIR"
 echo ""
 
 # ============================================
