@@ -253,6 +253,9 @@ echo ""
 
 echo "🧹 Limpando containers antigos (se existirem)..."
 
+# Garantir que estamos no diretório correto
+cd "$SCRIPT_DIR"
+
 docker compose -f docker-compose-producao.yml down -v 2>/dev/null || true
 
 echo "✅ Limpeza concluída"
