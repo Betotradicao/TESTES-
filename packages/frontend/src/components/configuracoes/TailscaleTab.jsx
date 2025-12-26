@@ -231,36 +231,22 @@ export default function TailscaleTab() {
             </div>
 
             {/* VPS → DVR */}
-            <div className={`p-4 rounded-lg border-2 ${getStatusColor(testResults.tests.vps_to_dvr.color)}`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl">{getStatusIcon(testResults.tests.vps_to_dvr.status)}</span>
-                  <div>
-                    <p className="font-semibold">{testResults.tests.vps_to_dvr.description}</p>
-                    <p className="text-sm">{testResults.tests.vps_to_dvr.message}</p>
+            {testResults.tests.vps_to_dvr && (
+              <div className={`p-4 rounded-lg border-2 ${getStatusColor(testResults.tests.vps_to_dvr.color)}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-2xl">{getStatusIcon(testResults.tests.vps_to_dvr.status)}</span>
+                    <div>
+                      <p className="font-semibold">{testResults.tests.vps_to_dvr.description}</p>
+                      <p className="text-sm">{testResults.tests.vps_to_dvr.message}</p>
+                    </div>
                   </div>
+                  {testResults.tests.vps_to_dvr.latency_ms && (
+                    <span className="text-sm font-mono">{testResults.tests.vps_to_dvr.latency_ms}ms</span>
+                  )}
                 </div>
-                {testResults.tests.vps_to_dvr.latency_ms && (
-                  <span className="text-sm font-mono">{testResults.tests.vps_to_dvr.latency_ms}ms</span>
-                )}
               </div>
-            </div>
-
-            {/* DVR HTTP */}
-            <div className={`p-4 rounded-lg border-2 ${getStatusColor(testResults.tests.dvr_http.color)}`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl">{getStatusIcon(testResults.tests.dvr_http.status)}</span>
-                  <div>
-                    <p className="font-semibold">{testResults.tests.dvr_http.description}</p>
-                    <p className="text-sm">{testResults.tests.dvr_http.message}</p>
-                  </div>
-                </div>
-                {testResults.tests.dvr_http.response_time_ms && (
-                  <span className="text-sm font-mono">{testResults.tests.dvr_http.response_time_ms}ms</span>
-                )}
-              </div>
-            </div>
+            )}
           </div>
         )}
 
