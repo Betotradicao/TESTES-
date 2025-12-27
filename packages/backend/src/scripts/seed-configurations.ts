@@ -249,17 +249,17 @@ async function seedConfigurations() {
       // Monitor de Email (Novo sistema)
       {
         key: 'email_monitor_email',
-        value: process.env.EMAIL_USER || 'betotradicao76@gmail.com',
+        value: 'betotradicao76@gmail.com',
         description: 'Email Gmail para monitorar'
       },
       {
         key: 'email_monitor_app_password',
-        value: process.env.EMAIL_PASS || 'ylljjijqstxnwogk',
-        description: 'Senha de app do Gmail para IMAP'
+        value: 'ygrowrdaloqfgtcc',
+        description: 'Senha de app do Gmail para IMAP (Monitor DVR)'
       },
       {
         key: 'email_monitor_subject_filter',
-        value: 'DVR',
+        value: 'ALERTA DVR',
         description: 'Filtro de assunto dos emails'
       },
       {
@@ -269,8 +269,8 @@ async function seedConfigurations() {
       },
       {
         key: 'email_monitor_whatsapp_group',
-        value: '120363422563235781@g.us',
-        description: 'ID do grupo WhatsApp para notificações'
+        value: '120363421239599536@g.us',
+        description: 'ID do grupo WhatsApp para notificações do Monitor'
       },
       {
         key: 'email_monitor_enabled',
