@@ -352,8 +352,8 @@ CLIENT_TAILSCALE_IP=$(echo "$TAILSCALE_JSON" | jq -r '.Peer | to_entries | .[0].
 if [ -n "$VPS_TAILSCALE_IP" ]; then
   echo "✅ IP Tailscale da VPS detectado: $VPS_TAILSCALE_IP"
 
-  # Criar script temporário para salvar IPs no banco
-  cat > /tmp/save-tailscale-ips.js << ENDOFSCRIPT
+  # Criar script Node.js diretamente com os valores detectados
+  docker exec prevencao-backend-prod node -e "
 const { AppDataSource } = require('./dist/config/database');
 const { Configuration } = require('./dist/entities/Configuration');
 
@@ -361,10 +361,8 @@ AppDataSource.initialize().then(async () => {
   const repo = AppDataSource.getRepository(Configuration);
 
   // Salvar IP da VPS
-  if ('$VPS_TAILSCALE_IP') {
-    await repo.update({ key: 'tailscale_vps_ip' }, { value: '$VPS_TAILSCALE_IP' });
-    console.log('✅ IP Tailscale VPS salvo: $VPS_TAILSCALE_IP');
-  }
+  await repo.update({ key: 'tailscale_vps_ip' }, { value: '$VPS_TAILSCALE_IP' });
+  console.log('✅ IP Tailscale VPS salvo: $VPS_TAILSCALE_IP');
 
   // Salvar IP do Cliente se detectado
   if ('$CLIENT_TAILSCALE_IP') {
@@ -377,14 +375,7 @@ AppDataSource.initialize().then(async () => {
   console.error('❌ Erro ao salvar IPs Tailscale:', err.message);
   process.exit(1);
 });
-ENDOFSCRIPT
-
-  # Copiar e executar script no container
-  docker cp /tmp/save-tailscale-ips.js prevencao-backend-prod:/app/save-tailscale-ips.js 2>/dev/null
-  docker exec prevencao-backend-prod node /app/save-tailscale-ips.js 2>/dev/null
-
-  # Limpar arquivo temporário
-  rm -f /tmp/save-tailscale-ips.js
+" 2>/dev/null
 
   if [ -n "$CLIENT_TAILSCALE_IP" ]; then
     echo "✅ IP Tailscale do Cliente detectado: $CLIENT_TAILSCALE_IP"
