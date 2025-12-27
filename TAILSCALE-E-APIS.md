@@ -237,7 +237,26 @@ Quando o sistema busca produtos da Intersolid:
 
 ## Configurações Importantes
 
-### 1. Configurações do Sistema (Banco de Dados)
+### 1. Docker Compose - Acesso ao Tailscale
+
+O backend Docker acessa o Tailscale da VPS via `host.docker.internal`:
+
+```yaml
+backend:
+  ports:
+    - "3001:3001"
+  networks:
+    - prevencao-network
+  extra_hosts:
+    - "host.docker.internal:host-gateway"  # Permite acessar Tailscale do host
+```
+
+**Como funciona:**
+- `extra_hosts` adiciona um alias `host.docker.internal` que aponta para o IP do host
+- O backend pode acessar IPs Tailscale (`10.6.1.x`) através da interface Tailscale do host
+- NÃO usa `network_mode: host` (que quebra comunicação com frontend)
+
+### 2. Configurações do Sistema (Banco de Dados)
 
 As configurações são salvas no PostgreSQL:
 

@@ -58,16 +58,16 @@ services:
     container_name: prevencao-backend-prod
     restart: always
     environment:
-      # Database (acessa via porta exposta no host)
-      DB_HOST: 127.0.0.1
-      DB_PORT: 5434
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
 
-      # MinIO (acessa via porta exposta no host)
-      MINIO_ENDPOINT: 127.0.0.1
-      MINIO_PORT: 9010
+      # MinIO
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_USE_SSL: "false"
@@ -90,10 +90,19 @@ services:
       PORT: ${PORT}
       NODE_ENV: ${NODE_ENV}
       HOST_IP: ${HOST_IP}
-    # Usa rede do host para acessar Tailscale
-    network_mode: host
+    ports:
+      - "3001:3001"
+    networks:
+      - prevencao-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - backend-uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
 
   # ==========================================
   # FRONTEND (React + Vite) - BUILD ESTÁTICO
