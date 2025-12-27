@@ -46,7 +46,7 @@ ssh root@46.202.150.64
 
 ### **Opção A: Repositório Público (Recomendado)**
 
-Cole todo este bloco de comandos de uma vez:
+Cole todo este bloco de comandos de uma vez na VPS:
 
 ```bash
 cd ~ && \
@@ -56,6 +56,16 @@ git clone https://github.com/Betotradicao/NOVO-PREVEN-O.git && \
 cd ~/NOVO-PREVEN-O/InstaladorVPS && \
 chmod +x INSTALAR-AUTO.sh && \
 sudo ./INSTALAR-AUTO.sh
+```
+
+**📋 Link direto para copiar:**
+```
+https://raw.githubusercontent.com/Betotradicao/NOVO-PREVEN-O/main/InstaladorVPS/INSTALAR-AUTO.sh
+```
+
+**💡 Comando único alternativo (download direto e execução):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/Betotradicao/NOVO-PREVEN-O/main/InstaladorVPS/INSTALAR-AUTO.sh | sudo bash
 ```
 
 ### **Opção B: Repositório Privado**
