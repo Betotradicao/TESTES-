@@ -344,10 +344,11 @@ rm -f /tmp/fix-minio-config.js
 echo ""
 echo "🔧 Detectando IPs do Tailscale..."
 
-# Detectar IPs usando tailscale status --json
+# Detectar IPs e subnet usando tailscale status --json
 TAILSCALE_JSON=$(tailscale status --json 2>/dev/null || echo "{}")
 VPS_TAILSCALE_IP=$(echo "$TAILSCALE_JSON" | jq -r '.Self.TailscaleIPs[0] // ""')
 CLIENT_TAILSCALE_IP=$(echo "$TAILSCALE_JSON" | jq -r '.Peer | to_entries | .[0].value.TailscaleIPs[0] // ""')
+TAILSCALE_SUBNET=$(echo "$TAILSCALE_JSON" | jq -r '.Peer | to_entries | .[0].value.PrimaryRoutes[0] // ""')
 
 if [ -n "$VPS_TAILSCALE_IP" ]; then
   echo "✅ IP Tailscale da VPS detectado: $VPS_TAILSCALE_IP"
@@ -370,6 +371,12 @@ AppDataSource.initialize().then(async () => {
     console.log('✅ IP Tailscale Cliente salvo: $CLIENT_TAILSCALE_IP');
   }
 
+  // Salvar Subnet se detectada
+  if ('$TAILSCALE_SUBNET') {
+    await repo.update({ key: 'tailscale_subnet' }, { value: '$TAILSCALE_SUBNET' });
+    console.log('✅ Subnet Tailscale salva: $TAILSCALE_SUBNET');
+  }
+
   process.exit(0);
 }).catch(err => {
   console.error('❌ Erro ao salvar IPs Tailscale:', err.message);
@@ -381,6 +388,10 @@ AppDataSource.initialize().then(async () => {
     echo "✅ IP Tailscale do Cliente detectado: $CLIENT_TAILSCALE_IP"
   else
     echo "⚠️  Nenhum cliente Tailscale conectado ainda"
+  fi
+
+  if [ -n "$TAILSCALE_SUBNET" ]; then
+    echo "✅ Subnet detectada: $TAILSCALE_SUBNET"
   fi
 else
   echo "⚠️  Tailscale não está ativo ou não tem IPs atribuídos"

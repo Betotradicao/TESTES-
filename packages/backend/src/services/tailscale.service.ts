@@ -16,6 +16,7 @@ export class TailscaleService {
       where: [
         { key: 'tailscale_vps_ip' },
         { key: 'tailscale_client_ip' },
+        { key: 'tailscale_subnet' },
         { key: 'dvr_ip' }
       ]
     });
@@ -28,6 +29,7 @@ export class TailscaleService {
     return {
       vps_ip: configMap.tailscale_vps_ip || '',
       client_ip: configMap.tailscale_client_ip || '',
+      subnet: configMap.tailscale_subnet || '',
       dvr_ip: configMap.dvr_ip || ''
     };
   }
@@ -59,11 +61,37 @@ export class TailscaleService {
   }
 
   /**
+   * Validar formato de subnet (CIDR)
+   */
+  private static validateSubnet(subnet: string): boolean {
+    if (!subnet || subnet.trim() === '') return true; // Permite vazio
+
+    // Valida formato CIDR (xxx.xxx.xxx.xxx/xx)
+    const cidrRegex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d{1,2})$/;
+    const match = subnet.match(cidrRegex);
+
+    if (!match) return false;
+
+    // Verifica se cada octeto está entre 0 e 255
+    for (let i = 1; i <= 4; i++) {
+      const num = parseInt(match[i]);
+      if (num < 0 || num > 255) return false;
+    }
+
+    // Verifica se a máscara está entre 0 e 32
+    const mask = parseInt(match[5]);
+    if (mask < 0 || mask > 32) return false;
+
+    return true;
+  }
+
+  /**
    * Salvar configurações do Tailscale
    */
   static async saveConfig(updates: {
     vps_ip?: string;
     client_ip?: string;
+    subnet?: string;
   }) {
     const configRepository = AppDataSource.getRepository(Configuration);
 
@@ -80,6 +108,13 @@ export class TailscaleService {
         throw new Error('IP do Cliente inválido! Deve ser um IP Tailscale no formato 100.x.x.x');
       }
       await this.upsertConfig(configRepository, 'tailscale_client_ip', updates.client_ip);
+    }
+
+    if (updates.subnet !== undefined) {
+      if (!this.validateSubnet(updates.subnet)) {
+        throw new Error('Subnet inválida! Deve estar no formato CIDR (ex: 10.6.1.0/24)');
+      }
+      await this.upsertConfig(configRepository, 'tailscale_subnet', updates.subnet);
     }
 
     return this.getConfig();

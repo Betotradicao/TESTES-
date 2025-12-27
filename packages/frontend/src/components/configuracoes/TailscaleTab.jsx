@@ -7,6 +7,7 @@ export default function TailscaleTab() {
   const [config, setConfig] = useState({
     vps_ip: '',
     client_ip: '',
+    subnet: '',
     dvr_ip: ''
   });
   const [testResults, setTestResults] = useState(null);
@@ -32,7 +33,8 @@ export default function TailscaleTab() {
       setLoading(true);
       await api.put('/tailscale/config', {
         vps_ip: config.vps_ip,
-        client_ip: config.client_ip
+        client_ip: config.client_ip,
+        subnet: config.subnet
       });
       alert('✅ Configurações salvas com sucesso!');
     } catch (error) {
@@ -152,6 +154,20 @@ export default function TailscaleTab() {
               className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none"
             />
             <p className="text-xs text-gray-500 mt-1">IP do computador do cliente na rede Tailscale</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Subnet Anunciada (Opcional)
+            </label>
+            <input
+              type="text"
+              value={config.subnet}
+              onChange={(e) => setConfig({ ...config, subnet: e.target.value })}
+              placeholder="10.6.1.0/24"
+              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none"
+            />
+            <p className="text-xs text-gray-500 mt-1">Subnet da rede local do cliente (ex: 10.6.1.0/24)</p>
           </div>
 
           <button
