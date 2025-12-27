@@ -342,17 +342,37 @@ rm -f /tmp/fix-minio-config.js
 # ============================================
 
 echo ""
-echo "🔧 Detectando IPs do Tailscale..."
+echo "🔧 Salvando configurações Tailscale no banco..."
 
-# Detectar IPs usando tailscale status --json
+# Usar o IP que o usuário digitou se fornecido, senão tentar detectar automaticamente
 TAILSCALE_JSON=$(tailscale status --json 2>/dev/null || echo "{}")
-VPS_TAILSCALE_IP=$(echo "$TAILSCALE_JSON" | jq -r '.Self.TailscaleIPs[0] // ""')
-CLIENT_TAILSCALE_IP=$(echo "$TAILSCALE_JSON" | jq -r '.Peer | to_entries | .[0].value.TailscaleIPs[0] // ""')
+VPS_IP_DETECTED=$(echo "$TAILSCALE_JSON" | jq -r '.Self.TailscaleIPs[0] // ""')
 
-if [ -n "$VPS_TAILSCALE_IP" ]; then
-  echo "✅ IP Tailscale da VPS detectado: $VPS_TAILSCALE_IP"
+# Para o IP da VPS, sempre usar o detectado (mais confiável)
+if [ -n "$VPS_IP_DETECTED" ]; then
+  TAILSCALE_VPS_IP="$VPS_IP_DETECTED"
+  echo "✅ IP Tailscale da VPS detectado: $TAILSCALE_VPS_IP"
+fi
 
-  # Criar script Node.js diretamente com os valores detectados
+# Para o IP do Cliente:
+# 1. Se o usuário digitou, usar o que ele digitou (PRIORITÁRIO)
+# 2. Se não digitou, tentar detectar automaticamente
+if [ -z "$TAILSCALE_CLIENT_IP" ]; then
+  # Usuário não digitou, tentar detectar
+  CLIENT_IP_DETECTED=$(echo "$TAILSCALE_JSON" | jq -r '.Peer | to_entries | .[0].value.TailscaleIPs[0] // ""')
+  if [ -n "$CLIENT_IP_DETECTED" ]; then
+    TAILSCALE_CLIENT_IP="$CLIENT_IP_DETECTED"
+    echo "✅ IP Tailscale do Cliente auto-detectado: $TAILSCALE_CLIENT_IP"
+  else
+    echo "⚠️  Nenhum cliente Tailscale detectado"
+  fi
+else
+  # Usuário digitou, usar o que ele forneceu
+  echo "✅ IP Tailscale do Cliente (fornecido manualmente): $TAILSCALE_CLIENT_IP"
+fi
+
+# Salvar no banco de dados
+if [ -n "$TAILSCALE_VPS_IP" ] || [ -n "$TAILSCALE_CLIENT_IP" ]; then
   docker exec prevencao-backend-prod node -e "
 const { AppDataSource } = require('./dist/config/database');
 const { Configuration } = require('./dist/entities/Configuration');
@@ -360,14 +380,16 @@ const { Configuration } = require('./dist/entities/Configuration');
 AppDataSource.initialize().then(async () => {
   const repo = AppDataSource.getRepository(Configuration);
 
-  // Salvar IP da VPS
-  await repo.update({ key: 'tailscale_vps_ip' }, { value: '$VPS_TAILSCALE_IP' });
-  console.log('✅ IP Tailscale VPS salvo: $VPS_TAILSCALE_IP');
+  // Salvar IP da VPS se disponível
+  if ('$TAILSCALE_VPS_IP') {
+    await repo.update({ key: 'tailscale_vps_ip' }, { value: '$TAILSCALE_VPS_IP' });
+    console.log('✅ IP Tailscale VPS salvo: $TAILSCALE_VPS_IP');
+  }
 
-  // Salvar IP do Cliente se detectado
-  if ('$CLIENT_TAILSCALE_IP') {
-    await repo.update({ key: 'tailscale_client_ip' }, { value: '$CLIENT_TAILSCALE_IP' });
-    console.log('✅ IP Tailscale Cliente salvo: $CLIENT_TAILSCALE_IP');
+  // Salvar IP do Cliente se disponível
+  if ('$TAILSCALE_CLIENT_IP') {
+    await repo.update({ key: 'tailscale_client_ip' }, { value: '$TAILSCALE_CLIENT_IP' });
+    console.log('✅ IP Tailscale Cliente salvo: $TAILSCALE_CLIENT_IP');
   }
 
   process.exit(0);
@@ -376,14 +398,8 @@ AppDataSource.initialize().then(async () => {
   process.exit(1);
 });
 " 2>/dev/null
-
-  if [ -n "$CLIENT_TAILSCALE_IP" ]; then
-    echo "✅ IP Tailscale do Cliente detectado: $CLIENT_TAILSCALE_IP"
-  else
-    echo "⚠️  Nenhum cliente Tailscale conectado ainda"
-  fi
 else
-  echo "⚠️  Tailscale não está ativo ou não tem IPs atribuídos"
+  echo "⚠️  Nenhum IP Tailscale disponível para salvar"
 fi
 
 # ============================================
