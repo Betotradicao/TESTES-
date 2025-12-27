@@ -341,35 +341,33 @@ export default function Bipagens() {
 
   // Calcular tempo pendente no formato HH:MM:SS
   // Usa timeUpdate como dependência para forçar recálculo a cada segundo
-  const calculatePendingTime = (eventDate, status) => {
-    if (status !== 'pending') return '-';
+  const calculatePendingTime = useMemo(() => {
+    return (eventDate, status) => {
+      if (status !== 'pending') return '-';
 
-    // Força recálculo usando timeUpdate (incrementa a cada segundo)
-    // eslint-disable-next-line no-unused-vars
-    const _ = timeUpdate;
+      // Usar horário local para 'now' e tratar eventTime como horário local também
+      const now = new Date();
 
-    // Usar horário local para 'now' e tratar eventTime como horário local também
-    const now = new Date();
+      // Parse da data do evento mantendo como horário local (sem conversão UTC)
+      const eventTime = new Date(eventDate.replace('Z', ''));
 
-    // Parse da data do evento mantendo como horário local (sem conversão UTC)
-    const eventTime = new Date(eventDate.replace('Z', ''));
+      const diffMs = now - eventTime;
 
-    const diffMs = now - eventTime;
+      if (diffMs < 0) return '00:00:00';
 
-    if (diffMs < 0) return '00:00:00';
+      const totalSeconds = Math.floor(diffMs / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
 
-    const totalSeconds = Math.floor(diffMs / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
+      // Formatar com 2 dígitos (00:00:00)
+      const hh = String(hours).padStart(2, '0');
+      const mm = String(minutes).padStart(2, '0');
+      const ss = String(seconds).padStart(2, '0');
 
-    // Formatar com 2 dígitos (00:00:00)
-    const hh = String(hours).padStart(2, '0');
-    const mm = String(minutes).padStart(2, '0');
-    const ss = String(seconds).padStart(2, '0');
-
-    return `${hh}:${mm}:${ss}`;
-  };
+      return `${hh}:${mm}:${ss}`;
+    };
+  }, [timeUpdate]); // Recalcula quando timeUpdate mudar
 
   // Classes para status
   const getStatusColor = (status) => {
