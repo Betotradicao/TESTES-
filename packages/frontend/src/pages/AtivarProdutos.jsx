@@ -147,6 +147,49 @@ export default function AtivarProdutos() {
     setSelectAll(false);
   };
 
+  const handleCaptureFromCamera = async (productCode) => {
+    try {
+      setUpdating(prev => ({ ...prev, [productCode]: true }));
+      setError('');
+
+      console.log(`📸 Capturando foto da câmera para produto ${productCode}...`);
+
+      // Chamar API para capturar foto da câmera 15 (balança)
+      const response = await api.post(`/products/${productCode}/capture-from-camera`, {
+        cameraId: 15
+      });
+
+      console.log('✅ Foto capturada e analisada:', response.data);
+
+      // Atualizar produto localmente com os dados da análise
+      setProducts(products.map(product =>
+        product.codigo === productCode
+          ? {
+              ...product,
+              foto_referencia: response.data.foto_url,
+              coloracao: response.data.analysis.coloracao,
+              formato: response.data.analysis.formato,
+              gordura_visivel: response.data.analysis.gordura_visivel,
+              presenca_osso: response.data.analysis.presenca_osso
+            }
+          : product
+      ));
+
+      setSuccess(`Foto capturada e analisada! Confiança: ${response.data.analysis.confianca}%`);
+
+    } catch (err) {
+      console.error('Erro ao capturar foto:', err);
+      if (err.response?.status === 401) {
+        logout();
+      } else {
+        const errorMsg = err.response?.data?.error || 'Erro ao capturar foto da câmera. Verifique se o DVR está configurado.';
+        setError(errorMsg);
+      }
+    } finally {
+      setUpdating(prev => ({ ...prev, [productCode]: false }));
+    }
+  };
+
   const handleBulkActivate = async (activate) => {
     if (selectedProducts.size === 0) return;
 
@@ -616,6 +659,9 @@ export default function AtivarProdutos() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Ação
+                        </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
                           <div className="flex items-center">
                             <input
@@ -639,47 +685,35 @@ export default function AtivarProdutos() {
                           Preço
                         </SortableHeader>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
+                          Foto
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Ação
+                          Coloração
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Formato
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Gordura
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Osso
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Peso (kg)
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Posição
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
                         </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {paginatedProducts.map((product) => (
                         <tr key={product.codigo} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap w-16">
-                            <div className="flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={selectedProducts.has(product.codigo)}
-                                onChange={() => handleSelectProduct(product.codigo)}
-                                className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
-                              />
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {product.codigo}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                            {product.ean || '-'}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-900">
-                            {product.descricao}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {product.valvenda ? `R$ ${product.valvenda.toFixed(2).replace('.', ',')}` : '-'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              product.active
-                                ? 'bg-orange-100 text-orange-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {product.active ? 'Ativo' : 'Inativo'}
-                            </span>
-                          </td>
+                          {/* Ação - Toggle Ativo/Inativo */}
                           <td className="px-6 py-4 whitespace-nowrap">
                             <label className={`relative inline-flex items-center ${
                               Object.values(updating).some(isUpdating => isUpdating) && !updating[product.codigo]
@@ -701,6 +735,117 @@ export default function AtivarProdutos() {
                                   : 'bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 peer-checked:bg-orange-500'
                               }`}></div>
                             </label>
+                          </td>
+
+                          {/* Checkbox */}
+                          <td className="px-6 py-4 whitespace-nowrap w-16">
+                            <div className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedProducts.has(product.codigo)}
+                                onChange={() => handleSelectProduct(product.codigo)}
+                                className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                              />
+                            </div>
+                          </td>
+
+                          {/* Código */}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {product.codigo}
+                          </td>
+
+                          {/* EAN */}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {product.ean || '-'}
+                          </td>
+
+                          {/* Descrição */}
+                          <td className="px-6 py-4 text-sm text-gray-900">
+                            {product.descricao}
+                          </td>
+
+                          {/* Preço */}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {product.valvenda ? `R$ ${product.valvenda.toFixed(2).replace('.', ',')}` : '-'}
+                          </td>
+
+                          {/* Foto */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <button
+                              onClick={() => handleCaptureFromCamera(product.codigo)}
+                              disabled={updating[product.codigo]}
+                              className="text-blue-600 hover:text-blue-800 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Capturar foto da câmera 15 (balança) e analisar com IA"
+                            >
+                              {updating[product.codigo] ? '⏳ Processando...' : '📷 Upload'}
+                            </button>
+                          </td>
+
+                          {/* Coloração */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <select className="text-xs border border-gray-300 rounded px-2 py-1">
+                              <option value="">-</option>
+                              <option value="vermelho">🔴 Vermelho</option>
+                              <option value="rosa">🌸 Rosa</option>
+                              <option value="branco">⚪ Branco</option>
+                              <option value="amarelo">🟡 Amarelo</option>
+                              <option value="marrom">🟤 Marrom</option>
+                            </select>
+                          </td>
+
+                          {/* Formato */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <select className="text-xs border border-gray-300 rounded px-2 py-1">
+                              <option value="">-</option>
+                              <option value="retangular">Retangular</option>
+                              <option value="irregular">Irregular</option>
+                              <option value="cilindrico">Cilíndrico</option>
+                              <option value="achatado">Achatado</option>
+                              <option value="triangular">Triangular</option>
+                            </select>
+                          </td>
+
+                          {/* Gordura */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <select className="text-xs border border-gray-300 rounded px-2 py-1">
+                              <option value="">-</option>
+                              <option value="nenhuma">Nenhuma</option>
+                              <option value="pouca">Pouca</option>
+                              <option value="media">Média</option>
+                              <option value="muita">Muita</option>
+                            </select>
+                          </td>
+
+                          {/* Osso */}
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <input type="checkbox" className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded" />
+                          </td>
+
+                          {/* Peso */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex gap-1 items-center">
+                              <input type="number" step="0.1" placeholder="Min" className="w-16 text-xs border border-gray-300 rounded px-1 py-1" />
+                              <span className="text-gray-400 text-xs">-</span>
+                              <input type="number" step="0.1" placeholder="Max" className="w-16 text-xs border border-gray-300 rounded px-1 py-1" />
+                            </div>
+                          </td>
+
+                          {/* Posição */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <button className="text-orange-600 hover:text-orange-800 text-xs">
+                              📍 Definir
+                            </button>
+                          </td>
+
+                          {/* Status */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              product.active
+                                ? 'bg-orange-100 text-orange-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {product.active ? 'Ativo' : 'Inativo'}
+                            </span>
                           </td>
                         </tr>
                       ))}

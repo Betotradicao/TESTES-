@@ -6,6 +6,7 @@ import { AuthRequest } from '../middleware/auth';
 import { CacheService } from '../services/cache.service';
 import { ConfigurationService } from '../services/configuration.service';
 import axios from 'axios';
+import * as path from 'path';
 
 export class ProductsController {
   static async getProducts(req: AuthRequest, res: Response) {
@@ -346,6 +347,190 @@ export class ProductsController {
     } catch (error) {
       console.error('Bulk activate products error:', error);
       res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  /**
+   * Upload de foto e análise automática por IA
+   * POST /api/products/:id/upload-photo
+   */
+  static async uploadAndAnalyzePhoto(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params; // ERP product ID
+      const file = req.file; // Multer file
+
+      if (!file) {
+        return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+      }
+
+      // Importar service de análise
+      const { ImageAnalysisService } = await import('../services/image-analysis.service');
+      const analysisService = new ImageAnalysisService();
+
+      // Validar se é imagem
+      if (!analysisService.isValidImage(file.path)) {
+        return res.status(400).json({ error: 'Arquivo não é uma imagem válida' });
+      }
+
+      // Analisar imagem com IA
+      const analysis = await analysisService.analyzeProductImage(file.path);
+
+      // Salvar foto e características no produto
+      const productRepository = AppDataSource.getRepository(Product);
+      let product = await productRepository.findOne({
+        where: { erp_product_id: id }
+      });
+
+      if (!product) {
+        return res.status(404).json({ error: 'Produto não encontrado' });
+      }
+
+      // Atualizar produto com dados da análise
+      product.foto_referencia = `/uploads/products/${file.filename}`;
+      product.coloracao = analysis.coloracao;
+      product.formato = analysis.formato;
+      product.gordura_visivel = analysis.gordura_visivel;
+      product.presenca_osso = analysis.presenca_osso;
+
+      await productRepository.save(product);
+
+      console.log(`✅ Foto analisada e salva para produto ${id}`);
+      console.log(`   Confiança: ${analysis.confianca}%`);
+
+      res.json({
+        message: 'Foto analisada com sucesso',
+        foto_url: product.foto_referencia,
+        analysis: {
+          coloracao: analysis.coloracao,
+          coloracao_rgb: analysis.coloracao_rgb,
+          formato: analysis.formato,
+          gordura_visivel: analysis.gordura_visivel,
+          presenca_osso: analysis.presenca_osso,
+          confianca: analysis.confianca,
+          descricao: analysis.descricao_detalhada
+        }
+      });
+
+    } catch (error) {
+      console.error('Upload and analyze photo error:', error);
+      res.status(500).json({ error: 'Erro ao processar imagem' });
+    }
+  }
+
+  /**
+   * Atualizar características de IA do produto
+   * PUT /api/products/:id/ai-characteristics
+   */
+  static async updateAICharacteristics(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const {
+        coloracao,
+        formato,
+        gordura_visivel,
+        presenca_osso,
+        peso_min_kg,
+        peso_max_kg,
+        posicao_balcao
+      } = req.body;
+
+      const productRepository = AppDataSource.getRepository(Product);
+      let product = await productRepository.findOne({
+        where: { erp_product_id: id }
+      });
+
+      if (!product) {
+        return res.status(404).json({ error: 'Produto não encontrado' });
+      }
+
+      // Atualizar campos
+      if (coloracao !== undefined) product.coloracao = coloracao;
+      if (formato !== undefined) product.formato = formato;
+      if (gordura_visivel !== undefined) product.gordura_visivel = gordura_visivel;
+      if (presenca_osso !== undefined) product.presenca_osso = presenca_osso;
+      if (peso_min_kg !== undefined) product.peso_min_kg = peso_min_kg;
+      if (peso_max_kg !== undefined) product.peso_max_kg = peso_max_kg;
+      if (posicao_balcao !== undefined) product.posicao_balcao = posicao_balcao;
+
+      await productRepository.save(product);
+
+      res.json({
+        message: 'Características atualizadas com sucesso',
+        product: {
+          erp_product_id: product.erp_product_id,
+          coloracao: product.coloracao,
+          formato: product.formato,
+          gordura_visivel: product.gordura_visivel,
+          presenca_osso: product.presenca_osso,
+          peso_min_kg: product.peso_min_kg,
+          peso_max_kg: product.peso_max_kg,
+          posicao_balcao: product.posicao_balcao
+        }
+      });
+
+    } catch (error) {
+      console.error('Update AI characteristics error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  /**
+   * Captura foto da câmera do DVR e analisa com YOLO
+   * POST /api/products/:id/capture-from-camera
+   */
+  static async captureFromCamera(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params; // ERP product ID
+      const { cameraId = 15 } = req.body; // Default: câmera 15 (balança)
+
+      console.log(`📸 Capturando foto da câmera ${cameraId} para produto ${id}...`);
+
+      // Importar serviço DVR
+      const { dvrSnapshotService } = await import('../services/dvr-snapshot.service');
+
+      // Capturar e analisar
+      const { imagePath, analysis } = await dvrSnapshotService.captureAndAnalyze(cameraId);
+
+      // Salvar no produto
+      const productRepository = AppDataSource.getRepository(Product);
+      let product = await productRepository.findOne({
+        where: { erp_product_id: id }
+      });
+
+      if (!product) {
+        return res.status(404).json({ error: 'Produto não encontrado' });
+      }
+
+      // Atualizar produto com dados da análise
+      const filename = path.basename(imagePath);
+      product.foto_referencia = `/uploads/dvr-snapshots/${filename}`;
+      product.coloracao = analysis.coloracao;
+      product.formato = analysis.formato;
+      product.gordura_visivel = analysis.gordura_visivel;
+      product.presenca_osso = analysis.presenca_osso;
+
+      await productRepository.save(product);
+
+      console.log(`✅ Foto capturada e analisada para produto ${id}`);
+
+      res.json({
+        message: 'Foto capturada e analisada com sucesso',
+        foto_url: product.foto_referencia,
+        analysis: {
+          coloracao: analysis.coloracao,
+          coloracao_rgb: analysis.coloracao_rgb,
+          formato: analysis.formato,
+          gordura_visivel: analysis.gordura_visivel,
+          presenca_osso: analysis.presenca_osso,
+          confianca: analysis.confianca
+        }
+      });
+
+    } catch (error: any) {
+      console.error('❌ Erro ao capturar foto da câmera:', error);
+      res.status(500).json({
+        error: error.message || 'Erro ao capturar foto da câmera'
+      });
     }
   }
 }

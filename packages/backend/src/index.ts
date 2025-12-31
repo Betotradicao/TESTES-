@@ -29,6 +29,8 @@ import dvrMonitorRouter from './routes/dvr-monitor.routes';
 import suspectIdentificationsRouter from './routes/suspect-identifications.routes';
 import tailscaleRouter from './routes/tailscale.routes';
 import systemStatusRouter from './routes/system-status.routes';
+import ruptureSurveyRouter from './routes/rupture-survey.routes';
+import lossRouter from './routes/loss.routes';
 import { minioService } from './services/minio.service';
 import { EmailMonitorService } from './services/email-monitor.service';
 import { seedMasterUser } from './database/seeds/masterUser.seed';
@@ -94,6 +96,8 @@ app.use('/api/dvr-monitor', dvrMonitorRouter);
 app.use('/api/suspect-identifications', suspectIdentificationsRouter);
 app.use('/api/tailscale', tailscaleRouter);
 app.use('/api', systemStatusRouter);
+app.use('/api/rupture-surveys', ruptureSurveyRouter);
+app.use('/api/losses', lossRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {

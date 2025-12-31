@@ -271,4 +271,13 @@ router.put('/:id/activate', authenticateToken, ProductsController.activateProduc
  */
 router.put('/bulk-activate', authenticateToken, ProductsController.bulkActivateProducts);
 
+// Upload de foto com análise automática por IA
+router.post('/:id/upload-photo', authenticateToken, ProductsController.uploadAndAnalyzePhoto);
+
+// Capturar foto da câmera do DVR e analisar com YOLO
+router.post('/:id/capture-from-camera', authenticateToken, ProductsController.captureFromCamera);
+
+// Atualizar características de IA do produto
+router.put('/:id/ai-characteristics', authenticateToken, ProductsController.updateAICharacteristics);
+
 export default router;

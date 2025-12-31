@@ -48,6 +48,35 @@ export class Product {
   @Column({ type: 'boolean', default: false })
   active: boolean;
 
+  // Campos para validação por IA
+  @Column({ type: 'text', nullable: true })
+  foto_referencia?: string;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  coloracao?: string;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  formato?: string;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  gordura_visivel?: string;
+
+  @Column({ type: 'boolean', nullable: true })
+  presenca_osso?: boolean;
+
+  @Column({ type: 'decimal', precision: 10, scale: 3, nullable: true })
+  peso_min_kg?: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 3, nullable: true })
+  peso_max_kg?: number;
+
+  @Column({ type: 'jsonb', nullable: true })
+  posicao_balcao?: {
+    setor?: string;
+    balcao?: number;
+    posicao?: string;
+  };
+
   @CreateDateColumn()
   created_at: Date;
 

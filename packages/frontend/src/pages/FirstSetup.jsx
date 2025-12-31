@@ -249,7 +249,7 @@ export default function FirstSetup() {
         welcomeMessage: formData.welcomeMessage,
       };
 
-      await api.post('/setup/initialize', submitData);
+      await api.post('/api/setup/initialize', submitData);
 
       setSuccess('Sistema configurado com sucesso! Redirecionando para login...');
 

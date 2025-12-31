@@ -17,6 +17,13 @@ import Perfil from './pages/Perfil';
 import ReconhecimentoFacial from './pages/ReconhecimentoFacial';
 import MonitorarEmailDVR from './pages/MonitorarEmailDVR';
 import Tailscale from './pages/Tailscale';
+import VisualizarCameras from './pages/VisualizarCameras';
+import RupturaLancadorItens from './pages/RupturaLancadorItens';
+import RupturaVerificacao from './pages/RupturaVerificacao';
+import RupturaResultados from './pages/RupturaResultados';
+import RupturaResultadosAuditorias from './pages/RupturaResultadosAuditorias';
+import PerdasLancador from './pages/PerdasLancador';
+import PerdasResultados from './pages/PerdasResultados';
 
 function App() {
   return (
@@ -116,6 +123,62 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Tailscale />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/bipagens-inteligentes"
+              element={
+                <ProtectedRoute>
+                  <VisualizarCameras />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ruptura-lancador"
+              element={
+                <ProtectedRoute>
+                  <RupturaLancadorItens />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ruptura-verificacao/:surveyId"
+              element={
+                <ProtectedRoute>
+                  <RupturaVerificacao />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ruptura-resultados/:surveyId"
+              element={
+                <ProtectedRoute>
+                  <RupturaResultados />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ruptura-auditorias"
+              element={
+                <ProtectedRoute>
+                  <RupturaResultadosAuditorias />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/perdas-lancador"
+              element={
+                <ProtectedRoute>
+                  <PerdasLancador />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/perdas-resultados"
+              element={
+                <ProtectedRoute>
+                  <PerdasResultados />
                 </ProtectedRoute>
               }
             />

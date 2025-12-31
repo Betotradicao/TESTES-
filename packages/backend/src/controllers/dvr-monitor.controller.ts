@@ -320,3 +320,45 @@ export async function salvarConfigDVR(req: Request, res: Response) {
     });
   }
 }
+
+/**
+ * Obter stream da câmera
+ * Converte RTSP para formato web-compatível (MJPEG snapshot)
+ */
+export async function getCameraStream(req: Request, res: Response) {
+  try {
+    const { cameraId, rtspUrl } = req.body;
+
+    if (!cameraId || !rtspUrl) {
+      return res.status(400).json({
+        error: 'cameraId e rtspUrl são obrigatórios'
+      });
+    }
+
+    // Obter configurações do DVR
+    const configDVR = await obterConfigDVR();
+
+    if (!configDVR.dvr.ip) {
+      return res.status(400).json({
+        error: 'DVR não configurado. Configure o DVR nas Configurações primeiro.'
+      });
+    }
+
+    // Para Intelbras, usar snapshot HTTP ao invés de RTSP streaming
+    // URL snapshot: http://IP/cgi-bin/snapshot.cgi?channel=X
+    const snapshotUrl = `http://${configDVR.dvr.ip}/cgi-bin/snapshot.cgi?channel=${cameraId}`;
+
+    res.json({
+      success: true,
+      streamUrl: snapshotUrl,
+      type: 'snapshot',
+      message: 'Use esta URL com refresh periódico para simular stream'
+    });
+
+  } catch (error: any) {
+    res.status(500).json({
+      error: 'Erro ao obter stream da câmera',
+      details: error.message
+    });
+  }
+}

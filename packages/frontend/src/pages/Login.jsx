@@ -21,7 +21,7 @@ export default function Login() {
   const checkSetupStatus = async () => {
     try {
       console.log('🔍 Login: Verificando status do setup...');
-      const response = await api.get('/setup/status');
+      const response = await api.get('/api/setup/status');
       const needsSetup = response.data.needsSetup;
 
       console.log('🔍 Login: needsSetup =', needsSetup);

@@ -163,4 +163,31 @@ router.post('/config', dvrMonitorController.salvarConfigDVR);
  */
 router.post('/testar-conexao', dvrMonitorController.testarConexaoDVR);
 
+/**
+ * @swagger
+ * /api/dvr-monitor/camera-stream:
+ *   post:
+ *     summary: Obter URL do stream da câmera
+ *     tags: [DVR Monitor]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               cameraId:
+ *                 type: number
+ *                 description: ID do canal da câmera
+ *               rtspUrl:
+ *                 type: string
+ *                 description: URL RTSP da câmera
+ *     responses:
+ *       200:
+ *         description: URL do stream obtida com sucesso
+ */
+router.post('/camera-stream', dvrMonitorController.getCameraStream);
+
 export default router;

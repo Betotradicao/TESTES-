@@ -12,6 +12,7 @@ import Pagination from '../components/common/Pagination';
 import ScannerGunIcon from '../components/icons/ScannerGunIcon';
 import MotivoCancelamentoModal from '../components/bipagens/MotivoCancelamentoModal';
 import NumericKeypad from '../components/common/NumericKeypad';
+import CelulaValidacao from '../components/bipagens/CelulaValidacao';
 
 // Componente para exibir tempo pendente em tempo real
 function PendingTimeDisplay({ eventDate, status, timeUpdate }) {
@@ -1006,6 +1007,9 @@ export default function Bipagens() {
                       Tempo Pendente
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Validação IA
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Ações
                     </th>
                   </tr>
@@ -1090,6 +1094,13 @@ export default function Bipagens() {
                           eventDate={bip.event_date}
                           status={bip.status}
                           timeUpdate={timeUpdate}
+                        />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <CelulaValidacao
+                          validacao={bip.validacao_codigo}
+                          detalhes={bip.validacao_detalhes}
+                          foto={bip.validacao_foto}
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -1183,6 +1194,14 @@ export default function Bipagens() {
                       />
                     </div>
                   )}
+                  <div className="mt-2">
+                    <span className="text-xs text-gray-500 mr-2">Validação IA:</span>
+                    <CelulaValidacao
+                      validacao={bip.validacao_codigo}
+                      detalhes={bip.validacao_detalhes}
+                      foto={bip.validacao_foto}
+                    />
+                  </div>
                   {(bip.status === 'pending' || bip.status === 'cancelled') && (
                     <div className="mt-3 flex gap-2">
                       {bip.status === 'pending' && (

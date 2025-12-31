@@ -43,7 +43,9 @@ function getApiBaseUrl() {
   if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
     console.log('🎯 FORÇANDO uso do hostname atual:', hostname);
     const currentPort = window.location.port;
-    const backendPort = currentPort === '3000' ? '3001' : '3001';
+    // Se frontend está na 3003 (teste), backend está na 3002
+    // Se frontend está na 3000 (prod), backend está na 3001
+    const backendPort = currentPort === '3003' ? '3002' : (currentPort === '3000' ? '3001' : '3001');
     const apiUrl = `http://${hostname}:${backendPort}/api`;
     console.log('✅ API URL FORÇADA:', apiUrl);
     return apiUrl;
@@ -52,10 +54,10 @@ function getApiBaseUrl() {
   // Se acessando por IP (qualquer IP numérico) - código legado, não deve chegar aqui
   const isIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
   console.log('🔍 Testando IP - hostname:', hostname, 'isIP:', isIP);
-  if (isIP || hostname.startsWith('10.') || hostname.startsWith('192.168.') || hostname.startsWith('172.') || hostname.startsWith('31.')) {
+  if (isIP || hostname.startsWith('10.') || hostname.startsWith('192.168.') || hostname.startsWith('172.') || hostname.startsWith('31.') || hostname.startsWith('100.')) {
     console.log('🏠 IP detectado:', hostname);
     const currentPort = window.location.port;
-    const backendPort = currentPort === '3000' ? '3001' : '3001';
+    const backendPort = currentPort === '3003' ? '3002' : (currentPort === '3000' ? '3001' : '3001');
     return `http://${hostname}:${backendPort}/api`;
   }
 
