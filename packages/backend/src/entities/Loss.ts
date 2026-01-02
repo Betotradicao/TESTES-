@@ -14,12 +14,12 @@ export class Loss {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ name: 'company_id', type: 'uuid' })
-  companyId!: string;
+  @Column({ name: 'company_id', type: 'uuid', nullable: true })
+  companyId!: string | null;
 
   @ManyToOne(() => Company)
   @JoinColumn({ name: 'company_id' })
-  company!: Company;
+  company?: Company;
 
   @Column({ name: 'codigo_barras', length: 50 })
   codigoBarras!: string;
