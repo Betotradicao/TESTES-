@@ -579,7 +579,7 @@ export class EmailMonitorService {
 
           // Search for last email matching our criteria (seen or unseen)
           const searchCriteria: any[] = config.subject_filter
-            ? ['SUBJECT', config.subject_filter]
+            ? [['SUBJECT', config.subject_filter]]
             : ['ALL'];
           const fetchOptions = {
             bodies: '',
