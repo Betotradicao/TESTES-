@@ -13,6 +13,7 @@ export default function RupturaResultados() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [ordenacao, setOrdenacao] = useState({ campo: 'criticidade', direcao: 'desc' });
+  const [filtroTipoRuptura, setFiltroTipoRuptura] = useState('todos'); // 'todos', 'nao_encontrado', 'ruptura_estoque'
 
   useEffect(() => {
     loadResults();
@@ -62,9 +63,21 @@ export default function RupturaResultados() {
   }
 
   const stats = data.estatisticas || {};
-  const itensRuptura = (data.items || []).filter(i =>
+
+  // Contar todos os itens de ruptura por tipo
+  const todosItensRuptura = (data.items || []).filter(i =>
     i.status_verificacao === 'nao_encontrado' || i.status_verificacao === 'ruptura_estoque'
   );
+  const countNaoEncontrado = todosItensRuptura.filter(i => i.status_verificacao === 'nao_encontrado').length;
+  const countRupturaEstoque = todosItensRuptura.filter(i => i.status_verificacao === 'ruptura_estoque').length;
+
+  // Filtrar itens de ruptura por tipo selecionado
+  let itensRuptura = todosItensRuptura;
+  if (filtroTipoRuptura === 'nao_encontrado') {
+    itensRuptura = todosItensRuptura.filter(i => i.status_verificacao === 'nao_encontrado');
+  } else if (filtroTipoRuptura === 'ruptura_estoque') {
+    itensRuptura = todosItensRuptura.filter(i => i.status_verificacao === 'ruptura_estoque');
+  }
 
   // Função para alternar ordenação
   const toggleOrdenacao = (campo) => {
