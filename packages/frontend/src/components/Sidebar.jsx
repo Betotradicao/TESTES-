@@ -297,6 +297,10 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           if (item.id === 'configuracoes' && user?.type === 'employee') {
             return false;
           }
+          // Hide Configurações de REDE for non-master users
+          if (item.id === 'configuracoes-rede' && !user?.isMaster) {
+            return false;
+          }
           return true;
         }).map((item) => {
           const moduleActive = item.moduleId ? isModuleActive(item.moduleId) : true;
