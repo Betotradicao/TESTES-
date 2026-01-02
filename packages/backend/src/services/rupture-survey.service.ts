@@ -270,8 +270,10 @@ export class RuptureSurveyService {
       },
     });
 
-    // Calcular perdas
-    const itensRuptura = items.filter((i: RuptureSurveyItem) => i.status_verificacao === 'nao_encontrado');
+    // Calcular perdas - incluir AMBOS os tipos de ruptura
+    const itensRuptura = items.filter((i: RuptureSurveyItem) =>
+      i.status_verificacao === 'nao_encontrado' || i.status_verificacao === 'ruptura_estoque'
+    );
 
     const perdasVenda = itensRuptura.reduce((total: number, item: RuptureSurveyItem) => {
       return total + item.perda_venda_dia;
