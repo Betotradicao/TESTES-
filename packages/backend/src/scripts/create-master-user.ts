@@ -1,6 +1,6 @@
 import { AppDataSource } from '../config/database';
 import { User, UserRole } from '../entities/User';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 
 /**
  * Script para criar o usuário master padrão do sistema
@@ -51,7 +51,6 @@ async function createMasterUser() {
       password: hashedPassword,
       role: UserRole.ADMIN,
       isMaster: true,
-      active: true,
     });
 
     await userRepository.save(masterUser);
