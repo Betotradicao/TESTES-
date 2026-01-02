@@ -216,7 +216,13 @@ export default function RupturaResultados() {
 
           <div className="bg-white rounded-lg shadow p-6 text-center">
             <div className="text-4xl font-bold text-red-600">{data.itens_nao_encontrados}</div>
-            <div className="text-sm text-gray-600 mt-1">Rupturas</div>
+            <div className="text-sm text-gray-600 mt-1">Rupturas Total</div>
+            {(countNaoEncontrado > 0 || countRupturaEstoque > 0) && (
+              <div className="text-xs text-gray-500 mt-2">
+                {countNaoEncontrado > 0 && <div>{countNaoEncontrado} Não Encontrado</div>}
+                {countRupturaEstoque > 0 && <div>{countRupturaEstoque} Em Estoque</div>}
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-lg shadow p-6 text-center">
