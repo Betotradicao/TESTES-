@@ -140,7 +140,7 @@ export class LossService {
         }
 
         const loss = lossRepository.create({
-          companyId,
+          ...(companyId && { companyId }),
           codigoBarras: row['C�digo de Barras'] || row['Código de Barras'] || '',
           descricaoReduzida: row['Descri��o Reduzida'] || row['Descrição Reduzida'] || '',
           quantidadeAjuste: quantidade,
@@ -228,7 +228,7 @@ export class LossService {
    */
   static async getAggregatedBySection(
     nomeLote: string,
-    companyId: string
+    companyId?: string
   ): Promise<any[]> {
     const lossRepository = AppDataSource.getRepository(Loss);
 
@@ -541,7 +541,7 @@ export class LossService {
     } else {
       // Criar novo com ignorar = true
       const newConfig = reasonConfigRepository.create({
-        companyId,
+        ...(companyId && { companyId }),
         motivo,
         ignorarCalculo: true,
       });
