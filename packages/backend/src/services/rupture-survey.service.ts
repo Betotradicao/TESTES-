@@ -704,8 +704,8 @@ export class RuptureSurveyService {
           const colWidth = [50, 150, 80, 45, 50, 65, 75, 65, 55, 65, 60];
           const rowHeight = 18;
 
-          // Cabeçalho da tabela (laranja)
-          doc.rect(30, startY, 770, rowHeight).fillAndStroke('#FF8C00', '#000');
+          // Cabeçalho da tabela (laranja forte)
+          doc.rect(30, startY, 770, rowHeight).fillAndStroke('#FF6600', '#000');
           doc.fontSize(7).fillColor('#FFF');
           doc.text('#', colX[0] + 5, startY + 5, { width: colWidth[0], align: 'left' });
           doc.text('PRODUTO', colX[1] + 5, startY + 5, { width: colWidth[1], align: 'left' });
@@ -762,7 +762,7 @@ export class RuptureSurveyService {
         let currentY = doc.y;
 
         if (naoEncontrado.length > 0) {
-          currentY = drawTable('🔴 RUPTURA - NÃO ENCONTRADO', naoEncontrado, currentY);
+          currentY = drawTable('RUPTURA - NÃO ENCONTRADO', naoEncontrado, currentY);
         }
 
         if (emEstoque.length > 0) {
@@ -770,7 +770,7 @@ export class RuptureSurveyService {
             doc.addPage();
             currentY = 30;
           }
-          currentY = drawTable('🟠 RUPTURA - EM ESTOQUE', emEstoque, currentY);
+          currentY = drawTable('RUPTURA - EM ESTOQUE', emEstoque, currentY);
         }
 
         doc.end();
