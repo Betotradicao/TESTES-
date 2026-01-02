@@ -227,7 +227,9 @@ export class WhatsAppService {
     auditoriaNome: string,
     totalRupturas: number,
     naoEncontrado: number,
-    emEstoque: number
+    emEstoque: number,
+    perdaVenda: number = 0,
+    perdaLucro: number = 0
   ): Promise<boolean> {
     try {
       // Buscar grupo do WhatsApp da Evolution API (mesmo grupo usado para notificações)
@@ -240,12 +242,14 @@ export class WhatsAppService {
 
       console.log(`📊 Enviando relatório para grupo: ${groupId}`);
 
-      const caption = `📊 *RELATÓRIO DE AUDITORIA DE RUPTURAS*\\n\\n` +
-                     `📋 Auditoria: ${auditoriaNome}\\n` +
-                     `📅 Data: ${new Date().toLocaleString('pt-BR')}\\n\\n` +
-                     `📦 Total de Rupturas: ${totalRupturas}\\n` +
-                     `🔴 Não Encontrado: ${naoEncontrado}\\n` +
-                     `🟠 Em Estoque: ${emEstoque}\\n\\n` +
+      const caption = `📊 *RELATÓRIO DE AUDITORIA DE RUPTURAS*\n\n` +
+                     `📋 Auditoria: ${auditoriaNome}\n` +
+                     `📅 Data: ${new Date().toLocaleString('pt-BR')}\n\n` +
+                     `📦 Total de Rupturas: ${totalRupturas}\n` +
+                     `🔴 Não Encontrado: ${naoEncontrado}\n` +
+                     `🟠 Em Estoque: ${emEstoque}\n\n` +
+                     `💰 Perda de Venda: R$ ${perdaVenda.toFixed(2)}\n` +
+                     `📉 Perda de Lucro: R$ ${perdaLucro.toFixed(2)}\n\n` +
                      `📄 Confira o relatório detalhado em PDF anexo.`;
 
       const success = await this.sendDocument(groupId, filePath, caption);

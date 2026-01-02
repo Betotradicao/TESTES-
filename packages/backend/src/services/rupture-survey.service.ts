@@ -581,6 +581,22 @@ export class RuptureSurveyService {
         (item: RuptureSurveyItem) => item.status_verificacao === 'ruptura_estoque'
       ).length;
 
+      // Calcular perda de venda e lucro
+      let perdaVenda = 0;
+      let perdaLucro = 0;
+
+      itensRuptura.forEach((item: RuptureSurveyItem) => {
+        const valorVenda = parseFloat(item.valor_venda as any) || 0;
+        const margemLucro = parseFloat(item.margem_lucro as any) || 0;
+        const vendaMediaDia = parseFloat(item.venda_media_dia as any) || 0;
+
+        // Perda de venda = Valor de venda × Venda média/dia
+        perdaVenda += valorVenda * vendaMediaDia;
+
+        // Perda de lucro = Perda de venda × Margem de lucro
+        perdaLucro += (valorVenda * vendaMediaDia) * (margemLucro / 100);
+      });
+
       // Gerar PDF
       const pdfPath = await this.generateRupturePDF(survey, itensRuptura);
 
@@ -590,7 +606,9 @@ export class RuptureSurveyService {
         survey.nome_pesquisa,
         itensRuptura.length,
         naoEncontrado,
-        emEstoque
+        emEstoque,
+        perdaVenda,
+        perdaLucro
       );
 
       // Remover PDF temporário após envio
