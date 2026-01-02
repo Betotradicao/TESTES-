@@ -183,7 +183,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     },
     {
       id: 'ruptura',
-      title: 'Prevenção Ruptura',
+      title: 'Prevenção Rupturas',
       moduleId: 'ruptura',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -214,7 +214,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     },
     {
       id: 'perdas',
-      title: 'Prevenção de Quebras',
+      title: 'Prevenção Quebras',
       moduleId: 'perdas',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
