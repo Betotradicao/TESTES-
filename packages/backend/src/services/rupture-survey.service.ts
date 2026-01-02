@@ -2,7 +2,10 @@ import { AppDataSource } from '../config/database';
 import { RuptureSurvey } from '../entities/RuptureSurvey';
 import { RuptureSurveyItem } from '../entities/RuptureSurveyItem';
 import * as fs from 'fs';
+import * as path from 'path';
 import Papa from 'papaparse';
+import PDFDocument from 'pdfkit';
+import { WhatsAppService } from './whatsapp.service';
 
 export class RuptureSurveyService {
   /**
@@ -531,5 +534,152 @@ export class RuptureSurveyService {
       .getRawMany();
 
     return items.map((i: any) => i.fornecedor);
+  }
+
+  /**
+   * Finaliza auditoria, gera PDF e envia para WhatsApp
+   */
+  static async finalizeSurveyAndSendReport(surveyId: number): Promise<{ success: boolean; message: string }> {
+    try {
+      // Buscar auditoria com itens
+      const survey = await this.getSurveyWithStats(surveyId);
+
+      if (!survey) {
+        throw new Error('Auditoria não encontrada');
+      }
+
+      // Filtrar itens de ruptura (nao_encontrado + ruptura_estoque)
+      const itensRuptura = survey.items.filter(
+        (item: RuptureSurveyItem) =>
+          item.status_verificacao === 'nao_encontrado' ||
+          item.status_verificacao === 'ruptura_estoque'
+      );
+
+      const naoEncontrado = survey.items.filter(
+        (item: RuptureSurveyItem) => item.status_verificacao === 'nao_encontrado'
+      ).length;
+
+      const emEstoque = survey.items.filter(
+        (item: RuptureSurveyItem) => item.status_verificacao === 'ruptura_estoque'
+      ).length;
+
+      // Gerar PDF
+      const pdfPath = await this.generateRupturePDF(survey, itensRuptura);
+
+      // Enviar para WhatsApp
+      const whatsappSuccess = await WhatsAppService.sendRuptureReport(
+        pdfPath,
+        survey.nome_pesquisa,
+        itensRuptura.length,
+        naoEncontrado,
+        emEstoque
+      );
+
+      // Remover PDF temporário após envio
+      try {
+        fs.unlinkSync(pdfPath);
+      } catch (err) {
+        console.warn('⚠️  Não foi possível remover PDF temporário:', pdfPath);
+      }
+
+      if (whatsappSuccess) {
+        return {
+          success: true,
+          message: 'Relatório gerado e enviado para o WhatsApp com sucesso'
+        };
+      } else {
+        return {
+          success: false,
+          message: 'Relatório gerado mas falhou ao enviar para o WhatsApp'
+        };
+      }
+    } catch (error: any) {
+      console.error('❌ Erro ao finalizar auditoria e enviar relatório:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Gera PDF do relatório de ruptura
+   */
+  private static async generateRupturePDF(
+    survey: any,
+    itensRuptura: RuptureSurveyItem[]
+  ): Promise<string> {
+    return new Promise((resolve, reject) => {
+      try {
+        // Criar diretório temporário se não existir
+        const tempDir = path.join(__dirname, '../../uploads/temp');
+        if (!fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
+        }
+
+        const pdfPath = path.join(
+          tempDir,
+          `ruptura-${survey.id}-${Date.now()}.pdf`
+        );
+
+        const doc = new PDFDocument({ margin: 50, size: 'A4' });
+        const stream = fs.createWriteStream(pdfPath);
+
+        doc.pipe(stream);
+
+        // Título
+        doc.fontSize(20).text('RELATÓRIO DE AUDITORIA DE RUPTURAS', { align: 'center' });
+        doc.moveDown();
+
+        // Informações da auditoria
+        doc.fontSize(12);
+        doc.text(`Auditoria: ${survey.nome_pesquisa}`);
+        doc.text(`Data: ${new Date().toLocaleString('pt-BR')}`);
+        doc.text(`Total de Itens Verificados: ${survey.itens_verificados}`);
+        doc.text(`Total de Rupturas: ${itensRuptura.length}`);
+        doc.text(`Taxa de Ruptura: ${survey.taxa_ruptura?.toFixed(2) || 0}%`);
+        doc.moveDown();
+
+        // Separar por status
+        const naoEncontrado = itensRuptura.filter(i => i.status_verificacao === 'nao_encontrado');
+        const emEstoque = itensRuptura.filter(i => i.status_verificacao === 'ruptura_estoque');
+
+        doc.text(`🔴 Não Encontrado: ${naoEncontrado.length}`);
+        doc.text(`🟠 Em Estoque: ${emEstoque.length}`);
+        doc.moveDown(2);
+
+        // Lista de rupturas
+        doc.fontSize(14).text('Produtos em Ruptura:', { underline: true });
+        doc.moveDown();
+
+        itensRuptura.forEach((item, index) => {
+          doc.fontSize(10);
+          doc.text(`${index + 1}. ${item.descricao || 'Sem descrição'}`);
+          doc.fontSize(8);
+          doc.text(`   Fornecedor: ${item.fornecedor || 'N/A'}`);
+          doc.text(`   Seção: ${item.secao || 'N/A'}`);
+          doc.text(`   Curva: ${item.curva || 'N/A'}`);
+          doc.text(`   Status: ${item.status_verificacao === 'nao_encontrado' ? 'Não Encontrado' : 'Em Estoque'}`);
+          doc.moveDown(0.5);
+
+          // Nova página a cada 20 itens para evitar overflow
+          if ((index + 1) % 20 === 0 && index < itensRuptura.length - 1) {
+            doc.addPage();
+          }
+        });
+
+        doc.end();
+
+        stream.on('finish', () => {
+          console.log(`✅ PDF gerado: ${pdfPath}`);
+          resolve(pdfPath);
+        });
+
+        stream.on('error', (err) => {
+          console.error('❌ Erro ao gerar PDF:', err);
+          reject(err);
+        });
+      } catch (error) {
+        console.error('❌ Erro ao criar PDF:', error);
+        reject(error);
+      }
+    });
   }
 }

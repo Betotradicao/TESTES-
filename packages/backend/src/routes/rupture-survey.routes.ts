@@ -80,6 +80,12 @@ router.post(
   RuptureSurveyController.startSurvey
 );
 
+router.post(
+  '/:id/finalize',
+  authenticateToken,
+  RuptureSurveyController.finalizeSurvey
+);
+
 router.patch(
   '/items/:itemId/status',
   authenticateToken,

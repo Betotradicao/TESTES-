@@ -200,4 +200,26 @@ export class RuptureSurveyController {
       res.status(500).json({ error: error.message });
     }
   }
+
+  /**
+   * Finalizar auditoria e enviar relatório para WhatsApp
+   */
+  static async finalizeSurvey(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await RuptureSurveyService.finalizeSurveyAndSendReport(parseInt(id));
+
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(500).json(result);
+      }
+    } catch (error: any) {
+      console.error('❌ Erro ao finalizar auditoria:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
 }
