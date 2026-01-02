@@ -288,6 +288,40 @@ export default function RupturaResultados() {
               )}
             </div>
 
+            {/* Filtros de Tipo de Ruptura */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setFiltroTipoRuptura('todos')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  filtroTipoRuptura === 'todos'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Todos ({todosItensRuptura.length})
+              </button>
+              <button
+                onClick={() => setFiltroTipoRuptura('nao_encontrado')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  filtroTipoRuptura === 'nao_encontrado'
+                    ? 'bg-red-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Não Encontrado ({countNaoEncontrado})
+              </button>
+              <button
+                onClick={() => setFiltroTipoRuptura('ruptura_estoque')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  filtroTipoRuptura === 'ruptura_estoque'
+                    ? 'bg-yellow-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Em Estoque ({countRupturaEstoque})
+              </button>
+            </div>
+
             {itensRuptura.length === 0 ? (
               <p className="text-gray-500 text-center py-8">
                 🎉 Nenhuma ruptura encontrada!
