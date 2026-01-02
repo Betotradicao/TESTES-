@@ -678,10 +678,10 @@ export class RuptureSurveyService {
         });
 
         // Cabeçalho com fundo laranja forte
-        const headerHeight = 60;
+        const headerHeight = 45;
         doc.rect(0, 0, 842, headerHeight).fillAndStroke('#FF5500', '#FF5500');
-        doc.fontSize(22).fillColor('#FFF').text('📊 RELATÓRIO DE AUDITORIA DE RUPTURAS', 30, 18, { align: 'center' });
-        doc.moveDown(3);
+        doc.fontSize(16).fillColor('#FFF').text('RELATORIO DE AUDITORIA DE RUPTURAS', 30, 15, { align: 'center' });
+        doc.moveDown(2.5);
 
         // Calcular taxa de ruptura corretamente
         const taxaRuptura = survey.itens_verificados > 0
@@ -699,39 +699,39 @@ export class RuptureSurveyService {
           second: '2-digit'
         });
 
-        // Box do Resumo Geral com gradiente visual
-        const boxY = doc.y + 10;
-        doc.rect(30, boxY, 770, 120).fillAndStroke('#F8F9FA', '#FF5500');
+        // Box do Resumo Geral - menor e mais compacto
+        const boxY = doc.y + 8;
+        doc.rect(30, boxY, 770, 90).fillAndStroke('#F8F9FA', '#FF5500');
 
-        // Título do Resumo com ícone
-        doc.fontSize(14).fillColor('#FF5500').text('📋 RESUMO GERAL', 40, boxY + 12);
+        // Título do Resumo
+        doc.fontSize(11).fillColor('#FF5500').text('RESUMO GERAL', 40, boxY + 8);
 
         // Informações do resumo em duas colunas
         const colLeft = 40;
         const colRight = 420;
-        let lineY = boxY + 38;
-        const lineHeight = 16;
+        let lineY = boxY + 26;
+        const lineHeight = 13;
 
-        doc.fontSize(10).fillColor('#000');
+        doc.fontSize(8.5).fillColor('#000');
 
         // Coluna esquerda
-        doc.text(`👤 Auditor: ${itensRuptura[0]?.verificado_por || 'N/A'}`, colLeft, lineY);
+        doc.text(`Auditor: ${itensRuptura[0]?.verificado_por || 'N/A'}`, colLeft, lineY);
         lineY += lineHeight;
-        doc.text(`📦 Total de Itens Verificados: ${survey.itens_verificados}`, colLeft, lineY);
+        doc.text(`Total de Itens Verificados: ${survey.itens_verificados}`, colLeft, lineY);
         lineY += lineHeight;
-        doc.text(`✅ Itens Encontrados: ${survey.itens_verificados - itensRuptura.length}`, colLeft, lineY);
+        doc.text(`Itens Encontrados: ${survey.itens_verificados - itensRuptura.length}`, colLeft, lineY);
         lineY += lineHeight;
-        doc.text(`❌ Total de Rupturas: ${itensRuptura.length} (${naoEncontrado.length} Não Encontrado + ${emEstoque.length} Em Estoque)`, colLeft, lineY);
+        doc.text(`Total de Rupturas: ${itensRuptura.length} (${naoEncontrado.length} Nao Encontrado + ${emEstoque.length} Em Estoque)`, colLeft, lineY);
 
         // Coluna direita
-        lineY = boxY + 38;
-        doc.text(`📊 Taxa de Ruptura: ${taxaRuptura.toFixed(1)}%`, colRight, lineY);
+        lineY = boxY + 26;
+        doc.text(`Taxa de Ruptura: ${taxaRuptura.toFixed(1)}%`, colRight, lineY);
         lineY += lineHeight;
-        doc.text(`💰 Perda de Venda/Dia: R$ ${perdaVendaTotal.toFixed(2)}`, colRight, lineY);
+        doc.text(`Perda de Venda/Dia: R$ ${perdaVendaTotal.toFixed(2)}`, colRight, lineY);
         lineY += lineHeight;
-        doc.text(`📉 Perda de Lucro/Dia: R$ ${perdaLucroTotal.toFixed(2)}`, colRight, lineY);
+        doc.text(`Perda de Lucro/Dia: R$ ${perdaLucroTotal.toFixed(2)}`, colRight, lineY);
         lineY += lineHeight;
-        doc.text(`📅 Data: ${brazilDate}`, colRight, lineY);
+        doc.text(`Data: ${brazilDate}`, colRight, lineY);
 
         doc.moveDown(8);
 
