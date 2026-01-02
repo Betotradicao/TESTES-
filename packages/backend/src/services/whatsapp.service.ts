@@ -185,10 +185,9 @@ export class WhatsAppService {
       const payload = {
         number: groupId,
         mediatype: 'document',
-        mimetype: 'application/pdf',
-        caption: caption || '',
+        media: base64,
         fileName: fileName,
-        media: base64
+        caption: caption || ''
       };
 
       console.log(`📄 Enviando PDF para ${groupId}...`);
