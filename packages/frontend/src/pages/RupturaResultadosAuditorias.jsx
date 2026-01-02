@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import api from '../services/api';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 export default function RupturaResultadosAuditorias() {
   const navigate = useNavigate();
@@ -123,6 +125,57 @@ export default function RupturaResultadosAuditorias() {
   const countTodos = todosItensRuptura.length;
   const countNaoEncontrado = todosItensRuptura.filter(item => item.ocorrencias_nao_encontrado > 0).length;
   const countEmEstoque = todosItensRuptura.filter(item => item.ocorrencias_em_estoque > 0).length;
+
+  // Função para gerar PDF
+  const gerarPDF = () => {
+    const doc = new jsPDF('landscape'); // Paisagem para caber todas as colunas
+
+    // Título
+    doc.setFontSize(16);
+    doc.text('Relatório de Rupturas - Resultados Agregados', 14, 15);
+
+    // Período
+    doc.setFontSize(10);
+    doc.text(`Período: ${dataInicio} até ${dataFim}`, 14, 22);
+
+    // Estatísticas
+    doc.setFontSize(12);
+    doc.text('Resumo:', 14, 30);
+    doc.setFontSize(9);
+    doc.text(`Total de Rupturas: ${stats.total_rupturas || 0}`, 14, 36);
+    doc.text(`Não Encontrado: ${stats.rupturas_nao_encontrado || 0}`, 14, 41);
+    doc.text(`Em Estoque: ${stats.rupturas_em_estoque || 0}`, 14, 46);
+    doc.text(`Taxa de Ruptura: ${stats.taxa_ruptura ? Number(stats.taxa_ruptura).toFixed(1) : '0'}%`, 14, 51);
+
+    // Tabela de produtos
+    const tableData = itensRuptura.map((item, idx) => [
+      idx + 1,
+      item.descricao || '',
+      item.fornecedor || 'Sem fornecedor',
+      item.secao || 'Sem seção',
+      item.curva || '-',
+      Number(item.estoque_atual || 0).toFixed(0),
+      Number(item.venda_media_dia || 0).toFixed(2),
+      `R$ ${Number(item.valor_venda || 0).toFixed(2)}`,
+      `${Number(item.margem_lucro || 0).toFixed(1)}%`,
+      item.tem_pedido || '-',
+      item.ocorrencias || 0,
+      `R$ ${Number(item.perda_total || 0).toFixed(2)}`
+    ]);
+
+    doc.autoTable({
+      startY: 56,
+      head: [['#', 'Produto', 'Fornecedor', 'Seção', 'Curva', 'Estoque', 'V.Média/Dia', 'Valor Venda', 'Margem %', 'Pedido', 'Ocorrências', 'Perda Total']],
+      body: tableData,
+      styles: { fontSize: 7 },
+      headStyles: { fillColor: [220, 38, 38], textColor: 255 },
+      margin: { top: 10 },
+    });
+
+    // Salvar PDF
+    const nomeArquivo = `rupturas-agregado-${dataInicio}-${dataFim}.pdf`;
+    doc.save(nomeArquivo);
+  };
 
   return (
     <Layout>
@@ -309,9 +362,22 @@ export default function RupturaResultadosAuditorias() {
             {/* Produtos com Ruptura - Largura Total */}
             <div className="mb-6">
               <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">
-                  📦 Produtos com Ruptura ({itensRuptura.length})
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-gray-800">
+                    📦 Produtos com Ruptura ({itensRuptura.length})
+                  </h2>
+                  {itensRuptura.length > 0 && (
+                    <button
+                      onClick={gerarPDF}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 text-sm font-medium"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                      Gerar PDF
+                    </button>
+                  )}
+                </div>
 
                 {/* Filtros de Tipo de Ruptura */}
                 <div className="flex flex-wrap gap-2 mb-4">
