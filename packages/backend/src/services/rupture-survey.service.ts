@@ -677,43 +677,61 @@ export class RuptureSurveyService {
           perdaLucroTotal += (valorVenda * vendaMediaDia) * (margemLucro / 100);
         });
 
-        // Cabeçalho
-        doc.fontSize(18).fillColor('#000').text('RELATÓRIO DE AUDITORIA DE RUPTURAS', { align: 'center' });
-        doc.moveDown(1);
+        // Cabeçalho com fundo laranja forte
+        const headerHeight = 60;
+        doc.rect(0, 0, 842, headerHeight).fillAndStroke('#FF5500', '#FF5500');
+        doc.fontSize(22).fillColor('#FFF').text('📊 RELATÓRIO DE AUDITORIA DE RUPTURAS', 30, 18, { align: 'center' });
+        doc.moveDown(3);
 
-        // Box do Resumo Geral com fundo cinza claro
-        const boxY = doc.y;
-        doc.rect(30, boxY, 770, 110).fillAndStroke('#F5F5F5', '#CCC');
+        // Calcular taxa de ruptura corretamente
+        const taxaRuptura = survey.itens_verificados > 0
+          ? (itensRuptura.length / survey.itens_verificados) * 100
+          : 0;
 
-        // Título do Resumo
-        doc.fontSize(12).fillColor('#FF6600').text('RESUMO GERAL', 40, boxY + 10);
+        // Data em horário brasileiro (GMT-3)
+        const brazilDate = new Date().toLocaleString('pt-BR', {
+          timeZone: 'America/Sao_Paulo',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+
+        // Box do Resumo Geral com gradiente visual
+        const boxY = doc.y + 10;
+        doc.rect(30, boxY, 770, 120).fillAndStroke('#F8F9FA', '#FF5500');
+
+        // Título do Resumo com ícone
+        doc.fontSize(14).fillColor('#FF5500').text('📋 RESUMO GERAL', 40, boxY + 12);
 
         // Informações do resumo em duas colunas
         const colLeft = 40;
         const colRight = 420;
-        let lineY = boxY + 30;
-        const lineHeight = 15;
+        let lineY = boxY + 38;
+        const lineHeight = 16;
 
-        doc.fontSize(9).fillColor('#000');
+        doc.fontSize(10).fillColor('#000');
 
         // Coluna esquerda
-        doc.text(`Auditor: ${itensRuptura[0]?.verificado_por || 'N/A'}`, colLeft, lineY);
+        doc.text(`👤 Auditor: ${itensRuptura[0]?.verificado_por || 'N/A'}`, colLeft, lineY);
         lineY += lineHeight;
-        doc.text(`Total de Itens Verificados: ${survey.itens_verificados}`, colLeft, lineY);
+        doc.text(`📦 Total de Itens Verificados: ${survey.itens_verificados}`, colLeft, lineY);
         lineY += lineHeight;
-        doc.text(`Itens Encontrados: ${survey.itens_verificados - itensRuptura.length}`, colLeft, lineY);
+        doc.text(`✅ Itens Encontrados: ${survey.itens_verificados - itensRuptura.length}`, colLeft, lineY);
         lineY += lineHeight;
-        doc.text(`Total de Rupturas: ${itensRuptura.length} (${naoEncontrado.length} Não Encontrado + ${emEstoque.length} Em Estoque)`, colLeft, lineY);
+        doc.text(`❌ Total de Rupturas: ${itensRuptura.length} (${naoEncontrado.length} Não Encontrado + ${emEstoque.length} Em Estoque)`, colLeft, lineY);
 
         // Coluna direita
-        lineY = boxY + 30;
-        doc.text(`Taxa de Ruptura: ${survey.taxa_ruptura?.toFixed(1) || 0}%`, colRight, lineY);
+        lineY = boxY + 38;
+        doc.text(`📊 Taxa de Ruptura: ${taxaRuptura.toFixed(1)}%`, colRight, lineY);
         lineY += lineHeight;
-        doc.text(`Perda de Venda/Dia: R$ ${perdaVendaTotal.toFixed(2)}`, colRight, lineY);
+        doc.text(`💰 Perda de Venda/Dia: R$ ${perdaVendaTotal.toFixed(2)}`, colRight, lineY);
         lineY += lineHeight;
-        doc.text(`Perda de Lucro/Dia: R$ ${perdaLucroTotal.toFixed(2)}`, colRight, lineY);
+        doc.text(`📉 Perda de Lucro/Dia: R$ ${perdaLucroTotal.toFixed(2)}`, colRight, lineY);
         lineY += lineHeight;
-        doc.text(`Data: ${new Date().toLocaleString('pt-BR')}`, colRight, lineY);
+        doc.text(`📅 Data: ${brazilDate}`, colRight, lineY);
 
         doc.moveDown(8);
 
