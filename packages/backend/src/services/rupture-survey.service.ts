@@ -584,6 +584,7 @@ export class RuptureSurveyService {
         console.warn('⚠️  Não foi possível remover PDF temporário:', pdfPath);
       }
 
+      // Sempre retornar sucesso - o envio para WhatsApp é opcional
       if (whatsappSuccess) {
         return {
           success: true,
@@ -591,8 +592,8 @@ export class RuptureSurveyService {
         };
       } else {
         return {
-          success: false,
-          message: 'Relatório gerado mas falhou ao enviar para o WhatsApp'
+          success: true,
+          message: 'Relatório gerado com sucesso (WhatsApp não disponível)'
         };
       }
     } catch (error: any) {
