@@ -448,12 +448,22 @@ export class RuptureSurveyService {
           venda_media_dia: item.venda_media_dia || 0,
           margem_lucro: item.margem_lucro || 0,
           tem_pedido: item.tem_pedido || null,
+          status_verificacao: item.status_verificacao, // Adicionar status para filtro
           ocorrencias: 0,
+          ocorrencias_nao_encontrado: 0,
+          ocorrencias_em_estoque: 0,
           perda_total: 0,
         };
       }
       rupturasPorProduto[key].ocorrencias++;
       rupturasPorProduto[key].perda_total += item.perda_venda_dia;
+
+      // Contar ocorrências por tipo
+      if (item.status_verificacao === 'nao_encontrado') {
+        rupturasPorProduto[key].ocorrencias_nao_encontrado++;
+      } else if (item.status_verificacao === 'ruptura_estoque') {
+        rupturasPorProduto[key].ocorrencias_em_estoque++;
+      }
     });
 
     const produtosRanking = Object.values(rupturasPorProduto)

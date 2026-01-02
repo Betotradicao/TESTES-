@@ -13,6 +13,11 @@ export default function RupturaResultadosAuditorias() {
   const [fornecedorSelecionado, setFornecedorSelecionado] = useState('todos');
   const [auditorSelecionado, setAuditorSelecionado] = useState('todos');
 
+  // Filtros da tabela de produtos
+  const [filtroTipoRuptura, setFiltroTipoRuptura] = useState('todos'); // 'todos', 'nao_encontrado', 'ruptura_estoque'
+  const [filtroFornecedorTabela, setFiltroFornecedorTabela] = useState('todos');
+  const [filtroSetorTabela, setFiltroSetorTabela] = useState('todos');
+
   // Dados
   const [produtos, setProdutos] = useState([]);
   const [fornecedores, setFornecedores] = useState([]);
@@ -90,9 +95,34 @@ export default function RupturaResultadosAuditorias() {
   }, [dataInicio, dataFim]);
 
   const stats = resultados?.estatisticas || {};
-  const itensRuptura = resultados?.itens_ruptura || [];
+  const todosItensRuptura = resultados?.itens_ruptura || [];
   const fornecedoresRanking = resultados?.fornecedores_ranking || [];
   const secoesRanking = resultados?.secoes_ranking || [];
+
+  // Aplicar filtros na tabela de produtos
+  let itensRuptura = todosItensRuptura;
+
+  // Filtro por tipo de ruptura
+  if (filtroTipoRuptura === 'nao_encontrado') {
+    itensRuptura = itensRuptura.filter(item => item.ocorrencias_nao_encontrado > 0);
+  } else if (filtroTipoRuptura === 'ruptura_estoque') {
+    itensRuptura = itensRuptura.filter(item => item.ocorrencias_em_estoque > 0);
+  }
+
+  // Filtro por fornecedor (clicado no card)
+  if (filtroFornecedorTabela !== 'todos') {
+    itensRuptura = itensRuptura.filter(item => item.fornecedor === filtroFornecedorTabela);
+  }
+
+  // Filtro por setor (clicado no card)
+  if (filtroSetorTabela !== 'todos') {
+    itensRuptura = itensRuptura.filter(item => item.secao === filtroSetorTabela);
+  }
+
+  // Contar itens por tipo para os botões
+  const countTodos = todosItensRuptura.length;
+  const countNaoEncontrado = todosItensRuptura.filter(item => item.ocorrencias_nao_encontrado > 0).length;
+  const countEmEstoque = todosItensRuptura.filter(item => item.ocorrencias_em_estoque > 0).length;
 
   return (
     <Layout>
@@ -283,6 +313,77 @@ export default function RupturaResultadosAuditorias() {
                   📦 Produtos com Ruptura ({itensRuptura.length})
                 </h2>
 
+                {/* Filtros de Tipo de Ruptura */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <button
+                    onClick={() => {
+                      setFiltroTipoRuptura('todos');
+                      setFiltroFornecedorTabela('todos');
+                      setFiltroSetorTabela('todos');
+                    }}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      filtroTipoRuptura === 'todos' && filtroFornecedorTabela === 'todos' && filtroSetorTabela === 'todos'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    Todos ({countTodos})
+                  </button>
+                  <button
+                    onClick={() => {
+                      setFiltroTipoRuptura('nao_encontrado');
+                      setFiltroFornecedorTabela('todos');
+                      setFiltroSetorTabela('todos');
+                    }}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      filtroTipoRuptura === 'nao_encontrado'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    Não Encontrado ({countNaoEncontrado})
+                  </button>
+                  <button
+                    onClick={() => {
+                      setFiltroTipoRuptura('ruptura_estoque');
+                      setFiltroFornecedorTabela('todos');
+                      setFiltroSetorTabela('todos');
+                    }}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      filtroTipoRuptura === 'ruptura_estoque'
+                        ? 'bg-yellow-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    Em Estoque ({countEmEstoque})
+                  </button>
+
+                  {/* Indicador de filtro ativo por fornecedor ou setor */}
+                  {filtroFornecedorTabela !== 'todos' && (
+                    <div className="flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-800 rounded-lg">
+                      <span className="font-medium">Fornecedor: {filtroFornecedorTabela}</span>
+                      <button
+                        onClick={() => setFiltroFornecedorTabela('todos')}
+                        className="ml-2 text-purple-600 hover:text-purple-900"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+
+                  {filtroSetorTabela !== 'todos' && (
+                    <div className="flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-800 rounded-lg">
+                      <span className="font-medium">Setor: {filtroSetorTabela}</span>
+                      <button
+                        onClick={() => setFiltroSetorTabela('todos')}
+                        className="ml-2 text-orange-600 hover:text-orange-900"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 {itensRuptura.length === 0 ? (
                   <p className="text-gray-500 text-center py-8">
                     🎉 Nenhuma ruptura encontrada no período!
@@ -307,7 +408,7 @@ export default function RupturaResultadosAuditorias() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {itensRuptura.slice(0, 20).map((item, idx) => (
+                        {itensRuptura.map((item, idx) => (
                           <tr key={idx} className="hover:bg-gray-50">
                             <td className="px-3 py-2 text-gray-600">{idx + 1}</td>
                             <td className="px-3 py-2">
@@ -392,7 +493,15 @@ export default function RupturaResultadosAuditorias() {
                       const percentage = (forn.rupturas / maxRupturas) * 100;
 
                       return (
-                        <div key={idx}>
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setFiltroFornecedorTabela(forn.fornecedor);
+                            setFiltroTipoRuptura('todos');
+                            setFiltroSetorTabela('todos');
+                          }}
+                          className="cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                        >
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex-1">
                               <p className="font-semibold text-gray-800 text-sm truncate" title={forn.fornecedor}>
@@ -438,7 +547,15 @@ export default function RupturaResultadosAuditorias() {
                       const percentage = (sec.rupturas / maxRupturas) * 100;
 
                       return (
-                        <div key={idx}>
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setFiltroSetorTabela(sec.secao);
+                            setFiltroTipoRuptura('todos');
+                            setFiltroFornecedorTabela('todos');
+                          }}
+                          className="cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                        >
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex-1">
                               <p className="font-semibold text-gray-800 text-sm truncate" title={sec.secao}>
