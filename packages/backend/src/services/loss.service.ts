@@ -176,7 +176,7 @@ export class LossService {
   static async getAllLotes(companyId?: string): Promise<any[]> {
     const lossRepository = AppDataSource.getRepository(Loss);
 
-    const result = await lossRepository
+    const query = lossRepository
       .createQueryBuilder('loss')
       .select('loss.nome_lote', 'nomeLote')
       .addSelect('loss.data_importacao', 'dataImportacao')
@@ -185,8 +185,14 @@ export class LossService {
       .addSelect('COUNT(*)', 'totalRegistros')
       .addSelect('SUM(CASE WHEN loss.quantidade_ajuste < 0 THEN 1 ELSE 0 END)', 'totalPerdas')
       .addSelect('SUM(CASE WHEN loss.quantidade_ajuste >= 0 THEN 1 ELSE 0 END)', 'totalEntradas')
-      .addSelect('SUM(CASE WHEN loss.quantidade_ajuste < 0 THEN ABS(loss.quantidade_ajuste * loss.custo_reposicao) ELSE 0 END)', 'valorPerdas')
-      .where('loss.company_id = :companyId', { companyId })
+      .addSelect('SUM(CASE WHEN loss.quantidade_ajuste < 0 THEN ABS(loss.quantidade_ajuste * loss.custo_reposicao) ELSE 0 END)', 'valorPerdas');
+
+    // Adicionar filtro de company apenas se estiver definido
+    if (companyId) {
+      query.where('loss.company_id = :companyId', { companyId });
+    }
+
+    const result = await query
       .groupBy('loss.nome_lote')
       .addGroupBy('loss.data_importacao')
       .addGroupBy('loss.data_inicio_periodo')
@@ -215,7 +221,7 @@ export class LossService {
     return await lossRepository.find({
       where: {
         nomeLote,
-        companyId,
+        ...(companyId && { companyId }),
       },
       order: {
         quantidadeAjuste: 'ASC', // Perdas primeiro (valores negativos)
@@ -232,7 +238,7 @@ export class LossService {
   ): Promise<any[]> {
     const lossRepository = AppDataSource.getRepository(Loss);
 
-    const result = await lossRepository
+    const query = lossRepository
       .createQueryBuilder('loss')
       .select('loss.secao', 'secao')
       .addSelect('loss.secao_nome', 'secaoNome')
@@ -241,8 +247,14 @@ export class LossService {
       .addSelect('SUM(CASE WHEN loss.quantidade_ajuste >= 0 THEN 1 ELSE 0 END)', 'totalEntradas')
       .addSelect('SUM(CASE WHEN loss.quantidade_ajuste < 0 THEN ABS(loss.quantidade_ajuste * loss.custo_reposicao) ELSE 0 END)', 'valorPerdas')
       .addSelect('SUM(CASE WHEN loss.quantidade_ajuste >= 0 THEN (loss.quantidade_ajuste * loss.custo_reposicao) ELSE 0 END)', 'valorEntradas')
-      .where('loss.nome_lote = :nomeLote', { nomeLote })
-      .andWhere('loss.company_id = :companyId', { companyId })
+      .where('loss.nome_lote = :nomeLote', { nomeLote });
+
+    // Adicionar filtro de company apenas se estiver definido
+    if (companyId) {
+      query.andWhere('loss.company_id = :companyId', { companyId });
+    }
+
+    const result = await query
       .groupBy('loss.secao')
       .addGroupBy('loss.secao_nome')
       .orderBy('valorPerdas', 'DESC')
@@ -267,7 +279,7 @@ export class LossService {
 
     await lossRepository.delete({
       nomeLote,
-      companyId,
+      ...(companyId && { companyId }),
     });
 
     console.log(`🗑️ Lote "${nomeLote}" deletado com sucesso`);
@@ -293,7 +305,7 @@ export class LossService {
     // Buscar motivos ignorados
     const motivosIgnorados = await reasonConfigRepository.find({
       where: {
-        companyId: filters.companyId,
+        ...(filters.companyId && { companyId: filters.companyId }),
         ignorarCalculo: true,
       },
     });
@@ -303,9 +315,13 @@ export class LossService {
     // Construir query com filtros
     const query = lossRepository
       .createQueryBuilder('loss')
-      .where('loss.company_id = :companyId', { companyId: filters.companyId })
-      .andWhere('loss.data_importacao >= :dataInicio', { dataInicio: filters.data_inicio })
+      .where('loss.data_importacao >= :dataInicio', { dataInicio: filters.data_inicio })
       .andWhere('loss.data_importacao <= :dataFim', { dataFim: filters.data_fim });
+
+    // Adicionar filtro de company apenas se estiver definido
+    if (filters.companyId) {
+      query.andWhere('loss.company_id = :companyId', { companyId: filters.companyId });
+    }
 
     // Filtro por motivo
     if (filters.motivo && filters.motivo !== 'todos') {
@@ -473,13 +489,18 @@ export class LossService {
    */
   static async getUniqueSecoes(companyId?: string): Promise<any[]> {
     const lossRepository = AppDataSource.getRepository(Loss);
-    const items = await lossRepository
+    const query = lossRepository
       .createQueryBuilder('loss')
       .select('DISTINCT loss.secao', 'secao')
       .addSelect('loss.secao_nome', 'secaoNome')
-      .where('loss.company_id = :companyId', { companyId })
-      .andWhere('loss.secao IS NOT NULL')
-      .getRawMany();
+      .where('loss.secao IS NOT NULL');
+
+    // Adicionar filtro de company apenas se estiver definido
+    if (companyId) {
+      query.andWhere('loss.company_id = :companyId', { companyId });
+    }
+
+    const items = await query.getRawMany();
 
     return items.map((i: any) => ({
       secao: i.secao,
@@ -492,13 +513,17 @@ export class LossService {
    */
   static async getUniqueProdutos(companyId?: string): Promise<string[]> {
     const lossRepository = AppDataSource.getRepository(Loss);
-    const items = await lossRepository
+    const query = lossRepository
       .createQueryBuilder('loss')
       .select('DISTINCT loss.descricao_reduzida', 'descricao')
-      .where('loss.company_id = :companyId', { companyId })
-      .andWhere('loss.descricao_reduzida IS NOT NULL')
-      .limit(500)
-      .getRawMany();
+      .where('loss.descricao_reduzida IS NOT NULL');
+
+    // Adicionar filtro de company apenas se estiver definido
+    if (companyId) {
+      query.andWhere('loss.company_id = :companyId', { companyId });
+    }
+
+    const items = await query.limit(500).getRawMany();
 
     return items.map((i: any) => i.descricao);
   }
@@ -508,12 +533,17 @@ export class LossService {
    */
   static async getUniqueMotivos(companyId?: string): Promise<string[]> {
     const lossRepository = AppDataSource.getRepository(Loss);
-    const items = await lossRepository
+    const query = lossRepository
       .createQueryBuilder('loss')
       .select('DISTINCT loss.descricao_ajuste_completa', 'motivo')
-      .where('loss.company_id = :companyId', { companyId })
-      .andWhere('loss.descricao_ajuste_completa IS NOT NULL')
-      .getRawMany();
+      .where('loss.descricao_ajuste_completa IS NOT NULL');
+
+    // Adicionar filtro de company apenas se estiver definido
+    if (companyId) {
+      query.andWhere('loss.company_id = :companyId', { companyId });
+    }
+
+    const items = await query.getRawMany();
 
     return items.map((i: any) => i.motivo);
   }
@@ -528,7 +558,7 @@ export class LossService {
     // Verificar se já existe
     const existing = await reasonConfigRepository.findOne({
       where: {
-        companyId,
+        ...(companyId && { companyId }),
         motivo,
       },
     });
@@ -559,7 +589,7 @@ export class LossService {
 
     return await reasonConfigRepository.find({
       where: {
-        companyId,
+        ...(companyId && { companyId }),
         ignorarCalculo: true,
       },
     });

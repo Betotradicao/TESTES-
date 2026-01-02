@@ -132,13 +132,9 @@ export class LossController {
   static async getAgregated(req: AuthRequest, res: Response) {
     try {
       const { data_inicio, data_fim, motivo, produto, page, limit, tipo } = req.query;
-      const companyId = req.user?.companyId;
+      const companyId = undefined; // Sistema não tem multi-company
 
       console.log('📊 Filtros recebidos:', { data_inicio, data_fim, motivo, produto, page, limit, tipo, companyId });
-
-      if (!companyId) {
-        return res.status(400).json({ error: 'Company ID não encontrado' });
-      }
 
       if (!data_inicio || !data_fim) {
         return res.status(400).json({
