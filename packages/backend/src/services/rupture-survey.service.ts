@@ -678,18 +678,44 @@ export class RuptureSurveyService {
         });
 
         // Cabeçalho
-        doc.fontSize(16).fillColor('#000').text('RELATÓRIO DE AUDITORIA DE RUPTURAS', { align: 'center' });
-        doc.moveDown(0.5);
-
-        // Informações da auditoria
-        doc.fontSize(10).fillColor('#000');
-        doc.text(`Auditoria: ${survey.nome_pesquisa} | Data: ${new Date().toLocaleString('pt-BR')} | Auditor: ${itensRuptura[0]?.verificado_por || 'N/A'}`, { align: 'center' });
-        doc.moveDown(0.5);
-
-        // Estatísticas
-        doc.fontSize(9);
-        doc.text(`Total Verificados: ${survey.itens_verificados} | Total Rupturas: ${itensRuptura.length} (${naoEncontrado.length} Não Encontrado + ${emEstoque.length} Em Estoque) | Taxa: ${survey.taxa_ruptura?.toFixed(1) || 0}% | Perda Venda: R$ ${perdaVendaTotal.toFixed(2)} | Perda Lucro: R$ ${perdaLucroTotal.toFixed(2)}`, { align: 'center' });
+        doc.fontSize(18).fillColor('#000').text('RELATÓRIO DE AUDITORIA DE RUPTURAS', { align: 'center' });
         doc.moveDown(1);
+
+        // Box do Resumo Geral com fundo cinza claro
+        const boxY = doc.y;
+        doc.rect(30, boxY, 770, 110).fillAndStroke('#F5F5F5', '#CCC');
+
+        // Título do Resumo
+        doc.fontSize(12).fillColor('#FF6600').text('RESUMO GERAL', 40, boxY + 10);
+
+        // Informações do resumo em duas colunas
+        const colLeft = 40;
+        const colRight = 420;
+        let lineY = boxY + 30;
+        const lineHeight = 15;
+
+        doc.fontSize(9).fillColor('#000');
+
+        // Coluna esquerda
+        doc.text(`Auditor: ${itensRuptura[0]?.verificado_por || 'N/A'}`, colLeft, lineY);
+        lineY += lineHeight;
+        doc.text(`Total de Itens Verificados: ${survey.itens_verificados}`, colLeft, lineY);
+        lineY += lineHeight;
+        doc.text(`Itens Encontrados: ${survey.itens_verificados - itensRuptura.length}`, colLeft, lineY);
+        lineY += lineHeight;
+        doc.text(`Total de Rupturas: ${itensRuptura.length} (${naoEncontrado.length} Não Encontrado + ${emEstoque.length} Em Estoque)`, colLeft, lineY);
+
+        // Coluna direita
+        lineY = boxY + 30;
+        doc.text(`Taxa de Ruptura: ${survey.taxa_ruptura?.toFixed(1) || 0}%`, colRight, lineY);
+        lineY += lineHeight;
+        doc.text(`Perda de Venda/Dia: R$ ${perdaVendaTotal.toFixed(2)}`, colRight, lineY);
+        lineY += lineHeight;
+        doc.text(`Perda de Lucro/Dia: R$ ${perdaLucroTotal.toFixed(2)}`, colRight, lineY);
+        lineY += lineHeight;
+        doc.text(`Data: ${new Date().toLocaleString('pt-BR')}`, colRight, lineY);
+
+        doc.moveDown(8);
 
         // Função para desenhar tabela
         const drawTable = (title: string, items: RuptureSurveyItem[], startY: number) => {
