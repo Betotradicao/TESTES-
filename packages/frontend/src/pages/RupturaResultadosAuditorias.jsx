@@ -168,7 +168,7 @@ export default function RupturaResultadosAuditorias() {
       head: [['#', 'Produto', 'Fornecedor', 'Seção', 'Curva', 'Estoque', 'V.Média/Dia', 'Valor Venda', 'Margem %', 'Pedido', 'Ocorrências', 'Perda Total']],
       body: tableData,
       styles: { fontSize: 7 },
-      headStyles: { fillColor: [220, 38, 38], textColor: 255 },
+      headStyles: { fillColor: [255, 85, 0], textColor: 255 },
       margin: { top: 10 },
     });
 
