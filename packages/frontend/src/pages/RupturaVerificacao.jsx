@@ -16,6 +16,7 @@ export default function RupturaVerificacao() {
   const [verificadoPor, setVerificadoPor] = useState('');
   const [showNameModal, setShowNameModal] = useState(true);
   const [employees, setEmployees] = useState([]);
+  const [finalizing, setFinalizing] = useState(false);
 
   useEffect(() => {
     loadSurvey();
@@ -100,9 +101,8 @@ export default function RupturaVerificacao() {
       if (nextPending !== -1) {
         setCurrentIndex(nextPending);
       } else {
-        // Pesquisa concluída
-        alert('✅ Todos os itens foram verificados! Acesse "Resultados das Auditorias" no menu para ver o relatório consolidado.');
-        navigate('/ruptura-lancador');
+        // Todos os itens verificados - mostrar mensagem
+        alert('✅ Todos os itens foram verificados!\n\nAgora clique em "CONCLUIR AUDITORIA" no final da página para gerar o PDF e enviar para o WhatsApp.');
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Erro ao atualizar status');
@@ -120,6 +120,44 @@ export default function RupturaVerificacao() {
   const handleNext = () => {
     if (currentIndex < items.length - 1) {
       setCurrentIndex(currentIndex + 1);
+    }
+  };
+
+  const handleFinalizeSurvey = async () => {
+    // Verificar se todos os itens foram verificados
+    const pendentes = items.filter(i => i.status_verificacao === 'pendente').length;
+
+    if (pendentes > 0) {
+      alert(`⚠️ Ainda existem ${pendentes} itens pendentes. Verifique todos os itens antes de finalizar.`);
+      return;
+    }
+
+    const confirmacao = window.confirm(
+      '📊 Deseja FINALIZAR esta auditoria?\n\n' +
+      'Será gerado um PDF com o relatório completo e enviado automaticamente para o WhatsApp.\n\n' +
+      'Esta ação não pode ser desfeita.'
+    );
+
+    if (!confirmacao) {
+      return;
+    }
+
+    setFinalizing(true);
+
+    try {
+      const response = await api.post(`/rupture-surveys/${surveyId}/finalize`);
+
+      if (response.data.success) {
+        alert('✅ ' + response.data.message + '\n\nO relatório PDF foi enviado para o grupo do WhatsApp!');
+        navigate('/ruptura-lancador');
+      } else {
+        alert('⚠️ ' + response.data.message);
+      }
+    } catch (err) {
+      console.error('Erro ao finalizar auditoria:', err);
+      alert('❌ Erro ao finalizar auditoria: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setFinalizing(false);
     }
   };
 
@@ -375,6 +413,22 @@ export default function RupturaVerificacao() {
             <p className="text-xs text-gray-600">Pendentes</p>
           </div>
         </div>
+
+        {/* Botão de Finalizar Auditoria */}
+        {items.filter(i => i.status_verificacao === 'pendente').length === 0 && (
+          <div className="mt-6">
+            <button
+              onClick={handleFinalizeSurvey}
+              disabled={finalizing}
+              className="w-full py-4 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg hover:from-green-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg font-bold shadow-lg"
+            >
+              {finalizing ? '⏳ Finalizando e Enviando...' : '✅ CONCLUIR AUDITORIA E ENVIAR PARA WHATSAPP'}
+            </button>
+            <p className="text-center text-sm text-gray-500 mt-2">
+              Gera PDF e envia automaticamente para o grupo do WhatsApp
+            </p>
+          </div>
+        )}
       </div>
     </Layout>
   );
