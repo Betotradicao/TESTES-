@@ -62,7 +62,9 @@ export default function RupturaResultados() {
   }
 
   const stats = data.estatisticas || {};
-  const itensRuptura = (data.items || []).filter(i => i.status_verificacao === 'nao_encontrado');
+  const itensRuptura = (data.items || []).filter(i =>
+    i.status_verificacao === 'nao_encontrado' || i.status_verificacao === 'ruptura_estoque'
+  );
 
   // Função para alternar ordenação
   const toggleOrdenacao = (campo) => {
