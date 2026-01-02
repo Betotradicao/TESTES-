@@ -188,17 +188,17 @@ async function seedConfigurations() {
       },
       {
         key: 'evolution_api_token',
-        value: 'E73D57BB-5AEF-4560-87E6-966C933CE1DA',
+        value: 'F0A82E6394D6-4D5A-845A-FC0413873588',
         description: 'Token de autenticação Evolution API'
       },
       {
         key: 'evolution_instance',
-        value: 'FACIAL_TRADICAO_L1',
+        value: 'DVR FACIAL',
         description: 'Nome da instância Evolution API'
       },
       {
         key: 'evolution_whatsapp_group_id',
-        value: '120363422563235781@g.us',
+        value: '120363421239599536@g.us',
         description: 'ID do grupo WhatsApp para notificações'
       },
 
