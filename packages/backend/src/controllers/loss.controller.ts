@@ -61,7 +61,7 @@ export class LossController {
    */
   static async getAllLotes(req: AuthRequest, res: Response) {
     try {
-      const companyId = null; // Sistema não tem multi-company
+      const companyId = undefined; // Sistema não tem multi-company
 
       const lotes = await LossService.getAllLotes(companyId);
 
@@ -78,7 +78,7 @@ export class LossController {
   static async getByLote(req: AuthRequest, res: Response) {
     try {
       const { nomeLote } = req.params;
-      const companyId = null; // Sistema não tem multi-company
+      const companyId = undefined; // Sistema não tem multi-company
 
       const losses = await LossService.getByLote(nomeLote, companyId);
 
@@ -95,7 +95,7 @@ export class LossController {
   static async getAggregatedBySection(req: AuthRequest, res: Response) {
     try {
       const { nomeLote } = req.params;
-      const companyId = null; // Sistema não tem multi-company
+      const companyId = undefined; // Sistema não tem multi-company
 
       const aggregated = await LossService.getAggregatedBySection(
         nomeLote,
@@ -115,7 +115,7 @@ export class LossController {
   static async deleteLote(req: AuthRequest, res: Response) {
     try {
       const { nomeLote } = req.params;
-      const companyId = null; // Sistema não tem multi-company
+      const companyId = undefined; // Sistema não tem multi-company
 
       await LossService.deleteLote(nomeLote, companyId);
 
@@ -172,7 +172,7 @@ export class LossController {
   static async toggleMotivoIgnorado(req: AuthRequest, res: Response) {
     try {
       const { motivo } = req.body;
-      const companyId = null; // Sistema não tem multi-company
+      const companyId = undefined; // Sistema não tem multi-company
 
       if (!motivo) {
         return res.status(400).json({ error: 'Motivo é obrigatório' });
@@ -191,7 +191,7 @@ export class LossController {
    */
   static async getMotivosIgnorados(req: AuthRequest, res: Response) {
     try {
-      const companyId = null; // Sistema não tem multi-company
+      const companyId = undefined; // Sistema não tem multi-company
 
       const motivos = await LossService.getMotivosIgnorados(companyId);
       res.json(motivos);
@@ -206,7 +206,7 @@ export class LossController {
    */
   static async getSecoes(req: AuthRequest, res: Response) {
     try {
-      const companyId = null; // Sistema não tem multi-company
+      const companyId = undefined; // Sistema não tem multi-company
 
       const secoes = await LossService.getUniqueSecoes(companyId);
       res.json(secoes);
@@ -221,7 +221,7 @@ export class LossController {
    */
   static async getProdutos(req: AuthRequest, res: Response) {
     try {
-      const companyId = null; // Sistema não tem multi-company
+      const companyId = undefined; // Sistema não tem multi-company
 
       const produtos = await LossService.getUniqueProdutos(companyId);
       res.json(produtos);

@@ -15,7 +15,7 @@ export class LossReasonConfig {
   id!: number;
 
   @Column({ name: 'company_id', type: 'uuid', nullable: true })
-  companyId!: string | null;
+  companyId?: string;
 
   @ManyToOne(() => Company)
   @JoinColumn({ name: 'company_id' })
