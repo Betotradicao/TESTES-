@@ -637,7 +637,7 @@ export class RuptureSurveyService {
   }
 
   /**
-   * Gera PDF do relatório de ruptura
+   * Gera PDF do relatório de ruptura com tabelas formatadas
    */
   private static async generateRupturePDF(
     survey: any,
@@ -656,51 +656,122 @@ export class RuptureSurveyService {
           `ruptura-${survey.id}-${Date.now()}.pdf`
         );
 
-        const doc = new PDFDocument({ margin: 50, size: 'A4' });
+        const PDFDocument = require('pdfkit');
+        const doc = new PDFDocument({ margin: 30, size: 'A4', layout: 'landscape' });
         const stream = fs.createWriteStream(pdfPath);
 
         doc.pipe(stream);
-
-        // Título
-        doc.fontSize(20).text('RELATÓRIO DE AUDITORIA DE RUPTURAS', { align: 'center' });
-        doc.moveDown();
-
-        // Informações da auditoria
-        doc.fontSize(12);
-        doc.text(`Auditoria: ${survey.nome_pesquisa}`);
-        doc.text(`Data: ${new Date().toLocaleString('pt-BR')}`);
-        doc.text(`Total de Itens Verificados: ${survey.itens_verificados}`);
-        doc.text(`Total de Rupturas: ${itensRuptura.length}`);
-        doc.text(`Taxa de Ruptura: ${survey.taxa_ruptura?.toFixed(2) || 0}%`);
-        doc.moveDown();
 
         // Separar por status
         const naoEncontrado = itensRuptura.filter(i => i.status_verificacao === 'nao_encontrado');
         const emEstoque = itensRuptura.filter(i => i.status_verificacao === 'ruptura_estoque');
 
-        doc.text(`🔴 Não Encontrado: ${naoEncontrado.length}`);
-        doc.text(`🟠 Em Estoque: ${emEstoque.length}`);
-        doc.moveDown(2);
-
-        // Lista de rupturas
-        doc.fontSize(14).text('Produtos em Ruptura:', { underline: true });
-        doc.moveDown();
-
-        itensRuptura.forEach((item, index) => {
-          doc.fontSize(10);
-          doc.text(`${index + 1}. ${item.descricao || 'Sem descrição'}`);
-          doc.fontSize(8);
-          doc.text(`   Fornecedor: ${item.fornecedor || 'N/A'}`);
-          doc.text(`   Seção: ${item.secao || 'N/A'}`);
-          doc.text(`   Curva: ${item.curva || 'N/A'}`);
-          doc.text(`   Status: ${item.status_verificacao === 'nao_encontrado' ? 'Não Encontrado' : 'Em Estoque'}`);
-          doc.moveDown(0.5);
-
-          // Nova página a cada 20 itens para evitar overflow
-          if ((index + 1) % 20 === 0 && index < itensRuptura.length - 1) {
-            doc.addPage();
-          }
+        // Calcular perda total
+        let perdaVendaTotal = 0;
+        let perdaLucroTotal = 0;
+        itensRuptura.forEach(item => {
+          const valorVenda = parseFloat(item.valor_venda as any) || 0;
+          const margemLucro = parseFloat(item.margem_lucro as any) || 0;
+          const vendaMediaDia = parseFloat(item.venda_media_dia as any) || 0;
+          perdaVendaTotal += valorVenda * vendaMediaDia;
+          perdaLucroTotal += (valorVenda * vendaMediaDia) * (margemLucro / 100);
         });
+
+        // Cabeçalho
+        doc.fontSize(16).fillColor('#000').text('RELATÓRIO DE AUDITORIA DE RUPTURAS', { align: 'center' });
+        doc.moveDown(0.5);
+
+        // Informações da auditoria
+        doc.fontSize(10).fillColor('#000');
+        doc.text(`Auditoria: ${survey.nome_pesquisa} | Data: ${new Date().toLocaleString('pt-BR')} | Auditor: ${itensRuptura[0]?.verificado_por || 'N/A'}`, { align: 'center' });
+        doc.moveDown(0.5);
+
+        // Estatísticas
+        doc.fontSize(9);
+        doc.text(`Total Verificados: ${survey.itens_verificados} | Total Rupturas: ${itensRuptura.length} (${naoEncontrado.length} Não Encontrado + ${emEstoque.length} Em Estoque) | Taxa: ${survey.taxa_ruptura?.toFixed(1) || 0}% | Perda Venda: R$ ${perdaVendaTotal.toFixed(2)} | Perda Lucro: R$ ${perdaLucroTotal.toFixed(2)}`, { align: 'center' });
+        doc.moveDown(1);
+
+        // Função para desenhar tabela
+        const drawTable = (title: string, items: RuptureSurveyItem[], startY: number) => {
+          if (items.length === 0) return startY;
+
+          // Título da seção
+          doc.fontSize(12).fillColor('#000').text(title, 30, startY);
+          startY += 20;
+
+          // Definir colunas
+          const colX = [30, 80, 230, 310, 355, 405, 470, 545, 610, 665, 730];
+          const colWidth = [50, 150, 80, 45, 50, 65, 75, 65, 55, 65, 60];
+          const rowHeight = 18;
+
+          // Cabeçalho da tabela (laranja)
+          doc.rect(30, startY, 770, rowHeight).fillAndStroke('#FF8C00', '#000');
+          doc.fontSize(7).fillColor('#FFF');
+          doc.text('#', colX[0] + 5, startY + 5, { width: colWidth[0], align: 'left' });
+          doc.text('PRODUTO', colX[1] + 5, startY + 5, { width: colWidth[1], align: 'left' });
+          doc.text('FORNECEDOR', colX[2] + 5, startY + 5, { width: colWidth[2], align: 'left' });
+          doc.text('SEÇÃO', colX[3] + 5, startY + 5, { width: colWidth[3], align: 'left' });
+          doc.text('CURVA', colX[4] + 5, startY + 5, { width: colWidth[4], align: 'left' });
+          doc.text('ESTOQUE', colX[5] + 5, startY + 5, { width: colWidth[5], align: 'right' });
+          doc.text('V.MÉD/DIA', colX[6] + 5, startY + 5, { width: colWidth[6], align: 'right' });
+          doc.text('VL.VENDA', colX[7] + 5, startY + 5, { width: colWidth[7], align: 'right' });
+          doc.text('MARGEM', colX[8] + 5, startY + 5, { width: colWidth[8], align: 'right' });
+          doc.text('PEDIDO', colX[9] + 5, startY + 5, { width: colWidth[9], align: 'center' });
+          doc.text('PERDA', colX[10] + 5, startY + 5, { width: colWidth[10], align: 'right' });
+
+          startY += rowHeight;
+
+          // Linhas de dados (zebradas)
+          items.forEach((item, idx) => {
+            const bgColor = idx % 2 === 0 ? '#F5F5F5' : '#FFFFFF';
+            doc.rect(30, startY, 770, rowHeight).fillAndStroke(bgColor, '#DDD');
+            doc.fontSize(6).fillColor('#000');
+
+            const estoque = parseFloat(item.estoque_atual as any) || 0;
+            const vendaMedia = parseFloat(item.venda_media_dia as any) || 0;
+            const valorVenda = parseFloat(item.valor_venda as any) || 0;
+            const margem = parseFloat(item.margem_lucro as any) || 0;
+            const perda = valorVenda * vendaMedia;
+
+            doc.text(`${idx + 1}`, colX[0] + 5, startY + 5, { width: colWidth[0], align: 'left' });
+            doc.text(item.descricao?.substring(0, 30) || '', colX[1] + 5, startY + 5, { width: colWidth[1], align: 'left' });
+            doc.text(item.fornecedor?.substring(0, 15) || '', colX[2] + 5, startY + 5, { width: colWidth[2], align: 'left' });
+            doc.text(item.secao?.substring(0, 10) || '', colX[3] + 5, startY + 5, { width: colWidth[3], align: 'left' });
+            doc.text(item.curva || '-', colX[4] + 5, startY + 5, { width: colWidth[4], align: 'left' });
+            doc.text(estoque.toFixed(0), colX[5] + 5, startY + 5, { width: colWidth[5], align: 'right' });
+            doc.text(vendaMedia.toFixed(2), colX[6] + 5, startY + 5, { width: colWidth[6], align: 'right' });
+            doc.text(`R$ ${valorVenda.toFixed(2)}`, colX[7] + 5, startY + 5, { width: colWidth[7], align: 'right' });
+            doc.text(`${margem.toFixed(1)}%`, colX[8] + 5, startY + 5, { width: colWidth[8], align: 'right' });
+            doc.text(item.tem_pedido || '-', colX[9] + 5, startY + 5, { width: colWidth[9], align: 'center' });
+            doc.text(`R$ ${perda.toFixed(2)}`, colX[10] + 5, startY + 5, { width: colWidth[10], align: 'right' });
+
+            startY += rowHeight;
+
+            // Nova página se necessário
+            if (startY > 500 && idx < items.length - 1) {
+              doc.addPage();
+              startY = 30;
+              return drawTable(title, items.slice(idx + 1), startY);
+            }
+          });
+
+          return startY + 20;
+        };
+
+        // Desenhar tabelas separadas
+        let currentY = doc.y;
+
+        if (naoEncontrado.length > 0) {
+          currentY = drawTable('🔴 RUPTURA - NÃO ENCONTRADO', naoEncontrado, currentY);
+        }
+
+        if (emEstoque.length > 0) {
+          if (currentY > 400) {
+            doc.addPage();
+            currentY = 30;
+          }
+          currentY = drawTable('🟠 RUPTURA - EM ESTOQUE', emEstoque, currentY);
+        }
 
         doc.end();
 
