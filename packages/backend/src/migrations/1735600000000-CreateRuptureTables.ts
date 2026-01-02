@@ -221,16 +221,19 @@ export class CreateRuptureTables1735600000000 implements MigrationInterface {
       true
     );
 
-    // Adicionar foreign key para user_id
-    await queryRunner.createForeignKey(
-      'rupture_surveys',
-      new TableForeignKey({
-        columnNames: ['user_id'],
-        referencedColumnNames: ['id'],
-        referencedTableName: 'users',
-        onDelete: 'SET NULL',
-      })
-    );
+    // Adicionar foreign key para user_id (apenas se tabela users existir)
+    const hasUsersTable = await queryRunner.hasTable('users');
+    if (hasUsersTable) {
+      await queryRunner.createForeignKey(
+        'rupture_surveys',
+        new TableForeignKey({
+          columnNames: ['user_id'],
+          referencedColumnNames: ['id'],
+          referencedTableName: 'users',
+          onDelete: 'SET NULL',
+        })
+      );
+    }
 
     // Adicionar foreign key para survey_id
     await queryRunner.createForeignKey(
