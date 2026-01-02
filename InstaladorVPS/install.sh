@@ -338,6 +338,20 @@ sleep 5
 rm -f /tmp/fix-minio-config.js
 
 # ============================================
+# CRIAR USUÁRIO MASTER PADRÃO
+# ============================================
+
+echo ""
+echo "👤 Criando usuário master padrão..."
+
+# Executar script de criação do usuário master dentro do container
+docker exec prevencao-backend-prod npm run create-master-user 2>&1 || echo "⚠️  Aviso: Erro ao criar usuário master (pode já existir)"
+
+echo "✅ Usuário master configurado"
+echo "   Username: Roberto"
+echo "   Senha: Beto3107@@##"
+
+# ============================================
 # DETECTAR E SALVAR IPs DO TAILSCALE
 # ============================================
 

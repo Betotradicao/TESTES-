@@ -22,7 +22,8 @@
     "run:daily:verification:prod": "node dist/commands/daily-verification.command.js",
     "seed:configurations": "ts-node src/scripts/seed-configurations.ts",
     "seed:configurations:prod": "node dist/scripts/seed-configurations.js",
-    "seed": "node dist/scripts/seed-configurations.js"
+    "seed": "node dist/scripts/seed-configurations.js",
+    "create-master-user": "node dist/scripts/create-master-user.js"
   },
   "keywords": [],
   "author": "",
