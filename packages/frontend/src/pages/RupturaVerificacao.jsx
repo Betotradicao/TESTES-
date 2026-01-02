@@ -420,13 +420,10 @@ export default function RupturaVerificacao() {
             <button
               onClick={handleFinalizeSurvey}
               disabled={finalizing}
-              className="w-full py-4 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg hover:from-green-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg font-bold shadow-lg"
+              className="w-full py-4 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg font-bold shadow-lg"
             >
-              {finalizing ? '⏳ Finalizando e Enviando...' : '✅ CONCLUIR AUDITORIA E ENVIAR PARA WHATSAPP'}
+              {finalizing ? '⏳ Enviando...' : 'ENVIAR AUDITORIA'}
             </button>
-            <p className="text-center text-sm text-gray-500 mt-2">
-              Gera PDF e envia automaticamente para o grupo do WhatsApp
-            </p>
           </div>
         )}
       </div>
