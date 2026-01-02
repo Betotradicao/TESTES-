@@ -352,7 +352,7 @@ export default function RupturaVerificacao() {
               disabled={updating}
               className="w-full py-4 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 text-lg font-semibold"
             >
-              ❌ NÃO ENCONTRADO (RUPTURA)
+              ❌ RUPTURA (NÃO ENCONTRADO)
             </button>
 
             <button
