@@ -40,7 +40,10 @@ RUN echo "# Verificação diária completa às 5h (vendas + bipagens + notifica�
     echo "*/2 * * * * cd /app && node dist/commands/daily-verification.command.js >> /var/log/cron.log 2>&1" >> /etc/crontabs/root && \
     echo "" >> /etc/crontabs/root && \
     echo "# Monitoramento de última bipagem - alerta se não receber bipagens por mais de 1h (a cada 1h)" >> /etc/crontabs/root && \
-    echo "0 * * * * cd /app && node dist/commands/check-last-bip.command.js >> /var/log/cron.log 2>&1" >> /etc/crontabs/root
+    echo "0 * * * * cd /app && node dist/commands/check-last-bip.command.js >> /var/log/cron.log 2>&1" >> /etc/crontabs/root && \
+    echo "" >> /etc/crontabs/root && \
+    echo "# Monitoramento de emails DVR - verifica novos emails a cada 5 minutos" >> /etc/crontabs/root && \
+    echo "*/5 * * * * cd /app && node dist/commands/email-monitor.command.js >> /var/log/cron.log 2>&1" >> /etc/crontabs/root
 
 # Criar diretório de logs
 RUN mkdir -p /var/log && touch /var/log/cron.log
