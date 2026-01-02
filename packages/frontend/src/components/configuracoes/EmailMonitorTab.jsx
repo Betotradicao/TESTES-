@@ -305,11 +305,27 @@ export default function EmailMonitorTab() {
         </div>
       </div>
 
+      {/* Indicador de Status da Configuração */}
+      {config.email && config.app_password && (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <div>
+              <p className="text-sm font-medium text-blue-900">Gmail Configurado</p>
+              <p className="text-xs text-blue-700 mt-1">Email: {config.email}</p>
+              <p className="text-xs text-blue-700">Use o botão "Testar Conexão" para verificar se está funcionando</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-3">
         <button
           onClick={handleTest}
           disabled={testing || !config.email || !config.app_password}
-          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition font-medium"
         >
           {testing ? 'Testando...' : '🔌 Testar Conexão'}
         </button>
@@ -317,7 +333,7 @@ export default function EmailMonitorTab() {
         <button
           onClick={handleSave}
           disabled={saving || !config.email || !config.app_password}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition font-medium"
         >
           {saving ? 'Salvando...' : 'Salvar'}
         </button>
@@ -327,6 +343,23 @@ export default function EmailMonitorTab() {
 
   const renderFiltersTab = () => (
     <div className="space-y-6">
+      {/* Card de Status do Monitoramento */}
+      <div className={`p-4 rounded-lg border-2 ${config.enabled ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-300'}`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`w-3 h-3 rounded-full ${config.enabled ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+            <div>
+              <h4 className="font-semibold text-gray-900">
+                {config.enabled ? '✅ Monitoramento ATIVO' : '⏸️ Monitoramento INATIVO'}
+              </h4>
+              <p className="text-xs text-gray-600 mt-1">
+                {config.enabled ? 'Sistema verificando emails a cada 1 minuto' : 'Ative o monitoramento abaixo para começar'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Filtro de Assunto
