@@ -103,10 +103,10 @@ export class WhatsAppService {
   static async sendBipNotification(bip: Bip): Promise<boolean> {
     try {
       // Busca group_id do banco de dados (fallback para .env)
-      const groupId = await ConfigurationService.get('prevencao_whatsapp_group_id', process.env.PREVENCAO_WHATSAPP_GROUP_ID || '');
+      const groupId = await ConfigurationService.get('evolution_whatsapp_group_id', process.env.EVOLUTION_WHATSAPP_GROUP_ID || '');
 
       if (!groupId) {
-        throw new Error('prevencao_whatsapp_group_id não configurado');
+        throw new Error('evolution_whatsapp_group_id não configurado');
       }
 
       const message = this.generateBipMessage(bip);
@@ -232,10 +232,10 @@ export class WhatsAppService {
   ): Promise<boolean> {
     try {
       // Buscar grupo do WhatsApp da Evolution API (mesmo grupo usado para notificações)
-      const groupId = await ConfigurationService.get('prevencao_whatsapp_group_id', process.env.PREVENCAO_WHATSAPP_GROUP_ID || '');
+      const groupId = await ConfigurationService.get('evolution_whatsapp_group_id', process.env.EVOLUTION_WHATSAPP_GROUP_ID || '');
 
       if (!groupId) {
-        console.warn('⚠️  Grupo do WhatsApp não configurado (prevencao_whatsapp_group_id)');
+        console.warn('⚠️  Grupo do WhatsApp não configurado (evolution_whatsapp_group_id)');
         return false;
       }
 
