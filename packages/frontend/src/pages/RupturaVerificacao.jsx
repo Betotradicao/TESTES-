@@ -17,6 +17,7 @@ export default function RupturaVerificacao() {
   const [showNameModal, setShowNameModal] = useState(true);
   const [employees, setEmployees] = useState([]);
   const [finalizing, setFinalizing] = useState(false);
+  const [produtosSelecionados, setProdutosSelecionados] = useState([]);
 
   useEffect(() => {
     loadSurvey();
@@ -65,50 +66,45 @@ export default function RupturaVerificacao() {
     }
   };
 
-  const handleUpdateStatus = async (status, observacao = '') => {
+  const handleAddProduto = (status) => {
     if (!verificadoPor.trim()) {
-      alert('Digite seu nome primeiro!');
+      alert('Selecione o auditor primeiro!');
       setShowNameModal(true);
       return;
     }
 
     const currentItem = items[currentIndex];
-    setUpdating(true);
 
-    try {
-      await api.patch(`/rupture-surveys/items/${currentItem.id}/status`, {
-        status,
-        verificado_por: verificadoPor,
-        observacao,
-      });
+    // Verificar se o produto já foi adicionado
+    const jaAdicionado = produtosSelecionados.find(p => p.id === currentItem.id);
 
-      // Atualizar item localmente
-      const updatedItems = [...items];
-      updatedItems[currentIndex] = {
-        ...currentItem,
-        status_verificacao: status,
-        data_verificacao: new Date(),
-        verificado_por: verificadoPor,
-        observacao_item: observacao,
-      };
-      setItems(updatedItems);
-
-      // Ir para próximo item pendente
-      const nextPending = updatedItems.findIndex(
-        (item, idx) => idx > currentIndex && item.status_verificacao === 'pendente'
+    if (jaAdicionado) {
+      // Se já foi adicionado, atualiza o tipo
+      setProdutosSelecionados(prev =>
+        prev.map(p => p.id === currentItem.id ? { ...p, status } : p)
       );
-
-      if (nextPending !== -1) {
-        setCurrentIndex(nextPending);
-      } else {
-        // Todos os itens verificados - mostrar mensagem
-        alert('✅ Todos os itens foram verificados!\n\nAgora clique em "CONCLUIR AUDITORIA" no final da página para gerar o PDF e enviar para o WhatsApp.');
-      }
-    } catch (err) {
-      setError(err.response?.data?.error || 'Erro ao atualizar status');
-    } finally {
-      setUpdating(false);
+    } else {
+      // Adiciona novo produto
+      setProdutosSelecionados(prev => [...prev, {
+        ...currentItem,
+        status,
+      }]);
     }
+
+    // Ir para próximo item
+    if (currentIndex < items.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    }
+  };
+
+  const handleRemoveProduto = (itemId) => {
+    setProdutosSelecionados(prev => prev.filter(p => p.id !== itemId));
+  };
+
+  const handleChangeTipo = (itemId, novoStatus) => {
+    setProdutosSelecionados(prev =>
+      prev.map(p => p.id === itemId ? { ...p, status: novoStatus } : p)
+    );
   };
 
   const handlePrevious = () => {
@@ -124,16 +120,14 @@ export default function RupturaVerificacao() {
   };
 
   const handleFinalizeSurvey = async () => {
-    // Verificar se todos os itens foram verificados
-    const pendentes = items.filter(i => i.status_verificacao === 'pendente').length;
-
-    if (pendentes > 0) {
-      alert(`⚠️ Ainda existem ${pendentes} itens pendentes. Verifique todos os itens antes de finalizar.`);
+    if (produtosSelecionados.length === 0) {
+      alert('⚠️ Adicione pelo menos um produto antes de enviar a auditoria.');
       return;
     }
 
     const confirmacao = window.confirm(
-      '📊 Deseja FINALIZAR esta auditoria?\n\n' +
+      `📊 Deseja ENVIAR esta auditoria?\n\n` +
+      `${produtosSelecionados.length} produtos serão enviados.\n\n` +
       'Será gerado um PDF com o relatório completo e enviado automaticamente para o WhatsApp.\n\n' +
       'Esta ação não pode ser desfeita.'
     );
@@ -145,6 +139,16 @@ export default function RupturaVerificacao() {
     setFinalizing(true);
 
     try {
+      // Atualizar cada item com seu status
+      for (const produto of produtosSelecionados) {
+        await api.patch(`/rupture-surveys/items/${produto.id}/status`, {
+          status: produto.status,
+          verificado_por: verificadoPor,
+          observacao: '',
+        });
+      }
+
+      // Finalizar auditoria
       const response = await api.post(`/rupture-surveys/${surveyId}/finalize`);
 
       if (response.data.success) {
@@ -194,8 +198,8 @@ export default function RupturaVerificacao() {
   }
 
   const currentItem = items[currentIndex];
-  const progress = ((currentIndex + 1) / items.length) * 100;
-  const verificados = items.filter(i => i.status_verificacao !== 'pendente').length;
+  const progress = (produtosSelecionados.length / items.length) * 100;
+  const verificados = produtosSelecionados.length;
 
   return (
     <Layout>
@@ -337,38 +341,36 @@ export default function RupturaVerificacao() {
 
           {/* Status Buttons */}
           <div className="space-y-3">
-            <p className="text-sm font-medium text-gray-700 mb-2">Status do produto na loja:</p>
+            <p className="text-sm font-medium text-gray-700 mb-2">Escolha o status do produto:</p>
 
             <button
-              onClick={() => handleUpdateStatus('encontrado')}
-              disabled={updating}
-              className="w-full py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 text-lg font-semibold"
+              onClick={() => handleAddProduto('encontrado')}
+              className="w-full py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-lg font-semibold"
             >
               ✅ ENCONTRADO
             </button>
 
             <button
-              onClick={() => handleUpdateStatus('nao_encontrado')}
-              disabled={updating}
-              className="w-full py-4 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 text-lg font-semibold"
+              onClick={() => handleAddProduto('nao_encontrado')}
+              className="w-full py-4 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-lg font-semibold"
             >
               ❌ RUPTURA (NÃO ENCONTRADO)
             </button>
 
             <button
-              onClick={() => handleUpdateStatus('ruptura_estoque')}
-              disabled={updating}
-              className="w-full py-4 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors disabled:opacity-50 text-lg font-semibold"
+              onClick={() => handleAddProduto('ruptura_estoque')}
+              className="w-full py-4 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-lg font-semibold"
             >
               📦 RUPTURA (EM ESTOQUE)
             </button>
           </div>
 
-          {currentItem.status_verificacao !== 'pendente' && (
+          {produtosSelecionados.find(p => p.id === currentItem.id) && (
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
               <p className="text-sm text-blue-800">
-                ✅ Item já verificado como: <strong>{currentItem.status_verificacao}</strong>
-                {currentItem.verificado_por && ` por ${currentItem.verificado_por}`}
+                ✅ Produto adicionado à lista como: <strong>
+                  {produtosSelecionados.find(p => p.id === currentItem.id).status}
+                </strong>
               </p>
             </div>
           )}
@@ -396,26 +398,77 @@ export default function RupturaVerificacao() {
         <div className="mt-6 grid grid-cols-3 gap-4 text-center">
           <div className="bg-green-100 p-4 rounded-lg">
             <p className="text-2xl font-bold text-green-700">
-              {items.filter(i => i.status_verificacao === 'encontrado').length}
+              {produtosSelecionados.filter(p => p.status === 'encontrado').length}
             </p>
             <p className="text-xs text-green-600">Encontrados</p>
           </div>
           <div className="bg-red-100 p-4 rounded-lg">
             <p className="text-2xl font-bold text-red-700">
-              {items.filter(i => i.status_verificacao === 'nao_encontrado' || i.status_verificacao === 'ruptura_estoque').length}
+              {produtosSelecionados.filter(p => p.status === 'nao_encontrado' || p.status === 'ruptura_estoque').length}
             </p>
             <p className="text-xs text-red-600">Rupturas</p>
           </div>
           <div className="bg-gray-100 p-4 rounded-lg">
             <p className="text-2xl font-bold text-gray-700">
-              {items.filter(i => i.status_verificacao === 'pendente').length}
+              {items.length - produtosSelecionados.length}
             </p>
             <p className="text-xs text-gray-600">Pendentes</p>
           </div>
         </div>
 
-        {/* Botão de Finalizar Auditoria */}
-        {items.filter(i => i.status_verificacao === 'pendente').length === 0 && (
+        {/* Tabela de Produtos Selecionados */}
+        {produtosSelecionados.length > 0 && (
+          <div className="mt-6 bg-white rounded-lg shadow-lg p-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">
+              📋 Produtos Adicionados ({produtosSelecionados.length})
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50 border-b-2 border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">PRODUTO</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">TIPO</th>
+                    <th className="px-4 py-3 text-center font-semibold text-gray-700">AÇÕES</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {produtosSelecionados.map((produto) => (
+                    <tr key={produto.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-gray-800">{produto.descricao}</p>
+                        {produto.codigo_barras && (
+                          <p className="text-xs text-gray-500">Cód: {produto.codigo_barras}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <select
+                          value={produto.status}
+                          onChange={(e) => handleChangeTipo(produto.id, e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="encontrado">✅ ENCONTRADO</option>
+                          <option value="nao_encontrado">❌ NÃO ENCONTRADO</option>
+                          <option value="ruptura_estoque">📦 EM ESTOQUE</option>
+                        </select>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => handleRemoveProduto(produto.id)}
+                          className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors text-xs font-medium"
+                        >
+                          🗑️ Remover
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Botão de Enviar Auditoria */}
+        {produtosSelecionados.length > 0 && (
           <div className="mt-6">
             <button
               onClick={handleFinalizeSurvey}
