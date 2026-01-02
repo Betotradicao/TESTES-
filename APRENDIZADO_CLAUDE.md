@@ -984,3 +984,219 @@ ssh -i ~/.ssh/vps_prevencao root@31.97.82.235 "cd /root/prevencao-no-radar && do
 ---
 
 **✨ Lembre-se: Leia antes de editar, siga padrões existentes, commit antes de deploy!**
+
+---
+
+## 📧 SISTEMA DE MONITORAMENTO DE EMAILS DVR (2026-01-02)
+
+### 🎯 Funcionalidade Implementada
+
+Sistema automático que monitora emails do Gmail e envia alertas de DVR para WhatsApp.
+
+### 📋 Arquivos Criados/Modificados
+
+#### Novos Arquivos:
+1. **`packages/backend/src/commands/email-monitor.command.ts`**
+   - Comando cron que executa verificação de emails
+   - Inicializa database e chama EmailMonitorService.checkNewEmails()
+   - Executado automaticamente a cada 1 minuto
+
+#### Arquivos Modificados:
+1. **`packages/backend/Dockerfile.cron`**
+   - Adicionado job: `*/1 * * * * cd /app && node dist/commands/email-monitor.command.js`
+   - Verifica emails a cada 1 minuto
+
+2. **`packages/backend/src/services/email-monitor.service.ts`**
+   - Corrigido bug na busca IMAP: `[['SUBJECT', config.subject_filter]]`
+   - Função reprocessLastEmail() agora funciona corretamente
+
+3. **`packages/frontend/src/components/configuracoes/EmailMonitorTab.jsx`**
+   - Removido botão "🔁 Reenviar Último"
+   - Adicionado card de status verde/cinza na aba "Filtros"
+   - Adicionado card informativo azul na aba "Gmail"
+   - Bolinha verde piscando quando monitoramento está ativo
+
+### ⚙️ Configurações no Banco de Dados
+
+```sql
+-- Configurações necessárias (tabela configurations):
+email_monitor_enabled = 'true'          -- Liga/desliga monitoramento
+email_monitor_email = 'email@gmail.com' -- Email Gmail
+email_monitor_app_password = 'senha'    -- App Password do Gmail (16 chars)
+email_monitor_subject_filter = 'ALERTA DVR' -- Filtro de assunto
+email_monitor_check_interval = '30'     -- Intervalo em segundos (não usado, cron usa 1 min)
+email_monitor_whatsapp_group = '120363421239599536@g.us' -- ID do grupo WhatsApp
+```
+
+### 🔄 Como Funciona
+
+1. **Cron Job (a cada 1 minuto):**
+   - Executa `email-monitor.command.js`
+   - Verifica se `email_monitor_enabled = true`
+   - Se ativo, busca emails não lidos via IMAP
+   - Processa apenas emails com assunto contendo filtro configurado
+
+2. **Processamento de Email:**
+   - Conecta no Gmail via IMAP (imap.gmail.com:993)
+   - Busca emails não lidos das últimas 24 horas
+   - Filtra por assunto (ex: "ALERTA DVR")
+   - Extrai anexo (PDF ou imagem)
+   - Salva imagem permanente em `uploads/dvr_images/`
+   - Formata texto com emojis
+   - Envia para WhatsApp via Evolution API
+   - Salva log no banco (tabela `email_monitor_logs`)
+   - Marca email como lido
+
+3. **Interface Web:**
+   - **Aba Gmail:** Configurar email e app password
+   - **Aba Filtros:** 
+     - Card de status (verde = ativo, cinza = inativo)
+     - Configurar filtro de assunto
+     - Checkbox para habilitar/desabilitar
+   - **Aba WhatsApp:** Selecionar grupo de destino
+   - **Aba Logs:**
+     - Botão "🔄 Atualizar" → Recarrega logs do banco
+     - Botão "✉️ Verificar Agora" → Força verificação manual
+     - Tabela com histórico de emails processados
+
+### 🚀 Deploy VPS do Zero
+
+Quando instalar VPS do zero, o sistema já vai funcionar automaticamente porque:
+
+1. ✅ Cron job está no `Dockerfile.cron` (sempre criado)
+2. ✅ Comando está em `src/commands/email-monitor.command.ts`
+3. ✅ Service está em `src/services/email-monitor.service.ts`
+4. ✅ Configurações são lidas do banco de dados
+
+**Único passo necessário após instalação:**
+- Ir em **Configurações → Email Monitor → Aba Filtros**
+- Marcar checkbox "Habilitar monitoramento automático"
+- Salvar
+
+### 🐛 Bugs Corrigidos
+
+1. **Busca IMAP incorreta:**
+   ```typescript
+   // ❌ ANTES (erro):
+   const searchCriteria = ['SUBJECT', config.subject_filter];
+   
+   // ✅ DEPOIS (correto):
+   const searchCriteria = [['SUBJECT', config.subject_filter]];
+   ```
+
+2. **Intervalo de verificação:**
+   - Mudado de 5 minutos para 1 minuto
+   - Emails aparecem mais rápido na interface
+
+### 📊 Commits Relacionados
+
+```bash
+d965d28 - feat: Adiciona indicadores visuais de status no Email Monitor
+f510529 - refactor: Remove botão 'Reenviar Último' da aba de logs
+9a7a50a - feat: Altera intervalo de monitoramento de emails para 1 minuto
+08a9a8c - fix: Corrige sintaxe da busca IMAP no reprocessamento de emails
+8840251 - feat: Adiciona monitoramento automático de emails DVR
+```
+
+### 🔍 Verificar se Está Funcionando
+
+**1. Via Interface:**
+```
+Configurações → Email Monitor → Aba Filtros
+- Verde com bolinha piscando = ✅ Funcionando
+- Cinza = ⏸️ Desabilitado
+```
+
+**2. Via SSH (logs do cron):**
+```bash
+ssh root@46.202.150.64 "docker exec prevencao-cron-prod tail -50 /var/log/cron.log | grep email"
+
+# Deve aparecer:
+# 📧 Verificando emails de DVR...
+# 🔍 Verificando novos emails...
+# ✅ Conectado ao Gmail IMAP
+# 📭 Nenhum email novo encontrado (ou)
+# 📬 X emails novos encontrados
+```
+
+**3. Via SQL (checar configuração):**
+```bash
+ssh root@46.202.150.64 "docker exec prevencao-backend-prod node -e \"
+const { AppDataSource } = require('./dist/config/database');
+AppDataSource.initialize().then(async () => {
+  const configs = await AppDataSource.query('SELECT key, value FROM configurations WHERE key LIKE \'email_monitor%\'');
+  console.log(configs);
+  await AppDataSource.destroy();
+  process.exit(0);
+});
+\""
+```
+
+### 🎨 Indicadores Visuais
+
+**Aba Filtros:**
+```jsx
+<div className="p-4 rounded-lg border-2 bg-green-50 border-green-300">
+  <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
+  <h4>✅ Monitoramento ATIVO</h4>
+  <p>Sistema verificando emails a cada 1 minuto</p>
+</div>
+```
+
+**Aba Gmail:**
+```jsx
+<div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+  <p>Gmail Configurado</p>
+  <p>Email: betotradicao76@gmail.com</p>
+  <p>Use o botão "Testar Conexão" para verificar</p>
+</div>
+```
+
+### 🔐 Segurança
+
+- App Password do Gmail (nunca expira)
+- Senha não é retornada pela API (segurança)
+- Conexão IMAP via TLS (porta 993)
+- Autenticação via Evolution API com token
+
+### 📝 Logs de Email
+
+**Tabela:** `email_monitor_logs`
+```sql
+CREATE TABLE email_monitor_logs (
+  id UUID PRIMARY KEY,
+  email_subject VARCHAR,
+  sender VARCHAR,
+  email_body TEXT,
+  status VARCHAR,  -- 'success', 'error', 'skipped'
+  error_message TEXT,
+  has_attachment BOOLEAN,
+  whatsapp_group_id VARCHAR,
+  image_path VARCHAR,  -- Nome do arquivo em uploads/dvr_images/
+  processed_at TIMESTAMP
+);
+```
+
+### ⚠️ Importante
+
+1. **Não marcar emails importantes como lidos:**
+   - Sistema só processa emails NÃO LIDOS
+   - Após processar, marca como LIDO
+   - Se precisar reprocessar, precisa marcar como não lido no Gmail
+
+2. **Filtro de assunto é case-insensitive:**
+   - "ALERTA DVR" = "alerta dvr" = "Alerta Dvr"
+
+3. **Emails são processados apenas das últimas 24 horas:**
+   ```typescript
+   const searchCriteria = ['UNSEEN', ['SINCE', new Date(Date.now() - 24 * 60 * 60 * 1000)]];
+   ```
+
+4. **Imagens são salvas permanentemente:**
+   - Caminho: `packages/backend/uploads/dvr_images/`
+   - Nome: `dvr_TIMESTAMP.jpg` (ou png, gif, bmp)
+
+---
+
+**🎉 Sistema 100% Funcional e Documentado!**
+
