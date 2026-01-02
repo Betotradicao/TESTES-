@@ -11,6 +11,7 @@ router.get('/', authenticateToken, configurationsController.index.bind(configura
 // Rotas específicas para email (devem vir ANTES da rota /:key)
 router.get('/email', authenticateToken, configurationsController.getEmailConfig.bind(configurationsController));
 router.put('/email', authenticateToken, configurationsController.updateEmailConfig.bind(configurationsController));
+router.post('/email/test', authenticateToken, configurationsController.testEmailConnection.bind(configurationsController));
 
 // Rota genérica por chave (deve vir POR ÚLTIMO)
 router.get('/:key', authenticateToken, configurationsController.show.bind(configurationsController));

@@ -4,7 +4,9 @@ import api from '../../services/api';
 export default function EmailTab() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState(null); // 'valid', 'invalid', null
   const [emailConfig, setEmailConfig] = useState({
     email_user: '',
     email_pass: ''
@@ -34,6 +36,40 @@ export default function EmailTab() {
     }
   };
 
+  const handleTestConnection = async () => {
+    try {
+      setTesting(true);
+      setMessage({ type: '', text: '' });
+
+      const response = await api.post('/configurations/email/test', emailConfig);
+
+      if (response.data.success) {
+        setConnectionStatus('valid');
+        setMessage({
+          type: 'success',
+          text: 'Conexão bem sucedida! Credenciais válidas.'
+        });
+      } else {
+        setConnectionStatus('invalid');
+        setMessage({
+          type: 'error',
+          text: 'Falha na conexão. Verifique suas credenciais.'
+        });
+      }
+
+      setTimeout(() => setMessage({ type: '', text: '' }), 5000);
+    } catch (error) {
+      console.error('Erro ao testar conexão:', error);
+      setConnectionStatus('invalid');
+      setMessage({
+        type: 'error',
+        text: error.response?.data?.error || 'Erro ao testar conexão'
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
+
   const handleSave = async () => {
     try {
       setSaving(true);
@@ -41,6 +77,7 @@ export default function EmailTab() {
 
       await api.put('/configurations/email', emailConfig);
 
+      setConnectionStatus(null); // Reset status ao salvar
       setMessage({
         type: 'success',
         text: 'Configurações de email salvas com sucesso!'
@@ -100,6 +137,35 @@ export default function EmailTab() {
       )}
 
       <div className="space-y-6">
+        {/* Indicador de Status da Conexão */}
+        {connectionStatus && (
+          <div className={`p-4 rounded-lg border-2 ${
+            connectionStatus === 'valid'
+              ? 'bg-green-50 border-green-300'
+              : 'bg-red-50 border-red-300'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${
+                connectionStatus === 'valid'
+                  ? 'bg-green-500 animate-pulse'
+                  : 'bg-red-500'
+              }`}></div>
+              <div>
+                <h4 className="font-semibold text-gray-900">
+                  {connectionStatus === 'valid'
+                    ? '✅ Conexão SMTP ATIVA'
+                    : '❌ Conexão SMTP INVÁLIDA'}
+                </h4>
+                <p className="text-xs text-gray-600 mt-1">
+                  {connectionStatus === 'valid'
+                    ? 'Credenciais válidas - Pronto para enviar emails'
+                    : 'Verifique o email e senha de app'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Email */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -108,7 +174,10 @@ export default function EmailTab() {
           <input
             type="email"
             value={emailConfig.email_user}
-            onChange={(e) => setEmailConfig({ ...emailConfig, email_user: e.target.value })}
+            onChange={(e) => {
+              setEmailConfig({ ...emailConfig, email_user: e.target.value });
+              setConnectionStatus(null); // Reset status ao mudar credenciais
+            }}
             placeholder="exemplo@gmail.com"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
@@ -126,7 +195,10 @@ export default function EmailTab() {
             <input
               type={showPassword ? 'text' : 'password'}
               value={emailConfig.email_pass}
-              onChange={(e) => setEmailConfig({ ...emailConfig, email_pass: e.target.value })}
+              onChange={(e) => {
+                setEmailConfig({ ...emailConfig, email_pass: e.target.value });
+                setConnectionStatus(null); // Reset status ao mudar credenciais
+              }}
               placeholder="Senha de app de 16 caracteres"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
             />
@@ -154,12 +226,19 @@ export default function EmailTab() {
           </div>
         </div>
 
-        {/* Botão Salvar */}
-        <div className="flex justify-end pt-4 border-t border-gray-200">
+        {/* Botões de Ação */}
+        <div className="flex gap-3 pt-4 border-t border-gray-200">
+          <button
+            onClick={handleTestConnection}
+            disabled={testing || !emailConfig.email_user || !emailConfig.email_pass}
+            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition font-medium"
+          >
+            {testing ? 'Testando...' : '🔌 Testar Conexão'}
+          </button>
           <button
             onClick={handleSave}
             disabled={saving || !emailConfig.email_user || !emailConfig.email_pass}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition font-medium"
           >
             {saving ? 'Salvando...' : 'Salvar Configurações'}
           </button>
