@@ -27,7 +27,7 @@ export class WhatsAppService {
     try {
       const { apiToken, apiUrl, instance } = await this.validateEnvironment();
 
-      const url = `${apiUrl}/message/sendText/${instance}`;
+      const url = `${apiUrl}/message/sendText/${encodeURIComponent(instance)}`;
 
       const payload = {
         number: phoneNumber,
@@ -180,7 +180,7 @@ export class WhatsAppService {
       const base64 = fileBuffer.toString('base64');
       const fileName = filePath.split(/[\\/]/).pop() || 'documento.pdf';
 
-      const url = `${apiUrl}/message/sendMedia/${instance}`;
+      const url = `${apiUrl}/message/sendMedia/${encodeURIComponent(instance)}`;
 
       const payload = {
         number: groupId,
