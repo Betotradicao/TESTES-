@@ -588,7 +588,14 @@
       "Bash(ssh root@31.97.82.235 \"sed -n ''200,250p'' /root/prevencao-radar-install/InstaladorVPS/INSTALAR-AUTO.sh\")",
       "Bash(ssh root@31.97.82.235 \"grep -n ''> .env'' /root/prevencao-radar-install/InstaladorVPS/INSTALAR-AUTO.sh\")",
       "Bash(ssh root@31.97.82.235 \"sed -n ''185,195p'' /root/prevencao-radar-install/InstaladorVPS/INSTALAR-AUTO.sh\")",
-      "Bash(ssh root@31.97.82.235 \"docker exec prevencao-postgres-prod psql -U postgres -c ''\\\\l''\")"
+      "Bash(ssh root@31.97.82.235 \"docker exec prevencao-postgres-prod psql -U postgres -c ''\\\\l''\")",
+      "Bash(ssh root@46.202.150.64 \"cd /root/prevencao-radar-install && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml restart frontend && sleep 10 && docker ps | grep prevencao\")",
+      "Bash(ssh root@46.202.150.64 \"cd /root/prevencao-radar-install/InstaladorVPS && docker compose -f docker-compose-producao.yml up -d --build frontend --force-recreate\")",
+      "Bash(ssh root@46.202.150.64 \"cd /root/prevencao-radar-install && git status && git log --oneline -5\")",
+      "Bash(git remote set-url:*)",
+      "Bash(ssh root@46.202.150.64 \"cd /root/prevencao-radar-install && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml restart frontend backend && sleep 15 && docker ps | grep prevencao\")",
+      "Bash(ssh root@46.202.150.64 \"cd /root/prevencao-radar-install && git reset --hard origin/main && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml restart frontend backend && sleep 15 && docker ps | grep prevencao\")",
+      "Bash(ssh root@46.202.150.64 \"docker exec prevencao-frontend-prod cat /usr/share/nginx/html/assets/index-*.js | grep -o ''status_verificacao.*nao_encontrado.*ruptura_estoque'' | head -1\")"
     ],
     "deny": [],
     "ask": []
