@@ -162,4 +162,105 @@ export class WhatsAppService {
     console.log(`📊 Notificações concluídas: ${success} sucesso, ${failed} falhas`);
     return { success, failed, successfulBips };
   }
+
+  /**
+   * Envia documento PDF via WhatsApp
+   */
+  static async sendDocument(
+    groupId: string,
+    filePath: string,
+    caption?: string
+  ): Promise<boolean> {
+    try {
+      const { apiToken, apiUrl, instance } = await this.validateEnvironment();
+
+      // Ler arquivo como base64
+      const fs = require('fs');
+      const fileBuffer = fs.readFileSync(filePath);
+      const base64 = fileBuffer.toString('base64');
+      const fileName = filePath.split(/[\\/]/).pop() || 'documento.pdf';
+
+      const url = `${apiUrl}/message/sendMedia/${instance}`;
+
+      const payload = {
+        number: groupId,
+        mediatype: 'document',
+        mimetype: 'application/pdf',
+        caption: caption || '',
+        fileName: fileName,
+        media: base64
+      };
+
+      console.log(`📄 Enviando PDF para ${groupId}...`);
+      console.log(`📄 URL: ${url}`);
+      console.log(`📄 Arquivo: ${fileName} (${Math.round(base64.length / 1024)}kb base64)`);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': apiToken
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Evolution API Response Error:`, errorText);
+        throw new Error(`Evolution API Error: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log(`✅ PDF enviado com sucesso:`, result);
+
+      return true;
+    } catch (error) {
+      console.error(`❌ Erro ao enviar PDF via WhatsApp:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Envia relatório de auditoria de ruptura para grupo do WhatsApp
+   */
+  static async sendRuptureReport(
+    filePath: string,
+    auditoriaNome: string,
+    totalRupturas: number,
+    naoEncontrado: number,
+    emEstoque: number
+  ): Promise<boolean> {
+    try {
+      // Buscar grupo do WhatsApp da Evolution API (mesmo grupo usado para notificações)
+      const groupId = await ConfigurationService.get('prevencao_whatsapp_group_id', process.env.PREVENCAO_WHATSAPP_GROUP_ID || '');
+
+      if (!groupId) {
+        console.warn('⚠️  Grupo do WhatsApp não configurado (prevencao_whatsapp_group_id)');
+        return false;
+      }
+
+      console.log(`📊 Enviando relatório para grupo: ${groupId}`);
+
+      const caption = `📊 *RELATÓRIO DE AUDITORIA DE RUPTURAS*\\n\\n` +
+                     `📋 Auditoria: ${auditoriaNome}\\n` +
+                     `📅 Data: ${new Date().toLocaleString('pt-BR')}\\n\\n` +
+                     `📦 Total de Rupturas: ${totalRupturas}\\n` +
+                     `🔴 Não Encontrado: ${naoEncontrado}\\n` +
+                     `🟠 Em Estoque: ${emEstoque}\\n\\n` +
+                     `📄 Confira o relatório detalhado em PDF anexo.`;
+
+      const success = await this.sendDocument(groupId, filePath, caption);
+
+      if (success) {
+        console.log(`✅ Relatório de ruptura enviado para grupo ${groupId}`);
+      } else {
+        console.error(`❌ Falha ao enviar relatório de ruptura`);
+      }
+
+      return success;
+    } catch (error) {
+      console.error(`❌ Erro ao enviar relatório de ruptura:`, error);
+      return false;
+    }
+  }
 }
