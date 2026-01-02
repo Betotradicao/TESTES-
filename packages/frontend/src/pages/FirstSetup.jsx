@@ -39,11 +39,6 @@ export default function FirstSetup() {
     adminEmail: '',
     adminPassword: '',
     confirmPassword: '',
-
-    // Configuração de Email de Envio
-    emailUser: 'betotradicao76@gmail.com',
-    emailPass: 'ylljjijqstxnwogk',
-    welcomeMessage: 'Bem-vindo ao Sistema Prevenção no Radar! Estamos felizes em tê-lo conosco. Sua conta foi criada com sucesso e você já pode começar a utilizar todas as funcionalidades do sistema.',
   });
 
   // Formatar CEP enquanto digita
@@ -187,23 +182,6 @@ export default function FirstSetup() {
       return false;
     }
 
-    // Validar Email de Envio
-    if (!formData.emailUser || !formData.emailPass) {
-      setError('Email e senha de envio são obrigatórios');
-      return false;
-    }
-
-    const emailUserRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailUserRegex.test(formData.emailUser)) {
-      setError('Email de envio inválido');
-      return false;
-    }
-
-    if (formData.emailPass.length < 16) {
-      setError('A senha de app do Gmail deve ter 16 caracteres');
-      return false;
-    }
-
     return true;
   };
 
@@ -242,11 +220,6 @@ export default function FirstSetup() {
         adminUsername: formData.adminUsername,
         adminEmail: formData.adminEmail,
         adminPassword: formData.adminPassword,
-
-        // Email de Envio
-        emailUser: formData.emailUser,
-        emailPass: formData.emailPass,
-        welcomeMessage: formData.welcomeMessage,
       };
 
       await api.post('/api/setup/initialize', submitData);
@@ -667,100 +640,6 @@ export default function FirstSetup() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
                     placeholder="Digite a senha novamente"
                   />
-                </div>
-              </div>
-            </div>
-
-            {/* Seção: Configuração de Email de Envio */}
-            <div className="border-t border-gray-200 pt-8">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-                <svg className="w-6 h-6 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                Configuração de Email de Envio
-              </h2>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <div className="flex">
-                  <svg className="w-5 h-5 text-blue-600 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div className="text-sm text-blue-800">
-                    <p className="font-medium">Configure o email que será usado para enviar notificações e recuperação de senha do sistema</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email de Envio *
-                  </label>
-                  <input
-                    type="email"
-                    name="emailUser"
-                    value={formData.emailUser}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
-                    placeholder="exemplo@gmail.com"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Email usado para enviar notificações e recuperação de senha
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Senha de App do Gmail *
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      name="emailPass"
-                      value={formData.emailPass}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
-                      placeholder="Senha de app de 16 caracteres"
-                      maxLength="16"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
-                    >
-                      {showPassword ? (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                        </svg>
-                      ) : (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {formData.emailPass.length}/16 caracteres
-                  </p>
-                </div>
-
-                {/* Mensagem de Boas-Vindas */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Mensagem de Boas-Vindas
-                  </label>
-                  <textarea
-                    name="welcomeMessage"
-                    value={formData.welcomeMessage}
-                    onChange={handleChange}
-                    rows="4"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors resize-none"
-                    placeholder="Mensagem que será enviada por email aos novos usuários"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Esta mensagem será enviada por email quando novos usuários forem criados no sistema
-                  </p>
                 </div>
               </div>
             </div>
