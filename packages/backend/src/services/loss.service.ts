@@ -31,7 +31,7 @@ export class LossService {
   static async importFromFile(
     filePath: string,
     nomeLote: string,
-    companyId: string,
+    companyId: string | null,
     dataInicioCustom?: string,
     dataFimCustom?: string
   ): Promise<{ total: number; perdas: number; entradas: number }> {
@@ -173,7 +173,7 @@ export class LossService {
   /**
    * Buscar todos os lotes
    */
-  static async getAllLotes(companyId: string): Promise<any[]> {
+  static async getAllLotes(companyId: string | null): Promise<any[]> {
     const lossRepository = AppDataSource.getRepository(Loss);
 
     const result = await lossRepository
@@ -209,7 +209,7 @@ export class LossService {
   /**
    * Buscar perdas por lote
    */
-  static async getByLote(nomeLote: string, companyId: string): Promise<Loss[]> {
+  static async getByLote(nomeLote: string, companyId: string | null): Promise<Loss[]> {
     const lossRepository = AppDataSource.getRepository(Loss);
 
     return await lossRepository.find({
@@ -262,7 +262,7 @@ export class LossService {
   /**
    * Deletar lote
    */
-  static async deleteLote(nomeLote: string, companyId: string): Promise<void> {
+  static async deleteLote(nomeLote: string, companyId: string | null): Promise<void> {
     const lossRepository = AppDataSource.getRepository(Loss);
 
     await lossRepository.delete({
@@ -282,7 +282,7 @@ export class LossService {
     motivo?: string;
     produto?: string;
     tipo?: string;
-    companyId: string;
+    companyId: string | null;
     page?: number;
     limit?: number;
   }): Promise<any> {
@@ -471,7 +471,7 @@ export class LossService {
   /**
    * Buscar seções únicas para filtro
    */
-  static async getUniqueSecoes(companyId: string): Promise<any[]> {
+  static async getUniqueSecoes(companyId: string | null): Promise<any[]> {
     const lossRepository = AppDataSource.getRepository(Loss);
     const items = await lossRepository
       .createQueryBuilder('loss')
@@ -490,7 +490,7 @@ export class LossService {
   /**
    * Buscar produtos únicos para filtro
    */
-  static async getUniqueProdutos(companyId: string): Promise<string[]> {
+  static async getUniqueProdutos(companyId: string | null): Promise<string[]> {
     const lossRepository = AppDataSource.getRepository(Loss);
     const items = await lossRepository
       .createQueryBuilder('loss')
@@ -506,7 +506,7 @@ export class LossService {
   /**
    * Buscar motivos únicos
    */
-  static async getUniqueMotivos(companyId: string): Promise<string[]> {
+  static async getUniqueMotivos(companyId: string | null): Promise<string[]> {
     const lossRepository = AppDataSource.getRepository(Loss);
     const items = await lossRepository
       .createQueryBuilder('loss')
@@ -521,7 +521,7 @@ export class LossService {
   /**
    * Alternar motivo ignorado
    */
-  static async toggleMotivoIgnorado(motivo: string, companyId: string): Promise<any> {
+  static async toggleMotivoIgnorado(motivo: string, companyId: string | null): Promise<any> {
     const { LossReasonConfig } = await import('../entities/LossReasonConfig');
     const reasonConfigRepository = AppDataSource.getRepository(LossReasonConfig);
 
@@ -553,7 +553,7 @@ export class LossService {
   /**
    * Listar motivos ignorados
    */
-  static async getMotivosIgnorados(companyId: string): Promise<any[]> {
+  static async getMotivosIgnorados(companyId: string | null): Promise<any[]> {
     const { LossReasonConfig } = await import('../entities/LossReasonConfig');
     const reasonConfigRepository = AppDataSource.getRepository(LossReasonConfig);
 
