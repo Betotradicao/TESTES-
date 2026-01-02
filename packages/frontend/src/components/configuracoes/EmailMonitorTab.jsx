@@ -461,12 +461,6 @@ export default function EmailMonitorTab() {
             🔄 Atualizar
           </button>
           <button
-            onClick={handleReprocessLast}
-            className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-          >
-            🔁 Reenviar Último
-          </button>
-          <button
             onClick={handleManualCheck}
             className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
           >
