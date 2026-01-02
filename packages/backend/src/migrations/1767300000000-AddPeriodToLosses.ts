@@ -1,6 +1,6 @@
 import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
 
-export class AddPeriodToLosses1735668900000 implements MigrationInterface {
+export class AddPeriodToLosses1767300000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.addColumn(
       'losses',
