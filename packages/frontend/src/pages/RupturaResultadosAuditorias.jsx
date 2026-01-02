@@ -242,7 +242,13 @@ export default function RupturaResultadosAuditorias() {
 
               <div className="bg-white rounded-lg shadow p-6 text-center">
                 <div className="text-4xl font-bold text-red-600">{stats.total_rupturas || 0}</div>
-                <div className="text-sm text-gray-600 mt-1">Rupturas</div>
+                <div className="text-sm text-gray-600 mt-1">Rupturas Total</div>
+                {(stats.rupturas_nao_encontrado > 0 || stats.rupturas_em_estoque > 0) && (
+                  <div className="text-xs text-gray-500 mt-2">
+                    {stats.rupturas_nao_encontrado > 0 && <div>{stats.rupturas_nao_encontrado} Não Encontrado</div>}
+                    {stats.rupturas_em_estoque > 0 && <div>{stats.rupturas_em_estoque} Em Estoque</div>}
+                  </div>
+                )}
               </div>
 
               <div className="bg-white rounded-lg shadow p-6 text-center">

@@ -414,6 +414,10 @@ export class RuptureSurveyService {
       i.status_verificacao === 'nao_encontrado' || i.status_verificacao === 'ruptura_estoque'
     );
 
+    // Contar rupturas por tipo
+    const rupturasNaoEncontrado = items.filter((i: RuptureSurveyItem) => i.status_verificacao === 'nao_encontrado').length;
+    const rupturasEmEstoque = items.filter((i: RuptureSurveyItem) => i.status_verificacao === 'ruptura_estoque').length;
+
     const totalItensVerificados = itensVerificados.length;
     const totalEncontrados = itensEncontrados.length;
     const totalRupturas = itensRuptura.length;
@@ -500,6 +504,8 @@ export class RuptureSurveyService {
         total_itens_verificados: totalItensVerificados,
         total_encontrados: totalEncontrados,
         total_rupturas: totalRupturas,
+        rupturas_nao_encontrado: rupturasNaoEncontrado,
+        rupturas_em_estoque: rupturasEmEstoque,
         taxa_ruptura: taxaRuptura,
         perda_venda_periodo: perdaVendaPeriodo,
         perda_lucro_periodo: perdaLucroPeriodo,
