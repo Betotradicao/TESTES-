@@ -2,6 +2,31 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class RenameParciallToRupturaEstoque1735710000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Verificar se o enum já foi atualizado (para ser idempotente)
+    const checkEnum = await queryRunner.query(`
+      SELECT e.enumlabel
+      FROM pg_type t
+      JOIN pg_enum e ON t.oid = e.enumtypid
+      WHERE t.typname = 'rupture_survey_items_status_verificacao_enum'
+      AND e.enumlabel = 'ruptura_estoque'
+    `);
+
+    // Se já tem 'ruptura_estoque', migração já foi executada
+    if (checkEnum && checkEnum.length > 0) {
+      console.log('✅ Enum já contém ruptura_estoque, pulando migração');
+      return;
+    }
+
+    // Verificar se existe enum antigo pra renomear
+    const checkOldEnum = await queryRunner.query(`
+      SELECT typname FROM pg_type WHERE typname = 'rupture_survey_items_status_verificacao_enum_old'
+    `);
+
+    // Se já existe o _old, quer dizer que a migração falhou no meio - vamos limpar
+    if (checkOldEnum && checkOldEnum.length > 0) {
+      await queryRunner.query(`DROP TYPE rupture_survey_items_status_verificacao_enum_old`);
+    }
+
     // PASSO 1: Renomear enum antigo
     await queryRunner.query(`
       ALTER TYPE rupture_survey_items_status_verificacao_enum
@@ -37,6 +62,8 @@ export class RenameParciallToRupturaEstoque1735710000000 implements MigrationInt
       SET status_verificacao = 'ruptura_estoque'
       WHERE status_verificacao = 'parcial'
     `);
+
+    console.log('✅ Migração RenameParciallToRupturaEstoque concluída');
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
