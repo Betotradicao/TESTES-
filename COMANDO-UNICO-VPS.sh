@@ -207,6 +207,26 @@ cd /root/TESTES/InstaladorVPS
 docker compose -f docker-compose-producao.yml up -d --build
 
 echo ""
+echo "⏳ Aguardando banco de dados inicializar..."
+echo "   (Isso pode levar até 30 segundos)"
+echo ""
+
+# Aguardar até 30 segundos para o banco estar pronto
+TIMEOUT=30
+ELAPSED=0
+while [ $ELAPSED -lt $TIMEOUT ]; do
+    # Tentar conectar no backend para ver se está respondendo
+    if curl -s -f http://localhost:3001/api/setup/status > /dev/null 2>&1; then
+        echo "✅ Sistema pronto!"
+        break
+    fi
+    sleep 2
+    ELAPSED=$((ELAPSED + 2))
+    echo -ne "   ⏳ Aguardando... ${ELAPSED}s\r"
+done
+
+echo ""
+echo ""
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║              ✅ INSTALAÇÃO CONCLUÍDA!                     ║"
 echo "╚════════════════════════════════════════════════════════════╝"
