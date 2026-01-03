@@ -89,18 +89,64 @@ EOF
 
 echo "✅ Configurações criadas!"
 echo ""
+
+# Instalar Git
+if ! command -v git &> /dev/null; then
+    echo "📦 Instalando Git..."
+    apt-get update -qq
+    apt-get install -y git
+    echo "✅ Git instalado"
+else
+    echo "✅ Git já instalado"
+fi
+
+# Clonar repositório
+echo "📥 Baixando código do GitHub..."
+if [ -d "/root/TESTES" ]; then
+    echo "⚠️  Diretório TESTES já existe, atualizando..."
+    cd /root/TESTES
+    git pull
+else
+    cd /root
+    git clone https://github.com/Betotradicao/TESTES-.git TESTES
+    cd TESTES
+fi
+
+echo "✅ Código baixado"
+
+# Copiar .env para InstaladorVPS
+echo "📋 Configurando variáveis de ambiente..."
+cp /root/prevencao-instalacao/.env /root/TESTES/InstaladorVPS/.env
+cp /root/prevencao-instalacao/.env /root/TESTES/.env
+
+# Subir containers
+echo "🐳 Subindo containers Docker..."
+cd /root/TESTES/InstaladorVPS
+docker compose -f docker-compose-producao.yml up -d --build
+
+echo ""
 echo "╔════════════════════════════════════════════════════════════╗"
-echo "║            ⚠️  ATENÇÃO - PRÓXIMO PASSO                    ║"
+echo "║              ✅ INSTALAÇÃO CONCLUÍDA!                     ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
-echo "Agora você precisa:"
-echo "1. Copiar os arquivos Docker da sua máquina local para aqui"
-echo "2. Ou baixar do GitHub se estiver lá"
+echo "🌐 Acesse o sistema:"
+echo "   Frontend: http://$HOST_IP:3000"
+echo "   Backend API: http://$HOST_IP:3001"
 echo ""
-echo "📋 Credenciais geradas:"
+echo "👤 Primeiro acesso:"
+echo "   Será criado o usuário master automaticamente"
+echo ""
+echo "📋 Credenciais dos serviços:"
 echo "   MinIO: admin / $MINIO_PASS"
 echo "   PostgreSQL: postgres / $POSTGRES_PASS"
 echo "   API Token: $API_TOKEN"
 echo ""
-echo "💾 Salve essas credenciais!"
+echo "💾 IMPORTANTE: Salve essas credenciais em local seguro!"
+echo ""
+echo "📊 Verificar status dos containers:"
+echo "   cd /root/TESTES/InstaladorVPS"
+echo "   docker compose -f docker-compose-producao.yml ps"
+echo ""
+echo "📝 Ver logs:"
+echo "   docker compose -f docker-compose-producao.yml logs -f"
 echo ""
