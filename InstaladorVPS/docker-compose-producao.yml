@@ -85,6 +85,7 @@ services:
       # Email
       EMAIL_USER: ${EMAIL_USER}
       EMAIL_PASS: ${EMAIL_PASS}
+      FRONTEND_URL: ${FRONTEND_URL}
 
       # App
       PORT: ${PORT}
