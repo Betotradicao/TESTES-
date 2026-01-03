@@ -240,10 +240,10 @@ export class DailyVerificationCommand {
         });
       }
 
-      // Formata a data com timezone do Brasil para evitar conversão incorreta
+      // Usa a data/hora que vem do ERP sem conversão adicional
       const sellDate = sale.dataHoraVenda
-        ? `${sale.dataHoraVenda}-03:00` // Adiciona timezone do Brasil (UTC-3)
-        : `${date} 00:00:00-03:00`;
+        ? sale.dataHoraVenda // Já vem no horário correto do ERP
+        : `${date} 00:00:00`;
 
       const sellRecord = {
         activated_product_id: activatedProductId,
