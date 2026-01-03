@@ -241,7 +241,8 @@ API_TOKEN=$API_TOKEN
 # EMAIL - Recuperação de Senha
 # ============================================
 EMAIL_USER=betotradicao76@gmail.com
-EMAIL_PASS=ylljjijqstxnwogk
+EMAIL_PASS=fqojjjhztvganfya
+FRONTEND_URL=http://$HOST_IP:3000
 
 # ============================================
 # FRONTEND - Interface Web
