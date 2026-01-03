@@ -81,7 +81,8 @@ JWT_SECRET=$JWT_SECRET
 API_TOKEN=$API_TOKEN
 
 EMAIL_USER=betotradicao76@gmail.com
-EMAIL_PASS=ylljjijqstxnwogk
+EMAIL_PASS=fqojjjhztvganfya
+FRONTEND_URL=http://$HOST_IP:3000
 
 VITE_API_URL=http://$HOST_IP:3001/api
 EOF
