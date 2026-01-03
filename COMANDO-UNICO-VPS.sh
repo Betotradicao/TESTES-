@@ -114,6 +114,8 @@ echo "   onde está o ERP/Windows e pegar o IP Tailscale dele."
 echo ""
 echo "   Download: https://tailscale.com/download"
 echo ""
+echo "   Exemplo de IP Tailscale: 100.69.131.40"
+echo ""
 read -p "   Digite o IP Tailscale do cliente (ou deixe vazio): " TAILSCALE_CLIENT_IP < /dev/tty
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
