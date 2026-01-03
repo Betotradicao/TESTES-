@@ -659,9 +659,6 @@ export default function AtivarProdutos() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Ação
-                        </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
                           <div className="flex items-center">
                             <input
@@ -685,25 +682,7 @@ export default function AtivarProdutos() {
                           Preço
                         </SortableHeader>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Foto
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Coloração
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Formato
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Gordura
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Osso
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Peso (kg)
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Posição
+                          Ação
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Status
@@ -713,30 +692,6 @@ export default function AtivarProdutos() {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {paginatedProducts.map((product) => (
                         <tr key={product.codigo} className="hover:bg-gray-50">
-                          {/* Ação - Toggle Ativo/Inativo */}
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <label className={`relative inline-flex items-center ${
-                              Object.values(updating).some(isUpdating => isUpdating) && !updating[product.codigo]
-                                ? 'cursor-not-allowed opacity-50'
-                                : updating[product.codigo]
-                                ? 'cursor-not-allowed'
-                                : 'cursor-pointer'
-                            }`}>
-                              <input
-                                type="checkbox"
-                                checked={product.active}
-                                onChange={() => toggleProduct(product.codigo, product.active)}
-                                disabled={Object.values(updating).some(isUpdating => isUpdating)}
-                                className="sr-only peer"
-                              />
-                              <div className={`relative w-11 h-6 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
-                                updating[product.codigo]
-                                  ? 'bg-gray-300 peer-checked:bg-gray-400'
-                                  : 'bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 peer-checked:bg-orange-500'
-                              }`}></div>
-                            </label>
-                          </td>
-
                           {/* Checkbox */}
                           <td className="px-6 py-4 whitespace-nowrap w-16">
                             <div className="flex items-center">
@@ -769,72 +724,28 @@ export default function AtivarProdutos() {
                             {product.valvenda ? `R$ ${product.valvenda.toFixed(2).replace('.', ',')}` : '-'}
                           </td>
 
-                          {/* Foto */}
+                          {/* Ação - Toggle Ativo/Inativo */}
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <button
-                              onClick={() => handleCaptureFromCamera(product.codigo)}
-                              disabled={updating[product.codigo]}
-                              className="text-blue-600 hover:text-blue-800 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Capturar foto da câmera 15 (balança) e analisar com IA"
-                            >
-                              {updating[product.codigo] ? '⏳ Processando...' : '📷 Upload'}
-                            </button>
-                          </td>
-
-                          {/* Coloração */}
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <select className="text-xs border border-gray-300 rounded px-2 py-1">
-                              <option value="">-</option>
-                              <option value="vermelho">🔴 Vermelho</option>
-                              <option value="rosa">🌸 Rosa</option>
-                              <option value="branco">⚪ Branco</option>
-                              <option value="amarelo">🟡 Amarelo</option>
-                              <option value="marrom">🟤 Marrom</option>
-                            </select>
-                          </td>
-
-                          {/* Formato */}
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <select className="text-xs border border-gray-300 rounded px-2 py-1">
-                              <option value="">-</option>
-                              <option value="retangular">Retangular</option>
-                              <option value="irregular">Irregular</option>
-                              <option value="cilindrico">Cilíndrico</option>
-                              <option value="achatado">Achatado</option>
-                              <option value="triangular">Triangular</option>
-                            </select>
-                          </td>
-
-                          {/* Gordura */}
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <select className="text-xs border border-gray-300 rounded px-2 py-1">
-                              <option value="">-</option>
-                              <option value="nenhuma">Nenhuma</option>
-                              <option value="pouca">Pouca</option>
-                              <option value="media">Média</option>
-                              <option value="muita">Muita</option>
-                            </select>
-                          </td>
-
-                          {/* Osso */}
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <input type="checkbox" className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded" />
-                          </td>
-
-                          {/* Peso */}
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex gap-1 items-center">
-                              <input type="number" step="0.1" placeholder="Min" className="w-16 text-xs border border-gray-300 rounded px-1 py-1" />
-                              <span className="text-gray-400 text-xs">-</span>
-                              <input type="number" step="0.1" placeholder="Max" className="w-16 text-xs border border-gray-300 rounded px-1 py-1" />
-                            </div>
-                          </td>
-
-                          {/* Posição */}
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <button className="text-orange-600 hover:text-orange-800 text-xs">
-                              📍 Definir
-                            </button>
+                            <label className={`relative inline-flex items-center ${
+                              Object.values(updating).some(isUpdating => isUpdating) && !updating[product.codigo]
+                                ? 'cursor-not-allowed opacity-50'
+                                : updating[product.codigo]
+                                ? 'cursor-not-allowed'
+                                : 'cursor-pointer'
+                            }`}>
+                              <input
+                                type="checkbox"
+                                checked={product.active}
+                                onChange={() => toggleProduct(product.codigo, product.active)}
+                                disabled={Object.values(updating).some(isUpdating => isUpdating)}
+                                className="sr-only peer"
+                              />
+                              <div className={`relative w-11 h-6 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
+                                updating[product.codigo]
+                                  ? 'bg-gray-300 peer-checked:bg-gray-400'
+                                  : 'bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 peer-checked:bg-orange-500'
+                              }`}></div>
+                            </label>
                           </td>
 
                           {/* Status */}
