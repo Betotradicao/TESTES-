@@ -43,12 +43,12 @@ export async function seedMasterUser(dataSource: DataSource): Promise<void> {
     console.log('👤 Criando usuário master...');
 
     // Hash da senha
-    const hashedPassword = await bcrypt.hash('Beto3107', 10);
+    const hashedPassword = await bcrypt.hash('Beto3107@@##', 10);
 
     // Criar usuário master vinculado à empresa
     const masterUser = userRepository.create({
-      name: 'Beto',
-      username: 'Beto',
+      name: 'Roberto',
+      username: 'Roberto',
       email: 'admin@prevencao.com.br',
       password: hashedPassword,
       role: UserRole.MASTER,
@@ -59,8 +59,8 @@ export async function seedMasterUser(dataSource: DataSource): Promise<void> {
 
     console.log('✅ Usuário master criado com sucesso!');
     console.log('📝 Credenciais:');
-    console.log('   Usuário: Beto');
-    console.log('   Senha: Beto3107');
+    console.log('   Usuário: Roberto');
+    console.log('   Senha: Beto3107@@##');
 
     console.log('⚙️  Criando configurações do sistema...');
 
