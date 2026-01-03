@@ -886,13 +886,12 @@ export default function Bipagens() {
               />
               <button
                 onClick={() => setShowNumericKeypad(true)}
-                className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white px-4 py-2 rounded-md font-semibold shadow-md transition flex items-center gap-2"
-                title="Abrir teclado numérico"
+                className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white p-2 rounded-md shadow-md transition"
+                title="# Código - Abrir teclado numérico"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
                 </svg>
-                Código
               </button>
             </div>
           </div>
