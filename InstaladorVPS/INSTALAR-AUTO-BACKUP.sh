@@ -129,7 +129,7 @@ else
     echo ""
     echo "Exemplo: 100.69.131.40"
     echo ""
-    read -p "IP Tailscale da máquina do cliente (deixe vazio se não usar): " TAILSCALE_CLIENT_IP
+    read -p "IP Tailscale da máquina do cliente (deixe vazio se não usar): " TAILSCALE_CLIENT_IP < /dev/tty
 
     if [ -n "$TAILSCALE_CLIENT_IP" ]; then
         echo "✅ IP Tailscale do cliente configurado: $TAILSCALE_CLIENT_IP"
