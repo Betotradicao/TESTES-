@@ -32,12 +32,92 @@ echo "✅ IP: $HOST_IP"
 if ! command -v tailscale &> /dev/null; then
     echo "📦 Instalando Tailscale..."
     curl -fsSL https://tailscale.com/install.sh | sh
+    echo "✅ Tailscale instalado"
+else
+    echo "✅ Tailscale já instalado"
 fi
 
+# Forçar re-autenticação do Tailscale (limpar sessão antiga)
 echo "🚀 Iniciando Tailscale..."
-tailscale up --accept-routes --shields-up=false 2>&1 | tee /tmp/tailscale.log &
-sleep 3
-TAILSCALE_IP=$(tailscale ip -4 2>/dev/null || echo "")
+echo "🔄 Limpando autenticações antigas..."
+
+# Fazer logout forçado (ignora erros se já estiver deslogado)
+tailscale logout 2>/dev/null || true
+
+# Limpar estado antigo do Tailscale
+rm -f /tmp/tailscale-auth.log
+
+# Iniciar Tailscale com --reset para forçar nova autenticação
+tailscale up --reset --accept-routes --shields-up=false 2>&1 | tee /tmp/tailscale-auth.log &
+TAILSCALE_PID=$!
+
+# Aguardar link de autenticação ser gerado
+sleep 5
+
+# Extrair link de autenticação
+TAILSCALE_AUTH_URL=$(grep -o 'https://login.tailscale.com/a/[a-z0-9]*' /tmp/tailscale-auth.log 2>/dev/null | head -n 1)
+
+# Verificar se conseguiu obter o link
+TAILSCALE_IP=""
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔐 AUTENTICAÇÃO TAILSCALE NECESSÁRIA (VPS)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+if [ -n "$TAILSCALE_AUTH_URL" ]; then
+    echo "   Abra este link no navegador para autenticar:"
+    echo ""
+    echo "   $TAILSCALE_AUTH_URL"
+    echo ""
+    echo "   ⏳ Aguardando autenticação..."
+    echo ""
+else
+    echo "   ⚠️  Link não foi gerado no log."
+    echo "   Execute manualmente para gerar o link:"
+    echo ""
+    echo "   tailscale up --reset --accept-routes --shields-up=false"
+    echo ""
+fi
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Aguardar autenticação (máximo 5 minutos)
+TIMEOUT=300
+ELAPSED=0
+while [ $ELAPSED -lt $TIMEOUT ]; do
+    TAILSCALE_IP=$(tailscale ip -4 2>/dev/null || echo "")
+    if [ -n "$TAILSCALE_IP" ]; then
+        echo "✅ Tailscale autenticado com sucesso!"
+        echo "✅ IP Tailscale VPS: $TAILSCALE_IP"
+        break
+    fi
+    sleep 5
+    ELAPSED=$((ELAPSED + 5))
+    echo -ne "   ⏳ Aguardando autenticação... ${ELAPSED}s\r"
+done
+
+if [ -z "$TAILSCALE_IP" ]; then
+    echo ""
+    echo "⚠️  Timeout: Tailscale não foi autenticado em 5 minutos"
+    echo "⚠️  Continue mesmo assim (Tailscale pode ser configurado depois)"
+    TAILSCALE_IP=""
+fi
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🖥️  IP TAILSCALE DO CLIENTE (WINDOWS/ERP)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "   Agora você precisa instalar o Tailscale no computador"
+echo "   onde está o ERP/Windows e pegar o IP Tailscale dele."
+echo ""
+echo "   Download: https://tailscale.com/download"
+echo ""
+read -p "   Digite o IP Tailscale do cliente (ou deixe vazio): " TAILSCALE_CLIENT_IP
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
 
 # Gerar senhas
 echo "🔐 Gerando senhas..."
