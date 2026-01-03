@@ -187,7 +187,7 @@ export class SalesService {
           valTotalProduto: parseFloat(item.VALTOTALPRODUTO || 0),
           totalCusto: 0, // TOTALCUSTO não está presente no retorno atual do Zanthus
           descontoAplicado: item.DESCONTOAPLICADO ? parseFloat(item.DESCONTOAPLICADO) : undefined,
-          dataHoraVenda: this.adjustTimezone(item.DATAHORAVENDA),
+          dataHoraVenda: item.DATAHORAVENDA, // Usa direto do ERP, sem conversão de timezone
           motivoCancelamento: item.MOTIVOCANCELAMENTO,
           funcionarioCancelamento: item.FUNCIONARIOCANCELAMENTO,
           tipoCancelamento: item.TIPOCANCELAMENTO
