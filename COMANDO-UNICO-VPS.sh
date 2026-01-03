@@ -215,17 +215,98 @@ echo ""
 TIMEOUT=30
 ELAPSED=0
 while [ $ELAPSED -lt $TIMEOUT ]; do
-    # Tentar conectar no backend para ver se está respondendo
-    if curl -s -f http://localhost:3001/api/setup/status > /dev/null 2>&1; then
-        echo "✅ Sistema pronto!"
+    # Tentar conectar no PostgreSQL
+    if docker exec prevencao-postgres-prod pg_isready -U postgres > /dev/null 2>&1; then
+        echo "✅ PostgreSQL pronto!"
         break
     fi
     sleep 2
     ELAPSED=$((ELAPSED + 2))
-    echo -ne "   ⏳ Aguardando... ${ELAPSED}s\r"
+    echo -ne "   ⏳ Aguardando PostgreSQL... ${ELAPSED}s\r"
 done
 
 echo ""
+echo ""
+
+# ============================================
+# POPULAR CONFIGURAÇÕES NO BANCO DE DADOS
+# ============================================
+echo "💾 Populando configurações no banco de dados..."
+
+# Inserir configurações do PostgreSQL
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
+INSERT INTO configurations (key, value, encrypted, created_at, updated_at)
+VALUES
+  ('postgres_host', '$HOST_IP', false, NOW(), NOW()),
+  ('postgres_port', '5434', false, NOW(), NOW()),
+  ('postgres_user', 'postgres', false, NOW(), NOW()),
+  ('postgres_password', '$POSTGRES_PASS', false, NOW(), NOW()),
+  ('postgres_database', 'prevencao_db', false, NOW(), NOW())
+ON CONFLICT (key) DO UPDATE SET
+  value = EXCLUDED.value,
+  updated_at = NOW();
+" 2>/dev/null
+
+# Inserir configurações do MinIO
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
+INSERT INTO configurations (key, value, encrypted, created_at, updated_at)
+VALUES
+  ('minio_endpoint', '$HOST_IP', false, NOW(), NOW()),
+  ('minio_port', '9010', false, NOW(), NOW()),
+  ('minio_access_key', 'admin', false, NOW(), NOW()),
+  ('minio_secret_key', '$MINIO_PASS', false, NOW(), NOW()),
+  ('minio_bucket_name', 'market-security', false, NOW(), NOW()),
+  ('minio_public_endpoint', '$HOST_IP', false, NOW(), NOW()),
+  ('minio_public_port', '9010', false, NOW(), NOW()),
+  ('minio_use_ssl', 'false', false, NOW(), NOW())
+ON CONFLICT (key) DO UPDATE SET
+  value = EXCLUDED.value,
+  updated_at = NOW();
+" 2>/dev/null
+
+# Inserir configurações de Email
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
+INSERT INTO configurations (key, value, encrypted, created_at, updated_at)
+VALUES
+  ('email_user', 'betotradicao76@gmail.com', false, NOW(), NOW()),
+  ('email_pass', 'fqojjjhztvganfya', false, NOW(), NOW())
+ON CONFLICT (key) DO UPDATE SET
+  value = EXCLUDED.value,
+  updated_at = NOW();
+" 2>/dev/null
+
+# Inserir IPs Tailscale se existirem
+if [ -n "$TAILSCALE_IP" ]; then
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
+INSERT INTO configurations (key, value, encrypted, created_at, updated_at)
+VALUES ('tailscale_vps_ip', '$TAILSCALE_IP', false, NOW(), NOW())
+ON CONFLICT (key) DO UPDATE SET value = '$TAILSCALE_IP', updated_at = NOW();
+" 2>/dev/null
+fi
+
+if [ -n "$TAILSCALE_CLIENT_IP" ]; then
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
+INSERT INTO configurations (key, value, encrypted, created_at, updated_at)
+VALUES ('tailscale_client_ip', '$TAILSCALE_CLIENT_IP', false, NOW(), NOW())
+ON CONFLICT (key) DO UPDATE SET value = '$TAILSCALE_CLIENT_IP', updated_at = NOW();
+" 2>/dev/null
+fi
+
+# Inserir configurações de APIs (Zanthus e Intersolid)
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
+INSERT INTO configurations (key, value, encrypted, created_at, updated_at)
+VALUES
+  ('zanthus_api_url', 'http://10.6.1.101', false, NOW(), NOW()),
+  ('intersolid_api_url', 'http://10.6.1.102', false, NOW(), NOW()),
+  ('intersolid_port', '3003', false, NOW(), NOW()),
+  ('intersolid_username', 'ROBERTO', false, NOW(), NOW()),
+  ('intersolid_password', '312013@#', false, NOW(), NOW())
+ON CONFLICT (key) DO UPDATE SET
+  value = EXCLUDED.value,
+  updated_at = NOW();
+" 2>/dev/null
+
+echo "✅ Configurações populadas no banco!"
 echo ""
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║              ✅ INSTALAÇÃO CONCLUÍDA!                     ║"

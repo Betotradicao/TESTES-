@@ -1,22 +1,21 @@
 import { DataSource } from 'typeorm';
 import bcrypt from 'bcrypt';
 import { User, UserRole } from '../../entities/User';
-import { Company } from '../../entities/Company';
 import { Configuration } from '../../entities/Configuration';
 
 /**
- * Seed completo do sistema
+ * Seed do usuário master
  * Cria automaticamente:
- * - Empresa padrão
- * - Usuário master "Beto"
+ * - Usuário master "Roberto" (sem empresa vinculada)
  * - Configurações essenciais do sistema
+ *
+ * A empresa será criada no First Setup pelo cliente
  */
 export async function seedMasterUser(dataSource: DataSource): Promise<void> {
   try {
     console.log('🌱 Iniciando seed do sistema...');
 
     const userRepository = dataSource.getRepository(User);
-    const companyRepository = dataSource.getRepository(Company);
     const configRepository = dataSource.getRepository(Configuration);
 
     // Verificar se já existe algum usuário master
@@ -29,23 +28,13 @@ export async function seedMasterUser(dataSource: DataSource): Promise<void> {
       return;
     }
 
-    console.log('🏢 Criando empresa padrão...');
-
-    // Criar empresa padrão
-    const company = companyRepository.create({
-      nomeFantasia: 'Empresa Padrão',
-      razaoSocial: 'Empresa Padrão LTDA',
-      cnpj: '00000000000000'
-    });
-    await companyRepository.save(company);
-    console.log('✅ Empresa criada:', company.nomeFantasia);
-
     console.log('👤 Criando usuário master...');
 
     // Hash da senha
     const hashedPassword = await bcrypt.hash('Beto3107@@##', 10);
 
-    // Criar usuário master vinculado à empresa
+    // Criar usuário master SEM vincular a empresa
+    // A empresa será criada no First Setup pelo cliente
     const masterUser = userRepository.create({
       name: 'Roberto',
       username: 'Roberto',
@@ -53,7 +42,7 @@ export async function seedMasterUser(dataSource: DataSource): Promise<void> {
       password: hashedPassword,
       role: UserRole.MASTER,
       isMaster: true,
-      companyId: company.id
+      companyId: null  // Sem empresa - será definido no First Setup
     });
     await userRepository.save(masterUser);
 
