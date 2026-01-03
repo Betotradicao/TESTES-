@@ -105,7 +105,7 @@ export class SalesService {
         z.M43AO as qtdTotalProduto,
         z.M43AP as valTotalProduto,
         z.M43AQ as descontoAplicado,
-        TO_CHAR(TO_TIMESTAMP(TO_CHAR(z.M00AF,'YYYY-MM-DD') || ' ' || LPAD(z.M43AS,4,'0'), 'YYYY-MM-DD HH24MI') + INTERVAL '3' HOUR, 'YYYY-MM-DD HH24:MI:SS') AS dataHoraVenda,
+        TO_CHAR(TO_TIMESTAMP(TO_CHAR(z.M00AF,'YYYY-MM-DD') || ' ' || LPAD(z.M43AS,4,'0'), 'YYYY-MM-DD HH24MI'), 'YYYY-MM-DD HH24:MI:SS') AS dataHoraVenda,
         z.M43BV as motivoCancelamento,
         z.M43BW as funcionarioCancelamento,
         z.M43CF as tipoCancelamento,
