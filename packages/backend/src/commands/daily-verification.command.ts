@@ -103,7 +103,11 @@ export class DailyVerificationCommand {
         activeProductMap.set(normalizedCode, product.id);
       });
 
-      const activeSales = sales.filter(sale => activeProductMap.has(sale.codProduto));
+      // BUGFIX: Se NÃO houver produtos ativos, processar TODAS as vendas
+      // Se houver produtos ativos, processar APENAS as vendas de produtos ativos
+      const activeSales = activeProducts.length === 0
+        ? sales
+        : sales.filter(sale => activeProductMap.has(sale.codProduto));
 
       const bipagesMap = new Map<string, Bip[]>();
 
