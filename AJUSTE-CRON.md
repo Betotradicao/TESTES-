@@ -450,9 +450,33 @@ npm run build
 
 ## 📦 INSTRUÇÕES PARA NOVAS INSTALAÇÕES
 
-### Método 1: Script Automático (Recomendado)
+### ✅ Instalações Novas (a partir de commit `ff0536a`)
 
-Após instalar a VPS com o instalador normal, execute:
+**IMPORTANTE:** A partir do commit `ff0536a`, o instalador automático JÁ CRIA a constraint UNIQUE automaticamente!
+
+**Não precisa fazer nada!** O script `COMANDO-UNICO-VPS.sh` agora:
+1. ✅ Sobe os containers
+2. ✅ Aguarda PostgreSQL inicializar
+3. ✅ Popula configurações
+4. ✅ **Cria automaticamente a constraint UNIQUE na tabela `sells`**
+5. ✅ Sistema já funciona 100% após instalação
+
+**Verificação (opcional):**
+```bash
+# Verificar se constraint foi criada
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "\d sells"
+
+# Deve mostrar:
+# "sells_unique_sale" UNIQUE, btree (product_id, product_weight, num_cupom_fiscal)  ✅
+```
+
+---
+
+### ⚠️ Instalações Antigas (anterior a commit `ff0536a`)
+
+Se você instalou o sistema ANTES da correção automática, use um dos métodos abaixo:
+
+#### Método 1: Script Automático (Recomendado)
 
 ```bash
 # Na VPS, executar:
@@ -689,6 +713,12 @@ cc19cad - fix: Corrige erro de TypeScript no seed do usuário master
 
 # 3. Documentação final
 29b8684 - docs: Atualiza script de correção do CRON com fix de constraint
+
+# 4. Documentação completa
+d15318e - docs: Adiciona documentação completa do ajuste crítico do CRON
+
+# 5. Fix no instalador automático (IMPORTANTE!)
+ff0536a - fix: Adiciona criação automática da constraint UNIQUE no instalador
 ```
 
 ---
@@ -778,6 +808,59 @@ RESULTADO:
 ✅ 154 vendas cruzadas com bipagens
 ✅ Sistema processando 2.184 vendas do ERP
 ✅ CRON rodando automaticamente a cada 2 minutos
+```
+
+#### Commit 4: `d15318e`
+
+```
+docs: Adiciona documentação completa do ajuste crítico do CRON
+
+Documentação técnica detalhada sobre os 3 bugs encontrados e corrigidos:
+
+1. LÓGICA DE FILTRO DE PRODUTOS ATIVOS
+2. CONSTRAINT UNIQUE FALTANDO NA TABELA SELLS
+3. ERRO TYPESCRIPT NO SEED DO USUÁRIO MASTER
+
+Inclui:
+- Análise técnica detalhada de cada bug
+- Código antes/depois com explicações
+- Instruções para novas instalações (3 métodos)
+- Checklist de verificação completo
+- Resultados dos testes em produção
+- Lições aprendidas e boas práticas
+```
+
+#### Commit 5: `ff0536a` ⭐ **MAIS IMPORTANTE!**
+
+```
+fix: Adiciona criação automática da constraint UNIQUE no instalador
+
+PROBLEMA:
+Instalações novas falhavam com erro no build do CRON:
+- Erro TypeScript (já corrigido no código)
+- Faltava constraint UNIQUE na tabela sells
+- CRON não funcionava após instalação
+
+SOLUÇÃO:
+Adiciona no script de instalação automática (COMANDO-UNICO-VPS.sh):
+1. Criação da constraint UNIQUE após popular configurações
+2. Index: sells_unique_sale (product_id, product_weight, num_cupom_fiscal)
+3. Usa CONCURRENTLY para não bloquear tabela
+4. Usa IF NOT EXISTS para idempotência
+
+LOCALIZAÇÃO:
+Linha 316-320 do COMANDO-UNICO-VPS.sh
+Executa logo após popular configurações no banco
+
+RESULTADO:
+✅ Instalações novas já vêm com a constraint criada
+✅ CRON funciona imediatamente após instalação
+✅ ON CONFLICT funciona corretamente
+✅ Não precisa correção manual posterior
+
+IMPORTANTE:
+A partir deste commit, TODAS as novas instalações já virão
+com a correção aplicada automaticamente!
 ```
 
 ---
