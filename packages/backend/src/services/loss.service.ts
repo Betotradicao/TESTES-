@@ -113,8 +113,9 @@ export class LossService {
       // Importar registros
       const lossRepository = AppDataSource.getRepository(Loss);
 
-      // Usar apenas data inicial para os registros reais (corrigir timezone UTC)
-      const dataImportacao = dataInicioCustom ? new Date(dataInicioCustom + 'T12:00:00') : new Date();
+      // dataImportacao = data ATUAL (quando o lote foi criado)
+      // dataInicioPeriodo/dataFimPeriodo = período escolhido pelo usuário
+      const dataImportacao = new Date(); // SEMPRE a data atual
       const dataInicioPeriodo = dataInicioCustom ? new Date(dataInicioCustom + 'T12:00:00') : new Date();
       const dataFimPeriodo = dataFimCustom ? new Date(dataFimCustom + 'T12:00:00') : dataInicioPeriodo;
 
