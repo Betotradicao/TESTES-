@@ -308,6 +308,19 @@ ON CONFLICT (key) DO UPDATE SET
 
 echo "✅ Configurações populadas no banco!"
 echo ""
+
+# ============================================
+# AJUSTE CRÍTICO DO CRON
+# Criar constraint UNIQUE necessária para ON CONFLICT
+# ============================================
+echo "🔧 Aplicando ajuste crítico do CRON..."
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
+CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS sells_unique_sale
+ON sells (product_id, product_weight, num_cupom_fiscal);
+" 2>/dev/null
+
+echo "✅ Constraint UNIQUE criada na tabela sells!"
+echo ""
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║              ✅ INSTALAÇÃO CONCLUÍDA!                     ║"
 echo "╚════════════════════════════════════════════════════════════╝"
