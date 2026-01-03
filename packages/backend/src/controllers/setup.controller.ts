@@ -19,11 +19,21 @@ export class SetupController {
       }
 
       const userRepository = AppDataSource.getRepository(User);
-      const userCount = await userRepository.count();
+
+      // Verificar se existe pelo menos um usuário que NÃO seja o master Roberto
+      // O sistema precisa de setup se só existe o usuário master (ou nenhum usuário)
+      const adminUsers = await userRepository.count({
+        where: { username: 'Roberto', isMaster: true }
+      });
+
+      const totalUsers = await userRepository.count();
+
+      // Se só existe o master Roberto (ou nenhum usuário), precisa de setup
+      const needsSetup = totalUsers === 0 || (totalUsers === 1 && adminUsers === 1);
 
       return res.json({
-        needsSetup: userCount === 0,
-        message: userCount === 0 ? 'Sistema precisa de configuração inicial' : 'Sistema já configurado'
+        needsSetup,
+        message: needsSetup ? 'Sistema precisa de configuração inicial' : 'Sistema já configurado'
       });
     } catch (error) {
       console.error('Erro ao verificar status do setup:', error);
@@ -84,11 +94,15 @@ export class SetupController {
         return res.status(400).json({ error: 'Email e senha de envio são obrigatórios' });
       }
 
-      // Verificar se já existe algum usuário
+      // Verificar se já existe algum usuário além do master Roberto
       const userRepository = AppDataSource.getRepository(User);
-      const existingUsers = await userRepository.count();
+      const totalUsers = await userRepository.count();
+      const masterRoberto = await userRepository.count({
+        where: { username: 'Roberto', isMaster: true }
+      });
 
-      if (existingUsers > 0) {
+      // Se existem mais usuários além do Roberto, sistema já foi configurado
+      if (totalUsers > 1 || (totalUsers === 1 && masterRoberto === 0)) {
         return res.status(400).json({ error: 'Sistema já foi configurado' });
       }
 
