@@ -219,12 +219,7 @@ export default function FirstSetup() {
         adminName: formData.adminName,
         adminUsername: formData.adminUsername,
         adminEmail: formData.adminEmail,
-        adminPassword: formData.adminPassword,
-<<<<<<< HEAD
-
-        // Email de Envio
-=======
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
+        adminPassword: formData.adminPassword
       };
 
       await api.post('/api/setup/initialize', submitData);
