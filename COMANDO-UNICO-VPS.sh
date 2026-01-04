@@ -201,9 +201,13 @@ echo "📋 Configurando variáveis de ambiente..."
 cp /root/prevencao-instalacao/.env /root/TESTES/InstaladorVPS/.env
 cp /root/prevencao-instalacao/.env /root/TESTES/.env
 
+# Limpar instalação anterior
+echo "🧹 Removendo containers e volumes antigos..."
+cd /root/TESTES/InstaladorVPS
+docker compose -f docker-compose-producao.yml down -v 2>/dev/null || true
+
 # Subir containers
 echo "🗑️ Removendo imagens antigas para garantir build limpo..."
-cd /root/TESTES/InstaladorVPS
 docker rmi instaladorvps-backend instaladorvps-frontend instaladorvps-cron 2>/dev/null || true
 
 echo "🐳 Fazendo build dos containers (sem cache para pegar última versão)..."
