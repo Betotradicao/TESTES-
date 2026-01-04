@@ -202,9 +202,12 @@ cp /root/prevencao-instalacao/.env /root/TESTES/InstaladorVPS/.env
 cp /root/prevencao-instalacao/.env /root/TESTES/.env
 
 # Subir containers
-echo "🐳 Subindo containers Docker..."
+echo "🐳 Fazendo build dos containers (sem cache para pegar última versão)..."
 cd /root/TESTES/InstaladorVPS
-docker compose -f docker-compose-producao.yml up -d --build
+docker compose -f docker-compose-producao.yml build --no-cache backend frontend cron
+
+echo "🚀 Subindo containers..."
+docker compose -f docker-compose-producao.yml up -d
 
 echo ""
 echo "⏳ Aguardando banco de dados inicializar..."
