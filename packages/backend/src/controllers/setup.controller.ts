@@ -74,7 +74,11 @@ export class SetupController {
         cidade,
         estado,
         telefone,
-        email
+        email,
+        // Email de Envio
+        emailUser,
+        emailPass,
+        welcomeMessage
       } = req.body;
 
       // Validações
@@ -86,15 +90,10 @@ export class SetupController {
         return res.status(400).json({ error: 'Dados da empresa são obrigatórios' });
       }
 
-<<<<<<< HEAD
-      // Verificar se já existe algum usuário ADMIN (ignorar MASTER)
-      const userRepository = AppDataSource.getRepository(User);
-      const existingAdmins = await userRepository.count({
-        where: { role: UserRole.ADMIN }
-      });
+      if (!emailUser || !emailPass) {
+        return res.status(400).json({ error: 'Email e senha de envio são obrigatórios' });
+      }
 
-      if (existingAdmins > 0) {
-=======
       // Verificar se já existe algum usuário além do master Roberto
       const userRepository = AppDataSource.getRepository(User);
       const totalUsers = await userRepository.count();
@@ -104,7 +103,6 @@ export class SetupController {
 
       // Se existem mais usuários além do Roberto, sistema já foi configurado
       if (totalUsers > 1 || (totalUsers === 1 && masterRoberto === 0)) {
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
         return res.status(400).json({ error: 'Sistema já foi configurado' });
       }
 
@@ -152,58 +150,67 @@ export class SetupController {
       await companyRepository.save(company);
       console.log('✅ Empresa criada:', company.nomeFantasia);
 
-      // Criar usuário ADMIN (não MASTER) vinculado à empresa
+      // Criar usuário admin vinculado à empresa
       const adminUser = userRepository.create({
         username: adminUsername,
         name: adminName,
         email: adminEmail,
         password: adminPassword, // Será hasheado pelo @BeforeInsert
         role: UserRole.ADMIN,
-        isMaster: false, // Admin NÃO é master
+        isMaster: true,
         companyId: company.id
       });
 
       await userRepository.save(adminUser);
-<<<<<<< HEAD
-      console.log('✅ Usuário ADMIN criado:', adminUser.username, '/', adminUser.email);
-      console.log('   Role: ADMIN (sem acesso a Configurações de Rede)');
-=======
       console.log('✅ Usuário admin criado:', adminUser.username, '/', adminUser.email);
 
-      // Atualizar .env com email SE fornecido (opcional)
-      if (emailUser && emailPass) {
-        try {
-          const envPath = path.resolve(__dirname, '../../.env');
-          let envContent = '';
+      // Atualizar .env com as credenciais de email
+      try {
+        const envPath = path.resolve(__dirname, '../../.env');
+        let envContent = '';
 
-          if (fs.existsSync(envPath)) {
-            envContent = fs.readFileSync(envPath, 'utf8');
-          }
-
-          // Atualizar EMAIL_USER
-          if (envContent.includes('EMAIL_USER=')) {
-            envContent = envContent.replace(/EMAIL_USER=.*/, `EMAIL_USER=${emailUser}`);
-          } else {
-            envContent += `\nEMAIL_USER=${emailUser}`;
-          }
-
-          // Atualizar EMAIL_PASS
-          if (envContent.includes('EMAIL_PASS=')) {
-            envContent = envContent.replace(/EMAIL_PASS=.*/, `EMAIL_PASS=${emailPass}`);
-          } else {
-            envContent += `\nEMAIL_PASS=${emailPass}`;
-          }
-
-          fs.writeFileSync(envPath, envContent, 'utf8');
-          console.log('✅ Email configurado no .env');
-
-          process.env.EMAIL_USER = emailUser;
-          process.env.EMAIL_PASS = emailPass;
-        } catch (error) {
-          console.error('⚠️ Erro ao salvar email:', error);
+        if (fs.existsSync(envPath)) {
+          envContent = fs.readFileSync(envPath, 'utf8');
         }
+
+        // Atualizar ou adicionar EMAIL_USER
+        if (envContent.includes('EMAIL_USER=')) {
+          envContent = envContent.replace(/EMAIL_USER=.*/, `EMAIL_USER=${emailUser}`);
+        } else {
+          envContent += `\nEMAIL_USER=${emailUser}`;
+        }
+
+        // Atualizar ou adicionar EMAIL_PASS
+        if (envContent.includes('EMAIL_PASS=')) {
+          envContent = envContent.replace(/EMAIL_PASS=.*/, `EMAIL_PASS=${emailPass}`);
+        } else {
+          envContent += `\nEMAIL_PASS=${emailPass}`;
+        }
+
+        // Atualizar ou adicionar WELCOME_MESSAGE
+        if (welcomeMessage) {
+          // Escapar aspas na mensagem
+          const escapedMessage = welcomeMessage.replace(/"/g, '\\"');
+          if (envContent.includes('WELCOME_MESSAGE=')) {
+            envContent = envContent.replace(/WELCOME_MESSAGE=.*/, `WELCOME_MESSAGE="${escapedMessage}"`);
+          } else {
+            envContent += `\nWELCOME_MESSAGE="${escapedMessage}"`;
+          }
+        }
+
+        fs.writeFileSync(envPath, envContent, 'utf8');
+        console.log('✅ Configurações de email salvas no .env');
+
+        // Atualizar variáveis de ambiente em memória
+        process.env.EMAIL_USER = emailUser;
+        process.env.EMAIL_PASS = emailPass;
+        if (welcomeMessage) {
+          process.env.WELCOME_MESSAGE = welcomeMessage;
+        }
+      } catch (error) {
+        console.error('⚠️ Erro ao salvar configurações de email no .env:', error);
+        // Não retornar erro pois o setup principal foi concluído
       }
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
       return res.status(201).json({
         message: 'Setup realizado com sucesso',
