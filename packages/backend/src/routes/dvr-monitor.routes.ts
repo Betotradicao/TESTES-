@@ -4,12 +4,12 @@
 
 import { Router } from 'express';
 import * as dvrMonitorController from '../controllers/dvr-monitor.controller';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, isMaster } from '../middleware/auth';
 
 const router: Router = Router();
 
-// Todas as rotas requerem autenticação
-router.use(authenticateToken);
+// Todas as rotas requerem autenticação MASTER (Configurações de REDE)
+router.use(authenticateToken, isMaster);
 
 /**
  * @swagger

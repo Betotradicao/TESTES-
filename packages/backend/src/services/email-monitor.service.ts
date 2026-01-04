@@ -489,6 +489,126 @@ export class EmailMonitorService {
   }
 
   /**
+   * Busca os últimos N emails (independente de lidos/não lidos) e processa
+   */
+  static async fetchLatestEmails(limit: number = 10): Promise<{ success: boolean; message: string; processed: number }> {
+    const config = await this.getConfig();
+
+    if (!config.email || !config.app_password) {
+      return {
+        success: false,
+        message: 'Email monitor não está configurado',
+        processed: 0
+      };
+    }
+
+    let imap: any = null;
+
+    try {
+      console.log(`🔍 Buscando últimos ${limit} emails do Gmail...`);
+
+      imap = await this.connect();
+
+      const result = await new Promise<{ success: boolean; message: string; processed: number }>((resolve, reject) => {
+        imap!.openBox('INBOX', false, (err: any, box: any) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+
+          const totalMessages = box.messages.total;
+
+          if (totalMessages === 0) {
+            resolve({
+              success: true,
+              message: 'Nenhum email encontrado na caixa de entrada',
+              processed: 0
+            });
+            return;
+          }
+
+          // Calcular range dos últimos N emails
+          const start = Math.max(1, totalMessages - limit + 1);
+          const end = totalMessages;
+
+          console.log(`📬 Buscando emails ${start} a ${end} de ${totalMessages} total`);
+
+          const fetchOptions = {
+            bodies: '',
+            markSeen: false // Não marcar como lido ao buscar
+          };
+
+          const fetch = imap!.fetch(`${start}:${end}`, fetchOptions);
+          const emailsToProcess: any[] = [];
+          const parsingPromises: Promise<void>[] = [];
+
+          fetch.on('message', (msg: any, seqno: any) => {
+            console.log(`📨 Recebendo email ${seqno}...`);
+            const parsingPromise = new Promise<void>((resolveMsg) => {
+              msg.on('body', (stream: any) => {
+                console.log(`📖 Parseando email ${seqno}...`);
+                simpleParser(stream).then((mail) => {
+                  console.log(`✅ Email ${seqno} parseado: ${mail.subject}`);
+                  emailsToProcess.push(mail);
+                  resolveMsg();
+                }).catch((err) => {
+                  console.error(`❌ Erro ao parsear email ${seqno}:`, err);
+                  resolveMsg();
+                });
+              });
+            });
+            parsingPromises.push(parsingPromise);
+          });
+
+          fetch.once('error', (err: any) => {
+            console.error('❌ Erro ao buscar emails:', err);
+            reject(err);
+          });
+
+          fetch.once('end', async () => {
+            // Aguardar todos os emails serem parseados
+            await Promise.all(parsingPromises);
+
+            console.log(`✅ ${emailsToProcess.length} emails baixados, processando...`);
+
+            let processed = 0;
+
+            // Processar emails em ordem reversa (mais recentes primeiro)
+            for (const mail of emailsToProcess.reverse()) {
+              try {
+                await this.processEmail(mail, config);
+                processed++;
+              } catch (err) {
+                console.error('❌ Erro ao processar email:', err);
+              }
+            }
+
+            resolve({
+              success: true,
+              message: `${processed} emails processados com sucesso`,
+              processed
+            });
+          });
+        });
+      });
+
+      return result;
+
+    } catch (error) {
+      console.error('❌ Erro ao buscar últimos emails:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Erro desconhecido',
+        processed: 0
+      };
+    } finally {
+      if (imap) {
+        imap.end();
+      }
+    }
+  }
+
+  /**
    * Testa conexão com Gmail
    */
   static async testConnection(): Promise<{ success: boolean; message: string }> {

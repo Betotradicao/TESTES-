@@ -35,7 +35,7 @@ export class User {
   isMaster: boolean;
 
   @Column({ name: 'company_id', nullable: true })
-  companyId: string;
+  companyId: string | null;
 
   @ManyToOne(() => Company, { nullable: true })
   @JoinColumn({ name: 'company_id' })

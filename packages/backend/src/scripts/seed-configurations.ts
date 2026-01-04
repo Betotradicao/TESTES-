@@ -31,42 +31,50 @@ async function seedConfigurations() {
       {
         key: 'minio_endpoint',
         value: process.env.MINIO_PUBLIC_ENDPOINT || process.env.HOST_IP || 'localhost',
-        description: 'Endpoint público do MinIO (IP ou domínio)'
+        description: 'Endpoint público do MinIO (IP ou domínio)',
+        alwaysUpdate: true // SEMPRE atualizar com valor do .env
       },
       {
         key: 'minio_port',
         value: process.env.MINIO_PUBLIC_PORT || '9010',
-        description: 'Porta pública da API do MinIO'
+        description: 'Porta pública da API do MinIO',
+        alwaysUpdate: true // SEMPRE atualizar com valor do .env
       },
       {
         key: 'minio_access_key',
         value: process.env.MINIO_ACCESS_KEY || process.env.MINIO_ROOT_USER || '',
-        description: 'Access Key (usuário) do MinIO'
+        description: 'Access Key (usuário) do MinIO',
+        alwaysUpdate: true
       },
       {
         key: 'minio_secret_key',
         value: process.env.MINIO_SECRET_KEY || process.env.MINIO_ROOT_PASSWORD || '',
-        description: 'Secret Key (senha) do MinIO'
+        description: 'Secret Key (senha) do MinIO',
+        alwaysUpdate: true
       },
       {
         key: 'minio_use_ssl',
         value: process.env.MINIO_PUBLIC_USE_SSL || 'false',
-        description: 'Usar SSL/HTTPS para MinIO'
+        description: 'Usar SSL/HTTPS para MinIO',
+        alwaysUpdate: true
       },
       {
         key: 'minio_bucket_name',
         value: process.env.MINIO_BUCKET_NAME || 'market-security',
-        description: 'Nome do bucket do MinIO'
+        description: 'Nome do bucket do MinIO',
+        alwaysUpdate: true
       },
       {
         key: 'minio_public_endpoint',
         value: process.env.MINIO_PUBLIC_ENDPOINT || process.env.HOST_IP || 'localhost',
-        description: 'Endpoint público do MinIO para acesso externo'
+        description: 'Endpoint público do MinIO para acesso externo',
+        alwaysUpdate: true
       },
       {
         key: 'minio_public_port',
         value: process.env.MINIO_PUBLIC_PORT || '9010',
-        description: 'Porta pública do MinIO para acesso externo'
+        description: 'Porta pública do MinIO para acesso externo',
+        alwaysUpdate: true
       },
       {
         key: 'minio_console_port',
@@ -78,51 +86,60 @@ async function seedConfigurations() {
       {
         key: 'postgres_host',
         value: process.env.HOST_IP || 'localhost',
-        description: 'Host do PostgreSQL'
+        description: 'Host do PostgreSQL',
+        alwaysUpdate: true
       },
       {
         key: 'postgres_port',
         value: '5434', // Porta externa do Docker
-        description: 'Porta externa do PostgreSQL'
+        description: 'Porta externa do PostgreSQL',
+        alwaysUpdate: true
       },
       {
         key: 'postgres_user',
         value: process.env.DB_USER || 'postgres',
-        description: 'Usuário do PostgreSQL'
+        description: 'Usuário do PostgreSQL',
+        alwaysUpdate: true
       },
       {
         key: 'postgres_password',
         value: process.env.POSTGRES_PASSWORD || process.env.DB_PASSWORD || '',
-        description: 'Senha do PostgreSQL'
+        description: 'Senha do PostgreSQL',
+        alwaysUpdate: true
       },
       {
         key: 'postgres_database',
         value: process.env.DB_NAME || 'prevencao_db',
-        description: 'Nome do banco de dados PostgreSQL'
+        description: 'Nome do banco de dados PostgreSQL',
+        alwaysUpdate: true
       },
 
       // Sistema
       {
         key: 'host_ip',
         value: process.env.HOST_IP || 'localhost',
-        description: 'IP da máquina host'
+        description: 'IP da máquina host',
+        alwaysUpdate: true
       },
       {
         key: 'api_token',
         value: process.env.API_TOKEN || '',
-        description: 'Token de autenticação da API para scanners'
+        description: 'Token de autenticação da API para scanners',
+        alwaysUpdate: true
       },
 
       // Tailscale
       {
         key: 'tailscale_vps_ip',
         value: process.env.TAILSCALE_VPS_IP || process.env.TAILSCALE_IP || '',
-        description: 'IP da VPS na rede Tailscale'
+        description: 'IP da VPS na rede Tailscale',
+        alwaysUpdate: true
       },
       {
         key: 'tailscale_client_ip',
         value: process.env.TAILSCALE_CLIENT_IP || '',
-        description: 'IP Tailscale da máquina do cliente (onde roda o ERP)'
+        description: 'IP Tailscale da máquina do cliente (onde roda o ERP)',
+        alwaysUpdate: true
       },
 
       // APIs PRÉ-CONFIGURADAS (apenas Zanthus, Intersolid e Evolution)
@@ -183,22 +200,30 @@ async function seedConfigurations() {
       // Evolution API (WhatsApp) - Valores vazios, serão configurados no painel
       {
         key: 'evolution_api_url',
-        value: 'http://31.97.82.235:8090',
+        value: '',
         description: 'URL da Evolution API (WhatsApp)'
       },
       {
         key: 'evolution_api_token',
-        value: '509051211ebc7213e1e6edd75ed18361:6cd6f7b78d85e02c50659f3dea444b8079583067262808d098e5ac497d4052f15ce164fc7e7dd18876cde113a62923f2',
+<<<<<<< HEAD
+        value: 'F0A82E6394D6-4D5A-845A-FC0413873588',
+=======
+        value: '',
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
         description: 'Token de autenticação Evolution API'
       },
       {
         key: 'evolution_instance',
+<<<<<<< HEAD
         value: 'DVR FACIAL',
+=======
+        value: '',
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
         description: 'Nome da instância Evolution API'
       },
       {
         key: 'evolution_whatsapp_group_id',
-        value: '120363421239599536@g.us',
+        value: '',
         description: 'ID do grupo WhatsApp para notificações'
       },
 
@@ -249,12 +274,12 @@ async function seedConfigurations() {
       // Monitor de Email (Novo sistema) - Valores vazios, serão configurados no painel
       {
         key: 'email_monitor_email',
-        value: 'betotradicao76@gmail.com',
+        value: '',
         description: 'Email Gmail para monitorar'
       },
       {
         key: 'email_monitor_app_password',
-        value: 'ygrowrdaloqfgtcc',
+        value: '',
         description: 'Senha de app do Gmail para IMAP (Monitor DVR)'
       },
       {
@@ -269,7 +294,7 @@ async function seedConfigurations() {
       },
       {
         key: 'email_monitor_whatsapp_group',
-        value: '120363421239599536@g.us',
+        value: '',
         description: 'ID do grupo WhatsApp para notificações do Monitor'
       },
       {
@@ -279,14 +304,22 @@ async function seedConfigurations() {
       }
     ];
 
-    // Inserir APENAS configurações que não existem (não sobrescreve valores salvos)
+    // Inserir ou atualizar configurações
     for (const config of configs) {
       // Buscar configuração existente
       let configuration = await configRepository.findOne({ where: { key: config.key } });
 
       if (configuration) {
-        // JÁ EXISTE - não sobrescrever
-        console.log(`   ⏭️  ${config.key}: já existe, mantido`);
+        // JÁ EXISTE
+        if (config.alwaysUpdate) {
+          // SEMPRE ATUALIZAR (configs do .env como MinIO, PostgreSQL, Tailscale)
+          configuration.value = config.value;
+          await configRepository.save(configuration);
+          console.log(`   🔄 ${config.key}: atualizado com valor do .env`);
+        } else {
+          // NÃO SOBRESCREVER (configs editadas pelo usuário como Evolution, Zanthus)
+          console.log(`   ⏭️  ${config.key}: já existe, mantido`);
+        }
       } else {
         // NÃO EXISTE - criar nova
         configuration = configRepository.create({

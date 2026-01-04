@@ -71,7 +71,7 @@ else
     rm -rf "$INSTALL_DIR"
 
     # Clonar repositório
-    git clone https://github.com/Betotradicao/NOVO-PREVEN-O.git "$INSTALL_DIR"
+    git clone https://github.com/Betotradicao/TESTES-.git "$INSTALL_DIR"
 
     # Ir para o diretório clonado
     cd "$INSTALL_DIR"
@@ -280,7 +280,13 @@ echo "🧹 Limpando containers antigos (se existirem)..."
 # Garantir que estamos no diretório correto
 cd "$SCRIPT_DIR"
 
+# Parar containers de produção anteriores
 docker compose -f docker-compose-producao.yml down -v 2>/dev/null || true
+
+# Parar TODOS os containers prevencao que possam estar rodando
+echo "🔍 Verificando containers avulsos..."
+docker stop $(docker ps -a -q --filter "name=prevencao" --filter "name=-prod") 2>/dev/null || true
+docker rm $(docker ps -a -q --filter "name=prevencao" --filter "name=-prod") 2>/dev/null || true
 
 echo "✅ Limpeza concluída"
 echo ""
@@ -297,6 +303,88 @@ docker compose -f docker-compose-producao.yml up -d --build
 echo ""
 echo "⏳ Aguardando containers iniciarem..."
 sleep 10
+
+# ============================================
+# CRIAR TABELAS DO BANCO DE DADOS
+# ============================================
+
+echo ""
+echo "📊 Criando tabelas do banco de dados..."
+
+# Aguardar backend estar pronto
+sleep 5
+
+# Criar script para inicializar o banco com synchronize
+cat > /tmp/init-database.js << 'ENDOFSCRIPT'
+const { AppDataSource } = require('./dist/config/database');
+
+// Criar nova instância com synchronize ativo
+const options = { ...AppDataSource.options, synchronize: true, migrations: [] };
+const { DataSource } = require('typeorm');
+const dataSource = new DataSource(options);
+
+dataSource.initialize()
+  .then(async () => {
+    console.log('✅ Tabelas criadas com sucesso');
+    await dataSource.destroy();
+    process.exit(0);
+  })
+  .catch(err => {
+    console.error('❌ Erro ao criar tabelas:', err.message);
+    process.exit(1);
+  });
+ENDOFSCRIPT
+
+# Executar criação de tabelas
+docker cp /tmp/init-database.js prevencao-backend-prod:/app/init-database.js 2>/dev/null
+docker exec prevencao-backend-prod node /app/init-database.js 2>/dev/null || echo "⚠️  Tabelas já existem ou erro ao criar"
+
+# Limpar arquivo temporário
+rm -f /tmp/init-database.js
+
+# Registrar todas as migrations como já executadas para evitar conflitos
+echo "📝 Registrando migrations no banco..."
+docker exec -i prevencao-postgres-prod psql -U postgres -d prevencao_db << 'EOSQL' > /dev/null 2>&1
+INSERT INTO migrations (timestamp, name) VALUES
+  (1735566000000, 'AddIACharacteristicsToProducts1735566000000'),
+  (1758045672125, 'CreateUsersTable1758045672125'),
+  (1758062371000, 'CreateBipsTable1758062371000'),
+  (1758080000000, 'CreateProductsTable1758080000000'),
+  (1758080001000, 'CreateProductActivationHistoryTable1758080001000'),
+  (1758090000000, 'CreateSellsTable1758090000000'),
+  (1758161394993, 'AddNumCupomFiscalToSells1758161394993'),
+  (1758229581610, 'AddCancelledStatusToBips1758229581610'),
+  (1758394113356, 'AddUniqueIndexToSells1758394113356'),
+  (1758749391000, 'AddCancelledStatusToSells1758749391000'),
+  (1758756405482, 'AddDiscountCentsToSells1758756405482'),
+  (1758923139254, 'AlterSellDateToTimestamp1758923139254'),
+  (1759074839394, 'AddNotifiedAtToBips1759074839394'),
+  (1759078749185, 'ChangeNotifiedToNotVerified1759078749185'),
+  (1759200000000, 'CreateSectorsTable1759200000000'),
+  (1759493626143, 'CreateEquipmentsTable1759493626143'),
+  (1759496345428, 'AddEquipmentIdToBips1759496345428'),
+  (1759496400000, 'AddPointOfSaleCodeToSells1759496400000'),
+  (1759500000000, 'CreateEmployeesTable1759500000000'),
+  (1759600000000, 'CreateEquipmentSessionsTable1759600000000'),
+  (1759700000000, 'AddEmployeeIdToBips1759700000000'),
+  (1765080280169, 'CreateConfigurationsTable1765080280169'),
+  (1765200000000, 'CreateCompaniesAndUpdateUsers1765200000000'),
+  (1765300000000, 'AddPortNumberToEquipments1765300000000'),
+  (1765400000000, 'AddMotivoCancelamentoToBips1765400000000'),
+  (1765400000000, 'AddVideoUrlToBips1765400000000'),
+  (1765500000000, 'AddEmployeeResponsavelToBips1765500000000'),
+  (1765500000000, 'AddImageUrlToBips1765500000000'),
+  (1765563000000, 'AddCompanyFields1765563000000'),
+  (1765570000000, 'AddMissingFieldsToUsers1765570000000'),
+  (1765580000000, 'AddAddressFieldsToCompanies1765580000000'),
+  (1765600000000, 'CreateEmailMonitorLogsTable1765600000000'),
+  (1765700000000, 'AddImagePathToEmailMonitorLogs1765700000000'),
+  (1765800000000, 'AddValidacaoIAToBips1765800000000'),
+  (1765900000000, 'AddIACharacteristicsToProducts1765900000000')
+ON CONFLICT DO NOTHING;
+EOSQL
+
+echo "✅ Banco de dados inicializado"
 
 # ============================================
 # CORRIGIR CONFIGURAÇÕES MINIO NO BANCO

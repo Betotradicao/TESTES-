@@ -78,7 +78,7 @@ echo ""
 
 echo "📥 Clonando repositório do GitHub..."
 cd "$HOME"
-git clone https://github.com/Betotradicao/NOVO-PREVEN-O.git prevencao-no-radar
+git clone https://github.com/Betotradicao/TESTES-.git prevencao-no-radar
 
 if [ $? -ne 0 ]; then
   echo "❌ Erro ao clonar repositório"

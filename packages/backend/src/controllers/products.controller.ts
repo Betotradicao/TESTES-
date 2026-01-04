@@ -350,6 +350,8 @@ export class ProductsController {
     }
   }
 
+<<<<<<< HEAD
+=======
   /**
    * Upload de foto e análise automática por IA
    * POST /api/products/:id/upload-photo
@@ -533,4 +535,5 @@ export class ProductsController {
       });
     }
   }
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 }

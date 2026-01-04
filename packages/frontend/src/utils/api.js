@@ -69,6 +69,18 @@ function getApiBaseUrl() {
 // Interceptor para adicionar o token E a baseURL dinamicamente
 api.interceptors.request.use(
   (config) => {
+    // LOG ESPECIAL PARA UPLOADS
+    if (config.url && config.url.includes('upload')) {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      console.log('🚀 INTERCEPTOR REQUEST - UPLOAD detectado!', {
+        url: config.url,
+        method: config.method,
+        user: user.email,
+        role: user.role,
+        isMaster: user.isMaster
+      });
+    }
+
     // Detectar a baseURL dinamicamente em CADA requisição
     const baseURL = getApiBaseUrl();
     console.log('🔗 Base URL para esta requisição:', baseURL);
@@ -88,9 +100,16 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // LOG FINAL ANTES DE ENVIAR
+    if (config.url && config.url.includes('upload')) {
+      console.log('✅ INTERCEPTOR - Enviando requisição de upload para:', config.baseURL + config.url);
+    }
+
     return config;
   },
   (error) => {
+    console.log('❌ INTERCEPTOR REQUEST ERROR:', error);
     return Promise.reject(error);
   }
 );

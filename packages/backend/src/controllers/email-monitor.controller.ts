@@ -114,6 +114,37 @@ export class EmailMonitorController {
   }
 
   /**
+   * POST /api/email-monitor/fetch-latest
+   * Buscar e processar os últimos N emails do Gmail (independente de lidos/não lidos)
+   */
+  async fetchLatestEmails(req: Request, res: Response) {
+    try {
+      const limit = req.body.limit ? parseInt(req.body.limit) : 10;
+
+      const result = await EmailMonitorService.fetchLatestEmails(limit);
+
+      if (result.success) {
+        return res.json({
+          success: true,
+          message: result.message,
+          processed: result.processed
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: result.message
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching latest emails:', error);
+      return res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao buscar últimos emails'
+      });
+    }
+  }
+
+  /**
    * GET /api/email-monitor/logs
    * Buscar logs de emails processados
    */

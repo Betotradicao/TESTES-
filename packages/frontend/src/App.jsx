@@ -127,6 +127,8 @@ function App() {
               }
             />
             <Route
+<<<<<<< HEAD
+=======
               path="/bipagens-inteligentes"
               element={
                 <ProtectedRoute>
@@ -135,6 +137,7 @@ function App() {
               }
             />
             <Route
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
               path="/ruptura-lancador"
               element={
                 <ProtectedRoute>

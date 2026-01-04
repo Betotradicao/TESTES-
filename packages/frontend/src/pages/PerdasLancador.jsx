@@ -80,6 +80,11 @@ export default function PerdasLancador() {
     return monthLotes.some(lote => {
       // Se tem campos de período, usar eles
       if (lote.dataInicioPeriodo && lote.dataFimPeriodo) {
+<<<<<<< HEAD
+        // Adicionar T12:00:00 para evitar problema de timezone UTC
+        const dataInicio = new Date(lote.dataInicioPeriodo + 'T12:00:00');
+        const dataFim = new Date(lote.dataFimPeriodo + 'T12:00:00');
+=======
         // Extrair apenas a parte da data (YYYY-MM-DD) caso venha com timestamp
         const dataInicioStr = String(lote.dataInicioPeriodo).split('T')[0];
         const dataFimStr = String(lote.dataFimPeriodo).split('T')[0];
@@ -87,6 +92,7 @@ export default function PerdasLancador() {
         // Criar datas às 12:00 para evitar problema de timezone UTC
         const dataInicio = new Date(dataInicioStr + 'T12:00:00');
         const dataFim = new Date(dataFimStr + 'T12:00:00');
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
         // Comparar apenas as datas (ano, mês, dia)
         const dayOnly = new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate());
@@ -97,8 +103,12 @@ export default function PerdasLancador() {
       }
 
       // Fallback para compatibilidade: usar apenas dataImportacao
+<<<<<<< HEAD
+      const loteDate = new Date(lote.dataImportacao + 'T12:00:00');
+=======
       const dataImportacaoStr = String(lote.dataImportacao).split('T')[0];
       const loteDate = new Date(dataImportacaoStr + 'T12:00:00');
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
       return loteDate.getDate() === day &&
              loteDate.getMonth() === dayDate.getMonth() &&
              loteDate.getFullYear() === dayDate.getFullYear();
@@ -111,12 +121,17 @@ export default function PerdasLancador() {
 
     return monthLotes.filter(lote => {
       if (lote.dataInicioPeriodo && lote.dataFimPeriodo) {
+<<<<<<< HEAD
+        const dataInicio = new Date(lote.dataInicioPeriodo + 'T12:00:00');
+        const dataFim = new Date(lote.dataFimPeriodo + 'T12:00:00');
+=======
         // Extrair apenas a parte da data (YYYY-MM-DD) caso venha com timestamp
         const dataInicioStr = String(lote.dataInicioPeriodo).split('T')[0];
         const dataFimStr = String(lote.dataFimPeriodo).split('T')[0];
 
         const dataInicio = new Date(dataInicioStr + 'T12:00:00');
         const dataFim = new Date(dataFimStr + 'T12:00:00');
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
         const dayOnly = new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate());
         const inicioOnly = new Date(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate());
@@ -125,8 +140,12 @@ export default function PerdasLancador() {
         return dayOnly >= inicioOnly && dayOnly <= fimOnly;
       }
 
+<<<<<<< HEAD
+      const loteDate = new Date(lote.dataImportacao + 'T12:00:00');
+=======
       const dataImportacaoStr = String(lote.dataImportacao).split('T')[0];
       const loteDate = new Date(dataImportacaoStr + 'T12:00:00');
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
       return loteDate.getDate() === day;
     });
   };
@@ -238,20 +257,34 @@ export default function PerdasLancador() {
       });
 
       setSuccess(`✅ Arquivo importado com sucesso! ${response.data.total} registros (${response.data.perdas} perdas, ${response.data.entradas} entradas)`);
+<<<<<<< HEAD
+=======
 
       // Recarregar lista de lotes ANTES de limpar os campos
       await loadRecentLotes();
       await loadMonthLotes(currentMonth);
 
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
       setFile(null);
       setNomeLote('');
       setDataInicio('');
       setDataFim('');
 
+<<<<<<< HEAD
+      // Recarregar lista de lotes
+      await loadRecentLotes();
+      await loadMonthLotes(currentMonth);
+
+      // Redirecionar para resultados após 2 segundos
+      setTimeout(() => {
+        navigate('/perdas-resultados');
+      }, 2000);
+=======
       // Redirecionar para resultados após 3 segundos (tempo para ver o calendário atualizado)
       setTimeout(() => {
         navigate('/perdas-resultados');
       }, 3000);
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
     } catch (err) {
       console.error('Erro ao fazer upload:', err);

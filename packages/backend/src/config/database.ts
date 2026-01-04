@@ -26,7 +26,7 @@ export const AppDataSource = new DataSource({
   // IMPORTANTE: synchronize desligado, usar migrations
   synchronize: false,
   // Rodar migrations automaticamente na inicialização (todos os ambientes)
-  migrationsRun: true, // Migrations rodam automaticamente em toda nova instalação
+  migrationsRun: true,
   logging: process.env.NODE_ENV === 'development',
   entities: [path.join(__dirname, '../entities/*.{ts,js}')],
   migrations: [path.join(__dirname, '../migrations/*.{ts,js}')],

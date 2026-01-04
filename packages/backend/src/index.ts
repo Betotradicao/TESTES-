@@ -61,6 +61,24 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// MIDDLEWARE DE DEBUG GLOBAL - CAPTURA TODAS AS REQUISIÇÕES
+app.use((req, res, next) => {
+  if (req.path.includes('upload')) {
+    console.log('🌍 GLOBAL MIDDLEWARE - Upload request detected:', {
+      method: req.method,
+      url: req.url,
+      path: req.path,
+      originalUrl: req.originalUrl,
+      baseUrl: req.baseUrl,
+      headers: {
+        auth: req.headers.authorization ? `Bearer ${req.headers.authorization.substring(7, 20)}...` : 'NONE',
+        contentType: req.headers['content-type']
+      }
+    });
+  }
+  next();
+});
+
 // Servir arquivos estáticos da pasta uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
@@ -106,11 +124,16 @@ const startServer = async () => {
     console.log('✅ Database connected successfully');
 
     // Seed de configurações do sistema (popula com dados do .env)
-    // Agora só cria configurações novas, não sobrescreve existentes
+    // Atualiza sempre as configs de infraestrutura (MinIO, PostgreSQL, Tailscale)
     await seedConfigurations();
 
-    // Seed do usuário master (DESABILITADO - usar first-setup)
-    // await seedMasterUser(AppDataSource);
+<<<<<<< HEAD
+    // Seed do usuário MASTER (Roberto) - auto-criação em toda instalação
+=======
+    // Seed do usuário master Roberto (Beto3107@@##)
+    // Cria automaticamente para permitir acesso ao /first-setup
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
+    await seedMasterUser(AppDataSource);
 
     // Health check automático para manter conexão viva
     // Executa a cada 20 segundos

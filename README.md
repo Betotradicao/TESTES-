@@ -6,14 +6,14 @@ Sistema completo de monitoramento e prevenção de furtos desenvolvido para merc
 
 ## 🚀 Instalação Rápida
 
-### 🐧 Instalação em VPS/Servidor Linux (RECOMENDADO)
+### 🐧 Instalação em VPS/Servidor Linux (PRODUÇÃO)
 
-**Instalador Oficial - Funciona em qualquer situação**
+**Instalador Oficial - Instalação automática em um único comando**
 
-Execute este comando único como root:
+Execute este comando como root:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Betotradicao/NOVO-PREVEN-O/main/InstaladorVPS/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Betotradicao/TESTES-/main/InstaladorVPS/install.sh | bash
 ```
 
 **O que o instalador faz:**
@@ -25,76 +25,71 @@ curl -fsSL https://raw.githubusercontent.com/Betotradicao/NOVO-PREVEN-O/main/Ins
 - ✅ Inicia todos os containers automaticamente
 
 **Acesso após instalação:**
-- Frontend: `http://[IP]:3004`
-- Backend: `http://[IP]:3003`
-- MinIO: `http://[IP]:9000`
+- Frontend: `http://[IP]:3000`
+- Backend: `http://[IP]:3001`
+- MinIO Console: `http://[IP]:9011`
 
 📖 **Documentação VPS**: [InstaladorVPS/README.md](InstaladorVPS/README.md)
 
 ---
 
-### 💻 Instalação Local (Windows - Desenvolvimento)
+### 💻 Desenvolvimento Local (Windows/Mac/Linux)
 
-<details>
-<summary>📁 Opção 1: Instalação via Docker</summary>
-
-**Ideal para**: Instalações rápidas, ambientes isolados, produção
+Use o [docker-compose.yml](docker-compose.yml:1) na raiz do projeto:
 
 ```bash
-cd InstaladorDOCKER
-# Clique com botão direito em INSTALAR-AUTO.bat
-# Selecione "Executar como Administrador"
+# Iniciar ambiente de desenvolvimento
+docker compose up -d
+
+# Ver logs
+docker compose logs -f
+
+# Parar ambiente
+docker compose down
 ```
 
-📖 **Documentação completa**: [InstaladorDOCKER/README.md](InstaladorDOCKER/README.md)
-
-</details>
-
-<details>
-<summary>🏠 Opção 2: Instalação Interna (Desenvolvimento/Rede Local)</summary>
-
-**Ideal para**: Desenvolvimento, rede interna, máquinas 24/7
-
-```bash
-cd InstaladorINTERNO
-# Clique com botão direito em INSTALAR-AUTO.bat
-# Selecione "Executar como Administrador"
-```
-
-**Inclui**:
-- ✅ Auto-start invisível (inicia com Windows)
-- ✅ Monitor automático (reinicia se cair)
-- ✅ PM2 (gerenciamento de processos)
-- ✅ Ngrok (acesso externo - opcional)
-
-📖 **Documentação completa**: [InstaladorINTERNO/README.md](InstaladorINTERNO/README.md)
-
-</details>
+**Acesso local:**
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:3001`
+- MinIO Console: `http://localhost:9001`
 
 ---
 
-## 📥 Pré-requisitos e Downloads
+## 📥 Pré-requisitos
 
-Antes de instalar, você precisará baixar alguns programas dependendo do método escolhido:
+### Para VPS (Linux):
+- Ubuntu 20.04+ ou Debian 11+
+- Docker e Docker Compose (instalador instala automaticamente)
+- Mínimo 2 GB RAM, 20 GB disco
 
-### 🐳 Para instalação via **Docker** (InstaladorDOCKER):
-
-#### 1️⃣ Docker Desktop (Obrigatório)
-- 📦 **O que é:** Motor que roda os containers Docker
-- 💾 **Tamanho:** ~500 MB
-- 🖥️ **Compatível:** Windows 10/11 (com interface gráfica)
-- 🔗 **Download:** https://www.docker.com/products/docker-desktop/
-- 📖 **Instruções:**
-  1. Baixar Docker Desktop
-  2. Executar instalador
-  3. Reiniciar o computador
-  4. Abrir Docker Desktop (precisa estar rodando para usar)
-
-⚠️ **Nota:** Docker Desktop NÃO funciona em Windows Server sem interface gráfica!
+### Para Desenvolvimento Local:
+- Docker Desktop instalado e rodando
+- Mínimo 4 GB RAM (recomendado 8 GB)
 
 ---
 
-### 🏠 Para instalação **Manual/Interno** (InstaladorINTERNO):
+## 📂 Estrutura do Projeto
+
+```
+TESTES/
+├── 📁 InstaladorVPS/        # Instalador para VPS (Produção)
+│   ├── install.sh           # Script de instalação automática
+│   ├── docker-compose-producao.yml
+│   ├── Dockerfile.backend
+│   └── Dockerfile.frontend
+│
+├── 📁 packages/             # Código-fonte
+│   ├── backend/             # API Node.js + TypeScript
+│   └── frontend/            # React + TypeScript
+│
+├── 📁 CREDENCIAIS/          # Senhas e acessos
+├── 📄 docker-compose.yml     # Desenvolvimento local
+└── 📄 README.md             # Este arquivo
+```
+
+---
+
+###
 
 Os instaladores automáticos (`INSTALAR-AUTO.bat`) já baixam tudo, mas você pode baixar manualmente:
 

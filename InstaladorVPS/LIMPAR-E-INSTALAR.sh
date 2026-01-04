@@ -44,8 +44,8 @@ echo "🧹 ETAPA 1/5: Parando e removendo containers..."
 echo "════════════════════════════════════════════════════════════════"
 
 # Parar e remover containers do projeto (se existirem)
-if [ -d ~/NOVO-PREVEN-O/InstaladorVPS ]; then
-    cd ~/NOVO-PREVEN-O/InstaladorVPS
+if [ -d ~/TESTES-/InstaladorVPS ]; then
+    cd ~/TESTES-/InstaladorVPS
     if [ -f docker-compose-producao.yml ]; then
         echo "🛑 Parando containers..."
         docker compose -f docker-compose-producao.yml down -v 2>/dev/null || true
@@ -79,9 +79,9 @@ echo "🧹 ETAPA 3/5: Removendo diretório do projeto..."
 echo "════════════════════════════════════════════════════════════════"
 
 # Remover diretório do projeto
-if [ -d ~/NOVO-PREVEN-O ]; then
-    echo "🗑️  Removendo ~/NOVO-PREVEN-O..."
-    rm -rf ~/NOVO-PREVEN-O
+if [ -d ~/TESTES- ]; then
+    echo "🗑️  Removendo ~/TESTES-..."
+    rm -rf ~/TESTES-
     echo "✅ Diretório removido"
 else
     echo "ℹ️  Diretório não existe, pulando..."
@@ -139,11 +139,11 @@ echo "════════════════════════�
 # Clonar repositório
 echo "📥 Clonando repositório..."
 cd ~
-git clone https://github.com/Betotradicao/NOVO-PREVEN-O.git
+git clone https://github.com/Betotradicao/TESTES-.git
 echo "✅ Repositório clonado"
 
 # Entrar no diretório
-cd ~/NOVO-PREVEN-O/InstaladorVPS
+cd ~/TESTES-/InstaladorVPS
 
 # Dar permissão de execução
 echo "🔑 Dando permissão de execução..."

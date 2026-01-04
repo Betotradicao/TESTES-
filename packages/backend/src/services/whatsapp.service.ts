@@ -180,11 +180,24 @@ export class WhatsAppService {
       const base64 = fileBuffer.toString('base64');
       const fileName = filePath.split(/[\\/]/).pop() || 'documento.pdf';
 
+<<<<<<< HEAD
+      const url = `${apiUrl}/message/sendMedia/${instance}`;
+=======
       const url = `${apiUrl}/message/sendMedia/${encodeURIComponent(instance)}`;
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
       const payload = {
         number: groupId,
         mediatype: 'document',
+<<<<<<< HEAD
+        mimetype: 'application/pdf',
+        caption: caption || '',
+        fileName: fileName,
+        media: base64
+      };
+
+      console.log(`📄 Enviando PDF para ${groupId}...`);
+=======
         media: base64,
         fileName: fileName,
         caption: caption || ''
@@ -193,6 +206,7 @@ export class WhatsAppService {
       console.log(`📄 Enviando PDF para ${groupId}...`);
       console.log(`📄 URL: ${url}`);
       console.log(`📄 Arquivo: ${fileName} (${Math.round(base64.length / 1024)}kb base64)`);
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
       const response = await fetch(url, {
         method: 'POST',
@@ -205,7 +219,10 @@ export class WhatsAppService {
 
       if (!response.ok) {
         const errorText = await response.text();
+<<<<<<< HEAD
+=======
         console.error(`❌ Evolution API Response Error:`, errorText);
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
         throw new Error(`Evolution API Error: ${response.status} - ${errorText}`);
       }
 
@@ -227,6 +244,13 @@ export class WhatsAppService {
     auditoriaNome: string,
     totalRupturas: number,
     naoEncontrado: number,
+<<<<<<< HEAD
+    emEstoque: number
+  ): Promise<boolean> {
+    try {
+      // Buscar grupo do WhatsApp da Evolution API (mesmo grupo usado para notificações)
+      const groupId = await ConfigurationService.get('evolution_whatsapp_group_id', '');
+=======
     emEstoque: number,
     perdaVenda: number = 0,
     perdaLucro: number = 0
@@ -234,22 +258,29 @@ export class WhatsAppService {
     try {
       // Buscar grupo do WhatsApp da Evolution API (mesmo grupo usado para notificações)
       const groupId = await ConfigurationService.get('evolution_whatsapp_group_id', process.env.EVOLUTION_WHATSAPP_GROUP_ID || '');
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
       if (!groupId) {
         console.warn('⚠️  Grupo do WhatsApp não configurado (evolution_whatsapp_group_id)');
         return false;
       }
 
+<<<<<<< HEAD
+=======
       console.log(`📊 Enviando relatório para grupo: ${groupId}`);
 
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
       const caption = `📊 *RELATÓRIO DE AUDITORIA DE RUPTURAS*\n\n` +
                      `📋 Auditoria: ${auditoriaNome}\n` +
                      `📅 Data: ${new Date().toLocaleString('pt-BR')}\n\n` +
                      `📦 Total de Rupturas: ${totalRupturas}\n` +
                      `🔴 Não Encontrado: ${naoEncontrado}\n` +
                      `🟠 Em Estoque: ${emEstoque}\n\n` +
+<<<<<<< HEAD
+=======
                      `💰 Perda de Venda: R$ ${perdaVenda.toFixed(2)}\n` +
                      `📉 Perda de Lucro: R$ ${perdaLucro.toFixed(2)}\n\n` +
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
                      `📄 Confira o relatório detalhado em PDF anexo.`;
 
       const success = await this.sendDocument(groupId, filePath, caption);

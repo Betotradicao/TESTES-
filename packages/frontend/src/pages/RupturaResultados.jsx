@@ -13,7 +13,10 @@ export default function RupturaResultados() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [ordenacao, setOrdenacao] = useState({ campo: 'criticidade', direcao: 'desc' });
+<<<<<<< HEAD
+=======
   const [filtroTipoRuptura, setFiltroTipoRuptura] = useState('todos'); // 'todos', 'nao_encontrado', 'ruptura_estoque'
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
   useEffect(() => {
     loadResults();
@@ -63,6 +66,9 @@ export default function RupturaResultados() {
   }
 
   const stats = data.estatisticas || {};
+<<<<<<< HEAD
+  const itensRuptura = (data.items || []).filter(i => i.status_verificacao === 'nao_encontrado');
+=======
 
   // Contar todos os itens de ruptura por tipo
   const todosItensRuptura = (data.items || []).filter(i =>
@@ -78,6 +84,7 @@ export default function RupturaResultados() {
   } else if (filtroTipoRuptura === 'ruptura_estoque') {
     itensRuptura = todosItensRuptura.filter(i => i.status_verificacao === 'ruptura_estoque');
   }
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
   // Função para alternar ordenação
   const toggleOrdenacao = (campo) => {
@@ -216,6 +223,9 @@ export default function RupturaResultados() {
 
           <div className="bg-white rounded-lg shadow p-6 text-center">
             <div className="text-4xl font-bold text-red-600">{data.itens_nao_encontrados}</div>
+<<<<<<< HEAD
+            <div className="text-sm text-gray-600 mt-1">Rupturas</div>
+=======
             <div className="text-sm text-gray-600 mt-1">Rupturas Total</div>
             {(countNaoEncontrado > 0 || countRupturaEstoque > 0) && (
               <div className="text-xs text-gray-500 mt-2">
@@ -223,6 +233,7 @@ export default function RupturaResultados() {
                 {countRupturaEstoque > 0 && <div>{countRupturaEstoque} Em Estoque</div>}
               </div>
             )}
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
           </div>
 
           <div className="bg-white rounded-lg shadow p-6 text-center">
@@ -288,6 +299,8 @@ export default function RupturaResultados() {
               )}
             </div>
 
+<<<<<<< HEAD
+=======
             {/* Filtros de Tipo de Ruptura */}
             <div className="flex gap-2 mb-4">
               <button
@@ -322,6 +335,7 @@ export default function RupturaResultados() {
               </button>
             </div>
 
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
             {itensRuptura.length === 0 ? (
               <p className="text-gray-500 text-center py-8">
                 🎉 Nenhuma ruptura encontrada!

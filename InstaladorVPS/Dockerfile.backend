@@ -44,7 +44,7 @@ COPY --from=builder /app/dist/migrations ./dist/migrations
 COPY --from=builder /app/dist/config ./dist/config
 
 # Criar pasta de uploads (para compatibilidade com arquivos antigos)
-RUN mkdir -p /app/uploads/images /app/uploads/videos
+RUN mkdir -p /app/uploads/images /app/uploads/videos /app/uploads/temp
 
 # Expor porta
 EXPOSE 3001

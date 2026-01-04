@@ -60,20 +60,8 @@ else
     echo "⚠️  Não é um repositório git. Pulando atualização."
 fi
 
-# Ir para diretório InstaladorVPS (onde está o docker-compose-producao.yml)
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
-
-# Verificar se o arquivo docker-compose existe
-if [ ! -f "docker-compose-producao.yml" ]; then
-    echo "❌ Erro: docker-compose-producao.yml não encontrado!"
-    echo "📂 Diretório atual: $(pwd)"
-    echo "📋 Arquivos disponíveis:"
-    ls -la
-    exit 1
-fi
-
-echo "✅ Diretório de instalação: $SCRIPT_DIR"
+# Voltar para diretório do instalador
+cd "$INSTALLER_DIR"
 echo ""
 
 # ============================================
@@ -108,59 +96,85 @@ else
     echo "✅ Tailscale já instalado"
 fi
 
-# Forçar logout para limpar autenticação antiga
-echo "🔄 Limpando autenticação antiga do Tailscale..."
+# Forçar re-autenticação do Tailscale (limpar sessão antiga)
+echo "🚀 Iniciando Tailscale..."
+echo "🔄 Limpando autenticações antigas..."
+
+# Fazer logout forçado (ignora erros se já estiver deslogado)
 tailscale logout 2>/dev/null || true
 
-# Limpar log antigo
+# Limpar estado antigo do Tailscale
 rm -f /tmp/tailscale-auth.log
 
 # Iniciar Tailscale com --reset para forçar nova autenticação
-echo "🚀 Iniciando Tailscale (nova autenticação necessária)..."
 tailscale up --reset --accept-routes --shields-up=false 2>&1 | tee /tmp/tailscale-auth.log &
 TAILSCALE_PID=$!
 
-# Aguardar alguns segundos para o link de autenticação aparecer
+# Aguardar link de autenticação ser gerado
 sleep 5
 
-# Tentar extrair o link de autenticação
-TAILSCALE_AUTH_URL=$(grep -o 'https://login.tailscale.com/a/[a-z0-9]*' /tmp/tailscale-auth.log | head -n 1)
+# Extrair link de autenticação
+TAILSCALE_AUTH_URL=$(grep -o 'https://login.tailscale.com/a/[a-z0-9]*' /tmp/tailscale-auth.log 2>/dev/null | head -n 1)
 
-echo ""
-echo "⏳ Aguardando autenticação no Tailscale..."
-echo "   Você tem até 2 minutos para autenticar no link acima"
-echo ""
-
-# Aguardar até que o Tailscale esteja autenticado (IP disponível)
-MAX_WAIT=120  # 2 minutos
-ELAPSED=0
+# Verificar se conseguiu obter o link
 TAILSCALE_IP=""
 
-while [ $ELAPSED -lt $MAX_WAIT ]; do
-    # Tentar obter IP
-    TAILSCALE_IP=$(tailscale ip -4 2>/dev/null || echo "")
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔐 AUTENTICAÇÃO TAILSCALE NECESSÁRIA"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+if [ -n "$TAILSCALE_AUTH_URL" ]; then
+    echo "   📋 Abra este link no navegador para autenticar:"
+    echo ""
+    echo "   $TAILSCALE_AUTH_URL"
+    echo ""
+else
+    echo "   ⚠️  Link não foi gerado automaticamente."
+    echo "   Execute: tailscale up --reset --accept-routes --shields-up=false"
+    echo ""
+fi
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# AGUARDAR AUTENTICAÇÃO E DETECTAR IP AUTOMATICAMENTE
+echo "⏳ Aguardando você autenticar no navegador..."
+echo ""
+
+# Loop para aguardar IP aparecer (timeout 5 minutos)
+MAX_ATTEMPTS=60  # 60 tentativas x 5 segundos = 5 minutos
+ATTEMPT=0
+
+while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+    # Tentar obter IP Tailscale
+    TAILSCALE_IP=$(tailscale ip -4 2>/dev/null | head -n 1)
 
     if [ -n "$TAILSCALE_IP" ] && [ "$TAILSCALE_IP" != "" ]; then
         echo ""
-        echo "✅ IP Tailscale da VPS detectado: $TAILSCALE_IP"
+        echo "✅ IP Tailscale detectado: $TAILSCALE_IP"
+        echo ""
         break
     fi
 
-    # Mostrar progresso a cada 10 segundos
-    if [ $((ELAPSED % 10)) -eq 0 ] && [ $ELAPSED -gt 0 ]; then
-        echo "   Ainda aguardando... (${ELAPSED}s decorridos)"
+    # Mostrar progresso a cada 15 segundos
+    if [ $((ATTEMPT % 3)) -eq 0 ]; then
+        echo "   ⏳ Ainda aguardando... (tentativa $ATTEMPT/$MAX_ATTEMPTS)"
     fi
 
-    sleep 2
-    ELAPSED=$((ELAPSED + 2))
+    sleep 5
+    ATTEMPT=$((ATTEMPT + 1))
 done
 
-# Se não conseguiu detectar após timeout
+# Verificar se conseguiu obter o IP
 if [ -z "$TAILSCALE_IP" ]; then
     echo ""
-    echo "⚠️  Timeout: Não foi possível detectar o IP automaticamente"
+    echo "⚠️  Timeout: Não foi possível detectar o IP do Tailscale automaticamente."
+    echo "    A instalação continuará, mas você precisará configurar manualmente depois."
     echo ""
-    read -p "Digite o IP Tailscale da VPS manualmente: " TAILSCALE_IP
+    echo "    Para configurar depois:"
+    echo "    1. Execute: tailscale ip -4"
+    echo "    2. Acesse: Configurações → Tailscale na interface web"
+    echo ""
 fi
 
 echo ""
@@ -169,21 +183,29 @@ echo ""
 # IP TAILSCALE DO CLIENTE (WINDOWS/ERP)
 # ============================================
 
-echo "🏪 Configuração do Cliente (Loja)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🖥️  CONFIGURAÇÃO DO CLIENTE (Windows/ERP)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "Se o cliente possui Tailscale instalado na máquina onde roda o ERP,"
-echo "informe o IP Tailscale para conectar automaticamente."
+echo "   Você possui o IP Tailscale do cliente Windows já configurado?"
 echo ""
-echo "Exemplo: 100.69.131.40"
+echo "   💡 Dica: Se ainda não instalou Tailscale no cliente, pressione ENTER"
+echo "            e configure depois pela interface web"
 echo ""
-read -t 30 -p "IP Tailscale da máquina do cliente (deixe vazio ou aguarde 30s): " TAILSCALE_CLIENT_IP || TAILSCALE_CLIENT_IP=""
+read -p "   Digite o IP Tailscale do cliente (ou ENTER para pular): " TAILSCALE_CLIENT_IP
 
 if [ -n "$TAILSCALE_CLIENT_IP" ]; then
-    echo "✅ IP Tailscale do cliente configurado: $TAILSCALE_CLIENT_IP"
+    echo ""
+    echo "   ✅ IP do cliente registrado: $TAILSCALE_CLIENT_IP"
+    echo "   💾 Este IP será salvo automaticamente no banco de dados"
+    echo ""
 else
-    echo "⚠️  Sem IP Tailscale do cliente. Conexão com ERP será local/manual."
+    echo ""
+    echo "   ⏭️  Pulado. Configure depois em: Configurações → Tailscale"
+    echo ""
+    TAILSCALE_CLIENT_IP=""
 fi
-
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
 # ============================================
@@ -271,8 +293,7 @@ API_TOKEN=$API_TOKEN
 # EMAIL - Recuperação de Senha
 # ============================================
 EMAIL_USER=betotradicao76@gmail.com
-EMAIL_PASS=fqojjjhztvganfya
-FRONTEND_URL=http://$HOST_IP:3000
+EMAIL_PASS=ylljjijqstxnwogk
 
 # ============================================
 # FRONTEND - Interface Web
@@ -282,6 +303,22 @@ VITE_API_URL=http://$HOST_IP:3001/api
 EOF
 
 echo "✅ Arquivo .env criado com sucesso"
+echo ""
+
+# ============================================
+# BAIXAR DOCKER COMPOSE
+# ============================================
+
+echo "📥 Baixando arquivo docker-compose-producao.yml..."
+
+curl -fsSL https://raw.githubusercontent.com/Betotradicao/NOVO-PREVEN-O/main/InstaladorVPS/docker-compose-producao.yml -o docker-compose-producao.yml
+
+if [ ! -f docker-compose-producao.yml ]; then
+    echo "❌ Erro ao baixar docker-compose-producao.yml"
+    exit 1
+fi
+
+echo "✅ Arquivo docker-compose baixado com sucesso"
 echo ""
 
 # ============================================
@@ -309,46 +346,153 @@ echo "⏳ Aguardando containers iniciarem..."
 sleep 10
 
 # ============================================
-# AGUARDAR BACKEND INICIALIZAR
+# CONFIGURAR BANCO DE DADOS
 # ============================================
 
-echo "🚀 Aguardando backend inicializar e criar configurações..."
+echo "💾 Configurando credenciais no banco de dados..."
+
+# Aguardar PostgreSQL estar 100% pronto
+echo "⏳ Aguardando PostgreSQL inicializar..."
+sleep 10
+
+# LIMPAR configurações antigas (garantir instalação limpa)
+echo "🧹 Limpando configurações antigas..."
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
+-- Limpar TODAS as configurações antigas
+TRUNCATE TABLE configurations;
+" 2>/dev/null
+
+echo "✅ Banco limpo! Inserindo configurações novas..."
+
+# Inserir credenciais do banco de dados
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
+-- Credenciais do PostgreSQL
+INSERT INTO configurations (key, value, encrypted, created_at, updated_at)
+VALUES
+  ('postgres_host', 'postgres', false, NOW(), NOW()),
+  ('postgres_port', '5432', false, NOW(), NOW()),
+  ('postgres_user', '$POSTGRES_USER', false, NOW(), NOW()),
+  ('postgres_password', '$POSTGRES_PASSWORD', false, NOW(), NOW()),
+  ('postgres_database', '$POSTGRES_DB', false, NOW(), NOW()),
+  ('db_host', 'postgres', false, NOW(), NOW()),
+  ('db_port', '5432', false, NOW(), NOW()),
+  ('db_user', '$POSTGRES_USER', false, NOW(), NOW()),
+  ('db_password', '$POSTGRES_PASSWORD', false, NOW(), NOW()),
+  ('db_name', '$POSTGRES_DB', false, NOW(), NOW())
+ON CONFLICT (key) DO UPDATE SET
+  value = EXCLUDED.value,
+  updated_at = NOW();
+" 2>/dev/null
+
+echo "✅ Credenciais do banco configuradas!"
+
+# Inserir configurações do MinIO
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
+INSERT INTO configurations (key, value, encrypted, created_at, updated_at)
+VALUES
+  ('minio_endpoint', 'prevencao-minio-prod', false, NOW(), NOW()),
+  ('minio_port', '9000', false, NOW(), NOW()),
+  ('minio_access_key', '$MINIO_ACCESS_KEY', false, NOW(), NOW()),
+  ('minio_secret_key', '$MINIO_SECRET_KEY', false, NOW(), NOW()),
+  ('minio_bucket_name', '$MINIO_BUCKET_NAME', false, NOW(), NOW()),
+  ('minio_public_endpoint', '$HOST_IP', false, NOW(), NOW()),
+  ('minio_public_port', '$MINIO_PUBLIC_PORT', false, NOW(), NOW()),
+  ('minio_use_ssl', 'false', false, NOW(), NOW())
+ON CONFLICT (key) DO UPDATE SET
+  value = EXCLUDED.value,
+  updated_at = NOW();
+" 2>/dev/null
+
+echo "✅ Configurações do MinIO salvas!"
+
+# Inserir configurações padrão de APIs (Zanthus, Intersolid, Evolution)
+echo "📡 Configurando endpoints de APIs..."
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
+INSERT INTO configurations (key, value, encrypted, created_at, updated_at)
+VALUES
+  -- Zanthus API (Sistema de Vendas)
+  ('zanthus_api_url', '', false, NOW(), NOW()),
+  ('zanthus_port', '', false, NOW(), NOW()),
+  ('zanthus_products_endpoint', '/manager/restful/integracao/cadastro_sincrono.php5', false, NOW(), NOW()),
+  ('zanthus_sales_endpoint', '/manager/restful/integracao/cadastro_sincrono.php5', false, NOW(), NOW()),
+  ('zanthus_api_token', '', false, NOW(), NOW()),
+
+  -- Intersolid API (Sistema Alternativo)
+  ('intersolid_api_url', '', false, NOW(), NOW()),
+  ('intersolid_port', '', false, NOW(), NOW()),
+  ('intersolid_username', '', false, NOW(), NOW()),
+  ('intersolid_password', '', false, NOW(), NOW()),
+  ('intersolid_sales_endpoint', '/v1/vendas', false, NOW(), NOW()),
+  ('intersolid_products_endpoint', '/v1/produtos', false, NOW(), NOW()),
+
+  -- Evolution API (WhatsApp)
+  ('evolution_api_url', '', false, NOW(), NOW()),
+  ('evolution_api_port', '', false, NOW(), NOW()),
+  ('evolution_api_token', '', false, NOW(), NOW()),
+  ('evolution_instance_name', '', false, NOW(), NOW()),
+
+  -- DVR Monitor (Câmeras de Segurança)
+  ('dvr_host', '', false, NOW(), NOW()),
+  ('dvr_port', '8000', false, NOW(), NOW()),
+  ('dvr_username', '', false, NOW(), NOW()),
+  ('dvr_password', '', false, NOW(), NOW())
+ON CONFLICT (key) DO UPDATE SET
+  updated_at = NOW();
+" 2>/dev/null
+
+echo "✅ Configurações de APIs salvas!"
+
+# Inserir configurações de Email (Gmail)
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
+INSERT INTO configurations (key, value, encrypted, created_at, updated_at)
+VALUES
+  ('email_user', 'betotradicao76@gmail.com', false, NOW(), NOW()),
+  ('email_pass', 'ylljjijqstxnwogk', false, NOW(), NOW())
+ON CONFLICT (key) DO UPDATE SET
+  value = EXCLUDED.value,
+  updated_at = NOW();
+" 2>/dev/null
+
+echo "✅ Configurações de Email (Gmail) salvas!"
 echo ""
-echo "ℹ️  O backend irá automaticamente:"
-echo "   • Criar tabelas do banco de dados (migrations)"
-echo "   • Popular configurações com dados do .env (seed)"
-echo "   • Criar usuário MASTER (Roberto)"
-echo ""
 
-# Aguardar backend estar respondendo
-MAX_TRIES=60  # 2 minutos
-TRY=0
-while [ $TRY -lt $MAX_TRIES ]; do
-    # Verificar se backend responde na rota de health
-    if curl -s http://localhost:3001/api/health > /dev/null 2>&1; then
-        echo "✅ Backend inicializado com sucesso!"
-        echo ""
-        break
-    fi
+# ============================================
+# CONFIGURAR IPs TAILSCALE NO BANCO
+# ============================================
 
-    # Mostrar progresso a cada 5 segundos
-    if [ $((TRY % 5)) -eq 0 ]; then
-        echo "   Aguardando backend... (${TRY}s / 120s)"
-    fi
+# Salvar IP Tailscale da VPS
+if [ -n "$TAILSCALE_IP" ]; then
+    echo "💾 Salvando IP Tailscale da VPS no banco de dados..."
 
-    sleep 2
-    TRY=$((TRY + 2))
-done
+    docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
+    INSERT INTO configurations (key, value, encrypted, created_at, updated_at)
+    VALUES ('tailscale_vps_ip', '$TAILSCALE_IP', false, NOW(), NOW())
+    ON CONFLICT (key) DO UPDATE SET value = '$TAILSCALE_IP', updated_at = NOW();
+    " 2>/dev/null
 
-if [ $TRY -ge $MAX_TRIES ]; then
-    echo "⚠️  Backend demorou para responder, mas pode estar inicializando ainda..."
-    echo "   Você pode verificar os logs com:"
-    echo "   docker logs prevencao-backend-prod -f"
+    echo "✅ IP Tailscale da VPS salvo: $TAILSCALE_IP"
+    echo ""
+else
+    echo "⚠️  IP Tailscale da VPS não detectado. Configure manualmente depois."
     echo ""
 fi
 
-echo "✅ Sistema configurado automaticamente pelo backend!"
-echo ""
+# Salvar IP Tailscale do Cliente (se foi fornecido)
+if [ -n "$TAILSCALE_CLIENT_IP" ]; then
+    echo "💾 Salvando IP Tailscale do Cliente no banco de dados..."
+
+    docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
+    INSERT INTO configurations (key, value, encrypted, created_at, updated_at)
+    VALUES ('tailscale_client_ip', '$TAILSCALE_CLIENT_IP', false, NOW(), NOW())
+    ON CONFLICT (key) DO UPDATE SET value = '$TAILSCALE_CLIENT_IP', updated_at = NOW();
+    " 2>/dev/null
+
+    echo "✅ IP Tailscale do Cliente salvo: $TAILSCALE_CLIENT_IP"
+    echo ""
+else
+    echo "ℹ️  IP Tailscale do Cliente não fornecido. Configure em: Configurações → Tailscale"
+    echo ""
+fi
 
 # ============================================
 # EXIBIR STATUS

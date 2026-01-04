@@ -2,9 +2,14 @@ import { AppDataSource } from '../config/database';
 import { RuptureSurvey } from '../entities/RuptureSurvey';
 import { RuptureSurveyItem } from '../entities/RuptureSurveyItem';
 import * as fs from 'fs';
+<<<<<<< HEAD
+import Papa from 'papaparse';
+import { RupturePDFService } from './rupture-pdf.service';
+=======
 import * as path from 'path';
 import Papa from 'papaparse';
 import PDFDocument from 'pdfkit';
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 import { WhatsAppService } from './whatsapp.service';
 
 export class RuptureSurveyService {
@@ -202,7 +207,14 @@ export class RuptureSurveyService {
     const surveyRepository = AppDataSource.getRepository(RuptureSurvey);
     const itemRepository = AppDataSource.getRepository(RuptureSurveyItem);
 
+<<<<<<< HEAD
+    const survey = await surveyRepository.findOne({
+      where: { id: surveyId },
+      relations: ['user']
+    });
+=======
     const survey = await surveyRepository.findOne({ where: { id: surveyId } });
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
     if (!survey) return;
 
     // Contar status dos itens
@@ -215,16 +227,89 @@ export class RuptureSurveyService {
       i.status_verificacao === 'nao_encontrado' || i.status_verificacao === 'ruptura_estoque'
     ).length;
 
+<<<<<<< HEAD
+    // Verificar se a auditoria foi concluída
+    const wasCompleted = survey.status === 'concluida';
+
+=======
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
     // Atualizar status da pesquisa
     if (survey.itens_verificados === survey.total_itens && survey.status === 'em_andamento') {
       survey.status = 'concluida';
       survey.data_fim_coleta = new Date();
+<<<<<<< HEAD
+
+      console.log(`✅ Auditoria ${survey.id} concluída! Gerando e enviando relatório...`);
+
+      // Gerar e enviar PDF em background (não bloqueia a resposta)
+      this.sendRuptureReportToWhatsApp(survey, items).catch(err => {
+        console.error('❌ Erro ao enviar relatório de ruptura:', err);
+      });
+=======
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
     }
 
     await surveyRepository.save(survey);
   }
 
   /**
+<<<<<<< HEAD
+   * Gera PDF e envia para WhatsApp quando auditoria é concluída
+   */
+  private static async sendRuptureReportToWhatsApp(
+    survey: RuptureSurvey,
+    items: RuptureSurveyItem[]
+  ): Promise<void> {
+    try {
+      // Filtrar apenas itens com ruptura (nao_encontrado ou ruptura_estoque)
+      const rupturaItems = items.filter(i =>
+        i.status_verificacao === 'nao_encontrado' || i.status_verificacao === 'ruptura_estoque'
+      );
+
+      if (rupturaItems.length === 0) {
+        console.log('📊 Nenhuma ruptura encontrada, não será enviado relatório.');
+        return;
+      }
+
+      // Contar tipos de ruptura
+      const naoEncontrado = rupturaItems.filter(i => i.status_verificacao === 'nao_encontrado').length;
+      const emEstoque = rupturaItems.filter(i => i.status_verificacao === 'ruptura_estoque').length;
+
+      console.log(`📊 Rupturas encontradas: ${rupturaItems.length} total (${naoEncontrado} não encontrado, ${emEstoque} em estoque)`);
+
+      // Gerar PDF
+      console.log(`📄 Gerando PDF para auditoria ${survey.id}...`);
+      const pdfPath = await RupturePDFService.generateRupturePDF(survey, rupturaItems);
+
+      // Enviar para WhatsApp
+      console.log(`📱 Enviando PDF para WhatsApp...`);
+      const sent = await WhatsAppService.sendRuptureReport(
+        pdfPath,
+        survey.nome_pesquisa,
+        rupturaItems.length,
+        naoEncontrado,
+        emEstoque
+      );
+
+      if (sent) {
+        console.log(`✅ Relatório de ruptura enviado com sucesso para o WhatsApp!`);
+      } else {
+        console.warn(`⚠️  Não foi possível enviar o relatório (verifique configuração do grupo)`);
+      }
+
+      // Deletar PDF temporário após envio
+      setTimeout(async () => {
+        await RupturePDFService.deletePDF(pdfPath);
+      }, 5000); // Aguarda 5 segundos antes de deletar
+
+    } catch (error) {
+      console.error('❌ Erro ao processar relatório de ruptura:', error);
+    }
+  }
+
+  /**
+=======
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
    * Iniciar pesquisa (mudar status para em_andamento)
    */
   static async startSurvey(surveyId: number): Promise<RuptureSurvey> {
@@ -270,10 +355,15 @@ export class RuptureSurveyService {
       },
     });
 
+<<<<<<< HEAD
+    // Calcular perdas
+    const itensRuptura = items.filter((i: RuptureSurveyItem) => i.status_verificacao === 'nao_encontrado');
+=======
     // Calcular perdas - incluir AMBOS os tipos de ruptura
     const itensRuptura = items.filter((i: RuptureSurveyItem) =>
       i.status_verificacao === 'nao_encontrado' || i.status_verificacao === 'ruptura_estoque'
     );
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
     const perdasVenda = itensRuptura.reduce((total: number, item: RuptureSurveyItem) => {
       return total + item.perda_venda_dia;
@@ -414,10 +504,13 @@ export class RuptureSurveyService {
       i.status_verificacao === 'nao_encontrado' || i.status_verificacao === 'ruptura_estoque'
     );
 
+<<<<<<< HEAD
+=======
     // Contar rupturas por tipo
     const rupturasNaoEncontrado = items.filter((i: RuptureSurveyItem) => i.status_verificacao === 'nao_encontrado').length;
     const rupturasEmEstoque = items.filter((i: RuptureSurveyItem) => i.status_verificacao === 'ruptura_estoque').length;
 
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
     const totalItensVerificados = itensVerificados.length;
     const totalEncontrados = itensEncontrados.length;
     const totalRupturas = itensRuptura.length;
@@ -448,15 +541,22 @@ export class RuptureSurveyService {
           venda_media_dia: item.venda_media_dia || 0,
           margem_lucro: item.margem_lucro || 0,
           tem_pedido: item.tem_pedido || null,
+<<<<<<< HEAD
+          status_verificacao: item.status_verificacao, // IMPORTANTE: incluir o status para filtros no frontend
+          ocorrencias: 0,
+=======
           status_verificacao: item.status_verificacao, // Adicionar status para filtro
           ocorrencias: 0,
           ocorrencias_nao_encontrado: 0,
           ocorrencias_em_estoque: 0,
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
           perda_total: 0,
         };
       }
       rupturasPorProduto[key].ocorrencias++;
       rupturasPorProduto[key].perda_total += item.perda_venda_dia;
+<<<<<<< HEAD
+=======
 
       // Contar ocorrências por tipo
       if (item.status_verificacao === 'nao_encontrado') {
@@ -464,6 +564,7 @@ export class RuptureSurveyService {
       } else if (item.status_verificacao === 'ruptura_estoque') {
         rupturasPorProduto[key].ocorrencias_em_estoque++;
       }
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
     });
 
     const produtosRanking = Object.values(rupturasPorProduto)
@@ -514,8 +615,11 @@ export class RuptureSurveyService {
         total_itens_verificados: totalItensVerificados,
         total_encontrados: totalEncontrados,
         total_rupturas: totalRupturas,
+<<<<<<< HEAD
+=======
         rupturas_nao_encontrado: rupturasNaoEncontrado,
         rupturas_em_estoque: rupturasEmEstoque,
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
         taxa_ruptura: taxaRuptura,
         perda_venda_periodo: perdaVendaPeriodo,
         perda_lucro_periodo: perdaLucroPeriodo,
@@ -555,6 +659,87 @@ export class RuptureSurveyService {
   }
 
   /**
+<<<<<<< HEAD
+   * Finalizar auditoria - Gera PDF e envia para WhatsApp
+   */
+  static async finalizarAuditoria(surveyId: number): Promise<{
+    pdfGerado: boolean;
+    whatsappEnviado: boolean;
+    pdfPath?: string;
+  }> {
+    const surveyRepository = AppDataSource.getRepository(RuptureSurvey);
+    const itemRepository = AppDataSource.getRepository(RuptureSurveyItem);
+
+    // Buscar pesquisa com itens
+    const survey = await surveyRepository.findOne({
+      where: { id: surveyId },
+      relations: ['items', 'user']
+    });
+
+    if (!survey) {
+      throw new Error('Pesquisa não encontrada');
+    }
+
+    // Buscar itens
+    const items = await itemRepository.find({
+      where: { survey: { id: surveyId } }
+    });
+
+    if (!items || items.length === 0) {
+      throw new Error('Nenhum item encontrado para esta auditoria');
+    }
+
+    console.log(`📊 Finalizando auditoria ${surveyId}: ${survey.nome_pesquisa}`);
+    console.log(`   Total de itens: ${items.length}`);
+
+    // Gerar PDF
+    let pdfPath: string;
+    try {
+      pdfPath = await RupturePDFService.generateRupturePDF(survey, items);
+      console.log(`✅ PDF gerado: ${pdfPath}`);
+    } catch (error) {
+      console.error('❌ Erro ao gerar PDF:', error);
+      throw new Error('Erro ao gerar PDF da auditoria');
+    }
+
+    // Calcular estatísticas
+    const naoEncontrado = items.filter(i => i.status_verificacao === 'nao_encontrado').length;
+    const emEstoque = items.filter(i => i.status_verificacao === 'ruptura_estoque').length;
+    const totalRupturas = naoEncontrado + emEstoque;
+
+    // Enviar para WhatsApp
+    let whatsappEnviado = false;
+    try {
+      whatsappEnviado = await WhatsAppService.sendRuptureReport(
+        pdfPath,
+        survey.nome_pesquisa,
+        totalRupturas,
+        naoEncontrado,
+        emEstoque
+      );
+
+      if (whatsappEnviado) {
+        console.log('✅ Relatório enviado para WhatsApp');
+      } else {
+        console.warn('⚠️  Relatório não foi enviado para WhatsApp (grupo não configurado?)');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao enviar para WhatsApp:', error);
+      // Não falhar a operação se WhatsApp der erro
+      whatsappEnviado = false;
+    }
+
+    // Atualizar status da pesquisa para finalizada
+    survey.status = 'concluida';
+    survey.data_fim_coleta = new Date();
+    await surveyRepository.save(survey);
+
+    return {
+      pdfGerado: true,
+      whatsappEnviado,
+      pdfPath
+    };
+=======
    * Finaliza auditoria, gera PDF e envia para WhatsApp
    */
   static async finalizeSurveyAndSendReport(surveyId: number): Promise<{ success: boolean; message: string }> {
@@ -833,5 +1018,6 @@ export class RuptureSurveyService {
         reject(error);
       }
     });
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
   }
 }

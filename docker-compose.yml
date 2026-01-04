@@ -1,0 +1,118 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # BANCO DE DADOS POSTGRESQL
+  # ==========================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: prevencao-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: prevencao_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - prevencao-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # MINIO - ARMAZENAMENTO
+  # ==========================================
+  minio:
+    image: minio/minio:latest
+    container_name: prevencao-minio
+    restart: always
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - prevencao-network
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # ==========================================
+  # BACKEND
+  # ==========================================
+  backend:
+    build:
+      context: ./packages/backend
+      dockerfile: ../../InstaladorVPS/Dockerfile.backend
+    container_name: prevencao-backend
+    restart: always
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres123
+      DB_NAME: prevencao_db
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_USE_SSL: "false"
+      MINIO_BUCKET_NAME: prevencao
+      MINIO_PUBLIC_ENDPOINT: 46.202.150.64
+      MINIO_PUBLIC_PORT: 9000
+      MINIO_PUBLIC_USE_SSL: "false"
+      JWT_SECRET: test-jwt-secret-key
+      API_TOKEN: test-api-token
+      EMAIL_USER: test@test.com
+      EMAIL_PASS: testpass
+      PORT: 3001
+      NODE_ENV: development
+      HOST_IP: 46.202.150.64
+    ports:
+      - "3001:3001"
+    networks:
+      - prevencao-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  # ==========================================
+  # FRONTEND
+  # ==========================================
+  frontend:
+    build:
+      context: ./packages/frontend
+      dockerfile: ../../InstaladorVPS/Dockerfile.frontend
+      args:
+        VITE_API_URL: http://46.202.150.64:3001
+    container_name: prevencao-frontend
+    restart: always
+    ports:
+      - "3000:80"
+    networks:
+      - prevencao-network
+    depends_on:
+      - backend
+
+volumes:
+  postgres-data:
+    driver: local
+  minio-data:
+    driver: local
+
+networks:
+  prevencao-network:
+    driver: bridge

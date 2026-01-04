@@ -59,7 +59,7 @@ echo ""
 
 echo "📥 Clonando repositório do GitHub..."
 cd "$HOME"
-git clone https://github.com/Betotradicao/NOVO-PREVEN-O.git roberto-prevencao-no-radar-main
+git clone https://github.com/Betotradicao/TESTES-.git roberto-prevencao-no-radar-main
 echo "✅ Repositório clonado"
 echo ""
 
