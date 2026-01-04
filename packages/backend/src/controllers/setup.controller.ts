@@ -160,6 +160,40 @@ export class SetupController {
       await userRepository.save(adminUser);
       console.log('✅ Usuário admin criado:', adminUser.username, '/', adminUser.email);
 
+      // Atualizar .env com email SE fornecido (opcional)
+      if (emailUser && emailPass) {
+        try {
+          const envPath = path.resolve(__dirname, '../../.env');
+          let envContent = '';
+
+          if (fs.existsSync(envPath)) {
+            envContent = fs.readFileSync(envPath, 'utf8');
+          }
+
+          // Atualizar EMAIL_USER
+          if (envContent.includes('EMAIL_USER=')) {
+            envContent = envContent.replace(/EMAIL_USER=.*/, `EMAIL_USER=${emailUser}`);
+          } else {
+            envContent += `\nEMAIL_USER=${emailUser}`;
+          }
+
+          // Atualizar EMAIL_PASS
+          if (envContent.includes('EMAIL_PASS=')) {
+            envContent = envContent.replace(/EMAIL_PASS=.*/, `EMAIL_PASS=${emailPass}`);
+          } else {
+            envContent += `\nEMAIL_PASS=${emailPass}`;
+          }
+
+          fs.writeFileSync(envPath, envContent, 'utf8');
+          console.log('✅ Email configurado no .env');
+
+          process.env.EMAIL_USER = emailUser;
+          process.env.EMAIL_PASS = emailPass;
+        } catch (error) {
+          console.error('⚠️ Erro ao salvar email:', error);
+        }
+      }
+
       return res.status(201).json({
         message: 'Setup realizado com sucesso',
         company: {
