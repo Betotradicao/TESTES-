@@ -38,7 +38,7 @@ export default function FirstSetup() {
     adminUsername: '',
     adminEmail: '',
     adminPassword: '',
-    confirmPassword: ''
+    confirmPassword: '',
   });
 
   // Formatar CEP enquanto digita
@@ -219,7 +219,7 @@ export default function FirstSetup() {
         adminName: formData.adminName,
         adminUsername: formData.adminUsername,
         adminEmail: formData.adminEmail,
-        adminPassword: formData.adminPassword
+        adminPassword: formData.adminPassword,
       };
 
       await api.post('/api/setup/initialize', submitData);
