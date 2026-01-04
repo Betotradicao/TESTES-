@@ -9,8 +9,15 @@ export class RuptureSurveyController {
    * Upload de arquivo CSV e criação de pesquisa
    */
   static async uploadAndCreate(req: AuthRequest, res: Response) {
+<<<<<<< HEAD
+    console.log('📤 CONTROLLER uploadAndCreate - CHEGOU! User:', req.user?.email, 'File:', req.file?.originalname);
     try {
       if (!req.file) {
+        console.log('❌ CONTROLLER - Nenhum arquivo enviado');
+=======
+    try {
+      if (!req.file) {
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
         return res.status(400).json({ error: 'Nenhum arquivo enviado' });
       }
 
@@ -202,6 +209,22 @@ export class RuptureSurveyController {
   }
 
   /**
+<<<<<<< HEAD
+   * Finalizar auditoria - Gera PDF e envia para WhatsApp
+   */
+  static async finalizarAuditoria(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await RuptureSurveyService.finalizarAuditoria(parseInt(id));
+
+      res.json({
+        message: 'Auditoria finalizada com sucesso',
+        ...result
+      });
+    } catch (error: any) {
+      console.error('❌ Erro ao finalizar auditoria:', error);
+      res.status(500).json({ error: error.message });
+=======
    * Finalizar auditoria e enviar relatório para WhatsApp
    */
   static async finalizeSurvey(req: AuthRequest, res: Response) {
@@ -220,6 +243,7 @@ export class RuptureSurveyController {
         success: false,
         error: error.message
       });
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
     }
   }
 }

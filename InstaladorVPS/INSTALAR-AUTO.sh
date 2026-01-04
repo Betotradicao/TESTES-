@@ -60,8 +60,20 @@ else
     echo "⚠️  Não é um repositório git. Pulando atualização."
 fi
 
-# Voltar para diretório do instalador
-cd "$INSTALLER_DIR"
+# Ir para diretório InstaladorVPS (onde está o docker-compose-producao.yml)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# Verificar se o arquivo docker-compose existe
+if [ ! -f "docker-compose-producao.yml" ]; then
+    echo "❌ Erro: docker-compose-producao.yml não encontrado!"
+    echo "📂 Diretório atual: $(pwd)"
+    echo "📋 Arquivos disponíveis:"
+    ls -la
+    exit 1
+fi
+
+echo "✅ Diretório de instalação: $SCRIPT_DIR"
 echo ""
 
 # ============================================
@@ -96,52 +108,60 @@ else
     echo "✅ Tailscale já instalado"
 fi
 
-# Forçar re-autenticação do Tailscale (limpar sessão antiga)
-echo "🚀 Iniciando Tailscale..."
-echo "🔄 Limpando autenticações antigas..."
-
-# Fazer logout forçado (ignora erros se já estiver deslogado)
+# Forçar logout para limpar autenticação antiga
+echo "🔄 Limpando autenticação antiga do Tailscale..."
 tailscale logout 2>/dev/null || true
 
-# Limpar estado antigo do Tailscale
+# Limpar log antigo
 rm -f /tmp/tailscale-auth.log
 
 # Iniciar Tailscale com --reset para forçar nova autenticação
+echo "🚀 Iniciando Tailscale (nova autenticação necessária)..."
 tailscale up --reset --accept-routes --shields-up=false 2>&1 | tee /tmp/tailscale-auth.log &
 TAILSCALE_PID=$!
 
-# Aguardar link de autenticação ser gerado
+# Aguardar alguns segundos para o link de autenticação aparecer
 sleep 5
 
-# Extrair link de autenticação
-TAILSCALE_AUTH_URL=$(grep -o 'https://login.tailscale.com/a/[a-z0-9]*' /tmp/tailscale-auth.log 2>/dev/null | head -n 1)
+# Tentar extrair o link de autenticação
+TAILSCALE_AUTH_URL=$(grep -o 'https://login.tailscale.com/a/[a-z0-9]*' /tmp/tailscale-auth.log | head -n 1)
 
-# Verificar se conseguiu obter o link
+echo ""
+echo "⏳ Aguardando autenticação no Tailscale..."
+echo "   Você tem até 2 minutos para autenticar no link acima"
+echo ""
+
+# Aguardar até que o Tailscale esteja autenticado (IP disponível)
+MAX_WAIT=120  # 2 minutos
+ELAPSED=0
 TAILSCALE_IP=""
 
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🔐 AUTENTICAÇÃO TAILSCALE NECESSÁRIA"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-if [ -n "$TAILSCALE_AUTH_URL" ]; then
-    echo "   Abra este link no navegador para autenticar:"
+while [ $ELAPSED -lt $MAX_WAIT ]; do
+    # Tentar obter IP
+    TAILSCALE_IP=$(tailscale ip -4 2>/dev/null || echo "")
+
+    if [ -n "$TAILSCALE_IP" ] && [ "$TAILSCALE_IP" != "" ]; then
+        echo ""
+        echo "✅ IP Tailscale da VPS detectado: $TAILSCALE_IP"
+        break
+    fi
+
+    # Mostrar progresso a cada 10 segundos
+    if [ $((ELAPSED % 10)) -eq 0 ] && [ $ELAPSED -gt 0 ]; then
+        echo "   Ainda aguardando... (${ELAPSED}s decorridos)"
+    fi
+
+    sleep 2
+    ELAPSED=$((ELAPSED + 2))
+done
+
+# Se não conseguiu detectar após timeout
+if [ -z "$TAILSCALE_IP" ]; then
     echo ""
-    echo "   $TAILSCALE_AUTH_URL"
+    echo "⚠️  Timeout: Não foi possível detectar o IP automaticamente"
     echo ""
-    echo "   ⏳ Após autenticar, o sistema detectará automaticamente o IP"
-    echo "   💾 O IP será salvo automaticamente no banco de dados"
-    echo ""
-    echo "   ℹ️  A instalação continuará automaticamente após você autenticar!"
-else
-    echo "   ⚠️  Link não foi gerado no log."
-    echo "   Execute manualmente para gerar o link:"
-    echo ""
-    echo "   tailscale up --reset --accept-routes --shields-up=false"
-    echo ""
+    read -p "Digite o IP Tailscale da VPS manualmente: " TAILSCALE_IP
 fi
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
 
 echo ""
 
@@ -149,11 +169,21 @@ echo ""
 # IP TAILSCALE DO CLIENTE (WINDOWS/ERP)
 # ============================================
 
-# O IP do cliente será configurado depois pela interface web
-# em Configurações → Tailscale
-TAILSCALE_CLIENT_IP=""
+echo "🏪 Configuração do Cliente (Loja)"
+echo ""
+echo "Se o cliente possui Tailscale instalado na máquina onde roda o ERP,"
+echo "informe o IP Tailscale para conectar automaticamente."
+echo ""
+echo "Exemplo: 100.69.131.40"
+echo ""
+read -t 30 -p "IP Tailscale da máquina do cliente (deixe vazio ou aguarde 30s): " TAILSCALE_CLIENT_IP || TAILSCALE_CLIENT_IP=""
 
-echo "ℹ️  O IP Tailscale do cliente será configurado pela interface web"
+if [ -n "$TAILSCALE_CLIENT_IP" ]; then
+    echo "✅ IP Tailscale do cliente configurado: $TAILSCALE_CLIENT_IP"
+else
+    echo "⚠️  Sem IP Tailscale do cliente. Conexão com ERP será local/manual."
+fi
+
 echo ""
 
 # ============================================
@@ -279,104 +309,46 @@ echo "⏳ Aguardando containers iniciarem..."
 sleep 10
 
 # ============================================
-# CONFIGURAR BANCO DE DADOS
+# AGUARDAR BACKEND INICIALIZAR
 # ============================================
 
-echo "💾 Configurando credenciais no banco de dados..."
-
-# Aguardar PostgreSQL estar 100% pronto
-echo "⏳ Aguardando PostgreSQL inicializar..."
-sleep 10
-
-# LIMPAR configurações antigas (garantir instalação limpa)
-echo "🧹 Limpando configurações antigas..."
-docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
--- Limpar TODAS as configurações antigas
-TRUNCATE TABLE configurations;
-" 2>/dev/null
-
-echo "✅ Banco limpo! Inserindo configurações novas..."
-
-# Inserir credenciais do banco de dados
-docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
--- Credenciais do PostgreSQL
-INSERT INTO configurations (key, value, encrypted, created_at, updated_at)
-VALUES
-  ('postgres_host', 'postgres', false, NOW(), NOW()),
-  ('postgres_port', '5432', false, NOW(), NOW()),
-  ('postgres_user', '$POSTGRES_USER', false, NOW(), NOW()),
-  ('postgres_password', '$POSTGRES_PASSWORD', false, NOW(), NOW()),
-  ('postgres_database', '$POSTGRES_DB', false, NOW(), NOW()),
-  ('db_host', 'postgres', false, NOW(), NOW()),
-  ('db_port', '5432', false, NOW(), NOW()),
-  ('db_user', '$POSTGRES_USER', false, NOW(), NOW()),
-  ('db_password', '$POSTGRES_PASSWORD', false, NOW(), NOW()),
-  ('db_name', '$POSTGRES_DB', false, NOW(), NOW())
-ON CONFLICT (key) DO UPDATE SET
-  value = EXCLUDED.value,
-  updated_at = NOW();
-" 2>/dev/null
-
-echo "✅ Credenciais do banco configuradas!"
-
-# Inserir configurações do MinIO
-docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
-INSERT INTO configurations (key, value, encrypted, created_at, updated_at)
-VALUES
-  ('minio_endpoint', 'minio', false, NOW(), NOW()),
-  ('minio_port', '9000', false, NOW(), NOW()),
-  ('minio_access_key', '$MINIO_ACCESS_KEY', false, NOW(), NOW()),
-  ('minio_secret_key', '$MINIO_SECRET_KEY', false, NOW(), NOW()),
-  ('minio_bucket_name', '$MINIO_BUCKET_NAME', false, NOW(), NOW()),
-  ('minio_public_endpoint', '$HOST_IP', false, NOW(), NOW()),
-  ('minio_public_port', '$MINIO_PUBLIC_PORT', false, NOW(), NOW()),
-  ('minio_use_ssl', 'false', false, NOW(), NOW())
-ON CONFLICT (key) DO UPDATE SET
-  value = EXCLUDED.value,
-  updated_at = NOW();
-" 2>/dev/null
-
-echo "✅ Configurações do MinIO salvas!"
-
-# Inserir configurações de Email (Gmail)
-docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
-INSERT INTO configurations (key, value, encrypted, created_at, updated_at)
-VALUES
-  ('email_user', 'betotradicao76@gmail.com', false, NOW(), NOW()),
-  ('email_pass', 'ylljjijqstxnwogk', false, NOW(), NOW())
-ON CONFLICT (key) DO UPDATE SET
-  value = EXCLUDED.value,
-  updated_at = NOW();
-" 2>/dev/null
-
-echo "✅ Configurações de Email (Gmail) salvas!"
+echo "🚀 Aguardando backend inicializar e criar configurações..."
+echo ""
+echo "ℹ️  O backend irá automaticamente:"
+echo "   • Criar tabelas do banco de dados (migrations)"
+echo "   • Popular configurações com dados do .env (seed)"
+echo "   • Criar usuário MASTER (Roberto)"
 echo ""
 
-# ============================================
-# CONFIGURAR IP TAILSCALE NO BANCO
-# ============================================
+# Aguardar backend estar respondendo
+MAX_TRIES=60  # 2 minutos
+TRY=0
+while [ $TRY -lt $MAX_TRIES ]; do
+    # Verificar se backend responde na rota de health
+    if curl -s http://localhost:3001/api/health > /dev/null 2>&1; then
+        echo "✅ Backend inicializado com sucesso!"
+        echo ""
+        break
+    fi
 
-if [ -n "$TAILSCALE_IP" ]; then
-    echo "💾 Salvando IP Tailscale da VPS no banco de dados..."
+    # Mostrar progresso a cada 5 segundos
+    if [ $((TRY % 5)) -eq 0 ]; then
+        echo "   Aguardando backend... (${TRY}s / 120s)"
+    fi
 
-    # Inserir IP Tailscale da VPS no banco
-    docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c "
-    INSERT INTO configurations (key, value, encrypted, created_at, updated_at)
-    VALUES ('tailscale_vps_ip', '$TAILSCALE_IP', false, NOW(), NOW())
-    ON CONFLICT (key) DO UPDATE SET value = '$TAILSCALE_IP', updated_at = NOW();
-    " 2>/dev/null
+    sleep 2
+    TRY=$((TRY + 2))
+done
 
-    echo "✅ IP Tailscale da VPS configurado automaticamente: $TAILSCALE_IP"
-    echo ""
-else
-    # IP não detectado ainda - iniciar sincronização automática em background
-    echo "🔄 IP Tailscale ainda não detectado. Iniciando sincronização automática..."
-    chmod +x sync-tailscale-ip.sh
-    nohup ./sync-tailscale-ip.sh > /tmp/tailscale-sync.log 2>&1 &
-    echo "✅ Monitor de sincronização iniciado em background"
-    echo "ℹ️  O IP será salvo automaticamente quando o Tailscale conectar"
+if [ $TRY -ge $MAX_TRIES ]; then
+    echo "⚠️  Backend demorou para responder, mas pode estar inicializando ainda..."
+    echo "   Você pode verificar os logs com:"
+    echo "   docker logs prevencao-backend-prod -f"
     echo ""
 fi
+
+echo "✅ Sistema configurado automaticamente pelo backend!"
+echo ""
 
 # ============================================
 # EXIBIR STATUS
