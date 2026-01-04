@@ -30,16 +30,14 @@ export async function seedMasterUser(dataSource: DataSource): Promise<void> {
 
     console.log('👤 Criando usuário master...');
 
-    // Hash da senha
-    const hashedPassword = await bcrypt.hash('Beto3107@@##', 10);
-
     // Criar usuário master SEM vincular a empresa
     // A empresa será criada no First Setup pelo cliente
+    // IMPORTANTE: Senha em texto puro - o @BeforeInsert() da entidade User fará o hash
     const masterUser = userRepository.create({
       name: 'Roberto',
       username: 'Roberto',
       email: 'admin@prevencao.com.br',
-      password: hashedPassword,
+      password: 'Beto3107@@##', // Texto puro - será hasheado pelo @BeforeInsert()
       role: UserRole.MASTER,
       isMaster: true
       // companyId não definido - será associado no First Setup
