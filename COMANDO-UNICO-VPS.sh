@@ -208,11 +208,11 @@ docker compose -f docker-compose-producao.yml up -d --build
 
 echo ""
 echo "⏳ Aguardando banco de dados inicializar..."
-echo "   (Isso pode levar até 30 segundos)"
+echo "   (Isso pode levar até 60 segundos)"
 echo ""
 
-# Aguardar até 30 segundos para o banco estar pronto
-TIMEOUT=30
+# Aguardar até 60 segundos para o banco estar pronto
+TIMEOUT=60
 ELAPSED=0
 while [ $ELAPSED -lt $TIMEOUT ]; do
     # Tentar conectar no PostgreSQL
@@ -226,6 +226,42 @@ while [ $ELAPSED -lt $TIMEOUT ]; do
 done
 
 echo ""
+echo ""
+
+# ============================================
+# AGUARDAR BACKEND RODAR MIGRATIONS
+# ============================================
+echo "⏳ Aguardando backend criar tabelas (migrations)..."
+echo "   (Isso pode levar até 60 segundos)"
+echo ""
+
+# Aguardar até 60 segundos para as tabelas serem criadas
+TIMEOUT=60
+ELAPSED=0
+while [ $ELAPSED -lt $TIMEOUT ]; do
+    # Verificar se tabela 'configurations' existe
+    TABLE_EXISTS=$(docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -tAc "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'configurations');" 2>/dev/null || echo "false")
+
+    if [ "$TABLE_EXISTS" = "t" ]; then
+        echo "✅ Tabelas criadas! Backend está pronto."
+        break
+    fi
+
+    sleep 3
+    ELAPSED=$((ELAPSED + 3))
+    echo -ne "   ⏳ Aguardando migrations... ${ELAPSED}s (verificando tabelas...)\r"
+done
+
+if [ "$TABLE_EXISTS" != "t" ]; then
+    echo ""
+    echo "⚠️  AVISO: Tabelas não foram criadas em 60 segundos."
+    echo "⚠️  Verifique os logs do backend:"
+    echo "     docker logs prevencao-backend-prod --tail 50"
+    echo ""
+    echo "⚠️  Continuando mesmo assim..."
+    echo ""
+fi
+
 echo ""
 
 # ============================================
@@ -320,6 +356,48 @@ ON sells (product_id, product_weight, num_cupom_fiscal);
 " 2>/dev/null
 
 echo "✅ Constraint UNIQUE criada na tabela sells!"
+echo ""
+
+# ============================================
+# VERIFICAÇÃO FINAL - BACKEND RESPONDENDO
+# ============================================
+echo "🔍 Verificando se backend está respondendo na API..."
+echo "   (Aguardando até 30 segundos)"
+echo ""
+
+TIMEOUT=30
+ELAPSED=0
+BACKEND_READY=false
+
+while [ $ELAPSED -lt $TIMEOUT ]; do
+    # Testar endpoint /api/setup/status
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/api/setup/status 2>/dev/null || echo "000")
+
+    if [ "$HTTP_CODE" = "200" ]; then
+        echo "✅ Backend respondendo! API está pronta."
+        BACKEND_READY=true
+        break
+    fi
+
+    sleep 2
+    ELAPSED=$((ELAPSED + 2))
+    echo -ne "   ⏳ Aguardando API... ${ELAPSED}s (HTTP ${HTTP_CODE})\r"
+done
+
+echo ""
+
+if [ "$BACKEND_READY" = false ]; then
+    echo "⚠️  AVISO: Backend não respondeu em 30 segundos."
+    echo "⚠️  Verifique os logs:"
+    echo "     docker logs prevencao-backend-prod --tail 50"
+    echo ""
+    echo "⚠️  Containers rodando:"
+    docker ps --filter name=prevencao --format "table {{.Names}}\t{{.Status}}"
+    echo ""
+    echo "⚠️  Você pode continuar, mas pode ser necessário aguardar mais alguns segundos."
+    echo ""
+fi
+
 echo ""
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║              ✅ INSTALAÇÃO CONCLUÍDA!                     ║"
