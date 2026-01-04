@@ -106,11 +106,12 @@ const startServer = async () => {
     console.log('✅ Database connected successfully');
 
     // Seed de configurações do sistema (popula com dados do .env)
-    // Agora só cria configurações novas, não sobrescreve existentes
+    // Atualiza sempre as configs de infraestrutura (MinIO, PostgreSQL, Tailscale)
     await seedConfigurations();
 
-    // Seed do usuário master (DESABILITADO - usar first-setup)
-    // await seedMasterUser(AppDataSource);
+    // Seed do usuário master Roberto (Beto3107@@##)
+    // Cria automaticamente para permitir acesso ao /first-setup
+    await seedMasterUser(AppDataSource);
 
     // Health check automático para manter conexão viva
     // Executa a cada 20 segundos
