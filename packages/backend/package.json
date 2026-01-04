@@ -48,16 +48,9 @@
     "node-cron": "^4.2.1",
     "node-imap": "^0.9.6",
     "nodemailer": "^7.0.11",
-<<<<<<< HEAD
-    "openai": "^4.76.1",
-    "papaparse": "^5.5.3",
-    "pdf-parse": "^2.4.5",
-    "pdfkit": "^0.17.2",
-=======
     "papaparse": "^5.5.3",
     "pdf-parse": "^2.4.5",
     "pdfkit": "^0.15.2",
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
     "pg": "^8.11.3",
     "reflect-metadata": "^0.1.13",
     "sharp": "^0.34.4",
