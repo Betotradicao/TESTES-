@@ -174,7 +174,11 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     },
     {
       id: 'ruptura',
+<<<<<<< HEAD
+      title: 'Prevenção Ruptura',
+=======
       title: 'Prevenção Rupturas',
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
       moduleId: 'ruptura',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -205,7 +209,11 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     },
     {
       id: 'perdas',
+<<<<<<< HEAD
+      title: 'Prevenção de Quebras',
+=======
       title: 'Prevenção Quebras',
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
       moduleId: 'perdas',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -288,8 +296,13 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           if (item.id === 'configuracoes' && user?.type === 'employee') {
             return false;
           }
+<<<<<<< HEAD
+          // Hide Configurações de REDE for non-MASTER users
+          if (item.id === 'configuracoes-rede' && user?.role !== 'master' && !user?.isMaster) {
+=======
           // Hide Configurações de REDE for non-master users
           if (item.id === 'configuracoes-rede' && !user?.isMaster) {
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
             return false;
           }
           return true;

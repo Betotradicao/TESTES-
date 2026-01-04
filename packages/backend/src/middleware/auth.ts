@@ -11,23 +11,28 @@ export interface AuthRequest extends Request {
     type: 'admin' | 'employee';
     role?: UserRole;
     isMaster?: boolean;
-    companyId?: string;
+    companyId?: string | null;
   };
   userId?: string; // Para compatibilidade com controllers existentes
 }
 
 export const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction) => {
+  console.log('🔐 AUTHENTICATE TOKEN - Path:', req.path, 'Method:', req.method);
+
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
+    console.log('❌ AUTHENTICATE TOKEN - Token ausente!');
     return res.status(401).json({ error: 'Access token required' });
   }
 
   jwt.verify(token, process.env.JWT_SECRET || 'development-secret', (err: any, user: any) => {
     if (err) {
+      console.log('❌ AUTHENTICATE TOKEN - Token inválido:', err.message);
       return res.status(403).json({ error: 'Invalid or expired token' });
     }
+    console.log('✅ AUTHENTICATE TOKEN - Sucesso! User:', user.email, 'Role:', user.role, 'isMaster:', user.isMaster);
     req.user = user;
     req.userId = user.id; // Para compatibilidade com controllers existentes
     next();
@@ -105,13 +110,14 @@ export const isAdmin = (req: AuthRequest, res: Response, next: NextFunction) => 
   next();
 };
 
-// Middleware to check if user is master (Beto)
+// Middleware to check if user is master (Roberto - role MASTER)
 export const isMaster = (req: AuthRequest, res: Response, next: NextFunction) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  if (!req.user.isMaster) {
+  // Verificar se tem role MASTER ou isMaster flag
+  if (req.user.role !== UserRole.MASTER && !req.user.isMaster) {
     return res.status(403).json({ error: 'Master access required' });
   }
 

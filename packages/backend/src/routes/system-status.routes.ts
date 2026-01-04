@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import { getCronStatus, getBarcodeStatus, testZanthusConnection } from '../controllers/system-status.controller';
+import { authenticateToken, isMaster } from '../middleware/auth';
 
 const router: Router = Router();
+
+// Todas as rotas requerem autenticação MASTER (Configurações de REDE - Cron Monitor)
+router.use(authenticateToken, isMaster);
 
 /**
  * @swagger

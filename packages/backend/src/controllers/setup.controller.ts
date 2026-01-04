@@ -74,11 +74,7 @@ export class SetupController {
         cidade,
         estado,
         telefone,
-        email,
-        // Email de Envio
-        emailUser,
-        emailPass,
-        welcomeMessage
+        email
       } = req.body;
 
       // Validações
@@ -90,6 +86,15 @@ export class SetupController {
         return res.status(400).json({ error: 'Dados da empresa são obrigatórios' });
       }
 
+<<<<<<< HEAD
+      // Verificar se já existe algum usuário ADMIN (ignorar MASTER)
+      const userRepository = AppDataSource.getRepository(User);
+      const existingAdmins = await userRepository.count({
+        where: { role: UserRole.ADMIN }
+      });
+
+      if (existingAdmins > 0) {
+=======
       // Verificar se já existe algum usuário além do master Roberto
       const userRepository = AppDataSource.getRepository(User);
       const totalUsers = await userRepository.count();
@@ -99,6 +104,7 @@ export class SetupController {
 
       // Se existem mais usuários além do Roberto, sistema já foi configurado
       if (totalUsers > 1 || (totalUsers === 1 && masterRoberto === 0)) {
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
         return res.status(400).json({ error: 'Sistema já foi configurado' });
       }
 
@@ -146,18 +152,22 @@ export class SetupController {
       await companyRepository.save(company);
       console.log('✅ Empresa criada:', company.nomeFantasia);
 
-      // Criar usuário admin vinculado à empresa
+      // Criar usuário ADMIN (não MASTER) vinculado à empresa
       const adminUser = userRepository.create({
         username: adminUsername,
         name: adminName,
         email: adminEmail,
         password: adminPassword, // Será hasheado pelo @BeforeInsert
         role: UserRole.ADMIN,
-        isMaster: true,
+        isMaster: false, // Admin NÃO é master
         companyId: company.id
       });
 
       await userRepository.save(adminUser);
+<<<<<<< HEAD
+      console.log('✅ Usuário ADMIN criado:', adminUser.username, '/', adminUser.email);
+      console.log('   Role: ADMIN (sem acesso a Configurações de Rede)');
+=======
       console.log('✅ Usuário admin criado:', adminUser.username, '/', adminUser.email);
 
       // Atualizar .env com email SE fornecido (opcional)
@@ -193,6 +203,7 @@ export class SetupController {
           console.error('⚠️ Erro ao salvar email:', error);
         }
       }
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
       return res.status(201).json({
         message: 'Setup realizado com sucesso',

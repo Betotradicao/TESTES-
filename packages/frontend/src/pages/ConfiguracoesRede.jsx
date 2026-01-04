@@ -21,6 +21,17 @@ export default function ConfiguracoesRede() {
     return searchParams.get('tab') || 'tailscale';
   });
 
+<<<<<<< HEAD
+  // Verificar se o usuário logado é MASTER
+  const isMasterUser = user?.role === 'master' || user?.isMaster === true;
+
+  // Redirecionar se não for MASTER
+  useEffect(() => {
+    if (!isMasterUser) {
+      navigate('/dashboard');
+    }
+  }, [user, isMasterUser, navigate]);
+=======
   // Verificar se usuário é master ao carregar a página
   useEffect(() => {
     if (!user?.isMaster) {
@@ -28,6 +39,7 @@ export default function ConfiguracoesRede() {
       navigate('/dashboard');
     }
   }, [user, navigate]);
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
@@ -41,11 +53,14 @@ export default function ConfiguracoesRede() {
     setSearchParams({ tab });
   };
 
+<<<<<<< HEAD
+=======
   // Se não é master, não renderiza nada (vai redirecionar)
   if (!user?.isMaster) {
     return null;
   }
 
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
@@ -58,6 +73,28 @@ export default function ConfiguracoesRede() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto lg:ml-0">
+<<<<<<< HEAD
+          {/* Mobile Header */}
+          <div className="lg:hidden bg-white shadow-sm p-4 flex items-center justify-between">
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-2 text-gray-600 hover:text-gray-900"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"/>
+              </svg>
+            </button>
+            <h1 className="text-lg font-semibold text-gray-900">Configurações de REDE</h1>
+            <button
+              onClick={logout}
+              className="p-2 text-gray-600 hover:text-red-600"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+              </svg>
+            </button>
+          </div>
+=======
         {/* Mobile Header */}
         <div className="lg:hidden bg-white shadow-sm p-4 flex items-center justify-between">
           <button
@@ -78,6 +115,7 @@ export default function ConfiguracoesRede() {
             </svg>
           </button>
         </div>
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
         {/* Content Area */}
         <div className="p-6">
@@ -105,7 +143,10 @@ export default function ConfiguracoesRede() {
             {activeTab === 'tailscale' && <TailscaleTab />}
             {activeTab === 'cron-monitor' && <CronMonitorTab />}
           </div>
+<<<<<<< HEAD
+=======
         </div>
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
       </div>
     </div>
   );

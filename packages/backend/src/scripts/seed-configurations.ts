@@ -205,12 +205,20 @@ async function seedConfigurations() {
       },
       {
         key: 'evolution_api_token',
+<<<<<<< HEAD
+        value: 'F0A82E6394D6-4D5A-845A-FC0413873588',
+=======
         value: '',
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
         description: 'Token de autenticação Evolution API'
       },
       {
         key: 'evolution_instance',
+<<<<<<< HEAD
+        value: 'DVR FACIAL',
+=======
         value: '',
+>>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
         description: 'Nome da instância Evolution API'
       },
       {
