@@ -202,9 +202,12 @@ cp /root/prevencao-instalacao/.env /root/TESTES/InstaladorVPS/.env
 cp /root/prevencao-instalacao/.env /root/TESTES/.env
 
 # Subir containers
-echo "🐳 Fazendo build dos containers (sem cache para pegar última versão)..."
+echo "🗑️ Removendo imagens antigas para garantir build limpo..."
 cd /root/TESTES/InstaladorVPS
-docker compose -f docker-compose-producao.yml build --no-cache backend frontend cron
+docker rmi instaladorvps-backend instaladorvps-frontend instaladorvps-cron 2>/dev/null || true
+
+echo "🐳 Fazendo build dos containers (sem cache para pegar última versão)..."
+docker compose -f docker-compose-producao.yml build --no-cache --pull backend frontend cron
 
 echo "🚀 Subindo containers..."
 docker compose -f docker-compose-producao.yml up -d
