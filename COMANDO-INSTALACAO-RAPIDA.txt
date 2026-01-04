@@ -1,0 +1,51 @@
+═══════════════════════════════════════════════════════════════════
+  INSTALAÇÃO RÁPIDA - PREVENÇÃO NO RADAR VPS
+═══════════════════════════════════════════════════════════════════
+
+📦 VERSÃO: Atualizada (Perdas + Timezone + Instaladores)
+🔄 CÓDIGO: Sempre baixa a versão MAIS RECENTE do GitHub
+👤 USUÁRIO MASTER: Criado automaticamente (Roberto / Beto3107@@##)
+
+═══════════════════════════════════════════════════════════════════
+
+🚀 COMANDO ÚNICO (Copie e cole no terminal da VPS):
+
+curl -fsSL https://raw.githubusercontent.com/Betotradicao/TESTES-/main/INSTALAR-VPS-ATUALIZADO.sh | bash
+
+═══════════════════════════════════════════════════════════════════
+
+📝 OU em 3 passos:
+
+1️⃣  Baixar instalador:
+curl -fsSL https://raw.githubusercontent.com/Betotradicao/TESTES-/main/INSTALAR-VPS-ATUALIZADO.sh -o instalar.sh
+
+2️⃣  Dar permissão de execução:
+chmod +x instalar.sh
+
+3️⃣  Executar:
+./instalar.sh
+
+═══════════════════════════════════════════════════════════════════
+
+⚠️  IMPORTANTE:
+
+✅ O instalador pede autenticação Tailscale (link no navegador)
+✅ Solicita IP Tailscale do cliente (Windows/ERP)
+✅ Gera senhas seguras automaticamente
+✅ Salva tudo em /root/prevencao-instalacao/
+✅ Cria usuário master Roberto automaticamente
+✅ Sistema abre em /first-setup para configurar empresa
+
+═══════════════════════════════════════════════════════════════════
+
+🌐 APÓS INSTALAÇÃO, ACESSE:
+
+http://SEU_IP:3000/first-setup
+
+═══════════════════════════════════════════════════════════════════
+
+📚 DOCUMENTAÇÃO COMPLETA:
+
+https://github.com/Betotradicao/TESTES-/blob/main/INSTALADOR-README.md
+
+═══════════════════════════════════════════════════════════════════
