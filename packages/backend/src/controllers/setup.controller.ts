@@ -153,7 +153,7 @@ export class SetupController {
         email: adminEmail,
         password: adminPassword, // Será hasheado pelo @BeforeInsert
         role: UserRole.ADMIN,
-        isMaster: true,
+        isMaster: false, // Apenas Roberto é MASTER
         companyId: company.id
       });
 
