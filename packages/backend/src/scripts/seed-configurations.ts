@@ -183,22 +183,22 @@ async function seedConfigurations() {
       // Evolution API (WhatsApp) - Valores vazios, serão configurados no painel
       {
         key: 'evolution_api_url',
-        value: '',
+        value: 'http://31.97.82.235:8090',
         description: 'URL da Evolution API (WhatsApp)'
       },
       {
         key: 'evolution_api_token',
-        value: '',
+        value: '509051211ebc7213e1e6edd75ed18361:6cd6f7b78d85e02c50659f3dea444b8079583067262808d098e5ac497d4052f15ce164fc7e7dd18876cde113a62923f2',
         description: 'Token de autenticação Evolution API'
       },
       {
         key: 'evolution_instance',
-        value: '',
+        value: 'DVR FACIAL',
         description: 'Nome da instância Evolution API'
       },
       {
         key: 'evolution_whatsapp_group_id',
-        value: '',
+        value: '120363421239599536@g.us',
         description: 'ID do grupo WhatsApp para notificações'
       },
 
@@ -249,12 +249,12 @@ async function seedConfigurations() {
       // Monitor de Email (Novo sistema) - Valores vazios, serão configurados no painel
       {
         key: 'email_monitor_email',
-        value: '',
+        value: 'betotradicao76@gmail.com',
         description: 'Email Gmail para monitorar'
       },
       {
         key: 'email_monitor_app_password',
-        value: '',
+        value: 'ygrowrdaloqfgtcc',
         description: 'Senha de app do Gmail para IMAP (Monitor DVR)'
       },
       {
@@ -269,7 +269,7 @@ async function seedConfigurations() {
       },
       {
         key: 'email_monitor_whatsapp_group',
-        value: '',
+        value: '120363421239599536@g.us',
         description: 'ID do grupo WhatsApp para notificações do Monitor'
       },
       {
