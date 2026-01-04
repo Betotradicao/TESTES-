@@ -183,18 +183,17 @@ else
 fi
 
 # Clonar repositório
-echo "📥 Baixando código do GitHub..."
+echo "📥 Baixando código MAIS RECENTE do GitHub..."
 if [ -d "/root/TESTES" ]; then
-    echo "⚠️  Diretório TESTES já existe, atualizando..."
-    cd /root/TESTES
-    git pull
-else
-    cd /root
-    git clone https://github.com/Betotradicao/TESTES-.git TESTES
-    cd TESTES
+    echo "🗑️ Removendo instalação anterior para garantir código atualizado..."
+    rm -rf /root/TESTES
 fi
 
-echo "✅ Código baixado"
+cd /root
+git clone https://github.com/Betotradicao/TESTES-.git TESTES
+cd TESTES
+
+echo "✅ Código baixado (commit: $(git log -1 --format='%h %s'))"
 
 # Copiar .env para InstaladorVPS
 echo "📋 Configurando variáveis de ambiente..."
