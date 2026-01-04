@@ -188,6 +188,12 @@ cat > /root/prevencao-instalacao/.env << EOF
 # CONFIGURAÇÃO VPS - GERADO AUTOMATICAMENTE
 # ==========================================
 
+# Backend
+NODE_ENV=production
+PORT=3001
+FRONTEND_URL=http://$HOST_IP:3000
+JWT_SECRET=$(openssl rand -hex 32)
+
 # IP Público da VPS
 HOST_IP=$HOST_IP
 
@@ -197,6 +203,8 @@ DB_PORT=5432
 DB_USER=postgres
 DB_PASSWORD=$POSTGRES_PASSWORD
 DB_NAME=prevencao_db
+POSTGRES_USER=postgres
+POSTGRES_DB=prevencao_db
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 
 # MinIO (Armazenamento)
@@ -208,6 +216,9 @@ MINIO_BUCKET_NAME=market-security
 MINIO_PUBLIC_ENDPOINT=$HOST_IP
 MINIO_PUBLIC_PORT=9010
 MINIO_PUBLIC_USE_SSL=false
+
+# Frontend
+VITE_API_URL=http://$HOST_IP:3001/api
 
 # API Token (Scanners)
 API_TOKEN=$API_TOKEN
