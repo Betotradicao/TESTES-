@@ -90,9 +90,7 @@ export class SetupController {
         return res.status(400).json({ error: 'Dados da empresa são obrigatórios' });
       }
 
-      if (!emailUser || !emailPass) {
-        return res.status(400).json({ error: 'Email e senha de envio são obrigatórios' });
-      }
+      // Email é opcional - pode ser configurado depois
 
       // Verificar se já existe algum usuário além do master Roberto
       const userRepository = AppDataSource.getRepository(User);
