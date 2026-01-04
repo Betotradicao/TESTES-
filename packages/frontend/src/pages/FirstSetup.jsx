@@ -38,11 +38,7 @@ export default function FirstSetup() {
     adminUsername: '',
     adminEmail: '',
     adminPassword: '',
-<<<<<<< HEAD
     confirmPassword: ''
-=======
-    confirmPassword: '',
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
   });
 
   // Formatar CEP enquanto digita
