@@ -11,11 +11,17 @@ export class SetupController {
     try {
       // Verificar se o banco de dados está inicializado
       if (!AppDataSource.isInitialized) {
-        console.log('⚠️ Setup Status: Banco de dados ainda não está pronto, aguardando...');
-        return res.json({
-          needsSetup: true,
-          message: 'Banco de dados inicializando... Aguarde alguns segundos.'
-        });
+        console.log('⚠️ Setup Status: Tentando inicializar banco de dados...');
+        try {
+          await AppDataSource.initialize();
+          console.log('✅ Setup Status: Banco inicializado com sucesso');
+        } catch (initError) {
+          console.log('⚠️ Setup Status: Banco ainda não está pronto, aguardando...');
+          return res.json({
+            needsSetup: true,
+            message: 'Banco de dados inicializando... Aguarde alguns segundos.'
+          });
+        }
       }
 
       const userRepository = AppDataSource.getRepository(User);
