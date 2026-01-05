@@ -180,37 +180,37 @@ async function seedConfigurations() {
         description: 'Endpoint de vendas Intersolid'
       },
 
-      // Evolution API (WhatsApp) - Valores vazios, serão configurados no painel
+      // Evolution API (WhatsApp) - PRÉ-CONFIGURADO
       {
         key: 'evolution_api_url',
-        value: '',
+        value: 'http://31.97.82.235:8090',
         description: 'URL da Evolution API (WhatsApp)'
       },
       {
         key: 'evolution_api_token',
-        value: '',
+        value: '509051211ebc7213e1e6edd75ed18361:6cd6f7b78d85e02c50659f3dea444b8079583067262808d098e5ac497d4052f15ce164fc7e7dd18876cde113a62923f2',
         description: 'Token de autenticação Evolution API'
       },
       {
         key: 'evolution_instance',
-        value: '',
+        value: 'DVR FACIAL',
         description: 'Nome da instância Evolution API'
       },
       {
         key: 'evolution_whatsapp_group_id',
-        value: '',
+        value: '120363421239599536@g.us',
         description: 'ID do grupo WhatsApp para notificações'
       },
 
-      // Email - Recuperação de Senha (vem do .env gerado pelo instalador)
+      // Email - Recuperação de Senha - PRÉ-CONFIGURADO
       {
         key: 'email_user',
-        value: process.env.EMAIL_USER || '',
+        value: 'betotradicao76@gmail.com',
         description: 'Email para envio (Gmail)'
       },
       {
         key: 'email_pass',
-        value: process.env.EMAIL_PASS || '',
+        value: 'fqojjjhztvganfya',
         description: 'Senha de app do Gmail'
       },
 
@@ -246,15 +246,15 @@ async function seedConfigurations() {
         description: 'Auto-iniciar monitor de email'
       },
 
-      // Monitor de Email (Novo sistema) - Valores vazios, serão configurados no painel
+      // Monitor de Email (Novo sistema) - PRÉ-CONFIGURADO
       {
         key: 'email_monitor_email',
-        value: '',
+        value: 'betotradicao76@gmail.com',
         description: 'Email Gmail para monitorar'
       },
       {
         key: 'email_monitor_app_password',
-        value: '',
+        value: 'ygrowrdaloqfgtcc',
         description: 'Senha de app do Gmail para IMAP (Monitor DVR)'
       },
       {
@@ -269,12 +269,12 @@ async function seedConfigurations() {
       },
       {
         key: 'email_monitor_whatsapp_group',
-        value: '',
+        value: '120363421239599536@g.us',
         description: 'ID do grupo WhatsApp para notificações do Monitor'
       },
       {
         key: 'email_monitor_enabled',
-        value: 'false',
+        value: 'true',
         description: 'Monitor habilitado (true/false)'
       }
     ];
