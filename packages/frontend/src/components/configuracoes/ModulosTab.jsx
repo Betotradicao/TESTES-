@@ -6,11 +6,7 @@ export default function ModulosTab() {
     { id: 'bipagens', name: 'Prevenção de Bipagens', icon: '🔍', active: true },
     { id: 'pdv', name: 'Prevenção de PDV', icon: '💳', active: true },
     { id: 'facial', name: 'Prevenção Facial', icon: '👤', active: true },
-<<<<<<< HEAD
-    { id: 'ruptura', name: 'Prevenção Ruptura', icon: '📋', active: true },
-=======
     { id: 'ruptura', name: 'Prevenção Rupturas', icon: '📋', active: true },
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
     { id: 'perdas', name: 'Prevenção Quebras', icon: '📊', active: true }
   ];
 

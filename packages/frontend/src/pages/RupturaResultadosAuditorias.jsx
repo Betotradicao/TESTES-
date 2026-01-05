@@ -15,14 +15,11 @@ export default function RupturaResultadosAuditorias() {
   const [fornecedorSelecionado, setFornecedorSelecionado] = useState('todos');
   const [auditorSelecionado, setAuditorSelecionado] = useState('todos');
 
-<<<<<<< HEAD
-=======
   // Filtros da tabela de produtos
   const [filtroTipoRuptura, setFiltroTipoRuptura] = useState('todos'); // 'todos', 'nao_encontrado', 'ruptura_estoque'
   const [filtroFornecedorTabela, setFiltroFornecedorTabela] = useState('todos');
   const [filtroSetorTabela, setFiltroSetorTabela] = useState('todos');
 
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
   // Dados
   const [produtos, setProdutos] = useState([]);
   const [fornecedores, setFornecedores] = useState([]);
@@ -31,17 +28,6 @@ export default function RupturaResultadosAuditorias() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-<<<<<<< HEAD
-  // Ordenação
-  const [ordenacao, setOrdenacao] = useState({ campo: 'criticidade', direcao: 'desc' });
-
-  // Filtros adicionais interativos
-  const [filtroFornecedorAtivo, setFiltroFornecedorAtivo] = useState(null);
-  const [filtroSetorAtivo, setFiltroSetorAtivo] = useState(null);
-  const [tipoRupturaFiltro, setTipoRupturaFiltro] = useState('todos'); // 'todos', 'nao-encontrado', 'em-estoque'
-
-=======
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
   useEffect(() => {
     loadFilterOptions();
 
@@ -110,182 +96,6 @@ export default function RupturaResultadosAuditorias() {
     }
   }, [dataInicio, dataFim]);
 
-<<<<<<< HEAD
-  const toggleOrdenacao = (campo) => {
-    setOrdenacao(prev => {
-      if (prev.campo === campo) {
-        return { campo, direcao: prev.direcao === 'asc' ? 'desc' : 'asc' };
-      } else {
-        return { campo, direcao: campo === 'criticidade' ? 'desc' : 'asc' };
-      }
-    });
-  };
-
-  const stats = resultados?.estatisticas || {};
-  const itensRuptura = resultados?.itens_ruptura || [];
-  const fornecedoresRanking = resultados?.fornecedores_ranking || [];
-  const secoesRanking = resultados?.secoes_ranking || [];
-
-  // Debug: Verificar dados
-  console.log('🔍 DEBUG - Total itens ruptura:', itensRuptura.length);
-  console.log('🔍 DEBUG - TODOS os itens:', itensRuptura.map(i => ({
-    produto: i.descricao,
-    fornecedor: i.fornecedor,
-    setor: i.secao,
-    estoque: i.estoque_atual,
-    estoqueType: typeof i.estoque_atual
-  })));
-  console.log('🔍 DEBUG - Filtros ativos:', {
-    fornecedor: filtroFornecedorAtivo,
-    setor: filtroSetorAtivo,
-    tipoRuptura: tipoRupturaFiltro
-  });
-
-  // Aplicar filtros interativos (fornecedor, setor, tipo de ruptura)
-  const itensFiltrados = itensRuptura.filter(item => {
-    // Filtro por fornecedor clicado
-    if (filtroFornecedorAtivo && item.fornecedor !== filtroFornecedorAtivo) {
-      return false;
-    }
-
-    // Filtro por setor clicado
-    if (filtroSetorAtivo && item.secao !== filtroSetorAtivo) {
-      return false;
-    }
-
-    // Filtro por tipo de ruptura
-    if (tipoRupturaFiltro === 'nao-encontrado' && item.status_verificacao !== 'nao_encontrado') {
-      return false;
-    }
-    if (tipoRupturaFiltro === 'em-estoque' && item.status_verificacao !== 'ruptura_estoque') {
-      return false;
-    }
-
-    return true;
-  });
-
-  console.log('🔍 DEBUG - Itens após filtro:', itensFiltrados.length);
-
-  // Ordenar itens filtrados
-  const itensOrdenados = [...itensFiltrados].sort((a, b) => {
-    let valorA, valorB;
-
-    if (ordenacao.campo === 'criticidade') {
-      valorA = (a.venda_media_dia || 0) * (a.valor_venda || 0) * (a.margem_lucro || 0);
-      valorB = (b.venda_media_dia || 0) * (b.valor_venda || 0) * (b.margem_lucro || 0);
-    } else if (ordenacao.campo === 'produto') {
-      valorA = (a.descricao || '').toLowerCase();
-      valorB = (b.descricao || '').toLowerCase();
-    } else if (ordenacao.campo === 'fornecedor') {
-      valorA = (a.fornecedor || '').toLowerCase();
-      valorB = (b.fornecedor || '').toLowerCase();
-    } else if (ordenacao.campo === 'secao') {
-      valorA = (a.secao || '').toLowerCase();
-      valorB = (b.secao || '').toLowerCase();
-    } else if (ordenacao.campo === 'curva') {
-      valorA = a.curva || 'Z';
-      valorB = b.curva || 'Z';
-    } else if (ordenacao.campo === 'estoque') {
-      valorA = a.estoque_atual || 0;
-      valorB = b.estoque_atual || 0;
-    } else if (ordenacao.campo === 'venda_media') {
-      valorA = a.venda_media_dia || 0;
-      valorB = b.venda_media_dia || 0;
-    } else if (ordenacao.campo === 'valor_venda') {
-      valorA = a.valor_venda || 0;
-      valorB = b.valor_venda || 0;
-    } else if (ordenacao.campo === 'margem') {
-      valorA = a.margem_lucro || 0;
-      valorB = b.margem_lucro || 0;
-    } else if (ordenacao.campo === 'pedido') {
-      valorA = a.tem_pedido || '';
-      valorB = b.tem_pedido || '';
-    } else if (ordenacao.campo === 'ocorrencias') {
-      valorA = a.ocorrencias || 0;
-      valorB = b.ocorrencias || 0;
-    } else if (ordenacao.campo === 'perda') {
-      valorA = (a.venda_media_dia || 0) * (a.valor_venda || 0);
-      valorB = (b.venda_media_dia || 0) * (b.valor_venda || 0);
-    }
-
-    if (ordenacao.direcao === 'asc') {
-      return valorA > valorB ? 1 : valorA < valorB ? -1 : 0;
-    } else {
-      return valorA < valorB ? 1 : valorA > valorB ? -1 : 0;
-    }
-  });
-
-  // Calcular estatísticas de rupturas por tipo
-  const calcularEstatisticasRupturas = () => {
-    const rupturasNaoEncontrado = itensRuptura.filter(item => item.status_verificacao === 'nao_encontrado').length;
-    const rupturasEmEstoque = itensRuptura.filter(item => item.status_verificacao === 'ruptura_estoque').length;
-
-    console.log('🔍 DEBUG - Estatísticas:', {
-      total: itensRuptura.length,
-      naoEncontrado: rupturasNaoEncontrado,
-      emEstoque: rupturasEmEstoque,
-      primeiros3Items: itensRuptura.slice(0, 3).map(i => ({
-        produto: i.descricao,
-        status: i.status_verificacao,
-        estoque: i.estoque_atual
-      }))
-    });
-
-    return { rupturasNaoEncontrado, rupturasEmEstoque };
-  };
-
-  const { rupturasNaoEncontrado, rupturasEmEstoque } = calcularEstatisticasRupturas();
-
-  const gerarPDF = () => {
-    const doc = new jsPDF();
-
-    // Título
-    doc.setFontSize(18);
-    doc.text('Relatório Consolidado de Rupturas', 14, 22);
-
-    // Período
-    doc.setFontSize(11);
-    doc.text(`Período: ${new Date(dataInicio).toLocaleDateString('pt-BR')} até ${new Date(dataFim).toLocaleDateString('pt-BR')}`, 14, 32);
-
-    // Estatísticas
-    doc.setFontSize(14);
-    doc.text('Estatísticas', 14, 44);
-    doc.setFontSize(10);
-    doc.text(`Total de Itens Verificados: ${stats.total_itens_verificados || 0}`, 14, 52);
-    doc.text(`Encontrados: ${stats.total_encontrados || 0}`, 14, 58);
-    doc.text(`Rupturas: ${stats.total_rupturas || 0}`, 14, 64);
-    doc.text(`Taxa de Ruptura: ${stats.taxa_ruptura ? Number(stats.taxa_ruptura).toFixed(1) : '0'}%`, 14, 70);
-    doc.text(`Perda Venda no Período: R$ ${Number(stats.perda_venda_periodo || 0).toFixed(2)}`, 14, 76);
-    doc.text(`Perda Lucro no Período: R$ ${Number(stats.perda_lucro_periodo || 0).toFixed(2)}`, 14, 82);
-
-    // Tabela de produtos
-    const tableData = itensOrdenados.map((item, idx) => {
-      const perdaDia = (item.venda_media_dia || 0) * (item.valor_venda || 0);
-      return [
-        idx + 1,
-        item.descricao || '',
-        item.fornecedor || 'Sem fornecedor',
-        item.secao || '',
-        item.curva || '-',
-        Number(item.estoque_atual || 0).toFixed(0),
-        `R$ ${Number(item.valor_venda || 0).toFixed(2)}`,
-        `${Number(item.margem_lucro || 0).toFixed(0)}%`,
-        item.ocorrencias || 1,
-        `R$ ${Number(item.perda_total || 0).toFixed(2)}`
-      ];
-    });
-
-    autoTable(doc, {
-      startY: 94,
-      head: [['#', 'Produto', 'Fornecedor', 'Seção', 'Curva', 'Estoque', 'V.Venda', 'Margem %', 'Ocorrências', 'Perda Total']],
-      body: tableData,
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [239, 68, 68] }
-    });
-
-    const periodo = `${dataInicio.replace(/-/g, '')}_${dataFim.replace(/-/g, '')}`;
-    doc.save(`ruptura-consolidado-${periodo}.pdf`);
-=======
   const stats = resultados?.estatisticas || {};
   const todosItensRuptura = resultados?.itens_ruptura || [];
   const fornecedoresRanking = resultados?.fornecedores_ranking || [];
@@ -365,7 +175,6 @@ export default function RupturaResultadosAuditorias() {
     // Salvar PDF
     const nomeArquivo = `rupturas-agregado-${dataInicio}-${dataFim}.pdf`;
     doc.save(nomeArquivo);
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
   };
 
   return (
@@ -503,11 +312,7 @@ export default function RupturaResultadosAuditorias() {
         {resultados && (
           <>
             {/* KPI Cards */}
-<<<<<<< HEAD
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-=======
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
               <div className="bg-white rounded-lg shadow p-6 text-center">
                 <div className="text-4xl font-bold text-gray-800">{stats.total_itens_verificados || 0}</div>
                 <div className="text-sm text-gray-600 mt-1">Itens Verificados</div>
@@ -520,13 +325,6 @@ export default function RupturaResultadosAuditorias() {
 
               <div className="bg-white rounded-lg shadow p-6 text-center">
                 <div className="text-4xl font-bold text-red-600">{stats.total_rupturas || 0}</div>
-<<<<<<< HEAD
-                <div className="text-sm text-gray-600 mt-1">Total de Rupturas</div>
-                <div className="mt-2 text-xs text-gray-500">
-                  <div><span className="text-red-600">●</span> Ruptura (Não Encontrado): {rupturasNaoEncontrado}</div>
-                  <div><span className="text-orange-600">●</span> Ruptura (Em Estoque): {rupturasEmEstoque}</div>
-                </div>
-=======
                 <div className="text-sm text-gray-600 mt-1">Rupturas Total</div>
                 {(stats.rupturas_nao_encontrado > 0 || stats.rupturas_em_estoque > 0) && (
                   <div className="text-xs text-gray-500 mt-2">
@@ -534,7 +332,6 @@ export default function RupturaResultadosAuditorias() {
                     {stats.rupturas_em_estoque > 0 && <div>{stats.rupturas_em_estoque} Em Estoque</div>}
                   </div>
                 )}
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
               </div>
 
               <div className="bg-white rounded-lg shadow p-6 text-center">
@@ -543,14 +340,6 @@ export default function RupturaResultadosAuditorias() {
                 </div>
                 <div className="text-sm text-gray-600 mt-1">Taxa Ruptura</div>
               </div>
-<<<<<<< HEAD
-
-              <div className="bg-white rounded-lg shadow p-6 text-center">
-                <div className="text-4xl font-bold text-purple-600">{fornecedoresRanking.length}</div>
-                <div className="text-sm text-gray-600 mt-1">Fornecedores c/ Rupturas</div>
-              </div>
-=======
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
             </div>
 
             {/* Financial Impact - Baseado no Período */}
@@ -575,17 +364,6 @@ export default function RupturaResultadosAuditorias() {
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-bold text-gray-800">
-<<<<<<< HEAD
-                    📦 Produtos com Ruptura ({itensFiltrados.length} de {itensRuptura.length})
-                  </h2>
-
-                  {itensRuptura.length > 0 && (
-                    <button
-                      onClick={gerarPDF}
-                      className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition-colors"
-                    >
-                      📄 PDF
-=======
                     📦 Produtos com Ruptura ({itensRuptura.length})
                   </h2>
                   {itensRuptura.length > 0 && (
@@ -597,84 +375,10 @@ export default function RupturaResultadosAuditorias() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                       </svg>
                       Gerar PDF
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
                     </button>
                   )}
                 </div>
 
-<<<<<<< HEAD
-                {/* Filtros Interativos */}
-                <div className="mb-4 space-y-3">
-                  {/* Filtro por Tipo de Ruptura */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium text-gray-700">Tipo de Ruptura:</span>
-                    <button
-                      onClick={() => setTipoRupturaFiltro('todos')}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                        tipoRupturaFiltro === 'todos'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                    >
-                      Todos ({itensRuptura.length})
-                    </button>
-                    <button
-                      onClick={() => setTipoRupturaFiltro('nao-encontrado')}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                        tipoRupturaFiltro === 'nao-encontrado'
-                          ? 'bg-red-600 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                    >
-                      <span className="text-red-600">●</span> Ruptura (Não Encontrado) ({rupturasNaoEncontrado})
-                    </button>
-                    <button
-                      onClick={() => setTipoRupturaFiltro('em-estoque')}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                        tipoRupturaFiltro === 'em-estoque'
-                          ? 'bg-orange-600 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                    >
-                      <span className="text-orange-600">●</span> Ruptura (Em Estoque) ({rupturasEmEstoque})
-                    </button>
-                  </div>
-
-                  {/* Filtros Ativos */}
-                  {(filtroFornecedorAtivo || filtroSetorAtivo) && (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-gray-700">Filtros ativos:</span>
-                      {filtroFornecedorAtivo && (
-                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-700 rounded text-sm">
-                          Fornecedor: {filtroFornecedorAtivo}
-                          <button
-                            onClick={() => setFiltroFornecedorAtivo(null)}
-                            className="ml-1 text-purple-900 hover:text-purple-950 font-bold"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      )}
-                      {filtroSetorAtivo && (
-                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 rounded text-sm">
-                          Setor: {filtroSetorAtivo}
-                          <button
-                            onClick={() => setFiltroSetorAtivo(null)}
-                            className="ml-1 text-green-900 hover:text-green-950 font-bold"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      )}
-                      <button
-                        onClick={() => {
-                          setFiltroFornecedorAtivo(null);
-                          setFiltroSetorAtivo(null);
-                        }}
-                        className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300"
-                      >
-                        Limpar todos
-=======
                 {/* Filtros de Tipo de Ruptura */}
                 <div className="flex flex-wrap gap-2 mb-4">
                   <button
@@ -741,7 +445,6 @@ export default function RupturaResultadosAuditorias() {
                         className="ml-2 text-orange-600 hover:text-orange-900"
                       >
                         ✕
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
                       </button>
                     </div>
                   )}
@@ -757,78 +460,6 @@ export default function RupturaResultadosAuditorias() {
                       <thead className="bg-gray-50 border-b">
                         <tr>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-<<<<<<< HEAD
-                          <th
-                            onClick={() => toggleOrdenacao('produto')}
-                            className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                          >
-                            Produto {ordenacao.campo === 'produto' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
-                          </th>
-                          <th
-                            onClick={() => toggleOrdenacao('fornecedor')}
-                            className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                          >
-                            Fornecedor {ordenacao.campo === 'fornecedor' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
-                          </th>
-                          <th
-                            onClick={() => toggleOrdenacao('secao')}
-                            className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                          >
-                            Seção {ordenacao.campo === 'secao' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
-                          </th>
-                          <th
-                            onClick={() => toggleOrdenacao('curva')}
-                            className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                          >
-                            Curva {ordenacao.campo === 'curva' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
-                          </th>
-                          <th
-                            onClick={() => toggleOrdenacao('estoque')}
-                            className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                          >
-                            Estoque {ordenacao.campo === 'estoque' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
-                          </th>
-                          <th
-                            onClick={() => toggleOrdenacao('venda_media')}
-                            className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                          >
-                            V.Média/Dia {ordenacao.campo === 'venda_media' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
-                          </th>
-                          <th
-                            onClick={() => toggleOrdenacao('valor_venda')}
-                            className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                          >
-                            Valor Venda {ordenacao.campo === 'valor_venda' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
-                          </th>
-                          <th
-                            onClick={() => toggleOrdenacao('margem')}
-                            className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                          >
-                            Margem % {ordenacao.campo === 'margem' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
-                          </th>
-                          <th
-                            onClick={() => toggleOrdenacao('pedido')}
-                            className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                          >
-                            Pedido {ordenacao.campo === 'pedido' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
-                          </th>
-                          <th
-                            onClick={() => toggleOrdenacao('ocorrencias')}
-                            className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                          >
-                            Ocorrências {ordenacao.campo === 'ocorrencias' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
-                          </th>
-                          <th
-                            onClick={() => toggleOrdenacao('perda')}
-                            className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                          >
-                            Perda Total {ordenacao.campo === 'perda' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {itensOrdenados.map((item, idx) => (
-=======
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Produto</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fornecedor</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Seção</th>
@@ -844,7 +475,6 @@ export default function RupturaResultadosAuditorias() {
                       </thead>
                       <tbody className="divide-y divide-gray-200">
                         {itensRuptura.map((item, idx) => (
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
                           <tr key={idx} className="hover:bg-gray-50">
                             <td className="px-3 py-2 text-gray-600">{idx + 1}</td>
                             <td className="px-3 py-2">
@@ -927,24 +557,10 @@ export default function RupturaResultadosAuditorias() {
                     {fornecedoresRanking.slice(0, 15).map((forn, idx) => {
                       const maxRupturas = Math.max(...fornecedoresRanking.map(f => f.rupturas));
                       const percentage = (forn.rupturas / maxRupturas) * 100;
-<<<<<<< HEAD
-                      const isAtivo = filtroFornecedorAtivo === forn.fornecedor;
-=======
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
                       return (
                         <div
                           key={idx}
-<<<<<<< HEAD
-                          onClick={() => setFiltroFornecedorAtivo(isAtivo ? null : forn.fornecedor)}
-                          className={`cursor-pointer transition-all rounded-lg p-2 ${
-                            isAtivo ? 'bg-purple-50 border-2 border-purple-500' : 'hover:bg-gray-50'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex-1">
-                              <p className={`font-semibold text-sm truncate ${isAtivo ? 'text-purple-700' : 'text-gray-800'}`} title={forn.fornecedor}>
-=======
                           onClick={() => {
                             setFiltroFornecedorTabela(forn.fornecedor);
                             setFiltroTipoRuptura('todos');
@@ -955,7 +571,6 @@ export default function RupturaResultadosAuditorias() {
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex-1">
                               <p className="font-semibold text-gray-800 text-sm truncate" title={forn.fornecedor}>
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
                                 {forn.fornecedor}
                               </p>
                               <p className="text-xs text-gray-500">
@@ -970,11 +585,7 @@ export default function RupturaResultadosAuditorias() {
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
-<<<<<<< HEAD
-                              className={`h-2 rounded-full transition-all ${isAtivo ? 'bg-purple-500' : 'bg-red-500'}`}
-=======
                               className="bg-red-500 h-2 rounded-full transition-all"
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
                               style={{ width: `${percentage}%` }}
                             />
                           </div>
@@ -1000,24 +611,10 @@ export default function RupturaResultadosAuditorias() {
                     {secoesRanking.slice(0, 15).map((sec, idx) => {
                       const maxRupturas = Math.max(...secoesRanking.map(s => s.rupturas));
                       const percentage = (sec.rupturas / maxRupturas) * 100;
-<<<<<<< HEAD
-                      const isAtivo = filtroSetorAtivo === sec.secao;
-=======
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
                       return (
                         <div
                           key={idx}
-<<<<<<< HEAD
-                          onClick={() => setFiltroSetorAtivo(isAtivo ? null : sec.secao)}
-                          className={`cursor-pointer transition-all rounded-lg p-2 ${
-                            isAtivo ? 'bg-green-50 border-2 border-green-500' : 'hover:bg-gray-50'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex-1">
-                              <p className={`font-semibold text-sm truncate ${isAtivo ? 'text-green-700' : 'text-gray-800'}`} title={sec.secao}>
-=======
                           onClick={() => {
                             setFiltroSetorTabela(sec.secao);
                             setFiltroTipoRuptura('todos');
@@ -1028,7 +625,6 @@ export default function RupturaResultadosAuditorias() {
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex-1">
                               <p className="font-semibold text-gray-800 text-sm truncate" title={sec.secao}>
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
                                 {sec.secao}
                               </p>
                               <p className="text-xs text-gray-500">
@@ -1043,11 +639,7 @@ export default function RupturaResultadosAuditorias() {
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
-<<<<<<< HEAD
-                              className={`h-2 rounded-full transition-all ${isAtivo ? 'bg-green-500' : 'bg-orange-500'}`}
-=======
                               className="bg-orange-500 h-2 rounded-full transition-all"
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
                               style={{ width: `${percentage}%` }}
                             />
                           </div>

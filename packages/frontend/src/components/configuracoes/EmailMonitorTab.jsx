@@ -107,34 +107,21 @@ export default function EmailMonitorTab() {
     }
   };
 
-  const handleRefreshLogs = async () => {
+  const handleManualCheck = async () => {
     try {
-      setLoading(true);
       setMessage({ type: '', text: '' });
+      await api.post('/email-monitor/check');
+      showMessage('success', 'Verificação de emails iniciada em segundo plano');
 
-      showMessage('success', 'Buscando últimos 20 emails do Gmail...');
-
-      // Buscar e processar os últimos 20 emails do Gmail
-      const response = await api.post('/email-monitor/fetch-latest', { limit: 20 });
-
-      if (response.data.success) {
-        showMessage('success', `${response.data.processed} emails processados! Atualizando logs...`);
-
-        // Aguardar 2 segundos antes de atualizar logs
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // Atualizar a lista de logs
-        await fetchLogs();
-
-        showMessage('success', 'Logs atualizados com sucesso!');
-      } else {
-        showMessage('error', response.data.error || 'Erro ao buscar emails');
-      }
+      // Recarregar logs após 3 segundos
+      setTimeout(() => {
+        if (activeSubTab === 'logs') {
+          fetchLogs();
+        }
+      }, 3000);
     } catch (error) {
-      console.error('Erro ao atualizar logs:', error);
-      showMessage('error', error.response?.data?.error || 'Erro ao atualizar logs');
-    } finally {
-      setLoading(false);
+      console.error('Erro ao verificar emails:', error);
+      showMessage('error', 'Erro ao verificar emails');
     }
   };
 
@@ -501,25 +488,16 @@ export default function EmailMonitorTab() {
         <h3 className="text-lg font-medium text-gray-900">Histórico de Emails Processados</h3>
         <div className="flex gap-2">
           <button
-            onClick={handleRefreshLogs}
-            disabled={loading}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+            onClick={fetchLogs}
+            className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
           >
-            {loading ? '🔄 Atualizando...' : '🔄 Atualizar'}
+            🔄 Atualizar
           </button>
           <button
-<<<<<<< HEAD
-            onClick={handleReprocessLast}
-            disabled={loading}
-            className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
-          >
-            🔁 Reenviar Último
-=======
             onClick={handleManualCheck}
             className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
           >
             ✉️ Verificar Agora
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
           </button>
         </div>
       </div>
