@@ -1,5 +1,4 @@
 import { DataSource } from 'typeorm';
-import bcrypt from 'bcrypt';
 import { User, UserRole } from '../../entities/User';
 import { Configuration } from '../../entities/Configuration';
 
@@ -30,16 +29,13 @@ export async function seedMasterUser(dataSource: DataSource): Promise<void> {
 
     console.log('👤 Criando usuário master...');
 
-    // Hash da senha
-    const hashedPassword = await bcrypt.hash('Beto3107@@##', 10);
-
-    // Criar usuário master SEM vincular a empresa
-    // A empresa será criada no First Setup pelo cliente
+    // IMPORTANTE: NÃO fazer hash manual aqui - o @BeforeInsert() do User entity já faz isso
+    // Passar senha em texto puro para evitar double hashing
     const masterUser = userRepository.create({
       name: 'Roberto',
       username: 'Roberto',
       email: 'admin@prevencao.com.br',
-      password: hashedPassword,
+      password: 'Beto3107@@##', // Senha em texto puro - será hashada pelo @BeforeInsert()
       role: UserRole.MASTER,
       isMaster: true
       // companyId não definido - será associado no First Setup
