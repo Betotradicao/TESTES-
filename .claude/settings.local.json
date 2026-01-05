@@ -642,7 +642,8 @@
       "Bash(curl -s http://145.223.92.152:3001/api/health)",
       "Bash(ssh root@145.223.92.152 \"cd /root/TESTES/InstaladorVPS && docker compose -f docker-compose-producao.yml stop frontend && docker rmi instaladorvps-frontend && docker compose -f docker-compose-producao.yml build --no-cache --pull frontend && docker compose -f docker-compose-producao.yml up -d frontend\")",
       "Bash(ssh root@145.223.92.152 \"cd /root/TESTES/InstaladorVPS && docker compose -f docker-compose-producao.yml rm -f frontend && docker rmi -f instaladorvps-frontend && docker compose -f docker-compose-producao.yml build --no-cache --pull frontend && docker compose -f docker-compose-producao.yml up -d frontend\")",
-      "Bash(ssh root@145.223.92.152:*)"
+      "Bash(ssh root@145.223.92.152:*)",
+      "Bash(dir /B)"
     ],
     "deny": [],
     "ask": []
