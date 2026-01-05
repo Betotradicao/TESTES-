@@ -643,7 +643,11 @@
       "Bash(ssh root@145.223.92.152 \"cd /root/TESTES/InstaladorVPS && docker compose -f docker-compose-producao.yml stop frontend && docker rmi instaladorvps-frontend && docker compose -f docker-compose-producao.yml build --no-cache --pull frontend && docker compose -f docker-compose-producao.yml up -d frontend\")",
       "Bash(ssh root@145.223.92.152 \"cd /root/TESTES/InstaladorVPS && docker compose -f docker-compose-producao.yml rm -f frontend && docker rmi -f instaladorvps-frontend && docker compose -f docker-compose-producao.yml build --no-cache --pull frontend && docker compose -f docker-compose-producao.yml up -d frontend\")",
       "Bash(ssh root@145.223.92.152:*)",
-      "Bash(dir /B)"
+      "Bash(dir /B)",
+      "Bash(ssh root@145.223.92.152 \"cd /root/TESTES/InstaladorVPS && docker compose -f docker-compose-producao.yml ps\")",
+      "Bash(ssh root@145.223.92.152 \"cd /root/TESTES/InstaladorVPS && docker compose -f docker-compose-producao.yml logs backend --tail 30\")",
+      "Bash(ssh root@46.202.150.64 \"ls /root/TESTES/packages/backend/src/migrations/ | grep -E ''\\(1766|1767\\)'' | sort\")",
+      "Bash(ssh root@46.202.150.64 \"cd /root/TESTES/packages/backend/src && tar -czf /tmp/migrations-clean.tar.gz migrations/\")"
     ],
     "deny": [],
     "ask": []
