@@ -116,11 +116,17 @@ export class BipWebhookService {
       ? Math.round(Number(erpProduct.valoferta) * 100)
       : 0;
 
-    // === TRATAMENTO DE DATA (sem conversão de timezone) ===
+    // === TRATAMENTO DE DATA ===
     let finalEventDate: Date;
     if (eventDate) {
-      // Se event_date vem no webhook, usar direto (já vem em horário de Brasília)
-      finalEventDate = new Date(eventDate);
+      // Se event_date vem no webhook em UTC, converter para horário de Brasília (UTC-3)
+      const utcDate = new Date(eventDate);
+
+      // Ajustar para timezone de Brasília (UTC-3 = -180 minutos)
+      const brazilOffsetMinutes = 180; // UTC-3
+      const localDate = new Date(utcDate.getTime() - brazilOffsetMinutes * 60 * 1000);
+
+      finalEventDate = localDate;
     } else {
       // Senão, usar sell_date do formatador
       finalEventDate = new Date(formatResult.sell_date!);
