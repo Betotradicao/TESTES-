@@ -264,7 +264,7 @@ export class DailyVerificationCommand {
 
     if (sellsToInsert.length > 0) {
       const values = sellsToInsert.map(record =>
-        `(${record.activated_product_id}, '${record.product_id}', '${record.product_description.replace(/'/g, "''")}', '${record.sell_date}', ${record.sell_value_cents}, ${record.product_weight}, ${record.bip_id || 'NULL'}, '${record.num_cupom_fiscal}', ${record.point_of_sale_code || 'NULL'}, '${record.status}', ${record.discount_cents})`
+        `(${record.activated_product_id || 'NULL'}, '${record.product_id}', '${record.product_description.replace(/'/g, "''")}', '${record.sell_date}', ${record.sell_value_cents}, ${record.product_weight}, ${record.bip_id || 'NULL'}, '${record.num_cupom_fiscal}', ${record.point_of_sale_code || 'NULL'}, '${record.status}', ${record.discount_cents})`
       ).join(',');
 
       await AppDataSource.query(`
