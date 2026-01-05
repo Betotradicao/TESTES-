@@ -1,6 +1,5 @@
 import { AppDataSource } from '../config/database';
 import { User, UserRole } from '../entities/User';
-import bcrypt from 'bcrypt';
 
 /**
  * Script para criar usuário MASTER (desenvolvedor)
@@ -42,13 +41,12 @@ async function seedMasterUser() {
     }
 
     // Criar usuário MASTER
-    const hashedPassword = await bcrypt.hash('Beto3107@@##', 10);
-
+    // IMPORTANTE: NÃO fazer hash manual aqui - o @BeforeInsert() do User entity já faz isso
     const masterUser = userRepository.create({
       username: 'Roberto',
       name: 'Roberto (Desenvolvedor)',
       email: 'roberto@prevencaonoradar.com.br',
-      password: hashedPassword,
+      password: 'Beto3107@@##', // Senha em texto puro - será hashada pelo @BeforeInsert()
       role: UserRole.MASTER,
       isMaster: true
       // companyId não definido - MASTER não vinculado a empresa específica
