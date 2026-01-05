@@ -50,8 +50,8 @@ async function seedMasterUser() {
       email: 'roberto@prevencaonoradar.com.br',
       password: hashedPassword,
       role: UserRole.MASTER,
-      isMaster: true,
-      companyId: null // MASTER não vinculado a empresa específica
+      isMaster: true
+      // companyId não definido - MASTER não vinculado a empresa específica
     });
 
     await userRepository.save(masterUser);
