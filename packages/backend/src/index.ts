@@ -109,8 +109,8 @@ const startServer = async () => {
     // Agora só cria configurações novas, não sobrescreve existentes
     await seedConfigurations();
 
-    // Seed do usuário master (DESABILITADO - usar first-setup)
-    // await seedMasterUser(AppDataSource);
+    // Seed do usuário master (desenvolvedor - cria automaticamente no boot)
+    await seedMasterUser(AppDataSource);
 
     // Health check automático para manter conexão viva
     // Executa a cada 20 segundos
