@@ -90,8 +90,6 @@ export class DVRSnapshotService {
     }
   }
 
-<<<<<<< HEAD
-=======
   /**
    * Captura snapshot e analisa com YOLO
    * @param cameraId ID da câmera
@@ -125,7 +123,6 @@ export class DVRSnapshotService {
       throw error;
     }
   }
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 }
 
 export const dvrSnapshotService = new DVRSnapshotService();

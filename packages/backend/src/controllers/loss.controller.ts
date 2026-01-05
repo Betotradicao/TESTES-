@@ -5,18 +5,6 @@ import * as fs from 'fs';
 
 export class LossController {
   /**
-<<<<<<< HEAD
-   * Helper para validar companyId
-   * Sistema é single-tenant - todos veem tudo, companyId não é usado
-   */
-  private static validateCompanyId(req: AuthRequest, res: Response): string | null | false {
-    // Sistema single-tenant: todos veem TUDO, retorna sempre null
-    return null;
-  }
-
-  /**
-=======
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
    * Upload e importação de arquivo de perdas
    */
   static async upload(req: AuthRequest, res: Response) {
@@ -30,13 +18,8 @@ export class LossController {
         return res.status(400).json({ error: 'Nome do lote é obrigatório' });
       }
 
-<<<<<<< HEAD
-      const companyId = LossController.validateCompanyId(req, res);
-      if (companyId === false) return; // Erro já foi enviado
-=======
       // Sistema não tem multi-company, usar null como companyId
       const companyId = null;
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
       console.log(`📤 Upload de arquivo de perdas: ${req.file.originalname}`);
       console.log(`📦 Lote: ${nomeLote}`);
@@ -78,12 +61,7 @@ export class LossController {
    */
   static async getAllLotes(req: AuthRequest, res: Response) {
     try {
-<<<<<<< HEAD
-      const companyId = LossController.validateCompanyId(req, res);
-      if (companyId === false) return;
-=======
       const companyId = undefined; // Sistema não tem multi-company
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
       const lotes = await LossService.getAllLotes(companyId);
 
@@ -100,12 +78,7 @@ export class LossController {
   static async getByLote(req: AuthRequest, res: Response) {
     try {
       const { nomeLote } = req.params;
-<<<<<<< HEAD
-      const companyId = LossController.validateCompanyId(req, res);
-      if (companyId === false) return;
-=======
       const companyId = undefined; // Sistema não tem multi-company
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
       const losses = await LossService.getByLote(nomeLote, companyId);
 
@@ -122,12 +95,7 @@ export class LossController {
   static async getAggregatedBySection(req: AuthRequest, res: Response) {
     try {
       const { nomeLote } = req.params;
-<<<<<<< HEAD
-      const companyId = LossController.validateCompanyId(req, res);
-      if (companyId === false) return;
-=======
       const companyId = undefined; // Sistema não tem multi-company
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
       const aggregated = await LossService.getAggregatedBySection(
         nomeLote,
@@ -147,12 +115,7 @@ export class LossController {
   static async deleteLote(req: AuthRequest, res: Response) {
     try {
       const { nomeLote } = req.params;
-<<<<<<< HEAD
-      const companyId = LossController.validateCompanyId(req, res);
-      if (companyId === false) return;
-=======
       const companyId = undefined; // Sistema não tem multi-company
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
       await LossService.deleteLote(nomeLote, companyId);
 
@@ -169,19 +132,10 @@ export class LossController {
   static async getAgregated(req: AuthRequest, res: Response) {
     try {
       const { data_inicio, data_fim, motivo, produto, page, limit, tipo } = req.query;
-<<<<<<< HEAD
-      const companyId = LossController.validateCompanyId(req, res);
-
-      console.log('📊 Filtros recebidos:', { data_inicio, data_fim, motivo, produto, page, limit, tipo, companyId });
-
-      if (companyId === false) return;
-
-=======
       const companyId = undefined; // Sistema não tem multi-company
 
       console.log('📊 Filtros recebidos:', { data_inicio, data_fim, motivo, produto, page, limit, tipo, companyId });
 
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
       if (!data_inicio || !data_fim) {
         return res.status(400).json({
           error: 'data_inicio e data_fim são obrigatórios',
@@ -214,12 +168,7 @@ export class LossController {
   static async toggleMotivoIgnorado(req: AuthRequest, res: Response) {
     try {
       const { motivo } = req.body;
-<<<<<<< HEAD
-      const companyId = LossController.validateCompanyId(req, res);
-      if (companyId === false) return;
-=======
       const companyId = undefined; // Sistema não tem multi-company
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
       if (!motivo) {
         return res.status(400).json({ error: 'Motivo é obrigatório' });
@@ -238,12 +187,7 @@ export class LossController {
    */
   static async getMotivosIgnorados(req: AuthRequest, res: Response) {
     try {
-<<<<<<< HEAD
-      const companyId = LossController.validateCompanyId(req, res);
-      if (companyId === false) return;
-=======
       const companyId = undefined; // Sistema não tem multi-company
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
       const motivos = await LossService.getMotivosIgnorados(companyId);
       res.json(motivos);
@@ -258,12 +202,7 @@ export class LossController {
    */
   static async getSecoes(req: AuthRequest, res: Response) {
     try {
-<<<<<<< HEAD
-      const companyId = LossController.validateCompanyId(req, res);
-      if (companyId === false) return;
-=======
       const companyId = undefined; // Sistema não tem multi-company
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
       const secoes = await LossService.getUniqueSecoes(companyId);
       res.json(secoes);
@@ -278,12 +217,7 @@ export class LossController {
    */
   static async getProdutos(req: AuthRequest, res: Response) {
     try {
-<<<<<<< HEAD
-      const companyId = LossController.validateCompanyId(req, res);
-      if (companyId === false) return;
-=======
       const companyId = undefined; // Sistema não tem multi-company
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
       const produtos = await LossService.getUniqueProdutos(companyId);
       res.json(produtos);

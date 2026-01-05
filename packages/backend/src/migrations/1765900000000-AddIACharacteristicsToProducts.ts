@@ -1,13 +1,9 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class AddIACharacteristicsToProducts1765900000000 implements MigrationInterface {
-<<<<<<< HEAD
-    public async up(queryRunner: QueryRunner): Promise<void> {
-=======
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         // Adicionar colunas de características para IA na tabela products
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
         await queryRunner.query(`
             ALTER TABLE "products"
             ADD COLUMN IF NOT EXISTS "foto_referencia" TEXT,
@@ -19,11 +15,6 @@ export class AddIACharacteristicsToProducts1765900000000 implements MigrationInt
             ADD COLUMN IF NOT EXISTS "peso_max_kg" DECIMAL(10,3),
             ADD COLUMN IF NOT EXISTS "posicao_balcao" JSONB
         `);
-<<<<<<< HEAD
-    }
-
-    public async down(queryRunner: QueryRunner): Promise<void> {
-=======
 
         // Comentários para documentar cada coluna
         await queryRunner.query(`
@@ -50,7 +41,6 @@ export class AddIACharacteristicsToProducts1765900000000 implements MigrationInt
         await queryRunner.query(`DROP INDEX IF EXISTS "idx_products_ia_configured"`);
 
         // Remover colunas
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
         await queryRunner.query(`
             ALTER TABLE "products"
             DROP COLUMN IF EXISTS "foto_referencia",
@@ -63,8 +53,5 @@ export class AddIACharacteristicsToProducts1765900000000 implements MigrationInt
             DROP COLUMN IF EXISTS "posicao_balcao"
         `);
     }
-<<<<<<< HEAD
-=======
 
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 }

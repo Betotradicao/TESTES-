@@ -113,14 +113,9 @@ export class LossService {
       // Importar registros
       const lossRepository = AppDataSource.getRepository(Loss);
 
-<<<<<<< HEAD
-      // Usar apenas data inicial para os registros reais (corrigir timezone UTC)
-      const dataImportacao = dataInicioCustom ? new Date(dataInicioCustom + 'T12:00:00') : new Date();
-=======
       // dataImportacao = data ATUAL (quando o lote foi criado)
       // dataInicioPeriodo/dataFimPeriodo = período escolhido pelo usuário
       const dataImportacao = new Date(); // SEMPRE a data atual
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
       const dataInicioPeriodo = dataInicioCustom ? new Date(dataInicioCustom + 'T12:00:00') : new Date();
       const dataFimPeriodo = dataFimCustom ? new Date(dataFimCustom + 'T12:00:00') : dataInicioPeriodo;
 
@@ -179,18 +174,10 @@ export class LossService {
   /**
    * Buscar todos os lotes
    */
-<<<<<<< HEAD
-  static async getAllLotes(companyId: string | null): Promise<any[]> {
-    const lossRepository = AppDataSource.getRepository(Loss);
-
-    // Todos veem TUDO - sem filtro de company_id
-    const result = await lossRepository
-=======
   static async getAllLotes(companyId?: string): Promise<any[]> {
     const lossRepository = AppDataSource.getRepository(Loss);
 
     const query = lossRepository
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
       .createQueryBuilder('loss')
       .select('loss.nome_lote', 'nomeLote')
       .addSelect('loss.data_importacao', 'dataImportacao')
@@ -199,9 +186,6 @@ export class LossService {
       .addSelect('COUNT(*)', 'totalRegistros')
       .addSelect('SUM(CASE WHEN loss.quantidade_ajuste < 0 THEN 1 ELSE 0 END)', 'totalPerdas')
       .addSelect('SUM(CASE WHEN loss.quantidade_ajuste >= 0 THEN 1 ELSE 0 END)', 'totalEntradas')
-<<<<<<< HEAD
-      .addSelect('SUM(CASE WHEN loss.quantidade_ajuste < 0 THEN ABS(loss.quantidade_ajuste * loss.custo_reposicao) ELSE 0 END)', 'valorPerdas')
-=======
       .addSelect('SUM(CASE WHEN loss.quantidade_ajuste < 0 THEN ABS(loss.quantidade_ajuste * loss.custo_reposicao) ELSE 0 END)', 'valorPerdas');
 
     // Adicionar filtro de company apenas se estiver definido
@@ -210,7 +194,6 @@ export class LossService {
     }
 
     const result = await query
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
       .groupBy('loss.nome_lote')
       .addGroupBy('loss.data_importacao')
       .addGroupBy('loss.data_inicio_periodo')
@@ -233,15 +216,6 @@ export class LossService {
   /**
    * Buscar perdas por lote
    */
-<<<<<<< HEAD
-  static async getByLote(nomeLote: string, companyId: string | null): Promise<Loss[]> {
-    const lossRepository = AppDataSource.getRepository(Loss);
-
-    // Todos veem TUDO - sem filtro de company_id
-    return await lossRepository.find({
-      where: {
-        nomeLote,
-=======
   static async getByLote(nomeLote: string, companyId?: string): Promise<Loss[]> {
     const lossRepository = AppDataSource.getRepository(Loss);
 
@@ -249,7 +223,6 @@ export class LossService {
       where: {
         nomeLote,
         ...(companyId && { companyId }),
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
       },
       order: {
         quantidadeAjuste: 'ASC', // Perdas primeiro (valores negativos)
@@ -262,20 +235,11 @@ export class LossService {
    */
   static async getAggregatedBySection(
     nomeLote: string,
-<<<<<<< HEAD
-    companyId: string | null
-  ): Promise<any[]> {
-    const lossRepository = AppDataSource.getRepository(Loss);
-
-    // Todos veem TUDO - sem filtro de company_id
-    const result = await lossRepository
-=======
     companyId?: string
   ): Promise<any[]> {
     const lossRepository = AppDataSource.getRepository(Loss);
 
     const query = lossRepository
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
       .createQueryBuilder('loss')
       .select('loss.secao', 'secao')
       .addSelect('loss.secao_nome', 'secaoNome')
@@ -284,9 +248,6 @@ export class LossService {
       .addSelect('SUM(CASE WHEN loss.quantidade_ajuste >= 0 THEN 1 ELSE 0 END)', 'totalEntradas')
       .addSelect('SUM(CASE WHEN loss.quantidade_ajuste < 0 THEN ABS(loss.quantidade_ajuste * loss.custo_reposicao) ELSE 0 END)', 'valorPerdas')
       .addSelect('SUM(CASE WHEN loss.quantidade_ajuste >= 0 THEN (loss.quantidade_ajuste * loss.custo_reposicao) ELSE 0 END)', 'valorEntradas')
-<<<<<<< HEAD
-      .where('loss.nome_lote = :nomeLote', { nomeLote })
-=======
       .where('loss.nome_lote = :nomeLote', { nomeLote });
 
     // Adicionar filtro de company apenas se estiver definido
@@ -295,7 +256,6 @@ export class LossService {
     }
 
     const result = await query
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
       .groupBy('loss.secao')
       .addGroupBy('loss.secao_nome')
       .orderBy('valorPerdas', 'DESC')
@@ -315,21 +275,12 @@ export class LossService {
   /**
    * Deletar lote
    */
-<<<<<<< HEAD
-  static async deleteLote(nomeLote: string, companyId: string | null): Promise<void> {
-    const lossRepository = AppDataSource.getRepository(Loss);
-
-    // Todos veem TUDO - sem filtro de company_id
-    await lossRepository.delete({
-      nomeLote,
-=======
   static async deleteLote(nomeLote: string, companyId?: string): Promise<void> {
     const lossRepository = AppDataSource.getRepository(Loss);
 
     await lossRepository.delete({
       nomeLote,
       ...(companyId && { companyId }),
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
     });
 
     console.log(`🗑️ Lote "${nomeLote}" deletado com sucesso`);
@@ -344,11 +295,7 @@ export class LossService {
     motivo?: string;
     produto?: string;
     tipo?: string;
-<<<<<<< HEAD
-    companyId: string | null;
-=======
     companyId?: string;
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
     page?: number;
     limit?: number;
   }): Promise<any> {
@@ -356,40 +303,27 @@ export class LossService {
     const { LossReasonConfig } = await import('../entities/LossReasonConfig');
     const reasonConfigRepository = AppDataSource.getRepository(LossReasonConfig);
 
-<<<<<<< HEAD
-    // Buscar motivos ignorados - Todos veem TUDO
-    const motivosIgnorados = await reasonConfigRepository.find({
-      where: {
-=======
     // Buscar motivos ignorados
     const motivosIgnorados = await reasonConfigRepository.find({
       where: {
         ...(filters.companyId && { companyId: filters.companyId }),
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
         ignorarCalculo: true,
       },
     });
 
     const motivosIgnoradosSet = new Set(motivosIgnorados.map(m => m.motivo));
 
-<<<<<<< HEAD
-    // Construir query com filtros - Todos veem TUDO, sem filtro de company_id
-=======
     // Construir query com filtros
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
     const query = lossRepository
       .createQueryBuilder('loss')
       .where('loss.data_importacao >= :dataInicio', { dataInicio: filters.data_inicio })
       .andWhere('loss.data_importacao <= :dataFim', { dataFim: filters.data_fim });
 
-<<<<<<< HEAD
-=======
     // Adicionar filtro de company apenas se estiver definido
     if (filters.companyId) {
       query.andWhere('loss.company_id = :companyId', { companyId: filters.companyId });
     }
 
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
     // Filtro por motivo
     if (filters.motivo && filters.motivo !== 'todos') {
       query.andWhere('loss.descricao_ajuste_completa = :motivo', { motivo: filters.motivo });
@@ -554,18 +488,6 @@ export class LossService {
   /**
    * Buscar seções únicas para filtro
    */
-<<<<<<< HEAD
-  static async getUniqueSecoes(companyId: string | null): Promise<any[]> {
-    const lossRepository = AppDataSource.getRepository(Loss);
-
-    // Todos veem TUDO - sem filtro de company_id
-    const items = await lossRepository
-      .createQueryBuilder('loss')
-      .select('DISTINCT loss.secao', 'secao')
-      .addSelect('loss.secao_nome', 'secaoNome')
-      .where('loss.secao IS NOT NULL')
-      .getRawMany();
-=======
   static async getUniqueSecoes(companyId?: string): Promise<any[]> {
     const lossRepository = AppDataSource.getRepository(Loss);
     const query = lossRepository
@@ -580,7 +502,6 @@ export class LossService {
     }
 
     const items = await query.getRawMany();
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
     return items.map((i: any) => ({
       secao: i.secao,
@@ -591,18 +512,6 @@ export class LossService {
   /**
    * Buscar produtos únicos para filtro
    */
-<<<<<<< HEAD
-  static async getUniqueProdutos(companyId: string | null): Promise<string[]> {
-    const lossRepository = AppDataSource.getRepository(Loss);
-
-    // Todos veem TUDO - sem filtro de company_id
-    const items = await lossRepository
-      .createQueryBuilder('loss')
-      .select('DISTINCT loss.descricao_reduzida', 'descricao')
-      .where('loss.descricao_reduzida IS NOT NULL')
-      .limit(500)
-      .getRawMany();
-=======
   static async getUniqueProdutos(companyId?: string): Promise<string[]> {
     const lossRepository = AppDataSource.getRepository(Loss);
     const query = lossRepository
@@ -616,7 +525,6 @@ export class LossService {
     }
 
     const items = await query.limit(500).getRawMany();
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
     return items.map((i: any) => i.descricao);
   }
@@ -624,17 +532,6 @@ export class LossService {
   /**
    * Buscar motivos únicos
    */
-<<<<<<< HEAD
-  static async getUniqueMotivos(companyId: string | null): Promise<string[]> {
-    const lossRepository = AppDataSource.getRepository(Loss);
-
-    // Todos veem TUDO - sem filtro de company_id
-    const items = await lossRepository
-      .createQueryBuilder('loss')
-      .select('DISTINCT loss.descricao_ajuste_completa', 'motivo')
-      .where('loss.descricao_ajuste_completa IS NOT NULL')
-      .getRawMany();
-=======
   static async getUniqueMotivos(companyId?: string): Promise<string[]> {
     const lossRepository = AppDataSource.getRepository(Loss);
     const query = lossRepository
@@ -648,7 +545,6 @@ export class LossService {
     }
 
     const items = await query.getRawMany();
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
 
     return items.map((i: any) => i.motivo);
   }
@@ -656,15 +552,6 @@ export class LossService {
   /**
    * Alternar motivo ignorado
    */
-<<<<<<< HEAD
-  static async toggleMotivoIgnorado(motivo: string, companyId: string | null): Promise<any> {
-    const { LossReasonConfig } = await import('../entities/LossReasonConfig');
-    const reasonConfigRepository = AppDataSource.getRepository(LossReasonConfig);
-
-    // Todos veem TUDO - Verificar se já existe (sem filtro de company_id)
-    const existing = await reasonConfigRepository.findOne({
-      where: {
-=======
   static async toggleMotivoIgnorado(motivo: string, companyId?: string): Promise<any> {
     const { LossReasonConfig } = await import('../entities/LossReasonConfig');
     const reasonConfigRepository = AppDataSource.getRepository(LossReasonConfig);
@@ -673,7 +560,6 @@ export class LossService {
     const existing = await reasonConfigRepository.findOne({
       where: {
         ...(companyId && { companyId }),
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
         motivo,
       },
     });
@@ -684,14 +570,9 @@ export class LossService {
       await reasonConfigRepository.save(existing);
       return existing;
     } else {
-<<<<<<< HEAD
-      // Criar novo com ignorar = true (sem company_id)
-      const newConfig = reasonConfigRepository.create({
-=======
       // Criar novo com ignorar = true
       const newConfig = reasonConfigRepository.create({
         ...(companyId && { companyId }),
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
         motivo,
         ignorarCalculo: true,
       });
@@ -703,15 +584,6 @@ export class LossService {
   /**
    * Listar motivos ignorados
    */
-<<<<<<< HEAD
-  static async getMotivosIgnorados(companyId: string | null): Promise<any[]> {
-    const { LossReasonConfig } = await import('../entities/LossReasonConfig');
-    const reasonConfigRepository = AppDataSource.getRepository(LossReasonConfig);
-
-    // Todos veem TUDO - sem filtro de company_id
-    return await reasonConfigRepository.find({
-      where: {
-=======
   static async getMotivosIgnorados(companyId?: string): Promise<any[]> {
     const { LossReasonConfig } = await import('../entities/LossReasonConfig');
     const reasonConfigRepository = AppDataSource.getRepository(LossReasonConfig);
@@ -719,7 +591,6 @@ export class LossService {
     return await reasonConfigRepository.find({
       where: {
         ...(companyId && { companyId }),
->>>>>>> 344b8c2e3c44e4ee7d6eb7d3741a2cfb00c432ad
         ignorarCalculo: true,
       },
     });
