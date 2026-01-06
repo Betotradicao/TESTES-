@@ -50,10 +50,11 @@ export default function ReconhecimentoFacial() {
   const [imageZoom, setImageZoom] = useState(100);
   const [deletingImageId, setDeletingImageId] = useState(null);
 
-  // Filtros - padrão: Dia 1 do mês corrente até hoje
+  // Filtros - padrão: Dia 1 de JANEIRO até hoje (para não perder imagens antigas)
   const getFirstDayOfMonth = () => {
     const today = new Date();
-    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    // Sempre começar do dia 1 de JANEIRO do ano atual
+    const firstDay = new Date(today.getFullYear(), 0, 1); // Mês 0 = Janeiro
     return firstDay.toISOString().split('T')[0];
   };
 
