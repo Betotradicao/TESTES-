@@ -16,7 +16,7 @@ export class CreateLossesTable1766000000000 implements MigrationInterface {
           {
             name: 'company_id',
             type: 'uuid',
-            isNullable: false,
+            isNullable: true, // Permite NULL para usuários MASTER
           },
           {
             name: 'codigo_barras',
