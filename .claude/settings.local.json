@@ -672,7 +672,9 @@
       "Bash(ssh root@145.223.92.152 \"cd /root/TESTES/InstaladorVPS && docker logs prevencao-backend-prod --tail 100 | grep -A 20 ''Upload de arquivo de perdas''\")",
       "Bash(ssh root@145.223.92.152 \"cd /root/prevencao-radar-install && git pull\")",
       "Bash(ssh root@145.223.92.152 \"cd /root/prevencao-radar-install && git fetch && git log --oneline -5\")",
-      "Bash(ssh root@145.223.92.152 \"cd /root/prevencao-radar-install/InstaladorVPS && docker compose -f docker-compose-producao.yml build frontend\")"
+      "Bash(ssh root@145.223.92.152 \"cd /root/prevencao-radar-install/InstaladorVPS && docker compose -f docker-compose-producao.yml build frontend\")",
+      "Bash(ssh root@145.223.92.152 \"cd /root/prevencao-radar-install && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml up -d frontend\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: Usuário ADMIN criado no setup não deve ser MASTER\n\nProblema: Durante FirstSetup, o usuário admin do cliente era criado\ncom isMaster=true, dando acesso à tela \"Configurações de REDE\" que\né exclusiva do desenvolvedor \\(Roberto/MASTER\\).\n\nSolução: Definir isMaster=false no setup. Apenas Roberto \\(seed automático\\)\ntem isMaster=true.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ],
     "deny": [],
     "ask": []

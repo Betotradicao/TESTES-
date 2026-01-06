@@ -164,7 +164,7 @@ export class SetupController {
         email: adminEmail,
         password: adminPassword, // Será hasheado pelo @BeforeInsert
         role: UserRole.ADMIN,
-        isMaster: true,
+        isMaster: false, // Cliente é ADMIN, não MASTER (MASTER é só o Roberto)
         companyId: company.id
       });
 
