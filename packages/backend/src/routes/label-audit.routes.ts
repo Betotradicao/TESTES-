@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { LabelAuditController, upload } from '../controllers/label-audit.controller';
-import { authMiddleware } from '../middleware/auth';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
 // Todas as rotas requerem autenticação
-router.use(authMiddleware);
+router.use(authenticateToken);
 
 // Upload e criação de auditoria
 router.post('/upload', upload.single('file'), LabelAuditController.uploadAndCreateAudit);
