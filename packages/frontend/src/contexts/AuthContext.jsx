@@ -30,6 +30,10 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
+      // Limpar TUDO antes de fazer novo login (evita dados de usuário anterior)
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+
       const response = await api.post('/auth/login', { email, password });
       const { token: newToken, user: userData } = response.data;
 
