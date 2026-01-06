@@ -1,8 +1,9 @@
 import { Router } from 'express';
+import type { Router as ExpressRouter } from 'express';
 import { LabelAuditController, upload } from '../controllers/label-audit.controller';
 import { authenticateToken } from '../middleware/auth';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 // Todas as rotas requerem autenticação
 router.use(authenticateToken);
