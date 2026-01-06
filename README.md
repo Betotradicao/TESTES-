@@ -1,1160 +1,671 @@
-# Market Security System - Sistema de Prevenção e Inteligência Contra Furtos
+# Prevenção no Radar - Sistema de Segurança para Mercados
 
-Sistema completo de monitoramento e prevenção de furtos desenvolvido para mercados, com funcionalidades de rastreamento de produtos, análise de bipagens e detecção de fraudes.
+Sistema completo de monitoramento e prevenção de furtos em tempo real desenvolvido para supermercados, com rastreamento de produtos via código de barras, análise inteligente de bipagens e detecção automática de fraudes.
 
 ---
 
-## 🚀 Instalação Rápida
+## 📋 Índice
 
-### 🐧 Instalação em VPS/Servidor Linux (PRODUÇÃO)
+- [Instalação VPS](#-instalação-em-vps-servidor-linux)
+- [Como Funciona o Sistema](#-como-funciona-o-sistema)
+- [Arquitetura e Tecnologias](#-arquitetura-e-tecnologias)
+- [Sistema de Código de Barras](#-sistema-de-código-de-barras-scanners)
+- [Configuração Pós-Instalação](#-configuração-pós-instalação)
+- [Integrações](#-integrações)
+- [Manutenção e Atualizações](#-manutenção-e-atualizações)
 
-**Instalador Oficial - Instalação automática em um único comando**
+---
 
-Execute este comando como root:
+## 📚 Documentação
+
+Este projeto possui 2 READMEs principais:
+
+- **[README.md](README.md)** (este arquivo) - Visão geral do sistema, como funciona, instalação e uso
+- **[README-INSTALADOR-VPS.md](README-INSTALADOR-VPS.md)** - Documentação técnica detalhada do auto-instalador VPS
+
+---
+
+## 🚀 Instalação em VPS (Servidor Linux)
+
+### Pré-requisitos
+
+- **VPS/Servidor**: Ubuntu 20.04+ ou Debian 11+
+- **Recursos mínimos**: 2 GB RAM, 20 GB disco, 1 vCPU
+- **Acesso**: SSH com permissões root
+- **Conectividade**: Portas 3000, 3001, 5434, 9010, 9011 abertas
+
+### Instalação Automática (Recomendado)
+
+Execute este comando como root na VPS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Betotradicao/TESTES-/main/InstaladorVPS/install.sh | bash
+cd /root
+git clone https://github.com/Betotradicao/TESTES-.git prevencao-radar-install
+cd prevencao-radar-install/InstaladorVPS
+sudo bash INSTALAR-AUTO.sh
 ```
 
-**O que o instalador faz:**
-- ✅ Detecta IP da VPS automaticamente
-- ✅ Pergunta se existe instalação anterior (atualiza ou reinstala)
-- ✅ Solicita IP Tailscale do cliente (opcional)
-- ✅ Instala Docker (se necessário)
-- ✅ Configura PostgreSQL, MinIO, Backend e Frontend
-- ✅ Inicia todos os containers automaticamente
+**O que o instalador faz automaticamente:**
 
-**Acesso após instalação:**
+1. ✅ **Detecta IP público** da VPS (via curl ifconfig.me)
+2. ✅ **Instala Tailscale** (VPN segura para acessar rede local do cliente)
+3. ✅ **Cria arquivo .env** com todas as configurações:
+   - IP da VPS detectado automaticamente
+   - Credenciais de email pré-configuradas
+   - URLs de frontend e backend
+   - Timezone configurado para América/São Paulo
+4. ✅ **Inicia containers Docker**:
+   - PostgreSQL 16 (banco de dados)
+   - Backend Node.js + TypeScript (API REST)
+   - Frontend React + TypeScript (interface web)
+   - MinIO (armazenamento de fotos/vídeos)
+   - Cron Service (tarefas agendadas)
+5. ✅ **Aguarda backend inicializar** (60 segundos)
+6. ✅ **Executa migrations** automaticamente
+7. ✅ **Cria usuário MASTER** (Roberto / senha: Beto3107@@##)
+8. ✅ **Popula configurações** pré-definidas (Evolution API, Email, etc)
+
+### Após a Instalação
+
+Acesse `http://[IP_VPS]:3000` e você verá a tela de **First Setup** para criar:
+- Dados da empresa do cliente
+- Usuário ADMIN do cliente
+
+**URLs de Acesso:**
 - Frontend: `http://[IP]:3000`
-- Backend: `http://[IP]:3001`
+- Backend API: `http://[IP]:3001/api`
+- Swagger Docs: `http://[IP]:3001/api-docs`
 - MinIO Console: `http://[IP]:9011`
 
-📖 **Documentação VPS**: [InstaladorVPS/README.md](InstaladorVPS/README.md)
+**Credenciais MASTER (desenvolvedor):**
+- Email: `beto@prevencaonoradar.com.br`
+- Senha: `Beto3107@@##`
 
 ---
 
-### 💻 Desenvolvimento Local (Windows/Mac/Linux)
+## 🎯 Como Funciona o Sistema
 
-Use o [docker-compose.yml](docker-compose.yml:1) na raiz do projeto:
-
-```bash
-# Iniciar ambiente de desenvolvimento
-docker compose up -d
-
-# Ver logs
-docker compose logs -f
-
-# Parar ambiente
-docker compose down
-```
-
-**Acesso local:**
-- Frontend: `http://localhost:3000`
-- Backend: `http://localhost:3001`
-- MinIO Console: `http://localhost:9001`
-
----
-
-## 📥 Pré-requisitos
-
-### Para VPS (Linux):
-- Ubuntu 20.04+ ou Debian 11+
-- Docker e Docker Compose (instalador instala automaticamente)
-- Mínimo 2 GB RAM, 20 GB disco
-
-### Para Desenvolvimento Local:
-- Docker Desktop instalado e rodando
-- Mínimo 4 GB RAM (recomendado 8 GB)
-
----
-
-## 📂 Estrutura do Projeto
+### Fluxo Principal
 
 ```
-TESTES/
-├── 📁 InstaladorVPS/        # Instalador para VPS (Produção)
-│   ├── install.sh           # Script de instalação automática
-│   ├── docker-compose-producao.yml
-│   ├── Dockerfile.backend
-│   └── Dockerfile.frontend
-│
-├── 📁 packages/             # Código-fonte
-│   ├── backend/             # API Node.js + TypeScript
-│   └── frontend/            # React + TypeScript
-│
-├── 📁 CREDENCIAIS/          # Senhas e acessos
-├── 📄 docker-compose.yml     # Desenvolvimento local
-└── 📄 README.md             # Este arquivo
+1. SCANNER (Loja)
+   ↓
+   └─> Leitor de código de barras USB conectado ao PC da loja
+       ↓
+       └─> Lê código EAN-13 do produto
+           ↓
+           └─> Envia para backend via Webhook HTTP
+
+2. BACKEND (VPS)
+   ↓
+   └─> Recebe código de barras + timestamp
+       ↓
+       ├─> Busca produto no banco de dados (sincronizado do ERP)
+       ├─> Registra evento de "bipagem" com foto/vídeo
+       ├─> Verifica se produto está ATIVO (configurado pelo usuário)
+       └─> Se ATIVO: Salva registro + envia notificação WhatsApp
+
+3. ANÁLISE INTELIGENTE (Cron - 5h da manhã)
+   ↓
+   └─> Busca vendas do dia anterior via API do ERP (Zanthus/Intersolid)
+       ↓
+       └─> Compara VENDAS vs BIPAGENS
+           ↓
+           ├─> Se VENDEU mas NÃO BIPOU = 🚨 POSSÍVEL FURTO
+           ├─> Se BIPOU mas NÃO VENDEU = ✅ Produto devolvido/trocado
+           └─> Gera relatório com foto + vídeo do momento da bipagem
+
+4. NOTIFICAÇÕES (WhatsApp)
+   ↓
+   └─> Via Evolution API (WhatsApp Business)
+       ↓
+       └─> Envia mensagens para grupo do gerente com:
+           - Produto suspeito
+           - Foto do momento
+           - Horário exato
+           - Funcionário responsável (se identificado)
 ```
 
----
+### Componentes do Sistema
 
-###
+#### 1. Backend (API REST)
+- **Tecnologia**: Node.js 18 + Express + TypeScript
+- **Banco de Dados**: PostgreSQL 16 com TypeORM
+- **Autenticação**: JWT + bcrypt
+- **Funcionalidades**:
+  - CRUD completo de produtos, vendas, bipagens
+  - Sincronização com ERP (Zanthus, Intersolid)
+  - Webhook para receber bipagens de scanners
+  - Cron jobs para análise diária (5h AM)
+  - Sistema de recuperação de senha por email
+  - API de notificações WhatsApp (Evolution API)
+  - Monitor de email DVR (alertas de câmeras)
 
-Os instaladores automáticos (`INSTALAR-AUTO.bat`) já baixam tudo, mas você pode baixar manualmente:
+#### 2. Frontend (Interface Web)
+- **Tecnologia**: React 19 + TypeScript + Vite + Tailwind CSS
+- **Páginas Principais**:
+  - **Dashboard**: Visão geral com métricas do dia
+  - **Bipagens Ao Vivo (VAR)**: Monitoramento em tempo real com fotos
+  - **Ativar Produtos**: Gerenciar quais produtos monitorar
+  - **Resultados do Dia**: Análise de furtos detectados
+  - **Rankings**: Produtos mais furtados, funcionários com mais alertas
+  - **Reconhecimento Facial**: Imagens do DVR via email
+  - **Configurações**: APIs, Email, WhatsApp, Rede, Segurança
 
-#### 1️⃣ Node.js 20 LTS (Obrigatório)
-- 📦 **O que é:** Ambiente de execução JavaScript (roda Backend + Frontend)
-- 💾 **Tamanho:** ~50 MB
-- 🔗 **Download:** https://nodejs.org/
-- 📖 **Instruções:**
-  1. Baixar versão **LTS** (20.x)
-  2. Executar instalador
-  3. Marcar **"Add to PATH"** durante instalação
-  4. Verificar: abrir CMD e digitar `node --version`
+#### 3. PostgreSQL (Banco de Dados)
+- **Entidades Principais**:
+  - `users`: Usuários do sistema (MASTER, ADMIN, USER)
+  - `companies`: Empresas cadastradas (multi-tenant)
+  - `products`: Produtos do ERP sincronizados
+  - `bips`: Registros de bipagens (código + foto + timestamp)
+  - `sells`: Vendas do ERP
+  - `employees`: Funcionários da loja
+  - `configurations`: Configurações do sistema (chave-valor)
 
-#### 2️⃣ PostgreSQL 16 (Obrigatório)
-- 📦 **O que é:** Banco de dados relacional
-- 💾 **Tamanho:** ~350 MB
-- 🔗 **Download:** https://www.postgresql.org/download/windows/
-- 📖 **Instruções:**
-  1. Baixar PostgreSQL 16
-  2. Executar instalador
-  3. **ANOTAR A SENHA** que você criar para o usuário `postgres`
-  4. Porta padrão: `5432` (deixar como está)
-  5. Instalar todos os componentes oferecidos
+#### 4. MinIO (Armazenamento S3)
+- **Armazena**: Fotos e vídeos das bipagens
+- **Bucket**: `market-security`
+- **Acesso**: Público para leitura (links diretos nas páginas)
+- **Volume**: Pode crescer até 100+ GB em produção
 
-#### 3️⃣ Git (Opcional, mas recomendado)
-- 📦 **O que é:** Controle de versão (para atualizar o sistema)
-- 💾 **Tamanho:** ~50 MB
-- 🔗 **Download:** https://git-scm.com/download/win
-- 📖 **Instruções:**
-  1. Baixar Git for Windows
-  2. Executar instalador (pode deixar opções padrão)
-  3. Verificar: abrir CMD e digitar `git --version`
-
-#### 4️⃣ Python 3.11+ (Opcional - apenas se usar Scanner Service)
-- 📦 **O que é:** Necessário para o serviço de scanner de código de barras
-- 💾 **Tamanho:** ~30 MB
-- 🔗 **Download:** https://www.python.org/downloads/
-- 📖 **Instruções:**
-  1. Baixar Python 3.11 ou superior
-  2. **IMPORTANTE:** Marcar **"Add Python to PATH"** durante instalação
-  3. Verificar: abrir CMD e digitar `python --version`
-
----
-
-### ☁️ Para VPS (Servidor Linux):
-
-Se você vai instalar em uma VPS Linux (Ubuntu/Debian):
-
-#### Docker + Docker Compose (Recomendado)
-```bash
-# Instalar Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-
-# Instalar Docker Compose
-sudo apt-get update
-sudo apt-get install docker-compose-plugin
-
-# Verificar instalação
-docker --version
-docker compose version
-```
-
-#### Alternativa Manual (não recomendado)
-```bash
-# Instalar Node.js 20
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs
-
-# Instalar PostgreSQL 16
-sudo apt-get install postgresql-16
-
-# Instalar PM2
-sudo npm install -g pm2
-```
+#### 5. Cron Service
+- **Execução**: Diariamente às 5h da manhã
+- **Tarefas**:
+  - Buscar vendas do dia anterior via API do ERP
+  - Comparar vendas vs bipagens
+  - Gerar relatório de possíveis furtos
+  - Enviar notificações WhatsApp
 
 ---
 
-### 🎯 Resumo por Método:
+## 🏗 Arquitetura e Tecnologias
 
-| Método | Programas Necessários | Download Total | Tempo Instalação |
-|--------|----------------------|----------------|------------------|
-| **🐳 Docker** | Docker Desktop | ~500 MB | ~10 min |
-| **🏠 Manual** | Node.js + PostgreSQL + Git | ~450 MB | ~30-45 min |
-| **☁️ VPS Linux + Docker** | Via terminal (apt/curl) | ~600 MB | ~15 min |
-
----
-
-### ✅ Checklist Antes de Instalar:
-
-#### Para Docker:
-- [ ] Windows 10/11 com interface gráfica
-- [ ] Mínimo 4 GB RAM (recomendado 8 GB)
-- [ ] Docker Desktop instalado e **rodando**
-- [ ] Hyper-V ou WSL2 ativado (Docker Desktop ativa automaticamente)
-
-#### Para Manual/Interno:
-- [ ] Windows 10/11 ou Windows Server
-- [ ] Node.js 20 LTS instalado
-- [ ] PostgreSQL 16 instalado (senha anotada!)
-- [ ] Git instalado (opcional)
-- [ ] Executar instalador como **Administrador**
-
----
-
-## ⚖️ Como Escolher: ONDE hospedar + COMO instalar
-
-### 🤔 Entendendo as 2 Decisões:
-
-Esta é uma escolha **bi-dimensional**:
-
-1. **ONDE hospedar?** → Local (rede do cliente) vs VPS (nuvem)
-2. **COMO instalar?** → Docker (containers) vs Manual/Interno (Windows)
-
----
-
-## 🌍 DECISÃO 1: ONDE hospedar?
-
-### 📊 Comparação: Local vs VPS
-
-| Critério | 🏠 Rede Local (Cliente) | ☁️ VPS (Nuvem) | Vencedor |
-|----------|------------------------|----------------|----------|
-| **Custo mensal** | ⭐⭐⭐⭐⭐ R$ 0 (usa PC do cliente) | ⭐⭐⭐ ~R$ 60-100/mês | 🏠 Local |
-| **Acesso externo** | ⭐⭐ Ngrok (cai a cada 2h, URLs aleatórias) | ⭐⭐⭐⭐⭐ IP fixo, domínio próprio | ☁️ VPS |
-| **Disponibilidade** | ⭐⭐⭐ Depende do PC do cliente | ⭐⭐⭐⭐⭐ 99.9% uptime garantido | ☁️ VPS |
-| **Performance** | ⭐⭐⭐⭐ Acesso local (<1ms) | ⭐⭐⭐⭐ Internet (10-50ms) | 🏠 Local |
-| **Manutenção** | ⭐⭐ Cliente pode desligar, problemas de energia | ⭐⭐⭐⭐⭐ Gerenciado, backups automáticos | ☁️ VPS |
-| **Configuração inicial** | ⭐⭐⭐⭐ Mais simples | ⭐⭐⭐ Requer DNS, SSL | 🏠 Local |
-| **APIs locais (Zanthus)** | ⭐⭐⭐⭐⭐ Acesso direto (10.6.1.101) | ⭐⭐ Precisa VPN ou expor API | 🏠 Local |
-| **Múltiplas lojas** | ⭐⭐ Cada loja tem sua instalação | ⭐⭐⭐⭐⭐ Centralizador, multi-tenant | ☁️ VPS |
-
----
-
-### ✅ Quando usar **REDE LOCAL**:
-
-**Cenários ideais:**
-- ✅ Cliente tem 1 loja apenas
-- ✅ APIs do ERP (Zanthus, Intersolid) rodam **na rede local** (10.6.1.x)
-- ✅ Cliente tem PC 24/7 disponível
-- ✅ Não precisa acesso externo (ou Ngrok é suficiente)
-- ✅ Budget limitado (R$ 0/mês)
-
-**Exemplo prático:**
-```
-📍 Mercado Tradição SJC
-├── PC do escritório (sempre ligado)
-├── Zanthus ERP (10.6.1.101 - VMware local)
-├── Intersolid (10.6.1.102 - VMware local)
-└── Market Security instalado no mesmo PC
-    ⚡ Acesso local: <1ms
-    🌐 Ngrok (opcional): acesso externo
-```
-
-**Vantagens:**
-- 💰 **Custo zero** de hospedagem
-- ⚡ **Super rápido** (acesso local)
-- 🔗 **Acesso direto** às APIs locais (Zanthus)
-- 🛠️ **Controle total** do cliente
-
-**Desvantagens:**
-- ⚠️ Depende do PC estar ligado 24/7
-- ⚠️ Ngrok instável (cai a cada 2h, URLs mudam)
-- ⚠️ Problemas de energia/hardware param tudo
-- ⚠️ Difícil centralizar dados de múltiplas lojas
-
----
-
-### ✅ Quando usar **VPS (Nuvem)**:
-
-**Cenários ideais:**
-- ✅ Cliente tem **múltiplas lojas**
-- ✅ Precisa de **domínio próprio** (tradicaosjc.com.br)
-- ✅ Precisa acesso externo **estável** (sem Ngrok)
-- ✅ APIs do ERP estão **na nuvem** ou acessíveis via internet
-- ✅ Quer **centralizar dados** de todas as lojas
-
-**Exemplo prático:**
-```
-☁️ VPS Contabo (187.90.96.96)
-├── tradicaosjc.com.br → Frontend
-├── api.tradicaosjc.com.br → Backend
-├── PostgreSQL (centralizado)
-├── MinIO (fotos de todas as lojas)
-└── Acesso de qualquer lugar
-    📱 Smartphone: OK
-    💻 Escritório: OK
-    🏪 Loja 1, 2, 3...: OK
-```
-
-**Vantagens:**
-- 🌐 **IP fixo** + domínio próprio
-- ⏰ **99.9% uptime** garantido
-- 📊 **Centralizado**: dados de todas as lojas em 1 lugar
-- 🔐 **SSL grátis** (Let's Encrypt)
-- 📈 **Escalável**: cresce conforme necessário
-- 🔄 **Backups automáticos**
-
-**Desvantagens:**
-- 💰 **Custo**: ~R$ 60-100/mês (VPS + domínio)
-- ⚙️ **Configuração inicial** mais complexa (DNS, SSL)
-- 🔗 APIs locais (Zanthus) precisam **VPN ou exposição**
-- 🌍 Latência de internet (10-50ms vs <1ms local)
-
----
-
-## 🔧 DECISÃO 2: COMO instalar?
-
-**IMPORTANTE:** Esta decisão **independe de ONDE** hospedar!
-- Pode instalar Docker **na rede local** do cliente
-- Pode instalar Manual **na VPS**
-
-### 📊 Comparação: Docker vs Manual/Interno
-
-| Critério | 🐳 Docker | 📁 Manual/Interno | Vencedor |
-|----------|-----------|-------------------|----------|
-| **Instalação** | ⭐⭐⭐⭐⭐ 1 clique (5 min) | ⭐⭐⭐ Manual (30-45 min) | 🐳 Docker |
-| **Isolamento** | ⭐⭐⭐⭐⭐ Containers isolados | ⭐⭐ Processos no Windows | 🐳 Docker |
-| **Portabilidade** | ⭐⭐⭐⭐⭐ Windows/Linux/Mac | ⭐⭐⭐ Só Windows | 🐳 Docker |
-| **Atualizações** | ⭐⭐⭐⭐⭐ Rebuild (2 min) | ⭐⭐⭐ Manual (git + npm) | 🐳 Docker |
-| **Uso de RAM** | ⭐⭐⭐ ~2 GB | ⭐⭐⭐⭐⭐ ~500 MB | 📁 Manual |
-| **Velocidade** | ⭐⭐⭐ ~30s inicializar | ⭐⭐⭐⭐⭐ ~5s inicializar | 📁 Manual |
-| **Auto-start invisível** | ⭐⭐⭐ Possível | ⭐⭐⭐⭐⭐ Nativo (PowerShell) | 📁 Manual |
-| **Ngrok incluído** | ⭐⭐ Config extra | ⭐⭐⭐⭐⭐ Já configurado | 📁 Manual |
-| **Hot reload (dev)** | ⭐⭐⭐ Mais lento | ⭐⭐⭐⭐⭐ Instantâneo | 📁 Manual |
-
----
-
-### ✅ Quando usar **DOCKER**:
-
-**Ideal para:**
-- ✅ **VPS (Linux)** - Docker é padrão na nuvem
-- ✅ Instalação em **múltiplos clientes** (padronização)
-- ✅ **Produção/Cliente** - isolamento e segurança
-- ✅ Facilitar **atualizações futuras**
-- ✅ Equipe **sem experiência** em Node.js
-
-**Vantagens:**
-- 🚀 **Instalação 1 clique** (5-10 minutos)
-- 🎯 **Tudo isolado** (não bagunça o sistema)
-- 🔄 **Atualizar = rebuild** (super fácil)
-- 📦 **Portável** (funciona em qualquer OS)
-- 🛠️ **Padronizado** (todos os clientes iguais)
-
-**Desvantagens:**
-- 💾 **Mais pesado** (~2 GB RAM)
-- ⏱️ **Inicialização lenta** (~30 segundos)
-- 🔧 **Hot reload lento** (desenvolvimento)
-
----
-
-### ✅ Quando usar **MANUAL/INTERNO**:
-
-**Ideal para:**
-- ✅ **Desenvolvimento** local
-- ✅ Rede local **Windows** com Ngrok
-- ✅ Máquinas com **poucos recursos** (<4 GB RAM)
-- ✅ Precisa **auto-start invisível** no Windows
-- ✅ **Hot reload rápido** (programação)
-
-**Vantagens:**
-- ⚡ **Super leve** (~500 MB RAM)
-- 🚀 **Inicialização instantânea** (~5 segundos)
-- 🔧 **Hot reload rápido** (desenvolvimento)
-- 👻 **Auto-start invisível** (PowerShell)
-- 🌐 **Ngrok já configurado**
-
-**Desvantagens:**
-- ⏰ **Instalação demorada** (30-45 min)
-- 🪟 **Só Windows** (não portável)
-- 🔄 **Atualizar = manual** (git pull + npm install)
-- 🔨 Requer **conhecimento técnico**
-
----
-
-## 🎯 Matriz de Decisão: 4 Combinações Possíveis
+### Stack Completo
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                    ONDE + COMO INSTALAR                      │
-├──────────────────────────────────────────────────────────────┤
-│                                                              │
-│  1️⃣ LOCAL + DOCKER                                          │
-│     ✅ Instalação rápida no PC do cliente                    │
-│     ✅ Isolado do Windows                                    │
-│     ⚠️ Consome mais RAM (~2 GB)                             │
-│     🎯 Ideal: Cliente quer fácil, tem PC potente             │
-│                                                              │
-│  2️⃣ LOCAL + MANUAL (InstaladorINTERNO)                      │
-│     ✅ Super leve (~500 MB RAM)                             │
-│     ✅ Auto-start invisível + Ngrok                          │
-│     ✅ Acesso direto APIs locais                            │
-│     ⚠️ Instalação demorada                                   │
-│     🎯 Ideal: Desenvolvimento ou PC 24/7 simples             │
-│                                                              │
-│  3️⃣ VPS + DOCKER ⭐ RECOMENDADO PRODUÇÃO                     │
-│     ✅ 99.9% uptime + IP fixo                               │
-│     ✅ Domínio próprio + SSL grátis                          │
-│     ✅ Fácil atualizar e escalar                            │
-│     💰 ~R$ 60-100/mês                                        │
-│     🎯 Ideal: Múltiplas lojas, profissional                  │
-│                                                              │
-│  4️⃣ VPS + MANUAL                                            │
-│     ✅ Mais leve que Docker                                 │
-│     ⚠️ Instalação manual na VPS                              │
-│     ⚠️ Difícil manter (sem isolamento)                       │
-│     ❌ NÃO recomendado (use Docker na VPS)                   │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                        FRONTEND                         │
+│   React 19 + TypeScript + Vite + Tailwind CSS          │
+│   Porta 3000 (Nginx)                                    │
+└─────────────────────────────────────────────────────────┘
+                          ↓ HTTP
+┌─────────────────────────────────────────────────────────┐
+│                        BACKEND                          │
+│   Node.js 18 + Express + TypeScript + TypeORM          │
+│   Porta 3001                                            │
+└─────────────────────────────────────────────────────────┘
+          ↓                    ↓                   ↓
+    ┌─────────┐          ┌─────────┐        ┌───────────┐
+    │PostgreSQL│         │  MinIO  │        │  Cron     │
+    │Porta 5434│         │Porta 9010│       │ (interno) │
+    └──────────┘         └─────────┘        └───────────┘
 ```
 
----
+### Containers Docker
 
-## 🏆 Recomendação por Cenário:
-
-### 🎓 **Desenvolvimento / Testes**
-→ **LOCAL + MANUAL** (InstaladorINTERNO)
-- Hot reload rápido
-- Ngrok para testes externos
-- Leve e responsivo
-
-### 🏪 **Cliente 1 loja (budget baixo)**
-→ **LOCAL + DOCKER**
-- Instalação rápida (5 min)
-- Isolado e seguro
-- R$ 0/mês
-
-### 🏢 **Cliente múltiplas lojas**
-→ **VPS + DOCKER** ⭐
-- Centralizado
-- Domínio próprio
-- Escalável
-- ~R$ 60-100/mês
-
-### 🔬 **Cliente 1 loja (profissional)**
-→ **VPS + DOCKER**
-- 99.9% uptime
-- Acesso de qualquer lugar
-- Fácil manutenção
-
----
-
-## 📂 Estrutura do Projeto
-
-```
-roberto-prevencao-no-radar-main/
-│
-├── 📁 InstaladorDOCKER/           # Instalação via Docker
-│   ├── INSTALAR-AUTO.bat          # ← Instalador automático (1 botão)
-│   ├── docker-compose-producao.yml              # Produção (padrão)
-│   ├── docker-compose-producao-portainer.yml    # Produção + Portainer Web UI
-│   ├── Dockerfile.backend
-│   ├── Dockerfile.frontend
-│   └── README.md
-│
-├── 📁 InstaladorINTERNO/          # Instalação local/rede interna
-│   ├── INSTALAR-AUTO.bat          # ← Instalador automático (1 botão)
-│   ├── startup-invisible.ps1      # Auto-start invisível
-│   ├── monitor-e-reiniciar.vbs    # Monitor de processos
-│   ├── ngrok.yml                  # Configuração Ngrok
-│   ├── ngrok.exe                  # Executável Ngrok
-│   ├── minio.exe                  # Executável MinIO
-│   ├── task-prevencao-radar.xml   # Tarefa Windows
-│   └── README.md
-│
-├── 📁 CREDENCIAIS/                 # ⚠️ Senhas e acessos importantes
-│   ├── portainer.md               # Credenciais Portainer
-│   ├── seguranca-sistema.md       # Sistema de proteção (Beto/Beto3107)
-│   └── ngrok.md                   # Token Ngrok
-│
-├── 📁 BACKUPS-E-APRENDIZADOS/     # Backups e documentação antiga
-│   ├── docs/                      # Guias e tutoriais antigos
-│   └── *.sql                      # Backups do banco de dados
-│
-├── 📁 scripts/                     # Scripts de manutenção e testes
-│   ├── manutencao/                # Backup, firewall, proteção
-│   ├── testes/                    # Scripts de teste do banco
-│   ├── INICIAR-CRON.bat
-│   └── VER-LOGS-CRON.bat
-│
-├── 📁 packages/                    # Código-fonte
-│   ├── backend/                   # API Express + TypeScript
-│   └── frontend/                  # React + TypeScript
-│
-├── 📁 logs/                        # Logs do PM2 (gerados automaticamente)
-├── 📁 minio-data/                  # Armazenamento de fotos/vídeos (27 MB+)
-│
-├── 📄 ecosystem.config.js          # Configuração PM2
-├── 📄 docker-compose-desenvolvimento.yml  # Docker local (desenvolvimento)
-├── 📄 package.json                 # Dependências do monorepo
-└── 📄 README.md                    # Este arquivo
-```
-
-### 📋 Explicação das Pastas:
-
-| Pasta | Descrição | Commit no Git? |
-|-------|-----------|----------------|
-| **InstaladorDOCKER/** | Instalação via Docker (1 botão) | ✅ Sim |
-| **InstaladorINTERNO/** | Instalação local com auto-start | ✅ Sim (exceto .exe) |
-| **CREDENCIAIS/** | Senhas importantes (Portainer, Beto, Ngrok) | ✅ Sim |
-| **BACKUPS-E-APRENDIZADOS/** | Backups SQL + docs antigos | ❌ Não (.gitignore) |
-| **scripts/** | Manutenção e testes | ✅ Sim |
-| **packages/** | Código-fonte (backend + frontend) | ✅ Sim |
-| **logs/** | Logs do PM2 (gerados automaticamente) | ❌ Não (.gitignore) |
-| **minio-data/** | Fotos e vídeos das bipagens | ❌ Não (.gitignore) |
-
----
-
-## 🗂️ Arquivos de Configuração Importantes
-
-### 🐳 **Arquivos Docker Compose - Qual Usar?**
-
-O projeto possui **3 arquivos Docker Compose** com nomenclatura clara:
-
-| Arquivo | Onde fica | Para que serve | Quando usar |
-|---------|-----------|----------------|-------------|
-| **`docker-compose-desenvolvimento.yml`** | Raiz do projeto | Hot reload, logs verbosos, portas debug | Desenvolvimento local (você programando) |
-| **`docker-compose-producao.yml`** | InstaladorDOCKER/ | Build otimizado, senhas seguras, produção | Instalação em cliente/produção |
-| **`docker-compose-producao-portainer.yml`** | InstaladorDOCKER/ | Produção + Portainer (painel web) | VPS com gerenciamento via navegador |
-
-#### 📝 Exemplos de uso:
-
-```bash
-# Desenvolvimento (raiz do projeto)
-docker compose -f docker-compose-desenvolvimento.yml up
-
-# Produção (InstaladorDOCKER/)
-cd InstaladorDOCKER
-docker compose -f docker-compose-producao.yml up -d
-
-# Produção + Portainer (VPS)
-cd InstaladorDOCKER
-docker compose -f docker-compose-producao-portainer.yml up -d
-```
-
-**Nota:** O `INSTALAR-AUTO.bat` já usa automaticamente o `docker-compose-producao.yml`!
-
----
-
-### **`.dockerignore`** vs **`docker-compose-*.yml`**
-
-| Arquivo | O que é | Para que serve |
-|---------|---------|----------------|
-| **`.dockerignore`** | Lista de exclusão | Define o que **NÃO vai** para dentro da imagem Docker |
-| **`docker-compose-*.yml`** | Orquestração | Define **como rodar** múltiplos containers Docker |
-
-#### 📝 `.dockerignore` - O que NÃO vai pro Docker:
-```
-node_modules/     ← ~500 MB (Docker roda npm install internamente)
-minio-data/       ← Fotos/vídeos (dados locais)
-logs/             ← Logs temporários
-.env              ← Senhas (usa variáveis de ambiente)
-*.exe             ← Executáveis grandes
-```
-
-**Por quê?** Deixar a imagem Docker **menor** (de 2 GB para 500 MB) e **mais rápida** para buildar.
-
-#### 🐳 `docker-compose-*.yml` - Como rodar os containers:
-
-Todos os arquivos docker-compose definem estes serviços:
 ```yaml
 services:
-  postgres:        ← Banco de dados
-  backend:         ← API Express
-  frontend:        ← React App
-  minio:           ← Armazenamento de arquivos
-  # + portainer (apenas docker-compose-producao-portainer.yml)
+  postgres:           # Banco de dados
+    image: postgres:16-alpine
+    port: 5434:5432
+    volume: postgres-data (persistente)
+
+  backend:            # API Node.js
+    build: Dockerfile.backend
+    port: 3001:3001
+    depends_on: postgres, minio
+
+  frontend:           # React App
+    build: Dockerfile.frontend
+    port: 3000:80
+    nginx: serve arquivos estáticos
+
+  minio:              # S3-compatible storage
+    image: minio/minio:latest
+    port: 9010:9000, 9011:9001
+    volume: minio-data (persistente)
+
+  cron:               # Tarefas agendadas
+    build: Dockerfile.backend
+    command: node-cron daily-verification
 ```
 
-**Diferença entre eles:**
-- `desenvolvimento`: Hot reload, portas debug, logs detalhados
-- `producao`: Build otimizado, senhas via .env, modo produção
-- `producao-portainer`: Produção + interface web Portainer (porta 9000)
+### Fluxo de Deploy Automático
 
-**Por quê?** Orquestrar múltiplos serviços que precisam conversar entre si.
-
----
-
-## 🗄️ MinIO e minio-data/
-
-### O que é MinIO?
-**MinIO** = Servidor de armazenamento de objetos (como Amazon S3, mas local)
-
-### Para que serve?
-```
-Scanner bipa produto → 📸 Tira foto → 💾 Salva no MinIO (minio-data/)
-                     → 🎥 Grava vídeo → 📋 Backend guarda link no banco
-```
-
-### Tamanho atual:
-- **minio-data/**: ~27 MB (dados de teste)
-- **Produção**: Pode crescer para 100+ GB (fazer backup regular!)
-
-### Por que não vai pro Git?
-- ✅ Já está no `.gitignore`
-- ✅ Protege privacidade dos clientes (fotos/vídeos)
-- ✅ Muito grande para GitHub (limite de 100 MB por arquivo)
-
----
-
-## 🔒 Credenciais e Segurança
-
-Todas as credenciais importantes estão organizadas na pasta **`CREDENCIAIS/`**:
-
-- **Portainer**: Admin do painel Docker
-- **Segurança do Sistema**: Usuário: `Beto` / Senha: `Beto3107`
-- **Ngrok**: Token de autenticação para túneis externos
-
-⚠️ **IMPORTANTE**: Mantenha esta pasta segura e não compartilhe publicamente!
-
----
-
-## 🌐 Acessos após Instalação
-
-| Serviço | URL | Descrição |
-|---------|-----|-----------|
-| **Frontend** | http://localhost:3004 | Interface web do sistema |
-| **Backend** | http://localhost:3001 | API REST |
-| **MinIO API** | http://localhost:9010 | Servidor de arquivos (fotos/vídeos) |
-| **MinIO Console** | http://localhost:9011 | Gerenciamento de arquivos (interface) |
-| **Swagger** | http://localhost:3001/api-docs | Documentação da API |
-
-### 📸 MinIO - Configuração de Acesso
-
-O MinIO usa **duas portas diferentes**:
-- **Porta 9010**: API de arquivos (usado pelo backend e navegadores para acessar imagens/vídeos)
-- **Porta 9011**: Console de gerenciamento (interface web administrativa)
-
-**URLs públicas** (para acesso externo):
-- Configure no painel de Configurações do sistema
-- Endpoint público: IP da rede local (ex: `10.6.1.171`)
-- Porta pública: `9010`
-
-**Login padrão do sistema**:
-- Email: `admin@tradicaosjc.com.br`
-- Senha: `admin123`
-
-⚠️ **Altere a senha após o primeiro login!**
-
----
-
-## 🏗️ Arquitetura do Sistema
-
-### Backend
-- **Express.js** - Framework web
-- **TypeScript** - Tipagem estática
-- **TypeORM** - ORM para PostgreSQL
-- **JWT** - Autenticação
-- **Swagger** - Documentação da API
-- **node-cron** - Agendamento de tarefas
-
-### Frontend
-- **React 19** - Interface de usuário
-- **TypeScript** - Tipagem estática
-- **Tailwind CSS** - Framework CSS
-- **React Router** - Roteamento
-- **Axios** - Cliente HTTP
-- **Vite** - Build tool
-
-### Infraestrutura
-- **PostgreSQL** - Banco de dados
-- **MinIO** - Armazenamento de objetos (S3-compatible)
-- **PM2** - Gerenciador de processos Node.js
-- **Docker** - Containerização
-- **Ngrok** - Túneis externos (opcional)
-
----
-
-## 🎯 Funcionalidades Principais
-
-### Dashboard
-- Visão geral do sistema
-- Métricas em tempo real
-- Navegação principal
-
-### Bipagens Ao Vivo
-- Monitoramento em tempo real
-- Filtros avançados
-- Fotos e vídeos das bipagens
-- Lazy loading para performance
-
-### Ativar Produtos
-- Gestão de produtos do ERP
-- Ativação/desativação individual e em massa
-- Interface otimizada para mobile
-- Sincronização com Zanthus ERP
-
-### Resultados do Dia
-- Análise de vendas vs bipagens
-- Identificação de possíveis furtos
-- Relatórios detalhados
-- Alertas automáticos
-
-### Autenticação e Recuperação de Senha
-- **Login Seguro**: Autenticação JWT com hash bcrypt
-- **Recuperação de Senha por Email**: Sistema completo de reset de senha
-  - Envio de email com link de recuperação (válido por 1 hora)
-  - Token seguro com hash SHA-256
-  - Email profissional estilizado com template HTML
-  - Integração com Gmail via SMTP (nodemailer)
-  - Fallback para console caso email falhe
-- **Primeiro Acesso**: Wizard de configuração inicial
-- **Gerenciamento de Usuários**: CRUD completo de usuários com roles (master, admin, user)
-
-### Configurações
-- **APIs**: Integração com Zanthus, Intersolid, Evolution API
-- **WhatsApp**: Notificações automáticas via Evolution API
-- **Monitor de Email (DVR)**:
-  - Monitoramento automático de alertas de DVR via Gmail
-  - Extração de imagens de PDFs anexos
-  - Envio de notificações para WhatsApp com imagens
-  - Configuração de filtros de assunto e intervalo de verificação
-  - Logs de emails processados
-- **Rede**: Gerenciamento de equipamentos e scanners
-- **Segurança**: Controle de acesso e permissões
-- **Email**: Configuração de SMTP para recuperação de senha
-- **Simulador**: Teste de bipagens para desenvolvimento
-
----
-
-## 🎬 Primeiro Acesso - Configuração Inicial (First-Setup)
-
-Após instalar o sistema, ao acessar pela primeira vez, você será direcionado automaticamente para o **First-Setup**.
-
-### O que é o First-Setup?
-
-É um wizard de configuração inicial que cria:
-- ✅ Dados da empresa (Nome, CNPJ, Endereço)
-- ✅ Primeiro usuário administrador
-- ✅ Configurações básicas do sistema
-
-### Como usar:
-
-1. **Acesse o sistema** (ex: `http://192.168.0.145:8080` ou `http://localhost:8080`)
-2. Você será **redirecionado automaticamente** para `/first-setup`
-3. Preencha os dados solicitados:
-   - **Dados da Empresa**: Nome Fantasia, Razão Social, CNPJ, Endereço
-   - **Usuário Administrador**: Nome, Username, Email, Senha
-4. Clique em **"Finalizar Configuração"**
-5. Você será redirecionado para o **Login**
-
-### ✅ Migrations Automáticas
-
-O sistema **executa automaticamente** todas as migrations do banco de dados ao iniciar o container Docker.
-
-Você verá no log do backend:
-```
-🚀 Iniciando backend em modo produção...
-⏳ Aguardando PostgreSQL ficar disponível...
-✅ PostgreSQL conectado
-🔄 Executando migrations automaticamente...
-✅ Iniciando servidor...
-```
-
-**Não precisa fazer nada manualmente!** As migrations são aplicadas automaticamente no primeiro start.
-
-### Após o First-Setup:
-
-- ✅ Sistema configurado
-- ✅ Banco de dados populado
-- ✅ Você pode fazer login com o usuário criado
-- ✅ Acesse o Dashboard e comece a usar!
-
----
-
-## 🔄 Processo de Cron Jobs
-
-O sistema possui cron jobs automáticos que rodam às **5h da manhã**:
-
-1. Busca vendas do dia anterior via API do ERP
-2. Filtra produtos ativos no sistema
-3. Valida contra bipagens registradas
-4. Salva resultados na tabela `sells`
-5. Envia alertas via WhatsApp (se configurado)
-
----
-
-## 🛠️ Comandos Úteis
-
-### Docker (InstaladorDOCKER):
 ```bash
-# Ver status dos containers
-docker-compose ps
+# 1. Desenvolvedor faz commit
+git add .
+git commit -m "feat: nova funcionalidade"
+git push origin main
 
-# Ver logs
-docker-compose logs -f
-
-# Parar tudo
-docker-compose down
-
-# Reiniciar
-docker-compose restart
-```
-
-### PM2 (InstaladorINTERNO):
-```bash
-# Ver processos rodando
-pm2 list
-
-# Ver logs em tempo real
-pm2 logs
-
-# Parar tudo
-pm2 stop all
-
-# Reiniciar
-pm2 restart all
-```
-
----
-
-## 📱 Responsividade
-
-O sistema foi desenvolvido com **mobile-first approach**:
-- Interface adaptativa para todos os tamanhos de tela
-- Touch-friendly para tablets e smartphones
-- Componentes otimizados para performance mobile
-
----
-
-## 📧 Configuração de Email (Recuperação de Senha)
-
-O sistema possui recuperação de senha via email. Para configurar:
-
-### 1. Configurar Gmail com Senha de App
-
-1. Acesse sua conta Google: https://myaccount.google.com
-2. Vá em **Segurança** → **Verificação em duas etapas** (ative se não estiver)
-3. Acesse **Senhas de app**: https://myaccount.google.com/apppasswords
-4. Crie uma nova senha de app:
-   - Nome do app: "Prevenção no Radar"
-   - Copie a senha gerada (16 caracteres)
-
-### 2. Configurar no .env
-
-Edite o arquivo `packages/backend/.env`:
-
-```env
-# Email (Recuperação de Senha)
-EMAIL_USER=seuemail@gmail.com
-EMAIL_PASS=senha_app_16_caracteres
-FRONTEND_URL=http://localhost:3004
-```
-
-### 3. Testar
-
-Execute o script de teste:
-```bash
-cd packages/backend
-node test-email.js
-```
-
-### Troubleshooting
-
-**Erro "Username and Password not accepted"**:
-- Verifique se a Verificação em 2 etapas está ATIVADA
-- Confirme que copiou a senha de app corretamente (sem espaços)
-- Verifique se o email está correto
-- Crie uma NOVA senha de app
-
-**Email não chega**:
-- Verifique a pasta de SPAM
-- Confirme que o email está cadastrado no sistema
-- Veja os logs do backend para confirmar envio
-
----
-
-## ⏰ Timezone e Correções de Data
-
-O sistema corrige automaticamente o timezone das vendas recebidas do ERP Zanthus:
-
-- **Problema**: Vendas vinham em UTC (3 horas atrasadas em relação ao BRT)
-- **Solução Implementada**:
-  - Função `adjustTimezone()` adiciona +3 horas para converter UTC → BRT
-  - Query SQL com `+ INTERVAL '3' HOUR` para vendas do Zanthus
-  - Backend retorna datas como string formatada (evita conversão do navegador)
-- **Resultado**: Vendas exibem horário correto no sistema (timezone brasileiro)
-
-**Arquivo modificado**: `packages/backend/src/services/sales.service.ts`
-**Commit**: `69f63f4` - fix: Corrige timezone das vendas (+3h BRT)
-
----
-
-## 🌐 Traefik e Labels para Domínios (VPS)
-
-O `docker-compose-producao.yml` inclui labels Traefik prontas para uso com reverse proxy:
-
-**Frontend** (`prevencao-frontend-prod`):
-```yaml
-labels:
-  - "traefik.enable=true"
-  - "traefik.http.routers.prevencao-frontend.rule=Host(`prevencaonoradar.com.br`) || Host(`www.prevencaonoradar.com.br`)"
-  - "traefik.http.routers.prevencao-frontend.entrypoints=websecure"
-  - "traefik.http.routers.prevencao-frontend.tls.certresolver=letsencryptresolver"
-  - "traefik.http.services.prevencao-frontend.loadbalancer.server.port=80"
-```
-
-**Backend** (`prevencao-backend-prod`):
-```yaml
-labels:
-  - "traefik.enable=true"
-  - "traefik.http.routers.prevencao-backend.rule=Host(`prevencaonoradar.com.br`) && PathPrefix(`/api`)"
-  - "traefik.http.routers.prevencao-backend.entrypoints=websecure"
-  - "traefik.http.routers.prevencao-backend.tls.certresolver=letsencryptresolver"
-  - "traefik.http.services.prevencao-backend.loadbalancer.server.port=3001"
-```
-
-**Nota**: Para usar com Traefik em VPS, é necessário migrar para Docker Swarm ou configurar Traefik para detectar containers standalone.
-
----
-
-## 🔒 Segurança
-
-- Autenticação JWT
-- Middleware de autenticação em todas as rotas protegidas
-- Hash de senhas com bcrypt (10 rounds)
-- Validação de entrada com express-validator
-- CORS configurado
-- Sistema de proteção de arquivos (ver `CREDENCIAIS/seguranca-sistema.md`)
-- Recuperação de senha com token SHA-256 (válido por 1 hora)
-- Senhas de app para email (não expõe senha principal)
-
----
-
-## 📞 Suporte e Documentação
-
-### Documentação Específica:
-- **Instalação Docker**: [InstaladorDOCKER/README.md](InstaladorDOCKER/README.md)
-- **Instalação Interna**: [InstaladorINTERNO/README.md](InstaladorINTERNO/README.md)
-- **Credenciais**: Pasta `CREDENCIAIS/`
-
-### Solução de Problemas:
-
-**Sistema não inicia**:
-1. Verifique se todas as portas estão livres (3001, 3004, 5432, 9010, 9011)
-2. Confirme que executou o instalador como Administrador
-3. Verifique os logs: `pm2 logs` ou `docker-compose logs`
-
-**Erro de conexão com banco**:
-1. Verifique se PostgreSQL está rodando
-2. Confirme as credenciais no arquivo `.env`
-3. Teste a conexão: `psql -h localhost -U admin -d market_security`
-
-**Problemas com auto-start (InstaladorINTERNO)**:
-1. Verifique o registro do Windows: `Win+R` → `regedit` → `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`
-2. Confirme que o script `startup-invisible.ps1` existe
-3. Execute manualmente para testar: `powershell -File InstaladorINTERNO\startup-invisible.ps1`
-
----
-
-## 🚀 Deploy em Produção
-
-Para deploy em produção via Docker + Portainer:
-
-1. Acesse a pasta `InstaladorDOCKER/`
-2. Configure o arquivo `.env` com credenciais de produção
-3. Use o `docker-compose.portainer.yml` para deploy via Portainer
-4. Configure certificados SSL/TLS
-5. Configure backup automático do banco de dados
-
-**Credenciais do Portainer**: Ver `CREDENCIAIS/portainer.md`
-
----
-
-## 🔐 Acesso ao VPS (Servidor de Produção)
-
-### Informações de Acesso:
-- **IP do VPS**: `31.97.82.235`
-- **Usuário**: `root`
-- **Chave SSH**: `~/.ssh/vps_prevencao`
-- **Diretório do Projeto**: `/root/NOVO-PREVEN-O`
-
-### Comandos Úteis:
-
-#### 1. Acessar VPS via SSH:
-```bash
-ssh -i ~/.ssh/vps_prevencao root@31.97.82.235
-```
-
-#### 2. Navegação e Status:
-```bash
-# Ir para o diretório do projeto
-cd /root/NOVO-PREVEN-O
-
-# Ver status dos containers
-cd InstaladorVPS
-docker compose -f docker-compose-producao.yml ps
-
-# Ver logs em tempo real
-docker compose -f docker-compose-producao.yml logs -f
-
-# Ver logs de um serviço específico
-docker compose -f docker-compose-producao.yml logs -f frontend
-docker compose -f docker-compose-producao.yml logs -f backend
-```
-
-#### 3. Atualizar Aplicação (Deploy):
-```bash
-# Atualizar código do GitHub
-cd /root/NOVO-PREVEN-O
+# 2. Na VPS, atualizar código
+ssh root@[IP_VPS]
+cd /root/prevencao-radar-install
 git pull
 
-# Rebuild e restart do frontend
+# 3. Rebuild e restart do serviço
 cd InstaladorVPS
-docker compose -f docker-compose-producao.yml build --no-cache frontend
-docker compose -f docker-compose-producao.yml up -d frontend
-
-# Rebuild e restart do backend
 docker compose -f docker-compose-producao.yml build --no-cache backend
 docker compose -f docker-compose-producao.yml up -d backend
 
-# Rebuild e restart de todos os serviços
-docker compose -f docker-compose-producao.yml build --no-cache
-docker compose -f docker-compose-producao.yml up -d
-```
-
-#### 4. Reiniciar Serviços:
-```bash
-cd /root/NOVO-PREVEN-O/InstaladorVPS
-
-# Reiniciar um serviço específico
-docker compose -f docker-compose-producao.yml restart frontend
-docker compose -f docker-compose-producao.yml restart backend
-
-# Reiniciar todos os serviços
-docker compose -f docker-compose-producao.yml restart
-```
-
-#### 5. Verificar Git:
-```bash
-cd /root/NOVO-PREVEN-O
-
-# Ver status do repositório
-git status
-
-# Ver últimos commits
-git log --oneline -10
-
-# Ver branch atual
-git branch
-```
-
-#### 6. Banco de Dados:
-```bash
-# Acessar PostgreSQL
-docker exec -it prevencao-postgres-prod psql -U postgres -d prevencao_db
-
-# Backup do banco
-docker exec prevencao-postgres-prod pg_dump -U postgres prevencao_db > backup_$(date +%Y%m%d).sql
-
-# Restaurar backup
-docker exec -i prevencao-postgres-prod psql -U postgres prevencao_db < backup_20250101.sql
-```
-
-#### 7. Acesso Remoto via SSH (do Windows):
-```bash
-# Atualizar e fazer deploy em um único comando
-ssh -i ~/.ssh/vps_prevencao root@31.97.82.235 "cd /root/NOVO-PREVEN-O && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml up -d frontend"
-
-# Ver logs remotamente
-ssh -i ~/.ssh/vps_prevencao root@31.97.82.235 "cd /root/NOVO-PREVEN-O/InstaladorVPS && docker compose -f docker-compose-producao.yml logs --tail=50 backend"
-```
-
-### URLs de Acesso (Produção):
-- **Frontend**: `http://31.97.82.235:3000`
-- **Backend API**: `http://31.97.82.235:3001`
-- **MinIO Console**: `http://31.97.82.235:9011`
-
-### Domínios (quando configurado):
-- **Frontend**: `https://prevencaonoradar.com.br`
-- **Backend API**: `https://api.prevencaonoradar.com.br`
-
-### Portas Utilizadas:
-| Serviço | Porta Interna | Porta Externa |
-|---------|---------------|---------------|
-| Frontend | 80 | 3000 |
-| Backend | 3001 | 3001 |
-| PostgreSQL | 5432 | 5434 |
-| MinIO API | 9000 | 9010 |
-| MinIO Console | 9001 | 9011 |
-
-### Troubleshooting:
-
-**Container não inicia:**
-```bash
-# Ver logs do container com problema
-docker compose -f docker-compose-producao.yml logs backend
-
-# Remover container e recriar
-docker compose -f docker-compose-producao.yml down
-docker compose -f docker-compose-producao.yml up -d
-```
-
-**Aplicação não atualiza (cache):**
-```bash
-# Rebuild sem cache
+# Frontend (se necessário)
 docker compose -f docker-compose-producao.yml build --no-cache frontend
 docker compose -f docker-compose-producao.yml up -d frontend
 ```
 
-**Verificar espaço em disco:**
+---
+
+## 📱 Sistema de Código de Barras (Scanners)
+
+### Como Funciona a Leitura de Código de Barras
+
+#### 1. Hardware Necessário
+
+**Scanner USB (Recomendado: Leitor Fixo ou Pistola)**
+- Tipo: Leitor de código de barras USB (plug-and-play)
+- Protocolo: Emula teclado (Keyboard Wedge)
+- Formato suportado: EAN-13, EAN-8, UPC-A, Code 128
+- Conexão: USB 2.0+
+- Exemplos de modelos:
+  - Honeywell Voyager 1200g
+  - Zebra DS2208
+  - Datalogic QuickScan QD2430
+
+#### 2. Configuração do Scanner
+
+**Passo a passo:**
+
+1. **Conectar o Scanner**
+   - Plugar o scanner na porta USB do PC da loja
+   - Windows reconhece automaticamente como "HID Keyboard Device"
+   - Não precisa instalar drivers (plug-and-play)
+
+2. **Configurar Modo de Saída**
+   - Abrir Notepad para testar
+   - Bipar um produto
+   - Deve aparecer o código (ex: `7891234567890`) + ENTER
+   - Se não der ENTER automático, configurar o scanner:
+     - Scanear código de configuração "Add Suffix CR+LF" (manual do scanner)
+
+3. **Configurar Prefixo (Opcional)**
+   - Para diferenciar scanner de digitação manual
+   - Adicionar prefixo como `SCAN:` antes do código
+   - Scanear código de configuração "Add Prefix" (manual do scanner)
+
+#### 3. Integração com o Sistema
+
+**Método 1: Aplicação Desktop (Atual)**
+
+```javascript
+// Frontend roda em página web local
+// Scanner "digita" o código na página ativa
+
+const [barcodeBuffer, setBarcodeBuffer] = useState('');
+
+useEffect(() => {
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      // Código completo recebido
+      if (barcodeBuffer.length > 0) {
+        enviarBipagem(barcodeBuffer);
+        setBarcodeBuffer('');
+      }
+    } else {
+      // Acumular dígitos
+      setBarcodeBuffer(prev => prev + e.key);
+    }
+  };
+
+  window.addEventListener('keypress', handleKeyPress);
+  return () => window.removeEventListener('keypress', handleKeyPress);
+}, [barcodeBuffer]);
+
+const enviarBipagem = async (codigo) => {
+  try {
+    await api.post('/api/bips/webhook', {
+      barcode: codigo,
+      timestamp: new Date().toISOString(),
+      employee_id: funcionarioAtual.id
+    });
+  } catch (error) {
+    console.error('Erro ao enviar bipagem:', error);
+  }
+};
+```
+
+**Método 2: Service Python (Futuro)**
+
+```python
+# scanner-service.py
+# Roda em background no PC da loja
+
+import evdev
+import requests
+import time
+
+# Detectar scanner USB
+devices = [evdev.InputDevice(path) for path in evdev.list_devices()]
+scanner = [d for d in devices if 'barcode' in d.name.lower()][0]
+
+barcode_buffer = ""
+
+for event in scanner.read_loop():
+    if event.type == evdev.ecodes.EV_KEY:
+        data = evdev.categorize(event)
+
+        if data.keystate == 1:  # Key down
+            if data.scancode == 28:  # ENTER
+                # Enviar para backend
+                requests.post('http://[VPS_IP]:3001/api/bips/webhook', json={
+                    'barcode': barcode_buffer,
+                    'timestamp': time.time(),
+                    'source': 'scanner_usb'
+                })
+                barcode_buffer = ""
+            else:
+                # Acumular código
+                barcode_buffer += data.keycode
+```
+
+#### 4. Fluxo Completo de uma Bipagem
+
+```
+1. Cliente passa produto no caixa
+   ↓
+2. Atendente bipa código de barras
+   ↓
+3. Scanner lê código EAN-13: 7891234567890
+   ↓
+4. Scanner envia para sistema (via keyboard ou Python service)
+   ↓
+5. Frontend/Service faz POST para /api/bips/webhook
+   {
+     "barcode": "7891234567890",
+     "timestamp": "2025-01-06T12:34:56.789Z",
+     "employee_id": "uuid-do-funcionario",
+     "camera_id": "caixa-01" (opcional)
+   }
+   ↓
+6. Backend processa:
+   a) Busca produto no banco via código de barras
+   b) Verifica se produto está ATIVO
+   c) Se ATIVO:
+      - Salva registro na tabela `bips`
+      - Tira screenshot/foto da câmera (se conectada)
+      - Salva foto no MinIO
+      - Envia notificação WhatsApp (opcional)
+   ↓
+7. Registro salvo com:
+   - ID único
+   - Código de barras
+   - Produto (nome, categoria, preço)
+   - Funcionário responsável
+   - Timestamp
+   - Foto/vídeo URL (MinIO)
+   - Status: PENDENTE (aguarda análise das 5h)
+```
+
+#### 5. Configuração na Tela do Sistema
+
+**Menu: Configurações > Rede > Scanners**
+
+```
+┌─────────────────────────────────────────────┐
+│  Scanners Cadastrados                       │
+├─────────────────────────────────────────────┤
+│  [+] Adicionar Scanner                      │
+│                                             │
+│  🔵 Scanner Caixa 01 (ATIVO)                │
+│     IP: 192.168.1.101                       │
+│     Porta: 5000                             │
+│     Último ping: há 2 minutos               │
+│     [Editar] [Desativar] [Remover]          │
+│                                             │
+│  🔴 Scanner Caixa 02 (OFFLINE)              │
+│     IP: 192.168.1.102                       │
+│     Porta: 5000                             │
+│     Último ping: há 15 minutos              │
+│     [Editar] [Ativar] [Remover]             │
+└─────────────────────────────────────────────┘
+```
+
+---
+
+## ⚙ Configuração Pós-Instalação
+
+### 1. First Setup (Obrigatório)
+
+Ao acessar `http://[IP_VPS]:3000` pela primeira vez:
+
+```
+TELA DE FIRST SETUP
+┌──────────────────────────────────────────┐
+│  Bem-vindo! Configure seu sistema       │
+├──────────────────────────────────────────┤
+│  📊 DADOS DA EMPRESA                     │
+│  Nome Fantasia: [...................]    │
+│  Razão Social:  [...................]    │
+│  CNPJ:          [...................]    │
+│  Endereço:      [...................]    │
+│                                          │
+│  👤 USUÁRIO ADMINISTRADOR                │
+│  Nome:     [...................]         │
+│  Username: [...................]         │
+│  Email:    [...................]         │
+│  Senha:    [...................]         │
+│                                          │
+│  [Cancelar]  [Finalizar Configuração]   │
+└──────────────────────────────────────────┘
+```
+
+**O que acontece ao finalizar:**
+- ✅ Cria empresa no banco (tabela `companies`)
+- ✅ Cria usuário ADMIN vinculado à empresa (NOT MASTER)
+- ✅ Redireciona para tela de login
+- ✅ Sistema pronto para uso
+
+### 2. Configurar APIs (Menu: Configurações > APIs)
+
+#### A. Zanthus ERP (Buscar Vendas)
+```
+URL: http://10.6.1.101:3003
+Endpoint de Vendas: /v1/vendas
+Username: ROBERTO
+Senha: [senha do ERP]
+```
+
+#### B. Intersolid (Buscar Produtos)
+```
+URL: http://10.6.1.102:3004
+Endpoint de Produtos: /api/produtos
+```
+
+#### C. Evolution API (WhatsApp)
+```
+URL: http://31.97.82.235:8090
+Token: F0A82E6394D6-4D5A-845A-FC0413873588
+Instância: DVR FACIAL
+Grupo WhatsApp ID: 120363421239599536@g.us
+```
+
+### 3. Configurar Email (Recuperação de Senha)
+
+**Já vem pré-configurado** no instalador:
+```env
+EMAIL_USER=betotradicao76@gmail.com
+EMAIL_PASS=fqojjjhztvganfya
+```
+
+Se quiser mudar para email do cliente, configure senha de app do Gmail:
+1. https://myaccount.google.com/apppasswords
+2. Criar senha de app para "Prevenção no Radar"
+3. Atualizar no banco: `UPDATE configurations SET value = 'nova-senha' WHERE key = 'email_pass'`
+
+### 4. Ativar Produtos para Monitoramento
+
+**Menu: Prevenção de Bipagens > Ativar Produtos**
+
+```
+LISTA DE PRODUTOS (sincronizados do ERP)
+┌────────────────────────────────────────────────┐
+│  🔍 Buscar: [..................]  [Buscar]     │
+│                                                │
+│  ✅ Cerveja Heineken 350ml - R$ 4,50          │
+│     EAN: 7891234567890                         │
+│     [Desativar]                                │
+│                                                │
+│  ❌ Refrigerante Coca 2L - R$ 8,99            │
+│     EAN: 7899876543210                         │
+│     [Ativar]                                   │
+│                                                │
+│  [Ativar Todos] [Desativar Todos]             │
+└────────────────────────────────────────────────┘
+```
+
+**Produtos ATIVOS** = sistema vai monitorar bipagens e comparar com vendas
+
+---
+
+## 🔗 Integrações
+
+### 1. Tailscale (VPN para Acessar Rede Local)
+
+**O instalador já configura Tailscale automaticamente!**
+
+**Para que serve:**
+- VPS precisa acessar APIs do ERP que estão na rede local do cliente (10.6.1.x)
+- Tailscale cria uma VPN segura entre VPS e rede do cliente
+
+**Como funciona:**
+```
+VPS (31.97.82.235) ─────┐
+                         │ Tailscale VPN
+PC Cliente (10.6.1.50) ─┴─────────────┐
+                                      │
+API Zanthus (10.6.1.101) ─────────────┤
+API Intersolid (10.6.1.102) ──────────┘
+```
+
+**Configurar no cliente:**
+1. Instalar Tailscale: https://tailscale.com/download
+2. Fazer login com mesma conta da VPS
+3. IP Tailscale do cliente aparece (ex: 100.64.0.5)
+4. Atualizar no sistema: Configurações > Rede > IP Tailscale Cliente
+
+### 2. WhatsApp (Evolution API)
+
+**Já vem pré-configurado!**
+
+**Servidor Evolution API:** http://31.97.82.235:8090
+**Instância:** DVR FACIAL
+
+**Testar envio:**
+Menu: Configurações > APIs > Evolution API > [Testar Conexão]
+
+**Notificações enviadas:**
+- 🚨 Possível furto detectado (análise das 5h)
+- 📸 Alerta DVR com imagem (monitor de email)
+- ⚠️ Scanner offline
+
+### 3. DVR (Monitor de Email)
+
+**Monitoramento automático de alertas do DVR via Gmail**
+
+**Como funciona:**
+1. DVR envia email para `betotradicao76@gmail.com` com assunto "ALERTA DVR"
+2. Email contém PDF anexo com imagem da câmera
+3. Sistema verifica email a cada 30 segundos
+4. Extrai imagem do PDF
+5. Salva no MinIO
+6. Envia para WhatsApp com a imagem
+
+**Configuração:**
+Menu: Configurações > Monitor Email
+
+```
+Email: betotradicao76@gmail.com
+Senha App: ygrowrdaloqfgtcc
+Assunto Filtro: ALERTA DVR
+Intervalo: 30 segundos
+WhatsApp: 120363421239599536@g.us
+Status: ✅ ATIVO
+```
+
+---
+
+## 🛠 Manutenção e Atualizações
+
+### Atualizar Sistema
+
 ```bash
-# Ver uso de disco
-df -h
+# 1. Acessar VPS via SSH
+ssh root@[IP_VPS]
 
-# Ver tamanho dos volumes Docker
-docker system df -v
+# 2. Ir para diretório do projeto
+cd /root/prevencao-radar-install
 
-# Limpar imagens e containers antigos
-docker system prune -a
+# 3. Baixar atualizações do GitHub
+git pull
+
+# 4. Rebuild backend (se houve mudanças no código)
+cd InstaladorVPS
+docker compose -f docker-compose-producao.yml build --no-cache backend
+docker compose -f docker-compose-producao.yml up -d backend
+
+# 5. Rebuild frontend (se houve mudanças no código)
+docker compose -f docker-compose-producao.yml build --no-cache frontend
+docker compose -f docker-compose-producao.yml up -d frontend
 ```
 
----
+### Ver Logs
 
-## 📝 Licença e Versão
-
-- **Versão**: 1.0
-- **Data**: 2025-12-11
-- **Desenvolvido para**: Tradicão SJC e clientes
-- **Stack**: Node.js + React + PostgreSQL + MinIO
-
----
-
-## 🎓 Para Desenvolvedores
-
-### Estrutura de Código:
-```
-packages/
-├── backend/
-│   ├── src/
-│   │   ├── controllers/    # Controladores da API
-│   │   ├── entities/       # Entidades TypeORM
-│   │   ├── middleware/     # Middlewares Express
-│   │   ├── migrations/     # Migrations do banco
-│   │   ├── routes/         # Rotas da API
-│   │   ├── services/       # Serviços e lógica de negócio
-│   │   └── config/         # Configurações
-│   └── package.json
-└── frontend/
-    ├── src/
-    │   ├── components/     # Componentes React
-    │   ├── pages/          # Páginas da aplicação
-    │   ├── services/       # Serviços HTTP (Axios)
-    │   └── utils/          # Utilitários
-    └── package.json
-```
-
-### Desenvolvimento Local:
 ```bash
-# Instalar dependências
-npm install
-cd packages/backend && npm install
-cd ../frontend && npm install
+# Logs do backend (API)
+docker logs prevencao-backend-prod --tail 100 -f
 
-# Executar migrações
-cd packages/backend
-npm run migration:run
+# Logs do frontend
+docker logs prevencao-frontend-prod --tail 50
 
-# Iniciar backend (modo dev)
-npm run dev
+# Logs do PostgreSQL
+docker logs prevencao-postgres-prod --tail 50
 
-# Iniciar frontend (modo dev)
-cd packages/frontend
-npm run dev
+# Todos os logs
+cd /root/prevencao-radar-install/InstaladorVPS
+docker compose -f docker-compose-producao.yml logs -f
+```
+
+### Backup do Banco de Dados
+
+```bash
+# Criar backup
+docker exec prevencao-postgres-prod pg_dump -U postgres prevencao_db > backup_$(date +%Y%m%d).sql
+
+# Restaurar backup
+docker exec -i prevencao-postgres-prod psql -U postgres prevencao_db < backup_20250106.sql
+```
+
+### Reiniciar Serviços
+
+```bash
+cd /root/prevencao-radar-install/InstaladorVPS
+
+# Reiniciar backend apenas
+docker compose -f docker-compose-producao.yml restart backend
+
+# Reiniciar todos
+docker compose -f docker-compose-producao.yml restart
 ```
 
 ---
 
-**🔥 Pronto para começar? Escolha um instalador acima e execute!**
+## 📞 Suporte
+
+**Desenvolvedor:** Roberto (Beto)
+**Email:** betotradicao76@gmail.com
+**GitHub:** https://github.com/Betotradicao/TESTES-
+
+---
+
+## 📝 Licença
+
+Sistema proprietário desenvolvido para Tradicão SJC e clientes.
