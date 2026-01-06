@@ -61,9 +61,12 @@ export class LabelAuditController {
       // Deletar arquivo após processamento
       fs.unlinkSync(req.file.path);
 
+      // Buscar a auditoria completa com contagem de itens
+      const auditComplete = await LabelAuditService.getAuditById(audit.id);
+
       return res.status(201).json({
         message: 'Auditoria criada com sucesso',
-        audit
+        audit: auditComplete
       });
     } catch (error: any) {
       console.error('Erro ao criar auditoria:', error);

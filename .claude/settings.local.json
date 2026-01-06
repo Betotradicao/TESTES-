@@ -679,7 +679,12 @@
       "Bash(ssh root@46.202.150.64 \"docker exec -i prevencao-postgres-prod psql -U postgres -d prevencao_db -c \"\"SELECT key, value FROM configurations WHERE key LIKE ''email%'' OR key LIKE ''smtp%'' ORDER BY key;\"\"\")",
       "Bash(ssh root@145.223.92.152 \"cd /root/prevencao-radar-install/InstaladorVPS && docker compose -f docker-compose-producao.yml up -d backend\")",
       "Bash(ssh root@145.223.92.152 \"docker exec prevencao-frontend-prod sh -c ''cd /usr/share/nginx/html && rm -rf * && tar -xzf /tmp/dist.tar.gz -C /usr/share/nginx/html/'' && docker cp /tmp/dist.tar.gz prevencao-frontend-prod:/tmp/\")",
-      "Bash(ssh root@145.223.92.152 \"docker cp /tmp/dist.tar.gz prevencao-frontend-prod:/tmp/ && docker exec prevencao-frontend-prod sh -c ''cd /usr/share/nginx/html && rm -rf * && tar -xzf /tmp/dist.tar.gz''\")"
+      "Bash(ssh root@145.223.92.152 \"docker cp /tmp/dist.tar.gz prevencao-frontend-prod:/tmp/ && docker exec prevencao-frontend-prod sh -c ''cd /usr/share/nginx/html && rm -rf * && tar -xzf /tmp/dist.tar.gz''\")",
+      "Bash(ssh root@145.223.92.152 \"docker exec prevencao-backend-prod cat /app/dist/controllers/label-audit.controller.js | head -100\")",
+      "Bash(ssh root@145.223.92.152 \"docker exec prevencao-backend-prod sh -c ''cd /app && node -e \"\"const db = require\\(\\\\\"\"./dist/database/database\\\\\"\"\\).AppDataSource; db.initialize\\(\\).then\\(\\(\\) => { const LabelAudit = require\\(\\\\\"\"./dist/entities/LabelAudit\\\\\"\"\\).LabelAudit; db.getRepository\\(LabelAudit\\).findOne\\({where: {id: 1}}\\).then\\(r => console.log\\(JSON.stringify\\(r\\)\\)\\).catch\\(e => console.error\\(e\\)\\); }\\);\"\"''\")",
+      "Bash(ssh root@145.223.92.152 \"docker exec prevencao-backend-prod wget -qO- http://localhost:3001/api/label-audits 2>&1\")",
+      "Bash(ssh root@145.223.92.152 \"docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c ''\\\\d label_audits''\")",
+      "Bash(ssh root@145.223.92.152 \"docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c ''\\\\d label_audit_items''\")"
     ],
     "deny": [],
     "ask": []
