@@ -292,6 +292,25 @@ echo "✅ Limpeza concluída"
 echo ""
 
 # ============================================
+# CONFIGURAR TIMEZONE DO SERVIDOR
+# ============================================
+
+echo "🌍 Configurando timezone para Brasil (America/Sao_Paulo)..."
+
+# Verificar se timedatectl está disponível
+if command -v timedatectl &> /dev/null; then
+    timedatectl set-timezone America/Sao_Paulo 2>/dev/null || true
+    echo "✅ Timezone configurado: $(timedatectl | grep 'Time zone' | awk '{print $3}')"
+else
+    # Fallback para sistemas sem systemd
+    ln -sf /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime 2>/dev/null || true
+    echo "✅ Timezone configurado: America/Sao_Paulo"
+fi
+
+echo "📅 Data/Hora atual: $(date)"
+echo ""
+
+# ============================================
 # INICIAR APLICAÇÃO
 # ============================================
 
