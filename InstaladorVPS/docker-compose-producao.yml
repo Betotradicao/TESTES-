@@ -91,6 +91,10 @@ services:
       PORT: ${PORT}
       NODE_ENV: ${NODE_ENV}
       HOST_IP: ${HOST_IP}
+
+      # Tailscale
+      TAILSCALE_VPS_IP: ${TAILSCALE_VPS_IP}
+      TAILSCALE_CLIENT_IP: ${TAILSCALE_CLIENT_IP}
     ports:
       - "3001:3001"
     networks:
