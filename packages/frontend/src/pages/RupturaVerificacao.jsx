@@ -331,6 +331,13 @@ export default function RupturaVerificacao() {
               </div>
             )}
 
+            {currentItem.secao && (
+              <div>
+                <p className="text-xs text-gray-500">Seção</p>
+                <p className="font-semibold text-gray-700">📂 {currentItem.secao}</p>
+              </div>
+            )}
+
             {currentItem.grupo && (
               <div>
                 <p className="text-xs text-gray-500">Grupo</p>
