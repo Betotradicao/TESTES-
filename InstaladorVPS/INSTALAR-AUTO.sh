@@ -38,37 +38,52 @@ echo "✅ Docker Compose encontrado"
 echo ""
 
 # ============================================
-# ATUALIZAR CÓDIGO DO GITHUB
+# DETECTAR DIRETÓRIO CORRETO
 # ============================================
 
-echo "🔄 Verificando atualizações do código..."
+echo "🔄 Verificando estrutura do projeto..."
 
 # Salvar diretório do script ANTES de mudar de diretório
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Voltar para raiz do repositório
-cd "$SCRIPT_DIR/.."
+# Verificar se estamos dentro do repositório (InstaladorVPS deve estar dentro de um repo)
+REPO_ROOT=""
 
-# Verificar se é um repositório git
-if [ -d ".git" ]; then
+# Tentar ir para raiz do repositório
+if [ -d "$SCRIPT_DIR/../.git" ]; then
+    # Estamos em um repositório (caminho normal: repo/InstaladorVPS)
+    REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+    echo "✅ Repositório git encontrado: $REPO_ROOT"
+
+    # Atualizar código do GitHub
+    cd "$REPO_ROOT"
     echo "📥 Atualizando código do GitHub..."
     git fetch origin
     git reset --hard origin/main
     git pull origin main
     echo "✅ Código atualizado com sucesso"
+
+    # Voltar para InstaladorVPS
+    cd "$SCRIPT_DIR"
 else
-    echo "⚠️  Não é um repositório git. Pulando atualização."
+    # Script rodando fora do repositório (cópia avulsa)
+    echo "⚠️  Script não está dentro de um repositório git"
+    echo "⚠️  Pulando atualização automática"
 fi
 
-# Ir para diretório InstaladorVPS (onde está o docker-compose-producao.yml)
-cd "$SCRIPT_DIR"
-
-# Verificar se o arquivo docker-compose existe
+# Verificar se estamos no diretório correto (deve ter docker-compose-producao.yml)
 if [ ! -f "docker-compose-producao.yml" ]; then
-    echo "❌ Erro: docker-compose-producao.yml não encontrado!"
+    echo ""
+    echo "❌ ERRO: docker-compose-producao.yml não encontrado!"
     echo "📂 Diretório atual: $(pwd)"
-    echo "📋 Arquivos disponíveis:"
-    ls -la
+    echo ""
+    echo "💡 SOLUÇÃO: Execute o instalador da seguinte forma:"
+    echo ""
+    echo "   cd /root"
+    echo "   git clone https://github.com/Betotradicao/TESTES-.git prevencao-radar-install"
+    echo "   cd prevencao-radar-install/InstaladorVPS"
+    echo "   sudo bash INSTALAR-AUTO.sh"
+    echo ""
     exit 1
 fi
 
