@@ -188,7 +188,7 @@ async function seedConfigurations() {
       },
       {
         key: 'evolution_api_token',
-        value: '509051211ebc7213e1e6edd75ed18361:6cd6f7b78d85e02c50659f3dea444b8079583067262808d098e5ac497d4052f15ce164fc7e7dd18876cde113a62923f2',
+        value: 'F0A82E6394D6-4D5A-845A-FC0413873588',
         description: 'Token de autenticação Evolution API'
       },
       {
