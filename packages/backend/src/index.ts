@@ -30,6 +30,7 @@ import suspectIdentificationsRouter from './routes/suspect-identifications.route
 import tailscaleRouter from './routes/tailscale.routes';
 import systemStatusRouter from './routes/system-status.routes';
 import ruptureSurveyRouter from './routes/rupture-survey.routes';
+import labelAuditRouter from './routes/label-audit.routes';
 import lossRouter from './routes/loss.routes';
 import { minioService } from './services/minio.service';
 import { EmailMonitorService } from './services/email-monitor.service';
@@ -97,6 +98,7 @@ app.use('/api/suspect-identifications', suspectIdentificationsRouter);
 app.use('/api/tailscale', tailscaleRouter);
 app.use('/api', systemStatusRouter);
 app.use('/api/rupture-surveys', ruptureSurveyRouter);
+app.use('/api/label-audits', labelAuditRouter);
 app.use('/api/losses', lossRouter);
 // app.use('/api/user-security', userSecurityRouter);
 

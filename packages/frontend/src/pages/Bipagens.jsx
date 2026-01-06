@@ -12,7 +12,6 @@ import Pagination from '../components/common/Pagination';
 import ScannerGunIcon from '../components/icons/ScannerGunIcon';
 import MotivoCancelamentoModal from '../components/bipagens/MotivoCancelamentoModal';
 import NumericKeypad from '../components/common/NumericKeypad';
-import CelulaValidacao from '../components/bipagens/CelulaValidacao';
 
 // Componente para exibir tempo pendente em tempo real
 function PendingTimeDisplay({ eventDate, status, timeUpdate }) {
@@ -376,6 +375,23 @@ export default function Bipagens() {
   // Formatação de peso
   const formatWeight = (weight) => {
     return weight ? `${Number(weight).toFixed(3)} kg` : '-';
+  };
+
+  // Formatação de motivo de cancelamento
+  const getMotivoCancelamentoText = (motivo) => {
+    if (!motivo) return '-';
+
+    const motivos = {
+      'produto_abandonado': '📦 Produto Abandonado',
+      'falta_cancelamento': '❌ Falta de Cancelamento',
+      'devolucao_mercadoria': '↩️ Devolução de Mercadoria',
+      'erro_operador': '🚨 Erro do Operador(a)',
+      'erro_balconista': '🛒 Erro do Balconista',
+      'furto': '🚔 Furto',
+      'cancelamento_bipagem': '⛔ Cancelamento de Bipagem'
+    };
+
+    return motivos[motivo] || motivo;
   };
 
   // Classes para status
@@ -1006,7 +1022,7 @@ export default function Bipagens() {
                       Tempo Pendente
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Validação IA
+                      Cancelados
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Ações
@@ -1096,11 +1112,13 @@ export default function Bipagens() {
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <CelulaValidacao
-                          validacao={bip.validacao_codigo}
-                          detalhes={bip.validacao_detalhes}
-                          foto={bip.validacao_foto}
-                        />
+                        {bip.status === 'cancelled' && bip.motivo_cancelamento ? (
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-50 text-red-700">
+                            {getMotivoCancelamentoText(bip.motivo_cancelamento)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <div className="flex gap-2">
@@ -1193,14 +1211,11 @@ export default function Bipagens() {
                       />
                     </div>
                   )}
-                  <div className="mt-2">
-                    <span className="text-xs text-gray-500 mr-2">Validação IA:</span>
-                    <CelulaValidacao
-                      validacao={bip.validacao_codigo}
-                      detalhes={bip.validacao_detalhes}
-                      foto={bip.validacao_foto}
-                    />
-                  </div>
+                  {bip.status === 'cancelled' && bip.motivo_cancelamento && (
+                    <div className="mt-2 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-50 text-red-700">
+                      {getMotivoCancelamentoText(bip.motivo_cancelamento)}
+                    </div>
+                  )}
                   {(bip.status === 'pending' || bip.status === 'cancelled') && (
                     <div className="mt-3 flex gap-2">
                       {bip.status === 'pending' && (

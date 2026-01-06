@@ -22,6 +22,9 @@ import RupturaLancadorItens from './pages/RupturaLancadorItens';
 import RupturaVerificacao from './pages/RupturaVerificacao';
 import RupturaResultados from './pages/RupturaResultados';
 import RupturaResultadosAuditorias from './pages/RupturaResultadosAuditorias';
+import EtiquetaLancadorItens from './pages/EtiquetaLancadorItens';
+import EtiquetaVerificacao from './pages/EtiquetaVerificacao';
+import EtiquetaResultadosAuditorias from './pages/EtiquetaResultadosAuditorias';
 import PerdasLancador from './pages/PerdasLancador';
 import PerdasResultados from './pages/PerdasResultados';
 
@@ -163,6 +166,30 @@ function App() {
               element={
                 <ProtectedRoute>
                   <RupturaResultadosAuditorias />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/etiquetas/lancar"
+              element={
+                <ProtectedRoute>
+                  <EtiquetaLancadorItens />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/etiquetas/verificar/:surveyId"
+              element={
+                <ProtectedRoute>
+                  <EtiquetaVerificacao />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/etiquetas/resultados"
+              element={
+                <ProtectedRoute>
+                  <EtiquetaResultadosAuditorias />
                 </ProtectedRoute>
               }
             />
