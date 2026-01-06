@@ -7,6 +7,7 @@ export default function ModulosTab() {
     { id: 'pdv', name: 'Prevenção de PDV', icon: '💳', active: true },
     { id: 'facial', name: 'Prevenção Facial', icon: '👤', active: true },
     { id: 'ruptura', name: 'Prevenção Rupturas', icon: '📋', active: true },
+    { id: 'etiquetas', name: 'Prevenção Etiquetas', icon: '🔖', active: true },
     { id: 'perdas', name: 'Prevenção Quebras', icon: '📊', active: true }
   ];
 
