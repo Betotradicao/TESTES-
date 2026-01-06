@@ -189,6 +189,12 @@ export class CompaniesController {
           }
         }
 
+        // Usuário MASTER não tem empresa - retorna null ao invés de erro
+        if (user.isMaster) {
+          console.log('ℹ️  getMyCompany - Usuário MASTER sem empresa vinculada');
+          return res.json(null);
+        }
+
         return res.status(404).json({ error: 'No company associated with this user' });
       }
 
