@@ -43,11 +43,11 @@ echo ""
 
 echo "🔄 Verificando atualizações do código..."
 
-# Salvar diretório atual
-INSTALLER_DIR=$(pwd)
+# Salvar diretório do script ANTES de mudar de diretório
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Voltar para raiz do repositório
-cd "$(dirname "$0")/.."
+cd "$SCRIPT_DIR/.."
 
 # Verificar se é um repositório git
 if [ -d ".git" ]; then
@@ -61,7 +61,6 @@ else
 fi
 
 # Ir para diretório InstaladorVPS (onde está o docker-compose-producao.yml)
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # Verificar se o arquivo docker-compose existe
