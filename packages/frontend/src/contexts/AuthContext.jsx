@@ -37,11 +37,13 @@ export const AuthProvider = ({ children }) => {
       const response = await api.post('/auth/login', { email, password });
       const { token: newToken, user: userData } = response.data;
 
-      setToken(newToken);
-      setUser(userData);
-
+      // Salvar no localStorage primeiro
       localStorage.setItem('token', newToken);
       localStorage.setItem('user', JSON.stringify(userData));
+
+      // Forçar reload completo da página para garantir que tudo seja remontado
+      // com os dados do novo usuário (evita cache de componentes)
+      window.location.href = '/dashboard';
 
       return { success: true };
     } catch (error) {

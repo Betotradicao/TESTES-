@@ -669,7 +669,10 @@
       "Bash(ssh root@46.202.150.64 \"cd /root/TESTES/InstaladorVPS && docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c \"\"INSERT INTO configurations \\(key, value\\) VALUES \\(''system_initialized'', ''true''\\) ON CONFLICT \\(key\\) DO UPDATE SET value = ''true'';\"\"\")",
       "Bash(ssh root@46.202.150.64 \"cd /root/TESTES/InstaladorVPS && docker compose -f docker-compose-producao.yml restart backend && sleep 5 && docker logs prevencao-backend-prod --tail 20\")",
       "Bash(ssh root@46.202.150.64 \"sleep 10 && cd /root/TESTES/InstaladorVPS && docker logs prevencao-backend-prod --tail 30 | grep -E ''\\(Server is running|MinIO initialized|Seed\\)''\")",
-      "Bash(ssh root@145.223.92.152 \"cd /root/TESTES/InstaladorVPS && docker logs prevencao-backend-prod --tail 100 | grep -A 20 ''Upload de arquivo de perdas''\")"
+      "Bash(ssh root@145.223.92.152 \"cd /root/TESTES/InstaladorVPS && docker logs prevencao-backend-prod --tail 100 | grep -A 20 ''Upload de arquivo de perdas''\")",
+      "Bash(ssh root@145.223.92.152 \"cd /root/prevencao-radar-install && git pull\")",
+      "Bash(ssh root@145.223.92.152 \"cd /root/prevencao-radar-install && git fetch && git log --oneline -5\")",
+      "Bash(ssh root@145.223.92.152 \"cd /root/prevencao-radar-install/InstaladorVPS && docker compose -f docker-compose-producao.yml build frontend\")"
     ],
     "deny": [],
     "ask": []
