@@ -63,7 +63,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       items: []
     },
     {
-      id: 'etiquetas',
+      id: 'bipagens',
       title: 'Prevenção de Bipagens',
       moduleId: 'bipagens', // ID do módulo para verificar status
       icon: (

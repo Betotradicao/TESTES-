@@ -11,10 +11,13 @@ export const api = axios.create({
 function getApiBaseUrl() {
   const hostname = window.location.hostname;
   const fullUrl = window.location.href;
+  const currentPort = window.location.port;
+
   console.log('🌍 Hostname:', hostname);
   console.log('📍 URL completa:', fullUrl);
   console.log('🔍 Tipo do hostname:', typeof hostname);
   console.log('🔍 Hostname length:', hostname?.length);
+  console.log('🚪 Porta atual:', currentPort);
 
   // Se tiver variável de ambiente configurada, usar ela
   if (window.ENV?.VITE_API_URL || import.meta.env.VITE_API_URL) {
@@ -23,11 +26,8 @@ function getApiBaseUrl() {
   }
 
   // Se acessando pelo ngrok (internet)
-  // IMPORTANTE: Ngrok em dev mode não suporta proxy do Vite
-  // Então vamos usar a URL do backend rodando na mesma máquina mas na porta 3001
   if (hostname.includes('.ngrok')) {
     console.log('✅ NGROK detectado');
-    // Usar IP da rede local do backend
     const backendUrl = 'http://10.6.1.171:3001/api';
     console.log('🔗 Usando backend na rede local:', backendUrl);
     return backendUrl;
@@ -39,31 +39,20 @@ function getApiBaseUrl() {
     return 'https://api.prevencaonoradar.com.br/api';
   }
 
-  // FORÇAR: Se NÃO for localhost, usar o hostname atual com porta 3001
-  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-    console.log('🎯 FORÇANDO uso do hostname atual:', hostname);
-    const currentPort = window.location.port;
-    // Se frontend está na 3003 (teste), backend está na 3002
-    // Se frontend está na 3000 (prod), backend está na 3001
-    const backendPort = currentPort === '3003' ? '3002' : (currentPort === '3000' ? '3001' : '3001');
-    const apiUrl = `http://${hostname}:${backendPort}/api`;
-    console.log('✅ API URL FORÇADA:', apiUrl);
-    return apiUrl;
+  // Se for localhost, usar localhost
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    console.log('💻 Localhost detectado - usando localhost:3001');
+    return 'http://localhost:3001/api';
   }
 
-  // Se acessando por IP (qualquer IP numérico) - código legado, não deve chegar aqui
-  const isIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
-  console.log('🔍 Testando IP - hostname:', hostname, 'isIP:', isIP);
-  if (isIP || hostname.startsWith('10.') || hostname.startsWith('192.168.') || hostname.startsWith('172.') || hostname.startsWith('31.') || hostname.startsWith('100.')) {
-    console.log('🏠 IP detectado:', hostname);
-    const currentPort = window.location.port;
-    const backendPort = currentPort === '3003' ? '3002' : (currentPort === '3000' ? '3001' : '3001');
-    return `http://${hostname}:${backendPort}/api`;
-  }
-
-  // Padrão: localhost (só se for localhost mesmo)
-  console.log('💻 Usando localhost');
-  return 'http://localhost:3001/api';
+  // QUALQUER OUTRO CASO: Usar o hostname atual com porta calculada
+  console.log('🎯 Usando hostname atual:', hostname);
+  // Se frontend está na 3003 (teste), backend está na 3002
+  // Se frontend está na 3000 (prod), backend está na 3001
+  const backendPort = currentPort === '3003' ? '3002' : '3001';
+  const apiUrl = `http://${hostname}:${backendPort}/api`;
+  console.log('✅ API URL:', apiUrl);
+  return apiUrl;
 }
 
 // Interceptor para adicionar o token E a baseURL dinamicamente
