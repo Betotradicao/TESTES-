@@ -206,7 +206,7 @@ export class LabelAuditService {
     const items = await itemRepository
       .createQueryBuilder('item')
       .where('item.audit_id = :auditId', { auditId })
-      .orderBy('CAST(item.secao AS UNSIGNED)', 'ASC')
+      .orderBy('CAST(item.secao AS INTEGER)', 'ASC')
       .addOrderBy('item.descricao', 'ASC')
       .getMany();
 
