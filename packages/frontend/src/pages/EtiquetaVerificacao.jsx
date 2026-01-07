@@ -103,29 +103,43 @@ export default function EtiquetaVerificacao() {
 
   const loadSurvey = async () => {
     try {
+      console.log('🔵 Carregando auditoria:', surveyId);
+
       if (!surveyId || isNaN(parseInt(surveyId))) {
+        console.error('❌ ID de pesquisa inválido:', surveyId);
         setError('ID de pesquisa inválido');
         setLoading(false);
         return;
       }
 
       const response = await api.get(`/label-audits/${parseInt(surveyId)}`);
+      console.log('✅ Auditoria carregada:', response.data);
+
       setSurvey(response.data);
 
       const surveyItems = Array.isArray(response.data.items) ? response.data.items : [];
+      console.log('📦 Total de items:', surveyItems.length);
+
       setItems(surveyItems);
 
       // Encontrar primeiro item pendente
       const firstPending = surveyItems.findIndex(
         item => item.status_verificacao === 'pendente'
       );
+      console.log('🔍 Primeiro item pendente:', firstPending);
+
       if (firstPending !== -1) {
         setCurrentIndex(firstPending);
+      } else if (surveyItems.length > 0) {
+        // Se não houver pendentes, começar do primeiro
+        setCurrentIndex(0);
+        console.log('ℹ️ Nenhum item pendente, iniciando do primeiro');
       }
 
       setLoading(false);
+      console.log('✅ Loading concluído');
     } catch (err) {
-      console.error('Erro ao carregar pesquisa:', err);
+      console.error('❌ Erro ao carregar pesquisa:', err);
       setError(err.response?.data?.error || 'Erro ao carregar pesquisa');
       setLoading(false);
     }

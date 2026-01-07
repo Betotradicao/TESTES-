@@ -572,17 +572,20 @@ export default function RupturaVerificacao() {
         {produtosSelecionados.length > 0 && (
           <div className="mt-6 mb-8">
             <button
-              onClick={handleFinalizeSurvey}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                console.log('📱 Touch event detectado no botão ENVIAR AUDITORIA');
-                if (!finalizing) {
-                  handleFinalizeSurvey();
-                }
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('🔵 Botão ENVIAR AUDITORIA clicado');
+                handleFinalizeSurvey();
               }}
               disabled={finalizing}
-              className="w-full py-4 bg-orange-600 text-white rounded-lg hover:bg-orange-700 active:bg-orange-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg font-bold shadow-lg relative z-50"
-              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+              className="w-full py-4 bg-orange-600 text-white rounded-lg hover:bg-orange-700 active:bg-orange-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg font-bold shadow-lg"
+              style={{
+                touchAction: 'manipulation',
+                WebkitTapHighlightColor: 'rgba(0,0,0,0)',
+                userSelect: 'none',
+                WebkitUserSelect: 'none'
+              }}
             >
               {finalizing ? '⏳ Enviando...' : 'ENVIAR AUDITORIA'}
             </button>
