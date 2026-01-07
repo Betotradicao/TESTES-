@@ -218,6 +218,10 @@ export class LabelAuditService {
       audit.itens_corretos = items.filter(i => i.status_verificacao === 'preco_correto').length;
       audit.itens_divergentes = items.filter(i => i.status_verificacao === 'preco_divergente').length;
 
+      // Calcular itens verificados (não pendentes) e incorretos
+      audit.itens_verificados = items.filter(i => i.status_verificacao !== 'pendente').length;
+      audit.itens_incorretos = audit.itens_divergentes; // Alias para manter compatibilidade com frontend
+
       if (audit.total_itens > 0) {
         audit.percentual_conformidade = Math.round((audit.itens_corretos / audit.total_itens) * 100);
       } else {
@@ -232,6 +236,8 @@ export class LabelAuditService {
    * Buscar auditoria por ID com itens
    */
   static async getAuditById(auditId: number): Promise<LabelAudit | null> {
+    console.log('🔍 [ETIQUETAS] Buscando auditoria ID:', auditId);
+
     const auditRepository = AppDataSource.getRepository(LabelAudit);
     const itemRepository = AppDataSource.getRepository(LabelAuditItem);
 
@@ -239,7 +245,12 @@ export class LabelAuditService {
       where: { id: auditId }
     });
 
-    if (!audit) return null;
+    if (!audit) {
+      console.log('❌ [ETIQUETAS] Auditoria não encontrada:', auditId);
+      return null;
+    }
+
+    console.log('✅ [ETIQUETAS] Auditoria encontrada:', audit.titulo);
 
     // Buscar itens ordenados por seção (numérica) e depois descrição (alfabética)
     const items = await itemRepository
@@ -248,6 +259,8 @@ export class LabelAuditService {
       .orderBy('CAST(item.secao AS INTEGER)', 'ASC')
       .addOrderBy('item.descricao', 'ASC')
       .getMany();
+
+    console.log('📦 [ETIQUETAS] Total de items encontrados:', items.length);
 
     audit.items = items;
 
@@ -262,6 +275,13 @@ export class LabelAuditService {
     } else {
       audit.percentual_conformidade = 0;
     }
+
+    console.log('📊 [ETIQUETAS] Estatísticas:', {
+      total: audit.total_itens,
+      pendentes: audit.itens_pendentes,
+      corretos: audit.itens_corretos,
+      divergentes: audit.itens_divergentes
+    });
 
     return audit;
   }
