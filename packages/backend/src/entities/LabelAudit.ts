@@ -36,5 +36,7 @@ export class LabelAudit {
   itens_pendentes?: number;
   itens_corretos?: number;
   itens_divergentes?: number;
+  itens_verificados?: number;
+  itens_incorretos?: number;
   percentual_conformidade?: number;
 }
