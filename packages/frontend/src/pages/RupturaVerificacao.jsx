@@ -593,46 +593,55 @@ export default function RupturaVerificacao() {
           </div>
         )}
 
-        {/* Botão de Enviar Auditoria */}
-        {(() => {
-          const deveExibir = produtosSelecionados.length > 0;
-          console.log('🟢 Render do botão ENVIAR AUDITORIA:', {
-            deveExibir,
-            produtosLength: produtosSelecionados.length,
-            produtos: produtosSelecionados
-          });
+        {/* DEBUG: Status dos produtos */}
+        <div className="mt-4 mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm font-bold text-blue-900">🔍 DEBUG - Produtos Selecionados: {produtosSelecionados.length}</p>
+          <p className="text-xs text-blue-700 mt-1">
+            {produtosSelecionados.length > 0
+              ? `IDs: ${produtosSelecionados.map(p => p.id).join(', ')}`
+              : 'Nenhum produto selecionado ainda'}
+          </p>
+        </div>
 
-          return deveExibir ? (
-            <div className="mt-6 mb-8">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  console.log('🔵 Botão ENVIAR AUDITORIA clicado');
-                  handleFinalizeSurvey();
-                }}
-                onTouchEnd={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  console.log('📱 Touch no botão ENVIAR AUDITORIA');
-                  handleFinalizeSurvey();
-                }}
-                disabled={finalizing}
-                className="w-full py-4 bg-orange-600 text-white rounded-lg hover:bg-orange-700 active:bg-orange-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg font-bold shadow-lg"
-                style={{
-                  touchAction: 'manipulation',
-                  WebkitTapHighlightColor: 'rgba(0,0,0,0)',
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
-                  pointerEvents: finalizing ? 'none' : 'auto'
-                }}
-              >
-                {finalizing ? '⏳ Enviando...' : 'ENVIAR AUDITORIA'}
-              </button>
-            </div>
-          ) : null;
-        })()}
+        {/* Botão de Enviar Auditoria - SEMPRE VISÍVEL PARA DEBUG */}
+        <div className="mt-6 mb-8">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('🔵 [CLICK] Botão ENVIAR AUDITORIA clicado');
+              console.log('📦 [CLICK] Produtos:', produtosSelecionados);
+              handleFinalizeSurvey();
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('📱 [TOUCH] Touch no botão ENVIAR AUDITORIA');
+              console.log('📦 [TOUCH] Produtos:', produtosSelecionados);
+              handleFinalizeSurvey();
+            }}
+            disabled={finalizing || produtosSelecionados.length === 0}
+            className={`w-full py-4 rounded-lg transition-all text-lg font-bold shadow-lg ${
+              produtosSelecionados.length === 0
+                ? 'bg-gray-400 text-white cursor-not-allowed'
+                : 'bg-orange-600 text-white hover:bg-orange-700 active:bg-orange-800'
+            } ${finalizing ? 'opacity-50 cursor-not-allowed' : ''}`}
+            style={{
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'rgba(0,0,0,0)',
+              userSelect: 'none',
+              WebkitUserSelect: 'none'
+            }}
+          >
+            {finalizing
+              ? '⏳ Enviando...'
+              : produtosSelecionados.length === 0
+                ? `❌ Sem produtos (0/${items.length})`
+                : `✅ ENVIAR AUDITORIA (${produtosSelecionados.length}/${items.length})`
+            }
+          </button>
+        </div>
       </div>
     </Layout>
   );
