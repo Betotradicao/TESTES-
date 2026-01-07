@@ -547,8 +547,17 @@ export default function EtiquetaLancadorItens() {
                     )}
                     {survey.status === 'em_andamento' && (
                       <button
-                        onClick={() => navigate(`/etiquetas-verificacao/${survey.id}`)}
-                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+                        onClick={() => {
+                          console.log('🔵 Botão Continuar Verificação clicado (onClick)');
+                          navigate(`/etiquetas-verificacao/${survey.id}`);
+                        }}
+                        onTouchEnd={(e) => {
+                          e.preventDefault();
+                          console.log('📱 Touch event no botão Continuar Verificação');
+                          navigate(`/etiquetas-verificacao/${survey.id}`);
+                        }}
+                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 active:bg-green-800 text-sm relative z-10"
+                        style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                       >
                         ▶️ Continuar Verificação
                       </button>
