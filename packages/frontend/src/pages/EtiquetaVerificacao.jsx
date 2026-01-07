@@ -141,15 +141,15 @@ export default function EtiquetaVerificacao() {
     try {
       // Atualizar cada item com seu status
       for (const produto of produtosSelecionados) {
-        await api.patch(`/label-audits/items/${produto.id}/status`, {
-          status: produto.status,
+        await api.put(`/label-audits/items/${produto.id}/verify`, {
+          status_verificacao: produto.status,
           verificado_por: verificadoPor,
-          observacao: '',
+          observacao_item: '',
         });
       }
 
-      // Finalizar auditoria
-      const response = await api.post(`/label-audits/${surveyId}/finalize`);
+      // Enviar relatório via WhatsApp
+      const response = await api.post(`/label-audits/${surveyId}/send-report`);
 
       if (response.data.success) {
         alert('✅ ' + response.data.message + '\n\nO relatório PDF foi enviado para o grupo do WhatsApp!');
