@@ -197,7 +197,7 @@ export default function EtiquetaVerificacao() {
     }
   };
 
-  const handleAddProduto = (status) => {
+  const handleAddProduto = async (status) => {
     if (!verificadoPor.trim()) {
       alert('Selecione o auditor primeiro!');
       setShowNameModal(true);
@@ -205,26 +205,45 @@ export default function EtiquetaVerificacao() {
     }
 
     const currentItem = items[currentIndex];
+    console.log('📝 [ETIQUETAS-SAVE] Salvando item IMEDIATAMENTE:', currentItem.id, 'Status:', status);
 
-    // Verificar se o produto já foi adicionado
-    const jaAdicionado = produtosSelecionados.find(p => p.id === currentItem.id);
+    try {
+      // ✅ SALVAR IMEDIATAMENTE NO BANCO DE DADOS
+      setUpdating(true);
+      await api.patch(`/label-audits/items/${currentItem.id}/verify`, {
+        status_verificacao: status,
+        verificado_por: verificadoPor,
+        observacao: '',
+      });
+      console.log('✅ [ETIQUETAS-SAVE] Item salvo no banco:', currentItem.id);
 
-    if (jaAdicionado) {
-      // Se já foi adicionado, atualiza o tipo
-      setProdutosSelecionados(prev =>
-        prev.map(p => p.id === currentItem.id ? { ...p, status } : p)
-      );
-    } else {
-      // Adiciona novo produto
-      setProdutosSelecionados(prev => [...prev, {
-        ...currentItem,
-        status,
-      }]);
-    }
+      // Verificar se o produto já foi adicionado à lista local
+      const jaAdicionado = produtosSelecionados.find(p => p.id === currentItem.id);
 
-    // Ir para próximo item
-    if (currentIndex < items.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+      if (jaAdicionado) {
+        // Se já foi adicionado, atualiza o tipo
+        setProdutosSelecionados(prev =>
+          prev.map(p => p.id === currentItem.id ? { ...p, status } : p)
+        );
+        console.log('🔄 [ETIQUETAS-SAVE] Item atualizado na lista local');
+      } else {
+        // Adiciona novo produto à lista local
+        setProdutosSelecionados(prev => [...prev, {
+          ...currentItem,
+          status,
+        }]);
+        console.log('➕ [ETIQUETAS-SAVE] Item adicionado à lista local');
+      }
+
+      // Ir para próximo item
+      if (currentIndex < items.length - 1) {
+        setCurrentIndex(currentIndex + 1);
+      }
+    } catch (error) {
+      console.error('❌ [ETIQUETAS-SAVE] Erro ao salvar item:', error);
+      alert('❌ Erro ao salvar item. Tente novamente.');
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -251,49 +270,65 @@ export default function EtiquetaVerificacao() {
   };
 
   const handleFinalizeSurvey = async () => {
+    console.log('🔵 [ETIQUETAS-FINALIZE] handleFinalizeSurvey chamado');
+    console.log('📦 [ETIQUETAS-FINALIZE] Produtos selecionados:', produtosSelecionados.length);
+
     if (produtosSelecionados.length === 0) {
       alert('⚠️ Adicione pelo menos um produto antes de enviar a auditoria.');
       return;
     }
 
+    if (finalizing) {
+      console.log('⏳ [ETIQUETAS-FINALIZE] Já está finalizando, ignorando clique duplo');
+      return;
+    }
+
     const confirmacao = window.confirm(
-      `📊 Deseja ENVIAR esta auditoria?\n\n` +
-      `${produtosSelecionados.length} produtos serão enviados.\n\n` +
+      `📊 Deseja FINALIZAR e ENVIAR esta auditoria?\n\n` +
+      `${produtosSelecionados.length} produtos já foram salvos.\n\n` +
       'Será gerado um PDF com o relatório completo e enviado automaticamente para o WhatsApp.\n\n' +
       'Esta ação não pode ser desfeita.'
     );
 
+    console.log('✅ [ETIQUETAS-FINALIZE] Confirmação:', confirmacao);
+
     if (!confirmacao) {
+      console.log('❌ [ETIQUETAS-FINALIZE] Usuário cancelou a confirmação');
       return;
     }
 
+    console.log('🚀 [ETIQUETAS-FINALIZE] Iniciando finalização...');
     setFinalizing(true);
 
     try {
-      // Atualizar cada item com seu status
-      for (const produto of produtosSelecionados) {
-        await api.put(`/label-audits/items/${produto.id}/verify`, {
-          status_verificacao: produto.status,
-          verificado_por: verificadoPor,
-          observacao_item: '',
-        });
-      }
+      console.log('📊 [ETIQUETAS-FINALIZE] Todos os itens já foram salvos em tempo real!');
+      console.log('📤 [ETIQUETAS-FINALIZE] Finalizando auditoria e gerando PDF...');
 
-      // Enviar relatório via WhatsApp
+      // Enviar relatório via WhatsApp (os itens já foram salvos em tempo real)
       const response = await api.post(`/label-audits/${surveyId}/send-report`);
+
+      console.log('📊 [ETIQUETAS-FINALIZE] Resposta do servidor:', response.data);
 
       if (response.data.success) {
         // Limpar progresso salvo ao finalizar com sucesso
         localStorage.removeItem(`etiqueta_progress_${surveyId}`);
         alert('✅ ' + response.data.message + '\n\nO relatório PDF foi enviado para o grupo do WhatsApp!');
+        console.log('🎉 [ETIQUETAS-FINALIZE] Auditoria finalizada com sucesso! Redirecionando...');
         navigate('/etiquetas/lancar');
       } else {
+        console.warn('⚠️ [ETIQUETAS-FINALIZE] Finalização não foi bem sucedida:', response.data);
         alert('⚠️ ' + response.data.message);
       }
     } catch (err) {
-      console.error('Erro ao finalizar auditoria:', err);
+      console.error('❌ [ETIQUETAS-FINALIZE] Erro ao finalizar auditoria:', err);
+      console.error('❌ [ETIQUETAS-FINALIZE] Detalhes do erro:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
       alert('❌ Erro ao finalizar auditoria: ' + (err.response?.data?.error || err.message));
     } finally {
+      console.log('🏁 [ETIQUETAS-FINALIZE] Finalizando processo...');
       setFinalizing(false);
     }
   };
