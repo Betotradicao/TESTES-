@@ -210,7 +210,7 @@ export default function EtiquetaVerificacao() {
     try {
       // ✅ SALVAR IMEDIATAMENTE NO BANCO DE DADOS
       setUpdating(true);
-      await api.patch(`/label-audits/items/${currentItem.id}/verify`, {
+      await api.put(`/label-audits/items/${currentItem.id}/verify`, {
         status_verificacao: status,
         verificado_por: verificadoPor,
         observacao: '',
