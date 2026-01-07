@@ -22,8 +22,14 @@ export default function RupturaVerificacao() {
   useEffect(() => {
     loadSurvey();
     loadEmployees();
-    loadProgressFromLocalStorage();
   }, [surveyId]);
+
+  // Carregar progresso somente APÓS items serem carregados
+  useEffect(() => {
+    if (items.length > 0 && !loading) {
+      loadProgressFromLocalStorage();
+    }
+  }, [items, loading]);
 
   // Salvar progresso automaticamente quando houver mudanças
   useEffect(() => {
@@ -55,13 +61,26 @@ export default function RupturaVerificacao() {
       const savedProgress = localStorage.getItem(`ruptura_progress_${surveyId}`);
       if (savedProgress) {
         const progress = JSON.parse(savedProgress);
+
+        // Validar currentIndex antes de restaurar
+        const validIndex = Math.min(progress.currentIndex || 0, items.length - 1);
+        const safeIndex = Math.max(0, validIndex); // Garantir que não seja negativo
+
         setProdutosSelecionados(progress.produtosSelecionados || []);
         setVerificadoPor(progress.verificadoPor || '');
-        setCurrentIndex(progress.currentIndex || 0);
-        setShowNameModal(false); // Não mostrar modal se já tem auditor salvo
+        setCurrentIndex(safeIndex);
+
+        // Só esconder modal se tiver auditor salvo
+        if (progress.verificadoPor) {
+          setShowNameModal(false);
+        }
+
         console.log('✅ Progresso restaurado:', {
           produtos: progress.produtosSelecionados?.length || 0,
           auditor: progress.verificadoPor,
+          indexSalvo: progress.currentIndex,
+          indexRestaurado: safeIndex,
+          totalItems: items.length,
           salvoEm: progress.savedAt
         });
       }
