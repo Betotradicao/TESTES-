@@ -456,16 +456,28 @@ export default function EtiquetaVerificacao() {
           </div>
         )}
 
-        {/* Botão de Enviar Auditoria */}
-        {produtosSelecionados.length > 0 && (
+        {/* Botão de Enviar Auditoria - só aparece quando TODOS os itens foram verificados */}
+        {produtosSelecionados.length === items.length && produtosSelecionados.length > 0 && (
           <div className="mt-6">
             <button
               onClick={handleFinalizeSurvey}
               disabled={finalizing}
               className="w-full py-4 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg font-bold shadow-lg"
             >
-              {finalizing ? '⏳ Enviando...' : 'ENVIAR AUDITORIA'}
+              {finalizing ? '⏳ Enviando...' : '📤 ENVIAR AUDITORIA'}
             </button>
+          </div>
+        )}
+
+        {/* Mensagem quando ainda há itens pendentes */}
+        {produtosSelecionados.length > 0 && produtosSelecionados.length < items.length && (
+          <div className="mt-6 bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 text-center">
+            <p className="text-yellow-800 font-semibold">
+              ⚠️ Faltam {items.length - produtosSelecionados.length} itens para verificar
+            </p>
+            <p className="text-sm text-yellow-700 mt-1">
+              O botão de enviar aparecerá quando todos os itens forem verificados
+            </p>
           </div>
         )}
       </div>

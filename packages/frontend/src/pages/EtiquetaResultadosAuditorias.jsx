@@ -325,37 +325,14 @@ export default function EtiquetaResultadosAuditorias() {
 
               <div className="bg-white rounded-lg shadow p-6 text-center">
                 <div className="text-4xl font-bold text-red-600">{stats.total_rupturas || 0}</div>
-                <div className="text-sm text-gray-600 mt-1">Etiquetas Total</div>
-                {(stats.rupturas_nao_encontrado > 0 || stats.rupturas_em_estoque > 0) && (
-                  <div className="text-xs text-gray-500 mt-2">
-                    {stats.rupturas_nao_encontrado > 0 && <div>{stats.rupturas_nao_encontrado} Não Correto</div>}
-                    {stats.rupturas_em_estoque > 0 && <div>{stats.rupturas_em_estoque} Em Estoque</div>}
-                  </div>
-                )}
+                <div className="text-sm text-gray-600 mt-1">Etiquetas Desconformes</div>
               </div>
 
               <div className="bg-white rounded-lg shadow p-6 text-center">
                 <div className="text-4xl font-bold text-blue-600">
                   {stats.taxa_ruptura ? Number(stats.taxa_ruptura).toFixed(1) : '0'}%
                 </div>
-                <div className="text-sm text-gray-600 mt-1">Taxa Etiqueta</div>
-              </div>
-            </div>
-
-            {/* Financial Impact - Baseado no Período */}
-            <div className="grid grid-cols-2 md:grid-cols-2 gap-4 mb-6">
-              <div className="bg-red-50 border border-red-200 rounded-lg shadow p-6 text-center">
-                <div className="text-3xl font-bold text-red-700">
-                  R$ {Number(stats.perda_venda_periodo || 0).toFixed(2)}
-                </div>
-                <div className="text-sm text-red-600 mt-1">Perda Venda no Período</div>
-              </div>
-
-              <div className="bg-orange-50 border border-orange-200 rounded-lg shadow p-6 text-center">
-                <div className="text-3xl font-bold text-orange-700">
-                  R$ {Number(stats.perda_lucro_periodo || 0).toFixed(2)}
-                </div>
-                <div className="text-sm text-orange-600 mt-1">Perda Lucro no Período</div>
+                <div className="text-sm text-gray-600 mt-1">Taxa Etiqueta Desconformes</div>
               </div>
             </div>
 
@@ -395,34 +372,6 @@ export default function EtiquetaResultadosAuditorias() {
                   >
                     Todos ({countTodos})
                   </button>
-                  <button
-                    onClick={() => {
-                      setFiltroTipoEtiqueta('preco_divergente');
-                      setFiltroFornecedorTabela('todos');
-                      setFiltroSetorTabela('todos');
-                    }}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      filtroTipoEtiqueta === 'preco_divergente'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    Não Correto ({countNaoCorreto})
-                  </button>
-                  <button
-                    onClick={() => {
-                      setFiltroTipoEtiqueta('preco_divergente');
-                      setFiltroFornecedorTabela('todos');
-                      setFiltroSetorTabela('todos');
-                    }}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      filtroTipoEtiqueta === 'preco_divergente'
-                        ? 'bg-yellow-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    Em Estoque ({countEmEstoque})
-                  </button>
 
                   {/* Indicador de filtro ativo por fornecedor ou setor */}
                   {filtroFornecedorTabela !== 'todos' && (
@@ -460,6 +409,7 @@ export default function EtiquetaResultadosAuditorias() {
                       <thead className="bg-gray-50 border-b">
                         <tr>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Código de Barras</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Produto</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fornecedor</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Seção</th>
@@ -477,6 +427,7 @@ export default function EtiquetaResultadosAuditorias() {
                         {itensEtiqueta.map((item, idx) => (
                           <tr key={idx} className="hover:bg-gray-50">
                             <td className="px-3 py-2 text-gray-600">{idx + 1}</td>
+                            <td className="px-3 py-2 text-gray-600">{item.codigo_barras || '-'}</td>
                             <td className="px-3 py-2">
                               <p className="font-medium text-gray-800 max-w-xs truncate" title={item.descricao}>
                                 {item.descricao}
@@ -604,7 +555,7 @@ export default function EtiquetaResultadosAuditorias() {
 
                 {secoesRanking.length === 0 ? (
                   <p className="text-gray-500 text-center py-8">
-                    Nenhuma ruptura
+                    Nenhum produto sem etiqueta
                   </p>
                 ) : (
                   <div className="space-y-4 max-h-96 overflow-y-auto">
@@ -628,7 +579,7 @@ export default function EtiquetaResultadosAuditorias() {
                                 {sec.secao}
                               </p>
                               <p className="text-xs text-gray-500">
-                                {sec.rupturas} {sec.rupturas === 1 ? 'ruptura' : 'rupturas'}
+                                {sec.rupturas} {sec.rupturas === 1 ? 'Produto Sem Etiqueta' : 'Produtos Sem Etiquetas'}
                               </p>
                             </div>
                             <div className="text-right ml-4">

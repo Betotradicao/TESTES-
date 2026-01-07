@@ -6,6 +6,7 @@ import * as path from 'path';
 import Papa from 'papaparse';
 import PDFDocument from 'pdfkit';
 import { WhatsAppService } from './whatsapp.service';
+import { ConfigurationService } from './configuration.service';
 
 export class LabelAuditService {
   /**
@@ -109,7 +110,7 @@ export class LabelAuditService {
 
       for (const row of validRows) {
         // Extrair dados com fallback para diferentes encodings
-        const codigoBarras = (row['Código Barras'] || row['C�digo Barras'] || row['Codigo Barras'] || '').trim();
+        const codigoBarras = this.parseBarcode(row['Código Barras'] || row['C�digo Barras'] || row['Codigo Barras'] || '');
         const descricao = (row['Descrição Produto'] || row['Descri��o Produto'] || row['Descricao Produto'] || '').trim();
         const etiqueta = (row['Etiqueta'] || '').trim();
         const secao = (row['Seção'] || row['Se��o'] || row['Secao'] || '').trim();
@@ -155,6 +156,44 @@ export class LabelAuditService {
     cleaned = cleaned.replace(',', '.');
 
     return parseFloat(cleaned) || 0;
+  }
+
+  /**
+   * Helper para converter código de barras em notação científica de volta para número completo
+   * Exemplo: "7,8074E+12" ou "7.8074E+12" → "7807400000000"
+   */
+  private static parseBarcode(barcodeStr: string): string {
+    if (!barcodeStr) return '';
+
+    const cleaned = barcodeStr.trim();
+
+    // Detectar notação científica (tanto com vírgula quanto com ponto)
+    // Padrões: 7.8074E+12, 7,8074E+12, 7.8074e+12, etc.
+    const scientificPattern = /^([0-9]+)[.,]([0-9]+)[eE]([+-]?[0-9]+)$/;
+    const match = cleaned.match(scientificPattern);
+
+    if (match) {
+      // Converter de notação científica para número completo
+      const integerPart = match[1];
+      const decimalPart = match[2];
+      const exponent = parseInt(match[3], 10);
+
+      // Reconstruir o número: combinar integer + decimal e ajustar com o expoente
+      const fullNumber = integerPart + decimalPart;
+      const totalDigits = fullNumber.length;
+
+      // Calcular quantos zeros adicionar
+      // Expoente positivo significa mover a vírgula para a direita
+      const zerosToAdd = Math.max(0, exponent - decimalPart.length);
+
+      // Construir o número completo
+      const result = fullNumber + '0'.repeat(zerosToAdd);
+
+      return result;
+    }
+
+    // Se não estiver em notação científica, retornar como está
+    return cleaned;
   }
 
   /**
@@ -237,7 +276,7 @@ export class LabelAuditService {
       .createQueryBuilder('item')
       .where('item.audit_id = :auditId', { auditId })
       .andWhere('item.status_verificacao = :status', { status: 'pendente' })
-      .orderBy('CAST(item.secao AS UNSIGNED)', 'ASC')
+      .orderBy('CAST(item.secao AS INTEGER)', 'ASC')
       .addOrderBy('item.descricao', 'ASC')
       .getMany();
 
@@ -274,6 +313,17 @@ export class LabelAuditService {
   }
 
   /**
+   * Marcar auditoria como concluída
+   */
+  static async markAsCompleted(auditId: number): Promise<void> {
+    const auditRepository = AppDataSource.getRepository(LabelAudit);
+
+    await auditRepository.update(auditId, {
+      status: 'concluida'
+    });
+  }
+
+  /**
    * Gerar relatório PDF com itens divergentes
    */
   static async generateDivergentReport(auditId: number): Promise<Buffer> {
@@ -285,78 +335,141 @@ export class LabelAuditService {
 
     // Filtrar apenas itens divergentes
     const divergentItems = audit.items?.filter(i => i.status_verificacao === 'preco_divergente') || [];
+    const itensCorretos = audit.items?.filter(i => i.status_verificacao === 'preco_correto') || [];
+
+    // Função para normalizar texto (remover acentos e caracteres especiais)
+    const normalizeText = (text: string | null | undefined): string => {
+      if (!text) return '-';
+      return text
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+        .replace(/[^\x00-\x7F]/g, ''); // Remove caracteres não-ASCII
+    };
 
     return new Promise((resolve, reject) => {
-      const doc = new PDFDocument({ size: 'A4', margin: 50 });
+      const doc = new PDFDocument({ size: 'A4', margin: 30 });
       const buffers: Buffer[] = [];
 
       doc.on('data', buffers.push.bind(buffers));
       doc.on('end', () => resolve(Buffer.concat(buffers)));
       doc.on('error', reject);
 
-      // Título
-      doc.fontSize(18).font('Helvetica-Bold')
-        .text('🏷️ PREVENÇÃO DE ETIQUETAS - ITENS DIVERGENTES', { align: 'center' });
+      // Cabeçalho com fundo laranja forte
+      const headerHeight = 45;
+      doc.rect(0, 0, 595, headerHeight).fillAndStroke('#FF5500', '#FF5500');
+      doc.fontSize(16).fillColor('#FFF').text(normalizeText('RELATÓRIO DE AUDITORIA DE ETIQUETAS'), 30, 15, { align: 'center' });
+      doc.moveDown(2.5);
 
-      doc.moveDown();
-      doc.fontSize(12).font('Helvetica')
-        .text(`Auditoria: ${audit.titulo}`, { align: 'center' })
-        .text(`Data: ${new Date(audit.data_referencia).toLocaleDateString('pt-BR')}`, { align: 'center' });
+      // Data em horário brasileiro (GMT-3)
+      const brazilDate = new Date().toLocaleString('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
 
-      doc.moveDown();
-      doc.fontSize(10).fillColor('red')
-        .text(`❌ ${divergentItems.length} produtos com preço DIVERGENTE`, { align: 'center' });
+      // Taxa de conformidade
+      const totalItens = audit.total_itens || 0;
+      const taxaConformidade = totalItens > 0 ? ((itensCorretos.length / totalItens) * 100) : 0;
 
-      doc.moveDown(2);
+      // Box do Resumo Geral - menor e mais compacto
+      const boxY = doc.y + 8;
+      doc.rect(30, boxY, 535, 90).fillAndStroke('#F8F9FA', '#FF5500');
 
-      // Tabela
-      doc.fontSize(9).fillColor('black').font('Helvetica-Bold');
+      // Título do Resumo
+      doc.fontSize(11).fillColor('#FF5500').text('RESUMO GERAL', 40, boxY + 8);
 
-      let y = doc.y;
+      // Informações do resumo em duas colunas
+      const colLeft = 40;
+      const colRight = 310;
+      let lineY = boxY + 26;
+      const lineHeight = 13;
 
-      // Cabeçalho
-      doc.text('Código', 50, y, { width: 80, continued: false });
-      doc.text('Descrição', 135, y, { width: 150, continued: false });
-      doc.text('Seção', 290, y, { width: 50, continued: false });
-      doc.text('Preço', 345, y, { width: 60, continued: false });
-      doc.text('Oferta', 410, y, { width: 60, continued: false });
-      doc.text('Verificado', 475, y, { width: 70, continued: false });
+      doc.fontSize(8.5).fillColor('#000');
 
-      y += 20;
-      doc.moveTo(50, y).lineTo(545, y).stroke();
-      y += 5;
+      // Coluna esquerda
+      const auditor = divergentItems[0]?.verificado_por || itensCorretos[0]?.verificado_por || 'N/A';
+      doc.text(normalizeText(`Auditor: ${auditor}`), colLeft, lineY);
+      lineY += lineHeight;
+      doc.text(normalizeText(`Titulo: ${audit.titulo}`), colLeft, lineY);
+      lineY += lineHeight;
+      doc.text(normalizeText(`Total de Itens Verificados: ${totalItens}`), colLeft, lineY);
+      lineY += lineHeight;
+      doc.text(normalizeText(`Itens com Preco Correto: ${itensCorretos.length}`), colLeft, lineY);
 
-      // Itens
-      doc.font('Helvetica').fontSize(8);
+      // Coluna direita
+      lineY = boxY + 26;
+      doc.text(normalizeText(`Data da Auditoria: ${new Date(audit.data_referencia).toLocaleDateString('pt-BR')}`), colRight, lineY);
+      lineY += lineHeight;
+      doc.text(normalizeText(`Itens Divergentes: ${divergentItems.length}`), colRight, lineY);
+      lineY += lineHeight;
+      doc.text(normalizeText(`Taxa de Conformidade: ${taxaConformidade.toFixed(1)}%`), colRight, lineY);
+      lineY += lineHeight;
+      doc.text(normalizeText(`Gerado em: ${brazilDate}`), colRight, lineY);
 
-      for (const item of divergentItems) {
-        if (y > 720) {
+      doc.moveDown(8);
+
+      // Título da seção de divergentes
+      let startY = doc.y;
+      doc.fontSize(12).fillColor('#000').text(normalizeText(`ETIQUETAS COM PREÇO DIVERGENTE (${divergentItems.length})`), 30, startY);
+      startY += 20;
+
+      // Definir colunas da tabela (sem VERIFICADO POR, CODIGO mais largo)
+      const colX = [30, 130, 300, 360, 445];
+      const colWidth = [100, 170, 60, 85, 85];
+      const rowHeight = 18;
+
+      // Cabeçalho da tabela (laranja forte)
+      doc.rect(30, startY, 535, rowHeight).fillAndStroke('#FF6600', '#000');
+      doc.fontSize(8).fillColor('#FFF');
+      doc.text(normalizeText('CÓDIGO DE BARRAS'), colX[0] + 5, startY + 5, { width: colWidth[0], align: 'left' });
+      doc.text(normalizeText('PRODUTO'), colX[1] + 5, startY + 5, { width: colWidth[1], align: 'left' });
+      doc.text(normalizeText('SEÇÃO'), colX[2] + 5, startY + 5, { width: colWidth[2], align: 'left' });
+      doc.text(normalizeText('PREÇO VENDA'), colX[3] + 5, startY + 5, { width: colWidth[3], align: 'left' });
+      doc.text(normalizeText('PREÇO OFERTA'), colX[4] + 5, startY + 5, { width: colWidth[4], align: 'left' });
+
+      startY += rowHeight;
+
+      // Itens divergentes
+      doc.fontSize(7).fillColor('#000');
+      for (let i = 0; i < divergentItems.length; i++) {
+        const item = divergentItems[i];
+
+        if (startY > 750) {
           doc.addPage();
-          y = 50;
+          startY = 50;
         }
+
+        const bgColor = i % 2 === 0 ? '#FFF' : '#F9F9F9';
+        doc.rect(30, startY, 535, rowHeight).fillAndStroke(bgColor, '#DDD');
 
         const precoVenda = item.valor_venda ? `R$ ${Number(item.valor_venda).toFixed(2).replace('.', ',')}` : '-';
         const precoOferta = item.valor_oferta && item.valor_oferta > 0
           ? `R$ ${Number(item.valor_oferta).toFixed(2).replace('.', ',')}`
           : '-';
 
-        const verificadoPor = item.verificado_por || '-';
+        // Forçar código de barras como string para evitar notação científica
+        const codigoBarras = item.codigo_barras ? String(item.codigo_barras) : '-';
 
-        doc.text(item.codigo_barras || '-', 50, y, { width: 80 });
-        doc.text(item.descricao || '-', 135, y, { width: 150 });
-        doc.text(item.secao || '-', 290, y, { width: 50 });
-        doc.text(precoVenda, 345, y, { width: 60 });
-        doc.fillColor('orange').text(precoOferta, 410, y, { width: 60 }).fillColor('black');
-        doc.text(verificadoPor, 475, y, { width: 70 });
+        doc.fillColor('#000').text(codigoBarras, colX[0] + 5, startY + 5, { width: colWidth[0] });
+        doc.text(normalizeText(item.descricao), colX[1] + 5, startY + 5, { width: colWidth[1] });
+        doc.text(normalizeText(item.secao), colX[2] + 5, startY + 5, { width: colWidth[2] });
+        doc.text(precoVenda, colX[3] + 5, startY + 5, { width: colWidth[3] });
+        doc.fillColor('#FF6600').text(precoOferta, colX[4] + 5, startY + 5, { width: colWidth[4] });
 
-        y += 30;
+        startY += rowHeight;
       }
 
       // Rodapé
-      doc.fontSize(8).fillColor('gray')
-        .text(`Gerado em ${new Date().toLocaleString('pt-BR')} | Prevenção no Radar`, 50, 770, {
-          align: 'center'
-        });
+      doc.fontSize(8).fillColor('#888').text(
+        normalizeText('Relatório gerado automaticamente pelo sistema Prevenção no Radar'),
+        50,
+        770,
+        { align: 'center' }
+      );
 
       doc.end();
     });
@@ -366,6 +479,14 @@ export class LabelAuditService {
    * Enviar relatório via WhatsApp
    */
   static async sendDivergentReportToWhatsApp(auditId: number): Promise<void> {
+    // Buscar grupo do WhatsApp da Evolution API
+    const groupId = await ConfigurationService.get('evolution_whatsapp_group_id', process.env.EVOLUTION_WHATSAPP_GROUP_ID || '');
+
+    if (!groupId) {
+      console.warn('⚠️  Grupo do WhatsApp não configurado (evolution_whatsapp_group_id)');
+      throw new Error('Grupo do WhatsApp não configurado');
+    }
+
     const pdfBuffer = await this.generateDivergentReport(auditId);
 
     // Salvar PDF temporariamente
@@ -380,7 +501,8 @@ export class LabelAuditService {
     fs.writeFileSync(filePath, pdfBuffer);
 
     try {
-      await WhatsAppService.sendDocument(filePath, `🏷️ Relatório de Etiquetas Divergentes - Auditoria #${auditId}`);
+      console.log(`📊 Enviando relatório de etiquetas para grupo: ${groupId}`);
+      await WhatsAppService.sendDocument(groupId, filePath, `🏷️ Relatório de Etiquetas Divergentes - Auditoria #${auditId}`);
       console.log(`✅ PDF enviado via WhatsApp: ${fileName}`);
     } finally {
       // Limpar arquivo temporário
@@ -388,6 +510,122 @@ export class LabelAuditService {
         fs.unlinkSync(filePath);
       }
     }
+  }
+
+  /**
+   * Buscar resultados agregados de múltiplas auditorias com filtros
+   */
+  static async getAgregatedResults(filters: {
+    data_inicio: string;
+    data_fim: string;
+    produto?: string;
+    fornecedor?: string;
+    auditor?: string;
+  }): Promise<any> {
+    const itemRepository = AppDataSource.getRepository(LabelAuditItem);
+    const auditRepository = AppDataSource.getRepository(LabelAudit);
+
+    // Buscar auditorias no período
+    const audits = await auditRepository
+      .createQueryBuilder('audit')
+      .where('audit.data_referencia >= :dataInicio', { dataInicio: filters.data_inicio })
+      .andWhere('audit.data_referencia <= :dataFim', { dataFim: filters.data_fim })
+      .getMany();
+
+    const auditIds = audits.map(a => a.id);
+
+    if (auditIds.length === 0) {
+      return {
+        estatisticas: {
+          total_itens_verificados: 0,
+          total_corretos: 0,
+          total_divergentes: 0,
+          taxa_conformidade: 0,
+        },
+        itens_divergentes: [],
+        secoes_ranking: [],
+      };
+    }
+
+    // Query builder com filtros
+    let query = itemRepository
+      .createQueryBuilder('item')
+      .where('item.audit_id IN (:...auditIds)', { auditIds });
+
+    // Filtro de produto
+    if (filters.produto && filters.produto !== 'todos') {
+      query = query.andWhere('item.descricao = :produto', { produto: filters.produto });
+    }
+
+    // Filtro de auditor
+    if (filters.auditor && filters.auditor !== 'todos') {
+      query = query.andWhere('item.verificado_por = :auditor', { auditor: filters.auditor });
+    }
+
+    const items = await query.getMany();
+
+    // Calcular estatísticas
+    const itensVerificados = items.filter(i => i.status_verificacao !== 'pendente');
+    const itensCorretos = items.filter(i => i.status_verificacao === 'preco_correto');
+    const itensDivergentes = items.filter(i => i.status_verificacao === 'preco_divergente');
+
+    const totalItensVerificados = itensVerificados.length;
+    const totalCorretos = itensCorretos.length;
+    const totalDivergentes = itensDivergentes.length;
+    const taxaConformidade = totalItensVerificados > 0 ? (totalCorretos / totalItensVerificados) * 100 : 0;
+
+    // Agrupar divergentes por produto (contar ocorrências)
+    const divergentesPorProduto: { [key: string]: any } = {};
+
+    itensDivergentes.forEach(item => {
+      const key = item.descricao;
+      if (!divergentesPorProduto[key]) {
+        divergentesPorProduto[key] = {
+          descricao: item.descricao,
+          codigo_barras: item.codigo_barras || '-',
+          secao: item.secao || 'Sem seção',
+          valor_venda: item.valor_venda || 0,
+          valor_oferta: item.valor_oferta || 0,
+          margem_lucro: item.margem_pratica || '0,0%', // Adicionar margem_pratica
+          ocorrencias: 0,
+        };
+      }
+      divergentesPorProduto[key].ocorrencias++;
+    });
+
+    // Converter para array e ordenar por ocorrências
+    const itensDivergentesAgrupados = Object.values(divergentesPorProduto)
+      .sort((a: any, b: any) => b.ocorrencias - a.ocorrencias);
+
+    // Ranking de seções com mais divergências
+    const divergentesPorSecao: { [key: string]: number } = {};
+    itensDivergentes.forEach(item => {
+      const secao = item.secao || 'Sem seção';
+      divergentesPorSecao[secao] = (divergentesPorSecao[secao] || 0) + 1;
+    });
+
+    const secoesRanking = Object.entries(divergentesPorSecao)
+      .map(([secao, quantidade]) => ({ secao, quantidade }))
+      .sort((a, b) => b.quantidade - a.quantidade);
+
+    // Calcular taxa de divergência (o frontend espera taxa_ruptura)
+    const taxaDivergencia = totalItensVerificados > 0 ? (totalDivergentes / totalItensVerificados) * 100 : 0;
+
+    return {
+      estatisticas: {
+        total_itens_verificados: totalItensVerificados,
+        total_encontrados: totalCorretos, // Frontend espera total_encontrados
+        total_rupturas: totalDivergentes, // Frontend espera total_rupturas
+        rupturas_nao_encontrado: 0, // Não aplicável para etiquetas
+        rupturas_em_estoque: totalDivergentes, // Considerar divergentes como "em estoque"
+        taxa_ruptura: parseFloat(taxaDivergencia.toFixed(2)), // Frontend espera taxa_ruptura
+        perda_venda_periodo: 0, // Não calculamos perda para etiquetas
+        perda_lucro_periodo: 0, // Não calculamos perda para etiquetas
+      },
+      itens_ruptura: itensDivergentesAgrupados, // Frontend espera itens_ruptura
+      fornecedores_ranking: [], // Frontend pode esperar isso
+      secoes_ranking: secoesRanking,
+    };
   }
 
   /**

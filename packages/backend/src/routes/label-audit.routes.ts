@@ -14,6 +14,9 @@ router.post('/upload', upload.single('file'), LabelAuditController.uploadAndCrea
 // Listar todas as auditorias
 router.get('/', LabelAuditController.getAllAudits);
 
+// IMPORTANTE: Rotas específicas devem vir ANTES das rotas com parâmetros
+router.get('/agregado', LabelAuditController.getAgregated);
+
 // Buscar auditoria por ID
 router.get('/:id', LabelAuditController.getAuditById);
 

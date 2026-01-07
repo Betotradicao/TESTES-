@@ -221,6 +221,39 @@ export class LabelAuditController {
   }
 
   /**
+   * GET /api/label-audits/agregado
+   * Buscar resultados agregados com filtros
+   */
+  static async getAgregated(req: Request, res: Response) {
+    try {
+      const { data_inicio, data_fim, produto, fornecedor, auditor } = req.query;
+
+      console.log('📊 Filtros recebidos:', { data_inicio, data_fim, produto, fornecedor, auditor });
+
+      if (!data_inicio || !data_fim) {
+        return res.status(400).json({
+          error: 'data_inicio e data_fim são obrigatórios',
+        });
+      }
+
+      const results = await LabelAuditService.getAgregatedResults({
+        data_inicio: data_inicio as string,
+        data_fim: data_fim as string,
+        produto: produto as string | undefined,
+        fornecedor: fornecedor as string | undefined,
+        auditor: auditor as string | undefined,
+      });
+
+      console.log('✅ Resultados agregados calculados com sucesso');
+      res.json(results);
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar resultados agregados:', error);
+      console.error('Stack trace:', error.stack);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
    * DELETE /api/label-audits/:id
    * Deletar auditoria
    */

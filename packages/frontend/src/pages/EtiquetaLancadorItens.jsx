@@ -48,7 +48,7 @@ export default function EtiquetaLancadorItens() {
       const month = monthDate.getMonth();
 
       const filtered = allSurveys.filter(survey => {
-        const surveyDate = new Date(survey.data_criacao);
+        const surveyDate = new Date(survey.data_referencia);
         return surveyDate.getFullYear() === year && surveyDate.getMonth() === month;
       });
 
@@ -71,11 +71,11 @@ export default function EtiquetaLancadorItens() {
     setCurrentMonth(newMonth);
   };
 
-  // Verificar se dia tem auditoria
+  // Verificar se dia tem auditoria CONCLUÍDA
   const getDayAudits = (day) => {
     return monthSurveys.filter(survey => {
-      const surveyDate = new Date(survey.data_criacao);
-      return surveyDate.getDate() === day;
+      const surveyDate = new Date(survey.data_referencia);
+      return surveyDate.getDate() === day && survey.status === 'concluida';
     });
   };
 
@@ -83,15 +83,15 @@ export default function EtiquetaLancadorItens() {
   const getDayColor = (day) => {
     const today = new Date();
     const dayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const hasAudits = getDayAudits(day).length > 0;
+    const hasCompletedAudits = getDayAudits(day).length > 0;
 
     // Dia futuro - branco
     if (dayDate > today) {
       return 'bg-white text-gray-400';
     }
 
-    // Dia passado com auditoria - verde claro
-    if (hasAudits) {
+    // Dia passado com auditoria CONCLUÍDA - verde claro
+    if (hasCompletedAudits) {
       return 'bg-green-100 text-green-800 font-semibold';
     }
 
@@ -478,7 +478,7 @@ export default function EtiquetaLancadorItens() {
                     >
                       <div className="flex items-center justify-between mb-0.5">
                         <span className="font-semibold text-gray-800 text-xs">
-                          {new Date(survey.data_criacao).toLocaleDateString('pt-BR')}
+                          {new Date(survey.data_referencia).toLocaleDateString('pt-BR')}
                         </span>
                         <span className={`px-1.5 py-0.5 rounded-full text-xs ${getStatusColor(survey.status)}`}>
                           {getStatusText(survey.status)}
