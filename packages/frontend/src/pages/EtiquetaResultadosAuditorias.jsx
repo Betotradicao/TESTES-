@@ -336,13 +336,16 @@ export default function EtiquetaResultadosAuditorias() {
               </div>
             </div>
 
-            {/* Produtos com Etiqueta - Largura Total */}
-            <div className="mb-6">
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-gray-800">
-                    📦 Produtos com Etiqueta ({itensEtiqueta.length})
-                  </h2>
+            {/* Produtos Sem Etiqueta e Setores - Layout em 2 Colunas */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+
+              {/* Coluna da Tabela (2/3 da largura) */}
+              <div className="md:col-span-2">
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-gray-800">
+                      📦 Produtos Sem Etiqueta ({itensEtiqueta.length})
+                    </h2>
                   {itensEtiqueta.length > 0 && (
                     <button
                       onClick={gerarPDF}
@@ -411,16 +414,10 @@ export default function EtiquetaResultadosAuditorias() {
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Código de Barras</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Produto</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fornecedor</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Seção</th>
-                          <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Curva</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Estoque</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">V.Média/Dia</th>
                           <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Valor Venda</th>
                           <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Margem %</th>
-                          <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Pedido</th>
                           <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Ocorrências</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Perda Total</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
@@ -433,52 +430,18 @@ export default function EtiquetaResultadosAuditorias() {
                                 {item.descricao}
                               </p>
                             </td>
-                            <td className="px-3 py-2 text-gray-600 max-w-xs truncate" title={item.fornecedor}>
-                              {item.fornecedor}
-                            </td>
                             <td className="px-3 py-2 text-gray-600 max-w-xs truncate" title={item.secao}>
                               {item.secao}
-                            </td>
-                            <td className="px-3 py-2 text-center">
-                              <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${
-                                item.curva === 'A' ? 'bg-red-100 text-red-700' :
-                                item.curva === 'B' ? 'bg-yellow-100 text-yellow-700' :
-                                item.curva === 'C' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                              }`}>
-                                {item.curva}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              <span className={item.estoque_atual > 0 ? 'text-green-600' : 'text-red-600'}>
-                                {Number(item.estoque_atual || 0).toFixed(0)}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-right text-gray-700">
-                              {Number(item.venda_media_dia || 0).toFixed(2)}
                             </td>
                             <td className="px-3 py-2 text-right text-gray-700">
                               R$ {Number(item.valor_venda || 0).toFixed(2)}
                             </td>
                             <td className="px-3 py-2 text-right text-gray-700">
-                              {Number(item.margem_lucro || 0).toFixed(1)}%
-                            </td>
-                            <td className="px-3 py-2 text-center">
-                              <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${
-                                item.tem_pedido === 'Sim' ? 'bg-green-100 text-green-700' :
-                                item.tem_pedido === 'Não' ? 'bg-red-100 text-red-700' :
-                                'bg-gray-100 text-gray-600'
-                              }`}>
-                                {item.tem_pedido || '-'}
-                              </span>
+                              {item.margem_lucro || '-'}
                             </td>
                             <td className="px-3 py-2 text-center">
                               <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold">
                                 {item.ocorrencias}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              <span className="font-bold text-red-600">
-                                R$ {Number(item.perda_total || 0).toFixed(2)}
                               </span>
                             </td>
                           </tr>
@@ -488,66 +451,9 @@ export default function EtiquetaResultadosAuditorias() {
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* Fornecedores e Setores */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-
-              {/* Fornecedores com mais Etiquetas */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">
-                  🏪 Fornecedores
-                </h2>
-
-                {fornecedoresRanking.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">
-                    Nenhuma ruptura
-                  </p>
-                ) : (
-                  <div className="space-y-4 max-h-96 overflow-y-auto">
-                    {fornecedoresRanking.slice(0, 15).map((forn, idx) => {
-                      const maxEtiquetas = Math.max(...fornecedoresRanking.map(f => f.rupturas));
-                      const percentage = (forn.rupturas / maxEtiquetas) * 100;
-
-                      return (
-                        <div
-                          key={idx}
-                          onClick={() => {
-                            setFiltroFornecedorTabela(forn.fornecedor);
-                            setFiltroTipoEtiqueta('todos');
-                            setFiltroSetorTabela('todos');
-                          }}
-                          className="cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex-1">
-                              <p className="font-semibold text-gray-800 text-sm truncate" title={forn.fornecedor}>
-                                {forn.fornecedor}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {forn.rupturas} {forn.rupturas === 1 ? 'ruptura' : 'rupturas'}
-                              </p>
-                            </div>
-                            <div className="text-right ml-4">
-                              <p className="text-sm font-bold text-red-600">
-                                R$ {Number(forn.perda_total || 0).toFixed(2)}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-red-500 h-2 rounded-full transition-all"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
 
-              {/* Setores (Seções) com mais Etiquetas */}
+              {/* Coluna de Setores (1/3 da largura) */}
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-bold text-gray-800 mb-4">
                   🏬 Setores
@@ -580,11 +486,6 @@ export default function EtiquetaResultadosAuditorias() {
                               </p>
                               <p className="text-xs text-gray-500">
                                 {sec.rupturas} {sec.rupturas === 1 ? 'Produto Sem Etiqueta' : 'Produtos Sem Etiquetas'}
-                              </p>
-                            </div>
-                            <div className="text-right ml-4">
-                              <p className="text-sm font-bold text-red-600">
-                                R$ {Number(sec.perda_total || 0).toFixed(2)}
                               </p>
                             </div>
                           </div>
