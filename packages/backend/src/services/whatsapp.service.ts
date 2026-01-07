@@ -172,11 +172,12 @@ export class WhatsAppService {
     try {
       console.log(`📄 Gerando PDF com ${bips.length} bipagens pendentes...`);
 
-      // Buscar grupo do WhatsApp
-      const groupId = await ConfigurationService.get('evolution_whatsapp_group_id', process.env.EVOLUTION_WHATSAPP_GROUP_ID || '');
+      // Buscar grupo do WhatsApp específico para Bipagens (com fallback para o grupo padrão)
+      const groupId = await ConfigurationService.get('whatsapp_group_bipagens', '') ||
+                      await ConfigurationService.get('evolution_whatsapp_group_id', process.env.EVOLUTION_WHATSAPP_GROUP_ID || '');
 
       if (!groupId) {
-        console.warn('⚠️  Grupo do WhatsApp não configurado (evolution_whatsapp_group_id)');
+        console.warn('⚠️  Grupo do WhatsApp não configurado (whatsapp_group_bipagens ou evolution_whatsapp_group_id)');
         throw new Error('Grupo do WhatsApp não configurado');
       }
 
@@ -316,11 +317,12 @@ export class WhatsAppService {
     perdaLucro: number = 0
   ): Promise<boolean> {
     try {
-      // Buscar grupo do WhatsApp da Evolution API (mesmo grupo usado para notificações)
-      const groupId = await ConfigurationService.get('evolution_whatsapp_group_id', process.env.EVOLUTION_WHATSAPP_GROUP_ID || '');
+      // Buscar grupo do WhatsApp específico para Ruptura (com fallback para o grupo padrão)
+      const groupId = await ConfigurationService.get('whatsapp_group_ruptura', '') ||
+                      await ConfigurationService.get('evolution_whatsapp_group_id', process.env.EVOLUTION_WHATSAPP_GROUP_ID || '');
 
       if (!groupId) {
-        console.warn('⚠️  Grupo do WhatsApp não configurado (evolution_whatsapp_group_id)');
+        console.warn('⚠️  Grupo do WhatsApp não configurado (whatsapp_group_ruptura ou evolution_whatsapp_group_id)');
         return false;
       }
 
