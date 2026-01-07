@@ -229,7 +229,7 @@ export default function RupturaLancadorItens() {
   const getStatusColor = (status) => {
     switch (status) {
       case 'rascunho': return 'bg-gray-100 text-gray-800';
-      case 'em_andamento': return 'bg-blue-100 text-blue-800';
+      case 'em_andamento': return 'bg-orange-100 text-orange-800';
       case 'concluida': return 'bg-green-100 text-green-800';
       case 'cancelada': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
@@ -239,7 +239,7 @@ export default function RupturaLancadorItens() {
   const getStatusText = (status) => {
     switch (status) {
       case 'rascunho': return '📝 Rascunho';
-      case 'em_andamento': return '🔄 Em Andamento';
+      case 'em_andamento': return '🔄 INICIADO';
       case 'concluida': return '✅ Concluída';
       case 'cancelada': return '❌ Cancelada';
       default: return status;
@@ -515,6 +515,26 @@ export default function RupturaLancadorItens() {
                       {getStatusText(survey.status)}
                     </span>
                   </div>
+
+                  {/* Barra de Progresso */}
+                  {survey.status === 'em_andamento' && (
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-gray-700">
+                          Progresso: {survey.itens_verificados} de {survey.total_itens}
+                        </span>
+                        <span className="text-sm font-medium text-gray-700">
+                          {survey.total_itens > 0 ? Math.round((survey.itens_verificados / survey.total_itens) * 100) : 0}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div
+                          className="bg-orange-500 h-2.5 rounded-full transition-all duration-300"
+                          style={{ width: `${survey.total_itens > 0 ? (survey.itens_verificados / survey.total_itens) * 100 : 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
                     <div>

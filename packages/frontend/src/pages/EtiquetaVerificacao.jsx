@@ -6,16 +6,41 @@ import api from '../services/api';
 export default function EtiquetaVerificacao() {
   const { surveyId } = useParams();
   const navigate = useNavigate();
+  const [componentError, setComponentError] = useState(null);
 
   // Adicionar handler de erro global
   useEffect(() => {
     const handleError = (event) => {
       console.error('🚨 ERRO GLOBAL CAPTURADO:', event.error);
       console.error('Stack:', event.error?.stack);
+
+      // Capturar erro do pinComponent especificamente e ignorar
+      if (event.error?.message?.includes('pinComponent') ||
+          event.error?.message?.includes('PIN Company') ||
+          event.error?.message?.includes('Invalid data') ||
+          event.error?.message?.includes('Empty token')) {
+        console.warn('⚠️ Erro externo detectado (pinComponent), ignorando...');
+        event.preventDefault();
+        return false;
+      }
+
+      // Para outros erros, capturar e prevenir propagação
+      event.preventDefault();
+      setComponentError(event.error);
+      return false;
     };
 
-    window.addEventListener('error', handleError);
-    return () => window.removeEventListener('error', handleError);
+    const handleUnhandledRejection = (event) => {
+      console.error('🚨 PROMISE REJECTION:', event.reason);
+      event.preventDefault();
+    };
+
+    window.addEventListener('error', handleError, true);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    return () => {
+      window.removeEventListener('error', handleError, true);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
   }, []);
 
   const [survey, setSurvey] = useState(null);
@@ -272,6 +297,30 @@ export default function EtiquetaVerificacao() {
       setFinalizing(false);
     }
   };
+
+  // Mostrar erro crítico do componente
+  if (componentError) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center max-w-lg">
+            <div className="text-6xl mb-4">⚠️</div>
+            <p className="text-xl text-gray-800 font-bold mb-2">Erro ao carregar página</p>
+            <p className="text-sm text-gray-600 mb-4">{componentError.message}</p>
+            <button
+              onClick={() => {
+                setComponentError(null);
+                navigate('/etiquetas/lancar');
+              }}
+              className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Voltar para Listagem
+            </button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   if (loading) {
     return (
