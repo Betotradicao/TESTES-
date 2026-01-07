@@ -3,6 +3,7 @@ export default function TabsNavigation({ activeTab, onChange, pageType = 'config
   const redeTabs = [
     { id: 'tailscale', label: 'Tailscale' },
     { id: 'apis', label: 'APIs' },
+    { id: 'whatsapp-groups', label: 'Grupos WhatsApp' },
     { id: 'security', label: 'Segurança' },
     { id: 'email-monitor', label: 'Monitor Email' },
     { id: 'email', label: 'Email' },

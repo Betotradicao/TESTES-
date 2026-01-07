@@ -6,6 +6,7 @@ import TabsNavigation from '../components/configuracoes/TabsNavigation';
 import ModulosTab from '../components/configuracoes/ModulosTab';
 import EmpresaTab from '../components/configuracoes/EmpresaTab';
 import APIsTab from '../components/configuracoes/APIsTab';
+import WhatsAppGroupsTab from '../components/configuracoes/WhatsAppGroupsTab';
 import SecurityTab from '../components/configuracoes/SecurityTab';
 import EmailTab from '../components/configuracoes/EmailTab';
 import EmailMonitorTab from '../components/configuracoes/EmailMonitorTab';
@@ -31,7 +32,7 @@ export default function ConfiguracoesRede() {
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && (tabFromUrl === 'modulos' || tabFromUrl === 'empresa' || tabFromUrl === 'apis' || tabFromUrl === 'security' || tabFromUrl === 'email' || tabFromUrl === 'email-monitor' || tabFromUrl === 'tailscale' || tabFromUrl === 'cron-monitor')) {
+    if (tabFromUrl && (tabFromUrl === 'modulos' || tabFromUrl === 'empresa' || tabFromUrl === 'apis' || tabFromUrl === 'whatsapp-groups' || tabFromUrl === 'security' || tabFromUrl === 'email' || tabFromUrl === 'email-monitor' || tabFromUrl === 'tailscale' || tabFromUrl === 'cron-monitor')) {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -99,6 +100,7 @@ export default function ConfiguracoesRede() {
             {activeTab === 'modulos' && <ModulosTab />}
             {activeTab === 'empresa' && <EmpresaTab />}
             {activeTab === 'apis' && <APIsTab />}
+            {activeTab === 'whatsapp-groups' && <WhatsAppGroupsTab />}
             {activeTab === 'security' && <SecurityTab />}
             {activeTab === 'email' && <EmailTab />}
             {activeTab === 'email-monitor' && <EmailMonitorTab />}
