@@ -436,9 +436,8 @@ export default function EtiquetaVerificacao() {
                           onChange={(e) => handleChangeTipo(produto.id, e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         >
-                          <option value="encontrado">✅ PREÇO CORRETO</option>
-                          <option value="nao_encontrado">❌ PREÇO DIVERGENTE</option>
-                          <option value="ruptura_estoque">📦 PREÇO DIVERGENTE</option>
+                          <option value="preco_correto">✅ PREÇO CORRETO</option>
+                          <option value="preco_divergente">❌ PREÇO DIVERGENTE</option>
                         </select>
                       </td>
                       <td className="px-4 py-3 text-center">

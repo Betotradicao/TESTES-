@@ -183,7 +183,13 @@ export class LabelAuditController {
 
       await LabelAuditService.sendDivergentReportToWhatsApp(auditId);
 
-      return res.json({ message: 'Relatório enviado via WhatsApp com sucesso' });
+      // Marcar auditoria como concluída
+      await LabelAuditService.markAsCompleted(auditId);
+
+      return res.json({
+        success: true,
+        message: 'Relatório enviado via WhatsApp com sucesso'
+      });
     } catch (error: any) {
       console.error('Erro ao enviar relatório:', error);
       return res.status(500).json({ error: error.message });
