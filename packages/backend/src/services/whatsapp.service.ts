@@ -293,8 +293,8 @@ export class WhatsAppService {
         throw new Error(`Evolution API Error: ${response.status} - ${errorText}`);
       }
 
-      const result = await response.json();
-      console.log(`✅ ${result.length || 0} grupos encontrados`);
+      const result = await response.json() as any[];
+      console.log(`✅ ${Array.isArray(result) ? result.length : 0} grupos encontrados`);
 
       return result;
     } catch (error) {
