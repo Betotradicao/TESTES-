@@ -270,6 +270,40 @@ export class WhatsAppService {
   }
 
   /**
+   * Busca todos os grupos do WhatsApp da instância configurada
+   */
+  static async fetchGroups(): Promise<any[]> {
+    try {
+      const { apiToken, apiUrl, instance } = await this.validateEnvironment();
+
+      const url = `${apiUrl}/group/fetchAllGroups/${encodeURIComponent(instance)}`;
+
+      console.log(`📱 Buscando grupos do WhatsApp da instância ${instance}...`);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': apiToken
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Evolution API Error: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log(`✅ ${result.length || 0} grupos encontrados`);
+
+      return result;
+    } catch (error) {
+      console.error(`❌ Erro ao buscar grupos do WhatsApp:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Envia relatório de auditoria de ruptura para grupo do WhatsApp
    */
   static async sendRuptureReport(

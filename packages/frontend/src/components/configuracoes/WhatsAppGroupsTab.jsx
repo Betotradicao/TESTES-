@@ -7,6 +7,9 @@ export default function WhatsAppGroupsTab() {
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState('');
+  const [isFetchingGroups, setIsFetchingGroups] = useState(false);
+  const [availableGroups, setAvailableGroups] = useState([]);
+  const [showGroupsModal, setShowGroupsModal] = useState(false);
 
   const [groupConfigs, setGroupConfigs] = useState({
     ruptura: {
@@ -169,6 +172,31 @@ export default function WhatsAppGroupsTab() {
     }));
   };
 
+  const handleFetchGroups = async () => {
+    try {
+      setIsFetchingGroups(true);
+      const response = await api.get('/whatsapp/fetch-groups');
+
+      if (response.data.success && response.data.data) {
+        setAvailableGroups(response.data.data);
+        setShowGroupsModal(true);
+      } else {
+        alert('❌ Nenhum grupo encontrado ou erro ao buscar grupos.');
+      }
+    } catch (error) {
+      console.error('Erro ao buscar grupos:', error);
+      alert('❌ Erro ao buscar grupos do WhatsApp: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setIsFetchingGroups(false);
+    }
+  };
+
+  const handleSelectGroup = (group) => {
+    handleInputChange('groupId', group.id);
+    handleInputChange('groupName', group.subject || 'Grupo sem nome');
+    setShowGroupsModal(false);
+  };
+
   const currentConfig = groupConfigs[activeSubTab];
   const currentMessage = messageExamples[activeSubTab];
 
@@ -221,15 +249,24 @@ export default function WhatsAppGroupsTab() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   ID do Grupo WhatsApp
                 </label>
-                <input
-                  type="text"
-                  value={currentConfig.groupId}
-                  onChange={(e) => handleInputChange('groupId', e.target.value)}
-                  placeholder="120363422563235781@g.us"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                />
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={currentConfig.groupId}
+                    onChange={(e) => handleInputChange('groupId', e.target.value)}
+                    placeholder="120363422563235781@g.us"
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                  <button
+                    onClick={handleFetchGroups}
+                    disabled={isFetchingGroups}
+                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors whitespace-nowrap"
+                  >
+                    {isFetchingGroups ? '🔄 Carregando...' : '📱 Carregar Grupos'}
+                  </button>
+                </div>
                 <p className="mt-1 text-xs text-gray-500">
-                  Formato: 1234567890@g.us (obtenha via API do WhatsApp)
+                  Formato: 1234567890@g.us (obtenha via API do WhatsApp ou clique em "Carregar Grupos")
                 </p>
               </div>
 
@@ -318,6 +355,72 @@ export default function WhatsAppGroupsTab() {
           </ul>
         </div>
       </div>
+
+      {/* Modal de Seleção de Grupos */}
+      {showGroupsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            {/* Header do Modal */}
+            <div className="bg-orange-600 text-white p-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold">📱 Selecione um Grupo do WhatsApp</h3>
+              <button
+                onClick={() => setShowGroupsModal(false)}
+                className="text-white hover:text-gray-200 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Lista de Grupos */}
+            <div className="p-4 overflow-y-auto max-h-[60vh]">
+              {availableGroups.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p>Nenhum grupo encontrado.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {availableGroups.map((group, index) => (
+                    <button
+                      key={group.id || index}
+                      onClick={() => handleSelectGroup(group)}
+                      className="w-full p-4 border border-gray-200 rounded-lg hover:bg-orange-50 hover:border-orange-500 transition-colors text-left"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900">
+                            {group.subject || 'Grupo sem nome'}
+                          </h4>
+                          <p className="text-sm text-gray-600 mt-1 font-mono">
+                            {group.id}
+                          </p>
+                          {group.size && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              👥 {group.size} participantes
+                            </p>
+                          )}
+                        </div>
+                        <div className="ml-4">
+                          <span className="text-orange-600">→</span>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer do Modal */}
+            <div className="bg-gray-50 p-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowGroupsModal(false)}
+                className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

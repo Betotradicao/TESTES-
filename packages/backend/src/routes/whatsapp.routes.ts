@@ -40,4 +40,25 @@ router.post('/test-group', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/whatsapp/fetch-groups
+ * Busca todos os grupos disponíveis na instância do WhatsApp
+ */
+router.get('/fetch-groups', async (req, res) => {
+  try {
+    const groups = await WhatsAppService.fetchGroups();
+
+    res.json({
+      success: true,
+      data: groups
+    });
+  } catch (error: any) {
+    console.error('Erro ao buscar grupos do WhatsApp:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erro ao buscar grupos do WhatsApp'
+    });
+  }
+});
+
 export default router;
