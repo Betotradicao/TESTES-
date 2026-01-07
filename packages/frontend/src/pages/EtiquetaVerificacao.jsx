@@ -198,6 +198,37 @@ export default function EtiquetaVerificacao() {
   }
 
   const currentItem = items[currentIndex];
+
+  // Se não houver item atual (verificação concluída ou índice inválido), redirecionar
+  if (!currentItem) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <div className="text-6xl mb-4">✅</div>
+            <p className="text-xl text-gray-600 mb-2">Verificação concluída ou não há itens pendentes</p>
+            <p className="text-sm text-gray-500 mb-4">
+              Todos os itens foram verificados ou a auditoria foi finalizada
+            </p>
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={() => navigate('/etiquetas/lancar')}
+                className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+              >
+                ← Voltar
+              </button>
+              <button
+                onClick={() => navigate(`/etiquetas-resultados/${surveyId}`)}
+                className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Ver Resultados →
+              </button>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
   const progress = (produtosSelecionados.length / items.length) * 100;
   const verificados = produtosSelecionados.length;
 
