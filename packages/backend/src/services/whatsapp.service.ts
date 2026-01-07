@@ -1,5 +1,7 @@
 import { Bip } from '../entities/Bip';
 import { ConfigurationService } from './configuration.service';
+import { BipPDFService } from './bip-pdf.service';
+import * as fs from 'fs';
 
 export class WhatsAppService {
   private static async validateEnvironment(): Promise<{ apiToken: string; apiUrl: string; instance: string }> {
@@ -161,6 +163,54 @@ export class WhatsAppService {
 
     console.log(`📊 Notificações concluídas: ${success} sucesso, ${failed} falhas`);
     return { success, failed, successfulBips };
+  }
+
+  /**
+   * Envia PDF com bipagens pendentes para o grupo do WhatsApp
+   */
+  static async sendPendingBipsPDF(bips: Bip[], date: string): Promise<boolean> {
+    try {
+      console.log(`📄 Gerando PDF com ${bips.length} bipagens pendentes...`);
+
+      // Buscar grupo do WhatsApp
+      const groupId = await ConfigurationService.get('evolution_whatsapp_group_id', process.env.EVOLUTION_WHATSAPP_GROUP_ID || '');
+
+      if (!groupId) {
+        console.warn('⚠️  Grupo do WhatsApp não configurado (evolution_whatsapp_group_id)');
+        throw new Error('Grupo do WhatsApp não configurado');
+      }
+
+      // Recarregar bipagens com relação employee para o PDF
+      const { AppDataSource } = require('../config/database');
+      const bipRepository = AppDataSource.getRepository(Bip);
+      const bipIds = bips.map(b => b.id);
+
+      const bipsWithEmployee = await bipRepository
+        .createQueryBuilder('bip')
+        .leftJoinAndSelect('bip.employee', 'employee')
+        .where('bip.id IN (:...ids)', { ids: bipIds })
+        .getMany();
+
+      // Gerar PDF
+      const pdfPath = await BipPDFService.savePendingBipsPDF(bipsWithEmployee, date);
+      console.log(`✅ PDF gerado: ${pdfPath}`);
+
+      // Enviar PDF para o grupo
+      const caption = `🚨 *BIPAGENS PENDENTES - ${date}*\n\n📦 Total de produtos bipados sem venda: *${bips.length}*\n\n⚠️ Produtos que foram bipados no dia ${date} mas não tiveram venda registrada.`;
+
+      const success = await this.sendDocument(groupId, pdfPath, caption);
+
+      // Limpar arquivo temporário
+      if (fs.existsSync(pdfPath)) {
+        fs.unlinkSync(pdfPath);
+        console.log(`🗑️  Arquivo temporário removido: ${pdfPath}`);
+      }
+
+      return success;
+    } catch (error) {
+      console.error('❌ Erro ao enviar PDF de bipagens pendentes:', error);
+      return false;
+    }
   }
 
   /**

@@ -164,11 +164,18 @@ export class DailyVerificationCommand {
     }
 
     if (notify && verificationResult.to_notify.length > 0) {
-      const notificationResults = await WhatsAppService.sendMultipleNotifications(verificationResult.to_notify);
-      stats.notifiedCount = notificationResults.success;
+      // Ao invés de enviar mensagens individuais, enviar um PDF consolidado
+      console.log(`📄 Enviando PDF com ${verificationResult.to_notify.length} bipagens pendentes...`);
+      const pdfSent = await WhatsAppService.sendPendingBipsPDF(verificationResult.to_notify, stats.date);
 
-      if (notificationResults.successfulBips.length > 0) {
-        await BipVerificationService.processNotifications(notificationResults.successfulBips);
+      if (pdfSent) {
+        console.log(`✅ PDF de bipagens pendentes enviado com sucesso`);
+        // Marcar todas as bipagens como notificadas
+        await BipVerificationService.processNotifications(verificationResult.to_notify);
+        stats.notifiedCount = verificationResult.to_notify.length;
+      } else {
+        console.error(`❌ Falha ao enviar PDF de bipagens pendentes`);
+        stats.notifiedCount = 0;
       }
     }
 
