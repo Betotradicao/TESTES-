@@ -22,7 +22,53 @@ export default function EtiquetaVerificacao() {
   useEffect(() => {
     loadSurvey();
     loadEmployees();
+    loadProgressFromLocalStorage();
   }, [surveyId]);
+
+  // Salvar progresso automaticamente quando houver mudanças
+  useEffect(() => {
+    if (produtosSelecionados.length > 0 && verificadoPor) {
+      saveProgressToLocalStorage();
+    }
+  }, [produtosSelecionados, verificadoPor, currentIndex]);
+
+  const saveProgressToLocalStorage = () => {
+    try {
+      const progress = {
+        produtosSelecionados,
+        verificadoPor,
+        currentIndex,
+        savedAt: new Date().toISOString()
+      };
+      localStorage.setItem(`etiqueta_progress_${surveyId}`, JSON.stringify(progress));
+      console.log('💾 Progresso de etiquetas salvo automaticamente:', {
+        produtos: produtosSelecionados.length,
+        index: currentIndex
+      });
+    } catch (err) {
+      console.error('❌ Erro ao salvar progresso:', err);
+    }
+  };
+
+  const loadProgressFromLocalStorage = () => {
+    try {
+      const savedProgress = localStorage.getItem(`etiqueta_progress_${surveyId}`);
+      if (savedProgress) {
+        const progress = JSON.parse(savedProgress);
+        setProdutosSelecionados(progress.produtosSelecionados || []);
+        setVerificadoPor(progress.verificadoPor || '');
+        setCurrentIndex(progress.currentIndex || 0);
+        setShowNameModal(false); // Não mostrar modal se já tem auditor salvo
+        console.log('✅ Progresso de etiquetas restaurado:', {
+          produtos: progress.produtosSelecionados?.length || 0,
+          auditor: progress.verificadoPor,
+          salvoEm: progress.savedAt
+        });
+      }
+    } catch (err) {
+      console.error('❌ Erro ao carregar progresso:', err);
+    }
+  };
 
   const loadEmployees = async () => {
     try {
@@ -152,6 +198,8 @@ export default function EtiquetaVerificacao() {
       const response = await api.post(`/label-audits/${surveyId}/send-report`);
 
       if (response.data.success) {
+        // Limpar progresso salvo ao finalizar com sucesso
+        localStorage.removeItem(`etiqueta_progress_${surveyId}`);
         alert('✅ ' + response.data.message + '\n\nO relatório PDF foi enviado para o grupo do WhatsApp!');
         navigate('/etiquetas/lancar');
       } else {
