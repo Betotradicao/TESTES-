@@ -1,7 +1,7 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { WhatsAppService } from '../services/whatsapp.service';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * POST /api/whatsapp/test-group
