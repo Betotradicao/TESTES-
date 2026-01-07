@@ -44,6 +44,8 @@ export default function EtiquetaLancadorItens() {
   const loadRecentSurveys = async () => {
     try {
       const response = await api.get('/label-audits');
+      console.log('🔍 ETIQUETAS - DADOS RECEBIDOS DA API:', response.data);
+      console.log('🔍 ETIQUETAS - PRIMEIRA PESQUISA:', response.data[0]);
       setRecentSurveys(response.data.slice(0, 5)); // Só 5 mais recentes
     } catch (err) {
       console.error('Erro ao carregar pesquisas:', err);

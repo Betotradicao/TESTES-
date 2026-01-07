@@ -44,6 +44,8 @@ export default function RupturaLancadorItens() {
   const loadRecentSurveys = async () => {
     try {
       const response = await api.get('/rupture-surveys');
+      console.log('🔍 DADOS RECEBIDOS DA API:', response.data);
+      console.log('🔍 PRIMEIRA PESQUISA:', response.data[0]);
       setRecentSurveys(response.data.slice(0, 5)); // Só 5 mais recentes
     } catch (err) {
       console.error('Erro ao carregar pesquisas:', err);
@@ -531,6 +533,14 @@ export default function RupturaLancadorItens() {
                   {/* Barra de Progresso */}
                   {survey.status === 'em_andamento' && (
                     <div className="mb-3">
+                      {console.log('🟡 RENDERIZANDO BARRA:', {
+                        id: survey.id,
+                        status: survey.status,
+                        total: survey.total_itens,
+                        verificados: survey.itens_verificados,
+                        encontrados: survey.itens_encontrados,
+                        nao_encontrados: survey.itens_nao_encontrados
+                      })}
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-sm font-medium text-gray-700">
                           Progresso: {survey.itens_verificados} de {survey.total_itens}
