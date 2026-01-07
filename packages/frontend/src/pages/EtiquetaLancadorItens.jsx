@@ -484,9 +484,9 @@ export default function EtiquetaLancadorItens() {
                       className="bg-gray-50 rounded p-2 hover:bg-gray-100 transition-colors cursor-pointer"
                       onClick={() => {
                         if (survey.status === 'em_andamento') {
-                          navigate(`/etiquetas-verificacao/${survey.id}`);
+                          navigate(`/etiquetas/verificar/${survey.id}`);
                         } else if (survey.status === 'concluida') {
-                          navigate(`/etiquetas-resultados/${survey.id}`);
+                          navigate(`/etiquetas/resultados/${survey.id}`);
                         }
                       }}
                     >
@@ -590,12 +590,12 @@ export default function EtiquetaLancadorItens() {
                       <button
                         onClick={() => {
                           console.log('🔵 Botão Continuar Verificação clicado (onClick)');
-                          navigate(`/etiquetas-verificacao/${survey.id}`);
+                          navigate(`/etiquetas/verificar/${survey.id}`);
                         }}
                         onTouchEnd={(e) => {
                           e.preventDefault();
                           console.log('📱 Touch event no botão Continuar Verificação');
-                          navigate(`/etiquetas-verificacao/${survey.id}`);
+                          navigate(`/etiquetas/verificar/${survey.id}`);
                         }}
                         className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 active:bg-green-800 text-sm relative z-10"
                         style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
