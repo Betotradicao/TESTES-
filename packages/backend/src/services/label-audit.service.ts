@@ -507,6 +507,16 @@ export class LabelAuditService {
       throw new Error('Grupo do WhatsApp não configurado');
     }
 
+    // Buscar dados da auditoria para incluir na mensagem
+    const audit = await this.getAuditById(auditId);
+    if (!audit) {
+      throw new Error('Auditoria não encontrada');
+    }
+
+    const totalItens = audit.total_itens || 0;
+    const itensCorretos = audit.itens_corretos || 0;
+    const itensDivergentes = audit.itens_divergentes || 0;
+
     const pdfBuffer = await this.generateDivergentReport(auditId);
 
     // Salvar PDF temporariamente
@@ -522,7 +532,17 @@ export class LabelAuditService {
 
     try {
       console.log(`📊 Enviando relatório de etiquetas para grupo: ${groupId}`);
-      await WhatsAppService.sendDocument(groupId, filePath, `🏷️ Relatório de Etiquetas Divergentes - Auditoria #${auditId}`);
+
+      // Mensagem formatada com as estatísticas (igual ao de Ruptura)
+      const caption = `🏷️ *RELATÓRIO DE AUDITORIA DE ETIQUETAS*\n\n` +
+                     `📋 Auditoria: ${audit.titulo}\n` +
+                     `📅 Data: ${new Date().toLocaleString('pt-BR')}\n\n` +
+                     `📦 Total de Itens: ${totalItens}\n` +
+                     `✅ Preço Correto: ${itensCorretos}\n` +
+                     `❌ Preço Divergente: ${itensDivergentes}\n\n` +
+                     `📄 Confira o relatório detalhado em PDF anexo.`;
+
+      await WhatsAppService.sendDocument(groupId, filePath, caption);
       console.log(`✅ PDF enviado via WhatsApp: ${fileName}`);
     } finally {
       // Limpar arquivo temporário
