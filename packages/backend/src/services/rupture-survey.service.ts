@@ -322,14 +322,46 @@ export class RuptureSurveyService {
   }
 
   /**
-   * Listar todas as pesquisas
+   * Listar todas as pesquisas COM estatísticas
    */
-  static async getAllSurveys(): Promise<RuptureSurvey[]> {
+  static async getAllSurveys(): Promise<any[]> {
     const surveyRepository = AppDataSource.getRepository(RuptureSurvey);
-    return await surveyRepository.find({
+    const itemRepository = AppDataSource.getRepository(RuptureSurveyItem);
+
+    const surveys = await surveyRepository.find({
       relations: ['user'],
       order: { data_criacao: 'DESC' },
     });
+
+    // Adicionar estatísticas para cada pesquisa
+    const surveysWithStats = await Promise.all(
+      surveys.map(async (survey) => {
+        const items = await itemRepository.find({
+          where: { survey: { id: survey.id } },
+        });
+
+        const totalItens = items.length;
+        const itensVerificados = items.filter(
+          (item) => item.status_verificacao !== 'pendente'
+        ).length;
+        const itensEncontrados = items.filter(
+          (item) => item.status_verificacao === 'encontrado'
+        ).length;
+        const itensNaoEncontrados = items.filter(
+          (item) => item.status_verificacao === 'nao_encontrado'
+        ).length;
+
+        return {
+          ...survey,
+          total_itens: totalItens,
+          itens_verificados: itensVerificados,
+          itens_encontrados: itensEncontrados,
+          itens_nao_encontrados: itensNaoEncontrados,
+        };
+      })
+    );
+
+    return surveysWithStats;
   }
 
   /**

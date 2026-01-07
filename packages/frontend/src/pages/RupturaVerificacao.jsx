@@ -38,6 +38,15 @@ export default function RupturaVerificacao() {
     }
   }, [produtosSelecionados, verificadoPor, currentIndex]);
 
+  // Log para debug - monitorar mudanças no produtosSelecionados
+  useEffect(() => {
+    console.log('🔴 produtosSelecionados mudou:', {
+      length: produtosSelecionados.length,
+      produtos: produtosSelecionados,
+      deveExibirBotao: produtosSelecionados.length > 0
+    });
+  }, [produtosSelecionados]);
+
   const saveProgressToLocalStorage = () => {
     try {
       const progress = {
@@ -585,28 +594,45 @@ export default function RupturaVerificacao() {
         )}
 
         {/* Botão de Enviar Auditoria */}
-        {produtosSelecionados.length > 0 && (
-          <div className="mt-6 mb-8">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                console.log('🔵 Botão ENVIAR AUDITORIA clicado');
-                handleFinalizeSurvey();
-              }}
-              disabled={finalizing}
-              className="w-full py-4 bg-orange-600 text-white rounded-lg hover:bg-orange-700 active:bg-orange-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg font-bold shadow-lg"
-              style={{
-                touchAction: 'manipulation',
-                WebkitTapHighlightColor: 'rgba(0,0,0,0)',
-                userSelect: 'none',
-                WebkitUserSelect: 'none'
-              }}
-            >
-              {finalizing ? '⏳ Enviando...' : 'ENVIAR AUDITORIA'}
-            </button>
-          </div>
-        )}
+        {(() => {
+          const deveExibir = produtosSelecionados.length > 0;
+          console.log('🟢 Render do botão ENVIAR AUDITORIA:', {
+            deveExibir,
+            produtosLength: produtosSelecionados.length,
+            produtos: produtosSelecionados
+          });
+
+          return deveExibir ? (
+            <div className="mt-6 mb-8">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🔵 Botão ENVIAR AUDITORIA clicado');
+                  handleFinalizeSurvey();
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('📱 Touch no botão ENVIAR AUDITORIA');
+                  handleFinalizeSurvey();
+                }}
+                disabled={finalizing}
+                className="w-full py-4 bg-orange-600 text-white rounded-lg hover:bg-orange-700 active:bg-orange-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg font-bold shadow-lg"
+                style={{
+                  touchAction: 'manipulation',
+                  WebkitTapHighlightColor: 'rgba(0,0,0,0)',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  pointerEvents: finalizing ? 'none' : 'auto'
+                }}
+              >
+                {finalizing ? '⏳ Enviando...' : 'ENVIAR AUDITORIA'}
+              </button>
+            </div>
+          ) : null;
+        })()}
       </div>
     </Layout>
   );
