@@ -16,7 +16,7 @@ export class CreateLossReasonConfigsTable1767200000000 implements MigrationInter
           {
             name: 'company_id',
             type: 'uuid',
-            isNullable: false,
+            isNullable: true,
           },
           {
             name: 'motivo',
@@ -43,20 +43,17 @@ export class CreateLossReasonConfigsTable1767200000000 implements MigrationInter
       true
     );
 
-    await queryRunner.createForeignKey(
-      'loss_reason_configs',
-      new TableForeignKey({
-        columnNames: ['company_id'],
-        referencedColumnNames: ['id'],
-        referencedTableName: 'companies',
-        onDelete: 'CASCADE',
-      })
-    );
-
-    // Criar índice único para company_id + motivo
+    // Foreign key opcional (apenas quando company_id não for null)
     await queryRunner.query(`
-      CREATE UNIQUE INDEX idx_loss_reason_configs_company_motivo 
-      ON loss_reason_configs (company_id, motivo);
+      ALTER TABLE loss_reason_configs
+      ADD CONSTRAINT fk_loss_reason_configs_company
+      FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE;
+    `);
+
+    // Criar índice único para company_id + motivo (permite múltiplos NULL em company_id)
+    await queryRunner.query(`
+      CREATE UNIQUE INDEX idx_loss_reason_configs_company_motivo
+      ON loss_reason_configs (COALESCE(company_id, '00000000-0000-0000-0000-000000000000'), motivo);
     `);
   }
 
