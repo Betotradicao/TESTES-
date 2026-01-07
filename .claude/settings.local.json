@@ -684,7 +684,14 @@
       "Bash(ssh root@145.223.92.152 \"docker exec prevencao-backend-prod sh -c ''cd /app && node -e \"\"const db = require\\(\\\\\"\"./dist/database/database\\\\\"\"\\).AppDataSource; db.initialize\\(\\).then\\(\\(\\) => { const LabelAudit = require\\(\\\\\"\"./dist/entities/LabelAudit\\\\\"\"\\).LabelAudit; db.getRepository\\(LabelAudit\\).findOne\\({where: {id: 1}}\\).then\\(r => console.log\\(JSON.stringify\\(r\\)\\)\\).catch\\(e => console.error\\(e\\)\\); }\\);\"\"''\")",
       "Bash(ssh root@145.223.92.152 \"docker exec prevencao-backend-prod wget -qO- http://localhost:3001/api/label-audits 2>&1\")",
       "Bash(ssh root@145.223.92.152 \"docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c ''\\\\d label_audits''\")",
-      "Bash(ssh root@145.223.92.152 \"docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c ''\\\\d label_audit_items''\")"
+      "Bash(ssh root@145.223.92.152 \"docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c ''\\\\d label_audit_items''\")",
+      "Bash(ssh root@145.223.92.152 \"docker exec prevencao-db-prod psql -U postgres -d market_security -c \"\"SELECT id, titulo, data_referencia, status FROM label_audits ORDER BY id DESC LIMIT 5;\"\"\")",
+      "Bash(ssh root@145.223.92.152 \"docker ps | grep postgres\")",
+      "Bash(ssh root@145.223.92.152 \"docker exec prevencao-postgres-prod psql -U postgres -d market_security -c \"\"SELECT id, titulo, data_referencia, status FROM label_audits ORDER BY id DESC LIMIT 5;\"\"\")",
+      "Bash(ssh -o StrictHostKeyChecking=no root@46.202.150.64 \"echo ''✅ Conectado!'' && docker ps -a\")",
+      "Bash(ssh -o StrictHostKeyChecking=no root@46.202.150.64 \"cat ~/.ssh/authorized_keys | tail -5\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/TESTES && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml up -d --no-deps frontend\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152:*)"
     ],
     "deny": [],
     "ask": []
