@@ -22,7 +22,53 @@ export default function RupturaVerificacao() {
   useEffect(() => {
     loadSurvey();
     loadEmployees();
+    loadProgressFromLocalStorage();
   }, [surveyId]);
+
+  // Salvar progresso automaticamente quando houver mudanças
+  useEffect(() => {
+    if (produtosSelecionados.length > 0 && verificadoPor) {
+      saveProgressToLocalStorage();
+    }
+  }, [produtosSelecionados, verificadoPor, currentIndex]);
+
+  const saveProgressToLocalStorage = () => {
+    try {
+      const progress = {
+        produtosSelecionados,
+        verificadoPor,
+        currentIndex,
+        savedAt: new Date().toISOString()
+      };
+      localStorage.setItem(`ruptura_progress_${surveyId}`, JSON.stringify(progress));
+      console.log('💾 Progresso salvo automaticamente:', {
+        produtos: produtosSelecionados.length,
+        index: currentIndex
+      });
+    } catch (err) {
+      console.error('❌ Erro ao salvar progresso:', err);
+    }
+  };
+
+  const loadProgressFromLocalStorage = () => {
+    try {
+      const savedProgress = localStorage.getItem(`ruptura_progress_${surveyId}`);
+      if (savedProgress) {
+        const progress = JSON.parse(savedProgress);
+        setProdutosSelecionados(progress.produtosSelecionados || []);
+        setVerificadoPor(progress.verificadoPor || '');
+        setCurrentIndex(progress.currentIndex || 0);
+        setShowNameModal(false); // Não mostrar modal se já tem auditor salvo
+        console.log('✅ Progresso restaurado:', {
+          produtos: progress.produtosSelecionados?.length || 0,
+          auditor: progress.verificadoPor,
+          salvoEm: progress.savedAt
+        });
+      }
+    } catch (err) {
+      console.error('❌ Erro ao carregar progresso:', err);
+    }
+  };
 
   const loadEmployees = async () => {
     try {
@@ -120,8 +166,16 @@ export default function RupturaVerificacao() {
   };
 
   const handleFinalizeSurvey = async () => {
+    console.log('🔵 handleFinalizeSurvey chamado');
+    console.log('📦 Produtos selecionados:', produtosSelecionados.length);
+
     if (produtosSelecionados.length === 0) {
       alert('⚠️ Adicione pelo menos um produto antes de enviar a auditoria.');
+      return;
+    }
+
+    if (finalizing) {
+      console.log('⏳ Já está finalizando, ignorando clique duplo');
       return;
     }
 
@@ -132,15 +186,22 @@ export default function RupturaVerificacao() {
       'Esta ação não pode ser desfeita.'
     );
 
+    console.log('✅ Confirmação:', confirmacao);
+
     if (!confirmacao) {
+      console.log('❌ Usuário cancelou a confirmação');
       return;
     }
 
+    console.log('🚀 Iniciando finalização...');
     setFinalizing(true);
 
     try {
+      console.log(`📝 Atualizando ${produtosSelecionados.length} itens...`);
+
       // Atualizar cada item com seu status
       for (const produto of produtosSelecionados) {
+        console.log(`  ↳ Atualizando item ${produto.id}: ${produto.status}`);
         await api.patch(`/rupture-surveys/items/${produto.id}/status`, {
           status: produto.status,
           verificado_por: verificadoPor,
@@ -148,19 +209,33 @@ export default function RupturaVerificacao() {
         });
       }
 
+      console.log('✅ Todos os itens atualizados. Finalizando auditoria...');
+
       // Finalizar auditoria
       const response = await api.post(`/rupture-surveys/${surveyId}/finalize`);
 
+      console.log('📊 Resposta do servidor:', response.data);
+
       if (response.data.success) {
+        // Limpar progresso salvo ao finalizar com sucesso
+        localStorage.removeItem(`ruptura_progress_${surveyId}`);
         alert('✅ ' + response.data.message + '\n\nO relatório PDF foi enviado para o grupo do WhatsApp!');
+        console.log('🎉 Auditoria finalizada com sucesso! Redirecionando...');
         navigate('/ruptura-lancador');
       } else {
+        console.warn('⚠️ Finalização não foi bem sucedida:', response.data);
         alert('⚠️ ' + response.data.message);
       }
     } catch (err) {
-      console.error('Erro ao finalizar auditoria:', err);
+      console.error('❌ Erro ao finalizar auditoria:', err);
+      console.error('❌ Detalhes do erro:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
       alert('❌ Erro ao finalizar auditoria: ' + (err.response?.data?.error || err.message));
     } finally {
+      console.log('🏁 Finalizando processo...');
       setFinalizing(false);
     }
   };
@@ -476,11 +551,19 @@ export default function RupturaVerificacao() {
 
         {/* Botão de Enviar Auditoria */}
         {produtosSelecionados.length > 0 && (
-          <div className="mt-6">
+          <div className="mt-6 mb-8">
             <button
               onClick={handleFinalizeSurvey}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                console.log('📱 Touch event detectado no botão ENVIAR AUDITORIA');
+                if (!finalizing) {
+                  handleFinalizeSurvey();
+                }
+              }}
               disabled={finalizing}
-              className="w-full py-4 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg font-bold shadow-lg"
+              className="w-full py-4 bg-orange-600 text-white rounded-lg hover:bg-orange-700 active:bg-orange-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg font-bold shadow-lg relative z-50"
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
             >
               {finalizing ? '⏳ Enviando...' : 'ENVIAR AUDITORIA'}
             </button>
