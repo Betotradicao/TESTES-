@@ -29,6 +29,18 @@ export default function EtiquetaLancadorItens() {
     loadMonthSurveys(currentMonth);
   }, [currentMonth]);
 
+  // Recarregar dados quando a página ganhar foco (quando voltar de outra página)
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('🔄 Página ganhou foco, recarregando dados...');
+      loadRecentSurveys();
+      loadMonthSurveys(currentMonth);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [currentMonth]);
+
   const loadRecentSurveys = async () => {
     try {
       const response = await api.get('/label-audits');
