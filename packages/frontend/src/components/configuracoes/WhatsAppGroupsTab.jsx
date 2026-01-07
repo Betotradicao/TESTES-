@@ -112,7 +112,7 @@ export default function WhatsAppGroupsTab() {
       const configKey = `whatsapp_group_${activeSubTab}`;
       const configNameKey = `whatsapp_group_${activeSubTab}_name`;
 
-      await api.post('/config/save', {
+      await api.post('/config/configurations', {
         [configKey]: currentConfig.groupId,
         [configNameKey]: currentConfig.groupName,
       });
