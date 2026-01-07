@@ -156,7 +156,7 @@ export default function RupturaVerificacao() {
     }
   };
 
-  const handleAddProduto = (status) => {
+  const handleAddProduto = async (status) => {
     if (!verificadoPor.trim()) {
       alert('Selecione o auditor primeiro!');
       setShowNameModal(true);
@@ -164,26 +164,45 @@ export default function RupturaVerificacao() {
     }
 
     const currentItem = items[currentIndex];
+    console.log('📝 [SAVE] Salvando item IMEDIATAMENTE:', currentItem.id, 'Status:', status);
 
-    // Verificar se o produto já foi adicionado
-    const jaAdicionado = produtosSelecionados.find(p => p.id === currentItem.id);
+    try {
+      // ✅ SALVAR IMEDIATAMENTE NO BANCO DE DADOS
+      setUpdating(true);
+      await api.patch(`/rupture-surveys/items/${currentItem.id}/status`, {
+        status: status,
+        verificado_por: verificadoPor,
+        observacao: '',
+      });
+      console.log('✅ [SAVE] Item salvo no banco:', currentItem.id);
 
-    if (jaAdicionado) {
-      // Se já foi adicionado, atualiza o tipo
-      setProdutosSelecionados(prev =>
-        prev.map(p => p.id === currentItem.id ? { ...p, status } : p)
-      );
-    } else {
-      // Adiciona novo produto
-      setProdutosSelecionados(prev => [...prev, {
-        ...currentItem,
-        status,
-      }]);
-    }
+      // Verificar se o produto já foi adicionado à lista local
+      const jaAdicionado = produtosSelecionados.find(p => p.id === currentItem.id);
 
-    // Ir para próximo item
-    if (currentIndex < items.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+      if (jaAdicionado) {
+        // Se já foi adicionado, atualiza o tipo
+        setProdutosSelecionados(prev =>
+          prev.map(p => p.id === currentItem.id ? { ...p, status } : p)
+        );
+        console.log('🔄 [SAVE] Item atualizado na lista local');
+      } else {
+        // Adiciona novo produto à lista local
+        setProdutosSelecionados(prev => [...prev, {
+          ...currentItem,
+          status,
+        }]);
+        console.log('➕ [SAVE] Item adicionado à lista local');
+      }
+
+      // Ir para próximo item
+      if (currentIndex < items.length - 1) {
+        setCurrentIndex(currentIndex + 1);
+      }
+    } catch (error) {
+      console.error('❌ [SAVE] Erro ao salvar item:', error);
+      alert('❌ Erro ao salvar item. Tente novamente.');
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -210,8 +229,8 @@ export default function RupturaVerificacao() {
   };
 
   const handleFinalizeSurvey = async () => {
-    console.log('🔵 handleFinalizeSurvey chamado');
-    console.log('📦 Produtos selecionados:', produtosSelecionados.length);
+    console.log('🔵 [FINALIZE] handleFinalizeSurvey chamado');
+    console.log('📦 [FINALIZE] Produtos selecionados:', produtosSelecionados.length);
 
     if (produtosSelecionados.length === 0) {
       alert('⚠️ Adicione pelo menos um produto antes de enviar a auditoria.');
@@ -219,67 +238,56 @@ export default function RupturaVerificacao() {
     }
 
     if (finalizing) {
-      console.log('⏳ Já está finalizando, ignorando clique duplo');
+      console.log('⏳ [FINALIZE] Já está finalizando, ignorando clique duplo');
       return;
     }
 
     const confirmacao = window.confirm(
-      `📊 Deseja ENVIAR esta auditoria?\n\n` +
-      `${produtosSelecionados.length} produtos serão enviados.\n\n` +
+      `📊 Deseja FINALIZAR e ENVIAR esta auditoria?\n\n` +
+      `${produtosSelecionados.length} produtos já foram salvos.\n\n` +
       'Será gerado um PDF com o relatório completo e enviado automaticamente para o WhatsApp.\n\n' +
       'Esta ação não pode ser desfeita.'
     );
 
-    console.log('✅ Confirmação:', confirmacao);
+    console.log('✅ [FINALIZE] Confirmação:', confirmacao);
 
     if (!confirmacao) {
-      console.log('❌ Usuário cancelou a confirmação');
+      console.log('❌ [FINALIZE] Usuário cancelou a confirmação');
       return;
     }
 
-    console.log('🚀 Iniciando finalização...');
+    console.log('🚀 [FINALIZE] Iniciando finalização...');
     setFinalizing(true);
 
     try {
-      console.log(`📝 Atualizando ${produtosSelecionados.length} itens...`);
+      console.log('📊 [FINALIZE] Todos os itens já foram salvos em tempo real!');
+      console.log('📤 [FINALIZE] Finalizando auditoria e gerando PDF...');
 
-      // Atualizar cada item com seu status
-      for (const produto of produtosSelecionados) {
-        console.log(`  ↳ Atualizando item ${produto.id}: ${produto.status}`);
-        await api.patch(`/rupture-surveys/items/${produto.id}/status`, {
-          status: produto.status,
-          verificado_por: verificadoPor,
-          observacao: '',
-        });
-      }
-
-      console.log('✅ Todos os itens atualizados. Finalizando auditoria...');
-
-      // Finalizar auditoria
+      // Finalizar auditoria (os itens já foram salvos em tempo real)
       const response = await api.post(`/rupture-surveys/${surveyId}/finalize`);
 
-      console.log('📊 Resposta do servidor:', response.data);
+      console.log('📊 [FINALIZE] Resposta do servidor:', response.data);
 
       if (response.data.success) {
         // Limpar progresso salvo ao finalizar com sucesso
         localStorage.removeItem(`ruptura_progress_${surveyId}`);
         alert('✅ ' + response.data.message + '\n\nO relatório PDF foi enviado para o grupo do WhatsApp!');
-        console.log('🎉 Auditoria finalizada com sucesso! Redirecionando...');
+        console.log('🎉 [FINALIZE] Auditoria finalizada com sucesso! Redirecionando...');
         navigate('/ruptura-lancador');
       } else {
-        console.warn('⚠️ Finalização não foi bem sucedida:', response.data);
+        console.warn('⚠️ [FINALIZE] Finalização não foi bem sucedida:', response.data);
         alert('⚠️ ' + response.data.message);
       }
     } catch (err) {
-      console.error('❌ Erro ao finalizar auditoria:', err);
-      console.error('❌ Detalhes do erro:', {
+      console.error('❌ [FINALIZE] Erro ao finalizar auditoria:', err);
+      console.error('❌ [FINALIZE] Detalhes do erro:', {
         message: err.message,
         response: err.response?.data,
         status: err.response?.status
       });
       alert('❌ Erro ao finalizar auditoria: ' + (err.response?.data?.error || err.message));
     } finally {
-      console.log('🏁 Finalizando processo...');
+      console.log('🏁 [FINALIZE] Finalizando processo...');
       setFinalizing(false);
     }
   };
