@@ -276,7 +276,7 @@ export class WhatsAppService {
     try {
       const { apiToken, apiUrl, instance } = await this.validateEnvironment();
 
-      const url = `${apiUrl}/group/fetchAllGroups/${encodeURIComponent(instance)}?getParticipants=true`;
+      const url = `${apiUrl}/group/fetchAllGroups/${encodeURIComponent(instance)}?getParticipants=false`;
 
       console.log(`📱 Buscando grupos do WhatsApp da instância ${instance}...`);
 
