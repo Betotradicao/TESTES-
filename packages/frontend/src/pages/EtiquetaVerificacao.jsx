@@ -7,6 +7,17 @@ export default function EtiquetaVerificacao() {
   const { surveyId } = useParams();
   const navigate = useNavigate();
 
+  // Adicionar handler de erro global
+  useEffect(() => {
+    const handleError = (event) => {
+      console.error('🚨 ERRO GLOBAL CAPTURADO:', event.error);
+      console.error('Stack:', event.error?.stack);
+    };
+
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
+
   const [survey, setSurvey] = useState(null);
   const [items, setItems] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -62,9 +73,23 @@ export default function EtiquetaVerificacao() {
       if (savedProgress) {
         const progress = JSON.parse(savedProgress);
 
+        // Se não houver items carregados ainda, não restaurar
+        if (items.length === 0) {
+          console.warn('⚠️ Items ainda não carregados, aguardando...');
+          return;
+        }
+
         // Validar currentIndex antes de restaurar
         const validIndex = Math.min(progress.currentIndex || 0, items.length - 1);
         const safeIndex = Math.max(0, validIndex); // Garantir que não seja negativo
+
+        // Se o progresso salvo não tem produtos e o index é inválido, limpar
+        if ((!progress.produtosSelecionados || progress.produtosSelecionados.length === 0) &&
+            (progress.currentIndex >= items.length || progress.currentIndex < 0)) {
+          console.warn('⚠️ Progresso inválido detectado, limpando...');
+          localStorage.removeItem(`etiqueta_progress_${surveyId}`);
+          return;
+        }
 
         setProdutosSelecionados(progress.produtosSelecionados || []);
         setVerificadoPor(progress.verificadoPor || '');
@@ -86,6 +111,8 @@ export default function EtiquetaVerificacao() {
       }
     } catch (err) {
       console.error('❌ Erro ao carregar progresso:', err);
+      // Se houver erro, limpar o localStorage corrompido
+      localStorage.removeItem(`etiqueta_progress_${surveyId}`);
     }
   };
 
@@ -278,10 +305,21 @@ export default function EtiquetaVerificacao() {
     );
   }
 
+  console.log('🔍 Estado atual:', {
+    loading,
+    error,
+    itemsLength: items.length,
+    currentIndex,
+    surveyId,
+    hasSurvey: !!survey
+  });
+
   const currentItem = items[currentIndex];
+  console.log('📦 Current item:', currentItem);
 
   // Se não houver item atual (verificação concluída ou índice inválido), redirecionar
   if (!currentItem) {
+    console.warn('⚠️ Nenhum item atual encontrado');
     return (
       <Layout>
         <div className="flex items-center justify-center h-screen">

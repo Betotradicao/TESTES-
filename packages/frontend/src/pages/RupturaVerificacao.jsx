@@ -62,9 +62,23 @@ export default function RupturaVerificacao() {
       if (savedProgress) {
         const progress = JSON.parse(savedProgress);
 
+        // Se não houver items carregados ainda, não restaurar
+        if (items.length === 0) {
+          console.warn('⚠️ Items ainda não carregados, aguardando...');
+          return;
+        }
+
         // Validar currentIndex antes de restaurar
         const validIndex = Math.min(progress.currentIndex || 0, items.length - 1);
         const safeIndex = Math.max(0, validIndex); // Garantir que não seja negativo
+
+        // Se o progresso salvo não tem produtos e o index é inválido, limpar
+        if ((!progress.produtosSelecionados || progress.produtosSelecionados.length === 0) &&
+            (progress.currentIndex >= items.length || progress.currentIndex < 0)) {
+          console.warn('⚠️ Progresso inválido detectado, limpando...');
+          localStorage.removeItem(`ruptura_progress_${surveyId}`);
+          return;
+        }
 
         setProdutosSelecionados(progress.produtosSelecionados || []);
         setVerificadoPor(progress.verificadoPor || '');
@@ -86,6 +100,8 @@ export default function RupturaVerificacao() {
       }
     } catch (err) {
       console.error('❌ Erro ao carregar progresso:', err);
+      // Se houver erro, limpar o localStorage corrompido
+      localStorage.removeItem(`ruptura_progress_${surveyId}`);
     }
   };
 
