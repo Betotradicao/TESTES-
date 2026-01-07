@@ -1060,22 +1060,14 @@ docker system prune -a --volumes
 
 ### Para executar o auto-instalador em uma VPS Linux limpa:
 
+**Opção 1: Via curl (mais rápido)**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rsrsantos/prevencao-no-radar/main/InstaladorVPS/INSTALAR-AUTO.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Betotradicao/TESTES-/main/InstaladorVPS/INSTALAR-AUTO.sh | bash
 ```
 
-### OU baixar e executar:
-
+**Opção 2: Clonar repositório e executar (recomendado para reinstalação)**
 ```bash
-# 1. Clonar repositório
-git clone https://github.com/rsrsantos/prevencao-no-radar.git
-cd prevencao-no-radar/InstaladorVPS
-
-# 2. Dar permissão de execução
-chmod +x INSTALAR-AUTO.sh
-
-# 3. Executar
-sudo ./INSTALAR-AUTO.sh
+cd /root && rm -rf TESTES && git clone https://github.com/Betotradicao/TESTES-.git TESTES && cd TESTES/InstaladorVPS && bash INSTALAR-AUTO.sh
 ```
 
 ---
