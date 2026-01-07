@@ -160,6 +160,81 @@ export class LossService {
 
       console.log(`✅ Importação concluída: ${validRows.length} registros (${perdas} perdas, ${entradas} entradas)`);
 
+      // Gerar e enviar PDF de relatório ao WhatsApp
+      try {
+        console.log(`📄 Gerando PDF de relatório de quebras...`);
+
+        // Buscar todos os itens importados para o PDF
+        const lossItems = await lossRepository.find({
+          where: {
+            nomeLote,
+            ...(companyId && { companyId })
+          }
+        });
+
+        // Importar serviços (evitar import circular no topo do arquivo)
+        const { LossPDFService } = await import('./loss-pdf.service');
+        const { WhatsAppService } = await import('./whatsapp.service');
+
+        // Gerar resumo para WhatsApp
+        const summary = LossPDFService.generateWhatsAppSummary(lossItems.map(item => ({
+          codigoBarras: item.codigoBarras,
+          descricaoReduzida: item.descricaoReduzida,
+          quantidadeAjuste: item.quantidadeAjuste,
+          custoReposicao: item.custoReposicao,
+          descricaoAjusteCompleta: item.descricaoAjusteCompleta,
+          secao: item.secao,
+          secaoNome: item.secaoNome
+        })));
+
+        // Gerar PDF
+        const pdfPath = await LossPDFService.generateLossesPDF(
+          nomeLote,
+          dataInicioPeriodo.toLocaleDateString('pt-BR'),
+          dataFimPeriodo.toLocaleDateString('pt-BR'),
+          lossItems.map(item => ({
+            codigoBarras: item.codigoBarras,
+            descricaoReduzida: item.descricaoReduzida,
+            quantidadeAjuste: item.quantidadeAjuste,
+            custoReposicao: item.custoReposicao,
+            descricaoAjusteCompleta: item.descricaoAjusteCompleta,
+            secao: item.secao,
+            secaoNome: item.secaoNome
+          }))
+        );
+
+        console.log(`✅ PDF gerado: ${pdfPath}`);
+
+        // Enviar para WhatsApp
+        const whatsappSuccess = await WhatsAppService.sendLossesReport(
+          pdfPath,
+          nomeLote,
+          lossItems.length,
+          summary.totalSaidas,
+          summary.totalEntradas,
+          summary.valorTotalSaidas,
+          summary.valorTotalEntradas,
+          summary.saidas,
+          summary.entradas
+        );
+
+        if (whatsappSuccess) {
+          console.log(`✅ Relatório enviado ao WhatsApp com sucesso`);
+        } else {
+          console.warn(`⚠️  Falha ao enviar relatório ao WhatsApp`);
+        }
+
+        // Limpar arquivo temporário
+        const fs = require('fs');
+        if (fs.existsSync(pdfPath)) {
+          fs.unlinkSync(pdfPath);
+          console.log(`🗑️  Arquivo temporário removido: ${pdfPath}`);
+        }
+      } catch (pdfError) {
+        console.error('❌ Erro ao gerar/enviar PDF (importação concluída normalmente):', pdfError);
+        // Não falha a importação se o PDF falhar
+      }
+
       return {
         total: validRows.length,
         perdas,

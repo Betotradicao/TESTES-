@@ -23,13 +23,18 @@ export default function WhatsAppGroupsTab() {
     bipagens: {
       groupId: '',
       groupName: '',
+    },
+    quebras: {
+      groupId: '',
+      groupName: '',
     }
   });
 
   const subTabs = [
     { id: 'ruptura', label: '📦 Prevenção Ruptura', icon: '📦' },
     { id: 'etiquetas', label: '🏷️ Prevenção Etiquetas', icon: '🏷️' },
-    { id: 'bipagens', label: '🔔 Prevenção Bipagens', icon: '🔔' }
+    { id: 'bipagens', label: '🔔 Prevenção Bipagens', icon: '🔔' },
+    { id: 'quebras', label: '📊 Prevenção Quebras', icon: '📊' }
   ];
 
   // Mensagens de exemplo para cada tipo
@@ -67,7 +72,29 @@ export default function WhatsAppGroupsTab() {
 🟢 Respondidas: 32
 🔴 Pendentes: 13
 
-📄 Confira os detalhes em PDF anexo.`
+📄 Confira os detalhes em PDF anexo.`,
+
+    quebras: `📊 *RELATÓRIO DE AJUSTE DE ESTOQUE*
+
+📋 Lote: Lançamento 07/01/2026
+📅 Data: 07/01/2026, 21:26:32
+
+📦 Total de Itens: 250
+🔴 Saídas: 180 itens (R$ 3.450,00)
+🟢 Entradas: 70 itens (R$ 890,00)
+
+*📉 SAÍDAS POR MOTIVO:*
+• Perda Padaria: R$ 1.500,00
+• Perda Mercearia: R$ 850,00
+• Perda Perecíveis: R$ 600,00
+• Quebra Transporte: R$ 500,00
+
+*📈 ENTRADAS POR MOTIVO:*
+• Devolução Cliente: R$ 450,00
+• Ajuste Inventário: R$ 300,00
+• Erro Lançamento: R$ 140,00
+
+📄 Confira o relatório detalhado em PDF anexo.`
   };
 
   useEffect(() => {
@@ -94,6 +121,10 @@ export default function WhatsAppGroupsTab() {
           bipagens: {
             groupId: configs.whatsapp_group_bipagens || configs.evolution_whatsapp_group_id || '',
             groupName: configs.whatsapp_group_bipagens_name || 'Grupo Padrão',
+          },
+          quebras: {
+            groupId: configs.whatsapp_group_quebras || configs.evolution_whatsapp_group_id || '',
+            groupName: configs.whatsapp_group_quebras_name || 'Grupo Padrão',
           }
         });
       }

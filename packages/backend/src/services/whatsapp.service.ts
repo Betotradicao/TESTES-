@@ -305,6 +305,80 @@ export class WhatsAppService {
   }
 
   /**
+   * Envia relatório de perdas/quebras para grupo do WhatsApp
+   */
+  static async sendLossesReport(
+    filePath: string,
+    nomeLote: string,
+    totalItens: number,
+    totalSaidas: number,
+    totalEntradas: number,
+    valorSaidas: number,
+    valorEntradas: number,
+    saidasPorMotivo?: Map<string, number>,
+    entradasPorMotivo?: Map<string, number>
+  ): Promise<boolean> {
+    try {
+      // Buscar grupo do WhatsApp específico para Quebras (com fallback para o grupo padrão)
+      const groupId = await ConfigurationService.get('whatsapp_group_quebras', '') ||
+                      await ConfigurationService.get('evolution_whatsapp_group_id', process.env.EVOLUTION_WHATSAPP_GROUP_ID || '');
+
+      if (!groupId) {
+        console.warn('⚠️  Grupo do WhatsApp não configurado (whatsapp_group_quebras ou evolution_whatsapp_group_id)');
+        return false;
+      }
+
+      console.log(`📊 Enviando relatório de quebras para grupo: ${groupId}`);
+
+      let caption = `📊 *RELATÓRIO DE AJUSTE DE ESTOQUE*\n\n` +
+                   `📋 Lote: ${nomeLote}\n` +
+                   `📅 Data: ${new Date().toLocaleString('pt-BR')}\n\n` +
+                   `📦 Total de Itens: ${totalItens}\n` +
+                   `🔴 Saídas: ${totalSaidas} itens (R$ ${valorSaidas.toFixed(2)})\n` +
+                   `🟢 Entradas: ${totalEntradas} itens (R$ ${valorEntradas.toFixed(2)})\n\n`;
+
+      // Adicionar detalhamento por motivo de saídas
+      if (saidasPorMotivo && saidasPorMotivo.size > 0) {
+        caption += `*📉 SAÍDAS POR MOTIVO:*\n`;
+        // Ordenar por valor decrescente
+        const saidasOrdenadas = Array.from(saidasPorMotivo.entries())
+          .sort((a, b) => b[1] - a[1]);
+        saidasOrdenadas.forEach(([motivo, valor]) => {
+          caption += `• ${motivo}: R$ ${valor.toFixed(2)}\n`;
+        });
+        caption += `\n`;
+      }
+
+      // Adicionar detalhamento por motivo de entradas
+      if (entradasPorMotivo && entradasPorMotivo.size > 0) {
+        caption += `*📈 ENTRADAS POR MOTIVO:*\n`;
+        // Ordenar por valor decrescente
+        const entradasOrdenadas = Array.from(entradasPorMotivo.entries())
+          .sort((a, b) => b[1] - a[1]);
+        entradasOrdenadas.forEach(([motivo, valor]) => {
+          caption += `• ${motivo}: R$ ${valor.toFixed(2)}\n`;
+        });
+        caption += `\n`;
+      }
+
+      caption += `📄 Confira o relatório detalhado em PDF anexo.`;
+
+      const success = await this.sendDocument(groupId, filePath, caption);
+
+      if (success) {
+        console.log(`✅ Relatório de quebras enviado para grupo ${groupId}`);
+      } else {
+        console.error(`❌ Falha ao enviar relatório de quebras`);
+      }
+
+      return success;
+    } catch (error) {
+      console.error(`❌ Erro ao enviar relatório de quebras:`, error);
+      return false;
+    }
+  }
+
+  /**
    * Envia relatório de auditoria de ruptura para grupo do WhatsApp
    */
   static async sendRuptureReport(
