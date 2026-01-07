@@ -533,20 +533,27 @@ export default function EtiquetaLancadorItens() {
 
                   {/* Barra de Progresso */}
                   {survey.status === 'em_andamento' && (
-                    <div className="mb-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium text-gray-700">
-                          Progresso: {survey.itens_verificados} de {survey.total_itens}
+                    <div className="mb-3 bg-orange-50 p-3 rounded-lg border border-orange-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-semibold text-orange-800">
+                          📊 Progresso: {survey.itens_verificados || 0} de {survey.total_itens || 0}
                         </span>
-                        <span className="text-sm font-medium text-gray-700">
-                          {survey.total_itens > 0 ? Math.round((survey.itens_verificados / survey.total_itens) * 100) : 0}%
+                        <span className="text-sm font-semibold text-orange-800">
+                          {survey.total_itens > 0 ? Math.round(((survey.itens_verificados || 0) / survey.total_itens) * 100) : 0}%
                         </span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div className="w-full bg-gray-300 rounded-full h-3 shadow-inner">
                         <div
-                          className="bg-orange-500 h-2.5 rounded-full transition-all duration-300"
-                          style={{ width: `${survey.total_itens > 0 ? (survey.itens_verificados / survey.total_itens) * 100 : 0}%` }}
+                          className="bg-gradient-to-r from-orange-400 to-orange-600 h-3 rounded-full transition-all duration-500 shadow-sm"
+                          style={{
+                            width: `${survey.total_itens > 0 ? ((survey.itens_verificados || 0) / survey.total_itens) * 100 : 0}%`,
+                            minWidth: (survey.itens_verificados || 0) > 0 ? '3%' : '0%'
+                          }}
                         ></div>
+                      </div>
+                      <div className="flex items-center justify-between mt-2 text-xs text-gray-600">
+                        <span>✅ {survey.itens_corretos || 0} corretos</span>
+                        <span>❌ {survey.itens_incorretos || 0} incorretos</span>
                       </div>
                     </div>
                   )}
