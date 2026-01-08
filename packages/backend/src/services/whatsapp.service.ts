@@ -172,12 +172,30 @@ export class WhatsAppService {
     try {
       console.log(`📄 Gerando PDF com ${bips.length} bipagens pendentes...`);
 
-      // Buscar grupo do WhatsApp específico para Bipagens (com fallback para o grupo padrão)
-      const groupId = await ConfigurationService.get('whatsapp_group_bipagens', '') ||
-                      await ConfigurationService.get('evolution_whatsapp_group_id', process.env.EVOLUTION_WHATSAPP_GROUP_ID || '');
+      // Buscar grupo do WhatsApp específico para Bipagens (NUNCA usar fallback automático)
+      const bipsGroupId = await ConfigurationService.get('whatsapp_group_bipagens', null);
 
-      if (!groupId) {
-        console.warn('⚠️  Grupo do WhatsApp não configurado (whatsapp_group_bipagens ou evolution_whatsapp_group_id)');
+      let groupId = bipsGroupId;
+
+      // Se não houver grupo configurado especificamente para bipagens, avisar
+      if (!groupId || groupId.trim() === '') {
+        console.warn('⚠️  Grupo específico para Bipagens não configurado (whatsapp_group_bipagens)');
+        console.warn('⚠️  Configure em: Configurações > Grupos WhatsApp > Prevenção Bipagens');
+
+        // Usar grupo padrão como último recurso
+        groupId = await ConfigurationService.get('evolution_whatsapp_group_id', process.env.EVOLUTION_WHATSAPP_GROUP_ID || '');
+
+        if (!groupId) {
+          throw new Error('Nenhum grupo do WhatsApp configurado. Configure em: Configurações > Grupos WhatsApp');
+        }
+
+        console.log(`⚠️  Usando grupo padrão como fallback: ${groupId}`);
+      } else {
+        console.log(`✅ Usando grupo configurado para Bipagens: ${groupId}`);
+      }
+
+      if (!groupId || groupId.trim() === '') {
+        console.error('❌ Grupo do WhatsApp inválido ou não configurado');
         throw new Error('Grupo do WhatsApp não configurado');
       }
 
