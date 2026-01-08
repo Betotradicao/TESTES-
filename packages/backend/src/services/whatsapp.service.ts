@@ -344,7 +344,7 @@ export class WhatsAppService {
         const saidasOrdenadas = Array.from(saidasPorMotivo.entries())
           .sort((a, b) => b[1] - a[1]);
         saidasOrdenadas.forEach(([motivo, valor]) => {
-          caption += `• ${motivo}: R$ ${valor.toFixed(2)}\n`;
+          caption += `📦 ${motivo}: R$ ${valor.toFixed(2)}\n`;
         });
         caption += `\n`;
       }
@@ -356,7 +356,7 @@ export class WhatsAppService {
         const entradasOrdenadas = Array.from(entradasPorMotivo.entries())
           .sort((a, b) => b[1] - a[1]);
         entradasOrdenadas.forEach(([motivo, valor]) => {
-          caption += `• ${motivo}: R$ ${valor.toFixed(2)}\n`;
+          caption += `📦 ${motivo}: R$ ${valor.toFixed(2)}\n`;
         });
         caption += `\n`;
       }

@@ -175,9 +175,25 @@ export class LossService {
         // Importar serviços (evitar import circular no topo do arquivo)
         const { LossPDFService } = await import('./loss-pdf.service');
         const { WhatsAppService } = await import('./whatsapp.service');
+        const { LossReasonConfig } = await import('../entities/LossReasonConfig');
 
-        // Gerar resumo para WhatsApp
-        const summary = LossPDFService.generateWhatsAppSummary(lossItems.map(item => ({
+        // Buscar motivos ignorados para filtrar da mensagem WhatsApp
+        const reasonConfigRepository = AppDataSource.getRepository(LossReasonConfig);
+        const motivosIgnorados = await reasonConfigRepository.find({
+          where: {
+            ...(companyId && { companyId }),
+            ignorarCalculo: true,
+          },
+        });
+        const motivosIgnoradosSet = new Set(motivosIgnorados.map(m => m.motivo));
+
+        // Filtrar itens para WhatsApp (apenas motivos ATIVOS)
+        const lossItemsAtivos = lossItems.filter(item =>
+          !motivosIgnoradosSet.has(item.descricaoAjusteCompleta)
+        );
+
+        // Gerar resumo para WhatsApp (apenas com motivos ativos)
+        const summary = LossPDFService.generateWhatsAppSummary(lossItemsAtivos.map(item => ({
           codigoBarras: item.codigoBarras,
           descricaoReduzida: item.descricaoReduzida,
           quantidadeAjuste: item.quantidadeAjuste,
