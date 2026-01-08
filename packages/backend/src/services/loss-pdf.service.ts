@@ -127,18 +127,14 @@ export class LossPDFService {
           this.renderSecao(doc, 'ENTRADAS (AJUSTES POSITIVOS)', entradasPorMotivo, false);
         }
 
-        // Rodapé
-        const pageCount = doc.bufferedPageRange().count;
-        for (let i = 0; i < pageCount; i++) {
-          doc.switchToPage(i);
-          doc.fontSize(8).font('Helvetica');
-          doc.text(
-            `Página ${i + 1} de ${pageCount} - Gerado em ${new Date().toLocaleString('pt-BR')}`,
-            40,
-            doc.page.height - 30,
-            { align: 'center' }
-          );
-        }
+        // Rodapé simples (sem numeração de páginas para evitar erro de switchToPage)
+        doc.fontSize(8).font('Helvetica').fillColor('#888');
+        doc.text(
+          `Relatório gerado em ${new Date().toLocaleString('pt-BR')}`,
+          40,
+          doc.page.height - 30,
+          { align: 'center' }
+        );
 
         doc.end();
 
