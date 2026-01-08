@@ -343,10 +343,13 @@ export class WhatsAppService {
         // Ordenar por valor decrescente
         const saidasOrdenadas = Array.from(saidasPorMotivo.entries())
           .sort((a, b) => b[1] - a[1]);
+        let totalSaidasMotivos = 0;
         saidasOrdenadas.forEach(([motivo, valor]) => {
           caption += `📦 ${motivo}: R$ ${valor.toFixed(2)}\n`;
+          totalSaidasMotivos += valor;
         });
-        caption += `\n`;
+        caption += `➖➖➖➖➖➖➖➖➖➖➖\n`;
+        caption += `💰 *TOTAL SAÍDAS: R$ ${totalSaidasMotivos.toFixed(2)}*\n\n`;
       }
 
       // Adicionar detalhamento por motivo de entradas
@@ -355,10 +358,13 @@ export class WhatsAppService {
         // Ordenar por valor decrescente
         const entradasOrdenadas = Array.from(entradasPorMotivo.entries())
           .sort((a, b) => b[1] - a[1]);
+        let totalEntradasMotivos = 0;
         entradasOrdenadas.forEach(([motivo, valor]) => {
           caption += `📦 ${motivo}: R$ ${valor.toFixed(2)}\n`;
+          totalEntradasMotivos += valor;
         });
-        caption += `\n`;
+        caption += `➖➖➖➖➖➖➖➖➖➖➖\n`;
+        caption += `💰 *TOTAL ENTRADAS: R$ ${totalEntradasMotivos.toFixed(2)}*\n\n`;
       }
 
       caption += `📄 Confira o relatório detalhado em PDF anexo.`;
