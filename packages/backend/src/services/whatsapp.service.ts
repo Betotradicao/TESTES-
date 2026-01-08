@@ -332,7 +332,7 @@ export class WhatsAppService {
 
       let caption = `📊 *RELATÓRIO DE AJUSTE DE ESTOQUE*\n\n` +
                    `📋 Lote: ${nomeLote}\n` +
-                   `📅 Data: ${new Date().toLocaleString('pt-BR')}\n\n` +
+                   `📅 Data: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}\n\n` +
                    `📦 Total de Itens: ${totalItens}\n` +
                    `🔴 Saídas: ${totalSaidas} itens (R$ ${valorSaidas.toFixed(2)})\n` +
                    `🟢 Entradas: ${totalEntradas} itens (R$ ${valorEntradas.toFixed(2)})\n\n`;
