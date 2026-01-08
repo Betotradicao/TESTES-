@@ -203,12 +203,12 @@ export class LossService {
           secaoNome: item.secaoNome
         })));
 
-        // Gerar PDF
+        // Gerar PDF (apenas com motivos ativos)
         const pdfPath = await LossPDFService.generateLossesPDF(
           nomeLote,
           dataInicioPeriodo.toLocaleDateString('pt-BR'),
           dataFimPeriodo.toLocaleDateString('pt-BR'),
-          lossItems.map(item => ({
+          lossItemsAtivos.map(item => ({
             codigoBarras: item.codigoBarras,
             descricaoReduzida: item.descricaoReduzida,
             quantidadeAjuste: item.quantidadeAjuste,
@@ -221,11 +221,11 @@ export class LossService {
 
         console.log(`✅ PDF gerado: ${pdfPath}`);
 
-        // Enviar para WhatsApp
+        // Enviar para WhatsApp (com totais apenas dos motivos ativos)
         const whatsappSuccess = await WhatsAppService.sendLossesReport(
           pdfPath,
           nomeLote,
-          lossItems.length,
+          lossItemsAtivos.length,
           summary.totalSaidas,
           summary.totalEntradas,
           summary.valorTotalSaidas,
