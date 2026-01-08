@@ -51,7 +51,7 @@ export default function ControlePDV() {
     dataFim: hoje.toISOString().split('T')[0]
   });
 
-  // Função para buscar resumo
+  // Func~ao para buscar resumo
   const fetchResumo = async () => {
     try {
       setLoading(true);
@@ -67,13 +67,13 @@ export default function ControlePDV() {
       setResumo(response.data);
     } catch (err) {
       console.error('Erro ao buscar resumo PDV:', err);
-      setError('Erro ao carregar resumo do PDV. Verifique as configurações da API Zanthus.');
+      setError('Erro ao carregar resumo do PDV. Verifique as configurac~oes da API Zanthus.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Função para buscar descontos
+  // Func~ao para buscar descontos
   const fetchDescontos = async () => {
     try {
       const response = await api.get('/pdv/descontos', {
@@ -89,7 +89,7 @@ export default function ControlePDV() {
     }
   };
 
-  // Função para buscar devoluções
+  // Func~ao para buscar devoluc~oes
   const fetchDevolucoes = async () {
     try {
       const response = await api.get('/pdv/devolucoes', {
@@ -101,7 +101,7 @@ export default function ControlePDV() {
 
       setDevolucoes(response.data);
     } catch (err) {
-      console.error('Erro ao buscar devoluções:', err);
+      console.error('Erro ao buscar devoluc~oes:', err);
     }
   };
 
@@ -131,7 +131,7 @@ export default function ControlePDV() {
     }).format(value || 0);
   };
 
-  // Dados para gráfico de vendas por operador (Bar Chart)
+  // Dados para gr'afico de vendas por operador (Bar Chart)
   const vendasPorOperadorData = resumo ? {
     labels: resumo.operadores.map(op => op.nome),
     datasets: [{
@@ -143,7 +143,7 @@ export default function ControlePDV() {
     }]
   } : null;
 
-  // Dados para gráfico de descontos por operador (Pie Chart)
+  // Dados para gr'afico de descontos por operador (Pie Chart)
   const descontosPorOperadorData = resumo ? {
     labels: resumo.operadores.filter(op => op.qtdDescontos > 0).map(op => op.nome),
     datasets: [{
@@ -173,19 +173,19 @@ export default function ControlePDV() {
       />
 
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Cabeçalho */}
+        {/* Cabecalho */}
         <div className="bg-gray-800 p-4 border-b border-gray-700">
           <h1 className="text-2xl font-bold">Controle PDV</h1>
-          <p className="text-gray-400 text-sm mt-1">Análise de vendas, descontos e operadores</p>
+          <p className="text-gray-400 text-sm mt-1">An'alise de vendas, descontos e operadores</p>
         </div>
 
-        {/* Conteúdo principal com scroll */}
+        {/* Conte'udo principal com scroll */}
         <div className="flex-1 overflow-y-auto p-6">
           {/* Filtros */}
           <div className="bg-gray-800 p-4 rounded-lg mb-6 border border-gray-700">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Data Início</label>
+                <label className="block text-sm font-medium mb-2">Data In'icio</label>
                 <input
                   type="date"
                   name="dataInicio"
@@ -263,11 +263,11 @@ export default function ControlePDV() {
                   </div>
                 </div>
 
-                {/* Card Devoluções */}
+                {/* Card Devoluc~oes */}
                 <div className="bg-gradient-to-br from-red-600 to-red-800 p-6 rounded-lg shadow-lg border border-red-500">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-red-200 text-sm">Devoluções</p>
+                      <p className="text-red-200 text-sm">Devoluc~oes</p>
                       <p className="text-3xl font-bold mt-2">{resumo.qtdDevolucoes}</p>
                       <p className="text-xl mt-1">{formatCurrency(resumo.valorTotalDevolucoes)}</p>
                       <p className="text-sm mt-1">{resumo.percentualDevolucoes.toFixed(2)}% das vendas</p>
@@ -281,9 +281,9 @@ export default function ControlePDV() {
                 </div>
               </div>
 
-              {/* Gráficos */}
+              {/* Gr'aficos */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                {/* Gráfico de Vendas por Operador */}
+                {/* Gr'afico de Vendas por Operador */}
                 <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
                   <h3 className="text-lg font-semibold mb-4">Vendas por Operador</h3>
                   {vendasPorOperadorData && (
@@ -310,7 +310,7 @@ export default function ControlePDV() {
                   )}
                 </div>
 
-                {/* Gráfico de Descontos por Operador */}
+                {/* Gr'afico de Descontos por Operador */}
                 <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
                   <h3 className="text-lg font-semibold mb-4">Descontos por Operador</h3>
                   {descontosPorOperadorData && descontosPorOperadorData.labels.length > 0 ? (
@@ -327,7 +327,7 @@ export default function ControlePDV() {
                       }}
                     />
                   ) : (
-                    <p className="text-gray-400 text-center py-8">Nenhum desconto no período</p>
+                    <p className="text-gray-400 text-center py-8">Nenhum desconto no per'iodo</p>
                   )}
                 </div>
               </div>
@@ -344,7 +344,7 @@ export default function ControlePDV() {
                         <th className="text-right py-3 px-4">Valor Total</th>
                         <th className="text-right py-3 px-4">Descontos</th>
                         <th className="text-right py-3 px-4">% Desc</th>
-                        <th className="text-right py-3 px-4">Devoluções</th>
+                        <th className="text-right py-3 px-4">Devoluc~oes</th>
                         <th className="text-right py-3 px-4">% Devol</th>
                       </tr>
                     </thead>
@@ -396,8 +396,8 @@ export default function ControlePDV() {
                             <td className="py-2 px-3">{desc.operadorNome}</td>
                             <td className="py-2 px-3">{desc.descProduto}</td>
                             <td className="text-right py-2 px-3 text-yellow-400 font-semibold">{formatCurrency(desc.desconto)}</td>
-                            <td className="py-2 px-3">{desc.motivoDescontoDesc || `Código ${desc.motivoDesconto}`}</td>
-                            <td className="py-2 px-3">{desc.autorizadorDescontoNome || `Código ${desc.autorizadorDesconto}`}</td>
+                            <td className="py-2 px-3">{desc.motivoDescontoDesc || `C'odigo ${desc.motivoDesconto}`}</td>
+                            <td className="py-2 px-3">{desc.autorizadorDescontoNome || `C'odigo ${desc.autorizadorDesconto}`}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -411,10 +411,10 @@ export default function ControlePDV() {
                 </div>
               )}
 
-              {/* Tabela de Devoluções Detalhadas */}
+              {/* Tabela de Devoluc~oes Detalhadas */}
               {devolucoes.length > 0 && (
                 <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-                  <h3 className="text-lg font-semibold mb-4">Devoluções Detalhadas ({devolucoes.length})</h3>
+                  <h3 className="text-lg font-semibold mb-4">Devoluc~oes Detalhadas ({devolucoes.length})</h3>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -442,7 +442,7 @@ export default function ControlePDV() {
                     </table>
                     {devolucoes.length > 20 && (
                       <p className="text-gray-400 text-sm mt-4 text-center">
-                        Mostrando 20 de {devolucoes.length} devoluções
+                        Mostrando 20 de {devolucoes.length} devoluc~oes
                       </p>
                     )}
                   </div>
@@ -457,7 +457,7 @@ export default function ControlePDV() {
               <svg className="w-16 h-16 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
-              <p className="text-gray-400">Selecione o período e clique em Buscar para visualizar os dados</p>
+              <p className="text-gray-400">Selecione o per'iodo e clique em Buscar para visualizar os dados</p>
             </div>
           )}
         </div>
