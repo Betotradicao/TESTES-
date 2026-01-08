@@ -163,7 +163,52 @@ export default function RupturaVerificacao() {
       return;
     }
 
+    // Impedir adicionar mais produtos do que o total de itens
     const currentItem = items[currentIndex];
+    const jaAdicionado = produtosSelecionados.find(p => p.id === currentItem.id);
+
+    // Se o produto já foi adicionado e não estamos atualizando, não permitir duplicação
+    if (jaAdicionado && !updating) {
+      console.log('⚠️ [SAVE] Produto já foi adicionado anteriormente, apenas atualizando status');
+      // Apenas atualizar o status
+      setProdutosSelecionados(prev =>
+        prev.map(p => p.id === currentItem.id ? { ...p, status } : p)
+      );
+
+      // Salvar a atualização no banco
+      try {
+        setUpdating(true);
+        await api.patch(`/rupture-surveys/items/${currentItem.id}/status`, {
+          status: status,
+          verificado_por: verificadoPor,
+          observacao: '',
+        });
+        console.log('✅ [SAVE] Status atualizado no banco:', currentItem.id);
+      } catch (error) {
+        console.error('❌ [SAVE] Erro ao atualizar status:', error);
+        alert('❌ Erro ao atualizar status. Tente novamente.');
+      } finally {
+        setUpdating(false);
+      }
+      return;
+    }
+
+    // Impedir cliques duplos
+    if (updating) {
+      console.log('⚠️ [SAVE] Já está salvando, ignorando clique duplo');
+      return;
+    }
+
+    // Verificar se já atingiu o limite de produtos (NÃO PODE PASSAR DO TOTAL)
+    if (!jaAdicionado && produtosSelecionados.length >= items.length) {
+      alert(`⚠️ Você já verificou todos os ${items.length} produtos desta pesquisa! Não é possível adicionar mais.`);
+      console.error('❌ [SAVE] Tentativa de ultrapassar o limite:', {
+        selecionados: produtosSelecionados.length,
+        total: items.length
+      });
+      return;
+    }
+
     console.log('📝 [SAVE] Salvando item IMEDIATAMENTE:', currentItem.id, 'Status:', status);
 
     try {
@@ -176,23 +221,12 @@ export default function RupturaVerificacao() {
       });
       console.log('✅ [SAVE] Item salvo no banco:', currentItem.id);
 
-      // Verificar se o produto já foi adicionado à lista local
-      const jaAdicionado = produtosSelecionados.find(p => p.id === currentItem.id);
-
-      if (jaAdicionado) {
-        // Se já foi adicionado, atualiza o tipo
-        setProdutosSelecionados(prev =>
-          prev.map(p => p.id === currentItem.id ? { ...p, status } : p)
-        );
-        console.log('🔄 [SAVE] Item atualizado na lista local');
-      } else {
-        // Adiciona novo produto à lista local
-        setProdutosSelecionados(prev => [...prev, {
-          ...currentItem,
-          status,
-        }]);
-        console.log('➕ [SAVE] Item adicionado à lista local');
-      }
+      // Adiciona novo produto à lista local
+      setProdutosSelecionados(prev => [...prev, {
+        ...currentItem,
+        status,
+      }]);
+      console.log('➕ [SAVE] Item adicionado à lista local');
 
       // Ir para próximo item
       if (currentIndex < items.length - 1) {
@@ -206,14 +240,48 @@ export default function RupturaVerificacao() {
     }
   };
 
-  const handleRemoveProduto = (itemId) => {
-    setProdutosSelecionados(prev => prev.filter(p => p.id !== itemId));
+  const handleRemoveProduto = async (itemId) => {
+    // Confirmar remoção
+    const confirma = window.confirm('Deseja realmente remover este produto da lista?');
+    if (!confirma) return;
+
+    try {
+      // Remover do banco de dados - voltar status para pendente
+      await api.patch(`/rupture-surveys/items/${itemId}/status`, {
+        status: 'pendente',
+        verificado_por: '',
+        observacao: '',
+      });
+      console.log('✅ [REMOVE] Item removido do banco:', itemId);
+
+      // Remover da lista local
+      setProdutosSelecionados(prev => prev.filter(p => p.id !== itemId));
+      console.log('✅ [REMOVE] Item removido da lista local:', itemId);
+    } catch (error) {
+      console.error('❌ [REMOVE] Erro ao remover item:', error);
+      alert('❌ Erro ao remover item. Tente novamente.');
+    }
   };
 
-  const handleChangeTipo = (itemId, novoStatus) => {
-    setProdutosSelecionados(prev =>
-      prev.map(p => p.id === itemId ? { ...p, status: novoStatus } : p)
-    );
+  const handleChangeTipo = async (itemId, novoStatus) => {
+    try {
+      // Atualizar no banco de dados
+      await api.patch(`/rupture-surveys/items/${itemId}/status`, {
+        status: novoStatus,
+        verificado_por: verificadoPor,
+        observacao: '',
+      });
+      console.log('✅ [UPDATE] Tipo atualizado no banco:', itemId, novoStatus);
+
+      // Atualizar na lista local
+      setProdutosSelecionados(prev =>
+        prev.map(p => p.id === itemId ? { ...p, status: novoStatus } : p)
+      );
+      console.log('✅ [UPDATE] Tipo atualizado na lista local:', itemId);
+    } catch (error) {
+      console.error('❌ [UPDATE] Erro ao atualizar tipo:', error);
+      alert('❌ Erro ao atualizar tipo. Tente novamente.');
+    }
   };
 
   const handlePrevious = () => {
@@ -479,21 +547,24 @@ export default function RupturaVerificacao() {
 
             <button
               onClick={() => handleAddProduto('encontrado')}
-              className="w-full py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-lg font-semibold"
+              disabled={updating || (produtosSelecionados.length >= items.length && !produtosSelecionados.find(p => p.id === currentItem.id))}
+              className="w-full py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               ✅ ENCONTRADO
             </button>
 
             <button
               onClick={() => handleAddProduto('nao_encontrado')}
-              className="w-full py-4 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-lg font-semibold"
+              disabled={updating || (produtosSelecionados.length >= items.length && !produtosSelecionados.find(p => p.id === currentItem.id))}
+              className="w-full py-4 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               ❌ RUPTURA (NÃO ENCONTRADO)
             </button>
 
             <button
               onClick={() => handleAddProduto('ruptura_estoque')}
-              className="w-full py-4 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-lg font-semibold"
+              disabled={updating || (produtosSelecionados.length >= items.length && !produtosSelecionados.find(p => p.id === currentItem.id))}
+              className="w-full py-4 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               📦 RUPTURA (EM ESTOQUE)
             </button>
