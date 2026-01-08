@@ -51,7 +51,7 @@ export default function ControlePDV() {
     dataFim: hoje.toISOString().split('T')[0]
   });
 
-  // Func~ao para buscar resumo
+  // Fetch summary data
   const fetchResumo = async () => {
     try {
       setLoading(true);
@@ -67,13 +67,13 @@ export default function ControlePDV() {
       setResumo(response.data);
     } catch (err) {
       console.error('Erro ao buscar resumo PDV:', err);
-      setError('Erro ao carregar resumo do PDV. Verifique as configurac~oes da API Zanthus.');
+      setError('Erro ao carregar resumo do PDV. Check configuration da API Zanthus.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Func~ao para buscar descontos
+  // Fetch discounts data
   const fetchDescontos = async () => {
     try {
       const response = await api.get('/pdv/descontos', {
@@ -89,7 +89,7 @@ export default function ControlePDV() {
     }
   };
 
-  // Func~ao para buscar devoluc~oes
+  // Fetch returns data
   const fetchDevolucoes = async () {
     try {
       const response = await api.get('/pdv/devolucoes', {
@@ -101,11 +101,11 @@ export default function ControlePDV() {
 
       setDevolucoes(response.data);
     } catch (err) {
-      console.error('Erro ao buscar devoluc~oes:', err);
+      console.error('Error fetching returns:', err);
     }
   };
 
-  // Carregar dados ao montar e quando filtros mudarem
+  // Load data on mount and when filters change
   useEffect(() => {
     fetchResumo();
     fetchDescontos();
