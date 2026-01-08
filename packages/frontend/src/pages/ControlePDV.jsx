@@ -89,8 +89,7 @@ export default function ControlePDV() {
     }
   };
 
-  // Fetch returns data
-  const fetchDevolucoes = async () {
+  const fetchDevolucoes = async () => {
     try {
       const response = await api.get('/pdv/devolucoes', {
         params: {
