@@ -23,6 +23,7 @@ export default function WhatsAppGroupsTab() {
     bipagens: {
       groupId: '',
       groupName: '',
+      scheduleTime: '08:00'
     },
     quebras: {
       groupId: '',
@@ -111,8 +112,8 @@ export default function WhatsAppGroupsTab() {
 
         setGroupConfigs({
           ruptura: {
-            groupId: configs.whatsapp_group_ruptura || configs.evolution_whatsapp_group_id || '',
-            groupName: configs.whatsapp_group_ruptura_name || 'Grupo Padrão',
+            groupId: configs.whatsapp_group_rupturas || configs.evolution_whatsapp_group_id || '',
+            groupName: configs.whatsapp_group_rupturas_name || 'Grupo Padrão',
           },
           etiquetas: {
             groupId: configs.whatsapp_group_etiquetas || configs.evolution_whatsapp_group_id || '',
@@ -121,6 +122,7 @@ export default function WhatsAppGroupsTab() {
           bipagens: {
             groupId: configs.whatsapp_group_bipagens || configs.evolution_whatsapp_group_id || '',
             groupName: configs.whatsapp_group_bipagens_name || 'Grupo Padrão',
+            scheduleTime: configs.whatsapp_bips_schedule_time || '08:00'
           },
           quebras: {
             groupId: configs.whatsapp_group_quebras || configs.evolution_whatsapp_group_id || '',
@@ -143,10 +145,17 @@ export default function WhatsAppGroupsTab() {
       const configKey = `whatsapp_group_${activeSubTab}`;
       const configNameKey = `whatsapp_group_${activeSubTab}_name`;
 
-      await api.post('/config/configurations', {
+      const configData = {
         [configKey]: currentConfig.groupId,
         [configNameKey]: currentConfig.groupName,
-      });
+      };
+
+      // Se for bipagens, salvar também o horário
+      if (activeSubTab === 'bipagens' && currentConfig.scheduleTime) {
+        configData.whatsapp_bips_schedule_time = currentConfig.scheduleTime;
+      }
+
+      await api.post('/config/configurations', configData);
 
       alert('✅ Configuração salva com sucesso!');
     } catch (error) {
@@ -317,6 +326,24 @@ export default function WhatsAppGroupsTab() {
                 </p>
               </div>
 
+              {/* Campo de Horário - Somente para Bipagens */}
+              {activeSubTab === 'bipagens' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    ⏰ Horário de Envio Automático
+                  </label>
+                  <input
+                    type="time"
+                    value={currentConfig.scheduleTime || '08:00'}
+                    onChange={(e) => handleInputChange('scheduleTime', e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    📅 PDF de bipagens pendentes será enviado automaticamente todos os dias neste horário
+                  </p>
+                </div>
+              )}
+
               {/* Botões de Ação */}
               <div className="flex space-x-3 pt-4">
                 <button
@@ -367,8 +394,10 @@ export default function WhatsAppGroupsTab() {
               <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-xs text-blue-800">
                   <strong>ℹ️ Informação:</strong> Esta é a mensagem que será enviada automaticamente
-                  quando uma auditoria de {activeSubTab} for finalizada.
-                  O PDF do relatório será anexado junto com esta mensagem.
+                  {activeSubTab === 'bipagens'
+                    ? ' todos os dias no horário configurado com as bipagens pendentes.'
+                    : ` quando uma auditoria de ${activeSubTab} for finalizada.`}
+                  {' '}O PDF do relatório será anexado junto com esta mensagem.
                 </p>
               </div>
             </div>

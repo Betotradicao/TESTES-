@@ -408,4 +408,30 @@ router.post('/:id/image', authenticateToken, imageUpload.single('image'), BipsCo
  */
 router.delete('/:id/image', authenticateToken, BipsController.deleteImage);
 
+/**
+ * @swagger
+ * /api/bips/send-pending-report:
+ *   post:
+ *     summary: Enviar PDF de bipagens pendentes (teste manual)
+ *     tags: [Bips]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               date:
+ *                 type: string
+ *                 example: "2026-01-07"
+ *     responses:
+ *       200:
+ *         description: PDF enviado com sucesso
+ *       400:
+ *         description: Parâmetros inválidos
+ */
+router.post('/send-pending-report', authenticateToken, BipsController.sendPendingBipsReport);
+
 export default router;

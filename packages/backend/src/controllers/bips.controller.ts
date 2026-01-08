@@ -659,4 +659,80 @@ export class BipsController {
       });
     }
   }
+
+  /**
+   * Enviar PDF de bipagens pendentes (teste manual)
+   */
+  static async sendPendingBipsReport(req: AuthRequest, res: Response) {
+    try {
+      const { date } = req.body;
+
+      if (!date) {
+        return res.status(400).json({ error: 'Data é obrigatória (formato YYYY-MM-DD)' });
+      }
+
+      // Validar formato da data
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(date)) {
+        return res.status(400).json({ error: 'Formato de data inválido. Use YYYY-MM-DD' });
+      }
+
+      console.log(`📊 Teste manual: Buscando bipagens pendentes para ${date}`);
+
+      // Buscar bipagens pendentes do dia
+      const bipRepository = AppDataSource.getRepository(Bip);
+      const filterDate = new Date(date);
+      const startOfDay = new Date(filterDate);
+      startOfDay.setUTCHours(0, 0, 0, 0);
+      const endOfDay = new Date(filterDate);
+      endOfDay.setUTCHours(23, 59, 59, 999);
+
+      const pendingBips = await bipRepository.find({
+        where: {
+          status: BipStatus.PENDING,
+          notified_at: null,
+          event_date: Between(startOfDay, endOfDay)
+        },
+        relations: ['equipment', 'equipment.sector', 'employee'],
+        order: {
+          event_date: 'ASC'
+        }
+      });
+
+      console.log(`📱 Encontradas ${pendingBips.length} bipagens pendentes`);
+
+      if (pendingBips.length === 0) {
+        return res.json({
+          success: false,
+          message: `Nenhuma bipagem pendente encontrada para ${date}`
+        });
+      }
+
+      // Enviar PDF via WhatsApp
+      const { WhatsAppService } = await import('../services/whatsapp.service');
+      const pdfSent = await WhatsAppService.sendPendingBipsPDF(pendingBips, date);
+
+      if (pdfSent) {
+        // NÃO marcar como notificadas no teste manual
+        console.log(`✅ PDF de teste enviado com sucesso (${pendingBips.length} bipagens)`);
+        return res.json({
+          success: true,
+          message: `PDF enviado com ${pendingBips.length} bipagens pendentes`,
+          bipsCount: pendingBips.length
+        });
+      } else {
+        console.error(`❌ Falha ao enviar PDF de teste`);
+        return res.status(500).json({
+          success: false,
+          error: 'Falha ao enviar PDF para WhatsApp'
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao enviar relatório de bipagens pendentes:', error);
+      res.status(500).json({
+        error: 'Erro interno do servidor',
+        details: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    }
+  }
 }
