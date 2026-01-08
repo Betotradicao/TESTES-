@@ -799,8 +799,9 @@ export class RuptureSurveyService {
 
           startY += rowHeight;
 
-          // Linhas de dados (zebradas)
-          items.forEach((item, idx) => {
+          // Linhas de dados (zebradas) - usar for loop para permitir break após recursão
+          for (let idx = 0; idx < items.length; idx++) {
+            const item = items[idx];
             const bgColor = idx % 2 === 0 ? '#F5F5F5' : '#FFFFFF';
             doc.rect(30, startY, 780, rowHeight).fillAndStroke(bgColor, '#DDD');
             doc.fontSize(5.5).fillColor('#000');
@@ -829,13 +830,14 @@ export class RuptureSurveyService {
 
             startY += rowHeight;
 
-            // Nova página se necessário
+            // Nova página se necessário - usar break para parar o loop após recursão
             if (startY > 500 && idx < items.length - 1) {
               doc.addPage();
               startY = 30;
-              return drawTable(title, items.slice(idx + 1), startY);
+              drawTable(title, items.slice(idx + 1), startY);
+              break; // ✅ CRITICAL: Para o loop para evitar duplicação
             }
-          });
+          }
 
           return startY + 20;
         };
