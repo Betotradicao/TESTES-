@@ -183,10 +183,11 @@ export class PDVService {
     const vendas = await this.buscarVendas(dataInicio, dataFim);
 
     // Filter out cancelled transactions and negative quantities
+    // Note: Zanthus returns "0" for non-cancelled transactions, not null or empty
     const vendasValidas = vendas.filter(v =>
       v.quantidade > 0 &&
-      !v.tipoCancelamento &&
-      !v.motivoCancelamento
+      (!v.tipoCancelamento || v.tipoCancelamento === '0') &&
+      (!v.motivoCancelamento || v.motivoCancelamento === '0')
     );
 
     // Calcular totais gerais
@@ -200,8 +201,8 @@ export class PDVService {
 
     const devolucoes = vendas.filter(v =>
       v.quantidade < 0 &&
-      !v.tipoCancelamento &&
-      !v.motivoCancelamento
+      (!v.tipoCancelamento || v.tipoCancelamento === '0') &&
+      (!v.motivoCancelamento || v.motivoCancelamento === '0')
     );
     const qtdDevolucoes = devolucoes.length;
     const valorTotalDevolucoes = Math.abs(devolucoes.reduce((sum, v) => sum + v.valorTotal, 0));
@@ -212,7 +213,9 @@ export class PDVService {
 
     vendas.forEach(v => {
       // Skip cancelled transactions completely
-      if (v.tipoCancelamento || v.motivoCancelamento) {
+      // Note: Zanthus returns "0" for non-cancelled transactions
+      if ((v.tipoCancelamento && v.tipoCancelamento !== '0') ||
+          (v.motivoCancelamento && v.motivoCancelamento !== '0')) {
         return;
       }
 
