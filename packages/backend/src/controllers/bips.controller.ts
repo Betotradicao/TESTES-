@@ -3,7 +3,7 @@ import { AppDataSource } from '../config/database';
 import { Bip, BipStatus, MotivoCancelamento } from '../entities/Bip';
 import { Sell } from '../entities/Sell';
 import { AuthRequest } from '../middleware/auth';
-import { Between } from 'typeorm';
+import { Between, IsNull } from 'typeorm';
 import { uploadService } from '../services/upload.service';
 
 export class BipsController {
@@ -690,7 +690,7 @@ export class BipsController {
       const pendingBips = await bipRepository.find({
         where: {
           status: BipStatus.PENDING,
-          notified_at: null,
+          notified_at: IsNull(),
           event_date: Between(startOfDay, endOfDay)
         },
         relations: ['equipment', 'equipment.sector', 'employee'],
