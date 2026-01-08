@@ -80,8 +80,8 @@ export class BipPDFService {
       startY += 20;
 
       // Definir colunas da tabela
-      const colX = [30, 100, 300, 410, 495];
-      const colWidth = [70, 200, 110, 85, 70];
+      const colX = [30, 90, 270, 380, 465];
+      const colWidth = [60, 180, 110, 85, 100];
       const rowHeight = 18;
 
       // Cabeçalho da tabela (laranja forte)
