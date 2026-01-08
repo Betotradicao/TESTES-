@@ -1,7 +1,8 @@
+import type { Router as IRouter } from 'express';
 import { Router } from 'express';
 import { PDVController } from '../controllers/pdv.controller';
 
-const router = Router();
+const router: IRouter = Router();
 
 // Rotas de dados PDV
 router.get('/resumo', PDVController.getResumo);
