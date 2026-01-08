@@ -42,9 +42,9 @@ export default function ControlePDV() {
   const [descontos, setDescontos] = useState([]);
   const [devolucoes, setDevolucoes] = useState([]);
 
-  // Filtros - usando data 2025 (ano atual)
-  const hoje = new Date('2025-01-08');
-  const primeiroDiaMes = new Date(2025, 0, 1);
+  // Filtros - usando data atual
+  const hoje = new Date();
+  const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
 
   const [filters, setFilters] = useState({
     dataInicio: primeiroDiaMes.toISOString().split('T')[0],
