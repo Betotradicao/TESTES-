@@ -22,6 +22,9 @@ export interface VendaPDV {
   autorizadorDescontoNome?: string;
   dataHora: string;
   turno: number;
+  motivoCancelamento?: string;
+  funcionarioCancelamento?: string;
+  tipoCancelamento?: string;
 }
 
 export interface ResumoOperador {
@@ -91,7 +94,10 @@ export class PDVService {
         z.M43DF as motivoDesconto,
         z.M43DG as autorizadorDesconto,
         TO_CHAR(TO_TIMESTAMP(TO_CHAR(z.M00AF,'YYYY-MM-DD') || ' ' || LPAD(z.M43AS,4,'0'), 'YYYY-MM-DD HH24MI'), 'YYYY-MM-DD HH24:MI:SS') AS dataHora,
-        z.M00_TURNO as turno
+        z.M00_TURNO as turno,
+        z.M43BV as motivoCancelamento,
+        z.M43BW as funcionarioCancelamento,
+        z.M43CF as tipoCancelamento
       FROM ZAN_M43 z
       LEFT JOIN TAB_PRODUTO p ON p.COD_PRODUTO LIKE '%' || z.M43AH
       WHERE TRUNC(z.M00AF) BETWEEN TO_DATE('${formattedFromDate}','YYYY-MM-DD') AND TO_DATE('${formattedToDate}','YYYY-MM-DD')
@@ -166,25 +172,37 @@ export class PDVService {
         ? autorizadorMap.get(parseInt(v.AUTORIZADORDESCONTO))
         : undefined,
       dataHora: v.DATAHORA,
-      turno: parseInt(v.TURNO || 1)
+      turno: parseInt(v.TURNO || 1),
+      motivoCancelamento: v.MOTIVOCANCELAMENTO,
+      funcionarioCancelamento: v.FUNCIONARIOCANCELAMENTO,
+      tipoCancelamento: v.TIPOCANCELAMENTO
     }));
   }
 
   static async gerarResumo(dataInicio: string, dataFim: string): Promise<ResumoPDV> {
     const vendas = await this.buscarVendas(dataInicio, dataFim);
 
-    // Calcular totais gerais
-    const totalVendas = vendas.filter(v => v.quantidade > 0).length;
-    const valorTotalVendido = vendas
-      .filter(v => v.quantidade > 0)
-      .reduce((sum, v) => sum + v.valorTotal, 0);
+    // Filter out cancelled transactions and negative quantities
+    const vendasValidas = vendas.filter(v =>
+      v.quantidade > 0 &&
+      !v.tipoCancelamento &&
+      !v.motivoCancelamento
+    );
 
-    const vendasComDesconto = vendas.filter(v => v.desconto && v.desconto > 0);
+    // Calcular totais gerais
+    const totalVendas = vendasValidas.length;
+    const valorTotalVendido = vendasValidas.reduce((sum, v) => sum + v.valorTotal, 0);
+
+    const vendasComDesconto = vendasValidas.filter(v => v.desconto && v.desconto > 0);
     const qtdDescontos = vendasComDesconto.length;
     const valorTotalDescontos = vendasComDesconto.reduce((sum, v) => sum + (v.desconto || 0), 0);
     const percentualDescontos = totalVendas > 0 ? (qtdDescontos / totalVendas) * 100 : 0;
 
-    const devolucoes = vendas.filter(v => v.quantidade < 0);
+    const devolucoes = vendas.filter(v =>
+      v.quantidade < 0 &&
+      !v.tipoCancelamento &&
+      !v.motivoCancelamento
+    );
     const qtdDevolucoes = devolucoes.length;
     const valorTotalDevolucoes = Math.abs(devolucoes.reduce((sum, v) => sum + v.valorTotal, 0));
     const percentualDevolucoes = totalVendas > 0 ? (qtdDevolucoes / totalVendas) * 100 : 0;
@@ -193,6 +211,11 @@ export class PDVService {
     const operadoresMap = new Map<number, any>();
 
     vendas.forEach(v => {
+      // Skip cancelled transactions completely
+      if (v.tipoCancelamento || v.motivoCancelamento) {
+        return;
+      }
+
       if (!operadoresMap.has(v.operador)) {
         operadoresMap.set(v.operador, {
           codigo: v.operador,
