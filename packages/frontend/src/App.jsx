@@ -27,6 +27,7 @@ import EtiquetaVerificacao from './pages/EtiquetaVerificacao';
 import EtiquetaResultadosAuditorias from './pages/EtiquetaResultadosAuditorias';
 import PerdasLancador from './pages/PerdasLancador';
 import PerdasResultados from './pages/PerdasResultados';
+import ControlePDV from './pages/ControlePDV';
 
 function App() {
   return (
@@ -206,6 +207,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PerdasResultados />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/controle-pdv"
+              element={
+                <ProtectedRoute>
+                  <ControlePDV />
                 </ProtectedRoute>
               }
             />
