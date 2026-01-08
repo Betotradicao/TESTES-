@@ -2,32 +2,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement,
-  PointElement,
-  LineElement
-} from 'chart.js';
-import { Bar, Pie } from 'react-chartjs-2';
-
-// Registrar componentes do Chart.js
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement,
-  PointElement,
-  LineElement
-);
 
 export default function ControlePDV() {
   const { user, logout } = useAuth();
@@ -129,37 +103,6 @@ export default function ControlePDV() {
       currency: 'BRL'
     }).format(value || 0);
   };
-
-  // Dados para gr'afico de vendas por operador (Bar Chart)
-  const vendasPorOperadorData = resumo ? {
-    labels: resumo.operadores.map(op => op.nome),
-    datasets: [{
-      label: 'Valor Vendido (R$)',
-      data: resumo.operadores.map(op => op.valorTotalVendido),
-      backgroundColor: 'rgba(54, 162, 235, 0.6)',
-      borderColor: 'rgba(54, 162, 235, 1)',
-      borderWidth: 1
-    }]
-  } : null;
-
-  // Dados para gr'afico de descontos por operador (Pie Chart)
-  const descontosPorOperadorData = resumo ? {
-    labels: resumo.operadores.filter(op => op.qtdDescontos > 0).map(op => op.nome),
-    datasets: [{
-      label: 'Descontos',
-      data: resumo.operadores.filter(op => op.qtdDescontos > 0).map(op => op.qtdDescontos),
-      backgroundColor: [
-        'rgba(255, 99, 132, 0.6)',
-        'rgba(54, 162, 235, 0.6)',
-        'rgba(255, 206, 86, 0.6)',
-        'rgba(75, 192, 192, 0.6)',
-        'rgba(153, 102, 255, 0.6)',
-        'rgba(255, 159, 64, 0.6)',
-        'rgba(199, 199, 199, 0.6)'
-      ],
-      borderWidth: 1
-    }]
-  } : null;
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -265,57 +208,6 @@ export default function ControlePDV() {
                   <p className="text-2xl font-bold text-red-600">{resumo.qtdDevolucoes}</p>
                   <p className="text-lg text-red-700 mt-1">{formatCurrency(resumo.valorTotalDevolucoes)}</p>
                   <p className="text-sm text-gray-600 mt-1">{resumo.percentualDevolucoes.toFixed(2)}% das vendas</p>
-                </div>
-              </div>
-
-              {/* Graficos */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                {/* Grafico de Vendas por Operador */}
-                <div className="bg-white p-6 rounded-lg shadow">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Vendas por Operador</h3>
-                  {vendasPorOperadorData && (
-                    <Bar
-                      data={vendasPorOperadorData}
-                      options={{
-                        responsive: true,
-                        plugins: {
-                          legend: { display: false },
-                          title: { display: false }
-                        },
-                        scales: {
-                          y: {
-                            ticks: { color: '#374151' },
-                            grid: { color: 'rgba(209, 213, 219, 0.5)' }
-                          },
-                          x: {
-                            ticks: { color: '#374151' },
-                            grid: { display: false }
-                          }
-                        }
-                      }}
-                    />
-                  )}
-                </div>
-
-                {/* Grafico de Descontos por Operador */}
-                <div className="bg-white p-6 rounded-lg shadow">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Descontos por Operador</h3>
-                  {descontosPorOperadorData && descontosPorOperadorData.labels.length > 0 ? (
-                    <Pie
-                      data={descontosPorOperadorData}
-                      options={{
-                        responsive: true,
-                        plugins: {
-                          legend: {
-                            position: 'bottom',
-                            labels: { color: '#374151' }
-                          }
-                        }
-                      }}
-                    />
-                  ) : (
-                    <p className="text-gray-500 text-center py-8">Nenhum desconto no periodo</p>
-                  )}
                 </div>
               </div>
 
