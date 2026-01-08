@@ -775,51 +775,57 @@ export class RuptureSurveyService {
           doc.fontSize(12).fillColor('#000').text(title, 30, startY);
           startY += 20;
 
-          // Definir colunas
-          const colX = [30, 80, 230, 310, 355, 405, 470, 545, 610, 665, 730];
-          const colWidth = [50, 150, 80, 45, 50, 65, 75, 65, 55, 65, 60];
+          // Definir colunas - adicionando Código de Barras e reordenando PEDIDO após PRODUTO
+          const colX = [30, 50, 120, 215, 290, 335, 370, 420, 475, 535, 590, 645, 710];
+          const colWidth = [20, 70, 95, 75, 45, 35, 50, 55, 60, 55, 55, 65, 75];
           const rowHeight = 18;
 
           // Cabeçalho da tabela (laranja forte)
-          doc.rect(30, startY, 770, rowHeight).fillAndStroke('#FF6600', '#000');
-          doc.fontSize(7).fillColor('#FFF');
-          doc.text('#', colX[0] + 5, startY + 5, { width: colWidth[0], align: 'left' });
-          doc.text('PRODUTO', colX[1] + 5, startY + 5, { width: colWidth[1], align: 'left' });
-          doc.text('FORNECEDOR', colX[2] + 5, startY + 5, { width: colWidth[2], align: 'left' });
-          doc.text('SEÇÃO', colX[3] + 5, startY + 5, { width: colWidth[3], align: 'left' });
-          doc.text('CURVA', colX[4] + 5, startY + 5, { width: colWidth[4], align: 'left' });
-          doc.text('ESTOQUE', colX[5] + 5, startY + 5, { width: colWidth[5], align: 'right' });
-          doc.text('V.MÉD/DIA', colX[6] + 5, startY + 5, { width: colWidth[6], align: 'right' });
-          doc.text('VL.VENDA', colX[7] + 5, startY + 5, { width: colWidth[7], align: 'right' });
-          doc.text('MARGEM', colX[8] + 5, startY + 5, { width: colWidth[8], align: 'right' });
-          doc.text('PEDIDO', colX[9] + 5, startY + 5, { width: colWidth[9], align: 'center' });
-          doc.text('PERDA', colX[10] + 5, startY + 5, { width: colWidth[10], align: 'right' });
+          doc.rect(30, startY, 780, rowHeight).fillAndStroke('#FF6600', '#000');
+          doc.fontSize(6).fillColor('#FFF');
+          doc.text('#', colX[0] + 2, startY + 5, { width: colWidth[0], align: 'left' });
+          doc.text('COD.BARRAS', colX[1] + 2, startY + 5, { width: colWidth[1], align: 'left' });
+          doc.text('PRODUTO', colX[2] + 2, startY + 5, { width: colWidth[2], align: 'left' });
+          doc.text('PEDIDO', colX[3] + 2, startY + 5, { width: colWidth[3], align: 'center' });
+          doc.text('FORNECEDOR', colX[4] + 2, startY + 5, { width: colWidth[4], align: 'left' });
+          doc.text('SEÇÃO', colX[5] + 2, startY + 5, { width: colWidth[5], align: 'left' });
+          doc.text('CURVA', colX[6] + 2, startY + 5, { width: colWidth[6], align: 'center' });
+          doc.text('ESTOQUE', colX[7] + 2, startY + 5, { width: colWidth[7], align: 'right' });
+          doc.text('V.MÉD/DIA', colX[8] + 2, startY + 5, { width: colWidth[8], align: 'right' });
+          doc.text('VL.VENDA', colX[9] + 2, startY + 5, { width: colWidth[9], align: 'right' });
+          doc.text('MARGEM', colX[10] + 2, startY + 5, { width: colWidth[10], align: 'right' });
+          doc.text('P.VENDA', colX[11] + 2, startY + 5, { width: colWidth[11], align: 'right' });
+          doc.text('P.LUCRO', colX[12] + 2, startY + 5, { width: colWidth[12], align: 'right' });
 
           startY += rowHeight;
 
           // Linhas de dados (zebradas)
           items.forEach((item, idx) => {
             const bgColor = idx % 2 === 0 ? '#F5F5F5' : '#FFFFFF';
-            doc.rect(30, startY, 770, rowHeight).fillAndStroke(bgColor, '#DDD');
-            doc.fontSize(6).fillColor('#000');
+            doc.rect(30, startY, 780, rowHeight).fillAndStroke(bgColor, '#DDD');
+            doc.fontSize(5.5).fillColor('#000');
 
+            // Parse values with proper defaults
             const estoque = parseFloat(item.estoque_atual as any) || 0;
             const vendaMedia = parseFloat(item.venda_media_dia as any) || 0;
             const valorVenda = parseFloat(item.valor_venda as any) || 0;
             const margem = parseFloat(item.margem_lucro as any) || 0;
-            const perda = valorVenda * vendaMedia;
+            const perdaVenda = valorVenda * vendaMedia;
+            const perdaLucro = perdaVenda * (margem / 100);
 
-            doc.text(`${idx + 1}`, colX[0] + 5, startY + 5, { width: colWidth[0], align: 'left' });
-            doc.text(item.descricao?.substring(0, 30) || '', colX[1] + 5, startY + 5, { width: colWidth[1], align: 'left' });
-            doc.text(item.fornecedor?.substring(0, 15) || '', colX[2] + 5, startY + 5, { width: colWidth[2], align: 'left' });
-            doc.text(item.secao?.substring(0, 10) || '', colX[3] + 5, startY + 5, { width: colWidth[3], align: 'left' });
-            doc.text(item.curva || '-', colX[4] + 5, startY + 5, { width: colWidth[4], align: 'left' });
-            doc.text(estoque.toFixed(0), colX[5] + 5, startY + 5, { width: colWidth[5], align: 'right' });
-            doc.text(vendaMedia.toFixed(2), colX[6] + 5, startY + 5, { width: colWidth[6], align: 'right' });
-            doc.text(`R$ ${valorVenda.toFixed(2)}`, colX[7] + 5, startY + 5, { width: colWidth[7], align: 'right' });
-            doc.text(`${margem.toFixed(1)}%`, colX[8] + 5, startY + 5, { width: colWidth[8], align: 'right' });
-            doc.text(item.tem_pedido || '-', colX[9] + 5, startY + 5, { width: colWidth[9], align: 'center' });
-            doc.text(`R$ ${perda.toFixed(2)}`, colX[10] + 5, startY + 5, { width: colWidth[10], align: 'right' });
+            doc.text(`${idx + 1}`, colX[0] + 2, startY + 5, { width: colWidth[0], align: 'left' });
+            doc.text(item.codigo_barras?.substring(0, 13) || '-', colX[1] + 2, startY + 5, { width: colWidth[1], align: 'left' });
+            doc.text(item.descricao?.substring(0, 20) || '', colX[2] + 2, startY + 5, { width: colWidth[2], align: 'left' });
+            doc.text(item.tem_pedido || '-', colX[3] + 2, startY + 5, { width: colWidth[3], align: 'center' });
+            doc.text(item.fornecedor?.substring(0, 10) || '-', colX[4] + 2, startY + 5, { width: colWidth[4], align: 'left' });
+            doc.text(item.secao?.substring(0, 8) || '-', colX[5] + 2, startY + 5, { width: colWidth[5], align: 'left' });
+            doc.text(item.curva || '-', colX[6] + 2, startY + 5, { width: colWidth[6], align: 'center' });
+            doc.text(estoque.toFixed(0), colX[7] + 2, startY + 5, { width: colWidth[7], align: 'right' });
+            doc.text(vendaMedia.toFixed(2), colX[8] + 2, startY + 5, { width: colWidth[8], align: 'right' });
+            doc.text(`${valorVenda.toFixed(2)}`, colX[9] + 2, startY + 5, { width: colWidth[9], align: 'right' });
+            doc.text(`${margem.toFixed(1)}%`, colX[10] + 2, startY + 5, { width: colWidth[10], align: 'right' });
+            doc.text(`${perdaVenda.toFixed(2)}`, colX[11] + 2, startY + 5, { width: colWidth[11], align: 'right' });
+            doc.text(`${perdaLucro.toFixed(2)}`, colX[12] + 2, startY + 5, { width: colWidth[12], align: 'right' });
 
             startY += rowHeight;
 
