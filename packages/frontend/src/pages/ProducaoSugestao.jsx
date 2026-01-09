@@ -25,6 +25,7 @@ export default function ProducaoSugestao() {
   const [selectedDate] = useState(todayStr);
   const [auditItems, setAuditItems] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState('asc'); // 'asc' ou 'desc'
 
   // Carregar produtos de padaria e auditoria do dia
   useEffect(() => {
@@ -259,15 +260,23 @@ export default function ProducaoSugestao() {
 
   const monthName = currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
-  // Filtrar produtos pelo termo de busca
-  const filteredProducts = products.filter(product => {
-    if (!searchTerm) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      product.descricao?.toLowerCase().includes(term) ||
-      product.codigo?.toLowerCase().includes(term)
-    );
-  });
+  // Filtrar e ordenar produtos
+  const filteredProducts = products
+    .filter(product => {
+      if (!searchTerm) return true;
+      const term = searchTerm.toLowerCase();
+      return (
+        product.descricao?.toLowerCase().includes(term) ||
+        product.codigo?.toLowerCase().includes(term)
+      );
+    })
+    .sort((a, b) => {
+      const nameA = a.descricao?.toLowerCase() || '';
+      const nameB = b.descricao?.toLowerCase() || '';
+      return sortOrder === 'asc'
+        ? nameA.localeCompare(nameB)
+        : nameB.localeCompare(nameA);
+    });
 
   return (
     <Layout>
@@ -371,6 +380,17 @@ export default function ProducaoSugestao() {
                   {[...new Set(allProducts.map(p => p.tipoEvento))].sort().map(tipo => (
                     <option key={tipo} value={tipo}>{tipo}</option>
                   ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-gray-700">Ordem:</span>
+                <select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="asc">A → Z</option>
+                  <option value="desc">Z → A</option>
                 </select>
               </div>
               <div className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg">
