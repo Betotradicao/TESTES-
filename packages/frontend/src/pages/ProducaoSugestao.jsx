@@ -24,6 +24,7 @@ export default function ProducaoSugestao() {
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const [selectedDate] = useState(todayStr);
   const [auditItems, setAuditItems] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Carregar produtos de padaria e auditoria do dia
   useEffect(() => {
@@ -258,6 +259,16 @@ export default function ProducaoSugestao() {
 
   const monthName = currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
+  // Filtrar produtos pelo termo de busca
+  const filteredProducts = products.filter(product => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      product.descricao?.toLowerCase().includes(term) ||
+      product.codigo?.toLowerCase().includes(term)
+    );
+  });
+
   return (
     <Layout>
       <div className="p-4 lg:p-8">
@@ -329,6 +340,15 @@ export default function ProducaoSugestao() {
 
             {/* Filtros Dinâmicos */}
             <div className="mb-4 flex gap-4 items-center text-sm flex-wrap">
+              <div className="flex-1 min-w-[250px]">
+                <input
+                  type="text"
+                  placeholder="🔍 Buscar produto por nome ou código..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-gray-700">Seção:</span>
                 <select
@@ -355,7 +375,7 @@ export default function ProducaoSugestao() {
               </div>
               <div className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg">
                 <span className="font-semibold text-gray-700">Total:</span>
-                <span className="text-gray-900">{products.length} produtos</span>
+                <span className="text-gray-900">{filteredProducts.length} produtos</span>
               </div>
             </div>
 
@@ -373,7 +393,7 @@ export default function ProducaoSugestao() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {products.map(product => {
+                  {filteredProducts.map(product => {
                     const estoqueUnidades = auditItems[product.codigo]?.quantity_units || 0;
                     const diasProducao = auditItems[product.codigo]?.production_days || 1;
                     const pesoMedio = product.peso_medio_kg || 0;
