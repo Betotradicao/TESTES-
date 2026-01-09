@@ -210,9 +210,9 @@ export default function ProducaoSugestao() {
       setLoading(true);
       setError('');
 
-      // Filtrar apenas produtos com quantidade > 0
+      // Filtrar produtos que tenham quantidade definida (permite zero)
       const items = products
-        .filter(p => auditItems[p.codigo]?.quantity_units > 0)
+        .filter(p => auditItems[p.codigo]?.quantity_units !== undefined && auditItems[p.codigo]?.quantity_units !== '')
         .map(p => ({
           product_code: p.codigo,
           product_name: p.descricao,
@@ -223,7 +223,7 @@ export default function ProducaoSugestao() {
         }));
 
       if (items.length === 0) {
-        setError('Adicione ao menos um produto com quantidade');
+        setError('Adicione ao menos um produto (estoque pode ser zero)');
         return;
       }
 
