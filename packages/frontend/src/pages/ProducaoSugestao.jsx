@@ -126,6 +126,16 @@ export default function ProducaoSugestao() {
     const audit = getDayAudit(day);
     if (audit) {
       loadAuditData(audit.id);
+    } else {
+      // Se não existir auditoria, resetar para valores padrão (0 unidades, 1 dia)
+      const initialItems = {};
+      products.forEach(product => {
+        initialItems[product.codigo] = {
+          quantity_units: 0,
+          production_days: 1
+        };
+      });
+      setAuditItems(initialItems);
     }
   };
 

@@ -6,24 +6,37 @@
 ```bash
 docker compose up -d --build  # RECRIA TODOS OS CONTAINERS = PERDE BANCO DE DADOS!
 docker compose down && up -d  # REMOVE E RECRIA = PERDE BANCO DE DADOS!
+docker compose build          # Rebuilda tudo, incluindo gera NOVAS SENHAS!
 ```
 
 **✅ SEMPRE FAÇA:**
 ```bash
 # Para deploy de FRONTEND apenas:
-cd /root/TESTES/InstaladorVPS
+cd /root/prevencao-radar-install/InstaladorVPS
 docker compose -f docker-compose-producao.yml build --no-cache frontend
 docker compose -f docker-compose-producao.yml up -d --no-deps frontend
 
 # Para deploy de BACKEND apenas:
-cd /root/TESTES/InstaladorVPS
+cd /root/prevencao-radar-install/InstaladorVPS
 docker compose -f docker-compose-producao.yml build --no-cache backend
-docker compose -f docker-compose-producao.yml up -d --no-deps backend cron
+docker compose -f docker-compose-producao.yml up -d --no-deps backend
 
 # Flags importantes:
 # --no-deps = NÃO reinicia containers dependentes (PostgreSQL, MinIO)
 # --no-cache = Força rebuild sem usar cache (pega mudanças novas)
 ```
+
+---
+
+## 🔐 REGRA #2: SENHAS DO BANCO SÃO GERADAS UMA VEZ E NUNCA MUDAM
+
+**IMPORTANTE:** O `docker-compose-producao.yml` gera senhas aleatórias na PRIMEIRA vez que os containers são criados. Se você reconstruir as imagens, o docker-compose vai gerar NOVAS senhas, mas o banco postgres vai continuar com a senha ANTIGA!
+
+**Resultado:** Backend não consegue conectar no banco (erro: `password authentication failed`)
+
+**SOLUÇÃO:**
+- Use sempre `--no-deps` para não recriar o container do postgres
+- Se precisar reconstruir tudo do zero, use `docker compose down -v` (⚠️ PERDE TODOS OS DADOS!)
 
 ---
 
@@ -39,7 +52,7 @@ docker compose -f docker-compose-producao.yml up -d --no-deps backend cron
 #### ✅ Se mudou APENAS FRONTEND:
 ```bash
 ssh root@145.223.92.152
-cd /root/TESTES
+cd /root/prevencao-radar-install
 git pull
 cd InstaladorVPS
 docker compose -f docker-compose-producao.yml build --no-cache frontend
@@ -49,36 +62,66 @@ docker compose -f docker-compose-producao.yml up -d --no-deps frontend
 #### ✅ Se mudou APENAS BACKEND:
 ```bash
 ssh root@145.223.92.152
-cd /root/TESTES
+cd /root/prevencao-radar-install
 git pull
 cd InstaladorVPS
 docker compose -f docker-compose-producao.yml build --no-cache backend
-docker compose -f docker-compose-producao.yml up -d --no-deps backend cron
+docker compose -f docker-compose-producao.yml up -d --no-deps backend
 ```
 
 #### ✅ Se mudou FRONTEND + BACKEND:
 ```bash
 ssh root@145.223.92.152
-cd /root/TESTES
+cd /root/prevencao-radar-install
 git pull
 cd InstaladorVPS
 docker compose -f docker-compose-producao.yml build --no-cache frontend backend
-docker compose -f docker-compose-producao.yml up -d --no-deps frontend backend cron
+docker compose -f docker-compose-producao.yml up -d --no-deps frontend backend
 ```
 
 #### ⚠️ Se mudou BANCO DE DADOS (migrations):
 ```bash
 ssh root@145.223.92.152
-cd /root/TESTES
+cd /root/prevencao-radar-install
 git pull
 cd InstaladorVPS
 
 # Apenas rebuild do backend (migrations rodam automaticamente no boot)
 docker compose -f docker-compose-producao.yml build --no-cache backend
-docker compose -f docker-compose-producao.yml up -d --no-deps backend cron
+docker compose -f docker-compose-producao.yml up -d --no-deps backend
 
 # Verificar logs para confirmar que migrations rodaram:
 docker logs prevencao-backend-prod --tail 50
+```
+
+---
+
+## 🛑 SE DEU ERRO: "password authentication failed for user postgres"
+
+**Causa:** Você reconstruiu as imagens e o docker-compose gerou novas senhas diferentes das que o postgres está usando.
+
+**Sintomas:**
+- Backend não conecta no banco
+- Logs mostram: `password authentication failed for user "postgres"`
+- Site fica em loop de loading
+
+**Solução RÁPIDA (sem perder dados):**
+
+```bash
+# 1. Descobrir qual senha o backend está usando:
+docker exec prevencao-backend-prod env | grep DB_PASSWORD
+
+# 2. Descobrir qual senha o postgres está usando:
+docker exec prevencao-postgres-prod env | grep POSTGRES_PASSWORD
+
+# 3. Se forem diferentes, atualizar a senha do postgres:
+docker exec prevencao-postgres-prod psql -U postgres -c "ALTER USER postgres WITH PASSWORD 'SENHA_DO_BACKEND_AQUI';"
+
+# 4. Reiniciar o backend:
+docker restart prevencao-backend-prod
+
+# 5. Verificar se conectou:
+docker logs prevencao-backend-prod --tail 30 | grep "Database connected"
 ```
 
 ---
@@ -87,50 +130,51 @@ docker logs prevencao-backend-prod --tail 50
 
 **Sintomas:**
 - Tela de "First Setup" apareceu novamente
-- Erro: `password authentication failed for user "postgres"`
 - Perdeu todas as configurações/dados
+- Volume do postgres foi deletado
+
+**NÃO TEM MAIS VOLTA!** Os dados foram perdidos.
 
 **Solução:**
-1. **NÃO ENTRE EM PÂNICO!** Os volumes ainda podem ter os dados
-2. Verificar se volume existe:
 ```bash
-docker volume ls | grep postgres
-```
+# Parar tudo e começar do zero
+cd /root/prevencao-radar-install/InstaladorVPS
+docker compose -f docker-compose-producao.yml down -v  # Remove volumes também
 
-3. Se volume foi deletado (perdeu tudo):
-```bash
-# Parar tudo
-cd /root/TESTES/InstaladorVPS
-docker compose -f docker-compose-producao.yml down
-
-# Rodar instalador novamente (vai criar banco do zero)
-cd /root/TESTES/InstaladorVPS
+# Rodar instalador novamente (cria banco do zero)
 bash INSTALAR-AUTO.sh
 
-# Avisar o usuário que PERDEU TODOS OS DADOS e vai ter que:
+# Avisar o usuário que precisa:
 # - Refazer First Setup
-# - Reconfigurar APIs (Zanthus, WhatsApp, etc)
+# - Reconfigurar APIs (Zanthus, WhatsApp, Evolution)
 # - Reativar produtos
+# - Refazer todas as configurações
 ```
 
 ---
 
 ## 📝 EXEMPLO REAL DE DEPLOY CORRETO
 
-**Situação:** Corrigi bug na tela de Etiquetas (arquivo `EtiquetaVerificacao.jsx`)
+**Situação:** Implementei módulo de Produção com novas tabelas no banco
 
 **Passos:**
 ```bash
 # 1. Fazer commit local
-git add packages/frontend/src/pages/EtiquetaVerificacao.jsx
-git commit -m "fix: Corrige tela branca ao acessar auditoria concluída"
+git add -A
+git commit -m "feat: Adiciona módulo de produção com dias por item"
 git push
 
-# 2. Deploy na VPS (APENAS FRONTEND!)
-ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml up -d --no-deps frontend"
+# 2. Deploy na VPS (APENAS BACKEND porque tem migration!)
+ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/prevencao-radar-install && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache backend && docker compose -f docker-compose-producao.yml up -d --no-deps backend"
 
-# 3. Verificar se funcionou
-# Aguardar 30 segundos e acessar: http://145.223.92.152:3000
+# 3. Verificar se migrations rodaram e backend conectou
+ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "docker logs prevencao-backend-prod --tail 50 | grep -E 'Database connected|migration ran|Server is running'"
+
+# 4. Verificar se tabelas foram criadas
+ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c \"SELECT table_name FROM information_schema.tables WHERE table_name LIKE '%production%';\""
+
+# 5. Testar o site
+curl http://145.223.92.152:3001/api/health
 ```
 
 ---
@@ -147,24 +191,52 @@ docker logs prevencao-backend-prod --tail 50 -f
 # Ver logs do frontend
 docker logs prevencao-frontend-prod --tail 50
 
-# Ver logs do cron
-docker logs prevencao-cron-prod --tail 50
-
 # Verificar se banco está respondendo
-docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c 'SELECT COUNT(*) FROM companies;'
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c 'SELECT COUNT(*) FROM users;'
 
 # Verificar volumes (NÃO DEVEM SER DELETADOS!)
 docker volume ls
+
+# Verificar quantas tabelas existem no banco
+docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c '\dt' | wc -l
+
+# Ver senha atual do postgres
+docker exec prevencao-postgres-prod env | grep POSTGRES_PASSWORD
+
+# Ver senha que o backend está usando
+docker exec prevencao-backend-prod env | grep DB_PASSWORD
 ```
+
+---
+
+## 📁 DIFERENÇA ENTRE docker-compose.yml E docker-compose-producao.yml
+
+### `docker-compose.yml` (Desenvolvimento Local)
+- Senhas SIMPLES e fixas (postgres123, test-api-token)
+- Sem SSL/TLS
+- Sem volumes nomeados persistentes
+- Portas diretas (3000, 3001, 5432)
+- **NUNCA usar em produção!**
+
+### `docker-compose-producao.yml` (VPS)
+- Senhas FORTES geradas automaticamente na criação
+- Configurações de segurança
+- Volumes nomeados persistentes (dados não são perdidos)
+- Container de cron para tarefas agendadas
+- Healthchecks configurados
+- **SEMPRE usar em produção!**
+
+**IMPORTANTE:** Se você reconstruir com `docker-compose-producao.yml`, ele vai gerar NOVAS senhas. Por isso sempre use `--no-deps` para não recriar o postgres!
 
 ---
 
 ## ❗ MEMORIZAR ISSO:
 
-1. **--no-deps** = NÃO mexe em PostgreSQL/MinIO
+1. **--no-deps** = NÃO mexe em PostgreSQL/MinIO (preserva senhas e dados)
 2. **--no-cache** = Pega código novo do Git
 3. **Sempre especificar QUAL container atualizar** (frontend, backend, ou ambos)
 4. **NUNCA usar `down`** a menos que queira começar do zero
+5. **docker-compose-producao.yml gera senhas NOVAS a cada build** - por isso use --no-deps!
 
 ---
 
@@ -172,11 +244,36 @@ docker volume ls
 
 **ANTES** de rodar qualquer comando de deploy:
 1. Pare e pense: "Vou recriar o banco de dados com esse comando?"
-2. Se a resposta for "SIM" ou "NÃO SEI", **NÃO RODE O COMANDO!**
-3. Consulte este documento novamente
-4. Use `--no-deps` para garantir
+2. Pare e pense: "Vou gerar novas senhas diferentes?"
+3. Se a resposta for "SIM" ou "NÃO SEI", **NÃO RODE O COMANDO!**
+4. Consulte este documento novamente
+5. Use `--no-deps` para garantir
 
 ---
 
-**Última atualização:** 07/01/2026
+## 🎓 LIÇÕES APRENDIDAS (09/01/2026)
+
+### Problema que aconteceu:
+1. Reconstruí imagens com `docker-compose-producao.yml`
+2. Docker gerou NOVAS senhas aleatórias
+3. Backend tentou usar senha NOVA
+4. Postgres tinha senha ANTIGA
+5. Backend não conseguiu conectar
+
+### Solução aplicada:
+1. Mantive postgres com senha antiga (preservou dados)
+2. Descobri qual senha o backend estava usando
+3. Alterei a senha do postgres para a senha do backend novo
+4. Backend conectou e migrations rodaram
+5. Nenhum dado foi perdido!
+
+### Aprendizado:
+- Senhas são geradas na CRIAÇÃO dos containers
+- Se rebuildar, gera novas senhas
+- Sempre usar `--no-deps` para não recriar postgres
+- Se errar, dá pra corrigir alterando senha do postgres
+
+---
+
+**Última atualização:** 09/01/2026 - Adicionada seção sobre problema de senhas após rebuild
 **Criado por:** Claude (depois de aprender da forma difícil 😅)
