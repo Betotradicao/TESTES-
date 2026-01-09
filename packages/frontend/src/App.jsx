@@ -28,6 +28,8 @@ import EtiquetaResultadosAuditorias from './pages/EtiquetaResultadosAuditorias';
 import PerdasLancador from './pages/PerdasLancador';
 import PerdasResultados from './pages/PerdasResultados';
 import ControlePDV from './pages/ControlePDV';
+import ProducaoSugestao from './pages/ProducaoSugestao';
+import ProducaoResultados from './pages/ProducaoResultados';
 
 function App() {
   return (
@@ -215,6 +217,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ControlePDV />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/producao/sugestao"
+              element={
+                <ProtectedRoute>
+                  <ProducaoSugestao />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/producao/resultados"
+              element={
+                <ProtectedRoute>
+                  <ProducaoResultados />
                 </ProtectedRoute>
               }
             />
