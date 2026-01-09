@@ -102,6 +102,13 @@ export default function WhatsAppGroupsTab() {
     loadConfigurations();
   }, []);
 
+  // Recarregar configurações quando trocar de aba para garantir dados atualizados
+  useEffect(() => {
+    if (!isLoading) {
+      loadConfigurations();
+    }
+  }, [activeSubTab]);
+
   const loadConfigurations = async () => {
     try {
       setIsLoading(true);
