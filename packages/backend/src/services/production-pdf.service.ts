@@ -99,6 +99,7 @@ export class ProductionPDFService {
 
         // Desenhar cabeçalho da tabela
         this.drawTableHeader(doc, [
+          'Código',
           'Produto',
           'Estoque (kg)',
           'Estoque (und)',
@@ -118,7 +119,8 @@ export class ProductionPDFService {
           const suggestedUnits = item.suggested_production_units || 0;
 
           this.drawTableRow(doc, [
-            this.truncate(item.product_name, 35),
+            item.product_code || '',
+            this.truncate(item.product_name, 30),
             this.formatKg(item.quantity_kg),
             item.quantity_units.toString(),
             item.production_days.toString(),
@@ -213,7 +215,7 @@ export class ProductionPDFService {
 
     columns.forEach((col, idx) => {
       // Destacar em vermelho as últimas duas colunas (Produzir kg/und) se highlightRed
-      if (highlightRed && idx >= 4) {
+      if (highlightRed && idx >= 5) {
         doc.fillColor('#DC2626').font('Helvetica-Bold');
       } else {
         doc.fillColor('black').font('Helvetica');
