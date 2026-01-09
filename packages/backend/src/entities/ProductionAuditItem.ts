@@ -40,6 +40,15 @@ export class ProductionAuditItem {
   @Column({ type: 'integer', nullable: true })
   suggested_production_units: number | null; // Sugestão em unidades
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  unit_cost: number | null; // Custo unitário
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  unit_price: number | null; // Preço de venda unitário
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  profit_margin: number | null; // Margem de lucro em %
+
   @CreateDateColumn()
   created_at: Date;
 }
