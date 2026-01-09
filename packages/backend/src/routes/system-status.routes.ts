@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getCronStatus, getBarcodeStatus, testZanthusConnection } from '../controllers/system-status.controller';
+import { getCronStatus, getBarcodeStatus, testZanthusConnection, restartCronService } from '../controllers/system-status.controller';
 
 const router: Router = Router();
 
@@ -38,6 +38,19 @@ const router: Router = Router();
  *                   example: null
  */
 router.get('/cron/status', getCronStatus);
+
+/**
+ * @swagger
+ * /api/cron/restart:
+ *   post:
+ *     summary: Reinicia o serviço CRON
+ *     description: Reinicia o container do CRON para resolver problemas
+ *     tags: [System Status]
+ *     responses:
+ *       200:
+ *         description: CRON reiniciado com sucesso
+ */
+router.post('/cron/restart', restartCronService);
 
 /**
  * @swagger

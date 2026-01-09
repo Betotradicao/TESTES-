@@ -5,6 +5,7 @@ export default function CronMonitorTab() {
   const [cronStatus, setCronStatus] = useState(null);
   const [barcodeStatus, setBarcodeStatus] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [restarting, setRestarting] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
   const fetchStatus = async () => {
@@ -24,6 +25,28 @@ export default function CronMonitorTab() {
       console.error('Erro ao buscar status:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const restartCron = async () => {
+    if (!confirm('Deseja realmente reiniciar o serviço CRON? Isso pode interromper processos em andamento.')) {
+      return;
+    }
+
+    try {
+      setRestarting(true);
+      await api.post('/cron/restart');
+      alert('✅ Serviço CRON reiniciado com sucesso!');
+
+      // Aguardar 3 segundos e atualizar status
+      setTimeout(() => {
+        fetchStatus();
+      }, 3000);
+    } catch (error) {
+      console.error('Erro ao reiniciar CRON:', error);
+      alert('❌ Erro ao reiniciar serviço CRON: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setRestarting(false);
     }
   };
 
@@ -91,16 +114,28 @@ export default function CronMonitorTab() {
             Última atualização: {lastUpdate.toLocaleTimeString()}
           </div>
         </div>
-        <button
-          onClick={fetchStatus}
-          disabled={loading}
-          className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 flex items-center"
-        >
-          <svg className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Atualizar
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={fetchStatus}
+            disabled={loading}
+            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 flex items-center"
+          >
+            <svg className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Atualizar
+          </button>
+          <button
+            onClick={restartCron}
+            disabled={restarting}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center"
+          >
+            <svg className={`w-4 h-4 mr-2 ${restarting ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {restarting ? 'Reiniciando...' : 'Reiniciar CRON'}
+          </button>
+        </div>
       </div>
 
       {/* Cron de Verificação */}

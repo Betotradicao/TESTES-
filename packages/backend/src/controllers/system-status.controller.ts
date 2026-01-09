@@ -1,6 +1,10 @@
 import { Request, Response } from 'express';
 import { Pool } from 'pg';
 import axios from 'axios';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 const pool = new Pool({
   host: process.env.DB_HOST || 'postgres',
@@ -119,6 +123,35 @@ export async function getBarcodeStatus(req: Request, res: Response) {
     console.error('❌ Erro ao buscar status do barcode:', error);
     res.status(500).json({
       error: 'Erro ao buscar status do barcode',
+      details: error.message,
+    });
+  }
+}
+
+/**
+ * Reinicia o container do CRON
+ */
+export async function restartCronService(_req: Request, res: Response) {
+  try {
+    console.log('🔄 Reiniciando serviço CRON...');
+
+    // Executar comando Docker para reiniciar o container CRON
+    const { stdout } = await execAsync(
+      'docker restart prevencao-cron-prod'
+    );
+
+    console.log('✅ CRON reiniciado com sucesso');
+
+    res.json({
+      success: true,
+      message: 'Serviço CRON reiniciado com sucesso',
+      output: stdout,
+    });
+  } catch (error: any) {
+    console.error('❌ Erro ao reiniciar CRON:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao reiniciar serviço CRON',
       details: error.message,
     });
   }
