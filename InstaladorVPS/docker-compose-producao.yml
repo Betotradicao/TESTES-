@@ -95,6 +95,9 @@ services:
       # Tailscale
       TAILSCALE_VPS_IP: ${TAILSCALE_VPS_IP}
       TAILSCALE_CLIENT_IP: ${TAILSCALE_CLIENT_IP}
+
+      # Timezone
+      TZ: America/Sao_Paulo
     ports:
       - "3001:3001"
     networks:
