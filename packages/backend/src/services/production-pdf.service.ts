@@ -132,7 +132,7 @@ export class ProductionPDFService {
         doc.fontSize(8).fillColor('#6b7280');
         doc.text(
           'Legenda: Valores em vermelho indicam produtos com necessidade de produção.',
-          col1X,
+          40,
           doc.y,
           { align: 'left' }
         );
@@ -140,7 +140,7 @@ export class ProductionPDFService {
         doc.moveDown(0.5);
         doc.text(
           `Gerado em: ${new Date().toLocaleString('pt-BR')}`,
-          col1X,
+          40,
           doc.y,
           { align: 'left' }
         );
