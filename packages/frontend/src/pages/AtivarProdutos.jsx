@@ -16,6 +16,8 @@ export default function AtivarProdutos() {
   const [filterSecao, setFilterSecao] = useState('');
   const [filterGrupo, setFilterGrupo] = useState('');
   const [filterSubGrupo, setFilterSubGrupo] = useState('');
+  const [filterTipoEspecie, setFilterTipoEspecie] = useState('');
+  const [filterTipoEvento, setFilterTipoEvento] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 25;
 
@@ -237,7 +239,7 @@ export default function AtivarProdutos() {
   // Reset seleções ao mudar filtros ou página
   useEffect(() => {
     handleClearSelection();
-  }, [searchTerm, filterActive, filterSecao, filterGrupo, filterSubGrupo, currentPage]);
+  }, [searchTerm, filterActive, filterSecao, filterGrupo, filterSubGrupo, filterTipoEspecie, filterTipoEvento, currentPage]);
 
   // Carregar produtos ao montar componente
   useEffect(() => {
@@ -279,6 +281,14 @@ export default function AtivarProdutos() {
     )].sort();
   }, [products, filterSecao, filterGrupo]);
 
+  const tiposEspecie = useMemo(() => {
+    return [...new Set(products.map(p => p.tipoEspecie).filter(Boolean))].sort();
+  }, [products]);
+
+  const tiposEvento = useMemo(() => {
+    return [...new Set(products.map(p => p.tipoEvento).filter(Boolean))].sort();
+  }, [products]);
+
   // Filtrar e ordenar produtos
   const filteredProducts = useMemo(() => {
     // Primeiro filtrar
@@ -294,8 +304,10 @@ export default function AtivarProdutos() {
       const matchesSecao = !filterSecao || product.desSecao === filterSecao;
       const matchesGrupo = !filterGrupo || product.desGrupo === filterGrupo;
       const matchesSubGrupo = !filterSubGrupo || product.desSubGrupo === filterSubGrupo;
+      const matchesTipoEspecie = !filterTipoEspecie || product.tipoEspecie === filterTipoEspecie;
+      const matchesTipoEvento = !filterTipoEvento || product.tipoEvento === filterTipoEvento;
 
-      return matchesSearch && matchesFilter && matchesSecao && matchesGrupo && matchesSubGrupo;
+      return matchesSearch && matchesFilter && matchesSecao && matchesGrupo && matchesSubGrupo && matchesTipoEspecie && matchesTipoEvento;
     });
 
     // Depois ordenar se necessário
@@ -318,7 +330,7 @@ export default function AtivarProdutos() {
       const comparison = String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase());
       return sort.direction === 'asc' ? comparison : -comparison;
     });
-  }, [products, searchTerm, filterActive, filterSecao, filterGrupo, filterSubGrupo, sort]);
+  }, [products, searchTerm, filterActive, filterSecao, filterGrupo, filterSubGrupo, filterTipoEspecie, filterTipoEvento, sort]);
 
   // Paginar produtos filtrados
   const paginatedProducts = useMemo(() => {
@@ -333,7 +345,7 @@ export default function AtivarProdutos() {
   // Reset página quando filtros mudam
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterActive, filterSecao, filterGrupo, filterSubGrupo]);
+  }, [searchTerm, filterActive, filterSecao, filterGrupo, filterSubGrupo, filterTipoEspecie, filterTipoEvento]);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -449,7 +461,7 @@ export default function AtivarProdutos() {
             </div>
 
             {/* Segunda linha: Seção, Grupo e Subgrupo */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               {/* Filtro Seção */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -506,6 +518,43 @@ export default function AtivarProdutos() {
                   <option value="">Todos os subgrupos</option>
                   {subgrupos.map(subgrupo => (
                     <option key={subgrupo} value={subgrupo}>{subgrupo}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Terceira linha: Tipo Espécie e Tipo Evento */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Filtro Tipo Espécie */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tipo Espécie
+                </label>
+                <select
+                  value={filterTipoEspecie}
+                  onChange={(e) => setFilterTipoEspecie(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
+                >
+                  <option value="">Todos os tipos</option>
+                  {tiposEspecie.map(tipo => (
+                    <option key={tipo} value={tipo}>{tipo}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Filtro Tipo Evento */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tipo Evento
+                </label>
+                <select
+                  value={filterTipoEvento}
+                  onChange={(e) => setFilterTipoEvento(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
+                >
+                  <option value="">Todos os eventos</option>
+                  {tiposEvento.map(tipo => (
+                    <option key={tipo} value={tipo}>{tipo}</option>
                   ))}
                 </select>
               </div>
