@@ -97,130 +97,35 @@ export class ProductionPDFService {
           a.product_name.localeCompare(b.product_name)
         );
 
-        // Cabeçalho da tabela
-        const tableTop = doc.y;
-        const col1X = 40;  // Produto
-        const col2X = 280; // Estoque Atual (kg)
-        const col3X = 360; // Estoque Atual (und)
-        const col4X = 440; // Dias
-        const col5X = 500; // Produzir (kg)
-        const col6X = 580; // Produzir (und)
-        const col1Width = 220; // Largura coluna produto
+        // Desenhar cabeçalho da tabela
+        this.drawTableHeader(doc, [
+          'Produto',
+          'Estoque (kg)',
+          'Estoque (und)',
+          'Dias',
+          'Produzir (kg)',
+          'Produzir (und)'
+        ]);
 
-        doc.font('Helvetica-Bold').fontSize(8);
-
-        // Fundo cinza do cabeçalho
-        doc.rect(col1X - 5, doc.y - 5, pageWidth - 80, 20)
-           .fillAndStroke('#f3f4f6', '#d1d5db');
-
-        doc.fillColor('black');
-        doc.text('Produto', col1X, doc.y + 5, { width: col1Width, continued: false });
-        doc.text('Estoque', col2X, tableTop + 5, { width: 70, align: 'center' });
-        doc.text('Estoque', col3X, tableTop + 5, { width: 70, align: 'center' });
-        doc.text('Dias', col4X, tableTop + 5, { width: 50, align: 'center' });
-        doc.text('Produzir', col5X, tableTop + 5, { width: 70, align: 'center' });
-        doc.text('Produzir', col6X, tableTop + 5, { width: 70, align: 'center' });
-
-        doc.moveDown(0.3);
-
-        // Segunda linha do cabeçalho (unidades)
-        doc.fontSize(7);
-        doc.text('', col1X, doc.y, { width: col1Width });
-        doc.text('(kg)', col2X, doc.y - 10, { width: 70, align: 'center' });
-        doc.text('(und)', col3X, doc.y - 10, { width: 70, align: 'center' });
-        doc.text('', col4X, doc.y - 10, { width: 50, align: 'center' });
-        doc.text('(kg)', col5X, doc.y - 10, { width: 70, align: 'center' });
-        doc.text('(und)', col6X, doc.y - 10, { width: 70, align: 'center' });
-
-        doc.moveDown(0.5);
-
-        // Itens da tabela
-        doc.font('Helvetica').fontSize(8);
-        let alternate = false;
-
-        for (const item of sortedItems) {
+        // Desenhar linhas da tabela
+        sortedItems.forEach((item, index) => {
           // Verificar se precisa de nova página
-          if (doc.y > 720) {
+          if (doc.y > 700) {
             doc.addPage();
-            doc.y = 60;
-            alternate = false;
           }
 
-          const rowY = doc.y;
-          const rowHeight = 18;
-
-          // Fundo alternado
-          if (alternate) {
-            doc.rect(col1X - 5, rowY - 2, pageWidth - 80, rowHeight)
-               .fillAndStroke('#f9fafb', '#f9fafb');
-          }
-
-          doc.fillColor('black');
-
-          // Nome do produto (com quebra de linha se necessário)
-          doc.text(item.product_name, col1X, rowY, {
-            width: col1Width,
-            height: rowHeight,
-            ellipsis: true
-          });
-
-          // Estoque atual em kg
-          doc.text(
-            this.formatKg(item.quantity_kg),
-            col2X,
-            rowY,
-            { width: 70, align: 'center' }
-          );
-
-          // Estoque atual em unidades
-          doc.text(
-            item.quantity_units.toString(),
-            col3X,
-            rowY,
-            { width: 70, align: 'center' }
-          );
-
-          // Dias de produção
-          doc.text(
-            item.production_days.toString(),
-            col4X,
-            rowY,
-            { width: 50, align: 'center' }
-          );
-
-          // Sugestão de produção em kg (destacar em vermelho se > 0)
           const suggestedKg = this.toNumber(item.suggested_production_kg);
-          if (suggestedKg > 0) {
-            doc.fillColor('#DC2626').font('Helvetica-Bold');
-          }
-          doc.text(
-            this.formatKg(item.suggested_production_kg),
-            col5X,
-            rowY,
-            { width: 70, align: 'center' }
-          );
-
-          // Sugestão de produção em unidades
           const suggestedUnits = item.suggested_production_units || 0;
-          doc.text(
-            suggestedUnits > 0 ? suggestedUnits.toString() : '-',
-            col6X,
-            rowY,
-            { width: 70, align: 'center' }
-          );
 
-          // Resetar cor e fonte
-          doc.fillColor('black').font('Helvetica');
-
-          // Linha divisória
-          doc.moveTo(col1X - 5, doc.y + 2)
-             .lineTo(pageWidth - 40, doc.y + 2)
-             .strokeColor('#e5e7eb')
-             .stroke();
-
-          doc.moveDown(0.8);
-          alternate = !alternate;
-        }
+          this.drawTableRow(doc, [
+            this.truncate(item.product_name, 35),
+            this.formatKg(item.quantity_kg),
+            item.quantity_units.toString(),
+            item.production_days.toString(),
+            this.formatKg(item.suggested_production_kg),
+            suggestedUnits > 0 ? suggestedUnits.toString() : '-'
+          ], index % 2 === 0, suggestedKg > 0);
+        });
 
         // Rodapé
         doc.moveDown(2);
@@ -255,5 +160,82 @@ export class ProductionPDFService {
         reject(error);
       }
     });
+  }
+
+  /**
+   * Desenha cabeçalho da tabela com fundo laranja
+   */
+  private static drawTableHeader(doc: PDFKit.PDFDocument, columns: string[]) {
+    const startY = doc.y;
+    const colWidth = (doc.page.width - 80) / columns.length;
+    const rowHeight = 20;
+
+    // Fundo laranja para o cabeçalho
+    doc.rect(40, startY, doc.page.width - 80, rowHeight)
+       .fillAndStroke('#EA580C', '#EA580C');
+
+    // Texto branco em negrito
+    doc.fontSize(9).font('Helvetica-Bold').fillColor('white');
+
+    columns.forEach((col, idx) => {
+      doc.text(
+        col,
+        40 + idx * colWidth,
+        startY + 5,
+        { width: colWidth - 5, align: 'left', lineBreak: false }
+      );
+    });
+
+    doc.fillColor('black');
+    doc.y = startY + rowHeight;
+  }
+
+  /**
+   * Desenha linha da tabela com zebra (alternando cores)
+   */
+  private static drawTableRow(
+    doc: PDFKit.PDFDocument,
+    columns: string[],
+    isEven: boolean,
+    highlightRed: boolean = false
+  ) {
+    const startY = doc.y;
+    const colWidth = (doc.page.width - 80) / columns.length;
+    const rowHeight = 22;
+
+    // Fundo zebrado - cinza claro para linhas pares, branco para ímpares
+    const bgColor = isEven ? '#F3F4F6' : '#FFFFFF';
+    doc.rect(40, startY, doc.page.width - 80, rowHeight)
+       .fillAndStroke(bgColor, bgColor);
+
+    // Texto preto (ou vermelho para valores com produção sugerida)
+    doc.fontSize(8).font('Helvetica');
+
+    columns.forEach((col, idx) => {
+      // Destacar em vermelho as últimas duas colunas (Produzir kg/und) se highlightRed
+      if (highlightRed && idx >= 4) {
+        doc.fillColor('#DC2626').font('Helvetica-Bold');
+      } else {
+        doc.fillColor('black').font('Helvetica');
+      }
+
+      doc.text(
+        col,
+        40 + idx * colWidth + 3,
+        startY + 5,
+        { width: colWidth - 8, align: 'left', lineBreak: false, ellipsis: true }
+      );
+    });
+
+    doc.fillColor('black').font('Helvetica');
+    doc.y = startY + rowHeight;
+  }
+
+  /**
+   * Trunca texto longo
+   */
+  private static truncate(text: string, maxLength: number): string {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength - 3) + '...';
   }
 }
