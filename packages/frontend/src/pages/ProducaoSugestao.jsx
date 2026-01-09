@@ -16,6 +16,7 @@ export default function ProducaoSugestao() {
   const [success, setSuccess] = useState('');
   const [products, setProducts] = useState([]);
   const [allProducts, setAllProducts] = useState([]);
+  const [allAudits, setAllAudits] = useState([]);
   const [selectedSecao, setSelectedSecao] = useState('PADARIA');
   const [selectedTipo, setSelectedTipo] = useState('PRODUCAO');
 
@@ -99,13 +100,16 @@ export default function ProducaoSugestao() {
   const loadMonthAudits = async (monthDate) => {
     try {
       const response = await api.get('/production/audits');
-      const allAudits = response.data;
+      const audits = response.data;
+
+      // Salvar todas as auditorias
+      setAllAudits(audits);
 
       // Filtrar apenas auditorias do mês selecionado
       const year = monthDate.getFullYear();
       const month = monthDate.getMonth();
 
-      const filtered = allAudits.filter(audit => {
+      const filtered = audits.filter(audit => {
         const auditDate = new Date(audit.audit_date);
         return auditDate.getFullYear() === year && auditDate.getMonth() === month;
       });
@@ -244,6 +248,32 @@ export default function ProducaoSugestao() {
       setError(err.response?.data?.error || 'Erro ao salvar auditoria');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendWhatsApp = async (auditId) => {
+    try {
+      await api.post(`/production/audits/${auditId}/send-whatsapp`);
+      alert('Relatório reenviado para WhatsApp com sucesso!');
+    } catch (err) {
+      console.error('Erro ao reenviar para WhatsApp:', err);
+      alert('Erro ao reenviar relatório para WhatsApp');
+    }
+  };
+
+  const handleDeleteAudit = async (auditId) => {
+    if (!confirm('Tem certeza que deseja excluir esta auditoria?')) {
+      return;
+    }
+
+    try {
+      await api.delete(`/production/audits/${auditId}`);
+      setSuccess('Auditoria excluída com sucesso!');
+      await loadMonthAudits(currentMonth);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Erro ao excluir auditoria:', err);
+      setError('Erro ao excluir auditoria');
     }
   };
 
@@ -478,6 +508,78 @@ export default function ProducaoSugestao() {
               </table>
             </div>
           </div>
+
+          {/* Seção de Auditorias Salvas */}
+          {allAudits.length > 0 && (
+            <div className="mt-8 bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">📋 Auditorias Salvas</h2>
+              <div className="overflow-x-auto">
+                <table className="min-w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Auditor</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Total Produtos</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Com Sugestão</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Sem Necessidade</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {allAudits
+                      .sort((a, b) => new Date(b.audit_date) - new Date(a.audit_date))
+                      .map(audit => {
+                        const totalProducts = audit.items?.length || 0;
+                        const withSuggestion = audit.items?.filter(item => (item.suggested_production_units || 0) > 0).length || 0;
+                        const withoutSuggestion = totalProducts - withSuggestion;
+
+                        return (
+                          <tr key={audit.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm text-gray-900">
+                              {new Date(audit.audit_date).toLocaleDateString('pt-BR')}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-900">
+                              {audit.user?.name || audit.user?.username || 'N/A'}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-center text-gray-900">
+                              {totalProducts}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-center">
+                              <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                                {withSuggestion}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-center">
+                              <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-semibold">
+                                {withoutSuggestion}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-center">
+                              <div className="flex gap-2 justify-center">
+                                <button
+                                  onClick={() => handleResendWhatsApp(audit.id)}
+                                  className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded text-xs font-semibold"
+                                  title="Reenviar para WhatsApp"
+                                >
+                                  📱 Reenviar
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteAudit(audit.id)}
+                                  className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs font-semibold"
+                                  title="Excluir auditoria"
+                                >
+                                  🗑️ Excluir
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </Layout>
