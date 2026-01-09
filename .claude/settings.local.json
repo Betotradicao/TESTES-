@@ -716,7 +716,13 @@
       "Bash(\"/c/PROGRAM FILES/PUTTY/plink.exe\" -pw \"Beto3107@@##\" root@145.223.92.152 exit)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: Corrige filtro de produtos PRODUCAO \\(sem acento\\)\n\nO ERP retorna tipoEvento como \"PRODUCAO\" \\(sem acento e sem ç\\),\nmas o código estava buscando \"PRODUÇÃO\". Agora aceita ambas as formas.\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: Fixa data de auditoria no dia atual\n\n- Remove calendário clicável\n- Data sempre fixada no dia de hoje\n- Carrega automaticamente produtos e auditoria do dia\n- Interface mais limpa com card de data fixa\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"curl -s http://10.6.1.102:3003/v1/produtos | head -20\")"
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"curl -s http://10.6.1.102:3003/v1/produtos | head -20\")",
+      "Bash(scp -o StrictHostKeyChecking=no -i /tmp/tmp_ssh_key_* -r \"c:\\\\Users\\\\Administrator\\\\Desktop\\\\roberto-prevencao-no-radar-main/packages/backend/src/routes/system-status.routes.ts\" root@145.223.92.152:/root/prevencao-radar-install/InstaladorVPS/packages/backend/src/routes/)",
+      "Bash(scp -o StrictHostKeyChecking=no -i /tmp/tmp_ssh_key_* -r \"c:\\\\Users\\\\Administrator\\\\Desktop\\\\roberto-prevencao-no-radar-main/packages/backend/src/controllers/system-status.controller.ts\" root@145.223.92.152:/root/prevencao-radar-install/InstaladorVPS/packages/backend/src/controllers/)",
+      "Bash(\"C:\\\\Program Files\\\\PuTTY\\\\plink.exe\" -batch -pw \"3mil#2025\" root@145.223.92.152 \"cd /root/prevencao-radar-install/InstaladorVPS && pwd && ls -la\")",
+      "Bash(dir %USERPROFILE%.ssh)",
+      "Bash(ssh vps-145:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nchore: Atualiza histórico de aprovações do Claude\n\nAdiciona comandos SSH e SCP aprovados durante deploy\nda funcionalidade de reiniciar CRON.\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ],
     "deny": [],
     "ask": []
