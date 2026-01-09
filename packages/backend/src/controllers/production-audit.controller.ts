@@ -128,14 +128,17 @@ export class ProductionAuditController {
           const isProduction = product.tipoEvento === 'PRODUCAO' || product.tipoEvento === 'PRODUÇÃO';
           return isActive && isProduction;
         })
-        .map((product: any) => ({
-          codigo: product.codigo,
-          descricao: product.descricao,
-          desReduzida: product.desReduzida,
-          peso_medio_kg: activeProductsMap.get(product.codigo) || null,
-          vendaMedia: product.vendaMedia || 0,
-          pesavel: product.pesavel,
-        }));
+        .map((product: any) => {
+          const pesoMedio = activeProductsMap.get(product.codigo);
+          return {
+            codigo: product.codigo,
+            descricao: product.descricao,
+            desReduzida: product.desReduzida,
+            peso_medio_kg: pesoMedio ? parseFloat(pesoMedio) : null,
+            vendaMedia: product.vendaMedia || 0,
+            pesavel: product.pesavel,
+          };
+        });
 
       console.log('✅ Produtos filtrados (PRODUÇÃO + ativos):', bakeryProducts.length);
 
