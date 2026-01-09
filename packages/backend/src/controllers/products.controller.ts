@@ -54,6 +54,11 @@ export class ProductsController {
         desSecao: product.desSecao,
         desGrupo: product.desGrupo,
         desSubGrupo: product.desSubGrupo,
+        vendaMedia: product.vendaMedia,
+        diasCobertura: product.diasCobertura,
+        tipoEspecie: product.tipoEspecie,
+        tipoEvento: product.tipoEvento,
+        dtaUltMovVenda: product.dtaUltMovVenda,
         active: activeProductsMap.get(product.codigo) || false
       }));
 
