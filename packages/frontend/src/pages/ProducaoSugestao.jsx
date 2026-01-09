@@ -394,23 +394,21 @@ export default function ProducaoSugestao() {
                         <input
                           type="number"
                           min="0"
-                          value={auditItems[product.codigo]?.quantity_units || 0}
+                          value={auditItems[product.codigo]?.quantity_units || ''}
                           onChange={(e) => handleItemChange(product.codigo, 'quantity_units', e.target.value)}
-                          className="w-20 px-2 py-1 border border-gray-300 rounded text-center text-sm focus:ring-orange-500 focus:border-orange-500"
+                          placeholder="0"
+                          className="w-20 px-2 py-1 border border-gray-300 rounded text-center text-sm focus:ring-orange-500 focus:border-orange-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </td>
                       <td className="px-4 py-2">
-                        <select
-                          value={auditItems[product.codigo]?.production_days || 1}
+                        <input
+                          type="number"
+                          min="1"
+                          value={auditItems[product.codigo]?.production_days || ''}
                           onChange={(e) => handleItemChange(product.codigo, 'production_days', e.target.value)}
-                          className="w-16 px-2 py-1 border border-gray-300 rounded text-center text-sm focus:ring-orange-500 focus:border-orange-500"
-                        >
-                          <option value="1">1</option>
-                          <option value="2">2</option>
-                          <option value="3">3</option>
-                          <option value="4">4</option>
-                          <option value="5">5</option>
-                        </select>
+                          placeholder="1"
+                          className="w-16 px-2 py-1 border border-gray-300 rounded text-center text-sm focus:ring-orange-500 focus:border-orange-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
                       </td>
                       <td className="px-4 py-2 text-center text-sm">
                         {product.vendaMedia?.toFixed(3) || '0.000'}
