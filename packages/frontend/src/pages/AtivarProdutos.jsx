@@ -309,8 +309,8 @@ export default function AtivarProdutos() {
       if (aVal == null) aVal = '';
       if (bVal == null) bVal = '';
 
-      // Comparação numérica para preços
-      if (sort.field === 'valvenda' || sort.field === 'valvendaloja') {
+      // Comparação numérica para preços e campos numéricos
+      if (sort.field === 'valvenda' || sort.field === 'valvendaloja' || sort.field === 'vendaMedia' || sort.field === 'diasCobertura') {
         return sort.direction === 'asc' ? aVal - bVal : bVal - aVal;
       }
 
@@ -681,6 +681,21 @@ export default function AtivarProdutos() {
                         <SortableHeader field="valvenda">
                           Preço
                         </SortableHeader>
+                        <SortableHeader field="vendaMedia">
+                          Venda Média/Dia
+                        </SortableHeader>
+                        <SortableHeader field="diasCobertura">
+                          Dias Cobertura
+                        </SortableHeader>
+                        <SortableHeader field="tipoEspecie">
+                          Tipo Espécie
+                        </SortableHeader>
+                        <SortableHeader field="tipoEvento">
+                          Tipo Evento
+                        </SortableHeader>
+                        <SortableHeader field="dtaUltMovVenda">
+                          Última Venda
+                        </SortableHeader>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Ação
                         </th>
@@ -722,6 +737,41 @@ export default function AtivarProdutos() {
                           {/* Preço */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {product.valvenda ? `R$ ${product.valvenda.toFixed(2).replace('.', ',')}` : '-'}
+                          </td>
+
+                          {/* Venda Média Diária */}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {product.vendaMedia ? product.vendaMedia.toFixed(2) : '-'}
+                          </td>
+
+                          {/* Dias de Cobertura */}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              product.diasCobertura > 30
+                                ? 'bg-green-100 text-green-800'
+                                : product.diasCobertura > 15
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : product.diasCobertura > 0
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {product.diasCobertura || 0} dias
+                            </span>
+                          </td>
+
+                          {/* Tipo Espécie */}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {product.tipoEspecie || '-'}
+                          </td>
+
+                          {/* Tipo Evento */}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {product.tipoEvento || '-'}
+                          </td>
+
+                          {/* Data Última Venda */}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {product.dtaUltMovVenda ? new Date(product.dtaUltMovVenda.substring(0, 8).replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')).toLocaleDateString('pt-BR') : '-'}
                           </td>
 
                           {/* Ação - Toggle Ativo/Inativo */}
@@ -791,6 +841,40 @@ export default function AtivarProdutos() {
                                 R$ {product.valvenda.toFixed(2).replace('.', ',')}
                               </div>
                             )}
+                            <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+                              <div>
+                                <span className="text-gray-500">Venda Média/Dia:</span>
+                                <span className="ml-1 font-medium">{product.vendaMedia ? product.vendaMedia.toFixed(2) : '-'}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Cobertura:</span>
+                                <span className={`ml-1 px-2 py-0.5 rounded-full font-semibold ${
+                                  product.diasCobertura > 30
+                                    ? 'bg-green-100 text-green-800'
+                                    : product.diasCobertura > 15
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : product.diasCobertura > 0
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {product.diasCobertura || 0}d
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Tipo:</span>
+                                <span className="ml-1 font-medium">{product.tipoEspecie || '-'}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Evento:</span>
+                                <span className="ml-1 font-medium">{product.tipoEvento || '-'}</span>
+                              </div>
+                              <div className="col-span-2">
+                                <span className="text-gray-500">Última Venda:</span>
+                                <span className="ml-1 font-medium">
+                                  {product.dtaUltMovVenda ? new Date(product.dtaUltMovVenda.substring(0, 8).replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')).toLocaleDateString('pt-BR') : '-'}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center space-x-3">
