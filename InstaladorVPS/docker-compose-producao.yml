@@ -103,6 +103,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - backend-uploads:/app/uploads
+      - /var/run/docker.sock:/var/run/docker.sock  # Permitir reiniciar CRON
     depends_on:
       postgres:
         condition: service_healthy
