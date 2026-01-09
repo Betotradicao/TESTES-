@@ -70,6 +70,9 @@ export class Product {
   @Column({ type: 'decimal', precision: 10, scale: 3, nullable: true })
   peso_max_kg?: number;
 
+  @Column({ type: 'decimal', precision: 10, scale: 3, nullable: true })
+  peso_medio_kg?: number;
+
   @Column({ type: 'jsonb', nullable: true })
   posicao_balcao?: {
     setor?: string;
