@@ -79,17 +79,16 @@ export class ProductionAuditController {
   }
 
   /**
-   * Listar produtos de padaria disponíveis para auditoria
+   * Listar produtos ativos disponíveis para auditoria (com filtros opcionais)
    */
   static async getBakeryProducts(req: AuthRequest, res: Response) {
     try {
-      // Buscar produtos ativos com tipoEvento = "PRODUÇÃO" e que sejam da seção de padaria
       const productRepository = AppDataSource.getRepository(Product);
 
-      // Get active products from database
+      // Get active products from database with section info
       const activeProducts = await productRepository.find({
         where: { active: true },
-        select: ['erp_product_id', 'peso_medio_kg'],
+        select: ['erp_product_id', 'peso_medio_kg', 'section_name'],
       });
 
       // Fetch products from ERP API
@@ -109,40 +108,34 @@ export class ProductionAuditController {
         }
       );
 
-      // Filter products: tipoEvento = "PRODUÇÃO" and active
+      // Map active products with peso_medio_kg
       const activeProductsMap = new Map(
-        activeProducts.map((p: any) => [p.erp_product_id, p.peso_medio_kg])
+        activeProducts.map((p: any) => [p.erp_product_id, { peso_medio_kg: p.peso_medio_kg, section_name: p.section_name }])
       );
 
-      // DEBUG: Log para entender o que está acontecendo
-      console.log('📊 DEBUG getBakeryProducts:');
-      console.log('- Total produtos do ERP:', erpProducts.length);
-      console.log('- Total produtos ativos no DB:', activeProducts.length);
-      console.log('- Exemplo produto ERP:', erpProducts[0]);
-      console.log('- Tipos de evento únicos:', [...new Set(erpProducts.map((p: any) => p.tipoEvento))]);
-
-      const bakeryProducts = erpProducts
-        .filter((product: any) => {
-          const isActive = activeProductsMap.has(product.codigo);
-          // Aceitar tanto "PRODUCAO" quanto "PRODUÇÃO" (ERP pode retornar sem acento)
-          const isProduction = product.tipoEvento === 'PRODUCAO' || product.tipoEvento === 'PRODUÇÃO';
-          return isActive && isProduction;
-        })
+      // Return ALL active products with full info
+      const allProducts = erpProducts
+        .filter((product: any) => activeProductsMap.has(product.codigo))
         .map((product: any) => {
-          const pesoMedio = activeProductsMap.get(product.codigo);
+          const productData = activeProductsMap.get(product.codigo);
+          const pesoMedio = productData?.peso_medio_kg ? parseFloat(productData.peso_medio_kg) : null;
+
           return {
             codigo: product.codigo,
             descricao: product.descricao,
             desReduzida: product.desReduzida,
-            peso_medio_kg: pesoMedio ? parseFloat(pesoMedio) : null,
+            peso_medio_kg: pesoMedio,
             vendaMedia: product.vendaMedia || 0,
             pesavel: product.pesavel,
+            tipoEvento: product.tipoEvento || 'DIRETA',
+            desSecao: product.desSecao || productData?.section_name || 'SEM SEÇÃO',
+            estoque: product.estoque || 0,
           };
         });
 
-      console.log('✅ Produtos filtrados (PRODUÇÃO + ativos):', bakeryProducts.length);
+      console.log('✅ Total produtos ativos:', allProducts.length);
 
-      res.json(bakeryProducts);
+      res.json(allProducts);
     } catch (error) {
       console.error('Get bakery products error:', error);
       res.status(500).json({ error: 'Internal server error' });

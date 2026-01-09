@@ -715,7 +715,8 @@
       "Bash(~/.ssh/known_hosts)",
       "Bash(\"/c/PROGRAM FILES/PUTTY/plink.exe\" -pw \"Beto3107@@##\" root@145.223.92.152 exit)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: Corrige filtro de produtos PRODUCAO \\(sem acento\\)\n\nO ERP retorna tipoEvento como \"PRODUCAO\" \\(sem acento e sem ç\\),\nmas o código estava buscando \"PRODUÇÃO\". Agora aceita ambas as formas.\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: Fixa data de auditoria no dia atual\n\n- Remove calendário clicável\n- Data sempre fixada no dia de hoje\n- Carrega automaticamente produtos e auditoria do dia\n- Interface mais limpa com card de data fixa\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: Fixa data de auditoria no dia atual\n\n- Remove calendário clicável\n- Data sempre fixada no dia de hoje\n- Carrega automaticamente produtos e auditoria do dia\n- Interface mais limpa com card de data fixa\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"curl -s http://10.6.1.102:3003/v1/produtos | head -20\")"
     ],
     "deny": [],
     "ask": []

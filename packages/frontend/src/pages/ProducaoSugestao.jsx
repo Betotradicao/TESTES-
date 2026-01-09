@@ -15,6 +15,9 @@ export default function ProducaoSugestao() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
+  const [selectedSecao, setSelectedSecao] = useState('PADARIA');
+  const [selectedTipo, setSelectedTipo] = useState('PRODUCAO');
 
   // Data fixada no dia atual
   const today = new Date();
@@ -36,31 +39,35 @@ export default function ProducaoSugestao() {
   const loadBakeryProducts = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Carregando produtos de padaria...');
       const response = await api.get('/production/bakery-products');
-      console.log('✅ Produtos recebidos:', response.data.length);
-      setProducts(response.data);
-
-      // Inicializar auditItems com valores padrão
-      const initialItems = {};
-      response.data.forEach(product => {
-        initialItems[product.codigo] = {
-          quantity_units: 0,
-          production_days: 1
-        };
-      });
-      setAuditItems(initialItems);
-      console.log('✅ AuditItems inicializados');
+      setAllProducts(response.data);
+      filterProducts(response.data, selectedSecao, selectedTipo);
     } catch (err) {
       console.error('❌ Erro ao carregar produtos:', err);
       const errorMessage = err.response?.status === 500
         ? '⚠️ Servidor ERP indisponível. Aguarde alguns minutos e tente novamente.'
-        : 'Erro ao carregar produtos de padaria: ' + (err.response?.data?.error || err.message);
+        : 'Erro ao carregar produtos: ' + (err.response?.data?.error || err.message);
       setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
+
+  const filterProducts = (allProds, secao, tipo) => {
+    const filtered = allProds.filter(p => p.desSecao === secao && p.tipoEvento === tipo);
+    setProducts(filtered);
+    const initialItems = {};
+    filtered.forEach(product => {
+      initialItems[product.codigo] = { quantity_units: 0, production_days: 1 };
+    });
+    setAuditItems(initialItems);
+  };
+
+  useEffect(() => {
+    if (allProducts.length > 0) {
+      filterProducts(allProducts, selectedSecao, selectedTipo);
+    }
+  }, [selectedSecao, selectedTipo]);
 
   const loadTodayAudit = async () => {
     try {
