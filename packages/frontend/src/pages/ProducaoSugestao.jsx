@@ -279,6 +279,10 @@ export default function ProducaoSugestao() {
     }
   };
 
+  const handleProductSort = () => {
+    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+  };
+
   const handleAuditSort = (field) => {
     if (auditSortField === field) {
       setAuditSortOrder(auditSortOrder === 'asc' ? 'desc' : 'asc');
@@ -469,17 +473,6 @@ export default function ProducaoSugestao() {
                   ))}
                 </select>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-gray-700">Ordem:</span>
-                <select
-                  value={sortOrder}
-                  onChange={(e) => setSortOrder(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                >
-                  <option value="asc">A → Z</option>
-                  <option value="desc">Z → A</option>
-                </select>
-              </div>
               <div className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg">
                 <span className="font-semibold text-gray-700">Total:</span>
                 <span className="text-gray-900">{filteredProducts.length} produtos</span>
@@ -491,7 +484,12 @@ export default function ProducaoSugestao() {
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Código</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Produto</th>
+                    <th
+                      className="px-4 py-2 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={handleProductSort}
+                    >
+                      Produto {sortOrder === 'asc' ? '↑' : '↓'}
+                    </th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Peso Médio</th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Estoque (und)</th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Dias Produção</th>
