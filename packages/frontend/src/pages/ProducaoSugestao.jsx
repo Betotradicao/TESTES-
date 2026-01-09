@@ -15,12 +15,17 @@ export default function ProducaoSugestao() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [products, setProducts] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Data fixada no dia atual
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const [selectedDate] = useState(todayStr);
   const [auditItems, setAuditItems] = useState({});
 
-  // Carregar produtos de padaria
+  // Carregar produtos de padaria e auditoria do dia
   useEffect(() => {
     loadBakeryProducts();
+    loadTodayAudit();
   }, []);
 
   // Carregar auditorias do mês
@@ -48,6 +53,25 @@ export default function ProducaoSugestao() {
       setError('Erro ao carregar produtos de padaria');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadTodayAudit = async () => {
+    try {
+      // Buscar auditoria do dia atual
+      const response = await api.get('/production/audits');
+      const allAudits = response.data;
+      const todayAudit = allAudits.find(audit => {
+        const auditDate = new Date(audit.audit_date);
+        const auditDateStr = `${auditDate.getFullYear()}-${String(auditDate.getMonth() + 1).padStart(2, '0')}-${String(auditDate.getDate()).padStart(2, '0')}`;
+        return auditDateStr === todayStr;
+      });
+
+      if (todayAudit) {
+        loadAuditData(todayAudit.id);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar auditoria do dia:', err);
     }
   };
 
@@ -117,31 +141,10 @@ export default function ProducaoSugestao() {
     return 'bg-red-100 text-red-600';
   };
 
+  // Dia não é mais clicável - data fixa no dia atual
   const handleDayClick = (day) => {
-    // Criar data sem problemas de timezone
-    const year = currentMonth.getFullYear();
-    const month = String(currentMonth.getMonth() + 1).padStart(2, '0');
-    const dayStr = String(day).padStart(2, '0');
-    const dateStr = `${year}-${month}-${dayStr}`;
-
-    setSelectedDate(dateStr);
-    setError(''); // Limpar erros
-
-    // Carregar auditoria se existir
-    const audit = getDayAudit(day);
-    if (audit) {
-      loadAuditData(audit.id);
-    } else {
-      // Se não existir auditoria, resetar para valores padrão (0 unidades, 1 dia)
-      const initialItems = {};
-      products.forEach(product => {
-        initialItems[product.codigo] = {
-          quantity_units: 0,
-          production_days: 1
-        };
-      });
-      setAuditItems(initialItems);
-    }
+    // Desabilitado - data sempre fixada no dia atual
+    return;
   };
 
   const loadAuditData = async (auditId) => {
@@ -266,69 +269,27 @@ export default function ProducaoSugestao() {
           </div>
         )}
 
-        {/* Layout: Calendário + Formulário */}
+        {/* Layout: Data Fixa + Formulário */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Calendário - 1/3 do espaço */}
-          <div className="lg:col-span-1 bg-white rounded-lg shadow-md p-4">
-            <div className="flex justify-between items-center mb-4">
-              <button
-                onClick={prevMonth}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                ◀️
-              </button>
-              <h2 className="text-lg font-semibold capitalize">{monthName}</h2>
-              <button
-                onClick={nextMonth}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                ▶️
-              </button>
+          {/* Data do Dia - 1/3 do espaço */}
+          <div className="lg:col-span-1 bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-lg font-semibold text-gray-700 mb-4">Data da Auditoria</h2>
+            <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-6 text-center">
+              <div className="text-4xl font-bold text-blue-600 mb-2">
+                {today.getDate()}
+              </div>
+              <div className="text-sm font-medium text-blue-800 capitalize">
+                {new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(today)}
+              </div>
+              <div className="text-xs text-gray-600 mt-2">
+                {new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(today)}
+              </div>
             </div>
 
-            {/* Grid do calendário */}
-            <div className="grid grid-cols-7 gap-1 text-center text-xs mb-2">
-              <div className="font-bold text-gray-600">Dom</div>
-              <div className="font-bold text-gray-600">Seg</div>
-              <div className="font-bold text-gray-600">Ter</div>
-              <div className="font-bold text-gray-600">Qua</div>
-              <div className="font-bold text-gray-600">Qui</div>
-              <div className="font-bold text-gray-600">Sex</div>
-              <div className="font-bold text-gray-600">Sáb</div>
-            </div>
-
-            <div className="grid grid-cols-7 gap-1">
-              {getDaysInMonth().map((day, index) => {
-                const isSelected = day && selectedDate === `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                return (
-                  <div
-                    key={index}
-                    className={`
-                      aspect-square flex items-center justify-center rounded text-sm transition-all
-                      ${day ? getDayColor(day) : 'bg-transparent'}
-                      ${isSelected ? 'ring-4 ring-orange-500 ring-offset-2 scale-110 font-bold' : ''}
-                    `}
-                    onClick={() => day && handleDayClick(day)}
-                  >
-                    {day}
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-4 text-xs space-y-1">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div>
-                <span>Concluída</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-orange-100 border border-orange-300 rounded"></div>
-                <span>Em andamento</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-red-100 border border-red-300 rounded"></div>
-                <span>Pendente</span>
-              </div>
+            {/* Informação fixa */}
+            <div className="mt-6 text-center text-sm text-gray-600">
+              <p className="font-medium">Auditoria fixada no dia atual</p>
+              <p className="text-xs mt-1">A data muda automaticamente todos os dias</p>
             </div>
           </div>
 
