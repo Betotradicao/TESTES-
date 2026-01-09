@@ -300,6 +300,11 @@ async function seedConfigurations() {
         description: 'ID do grupo WhatsApp para relatórios de Prevenção de Quebras'
       },
       {
+        key: 'whatsapp_group_producao',
+        value: '120363421239599536@g.us',
+        description: 'ID do grupo WhatsApp para relatórios de Prevenção de Produção'
+      },
+      {
         key: 'whatsapp_bips_schedule_time',
         value: '08:00',
         description: 'Horário de envio automático do relatório de bipagens pendentes (formato HH:MM)'
