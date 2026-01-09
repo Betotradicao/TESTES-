@@ -568,108 +568,108 @@ export default function ProducaoSugestao() {
               </table>
             </div>
           </div>
-
-          {/* Seção de Auditorias Salvas */}
-          {allAudits.length > 0 && (
-            <div className="mt-8 bg-white rounded-lg shadow-lg p-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">📋 Auditorias Salvas</h2>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-base">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th
-                        className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
-                        onClick={() => handleAuditSort('audit_date')}
-                      >
-                        Data {auditSortField === 'audit_date' && (auditSortOrder === 'asc' ? '↑' : '↓')}
-                      </th>
-                      <th
-                        className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
-                        onClick={() => handleAuditSort('auditor')}
-                      >
-                        Auditor {auditSortField === 'auditor' && (auditSortOrder === 'asc' ? '↑' : '↓')}
-                      </th>
-                      <th
-                        className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
-                        onClick={() => handleAuditSort('group')}
-                      >
-                        Grupo WhatsApp {auditSortField === 'group' && (auditSortOrder === 'asc' ? '↑' : '↓')}
-                      </th>
-                      <th
-                        className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
-                        onClick={() => handleAuditSort('total')}
-                      >
-                        Total {auditSortField === 'total' && (auditSortOrder === 'asc' ? '↑' : '↓')}
-                      </th>
-                      <th
-                        className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
-                        onClick={() => handleAuditSort('with_suggestion')}
-                      >
-                        Com Sugestão {auditSortField === 'with_suggestion' && (auditSortOrder === 'asc' ? '↑' : '↓')}
-                      </th>
-                      <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase">Sem Necessidade</th>
-                      <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {getSortedAudits().map(audit => {
-                        const totalProducts = audit.items?.length || 0;
-                        const withSuggestion = audit.items?.filter(item => (item.suggested_production_units || 0) > 0).length || 0;
-                        const withoutSuggestion = totalProducts - withSuggestion;
-
-                        return (
-                          <tr key={audit.id} className="hover:bg-gray-50 transition">
-                            <td className="px-6 py-4 text-base text-gray-900 font-medium">
-                              {new Date(audit.audit_date).toLocaleDateString('pt-BR')}
-                            </td>
-                            <td className="px-6 py-4 text-base text-gray-900">
-                              {audit.user?.name || audit.user?.username || 'N/A'}
-                            </td>
-                            <td className="px-6 py-4 text-base text-gray-900">
-                              <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-md text-sm font-medium">
-                                {audit.whatsapp_group_name || 'Não enviado'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-base text-center text-gray-900 font-semibold">
-                              {totalProducts}
-                            </td>
-                            <td className="px-6 py-4 text-base text-center">
-                              <span className="px-3 py-1.5 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
-                                {withSuggestion}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-base text-center">
-                              <span className="px-3 py-1.5 bg-gray-100 text-gray-800 rounded-full text-sm font-semibold">
-                                {withoutSuggestion}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-base text-center">
-                              <div className="flex gap-2 justify-center">
-                                <button
-                                  onClick={() => handleResendWhatsApp(audit.id)}
-                                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md text-sm font-semibold shadow-sm hover:shadow transition"
-                                  title="Reenviar para WhatsApp"
-                                >
-                                  📱 Reenviar
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteAudit(audit.id)}
-                                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md text-sm font-semibold shadow-sm hover:shadow transition"
-                                  title="Excluir auditoria"
-                                >
-                                  🗑️ Excluir
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
         </div>
+
+        {/* Seção de Auditorias Salvas - Largura Total */}
+        {allAudits.length > 0 && (
+          <div className="mt-8 bg-white rounded-lg shadow-lg p-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">📋 Auditorias Salvas</h2>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-base">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th
+                      className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleAuditSort('audit_date')}
+                    >
+                      Data {auditSortField === 'audit_date' && (auditSortOrder === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th
+                      className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleAuditSort('auditor')}
+                    >
+                      Auditor {auditSortField === 'auditor' && (auditSortOrder === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th
+                      className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleAuditSort('group')}
+                    >
+                      Grupo WhatsApp {auditSortField === 'group' && (auditSortOrder === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th
+                      className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleAuditSort('total')}
+                    >
+                      Total {auditSortField === 'total' && (auditSortOrder === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th
+                      className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleAuditSort('with_suggestion')}
+                    >
+                      Com Sugestão {auditSortField === 'with_suggestion' && (auditSortOrder === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase">Sem Necessidade</th>
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {getSortedAudits().map(audit => {
+                      const totalProducts = audit.items?.length || 0;
+                      const withSuggestion = audit.items?.filter(item => (item.suggested_production_units || 0) > 0).length || 0;
+                      const withoutSuggestion = totalProducts - withSuggestion;
+
+                      return (
+                        <tr key={audit.id} className="hover:bg-gray-50 transition">
+                          <td className="px-6 py-4 text-base text-gray-900 font-medium">
+                            {new Date(audit.audit_date).toLocaleDateString('pt-BR')}
+                          </td>
+                          <td className="px-6 py-4 text-base text-gray-900">
+                            {audit.user?.name || audit.user?.username || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 text-base text-gray-900">
+                            <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-md text-sm font-medium">
+                              {audit.whatsapp_group_name || 'Não enviado'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-base text-center text-gray-900 font-semibold">
+                            {totalProducts}
+                          </td>
+                          <td className="px-6 py-4 text-base text-center">
+                            <span className="px-3 py-1.5 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                              {withSuggestion}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-base text-center">
+                            <span className="px-3 py-1.5 bg-gray-100 text-gray-800 rounded-full text-sm font-semibold">
+                              {withoutSuggestion}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-base text-center">
+                            <div className="flex gap-2 justify-center">
+                              <button
+                                onClick={() => handleResendWhatsApp(audit.id)}
+                                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md text-sm font-semibold shadow-sm hover:shadow transition"
+                                title="Reenviar para WhatsApp"
+                              >
+                                📱 Reenviar
+                              </button>
+                              <button
+                                onClick={() => handleDeleteAudit(audit.id)}
+                                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md text-sm font-semibold shadow-sm hover:shadow transition"
+                                title="Excluir auditoria"
+                              >
+                                🗑️ Excluir
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );
