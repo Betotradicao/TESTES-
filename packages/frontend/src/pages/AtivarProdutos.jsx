@@ -111,6 +111,33 @@ export default function AtivarProdutos() {
     }
   };
 
+  // Atualizar peso médio do produto
+  const handlePesoMedioChange = async (productId, value) => {
+    try {
+      const peso_medio_kg = parseFloat(value);
+
+      if (isNaN(peso_medio_kg) || peso_medio_kg < 0) {
+        return; // Ignora valores inválidos
+      }
+
+      // Atualiza localmente primeiro (otimistic update)
+      setProducts(prevProducts =>
+        prevProducts.map(p =>
+          p.codigo === productId ? { ...p, peso_medio_kg } : p
+        )
+      );
+
+      // Envia para o backend
+      await api.put(`/products/${productId}/peso-medio`, { peso_medio_kg });
+
+    } catch (err) {
+      console.error('Erro ao atualizar peso médio:', err);
+      setError('Erro ao salvar peso médio. Tente novamente.');
+      // Recarrega produtos em caso de erro
+      fetchProducts();
+    }
+  };
+
   // Funções de seleção em massa
   const handleSelectProduct = (productId) => {
     const newSelected = new Set(selectedProducts);
@@ -745,6 +772,12 @@ export default function AtivarProdutos() {
                         <SortableHeader field="dtaUltMovVenda">
                           Última Venda
                         </SortableHeader>
+                        <SortableHeader field="pesavel">
+                          Pesável
+                        </SortableHeader>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Peso Médio Und
+                        </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Ação
                         </th>
@@ -795,17 +828,7 @@ export default function AtivarProdutos() {
 
                           {/* Dias de Cobertura */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              product.diasCobertura > 30
-                                ? 'bg-green-100 text-green-800'
-                                : product.diasCobertura > 15
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : product.diasCobertura > 0
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {product.diasCobertura || 0} dias
-                            </span>
+                            {product.diasCobertura || 0} dias
                           </td>
 
                           {/* Tipo Espécie */}
@@ -821,6 +844,25 @@ export default function AtivarProdutos() {
                           {/* Data Última Venda */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                             {product.dtaUltMovVenda ? new Date(product.dtaUltMovVenda.substring(0, 8).replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')).toLocaleDateString('pt-BR') : '-'}
+                          </td>
+
+                          {/* Pesável */}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {product.pesavel === 'S' ? 'Sim' : 'Não'}
+                          </td>
+
+                          {/* Peso Médio Und */}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            <input
+                              type="number"
+                              step="0.001"
+                              min="0"
+                              placeholder="0.000"
+                              value={product.peso_medio_kg || ''}
+                              onChange={(e) => handlePesoMedioChange(product.codigo, e.target.value)}
+                              className="w-24 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-orange-500 focus:border-orange-500"
+                            />
+                            <span className="ml-1 text-xs text-gray-500">kg</span>
                           </td>
 
                           {/* Ação - Toggle Ativo/Inativo */}
@@ -897,17 +939,7 @@ export default function AtivarProdutos() {
                               </div>
                               <div>
                                 <span className="text-gray-500">Cobertura:</span>
-                                <span className={`ml-1 px-2 py-0.5 rounded-full font-semibold ${
-                                  product.diasCobertura > 30
-                                    ? 'bg-green-100 text-green-800'
-                                    : product.diasCobertura > 15
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : product.diasCobertura > 0
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-gray-100 text-gray-800'
-                                }`}>
-                                  {product.diasCobertura || 0}d
-                                </span>
+                                <span className="ml-1 font-medium">{product.diasCobertura || 0}d</span>
                               </div>
                               <div>
                                 <span className="text-gray-500">Tipo:</span>
@@ -922,6 +954,23 @@ export default function AtivarProdutos() {
                                 <span className="ml-1 font-medium">
                                   {product.dtaUltMovVenda ? new Date(product.dtaUltMovVenda.substring(0, 8).replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')).toLocaleDateString('pt-BR') : '-'}
                                 </span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Pesável:</span>
+                                <span className="ml-1 font-medium">{product.pesavel === 'S' ? 'Sim' : 'Não'}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Peso Médio:</span>
+                                <input
+                                  type="number"
+                                  step="0.001"
+                                  min="0"
+                                  placeholder="0.000"
+                                  value={product.peso_medio_kg || ''}
+                                  onChange={(e) => handlePesoMedioChange(product.codigo, e.target.value)}
+                                  className="ml-1 w-20 px-2 py-0.5 border border-gray-300 rounded text-xs focus:ring-orange-500 focus:border-orange-500"
+                                />
+                                <span className="ml-1 text-xs text-gray-500">kg</span>
                               </div>
                             </div>
                           </div>

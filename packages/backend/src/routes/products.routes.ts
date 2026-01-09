@@ -280,4 +280,7 @@ router.post('/:id/capture-from-camera', authenticateToken, ProductsController.ca
 // Atualizar características de IA do produto
 router.put('/:id/ai-characteristics', authenticateToken, ProductsController.updateAICharacteristics);
 
+// Atualizar peso médio do produto
+router.put('/:id/peso-medio', authenticateToken, ProductsController.updatePesoMedio);
+
 export default router;

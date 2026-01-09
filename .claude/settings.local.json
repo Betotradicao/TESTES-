@@ -699,7 +699,18 @@
       "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/TESTES/InstaladorVPS && cat .env | grep -i ''zanthus\\\\|tailscale''\")",
       "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/TESTES/InstaladorVPS && cat .env | grep -A 5 -B 5 ''ZANTHUS''\")",
       "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/TESTES/InstaladorVPS && grep -i zanthus .env\")",
-      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/TESTES/InstaladorVPS && cat .env\")"
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/TESTES/InstaladorVPS && cat .env\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"docker exec prevencao-backend-prod cat .env | grep -i intersolid\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c \"\"SELECT key, value FROM configurations WHERE key LIKE ''%intersolid%'' ORDER BY key;\"\"\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"curl -s -X GET ''http://10.6.1.102:3003/v1/produtos?limit=1'' -H ''Authorization: Basic Uk9CRVJUTzo0ZTJhODlhMTViMzMyYjMyZjJkNzQ0NGZkN2NhOWM3NDozNDE3YzNiOTQzYzUxMTFhZWI0MzY3ZjFkMzgwMDMxZg=='' 2>&1 | jq . | head -100\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"curl -s -X GET ''http://10.6.1.102:3003/v1/produtos?limit=1'' -H ''Authorization: Basic Uk9CRVJUTzo0ZTJhODlhMTViMzMyYjMyZjJkNzQ0NGZkN2NhOWM3NDozNDE3YzNiOTQzYzUxMTFhZWI0MzY3ZjFkMzgwMDMxZg=='' 2>&1 | jq ''.[0]''\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"curl -s -X GET ''http://10.6.1.102:3003/v1/produtos?limit=1'' -H ''Authorization: Basic Uk9CRVJUTzo0ZTJhODlhMTViMzMyYjMyZjJkNzQ0NGZkN2NhOWM3NDozNDE3YzNiOTQzYzUxMTFhZWI0MzY3ZjFkMzgwMDMxZg=='' 2>&1 | jq ''.[0] | keys | length''\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"curl -s -X GET ''http://10.6.1.102:3003/v1/produtos?limit=1'' -H ''Authorization: Basic Uk9CRVJUTzo0ZTJhODlhMTViMzMyYjMyZjJkNzQ0NGZkN2NhOWM3NDozNDE3YzNiOTQzYzUxMTFhZWI0MzY3ZjFkMzgwMDMxZg=='' 2>&1 | jq ''.[0] | keys''\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"docker ps | grep frontend\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/TESTES && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache backend && docker compose -f docker-compose-producao.yml up -d --no-deps backend cron\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"docker exec prevencao-backend-prod ls -la /app/cache 2>&1 || echo ''Cache nao existe''\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/TESTES/InstaladorVPS && docker compose -f docker-compose-producao.yml restart backend\")",
+      "Bash(docker exec:*)"
     ],
     "deny": [],
     "ask": []

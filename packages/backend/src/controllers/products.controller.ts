@@ -35,32 +35,37 @@ export class ProductsController {
       // Get active products from our database
       const productRepository = AppDataSource.getRepository(Product);
       const activeProducts = await productRepository.find({
-        select: ['erp_product_id', 'active']
+        select: ['erp_product_id', 'active', 'peso_medio_kg']
       });
 
-      // Create a map for quick lookup
-      const activeProductsMap = new Map(
-        activeProducts.map(p => [p.erp_product_id, p.active])
+      // Create a map for quick lookup (includes active status and peso_medio_kg)
+      const productsMap = new Map(
+        activeProducts.map(p => [p.erp_product_id, { active: p.active, peso_medio_kg: p.peso_medio_kg }])
       );
 
       // Enrich ERP products with active status and filter fields
-      const enrichedProducts = erpProducts.map((product: any) => ({
-        codigo: product.codigo,
-        ean: product.ean,
-        descricao: product.descricao,
-        desReduzida: product.desReduzida,
-        valvenda: product.valvenda,
-        valOferta: product.valOferta,
-        desSecao: product.desSecao,
-        desGrupo: product.desGrupo,
-        desSubGrupo: product.desSubGrupo,
-        vendaMedia: product.vendaMedia,
-        diasCobertura: product.diasCobertura,
-        tipoEspecie: product.tipoEspecie,
-        tipoEvento: product.tipoEvento,
-        dtaUltMovVenda: product.dtaUltMovVenda,
-        active: activeProductsMap.get(product.codigo) || false
-      }));
+      const enrichedProducts = erpProducts.map((product: any) => {
+        const dbProduct = productsMap.get(product.codigo);
+        return {
+          codigo: product.codigo,
+          ean: product.ean,
+          descricao: product.descricao,
+          desReduzida: product.desReduzida,
+          valvenda: product.valvenda,
+          valOferta: product.valOferta,
+          desSecao: product.desSecao,
+          desGrupo: product.desGrupo,
+          desSubGrupo: product.desSubGrupo,
+          vendaMedia: product.vendaMedia,
+          diasCobertura: product.diasCobertura,
+          tipoEspecie: product.tipoEspecie,
+          tipoEvento: product.tipoEvento,
+          dtaUltMovVenda: product.dtaUltMovVenda,
+          pesavel: product.pesavel,
+          active: dbProduct?.active || false,
+          peso_medio_kg: dbProduct?.peso_medio_kg || null
+        };
+      });
 
       res.json({
         data: enrichedProducts,
@@ -190,6 +195,83 @@ export class ProductsController {
 
     } catch (error) {
       console.error('Activate product error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async updatePesoMedio(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params; // ERP product ID (codigo)
+      const { peso_medio_kg } = req.body;
+
+      if (typeof peso_medio_kg !== 'number' || peso_medio_kg < 0) {
+        return res.status(400).json({ error: 'peso_medio_kg must be a positive number' });
+      }
+
+      const productRepository = AppDataSource.getRepository(Product);
+
+      // Find or create product
+      let product = await productRepository.findOne({
+        where: { erp_product_id: id }
+      });
+
+      if (!product) {
+        // If product doesn't exist, we need to create it first
+        // Fetch product info from ERP
+        const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
+        const port = await ConfigurationService.get('intersolid_port', null);
+        const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
+        const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
+        const erpApiUrl = baseUrl ? `${baseUrl}${productsEndpoint}` : process.env.ERP_PRODUCTS_API_URL || 'http://mock-erp-api.com';
+
+        const cacheKey = `erp-product-${id}`;
+        const erpProduct = await CacheService.executeWithCache(cacheKey, async () => {
+          const response = await axios.get(`${erpApiUrl}/${id}`);
+          if (Array.isArray(response.data)) {
+            return response.data.find((p: any) => p.codigo === id) || response.data[0] || null;
+          }
+          return response.data || null;
+        });
+
+        if (!erpProduct) {
+          return res.status(404).json({ error: 'Product not found in ERP' });
+        }
+
+        // Create new product
+        product = productRepository.create({
+          erp_product_id: erpProduct.codigo,
+          description: erpProduct.descricao,
+          short_description: erpProduct.desReduzida,
+          ean: erpProduct.ean,
+          weighable: erpProduct.pesavel === 'S',
+          section_code: erpProduct.codSecao,
+          section_name: erpProduct.desSecao,
+          group_code: erpProduct.codGrupo,
+          group_name: erpProduct.desGrupo,
+          subgroup_code: erpProduct.codSubGrupo,
+          subgroup_name: erpProduct.desSubGrupo,
+          supplier_code: erpProduct.codForn,
+          supplier_name: erpProduct.razaoForn,
+          active: false,
+          peso_medio_kg
+        });
+      } else {
+        // Update existing product
+        product.peso_medio_kg = peso_medio_kg;
+      }
+
+      await productRepository.save(product);
+
+      res.json({
+        message: 'Peso médio atualizado com sucesso',
+        product: {
+          erp_product_id: product.erp_product_id,
+          peso_medio_kg: product.peso_medio_kg
+        }
+      });
+
+    } catch (error) {
+      console.error('Update peso medio error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
