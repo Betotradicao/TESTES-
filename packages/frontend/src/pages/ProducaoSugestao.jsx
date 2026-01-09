@@ -492,8 +492,8 @@ export default function ProducaoSugestao() {
                     >
                       Produto {sortOrder === 'asc' ? '↑' : '↓'}
                     </th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Peso Médio</th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Estoque (und)</th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Peso Médio</th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Dias Produção</th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Venda Média (kg/dia)</th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 bg-green-50">Sugestão (kg)</th>
@@ -519,9 +519,6 @@ export default function ProducaoSugestao() {
                       <td className="px-4 py-2 text-sm">
                         <div className="font-medium">{product.descricao}</div>
                       </td>
-                      <td className="px-4 py-2 text-center text-sm text-gray-600">
-                        {product.peso_medio_kg ? `${product.peso_medio_kg.toFixed(3)} kg` : '-'}
-                      </td>
                       <td className="px-4 py-2">
                         <input
                           type="number"
@@ -531,6 +528,9 @@ export default function ProducaoSugestao() {
                           placeholder="0"
                           className="w-20 px-2 py-1 border border-gray-300 rounded text-center text-sm focus:ring-orange-500 focus:border-orange-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
+                      </td>
+                      <td className="px-4 py-2 text-center text-sm text-gray-600">
+                        {product.peso_medio_kg ? `${product.peso_medio_kg.toFixed(3)} kg` : '-'}
                       </td>
                       <td className="px-4 py-2">
                         <input
