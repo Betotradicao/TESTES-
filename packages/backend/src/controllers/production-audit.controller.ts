@@ -314,6 +314,9 @@ export class ProductionAuditController {
       ).length;
       const withoutSuggestion = totalProducts - withSuggestion;
 
+      // Buscar nome do grupo configurado
+      const groupName = await ConfigurationService.get('whatsapp_group_producao_name', 'Grupo Padrão');
+
       // Enviar para WhatsApp
       const auditDate = new Date(audit.audit_date).toLocaleDateString('pt-BR');
       const success = await WhatsAppService.sendProductionReport(
@@ -323,6 +326,14 @@ export class ProductionAuditController {
         withSuggestion,
         withoutSuggestion
       );
+
+      // Salvar informações do envio
+      if (success) {
+        audit.sent_whatsapp = true;
+        audit.sent_at = new Date();
+        audit.whatsapp_group_name = groupName;
+        await auditRepository.save(audit);
+      }
 
       // Limpar arquivo temporário
       if (fs.existsSync(pdfPath)) {

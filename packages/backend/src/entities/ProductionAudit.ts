@@ -29,6 +29,9 @@ export class ProductionAudit {
   @Column({ type: 'timestamp', nullable: true })
   sent_at: Date | null;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  whatsapp_group_name: string | null;
+
   @CreateDateColumn()
   created_at: Date;
 

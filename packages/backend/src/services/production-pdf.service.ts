@@ -100,11 +100,11 @@ export class ProductionPDFService {
         // Cabeçalho da tabela
         const tableTop = doc.y;
         const col1X = 40;  // Produto
-        const col2X = 200; // Estoque Atual (kg)
-        const col3X = 270; // Estoque Atual (und)
-        const col4X = 340; // Dias
-        const col5X = 390; // Produzir (kg)
-        const col6X = 480; // Produzir (und)
+        const col2X = 220; // Estoque Atual (kg)
+        const col3X = 290; // Estoque Atual (und)
+        const col4X = 360; // Dias
+        const col5X = 410; // Produzir (kg)
+        const col6X = 490; // Produzir (und)
 
         doc.font('Helvetica-Bold').fontSize(8);
 
