@@ -343,7 +343,7 @@ export default function WhatsAppGroupsTab() {
                     type="time"
                     value={currentConfig.scheduleTime || '08:00'}
                     onChange={(e) => handleInputChange('scheduleTime', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-calendar-picker-indicator]:hidden"
                   />
                   <p className="mt-1 text-xs text-gray-500">
                     📅 PDF de bipagens pendentes será enviado automaticamente todos os dias neste horário
