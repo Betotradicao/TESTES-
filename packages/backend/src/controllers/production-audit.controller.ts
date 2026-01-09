@@ -7,6 +7,9 @@ import { Product } from '../entities/Product';
 import axios from 'axios';
 import { ConfigurationService } from '../services/configuration.service';
 import { CacheService } from '../services/cache.service';
+import { ProductionPDFService } from '../services/production-pdf.service';
+import { WhatsAppService } from '../services/whatsapp.service';
+import * as fs from 'fs';
 
 export class ProductionAuditController {
   /**
@@ -275,6 +278,65 @@ export class ProductionAuditController {
       res.json({ message: 'Audit deleted successfully' });
     } catch (error) {
       console.error('Delete production audit error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  /**
+   * Gerar PDF e enviar para WhatsApp
+   */
+  static async sendToWhatsApp(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const auditRepository = AppDataSource.getRepository(ProductionAudit);
+
+      const audit = await auditRepository.findOne({
+        where: { id: parseInt(id) },
+        relations: ['user', 'items'],
+      });
+
+      if (!audit) {
+        return res.status(404).json({ error: 'Audit not found' });
+      }
+
+      if (!audit.items || audit.items.length === 0) {
+        return res.status(400).json({ error: 'Audit has no items' });
+      }
+
+      // Gerar PDF
+      console.log('🥖 Gerando PDF de produção...');
+      const pdfPath = await ProductionPDFService.generateProductionPDF(audit, audit.items);
+
+      // Calcular estatísticas
+      const totalProducts = audit.items.length;
+      const withSuggestion = audit.items.filter(item =>
+        (item.suggested_production_units || 0) > 0
+      ).length;
+      const withoutSuggestion = totalProducts - withSuggestion;
+
+      // Enviar para WhatsApp
+      const auditDate = new Date(audit.audit_date).toLocaleDateString('pt-BR');
+      const success = await WhatsAppService.sendProductionReport(
+        pdfPath,
+        auditDate,
+        totalProducts,
+        withSuggestion,
+        withoutSuggestion
+      );
+
+      // Limpar arquivo temporário
+      if (fs.existsSync(pdfPath)) {
+        fs.unlinkSync(pdfPath);
+        console.log(`🗑️  Arquivo temporário removido: ${pdfPath}`);
+      }
+
+      if (success) {
+        res.json({ message: 'Relatório enviado para WhatsApp com sucesso' });
+      } else {
+        res.status(500).json({ error: 'Falha ao enviar relatório para WhatsApp' });
+      }
+    } catch (error) {
+      console.error('Send production report error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }

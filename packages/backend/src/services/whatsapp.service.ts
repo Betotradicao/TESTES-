@@ -450,4 +450,49 @@ export class WhatsAppService {
       return false;
     }
   }
+
+  /**
+   * Envia relatório de sugestão de produção para grupo do WhatsApp
+   */
+  static async sendProductionReport(
+    filePath: string,
+    auditDate: string,
+    totalProducts: number,
+    withSuggestion: number,
+    withoutSuggestion: number
+  ): Promise<boolean> {
+    try {
+      // Buscar grupo do WhatsApp específico para Produção (com fallback para o grupo padrão)
+      const groupId = await ConfigurationService.get('whatsapp_group_producao', '') ||
+                      await ConfigurationService.get('evolution_whatsapp_group_id', process.env.EVOLUTION_WHATSAPP_GROUP_ID || '');
+
+      if (!groupId) {
+        console.warn('⚠️  Grupo do WhatsApp não configurado (whatsapp_group_producao ou evolution_whatsapp_group_id)');
+        return false;
+      }
+
+      console.log(`🥖 Enviando relatório de produção para grupo: ${groupId}`);
+
+      const caption = `🥖 *RELATÓRIO DE PRODUÇÃO - PADARIA*\n\n` +
+                     `📋 Auditoria: ${auditDate}\n` +
+                     `📅 Data: ${new Date().toLocaleString('pt-BR')}\n\n` +
+                     `📦 Total de Produtos: ${totalProducts}\n` +
+                     `🟢 Com Sugestão: ${withSuggestion} itens\n` +
+                     `⚪ Sem Necessidade: ${withoutSuggestion} itens\n\n` +
+                     `📄 Confira o relatório detalhado em PDF anexo.`;
+
+      const success = await this.sendDocument(groupId, filePath, caption);
+
+      if (success) {
+        console.log(`✅ Relatório de produção enviado para grupo ${groupId}`);
+      } else {
+        console.error(`❌ Falha ao enviar relatório de produção`);
+      }
+
+      return success;
+    } catch (error) {
+      console.error(`❌ Erro ao enviar relatório de produção:`, error);
+      return false;
+    }
+  }
 }

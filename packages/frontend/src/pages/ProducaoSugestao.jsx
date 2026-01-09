@@ -219,12 +219,23 @@ export default function ProducaoSugestao() {
         return;
       }
 
+      // Salvar auditoria
       const response = await api.post('/production/audits', {
         audit_date: selectedDate,
         items
       });
 
-      setSuccess('Auditoria salva com sucesso!');
+      const auditId = response.data.id;
+
+      // Enviar para WhatsApp
+      try {
+        await api.post(`/production/audits/${auditId}/send-whatsapp`);
+        setSuccess('Auditoria salva e enviada para WhatsApp com sucesso!');
+      } catch (whatsappErr) {
+        console.error('Erro ao enviar para WhatsApp:', whatsappErr);
+        setSuccess('Auditoria salva com sucesso! (Erro ao enviar para WhatsApp)');
+      }
+
       await loadMonthAudits(currentMonth);
 
       setTimeout(() => setSuccess(''), 3000);

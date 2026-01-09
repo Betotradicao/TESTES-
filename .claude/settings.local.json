@@ -727,7 +727,10 @@
       "Bash(ssh -i \"C:\\\\Users\\\\Administrator\\\\.ssh\\\\vps_prevencao\" root@145.223.92.152 \"cd /root/prevencao-radar-install && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml up -d --no-deps backend\")",
       "Bash(ssh -i \"C:\\\\Users\\\\Administrator\\\\.ssh\\\\vps_prevencao\" root@145.223.92.152 \"docker ps --filter name=frontend\")",
       "Bash(ssh -i \"C:\\\\Users\\\\Administrator\\\\.ssh\\\\vps_prevencao\" root@145.223.92.152 \"docker logs prevencao-frontend-prod --tail 5\")",
-      "Bash(ssh -i \"C:\\\\Users\\\\Administrator\\\\.ssh\\\\vps_prevencao\" root@145.223.92.152 \"cd /root/prevencao-radar-install && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml up -d --no-deps frontend\")"
+      "Bash(ssh -i \"C:\\\\Users\\\\Administrator\\\\.ssh\\\\vps_prevencao\" root@145.223.92.152 \"cd /root/prevencao-radar-install && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml up -d --no-deps frontend\")",
+      "Bash(sshpass -p 'Beto3107@@##' ssh -o StrictHostKeyChecking=no root@145.223.92.152 \"cd /root/prevencao-no-radar && git pull\")",
+      "Bash(ssh root@145.223.92.152 \"cd /root/prevencao-no-radar && git pull\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/prevencao-no-radar && git pull\")"
     ],
     "deny": [],
     "ask": []

@@ -29,4 +29,7 @@ router.put('/audits/:id/complete', ProductionAuditController.completeAudit);
 // Deletar auditoria
 router.delete('/audits/:id', ProductionAuditController.deleteAudit);
 
+// Enviar relatório para WhatsApp
+router.post('/audits/:id/send-whatsapp', ProductionAuditController.sendToWhatsApp);
+
 export default router;
