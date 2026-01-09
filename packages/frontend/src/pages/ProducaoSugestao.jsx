@@ -32,6 +32,8 @@ export default function ProducaoSugestao() {
 
   // Carregar produtos de padaria e auditoria do dia
   useEffect(() => {
+    setError(''); // Limpar erros ao carregar a página
+    setSuccess('');
     loadBakeryProducts();
     loadTodayAudit();
   }, []);
