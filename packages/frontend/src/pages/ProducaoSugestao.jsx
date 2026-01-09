@@ -118,9 +118,14 @@ export default function ProducaoSugestao() {
   };
 
   const handleDayClick = (day) => {
-    const dayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const dateStr = dayDate.toISOString().split('T')[0];
+    // Criar data sem problemas de timezone
+    const year = currentMonth.getFullYear();
+    const month = String(currentMonth.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(day).padStart(2, '0');
+    const dateStr = `${year}-${month}-${dayStr}`;
+
     setSelectedDate(dateStr);
+    setError(''); // Limpar erros
 
     // Carregar auditoria se existir
     const audit = getDayAudit(day);
@@ -293,18 +298,22 @@ export default function ProducaoSugestao() {
             </div>
 
             <div className="grid grid-cols-7 gap-1">
-              {getDaysInMonth().map((day, index) => (
-                <div
-                  key={index}
-                  className={`
-                    aspect-square flex items-center justify-center rounded text-sm
-                    ${day ? getDayColor(day) : 'bg-transparent'}
-                  `}
-                  onClick={() => day && handleDayClick(day)}
-                >
-                  {day}
-                </div>
-              ))}
+              {getDaysInMonth().map((day, index) => {
+                const isSelected = day && selectedDate === `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                return (
+                  <div
+                    key={index}
+                    className={`
+                      aspect-square flex items-center justify-center rounded text-sm transition-all
+                      ${day ? getDayColor(day) : 'bg-transparent'}
+                      ${isSelected ? 'ring-4 ring-orange-500 ring-offset-2 scale-110 font-bold' : ''}
+                    `}
+                    onClick={() => day && handleDayClick(day)}
+                  >
+                    {day}
+                  </div>
+                );
+              })}
             </div>
 
             <div className="mt-4 text-xs space-y-1">
@@ -327,7 +336,7 @@ export default function ProducaoSugestao() {
           <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">
-                Auditoria de {new Date(selectedDate).toLocaleDateString('pt-BR')}
+                Auditoria de {selectedDate.split('-').reverse().join('/')}
               </h2>
               <button
                 onClick={handleSave}
@@ -336,6 +345,22 @@ export default function ProducaoSugestao() {
               >
                 {loading ? 'Salvando...' : 'Salvar'}
               </button>
+            </div>
+
+            {/* Filtros Informativos */}
+            <div className="mb-4 flex gap-4 items-center text-sm">
+              <div className="flex items-center gap-2 bg-orange-50 px-3 py-2 rounded-lg">
+                <span className="font-semibold text-orange-700">Seção:</span>
+                <span className="text-orange-900">Padaria</span>
+              </div>
+              <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg">
+                <span className="font-semibold text-blue-700">Tipo:</span>
+                <span className="text-blue-900">PRODUÇÃO</span>
+              </div>
+              <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
+                <span className="font-semibold text-gray-700">Total:</span>
+                <span className="text-gray-900">{products.length} produtos</span>
+              </div>
             </div>
 
             <div className="overflow-y-auto" style={{ maxHeight: '600px' }}>
