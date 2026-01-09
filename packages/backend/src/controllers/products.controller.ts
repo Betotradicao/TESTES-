@@ -108,23 +108,37 @@ export class ProductsController {
         let response: any = null;
 
         try {
-          // Use cache to get products and find the specific one
-          const products = await CacheService.executeWithCache(
-            'erp-products',
+          // Use cache with UNIQUE key per product to avoid race conditions
+          const cacheKey = `erp-product-${id}`;
+
+          erpProduct = await CacheService.executeWithCache(
+            cacheKey,
             async () => {
-              console.log('Fetching products from ERP API for activation...', erpApiUrl);
-              const params = { id: id};
+              console.log(`[ACTIVATE] Fetching product ${id} from ERP API...`, erpApiUrl);
+
               if (process.env.NODE_ENV === 'development') {
+                // Development: Get all products and filter
+                const params = { id: id };
                 response = await axios.get(`${erpApiUrl}`, { params });
+                const products = Array.isArray(response.data) ? response.data : [response.data];
+                return products.find((p: any) => p.codigo === id) || null;
               } else {
+                // Production: Get specific product
                 response = await axios.get(`${erpApiUrl}/${id}`);
+                // Handle both single object and array responses
+                if (Array.isArray(response.data)) {
+                  return response.data.find((p: any) => p.codigo === id) || response.data[0] || null;
+                }
+                return response.data || null;
               }
-              return response.data;
             }
           );
 
-          erpProduct = products.find((p: any) => p.codigo === id);
+          if (!erpProduct) {
+            console.error(`[ACTIVATE] Product ${id} not found in ERP response`);
+          }
         } catch (error) {
+          console.error(`[ACTIVATE] Failed to fetch product ${id}:`, error);
         }
 
         if (!erpProduct) {
@@ -248,23 +262,39 @@ export class ProductsController {
               let response: any = null;
 
               try {
-                // Use cache to get products and find the specific one
-                const products = await CacheService.executeWithCache(
-                  'erp-products',
+                // Use cache with UNIQUE key per product to avoid race conditions
+                const cacheKey = `erp-product-${productId}`;
+
+                const productData = await CacheService.executeWithCache(
+                  cacheKey,
                   async () => {
-                    console.log(`Fetching product ${productId} from ERP API for bulk activation...`, erpApiUrl);
-                    const params = { id: productId };
+                    console.log(`[BULK] Fetching product ${productId} from ERP API...`);
+
                     if (process.env.NODE_ENV === 'development') {
+                      // Development: Get all products and filter
+                      const params = { id: productId };
                       response = await axios.get(`${erpApiUrl}`, { params });
+                      const products = Array.isArray(response.data) ? response.data : [response.data];
+                      return products.find((p: any) => p.codigo === productId) || null;
                     } else {
+                      // Production: Get specific product
                       response = await axios.get(`${erpApiUrl}/${productId}`);
+                      // Handle both single object and array responses
+                      if (Array.isArray(response.data)) {
+                        return response.data.find((p: any) => p.codigo === productId) || response.data[0] || null;
+                      }
+                      return response.data || null;
                     }
-                    return response.data;
                   }
                 );
 
-                erpProduct = products.find((p: any) => p.codigo === productId);
+                erpProduct = productData;
+
+                if (!erpProduct) {
+                  console.error(`[BULK] Product ${productId} not found in ERP response`);
+                }
               } catch (error) {
+                console.error(`[BULK] Failed to fetch product ${productId} from ERP:`, error);
                 return { productId, error: 'Failed to fetch from ERP' };
               }
 
