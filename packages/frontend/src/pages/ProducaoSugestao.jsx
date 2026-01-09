@@ -326,17 +326,33 @@ export default function ProducaoSugestao() {
               </button>
             </div>
 
-            {/* Filtros Informativos */}
-            <div className="mb-4 flex gap-4 items-center text-sm">
-              <div className="flex items-center gap-2 bg-orange-50 px-3 py-2 rounded-lg">
-                <span className="font-semibold text-orange-700">Seção:</span>
-                <span className="text-orange-900">Padaria</span>
+            {/* Filtros Dinâmicos */}
+            <div className="mb-4 flex gap-4 items-center text-sm flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-gray-700">Seção:</span>
+                <select
+                  value={selectedSecao}
+                  onChange={(e) => setSelectedSecao(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                >
+                  {[...new Set(allProducts.map(p => p.desSecao))].sort().map(secao => (
+                    <option key={secao} value={secao}>{secao}</option>
+                  ))}
+                </select>
               </div>
-              <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg">
-                <span className="font-semibold text-blue-700">Tipo:</span>
-                <span className="text-blue-900">PRODUÇÃO</span>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-gray-700">Tipo:</span>
+                <select
+                  value={selectedTipo}
+                  onChange={(e) => setSelectedTipo(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  {[...new Set(allProducts.map(p => p.tipoEvento))].sort().map(tipo => (
+                    <option key={tipo} value={tipo}>{tipo}</option>
+                  ))}
+                </select>
               </div>
-              <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
+              <div className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg">
                 <span className="font-semibold text-gray-700">Total:</span>
                 <span className="text-gray-900">{products.length} produtos</span>
               </div>
@@ -347,25 +363,32 @@ export default function ProducaoSugestao() {
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Produto</th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
-                      Estoque<br/>(unidades)
-                    </th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
-                      Dias<br/>Produção
-                    </th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
-                      Venda Média<br/>(kg/dia)
-                    </th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Peso Médio</th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Estoque (und)</th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Dias Produção</th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Venda Média (kg/dia)</th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 bg-green-50">Sugestão (kg)</th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 bg-blue-50">Sugestão (und)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {products.map(product => (
+                  {products.map(product => {
+                    const estoqueUnidades = auditItems[product.codigo]?.quantity_units || 0;
+                    const diasProducao = auditItems[product.codigo]?.production_days || 1;
+                    const pesoMedio = product.peso_medio_kg || 0;
+                    const estoqueKg = estoqueUnidades * pesoMedio;
+                    const vendaMediaKg = product.vendaMedia || 0;
+                    const necessidadeKg = vendaMediaKg * diasProducao;
+                    const sugestaoKg = Math.max(0, necessidadeKg - estoqueKg);
+                    const sugestaoUnidades = pesoMedio > 0 ? Math.ceil(sugestaoKg / pesoMedio) : 0;
+
+                    return (
                     <tr key={product.codigo} className="hover:bg-gray-50">
                       <td className="px-4 py-2 text-sm">
                         <div className="font-medium">{product.descricao}</div>
-                        <div className="text-xs text-gray-500">
-                          {product.peso_medio_kg ? `${product.peso_medio_kg.toFixed(3)} kg/und` : 'Peso não cadastrado'}
-                        </div>
+                      </td>
+                      <td className="px-4 py-2 text-center text-sm text-gray-600">
+                        {product.peso_medio_kg ? `${product.peso_medio_kg.toFixed(3)} kg` : '-'}
                       </td>
                       <td className="px-4 py-2">
                         <input
@@ -392,8 +415,15 @@ export default function ProducaoSugestao() {
                       <td className="px-4 py-2 text-center text-sm">
                         {product.vendaMedia?.toFixed(3) || '0.000'}
                       </td>
+                      <td className="px-4 py-2 text-center text-sm font-semibold text-green-700 bg-green-50">
+                        {sugestaoKg.toFixed(3)}
+                      </td>
+                      <td className="px-4 py-2 text-center text-sm font-semibold text-blue-700 bg-blue-50">
+                        {sugestaoUnidades}
+                      </td>
                     </tr>
-                  ))}
+                  );
+                  })}
                 </tbody>
               </table>
             </div>
