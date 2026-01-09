@@ -494,9 +494,6 @@ export default function ProducaoSugestao() {
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Estoque (und)</th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Dias Produção</th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Venda Média (kg/dia)</th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Custo</th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Preço</th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Margem %</th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 bg-green-50">Sugestão (kg)</th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 bg-blue-50">Sugestão (und)</th>
                   </tr>
@@ -545,15 +542,6 @@ export default function ProducaoSugestao() {
                       </td>
                       <td className="px-4 py-2 text-center text-sm">
                         {product.vendaMedia?.toFixed(3) || '0.000'}
-                      </td>
-                      <td className="px-4 py-2 text-center text-sm text-gray-600">
-                        {product.custo ? `R$ ${product.custo.toFixed(2)}` : '-'}
-                      </td>
-                      <td className="px-4 py-2 text-center text-sm text-gray-600">
-                        {product.preco ? `R$ ${product.preco.toFixed(2)}` : '-'}
-                      </td>
-                      <td className="px-4 py-2 text-center text-sm text-gray-600">
-                        {product.custo && product.preco ? `${(((product.preco - product.custo) / product.preco) * 100).toFixed(1)}%` : '-'}
                       </td>
                       <td className="px-4 py-2 text-center text-sm font-semibold text-green-700 bg-green-50">
                         {sugestaoKg.toFixed(3)}
