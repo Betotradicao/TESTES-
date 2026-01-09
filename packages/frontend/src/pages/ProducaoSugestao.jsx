@@ -53,7 +53,10 @@ export default function ProducaoSugestao() {
       console.log('✅ AuditItems inicializados');
     } catch (err) {
       console.error('❌ Erro ao carregar produtos:', err);
-      setError('Erro ao carregar produtos de padaria: ' + err.message);
+      const errorMessage = err.response?.status === 500
+        ? '⚠️ Servidor ERP indisponível. Aguarde alguns minutos e tente novamente.'
+        : 'Erro ao carregar produtos de padaria: ' + (err.response?.data?.error || err.message);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
