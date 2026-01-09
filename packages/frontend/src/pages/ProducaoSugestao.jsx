@@ -27,6 +27,8 @@ export default function ProducaoSugestao() {
   const [auditItems, setAuditItems] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState('asc'); // 'asc' ou 'desc'
+  const [auditSortField, setAuditSortField] = useState('audit_date');
+  const [auditSortOrder, setAuditSortOrder] = useState('desc');
 
   // Carregar produtos de padaria e auditoria do dia
   useEffect(() => {
@@ -277,6 +279,50 @@ export default function ProducaoSugestao() {
     }
   };
 
+  const handleAuditSort = (field) => {
+    if (auditSortField === field) {
+      setAuditSortOrder(auditSortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setAuditSortField(field);
+      setAuditSortOrder('asc');
+    }
+  };
+
+  const getSortedAudits = () => {
+    return [...allAudits].sort((a, b) => {
+      let aValue, bValue;
+
+      switch (auditSortField) {
+        case 'audit_date':
+          aValue = new Date(a.audit_date);
+          bValue = new Date(b.audit_date);
+          break;
+        case 'auditor':
+          aValue = (a.user?.name || a.user?.username || '').toLowerCase();
+          bValue = (b.user?.name || b.user?.username || '').toLowerCase();
+          break;
+        case 'group':
+          aValue = (a.whatsapp_group_name || '').toLowerCase();
+          bValue = (b.whatsapp_group_name || '').toLowerCase();
+          break;
+        case 'total':
+          aValue = a.items?.length || 0;
+          bValue = b.items?.length || 0;
+          break;
+        case 'with_suggestion':
+          aValue = a.items?.filter(item => (item.suggested_production_units || 0) > 0).length || 0;
+          bValue = b.items?.filter(item => (item.suggested_production_units || 0) > 0).length || 0;
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) return auditSortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return auditSortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
   // Gerar dias do calendário
   const getDaysInMonth = () => {
     const year = currentMonth.getFullYear();
@@ -517,19 +563,42 @@ export default function ProducaoSugestao() {
                 <table className="min-w-full text-base">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase">Data</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase">Auditor</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase">Grupo WhatsApp</th>
-                      <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase">Total</th>
-                      <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase">Com Sugestão</th>
+                      <th
+                        className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleAuditSort('audit_date')}
+                      >
+                        Data {auditSortField === 'audit_date' && (auditSortOrder === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th
+                        className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleAuditSort('auditor')}
+                      >
+                        Auditor {auditSortField === 'auditor' && (auditSortOrder === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th
+                        className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleAuditSort('group')}
+                      >
+                        Grupo WhatsApp {auditSortField === 'group' && (auditSortOrder === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th
+                        className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleAuditSort('total')}
+                      >
+                        Total {auditSortField === 'total' && (auditSortOrder === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th
+                        className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleAuditSort('with_suggestion')}
+                      >
+                        Com Sugestão {auditSortField === 'with_suggestion' && (auditSortOrder === 'asc' ? '↑' : '↓')}
+                      </th>
                       <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase">Sem Necessidade</th>
                       <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {allAudits
-                      .sort((a, b) => new Date(b.audit_date) - new Date(a.audit_date))
-                      .map(audit => {
+                    {getSortedAudits().map(audit => {
                         const totalProducts = audit.items?.length || 0;
                         const withSuggestion = audit.items?.filter(item => (item.suggested_production_units || 0) > 0).length || 0;
                         const withoutSuggestion = totalProducts - withSuggestion;
