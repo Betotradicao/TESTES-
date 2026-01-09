@@ -114,6 +114,13 @@ export class ProductionAuditController {
         activeProducts.map((p: any) => [p.erp_product_id, p.peso_medio_kg])
       );
 
+      // DEBUG: Log para entender o que está acontecendo
+      console.log('📊 DEBUG getBakeryProducts:');
+      console.log('- Total produtos do ERP:', erpProducts.length);
+      console.log('- Total produtos ativos no DB:', activeProducts.length);
+      console.log('- Exemplo produto ERP:', erpProducts[0]);
+      console.log('- Tipos de evento únicos:', [...new Set(erpProducts.map((p: any) => p.tipoEvento))]);
+
       const bakeryProducts = erpProducts
         .filter((product: any) => {
           const isActive = activeProductsMap.has(product.codigo);
@@ -128,6 +135,8 @@ export class ProductionAuditController {
           vendaMedia: product.vendaMedia || 0,
           pesavel: product.pesavel,
         }));
+
+      console.log('✅ Produtos filtrados (PRODUÇÃO + ativos):', bakeryProducts.length);
 
       res.json(bakeryProducts);
     } catch (error) {
