@@ -28,6 +28,10 @@ export default function WhatsAppGroupsTab() {
     quebras: {
       groupId: '',
       groupName: '',
+    },
+    producao: {
+      groupId: '',
+      groupName: '',
     }
   });
 
@@ -35,7 +39,8 @@ export default function WhatsAppGroupsTab() {
     { id: 'ruptura', label: '📦 Prevenção Ruptura', icon: '📦' },
     { id: 'etiquetas', label: '🏷️ Prevenção Etiquetas', icon: '🏷️' },
     { id: 'bipagens', label: '🔔 Prevenção Bipagens', icon: '🔔' },
-    { id: 'quebras', label: '📊 Prevenção Quebras', icon: '📊' }
+    { id: 'quebras', label: '📊 Prevenção Quebras', icon: '📊' },
+    { id: 'producao', label: '🥖 Prevenção Produção', icon: '🥖' }
   ];
 
   // Mensagens de exemplo para cada tipo
@@ -95,6 +100,28 @@ export default function WhatsAppGroupsTab() {
 • Ajuste Inventário: R$ 300,00
 • Erro Lançamento: R$ 140,00
 
+📄 Confira o relatório detalhado em PDF anexo.`,
+
+    producao: `🥖 *RELATÓRIO DE PRODUÇÃO - PADARIA*
+
+📋 Auditoria: 09/01/2026
+📅 Data: 09/01/2026, 08:30:00
+
+📦 Total de Produtos: 99
+🟢 Com Sugestão: 24 itens
+⚪ Sem Necessidade: 75 itens
+
+*📊 PRINCIPAIS SUGESTÕES:*
+• PDR BOLO CHOCOLATE KG: 3.767 kg (38 unidades)
+• PDR BOLO CENOURA KG: 2.824 kg (28 unidades)
+• PDR BOLO BANANA KG: 1.086 kg (11 unidades)
+• PDR BOLO PISCINA CHOCOLATE KG: 1.234 kg (12 unidades)
+
+💡 *Sugestões calculadas com base em:*
+• Venda média dos últimos 30 dias
+• Dias de produção configurados
+• Estoque atual informado
+
 📄 Confira o relatório detalhado em PDF anexo.`
   };
 
@@ -127,6 +154,10 @@ export default function WhatsAppGroupsTab() {
           quebras: {
             groupId: configs.whatsapp_group_quebras || configs.evolution_whatsapp_group_id || '',
             groupName: configs.whatsapp_group_quebras_name || 'Grupo Padrão',
+          },
+          producao: {
+            groupId: configs.whatsapp_group_producao || configs.evolution_whatsapp_group_id || '',
+            groupName: configs.whatsapp_group_producao_name || 'Grupo Padrão',
           }
         });
       }
