@@ -100,11 +100,12 @@ export class ProductionPDFService {
         // Cabeçalho da tabela
         const tableTop = doc.y;
         const col1X = 40;  // Produto
-        const col2X = 240; // Estoque Atual (kg)
-        const col3X = 320; // Estoque Atual (und)
-        const col4X = 400; // Dias
-        const col5X = 450; // Produzir (kg)
-        const col6X = 530; // Produzir (und)
+        const col2X = 280; // Estoque Atual (kg)
+        const col3X = 360; // Estoque Atual (und)
+        const col4X = 440; // Dias
+        const col5X = 500; // Produzir (kg)
+        const col6X = 580; // Produzir (und)
+        const col1Width = 220; // Largura coluna produto
 
         doc.font('Helvetica-Bold').fontSize(8);
 
@@ -113,23 +114,23 @@ export class ProductionPDFService {
            .fillAndStroke('#f3f4f6', '#d1d5db');
 
         doc.fillColor('black');
-        doc.text('Produto', col1X, doc.y + 5, { width: 150, continued: false });
-        doc.text('Estoque', col2X, tableTop + 5, { width: 60, align: 'center' });
-        doc.text('Estoque', col3X, tableTop + 5, { width: 60, align: 'center' });
-        doc.text('Dias', col4X, tableTop + 5, { width: 40, align: 'center' });
-        doc.text('Produzir', col5X, tableTop + 5, { width: 80, align: 'center' });
-        doc.text('Produzir', col6X, tableTop + 5, { width: 60, align: 'center' });
+        doc.text('Produto', col1X, doc.y + 5, { width: col1Width, continued: false });
+        doc.text('Estoque', col2X, tableTop + 5, { width: 70, align: 'center' });
+        doc.text('Estoque', col3X, tableTop + 5, { width: 70, align: 'center' });
+        doc.text('Dias', col4X, tableTop + 5, { width: 50, align: 'center' });
+        doc.text('Produzir', col5X, tableTop + 5, { width: 70, align: 'center' });
+        doc.text('Produzir', col6X, tableTop + 5, { width: 70, align: 'center' });
 
         doc.moveDown(0.3);
 
         // Segunda linha do cabeçalho (unidades)
         doc.fontSize(7);
-        doc.text('', col1X, doc.y, { width: 150 });
-        doc.text('(kg)', col2X, doc.y - 10, { width: 60, align: 'center' });
-        doc.text('(und)', col3X, doc.y - 10, { width: 60, align: 'center' });
-        doc.text('', col4X, doc.y - 10, { width: 40, align: 'center' });
-        doc.text('(kg)', col5X, doc.y - 10, { width: 80, align: 'center' });
-        doc.text('(und)', col6X, doc.y - 10, { width: 60, align: 'center' });
+        doc.text('', col1X, doc.y, { width: col1Width });
+        doc.text('(kg)', col2X, doc.y - 10, { width: 70, align: 'center' });
+        doc.text('(und)', col3X, doc.y - 10, { width: 70, align: 'center' });
+        doc.text('', col4X, doc.y - 10, { width: 50, align: 'center' });
+        doc.text('(kg)', col5X, doc.y - 10, { width: 70, align: 'center' });
+        doc.text('(und)', col6X, doc.y - 10, { width: 70, align: 'center' });
 
         doc.moveDown(0.5);
 
@@ -158,7 +159,7 @@ export class ProductionPDFService {
 
           // Nome do produto (com quebra de linha se necessário)
           doc.text(item.product_name, col1X, rowY, {
-            width: 150,
+            width: col1Width,
             height: rowHeight,
             ellipsis: true
           });
@@ -168,7 +169,7 @@ export class ProductionPDFService {
             this.formatKg(item.quantity_kg),
             col2X,
             rowY,
-            { width: 60, align: 'center' }
+            { width: 70, align: 'center' }
           );
 
           // Estoque atual em unidades
@@ -176,7 +177,7 @@ export class ProductionPDFService {
             item.quantity_units.toString(),
             col3X,
             rowY,
-            { width: 60, align: 'center' }
+            { width: 70, align: 'center' }
           );
 
           // Dias de produção
@@ -184,7 +185,7 @@ export class ProductionPDFService {
             item.production_days.toString(),
             col4X,
             rowY,
-            { width: 40, align: 'center' }
+            { width: 50, align: 'center' }
           );
 
           // Sugestão de produção em kg (destacar em vermelho se > 0)
@@ -196,7 +197,7 @@ export class ProductionPDFService {
             this.formatKg(item.suggested_production_kg),
             col5X,
             rowY,
-            { width: 80, align: 'center' }
+            { width: 70, align: 'center' }
           );
 
           // Sugestão de produção em unidades
@@ -205,7 +206,7 @@ export class ProductionPDFService {
             suggestedUnits > 0 ? suggestedUnits.toString() : '-',
             col6X,
             rowY,
-            { width: 60, align: 'center' }
+            { width: 70, align: 'center' }
           );
 
           // Resetar cor e fonte
