@@ -124,7 +124,8 @@ export class ProductionAuditController {
       const bakeryProducts = erpProducts
         .filter((product: any) => {
           const isActive = activeProductsMap.has(product.codigo);
-          const isProduction = product.tipoEvento === 'PRODUÇÃO';
+          // Aceitar tanto "PRODUCAO" quanto "PRODUÇÃO" (ERP pode retornar sem acento)
+          const isProduction = product.tipoEvento === 'PRODUCAO' || product.tipoEvento === 'PRODUÇÃO';
           return isActive && isProduction;
         })
         .map((product: any) => ({

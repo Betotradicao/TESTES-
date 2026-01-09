@@ -713,7 +713,8 @@
       "Bash(docker exec:*)",
       "Bash(ssh-keyscan:*)",
       "Bash(~/.ssh/known_hosts)",
-      "Bash(\"/c/PROGRAM FILES/PUTTY/plink.exe\" -pw \"Beto3107@@##\" root@145.223.92.152 exit)"
+      "Bash(\"/c/PROGRAM FILES/PUTTY/plink.exe\" -pw \"Beto3107@@##\" root@145.223.92.152 exit)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: Corrige filtro de produtos PRODUCAO \\(sem acento\\)\n\nO ERP retorna tipoEvento como \"PRODUCAO\" \\(sem acento e sem ç\\),\nmas o código estava buscando \"PRODUÇÃO\". Agora aceita ambas as formas.\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ],
     "deny": [],
     "ask": []
