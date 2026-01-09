@@ -516,6 +516,9 @@ export default function ProducaoSugestao() {
 
                     return (
                     <tr key={product.codigo} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 text-sm text-gray-600">
+                        {product.codigo || '-'}
+                      </td>
                       <td className="px-4 py-2 text-sm">
                         <div className="font-medium">{product.descricao}</div>
                       </td>
@@ -544,6 +547,15 @@ export default function ProducaoSugestao() {
                       </td>
                       <td className="px-4 py-2 text-center text-sm">
                         {product.vendaMedia?.toFixed(3) || '0.000'}
+                      </td>
+                      <td className="px-4 py-2 text-center text-sm text-gray-600">
+                        {product.custo ? `R$ ${product.custo.toFixed(2)}` : '-'}
+                      </td>
+                      <td className="px-4 py-2 text-center text-sm text-gray-600">
+                        {product.preco ? `R$ ${product.preco.toFixed(2)}` : '-'}
+                      </td>
+                      <td className="px-4 py-2 text-center text-sm text-gray-600">
+                        {product.custo && product.preco ? `${(((product.preco - product.custo) / product.preco) * 100).toFixed(1)}%` : '-'}
                       </td>
                       <td className="px-4 py-2 text-center text-sm font-semibold text-green-700 bg-green-50">
                         {sugestaoKg.toFixed(3)}
