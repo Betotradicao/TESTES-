@@ -58,7 +58,8 @@ export default function ProducaoSugestao() {
     setProducts(filtered);
     const initialItems = {};
     filtered.forEach(product => {
-      initialItems[product.codigo] = { quantity_units: 0, production_days: 1 };
+      // Usa o production_days pré-configurado do produto, ou 1 como padrão
+      initialItems[product.codigo] = { quantity_units: 0, production_days: product.production_days || 1 };
     });
     setAuditItems(initialItems);
   };
