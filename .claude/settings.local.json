@@ -712,7 +712,8 @@
       "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/TESTES/InstaladorVPS && docker compose -f docker-compose-producao.yml restart backend\")",
       "Bash(docker exec:*)",
       "Bash(ssh-keyscan:*)",
-      "Bash(~/.ssh/known_hosts)"
+      "Bash(~/.ssh/known_hosts)",
+      "Bash(\"/c/PROGRAM FILES/PUTTY/plink.exe\" -pw \"Beto3107@@##\" root@145.223.92.152 exit)"
     ],
     "deny": [],
     "ask": []

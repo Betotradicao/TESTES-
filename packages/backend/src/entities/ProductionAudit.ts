@@ -10,8 +10,8 @@ export class ProductionAudit {
   @Column({ type: 'date', unique: true })
   audit_date: Date;
 
-  @Column({ type: 'integer' })
-  user_id: number;
+  @Column({ type: 'uuid' })
+  user_id: string;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })

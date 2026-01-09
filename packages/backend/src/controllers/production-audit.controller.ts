@@ -161,7 +161,7 @@ export class ProductionAuditController {
 
       if (audit) {
         // Update existing audit
-        audit.user_id = parseInt(userId!);
+        audit.user_id = userId!;
         audit.status = 'in_progress';
 
         // Delete existing items
@@ -172,7 +172,7 @@ export class ProductionAuditController {
         // Create new audit
         audit = auditRepository.create({
           audit_date: new Date(audit_date),
-          user_id: parseInt(userId!),
+          user_id: userId!,
           status: 'in_progress',
         });
       }

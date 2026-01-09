@@ -21,7 +21,7 @@ export class CreateProductionAuditTables1768000000000 implements MigrationInterf
           },
           {
             name: 'user_id',
-            type: 'integer',
+            type: 'uuid',
           },
           {
             name: 'status',
