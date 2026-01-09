@@ -490,11 +490,15 @@ export default function ProducaoSugestao() {
               <table className="min-w-full">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Código</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Produto</th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Peso Médio</th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Estoque (und)</th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Dias Produção</th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Venda Média (kg/dia)</th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Custo</th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Preço</th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Margem %</th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 bg-green-50">Sugestão (kg)</th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 bg-blue-50">Sugestão (und)</th>
                   </tr>
