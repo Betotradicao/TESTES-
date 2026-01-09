@@ -138,6 +138,33 @@ export default function AtivarProdutos() {
     }
   };
 
+  // Atualizar dias de produção do produto
+  const handleProductionDaysChange = async (productId, value) => {
+    try {
+      const production_days = parseInt(value);
+
+      if (isNaN(production_days) || production_days < 1) {
+        return; // Ignora valores inválidos
+      }
+
+      // Atualiza localmente primeiro (otimistic update)
+      setProducts(prevProducts =>
+        prevProducts.map(p =>
+          p.codigo === productId ? { ...p, production_days } : p
+        )
+      );
+
+      // Envia para o backend
+      await api.put(`/products/${productId}/production-days`, { production_days });
+
+    } catch (err) {
+      console.error('Erro ao atualizar dias de produção:', err);
+      setError('Erro ao salvar dias de produção. Tente novamente.');
+      // Recarrega produtos em caso de erro
+      fetchProducts();
+    }
+  };
+
   // Funções de seleção em massa
   const handleSelectProduct = (productId) => {
     const newSelected = new Set(selectedProducts);
@@ -779,6 +806,9 @@ export default function AtivarProdutos() {
                           Peso Médio Und
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Dias de Produção
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Ação
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -860,9 +890,22 @@ export default function AtivarProdutos() {
                               placeholder="0.000"
                               value={product.peso_medio_kg || ''}
                               onChange={(e) => handlePesoMedioChange(product.codigo, e.target.value)}
-                              className="w-24 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-orange-500 focus:border-orange-500"
+                              className="w-24 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-orange-500 focus:border-orange-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                             <span className="ml-1 text-xs text-gray-500">kg</span>
+                          </td>
+
+                          {/* Dias de Produção */}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            <input
+                              type="number"
+                              min="1"
+                              placeholder="1"
+                              value={product.production_days || ''}
+                              onChange={(e) => handleProductionDaysChange(product.codigo, e.target.value)}
+                              className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-orange-500 focus:border-orange-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                            <span className="ml-1 text-xs text-gray-500">dias</span>
                           </td>
 
                           {/* Ação - Toggle Ativo/Inativo */}
@@ -968,9 +1011,21 @@ export default function AtivarProdutos() {
                                   placeholder="0.000"
                                   value={product.peso_medio_kg || ''}
                                   onChange={(e) => handlePesoMedioChange(product.codigo, e.target.value)}
-                                  className="ml-1 w-20 px-2 py-0.5 border border-gray-300 rounded text-xs focus:ring-orange-500 focus:border-orange-500"
+                                  className="ml-1 w-20 px-2 py-0.5 border border-gray-300 rounded text-xs focus:ring-orange-500 focus:border-orange-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 />
                                 <span className="ml-1 text-xs text-gray-500">kg</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Dias Prod:</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  placeholder="1"
+                                  value={product.production_days || ''}
+                                  onChange={(e) => handleProductionDaysChange(product.codigo, e.target.value)}
+                                  className="ml-1 w-16 px-2 py-0.5 border border-gray-300 rounded text-xs text-center focus:ring-orange-500 focus:border-orange-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                                <span className="ml-1 text-xs text-gray-500">dias</span>
                               </div>
                             </div>
                           </div>

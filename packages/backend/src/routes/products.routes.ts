@@ -283,4 +283,7 @@ router.put('/:id/ai-characteristics', authenticateToken, ProductsController.upda
 // Atualizar peso médio do produto
 router.put('/:id/peso-medio', authenticateToken, ProductsController.updatePesoMedio);
 
+// Atualizar dias de produção do produto
+router.put('/:id/production-days', authenticateToken, ProductsController.updateProductionDays);
+
 export default router;

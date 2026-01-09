@@ -35,12 +35,12 @@ export class ProductsController {
       // Get active products from our database
       const productRepository = AppDataSource.getRepository(Product);
       const activeProducts = await productRepository.find({
-        select: ['erp_product_id', 'active', 'peso_medio_kg']
+        select: ['erp_product_id', 'active', 'peso_medio_kg', 'production_days']
       });
 
-      // Create a map for quick lookup (includes active status and peso_medio_kg)
+      // Create a map for quick lookup (includes active status, peso_medio_kg and production_days)
       const productsMap = new Map(
-        activeProducts.map(p => [p.erp_product_id, { active: p.active, peso_medio_kg: p.peso_medio_kg }])
+        activeProducts.map(p => [p.erp_product_id, { active: p.active, peso_medio_kg: p.peso_medio_kg, production_days: p.production_days }])
       );
 
       // Enrich ERP products with active status and filter fields
@@ -63,7 +63,8 @@ export class ProductsController {
           dtaUltMovVenda: product.dtaUltMovVenda,
           pesavel: product.pesavel,
           active: dbProduct?.active || false,
-          peso_medio_kg: dbProduct?.peso_medio_kg || null
+          peso_medio_kg: dbProduct?.peso_medio_kg || null,
+          production_days: dbProduct?.production_days || 1
         };
       });
 
@@ -272,6 +273,44 @@ export class ProductsController {
 
     } catch (error) {
       console.error('Update peso medio error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async updateProductionDays(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params; // ERP product ID (codigo)
+      const { production_days } = req.body;
+
+      if (typeof production_days !== 'number' || production_days < 1) {
+        return res.status(400).json({ error: 'production_days must be a number >= 1' });
+      }
+
+      const productRepository = AppDataSource.getRepository(Product);
+
+      // Find product
+      let product = await productRepository.findOne({
+        where: { erp_product_id: id }
+      });
+
+      if (!product) {
+        return res.status(404).json({ error: 'Product not found. Activate it first.' });
+      }
+
+      // Update production days
+      product.production_days = production_days;
+      await productRepository.save(product);
+
+      res.json({
+        message: 'Dias de produção atualizados com sucesso',
+        product: {
+          erp_product_id: product.erp_product_id,
+          production_days: product.production_days
+        }
+      });
+
+    } catch (error) {
+      console.error('Update production days error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }

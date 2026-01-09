@@ -73,6 +73,9 @@ export class Product {
   @Column({ type: 'decimal', precision: 10, scale: 3, nullable: true })
   peso_medio_kg?: number;
 
+  @Column({ type: 'integer', nullable: true, default: 1 })
+  production_days?: number;
+
   @Column({ type: 'jsonb', nullable: true })
   posicao_balcao?: {
     setor?: string;

@@ -88,7 +88,7 @@ export class ProductionAuditController {
       // Get active products from database with section info
       const activeProducts = await productRepository.find({
         where: { active: true },
-        select: ['erp_product_id', 'peso_medio_kg', 'section_name'],
+        select: ['erp_product_id', 'peso_medio_kg', 'production_days', 'section_name'],
       });
 
       // Fetch products from ERP API
@@ -108,9 +108,9 @@ export class ProductionAuditController {
         }
       );
 
-      // Map active products with peso_medio_kg
+      // Map active products with peso_medio_kg and production_days
       const activeProductsMap = new Map(
-        activeProducts.map((p: any) => [p.erp_product_id, { peso_medio_kg: p.peso_medio_kg, section_name: p.section_name }])
+        activeProducts.map((p: any) => [p.erp_product_id, { peso_medio_kg: p.peso_medio_kg, production_days: p.production_days, section_name: p.section_name }])
       );
 
       // Return ALL active products with full info
@@ -119,12 +119,14 @@ export class ProductionAuditController {
         .map((product: any) => {
           const productData = activeProductsMap.get(product.codigo);
           const pesoMedio = productData?.peso_medio_kg ? parseFloat(productData.peso_medio_kg) : null;
+          const productionDays = productData?.production_days || 1;
 
           return {
             codigo: product.codigo,
             descricao: product.descricao,
             desReduzida: product.desReduzida,
             peso_medio_kg: pesoMedio,
+            production_days: productionDays,
             vendaMedia: product.vendaMedia || 0,
             pesavel: product.pesavel,
             tipoEvento: product.tipoEvento || 'DIRETA',

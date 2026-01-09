@@ -722,7 +722,12 @@
       "Bash(\"C:\\\\Program Files\\\\PuTTY\\\\plink.exe\" -batch -pw \"3mil#2025\" root@145.223.92.152 \"cd /root/prevencao-radar-install/InstaladorVPS && pwd && ls -la\")",
       "Bash(dir %USERPROFILE%.ssh)",
       "Bash(ssh vps-145:*)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nchore: Atualiza histórico de aprovações do Claude\n\nAdiciona comandos SSH e SCP aprovados durante deploy\nda funcionalidade de reiniciar CRON.\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nchore: Atualiza histórico de aprovações do Claude\n\nAdiciona comandos SSH e SCP aprovados durante deploy\nda funcionalidade de reiniciar CRON.\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(ssh -i \"C:\\\\Users\\\\Administrator\\\\.ssh\\\\vps_prevencao\" root@145.223.92.152 \"date && timedatectl\")",
+      "Bash(ssh -i \"C:\\\\Users\\\\Administrator\\\\.ssh\\\\vps_prevencao\" root@145.223.92.152 \"cd /root/prevencao-radar-install && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml up -d --no-deps backend\")",
+      "Bash(ssh -i \"C:\\\\Users\\\\Administrator\\\\.ssh\\\\vps_prevencao\" root@145.223.92.152 \"docker ps --filter name=frontend\")",
+      "Bash(ssh -i \"C:\\\\Users\\\\Administrator\\\\.ssh\\\\vps_prevencao\" root@145.223.92.152 \"docker logs prevencao-frontend-prod --tail 5\")",
+      "Bash(ssh -i \"C:\\\\Users\\\\Administrator\\\\.ssh\\\\vps_prevencao\" root@145.223.92.152 \"cd /root/prevencao-radar-install && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml up -d --no-deps frontend\")"
     ],
     "deny": [],
     "ask": []
