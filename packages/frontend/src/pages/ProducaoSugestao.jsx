@@ -36,7 +36,9 @@ export default function ProducaoSugestao() {
   const loadBakeryProducts = async () => {
     try {
       setLoading(true);
+      console.log('🔄 Carregando produtos de padaria...');
       const response = await api.get('/production/bakery-products');
+      console.log('✅ Produtos recebidos:', response.data.length);
       setProducts(response.data);
 
       // Inicializar auditItems com valores padrão
@@ -48,9 +50,10 @@ export default function ProducaoSugestao() {
         };
       });
       setAuditItems(initialItems);
+      console.log('✅ AuditItems inicializados');
     } catch (err) {
-      console.error('Erro ao carregar produtos:', err);
-      setError('Erro ao carregar produtos de padaria');
+      console.error('❌ Erro ao carregar produtos:', err);
+      setError('Erro ao carregar produtos de padaria: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -61,10 +64,15 @@ export default function ProducaoSugestao() {
       // Buscar auditoria do dia atual
       const response = await api.get('/production/audits');
       const allAudits = response.data;
+
+      // Recalcular todayStr dentro da função
+      const now = new Date();
+      const currentDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
       const todayAudit = allAudits.find(audit => {
         const auditDate = new Date(audit.audit_date);
         const auditDateStr = `${auditDate.getFullYear()}-${String(auditDate.getMonth() + 1).padStart(2, '0')}-${String(auditDate.getDate()).padStart(2, '0')}`;
-        return auditDateStr === todayStr;
+        return auditDateStr === currentDateStr;
       });
 
       if (todayAudit) {
