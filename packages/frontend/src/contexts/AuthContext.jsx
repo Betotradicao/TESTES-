@@ -65,6 +65,31 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('user', JSON.stringify(updatedUser));
   };
 
+  // Função para verificar se usuário tem permissão
+  const hasPermission = (moduleId, submenuId = null) => {
+    // Admin e Master sempre têm acesso total
+    if (user?.type === 'admin' || user?.isMaster) return true;
+
+    // Employees verificam permissões
+    if (user?.type === 'employee') {
+      if (!user.permissions) return false;
+
+      const modulePerms = user.permissions[moduleId];
+      if (!modulePerms) return false; // Sem permissão no módulo
+
+      // Se submenuId não especificado, verifica se tem acesso ao módulo
+      if (!submenuId) return true;
+
+      // Se modulePerms é array vazio = acesso total ao módulo
+      if (Array.isArray(modulePerms) && modulePerms.length === 0) return true;
+
+      // Verifica se tem permissão específica no sub-menu
+      return Array.isArray(modulePerms) && modulePerms.includes(submenuId);
+    }
+
+    return false;
+  };
+
   const value = {
     user,
     token,
@@ -72,6 +97,7 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     updateUser,
+    hasPermission,
     isAuthenticated: !!token
   };
 

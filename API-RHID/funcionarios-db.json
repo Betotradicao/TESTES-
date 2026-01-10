@@ -1,0 +1,103 @@
+{
+  "total": 6,
+  "funcionarios": [
+    {
+      "id": "890ecab8-6a3f-4eff-9226-bc955f0c3a3d",
+      "name": "BETO",
+      "sector": "PADARIA",
+      "barcode": "312251934806",
+      "username": "Beto",
+      "active": true,
+      "function": "GERTOR"
+    },
+    {
+      "id": "4ed72718-20e7-40a9-9477-b5824164525d",
+      "name": "CELMA",
+      "sector": "PADARIA",
+      "barcode": "312285736099",
+      "username": "CELMA1",
+      "active": true,
+      "function": "LIDER"
+    },
+    {
+      "id": "4cf5823c-c3c7-4298-98b6-62fff0310c93",
+      "name": "JULIANO",
+      "sector": "AÇOUGUE",
+      "barcode": "312285050713",
+      "username": "JULIANO",
+      "active": true,
+      "function": "BALCONISTA"
+    },
+    {
+      "id": "51ee5e7c-ebc0-4eb5-abda-d6f0ba7231b1",
+      "name": "MATHEUS ",
+      "sector": "AÇOUGUE",
+      "barcode": "312285031008",
+      "username": "MATHEUS",
+      "active": true,
+      "function": "BALCONISTA"
+    },
+    {
+      "id": "2ded7854-df63-48b3-9c26-0f7786356daa",
+      "name": "RONEI",
+      "sector": "AÇOUGUE",
+      "barcode": "312285079870",
+      "username": "RONEI1",
+      "active": true,
+      "function": "LIDER"
+    },
+    {
+      "id": "e0f918d1-076c-4ea5-a105-141b3507c416",
+      "name": "SAULO",
+      "sector": "PADARIA",
+      "barcode": "312202690447",
+      "username": "SAULO",
+      "active": true,
+      "function": "BALCONISTA"
+    }
+  ],
+  "porSetor": [
+    {
+      "setor": "AÇOUGUE",
+      "total": 3,
+      "funcionarios": [
+        {
+          "name": "JULIANO",
+          "barcode": "312285050713",
+          "username": "JULIANO"
+        },
+        {
+          "name": "MATHEUS ",
+          "barcode": "312285031008",
+          "username": "MATHEUS"
+        },
+        {
+          "name": "RONEI",
+          "barcode": "312285079870",
+          "username": "RONEI1"
+        }
+      ]
+    },
+    {
+      "setor": "PADARIA",
+      "total": 3,
+      "funcionarios": [
+        {
+          "name": "BETO",
+          "barcode": "312251934806",
+          "username": "Beto"
+        },
+        {
+          "name": "CELMA",
+          "barcode": "312285736099",
+          "username": "CELMA1"
+        },
+        {
+          "name": "SAULO",
+          "barcode": "312202690447",
+          "username": "SAULO"
+        }
+      ]
+    }
+  ]
+}

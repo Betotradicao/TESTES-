@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import { AppDataSource } from '../config/database';
 import { User } from '../entities/User';
 import { Employee } from '../entities/Employee';
+import { EmployeePermissionsService } from '../services/employee-permissions.service';
 
 export class AuthController {
   static async me(req: Request, res: Response) {
@@ -206,6 +207,9 @@ export class AuthController {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
+      // Buscar permissões do colaborador
+      const permissions = await EmployeePermissionsService.getPermissions(employee.id);
+
       const token = jwt.sign(
         { id: employee.id, username: employee.username, type: 'employee' },
         process.env.JWT_SECRET || 'development-secret',
@@ -228,7 +232,8 @@ export class AuthController {
           function_description: employee.function_description,
           first_access: employee.first_access,
           barcode: employee.barcode,
-          type: 'employee'
+          type: 'employee',
+          permissions // Incluir permissões no response
         }
       });
     } catch (error) {

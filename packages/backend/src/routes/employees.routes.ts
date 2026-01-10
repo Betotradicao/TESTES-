@@ -38,4 +38,8 @@ router.patch('/:id/avatar', authenticateToken, isAdmin, upload.single('avatar'),
 router.patch('/:id/toggle', authenticateToken, isAdmin, EmployeesController.toggleStatus);
 router.post('/:id/reset-password', authenticateToken, isAdmin, EmployeesController.resetPassword);
 
+// Permissions routes - Admin only
+router.get('/:id/permissions', authenticateToken, isAdmin, EmployeesController.getPermissions);
+router.put('/:id/permissions', authenticateToken, isAdmin, EmployeesController.updatePermissions);
+
 export default router;

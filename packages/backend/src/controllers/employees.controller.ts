@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { EmployeesService } from '../services/employees.service';
+import { EmployeePermissionsService } from '../services/employee-permissions.service';
 import { validateCreateEmployee } from '../dtos/create-employee.dto';
 import { validateUpdateEmployee } from '../dtos/update-employee.dto';
 
@@ -281,6 +282,52 @@ export class EmployeesController {
 
       if (error.message === 'Current password is incorrect') {
         return res.status(401).json({ error: error.message });
+      }
+
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  // Permissions methods
+  static async getPermissions(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+
+      // Verificar se employee existe
+      await EmployeesService.findById(id);
+
+      const permissions = await EmployeePermissionsService.getPermissions(id);
+      res.json(permissions);
+    } catch (error: any) {
+      console.error('Get employee permissions error:', error);
+
+      if (error.message === 'Employee not found') {
+        return res.status(404).json({ error: error.message });
+      }
+
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async updatePermissions(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const { permissions } = req.body;
+
+      if (!Array.isArray(permissions)) {
+        return res.status(400).json({ error: 'Permissions must be an array' });
+      }
+
+      // Verificar se employee existe
+      await EmployeesService.findById(id);
+
+      const result = await EmployeePermissionsService.updatePermissions(id, permissions);
+      res.json(result);
+    } catch (error: any) {
+      console.error('Update employee permissions error:', error);
+
+      if (error.message === 'Employee not found') {
+        return res.status(404).json({ error: error.message });
       }
 
       res.status(500).json({ error: 'Internal server error' });

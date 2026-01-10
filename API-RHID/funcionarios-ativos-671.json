@@ -1,0 +1,7027 @@
+{
+  "periodo": "01/01/2026 a 10/01/2026",
+  "totalFuncionarios": 468,
+  "funcionariosComNome": 1,
+  "funcionarios": [
+    {
+      "pis": "033601478803",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 12,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "14:09",
+        "nsr": "000088299"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "10:24",
+        "nsr": "000088992"
+      }
+    },
+    {
+      "pis": "057275451883",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 11,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:04",
+        "nsr": "000088266"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "11:00",
+        "nsr": "000088994"
+      }
+    },
+    {
+      "pis": "032211981836",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 10,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "11:15",
+        "nsr": "000088260"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "11:10",
+        "nsr": "000088995"
+      }
+    },
+    {
+      "pis": "022397303825",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 10,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:10",
+        "nsr": "000088270"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "07:50",
+        "nsr": "000088982"
+      }
+    },
+    {
+      "pis": "044333812844",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 10,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:22",
+        "nsr": "000088275"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "08:00",
+        "nsr": "000088985"
+      }
+    },
+    {
+      "pis": "007347951305",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 10,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "13:16",
+        "nsr": "000088292"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "11:10",
+        "nsr": "000088996"
+      }
+    },
+    {
+      "pis": "055798312852",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 10,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "15:15",
+        "nsr": "000088316"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "18:09",
+        "nsr": "000088956"
+      }
+    },
+    {
+      "pis": "003825873323",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 10,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "08:03",
+        "nsr": "000088356"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "08:00",
+        "nsr": "000088986"
+      }
+    },
+    {
+      "pis": "012975247240",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 9,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "07:46",
+        "nsr": "000088249"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "07:55",
+        "nsr": "000088983"
+      }
+    },
+    {
+      "pis": "052120905800",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 9,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "15:00",
+        "nsr": "000088308"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "08:58",
+        "nsr": "000088989"
+      }
+    },
+    {
+      "pis": "047765643860",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 9,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "16:11",
+        "nsr": "000088326"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "17:12",
+        "nsr": "000088952"
+      }
+    },
+    {
+      "pis": "014019770413",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 9,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "15:36",
+        "nsr": "000088437"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "07:15",
+        "nsr": "000088977"
+      }
+    },
+    {
+      "pis": "057710768806",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 9,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "18:28",
+        "nsr": "000088466"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "18:27",
+        "nsr": "000088958"
+      }
+    },
+    {
+      "pis": "049891247821",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 9,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "12:00",
+        "nsr": "000088512"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "15:40",
+        "nsr": "000088934"
+      }
+    },
+    {
+      "pis": "022646666845",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 8,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:58",
+        "nsr": "000088282"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "21:12",
+        "nsr": "000088734"
+      }
+    },
+    {
+      "pis": "041107959829",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 8,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "13:08",
+        "nsr": "000088287"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "16:19",
+        "nsr": "000088942"
+      }
+    },
+    {
+      "pis": "003996378505",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 8,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "16:30",
+        "nsr": "000088332"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "21:04",
+        "nsr": "000088962"
+      }
+    },
+    {
+      "pis": "021550066838",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 8,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "18:06",
+        "nsr": "000088346"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "21:14",
+        "nsr": "000088969"
+      }
+    },
+    {
+      "pis": "014128743607",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 7,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "14:11",
+        "nsr": "000088300"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "14:35",
+        "nsr": "000088917"
+      }
+    },
+    {
+      "pis": "048150097830",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 7,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "15:15",
+        "nsr": "000088315"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "17:02",
+        "nsr": "000088949"
+      }
+    },
+    {
+      "pis": "016450508230",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 7,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "07:32",
+        "nsr": "000088495"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "15:53",
+        "nsr": "000088935"
+      }
+    },
+    {
+      "pis": "029339968808",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 6,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "14:50",
+        "nsr": "000088307"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "17:01",
+        "nsr": "000088948"
+      }
+    },
+    {
+      "pis": "050874291810",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 6,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "15:12",
+        "nsr": "000088312"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "21:12",
+        "nsr": "000088733"
+      }
+    },
+    {
+      "pis": "051117496830",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 6,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "08:30",
+        "nsr": "000088358"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "08:12",
+        "nsr": "000088988"
+      }
+    },
+    {
+      "pis": "020635314880",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 6,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "11:15",
+        "nsr": "000088368"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "11:59",
+        "nsr": "000088880"
+      }
+    },
+    {
+      "pis": "015015202881",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 6,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "14:23",
+        "nsr": "000088418"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "13:05",
+        "nsr": "000088903"
+      }
+    },
+    {
+      "pis": "045881113888",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 6,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "15:15",
+        "nsr": "000088427"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "21:14",
+        "nsr": "000088968"
+      }
+    },
+    {
+      "pis": "041356742831",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 6,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "12:04",
+        "nsr": "000088641"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "07:15",
+        "nsr": "000088975"
+      }
+    },
+    {
+      "pis": "042890755843",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 5,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "11:51",
+        "nsr": "000088263"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "12:50",
+        "nsr": "000088895"
+      }
+    },
+    {
+      "pis": "046334366866",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 5,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "15:16",
+        "nsr": "000088317"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "15:04",
+        "nsr": "000088804"
+      }
+    },
+    {
+      "pis": "054631133864",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 5,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "12:18",
+        "nsr": "000088383"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "11:22",
+        "nsr": "000088998"
+      }
+    },
+    {
+      "pis": "047624611805",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 5,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "14:08",
+        "nsr": "000088547"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "14:15",
+        "nsr": "000088798"
+      }
+    },
+    {
+      "pis": "007231155596",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 4,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "13:00",
+        "nsr": "000088283"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "21:18",
+        "nsr": "000088741"
+      }
+    },
+    {
+      "pis": "057890081863",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 4,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "15:35",
+        "nsr": "000088319"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "18:01",
+        "nsr": "000088463"
+      }
+    },
+    {
+      "pis": "057162283802",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 4,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "16:18",
+        "nsr": "000088329"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "14:50",
+        "nsr": "000088919"
+      }
+    },
+    {
+      "pis": "050122814894",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 4,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "12:13",
+        "nsr": "000088379"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "07:15",
+        "nsr": "000088976"
+      }
+    },
+    {
+      "pis": "054504668890",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 4,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "16:37",
+        "nsr": "000088584"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "17:01",
+        "nsr": "000088718"
+      }
+    },
+    {
+      "pis": "443338128446",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 3,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "11:21",
+        "nsr": "000088262"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "08:00",
+        "nsr": "000088868"
+      }
+    },
+    {
+      "pis": "458811138887",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 3,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "16:03",
+        "nsr": "000088323"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "21:12",
+        "nsr": "000088479"
+      }
+    },
+    {
+      "pis": "498912478215",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 3,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "11:02",
+        "nsr": "000088365"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "07:15",
+        "nsr": "000088489"
+      }
+    },
+    {
+      "pis": "140197704136",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 3,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "14:17",
+        "nsr": "000088415"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "13:17",
+        "nsr": "000088906"
+      }
+    },
+    {
+      "pis": "481500978304",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 3,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "15:15",
+        "nsr": "000088428"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "15:15",
+        "nsr": "000088806"
+      }
+    },
+    {
+      "pis": "426300778615",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 3,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "15:36",
+        "nsr": "000088438"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "07:15",
+        "nsr": "000088978"
+      }
+    },
+    {
+      "pis": "578900818639",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 3,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "21:11",
+        "nsr": "000088478"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "14:16",
+        "nsr": "000088551"
+      }
+    },
+    {
+      "pis": "546311338644",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 3,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "15:00",
+        "nsr": "000088560"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "12:53",
+        "nsr": "000088898"
+      }
+    },
+    {
+      "pis": "557983128524",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 3,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "21:19",
+        "nsr": "000088610"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "17:09",
+        "nsr": "000088951"
+      }
+    },
+    {
+      "pis": "050940089866",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 3,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "15:30",
+        "nsr": "000088695"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "15:31",
+        "nsr": "000088810"
+      }
+    },
+    {
+      "pis": "212090580084",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "09:00",
+        "nsr": "000088256"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "11:28",
+        "nsr": "000088637"
+      }
+    },
+    {
+      "pis": "039963785053",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "13:09",
+        "nsr": "000088289"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "07:18",
+        "nsr": "000088863"
+      }
+    },
+    {
+      "pis": "509400898661",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "09:30",
+        "nsr": "000088360"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "13:35",
+        "nsr": "000088666"
+      }
+    },
+    {
+      "pis": "042630077861",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "11:02",
+        "nsr": "000088364"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "12:04",
+        "nsr": "000088375"
+      }
+    },
+    {
+      "pis": "413567428316",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "11:31",
+        "nsr": "000088370"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "07:16",
+        "nsr": "000088862"
+      }
+    },
+    {
+      "pis": "572754518835",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "12:02",
+        "nsr": "000088374"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "14:00",
+        "nsr": "000088793"
+      }
+    },
+    {
+      "pis": "073479513055",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "12:16",
+        "nsr": "000088381"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "07:15",
+        "nsr": "000088620"
+      }
+    },
+    {
+      "pis": "428907558438",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "12:51",
+        "nsr": "000088388"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "20:40",
+        "nsr": "000088843"
+      }
+    },
+    {
+      "pis": "039963785054",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "13:08",
+        "nsr": "000088399"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "07:15",
+        "nsr": "000088618"
+      }
+    },
+    {
+      "pis": "511174968304",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "13:52",
+        "nsr": "000088407"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "14:50",
+        "nsr": "000088679"
+      }
+    },
+    {
+      "pis": "476246118057",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "15:32",
+        "nsr": "000088432"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "13:06",
+        "nsr": "000088783"
+      }
+    },
+    {
+      "pis": "477656438605",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "21:10",
+        "nsr": "000088476"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "17:19",
+        "nsr": "000088593"
+      }
+    },
+    {
+      "pis": "476246118052",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "13:00",
+        "nsr": "000088531"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "15:15",
+        "nsr": "000088808"
+      }
+    },
+    {
+      "pis": "164505082301",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "15:50",
+        "nsr": "000088575"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "07:31",
+        "nsr": "000088865"
+      }
+    },
+    {
+      "pis": "293399688082",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "17:09",
+        "nsr": "000088592"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "14:50",
+        "nsr": "000088801"
+      }
+    },
+    {
+      "pis": "293399688087",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "21:10",
+        "nsr": "000088604"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "21:12",
+        "nsr": "000088964"
+      }
+    },
+    {
+      "pis": "498912478216",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "11:00",
+        "nsr": "000088633"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "07:15",
+        "nsr": "000088858"
+      }
+    },
+    {
+      "pis": "322119818366",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "12:26",
+        "nsr": "000088647"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "15:39",
+        "nsr": "000088933"
+      }
+    },
+    {
+      "pis": "382587332393",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "14:16",
+        "nsr": "000088674"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "13:08",
+        "nsr": "000088784"
+      }
+    },
+    {
+      "pis": "150152028816",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "14:19",
+        "nsr": "000088676"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "15:11",
+        "nsr": "000088925"
+      }
+    },
+    {
+      "pis": "463343668663",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "15:06",
+        "nsr": "000088688"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "06:40",
+        "nsr": "000088853"
+      }
+    },
+    {
+      "pis": "578900818636",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "15:31",
+        "nsr": "000088696"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "21:10",
+        "nsr": "000088731"
+      }
+    },
+    {
+      "pis": "129752472409",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "16:30",
+        "nsr": "000088711"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "12:41",
+        "nsr": "000088894"
+      }
+    },
+    {
+      "pis": "322119818365",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 2,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "11:47",
+        "nsr": "000088763"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "07:15",
+        "nsr": "000088860"
+      }
+    },
+    {
+      "pis": "223973038253",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "07:48",
+        "nsr": "000088250"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "07:48",
+        "nsr": "000088250"
+      }
+    },
+    {
+      "pis": "727545188357",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "08:02",
+        "nsr": "000088251"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "08:02",
+        "nsr": "000088251"
+      }
+    },
+    {
+      "pis": "258733238869",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "08:04",
+        "nsr": "000088252"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "08:04",
+        "nsr": "000088252"
+      }
+    },
+    {
+      "pis": "547419238008",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "08:14",
+        "nsr": "000088253"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "08:14",
+        "nsr": "000088253"
+      }
+    },
+    {
+      "pis": "333812844752",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "08:15",
+        "nsr": "000088254"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "08:15",
+        "nsr": "000088254"
+      }
+    },
+    {
+      "pis": "360147880381",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "09:00",
+        "nsr": "000088255"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "09:00",
+        "nsr": "000088255"
+      }
+    },
+    {
+      "pis": "912478210643",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "11:01",
+        "nsr": "000088257"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "11:01",
+        "nsr": "000088257"
+      }
+    },
+    {
+      "pis": "426300778617",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "11:03",
+        "nsr": "000088258"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "11:03",
+        "nsr": "000088258"
+      }
+    },
+    {
+      "pis": "741923800686",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "11:11",
+        "nsr": "000088259"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "11:11",
+        "nsr": "000088259"
+      }
+    },
+    {
+      "pis": "135674283196",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "11:15",
+        "nsr": "000088261"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "11:15",
+        "nsr": "000088261"
+      }
+    },
+    {
+      "pis": "891247821670",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:02",
+        "nsr": "000088264"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "12:02",
+        "nsr": "000088264"
+      }
+    },
+    {
+      "pis": "411079598296",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:03",
+        "nsr": "000088265"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "12:03",
+        "nsr": "000088265"
+      }
+    },
+    {
+      "pis": "039963785057",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:05",
+        "nsr": "000088267"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "12:05",
+        "nsr": "000088267"
+      }
+    },
+    {
+      "pis": "752472402387",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:05",
+        "nsr": "000088268"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "12:05",
+        "nsr": "000088268"
+      }
+    },
+    {
+      "pis": "546311338648",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:07",
+        "nsr": "000088269"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "12:07",
+        "nsr": "000088269"
+      }
+    },
+    {
+      "pis": "426300778610",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:11",
+        "nsr": "000088271"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "12:11",
+        "nsr": "000088271"
+      }
+    },
+    {
+      "pis": "119818365158",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:15",
+        "nsr": "000088272"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "12:15",
+        "nsr": "000088272"
+      }
+    },
+    {
+      "pis": "413567428315",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:16",
+        "nsr": "000088273"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "12:16",
+        "nsr": "000088273"
+      }
+    },
+    {
+      "pis": "419238007411",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:18",
+        "nsr": "000088274"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "12:18",
+        "nsr": "000088274"
+      }
+    },
+    {
+      "pis": "152028810899",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:25",
+        "nsr": "000088276"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "12:25",
+        "nsr": "000088276"
+      }
+    },
+    {
+      "pis": "501520288122",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:40",
+        "nsr": "000088277"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "12:40",
+        "nsr": "000088277"
+      }
+    },
+    {
+      "pis": "508742918109",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:50",
+        "nsr": "000088278"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "12:50",
+        "nsr": "000088278"
+      }
+    },
+    {
+      "pis": "477656438608",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:50",
+        "nsr": "000088279"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "12:50",
+        "nsr": "000088279"
+      }
+    },
+    {
+      "pis": "825873323811",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:54",
+        "nsr": "000088280"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "12:54",
+        "nsr": "000088280"
+      }
+    },
+    {
+      "pis": "789008186382",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "12:55",
+        "nsr": "000088281"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "12:55",
+        "nsr": "000088281"
+      }
+    },
+    {
+      "pis": "209058002927",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "13:03",
+        "nsr": "000088284"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "13:03",
+        "nsr": "000088284"
+      }
+    },
+    {
+      "pis": "275451883043",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "13:04",
+        "nsr": "000088285"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "13:04",
+        "nsr": "000088285"
+      }
+    },
+    {
+      "pis": "223973038251",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "13:09",
+        "nsr": "000088288"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "13:09",
+        "nsr": "000088288"
+      }
+    },
+    {
+      "pis": "141287436078",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "13:11",
+        "nsr": "000088290"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "13:11",
+        "nsr": "000088290"
+      }
+    },
+    {
+      "pis": "631133864374",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "13:13",
+        "nsr": "000088291"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "13:13",
+        "nsr": "000088291"
+      }
+    },
+    {
+      "pis": "633436686673",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "13:18",
+        "nsr": "000088293"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "13:18",
+        "nsr": "000088293"
+      }
+    },
+    {
+      "pis": "038258733239",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "13:58",
+        "nsr": "000088294"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "13:58",
+        "nsr": "000088294"
+      }
+    },
+    {
+      "pis": "474192380027",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "13:59",
+        "nsr": "000088295"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "13:59",
+        "nsr": "000088295"
+      }
+    },
+    {
+      "pis": "521209058007",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "14:03",
+        "nsr": "000088298"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "14:03",
+        "nsr": "000088298"
+      }
+    },
+    {
+      "pis": "072311555966",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "14:14",
+        "nsr": "000088301"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "14:14",
+        "nsr": "000088301"
+      }
+    },
+    {
+      "pis": "311338643045",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "14:23",
+        "nsr": "000088303"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "14:23",
+        "nsr": "000088303"
+      }
+    },
+    {
+      "pis": "463343668669",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "14:24",
+        "nsr": "000088304"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "14:24",
+        "nsr": "000088304"
+      }
+    },
+    {
+      "pis": "501520288183",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "14:41",
+        "nsr": "000088305"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "14:41",
+        "nsr": "000088305"
+      }
+    },
+    {
+      "pis": "716228380271",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "14:50",
+        "nsr": "000088306"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "14:50",
+        "nsr": "000088306"
+      }
+    },
+    {
+      "pis": "500668389740",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "15:05",
+        "nsr": "000088309"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "15:05",
+        "nsr": "000088309"
+      }
+    },
+    {
+      "pis": "014788039849",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "15:09",
+        "nsr": "000088310"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "15:09",
+        "nsr": "000088310"
+      }
+    },
+    {
+      "pis": "264666684532",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "15:13",
+        "nsr": "000088313"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "15:13",
+        "nsr": "000088313"
+      }
+    },
+    {
+      "pis": "588111388860",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "15:15",
+        "nsr": "000088314"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "15:15",
+        "nsr": "000088314"
+      }
+    },
+    {
+      "pis": "311555967065",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "15:16",
+        "nsr": "000088318"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "15:16",
+        "nsr": "000088318"
+      }
+    },
+    {
+      "pis": "119818368450",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "15:35",
+        "nsr": "000088320"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "15:35",
+        "nsr": "000088320"
+      }
+    },
+    {
+      "pis": "891247821124",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "15:38",
+        "nsr": "000088321"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "15:38",
+        "nsr": "000088321"
+      }
+    },
+    {
+      "pis": "263007786194",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "15:50",
+        "nsr": "000088322"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "15:50",
+        "nsr": "000088322"
+      }
+    },
+    {
+      "pis": "073479513057",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "16:07",
+        "nsr": "000088324"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "16:07",
+        "nsr": "000088324"
+      }
+    },
+    {
+      "pis": "289075584330",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "16:10",
+        "nsr": "000088325"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "16:10",
+        "nsr": "000088325"
+      }
+    },
+    {
+      "pis": "413567428311",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "16:22",
+        "nsr": "000088330"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "16:22",
+        "nsr": "000088330"
+      }
+    },
+    {
+      "pis": "079598294199",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "16:30",
+        "nsr": "000088333"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "16:30",
+        "nsr": "000088333"
+      }
+    },
+    {
+      "pis": "129752472405",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "16:30",
+        "nsr": "000088334"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "16:30",
+        "nsr": "000088334"
+      }
+    },
+    {
+      "pis": "397303825526",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "16:32",
+        "nsr": "000088335"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "16:32",
+        "nsr": "000088335"
+      }
+    },
+    {
+      "pis": "578900818631",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "16:35",
+        "nsr": "000088336"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "16:35",
+        "nsr": "000088336"
+      }
+    },
+    {
+      "pis": "622838023000",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "16:36",
+        "nsr": "000088337"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "16:36",
+        "nsr": "000088337"
+      }
+    },
+    {
+      "pis": "933996880885",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "16:41",
+        "nsr": "000088338"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "16:41",
+        "nsr": "000088338"
+      }
+    },
+    {
+      "pis": "258733232044",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "16:44",
+        "nsr": "000088339"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "16:44",
+        "nsr": "000088339"
+      }
+    },
+    {
+      "pis": "500978309958",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "16:45",
+        "nsr": "000088340"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "16:45",
+        "nsr": "000088340"
+      }
+    },
+    {
+      "pis": "933996880875",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "16:57",
+        "nsr": "000088341"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "16:57",
+        "nsr": "000088341"
+      }
+    },
+    {
+      "pis": "811138887817",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "17:03",
+        "nsr": "000088342"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "17:03",
+        "nsr": "000088342"
+      }
+    },
+    {
+      "pis": "983128522821",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "17:06",
+        "nsr": "000088343"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "17:06",
+        "nsr": "000088343"
+      }
+    },
+    {
+      "pis": "776564386088",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "17:23",
+        "nsr": "000088344"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "17:23",
+        "nsr": "000088344"
+      }
+    },
+    {
+      "pis": "550066838164",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "18:21",
+        "nsr": "000088348"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "18:21",
+        "nsr": "000088348"
+      }
+    },
+    {
+      "pis": "907558439597",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "02/01/2026",
+        "hora": "20:13",
+        "nsr": "000088350"
+      },
+      "ultimaBatida": {
+        "data": "02/01/2026",
+        "hora": "20:13",
+        "nsr": "000088350"
+      }
+    },
+    {
+      "pis": "572754518831",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "08:01",
+        "nsr": "000088355"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "08:01",
+        "nsr": "000088355"
+      }
+    },
+    {
+      "pis": "338128441042",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "08:13",
+        "nsr": "000088357"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "08:13",
+        "nsr": "000088357"
+      }
+    },
+    {
+      "pis": "094008986646",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "10:59",
+        "nsr": "000088361"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "10:59",
+        "nsr": "000088361"
+      }
+    },
+    {
+      "pis": "336014788031",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "11:00",
+        "nsr": "000088362"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "11:00",
+        "nsr": "000088362"
+      }
+    },
+    {
+      "pis": "128743607340",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "11:00",
+        "nsr": "000088363"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "11:00",
+        "nsr": "000088363"
+      }
+    },
+    {
+      "pis": "211981836781",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "11:17",
+        "nsr": "000088369"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "11:17",
+        "nsr": "000088369"
+      }
+    },
+    {
+      "pis": "239730382592",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "12:06",
+        "nsr": "000088376"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "12:06",
+        "nsr": "000088376"
+      }
+    },
+    {
+      "pis": "975247240243",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "12:06",
+        "nsr": "000088377"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "12:06",
+        "nsr": "000088377"
+      }
+    },
+    {
+      "pis": "338128441521",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "12:13",
+        "nsr": "000088378"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "12:13",
+        "nsr": "000088378"
+      }
+    },
+    {
+      "pis": "110795982938",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "12:14",
+        "nsr": "000088380"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "12:14",
+        "nsr": "000088380"
+      }
+    },
+    {
+      "pis": "635314880406",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "12:17",
+        "nsr": "000088382"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "12:17",
+        "nsr": "000088382"
+      }
+    },
+    {
+      "pis": "567428314331",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "12:31",
+        "nsr": "000088384"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "12:31",
+        "nsr": "000088384"
+      }
+    },
+    {
+      "pis": "477656438602",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "12:50",
+        "nsr": "000088385"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "12:50",
+        "nsr": "000088385"
+      }
+    },
+    {
+      "pis": "476246118059",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "12:50",
+        "nsr": "000088387"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "12:50",
+        "nsr": "000088387"
+      }
+    },
+    {
+      "pis": "117496830034",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "12:54",
+        "nsr": "000088389"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "12:54",
+        "nsr": "000088389"
+      }
+    },
+    {
+      "pis": "072311555968",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "13:00",
+        "nsr": "000088391"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "13:00",
+        "nsr": "000088391"
+      }
+    },
+    {
+      "pis": "014788037361",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "13:01",
+        "nsr": "000088392"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "13:01",
+        "nsr": "000088392"
+      }
+    },
+    {
+      "pis": "275451883016",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "13:02",
+        "nsr": "000088393"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "13:02",
+        "nsr": "000088393"
+      }
+    },
+    {
+      "pis": "521209058005",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "13:02",
+        "nsr": "000088394"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "13:02",
+        "nsr": "000088394"
+      }
+    },
+    {
+      "pis": "501520288173",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "13:03",
+        "nsr": "000088395"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "13:03",
+        "nsr": "000088395"
+      }
+    },
+    {
+      "pis": "397303825572",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "13:06",
+        "nsr": "000088396"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "13:06",
+        "nsr": "000088396"
+      }
+    },
+    {
+      "pis": "140197704133",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "13:12",
+        "nsr": "000088400"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "13:12",
+        "nsr": "000088400"
+      }
+    },
+    {
+      "pis": "382587332328",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "13:15",
+        "nsr": "000088401"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "13:15",
+        "nsr": "000088401"
+      }
+    },
+    {
+      "pis": "110795982934",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "13:17",
+        "nsr": "000088402"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "13:17",
+        "nsr": "000088402"
+      }
+    },
+    {
+      "pis": "311338646165",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "13:18",
+        "nsr": "000088403"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "13:18",
+        "nsr": "000088403"
+      }
+    },
+    {
+      "pis": "501520288184",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "13:21",
+        "nsr": "000088406"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "13:21",
+        "nsr": "000088406"
+      }
+    },
+    {
+      "pis": "762461180530",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "14:06",
+        "nsr": "000088413"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "14:06",
+        "nsr": "000088413"
+      }
+    },
+    {
+      "pis": "226466668458",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "14:21",
+        "nsr": "000088416"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "14:21",
+        "nsr": "000088416"
+      }
+    },
+    {
+      "pis": "141287436070",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "14:35",
+        "nsr": "000088419"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "14:35",
+        "nsr": "000088419"
+      }
+    },
+    {
+      "pis": "716228380284",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "14:50",
+        "nsr": "000088420"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "14:50",
+        "nsr": "000088420"
+      }
+    },
+    {
+      "pis": "063531488041",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "14:56",
+        "nsr": "000088422"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "14:56",
+        "nsr": "000088422"
+      }
+    },
+    {
+      "pis": "428907558439",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "14:56",
+        "nsr": "000088423"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "14:56",
+        "nsr": "000088423"
+      }
+    },
+    {
+      "pis": "209058008277",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "14:58",
+        "nsr": "000088424"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "14:58",
+        "nsr": "000088424"
+      }
+    },
+    {
+      "pis": "771076880610",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "15:00",
+        "nsr": "000088425"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "15:00",
+        "nsr": "000088425"
+      }
+    },
+    {
+      "pis": "504668890570",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "15:15",
+        "nsr": "000088429"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "15:15",
+        "nsr": "000088429"
+      }
+    },
+    {
+      "pis": "742918105373",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "15:22",
+        "nsr": "000088430"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "15:22",
+        "nsr": "000088430"
+      }
+    },
+    {
+      "pis": "073479513058",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "15:26",
+        "nsr": "000088431"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "15:26",
+        "nsr": "000088431"
+      }
+    },
+    {
+      "pis": "135674283105",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "15:33",
+        "nsr": "000088433"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "15:33",
+        "nsr": "000088433"
+      }
+    },
+    {
+      "pis": "119818362762",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "15:35",
+        "nsr": "000088435"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "15:35",
+        "nsr": "000088435"
+      }
+    },
+    {
+      "pis": "498912478217",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "15:40",
+        "nsr": "000088439"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "15:40",
+        "nsr": "000088439"
+      }
+    },
+    {
+      "pis": "399637850510",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "15:40",
+        "nsr": "000088440"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "15:40",
+        "nsr": "000088440"
+      }
+    },
+    {
+      "pis": "501228148946",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "15:47",
+        "nsr": "000088442"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "15:47",
+        "nsr": "000088442"
+      }
+    },
+    {
+      "pis": "428907558436",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "15:58",
+        "nsr": "000088443"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "15:58",
+        "nsr": "000088443"
+      }
+    },
+    {
+      "pis": "162283802097",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "16:11",
+        "nsr": "000088445"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "16:11",
+        "nsr": "000088445"
+      }
+    },
+    {
+      "pis": "450466889075",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "16:11",
+        "nsr": "000088446"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "16:11",
+        "nsr": "000088446"
+      }
+    },
+    {
+      "pis": "656438604501",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "16:16",
+        "nsr": "000088447"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "16:16",
+        "nsr": "000088447"
+      }
+    },
+    {
+      "pis": "258733235602",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "16:22",
+        "nsr": "000088448"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "16:22",
+        "nsr": "000088448"
+      }
+    },
+    {
+      "pis": "129752472407",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "16:30",
+        "nsr": "000088449"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "16:30",
+        "nsr": "000088449"
+      }
+    },
+    {
+      "pis": "223973038256",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "16:31",
+        "nsr": "000088450"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "16:31",
+        "nsr": "000088450"
+      }
+    },
+    {
+      "pis": "622838025668",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "16:31",
+        "nsr": "000088451"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "16:31",
+        "nsr": "000088451"
+      }
+    },
+    {
+      "pis": "072311555960",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "16:40",
+        "nsr": "000088453"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "16:40",
+        "nsr": "000088453"
+      }
+    },
+    {
+      "pis": "079598299296",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "17:00",
+        "nsr": "000088456"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "17:00",
+        "nsr": "000088456"
+      }
+    },
+    {
+      "pis": "046688902546",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "17:12",
+        "nsr": "000088458"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "17:12",
+        "nsr": "000088458"
+      }
+    },
+    {
+      "pis": "477656438607",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "17:16",
+        "nsr": "000088459"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "17:16",
+        "nsr": "000088459"
+      }
+    },
+    {
+      "pis": "500978305157",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "17:17",
+        "nsr": "000088460"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "17:17",
+        "nsr": "000088460"
+      }
+    },
+    {
+      "pis": "710768806528",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "17:28",
+        "nsr": "000088461"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "17:28",
+        "nsr": "000088461"
+      }
+    },
+    {
+      "pis": "881113888588",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "17:44",
+        "nsr": "000088462"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "17:44",
+        "nsr": "000088462"
+      }
+    },
+    {
+      "pis": "141287436072",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "18:16",
+        "nsr": "000088464"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "18:16",
+        "nsr": "000088464"
+      }
+    },
+    {
+      "pis": "481500978303",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "18:17",
+        "nsr": "000088465"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "18:17",
+        "nsr": "000088465"
+      }
+    },
+    {
+      "pis": "215500668389",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "18:29",
+        "nsr": "000088467"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "18:29",
+        "nsr": "000088467"
+      }
+    },
+    {
+      "pis": "155006683856",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "18:44",
+        "nsr": "000088468"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "18:44",
+        "nsr": "000088468"
+      }
+    },
+    {
+      "pis": "601478803147",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "19:22",
+        "nsr": "000088469"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "19:22",
+        "nsr": "000088469"
+      }
+    },
+    {
+      "pis": "571622838025",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "21:10",
+        "nsr": "000088471"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "21:10",
+        "nsr": "000088471"
+      }
+    },
+    {
+      "pis": "933996880805",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "21:10",
+        "nsr": "000088472"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "21:10",
+        "nsr": "000088472"
+      }
+    },
+    {
+      "pis": "246118057340",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "21:10",
+        "nsr": "000088473"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "21:10",
+        "nsr": "000088473"
+      }
+    },
+    {
+      "pis": "087429181074",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "21:10",
+        "nsr": "000088474"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "21:10",
+        "nsr": "000088474"
+      }
+    },
+    {
+      "pis": "264666684521",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "21:10",
+        "nsr": "000088475"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "21:10",
+        "nsr": "000088475"
+      }
+    },
+    {
+      "pis": "907558430882",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "21:11",
+        "nsr": "000088477"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "21:11",
+        "nsr": "000088477"
+      }
+    },
+    {
+      "pis": "481500978306",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "21:12",
+        "nsr": "000088480"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "21:12",
+        "nsr": "000088480"
+      }
+    },
+    {
+      "pis": "450466889079",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "21:15",
+        "nsr": "000088481"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "21:15",
+        "nsr": "000088481"
+      }
+    },
+    {
+      "pis": "072311555961",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "05/01/2026",
+        "hora": "21:17",
+        "nsr": "000088483"
+      },
+      "ultimaBatida": {
+        "data": "05/01/2026",
+        "hora": "21:17",
+        "nsr": "000088483"
+      }
+    },
+    {
+      "pis": "150152028814",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "06:39",
+        "nsr": "000088484"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "06:39",
+        "nsr": "000088484"
+      }
+    },
+    {
+      "pis": "063531488013",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "06:40",
+        "nsr": "000088485"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "06:40",
+        "nsr": "000088485"
+      }
+    },
+    {
+      "pis": "079598299683",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "07:13",
+        "nsr": "000088487"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "07:13",
+        "nsr": "000088487"
+      }
+    },
+    {
+      "pis": "228148943833",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "07:15",
+        "nsr": "000088488"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "07:15",
+        "nsr": "000088488"
+      }
+    },
+    {
+      "pis": "401977041390",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "07:15",
+        "nsr": "000088490"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "07:15",
+        "nsr": "000088490"
+      }
+    },
+    {
+      "pis": "073479513052",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "07:15",
+        "nsr": "000088491"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "07:15",
+        "nsr": "000088491"
+      }
+    },
+    {
+      "pis": "300778617652",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "07:16",
+        "nsr": "000088492"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "07:16",
+        "nsr": "000088492"
+      }
+    },
+    {
+      "pis": "221198183695",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "07:16",
+        "nsr": "000088493"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "07:16",
+        "nsr": "000088493"
+      }
+    },
+    {
+      "pis": "973038252954",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "07:54",
+        "nsr": "000088496"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "07:54",
+        "nsr": "000088496"
+      }
+    },
+    {
+      "pis": "258733233208",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "07:59",
+        "nsr": "000088498"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "07:59",
+        "nsr": "000088498"
+      }
+    },
+    {
+      "pis": "546311338649",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "08:00",
+        "nsr": "000088500"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "08:00",
+        "nsr": "000088500"
+      }
+    },
+    {
+      "pis": "825873323470",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "08:01",
+        "nsr": "000088501"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "08:01",
+        "nsr": "000088501"
+      }
+    },
+    {
+      "pis": "578900818632",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "10:11",
+        "nsr": "000088503"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "10:11",
+        "nsr": "000088503"
+      }
+    },
+    {
+      "pis": "498912478214",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "11:00",
+        "nsr": "000088505"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "11:00",
+        "nsr": "000088505"
+      }
+    },
+    {
+      "pis": "211981836348",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "11:31",
+        "nsr": "000088508"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "11:31",
+        "nsr": "000088508"
+      }
+    },
+    {
+      "pis": "120905800951",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "11:58",
+        "nsr": "000088511"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "11:58",
+        "nsr": "000088511"
+      }
+    },
+    {
+      "pis": "297524724029",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "12:06",
+        "nsr": "000088513"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "12:06",
+        "nsr": "000088513"
+      }
+    },
+    {
+      "pis": "645050823048",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "12:08",
+        "nsr": "000088515"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "12:08",
+        "nsr": "000088515"
+      }
+    },
+    {
+      "pis": "334366866213",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "12:19",
+        "nsr": "000088518"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "12:19",
+        "nsr": "000088518"
+      }
+    },
+    {
+      "pis": "463113386484",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "12:34",
+        "nsr": "000088520"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "12:34",
+        "nsr": "000088520"
+      }
+    },
+    {
+      "pis": "150152028819",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "12:42",
+        "nsr": "000088522"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "12:42",
+        "nsr": "000088522"
+      }
+    },
+    {
+      "pis": "479513050439",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "12:49",
+        "nsr": "000088524"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "12:49",
+        "nsr": "000088524"
+      }
+    },
+    {
+      "pis": "477656438603",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "12:50",
+        "nsr": "000088525"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "12:50",
+        "nsr": "000088525"
+      }
+    },
+    {
+      "pis": "466668459427",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "12:51",
+        "nsr": "000088526"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "12:51",
+        "nsr": "000088526"
+      }
+    },
+    {
+      "pis": "152028810642",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "12:57",
+        "nsr": "000088527"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "12:57",
+        "nsr": "000088527"
+      }
+    },
+    {
+      "pis": "630077861875",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "12:57",
+        "nsr": "000088528"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "12:57",
+        "nsr": "000088528"
+      }
+    },
+    {
+      "pis": "723115559678",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "13:00",
+        "nsr": "000088530"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "13:00",
+        "nsr": "000088530"
+      }
+    },
+    {
+      "pis": "505082303289",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "13:08",
+        "nsr": "000088535"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "13:08",
+        "nsr": "000088535"
+      }
+    },
+    {
+      "pis": "973038255439",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "13:08",
+        "nsr": "000088536"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "13:08",
+        "nsr": "000088536"
+      }
+    },
+    {
+      "pis": "501228148940",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "13:09",
+        "nsr": "000088537"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "13:09",
+        "nsr": "000088537"
+      }
+    },
+    {
+      "pis": "411079598290",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "13:10",
+        "nsr": "000088538"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "13:10",
+        "nsr": "000088538"
+      }
+    },
+    {
+      "pis": "334366866871",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "13:21",
+        "nsr": "000088540"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "13:21",
+        "nsr": "000088540"
+      }
+    },
+    {
+      "pis": "360147880377",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "13:32",
+        "nsr": "000088541"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "13:32",
+        "nsr": "000088541"
+      }
+    },
+    {
+      "pis": "120905800816",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "14:00",
+        "nsr": "000088544"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "14:00",
+        "nsr": "000088544"
+      }
+    },
+    {
+      "pis": "501228148948",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "14:07",
+        "nsr": "000088546"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "14:07",
+        "nsr": "000088546"
+      }
+    },
+    {
+      "pis": "399688088869",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "14:51",
+        "nsr": "000088557"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "14:51",
+        "nsr": "000088557"
+      }
+    },
+    {
+      "pis": "111749683006",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "14:51",
+        "nsr": "000088558"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "14:51",
+        "nsr": "000088558"
+      }
+    },
+    {
+      "pis": "572754518837",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "15:00",
+        "nsr": "000088561"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "15:00",
+        "nsr": "000088561"
+      }
+    },
+    {
+      "pis": "500668384015",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "15:05",
+        "nsr": "000088564"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "15:05",
+        "nsr": "000088564"
+      }
+    },
+    {
+      "pis": "476246118055",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "15:06",
+        "nsr": "000088565"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "15:06",
+        "nsr": "000088565"
+      }
+    },
+    {
+      "pis": "311555966060",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "15:10",
+        "nsr": "000088566"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "15:10",
+        "nsr": "000088566"
+      }
+    },
+    {
+      "pis": "504668890960",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "15:16",
+        "nsr": "000088568"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "15:16",
+        "nsr": "000088568"
+      }
+    },
+    {
+      "pis": "150097830980",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "15:18",
+        "nsr": "000088569"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "15:18",
+        "nsr": "000088569"
+      }
+    },
+    {
+      "pis": "426300778612",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "15:35",
+        "nsr": "000088570"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "15:35",
+        "nsr": "000088570"
+      }
+    },
+    {
+      "pis": "734795130591",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "15:36",
+        "nsr": "000088572"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "15:36",
+        "nsr": "000088572"
+      }
+    },
+    {
+      "pis": "140197704131",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "15:44",
+        "nsr": "000088574"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "15:44",
+        "nsr": "000088574"
+      }
+    },
+    {
+      "pis": "983128529207",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "16:03",
+        "nsr": "000088576"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "16:03",
+        "nsr": "000088576"
+      }
+    },
+    {
+      "pis": "117496830206",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "16:09",
+        "nsr": "000088578"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "16:09",
+        "nsr": "000088578"
+      }
+    },
+    {
+      "pis": "466668454087",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "16:22",
+        "nsr": "000088579"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "16:22",
+        "nsr": "000088579"
+      }
+    },
+    {
+      "pis": "752472404521",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "16:30",
+        "nsr": "000088581"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "16:30",
+        "nsr": "000088581"
+      }
+    },
+    {
+      "pis": "571622838027",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "16:33",
+        "nsr": "000088583"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "16:33",
+        "nsr": "000088583"
+      }
+    },
+    {
+      "pis": "716228380246",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "16:53",
+        "nsr": "000088586"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "16:53",
+        "nsr": "000088586"
+      }
+    },
+    {
+      "pis": "339968808769",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "16:56",
+        "nsr": "000088587"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "16:56",
+        "nsr": "000088587"
+      }
+    },
+    {
+      "pis": "107959829203",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "17:01",
+        "nsr": "000088588"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "17:01",
+        "nsr": "000088588"
+      }
+    },
+    {
+      "pis": "038258733235",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "17:01",
+        "nsr": "000088589"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "17:01",
+        "nsr": "000088589"
+      }
+    },
+    {
+      "pis": "012281489406",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "17:06",
+        "nsr": "000088591"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "17:06",
+        "nsr": "000088591"
+      }
+    },
+    {
+      "pis": "789008186328",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "18:23",
+        "nsr": "000088597"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "18:23",
+        "nsr": "000088597"
+      }
+    },
+    {
+      "pis": "550066838621",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "19:05",
+        "nsr": "000088600"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "19:05",
+        "nsr": "000088600"
+      }
+    },
+    {
+      "pis": "815009783080",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "21:11",
+        "nsr": "000088608"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "21:11",
+        "nsr": "000088608"
+      }
+    },
+    {
+      "pis": "046688902012",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "21:19",
+        "nsr": "000088611"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "21:19",
+        "nsr": "000088611"
+      }
+    },
+    {
+      "pis": "723115559618",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "21:19",
+        "nsr": "000088612"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "21:19",
+        "nsr": "000088612"
+      }
+    },
+    {
+      "pis": "646666845383",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "06/01/2026",
+        "hora": "21:23",
+        "nsr": "000088614"
+      },
+      "ultimaBatida": {
+        "data": "06/01/2026",
+        "hora": "21:23",
+        "nsr": "000088614"
+      }
+    },
+    {
+      "pis": "152028817449",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "06:39",
+        "nsr": "000088615"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "06:39",
+        "nsr": "000088615"
+      }
+    },
+    {
+      "pis": "353148802077",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "06:41",
+        "nsr": "000088616"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "06:41",
+        "nsr": "000088616"
+      }
+    },
+    {
+      "pis": "334366866407",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "06:41",
+        "nsr": "000088617"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "06:41",
+        "nsr": "000088617"
+      }
+    },
+    {
+      "pis": "413567428310",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "07:15",
+        "nsr": "000088619"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "07:15",
+        "nsr": "000088619"
+      }
+    },
+    {
+      "pis": "412874360742",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "07:16",
+        "nsr": "000088622"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "07:16",
+        "nsr": "000088622"
+      }
+    },
+    {
+      "pis": "975247240713",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "07:19",
+        "nsr": "000088623"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "07:19",
+        "nsr": "000088623"
+      }
+    },
+    {
+      "pis": "223973038250",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "07:51",
+        "nsr": "000088626"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "07:51",
+        "nsr": "000088626"
+      }
+    },
+    {
+      "pis": "443338128449",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "07:51",
+        "nsr": "000088627"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "07:51",
+        "nsr": "000088627"
+      }
+    },
+    {
+      "pis": "400898663546",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "09:30",
+        "nsr": "000088632"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "09:30",
+        "nsr": "000088632"
+      }
+    },
+    {
+      "pis": "338128447744",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "11:09",
+        "nsr": "000088634"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "11:09",
+        "nsr": "000088634"
+      }
+    },
+    {
+      "pis": "206353148805",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "11:24",
+        "nsr": "000088635"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "11:24",
+        "nsr": "000088635"
+      }
+    },
+    {
+      "pis": "221198183622",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "11:26",
+        "nsr": "000088636"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "11:26",
+        "nsr": "000088636"
+      }
+    },
+    {
+      "pis": "907558430258",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "11:50",
+        "nsr": "000088638"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "11:50",
+        "nsr": "000088638"
+      }
+    },
+    {
+      "pis": "443338128447",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "11:58",
+        "nsr": "000088639"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "11:58",
+        "nsr": "000088639"
+      }
+    },
+    {
+      "pis": "164505082304",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "12:06",
+        "nsr": "000088642"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "12:06",
+        "nsr": "000088642"
+      }
+    },
+    {
+      "pis": "996378505850",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "12:10",
+        "nsr": "000088643"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "12:10",
+        "nsr": "000088643"
+      }
+    },
+    {
+      "pis": "246118057044",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "12:21",
+        "nsr": "000088645"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "12:21",
+        "nsr": "000088645"
+      }
+    },
+    {
+      "pis": "063531488070",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "12:26",
+        "nsr": "000088646"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "12:26",
+        "nsr": "000088646"
+      }
+    },
+    {
+      "pis": "212090580021",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "12:27",
+        "nsr": "000088648"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "12:27",
+        "nsr": "000088648"
+      }
+    },
+    {
+      "pis": "656438602111",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "12:29",
+        "nsr": "000088649"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "12:29",
+        "nsr": "000088649"
+      }
+    },
+    {
+      "pis": "509400898668",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "12:30",
+        "nsr": "000088650"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "12:30",
+        "nsr": "000088650"
+      }
+    },
+    {
+      "pis": "501520288100",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "12:38",
+        "nsr": "000088651"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "12:38",
+        "nsr": "000088651"
+      }
+    },
+    {
+      "pis": "975247240746",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "12:43",
+        "nsr": "000088652"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "12:43",
+        "nsr": "000088652"
+      }
+    },
+    {
+      "pis": "900818634911",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "13:04",
+        "nsr": "000088658"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "13:04",
+        "nsr": "000088658"
+      }
+    },
+    {
+      "pis": "567428310035",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "13:07",
+        "nsr": "000088660"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "13:07",
+        "nsr": "000088660"
+      }
+    },
+    {
+      "pis": "412874360775",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "13:11",
+        "nsr": "000088661"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "13:11",
+        "nsr": "000088661"
+      }
+    },
+    {
+      "pis": "601478803274",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "13:22",
+        "nsr": "000088664"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "13:22",
+        "nsr": "000088664"
+      }
+    },
+    {
+      "pis": "633436686601",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "13:23",
+        "nsr": "000088665"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "13:23",
+        "nsr": "000088665"
+      }
+    },
+    {
+      "pis": "973038253587",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "13:44",
+        "nsr": "000088667"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "13:44",
+        "nsr": "000088667"
+      }
+    },
+    {
+      "pis": "297524724079",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "13:45",
+        "nsr": "000088668"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "13:45",
+        "nsr": "000088668"
+      }
+    },
+    {
+      "pis": "479513051239",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "14:01",
+        "nsr": "000088671"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "14:01",
+        "nsr": "000088671"
+      }
+    },
+    {
+      "pis": "338128444956",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "14:16",
+        "nsr": "000088675"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "14:16",
+        "nsr": "000088675"
+      }
+    },
+    {
+      "pis": "311555961591",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "14:20",
+        "nsr": "000088677"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "14:20",
+        "nsr": "000088677"
+      }
+    },
+    {
+      "pis": "360147880372",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "14:22",
+        "nsr": "000088678"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "14:22",
+        "nsr": "000088678"
+      }
+    },
+    {
+      "pis": "264666684503",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "14:51",
+        "nsr": "000088680"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "14:51",
+        "nsr": "000088680"
+      }
+    },
+    {
+      "pis": "411079598295",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "14:52",
+        "nsr": "000088681"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "14:52",
+        "nsr": "000088681"
+      }
+    },
+    {
+      "pis": "162283802607",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "14:55",
+        "nsr": "000088682"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "14:55",
+        "nsr": "000088682"
+      }
+    },
+    {
+      "pis": "215500668385",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "15:05",
+        "nsr": "000088686"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "15:05",
+        "nsr": "000088686"
+      }
+    },
+    {
+      "pis": "353148807547",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "15:06",
+        "nsr": "000088687"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "15:06",
+        "nsr": "000088687"
+      }
+    },
+    {
+      "pis": "476246118050",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "15:11",
+        "nsr": "000088689"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "15:11",
+        "nsr": "000088689"
+      }
+    },
+    {
+      "pis": "508742918100",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "15:16",
+        "nsr": "000088690"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "15:16",
+        "nsr": "000088690"
+      }
+    },
+    {
+      "pis": "588111388890",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "15:16",
+        "nsr": "000088693"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "15:16",
+        "nsr": "000088693"
+      }
+    },
+    {
+      "pis": "311555963865",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "15:21",
+        "nsr": "000088694"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "15:21",
+        "nsr": "000088694"
+      }
+    },
+    {
+      "pis": "073479513051",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "15:39",
+        "nsr": "000088698"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "15:39",
+        "nsr": "000088698"
+      }
+    },
+    {
+      "pis": "135674283197",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "15:45",
+        "nsr": "000088700"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "15:45",
+        "nsr": "000088700"
+      }
+    },
+    {
+      "pis": "450508230253",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "15:46",
+        "nsr": "000088701"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "15:46",
+        "nsr": "000088701"
+      }
+    },
+    {
+      "pis": "996378505538",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "15:47",
+        "nsr": "000088702"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "15:47",
+        "nsr": "000088702"
+      }
+    },
+    {
+      "pis": "983128524607",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "16:01",
+        "nsr": "000088703"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "16:01",
+        "nsr": "000088703"
+      }
+    },
+    {
+      "pis": "545046688903",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "16:02",
+        "nsr": "000088704"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "16:02",
+        "nsr": "000088704"
+      }
+    },
+    {
+      "pis": "646666845445",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "16:02",
+        "nsr": "000088705"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "16:02",
+        "nsr": "000088705"
+      }
+    },
+    {
+      "pis": "890755843898",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "16:03",
+        "nsr": "000088706"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "16:03",
+        "nsr": "000088706"
+      }
+    },
+    {
+      "pis": "162283802887",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "16:11",
+        "nsr": "000088708"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "16:11",
+        "nsr": "000088708"
+      }
+    },
+    {
+      "pis": "087429181009",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "16:16",
+        "nsr": "000088709"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "16:16",
+        "nsr": "000088709"
+      }
+    },
+    {
+      "pis": "382587332362",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "16:23",
+        "nsr": "000088710"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "16:23",
+        "nsr": "000088710"
+      }
+    },
+    {
+      "pis": "578900818635",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "16:31",
+        "nsr": "000088712"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "16:31",
+        "nsr": "000088712"
+      }
+    },
+    {
+      "pis": "716228380272",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "16:32",
+        "nsr": "000088713"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "16:32",
+        "nsr": "000088713"
+      }
+    },
+    {
+      "pis": "511174968305",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "16:46",
+        "nsr": "000088715"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "16:46",
+        "nsr": "000088715"
+      }
+    },
+    {
+      "pis": "336014788036",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "16:58",
+        "nsr": "000088716"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "16:58",
+        "nsr": "000088716"
+      }
+    },
+    {
+      "pis": "765643860309",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "17:05",
+        "nsr": "000088720"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "17:05",
+        "nsr": "000088720"
+      }
+    },
+    {
+      "pis": "174968300530",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "17:06",
+        "nsr": "000088721"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "17:06",
+        "nsr": "000088721"
+      }
+    },
+    {
+      "pis": "881113888025",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "17:07",
+        "nsr": "000088722"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "17:07",
+        "nsr": "000088722"
+      }
+    },
+    {
+      "pis": "550066838250",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "17:51",
+        "nsr": "000088725"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "17:51",
+        "nsr": "000088725"
+      }
+    },
+    {
+      "pis": "458811138888",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "18:07",
+        "nsr": "000088726"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "18:07",
+        "nsr": "000088726"
+      }
+    },
+    {
+      "pis": "107688062165",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "18:18",
+        "nsr": "000088727"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "18:18",
+        "nsr": "000088727"
+      }
+    },
+    {
+      "pis": "289075584346",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "20:37",
+        "nsr": "000088728"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "20:37",
+        "nsr": "000088728"
+      }
+    },
+    {
+      "pis": "771076880628",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "21:01",
+        "nsr": "000088729"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "21:01",
+        "nsr": "000088729"
+      }
+    },
+    {
+      "pis": "622838020132",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "21:13",
+        "nsr": "000088735"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "21:13",
+        "nsr": "000088735"
+      }
+    },
+    {
+      "pis": "511174968301",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "21:13",
+        "nsr": "000088736"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "21:13",
+        "nsr": "000088736"
+      }
+    },
+    {
+      "pis": "046688904551",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "21:15",
+        "nsr": "000088737"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "21:15",
+        "nsr": "000088737"
+      }
+    },
+    {
+      "pis": "881113888031",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "21:15",
+        "nsr": "000088738"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "21:15",
+        "nsr": "000088738"
+      }
+    },
+    {
+      "pis": "500668386672",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "07/01/2026",
+        "hora": "21:16",
+        "nsr": "000088740"
+      },
+      "ultimaBatida": {
+        "data": "07/01/2026",
+        "hora": "21:16",
+        "nsr": "000088740"
+      }
+    },
+    {
+      "pis": "334366866954",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "06:41",
+        "nsr": "000088742"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "06:41",
+        "nsr": "000088742"
+      }
+    },
+    {
+      "pis": "140197704130",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "07:16",
+        "nsr": "000088747"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "07:16",
+        "nsr": "000088747"
+      }
+    },
+    {
+      "pis": "501228148941",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "07:16",
+        "nsr": "000088748"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "07:16",
+        "nsr": "000088748"
+      }
+    },
+    {
+      "pis": "645050823009",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "07:33",
+        "nsr": "000088753"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "07:33",
+        "nsr": "000088753"
+      }
+    },
+    {
+      "pis": "038258733237",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "08:01",
+        "nsr": "000088756"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "08:01",
+        "nsr": "000088756"
+      }
+    },
+    {
+      "pis": "400898664034",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "09:30",
+        "nsr": "000088758"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "09:30",
+        "nsr": "000088758"
+      }
+    },
+    {
+      "pis": "912478211795",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "11:01",
+        "nsr": "000088760"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "11:01",
+        "nsr": "000088760"
+      }
+    },
+    {
+      "pis": "333812844869",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "11:13",
+        "nsr": "000088762"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "11:13",
+        "nsr": "000088762"
+      }
+    },
+    {
+      "pis": "289075584367",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "11:50",
+        "nsr": "000088764"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "11:50",
+        "nsr": "000088764"
+      }
+    },
+    {
+      "pis": "912478213588",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "12:01",
+        "nsr": "000088766"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "12:01",
+        "nsr": "000088766"
+      }
+    },
+    {
+      "pis": "727545188384",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "12:01",
+        "nsr": "000088768"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "12:01",
+        "nsr": "000088768"
+      }
+    },
+    {
+      "pis": "311338640824",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "12:03",
+        "nsr": "000088769"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "12:03",
+        "nsr": "000088769"
+      }
+    },
+    {
+      "pis": "477656438609",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "12:30",
+        "nsr": "000088773"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "12:30",
+        "nsr": "000088773"
+      }
+    },
+    {
+      "pis": "752472409833",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "12:33",
+        "nsr": "000088775"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "12:33",
+        "nsr": "000088775"
+      }
+    },
+    {
+      "pis": "221198183645",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "12:48",
+        "nsr": "000088777"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "12:48",
+        "nsr": "000088777"
+      }
+    },
+    {
+      "pis": "128743607742",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "13:00",
+        "nsr": "000088778"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "13:00",
+        "nsr": "000088778"
+      }
+    },
+    {
+      "pis": "727545188371",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "13:01",
+        "nsr": "000088779"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "13:01",
+        "nsr": "000088779"
+      }
+    },
+    {
+      "pis": "734795130533",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "13:03",
+        "nsr": "000088780"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "13:03",
+        "nsr": "000088780"
+      }
+    },
+    {
+      "pis": "311338649015",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "13:04",
+        "nsr": "000088781"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "13:04",
+        "nsr": "000088781"
+      }
+    },
+    {
+      "pis": "645050823087",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "13:05",
+        "nsr": "000088782"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "13:05",
+        "nsr": "000088782"
+      }
+    },
+    {
+      "pis": "633436686604",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "13:10",
+        "nsr": "000088785"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "13:10",
+        "nsr": "000088785"
+      }
+    },
+    {
+      "pis": "079598297232",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "13:10",
+        "nsr": "000088786"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "13:10",
+        "nsr": "000088786"
+      }
+    },
+    {
+      "pis": "963785053234",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "13:15",
+        "nsr": "000088787"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "13:15",
+        "nsr": "000088787"
+      }
+    },
+    {
+      "pis": "228148943819",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "13:16",
+        "nsr": "000088788"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "13:16",
+        "nsr": "000088788"
+      }
+    },
+    {
+      "pis": "129752472408",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "13:33",
+        "nsr": "000088789"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "13:33",
+        "nsr": "000088789"
+      }
+    },
+    {
+      "pis": "239730382540",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "13:34",
+        "nsr": "000088790"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "13:34",
+        "nsr": "000088790"
+      }
+    },
+    {
+      "pis": "463113386441",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "13:54",
+        "nsr": "000088792"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "13:54",
+        "nsr": "000088792"
+      }
+    },
+    {
+      "pis": "443338128443",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "14:09",
+        "nsr": "000088795"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "14:09",
+        "nsr": "000088795"
+      }
+    },
+    {
+      "pis": "633436686619",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "14:14",
+        "nsr": "000088797"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "14:14",
+        "nsr": "000088797"
+      }
+    },
+    {
+      "pis": "122814894111",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "14:15",
+        "nsr": "000088799"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "14:15",
+        "nsr": "000088799"
+      }
+    },
+    {
+      "pis": "825873323964",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "14:17",
+        "nsr": "000088800"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "14:17",
+        "nsr": "000088800"
+      }
+    },
+    {
+      "pis": "111749683057",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "14:50",
+        "nsr": "000088802"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "14:50",
+        "nsr": "000088802"
+      }
+    },
+    {
+      "pis": "428907558432",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "15:02",
+        "nsr": "000088803"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "15:02",
+        "nsr": "000088803"
+      }
+    },
+    {
+      "pis": "811138880562",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "15:15",
+        "nsr": "000088805"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "15:15",
+        "nsr": "000088805"
+      }
+    },
+    {
+      "pis": "545046688907",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "15:15",
+        "nsr": "000088809"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "15:15",
+        "nsr": "000088809"
+      }
+    },
+    {
+      "pis": "498912478219",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "15:35",
+        "nsr": "000088812"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "15:35",
+        "nsr": "000088812"
+      }
+    },
+    {
+      "pis": "479513051766",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "15:36",
+        "nsr": "000088813"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "15:36",
+        "nsr": "000088813"
+      }
+    },
+    {
+      "pis": "135674283101",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "15:36",
+        "nsr": "000088814"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "15:36",
+        "nsr": "000088814"
+      }
+    },
+    {
+      "pis": "450508230712",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "15:51",
+        "nsr": "000088817"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "15:51",
+        "nsr": "000088817"
+      }
+    },
+    {
+      "pis": "412874360731",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "16:01",
+        "nsr": "000088818"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "16:01",
+        "nsr": "000088818"
+      }
+    },
+    {
+      "pis": "798312852807",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "16:01",
+        "nsr": "000088819"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "16:01",
+        "nsr": "000088819"
+      }
+    },
+    {
+      "pis": "477656438600",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "16:01",
+        "nsr": "000088820"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "16:01",
+        "nsr": "000088820"
+      }
+    },
+    {
+      "pis": "293399688089",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "16:22",
+        "nsr": "000088822"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "16:22",
+        "nsr": "000088822"
+      }
+    },
+    {
+      "pis": "382587332350",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "16:24",
+        "nsr": "000088823"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "16:24",
+        "nsr": "000088823"
+      }
+    },
+    {
+      "pis": "129752472400",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "16:31",
+        "nsr": "000088824"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "16:31",
+        "nsr": "000088824"
+      }
+    },
+    {
+      "pis": "293399688081",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "16:40",
+        "nsr": "000088827"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "16:40",
+        "nsr": "000088827"
+      }
+    },
+    {
+      "pis": "511174968308",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "16:49",
+        "nsr": "000088828"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "16:49",
+        "nsr": "000088828"
+      }
+    },
+    {
+      "pis": "412874360789",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "17:01",
+        "nsr": "000088829"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "17:01",
+        "nsr": "000088829"
+      }
+    },
+    {
+      "pis": "477656438601",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "17:01",
+        "nsr": "000088830"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "17:01",
+        "nsr": "000088830"
+      }
+    },
+    {
+      "pis": "458811138882",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "17:03",
+        "nsr": "000088832"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "17:03",
+        "nsr": "000088832"
+      }
+    },
+    {
+      "pis": "174968305180",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "17:09",
+        "nsr": "000088833"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "17:09",
+        "nsr": "000088833"
+      }
+    },
+    {
+      "pis": "110795982940",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "17:11",
+        "nsr": "000088834"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "17:11",
+        "nsr": "000088834"
+      }
+    },
+    {
+      "pis": "228148946456",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "17:29",
+        "nsr": "000088835"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "17:29",
+        "nsr": "000088835"
+      }
+    },
+    {
+      "pis": "811138884513",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "18:03",
+        "nsr": "000088837"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "18:03",
+        "nsr": "000088837"
+      }
+    },
+    {
+      "pis": "545046688900",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "18:04",
+        "nsr": "000088838"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "18:04",
+        "nsr": "000088838"
+      }
+    },
+    {
+      "pis": "815009783064",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "18:28",
+        "nsr": "000088839"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "18:28",
+        "nsr": "000088839"
+      }
+    },
+    {
+      "pis": "545046688904",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "19:05",
+        "nsr": "000088840"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "19:05",
+        "nsr": "000088840"
+      }
+    },
+    {
+      "pis": "933996880871",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "21:10",
+        "nsr": "000088844"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "21:10",
+        "nsr": "000088844"
+      }
+    },
+    {
+      "pis": "476246118053",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "21:10",
+        "nsr": "000088846"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "21:10",
+        "nsr": "000088846"
+      }
+    },
+    {
+      "pis": "046688901240",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "21:15",
+        "nsr": "000088848"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "21:15",
+        "nsr": "000088848"
+      }
+    },
+    {
+      "pis": "481500978300",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "21:15",
+        "nsr": "000088849"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "21:15",
+        "nsr": "000088849"
+      }
+    },
+    {
+      "pis": "128743607047",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "08/01/2026",
+        "hora": "21:24",
+        "nsr": "000088852"
+      },
+      "ultimaBatida": {
+        "data": "08/01/2026",
+        "hora": "21:24",
+        "nsr": "000088852"
+      }
+    },
+    {
+      "pis": "353148802007",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "06:40",
+        "nsr": "000088854"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "06:40",
+        "nsr": "000088854"
+      }
+    },
+    {
+      "pis": "411079598291",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "07:11",
+        "nsr": "000088856"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "07:11",
+        "nsr": "000088856"
+      }
+    },
+    {
+      "pis": "122814894342",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "07:15",
+        "nsr": "000088861"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "07:15",
+        "nsr": "000088861"
+      }
+    },
+    {
+      "pis": "973038256550",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "07:46",
+        "nsr": "000088866"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "07:46",
+        "nsr": "000088866"
+      }
+    },
+    {
+      "pis": "382587332363",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "07:59",
+        "nsr": "000088867"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "07:59",
+        "nsr": "000088867"
+      }
+    },
+    {
+      "pis": "567428314860",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "10:52",
+        "nsr": "000088872"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "10:52",
+        "nsr": "000088872"
+      }
+    },
+    {
+      "pis": "287436075586",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "11:00",
+        "nsr": "000088874"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "11:00",
+        "nsr": "000088874"
+      }
+    },
+    {
+      "pis": "433381284409",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "11:16",
+        "nsr": "000088876"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "11:16",
+        "nsr": "000088876"
+      }
+    },
+    {
+      "pis": "572754518833",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "11:31",
+        "nsr": "000088877"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "11:31",
+        "nsr": "000088877"
+      }
+    },
+    {
+      "pis": "221198183602",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "11:35",
+        "nsr": "000088878"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "11:35",
+        "nsr": "000088878"
+      }
+    },
+    {
+      "pis": "963785050221",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "11:57",
+        "nsr": "000088879"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "11:57",
+        "nsr": "000088879"
+      }
+    },
+    {
+      "pis": "334366866458",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "12:00",
+        "nsr": "000088881"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "12:00",
+        "nsr": "000088881"
+      }
+    },
+    {
+      "pis": "734795130516",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "12:04",
+        "nsr": "000088884"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "12:04",
+        "nsr": "000088884"
+      }
+    },
+    {
+      "pis": "413567428317",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "12:04",
+        "nsr": "000088885"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "12:04",
+        "nsr": "000088885"
+      }
+    },
+    {
+      "pis": "443338128440",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "12:20",
+        "nsr": "000088887"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "12:20",
+        "nsr": "000088887"
+      }
+    },
+    {
+      "pis": "107959829817",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "12:20",
+        "nsr": "000088889"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "12:20",
+        "nsr": "000088889"
+      }
+    },
+    {
+      "pis": "521209058009",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "12:34",
+        "nsr": "000088891"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "12:34",
+        "nsr": "000088891"
+      }
+    },
+    {
+      "pis": "322119818364",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "12:36",
+        "nsr": "000088892"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "12:36",
+        "nsr": "000088892"
+      }
+    },
+    {
+      "pis": "239730382550",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "12:41",
+        "nsr": "000088893"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "12:41",
+        "nsr": "000088893"
+      }
+    },
+    {
+      "pis": "723115559600",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "13:00",
+        "nsr": "000088899"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "13:00",
+        "nsr": "000088899"
+      }
+    },
+    {
+      "pis": "343668668831",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "13:01",
+        "nsr": "000088900"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "13:01",
+        "nsr": "000088900"
+      }
+    },
+    {
+      "pis": "073479513054",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "13:02",
+        "nsr": "000088902"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "13:02",
+        "nsr": "000088902"
+      }
+    },
+    {
+      "pis": "107959829877",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "13:21",
+        "nsr": "000088907"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "13:21",
+        "nsr": "000088907"
+      }
+    },
+    {
+      "pis": "228148949200",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "13:25",
+        "nsr": "000088908"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "13:25",
+        "nsr": "000088908"
+      }
+    },
+    {
+      "pis": "521209058001",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "13:33",
+        "nsr": "000088909"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "13:33",
+        "nsr": "000088909"
+      }
+    },
+    {
+      "pis": "973038254474",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "13:40",
+        "nsr": "000088910"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "13:40",
+        "nsr": "000088910"
+      }
+    },
+    {
+      "pis": "975247240271",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "13:41",
+        "nsr": "000088911"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "13:41",
+        "nsr": "000088911"
+      }
+    },
+    {
+      "pis": "631133864882",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "13:56",
+        "nsr": "000088912"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "13:56",
+        "nsr": "000088912"
+      }
+    },
+    {
+      "pis": "754518839712",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "14:02",
+        "nsr": "000088913"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "14:02",
+        "nsr": "000088913"
+      }
+    },
+    {
+      "pis": "353148806335",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "14:02",
+        "nsr": "000088914"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "14:02",
+        "nsr": "000088914"
+      }
+    },
+    {
+      "pis": "443338128445",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "14:07",
+        "nsr": "000088915"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "14:07",
+        "nsr": "000088915"
+      }
+    },
+    {
+      "pis": "933996880842",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "14:50",
+        "nsr": "000088918"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "14:50",
+        "nsr": "000088918"
+      }
+    },
+    {
+      "pis": "428907558433",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "14:56",
+        "nsr": "000088920"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "14:56",
+        "nsr": "000088920"
+      }
+    },
+    {
+      "pis": "209058006937",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "15:00",
+        "nsr": "000088921"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "15:00",
+        "nsr": "000088921"
+      }
+    },
+    {
+      "pis": "107688061050",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "15:00",
+        "nsr": "000088922"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "15:00",
+        "nsr": "000088922"
+      }
+    },
+    {
+      "pis": "311338641860",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "15:02",
+        "nsr": "000088923"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "15:02",
+        "nsr": "000088923"
+      }
+    },
+    {
+      "pis": "550066838948",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "15:05",
+        "nsr": "000088924"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "15:05",
+        "nsr": "000088924"
+      }
+    },
+    {
+      "pis": "557983128526",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "15:15",
+        "nsr": "000088927"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "15:15",
+        "nsr": "000088927"
+      }
+    },
+    {
+      "pis": "479513056449",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "15:35",
+        "nsr": "000088929"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "15:35",
+        "nsr": "000088929"
+      }
+    },
+    {
+      "pis": "141287436075",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "15:35",
+        "nsr": "000088930"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "15:35",
+        "nsr": "000088930"
+      }
+    },
+    {
+      "pis": "228148941537",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "16:03",
+        "nsr": "000088938"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "16:03",
+        "nsr": "000088938"
+      }
+    },
+    {
+      "pis": "231155596030",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "16:03",
+        "nsr": "000088939"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "16:03",
+        "nsr": "000088939"
+      }
+    },
+    {
+      "pis": "428907558434",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "16:06",
+        "nsr": "000088940"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "16:06",
+        "nsr": "000088940"
+      }
+    },
+    {
+      "pis": "162283802344",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "16:11",
+        "nsr": "000088941"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "16:11",
+        "nsr": "000088941"
+      }
+    },
+    {
+      "pis": "129752472406",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "16:30",
+        "nsr": "000088943"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "16:30",
+        "nsr": "000088943"
+      }
+    },
+    {
+      "pis": "239730382575",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "16:31",
+        "nsr": "000088944"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "16:31",
+        "nsr": "000088944"
+      }
+    },
+    {
+      "pis": "622838029183",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "16:37",
+        "nsr": "000088945"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "16:37",
+        "nsr": "000088945"
+      }
+    },
+    {
+      "pis": "311555965355",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "17:03",
+        "nsr": "000088950"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "17:03",
+        "nsr": "000088950"
+      }
+    },
+    {
+      "pis": "577107688066",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "17:26",
+        "nsr": "000088953"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "17:26",
+        "nsr": "000088953"
+      }
+    },
+    {
+      "pis": "550066838157",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "17:39",
+        "nsr": "000088954"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "17:39",
+        "nsr": "000088954"
+      }
+    },
+    {
+      "pis": "287436072235",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "19:23",
+        "nsr": "000088960"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "19:23",
+        "nsr": "000088960"
+      }
+    },
+    {
+      "pis": "107688067052",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "21:01",
+        "nsr": "000088961"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "21:01",
+        "nsr": "000088961"
+      }
+    },
+    {
+      "pis": "765643860006",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "21:08",
+        "nsr": "000088963"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "21:08",
+        "nsr": "000088963"
+      }
+    },
+    {
+      "pis": "500978309396",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "21:13",
+        "nsr": "000088965"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "21:13",
+        "nsr": "000088965"
+      }
+    },
+    {
+      "pis": "571622838021",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "21:14",
+        "nsr": "000088966"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "21:14",
+        "nsr": "000088966"
+      }
+    },
+    {
+      "pis": "890755843035",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "21:14",
+        "nsr": "000088967"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "21:14",
+        "nsr": "000088967"
+      }
+    },
+    {
+      "pis": "557983128525",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "21:15",
+        "nsr": "000088970"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "21:15",
+        "nsr": "000088970"
+      }
+    },
+    {
+      "pis": "723115559637",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "09/01/2026",
+        "hora": "21:15",
+        "nsr": "000088971"
+      },
+      "ultimaBatida": {
+        "data": "09/01/2026",
+        "hora": "21:15",
+        "nsr": "000088971"
+      }
+    },
+    {
+      "pis": "463343668665",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "10/01/2026",
+        "hora": "06:42",
+        "nsr": "000088972"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "06:42",
+        "nsr": "000088972"
+      }
+    },
+    {
+      "pis": "463113386450",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "10/01/2026",
+        "hora": "06:43",
+        "nsr": "000088973"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "06:43",
+        "nsr": "000088973"
+      }
+    },
+    {
+      "pis": "963785052825",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "10/01/2026",
+        "hora": "07:21",
+        "nsr": "000088980"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "07:21",
+        "nsr": "000088980"
+      }
+    },
+    {
+      "pis": "505082305275",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "10/01/2026",
+        "hora": "07:21",
+        "nsr": "000088981"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "07:21",
+        "nsr": "000088981"
+      }
+    },
+    {
+      "pis": "577107688069",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "10/01/2026",
+        "hora": "08:00",
+        "nsr": "000088984"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "08:00",
+        "nsr": "000088984"
+      }
+    },
+    {
+      "pis": "400898660810",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "10/01/2026",
+        "hora": "09:33",
+        "nsr": "000088990"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "09:33",
+        "nsr": "000088990"
+      }
+    },
+    {
+      "pis": "500978308540",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "10/01/2026",
+        "hora": "10:00",
+        "nsr": "000088991"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "10:00",
+        "nsr": "000088991"
+      }
+    },
+    {
+      "pis": "141287436074",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "10/01/2026",
+        "hora": "11:00",
+        "nsr": "000088993"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "11:00",
+        "nsr": "000088993"
+      }
+    },
+    {
+      "pis": "263007786146",
+      "nome": "SEM CADASTRO",
+      "totalBatidas": 1,
+      "primeiraBatida": {
+        "data": "10/01/2026",
+        "hora": "11:14",
+        "nsr": "000088997"
+      },
+      "ultimaBatida": {
+        "data": "10/01/2026",
+        "hora": "11:14",
+        "nsr": "000088997"
+      }
+    }
+  ]
+}

@@ -1,0 +1,2653 @@
+{
+  "funcionarios": {
+    "000000002222": "EPIFANIO DO AMARAL                          20003902"
+  },
+  "registros": [
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "000000000123",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "13:18",
+        "14:24",
+        "15:16"
+      ],
+      "total": "01:06"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "000000000428",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "11:51",
+        "15:09",
+        "16:10",
+        "20:13"
+      ],
+      "total": "07:21"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "000000000557",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:15",
+        "17:06",
+        "18:06"
+      ],
+      "total": "01:51"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "000000002222",
+      "nome": "EPIFANIO DO AMARAL                          20003902",
+      "batidas": [
+        "08:14",
+        "11:11",
+        "12:18",
+        "13:59"
+      ],
+      "total": "04:38"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "000000009999",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "13:00",
+        "14:14",
+        "15:16"
+      ],
+      "total": "01:14"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "000000045881",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:15",
+        "16:03",
+        "17:03"
+      ],
+      "total": "00:48"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "000000413567",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "11:15",
+        "12:16",
+        "16:22"
+      ],
+      "total": "01:01"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "000000481500",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:15",
+        "16:45",
+        "17:45"
+      ],
+      "total": "01:30"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "000000575662",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "09:00",
+        "13:03",
+        "14:03",
+        "15:00"
+      ],
+      "total": "05:00"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "000000636344",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:25",
+        "12:40",
+        "14:41"
+      ],
+      "total": "00:15"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "000003338128",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:15",
+        "11:21",
+        "12:22",
+        "14:00"
+      ],
+      "total": "04:44"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "000005727545",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:02",
+        "12:04",
+        "13:04",
+        "14:01"
+      ],
+      "total": "04:59"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "000019045154",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:07",
+        "13:13",
+        "14:23"
+      ],
+      "total": "01:06"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "005789008186",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:55",
+        "15:35",
+        "16:35"
+      ],
+      "total": "02:40"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "012784343253",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "11:15",
+        "12:15",
+        "15:35"
+      ],
+      "total": "01:00"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "012922801227",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "09:00",
+        "14:09",
+        "15:09",
+        "18:21"
+      ],
+      "total": "08:21"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "012944825080",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:05",
+        "13:09",
+        "16:30"
+      ],
+      "total": "01:04"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "012975247240",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:46",
+        "12:05",
+        "13:05",
+        "16:30"
+      ],
+      "total": "07:44"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "016034603308",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "13:16",
+        "14:15",
+        "16:07"
+      ],
+      "total": "00:59"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "016309664191",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "14:50",
+        "16:18",
+        "16:36"
+      ],
+      "total": "01:28"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "016365237562",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:04",
+        "12:54",
+        "13:58",
+        "16:44"
+      ],
+      "total": "07:36"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "020004166684",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:48",
+        "12:10",
+        "13:09",
+        "16:32"
+      ],
+      "total": "07:45"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "020019093785",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:58",
+        "15:13",
+        "16:26"
+      ],
+      "total": "02:15"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "020080036354",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "11:01",
+        "12:02",
+        "15:38"
+      ],
+      "total": "01:01"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "020301129139",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:05",
+        "18:06",
+        "18:21"
+      ],
+      "total": "03:01"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "021026128988",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:50",
+        "16:11",
+        "17:23"
+      ],
+      "total": "03:21"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "021067086589",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "11:03",
+        "12:11",
+        "15:50"
+      ],
+      "total": "01:08"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "023733591328",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:03",
+        "13:08",
+        "16:30"
+      ],
+      "total": "01:05"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "023750278624",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "13:11",
+        "14:11",
+        "16:15"
+      ],
+      "total": "01:00"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "026849767915",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "14:50",
+        "16:41",
+        "16:57"
+      ],
+      "total": "01:51"
+    },
+    {
+      "data": "02/01",
+      "diaSemana": "Sex",
+      "pis": "026995218300",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:50",
+        "15:12",
+        "16:12"
+      ],
+      "total": "02:22"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "000000000428",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:51",
+        "14:56",
+        "15:58",
+        "21:11"
+      ],
+      "total": "07:18"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "000000000878",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:00",
+        "17:28",
+        "18:28",
+        "21:00"
+      ],
+      "total": "05:00"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "000000002662",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "09:30",
+        "10:59"
+      ],
+      "total": "01:29"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "000000009999",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "13:00",
+        "15:40",
+        "16:40",
+        "21:17"
+      ],
+      "total": "07:17"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "000000045881",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:15",
+        "16:44",
+        "17:44",
+        "21:12"
+      ],
+      "total": "04:57"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "000000413567",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "11:31",
+        "12:31",
+        "15:33"
+      ],
+      "total": "01:00"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "000000481500",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:15",
+        "17:17",
+        "18:17",
+        "21:12"
+      ],
+      "total": "04:57"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "000000545046",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:15",
+        "16:11",
+        "17:12",
+        "21:15"
+      ],
+      "total": "04:59"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "000000575662",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "09:00",
+        "13:02",
+        "14:03",
+        "14:58"
+      ],
+      "total": "04:57"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "000000636344",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "13:03",
+        "13:21",
+        "14:23"
+      ],
+      "total": "00:18"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "000003338128",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:13",
+        "11:10",
+        "12:13",
+        "14:02"
+      ],
+      "total": "04:46"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "000005727545",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:01",
+        "12:02",
+        "13:02",
+        "14:00"
+      ],
+      "total": "04:59"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "000019045154",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:18",
+        "13:18",
+        "14:00"
+      ],
+      "total": "01:00"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "005789008186",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:55",
+        "17:00",
+        "18:01",
+        "21:11"
+      ],
+      "total": "07:15"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "012784343253",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "11:17",
+        "11:47",
+        "15:35"
+      ],
+      "total": "00:30"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "012922801227",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "11:00",
+        "13:01",
+        "14:01",
+        "19:22"
+      ],
+      "total": "07:22"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "012944825080",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "11:57",
+        "13:08",
+        "15:40"
+      ],
+      "total": "01:11"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "012975247240",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:45",
+        "12:06",
+        "13:06",
+        "16:30"
+      ],
+      "total": "07:45"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "014019770413",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "13:12",
+        "14:17",
+        "15:36"
+      ],
+      "total": "01:05"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "016034603308",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:16",
+        "13:18",
+        "15:26"
+      ],
+      "total": "01:02"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "016309664191",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "14:50",
+        "16:11",
+        "16:31",
+        "21:10"
+      ],
+      "total": "06:00"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "016311635209",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:50",
+        "14:06",
+        "15:32",
+        "21:10"
+      ],
+      "total": "06:54"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "016365237562",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:03",
+        "13:15",
+        "14:15",
+        "16:22"
+      ],
+      "total": "07:19"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "020004166684",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:53",
+        "12:06",
+        "13:06",
+        "16:31"
+      ],
+      "total": "07:38"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "020019093785",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "13:07",
+        "14:21",
+        "15:34",
+        "21:10"
+      ],
+      "total": "06:50"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "020080036354",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "11:02",
+        "12:02",
+        "15:40"
+      ],
+      "total": "01:00"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "020301129139",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:05",
+        "18:29",
+        "18:44",
+        "21:17"
+      ],
+      "total": "05:57"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "020635314880",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "11:15",
+        "12:17",
+        "14:56"
+      ],
+      "total": "01:02"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "020902144035",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:30",
+        "12:54",
+        "13:52",
+        "16:05"
+      ],
+      "total": "06:37"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "020935222795",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:13",
+        "13:20",
+        "15:47"
+      ],
+      "total": "01:07"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "021026128988",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:50",
+        "16:16",
+        "17:16",
+        "21:10"
+      ],
+      "total": "07:20"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "021067086589",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "11:02",
+        "12:04",
+        "15:36"
+      ],
+      "total": "01:02"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "023733591328",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:14",
+        "13:17",
+        "17:00"
+      ],
+      "total": "01:03"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "023750278624",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "11:00",
+        "11:05",
+        "14:35",
+        "15:35",
+        "18:16"
+      ],
+      "total": "01:05"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "026849767915",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "14:51",
+        "16:37",
+        "16:51",
+        "21:10"
+      ],
+      "total": "06:05"
+    },
+    {
+      "data": "05/01",
+      "diaSemana": "Seg",
+      "pis": "026995218300",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:50",
+        "14:22",
+        "15:22",
+        "21:10"
+      ],
+      "total": "07:20"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "000000000123",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "06:43",
+        "12:19",
+        "13:21",
+        "15:02"
+      ],
+      "total": "07:17"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "000000000557",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:16",
+        "16:03",
+        "17:02",
+        "21:19"
+      ],
+      "total": "05:04"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "000000000878",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:00",
+        "17:51",
+        "18:52",
+        "21:03"
+      ],
+      "total": "05:02"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "000000009999",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "13:00",
+        "14:10",
+        "15:10",
+        "21:19"
+      ],
+      "total": "07:19"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "000000481500",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:18",
+        "17:58",
+        "18:58",
+        "21:11"
+      ],
+      "total": "04:53"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "000000545046",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:16",
+        "16:37",
+        "17:37",
+        "21:19"
+      ],
+      "total": "05:03"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "000000575662",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:00",
+        "11:58",
+        "13:00",
+        "14:00"
+      ],
+      "total": "04:58"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "000000636344",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "06:39",
+        "12:42",
+        "12:57",
+        "14:17"
+      ],
+      "total": "07:23"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "000003338128",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:55",
+        "11:09",
+        "12:10",
+        "14:21"
+      ],
+      "total": "05:25"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "000005727545",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "09:00",
+        "13:04",
+        "14:04",
+        "15:00"
+      ],
+      "total": "05:00"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "000019045154",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:00",
+        "12:34",
+        "13:38",
+        "15:00"
+      ],
+      "total": "05:56"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "005789008186",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "10:11",
+        "13:16",
+        "14:16",
+        "18:23"
+      ],
+      "total": "07:12"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "012784343253",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:16",
+        "11:31",
+        "12:31",
+        "15:40"
+      ],
+      "total": "07:24"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "012922801227",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "11:00",
+        "13:32",
+        "14:31",
+        "19:20"
+      ],
+      "total": "07:21"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "012975247240",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:27",
+        "12:06",
+        "13:06",
+        "16:30"
+      ],
+      "total": "08:03"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "014019770413",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15",
+        "13:03",
+        "14:09",
+        "15:44"
+      ],
+      "total": "07:23"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "016034603308",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15",
+        "11:46",
+        "12:49",
+        "15:36"
+      ],
+      "total": "07:18"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "016309664191",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "14:50",
+        "16:33",
+        "16:53",
+        "21:10"
+      ],
+      "total": "06:00"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "016311635209",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "13:00",
+        "14:08",
+        "15:06",
+        "21:20"
+      ],
+      "total": "07:22"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "016365237562",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:59",
+        "08:01",
+        "12:37",
+        "13:38",
+        "17:01"
+      ],
+      "total": "01:03"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "016450508230",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:32",
+        "12:08",
+        "13:08",
+        "15:50"
+      ],
+      "total": "07:18"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "020004166684",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:54",
+        "12:06",
+        "13:08",
+        "16:31"
+      ],
+      "total": "07:35"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "020019093785",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:46",
+        "12:51",
+        "15:01",
+        "16:22",
+        "21:23"
+      ],
+      "total": "01:26"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "020080036354",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15",
+        "11:00",
+        "12:00",
+        "15:35"
+      ],
+      "total": "07:20"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "020301129139",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:05",
+        "19:05",
+        "19:20",
+        "21:18"
+      ],
+      "total": "05:58"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "020635314880",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "06:40",
+        "11:16",
+        "12:16",
+        "14:35"
+      ],
+      "total": "06:55"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "020902144035",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "14:51",
+        "16:09",
+        "16:28",
+        "21:10"
+      ],
+      "total": "06:00"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "020935222795",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15",
+        "13:09",
+        "14:07",
+        "17:06"
+      ],
+      "total": "08:53"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "021026128988",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:50",
+        "16:05",
+        "17:19",
+        "21:10"
+      ],
+      "total": "07:06"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "021067086589",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:16",
+        "11:55",
+        "12:57",
+        "15:35"
+      ],
+      "total": "07:17"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "023733591328",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:13",
+        "13:10",
+        "14:12",
+        "17:01"
+      ],
+      "total": "08:46"
+    },
+    {
+      "data": "06/01",
+      "diaSemana": "Ter",
+      "pis": "026849767915",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "14:51",
+        "16:56",
+        "17:09",
+        "21:10"
+      ],
+      "total": "06:06"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "000000000123",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "06:41",
+        "12:20",
+        "13:23",
+        "15:06"
+      ],
+      "total": "07:22"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "000000000428",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "11:50",
+        "15:02",
+        "16:03",
+        "20:37"
+      ],
+      "total": "07:46"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "000000000557",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:16",
+        "16:01",
+        "17:01",
+        "21:15"
+      ],
+      "total": "04:59"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "000000000878",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:01",
+        "17:16",
+        "18:18",
+        "21:01"
+      ],
+      "total": "04:58"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "000000002662",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "09:30",
+        "12:30",
+        "13:35",
+        "15:30"
+      ],
+      "total": "04:55"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "000000009999",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "14:20",
+        "15:21",
+        "21:18"
+      ],
+      "total": "01:01"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "000000045881",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:16",
+        "17:07",
+        "18:07",
+        "21:15"
+      ],
+      "total": "04:59"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "000000413567",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15",
+        "12:04",
+        "13:07",
+        "15:45"
+      ],
+      "total": "07:27"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "000000545046",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:16",
+        "16:02",
+        "17:01",
+        "21:15"
+      ],
+      "total": "05:00"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "000000575662",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:00",
+        "11:28",
+        "12:27",
+        "13:58"
+      ],
+      "total": "04:59"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "000000636344",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "06:39",
+        "12:38",
+        "12:52",
+        "14:19"
+      ],
+      "total": "07:26"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "000003338128",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:51",
+        "11:09",
+        "11:58",
+        "14:16"
+      ],
+      "total": "05:36"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "005789008186",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "13:04",
+        "15:31",
+        "16:31",
+        "21:10"
+      ],
+      "total": "07:06"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "012784343253",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15",
+        "11:26",
+        "12:26",
+        "15:00"
+      ],
+      "total": "06:45"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "012922801227",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:30",
+        "13:22",
+        "14:22",
+        "16:58"
+      ],
+      "total": "07:28"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "012944825080",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15",
+        "12:10",
+        "13:18",
+        "15:47"
+      ],
+      "total": "07:24"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "012975247240",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:19",
+        "12:43",
+        "13:45",
+        "16:30"
+      ],
+      "total": "08:09"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "016034603308",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15",
+        "12:54",
+        "14:01",
+        "15:39"
+      ],
+      "total": "07:17"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "016309664191",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "14:55",
+        "16:11",
+        "16:32",
+        "21:13"
+      ],
+      "total": "05:57"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "016311635209",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:21",
+        "14:13",
+        "15:11",
+        "21:10"
+      ],
+      "total": "07:51"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "016365237562",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:00",
+        "13:18",
+        "14:16",
+        "16:23"
+      ],
+      "total": "07:25"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "016450508230",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:33",
+        "12:06",
+        "13:07",
+        "15:46"
+      ],
+      "total": "07:12"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "020004166684",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:51",
+        "12:44",
+        "13:44",
+        "16:33"
+      ],
+      "total": "07:42"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "020019093785",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:53",
+        "14:51",
+        "16:02",
+        "21:12"
+      ],
+      "total": "07:08"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "020080036354",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:22",
+        "11:00",
+        "12:00",
+        "15:39"
+      ],
+      "total": "06:17"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "020301129139",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:05",
+        "17:35",
+        "17:51",
+        "21:16"
+      ],
+      "total": "05:55"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "020635314880",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "06:41",
+        "11:24",
+        "12:26",
+        "15:06"
+      ],
+      "total": "07:23"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "020902144035",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "14:50",
+        "16:46",
+        "17:06",
+        "21:13"
+      ],
+      "total": "06:03"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "021026128988",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:29",
+        "16:05",
+        "17:05",
+        "21:11"
+      ],
+      "total": "07:42"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "023733591328",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:23",
+        "13:47",
+        "14:52",
+        "17:03"
+      ],
+      "total": "08:35"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "023750278624",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:16",
+        "13:11",
+        "14:11",
+        "15:42"
+      ],
+      "total": "07:26"
+    },
+    {
+      "data": "07/01",
+      "diaSemana": "Qua",
+      "pis": "026995218300",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:50",
+        "15:16",
+        "16:16",
+        "21:12"
+      ],
+      "total": "07:22"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "000000000123",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "06:41",
+        "13:10",
+        "14:14",
+        "15:04"
+      ],
+      "total": "07:19"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "000000000428",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "11:50",
+        "15:02",
+        "16:02",
+        "20:40"
+      ],
+      "total": "07:50"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "000000000557",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:15",
+        "16:01",
+        "17:01",
+        "21:21"
+      ],
+      "total": "05:06"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "000000002662",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "09:30",
+        "14:07",
+        "15:31"
+      ],
+      "total": "04:37"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "000000045881",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:15",
+        "17:03",
+        "18:03",
+        "21:15"
+      ],
+      "total": "05:00"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "000000413567",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:20",
+        "11:10",
+        "12:13",
+        "15:36"
+      ],
+      "total": "07:13"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "000000481500",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:15",
+        "18:28",
+        "19:28",
+        "21:15"
+      ],
+      "total": "05:00"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "000000545046",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:15",
+        "18:04",
+        "19:05",
+        "21:15"
+      ],
+      "total": "04:59"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "000003338128",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:00",
+        "11:13",
+        "12:13",
+        "14:09"
+      ],
+      "total": "05:09"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "000005727545",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:01",
+        "12:01",
+        "13:01",
+        "14:00"
+      ],
+      "total": "04:59"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "000019045154",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "06:41",
+        "12:03",
+        "13:04",
+        "13:54"
+      ],
+      "total": "06:12"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "012784343253",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15",
+        "11:47",
+        "12:48",
+        "15:37"
+      ],
+      "total": "07:21"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "012922801227",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "09:38",
+        "16:33",
+        "17:33",
+        "19:12"
+      ],
+      "total": "08:34"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "012944825080",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:20",
+        "12:00",
+        "13:15",
+        "15:49"
+      ],
+      "total": "07:14"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "012975247240",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:20",
+        "12:33",
+        "13:33",
+        "16:31"
+      ],
+      "total": "08:11"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "014019770413",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:16",
+        "12:30",
+        "13:36",
+        "15:35"
+      ],
+      "total": "07:13"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "016034603308",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15",
+        "12:01",
+        "13:03",
+        "15:36"
+      ],
+      "total": "07:19"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "016311635209",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "13:06",
+        "14:15",
+        "15:15",
+        "21:10"
+      ],
+      "total": "07:04"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "016365237562",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:01",
+        "13:08",
+        "14:17",
+        "16:24"
+      ],
+      "total": "07:14"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "016450508230",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:33",
+        "12:06",
+        "13:05",
+        "15:51"
+      ],
+      "total": "07:19"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "020004166684",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:47",
+        "12:33",
+        "13:34",
+        "16:31"
+      ],
+      "total": "07:43"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "020080036354",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:17",
+        "11:01",
+        "12:01",
+        "15:35"
+      ],
+      "total": "07:18"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "020902144035",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "14:50",
+        "16:49",
+        "17:09",
+        "21:10"
+      ],
+      "total": "06:00"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "020935222795",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:16",
+        "13:16",
+        "14:15",
+        "17:29"
+      ],
+      "total": "09:14"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "021026128988",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:30",
+        "16:01",
+        "17:01",
+        "21:10"
+      ],
+      "total": "07:40"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "023733591328",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:13",
+        "13:10",
+        "14:13",
+        "17:11"
+      ],
+      "total": "08:55"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "023750278624",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "13:00",
+        "16:01",
+        "17:01",
+        "21:24"
+      ],
+      "total": "07:24"
+    },
+    {
+      "data": "08/01",
+      "diaSemana": "Qui",
+      "pis": "026849767915",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "14:50",
+        "16:22",
+        "16:40",
+        "21:10"
+      ],
+      "total": "06:02"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "000000000123",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "06:40",
+        "12:00",
+        "13:01"
+      ],
+      "total": "05:20"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "000000000428",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:50",
+        "14:56",
+        "16:06",
+        "21:14"
+      ],
+      "total": "07:14"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "000000000557",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:15",
+        "17:09",
+        "18:09",
+        "21:15"
+      ],
+      "total": "05:00"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "000000000878",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:00",
+        "17:26",
+        "18:27",
+        "21:01"
+      ],
+      "total": "05:00"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "000000009999",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "13:00",
+        "16:03",
+        "17:03",
+        "21:15"
+      ],
+      "total": "07:15"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "000000045881",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:15",
+        "18:15",
+        "19:15",
+        "21:14"
+      ],
+      "total": "04:59"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "000000413567",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:16",
+        "10:52",
+        "12:04",
+        "15:38"
+      ],
+      "total": "07:10"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "000000481500",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:15",
+        "16:02",
+        "17:02",
+        "21:13"
+      ],
+      "total": "04:58"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "000000575662",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:59",
+        "12:34",
+        "13:33",
+        "15:00"
+      ],
+      "total": "05:02"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "000000636344",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "06:48",
+        "12:50",
+        "13:05",
+        "15:11"
+      ],
+      "total": "08:08"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "000003338128",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:00",
+        "11:16",
+        "12:20",
+        "14:07"
+      ],
+      "total": "05:03"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "000005727545",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:02",
+        "11:31",
+        "12:30",
+        "14:02"
+      ],
+      "total": "05:01"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "000019045154",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:02",
+        "12:53",
+        "13:56",
+        "15:02"
+      ],
+      "total": "05:57"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "012784343253",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15",
+        "11:35",
+        "12:36",
+        "15:39"
+      ],
+      "total": "07:23"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "012944825080",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:18",
+        "11:57",
+        "13:11",
+        "21:04"
+      ],
+      "total": "12:32"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "012975247240",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:19",
+        "12:41",
+        "13:41",
+        "16:30"
+      ],
+      "total": "08:11"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "014019770413",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15",
+        "13:17",
+        "14:21",
+        "15:39"
+      ],
+      "total": "07:20"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "016034603308",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15",
+        "12:04",
+        "13:02",
+        "15:35"
+      ],
+      "total": "07:22"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "016309664191",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "14:50",
+        "16:11",
+        "16:37",
+        "21:14"
+      ],
+      "total": "05:58"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "016365237562",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:59",
+        "12:02",
+        "13:02",
+        "16:50"
+      ],
+      "total": "07:51"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "016450508230",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:31",
+        "12:06",
+        "13:06",
+        "15:53"
+      ],
+      "total": "07:22"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "020004166684",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:46",
+        "12:41",
+        "13:40",
+        "16:31"
+      ],
+      "total": "07:46"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "020080036354",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15",
+        "11:01",
+        "12:01",
+        "15:40"
+      ],
+      "total": "07:25"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "020301129139",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "15:05",
+        "17:39",
+        "17:54",
+        "21:14"
+      ],
+      "total": "05:54"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "020635314880",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "06:40",
+        "10:56",
+        "11:59",
+        "14:02"
+      ],
+      "total": "06:19"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "020935222795",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15",
+        "12:20",
+        "13:25",
+        "16:03"
+      ],
+      "total": "07:43"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "021026128988",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "12:50",
+        "16:03",
+        "17:12",
+        "21:08"
+      ],
+      "total": "07:09"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "023733591328",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:11",
+        "12:20",
+        "13:21",
+        "16:19"
+      ],
+      "total": "08:07"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "023750278624",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "11:00",
+        "14:35",
+        "15:35",
+        "19:23"
+      ],
+      "total": "07:23"
+    },
+    {
+      "data": "09/01",
+      "diaSemana": "Sex",
+      "pis": "026849767915",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "14:50",
+        "16:40",
+        "17:01",
+        "21:12"
+      ],
+      "total": "06:01"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "000000000123",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "06:42"
+      ],
+      "total": "00:00"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "000000000878",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:00"
+      ],
+      "total": "00:00"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "000000002662",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "09:33"
+      ],
+      "total": "00:00"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "000000413567",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15"
+      ],
+      "total": "00:00"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "000000481500",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "10:00"
+      ],
+      "total": "00:00"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "000000575662",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:58"
+      ],
+      "total": "00:00"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "000003338128",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:00"
+      ],
+      "total": "00:00"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "000005727545",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:01",
+        "11:00"
+      ],
+      "total": "02:59"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "000019045154",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "06:43",
+        "11:22"
+      ],
+      "total": "04:39"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "012784343253",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:18",
+        "11:10"
+      ],
+      "total": "03:52"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "012922801227",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "10:24"
+      ],
+      "total": "00:00"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "012944825080",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:21"
+      ],
+      "total": "00:00"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "012975247240",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:55"
+      ],
+      "total": "00:00"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "014019770413",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15"
+      ],
+      "total": "00:00"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "016034603308",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15",
+        "11:10"
+      ],
+      "total": "03:55"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "016365237562",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:00"
+      ],
+      "total": "00:00"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "016450508230",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:21"
+      ],
+      "total": "00:00"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "020004166684",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:50"
+      ],
+      "total": "00:00"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "020902144035",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "08:12"
+      ],
+      "total": "00:00"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "020935222795",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15"
+      ],
+      "total": "00:00"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "021067086589",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "07:15",
+        "11:14"
+      ],
+      "total": "03:59"
+    },
+    {
+      "data": "10/01",
+      "diaSemana": "Sáb",
+      "pis": "023750278624",
+      "nome": "Funcionário não cadastrado",
+      "batidas": [
+        "11:00"
+      ],
+      "total": "00:00"
+    }
+  ]
+}

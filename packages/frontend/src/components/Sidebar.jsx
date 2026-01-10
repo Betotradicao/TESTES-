@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Logo from './Logo';
+import { MENU_SUBMENUS } from '../constants/menuConstants';
 
 export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileMenuOpen }) {
   const [expandedSections, setExpandedSections] = useState({});
@@ -46,6 +47,31 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     }));
   };
 
+  // Função para verificar se colaborador tem permissão
+  const hasPermission = (moduleId, submenuId = null) => {
+    // Admin e Master sempre têm acesso total
+    if (user?.type === 'admin' || user?.isMaster) return true;
+
+    // Employees verificam permissões
+    if (user?.type === 'employee') {
+      if (!user.permissions) return false;
+
+      const modulePerms = user.permissions[moduleId];
+      if (!modulePerms) return false; // Sem permissão no módulo
+
+      // Se submenuId não especificado, verifica se tem acesso ao módulo
+      if (!submenuId) return true;
+
+      // Se modulePerms é array vazio = acesso total ao módulo
+      if (Array.isArray(modulePerms) && modulePerms.length === 0) return true;
+
+      // Verifica se tem permissão específica no sub-menu
+      return Array.isArray(modulePerms) && modulePerms.includes(submenuId);
+    }
+
+    return false;
+  };
+
   const menuItems = [
     {
       id: 'dashboards',
@@ -74,6 +100,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       expandable: true,
       items: [
         {
+          id: MENU_SUBMENUS.BIPAGENS_AO_VIVO,
           title: 'Bipagens Ao Vivo (VAR)',
           path: '/bipagens',
           icon: (
@@ -83,6 +110,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           )
         },
         {
+          id: MENU_SUBMENUS.BIPAGENS_RESULTADOS,
           title: 'Resultados do Dia',
           path: '/resultados-do-dia',
           icon: (
@@ -92,6 +120,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           )
         },
         {
+          id: MENU_SUBMENUS.BIPAGENS_ATIVAR,
           title: 'Ativar Produtos',
           path: '/ativar-produtos',
           icon: (
@@ -101,6 +130,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           )
         },
         {
+          id: MENU_SUBMENUS.BIPAGENS_RANKINGS,
           title: 'Rankings',
           path: '/rankings',
           icon: (
@@ -363,9 +393,23 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           if (item.id === 'configuracoes-rede' && !user?.isMaster) {
             return false;
           }
+
+          // Verificar permissão no módulo (para employees)
+          if (user?.type === 'employee' && item.moduleId) {
+            return hasPermission(item.moduleId);
+          }
+
           return true;
         }).map((item) => {
           const moduleActive = item.moduleId ? isModuleActive(item.moduleId) : true;
+
+          // Filtrar sub-menus baseado em permissões
+          const filteredItems = item.items ? item.items.filter(subitem => {
+            if (user?.type === 'employee' && item.moduleId && subitem.id) {
+              return hasPermission(item.moduleId, subitem.id);
+            }
+            return true;
+          }) : item.items;
 
           return <div key={item.id} className="mb-2">
             <button
@@ -410,7 +454,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             {/* Submenu Items */}
             {item.expandable && expandedSections[item.id] && (
               <div className="pl-14 pr-6 pb-2">
-                {item.items.map((subItem, index) => (
+                {filteredItems.map((subItem, index) => (
                   <button
                     key={index}
                     onClick={() => {
