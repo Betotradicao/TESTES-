@@ -129,7 +129,7 @@ async function seedConfigurations() {
       // Zanthus ERP
       {
         key: 'zanthus_api_url',
-        value: '',
+        value: 'http://10.6.1.101',
         description: 'URL da API Zanthus'
       },
       {
@@ -151,12 +151,12 @@ async function seedConfigurations() {
       // Intersolid ERP
       {
         key: 'intersolid_api_url',
-        value: '',
+        value: 'http://10.6.1.102',
         description: 'URL da API Intersolid'
       },
       {
         key: 'intersolid_port',
-        value: '',
+        value: '3003',
         description: 'Porta da API Intersolid'
       },
       {
