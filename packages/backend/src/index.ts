@@ -188,7 +188,8 @@ const startServer = async () => {
   cron.schedule('* * * * *', async () => {
     try {
       const { ConfigurationService } = await import('./services/configuration.service');
-      const scheduleTime = await ConfigurationService.get('whatsapp_bips_schedule_time', '08:00') || '08:00';
+      const scheduleTimeValue = await ConfigurationService.get('whatsapp_bips_schedule_time', '08:00');
+      const scheduleTime = scheduleTimeValue || '08:00';
 
       // Converter horário do Brasil para comparação
       const now = new Date();
