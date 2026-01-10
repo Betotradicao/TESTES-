@@ -139,8 +139,8 @@ export default function WhatsAppGroupsTab() {
 
         setGroupConfigs({
           ruptura: {
-            groupId: configs.whatsapp_group_rupturas || configs.evolution_whatsapp_group_id || '',
-            groupName: configs.whatsapp_group_rupturas_name || 'Grupo Padrão',
+            groupId: configs.whatsapp_group_ruptura || configs.evolution_whatsapp_group_id || '',
+            groupName: configs.whatsapp_group_ruptura_name || 'Grupo Padrão',
           },
           etiquetas: {
             groupId: configs.whatsapp_group_etiquetas || configs.evolution_whatsapp_group_id || '',
