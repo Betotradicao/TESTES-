@@ -66,9 +66,34 @@ if [ -d "$SCRIPT_DIR/../.git" ]; then
     # Voltar para InstaladorVPS
     cd "$SCRIPT_DIR"
 else
-    # Script rodando fora do repositório (cópia avulsa)
+    # Script rodando fora do repositório - CLONAR AGORA
     echo "⚠️  Script não está dentro de um repositório git"
-    echo "⚠️  Pulando atualização automática"
+    echo "📥 Clonando repositório do GitHub..."
+
+    cd /root
+
+    # Remover instalação antiga se existir
+    if [ -d "prevencao-radar-install" ]; then
+        echo "🧹 Removendo instalação antiga..."
+        rm -rf prevencao-radar-install
+    fi
+
+    # Clonar repositório
+    git clone https://github.com/Betotradicao/TESTES-.git prevencao-radar-install
+
+    if [ $? -ne 0 ]; then
+        echo "❌ Erro ao clonar repositório!"
+        exit 1
+    fi
+
+    echo "✅ Repositório clonado com sucesso"
+
+    # Ir para o diretório do instalador
+    cd prevencao-radar-install/InstaladorVPS
+    SCRIPT_DIR="$(pwd)"
+    REPO_ROOT="$(cd .. && pwd)"
+
+    echo "✅ Redirecionado para: $SCRIPT_DIR"
 fi
 
 # Verificar se estamos no diretório correto (deve ter docker-compose-producao.yml)
@@ -87,7 +112,25 @@ if [ ! -f "docker-compose-producao.yml" ]; then
     exit 1
 fi
 
+# Verificar se packages/ existe (crítico)
+if [ ! -d "../packages/backend" ] || [ ! -d "../packages/frontend" ]; then
+    echo ""
+    echo "❌ ERRO: Diretórios packages/backend ou packages/frontend não encontrados!"
+    echo "📂 Diretório raiz: $REPO_ROOT"
+    echo ""
+    echo "💡 O repositório pode estar incompleto. Clone novamente:"
+    echo ""
+    echo "   cd /root"
+    echo "   rm -rf prevencao-radar-install"
+    echo "   git clone https://github.com/Betotradicao/TESTES-.git prevencao-radar-install"
+    echo "   cd prevencao-radar-install/InstaladorVPS"
+    echo "   sudo bash INSTALAR-AUTO.sh"
+    echo ""
+    exit 1
+fi
+
 echo "✅ Diretório de instalação: $SCRIPT_DIR"
+echo "✅ Estrutura validada: packages/backend e packages/frontend encontrados"
 echo ""
 
 # ============================================
@@ -190,7 +233,12 @@ echo "informe o IP Tailscale para conectar automaticamente."
 echo ""
 echo "Exemplo: 100.69.131.40"
 echo ""
-read -t 30 -p "IP Tailscale da máquina do cliente (deixe vazio ou aguarde 30s): " TAILSCALE_CLIENT_IP || TAILSCALE_CLIENT_IP=""
+echo "⚠️  Deixe vazio (aperte ENTER) se não tiver Tailscale no cliente ainda"
+echo ""
+read -p "IP Tailscale da máquina do cliente: " TAILSCALE_CLIENT_IP
+
+# Remover espaços em branco
+TAILSCALE_CLIENT_IP=$(echo "$TAILSCALE_CLIENT_IP" | xargs)
 
 if [ -n "$TAILSCALE_CLIENT_IP" ]; then
     echo "✅ IP Tailscale do cliente configurado: $TAILSCALE_CLIENT_IP"
