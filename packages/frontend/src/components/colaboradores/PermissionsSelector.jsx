@@ -9,19 +9,31 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
   useEffect(() => {
     console.log('🔄 PermissionsSelector recebeu selectedPermissions:', selectedPermissions);
 
-    if (selectedPermissions && Array.isArray(selectedPermissions)) {
+    if (selectedPermissions && Array.isArray(selectedPermissions) && selectedPermissions.length > 0) {
       const permissionsObj = {};
       selectedPermissions.forEach(perm => {
+        // Se submenus é null = acesso total
+        // Se submenus é array vazio [] = também acesso total
+        // Se submenus tem itens = acesso parcial
+        const isFullAccess = perm.submenus === null || (Array.isArray(perm.submenus) && perm.submenus.length === 0);
+
         permissionsObj[perm.moduleId] = {
-          fullAccess: !perm.submenus || perm.submenus.length === 0,
+          fullAccess: isFullAccess,
           submenus: perm.submenus || []
         };
+
+        console.log(`   📦 Módulo ${perm.moduleId}:`, {
+          fullAccess: isFullAccess,
+          submenus: perm.submenus
+        });
       });
 
       console.log('✅ Permissions object criado:', permissionsObj);
       setPermissions(permissionsObj);
     } else {
-      console.log('⚠️ selectedPermissions está vazio ou não é array');
+      console.log('⚠️ selectedPermissions está vazio, não é array, ou length = 0');
+      // Limpar permissões se vier vazio
+      setPermissions({});
     }
   }, [selectedPermissions]);
 
@@ -38,22 +50,23 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
     const newPermissions = { ...permissions };
 
     if (!newPermissions[moduleId]) {
-      // Ativar acesso total
+      // Não tinha acesso - ativar acesso total
       newPermissions[moduleId] = {
         fullAccess: true,
         submenus: []
       };
     } else if (newPermissions[moduleId].fullAccess) {
-      // Desativar acesso total - remove módulo
+      // Tinha acesso total - remover completamente
       delete newPermissions[moduleId];
     } else {
-      // Tinha acesso parcial, agora ativar total
+      // Tinha acesso parcial - ativar acesso total (marcar todos)
       newPermissions[moduleId] = {
         fullAccess: true,
         submenus: []
       };
     }
 
+    console.log('🔄 toggleModuleFullAccess - Novo estado:', newPermissions);
     setPermissions(newPermissions);
     onChange(convertToApiFormat(newPermissions));
   };
