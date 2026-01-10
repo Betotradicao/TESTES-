@@ -40,11 +40,15 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
   const loadPermissions = async (employeeId) => {
     try {
       const response = await api.get(`/employees/${employeeId}/permissions`);
+      console.log('📋 Permissões recebidas do backend:', response.data);
+
       // Converter do formato backend para formato do componente
       const permissionsArray = Object.keys(response.data).map(moduleId => ({
         moduleId,
         submenus: response.data[moduleId].length === 0 ? null : response.data[moduleId]
       }));
+
+      console.log('📋 Permissões convertidas para componente:', permissionsArray);
       setPermissions(permissionsArray);
     } catch (error) {
       console.error('Erro ao carregar permissões:', error);
