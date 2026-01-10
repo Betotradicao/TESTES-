@@ -285,9 +285,19 @@ async function seedConfigurations() {
         description: 'ID do grupo WhatsApp para relatórios de Prevenção de Bipagens'
       },
       {
+        key: 'whatsapp_group_bipagens_name',
+        value: 'DVR FACIAL',
+        description: 'Nome do grupo WhatsApp para relatórios de Prevenção de Bipagens'
+      },
+      {
         key: 'whatsapp_group_etiquetas',
         value: '120363421239599536@g.us',
         description: 'ID do grupo WhatsApp para relatórios de Prevenção de Etiquetas'
+      },
+      {
+        key: 'whatsapp_group_etiquetas_name',
+        value: 'DVR FACIAL',
+        description: 'Nome do grupo WhatsApp para relatórios de Prevenção de Etiquetas'
       },
       {
         key: 'whatsapp_group_rupturas',
@@ -295,14 +305,29 @@ async function seedConfigurations() {
         description: 'ID do grupo WhatsApp para relatórios de Prevenção de Rupturas'
       },
       {
+        key: 'whatsapp_group_rupturas_name',
+        value: 'DVR FACIAL',
+        description: 'Nome do grupo WhatsApp para relatórios de Prevenção de Rupturas'
+      },
+      {
         key: 'whatsapp_group_quebras',
         value: '120363421239599536@g.us',
         description: 'ID do grupo WhatsApp para relatórios de Prevenção de Quebras'
       },
       {
+        key: 'whatsapp_group_quebras_name',
+        value: 'DVR FACIAL',
+        description: 'Nome do grupo WhatsApp para relatórios de Prevenção de Quebras'
+      },
+      {
         key: 'whatsapp_group_producao',
         value: '120363421239599536@g.us',
         description: 'ID do grupo WhatsApp para relatórios de Prevenção de Produção'
+      },
+      {
+        key: 'whatsapp_group_producao_name',
+        value: 'DVR FACIAL',
+        description: 'Nome do grupo WhatsApp para relatórios de Prevenção de Produção'
       },
       {
         key: 'whatsapp_bips_schedule_time',
