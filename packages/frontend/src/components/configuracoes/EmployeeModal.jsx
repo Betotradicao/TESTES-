@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { fetchSectors } from '../../services/sectors.service';
 import BarcodeDisplay from './BarcodeDisplay';
+import PermissionsSelector from '../colaboradores/PermissionsSelector';
+import api from '../../services/api';
 
 export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvatar }) {
   const [formData, setFormData] = useState({
@@ -15,6 +17,7 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
+  const [permissions, setPermissions] = useState([]);
 
   useEffect(() => {
     loadSectors();
@@ -28,8 +31,25 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
         password: '' // Never pre-fill password
       });
       setAvatarPreview(employee.avatar);
+
+      // Carregar permissões se estiver editando
+      loadPermissions(employee.id);
     }
   }, [employee]);
+
+  const loadPermissions = async (employeeId) => {
+    try {
+      const response = await api.get(`/employees/${employeeId}/permissions`);
+      // Converter do formato backend para formato do componente
+      const permissionsArray = Object.keys(response.data).map(moduleId => ({
+        moduleId,
+        submenus: response.data[moduleId].length === 0 ? null : response.data[moduleId]
+      }));
+      setPermissions(permissionsArray);
+    } catch (error) {
+      console.error('Erro ao carregar permissões:', error);
+    }
+  };
 
   const loadSectors = async () => {
     try {
@@ -62,10 +82,19 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
       // Save employee data
       const savedEmployee = await onSave(formData);
 
+      // Get employee ID (from editing or newly created)
+      const employeeId = employee?.id || savedEmployee?.id;
+
       // If there's a new avatar and we have the employee ID, upload it
-      if (avatarFile && (employee?.id || savedEmployee?.id)) {
-        const employeeId = employee?.id || savedEmployee?.id;
+      if (avatarFile && employeeId) {
         await onUploadAvatar(employeeId, avatarFile);
+      }
+
+      // Save permissions
+      if (employeeId && permissions.length > 0) {
+        await api.put(`/employees/${employeeId}/permissions`, {
+          permissions
+        });
       }
     } catch (error) {
       if (error.errors) {
@@ -371,6 +400,22 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
                 />
               </div>
             )}
+
+            {/* Permissions Section */}
+            <div className="border-t pt-6 mt-6">
+              <h4 className="text-lg font-semibold mb-2 text-gray-900">
+                Permissões de Acesso
+              </h4>
+              <p className="text-sm text-gray-600 mb-4">
+                Configure quais módulos e funcionalidades este colaborador poderá acessar no sistema.
+                Se nenhuma permissão for selecionada, o colaborador não terá acesso a nenhum módulo.
+              </p>
+
+              <PermissionsSelector
+                selectedPermissions={permissions}
+                onChange={setPermissions}
+              />
+            </div>
 
             {/* Barcode Display (only for existing employees) */}
             {employee && employee.barcode && (
