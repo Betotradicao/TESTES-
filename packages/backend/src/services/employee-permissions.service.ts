@@ -19,23 +19,29 @@ export class EmployeePermissionsService {
 
     // Agrupar por módulo
     const grouped: Record<string, string[]> = {};
+    const fullAccessModules = new Set<string>();
 
+    // Primeiro pass: identificar módulos com acesso total
     for (const perm of permissions) {
-      if (!grouped[perm.module_id]) {
-        grouped[perm.module_id] = [];
-      }
-
-      // Se submenu_id é null, significa acesso total ao módulo (array vazio)
       if (perm.submenu_id === null) {
-        grouped[perm.module_id] = [];
-      } else if (grouped[perm.module_id].length > 0 || grouped[perm.module_id] === undefined) {
-        // Só adiciona sub-menus se não for acesso total (array vazio)
+        fullAccessModules.add(perm.module_id);
+        grouped[perm.module_id] = []; // Array vazio = acesso total
+      }
+    }
+
+    // Segundo pass: adicionar sub-menus específicos (apenas se não for acesso total)
+    for (const perm of permissions) {
+      if (perm.submenu_id !== null && !fullAccessModules.has(perm.module_id)) {
+        if (!grouped[perm.module_id]) {
+          grouped[perm.module_id] = [];
+        }
         if (!grouped[perm.module_id].includes(perm.submenu_id)) {
           grouped[perm.module_id].push(perm.submenu_id);
         }
       }
     }
 
+    console.log('📋 Backend - Permissões agrupadas:', grouped);
     return grouped;
   }
 
