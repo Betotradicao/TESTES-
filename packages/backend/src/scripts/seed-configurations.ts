@@ -156,7 +156,7 @@ async function seedConfigurations() {
       },
       {
         key: 'intersolid_port',
-        value: '3003',
+        value: '3000',
         description: 'Porta da API Intersolid'
       },
       {

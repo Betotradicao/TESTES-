@@ -737,7 +737,8 @@
       "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/prevencao-radar-install/InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml up -d --no-deps frontend\")",
       "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"docker ps --format ''table {{.Names}}\\\\t{{.Status}}'' | grep prevencao\")",
       "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/prevencao-radar-install && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache backend frontend && docker compose -f docker-compose-producao.yml up -d --no-deps backend frontend\")",
-      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/prevencao-radar-install && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml up -d --no-deps frontend\")"
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/prevencao-radar-install && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml up -d --no-deps frontend\")",
+      "Bash(ssh root@46.202.150.64 'TOKEN=$\\(curl -s -X POST \"\"http://10.6.1.102:3003/v1/token\"\" -H \"\"Content-Type: application/json\"\" -d \"\"{\\\\\"\"user\\\\\"\":\\\\\"\"BETO\\\\\"\",\\\\\"\"password\\\\\"\":\\\\\"\"beto1234\\\\\"\"}\"\" | grep -o \"\"\\\\\"\"Token\\\\\"\":\\\\\"\"[^\\\\\"\"]*\\\\\"\"\"\" | cut -d\"\"\\\\\"\"\"\" -f4\\) && curl -s -H \"\"Authorization: Bearer $TOKEN\"\" \"\"http://10.6.1.102:3003/v1/produtos?limite=5\"\" | grep -o \"\"{\\\\\"\"codigo\\\\\"\":\\\\\"\"[^}]*}\"\" | head -5')"
     ],
     "deny": [],
     "ask": []
