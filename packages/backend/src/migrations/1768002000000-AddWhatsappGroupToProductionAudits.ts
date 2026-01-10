@@ -1,6 +1,6 @@
 import { MigrationInterface, QueryRunner, TableColumn } from "typeorm";
 
-export class AddWhatsappGroupToProductionAudits1767988040043 implements MigrationInterface {
+export class AddWhatsappGroupToProductionAudits1768002000000 implements MigrationInterface {
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.addColumn('production_audits', new TableColumn({

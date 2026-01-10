@@ -730,7 +730,14 @@
       "Bash(ssh -i \"C:\\\\Users\\\\Administrator\\\\.ssh\\\\vps_prevencao\" root@145.223.92.152 \"cd /root/prevencao-radar-install && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml up -d --no-deps frontend\")",
       "Bash(sshpass -p 'Beto3107@@##' ssh -o StrictHostKeyChecking=no root@145.223.92.152 \"cd /root/prevencao-no-radar && git pull\")",
       "Bash(ssh root@145.223.92.152 \"cd /root/prevencao-no-radar && git pull\")",
-      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/prevencao-no-radar && git pull\")"
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/prevencao-no-radar && git pull\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Adiciona lista de auditorias salvas em Sugestão de Produção\n\n- Exibe tabela com todas as auditorias salvas\n- Mostra data, auditor, total de produtos e estatísticas\n- Botões para reenviar para WhatsApp e excluir\n- Ordenação por data mais recente\n- Inclui fix para ordenação alfabética que não estava subindo\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(npm run migration:create:*)",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/prevencao-radar-install && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache backend && docker compose -f docker-compose-producao.yml up -d --no-deps backend\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/prevencao-radar-install/InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml up -d --no-deps frontend\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"docker ps --format ''table {{.Names}}\\\\t{{.Status}}'' | grep prevencao\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/prevencao-radar-install && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache backend frontend && docker compose -f docker-compose-producao.yml up -d --no-deps backend frontend\")",
+      "Bash(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 \"cd /root/prevencao-radar-install && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml up -d --no-deps frontend\")"
     ],
     "deny": [],
     "ask": []
