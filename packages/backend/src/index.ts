@@ -181,6 +181,87 @@ const startServer = async () => {
   });
 
   console.log('📧 Email monitor cron job started (every 30 seconds)');
+
+  // Pending Bips Report Cron Job - runs every minute and checks configured schedule time
+  let lastBipsSendMinute = -1; // Evitar enviar múltiplas vezes no mesmo minuto
+
+  cron.schedule('* * * * *', async () => {
+    try {
+      const { ConfigurationService } = await import('./services/configuration.service');
+      const scheduleTime = await ConfigurationService.get('whatsapp_bips_schedule_time', '08:00');
+
+      // Converter horário do Brasil para comparação
+      const now = new Date();
+      const brDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+      const [configHours, configMinutes] = scheduleTime.split(':').map(Number);
+
+      // Verificar se é o horário configurado (em horário do Brasil)
+      const currentMinuteKey = brDate.getHours() * 60 + brDate.getMinutes();
+      const scheduleMinuteKey = configHours * 60 + configMinutes;
+
+      if (currentMinuteKey === scheduleMinuteKey && lastBipsSendMinute !== currentMinuteKey) {
+        lastBipsSendMinute = currentMinuteKey;
+
+        console.log(`⏰ Horário de envio de bipagens pendentes: ${scheduleTime} (Brasil)`);
+        console.log(`📅 Horário atual (Brasil): ${brDate.toLocaleTimeString('pt-BR')}`);
+
+        // Buscar bipagens do dia anterior
+        const yesterday = new Date(brDate);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const dateStr = yesterday.toISOString().split('T')[0]; // YYYY-MM-DD
+
+        console.log(`📊 Buscando bipagens pendentes de ${dateStr}...`);
+
+        const { AppDataSource } = await import('./config/database');
+        const { Bip, BipStatus } = await import('./entities/Bip');
+        const { IsNull, Between } = await import('typeorm');
+
+        const bipRepository = AppDataSource.getRepository(Bip);
+        const filterDate = new Date(dateStr);
+        const startOfDay = new Date(filterDate);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        const endOfDay = new Date(filterDate);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+
+        const pendingBips = await bipRepository.find({
+          where: {
+            status: BipStatus.PENDING,
+            notified_at: IsNull(),
+            event_date: Between(startOfDay, endOfDay)
+          },
+          relations: ['equipment', 'equipment.sector', 'employee'],
+          order: {
+            event_date: 'ASC'
+          }
+        });
+
+        console.log(`📱 Encontradas ${pendingBips.length} bipagens pendentes para enviar`);
+
+        if (pendingBips.length > 0) {
+          const { WhatsAppService } = await import('./services/whatsapp.service');
+          const pdfSent = await WhatsAppService.sendPendingBipsPDF(pendingBips, dateStr);
+
+          if (pdfSent) {
+            // Marcar bipagens como notificadas
+            const notifiedAt = new Date();
+            for (const bip of pendingBips) {
+              bip.notified_at = notifiedAt;
+            }
+            await bipRepository.save(pendingBips);
+            console.log(`✅ ${pendingBips.length} bipagens marcadas como notificadas`);
+          } else {
+            console.error(`❌ Falha ao enviar PDF de bipagens pendentes`);
+          }
+        } else {
+          console.log(`ℹ️ Nenhuma bipagem pendente para enviar em ${dateStr}`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Pending bips cron error:', error);
+    }
+  });
+
+  console.log('🔔 Pending bips report cron job started (checks every minute, respects Brazil timezone)');
 };
 
 startServer();
