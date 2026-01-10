@@ -153,6 +153,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       expandable: true,
       items: [
         {
+          id: MENU_SUBMENUS.PDV_CADASTRAR,
           title: 'Cadastrar Eventos',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -161,6 +162,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           )
         },
         {
+          id: MENU_SUBMENUS.PDV_BUSCAR,
           title: 'Buscar Eventos',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -169,6 +171,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           )
         },
         {
+          id: MENU_SUBMENUS.PDV_RESULTADOS,
           title: 'Resultados do Dia',
           path: '/resultados-do-dia',
           icon: (
@@ -178,6 +181,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           )
         },
         {
+          id: MENU_SUBMENUS.PDV_CONTROLE,
           title: 'Controle PDV',
           path: '/controle-pdv',
           icon: (
@@ -200,6 +204,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       expandable: true,
       items: [
         {
+          id: MENU_SUBMENUS.FACIAL_RECONHECIMENTO,
           title: 'Reconhecimento Facial',
           path: '/reconhecimento-facial',
           icon: (
@@ -223,6 +228,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       expandable: true,
       items: [
         {
+          id: MENU_SUBMENUS.RUPTURA_LANCADOR,
           title: 'Lançador de Itens',
           path: '/ruptura-lancador',
           icon: (
@@ -232,6 +238,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           )
         },
         {
+          id: MENU_SUBMENUS.RUPTURA_AUDITORIAS,
           title: 'Resultados das Auditorias',
           path: '/ruptura-auditorias',
           icon: (
@@ -254,6 +261,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       expandable: true,
       items: [
         {
+          id: MENU_SUBMENUS.ETIQUETAS_LANCAR,
           title: 'Lançador de Itens',
           path: '/etiquetas/lancar',
           icon: (
@@ -263,6 +271,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           )
         },
         {
+          id: MENU_SUBMENUS.ETIQUETAS_RESULTADOS,
           title: 'Resultados das Auditorias',
           path: '/etiquetas/resultados',
           icon: (
@@ -285,6 +294,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       expandable: true,
       items: [
         {
+          id: MENU_SUBMENUS.PERDAS_LANCADOR,
           title: 'Lançador de Itens',
           path: '/perdas-lancador',
           icon: (
@@ -294,6 +304,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           )
         },
         {
+          id: MENU_SUBMENUS.PERDAS_RESULTADOS,
           title: 'Resultados dos Lançamentos',
           path: '/perdas-resultados',
           icon: (
@@ -316,6 +327,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       expandable: true,
       items: [
         {
+          id: MENU_SUBMENUS.PRODUCAO_SUGESTAO,
           title: 'Sugestão Produção Padaria',
           path: '/producao/sugestao',
           icon: (
@@ -325,6 +337,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           )
         },
         {
+          id: MENU_SUBMENUS.PRODUCAO_RESULTADOS,
           title: 'Resultados',
           path: '/producao/resultados',
           icon: (
