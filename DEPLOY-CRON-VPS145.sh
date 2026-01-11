@@ -24,8 +24,8 @@ ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 << 'EOF'
 echo "📍 Conectado na VPS 145"
 echo ""
 
-# Navegar para a pasta TESTE
-cd /root/TESTE
+# Navegar para a pasta TESTES
+cd /root/TESTES
 
 echo "📥 Fazendo git pull..."
 git pull origin main
