@@ -31,12 +31,12 @@ echo "📥 Fazendo git pull..."
 git pull origin main
 
 echo ""
-echo "🔨 Fazendo build do CRON (docker-compose)..."
-docker-compose build --no-cache cron
+echo "🔨 Fazendo build do CRON (docker compose)..."
+docker compose build --no-cache cron
 
 echo ""
 echo "🚀 Subindo container CRON (--no-deps para não mexer em postgres/minio)..."
-docker-compose up -d --no-deps cron
+docker compose up -d --no-deps cron
 
 echo ""
 echo "⏳ Aguardando 10 segundos para container inicializar..."
