@@ -235,15 +235,12 @@ echo ""
 
 echo "🏪 Configuração do Cliente (Loja)"
 echo ""
-echo "Se o cliente possui Tailscale instalado na máquina onde roda o ERP,"
-echo "informe o IP Tailscale para conectar automaticamente."
+echo "Informe o IP Tailscale da máquina do cliente onde roda o ERP."
 echo ""
 echo "Exemplo: 100.69.131.40"
 echo ""
-echo "⚠️  Deixe vazio (aperte ENTER) se não tiver Tailscale no cliente ainda"
-echo ""
 
-# Loop até obter input ou confirmação de deixar vazio
+# Loop até obter input válido
 while true; do
     read -p "IP Tailscale da máquina do cliente: " TAILSCALE_CLIENT_IP < /dev/tty
 
@@ -254,12 +251,7 @@ while true; do
         echo "✅ IP Tailscale do cliente configurado: $TAILSCALE_CLIENT_IP"
         break
     else
-        read -p "⚠️  Nenhum IP informado. Deixar vazio mesmo? (s/N): " CONFIRMA < /dev/tty
-        if [[ "$CONFIRMA" =~ ^[Ss]$ ]]; then
-            echo "⚠️  Sem IP Tailscale do cliente. Conexão com ERP será local/manual."
-            break
-        fi
-        echo "Por favor, informe o IP Tailscale do cliente ou confirme deixar vazio."
+        echo "⚠️  Por favor, informe o IP Tailscale do cliente."
     fi
 done
 
