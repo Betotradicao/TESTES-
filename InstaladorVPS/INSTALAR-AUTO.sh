@@ -205,6 +205,8 @@ while [ $ELAPSED -lt $MAX_WAIT ]; do
     if [ -n "$TAILSCALE_IP" ] && [ "$TAILSCALE_IP" != "" ]; then
         echo ""
         echo "✅ IP Tailscale da VPS detectado: $TAILSCALE_IP"
+        echo ""
+        sleep 3  # Pausa de 3 segundos para o usuário ver a mensagem
         break
     fi
 
