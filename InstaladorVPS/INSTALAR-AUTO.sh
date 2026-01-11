@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+# Redirecionar stdin para o terminal se estiver sendo executado via pipe
+if [ ! -t 0 ]; then
+    exec < /dev/tty
+fi
+
 # ============================================
 # INSTALADOR AUTOMÁTICO - VPS LINUX
 # Sistema: Prevenção no Radar
