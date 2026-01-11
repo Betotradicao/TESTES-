@@ -405,7 +405,16 @@ export default function Rankings() {
 
   const handleDeleteVideo = async (bip) => {
     const targetBip = bip || playerModal.bip;
-    if (!targetBip) return;
+    if (!targetBip) {
+      console.error('❌ targetBip is null/undefined');
+      return;
+    }
+
+    if (!targetBip.id) {
+      console.error('❌ targetBip.id is undefined:', targetBip);
+      alert('Erro: ID da bipagem não encontrado');
+      return;
+    }
 
     try {
       const response = await api.delete(`/bips/${targetBip.id}/video`);
