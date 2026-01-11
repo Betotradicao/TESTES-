@@ -275,5 +275,96 @@ docker exec prevencao-backend-prod env | grep DB_PASSWORD
 
 ---
 
-**Última atualização:** 09/01/2026 - Adicionada seção sobre problema de senhas após rebuild
-**Criado por:** Claude (depois de aprender da forma difícil 😅)
+## 🆘 SE DEU ERRO: Hash de senha corrompido/desatualizado
+
+**Problema encontrado em 11/01/2026:**
+
+**Sintomas:**
+- Backend não conecta no banco mesmo com senhas corretas no .env
+- Erro: `password authentication failed for user "postgres"`
+- Senhas conferem mas autenticação falha
+- `database.connected = false` na API health
+
+**Causa:**
+- Hash da senha no PostgreSQL ficou desatualizado/corrompido
+- Ocorre após múltiplos rebuilds ou recriações de containers
+- Mesmo com senha correta no .env, o hash interno não corresponde
+
+**Solução RÁPIDA:**
+
+```bash
+# 1. Verificar se as senhas estão iguais:
+docker exec prevencao-backend-prod env | grep DB_PASSWORD
+docker exec prevencao-postgres-prod env | grep POSTGRES_PASSWORD
+
+# 2. Se estiverem iguais mas ainda dá erro, resetar hash da senha:
+SENHA=$(docker exec prevencao-postgres-prod env | grep POSTGRES_PASSWORD | cut -d'=' -f2)
+docker exec prevencao-postgres-prod psql -U postgres -c "ALTER USER postgres WITH PASSWORD '$SENHA';"
+
+# 3. Reiniciar backend:
+docker restart prevencao-backend-prod
+
+# 4. Verificar se conectou:
+curl http://localhost:3001/api/health | grep "connected"
+# Deve retornar: "connected":true
+```
+
+**Importante:**
+- Este comando NÃO altera a senha, apenas atualiza o hash interno do PostgreSQL
+- É seguro executar mesmo em produção
+- Não afeta dados ou conexões existentes
+
+---
+
+## 🧹 LIMPEZA DE RECURSOS OBSOLETOS
+
+**Quando fazer:** Após múltiplos deploys e testes, containers/imagens/volumes não usados se acumulam.
+
+**Como identificar:**
+
+```bash
+# Ver containers inativos
+docker ps -a --filter 'status=created' --filter 'status=exited'
+
+# Ver volumes não linkados
+docker volume ls
+
+# Ver tamanho de volumes
+docker system df -v
+
+# Ver imagens não usadas
+docker images
+
+# Ver build cache (pode acumular 30GB+!)
+docker system df
+```
+
+**Recursos seguros para remover:**
+
+1. **Containers com status "Created"** - nunca rodaram
+2. **Imagens sem TAG "latest"** ou duplicadas
+3. **Volumes com LINKS=0** (não linkados a nenhum container)
+4. **Build cache antigo** (libera muito espaço!)
+
+**NUNCA remova:**
+- Volumes linkados (LINKS > 0)
+- Containers com `-prod` no nome
+- Volumes de produção
+
+**Comandos de limpeza:**
+
+```bash
+# Remover apenas recursos não usados (SEGURO)
+docker system prune -a
+
+# Limpar build cache (libera MUITO espaço)
+docker builder prune --all --force
+
+# Remover volume específico (CUIDADO!)
+docker volume rm nome-do-volume  # Só se LINKS=0
+```
+
+---
+
+**Última atualização:** 11/01/2026 - Adicionado troubleshooting de hash de senha corrompido e limpeza de recursos
+**Criado por:** Claude (aprendendo com cada erro 🎓)
