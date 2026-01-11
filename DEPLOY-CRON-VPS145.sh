@@ -25,7 +25,7 @@ echo "📍 Conectado na VPS 145"
 echo ""
 
 # Navegar para a pasta TESTES
-cd /root/TESTES
+cd /root/TESTESS
 
 echo "📥 Fazendo git pull..."
 git pull origin main
@@ -37,7 +37,7 @@ npm run build
 
 echo ""
 echo "📦 Parando container CRON antigo..."
-cd /root/TESTE
+cd /root/TESTES
 docker stop prevencao-cron-prod 2>/dev/null || echo "Container não estava rodando"
 docker rm prevencao-cron-prod 2>/dev/null || echo "Container não existia"
 
@@ -102,7 +102,7 @@ echo "📌 Próximos passos:"
 echo ""
 echo "  1. Verificar logs em tempo real:"
 echo "     ssh -i ~/.ssh/vps_prevencao root@145.223.92.152"
-echo "     cd /root/TESTE"
+echo "     cd /root/TESTES"
 echo "     docker logs -f prevencao-cron-prod"
 echo ""
 echo "  2. Executar verificação manualmente para testar:"
