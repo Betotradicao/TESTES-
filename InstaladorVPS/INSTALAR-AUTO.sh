@@ -240,16 +240,26 @@ echo "Exemplo: 100.69.131.40"
 echo ""
 echo "⚠️  Deixe vazio (aperte ENTER) se não tiver Tailscale no cliente ainda"
 echo ""
-read -p "IP Tailscale da máquina do cliente: " TAILSCALE_CLIENT_IP
 
-# Remover espaços em branco
-TAILSCALE_CLIENT_IP=$(echo "$TAILSCALE_CLIENT_IP" | xargs)
+# Loop até obter input ou confirmação de deixar vazio
+while true; do
+    read -p "IP Tailscale da máquina do cliente: " TAILSCALE_CLIENT_IP < /dev/tty
 
-if [ -n "$TAILSCALE_CLIENT_IP" ]; then
-    echo "✅ IP Tailscale do cliente configurado: $TAILSCALE_CLIENT_IP"
-else
-    echo "⚠️  Sem IP Tailscale do cliente. Conexão com ERP será local/manual."
-fi
+    # Remover espaços em branco
+    TAILSCALE_CLIENT_IP=$(echo "$TAILSCALE_CLIENT_IP" | xargs)
+
+    if [ -n "$TAILSCALE_CLIENT_IP" ]; then
+        echo "✅ IP Tailscale do cliente configurado: $TAILSCALE_CLIENT_IP"
+        break
+    else
+        read -p "⚠️  Nenhum IP informado. Deixar vazio mesmo? (s/N): " CONFIRMA < /dev/tty
+        if [[ "$CONFIRMA" =~ ^[Ss]$ ]]; then
+            echo "⚠️  Sem IP Tailscale do cliente. Conexão com ERP será local/manual."
+            break
+        fi
+        echo "Por favor, informe o IP Tailscale do cliente ou confirme deixar vazio."
+    fi
+done
 
 echo ""
 
