@@ -24,19 +24,21 @@ ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 << 'EOF'
 echo "📍 Conectado na VPS 145"
 echo ""
 
-# Navegar para a pasta TESTES
-cd /root/TESTES
+# Navegar para a pasta correta (InstaladorVPS)
+cd /root/prevencao-radar-install/InstaladorVPS
 
 echo "📥 Fazendo git pull..."
+cd /root/prevencao-radar-install
 git pull origin main
 
 echo ""
 echo "🔨 Fazendo build do CRON (docker compose)..."
-docker compose build --no-cache cron
+cd /root/prevencao-radar-install/InstaladorVPS
+docker compose -f docker-compose-producao.yml build --no-cache cron
 
 echo ""
 echo "🚀 Subindo container CRON (--no-deps para não mexer em postgres/minio)..."
-docker compose up -d --no-deps cron
+docker compose -f docker-compose-producao.yml up -d --no-deps cron
 
 echo ""
 echo "⏳ Aguardando 10 segundos para container inicializar..."
