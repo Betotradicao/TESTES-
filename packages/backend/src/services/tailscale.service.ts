@@ -16,6 +16,7 @@ export class TailscaleService {
       where: [
         { key: 'tailscale_vps_ip' },
         { key: 'tailscale_client_ip' },
+        { key: 'tailscale_client_subnet' },
         { key: 'dvr_ip' }
       ]
     });
@@ -28,6 +29,7 @@ export class TailscaleService {
     return {
       vps_ip: configMap.tailscale_vps_ip || '',
       client_ip: configMap.tailscale_client_ip || '',
+      client_subnet: configMap.tailscale_client_subnet || '10.6.1.0/24',
       dvr_ip: configMap.dvr_ip || ''
     };
   }
@@ -64,6 +66,7 @@ export class TailscaleService {
   static async saveConfig(updates: {
     vps_ip?: string;
     client_ip?: string;
+    client_subnet?: string;
   }) {
     const configRepository = AppDataSource.getRepository(Configuration);
 
@@ -80,6 +83,10 @@ export class TailscaleService {
         throw new Error('IP do Cliente inválido! Deve ser um IP Tailscale no formato 100.x.x.x');
       }
       await this.upsertConfig(configRepository, 'tailscale_client_ip', updates.client_ip);
+    }
+
+    if (updates.client_subnet !== undefined && updates.client_subnet.trim() !== '') {
+      await this.upsertConfig(configRepository, 'tailscale_client_subnet', updates.client_subnet);
     }
 
     return this.getConfig();

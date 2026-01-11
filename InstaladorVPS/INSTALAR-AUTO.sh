@@ -256,6 +256,29 @@ while true; do
 done
 
 echo ""
+echo "📡 Configuração de Subnet (Rede Local)"
+echo ""
+echo "Informe a subnet (rede local) do cliente que será roteada via Tailscale."
+echo ""
+echo "Exemplo: 10.6.1.0/24"
+echo ""
+
+# Loop até obter input válido
+while true; do
+    read -p "Subnet do cliente: " CLIENT_SUBNET < /dev/tty
+
+    # Remover espaços em branco
+    CLIENT_SUBNET=$(echo "$CLIENT_SUBNET" | xargs)
+
+    if [ -n "$CLIENT_SUBNET" ]; then
+        echo "✅ Subnet configurado: $CLIENT_SUBNET"
+        break
+    else
+        echo "⚠️  Por favor, informe o subnet do cliente."
+    fi
+done
+
+echo ""
 
 # ============================================
 # GERAÇÃO DE SENHAS ALEATÓRIAS
@@ -303,6 +326,7 @@ HOST_IP=$HOST_IP
 # ============================================
 TAILSCALE_VPS_IP=$TAILSCALE_IP
 TAILSCALE_CLIENT_IP=$TAILSCALE_CLIENT_IP
+TAILSCALE_CLIENT_SUBNET=$CLIENT_SUBNET
 
 # ============================================
 # MINIO - Armazenamento de Arquivos

@@ -24,11 +24,12 @@ export class TailscaleController {
    */
   async updateConfig(req: Request, res: Response) {
     try {
-      const { vps_ip, client_ip } = req.body;
+      const { vps_ip, client_ip, client_subnet } = req.body;
 
       const updates: any = {};
       if (vps_ip !== undefined) updates.vps_ip = vps_ip;
       if (client_ip !== undefined) updates.client_ip = client_ip;
+      if (client_subnet !== undefined) updates.client_subnet = client_subnet;
 
       const config = await TailscaleService.saveConfig(updates);
 
