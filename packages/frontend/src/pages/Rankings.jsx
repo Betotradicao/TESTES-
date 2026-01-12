@@ -1393,7 +1393,7 @@ export default function Rankings() {
 
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between">
               <button
-                onClick={handleDeleteVideo}
+                onClick={() => handleDeleteVideo()}
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
               >
                 🗑️ Deletar Vídeo
