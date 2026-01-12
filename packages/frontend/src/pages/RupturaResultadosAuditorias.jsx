@@ -20,6 +20,10 @@ export default function RupturaResultadosAuditorias() {
   const [filtroFornecedorTabela, setFiltroFornecedorTabela] = useState('todos');
   const [filtroSetorTabela, setFiltroSetorTabela] = useState('todos');
 
+  // Estado de ordenação
+  const [sortColumn, setSortColumn] = useState(null);
+  const [sortDirection, setSortDirection] = useState('asc'); // 'asc' ou 'desc'
+
   // Dados
   const [produtos, setProdutos] = useState([]);
   const [fornecedores, setFornecedores] = useState([]);
@@ -119,6 +123,40 @@ export default function RupturaResultadosAuditorias() {
   // Filtro por setor (clicado no card)
   if (filtroSetorTabela !== 'todos') {
     itensRuptura = itensRuptura.filter(item => item.secao === filtroSetorTabela);
+  }
+
+  // Função para ordenar
+  const handleSort = (column) => {
+    if (sortColumn === column) {
+      // Se já está ordenando por essa coluna, inverte a direção
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Nova coluna, começa com ascendente
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Aplicar ordenação
+  if (sortColumn) {
+    itensRuptura = [...itensRuptura].sort((a, b) => {
+      let aValue = a[sortColumn];
+      let bValue = b[sortColumn];
+
+      // Tratamento especial para valores numéricos
+      if (['estoque_atual', 'venda_media_dia', 'valor_venda', 'margem_lucro', 'ocorrencias', 'perda_total'].includes(sortColumn)) {
+        aValue = Number(aValue) || 0;
+        bValue = Number(bValue) || 0;
+      } else {
+        // Para strings, converter para minúsculas para comparação
+        aValue = String(aValue || '').toLowerCase();
+        bValue = String(bValue || '').toLowerCase();
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
   }
 
   // Contar itens por tipo para os botões
@@ -460,17 +498,149 @@ export default function RupturaResultadosAuditorias() {
                       <thead className="bg-gray-50 border-b">
                         <tr>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Produto</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fornecedor</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Seção</th>
-                          <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Curva</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Estoque</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">V.Média/Dia</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Valor Venda</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Margem %</th>
-                          <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Pedido</th>
-                          <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Ocorrências</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Perda Total</th>
+                          <th
+                            className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleSort('descricao')}
+                          >
+                            <div className="flex items-center gap-1">
+                              Produto
+                              {sortColumn === 'descricao' && (
+                                <span className="text-blue-600">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleSort('fornecedor')}
+                          >
+                            <div className="flex items-center gap-1">
+                              Fornecedor
+                              {sortColumn === 'fornecedor' && (
+                                <span className="text-blue-600">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleSort('secao')}
+                          >
+                            <div className="flex items-center gap-1">
+                              Seção
+                              {sortColumn === 'secao' && (
+                                <span className="text-blue-600">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleSort('curva')}
+                          >
+                            <div className="flex items-center justify-center gap-1">
+                              Curva
+                              {sortColumn === 'curva' && (
+                                <span className="text-blue-600">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleSort('estoque_atual')}
+                          >
+                            <div className="flex items-center justify-end gap-1">
+                              Estoque
+                              {sortColumn === 'estoque_atual' && (
+                                <span className="text-blue-600">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleSort('venda_media_dia')}
+                          >
+                            <div className="flex items-center justify-end gap-1">
+                              V.Média/Dia
+                              {sortColumn === 'venda_media_dia' && (
+                                <span className="text-blue-600">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleSort('valor_venda')}
+                          >
+                            <div className="flex items-center justify-end gap-1">
+                              Valor Venda
+                              {sortColumn === 'valor_venda' && (
+                                <span className="text-blue-600">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleSort('margem_lucro')}
+                          >
+                            <div className="flex items-center justify-end gap-1">
+                              Margem %
+                              {sortColumn === 'margem_lucro' && (
+                                <span className="text-blue-600">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleSort('tem_pedido')}
+                          >
+                            <div className="flex items-center justify-center gap-1">
+                              Pedido
+                              {sortColumn === 'tem_pedido' && (
+                                <span className="text-blue-600">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleSort('ocorrencias')}
+                          >
+                            <div className="flex items-center justify-center gap-1">
+                              Ocorrências
+                              {sortColumn === 'ocorrencias' && (
+                                <span className="text-blue-600">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleSort('perda_total')}
+                          >
+                            <div className="flex items-center justify-end gap-1">
+                              Perda Total
+                              {sortColumn === 'perda_total' && (
+                                <span className="text-blue-600">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
