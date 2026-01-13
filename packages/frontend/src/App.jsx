@@ -30,6 +30,7 @@ import PerdasResultados from './pages/PerdasResultados';
 import ControlePDV from './pages/ControlePDV';
 import ProducaoSugestao from './pages/ProducaoSugestao';
 import ProducaoResultados from './pages/ProducaoResultados';
+import EstoqueSaude from './pages/EstoqueSaude';
 
 function App() {
   return (
@@ -233,6 +234,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ProducaoResultados />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/estoque-saude"
+              element={
+                <ProtectedRoute>
+                  <EstoqueSaude />
                 </ProtectedRoute>
               }
             />
