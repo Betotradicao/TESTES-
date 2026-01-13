@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 // Definição das 24 colunas disponíveis
 const AVAILABLE_COLUMNS = [
@@ -397,6 +397,13 @@ export default function EstoqueSaude() {
     }
 
     const doc = new jsPDF('landscape');
+
+    // Garantir que autoTable está disponível
+    if (typeof doc.autoTable !== 'function') {
+      console.error('autoTable não está disponível no jsPDF');
+      alert('Erro ao gerar PDF. Por favor, recarregue a página e tente novamente.');
+      return;
+    }
 
     // Título
     doc.setFontSize(16);
