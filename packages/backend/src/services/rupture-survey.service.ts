@@ -776,8 +776,8 @@ export class RuptureSurveyService {
           startY += 20;
 
           // Definir colunas - adicionando Código de Barras e reordenando PEDIDO após PRODUTO
-          const colX = [30, 50, 120, 215, 290, 335, 370, 420, 475, 535, 590, 645, 710];
-          const colWidth = [20, 70, 95, 75, 45, 35, 50, 55, 60, 55, 55, 65, 75];
+          const colX = [30, 50, 120, 260, 320, 360, 395, 445, 500, 560, 615, 670, 735];
+          const colWidth = [20, 70, 140, 60, 40, 35, 50, 55, 60, 55, 55, 65, 75];
           const rowHeight = 18;
 
           // Cabeçalho da tabela (laranja forte)
@@ -816,7 +816,7 @@ export class RuptureSurveyService {
 
             doc.text(`${idx + 1}`, colX[0] + 2, startY + 5, { width: colWidth[0], align: 'left' });
             doc.text(item.codigo_barras?.substring(0, 13) || '-', colX[1] + 2, startY + 5, { width: colWidth[1], align: 'left' });
-            doc.text(item.descricao?.substring(0, 20) || '', colX[2] + 2, startY + 5, { width: colWidth[2], align: 'left' });
+            doc.text(item.descricao?.substring(0, 35) || '', colX[2] + 2, startY + 5, { width: colWidth[2], align: 'left' });
             doc.text(item.tem_pedido || '-', colX[3] + 2, startY + 5, { width: colWidth[3], align: 'center' });
             doc.text(item.fornecedor?.substring(0, 10) || '-', colX[4] + 2, startY + 5, { width: colWidth[4], align: 'left' });
             doc.text(item.secao?.substring(0, 8) || '-', colX[5] + 2, startY + 5, { width: colWidth[5], align: 'left' });
