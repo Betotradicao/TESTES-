@@ -12,9 +12,8 @@ ssh -i ~/.ssh/vps_prevencao root@IP_DA_VPS "comando"
 - `ssh -o StrictHostKeyChecking=no` (a menos que seja a primeira vez)
 
 **IPs das VPS:**
-- VPS 145 (TESTE): `145.223.92.152` - Diretório: `/root/TESTES`
+- VPS 145 (TESTE): `145.223.92.152` - Diretório: `/root/prevencao-radar-install`
 - VPS 31 (PRODUÇÃO): `31.97.82.235` - Diretório: `/root/NOVO-PREVEN-O`
-- VPS 46 (CLIENTE): `46.202.150.64` - Diretório: `/root/prevencao-no-radar`
 
 ---
 

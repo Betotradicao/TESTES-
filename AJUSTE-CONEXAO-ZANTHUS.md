@@ -1,8 +1,8 @@
 # 🔧 AJUSTE CONEXÃO ZANTHUS - Correção da Estrutura JSON
 
 **Data:** 12/01/2026
-**VPS Afetada:** VPS 46 (46.202.150.64)
-**Cliente:** estacao6-pc (100.102.9.98) - 3 lojas
+**VPS Afetada:** VPS Principal
+**Cliente:** Tradicao
 **Problema:** Tabela ZAN_M43 (vendas) retornava erro 500/400
 
 ---
@@ -238,22 +238,22 @@ Qtd: 1 | Vlr Unit: R$ 1,59 | Total: R$ 1,59
 - ✅ Tabela: ZAN_M43
 - ✅ Cliente: Tradicao (rede 10.6.1.0/24)
 
-**VPS 46 (estacao6-pc - 100.102.9.98):**
+**VPS Secundária (tradicao-windows - 100.69.131.40):**
 - ❌ NÃO funciona com: `MERCADORIAS/MERCADORIA`
 - ✅ Funciona com: `PRODUTOS/PRODUTO`
 - ✅ Tabela: ZAN_M43
-- ✅ Cliente: MaxValle (rede 10.6.1.0/24)
+- ✅ Cliente: Tradicao (rede 10.6.1.0/24)
 
 ### 🔍 CAUSA PROVÁVEL
 
 **São CLIENTES DIFERENTES com VERSÕES DIFERENTES do Zanthus Manager:**
 
-| Item | VPS 145 (Tradicao) | VPS 46 (MaxValle) |
+| Item | VPS 145 (Tradicao) | VPS Secundária (Tradicao) |
 |------|-------------------|-------------------|
 | **Zanthus Manager** | Versão A | Versão B (mais antiga ou customizada) |
 | **Estrutura JSON aceita** | `MERCADORIAS/MERCADORIA` | `PRODUTOS/PRODUTO` |
 | **Mesmo IP local** | 10.6.1.101 | 10.6.1.101 |
-| **Rede Tailscale** | 100.69.131.40 | 100.102.9.98 |
+| **Rede Tailscale** | 100.69.131.40 | 100.69.131.40 |
 | **São redes isoladas?** | ✅ SIM | ✅ SIM |
 
 ### 📌 EXPLICAÇÃO TÉCNICA
@@ -262,7 +262,7 @@ Mesmo que ambos os clientes usem **10.6.1.101** como IP do Zanthus, **são redes
 
 ```
 VPS 145 → Tailscale (100.69.131.40) → Rede Cliente 1 (10.6.1.0/24) → Zanthus 10.6.1.101
-VPS 46  → Tailscale (100.102.9.98)  → Rede Cliente 2 (10.6.1.0/24) → Zanthus 10.6.1.101
+VPS Secundária  → Tailscale (100.69.131.40)  → Rede Cliente 2 (10.6.1.0/24) → Zanthus 10.6.1.101
 ```
 
 **Cada cliente tem:**
@@ -467,7 +467,7 @@ private static async querySalesWithStructure(
 ## ✅ CHECKLIST ANTES DE COMITAR
 
 - [ ] Código atualizado em `sales.service.ts`
-- [ ] Testado na VPS 46 (estacao6-pc) - deve usar PRODUTOS
+- [ ] Testado na VPS Secundária (tradicao-windows) - deve usar PRODUTOS
 - [ ] Testado na VPS 145 (tradicao-windows) - deve usar MERCADORIAS
 - [ ] Logs mostram qual estrutura foi usada
 - [ ] Fallback funciona corretamente
