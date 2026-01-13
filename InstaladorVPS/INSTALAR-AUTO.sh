@@ -170,6 +170,34 @@ else
     echo "✅ Tailscale já instalado"
 fi
 
+# Garantir que o daemon tailscaled está rodando
+echo "🔄 Iniciando daemon do Tailscale..."
+systemctl enable tailscaled 2>/dev/null || true
+systemctl start tailscaled 2>/dev/null || true
+sleep 3
+
+# Verificar se tailscaled está rodando e esperar até estar ativo
+MAX_TRIES=10
+TRY=0
+while [ $TRY -lt $MAX_TRIES ]; do
+    if systemctl is-active --quiet tailscaled 2>/dev/null; then
+        echo "✅ Daemon tailscaled está ativo"
+        break
+    fi
+
+    echo "⏳ Aguardando daemon iniciar... (tentativa $((TRY+1))/$MAX_TRIES)"
+    systemctl restart tailscaled 2>/dev/null || true
+    sleep 2
+    TRY=$((TRY + 1))
+done
+
+# Se ainda não estiver rodando, tentar método alternativo
+if ! systemctl is-active --quiet tailscaled 2>/dev/null; then
+    echo "⚠️  systemctl falhou. Tentando iniciar tailscaled manualmente..."
+    tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock &
+    sleep 3
+fi
+
 # Forçar logout para limpar autenticação antiga
 echo "🔄 Limpando autenticação antiga do Tailscale..."
 tailscale logout 2>/dev/null || true
