@@ -3,7 +3,6 @@ import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 // Definição das 24 colunas disponíveis
 const AVAILABLE_COLUMNS = [
@@ -387,12 +386,21 @@ export default function EstoqueSaude() {
   };
 
   // Função para exportar para PDF
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     console.log('📄 Exportando PDF - Total de produtos:', filteredProducts.length);
     console.log('Filtros ativos:', { filterSecao, filterGrupo, filterSubGrupo, activeCardFilter });
 
     if (filteredProducts.length === 0) {
       alert('Nenhum produto encontrado com os filtros aplicados!');
+      return;
+    }
+
+    // Carregar jspdf-autotable dinamicamente
+    try {
+      await import('jspdf-autotable');
+    } catch (error) {
+      console.error('Erro ao carregar jspdf-autotable:', error);
+      alert('Erro ao carregar biblioteca de PDF. Por favor, recarregue a página.');
       return;
     }
 
