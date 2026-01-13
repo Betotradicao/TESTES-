@@ -227,6 +227,10 @@ export default function EstoqueSaude() {
       filtered = filtered.filter(p => p.margemCalculada < 0);
     } else if (activeCardFilter === 'margem_baixa') {
       filtered = filtered.filter(p => p.margemCalculada < p.margemRef && p.margemCalculada >= 0);
+    } else if (activeCardFilter === 'custo_zerado') {
+      filtered = filtered.filter(p => !p.valCustoRep || p.valCustoRep === 0);
+    } else if (activeCardFilter === 'preco_venda_zerado') {
+      filtered = filtered.filter(p => !p.valvenda || p.valvenda === 0);
     }
 
     // Ordenação
@@ -307,6 +311,8 @@ export default function EstoqueSaude() {
       semVenda30Dias: filtered.filter(p => p.diasSemVenda > 30).length,
       margemNegativa: filtered.filter(p => p.margemCalculada < 0).length,
       margemAbaixoMeta: filtered.filter(p => p.margemCalculada < p.margemRef && p.margemCalculada >= 0).length,
+      custoZerado: filtered.filter(p => !p.valCustoRep || p.valCustoRep === 0).length,
+      precoVendaZerado: filtered.filter(p => !p.valvenda || p.valvenda === 0).length,
       total: filtered.length,
       valorTotalEstoque
     };
@@ -401,7 +407,9 @@ export default function EstoqueSaude() {
         negativo: 'Estoque Negativo',
         sem_venda: 'Sem Venda +30 dias',
         margem_negativa: 'Margem Negativa',
-        margem_baixa: 'Margem Abaixo da Meta'
+        margem_baixa: 'Margem Abaixo da Meta',
+        custo_zerado: 'Custo Zerado',
+        preco_venda_zerado: 'Preço Venda Zerado'
       };
       filtrosAtivos.push(filterLabels[activeCardFilter]);
     }
@@ -707,28 +715,8 @@ export default function EstoqueSaude() {
             </div>
           </div>
 
-          {/* Card de Valor Total do Estoque */}
-          <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg shadow-lg p-6 mb-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-white/90 mb-1">💰 Valor Total do Estoque (Custo)</p>
-                <p className="text-3xl font-bold">
-                  R$ {stats.valorTotalEstoque.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-                <p className="text-xs text-white/80 mt-2">
-                  {stats.total.toLocaleString('pt-BR')} produtos em estoque
-                </p>
-              </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-full p-4">
-                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-
           {/* Cards de Resumo - Clicáveis */}
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {/* Card Estoque Zerado */}
             <button
               onClick={() => setActiveCardFilter(activeCardFilter === 'zerado' ? 'todos' : 'zerado')}
@@ -803,6 +791,48 @@ export default function EstoqueSaude() {
               <p className="text-sm font-medium text-gray-700">Margem Abaixo Meta</p>
               <p className="text-xs text-gray-500">produtos</p>
             </button>
+
+            {/* Card Custo Zerado */}
+            <button
+              onClick={() => setActiveCardFilter(activeCardFilter === 'custo_zerado' ? 'todos' : 'custo_zerado')}
+              className={`bg-white rounded-lg shadow p-6 text-left transition-all hover:shadow-lg ${
+                activeCardFilter === 'custo_zerado' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-3xl">🏷️</span>
+                <span className="text-2xl font-bold text-purple-600">{stats.custoZerado}</span>
+              </div>
+              <p className="text-sm font-medium text-gray-700">Custo Zerado</p>
+              <p className="text-xs text-gray-500">produtos</p>
+            </button>
+
+            {/* Card Preço Venda Zerado */}
+            <button
+              onClick={() => setActiveCardFilter(activeCardFilter === 'preco_venda_zerado' ? 'todos' : 'preco_venda_zerado')}
+              className={`bg-white rounded-lg shadow p-6 text-left transition-all hover:shadow-lg ${
+                activeCardFilter === 'preco_venda_zerado' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-3xl">💵</span>
+                <span className="text-2xl font-bold text-pink-600">{stats.precoVendaZerado}</span>
+              </div>
+              <p className="text-sm font-medium text-gray-700">Preço Venda Zerado</p>
+              <p className="text-xs text-gray-500">produtos</p>
+            </button>
+
+            {/* Card Valor Total Estoque (não clicável) */}
+            <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg shadow p-6 text-white">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-3xl">💰</span>
+                <span className="text-lg font-bold">
+                  R$ {(stats.valorTotalEstoque / 1000).toFixed(0)}k
+                </span>
+              </div>
+              <p className="text-sm font-medium">Valor Total Estoque</p>
+              <p className="text-xs text-white/80">custo total</p>
+            </div>
           </div>
 
           {/* Info do filtro ativo e contador */}
@@ -817,7 +847,9 @@ export default function EstoqueSaude() {
                         activeCardFilter === 'negativo' ? '⚠️ Estoque Negativo' :
                         activeCardFilter === 'sem_venda' ? '⏸️ Sem Venda +30 dias' :
                         activeCardFilter === 'margem_negativa' ? '💸 Margem Negativa' :
-                        '💰 Margem Abaixo da Meta'
+                        activeCardFilter === 'margem_baixa' ? '💰 Margem Abaixo da Meta' :
+                        activeCardFilter === 'custo_zerado' ? '🏷️ Custo Zerado' :
+                        '💵 Preço Venda Zerado'
                       }
                     </p>
                     <span className="bg-orange-200 text-orange-900 px-3 py-1 rounded-full text-xs font-bold">
