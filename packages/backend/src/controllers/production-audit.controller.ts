@@ -20,7 +20,7 @@ export class ProductionAuditController {
       const auditRepository = AppDataSource.getRepository(ProductionAudit);
 
       const audits = await auditRepository.find({
-        relations: ['user', 'items'],
+        relations: ['user', 'employee', 'items'],
         order: {
           audit_date: 'DESC',
         },
@@ -43,7 +43,7 @@ export class ProductionAuditController {
 
       const audit = await auditRepository.findOne({
         where: { id: parseInt(id) },
-        relations: ['user', 'items'],
+        relations: ['user', 'employee', 'items'],
       });
 
       if (!audit) {
@@ -67,7 +67,7 @@ export class ProductionAuditController {
 
       const audit = await auditRepository.findOne({
         where: { audit_date: new Date(date) },
-        relations: ['user', 'items'],
+        relations: ['user', 'employee', 'items'],
       });
 
       if (!audit) {
@@ -154,6 +154,7 @@ export class ProductionAuditController {
     try {
       const { audit_date, items } = req.body;
       const userId = req.userId;
+      const userType = req.user?.type;
 
       if (!audit_date || !items || !Array.isArray(items)) {
         return res.status(400).json({
@@ -172,7 +173,13 @@ export class ProductionAuditController {
 
       if (audit) {
         // Update existing audit
-        audit.user_id = userId!;
+        if (userType === 'employee') {
+          audit.employee_id = userId!;
+          audit.user_id = null;
+        } else {
+          audit.user_id = userId!;
+          audit.employee_id = null;
+        }
         audit.status = 'in_progress';
 
         // Delete existing items
@@ -181,11 +188,21 @@ export class ProductionAuditController {
         }
       } else {
         // Create new audit
-        audit = auditRepository.create({
-          audit_date: new Date(audit_date),
-          user_id: userId!,
-          status: 'in_progress',
-        });
+        if (userType === 'employee') {
+          audit = auditRepository.create({
+            audit_date: new Date(audit_date),
+            employee_id: userId!,
+            user_id: null,
+            status: 'in_progress',
+          });
+        } else {
+          audit = auditRepository.create({
+            audit_date: new Date(audit_date),
+            user_id: userId!,
+            employee_id: null,
+            status: 'in_progress',
+          });
+        }
       }
 
       await auditRepository.save(audit);

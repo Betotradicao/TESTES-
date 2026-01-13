@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { User } from './User';
+import { Employee } from './Employee';
 import { ProductionAuditItem } from './ProductionAuditItem';
 
 @Entity('production_audits')
@@ -10,12 +11,19 @@ export class ProductionAudit {
   @Column({ type: 'date', unique: true })
   audit_date: Date;
 
-  @Column({ type: 'uuid' })
-  user_id: string;
+  @Column({ type: 'uuid', nullable: true })
+  user_id: string | null;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'user_id' })
   user: User;
+
+  @Column({ type: 'uuid', nullable: true })
+  employee_id: string | null;
+
+  @ManyToOne(() => Employee, { nullable: true })
+  @JoinColumn({ name: 'employee_id' })
+  employee: Employee;
 
   @Column({ type: 'varchar', length: 20, default: 'in_progress' })
   status: string; // in_progress, completed
