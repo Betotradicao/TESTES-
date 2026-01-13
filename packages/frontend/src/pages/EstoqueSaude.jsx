@@ -391,6 +391,11 @@ export default function EstoqueSaude() {
     console.log('📄 Exportando PDF - Total de produtos:', filteredProducts.length);
     console.log('Filtros ativos:', { filterSecao, filterGrupo, filterSubGrupo, activeCardFilter });
 
+    if (filteredProducts.length === 0) {
+      alert('Nenhum produto encontrado com os filtros aplicados!');
+      return;
+    }
+
     const doc = new jsPDF('landscape');
 
     // Título
