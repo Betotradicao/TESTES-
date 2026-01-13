@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 // Definição das 24 colunas disponíveis
 const AVAILABLE_COLUMNS = [
