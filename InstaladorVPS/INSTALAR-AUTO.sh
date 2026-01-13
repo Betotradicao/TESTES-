@@ -70,6 +70,10 @@ if [ -d "$SCRIPT_DIR/../.git" ]; then
 
     # Voltar para InstaladorVPS
     cd "$SCRIPT_DIR"
+
+    # Re-executar o script atualizado
+    echo "🔄 Re-executando instalador atualizado..."
+    exec bash "$SCRIPT_DIR/INSTALAR-AUTO.sh"
 else
     # Script rodando fora do repositório - CLONAR AGORA
     echo "⚠️  Script não está dentro de um repositório git"
