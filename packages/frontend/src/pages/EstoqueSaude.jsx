@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 // Definição das 24 colunas disponíveis
 const AVAILABLE_COLUMNS = [
@@ -160,14 +162,30 @@ export default function EstoqueSaude() {
     }
   };
 
-  // Opções únicas para os filtros
+  // Opções únicas para os filtros (dependentes entre si)
   const filterOptions = useMemo(() => {
-    return {
-      secoes: [...new Set(products.map(p => p.desSecao).filter(Boolean))].sort(),
-      grupos: [...new Set(products.map(p => p.desGrupo).filter(Boolean))].sort(),
-      subgrupos: [...new Set(products.map(p => p.desSubGrupo).filter(Boolean))].sort(),
-    };
-  }, [products]);
+    // Todas as seções disponíveis
+    const secoes = [...new Set(products.map(p => p.desSecao).filter(Boolean))].sort();
+
+    // Grupos filtrados pela seção selecionada
+    let produtosFiltradosParaGrupo = products;
+    if (filterSecao) {
+      produtosFiltradosParaGrupo = products.filter(p => p.desSecao === filterSecao);
+    }
+    const grupos = [...new Set(produtosFiltradosParaGrupo.map(p => p.desGrupo).filter(Boolean))].sort();
+
+    // Subgrupos filtrados pela seção E grupo selecionados
+    let produtosFiltradosParaSubgrupo = products;
+    if (filterSecao) {
+      produtosFiltradosParaSubgrupo = produtosFiltradosParaSubgrupo.filter(p => p.desSecao === filterSecao);
+    }
+    if (filterGrupo) {
+      produtosFiltradosParaSubgrupo = produtosFiltradosParaSubgrupo.filter(p => p.desGrupo === filterGrupo);
+    }
+    const subgrupos = [...new Set(produtosFiltradosParaSubgrupo.map(p => p.desSubGrupo).filter(Boolean))].sort();
+
+    return { secoes, grupos, subgrupos };
+  }, [products, filterSecao, filterGrupo]);
 
   // Produtos filtrados e ordenados
   const filteredProducts = useMemo(() => {
@@ -241,6 +259,18 @@ export default function EstoqueSaude() {
     return filtered;
   }, [products, filterTipoEspecie, filterTipoEvento, filterSecao, filterGrupo, filterSubGrupo, activeCardFilter, sortColumn, sortDirection]);
 
+  // Resetar filtros dependentes quando filtro pai muda
+  useEffect(() => {
+    // Se mudou a seção, limpa grupo e subgrupo
+    setFilterGrupo('');
+    setFilterSubGrupo('');
+  }, [filterSecao]);
+
+  useEffect(() => {
+    // Se mudou o grupo, limpa subgrupo
+    setFilterSubGrupo('');
+  }, [filterGrupo]);
+
   // Resetar para página 1 quando mudar filtros
   useEffect(() => {
     setCurrentPage(1);
@@ -291,8 +321,12 @@ export default function EstoqueSaude() {
       case 'valCustoRep':
       case 'valvendaloja':
       case 'valvenda':
+        if (value == null) return 'R$ 0,00';
+        if (value === 0) return 'R$ 0,00';
+        return `R$ ${value.toFixed(2).replace('.', ',')}`;
+
       case 'valOferta':
-        if (value == null || value === 0) return 'R$ 0,00';
+        if (value == null || value === 0) return '-';
         return `R$ ${value.toFixed(2).replace('.', ',')}`;
 
       // Estoque
@@ -304,9 +338,12 @@ export default function EstoqueSaude() {
 
       // Porcentagens
       case 'margemCalculada':
-      case 'margemRef':
-        if (value == null || isNaN(value)) return '0,0%';
+        if (value == null || isNaN(value) || value === 0) return '0,0%';
         return `${value.toFixed(1).replace('.', ',')}%`;
+
+      case 'margemRef':
+        if (value == null || isNaN(value) || value === 0) return '-';
+        return `${value.toFixed(0)}%`;
 
       // Quantidades
       case 'vendaMedia':
@@ -341,6 +378,124 @@ export default function EstoqueSaude() {
         if (value == null || value === '') return '-';
         return value;
     }
+  };
+
+  // Função para exportar para PDF
+  const exportToPDF = () => {
+    const doc = new jsPDF('landscape');
+
+    // Título
+    doc.setFontSize(16);
+    doc.text('Relatório de Estoque e Margem', 14, 15);
+
+    // Subtítulo com filtros aplicados
+    doc.setFontSize(10);
+    let subtitle = 'Filtros: ';
+    const filtrosAtivos = [];
+    if (filterSecao) filtrosAtivos.push(`Seção: ${filterSecao}`);
+    if (filterGrupo) filtrosAtivos.push(`Grupo: ${filterGrupo}`);
+    if (filterSubGrupo) filtrosAtivos.push(`Subgrupo: ${filterSubGrupo}`);
+    if (activeCardFilter) {
+      const filterLabels = {
+        zerado: 'Estoque Zerado',
+        negativo: 'Estoque Negativo',
+        sem_venda: 'Sem Venda +30 dias',
+        margem_negativa: 'Margem Negativa',
+        margem_baixa: 'Margem Abaixo da Meta'
+      };
+      filtrosAtivos.push(filterLabels[activeCardFilter]);
+    }
+    subtitle += filtrosAtivos.length > 0 ? filtrosAtivos.join(', ') : 'Nenhum';
+    doc.text(subtitle, 14, 22);
+
+    // Preparar colunas visíveis
+    const visibleCols = columns.filter(col => col.visible);
+    const headers = [visibleCols.map(col => col.label)];
+
+    // Preparar dados
+    const data = filteredProducts.map(product =>
+      visibleCols.map(col => {
+        const value = product[col.id];
+
+        // Formatar valores para PDF
+        switch (col.id) {
+          case 'valCustoRep':
+          case 'valvendaloja':
+          case 'valvenda':
+          case 'valOferta':
+            if (value == null || value === 0) return 'R$ 0,00';
+            return `R$ ${value.toFixed(2).replace('.', ',')}`;
+
+          case 'estoque':
+          case 'vendaMedia':
+          case 'margemRef':
+          case 'margemCalculada':
+            if (value == null || value === 0) return '0';
+            return value.toFixed(2).replace('.', ',');
+
+          case 'qtdUltCompra':
+          case 'qtdPedidoCompra':
+            if (value == null) return '-';
+            if (value === 0) return '0';
+            return value.toString();
+
+          case 'diasCobertura':
+            if (value == null || value === 0) return '-';
+            return `${value} dias`;
+
+          case 'dtaUltCompra':
+          case 'dtaCadastro':
+            if (!value) return '-';
+            return new Date(value).toLocaleDateString('pt-BR');
+
+          case 'diasSemVenda':
+            if (value === 999) return 'Nunca vendeu';
+            if (value === 0) return 'Hoje';
+            if (value === 1) return '1 dia';
+            return `${value} dias`;
+
+          default:
+            if (value == null || value === '') return '-';
+            return String(value);
+        }
+      })
+    );
+
+    // Gerar tabela
+    doc.autoTable({
+      head: headers,
+      body: data,
+      startY: 28,
+      styles: {
+        fontSize: 8,
+        cellPadding: 2
+      },
+      headStyles: {
+        fillColor: [249, 115, 22], // orange-500
+        textColor: 255,
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: {
+        fillColor: [249, 250, 251] // gray-50
+      },
+      margin: { top: 28 }
+    });
+
+    // Adicionar rodapé com data e total de registros
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(
+        `Página ${i} de ${pageCount} | Total de produtos: ${filteredProducts.length} | Gerado em ${new Date().toLocaleString('pt-BR')}`,
+        14,
+        doc.internal.pageSize.height - 10
+      );
+    }
+
+    // Salvar PDF
+    const filename = `estoque_saude_${new Date().toISOString().slice(0, 10)}.pdf`;
+    doc.save(filename);
   };
 
   // Função para obter classe CSS da célula
@@ -528,10 +683,20 @@ export default function EstoqueSaude() {
                 </button>
               </div>
 
-              <div className="flex items-end">
+              <div className="flex items-end gap-2">
+                <button
+                  onClick={exportToPDF}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center justify-center gap-2"
+                  title="Exportar para PDF"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                  PDF
+                </button>
                 <button
                   onClick={() => setShowColumnSelector(!showColumnSelector)}
-                  className="w-full px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center justify-center gap-2"
+                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center justify-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
