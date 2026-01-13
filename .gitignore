@@ -73,3 +73,6 @@ nul
 # Backups e Aprendizados
 backups/
 BACKUPS-E-APRENDIZADOS/
+
+# Arquivos temporários do Claude Code
+tmpclaude-*.cwd
