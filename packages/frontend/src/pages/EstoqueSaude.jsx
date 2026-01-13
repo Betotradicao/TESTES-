@@ -397,18 +397,22 @@ export default function EstoqueSaude() {
 
     // Carregar jspdf-autotable dinamicamente
     try {
-      await import('jspdf-autotable');
+      const autoTableModule = await import('jspdf-autotable');
+      console.log('jspdf-autotable carregado:', autoTableModule);
     } catch (error) {
       console.error('Erro ao carregar jspdf-autotable:', error);
       alert('Erro ao carregar biblioteca de PDF. Por favor, recarregue a página.');
       return;
     }
 
+    // Criar instância DEPOIS de carregar o plugin
     const doc = new jsPDF('landscape');
 
     // Garantir que autoTable está disponível
     if (typeof doc.autoTable !== 'function') {
-      console.error('autoTable não está disponível no jsPDF');
+      console.error('autoTable não está disponível no jsPDF após import');
+      console.log('jsPDF instance:', doc);
+      console.log('jsPDF prototype:', Object.getPrototypeOf(doc));
       alert('Erro ao gerar PDF. Por favor, recarregue a página e tente novamente.');
       return;
     }
