@@ -48,6 +48,9 @@ export default function EstoqueSaude() {
   // Filtros
   const [filterTipoEspecie, setFilterTipoEspecie] = useState('MERCADORIA');
   const [filterTipoEvento, setFilterTipoEvento] = useState('DIRETA');
+  const [filterSecao, setFilterSecao] = useState('');
+  const [filterGrupo, setFilterGrupo] = useState('');
+  const [filterSubGrupo, setFilterSubGrupo] = useState('');
   const [activeCardFilter, setActiveCardFilter] = useState('todos');
 
   // Ordenação
@@ -115,12 +118,16 @@ export default function EstoqueSaude() {
         const dtaUltVenda = p.dtaUltMovVenda ? new Date(p.dtaUltMovVenda.slice(0, 4), p.dtaUltMovVenda.slice(4, 6) - 1, p.dtaUltMovVenda.slice(6, 8)) : null;
         const diasSemVenda = dtaUltVenda ? Math.floor((dataAtual - dtaUltVenda) / (1000 * 60 * 60 * 24)) : 999;
 
-        const margemCalculada = p.valvenda > 0 ? (((p.valvenda - p.valCustoRep) / p.valvenda) * 100).toFixed(2) : 0;
+        // Calcular margem apenas se tiver preço de venda E custo válidos
+        let margemCalculada = 0;
+        if (p.valvenda > 0 && p.valCustoRep != null) {
+          margemCalculada = parseFloat((((p.valvenda - p.valCustoRep) / p.valvenda) * 100).toFixed(2));
+        }
 
         return {
           ...p,
           diasSemVenda,
-          margemCalculada: parseFloat(margemCalculada)
+          margemCalculada
         };
       });
 
@@ -153,6 +160,15 @@ export default function EstoqueSaude() {
     }
   };
 
+  // Opções únicas para os filtros
+  const filterOptions = useMemo(() => {
+    return {
+      secoes: [...new Set(products.map(p => p.desSecao).filter(Boolean))].sort(),
+      grupos: [...new Set(products.map(p => p.desGrupo).filter(Boolean))].sort(),
+      subgrupos: [...new Set(products.map(p => p.desSubGrupo).filter(Boolean))].sort(),
+    };
+  }, [products]);
+
   // Produtos filtrados e ordenados
   const filteredProducts = useMemo(() => {
     let filtered = products;
@@ -165,6 +181,21 @@ export default function EstoqueSaude() {
     // Filtro de Tipo Evento
     if (filterTipoEvento) {
       filtered = filtered.filter(p => p.tipoEvento === filterTipoEvento);
+    }
+
+    // Filtro de Seção
+    if (filterSecao) {
+      filtered = filtered.filter(p => p.desSecao === filterSecao);
+    }
+
+    // Filtro de Grupo
+    if (filterGrupo) {
+      filtered = filtered.filter(p => p.desGrupo === filterGrupo);
+    }
+
+    // Filtro de Subgrupo
+    if (filterSubGrupo) {
+      filtered = filtered.filter(p => p.desSubGrupo === filterSubGrupo);
     }
 
     // Filtro por Card clicado
@@ -208,12 +239,12 @@ export default function EstoqueSaude() {
     }
 
     return filtered;
-  }, [products, filterTipoEspecie, filterTipoEvento, activeCardFilter, sortColumn, sortDirection]);
+  }, [products, filterTipoEspecie, filterTipoEvento, filterSecao, filterGrupo, filterSubGrupo, activeCardFilter, sortColumn, sortDirection]);
 
   // Resetar para página 1 quando mudar filtros
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterTipoEspecie, filterTipoEvento, activeCardFilter, sortColumn, sortDirection]);
+  }, [filterTipoEspecie, filterTipoEvento, filterSecao, filterGrupo, filterSubGrupo, activeCardFilter, sortColumn, sortDirection]);
 
   // Produtos paginados
   const paginatedProducts = useMemo(() => {
@@ -249,28 +280,55 @@ export default function EstoqueSaude() {
     const value = product[columnId];
 
     switch (columnId) {
+      // Valores monetários
       case 'valCustoRep':
       case 'valvendaloja':
       case 'valvenda':
       case 'valOferta':
-        return `R$ ${value?.toFixed(2) || '0.00'}`;
+        if (value == null || value === 0) return 'R$ 0,00';
+        return `R$ ${value.toFixed(2).replace('.', ',')}`;
 
+      // Estoque
       case 'estoque':
-        return value?.toFixed(2) || '0.00';
+      case 'estoqueMinimo':
+      case 'estoqueMaximo':
+        if (value == null) return '0,00';
+        return value.toFixed(2).replace('.', ',');
 
+      // Porcentagens
       case 'margemCalculada':
       case 'margemRef':
-        return `${value?.toFixed(1) || '0.0'}%`;
+        if (value == null || isNaN(value)) return '0,0%';
+        return `${value.toFixed(1).replace('.', ',')}%`;
 
+      // Quantidades
+      case 'vendaMedia':
+        if (value == null || value === 0) return '0';
+        return value.toFixed(2).replace('.', ',');
+
+      case 'qtdUltCompra':
+      case 'qtdPedidoCompra':
+      case 'diasCobertura':
+        if (value == null || value === 0) return '-';
+        return value.toString();
+
+      // Datas
       case 'dtaUltCompra':
       case 'dtaCadastro':
-        return value ? new Date(value).toLocaleDateString('pt-BR') : '-';
+        if (!value) return '-';
+        return new Date(value).toLocaleDateString('pt-BR');
 
+      // Dias sem venda
       case 'diasSemVenda':
+        if (value === 999) return 'Nunca vendeu';
+        if (value === 0) return 'Hoje';
+        if (value === 1) return '1 dia';
         return `${value} dias`;
 
+      // Texto padrão
       default:
-        return value || '-';
+        if (value == null || value === '') return '-';
+        return value;
     }
   };
 
@@ -369,10 +427,58 @@ export default function EstoqueSaude() {
 
           {/* Filtros */}
           <div className="bg-white rounded-lg shadow p-4 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  🏷️ Tipo de Espécie
+                  🏪 Seção
+                </label>
+                <select
+                  value={filterSecao}
+                  onChange={(e) => setFilterSecao(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="">Todas</option>
+                  {filterOptions.secoes.map(secao => (
+                    <option key={secao} value={secao}>{secao}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  📦 Grupo
+                </label>
+                <select
+                  value={filterGrupo}
+                  onChange={(e) => setFilterGrupo(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="">Todos</option>
+                  {filterOptions.grupos.map(grupo => (
+                    <option key={grupo} value={grupo}>{grupo}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  🏷️ Subgrupo
+                </label>
+                <select
+                  value={filterSubGrupo}
+                  onChange={(e) => setFilterSubGrupo(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="">Todos</option>
+                  {filterOptions.subgrupos.map(subgrupo => (
+                    <option key={subgrupo} value={subgrupo}>{subgrupo}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  📋 Tipo Espécie
                 </label>
                 <select
                   value={filterTipoEspecie}
@@ -386,7 +492,7 @@ export default function EstoqueSaude() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  📋 Tipo de Evento
+                  📄 Tipo Evento
                 </label>
                 <select
                   value={filterTipoEvento}
@@ -397,6 +503,9 @@ export default function EstoqueSaude() {
                   <option value="DIRETA">DIRETA</option>
                 </select>
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
 
               <div className="flex items-end">
                 <button
