@@ -54,6 +54,13 @@ export default function EstoqueSaude() {
   const [sortColumn, setSortColumn] = useState(null);
   const [sortDirection, setSortDirection] = useState('asc'); // 'asc' ou 'desc'
 
+  // Paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
+
+  // Drag and Drop para reordenar colunas
+  const [draggedColumn, setDraggedColumn] = useState(null);
+
   // Salvar colunas no localStorage
   useEffect(() => {
     localStorage.setItem('estoque_columns', JSON.stringify(columns));
@@ -64,6 +71,33 @@ export default function EstoqueSaude() {
     setColumns(prev => prev.map(col =>
       col.id === columnId ? { ...col, visible: !col.visible } : col
     ));
+  };
+
+  // Funções de Drag and Drop
+  const handleDragStart = (index) => {
+    setDraggedColumn(index);
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+
+    if (draggedColumn === null || draggedColumn === index) return;
+
+    const newColumns = [...columns];
+    const draggedItem = newColumns[draggedColumn];
+
+    // Remove item da posição original
+    newColumns.splice(draggedColumn, 1);
+
+    // Insere na nova posição
+    newColumns.splice(index, 0, draggedItem);
+
+    setColumns(newColumns);
+    setDraggedColumn(index);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedColumn(null);
   };
 
   // Buscar produtos
@@ -175,6 +209,21 @@ export default function EstoqueSaude() {
 
     return filtered;
   }, [products, filterTipoEspecie, filterTipoEvento, activeCardFilter, sortColumn, sortDirection]);
+
+  // Resetar para página 1 quando mudar filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterTipoEspecie, filterTipoEvento, activeCardFilter, sortColumn, sortDirection]);
+
+  // Produtos paginados
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredProducts.slice(startIndex, endIndex);
+  }, [filteredProducts, currentPage, itemsPerPage]);
+
+  // Total de páginas
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
   // Cálculos dos cards
   const stats = useMemo(() => {
@@ -534,7 +583,7 @@ export default function EstoqueSaude() {
                       </td>
                     </tr>
                   ) : (
-                    filteredProducts.map((product) => (
+                    paginatedProducts.map((product) => (
                       <tr key={product.codigo} className="hover:bg-gray-50">
                         {visibleColumns.map(col => (
                           <td key={col.id} className={getCellClassName(product, col.id)}>
@@ -548,12 +597,51 @@ export default function EstoqueSaude() {
               </table>
             </div>
 
-            {/* Footer da Tabela */}
+            {/* Footer da Tabela com Paginação */}
             {!loading && !error && filteredProducts.length > 0 && (
-              <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
+              <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between">
                 <p className="text-sm text-gray-700">
-                  Exibindo <strong>{filteredProducts.length}</strong> de <strong>{stats.total}</strong> produtos
+                  Exibindo <strong>{(currentPage - 1) * itemsPerPage + 1}</strong> - <strong>{Math.min(currentPage * itemsPerPage, filteredProducts.length)}</strong> de <strong>{filteredProducts.length}</strong> produtos
                 </p>
+
+                {/* Controles de Paginação */}
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    >
+                      ⏮️ Primeira
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    >
+                      ◀️ Anterior
+                    </button>
+
+                    <span className="text-sm text-gray-700 px-3">
+                      Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong>
+                    </span>
+
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    >
+                      Próxima ▶️
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    >
+                      Última ⏭️
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -585,22 +673,49 @@ export default function EstoqueSaude() {
             </div>
 
             <div className="p-6">
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs text-blue-800">
+                  💡 <strong>Dica:</strong> Arraste as colunas para reordenar a sequência na tabela
+                </p>
+              </div>
+
               <div className="space-y-2">
-                {columns.map((column) => (
-                  <label
+                {columns.map((column, index) => (
+                  <div
                     key={column.id}
-                    className="flex items-center p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                    draggable
+                    onDragStart={() => handleDragStart(index)}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDragEnd={handleDragEnd}
+                    className={`flex items-center p-3 rounded-lg transition-all cursor-move ${
+                      draggedColumn === index
+                        ? 'bg-orange-100 border-2 border-orange-500 scale-105'
+                        : 'bg-white hover:bg-gray-50 border-2 border-transparent'
+                    }`}
                   >
+                    {/* Ícone de drag */}
+                    <div className="mr-2 text-gray-400">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16M4 16h16"/>
+                      </svg>
+                    </div>
+
                     <input
                       type="checkbox"
                       checked={column.visible}
                       onChange={() => toggleColumn(column.id)}
                       className="w-5 h-5 text-orange-500 border-gray-300 rounded focus:ring-orange-500 cursor-pointer"
+                      onClick={(e) => e.stopPropagation()}
                     />
-                    <span className="ml-3 text-sm font-medium text-gray-700">
+                    <span className="ml-3 text-sm font-medium text-gray-700 flex-1">
                       {column.label}
                     </span>
-                  </label>
+
+                    {/* Indicador de posição */}
+                    <span className="text-xs text-gray-400 font-mono">
+                      #{index + 1}
+                    </span>
+                  </div>
                 ))}
               </div>
 
