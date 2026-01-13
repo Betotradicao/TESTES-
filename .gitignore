@@ -76,3 +76,5 @@ BACKUPS-E-APRENDIZADOS/
 
 # Arquivos temporários do Claude Code
 tmpclaude-*.cwd
+**/tmpclaude-*.cwd
+tmpclaude-*

@@ -1,0 +1,17 @@
+{
+  "files.exclude": {
+    "**/tmpclaude-*.cwd": true,
+    "tmpclaude-*.cwd": true,
+    "tmpclaude-*": true
+  },
+  "files.watcherExclude": {
+    "**/tmpclaude-*.cwd": true,
+    "tmpclaude-*.cwd": true,
+    "tmpclaude-*": true
+  },
+  "search.exclude": {
+    "**/tmpclaude-*.cwd": true,
+    "tmpclaude-*.cwd": true,
+    "tmpclaude-*": true
+  }
+}
