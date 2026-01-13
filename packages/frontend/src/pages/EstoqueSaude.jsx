@@ -50,6 +50,10 @@ export default function EstoqueSaude() {
   const [filterTipoEvento, setFilterTipoEvento] = useState('DIRETA');
   const [activeCardFilter, setActiveCardFilter] = useState('todos');
 
+  // Ordenação
+  const [sortColumn, setSortColumn] = useState(null);
+  const [sortDirection, setSortDirection] = useState('asc'); // 'asc' ou 'desc'
+
   // Salvar colunas no localStorage
   useEffect(() => {
     localStorage.setItem('estoque_columns', JSON.stringify(columns));
@@ -103,7 +107,19 @@ export default function EstoqueSaude() {
     fetchProducts();
   }, []);
 
-  // Produtos filtrados
+  // Função para ordenar produtos
+  const handleSort = (columnId) => {
+    if (sortColumn === columnId) {
+      // Se já está ordenando por esta coluna, inverte a direção
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Se é nova coluna, ordena ascendente
+      setSortColumn(columnId);
+      setSortDirection('asc');
+    }
+  };
+
+  // Produtos filtrados e ordenados
   const filteredProducts = useMemo(() => {
     let filtered = products;
 
@@ -130,8 +146,35 @@ export default function EstoqueSaude() {
       filtered = filtered.filter(p => p.margemCalculada < p.margemRef && p.margemCalculada >= 0);
     }
 
+    // Ordenação
+    if (sortColumn) {
+      filtered = [...filtered].sort((a, b) => {
+        const aVal = a[sortColumn];
+        const bVal = b[sortColumn];
+
+        // Valores nulos/undefined vão para o final
+        if (aVal == null) return 1;
+        if (bVal == null) return -1;
+
+        // Comparação numérica
+        if (typeof aVal === 'number' && typeof bVal === 'number') {
+          return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+        }
+
+        // Comparação de string (case-insensitive)
+        const aStr = String(aVal).toLowerCase();
+        const bStr = String(bVal).toLowerCase();
+
+        if (sortDirection === 'asc') {
+          return aStr.localeCompare(bStr);
+        } else {
+          return bStr.localeCompare(aStr);
+        }
+      });
+    }
+
     return filtered;
-  }, [products, filterTipoEspecie, filterTipoEvento, activeCardFilter]);
+  }, [products, filterTipoEspecie, filterTipoEvento, activeCardFilter, sortColumn, sortDirection]);
 
   // Cálculos dos cards
   const stats = useMemo(() => {
@@ -408,28 +451,44 @@ export default function EstoqueSaude() {
             </button>
           </div>
 
-          {/* Info do filtro ativo */}
-          {activeCardFilter !== 'todos' && (
-            <div className="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6 rounded">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-orange-800">
-                  <strong>Filtro ativo:</strong> {
-                    activeCardFilter === 'zerado' ? '📭 Estoque Zerado' :
-                    activeCardFilter === 'negativo' ? '⚠️ Estoque Negativo' :
-                    activeCardFilter === 'sem_venda' ? '⏸️ Sem Venda +30 dias' :
-                    activeCardFilter === 'margem_negativa' ? '💸 Margem Negativa' :
-                    '💰 Margem Abaixo da Meta'
-                  }
-                </p>
-                <button
-                  onClick={() => setActiveCardFilter('todos')}
-                  className="text-orange-600 hover:text-orange-800 font-medium text-sm"
-                >
-                  ✕ Limpar filtro
-                </button>
+          {/* Info do filtro ativo e contador */}
+          <div className="flex items-center justify-between mb-6">
+            {activeCardFilter !== 'todos' ? (
+              <div className="flex-1 bg-orange-50 border-l-4 border-orange-500 p-4 rounded">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <p className="text-sm text-orange-800">
+                      <strong>Filtro ativo:</strong> {
+                        activeCardFilter === 'zerado' ? '📭 Estoque Zerado' :
+                        activeCardFilter === 'negativo' ? '⚠️ Estoque Negativo' :
+                        activeCardFilter === 'sem_venda' ? '⏸️ Sem Venda +30 dias' :
+                        activeCardFilter === 'margem_negativa' ? '💸 Margem Negativa' :
+                        '💰 Margem Abaixo da Meta'
+                      }
+                    </p>
+                    <span className="bg-orange-200 text-orange-900 px-3 py-1 rounded-full text-xs font-bold">
+                      {filteredProducts.length} produtos
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setActiveCardFilter('todos')}
+                    className="text-orange-600 hover:text-orange-800 font-medium text-sm"
+                  >
+                    ✕ Limpar filtro
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex-1 bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                <div className="flex items-center gap-3">
+                  <span className="text-blue-800 font-medium">📊 Total de produtos:</span>
+                  <span className="bg-blue-200 text-blue-900 px-3 py-1 rounded-full text-sm font-bold">
+                    {filteredProducts.length} produtos
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Tabela de Produtos */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -438,8 +497,19 @@ export default function EstoqueSaude() {
                 <thead className="bg-gray-50">
                   <tr>
                     {visibleColumns.map(col => (
-                      <th key={col.id} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        {col.label}
+                      <th
+                        key={col.id}
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                        onClick={() => handleSort(col.id)}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>{col.label}</span>
+                          {sortColumn === col.id && (
+                            <span className="text-orange-500">
+                              {sortDirection === 'asc' ? '▲' : '▼'}
+                            </span>
+                          )}
+                        </div>
                       </th>
                     ))}
                   </tr>
