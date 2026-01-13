@@ -388,6 +388,9 @@ export default function EstoqueSaude() {
 
   // Função para exportar para PDF
   const exportToPDF = () => {
+    console.log('📄 Exportando PDF - Total de produtos:', filteredProducts.length);
+    console.log('Filtros ativos:', { filterSecao, filterGrupo, filterSubGrupo, activeCardFilter });
+
     const doc = new jsPDF('landscape');
 
     // Título
