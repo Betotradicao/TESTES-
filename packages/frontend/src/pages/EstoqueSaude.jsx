@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 // Definição das 24 colunas disponíveis
 const AVAILABLE_COLUMNS = [
@@ -386,36 +387,13 @@ export default function EstoqueSaude() {
   };
 
   // Função para exportar para PDF
-  const exportToPDF = async () => {
-    console.log('📄 Exportando PDF - Total de produtos:', filteredProducts.length);
-    console.log('Filtros ativos:', { filterSecao, filterGrupo, filterSubGrupo, activeCardFilter });
-
+  const exportToPDF = () => {
     if (filteredProducts.length === 0) {
       alert('Nenhum produto encontrado com os filtros aplicados!');
       return;
     }
 
-    // Carregar jspdf-autotable dinamicamente
-    try {
-      const autoTableModule = await import('jspdf-autotable');
-      console.log('jspdf-autotable carregado:', autoTableModule);
-    } catch (error) {
-      console.error('Erro ao carregar jspdf-autotable:', error);
-      alert('Erro ao carregar biblioteca de PDF. Por favor, recarregue a página.');
-      return;
-    }
-
-    // Criar instância DEPOIS de carregar o plugin
     const doc = new jsPDF('landscape');
-
-    // Garantir que autoTable está disponível
-    if (typeof doc.autoTable !== 'function') {
-      console.error('autoTable não está disponível no jsPDF após import');
-      console.log('jsPDF instance:', doc);
-      console.log('jsPDF prototype:', Object.getPrototypeOf(doc));
-      alert('Erro ao gerar PDF. Por favor, recarregue a página e tente novamente.');
-      return;
-    }
 
     // Título
     doc.setFontSize(16);
