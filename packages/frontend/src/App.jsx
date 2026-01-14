@@ -31,6 +31,9 @@ import ControlePDV from './pages/ControlePDV';
 import ProducaoSugestao from './pages/ProducaoSugestao';
 import ProducaoResultados from './pages/ProducaoResultados';
 import EstoqueSaude from './pages/EstoqueSaude';
+import HortFrutLancador from './pages/HortFrutLancador';
+import HortFrutConferencia from './pages/HortFrutConferencia';
+import HortFrutResultados from './pages/HortFrutResultados';
 
 function App() {
   return (
@@ -242,6 +245,30 @@ function App() {
               element={
                 <ProtectedRoute>
                   <EstoqueSaude />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/hortfrut-lancador"
+              element={
+                <ProtectedRoute>
+                  <HortFrutLancador />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/hortfrut-conferencia/:id"
+              element={
+                <ProtectedRoute>
+                  <HortFrutConferencia />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/hortfrut-resultados"
+              element={
+                <ProtectedRoute>
+                  <HortFrutResultados />
                 </ProtectedRoute>
               }
             />

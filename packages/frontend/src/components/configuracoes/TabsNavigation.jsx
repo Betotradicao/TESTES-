@@ -16,7 +16,8 @@ export default function TabsNavigation({ activeTab, onChange, pageType = 'config
   const configTabs = [
     { id: 'sectors', label: 'Setores' },
     { id: 'employees', label: 'Colaboradores' },
-    { id: 'prevention', label: 'Leitores' }
+    { id: 'prevention', label: 'Leitores' },
+    { id: 'hortfrut-boxes', label: 'Caixas HortFrut' }
   ];
 
   const tabs = pageType === 'rede' ? redeTabs : configTabs;

@@ -8,6 +8,7 @@ export const MENU_MODULES = {
   ETIQUETAS: 'etiquetas',
   PERDAS: 'perdas',
   PRODUCAO: 'producao',
+  HORTFRUT: 'hortfrut',
 };
 
 // IDs dos sub-menus
@@ -42,6 +43,10 @@ export const MENU_SUBMENUS = {
   // Produção
   PRODUCAO_SUGESTAO: 'producao-sugestao',
   PRODUCAO_RESULTADOS: 'producao-resultados',
+
+  // HortFrut
+  HORTFRUT_LANCADOR: 'hortfrut-lancador',
+  HORTFRUT_RESULTADOS: 'hortfrut-resultados',
 };
 
 // Estrutura completa do menu
@@ -181,6 +186,23 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.PRODUCAO_RESULTADOS,
         title: 'Resultados',
         path: '/producao/resultados'
+      }
+    ]
+  },
+  {
+    id: MENU_MODULES.HORTFRUT,
+    title: 'Prevenção HortFruti',
+    icon: 'hortfrut',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.HORTFRUT_LANCADOR,
+        title: 'Lançador de Itens',
+        path: '/hortfrut-lancador'
+      },
+      {
+        id: MENU_SUBMENUS.HORTFRUT_RESULTADOS,
+        title: 'Resultado dos Lançamentos',
+        path: '/hortfrut-resultados'
       }
     ]
   }

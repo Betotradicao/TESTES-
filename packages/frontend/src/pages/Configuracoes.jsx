@@ -6,6 +6,7 @@ import TabsNavigation from '../components/configuracoes/TabsNavigation';
 import SectorsTab from '../components/configuracoes/SectorsTab';
 import EmployeesTab from '../components/configuracoes/EmployeesTab';
 import PreventionTab from '../components/configuracoes/PreventionTab';
+import HortFrutBoxesTab from '../components/configuracoes/HortFrutBoxesTab';
 
 export default function Configuracoes() {
   const { user, logout } = useAuth();
@@ -17,7 +18,7 @@ export default function Configuracoes() {
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && (tabFromUrl === 'sectors' || tabFromUrl === 'employees' || tabFromUrl === 'prevention')) {
+    if (tabFromUrl && (tabFromUrl === 'sectors' || tabFromUrl === 'employees' || tabFromUrl === 'prevention' || tabFromUrl === 'hortfrut-boxes')) {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -81,6 +82,7 @@ export default function Configuracoes() {
             {activeTab === 'sectors' && <SectorsTab />}
             {activeTab === 'employees' && <EmployeesTab />}
             {activeTab === 'prevention' && <PreventionTab />}
+            {activeTab === 'hortfrut-boxes' && <HortFrutBoxesTab />}
           </div>
         </div>
       </div>
