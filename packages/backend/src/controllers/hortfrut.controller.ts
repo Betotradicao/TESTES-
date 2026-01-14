@@ -113,7 +113,7 @@ export class HortFrutController {
 
   static async getConferences(req: AuthRequest, res: Response) {
     try {
-      const companyId = req.user?.companyId;
+      const companyId = req.user?.companyId ?? undefined;
       const { startDate, endDate, status } = req.query;
 
       const conferenceRepository = AppDataSource.getRepository(HortFrutConference);
@@ -165,7 +165,7 @@ export class HortFrutController {
 
   static async createConference(req: AuthRequest, res: Response) {
     try {
-      const companyId = req.user?.companyId;
+      const companyId = req.user?.companyId ?? undefined;
       const userId = req.userId;
       const { conferenceDate, supplierName, invoiceNumber, observations } = req.body;
 
@@ -176,7 +176,7 @@ export class HortFrutController {
       const conferenceRepository = AppDataSource.getRepository(HortFrutConference);
 
       const conference = conferenceRepository.create({
-        company_id: companyId,
+        company_id: companyId as string,
         user_id: userId,
         conferenceDate: new Date(conferenceDate),
         supplierName,
@@ -364,7 +364,7 @@ export class HortFrutController {
 
   static async getConferencesByDate(req: AuthRequest, res: Response) {
     try {
-      const companyId = req.user?.companyId;
+      const companyId = req.user?.companyId ?? undefined;
       const { year, month } = req.query;
 
       const conferenceRepository = AppDataSource.getRepository(HortFrutConference);
@@ -375,7 +375,7 @@ export class HortFrutController {
 
       const conferences = await conferenceRepository.find({
         where: {
-          company_id: companyId,
+          company_id: companyId as string,
           conferenceDate: Between(startDate, endDate),
         },
         order: { conferenceDate: 'DESC' },
