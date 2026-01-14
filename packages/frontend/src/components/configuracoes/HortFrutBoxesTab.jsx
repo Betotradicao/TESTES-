@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../../utils/api';
 
 export default function HortFrutBoxesTab() {
@@ -9,9 +9,13 @@ export default function HortFrutBoxesTab() {
   const [editingBox, setEditingBox] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
-    weight: ''
+    weight: '',
+    photoUrl: ''
   });
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [expandedPhoto, setExpandedPhoto] = useState(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     loadBoxes();
@@ -28,6 +32,61 @@ export default function HortFrutBoxesTab() {
       console.error('Load boxes error:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handlePhotoChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validar tipo de arquivo
+    if (!file.type.startsWith('image/')) {
+      alert('Por favor, selecione apenas imagens');
+      return;
+    }
+
+    // Validar tamanho (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('A imagem deve ter no máximo 5MB');
+      return;
+    }
+
+    // Criar preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPhotoPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+
+    // Upload da foto
+    try {
+      setUploadingPhoto(true);
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', file);
+
+      const response = await api.post('/upload/image', uploadFormData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      if (response.data?.url) {
+        setFormData({ ...formData, photoUrl: response.data.url });
+      }
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('Erro ao fazer upload da foto');
+      setPhotoPreview(null);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setFormData({ ...formData, photoUrl: '' });
+    setPhotoPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -51,9 +110,10 @@ export default function HortFrutBoxesTab() {
     setEditingBox(box);
     setFormData({
       name: box.name,
-      description: box.description || '',
-      weight: box.weight.toString()
+      weight: box.weight.toString(),
+      photoUrl: box.photoUrl || ''
     });
+    setPhotoPreview(box.photoUrl || null);
     setShowForm(true);
   };
 
@@ -81,7 +141,11 @@ export default function HortFrutBoxesTab() {
   const resetForm = () => {
     setShowForm(false);
     setEditingBox(null);
-    setFormData({ name: '', description: '', weight: '' });
+    setFormData({ name: '', weight: '', photoUrl: '' });
+    setPhotoPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   if (isLoading) {
@@ -121,7 +185,7 @@ export default function HortFrutBoxesTab() {
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
           <h3 className="font-medium mb-3">{editingBox ? 'Editar Caixa' : 'Nova Caixa'}</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Nome *
@@ -150,19 +214,71 @@ export default function HortFrutBoxesTab() {
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Descrição
-                </label>
-                <input
-                  type="text"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Ex: Caixa padrão para frutas"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500"
-                />
+            </div>
+
+            {/* Campo de Foto */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Foto da Caixa
+              </label>
+              <div className="flex items-start gap-4">
+                {/* Preview da foto */}
+                <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                  {uploadingPhoto ? (
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mx-auto"></div>
+                      <span className="text-xs text-gray-500 mt-1">Enviando...</span>
+                    </div>
+                  ) : photoPreview || formData.photoUrl ? (
+                    <img
+                      src={photoPreview || formData.photoUrl}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoChange}
+                    className="hidden"
+                    id="photo-upload"
+                  />
+                  <label
+                    htmlFor="photo-upload"
+                    className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 cursor-pointer"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Escolher Foto
+                  </label>
+                  {(photoPreview || formData.photoUrl) && (
+                    <button
+                      type="button"
+                      onClick={handleRemovePhoto}
+                      className="inline-flex items-center px-3 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Remover
+                    </button>
+                  )}
+                  <p className="text-xs text-gray-500">
+                    JPG, PNG ou GIF. Máximo 5MB.
+                  </p>
+                </div>
               </div>
             </div>
+
             <div className="flex justify-end gap-2">
               <button
                 type="button"
@@ -173,7 +289,8 @@ export default function HortFrutBoxesTab() {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                disabled={uploadingPhoto}
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
               >
                 {editingBox ? 'Salvar' : 'Cadastrar'}
               </button>
@@ -182,14 +299,40 @@ export default function HortFrutBoxesTab() {
         </div>
       )}
 
+      {/* Modal de foto expandida */}
+      {expandedPhoto && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75"
+          onClick={() => setExpandedPhoto(null)}
+        >
+          <div className="relative max-w-2xl max-h-[90vh] mx-4">
+            <button
+              onClick={() => setExpandedPhoto(null)}
+              className="absolute -top-10 right-0 text-white hover:text-gray-300 transition"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <img
+              src={expandedPhoto.url}
+              alt={expandedPhoto.name}
+              className="max-w-full max-h-[80vh] rounded-lg shadow-2xl object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <p className="text-white text-center mt-3 text-lg font-medium">{expandedPhoto.name}</p>
+          </div>
+        </div>
+      )}
+
       {/* Lista de caixas */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Foto</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Peso (kg)</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descrição</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
             </tr>
@@ -204,11 +347,28 @@ export default function HortFrutBoxesTab() {
             ) : (
               boxes.map((box) => (
                 <tr key={box.id} className={!box.active ? 'bg-gray-50 opacity-60' : ''}>
+                  <td className="px-4 py-3">
+                    <div
+                      className={`h-10 w-10 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center ${box.photoUrl ? 'cursor-pointer hover:ring-2 hover:ring-green-500 transition-all' : ''}`}
+                      onClick={() => box.photoUrl && setExpandedPhoto({ url: box.photoUrl, name: box.name })}
+                    >
+                      {box.photoUrl ? (
+                        <img
+                          src={box.photoUrl}
+                          alt={box.name}
+                          className="h-10 w-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">{box.name}</td>
                   <td className="px-4 py-3 text-sm text-gray-700">
                     {parseFloat(box.weight).toFixed(3)} kg
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{box.description || '-'}</td>
                   <td className="px-4 py-3 text-center">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                       box.active
@@ -225,21 +385,33 @@ export default function HortFrutBoxesTab() {
                         className="text-blue-600 hover:text-blue-800 text-sm"
                         title="Editar"
                       >
-                        ✏️
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
                       </button>
                       <button
                         onClick={() => handleToggle(box)}
-                        className="text-yellow-600 hover:text-yellow-800 text-sm"
+                        className={`text-sm ${box.active ? 'text-yellow-600 hover:text-yellow-800' : 'text-green-600 hover:text-green-800'}`}
                         title={box.active ? 'Desativar' : 'Ativar'}
                       >
-                        {box.active ? '🚫' : '✅'}
+                        {box.active ? (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        )}
                       </button>
                       <button
                         onClick={() => handleDelete(box)}
                         className="text-red-600 hover:text-red-800 text-sm"
                         title="Excluir"
                       >
-                        🗑️
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
                       </button>
                     </div>
                   </td>
