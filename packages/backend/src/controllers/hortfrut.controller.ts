@@ -248,6 +248,8 @@ export class HortFrutController {
       const { id } = req.params;
       const { items } = req.body;
 
+      console.log(`[HortFrut] Importando itens para conferência ${id}, total: ${items?.length || 0}`);
+
       if (!items || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ error: 'Nenhum item para importar' });
       }
@@ -261,21 +263,28 @@ export class HortFrutController {
         return res.status(404).json({ error: 'Conferência não encontrada' });
       }
 
+      // Helper para parsear números com segurança
+      const safeParseFloat = (value: any): number | undefined => {
+        if (value === null || value === undefined || value === '') return undefined;
+        const num = parseFloat(String(value).replace(',', '.'));
+        return isNaN(num) ? undefined : num;
+      };
+
       // Criar itens
       const createdItems: HortFrutConferenceItem[] = [];
       for (const item of items) {
         const conferenceItem = new HortFrutConferenceItem();
         conferenceItem.conference_id = parseInt(id);
-        conferenceItem.barcode = item.barcode;
-        conferenceItem.productName = item.productName;
-        conferenceItem.curve = item.curve;
-        conferenceItem.section = item.section;
-        conferenceItem.productGroup = item.productGroup;
-        conferenceItem.subGroup = item.subGroup;
-        conferenceItem.currentCost = item.currentCost ? parseFloat(item.currentCost) : undefined;
-        conferenceItem.currentSalePrice = item.currentSalePrice ? parseFloat(item.currentSalePrice) : undefined;
-        conferenceItem.referenceMargin = item.referenceMargin ? parseFloat(item.referenceMargin) : undefined;
-        conferenceItem.currentMargin = item.currentMargin ? parseFloat(item.currentMargin) : undefined;
+        conferenceItem.barcode = item.barcode || undefined;
+        conferenceItem.productName = item.productName || 'Sem nome';
+        conferenceItem.curve = item.curve || undefined;
+        conferenceItem.section = item.section || undefined;
+        conferenceItem.productGroup = item.productGroup || undefined;
+        conferenceItem.subGroup = item.subGroup || undefined;
+        conferenceItem.currentCost = safeParseFloat(item.currentCost);
+        conferenceItem.currentSalePrice = safeParseFloat(item.currentSalePrice);
+        conferenceItem.referenceMargin = safeParseFloat(item.referenceMargin);
+        conferenceItem.currentMargin = safeParseFloat(item.currentMargin);
         conferenceItem.checked = false;
 
         await itemRepository.save(conferenceItem);
@@ -285,6 +294,8 @@ export class HortFrutController {
       // Atualizar status da conferência
       conference.status = 'in_progress';
       await conferenceRepository.save(conference);
+
+      console.log(`[HortFrut] ${createdItems.length} itens importados com sucesso para conferência ${id}`);
 
       res.status(201).json({
         message: `${createdItems.length} itens importados com sucesso`,
