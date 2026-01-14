@@ -64,7 +64,7 @@ export default function HortFrutBoxesTab() {
       const uploadFormData = new FormData();
       uploadFormData.append('file', file);
 
-      const response = await api.post('/upload/image', uploadFormData, {
+      const response = await api.post('/hortfrut/upload', uploadFormData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

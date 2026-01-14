@@ -5,6 +5,7 @@ import { HortFrutConference } from '../entities/HortFrutConference';
 import { HortFrutConferenceItem } from '../entities/HortFrutConferenceItem';
 import { AuthRequest } from '../middleware/auth';
 import { Between } from 'typeorm';
+import { minioService } from '../services/minio.service';
 
 export class HortFrutController {
   // ==================== CAIXAS ====================
@@ -439,6 +440,37 @@ export class HortFrutController {
     } catch (error) {
       console.error('Erro ao finalizar conferência:', error);
       res.status(500).json({ error: 'Erro ao finalizar conferência' });
+    }
+  }
+
+  // ==================== UPLOAD DE IMAGEM ====================
+
+  static async uploadImage(req: AuthRequest, res: Response) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+      }
+
+      // Validate file type
+      const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedMimeTypes.includes(req.file.mimetype)) {
+        return res.status(400).json({ error: 'Tipo de arquivo inválido. Apenas JPEG, PNG, GIF e WebP são permitidos' });
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024;
+      if (req.file.size > maxSize) {
+        return res.status(400).json({ error: 'Arquivo muito grande. Máximo 5MB' });
+      }
+
+      // Upload to MinIO
+      const fileName = `hortfrut-${Date.now()}.${req.file.mimetype.split('/')[1]}`;
+      const url = await minioService.uploadFile(fileName, req.file.buffer, req.file.mimetype);
+
+      res.json({ url });
+    } catch (error) {
+      console.error('Erro ao fazer upload de imagem:', error);
+      res.status(500).json({ error: 'Erro ao fazer upload de imagem' });
     }
   }
 }
