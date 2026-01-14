@@ -1,8 +1,8 @@
-import { Router } from 'express';
+import { Router, IRouter } from 'express';
 import { HortFrutController } from '../controllers/hortfrut.controller';
 import { authenticateToken } from '../middleware/auth';
 
-const router = Router();
+const router: IRouter = Router();
 
 // Rotas de Caixas
 router.get('/boxes', authenticateToken, HortFrutController.getBoxes);

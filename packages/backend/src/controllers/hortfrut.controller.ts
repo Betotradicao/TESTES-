@@ -261,22 +261,21 @@ export class HortFrutController {
       }
 
       // Criar itens
-      const createdItems = [];
+      const createdItems: HortFrutConferenceItem[] = [];
       for (const item of items) {
-        const conferenceItem = itemRepository.create({
-          conference_id: parseInt(id),
-          barcode: item.barcode,
-          productName: item.productName,
-          curve: item.curve,
-          section: item.section,
-          productGroup: item.productGroup,
-          subGroup: item.subGroup,
-          currentCost: item.currentCost ? parseFloat(item.currentCost) : null,
-          currentSalePrice: item.currentSalePrice ? parseFloat(item.currentSalePrice) : null,
-          referenceMargin: item.referenceMargin ? parseFloat(item.referenceMargin) : null,
-          currentMargin: item.currentMargin ? parseFloat(item.currentMargin) : null,
-          checked: false,
-        });
+        const conferenceItem = new HortFrutConferenceItem();
+        conferenceItem.conference_id = parseInt(id);
+        conferenceItem.barcode = item.barcode;
+        conferenceItem.productName = item.productName;
+        conferenceItem.curve = item.curve;
+        conferenceItem.section = item.section;
+        conferenceItem.productGroup = item.productGroup;
+        conferenceItem.subGroup = item.subGroup;
+        conferenceItem.currentCost = item.currentCost ? parseFloat(item.currentCost) : undefined;
+        conferenceItem.currentSalePrice = item.currentSalePrice ? parseFloat(item.currentSalePrice) : undefined;
+        conferenceItem.referenceMargin = item.referenceMargin ? parseFloat(item.referenceMargin) : undefined;
+        conferenceItem.currentMargin = item.currentMargin ? parseFloat(item.currentMargin) : undefined;
+        conferenceItem.checked = false;
 
         await itemRepository.save(conferenceItem);
         createdItems.push(conferenceItem);
