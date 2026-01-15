@@ -52,7 +52,7 @@ const MOTIVOS_TOOLTIPS = {
     emoji: '🖥️',
     color: 'from-red-500 to-red-600',
     title: 'Erro do Operador',
-    description: 'Mercadoria saiu do setor mas o operador de caixa não registrou no PDV.',
+    description: 'Por algum motivo o operador de caixa não registrou o produto.',
     example: 'Cliente levou 2kg de picanha mas operador passou apenas 1kg no caixa.',
     status: 'Possível fraude'
   },
