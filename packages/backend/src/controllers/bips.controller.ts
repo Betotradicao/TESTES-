@@ -221,14 +221,36 @@ export class BipsController {
         }])
       );
 
-      // Map results to include sell data
+      // Fetch suspect_identifications for each bip using a single query
+      const suspectIdentifications = bipIds.length > 0
+        ? await AppDataSource.query(
+            `SELECT id, identification_number, bip_id, notes, created_at
+             FROM suspect_identifications
+             WHERE bip_id = ANY($1)`,
+            [bipIds]
+          )
+        : [];
+
+      // Create a map of bip_id -> suspect_identification for quick lookup
+      const identificationsMap = new Map(
+        suspectIdentifications.map((si: any) => [si.bip_id, {
+          id: si.id,
+          identification_number: si.identification_number,
+          notes: si.notes,
+          created_at: si.created_at
+        }])
+      );
+
+      // Map results to include sell data and suspect_identification
       const bipsWithSellData = bips.map((bip) => {
         const sellData = sellsMap.get(bip.id);
+        const suspectIdentification = identificationsMap.get(bip.id);
         return {
           ...bip,
           sell_date: sellData?.sell_date || null,
           sell_num_cupom_fiscal: sellData?.sell_num_cupom_fiscal || null,
-          sell_point_of_sale_code: sellData?.sell_point_of_sale_code || null
+          sell_point_of_sale_code: sellData?.sell_point_of_sale_code || null,
+          suspect_identification: suspectIdentification || null
         };
       });
 
