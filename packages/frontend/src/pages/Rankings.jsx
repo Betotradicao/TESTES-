@@ -23,13 +23,119 @@ const MOTIVOS_LABELS = {
   furto: 'Furto'
 };
 
-const MOTIVOS_DESCRIPTIONS = {
-  devolucao_mercadoria: 'Representa quando o Balconista faz corretamente a operação de cancelamento de uma bipagem.',
-  produto_abandonado: 'Representa produtos que são retirados no balcão pelo cliente porém são esquecidos ou descartados pelo mesmo em alguma área na loja.',
-  falta_cancelamento: 'Representa produtos que o Balconista acaba bipando e o cliente muitas vezes pede para aumentar ou diminuir a quantidade, gerando uma nova bipagem onde o balconista por sua vez acaba bipando novamente e esquecendo de cancelar aquela primeira bipagem.',
-  erro_operador: 'Representa quando a mercadoria sai do setor porém ao ser passada no PDV o Operador de caixa acaba não registrando essa mercadoria, seja intencionalmente ou não.',
-  erro_balconista: 'Representa o erro detectado pelo cliente ao receber uma mercadoria com código errado. Isso só é possível descobrir se o Balconista esquecer de fazer o Cancelamento da Etiqueta ao trocar.',
-  furto: 'Representa o Furto causado pela pessoa que retirou a mercadoria no Balcão.'
+const MOTIVOS_TOOLTIPS = {
+  devolucao_mercadoria: {
+    emoji: '✅',
+    color: 'from-green-500 to-green-600',
+    title: 'Cancelamento de Bipagem',
+    description: 'O balconista fez corretamente a operação de cancelamento.',
+    example: 'Cliente pediu 500g de queijo, balconista bipou 600g por engano e cancelou corretamente.',
+    status: 'Operação correta'
+  },
+  produto_abandonado: {
+    emoji: '📦',
+    color: 'from-yellow-500 to-yellow-600',
+    title: 'Produto Abandonado',
+    description: 'Produto retirado no balcão mas esquecido ou descartado pelo cliente na loja.',
+    example: 'Cliente pegou 1kg de carne, andou pela loja e deixou na prateleira de biscoitos.',
+    status: 'Perda potencial'
+  },
+  falta_cancelamento: {
+    emoji: '⚠️',
+    color: 'from-orange-500 to-orange-600',
+    title: 'Falta de Cancelamento',
+    description: 'Balconista bipou duas vezes mas esqueceu de cancelar a primeira bipagem.',
+    example: 'Cliente pediu 300g, balconista bipou 400g, refez com 300g mas não cancelou os 400g.',
+    status: 'Erro do balconista'
+  },
+  erro_operador: {
+    emoji: '🖥️',
+    color: 'from-red-500 to-red-600',
+    title: 'Erro do Operador',
+    description: 'Mercadoria saiu do setor mas o operador de caixa não registrou no PDV.',
+    example: 'Cliente levou 2kg de picanha mas operador passou apenas 1kg no caixa.',
+    status: 'Possível fraude'
+  },
+  erro_balconista: {
+    emoji: '🏷️',
+    color: 'from-purple-500 to-purple-600',
+    title: 'Erro do Balconista',
+    description: 'Cliente recebeu mercadoria com código errado. Balconista esqueceu de cancelar etiqueta ao trocar.',
+    example: 'Cliente pediu filé mignon, recebeu etiqueta de acém. Balconista trocou mas não cancelou.',
+    status: 'Erro de etiqueta'
+  },
+  furto: {
+    emoji: '🚨',
+    color: 'from-gray-700 to-gray-900',
+    title: 'Furto',
+    description: 'Furto cometido pela pessoa que retirou a mercadoria no balcão.',
+    example: 'Pessoa retirou mercadoria no balcão e saiu da loja sem passar no caixa.',
+    status: 'Ação criminal'
+  }
+};
+
+// Componente de Tooltip Moderno
+const ModernTooltip = ({ motivo, children }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const tooltip = MOTIVOS_TOOLTIPS[motivo];
+
+  if (!tooltip) return children;
+
+  return (
+    <div className="relative inline-block">
+      <div
+        onMouseEnter={() => setIsVisible(true)}
+        onMouseLeave={() => setIsVisible(false)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsVisible(!isVisible);
+        }}
+      >
+        {children}
+      </div>
+
+      {isVisible && (
+        <div className="absolute z-50 bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-72 pointer-events-none">
+          <div className={`bg-gradient-to-br ${tooltip.color} rounded-xl shadow-2xl p-4 text-white`}>
+            {/* Header */}
+            <div className="flex items-center gap-2 mb-3 border-b border-white/20 pb-2">
+              <span className="text-2xl">{tooltip.emoji}</span>
+              <span className="font-bold text-lg">{tooltip.title}</span>
+            </div>
+
+            {/* Descrição */}
+            <p className="text-sm text-white/90 mb-3">
+              {tooltip.description}
+            </p>
+
+            {/* Exemplo */}
+            <div className="bg-white/10 rounded-lg p-2 mb-2">
+              <p className="text-xs font-semibold text-white/70 mb-1">💡 Exemplo:</p>
+              <p className="text-xs text-white/90 italic">
+                "{tooltip.example}"
+              </p>
+            </div>
+
+            {/* Status */}
+            <div className="flex items-center justify-end">
+              <span className="text-xs bg-white/20 px-2 py-1 rounded-full">
+                {tooltip.status}
+              </span>
+            </div>
+          </div>
+
+          {/* Seta */}
+          <div className={`absolute left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent`}
+               style={{ borderTopColor: tooltip.color.includes('green') ? '#22c55e' :
+                        tooltip.color.includes('yellow') ? '#eab308' :
+                        tooltip.color.includes('orange') ? '#f97316' :
+                        tooltip.color.includes('red') ? '#ef4444' :
+                        tooltip.color.includes('purple') ? '#a855f7' : '#374151' }}>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default function Rankings() {
@@ -771,13 +877,16 @@ export default function Rankings() {
                         ? 'cursor-pointer hover:shadow-lg hover:border-orange-300'
                         : 'opacity-60'
                     }`}
-                    title={MOTIVOS_DESCRIPTIONS[motivo]}
                   >
-                    {/* Ícone de informação no canto superior direito */}
-                    <div className="absolute top-2 right-2 text-gray-400 group-hover:text-orange-500 transition-colors">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
+                    {/* Ícone de informação com Tooltip Moderno */}
+                    <div className="absolute top-2 right-2">
+                      <ModernTooltip motivo={motivo}>
+                        <div className="text-gray-400 hover:text-orange-500 transition-colors cursor-help">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                      </ModernTooltip>
                     </div>
 
                     <div className="text-center">
