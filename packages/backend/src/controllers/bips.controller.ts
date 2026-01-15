@@ -45,11 +45,11 @@ export class BipsController {
       const limitNumber = parseInt(limit as string, 10);
       const offset = (pageNumber - 1) * limitNumber;
 
-      // Validate pagination
-      if (pageNumber < 1 || limitNumber < 1 || limitNumber > 100) {
+      // Validate pagination (sem limite máximo para suportar tela de Rankings)
+      if (pageNumber < 1 || limitNumber < 1) {
         console.log('❌ Erro de paginação:', { pageNumber, limitNumber });
         return res.status(400).json({
-          error: 'Invalid pagination parameters. Page must be >= 1, limit must be between 1 and 100'
+          error: 'Invalid pagination parameters. Page must be >= 1, limit must be >= 1'
         });
       }
 

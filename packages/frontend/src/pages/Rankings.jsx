@@ -37,6 +37,7 @@ export default function Rankings() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [bipages, setBipages] = useState([]);
+  const [pendingBipages, setPendingBipages] = useState([]); // Bipagens pendentes
   const [sectors, setSectors] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [activeView, setActiveView] = useState('motivos');
@@ -88,13 +89,18 @@ export default function Rankings() {
     existingIdentifications: []
   });
 
-  // Filtros específicos para rankings - padrão: DIA ATUAL
+  // Filtros específicos para rankings - padrão: Dia 1 do mês até dia atual
   const getTodayDate = () => {
     return new Date().toISOString().split('T')[0];
   };
 
+  const getFirstDayOfMonth = () => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  };
+
   const [filters, setFilters] = useState({
-    date_from: getTodayDate(), // Dia atual (não últimos 30 dias)
+    date_from: getFirstDayOfMonth(), // Dia 1 do mês atual
     date_to: getTodayDate(), // Dia atual
     sector_id: '',
     employee_id: '',
@@ -134,7 +140,7 @@ export default function Rankings() {
 
       const params = {
         page: 1,
-        limit: 100, // Máximo permitido pelo backend
+        limit: 1000, // Buscar mais para ter contagem correta nos cards
         status: 'cancelled', // Só cancelamentos
         date_from: filters.date_from, // SEMPRE enviar (obrigatório no backend)
         date_to: filters.date_to // SEMPRE enviar (obrigatório no backend)
@@ -183,11 +189,34 @@ export default function Rankings() {
     }
   };
 
+  // Buscar bipagens pendentes (para o card "Total de Bipagens Pendentes")
+  const fetchPendingBipages = async () => {
+    try {
+      const params = {
+        page: 1,
+        limit: 1000, // Buscar mais para ter contagem correta
+        status: 'pending',
+        date_from: filters.date_from,
+        date_to: filters.date_to
+      };
+
+      // Filtros opcionais
+      if (filters.sector_id) params.sector_id = filters.sector_id;
+      if (filters.employee_id) params.employee_id = filters.employee_id;
+
+      const response = await api.get('/bips', { params });
+      setPendingBipages(response.data.data || []);
+    } catch (error) {
+      console.error('Erro ao buscar bipagens pendentes:', error);
+    }
+  };
+
   // Carregar dados iniciais
   useEffect(() => {
     loadSectors();
     loadEmployees();
     fetchCancelledBipages();
+    fetchPendingBipages();
   }, []);
 
   // Aplicar filtros
@@ -197,6 +226,7 @@ export default function Rankings() {
 
   const applyFilters = () => {
     fetchCancelledBipages();
+    fetchPendingBipages();
   };
 
   // Calcular estatísticas
@@ -299,6 +329,7 @@ export default function Rankings() {
   // Totais
   const totalCancelamentos = cancelledBips.length;
   const totalValorCancelado = cancelledBips.reduce((sum, bip) => sum + (bip.bip_price_cents || 0), 0);
+  const totalBipagensPendentes = pendingBipages.length;
 
   // Funções para abrir modal de detalhes
   const openMotivoDetails = (motivo) => {
@@ -674,7 +705,7 @@ export default function Rankings() {
           </div>
 
           {/* Cards de Resumo */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg shadow-lg p-6 text-white">
               <div className="flex items-center justify-between">
                 <div>
@@ -698,6 +729,20 @@ export default function Rankings() {
                 <div className="bg-white bg-opacity-20 rounded-full p-4">
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-lg shadow-lg p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-yellow-100 text-sm font-medium mb-1">Bipagens Pendentes</p>
+                  <p className="text-4xl font-bold">{totalBipagensPendentes}</p>
+                </div>
+                <div className="bg-white bg-opacity-20 rounded-full p-4">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
               </div>
