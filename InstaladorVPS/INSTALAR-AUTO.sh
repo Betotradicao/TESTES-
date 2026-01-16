@@ -162,51 +162,42 @@ echo "✅ IP da VPS detectado: $HOST_IP"
 echo ""
 
 # ============================================
-# CONFIGURAÇÃO DA API DO CLIENTE (INTERSOLID/ERP)
+# CONFIGURAÇÃO DOS NOMES (BANCO E BUCKET)
 # ============================================
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🏪 CONFIGURAÇÃO DO CLIENTE (Loja) - OPCIONAL"
+echo "🗄️  CONFIGURAÇÃO DO BANCO DE DADOS E ARMAZENAMENTO"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "O sistema pode se conectar à API do ERP/Intersolid do cliente."
-echo "Você pode configurar isso agora ou depois via painel web."
-echo ""
-echo "Deixe em branco se não souber ou quiser configurar depois."
-echo ""
 
-# IP/Domínio do cliente (OPCIONAL)
-read -p "IP ou domínio do servidor do cliente (deixe vazio para pular): " CLIENT_API_HOST < /dev/tty
-CLIENT_API_HOST=$(echo "$CLIENT_API_HOST" | xargs)
+# Nome do banco de dados PostgreSQL
+echo "📊 Nome do Banco de Dados PostgreSQL"
+echo "   (Pressione ENTER para usar o padrão: prevencao_db)"
+read -p "Nome do banco: " DB_NAME_INPUT < /dev/tty
+DB_NAME_INPUT=$(echo "$DB_NAME_INPUT" | xargs)
 
-if [ -n "$CLIENT_API_HOST" ]; then
-    echo "✅ Host do cliente: $CLIENT_API_HOST"
+if [ -n "$DB_NAME_INPUT" ]; then
+    POSTGRES_DB_NAME="$DB_NAME_INPUT"
+    echo "✅ Nome do banco: $POSTGRES_DB_NAME"
 else
-    echo "⏭️  Host do cliente não informado - configure depois no painel"
+    POSTGRES_DB_NAME="prevencao_db"
+    echo "✅ Usando padrão: $POSTGRES_DB_NAME"
 fi
 
 echo ""
 
-# Porta da API Intersolid (OPCIONAL)
-echo "Porta da API Intersolid (deixe vazio para pular)"
-read -p "Porta: " CLIENT_API_PORT < /dev/tty
-CLIENT_API_PORT=$(echo "$CLIENT_API_PORT" | xargs)
-if [ -n "$CLIENT_API_PORT" ]; then
-    echo "✅ Porta da API: $CLIENT_API_PORT"
-else
-    echo "⏭️  Porta não informada - configure depois no painel"
-fi
+# Nome do bucket MinIO
+echo "📦 Nome do Bucket MinIO (Armazenamento de Imagens)"
+echo "   (Pressione ENTER para usar o padrão: market-security)"
+read -p "Nome do bucket: " BUCKET_NAME_INPUT < /dev/tty
+BUCKET_NAME_INPUT=$(echo "$BUCKET_NAME_INPUT" | xargs)
 
-echo ""
-
-# Porta da API Zanthus (OPCIONAL)
-echo "Porta da API Zanthus - PDV (deixe vazio para pular)"
-read -p "Porta: " ZANTHUS_API_PORT < /dev/tty
-ZANTHUS_API_PORT=$(echo "$ZANTHUS_API_PORT" | xargs)
-if [ -n "$ZANTHUS_API_PORT" ]; then
-    echo "✅ Porta Zanthus: $ZANTHUS_API_PORT"
+if [ -n "$BUCKET_NAME_INPUT" ]; then
+    MINIO_BUCKET="$BUCKET_NAME_INPUT"
+    echo "✅ Nome do bucket: $MINIO_BUCKET"
 else
-    echo "⏭️  Porta Zanthus não informada - configure depois no painel"
+    MINIO_BUCKET="market-security"
+    echo "✅ Usando padrão: $MINIO_BUCKET"
 fi
 
 echo ""
@@ -254,22 +245,13 @@ cat > .env << EOF
 HOST_IP=$HOST_IP
 
 # ============================================
-# API DO CLIENTE (INTERSOLID/ERP)
-# Configure via painel web se deixou em branco
-# ============================================
-INTERSOLID_API_URL=${CLIENT_API_HOST:+http://$CLIENT_API_HOST}
-INTERSOLID_PORT=$CLIENT_API_PORT
-ZANTHUS_API_URL=${CLIENT_API_HOST:+http://$CLIENT_API_HOST}
-ZANTHUS_PORT=$ZANTHUS_API_PORT
-
-# ============================================
 # MINIO - Armazenamento de Arquivos
 # ============================================
 MINIO_ROOT_USER=$MINIO_ROOT_USER
 MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD
 MINIO_ACCESS_KEY=$MINIO_ACCESS_KEY
 MINIO_SECRET_KEY=$MINIO_SECRET_KEY
-MINIO_BUCKET_NAME=market-security
+MINIO_BUCKET_NAME=$MINIO_BUCKET
 MINIO_PUBLIC_ENDPOINT=$HOST_IP
 MINIO_PUBLIC_PORT=9010
 MINIO_PUBLIC_USE_SSL=false
@@ -279,14 +261,14 @@ MINIO_PUBLIC_USE_SSL=false
 # ============================================
 POSTGRES_USER=$POSTGRES_USER
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
-POSTGRES_DB=prevencao_db
+POSTGRES_DB=$POSTGRES_DB_NAME
 
 # Conexão do Backend ao PostgreSQL (interno Docker)
 DB_HOST=postgres
 DB_PORT=5432
 DB_USER=$POSTGRES_USER
 DB_PASSWORD=$POSTGRES_PASSWORD
-DB_NAME=prevencao_db
+DB_NAME=$POSTGRES_DB_NAME
 
 # ============================================
 # BACKEND - API
@@ -408,24 +390,6 @@ echo "      http://$HOST_IP:3001"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "🏪 CONEXÃO COM O CLIENTE:"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-if [ -n "$CLIENT_API_HOST" ]; then
-    echo "   📡 API Intersolid:"
-    echo "      http://$CLIENT_API_HOST:$CLIENT_API_PORT"
-    echo ""
-    echo "   🛒 API Zanthus (PDV):"
-    echo "      http://$CLIENT_API_HOST:$ZANTHUS_API_PORT"
-    echo ""
-    echo "   💡 Certifique-se que as portas estão liberadas no firewall/roteador do cliente"
-else
-    echo "   ⚠️  Não configurado - configure depois no painel web:"
-    echo "      Configurações de REDE → APIs"
-fi
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
 echo "🔐 CREDENCIAIS GERADAS:"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
@@ -433,13 +397,14 @@ echo "   📦 MinIO (Armazenamento):"
 echo "      Console: http://$HOST_IP:9011"
 echo "      Usuário: $MINIO_ROOT_USER"
 echo "      Senha: $MINIO_ROOT_PASSWORD"
+echo "      Bucket: $MINIO_BUCKET"
 echo ""
 echo "   🗄️  PostgreSQL (Banco de Dados):"
 echo "      Host: $HOST_IP"
 echo "      Porta: 5434"
 echo "      Usuário: $POSTGRES_USER"
 echo "      Senha: $POSTGRES_PASSWORD"
-echo "      Database: prevencao_db"
+echo "      Database: $POSTGRES_DB_NAME"
 echo ""
 echo "   🔑 API Token (para scanners):"
 echo "      $API_TOKEN"
@@ -494,19 +459,13 @@ cat > CREDENCIAIS.txt << EOF
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🏪 CONEXÃO COM O CLIENTE:
-   API Intersolid: http://$CLIENT_API_HOST:$CLIENT_API_PORT
-   API Zanthus: http://$CLIENT_API_HOST:$ZANTHUS_API_PORT
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 📦 MINIO (Armazenamento de Arquivos):
    Console: http://$HOST_IP:9011
    API Endpoint: $HOST_IP
    API Port: 9010
    Usuário: $MINIO_ROOT_USER
    Senha: $MINIO_ROOT_PASSWORD
-   Bucket: market-security
+   Bucket: $MINIO_BUCKET
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -515,7 +474,7 @@ cat > CREDENCIAIS.txt << EOF
    Porta Externa: 5434
    Usuário: $POSTGRES_USER
    Senha: $POSTGRES_PASSWORD
-   Database: prevencao_db
+   Database: $POSTGRES_DB_NAME
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
