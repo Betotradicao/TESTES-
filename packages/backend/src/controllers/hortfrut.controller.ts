@@ -6,13 +6,32 @@ import { HortFrutConferenceItem } from '../entities/HortFrutConferenceItem';
 import { AuthRequest } from '../middleware/auth';
 import { Between } from 'typeorm';
 import { minioService } from '../services/minio.service';
+import { Company } from '../entities/Company';
+
+// Helper para obter companyId (busca primeira empresa se usuário MASTER não tiver companyId)
+async function getEffectiveCompanyId(req: AuthRequest): Promise<string | undefined> {
+  let companyId = req.user?.companyId;
+
+  // Se usuário é MASTER e não tem companyId, buscar a primeira empresa
+  if (!companyId && req.user?.isMaster) {
+    const companyRepository = AppDataSource.getRepository(Company);
+    const firstCompany = await companyRepository.findOne({
+      order: { createdAt: 'ASC' }
+    });
+    if (firstCompany) {
+      companyId = firstCompany.id;
+    }
+  }
+
+  return companyId || undefined;
+}
 
 export class HortFrutController {
   // ==================== CAIXAS ====================
 
   static async getBoxes(req: AuthRequest, res: Response) {
     try {
-      const companyId = req.user?.companyId || undefined;
+      const companyId = await getEffectiveCompanyId(req);
       const onlyActive = req.query.active === 'true';
 
       const boxRepository = AppDataSource.getRepository(HortFrutBox);
@@ -36,7 +55,7 @@ export class HortFrutController {
 
   static async createBox(req: AuthRequest, res: Response) {
     try {
-      const companyId = req.user?.companyId || undefined;
+      const companyId = await getEffectiveCompanyId(req);
       const { name, description, weight, photoUrl } = req.body;
 
       if (!name || weight === undefined) {
