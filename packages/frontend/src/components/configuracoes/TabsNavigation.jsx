@@ -13,6 +13,7 @@ export default function TabsNavigation({ activeTab, onChange, pageType = 'config
 
   // Abas para Configurações normais
   const configTabs = [
+    { id: 'empresa', label: 'Empresa' },
     { id: 'sectors', label: 'Setores' },
     { id: 'employees', label: 'Colaboradores' },
     { id: 'prevention', label: 'Leitores' },
