@@ -348,7 +348,9 @@ INSERT INTO migrations (timestamp, name) VALUES
   (1765600000000, 'CreateEmailMonitorLogsTable1765600000000'),
   (1765700000000, 'AddImagePathToEmailMonitorLogs1765700000000'),
   (1765800000000, 'AddValidacaoIAToBips1765800000000'),
-  (1765900000000, 'AddIACharacteristicsToProducts1765900000000')
+  (1765900000000, 'AddIACharacteristicsToProducts1765900000000'),
+  (1735600000000, 'CreateRuptureTables1735600000000'),
+  (1736900000000, 'CreateHortFrutTables1736900000000')
 ON CONFLICT DO NOTHING;
 EOSQL
 
