@@ -14,6 +14,9 @@ export class Company {
   @Column({ unique: true })
   cnpj: string;
 
+  @Column({ nullable: true })
+  identificador?: string;
+
   @Column({ name: 'responsavel_nome', nullable: true })
   responsavelNome?: string;
 

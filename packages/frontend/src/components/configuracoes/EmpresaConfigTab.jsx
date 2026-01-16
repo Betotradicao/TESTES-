@@ -25,7 +25,7 @@ export default function EmpresaConfigTab() {
     nomeFantasia: '',
     razaoSocial: '',
     cnpj: '',
-    identificadorLoja: '',
+    identificador: '',
     cep: '',
     rua: '',
     numero: '',
@@ -85,7 +85,7 @@ export default function EmpresaConfigTab() {
       nomeFantasia: company.nomeFantasia || '',
       razaoSocial: company.razaoSocial || '',
       cnpj: company.cnpj || '',
-      identificadorLoja: company.identificadorLoja || '',
+      identificador: company.identificador || '',
       cep: company.cep || '',
       rua: company.rua || '',
       numero: company.numero || '',
@@ -148,7 +148,7 @@ export default function EmpresaConfigTab() {
         nomeFantasia: '',
         razaoSocial: '',
         cnpj: '',
-        identificadorLoja: '',
+        identificador: '',
         cep: '',
         rua: '',
         numero: '',
@@ -241,8 +241,8 @@ export default function EmpresaConfigTab() {
                   </label>
                   <input
                     type="text"
-                    name="identificadorLoja"
-                    value={newStoreData.identificadorLoja}
+                    name="identificador"
+                    value={newStoreData.identificador}
                     onChange={handleNewStoreChange}
                     placeholder="Ex: Loja 1, Filial Centro"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -421,9 +421,9 @@ export default function EmpresaConfigTab() {
                 <p className="text-sm text-gray-500">Cadastrada no primeiro acesso</p>
               </div>
             </div>
-            {empresaPrincipal?.identificadorLoja && (
+            {empresaPrincipal?.identificador && (
               <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                {empresaPrincipal.identificadorLoja}
+                {empresaPrincipal.identificador}
               </span>
             )}
           </div>
@@ -498,9 +498,9 @@ export default function EmpresaConfigTab() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-3">
                       <h3 className="text-lg font-semibold text-gray-900">{loja.nomeFantasia}</h3>
-                      {loja.identificadorLoja && (
+                      {loja.identificador && (
                         <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">
-                          {loja.identificadorLoja}
+                          {loja.identificador}
                         </span>
                       )}
                     </div>
@@ -578,7 +578,7 @@ export default function EmpresaConfigTab() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Identificador</p>
-                    <p className="font-medium">{viewingCompany.identificadorLoja || '-'}</p>
+                    <p className="font-medium">{viewingCompany.identificador || '-'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Nome Fantasia</p>
@@ -702,8 +702,8 @@ export default function EmpresaConfigTab() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Identificador</label>
                     <input
                       type="text"
-                      value={editFormData.identificadorLoja || ''}
-                      onChange={(e) => setEditFormData({ ...editFormData, identificadorLoja: e.target.value })}
+                      value={editFormData.identificador || ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, identificador: e.target.value })}
                       placeholder="Ex: Loja 1"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />

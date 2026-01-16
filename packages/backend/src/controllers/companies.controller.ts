@@ -223,7 +223,7 @@ export class CompaniesController {
     try {
       const userId = (req as any).userId;
       const {
-        nomeFantasia, razaoSocial, cnpj,
+        nomeFantasia, razaoSocial, cnpj, identificador,
         cep, rua, numero, complemento, bairro, cidade, estado,
         telefone, email,
         responsavelNome, responsavelEmail, responsavelTelefone
@@ -270,6 +270,7 @@ export class CompaniesController {
       if (nomeFantasia !== undefined) company.nomeFantasia = nomeFantasia;
       if (razaoSocial !== undefined) company.razaoSocial = razaoSocial;
       if (cnpj !== undefined) company.cnpj = cnpj;
+      if (identificador !== undefined) company.identificador = identificador;
       if (telefone !== undefined) company.telefone = telefone;
       if (email !== undefined) company.email = email;
 
