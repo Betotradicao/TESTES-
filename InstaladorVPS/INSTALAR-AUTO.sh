@@ -9,11 +9,13 @@ fi
 # ============================================
 # INSTALADOR AUTOMÁTICO - VPS LINUX
 # Sistema: Prevenção no Radar
+# Versão: 2.0 (Sem Tailscale)
 # ============================================
 
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║                                                            ║"
 echo "║     INSTALADOR AUTOMÁTICO - PREVENÇÃO NO RADAR (VPS)      ║"
+echo "║                    Versão 2.0 - Sem Tailscale              ║"
 echo "║                                                            ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
@@ -143,7 +145,7 @@ echo "✅ Estrutura validada: packages/backend e packages/frontend encontrados"
 echo ""
 
 # ============================================
-# DETECÇÃO AUTOMÁTICA DE IP
+# DETECÇÃO AUTOMÁTICA DE IP DA VPS
 # ============================================
 
 echo "🔍 Detectando IP público da VPS..."
@@ -156,159 +158,59 @@ if [ -z "$HOST_IP" ]; then
     read -p "Digite o IP público desta VPS: " HOST_IP
 fi
 
-echo "✅ IP detectado: $HOST_IP"
+echo "✅ IP da VPS detectado: $HOST_IP"
 echo ""
 
 # ============================================
-# INSTALAÇÃO DO TAILSCALE
+# CONFIGURAÇÃO DA API DO CLIENTE (INTERSOLID/ERP)
 # ============================================
 
-echo "🔗 Instalando Tailscale (VPN segura)..."
-
-# Verificar se Tailscale já está instalado
-if ! command -v tailscale &> /dev/null; then
-    echo "📦 Instalando Tailscale..."
-    curl -fsSL https://tailscale.com/install.sh | sh
-    echo "✅ Tailscale instalado"
-else
-    echo "✅ Tailscale já instalado"
-fi
-
-# Garantir que o daemon tailscaled está rodando
-echo "🔄 Iniciando daemon do Tailscale..."
-systemctl enable tailscaled 2>/dev/null || true
-systemctl start tailscaled 2>/dev/null || true
-sleep 3
-
-# Verificar se tailscaled está rodando e esperar até estar ativo
-MAX_TRIES=10
-TRY=0
-while [ $TRY -lt $MAX_TRIES ]; do
-    if systemctl is-active --quiet tailscaled 2>/dev/null; then
-        echo "✅ Daemon tailscaled está ativo"
-        break
-    fi
-
-    echo "⏳ Aguardando daemon iniciar... (tentativa $((TRY+1))/$MAX_TRIES)"
-    systemctl restart tailscaled 2>/dev/null || true
-    sleep 2
-    TRY=$((TRY + 1))
-done
-
-# Se ainda não estiver rodando, tentar método alternativo
-if ! systemctl is-active --quiet tailscaled 2>/dev/null; then
-    echo "⚠️  systemctl falhou. Tentando iniciar tailscaled manualmente..."
-    tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock &
-    sleep 3
-fi
-
-# Forçar logout para limpar autenticação antiga
-echo "🔄 Limpando autenticação antiga do Tailscale..."
-tailscale logout 2>/dev/null || true
-
-# Limpar log antigo
-rm -f /tmp/tailscale-auth.log
-
-# Iniciar Tailscale com --reset para forçar nova autenticação
-echo "🚀 Iniciando Tailscale (nova autenticação necessária)..."
-tailscale up --reset --accept-routes --shields-up=false 2>&1 | tee /tmp/tailscale-auth.log &
-TAILSCALE_PID=$!
-
-# Aguardar alguns segundos para o link de autenticação aparecer
-sleep 5
-
-# Tentar extrair o link de autenticação
-TAILSCALE_AUTH_URL=$(grep -o 'https://login.tailscale.com/a/[a-z0-9]*' /tmp/tailscale-auth.log | head -n 1)
-
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🏪 CONFIGURAÇÃO DO CLIENTE (Loja)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "⏳ Aguardando autenticação no Tailscale..."
-echo "   Você tem até 2 minutos para autenticar no link acima"
+echo "O sistema precisa acessar a API do ERP/Intersolid do cliente."
+echo ""
+echo "Opções de conexão:"
+echo "  1. IP público do cliente (ex: 189.50.xxx.xxx)"
+echo "  2. Domínio/DDNS do cliente (ex: loja.ddns.net)"
+echo "  3. IP local via túnel SSH (ex: 172.18.0.1)"
 echo ""
 
-# Aguardar até que o Tailscale esteja autenticado (IP disponível)
-MAX_WAIT=120  # 2 minutos
-ELAPSED=0
-TAILSCALE_IP=""
-
-while [ $ELAPSED -lt $MAX_WAIT ]; do
-    # Tentar obter IP
-    TAILSCALE_IP=$(tailscale ip -4 2>/dev/null || echo "")
-
-    if [ -n "$TAILSCALE_IP" ] && [ "$TAILSCALE_IP" != "" ]; then
-        echo ""
-        echo "✅ IP Tailscale da VPS detectado: $TAILSCALE_IP"
-        echo ""
-        sleep 3  # Pausa de 3 segundos para o usuário ver a mensagem
-        break
-    fi
-
-    # Mostrar progresso a cada 10 segundos
-    if [ $((ELAPSED % 10)) -eq 0 ] && [ $ELAPSED -gt 0 ]; then
-        echo "   Ainda aguardando... (${ELAPSED}s decorridos)"
-    fi
-
-    sleep 2
-    ELAPSED=$((ELAPSED + 2))
-done
-
-# Se não conseguiu detectar após timeout
-if [ -z "$TAILSCALE_IP" ]; then
-    echo ""
-    echo "⚠️  Timeout: Não foi possível detectar o IP automaticamente"
-    echo ""
-    read -p "Digite o IP Tailscale da VPS manualmente: " TAILSCALE_IP
-fi
-
-echo ""
-
-# ============================================
-# IP TAILSCALE DO CLIENTE (WINDOWS/ERP)
-# ============================================
-
-echo "🏪 Configuração do Cliente (Loja)"
-echo ""
-echo "Informe o IP Tailscale da máquina do cliente onde roda o ERP."
-echo ""
-echo "Exemplo: 100.69.131.40"
-echo ""
-
-# Loop até obter input válido
+# IP/Domínio do cliente
 while true; do
-    read -p "IP Tailscale da máquina do cliente: " TAILSCALE_CLIENT_IP < /dev/tty
+    read -p "IP ou domínio do servidor do cliente: " CLIENT_API_HOST < /dev/tty
+    CLIENT_API_HOST=$(echo "$CLIENT_API_HOST" | xargs)
 
-    # Remover espaços em branco
-    TAILSCALE_CLIENT_IP=$(echo "$TAILSCALE_CLIENT_IP" | xargs)
-
-    if [ -n "$TAILSCALE_CLIENT_IP" ]; then
-        echo "✅ IP Tailscale do cliente configurado: $TAILSCALE_CLIENT_IP"
+    if [ -n "$CLIENT_API_HOST" ]; then
+        echo "✅ Host do cliente: $CLIENT_API_HOST"
         break
     else
-        echo "⚠️  Por favor, informe o IP Tailscale do cliente."
+        echo "⚠️  Por favor, informe o IP ou domínio do cliente."
     fi
 done
 
 echo ""
-echo "📡 Configuração de Subnet (Rede Local)"
-echo ""
-echo "Informe a subnet (rede local) do cliente que será roteada via Tailscale."
-echo ""
-echo "Exemplo: 10.6.1.0/24"
+
+# Porta da API Intersolid
+echo "Porta da API Intersolid (padrão: 3003)"
+read -p "Porta [3003]: " CLIENT_API_PORT < /dev/tty
+CLIENT_API_PORT=$(echo "$CLIENT_API_PORT" | xargs)
+if [ -z "$CLIENT_API_PORT" ]; then
+    CLIENT_API_PORT="3003"
+fi
+echo "✅ Porta da API: $CLIENT_API_PORT"
+
 echo ""
 
-# Loop até obter input válido
-while true; do
-    read -p "Subnet do cliente: " CLIENT_SUBNET < /dev/tty
-
-    # Remover espaços em branco
-    CLIENT_SUBNET=$(echo "$CLIENT_SUBNET" | xargs)
-
-    if [ -n "$CLIENT_SUBNET" ]; then
-        echo "✅ Subnet configurado: $CLIENT_SUBNET"
-        break
-    else
-        echo "⚠️  Por favor, informe o subnet do cliente."
-    fi
-done
+# Porta da API Zanthus (opcional)
+echo "Porta da API Zanthus - PDV (padrão: 5000)"
+read -p "Porta [5000]: " ZANTHUS_API_PORT < /dev/tty
+ZANTHUS_API_PORT=$(echo "$ZANTHUS_API_PORT" | xargs)
+if [ -z "$ZANTHUS_API_PORT" ]; then
+    ZANTHUS_API_PORT="5000"
+fi
+echo "✅ Porta Zanthus: $ZANTHUS_API_PORT"
 
 echo ""
 
@@ -348,17 +250,19 @@ cat > .env << EOF
 # ============================================
 # CONFIGURAÇÕES DO SISTEMA
 # Gerado automaticamente em: $(date)
+# Versão: 2.0 (Sem Tailscale)
 # ============================================
 
 # IP da VPS
 HOST_IP=$HOST_IP
 
 # ============================================
-# TAILSCALE - Rede Privada Virtual
+# API DO CLIENTE (INTERSOLID/ERP)
 # ============================================
-TAILSCALE_VPS_IP=$TAILSCALE_IP
-TAILSCALE_CLIENT_IP=$TAILSCALE_CLIENT_IP
-TAILSCALE_CLIENT_SUBNET=$CLIENT_SUBNET
+INTERSOLID_API_URL=http://$CLIENT_API_HOST
+INTERSOLID_PORT=$CLIENT_API_PORT
+ZANTHUS_API_URL=http://$CLIENT_API_HOST
+ZANTHUS_PORT=$ZANTHUS_API_PORT
 
 # ============================================
 # MINIO - Armazenamento de Arquivos
@@ -506,34 +410,16 @@ echo "      http://$HOST_IP:3001"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "🔗 TAILSCALE (Rede Privada Virtual):"
+echo "🏪 CONEXÃO COM O CLIENTE:"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-if [ -n "$TAILSCALE_IP" ]; then
-    echo "   ✅ Status: Conectado automaticamente via Auth Key!"
-    echo "   🌐 IP da VPS na rede Tailscale: $TAILSCALE_IP"
-    echo "   💾 IP salvo automaticamente no banco de dados"
-    echo ""
-    echo "   💡 Configure o IP do cliente em: Configurações → Tailscale"
-else
-    echo "   ⚠️  Aviso: Tailscale não conectou automaticamente"
-    echo ""
-    if [ -n "$TAILSCALE_AUTH_URL" ]; then
-        echo "   🔐 Auth Key pode ter expirado. Use autenticação manual:"
-        echo "      $TAILSCALE_AUTH_URL"
-        echo ""
-        echo "   Após autenticar, execute para ver o IP:"
-        echo "      tailscale ip -4"
-        echo ""
-        echo "   📋 Para gerar nova Auth Key, acesse:"
-        echo "      https://login.tailscale.com/admin/settings/keys"
-    else
-        echo "   Execute: sudo tailscale up --authkey=SUA_CHAVE"
-        echo ""
-        echo "   📋 Para gerar Auth Key, acesse:"
-        echo "      https://login.tailscale.com/admin/settings/keys"
-    fi
-fi
+echo "   📡 API Intersolid:"
+echo "      http://$CLIENT_API_HOST:$CLIENT_API_PORT"
+echo ""
+echo "   🛒 API Zanthus (PDV):"
+echo "      http://$CLIENT_API_HOST:$ZANTHUS_API_PORT"
+echo ""
+echo "   💡 Certifique-se que as portas estão liberadas no firewall/roteador do cliente"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
@@ -589,11 +475,11 @@ echo ""
 cat > CREDENCIAIS.txt << EOF
 ╔════════════════════════════════════════════════════════════╗
 ║           CREDENCIAIS - PREVENÇÃO NO RADAR                 ║
-║           Gerado em: $(date)                    ║
+║           Gerado em: $(date)
+║           Versão: 2.0 (Sem Tailscale)                      ║
 ╚════════════════════════════════════════════════════════════╝
 
 🌐 IP PÚBLICO DA VPS: $HOST_IP
-🔗 IP TAILSCALE: ${TAILSCALE_IP:-Pendente autenticação}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -605,9 +491,9 @@ cat > CREDENCIAIS.txt << EOF
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🔗 TAILSCALE (Rede Privada Virtual):
-   IP na rede: ${TAILSCALE_IP:-Execute 'tailscale ip -4' após autenticar}
-   Link de autenticação: ${TAILSCALE_AUTH_URL:-Execute 'sudo tailscale up'}
+🏪 CONEXÃO COM O CLIENTE:
+   API Intersolid: http://$CLIENT_API_HOST:$CLIENT_API_PORT
+   API Zanthus: http://$CLIENT_API_HOST:$ZANTHUS_API_PORT
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

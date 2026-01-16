@@ -92,9 +92,11 @@ services:
       NODE_ENV: ${NODE_ENV}
       HOST_IP: ${HOST_IP}
 
-      # Tailscale
-      TAILSCALE_VPS_IP: ${TAILSCALE_VPS_IP}
-      TAILSCALE_CLIENT_IP: ${TAILSCALE_CLIENT_IP}
+      # API do Cliente (Intersolid/Zanthus)
+      INTERSOLID_API_URL: ${INTERSOLID_API_URL}
+      INTERSOLID_PORT: ${INTERSOLID_PORT}
+      ZANTHUS_API_URL: ${ZANTHUS_API_URL}
+      ZANTHUS_PORT: ${ZANTHUS_PORT}
     ports:
       - "3001:3001"
     networks:
