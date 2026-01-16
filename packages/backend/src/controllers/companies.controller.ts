@@ -189,9 +189,19 @@ export class CompaniesController {
           }
         }
 
-        // Usuário MASTER não tem empresa - retorna null ao invés de erro
+        // Usuário MASTER não tem empresa vinculada - busca a primeira empresa disponível
         if (user.isMaster) {
-          console.log('ℹ️  getMyCompany - Usuário MASTER sem empresa vinculada');
+          console.log('ℹ️  getMyCompany - Usuário MASTER sem empresa vinculada, buscando primeira empresa...');
+          const firstCompany = await companyRepository.findOne({
+            order: { createdAt: 'ASC' }
+          });
+
+          if (firstCompany) {
+            console.log('✅ getMyCompany - Primeira empresa encontrada para MASTER:', { id: firstCompany.id, nome: firstCompany.nomeFantasia });
+            return res.json(firstCompany);
+          }
+
+          console.log('ℹ️  getMyCompany - Nenhuma empresa cadastrada no sistema');
           return res.json(null);
         }
 
@@ -206,27 +216,43 @@ export class CompaniesController {
     }
   }
 
-  // Atualizar empresa do usuário logado (apenas admin da empresa)
+  // Atualizar empresa do usuário logado (apenas admin da empresa ou master)
   async updateMyCompany(req: Request, res: Response) {
     try {
       const userId = (req as any).userId;
-      const { nomeFantasia, razaoSocial, cnpj } = req.body;
+      const {
+        nomeFantasia, razaoSocial, cnpj,
+        cep, rua, numero, complemento, bairro, cidade, estado,
+        telefone, email,
+        responsavelNome, responsavelEmail, responsavelTelefone
+      } = req.body;
 
       const user = await userRepository.findOne({
         where: { id: userId },
         relations: ['company']
       });
 
-      if (!user || !user.company) {
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      let company: Company | null = user.company;
+
+      // Se usuário é MASTER e não tem empresa vinculada, busca a primeira empresa
+      if (!company && user.isMaster) {
+        company = await companyRepository.findOne({
+          order: { createdAt: 'ASC' }
+        });
+      }
+
+      if (!company) {
         return res.status(404).json({ error: 'Company not found' });
       }
 
-      // Verificar se usuário é admin da empresa
+      // Verificar se usuário é admin da empresa ou master
       if (user.role !== UserRole.ADMIN && !user.isMaster) {
         return res.status(403).json({ error: 'Only company admin can update company info' });
       }
-
-      const company = user.company;
 
       // Verificar se CNPJ já existe (se estiver sendo alterado)
       if (cnpj && cnpj !== company.cnpj) {
@@ -236,10 +262,26 @@ export class CompaniesController {
         }
       }
 
-      // Atualizar dados
-      if (nomeFantasia) company.nomeFantasia = nomeFantasia;
-      if (razaoSocial) company.razaoSocial = razaoSocial;
-      if (cnpj) company.cnpj = cnpj;
+      // Atualizar dados básicos
+      if (nomeFantasia !== undefined) company.nomeFantasia = nomeFantasia;
+      if (razaoSocial !== undefined) company.razaoSocial = razaoSocial;
+      if (cnpj !== undefined) company.cnpj = cnpj;
+      if (telefone !== undefined) company.telefone = telefone;
+      if (email !== undefined) company.email = email;
+
+      // Atualizar endereço
+      if (cep !== undefined) company.cep = cep;
+      if (rua !== undefined) company.rua = rua;
+      if (numero !== undefined) company.numero = numero;
+      if (complemento !== undefined) company.complemento = complemento;
+      if (bairro !== undefined) company.bairro = bairro;
+      if (cidade !== undefined) company.cidade = cidade;
+      if (estado !== undefined) company.estado = estado;
+
+      // Atualizar responsável
+      if (responsavelNome !== undefined) company.responsavelNome = responsavelNome;
+      if (responsavelEmail !== undefined) company.responsavelEmail = responsavelEmail;
+      if (responsavelTelefone !== undefined) company.responsavelTelefone = responsavelTelefone;
 
       await companyRepository.save(company);
 
