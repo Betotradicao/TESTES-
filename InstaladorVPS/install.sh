@@ -312,7 +312,7 @@ rm -f /tmp/init-database.js
 
 # Registrar todas as migrations como já executadas para evitar conflitos
 echo "📝 Registrando migrations no banco..."
-docker exec -i prevencao-postgres-prod psql -U postgres -d prevencao_db << 'EOSQL' > /dev/null 2>&1
+docker exec -i prevencao-postgres-prod psql -U postgres -d $POSTGRES_DB_NAME << EOSQL || true
 INSERT INTO migrations (timestamp, name) VALUES
   (1735566000000, 'AddIACharacteristicsToProducts1735566000000'),
   (1758045672125, 'CreateUsersTable1758045672125'),
