@@ -15,11 +15,12 @@ async function getEffectiveCompanyId(req: AuthRequest): Promise<string | undefin
   // Se usuário é MASTER e não tem companyId, buscar a primeira empresa
   if (!companyId && req.user?.isMaster) {
     const companyRepository = AppDataSource.getRepository(Company);
-    const firstCompany = await companyRepository.findOne({
-      order: { createdAt: 'ASC' }
+    const companies = await companyRepository.find({
+      order: { createdAt: 'ASC' },
+      take: 1
     });
-    if (firstCompany) {
-      companyId = firstCompany.id;
+    if (companies.length > 0) {
+      companyId = companies[0].id;
     }
   }
 
