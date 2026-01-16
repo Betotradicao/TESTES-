@@ -109,6 +109,27 @@ echo "✅ IP detectado: $HOST_IP"
 echo ""
 
 # ============================================
+# CONFIGURAÇÃO DOS NOMES DOS CONTAINERS
+# ============================================
+
+echo "🏷️  Configuração dos nomes dos containers"
+echo ""
+echo "Pressione ENTER para usar os nomes padrão."
+echo ""
+
+# Nome do PostgreSQL
+read -p "Nome do container PostgreSQL [prevencao-postgres-prod]: " POSTGRES_CONTAINER_NAME </dev/tty
+POSTGRES_CONTAINER_NAME=${POSTGRES_CONTAINER_NAME:-prevencao-postgres-prod}
+echo "✅ PostgreSQL: $POSTGRES_CONTAINER_NAME"
+
+# Nome do MinIO
+read -p "Nome do container MinIO [prevencao-minio-prod]: " MINIO_CONTAINER_NAME </dev/tty
+MINIO_CONTAINER_NAME=${MINIO_CONTAINER_NAME:-prevencao-minio-prod}
+echo "✅ MinIO: $MINIO_CONTAINER_NAME"
+
+echo ""
+
+# ============================================
 # GERAÇÃO DE SENHAS ALEATÓRIAS
 # ============================================
 
