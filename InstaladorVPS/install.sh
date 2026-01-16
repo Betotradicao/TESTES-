@@ -89,8 +89,6 @@ SCRIPT_DIR="$REPO_ROOT/InstaladorVPS"
 cd "$SCRIPT_DIR"
 
 echo "📂 Diretório de trabalho: $(pwd)"
-echo "📋 Arquivos disponíveis:"
-ls -la
 echo ""
 
 # ============================================
@@ -109,74 +107,6 @@ fi
 
 echo "✅ IP detectado: $HOST_IP"
 echo ""
-
-# ============================================
-# INSTALAÇÃO DO TAILSCALE
-# ============================================
-
-echo "🔗 Instalando Tailscale (VPN segura)..."
-
-# Verificar se Tailscale já está instalado
-if ! command -v tailscale &> /dev/null; then
-    echo "📦 Instalando Tailscale..."
-    curl -fsSL https://tailscale.com/install.sh | sh
-    echo "✅ Tailscale instalado"
-else
-    echo "✅ Tailscale já instalado"
-fi
-
-# Fazer logout para limpar autenticação antiga (se houver)
-echo "🔄 Limpando autenticação anterior do Tailscale..."
-tailscale logout 2>/dev/null || true
-echo ""
-
-# Iniciar Tailscale e aguardar aprovação (roda em foreground)
-echo "🚀 Conectando ao Tailscale..."
-echo "⚠️  Aguarde... Um link de autenticação aparecerá abaixo"
-echo ""
-tailscale up --accept-routes --shields-up=false
-
-# Obter IP do Tailscale após aprovação
-echo ""
-echo "🔍 Obtendo IP do Tailscale..."
-TAILSCALE_IP=$(tailscale ip -4 2>/dev/null || echo "")
-
-if [ -n "$TAILSCALE_IP" ]; then
-    echo "✅ Tailscale conectado! IP: $TAILSCALE_IP"
-else
-    echo "⚠️  Não foi possível obter IP do Tailscale"
-    TAILSCALE_IP=""
-fi
-
-echo ""
-
-# ============================================
-# IP TAILSCALE DO CLIENTE (WINDOWS/ERP)
-# ============================================
-
-# Verificar se foi passado via variável de ambiente (do INSTALAR-DIRETO.sh)
-if [ -n "$TAILSCALE_CLIENT_IP_AUTO" ]; then
-    TAILSCALE_CLIENT_IP="$TAILSCALE_CLIENT_IP_AUTO"
-    echo "✅ IP Tailscale do cliente configurado: $TAILSCALE_CLIENT_IP"
-    echo ""
-else
-    echo "🏪 Configuração do Cliente (Loja)"
-    echo ""
-    echo "Se o cliente possui Tailscale instalado na máquina onde roda o ERP,"
-    echo "informe o IP Tailscale para conectar automaticamente."
-    echo ""
-    echo "Exemplo: 100.69.131.40"
-    echo ""
-    read -p "IP Tailscale da máquina do cliente (deixe vazio se não usar): " TAILSCALE_CLIENT_IP </dev/tty
-
-    if [ -n "$TAILSCALE_CLIENT_IP" ]; then
-        echo "✅ IP Tailscale do cliente configurado: $TAILSCALE_CLIENT_IP"
-    else
-        echo "⚠️  Sem IP Tailscale do cliente. Conexão com ERP será local/manual."
-    fi
-
-    echo ""
-fi
 
 # ============================================
 # GERAÇÃO DE SENHAS ALEATÓRIAS
@@ -218,12 +148,6 @@ cat > .env << EOF
 
 # IP da VPS
 HOST_IP=$HOST_IP
-
-# ============================================
-# TAILSCALE - Rede Privada Virtual
-# ============================================
-TAILSCALE_VPS_IP=$TAILSCALE_IP
-TAILSCALE_CLIENT_IP=$TAILSCALE_CLIENT_IP
 
 # ============================================
 # MINIO - Armazenamento de Arquivos
@@ -463,71 +387,6 @@ echo "   Username: Roberto"
 echo "   Senha: Beto3107@@##"
 
 # ============================================
-# DETECTAR E SALVAR IPs DO TAILSCALE
-# ============================================
-
-echo ""
-echo "🔧 Salvando configurações Tailscale no banco..."
-
-# Usar o IP que o usuário digitou se fornecido, senão tentar detectar automaticamente
-TAILSCALE_JSON=$(tailscale status --json 2>/dev/null || echo "{}")
-VPS_IP_DETECTED=$(echo "$TAILSCALE_JSON" | jq -r '.Self.TailscaleIPs[0] // ""')
-
-# Para o IP da VPS, sempre usar o detectado (mais confiável)
-if [ -n "$VPS_IP_DETECTED" ]; then
-  TAILSCALE_VPS_IP="$VPS_IP_DETECTED"
-  echo "✅ IP Tailscale da VPS detectado: $TAILSCALE_VPS_IP"
-fi
-
-# Para o IP do Cliente:
-# 1. Se o usuário digitou, usar o que ele digitou (PRIORITÁRIO)
-# 2. Se não digitou, tentar detectar automaticamente
-if [ -z "$TAILSCALE_CLIENT_IP" ]; then
-  # Usuário não digitou, tentar detectar
-  CLIENT_IP_DETECTED=$(echo "$TAILSCALE_JSON" | jq -r '.Peer | to_entries | .[0].value.TailscaleIPs[0] // ""')
-  if [ -n "$CLIENT_IP_DETECTED" ]; then
-    TAILSCALE_CLIENT_IP="$CLIENT_IP_DETECTED"
-    echo "✅ IP Tailscale do Cliente auto-detectado: $TAILSCALE_CLIENT_IP"
-  else
-    echo "⚠️  Nenhum cliente Tailscale detectado"
-  fi
-else
-  # Usuário digitou, usar o que ele forneceu
-  echo "✅ IP Tailscale do Cliente (fornecido manualmente): $TAILSCALE_CLIENT_IP"
-fi
-
-# Salvar no banco de dados
-if [ -n "$TAILSCALE_VPS_IP" ] || [ -n "$TAILSCALE_CLIENT_IP" ]; then
-  docker exec prevencao-backend-prod node -e "
-const { AppDataSource } = require('./dist/config/database');
-const { Configuration } = require('./dist/entities/Configuration');
-
-AppDataSource.initialize().then(async () => {
-  const repo = AppDataSource.getRepository(Configuration);
-
-  // Salvar IP da VPS se disponível
-  if ('$TAILSCALE_VPS_IP') {
-    await repo.update({ key: 'tailscale_vps_ip' }, { value: '$TAILSCALE_VPS_IP' });
-    console.log('✅ IP Tailscale VPS salvo: $TAILSCALE_VPS_IP');
-  }
-
-  // Salvar IP do Cliente se disponível
-  if ('$TAILSCALE_CLIENT_IP') {
-    await repo.update({ key: 'tailscale_client_ip' }, { value: '$TAILSCALE_CLIENT_IP' });
-    console.log('✅ IP Tailscale Cliente salvo: $TAILSCALE_CLIENT_IP');
-  }
-
-  process.exit(0);
-}).catch(err => {
-  console.error('❌ Erro ao salvar IPs Tailscale:', err.message);
-  process.exit(1);
-});
-" 2>/dev/null
-else
-  echo "⚠️  Nenhum IP Tailscale disponível para salvar"
-fi
-
-# ============================================
 # EXIBIR STATUS
 # ============================================
 
@@ -553,31 +412,6 @@ echo "      http://$HOST_IP:3000/first-setup"
 echo ""
 echo "   🔌 Backend API:"
 echo "      http://$HOST_IP:3001"
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-echo "🔗 TAILSCALE (Rede Privada Virtual):"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-if [ -n "$TAILSCALE_IP" ]; then
-    echo "   ✅ Status: Conectado"
-    echo "   🌐 IP da VPS na rede Tailscale: $TAILSCALE_IP"
-    echo ""
-    echo "   💡 Use este IP para acessar APIs locais dos clientes"
-else
-    echo "   ⚠️  Status: Aguardando autenticação"
-    echo ""
-    if [ -n "$TAILSCALE_AUTH_URL" ]; then
-        echo "   🔐 Para conectar, abra este link no navegador:"
-        echo "      $TAILSCALE_AUTH_URL"
-        echo ""
-        echo "   Após autenticar, execute para ver o IP:"
-        echo "      tailscale ip -4"
-    else
-        echo "   Execute o comando abaixo para obter o link de autenticação:"
-        echo "      sudo tailscale up"
-    fi
-fi
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
@@ -633,11 +467,10 @@ echo ""
 cat > CREDENCIAIS.txt << EOF
 ╔════════════════════════════════════════════════════════════╗
 ║           CREDENCIAIS - PREVENÇÃO NO RADAR                 ║
-║           Gerado em: $(date)                    ║
+║           Gerado em: $(date)
 ╚════════════════════════════════════════════════════════════╝
 
 🌐 IP PÚBLICO DA VPS: $HOST_IP
-🔗 IP TAILSCALE: ${TAILSCALE_IP:-Pendente autenticação}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -646,12 +479,6 @@ cat > CREDENCIAIS.txt << EOF
 
 🔌 BACKEND (API):
    URL: http://$HOST_IP:3001
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🔗 TAILSCALE (Rede Privada Virtual):
-   IP na rede: ${TAILSCALE_IP:-Execute 'tailscale ip -4' após autenticar}
-   Link de autenticação: ${TAILSCALE_AUTH_URL:-Execute 'sudo tailscale up'}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
