@@ -166,51 +166,48 @@ echo ""
 # ============================================
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🏪 CONFIGURAÇÃO DO CLIENTE (Loja)"
+echo "🏪 CONFIGURAÇÃO DO CLIENTE (Loja) - OPCIONAL"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "O sistema precisa acessar a API do ERP/Intersolid do cliente."
+echo "O sistema pode se conectar à API do ERP/Intersolid do cliente."
+echo "Você pode configurar isso agora ou depois via painel web."
 echo ""
-echo "Opções de conexão:"
-echo "  1. IP público do cliente (ex: 189.50.xxx.xxx)"
-echo "  2. Domínio/DDNS do cliente (ex: loja.ddns.net)"
-echo "  3. IP local via túnel SSH (ex: 172.18.0.1)"
+echo "Deixe em branco se não souber ou quiser configurar depois."
 echo ""
 
-# IP/Domínio do cliente
-while true; do
-    read -p "IP ou domínio do servidor do cliente: " CLIENT_API_HOST < /dev/tty
-    CLIENT_API_HOST=$(echo "$CLIENT_API_HOST" | xargs)
+# IP/Domínio do cliente (OPCIONAL)
+read -p "IP ou domínio do servidor do cliente (deixe vazio para pular): " CLIENT_API_HOST < /dev/tty
+CLIENT_API_HOST=$(echo "$CLIENT_API_HOST" | xargs)
 
-    if [ -n "$CLIENT_API_HOST" ]; then
-        echo "✅ Host do cliente: $CLIENT_API_HOST"
-        break
-    else
-        echo "⚠️  Por favor, informe o IP ou domínio do cliente."
-    fi
-done
+if [ -n "$CLIENT_API_HOST" ]; then
+    echo "✅ Host do cliente: $CLIENT_API_HOST"
+else
+    echo "⏭️  Host do cliente não informado - configure depois no painel"
+fi
 
 echo ""
 
-# Porta da API Intersolid
-echo "Porta da API Intersolid (padrão: 3003)"
-read -p "Porta [3003]: " CLIENT_API_PORT < /dev/tty
+# Porta da API Intersolid (OPCIONAL)
+echo "Porta da API Intersolid (deixe vazio para pular)"
+read -p "Porta: " CLIENT_API_PORT < /dev/tty
 CLIENT_API_PORT=$(echo "$CLIENT_API_PORT" | xargs)
-if [ -z "$CLIENT_API_PORT" ]; then
-    CLIENT_API_PORT="3003"
+if [ -n "$CLIENT_API_PORT" ]; then
+    echo "✅ Porta da API: $CLIENT_API_PORT"
+else
+    echo "⏭️  Porta não informada - configure depois no painel"
 fi
-echo "✅ Porta da API: $CLIENT_API_PORT"
 
 echo ""
 
-# Porta da API Zanthus (opcional)
-echo "Porta da API Zanthus - PDV (padrão: 5000)"
-read -p "Porta [5000]: " ZANTHUS_API_PORT < /dev/tty
+# Porta da API Zanthus (OPCIONAL)
+echo "Porta da API Zanthus - PDV (deixe vazio para pular)"
+read -p "Porta: " ZANTHUS_API_PORT < /dev/tty
 ZANTHUS_API_PORT=$(echo "$ZANTHUS_API_PORT" | xargs)
-if [ -z "$ZANTHUS_API_PORT" ]; then
-    ZANTHUS_API_PORT="5000"
+if [ -n "$ZANTHUS_API_PORT" ]; then
+    echo "✅ Porta Zanthus: $ZANTHUS_API_PORT"
+else
+    echo "⏭️  Porta Zanthus não informada - configure depois no painel"
 fi
-echo "✅ Porta Zanthus: $ZANTHUS_API_PORT"
 
 echo ""
 
@@ -258,10 +255,11 @@ HOST_IP=$HOST_IP
 
 # ============================================
 # API DO CLIENTE (INTERSOLID/ERP)
+# Configure via painel web se deixou em branco
 # ============================================
-INTERSOLID_API_URL=http://$CLIENT_API_HOST
+INTERSOLID_API_URL=${CLIENT_API_HOST:+http://$CLIENT_API_HOST}
 INTERSOLID_PORT=$CLIENT_API_PORT
-ZANTHUS_API_URL=http://$CLIENT_API_HOST
+ZANTHUS_API_URL=${CLIENT_API_HOST:+http://$CLIENT_API_HOST}
 ZANTHUS_PORT=$ZANTHUS_API_PORT
 
 # ============================================
@@ -413,13 +411,18 @@ echo ""
 echo "🏪 CONEXÃO COM O CLIENTE:"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "   📡 API Intersolid:"
-echo "      http://$CLIENT_API_HOST:$CLIENT_API_PORT"
-echo ""
-echo "   🛒 API Zanthus (PDV):"
-echo "      http://$CLIENT_API_HOST:$ZANTHUS_API_PORT"
-echo ""
-echo "   💡 Certifique-se que as portas estão liberadas no firewall/roteador do cliente"
+if [ -n "$CLIENT_API_HOST" ]; then
+    echo "   📡 API Intersolid:"
+    echo "      http://$CLIENT_API_HOST:$CLIENT_API_PORT"
+    echo ""
+    echo "   🛒 API Zanthus (PDV):"
+    echo "      http://$CLIENT_API_HOST:$ZANTHUS_API_PORT"
+    echo ""
+    echo "   💡 Certifique-se que as portas estão liberadas no firewall/roteador do cliente"
+else
+    echo "   ⚠️  Não configurado - configure depois no painel web:"
+    echo "      Configurações de REDE → APIs"
+fi
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""

@@ -14,16 +14,16 @@ export default function APIsTab() {
 
   const [apiConfigs, setApiConfigs] = useState({
     zanthus: {
-      apiUrl: 'http://10.6.1.101',
+      apiUrl: '',
       port: '',
       productsEndpoint: '/manager/restful/integracao/cadastro_sincrono.php5',
       salesEndpoint: '/manager/restful/integracao/cadastro_sincrono.php5'
     },
     intersolid: {
-      apiUrl: 'http://10.6.1.102',
-      port: '3003',
-      username: 'ROBERTO',
-      password: '312013@#',
+      apiUrl: '',
+      port: '',
+      username: '',
+      password: '',
       productsEndpoint: '/v1/produtos',
       salesEndpoint: '/v1/vendas'
     },
@@ -77,16 +77,16 @@ export default function APIsTab() {
 
         setApiConfigs({
           zanthus: {
-            apiUrl: configs.zanthus_api_url || 'http://10.6.1.101',
+            apiUrl: configs.zanthus_api_url || '',
             port: configs.zanthus_port || '',
             productsEndpoint: configs.zanthus_products_endpoint || '/manager/restful/integracao/cadastro_sincrono.php5',
             salesEndpoint: configs.zanthus_sales_endpoint || '/manager/restful/integracao/cadastro_sincrono.php5'
           },
           intersolid: {
-            apiUrl: configs.intersolid_api_url || 'http://10.6.1.102',
-            port: configs.intersolid_port || '3003',
-            username: configs.intersolid_username || 'ROBERTO',
-            password: configs.intersolid_password || '312013@#',
+            apiUrl: configs.intersolid_api_url || '',
+            port: configs.intersolid_port || '',
+            username: configs.intersolid_username || '',
+            password: configs.intersolid_password || '',
             productsEndpoint: configs.intersolid_products_endpoint || '/v1/produtos',
             salesEndpoint: configs.intersolid_sales_endpoint || '/v1/vendas'
           },
