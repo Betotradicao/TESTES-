@@ -16,7 +16,6 @@ import ConfiguracoesRede from './pages/ConfiguracoesRede';
 import Perfil from './pages/Perfil';
 import ReconhecimentoFacial from './pages/ReconhecimentoFacial';
 import MonitorarEmailDVR from './pages/MonitorarEmailDVR';
-import Tailscale from './pages/Tailscale';
 import VisualizarCameras from './pages/VisualizarCameras';
 import RupturaLancadorItens from './pages/RupturaLancadorItens';
 import RupturaVerificacao from './pages/RupturaVerificacao';
@@ -125,14 +124,6 @@ function App() {
               element={
                 <ProtectedRoute>
                   <MonitorarEmailDVR />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/tailscale"
-              element={
-                <ProtectedRoute>
-                  <Tailscale />
                 </ProtectedRoute>
               }
             />
