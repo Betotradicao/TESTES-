@@ -314,7 +314,7 @@ rm -f /tmp/init-database.js
 echo "📝 Registrando migrations no banco..."
 docker exec -i prevencao-postgres-prod psql -U postgres -d $POSTGRES_DB_NAME << EOSQL || true
 INSERT INTO migrations (timestamp, name) VALUES
-  (1735566000000, 'AddIACharacteristicsToProducts1735566000000'),
+  -- Migrations principais
   (1758045672125, 'CreateUsersTable1758045672125'),
   (1758062371000, 'CreateBipsTable1758062371000'),
   (1758080000000, 'CreateProductsTable1758080000000'),
@@ -339,9 +339,9 @@ INSERT INTO migrations (timestamp, name) VALUES
   (1765200000000, 'CreateCompaniesAndUpdateUsers1765200000000'),
   (1765300000000, 'AddPortNumberToEquipments1765300000000'),
   (1765400000000, 'AddMotivoCancelamentoToBips1765400000000'),
-  (1765400000000, 'AddVideoUrlToBips1765400000000'),
+  (1765400000001, 'AddVideoUrlToBips1765400000000'),
   (1765500000000, 'AddEmployeeResponsavelToBips1765500000000'),
-  (1765500000000, 'AddImageUrlToBips1765500000000'),
+  (1765500000001, 'AddImageUrlToBips1765500000000'),
   (1765563000000, 'AddCompanyFields1765563000000'),
   (1765570000000, 'AddMissingFieldsToUsers1765570000000'),
   (1765580000000, 'AddAddressFieldsToCompanies1765580000000'),
@@ -349,10 +349,32 @@ INSERT INTO migrations (timestamp, name) VALUES
   (1765700000000, 'AddImagePathToEmailMonitorLogs1765700000000'),
   (1765800000000, 'AddValidacaoIAToBips1765800000000'),
   (1765900000000, 'AddIACharacteristicsToProducts1765900000000'),
+  -- Ruptura
   (1735600000000, 'CreateRuptureTables1735600000000'),
+  (1735700000000, 'FixRuptureItemsDecimalColumns1735700000000'),
+  (1735710000000, 'RenameParciallToRupturaEstoque1735710000000'),
   (1735720000000, 'AddPedidoToRuptureSurveyItems1735720000000'),
+  -- Losses (Perdas/Quebras)
+  (1766000000000, 'CreateLossesTable1766000000000'),
+  (1767200000000, 'CreateLossReasonConfigsTable1767200000000'),
+  (1767300000000, 'AddPeriodToLosses1767300000000'),
+  (1767400000000, 'AssociateUsersToCompany1767400000000'),
+  -- Label Audit (Etiquetas)
+  (1767733000000, 'CreateLabelAuditTables1767733000000'),
+  -- PDV Mapping
+  (1767800000000, 'CreatePDVMappingTables1767800000000'),
+  -- Products extras
+  (1767900000000, 'AddPesoMedioKgToProducts1767900000000'),
+  -- Production (Produção)
+  (1768000000000, 'CreateProductionAuditTables1768000000000'),
+  (1768001000000, 'AddCostPriceMarginToProductionAuditItems1768001000000'),
+  (1768002000000, 'AddWhatsappGroupToProductionAudits1768002000000'),
+  (1768100000000, 'AddProductionDaysToProducts1768100000000'),
   (1736786400000, 'AddEmployeeIdToProductionAudits1736786400000'),
-  (1736900000000, 'CreateHortFrutTables1736900000000')
+  -- HortFrut
+  (1736900000000, 'CreateHortFrutTables1736900000000'),
+  -- Employee Permissions
+  (1768062600000, 'AddEmployeePermissions1768062600000')
 ON CONFLICT DO NOTHING;
 EOSQL
 
