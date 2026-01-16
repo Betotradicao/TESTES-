@@ -53,23 +53,27 @@ export default function EmpresaTab() {
       // Carregar dados da empresa
       const companyData = await fetchMyCompany();
       setCompany(companyData);
-      setCompanyFormData({
-        nomeFantasia: companyData.nomeFantasia || '',
-        razaoSocial: companyData.razaoSocial || '',
-        cnpj: companyData.cnpj || '',
-        cep: companyData.cep || '',
-        rua: companyData.rua || '',
-        numero: companyData.numero || '',
-        complemento: companyData.complemento || '',
-        bairro: companyData.bairro || '',
-        cidade: companyData.cidade || '',
-        estado: companyData.estado || '',
-        telefone: companyData.telefone || '',
-        email: companyData.email || '',
-        responsavelNome: companyData.responsavelNome || '',
-        responsavelEmail: companyData.responsavelEmail || '',
-        responsavelTelefone: companyData.responsavelTelefone || ''
-      });
+
+      // Só preenche o formulário se a empresa existir
+      if (companyData) {
+        setCompanyFormData({
+          nomeFantasia: companyData.nomeFantasia || '',
+          razaoSocial: companyData.razaoSocial || '',
+          cnpj: companyData.cnpj || '',
+          cep: companyData.cep || '',
+          rua: companyData.rua || '',
+          numero: companyData.numero || '',
+          complemento: companyData.complemento || '',
+          bairro: companyData.bairro || '',
+          cidade: companyData.cidade || '',
+          estado: companyData.estado || '',
+          telefone: companyData.telefone || '',
+          email: companyData.email || '',
+          responsavelNome: companyData.responsavelNome || '',
+          responsavelEmail: companyData.responsavelEmail || '',
+          responsavelTelefone: companyData.responsavelTelefone || ''
+        });
+      }
 
       // Carregar dados do usuário master
       if (user?.isMaster) {
