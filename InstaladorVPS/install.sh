@@ -350,6 +350,7 @@ INSERT INTO migrations (timestamp, name) VALUES
   (1765800000000, 'AddValidacaoIAToBips1765800000000'),
   (1765900000000, 'AddIACharacteristicsToProducts1765900000000'),
   (1735600000000, 'CreateRuptureTables1735600000000'),
+  (1735720000000, 'AddPedidoToRuptureSurveyItems1735720000000'),
   (1736900000000, 'CreateHortFrutTables1736900000000')
 ON CONFLICT DO NOTHING;
 EOSQL
@@ -451,7 +452,7 @@ echo "      Host: $HOST_IP"
 echo "      Porta: 5434"
 echo "      Usuário: $POSTGRES_USER"
 echo "      Senha: $POSTGRES_PASSWORD"
-echo "      Database: prevencao_db"
+echo "      Database: $POSTGRES_DB_NAME"
 echo ""
 echo "   🔑 API Token (para scanners):"
 echo "      $API_TOKEN"
@@ -511,7 +512,7 @@ cat > CREDENCIAIS.txt << EOF
    API Port: 9010
    Usuário: $MINIO_ROOT_USER
    Senha: $MINIO_ROOT_PASSWORD
-   Bucket: market-security
+   Bucket: $MINIO_BUCKET_NAME
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -520,7 +521,7 @@ cat > CREDENCIAIS.txt << EOF
    Porta Externa: 5434
    Usuário: $POSTGRES_USER
    Senha: $POSTGRES_PASSWORD
-   Database: prevencao_db
+   Database: $POSTGRES_DB_NAME
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
