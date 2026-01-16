@@ -109,23 +109,16 @@ echo "✅ IP detectado: $HOST_IP"
 echo ""
 
 # ============================================
-# CONFIGURAÇÃO DOS NOMES DOS CONTAINERS
+# CONFIGURAÇÃO DO BANCO DE DADOS
 # ============================================
 
-echo "🏷️  Configuração dos nomes dos containers"
-echo ""
-echo "Pressione ENTER para usar os nomes padrão."
+echo "🏷️  Configuração do Banco de Dados"
 echo ""
 
-# Nome do PostgreSQL
-read -p "Nome do container PostgreSQL [prevencao-postgres-prod]: " POSTGRES_CONTAINER_NAME </dev/tty
-POSTGRES_CONTAINER_NAME=${POSTGRES_CONTAINER_NAME:-prevencao-postgres-prod}
-echo "✅ PostgreSQL: $POSTGRES_CONTAINER_NAME"
-
-# Nome do MinIO
-read -p "Nome do container MinIO [prevencao-minio-prod]: " MINIO_CONTAINER_NAME </dev/tty
-MINIO_CONTAINER_NAME=${MINIO_CONTAINER_NAME:-prevencao-minio-prod}
-echo "✅ MinIO: $MINIO_CONTAINER_NAME"
+# Nome do banco de dados PostgreSQL
+read -p "Nome do Banco de Dados [prevencao_db]: " POSTGRES_DB_NAME </dev/tty
+POSTGRES_DB_NAME=${POSTGRES_DB_NAME:-prevencao_db}
+echo "✅ Banco de Dados: $POSTGRES_DB_NAME"
 
 echo ""
 
@@ -187,14 +180,14 @@ MINIO_PUBLIC_USE_SSL=false
 # ============================================
 POSTGRES_USER=$POSTGRES_USER
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
-POSTGRES_DB=prevencao_db
+POSTGRES_DB=$POSTGRES_DB_NAME
 
 # Conexão do Backend ao PostgreSQL (interno Docker)
 DB_HOST=postgres
 DB_PORT=5432
 DB_USER=$POSTGRES_USER
 DB_PASSWORD=$POSTGRES_PASSWORD
-DB_NAME=prevencao_db
+DB_NAME=$POSTGRES_DB_NAME
 
 # ============================================
 # BACKEND - API
