@@ -52,17 +52,21 @@ echo ""
 
 echo "🔄 Verificando atualizações do código..."
 
+# Branch a ser usada
+BRANCH="TESTE"
+
 # Verificar se já está em um repositório
 if [ -d ".git" ]; then
-    echo "📥 Atualizando código do GitHub..."
+    echo "📥 Atualizando código do GitHub (branch $BRANCH)..."
     git fetch origin
-    git reset --hard origin/main
-    git pull origin main
+    git checkout $BRANCH 2>/dev/null || git checkout -b $BRANCH origin/$BRANCH
+    git reset --hard origin/$BRANCH
+    git pull origin $BRANCH
     REPO_ROOT=$(pwd)
     echo "✅ Código atualizado com sucesso"
 else
     # Não está em repositório, precisa clonar
-    echo "📦 Clonando repositório do GitHub..."
+    echo "📦 Clonando repositório do GitHub (branch $BRANCH)..."
 
     # Criar diretório temporário
     INSTALL_DIR="/root/prevencao-radar-install"
@@ -70,14 +74,14 @@ else
     # Remover se já existir
     rm -rf "$INSTALL_DIR"
 
-    # Clonar repositório
-    git clone https://github.com/Betotradicao/TESTES-.git "$INSTALL_DIR"
+    # Clonar repositório na branch correta
+    git clone -b $BRANCH https://github.com/Betotradicao/TESTES-.git "$INSTALL_DIR"
 
     # Ir para o diretório clonado
     cd "$INSTALL_DIR"
     REPO_ROOT=$(pwd)
 
-    echo "✅ Repositório clonado com sucesso"
+    echo "✅ Repositório clonado com sucesso (branch $BRANCH)"
 fi
 
 # Ir para diretório do instalador
