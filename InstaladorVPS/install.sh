@@ -109,16 +109,23 @@ echo "✅ IP detectado: $HOST_IP"
 echo ""
 
 # ============================================
-# CONFIGURAÇÃO DO BANCO DE DADOS
+# CONFIGURAÇÃO DOS NOMES
 # ============================================
 
-echo "🏷️  Configuração do Banco de Dados"
+echo "🏷️  Configuração dos Nomes"
+echo ""
+echo "Pressione ENTER para usar os nomes padrão."
 echo ""
 
 # Nome do banco de dados PostgreSQL
-read -p "Nome do Banco de Dados [prevencao_db]: " POSTGRES_DB_NAME </dev/tty
+read -p "Nome do Banco de Dados PostgreSQL [prevencao_db]: " POSTGRES_DB_NAME </dev/tty
 POSTGRES_DB_NAME=${POSTGRES_DB_NAME:-prevencao_db}
 echo "✅ Banco de Dados: $POSTGRES_DB_NAME"
+
+# Nome do bucket MinIO
+read -p "Nome do Bucket MinIO [market-security]: " MINIO_BUCKET_NAME </dev/tty
+MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME:-market-security}
+echo "✅ Bucket MinIO: $MINIO_BUCKET_NAME"
 
 echo ""
 
@@ -170,7 +177,7 @@ MINIO_ROOT_USER=$MINIO_ROOT_USER
 MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD
 MINIO_ACCESS_KEY=$MINIO_ACCESS_KEY
 MINIO_SECRET_KEY=$MINIO_SECRET_KEY
-MINIO_BUCKET_NAME=market-security
+MINIO_BUCKET_NAME=$MINIO_BUCKET_NAME
 MINIO_PUBLIC_ENDPOINT=$HOST_IP
 MINIO_PUBLIC_PORT=9010
 MINIO_PUBLIC_USE_SSL=false
