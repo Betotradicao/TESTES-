@@ -192,9 +192,11 @@ export class CompaniesController {
         // Usuário MASTER não tem empresa vinculada - busca a primeira empresa disponível
         if (user.isMaster) {
           console.log('ℹ️  getMyCompany - Usuário MASTER sem empresa vinculada, buscando primeira empresa...');
-          const firstCompany = await companyRepository.findOne({
-            order: { createdAt: 'ASC' }
+          const companies = await companyRepository.find({
+            order: { createdAt: 'ASC' },
+            take: 1
           });
+          const firstCompany = companies.length > 0 ? companies[0] : null;
 
           if (firstCompany) {
             console.log('✅ getMyCompany - Primeira empresa encontrada para MASTER:', { id: firstCompany.id, nome: firstCompany.nomeFantasia });
@@ -240,9 +242,11 @@ export class CompaniesController {
 
       // Se usuário é MASTER e não tem empresa vinculada, busca a primeira empresa
       if (!company && user.isMaster) {
-        company = await companyRepository.findOne({
-          order: { createdAt: 'ASC' }
+        const companies = await companyRepository.find({
+          order: { createdAt: 'ASC' },
+          take: 1
         });
+        company = companies.length > 0 ? companies[0] : null;
       }
 
       if (!company) {
