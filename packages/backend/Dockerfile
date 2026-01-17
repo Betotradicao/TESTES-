@@ -34,11 +34,8 @@ COPY package*.json ./
 RUN npm install --omit=dev && \
     npm cache clean --force
 
-# Copiar código compilado do builder
+# Copiar código compilado do builder (inclui migrations já compiladas)
 COPY --from=builder /app/dist ./dist
-
-# Copiar migrations
-COPY src/migrations ./dist/migrations
 
 # Expor porta
 EXPOSE 3001
