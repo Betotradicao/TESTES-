@@ -259,6 +259,34 @@ echo "   MinIO Console: $MINIO_CONSOLE_PORT"
 echo ""
 
 # ============================================
+# LIBERAR PORTAS NO FIREWALL (UFW)
+# ============================================
+
+echo "🔓 Verificando e liberando portas no firewall..."
+
+# Verificar se UFW está ativo
+if command -v ufw &> /dev/null && ufw status | grep -q "Status: active"; then
+    echo "   UFW detectado e ativo, liberando portas..."
+
+    # Liberar as portas do cliente
+    ufw allow $FRONTEND_PORT/tcp comment "Prevencao $CLIENT_NAME - Frontend" > /dev/null 2>&1
+    ufw allow $BACKEND_PORT/tcp comment "Prevencao $CLIENT_NAME - Backend" > /dev/null 2>&1
+    ufw allow $POSTGRES_PORT/tcp comment "Prevencao $CLIENT_NAME - PostgreSQL" > /dev/null 2>&1
+    ufw allow $MINIO_API_PORT/tcp comment "Prevencao $CLIENT_NAME - MinIO API" > /dev/null 2>&1
+    ufw allow $MINIO_CONSOLE_PORT/tcp comment "Prevencao $CLIENT_NAME - MinIO Console" > /dev/null 2>&1
+
+    # Garantir que portas HTTP/HTTPS estão abertas para Nginx
+    ufw allow 80/tcp comment "HTTP - Nginx" > /dev/null 2>&1
+    ufw allow 443/tcp comment "HTTPS - Nginx" > /dev/null 2>&1
+
+    echo "✅ Portas liberadas no UFW"
+else
+    echo "   UFW não está ativo ou não instalado - pulando configuração de firewall"
+fi
+
+echo ""
+
+# ============================================
 # GERAÇÃO DE SENHAS ALEATÓRIAS
 # ============================================
 
