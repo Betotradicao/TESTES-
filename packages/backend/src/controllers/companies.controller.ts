@@ -45,7 +45,13 @@ export class CompaniesController {
   // Criar nova empresa (apenas master)
   async create(req: Request, res: Response) {
     try {
-      const { nomeFantasia, razaoSocial, cnpj, adminEmail, adminPassword } = req.body;
+      const {
+        nomeFantasia, razaoSocial, cnpj, identificador,
+        cep, rua, numero, complemento, bairro, cidade, estado,
+        telefone, email,
+        responsavelNome, responsavelEmail, responsavelTelefone,
+        adminEmail, adminPassword
+      } = req.body;
 
       // Validar dados
       if (!nomeFantasia || !razaoSocial || !cnpj) {
@@ -58,11 +64,24 @@ export class CompaniesController {
         return res.status(400).json({ error: 'CNPJ already registered' });
       }
 
-      // Criar empresa
+      // Criar empresa com todos os campos
       const company = companyRepository.create({
         nomeFantasia,
         razaoSocial,
         cnpj,
+        identificador: identificador || null,
+        cep: cep || null,
+        rua: rua || null,
+        numero: numero || null,
+        complemento: complemento || null,
+        bairro: bairro || null,
+        cidade: cidade || null,
+        estado: estado || null,
+        telefone: telefone || null,
+        email: email || null,
+        responsavelNome: responsavelNome || null,
+        responsavelEmail: responsavelEmail || null,
+        responsavelTelefone: responsavelTelefone || null,
         active: true
       });
 
@@ -98,7 +117,12 @@ export class CompaniesController {
   async update(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { nomeFantasia, razaoSocial, cnpj, active } = req.body;
+      const {
+        nomeFantasia, razaoSocial, cnpj, identificador, active,
+        cep, rua, numero, complemento, bairro, cidade, estado,
+        telefone, email,
+        responsavelNome, responsavelEmail, responsavelTelefone
+      } = req.body;
 
       const company = await companyRepository.findOne({ where: { id } });
       if (!company) {
@@ -108,16 +132,33 @@ export class CompaniesController {
       // Verificar se CNPJ já existe (se estiver sendo alterado)
       if (cnpj && cnpj !== company.cnpj) {
         const existingCompany = await companyRepository.findOne({ where: { cnpj } });
-        if (existingCompany) {
+        if (existingCompany && existingCompany.id !== company.id) {
           return res.status(400).json({ error: 'CNPJ already registered' });
         }
       }
 
-      // Atualizar dados
-      if (nomeFantasia) company.nomeFantasia = nomeFantasia;
-      if (razaoSocial) company.razaoSocial = razaoSocial;
-      if (cnpj) company.cnpj = cnpj;
+      // Atualizar dados básicos
+      if (nomeFantasia !== undefined) company.nomeFantasia = nomeFantasia;
+      if (razaoSocial !== undefined) company.razaoSocial = razaoSocial;
+      if (cnpj !== undefined) company.cnpj = cnpj;
+      if (identificador !== undefined) company.identificador = identificador;
       if (typeof active === 'boolean') company.active = active;
+      if (telefone !== undefined) company.telefone = telefone;
+      if (email !== undefined) company.email = email;
+
+      // Atualizar endereço
+      if (cep !== undefined) company.cep = cep;
+      if (rua !== undefined) company.rua = rua;
+      if (numero !== undefined) company.numero = numero;
+      if (complemento !== undefined) company.complemento = complemento;
+      if (bairro !== undefined) company.bairro = bairro;
+      if (cidade !== undefined) company.cidade = cidade;
+      if (estado !== undefined) company.estado = estado;
+
+      // Atualizar responsável
+      if (responsavelNome !== undefined) company.responsavelNome = responsavelNome;
+      if (responsavelEmail !== undefined) company.responsavelEmail = responsavelEmail;
+      if (responsavelTelefone !== undefined) company.responsavelTelefone = responsavelTelefone;
 
       await companyRepository.save(company);
 
