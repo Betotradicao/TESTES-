@@ -208,12 +208,13 @@ API_TOKEN=$API_TOKEN
 # EMAIL - Recuperação de Senha
 # ============================================
 EMAIL_USER=betotradicao76@gmail.com
-EMAIL_PASS=ylljjijqstxnwogk
+EMAIL_PASS=fqojjjhztvganfya
 
 # ============================================
 # FRONTEND - Interface Web
 # ============================================
 VITE_API_URL=http://$HOST_IP:3001/api
+FRONTEND_URL=http://$HOST_IP:3000
 
 EOF
 
