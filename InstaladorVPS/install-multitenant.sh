@@ -702,6 +702,29 @@ INSERT INTO migrations (timestamp, name) VALUES
 ON CONFLICT DO NOTHING;
 EOSQL
 
+# ============================================
+# POPULAR CONFIGURAÇÕES DE REDE NO BANCO
+# ============================================
+
+echo "⚙️  Populando configurações de rede no banco..."
+docker exec -i ${CONTAINER_PREFIX}-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB_NAME << EOSQL || true
+INSERT INTO configurations (key, value) VALUES
+  ('MINIO_ENDPOINT', '${CONTAINER_PREFIX}-minio'),
+  ('MINIO_PORT', '9000'),
+  ('MINIO_ACCESS_KEY', '$MINIO_ROOT_USER'),
+  ('MINIO_SECRET_KEY', '$MINIO_ROOT_PASSWORD'),
+  ('MINIO_BUCKET_NAME', '$MINIO_BUCKET_NAME'),
+  ('MINIO_PUBLIC_ENDPOINT', '$HOST_IP'),
+  ('MINIO_PUBLIC_PORT', '$MINIO_API_PORT'),
+  ('MINIO_USE_SSL', 'false'),
+  ('DB_HOST', '${CONTAINER_PREFIX}-postgres'),
+  ('DB_PORT', '5432'),
+  ('DB_USER', '$POSTGRES_USER'),
+  ('DB_PASSWORD', '$POSTGRES_PASSWORD'),
+  ('DB_NAME', '$POSTGRES_DB_NAME')
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+EOSQL
+
 echo "✅ Banco de dados inicializado"
 
 # ============================================
