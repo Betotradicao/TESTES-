@@ -99,28 +99,40 @@ echo ""
 # CONFIGURAÇÃO DO CLIENTE
 # ============================================
 
-echo "🏪 Configuração do Novo Cliente"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-echo "O nome do cliente será usado para:"
-echo "  - Subdomínio: [nome].$DOMAIN_BASE"
-echo "  - Banco de dados: postgres_[nome]"
-echo "  - Bucket MinIO: minio_[nome]"
-echo "  - Containers Docker: prevencao-[nome]-*"
-echo ""
+# Verificar se nome foi passado como parâmetro
+if [ -n "$1" ]; then
+    CLIENT_NAME="$1"
+    echo "🏪 Nome do cliente recebido: $CLIENT_NAME"
+else
+    echo "🏪 Configuração do Novo Cliente"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "O nome do cliente será usado para:"
+    echo "  - Subdomínio: [nome].$DOMAIN_BASE"
+    echo "  - Banco de dados: postgres_[nome]"
+    echo "  - Bucket MinIO: minio_[nome]"
+    echo "  - Containers Docker: prevencao-[nome]-*"
+    echo ""
 
-# Solicitar nome do cliente
-while true; do
-    read -p "📝 Nome do cliente (apenas letras minúsculas, sem espaços): " CLIENT_NAME </dev/tty
+    # Solicitar nome do cliente
+    while true; do
+        read -p "📝 Nome do cliente (apenas letras minúsculas, sem espaços): " CLIENT_NAME </dev/tty
 
-    # Validar: apenas letras minúsculas e números, sem espaços ou caracteres especiais
-    if [[ "$CLIENT_NAME" =~ ^[a-z0-9]+$ ]]; then
-        break
-    else
-        echo "❌ Nome inválido! Use apenas letras minúsculas e números, sem espaços."
-        echo "   Exemplos válidos: nunes, mercado01, loja123"
-    fi
-done
+        # Validar: apenas letras minúsculas e números, sem espaços ou caracteres especiais
+        if [[ "$CLIENT_NAME" =~ ^[a-z0-9]+$ ]]; then
+            break
+        else
+            echo "❌ Nome inválido! Use apenas letras minúsculas e números, sem espaços."
+            echo "   Exemplos válidos: nunes, mercado01, loja123"
+        fi
+    done
+fi
+
+# Validar nome do cliente
+if [[ ! "$CLIENT_NAME" =~ ^[a-z0-9]+$ ]]; then
+    echo "❌ Nome inválido! Use apenas letras minúsculas e números, sem espaços."
+    exit 1
+fi
 
 echo ""
 echo "✅ Nome do cliente: $CLIENT_NAME"
