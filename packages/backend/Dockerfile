@@ -18,7 +18,9 @@ COPY src ./src
 
 # Build TypeScript
 RUN npm install -g typescript && \
-    tsc
+    tsc && \
+    # Copiar arquivos .js que não são compilados pelo TypeScript
+    find src -name "*.js" -exec sh -c 'mkdir -p dist/$(dirname ${1#src/}) && cp "$1" dist/${1#src/}' _ {} \;
 
 # ===================================
 # STAGE 2: Production
