@@ -708,20 +708,25 @@ EOSQL
 
 echo "⚙️  Populando configurações de rede no banco..."
 docker exec -i ${CONTAINER_PREFIX}-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB_NAME << EOSQL || true
+-- Configurações MinIO (formato usado pelo frontend)
 INSERT INTO configurations (key, value) VALUES
-  ('MINIO_ENDPOINT', '${CONTAINER_PREFIX}-minio'),
-  ('MINIO_PORT', '9000'),
-  ('MINIO_ACCESS_KEY', '$MINIO_ROOT_USER'),
-  ('MINIO_SECRET_KEY', '$MINIO_ROOT_PASSWORD'),
-  ('MINIO_BUCKET_NAME', '$MINIO_BUCKET_NAME'),
-  ('MINIO_PUBLIC_ENDPOINT', '$HOST_IP'),
-  ('MINIO_PUBLIC_PORT', '$MINIO_API_PORT'),
-  ('MINIO_USE_SSL', 'false'),
-  ('DB_HOST', '${CONTAINER_PREFIX}-postgres'),
-  ('DB_PORT', '5432'),
-  ('DB_USER', '$POSTGRES_USER'),
-  ('DB_PASSWORD', '$POSTGRES_PASSWORD'),
-  ('DB_NAME', '$POSTGRES_DB_NAME')
+  ('minio_endpoint', '${CONTAINER_PREFIX}-minio'),
+  ('minio_port', '9000'),
+  ('minio_access_key', '$MINIO_ROOT_USER'),
+  ('minio_secret_key', '$MINIO_ROOT_PASSWORD'),
+  ('minio_bucket_name', '$MINIO_BUCKET_NAME'),
+  ('minio_public_endpoint', '$HOST_IP'),
+  ('minio_public_port', '$MINIO_API_PORT'),
+  ('minio_use_ssl', 'false'),
+  ('minio_console_port', '$MINIO_CONSOLE_PORT'),
+  -- Configurações PostgreSQL (formato usado pelo frontend)
+  ('postgres_host', '${CONTAINER_PREFIX}-postgres'),
+  ('postgres_port', '5432'),
+  ('postgres_user', '$POSTGRES_USER'),
+  ('postgres_password', '$POSTGRES_PASSWORD'),
+  ('postgres_database', '$POSTGRES_DB_NAME'),
+  -- Configuração geral
+  ('host_ip', '$HOST_IP')
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 EOSQL
 
