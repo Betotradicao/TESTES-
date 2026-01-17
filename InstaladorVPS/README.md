@@ -2,7 +2,16 @@
 
 Instalador automatizado para servidores Linux (VPS). Detecta automaticamente o IP publico, gera senhas seguras e configura todo o ambiente Docker.
 
+## ESCOLHA SEU TIPO DE INSTALACAO
+
+| Tipo | Descricao | Quando Usar |
+|------|-----------|-------------|
+| **Single-Tenant** | 1 cliente por VPS | Clientes unicos, VPS exclusiva |
+| **Multi-Tenant** | Varios clientes por VPS | Multiplos clientes com subdomínios |
+
 ---
+
+# OPCAO 1: SINGLE-TENANT (1 CLIENTE POR VPS)
 
 ## INSTALACAO EM 1 COMANDO (RECOMENDADO)
 
@@ -239,3 +248,147 @@ InstaladorVPS/
 - Considere usar HTTPS em producao (configure um proxy reverso como Nginx)
 - Configure firewall adequadamente
 - Faca backups regulares dos volumes Docker
+
+---
+
+# OPCAO 2: MULTI-TENANT (VARIOS CLIENTES POR VPS)
+
+Sistema com subdomínios por cliente. Ideal para hospedar multiplos clientes em uma unica VPS.
+
+## INSTALACAO MULTI-TENANT
+
+```bash
+curl -sSL https://raw.githubusercontent.com/Betotradicao/TESTES-/TESTE/InstaladorVPS/install-multitenant.sh | bash
+```
+
+**O que este comando faz:**
+1. Instala Docker, Nginx e Certbot automaticamente
+2. Pergunta o nome do cliente (ex: "nunes")
+3. Gera automaticamente:
+   - Subdominio: `nunes.prevencaonoradar.com.br`
+   - Banco: `postgres_nunes`
+   - Bucket: `minio_nunes`
+   - Containers: `prevencao-nunes-*`
+4. Encontra portas disponiveis automaticamente
+5. Configura Nginx como proxy reverso
+6. Gera certificado SSL (HTTPS) com Let's Encrypt
+7. Salva credenciais em `/root/clientes/[nome]/CREDENCIAIS.txt`
+
+## PRE-REQUISITOS MULTI-TENANT
+
+1. **Dominio configurado**: O dominio `prevencaonoradar.com.br` deve ter um registro DNS wildcard:
+   - Tipo: A
+   - Nome: `*` (asterisco)
+   - Valor: IP da VPS
+
+2. **VPS com portas 80 e 443 livres** (para Nginx/HTTPS)
+
+## LISTAR CLIENTES INSTALADOS
+
+```bash
+curl -sSL https://raw.githubusercontent.com/Betotradicao/TESTES-/TESTE/InstaladorVPS/listar-clientes.sh | bash
+```
+
+Ou localmente:
+
+```bash
+bash /root/prevencao-radar-repo/InstaladorVPS/listar-clientes.sh
+```
+
+## ADICIONAR NOVO CLIENTE
+
+Execute novamente o instalador multi-tenant:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/Betotradicao/TESTES-/TESTE/InstaladorVPS/install-multitenant.sh | bash
+```
+
+Cada cliente tera:
+- Seu proprio banco de dados
+- Seu proprio bucket MinIO
+- Seus proprios containers Docker
+- Seu proprio subdominio HTTPS
+
+## ESTRUTURA DE PASTAS MULTI-TENANT
+
+```
+/root/
+├── prevencao-radar-repo/          # Codigo fonte (compartilhado)
+│   └── InstaladorVPS/
+│       ├── install.sh             # Single-tenant
+│       ├── install-multitenant.sh # Multi-tenant
+│       └── listar-clientes.sh     # Listar clientes
+│
+└── clientes/                      # Dados por cliente
+    ├── nunes/
+    │   ├── docker-compose.yml
+    │   ├── .env
+    │   └── CREDENCIAIS.txt
+    ├── mercado01/
+    │   ├── docker-compose.yml
+    │   ├── .env
+    │   └── CREDENCIAIS.txt
+    └── loja123/
+        └── ...
+```
+
+## COMANDOS UTEIS MULTI-TENANT
+
+### Ver logs de um cliente
+
+```bash
+cd /root/clientes/[nome] && docker compose logs -f
+```
+
+### Reiniciar cliente
+
+```bash
+cd /root/clientes/[nome] && docker compose restart
+```
+
+### Parar cliente
+
+```bash
+cd /root/clientes/[nome] && docker compose down
+```
+
+### Remover cliente (CUIDADO - APAGA DADOS)
+
+```bash
+cd /root/clientes/[nome]
+docker compose down -v
+rm -rf /root/clientes/[nome]
+rm /etc/nginx/sites-enabled/[nome]
+rm /etc/nginx/sites-available/[nome]
+nginx -s reload
+```
+
+## ATUALIZAR CODIGO (TODOS OS CLIENTES)
+
+```bash
+# 1. Atualizar codigo fonte
+cd /root/prevencao-radar-repo && git pull
+
+# 2. Rebuild de cada cliente
+for dir in /root/clientes/*/; do
+    echo "Atualizando $(basename $dir)..."
+    cd "$dir" && docker compose build --no-cache && docker compose up -d --no-deps backend frontend
+done
+```
+
+## PORTAS MULTI-TENANT
+
+Cada cliente recebe portas automaticas a partir de:
+- Frontend: 3000+
+- Backend: 4000+
+- PostgreSQL: 5500+
+- MinIO API: 9100+
+- MinIO Console: 9200+
+
+O Nginx roteia tudo pela porta 80/443 usando subdomínios.
+
+## COMPATIBILIDADE
+
+Os dois instaladores podem coexistir na mesma VPS:
+- **Single-tenant**: `/root/prevencao-radar-install/` (portas 3000, 3001, etc)
+- **Multi-tenant**: `/root/clientes/[nome]/` (portas dinamicas)
