@@ -471,7 +471,7 @@ services:
     environment:
       TZ: America/Sao_Paulo
     ports:
-      - "\${FRONTEND_PORT}:80"
+      - "\${FRONTEND_PORT}:3004"
     depends_on:
       - backend
     networks:
