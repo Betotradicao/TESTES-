@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { fetchMyCompany, updateMyCompany, fetchAllCompanies, createCompany, updateCompany, deleteCompany } from '../../services/companies.service';
 import { useAuth } from '../../contexts/AuthContext';
+import api from '../../services/api';
 
 export default function EmpresaConfigTab() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [empresaPrincipal, setEmpresaPrincipal] = useState(null);
   const [lojas, setLojas] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -18,6 +19,21 @@ export default function EmpresaConfigTab() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingCompany, setEditingCompany] = useState(null);
   const [editFormData, setEditFormData] = useState({});
+
+  // Estados para segurança da conta (email e senha)
+  const [securityData, setSecurityData] = useState({
+    newEmail: '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [isChangingEmail, setIsChangingEmail] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [securityError, setSecurityError] = useState(null);
+  const [securitySuccess, setSecuritySuccess] = useState(null);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Estados para cadastro de nova loja
   const [showNewStoreForm, setShowNewStoreForm] = useState(false);
@@ -181,6 +197,110 @@ export default function EmpresaConfigTab() {
     } catch (err) {
       setError(err.response?.data?.error || 'Erro ao excluir loja');
     }
+  };
+
+  // Função para trocar email de recuperação
+  const handleChangeEmail = async (e) => {
+    e.preventDefault();
+    setSecurityError(null);
+    setSecuritySuccess(null);
+
+    if (!securityData.newEmail) {
+      setSecurityError('Digite o novo email');
+      return;
+    }
+
+    // Validar formato do email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(securityData.newEmail)) {
+      setSecurityError('Digite um email válido');
+      return;
+    }
+
+    try {
+      console.log('Atualizando email para:', securityData.newEmail);
+      const response = await api.put('/auth/update-profile', {
+        email: securityData.newEmail
+      });
+      console.log('Resposta da API:', response.data);
+
+      setSecuritySuccess('Email de recuperação atualizado com sucesso!');
+      setIsChangingEmail(false);
+      setSecurityData(prev => ({ ...prev, newEmail: '' }));
+
+      // Atualizar dados do usuário no contexto
+      if (updateUser) {
+        updateUser({ email: securityData.newEmail });
+      }
+
+      setTimeout(() => setSecuritySuccess(null), 5000);
+    } catch (err) {
+      console.error('Erro ao atualizar email:', err);
+      const errorMsg = err.response?.data?.error || 'Erro ao atualizar email. Verifique sua conexão.';
+      setSecurityError(errorMsg);
+    }
+  };
+
+  // Função para trocar senha
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setSecurityError(null);
+    setSecuritySuccess(null);
+
+    if (!securityData.currentPassword) {
+      setSecurityError('Digite a senha atual');
+      return;
+    }
+
+    if (!securityData.newPassword) {
+      setSecurityError('Digite a nova senha');
+      return;
+    }
+
+    if (securityData.newPassword.length < 6) {
+      setSecurityError('A nova senha deve ter no mínimo 6 caracteres');
+      return;
+    }
+
+    if (securityData.newPassword !== securityData.confirmPassword) {
+      setSecurityError('As senhas não coincidem');
+      return;
+    }
+
+    try {
+      await api.put('/auth/update-profile', {
+        currentPassword: securityData.currentPassword,
+        newPassword: securityData.newPassword
+      });
+
+      setSecuritySuccess('Senha alterada com sucesso!');
+      setIsChangingPassword(false);
+      setSecurityData(prev => ({
+        ...prev,
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      }));
+
+      setTimeout(() => setSecuritySuccess(null), 3000);
+    } catch (err) {
+      setSecurityError(err.response?.data?.error || 'Erro ao alterar senha');
+    }
+  };
+
+  // Resetar estados de segurança ao fechar modal
+  const handleCloseEditModal = () => {
+    setShowEditModal(false);
+    setIsChangingEmail(false);
+    setIsChangingPassword(false);
+    setSecurityData({
+      newEmail: '',
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setSecurityError(null);
+    setSecuritySuccess(null);
   };
 
   if (isLoading) {
@@ -685,7 +805,7 @@ export default function EmpresaConfigTab() {
             <div className="p-6 border-b border-gray-200 flex justify-between items-center">
               <h3 className="text-xl font-semibold text-gray-900">Editar Empresa</h3>
               <button
-                onClick={() => setShowEditModal(false)}
+                onClick={handleCloseEditModal}
                 className="text-gray-500 hover:text-gray-700"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -864,10 +984,226 @@ export default function EmpresaConfigTab() {
                 </div>
               </div>
 
+              {/* Segurança da Conta - Apenas para empresa principal */}
+              {editingCompany?.id === empresaPrincipal?.id && (
+                <div className="border-t border-gray-200 pt-6">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    Segurança da Conta
+                  </h4>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Gerencie o email de recuperação de senha e altere sua senha de acesso.
+                  </p>
+
+                  {/* Mensagens de erro/sucesso */}
+                  {securityError && (
+                    <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+                      {securityError}
+                    </div>
+                  )}
+                  {securitySuccess && (
+                    <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">
+                      {securitySuccess}
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    {/* Trocar Email */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <div>
+                          <p className="font-medium text-gray-800">Email de Recuperação</p>
+                          <p className="text-sm text-gray-500">Email atual: {user?.email || 'Não definido'}</p>
+                        </div>
+                        {!isChangingEmail && (
+                          <button
+                            type="button"
+                            onClick={() => setIsChangingEmail(true)}
+                            className="text-orange-500 hover:text-orange-600 text-sm font-medium"
+                          >
+                            Alterar Email
+                          </button>
+                        )}
+                      </div>
+
+                      {isChangingEmail && (
+                        <div className="mt-3 space-y-3">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Novo Email</label>
+                            <input
+                              type="email"
+                              value={securityData.newEmail}
+                              onChange={(e) => setSecurityData({ ...securityData, newEmail: e.target.value })}
+                              placeholder="Digite o novo email"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={handleChangeEmail}
+                              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm transition"
+                            >
+                              Salvar Email
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsChangingEmail(false);
+                                setSecurityData(prev => ({ ...prev, newEmail: '' }));
+                                setSecurityError(null);
+                              }}
+                              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm transition"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Trocar Senha */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <div>
+                          <p className="font-medium text-gray-800">Senha de Acesso</p>
+                          <p className="text-sm text-gray-500">Altere sua senha de login</p>
+                        </div>
+                        {!isChangingPassword && (
+                          <button
+                            type="button"
+                            onClick={() => setIsChangingPassword(true)}
+                            className="text-orange-500 hover:text-orange-600 text-sm font-medium"
+                          >
+                            Alterar Senha
+                          </button>
+                        )}
+                      </div>
+
+                      {isChangingPassword && (
+                        <div className="mt-3 space-y-3">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Senha Atual</label>
+                            <div className="relative">
+                              <input
+                                type={showCurrentPassword ? "text" : "password"}
+                                value={securityData.currentPassword}
+                                onChange={(e) => setSecurityData({ ...securityData, currentPassword: e.target.value })}
+                                placeholder="Digite sua senha atual"
+                                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700"
+                              >
+                                {showCurrentPassword ? (
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                  </svg>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
+                            <div className="relative">
+                              <input
+                                type={showNewPassword ? "text" : "password"}
+                                value={securityData.newPassword}
+                                onChange={(e) => setSecurityData({ ...securityData, newPassword: e.target.value })}
+                                placeholder="Digite a nova senha (mín. 6 caracteres)"
+                                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowNewPassword(!showNewPassword)}
+                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700"
+                              >
+                                {showNewPassword ? (
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                  </svg>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Confirmar Nova Senha</label>
+                            <div className="relative">
+                              <input
+                                type={showConfirmPassword ? "text" : "password"}
+                                value={securityData.confirmPassword}
+                                onChange={(e) => setSecurityData({ ...securityData, confirmPassword: e.target.value })}
+                                placeholder="Confirme a nova senha"
+                                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700"
+                              >
+                                {showConfirmPassword ? (
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                  </svg>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={handleChangePassword}
+                              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm transition"
+                            >
+                              Salvar Senha
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsChangingPassword(false);
+                                setSecurityData(prev => ({
+                                  ...prev,
+                                  currentPassword: '',
+                                  newPassword: '',
+                                  confirmPassword: ''
+                                }));
+                                setSecurityError(null);
+                              }}
+                              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm transition"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
                 <button
                   type="button"
-                  onClick={() => setShowEditModal(false)}
+                  onClick={handleCloseEditModal}
                   className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition"
                 >
                   Cancelar
