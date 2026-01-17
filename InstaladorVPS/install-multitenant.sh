@@ -151,10 +151,15 @@ echo "   Bucket MinIO: $MINIO_BUCKET_NAME"
 echo "   Prefixo containers: $CONTAINER_PREFIX"
 echo ""
 
-read -p "Confirma essas configurações? (s/n): " CONFIRM </dev/tty
-if [[ "$CONFIRM" != "s" && "$CONFIRM" != "S" ]]; then
-    echo "❌ Instalação cancelada"
-    exit 1
+# Se nome foi passado por parâmetro, não pede confirmação
+if [ -z "$1" ]; then
+    read -p "Confirma essas configurações? (s/n): " CONFIRM </dev/tty
+    if [[ "$CONFIRM" != "s" && "$CONFIRM" != "S" ]]; then
+        echo "❌ Instalação cancelada"
+        exit 1
+    fi
+else
+    echo "✅ Configurações confirmadas automaticamente"
 fi
 
 echo ""
@@ -167,10 +172,16 @@ CLIENT_DIR="/root/clientes/$CLIENT_NAME"
 
 if [ -d "$CLIENT_DIR" ]; then
     echo "⚠️  Cliente '$CLIENT_NAME' já existe!"
-    read -p "Deseja REINSTALAR? Isso apagará todos os dados! (s/n): " REINSTALL </dev/tty
-    if [[ "$REINSTALL" != "s" && "$REINSTALL" != "S" ]]; then
-        echo "❌ Instalação cancelada"
-        exit 1
+
+    # Se nome foi passado por parâmetro, reinstala automaticamente
+    if [ -z "$1" ]; then
+        read -p "Deseja REINSTALAR? Isso apagará todos os dados! (s/n): " REINSTALL </dev/tty
+        if [[ "$REINSTALL" != "s" && "$REINSTALL" != "S" ]]; then
+            echo "❌ Instalação cancelada"
+            exit 1
+        fi
+    else
+        echo "🔄 Reinstalando automaticamente..."
     fi
 
     echo "🧹 Removendo instalação anterior..."
