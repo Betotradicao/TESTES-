@@ -15,43 +15,57 @@ function getApiBaseUrl() {
 
   console.log('🌍 Hostname:', hostname);
   console.log('📍 URL completa:', fullUrl);
-  console.log('🔍 Tipo do hostname:', typeof hostname);
-  console.log('🔍 Hostname length:', hostname?.length);
   console.log('🚪 Porta atual:', currentPort);
 
-  // Se tiver variável de ambiente configurada, usar ela
-  if (window.ENV?.VITE_API_URL || import.meta.env.VITE_API_URL) {
-    console.log('🔧 Usando variável de ambiente');
-    return window.ENV?.VITE_API_URL || import.meta.env.VITE_API_URL;
+  // PRIORIDADE 1: Se tiver variável de ambiente configurada (produção/multi-tenant), usar ela
+  const envApiUrl = import.meta.env.VITE_API_URL;
+  if (envApiUrl && envApiUrl !== '' && !envApiUrl.includes('localhost')) {
+    console.log('🔧 Usando VITE_API_URL:', envApiUrl);
+    return envApiUrl;
   }
 
-  // Se acessando pelo ngrok (internet)
+  // PRIORIDADE 2: Se acessando pelo domínio prevencaonoradar (subdomínio multi-tenant)
+  if (hostname.includes('prevencaonoradar.com.br')) {
+    // Extrair subdomínio (ex: nunes.prevencaonoradar.com.br -> nunes)
+    const subdomain = hostname.split('.')[0];
+    console.log('☁️ Subdomínio detectado:', subdomain);
+    return `https://${hostname}/api`;
+  }
+
+  // PRIORIDADE 3: Se acessando via IP direto (ex: 31.97.82.235:3002)
+  // Calcular porta do backend como frontend_port + 998 (3002 -> 4000, 3003 -> 4001, etc)
+  if (hostname.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+    const frontendPort = parseInt(currentPort) || 3000;
+    // Multi-tenant: frontend 3002 -> backend 4000, frontend 3003 -> backend 4001
+    // Single-tenant: frontend 3000 -> backend 3001
+    let backendPort;
+    if (frontendPort >= 3002 && frontendPort < 4000) {
+      // Multi-tenant: porta base do backend é 4000 + (frontend - 3002)
+      backendPort = 4000 + (frontendPort - 3002);
+    } else {
+      // Single-tenant ou padrão
+      backendPort = frontendPort + 1;
+    }
+    const apiUrl = `http://${hostname}:${backendPort}/api`;
+    console.log('🎯 IP detectado - API URL:', apiUrl);
+    return apiUrl;
+  }
+
+  // PRIORIDADE 4: ngrok (desenvolvimento remoto)
   if (hostname.includes('.ngrok')) {
     console.log('✅ NGROK detectado');
-    const backendUrl = 'http://10.6.1.171:3001/api';
-    console.log('🔗 Usando backend na rede local:', backendUrl);
-    return backendUrl;
+    return 'http://10.6.1.171:3001/api';
   }
 
-  // Se acessando pelo domínio (Cloudflare), usar a API do Cloudflare
-  if (hostname.includes('prevencaonoradar.com.br')) {
-    console.log('☁️ Cloudflare detectado');
-    return 'https://api.prevencaonoradar.com.br/api';
-  }
-
-  // Se for localhost, usar localhost
+  // PRIORIDADE 5: localhost (desenvolvimento local)
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    console.log('💻 Localhost detectado - usando localhost:3001');
+    console.log('💻 Localhost detectado');
     return 'http://localhost:3001/api';
   }
 
-  // QUALQUER OUTRO CASO: Usar o hostname atual com porta calculada
-  console.log('🎯 Usando hostname atual:', hostname);
-  // Se frontend está na 3003 (teste), backend está na 3002
-  // Se frontend está na 3000 (prod), backend está na 3001
-  const backendPort = currentPort === '3003' ? '3002' : '3001';
-  const apiUrl = `http://${hostname}:${backendPort}/api`;
-  console.log('✅ API URL:', apiUrl);
+  // Fallback: usar hostname atual com porta 3001
+  const apiUrl = `http://${hostname}:3001/api`;
+  console.log('🔄 Fallback API URL:', apiUrl);
   return apiUrl;
 }
 
