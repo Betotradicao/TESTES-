@@ -10,7 +10,7 @@ COPY package*.json ./
 COPY tsconfig.json ./
 
 # Instalar dependências
-RUN npm ci --only=production && \
+RUN npm install && \
     npm cache clean --force
 
 # Copiar código fonte
@@ -29,7 +29,7 @@ WORKDIR /app
 
 # Instalar apenas dependências de produção
 COPY package*.json ./
-RUN npm ci --only=production && \
+RUN npm install --omit=dev && \
     npm cache clean --force
 
 # Copiar código compilado do builder
