@@ -456,21 +456,31 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
+      # Conexão ao banco (interno Docker)
       DB_HOST: ${CONTAINER_PREFIX}-postgres
       DB_PORT: 5432
       DB_USER: \${POSTGRES_USER}
       DB_PASSWORD: \${POSTGRES_PASSWORD}
       DB_NAME: \${POSTGRES_DB}
+      # Variáveis para seed de configurações (IGUAL AO INSTALAR-AUTO.sh)
+      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
+      HOST_IP: \${HOST_IP}
+      # Segurança
       JWT_SECRET: \${JWT_SECRET}
       API_TOKEN: \${API_TOKEN}
+      # MinIO interno
       MINIO_ENDPOINT: ${CONTAINER_PREFIX}-minio
       MINIO_PORT: 9000
       MINIO_ACCESS_KEY: \${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: \${MINIO_SECRET_KEY}
+      MINIO_ROOT_USER: \${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: \${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET_NAME: \${MINIO_BUCKET_NAME}
+      # MinIO público (para seed)
       MINIO_PUBLIC_ENDPOINT: \${HOST_IP}
       MINIO_PUBLIC_PORT: \${MINIO_API_PORT}
       MINIO_PUBLIC_USE_SSL: "false"
+      # Email
       EMAIL_USER: \${EMAIL_USER}
       EMAIL_PASS: \${EMAIL_PASS}
       FRONTEND_URL: \${FRONTEND_URL}
@@ -609,128 +619,64 @@ echo ""
 echo "⏳ Aguardando containers iniciarem..."
 sleep 15
 
+# O backend vai inicializar o banco automaticamente com migrations e seed
+
 # ============================================
-# INICIALIZAR BANCO DE DADOS
+# AGUARDAR BACKEND INICIALIZAR E FAZER SEED
 # ============================================
 
 echo ""
-echo "📊 Inicializando banco de dados..."
+echo "🚀 Aguardando backend inicializar e criar configurações..."
+echo ""
+echo "ℹ️  O backend irá automaticamente:"
+echo "   • Criar tabelas do banco de dados (migrations)"
+echo "   • Popular configurações com dados do .env (seed)"
+echo "   • Criar usuário MASTER (Roberto)"
+echo ""
 
-# Criar script para inicializar o banco
-cat > /tmp/init-database-$CLIENT_NAME.js << 'ENDOFSCRIPT'
-const { AppDataSource } = require('./dist/config/database');
+# Aguardar backend estar respondendo
+MAX_TRIES=60  # 2 minutos
+TRY=0
+while [ $TRY -lt $MAX_TRIES ]; do
+    # Verificar se backend responde na rota de health
+    if curl -s http://localhost:$BACKEND_PORT/api/health > /dev/null 2>&1; then
+        echo "✅ Backend inicializado com sucesso!"
+        echo ""
+        break
+    fi
 
-const options = { ...AppDataSource.options, synchronize: true, migrations: [] };
-const { DataSource } = require('typeorm');
-const dataSource = new DataSource(options);
+    # Mostrar progresso a cada 5 segundos
+    if [ $((TRY % 5)) -eq 0 ]; then
+        echo "   Aguardando backend... (${TRY}s / 120s)"
+    fi
 
-dataSource.initialize()
-  .then(async () => {
-    console.log('✅ Tabelas criadas com sucesso');
-    await dataSource.destroy();
-    process.exit(0);
-  })
-  .catch(err => {
-    console.error('❌ Erro ao criar tabelas:', err.message);
-    process.exit(1);
-  });
-ENDOFSCRIPT
+    sleep 2
+    TRY=$((TRY + 2))
+done
 
-# Executar criação de tabelas
-docker cp /tmp/init-database-$CLIENT_NAME.js ${CONTAINER_PREFIX}-backend:/app/init-database.js 2>/dev/null
-docker exec ${CONTAINER_PREFIX}-backend node /app/init-database.js 2>/dev/null || echo "⚠️  Tabelas já existem ou erro ao criar"
+if [ $TRY -ge $MAX_TRIES ]; then
+    echo "⚠️  Backend demorou para responder, mas pode estar inicializando ainda..."
+    echo "   Você pode verificar os logs com:"
+    echo "   docker logs ${CONTAINER_PREFIX}-backend -f"
+    echo ""
+fi
 
-# Limpar arquivo temporário
-rm -f /tmp/init-database-$CLIENT_NAME.js
+echo "✅ Sistema configurado automaticamente pelo backend!"
+echo ""
 
-# Registrar migrations
-echo "📝 Registrando migrations..."
+# Atualizar configurações específicas do multi-tenant (portas diferentes)
+echo "⚙️  Atualizando configurações específicas deste cliente..."
 docker exec -i ${CONTAINER_PREFIX}-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB_NAME << EOSQL || true
-INSERT INTO migrations (timestamp, name) VALUES
-  (1758045672125, 'CreateUsersTable1758045672125'),
-  (1758062371000, 'CreateBipsTable1758062371000'),
-  (1758080000000, 'CreateProductsTable1758080000000'),
-  (1758080001000, 'CreateProductActivationHistoryTable1758080001000'),
-  (1758090000000, 'CreateSellsTable1758090000000'),
-  (1758161394993, 'AddNumCupomFiscalToSells1758161394993'),
-  (1758229581610, 'AddCancelledStatusToBips1758229581610'),
-  (1758394113356, 'AddUniqueIndexToSells1758394113356'),
-  (1758749391000, 'AddCancelledStatusToSells1758749391000'),
-  (1758756405482, 'AddDiscountCentsToSells1758756405482'),
-  (1758923139254, 'AlterSellDateToTimestamp1758923139254'),
-  (1759074839394, 'AddNotifiedAtToBips1759074839394'),
-  (1759078749185, 'ChangeNotifiedToNotVerified1759078749185'),
-  (1759200000000, 'CreateSectorsTable1759200000000'),
-  (1759493626143, 'CreateEquipmentsTable1759493626143'),
-  (1759496345428, 'AddEquipmentIdToBips1759496345428'),
-  (1759496400000, 'AddPointOfSaleCodeToSells1759496400000'),
-  (1759500000000, 'CreateEmployeesTable1759500000000'),
-  (1759600000000, 'CreateEquipmentSessionsTable1759600000000'),
-  (1759700000000, 'AddEmployeeIdToBips1759700000000'),
-  (1765080280169, 'CreateConfigurationsTable1765080280169'),
-  (1765200000000, 'CreateCompaniesAndUpdateUsers1765200000000'),
-  (1765300000000, 'AddPortNumberToEquipments1765300000000'),
-  (1765400000000, 'AddMotivoCancelamentoToBips1765400000000'),
-  (1765400000001, 'AddVideoUrlToBips1765400000000'),
-  (1765500000000, 'AddEmployeeResponsavelToBips1765500000000'),
-  (1765500000001, 'AddImageUrlToBips1765500000000'),
-  (1765563000000, 'AddCompanyFields1765563000000'),
-  (1765570000000, 'AddMissingFieldsToUsers1765570000000'),
-  (1765580000000, 'AddAddressFieldsToCompanies1765580000000'),
-  (1765600000000, 'CreateEmailMonitorLogsTable1765600000000'),
-  (1765700000000, 'AddImagePathToEmailMonitorLogs1765700000000'),
-  (1765800000000, 'AddValidacaoIAToBips1765800000000'),
-  (1765900000000, 'AddIACharacteristicsToProducts1765900000000'),
-  (1735600000000, 'CreateRuptureTables1735600000000'),
-  (1735700000000, 'FixRuptureItemsDecimalColumns1735700000000'),
-  (1735710000000, 'RenameParciallToRupturaEstoque1735710000000'),
-  (1735720000000, 'AddPedidoToRuptureSurveyItems1735720000000'),
-  (1766000000000, 'CreateLossesTable1766000000000'),
-  (1767200000000, 'CreateLossReasonConfigsTable1767200000000'),
-  (1767300000000, 'AddPeriodToLosses1767300000000'),
-  (1767400000000, 'AssociateUsersToCompany1767400000000'),
-  (1767733000000, 'CreateLabelAuditTables1767733000000'),
-  (1767800000000, 'CreatePDVMappingTables1767800000000'),
-  (1767900000000, 'AddPesoMedioKgToProducts1767900000000'),
-  (1768000000000, 'CreateProductionAuditTables1768000000000'),
-  (1768001000000, 'AddCostPriceMarginToProductionAuditItems1768001000000'),
-  (1768002000000, 'AddWhatsappGroupToProductionAudits1768002000000'),
-  (1768100000000, 'AddProductionDaysToProducts1768100000000'),
-  (1736786400000, 'AddEmployeeIdToProductionAudits1736786400000'),
-  (1736900000000, 'CreateHortFrutTables1736900000000'),
-  (1768062600000, 'AddEmployeePermissions1768062600000')
-ON CONFLICT DO NOTHING;
+-- Atualizar portas específicas do multi-tenant
+UPDATE configurations SET value = '$HOST_IP' WHERE key = 'minio_endpoint';
+UPDATE configurations SET value = '$MINIO_API_PORT' WHERE key = 'minio_port';
+UPDATE configurations SET value = '$HOST_IP' WHERE key = 'minio_public_endpoint';
+UPDATE configurations SET value = '$MINIO_API_PORT' WHERE key = 'minio_public_port';
+UPDATE configurations SET value = '$MINIO_CONSOLE_PORT' WHERE key = 'minio_console_port';
+UPDATE configurations SET value = '$POSTGRES_PORT' WHERE key = 'postgres_port';
 EOSQL
 
-# ============================================
-# POPULAR CONFIGURAÇÕES DE REDE NO BANCO
-# ============================================
-
-echo "⚙️  Populando configurações de rede no banco..."
-docker exec -i ${CONTAINER_PREFIX}-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB_NAME << EOSQL || true
--- Configurações MinIO (formato usado pelo frontend)
-INSERT INTO configurations (key, value) VALUES
-  ('minio_endpoint', '${CONTAINER_PREFIX}-minio'),
-  ('minio_port', '9000'),
-  ('minio_access_key', '$MINIO_ROOT_USER'),
-  ('minio_secret_key', '$MINIO_ROOT_PASSWORD'),
-  ('minio_bucket_name', '$MINIO_BUCKET_NAME'),
-  ('minio_public_endpoint', '$HOST_IP'),
-  ('minio_public_port', '$MINIO_API_PORT'),
-  ('minio_use_ssl', 'false'),
-  ('minio_console_port', '$MINIO_CONSOLE_PORT'),
-  -- Configurações PostgreSQL (formato usado pelo frontend)
-  ('postgres_host', '${CONTAINER_PREFIX}-postgres'),
-  ('postgres_port', '5432'),
-  ('postgres_user', '$POSTGRES_USER'),
-  ('postgres_password', '$POSTGRES_PASSWORD'),
-  ('postgres_database', '$POSTGRES_DB_NAME'),
-  -- Configuração geral
-  ('host_ip', '$HOST_IP')
-ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
-EOSQL
-
-echo "✅ Banco de dados inicializado"
+echo "✅ Configurações atualizadas"
 
 # ============================================
 # CRIAR USUÁRIO MASTER
