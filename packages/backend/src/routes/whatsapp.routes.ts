@@ -80,7 +80,7 @@ router.get('/connection-status', async (req, res) => {
       });
     }
 
-    const data = await response.json();
+    const data = await response.json() as { instance?: { state?: string } };
     const isConnected = data.instance?.state === 'open';
 
     res.json({
