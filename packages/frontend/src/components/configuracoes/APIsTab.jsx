@@ -371,23 +371,20 @@ export default function APIsTab() {
     }
 
     try {
-      const response = await fetch(`${config.apiUrl}/instance/connectionState/${config.instance}`, {
-        headers: {
-          'apikey': config.apiToken
-        }
-      });
+      // Usa o endpoint do backend para evitar problemas de Mixed Content (HTTPS -> HTTP)
+      const response = await api.get('/whatsapp/connection-status');
+      const data = response.data;
 
-      if (response.ok) {
-        const data = await response.json();
+      if (data.success && data.connected) {
         return {
           success: true,
           message: `Conexão OK! Status da instância: ${data.state || 'Conectado'}`,
-          data: data
+          data: data.data
         };
       } else {
         return {
           success: false,
-          message: `Erro: ${response.status} - ${response.statusText}`
+          message: data.error || `Erro: Instância não conectada (estado: ${data.state || 'desconhecido'})`
         };
       }
     } catch (error) {
@@ -848,14 +845,12 @@ AND ROWNUM &lt;= 5</pre>
   const checkInstanceStatus = async () => {
     setCheckingStatus(true);
     try {
-      const config = apiConfigs.evolution;
-      const response = await fetch(`${config.apiUrl}/instance/connectionState/${config.instance}`, {
-        headers: { 'apikey': config.apiToken }
-      });
+      // Usa o endpoint do backend para evitar problemas de Mixed Content (HTTPS -> HTTP)
+      const response = await api.get('/whatsapp/connection-status');
+      const data = response.data;
 
-      if (response.ok) {
-        const data = await response.json();
-        setInstanceStatus({ active: data.state === 'open', state: data.state });
+      if (data.success) {
+        setInstanceStatus({ active: data.connected, state: data.state });
       } else {
         setInstanceStatus({ active: false, state: 'disconnected' });
       }
@@ -871,56 +866,37 @@ AND ROWNUM &lt;= 5</pre>
     setEvolutionGroups([]);
 
     try {
-      const config = apiConfigs.evolution;
+      console.log('🔍 Carregando grupos via backend...');
 
-      console.log('🔍 Carregando grupos da Evolution API...');
-      console.log('📝 Config:', {
-        apiUrl: config.apiUrl,
-        instance: config.instance,
-        hasToken: !!config.apiToken
-      });
+      // Usa o endpoint do backend para evitar problemas de Mixed Content (HTTPS -> HTTP)
+      const response = await api.get('/whatsapp/fetch-groups');
+      const result = response.data;
 
-      const url = `${config.apiUrl}/group/fetchAllGroups/${config.instance}?getParticipants=false`;
-      console.log('🌐 URL completa:', url);
+      console.log('📡 Resposta do backend:', result);
 
-      const response = await fetch(url, {
-        headers: {
-          'apikey': config.apiToken,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      console.log('📡 Status da resposta:', response.status);
-      console.log('📋 Headers da resposta:', Object.fromEntries(response.headers.entries()));
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Tipo de dados recebidos:', typeof data);
-        console.log('✅ Dados completos:', JSON.stringify(data, null, 2));
-
+      if (result.success) {
         let groups = [];
 
         // Tentar diferentes formatos de resposta da API Evolution
-        if (Array.isArray(data)) {
+        if (Array.isArray(result.data)) {
           // Formato 1: Array direto
-          groups = data;
+          groups = result.data;
           console.log('📦 Formato: Array direto');
-        } else if (data && Array.isArray(data.groups)) {
+        } else if (result.data && Array.isArray(result.data.groups)) {
           // Formato 2: { groups: [...] }
-          groups = data.groups;
+          groups = result.data.groups;
           console.log('📦 Formato: Objeto com propriedade groups');
-        } else if (data && data.data && Array.isArray(data.data)) {
+        } else if (result.data && result.data.data && Array.isArray(result.data.data)) {
           // Formato 3: { data: [...] }
-          groups = data.data;
+          groups = result.data.data;
           console.log('📦 Formato: Objeto com propriedade data');
-        } else if (data && typeof data === 'object') {
+        } else if (result.data && typeof result.data === 'object') {
           // Formato 4: Objeto com valores sendo os grupos
-          groups = Object.values(data);
+          groups = Object.values(result.data);
           console.log('📦 Formato: Objeto convertido para array');
         }
 
         console.log(`📋 ${groups.length} grupos encontrados`);
-        console.log('📋 Primeiro grupo (exemplo):', groups[0]);
 
         setEvolutionGroups(groups);
 
@@ -930,9 +906,8 @@ AND ROWNUM &lt;= 5</pre>
           alert(`✅ ${groups.length} grupos carregados com sucesso!`);
         }
       } else {
-        const errorText = await response.text();
-        console.error('❌ Erro HTTP:', response.status, errorText);
-        alert(`Erro ao carregar grupos (${response.status}): ${errorText}`);
+        console.error('❌ Erro:', result.error);
+        alert(`Erro ao carregar grupos: ${result.error}`);
       }
     } catch (error) {
       console.error('❌ Erro ao conectar:', error);
@@ -979,24 +954,19 @@ AND ROWNUM &lt;= 5</pre>
 
     setSendingTestMessage(true);
     try {
-      const config = apiConfigs.evolution;
-      const response = await fetch(`${config.apiUrl}/message/sendText/${config.instance}`, {
-        method: 'POST',
-        headers: {
-          'apikey': config.apiToken,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          number: apiConfigs.evolution.whatsappGroupId,
-          text: testMessage
-        })
+      // Usa o endpoint do backend para evitar problemas de Mixed Content (HTTPS -> HTTP)
+      const response = await api.post('/whatsapp/test-group', {
+        groupId: apiConfigs.evolution.whatsappGroupId,
+        message: testMessage
       });
 
-      if (response.ok) {
+      const result = response.data;
+
+      if (result.success) {
         alert('✅ Mensagem enviada com sucesso!');
         setTestMessage('');
       } else {
-        alert('❌ Erro ao enviar mensagem');
+        alert('❌ Erro ao enviar mensagem: ' + (result.error || 'Erro desconhecido'));
       }
     } catch (error) {
       alert('❌ Erro: ' + error.message);

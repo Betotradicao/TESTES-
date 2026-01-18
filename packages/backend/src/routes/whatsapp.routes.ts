@@ -41,6 +41,65 @@ router.post('/test-group', async (req, res) => {
 });
 
 /**
+ * GET /api/whatsapp/connection-status
+ * Verifica status da conexão com a Evolution API
+ */
+router.get('/connection-status', async (req, res) => {
+  try {
+    const { ConfigurationService } = require('../services/configuration.service');
+
+    // Buscar configurações
+    const apiToken = await ConfigurationService.get('evolution_api_token', process.env.EVOLUTION_API_TOKEN || '');
+    const apiUrl = await ConfigurationService.get('evolution_api_url', process.env.EVOLUTION_API_URL || '');
+    const instance = await ConfigurationService.get('evolution_instance', process.env.EVOLUTION_INSTANCE || '');
+
+    if (!apiToken || !apiUrl || !instance) {
+      return res.json({
+        success: false,
+        connected: false,
+        error: 'Configurações da Evolution API não encontradas'
+      });
+    }
+
+    // Fazer requisição para verificar status da conexão
+    const url = `${apiUrl}/instance/connectionState/${encodeURIComponent(instance)}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'apikey': apiToken
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return res.json({
+        success: false,
+        connected: false,
+        error: `Evolution API Error: ${response.status} - ${errorText}`
+      });
+    }
+
+    const data = await response.json();
+    const isConnected = data.instance?.state === 'open';
+
+    res.json({
+      success: true,
+      connected: isConnected,
+      state: data.instance?.state || 'unknown',
+      data: data
+    });
+  } catch (error: any) {
+    console.error('Erro ao verificar status da conexão Evolution:', error);
+    res.status(500).json({
+      success: false,
+      connected: false,
+      error: error.message || 'Erro ao verificar conexão'
+    });
+  }
+});
+
+/**
  * GET /api/whatsapp/fetch-groups
  * Busca todos os grupos disponíveis na instância do WhatsApp
  */
