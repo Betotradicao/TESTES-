@@ -1,6 +1,6 @@
 import { MigrationInterface, QueryRunner, Table, TableForeignKey, TableIndex } from 'typeorm';
 
-export class CreateHortFrutTables1736900000000 implements MigrationInterface {
+export class CreateHortFrutTables1768300000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Criar tabela de tipos de caixa
     await queryRunner.createTable(
