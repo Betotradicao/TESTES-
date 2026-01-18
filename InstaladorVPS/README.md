@@ -7,7 +7,7 @@ Instalador automatizado para servidores Linux (VPS). Detecta automaticamente o I
 | Tipo | Descricao | Quando Usar |
 |------|-----------|-------------|
 | **Single-Tenant** | 1 cliente por VPS | Clientes unicos, VPS exclusiva |
-| **Multi-Tenant** | Varios clientes por VPS | Multiplos clientes com subdomínios |
+| **Multi-Tenant** | Varios clientes por VPS | Multiplos clientes com subdominios |
 
 ---
 
@@ -18,7 +18,7 @@ Instalador automatizado para servidores Linux (VPS). Detecta automaticamente o I
 Cole este comando no terminal da sua VPS para instalar tudo automaticamente:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Betotradicao/TESTES-/TESTE/InstaladorVPS/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/Betotradicao/roberto-prevencao-no-radar/TESTE/InstaladorVPS/install.sh | bash
 ```
 
 **O que este comando faz:**
@@ -29,8 +29,8 @@ curl -sSL https://raw.githubusercontent.com/Betotradicao/TESTES-/TESTE/Instalado
 5. Gera senhas aleatorias seguras
 6. Cria arquivo .env com todas as configuracoes
 7. Inicia todos os containers Docker
-8. Cria as tabelas do banco de dados
-9. Registra todas as migrations
+8. Cria as tabelas do banco de dados (migrations automaticas)
+9. Popula configuracoes iniciais (seed automatico)
 10. Cria usuario master padrao
 11. Salva credenciais em CREDENCIAIS.txt
 
@@ -212,7 +212,7 @@ cd /root
 rm -rf prevencao-radar-install
 
 # Instalar novamente
-curl -sSL https://raw.githubusercontent.com/Betotradicao/TESTES-/TESTE/InstaladorVPS/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/Betotradicao/roberto-prevencao-no-radar/TESTE/InstaladorVPS/install.sh | bash
 ```
 
 ---
@@ -253,86 +253,137 @@ InstaladorVPS/
 
 # OPCAO 2: MULTI-TENANT (VARIOS CLIENTES POR VPS)
 
-Sistema com subdomínios por cliente. Ideal para hospedar multiplos clientes em uma unica VPS.
+Sistema com subdominios por cliente. Ideal para hospedar multiplos clientes em uma unica VPS.
 
-## INSTALACAO MULTI-TENANT
+## COMO FUNCIONA
 
-```bash
-curl -sSL https://raw.githubusercontent.com/Betotradicao/TESTES-/TESTE/InstaladorVPS/install-multitenant.sh | bash
-```
-
-**O que este comando faz:**
-1. Instala Docker, Nginx e Certbot automaticamente
-2. Pergunta o nome do cliente (ex: "nunes")
-3. Gera automaticamente:
-   - Subdominio: `nunes.prevencaonoradar.com.br`
-   - Banco: `postgres_nunes`
-   - Bucket: `minio_nunes`
-   - Containers: `prevencao-nunes-*`
-4. Encontra portas disponiveis automaticamente
-5. Configura Nginx como proxy reverso
-6. Gera certificado SSL (HTTPS) com Let's Encrypt
-7. Salva credenciais em `/root/clientes/[nome]/CREDENCIAIS.txt`
+Cada cliente recebe:
+- Subdominio proprio: `cliente.prevencaonoradar.com.br`
+- Banco de dados isolado
+- Bucket MinIO isolado
+- Containers Docker separados
+- Certificado SSL (HTTPS) automatico
 
 ## PRE-REQUISITOS MULTI-TENANT
 
-1. **Dominio configurado**: O dominio `prevencaonoradar.com.br` deve ter um registro DNS wildcard:
-   - Tipo: A
-   - Nome: `*` (asterisco)
-   - Valor: IP da VPS
+### 1. Configurar DNS no Registro.br
 
-2. **VPS com portas 80 e 443 livres** (para Nginx/HTTPS)
+**IMPORTANTE:** O Registro.br NAO suporta wildcard DNS (`*`). Voce precisa criar uma entrada para CADA cliente:
 
-## LISTAR CLIENTES INSTALADOS
+1. Acesse: https://registro.br
+2. Va em: Dominios > prevencaonoradar.com.br > DNS > Adicionar Record
+3. Para cada cliente, crie:
+   - **Tipo:** A
+   - **Nome:** nome-do-cliente (ex: `central`, `nunes`, `mercado01`)
+   - **Dados:** IP da VPS (ex: `46.202.150.64`)
 
-```bash
-curl -sSL https://raw.githubusercontent.com/Betotradicao/TESTES-/TESTE/InstaladorVPS/listar-clientes.sh | bash
-```
+### 2. VPS com portas 80 e 443 livres
 
-Ou localmente:
+Necessario para Nginx e certificados SSL.
 
-```bash
-bash /root/prevencao-radar-repo/InstaladorVPS/listar-clientes.sh
-```
+---
 
-## ADICIONAR NOVO CLIENTE
+## INSTALACAO MULTI-TENANT
 
-Execute novamente o instalador multi-tenant:
+### Passo 1: Baixar o instalador (primeira vez apenas)
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Betotradicao/TESTES-/TESTE/InstaladorVPS/install-multitenant.sh | bash
+cd /root
+git clone -b TESTE https://github.com/Betotradicao/roberto-prevencao-no-radar.git prevencao-radar-repo
 ```
 
-Cada cliente tera:
-- Seu proprio banco de dados
-- Seu proprio bucket MinIO
-- Seus proprios containers Docker
-- Seu proprio subdominio HTTPS
+### Passo 2: Instalar um cliente
+
+```bash
+cd /root/prevencao-radar-repo/InstaladorVPS
+bash install-multitenant.sh nome-do-cliente
+```
+
+Exemplo:
+```bash
+bash install-multitenant.sh central
+```
+
+### Passo 3: Gerar certificado SSL
+
+Apos o DNS propagar (5 min a 2 horas), gere o certificado:
+
+```bash
+certbot --nginx -d nome-do-cliente.prevencaonoradar.com.br
+```
+
+Exemplo:
+```bash
+certbot --nginx -d central.prevencaonoradar.com.br
+```
+
+---
+
+## FLUXO COMPLETO PARA NOVO CLIENTE
+
+1. **Registro.br:** Criar entrada DNS (ex: `nunes` -> `46.202.150.64`)
+2. **Aguardar:** DNS propagar (verificar em https://dnschecker.org)
+3. **VPS:** Instalar cliente:
+   ```bash
+   cd /root/prevencao-radar-repo/InstaladorVPS
+   bash install-multitenant.sh nunes
+   ```
+4. **SSL:** Gerar certificado:
+   ```bash
+   certbot --nginx -d nunes.prevencaonoradar.com.br
+   ```
+5. **Acessar:** https://nunes.prevencaonoradar.com.br
+
+---
+
+## PORTAS MULTI-TENANT
+
+Cada cliente recebe portas automaticas:
+
+| Cliente | Frontend | Backend | PostgreSQL | MinIO API | MinIO Console |
+|---------|----------|---------|------------|-----------|---------------|
+| 1o      | 3002     | 4000    | 5500       | 9100      | 9200          |
+| 2o      | 3003     | 4001    | 5501       | 9101      | 9201          |
+| 3o      | 3004     | 4002    | 5502       | 9102      | 9202          |
+| ...     | ...      | ...     | ...        | ...       | ...           |
+
+O Nginx roteia tudo pela porta 80/443 usando subdominios.
+
+---
 
 ## ESTRUTURA DE PASTAS MULTI-TENANT
 
 ```
 /root/
-├── prevencao-radar-repo/          # Codigo fonte (compartilhado)
+├── prevencao-radar-repo/              # Codigo fonte (compartilhado)
 │   └── InstaladorVPS/
-│       ├── install.sh             # Single-tenant
-│       ├── install-multitenant.sh # Multi-tenant
-│       └── listar-clientes.sh     # Listar clientes
+│       ├── install.sh                 # Single-tenant
+│       ├── install-multitenant.sh     # Multi-tenant
+│       └── listar-clientes.sh         # Listar clientes
 │
-└── clientes/                      # Dados por cliente
+├── prevencao-multi-tenant/            # Controle de portas
+│   └── porta_atual.txt                # Proxima porta disponivel
+│
+└── clientes/                          # Dados por cliente
+    ├── central/
+    │   ├── docker-compose.yml
+    │   ├── .env
+    │   └── CREDENCIAIS.txt
     ├── nunes/
-    │   ├── docker-compose.yml
-    │   ├── .env
-    │   └── CREDENCIAIS.txt
-    ├── mercado01/
-    │   ├── docker-compose.yml
-    │   ├── .env
-    │   └── CREDENCIAIS.txt
-    └── loja123/
+    │   └── ...
+    └── mercado01/
         └── ...
 ```
 
+---
+
 ## COMANDOS UTEIS MULTI-TENANT
+
+### Listar clientes instalados
+
+```bash
+bash /root/prevencao-radar-repo/InstaladorVPS/listar-clientes.sh
+```
 
 ### Ver logs de um cliente
 
@@ -352,43 +403,161 @@ cd /root/clientes/[nome] && docker compose restart
 cd /root/clientes/[nome] && docker compose down
 ```
 
-### Remover cliente (CUIDADO - APAGA DADOS)
+### Ver status de todos os containers
+
+```bash
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep prevencao
+```
+
+---
+
+## ATUALIZAR CODIGO MULTI-TENANT
+
+### Atualizar codigo fonte
+
+```bash
+cd /root/prevencao-radar-repo && git pull
+```
+
+### Rebuild de um cliente especifico
 
 ```bash
 cd /root/clientes/[nome]
-docker compose down -v
-rm -rf /root/clientes/[nome]
-rm /etc/nginx/sites-enabled/[nome]
-rm /etc/nginx/sites-available/[nome]
-nginx -s reload
+docker compose build --no-cache backend frontend
+docker compose up -d --no-deps backend frontend
 ```
 
-## ATUALIZAR CODIGO (TODOS OS CLIENTES)
+### Rebuild de TODOS os clientes
 
 ```bash
-# 1. Atualizar codigo fonte
 cd /root/prevencao-radar-repo && git pull
 
-# 2. Rebuild de cada cliente
 for dir in /root/clientes/*/; do
     echo "Atualizando $(basename $dir)..."
-    cd "$dir" && docker compose build --no-cache && docker compose up -d --no-deps backend frontend
+    cd "$dir" && docker compose build --no-cache backend frontend && docker compose up -d --no-deps backend frontend
 done
 ```
 
-## PORTAS MULTI-TENANT
+---
 
-Cada cliente recebe portas automaticas a partir de:
-- Frontend: 3000+
-- Backend: 4000+
-- PostgreSQL: 5500+
-- MinIO API: 9100+
-- MinIO Console: 9200+
+## REMOVER CLIENTE (CUIDADO - APAGA DADOS)
 
-O Nginx roteia tudo pela porta 80/443 usando subdomínios.
+```bash
+# Parar e remover containers
+cd /root/clientes/[nome]
+docker compose down -v
+
+# Remover pasta do cliente
+rm -rf /root/clientes/[nome]
+
+# Remover configuracao Nginx
+rm /etc/nginx/sites-enabled/[nome]
+rm /etc/nginx/sites-available/[nome]
+
+# Recarregar Nginx
+nginx -s reload
+```
+
+---
+
+## VERIFICAR DNS
+
+### No Windows (CMD)
+
+```cmd
+nslookup cliente.prevencaonoradar.com.br
+```
+
+### Usando Google DNS
+
+```cmd
+nslookup cliente.prevencaonoradar.com.br 8.8.8.8
+```
+
+### Online
+
+- https://dnschecker.org
+- https://www.whatsmydns.net
+
+---
+
+## RESOLUCAO DE PROBLEMAS MULTI-TENANT
+
+### DNS nao propaga na rede local
+
+O DNS da sua rede local pode demorar mais. Solucoes:
+
+1. **Limpar cache DNS:**
+   ```cmd
+   ipconfig /flushdns
+   ```
+
+2. **Adicionar no arquivo hosts:**
+   - Abra `C:\Windows\System32\drivers\etc\hosts` como Administrador
+   - Adicione: `IP_DA_VPS cliente.prevencaonoradar.com.br`
+
+3. **Mudar DNS do computador** para Google (8.8.8.8)
+
+### Frontend unhealthy mas funcionando
+
+Isso e normal - o healthcheck verifica porta interna. O sistema funciona normalmente.
+
+### Erro de senha do PostgreSQL
+
+```bash
+# Verificar senha atual do backend
+docker exec prevencao-[nome]-backend env | grep DB_PASSWORD
+
+# Verificar senha do postgres
+docker exec prevencao-[nome]-postgres env | grep POSTGRES_PASSWORD
+
+# Se diferentes, resetar hash:
+SENHA=$(docker exec prevencao-[nome]-postgres env | grep POSTGRES_PASSWORD | cut -d'=' -f2)
+docker exec prevencao-[nome]-postgres psql -U postgres -c "ALTER USER postgres WITH PASSWORD '$SENHA';"
+docker restart prevencao-[nome]-backend
+```
+
+---
 
 ## COMPATIBILIDADE
 
 Os dois instaladores podem coexistir na mesma VPS:
 - **Single-tenant**: `/root/prevencao-radar-install/` (portas 3000, 3001, etc)
-- **Multi-tenant**: `/root/clientes/[nome]/` (portas dinamicas)
+- **Multi-tenant**: `/root/clientes/[nome]/` (portas dinamicas a partir de 3002)
+
+---
+
+## CREDENCIAIS PADRAO (TODOS OS CLIENTES)
+
+- **Usuario Master:** Roberto
+- **Senha Master:** Beto3107@@##
+
+As senhas de PostgreSQL e MinIO sao geradas automaticamente para cada cliente e salvas em:
+`/root/clientes/[nome]/CREDENCIAIS.txt`
+
+---
+
+## FIREWALL UFW
+
+O instalador multi-tenant libera automaticamente as portas necessarias no UFW. Se precisar liberar manualmente:
+
+```bash
+# Portas base multi-tenant
+ufw allow 80      # HTTP (Nginx)
+ufw allow 443     # HTTPS (Nginx)
+ufw allow 3002:3100/tcp   # Frontends
+ufw allow 4000:4100/tcp   # Backends
+ufw allow 5500:5600/tcp   # PostgreSQL
+ufw allow 9100:9300/tcp   # MinIO
+```
+
+---
+
+## SUPORTE
+
+- **Repositorio:** https://github.com/Betotradicao/roberto-prevencao-no-radar
+- **Branch de producao:** TESTE
+
+---
+
+**Ultima atualizacao:** 18/01/2026
