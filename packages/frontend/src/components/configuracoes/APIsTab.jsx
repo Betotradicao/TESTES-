@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import SimulatorTab from './SimulatorTab';
+import api from '../../utils/api';
 
 export default function APIsTab() {
   const [activeSubTab, setActiveSubTab] = useState('zanthus');
@@ -69,9 +70,8 @@ export default function APIsTab() {
 
   const loadConfigurations = async () => {
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      const response = await fetch(`${apiUrl}/config/configurations`);
-      const data = await response.json();
+      const response = await api.get('/config/configurations');
+      const data = response.data;
 
       if (data.success && data.data) {
         const configs = data.data;
@@ -169,8 +169,6 @@ export default function APIsTab() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-
       // Converte o objeto de configurações para o formato do backend
       const configsToSave = {
         // Zanthus
@@ -211,15 +209,8 @@ export default function APIsTab() {
         minio_public_port: apiConfigs.minio.publicPort
       };
 
-      const response = await fetch(`${apiUrl}/config/configurations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(configsToSave)
-      });
-
-      const data = await response.json();
+      const response = await api.post('/config/configurations', configsToSave);
+      const data = response.data;
 
       if (data.success) {
         alert('✅ Configurações salvas com sucesso! Senhas foram criptografadas.');
@@ -286,25 +277,17 @@ export default function APIsTab() {
     }
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-
       // Chama o backend para fazer o teste (evita problemas de CORS)
-      const response = await fetch(`${apiUrl}/config/test-zanthus`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          apiUrl: config.apiUrl,
-          port: config.port,
-          apiToken: config.apiToken,
-          endpoint: config.salesEndpoint || config.productsEndpoint
-        })
+      const response = await api.post('/config/test-zanthus', {
+        apiUrl: config.apiUrl,
+        port: config.port,
+        apiToken: config.apiToken,
+        endpoint: config.salesEndpoint || config.productsEndpoint
       });
 
-      const data = await response.json();
+      const data = response.data;
 
-      if (response.ok && data.success) {
+      if (data.success) {
         return {
           success: true,
           message: data.message,
@@ -340,27 +323,19 @@ export default function APIsTab() {
     }
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-
       // Chama o backend para fazer o teste (evita problemas de CORS)
-      const response = await fetch(`${apiUrl}/config/test-intersolid`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          apiUrl: config.apiUrl,
-          port: config.port,
-          username: config.username,
-          password: config.password,
-          salesEndpoint: config.salesEndpoint,
-          productsEndpoint: config.productsEndpoint
-        })
+      const response = await api.post('/config/test-intersolid', {
+        apiUrl: config.apiUrl,
+        port: config.port,
+        username: config.username,
+        password: config.password,
+        salesEndpoint: config.salesEndpoint,
+        productsEndpoint: config.productsEndpoint
       });
 
-      const data = await response.json();
+      const data = response.data;
 
-      if (response.ok && data.success) {
+      if (data.success) {
         return {
           success: true,
           message: data.message,
@@ -434,18 +409,10 @@ export default function APIsTab() {
     }
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      const response = await fetch(`${apiUrl}/config/test-database`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(config)
-      });
+      const response = await api.post('/config/test-database', config);
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (data.success) {
         return {
           success: true,
           message: 'Conexão com banco de dados estabelecida com sucesso!',
@@ -476,18 +443,10 @@ export default function APIsTab() {
     }
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      const response = await fetch(`${apiUrl}/config/test-minio`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(config)
-      });
+      const response = await api.post('/config/test-minio', config);
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (data.success) {
         return {
           success: true,
           message: 'Conexão com MinIO estabelecida com sucesso!',
