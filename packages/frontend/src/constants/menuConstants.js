@@ -9,6 +9,7 @@ export const MENU_MODULES = {
   PERDAS: 'perdas',
   PRODUCAO: 'producao',
   HORTFRUT: 'hortfrut',
+  ESTOQUE_MARGEM: 'estoque-margem',
 };
 
 // IDs dos sub-menus
@@ -47,6 +48,10 @@ export const MENU_SUBMENUS = {
   // HortFrut
   HORTFRUT_LANCADOR: 'hortfrut-lancador',
   HORTFRUT_RESULTADOS: 'hortfrut-resultados',
+
+  // Estoque e Margem
+  ESTOQUE_MARGEM_LANCADOR: 'estoque-margem-lancador',
+  ESTOQUE_MARGEM_RESULTADOS: 'estoque-margem-resultados',
 };
 
 // Estrutura completa do menu
@@ -203,6 +208,23 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.HORTFRUT_RESULTADOS,
         title: 'Resultado dos Lançamentos',
         path: '/hortfrut-resultados'
+      }
+    ]
+  },
+  {
+    id: MENU_MODULES.ESTOQUE_MARGEM,
+    title: 'Prevenção Estoque e Margem',
+    icon: 'estoque',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.ESTOQUE_MARGEM_LANCADOR,
+        title: 'Lançador de Itens',
+        path: '/estoque-margem-lancador'
+      },
+      {
+        id: MENU_SUBMENUS.ESTOQUE_MARGEM_RESULTADOS,
+        title: 'Resultado dos Lançamentos',
+        path: '/estoque-margem-resultados'
       }
     ]
   }

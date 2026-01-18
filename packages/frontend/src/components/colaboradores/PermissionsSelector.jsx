@@ -176,7 +176,9 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
     'ruptura': '📋',
     'etiquetas': '🔖',
     'perdas': '📊',
-    'producao': '🏭'
+    'producao': '🥖',
+    'hortfrut': '🥬',
+    'estoque-margem': '📦'
   };
 
   return (
