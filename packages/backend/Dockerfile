@@ -37,6 +37,9 @@ RUN npm install --omit=dev && \
 # Copiar código compilado do builder (inclui migrations já compiladas)
 COPY --from=builder /app/dist ./dist
 
+# Criar pastas de uploads necessárias
+RUN mkdir -p /app/uploads/temp /app/uploads/images /app/uploads/videos /app/uploads/dvr_images /app/uploads/label-audits
+
 # Expor porta
 EXPOSE 3001
 
