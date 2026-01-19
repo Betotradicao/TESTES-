@@ -3,6 +3,10 @@
 # ===================================
 FROM node:18-alpine AS builder
 
+# Argumentos de build para variáveis do Vite
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 WORKDIR /app
 
 # Copiar package files
@@ -15,7 +19,7 @@ RUN npm install && \
 # Copiar código fonte
 COPY . .
 
-# Build do Vite
+# Build do Vite (as variáveis VITE_* são injetadas no build)
 RUN npm run build
 
 # ===================================

@@ -383,6 +383,8 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
                 maxLength={100}
                 pattern="[a-zA-Z0-9._-]+"
                 title="Apenas letras, números, pontos, underscores e hífens"
+                autoComplete="off"
+                name="employee-username"
               />
             </div>
 
@@ -401,6 +403,8 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
                   required
                   minLength={6}
                   maxLength={100}
+                  autoComplete="new-password"
+                  name="employee-password"
                 />
               </div>
             )}
