@@ -151,7 +151,7 @@ export class ConfigController {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
         },
-        timeout: 10000 // 10 segundos
+        timeout: 30000 // 30 segundos
       };
 
       // Nota: Token não é usado pois causa erro 500 na API Zanthus
