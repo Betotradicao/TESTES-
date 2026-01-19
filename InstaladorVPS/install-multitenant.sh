@@ -5,12 +5,14 @@ set -e
 # INSTALADOR MULTI-TENANT - VPS LINUX
 # Sistema: Prevenção no Radar
 # Suporte a múltiplos clientes com subdomínios
+# VERSÃO CORRIGIDA: MinIO HTTPS, tabela suspect_identifications
 # ============================================
 
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║                                                            ║"
 echo "║   INSTALADOR MULTI-TENANT - PREVENÇÃO NO RADAR            ║"
 echo "║   Sistema com subdomínios por cliente                      ║"
+echo "║   VERSÃO: 2.0 (Janeiro 2026)                              ║"
 echo "║                                                            ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
@@ -110,7 +112,7 @@ else
     echo "O nome do cliente será usado para:"
     echo "  - Subdomínio: [nome].$DOMAIN_BASE"
     echo "  - Banco de dados: postgres_[nome]"
-    echo "  - Bucket MinIO: minio_[nome]"
+    echo "  - Bucket MinIO: minio-[nome]"
     echo "  - Containers Docker: prevencao-[nome]-*"
     echo ""
 
@@ -140,7 +142,8 @@ echo "✅ Nome do cliente: $CLIENT_NAME"
 # Gerar nomes baseados no cliente
 CLIENT_SUBDOMAIN="${CLIENT_NAME}.$DOMAIN_BASE"
 POSTGRES_DB_NAME="postgres_${CLIENT_NAME}"
-MINIO_BUCKET_NAME="minio_${CLIENT_NAME}"
+# IMPORTANTE: Bucket name com hífen (não underscore) - S3 não aceita underscore
+MINIO_BUCKET_NAME="minio-${CLIENT_NAME}"
 CONTAINER_PREFIX="prevencao-${CLIENT_NAME}"
 
 echo ""
@@ -198,59 +201,63 @@ echo "📂 Diretório do cliente: $CLIENT_DIR"
 echo ""
 
 # ============================================
-# ATUALIZAR/CLONAR CÓDIGO DO GITHUB
+# CLONAR/ATUALIZAR REPOSITÓRIO
 # ============================================
 
-echo "🔄 Baixando código do GitHub..."
-
-BRANCH="TESTE"
 REPO_DIR="/root/prevencao-radar-repo"
 
 if [ -d "$REPO_DIR" ]; then
+    echo "📥 Atualizando repositório..."
     cd "$REPO_DIR"
     git fetch origin
-    git checkout $BRANCH 2>/dev/null || git checkout -b $BRANCH origin/$BRANCH
-    git reset --hard origin/$BRANCH
-    git pull origin $BRANCH
+    git reset --hard origin/main
+    git pull origin main
+    cd "$CLIENT_DIR"
 else
-    git clone -b $BRANCH https://github.com/Betotradicao/TESTES-.git "$REPO_DIR"
+    echo "📥 Clonando repositório..."
+    git clone https://github.com/roneyfraga/roberto-prevencao-no-radar.git "$REPO_DIR"
 fi
 
-echo "✅ Código atualizado"
+echo "✅ Repositório atualizado"
 echo ""
 
-# Voltar para diretório do cliente
-cd "$CLIENT_DIR"
-
 # ============================================
-# ENCONTRAR PORTAS DISPONÍVEIS
+# GERAR PORTAS DINÂMICAS
 # ============================================
 
-echo "🔍 Procurando portas disponíveis..."
+echo "🔢 Gerando portas únicas para este cliente..."
 
-# Função para verificar se porta está em uso
-is_port_in_use() {
-    ss -tuln | grep -q ":$1 " && return 0 || return 1
-}
-
-# Encontrar porta disponível a partir de uma base
+# Função para encontrar porta disponível
 find_available_port() {
-    local base_port=$1
-    local port=$base_port
-    while is_port_in_use $port; do
-        port=$((port + 1))
+    local BASE_PORT=$1
+    local PORT=$BASE_PORT
+    while netstat -tuln 2>/dev/null | grep -q ":$PORT " || ss -tuln 2>/dev/null | grep -q ":$PORT "; do
+        PORT=$((PORT + 10))
+        if [ $PORT -gt 65535 ]; then
+            echo "❌ Não foi possível encontrar porta disponível"
+            exit 1
+        fi
     done
-    echo $port
+    echo $PORT
 }
 
-# Portas para este cliente
-FRONTEND_PORT=$(find_available_port 3000)
-BACKEND_PORT=$(find_available_port 4000)
-POSTGRES_PORT=$(find_available_port 5500)
-MINIO_API_PORT=$(find_available_port 9100)
-MINIO_CONSOLE_PORT=$(find_available_port 9200)
+# Gerar portas baseadas em hash do nome do cliente para consistência
+CLIENT_HASH=$(echo -n "$CLIENT_NAME" | md5sum | cut -c1-4)
+CLIENT_NUM=$((16#$CLIENT_HASH % 900 + 100))  # Número entre 100 e 999
 
-echo "✅ Portas alocadas para $CLIENT_NAME:"
+FRONTEND_PORT=$((3000 + CLIENT_NUM))
+BACKEND_PORT=$((4000 + CLIENT_NUM))
+POSTGRES_PORT=$((5400 + CLIENT_NUM))
+MINIO_API_PORT=$((9000 + CLIENT_NUM))
+MINIO_CONSOLE_PORT=$((9100 + CLIENT_NUM))
+
+# Verificar se portas estão disponíveis, senão encontrar alternativas
+FRONTEND_PORT=$(find_available_port $FRONTEND_PORT)
+BACKEND_PORT=$(find_available_port $BACKEND_PORT)
+POSTGRES_PORT=$(find_available_port $POSTGRES_PORT)
+MINIO_API_PORT=$(find_available_port $MINIO_API_PORT)
+MINIO_CONSOLE_PORT=$(find_available_port $MINIO_CONSOLE_PORT)
+
 echo "   Frontend: $FRONTEND_PORT"
 echo "   Backend: $BACKEND_PORT"
 echo "   PostgreSQL: $POSTGRES_PORT"
@@ -259,127 +266,90 @@ echo "   MinIO Console: $MINIO_CONSOLE_PORT"
 echo ""
 
 # ============================================
-# LIBERAR PORTAS NO FIREWALL (UFW)
+# GERAR CREDENCIAIS SEGURAS
 # ============================================
 
-echo "🔓 Verificando e liberando portas no firewall..."
+echo "🔐 Gerando credenciais seguras..."
 
-# Verificar se UFW está ativo
-if command -v ufw &> /dev/null && ufw status | grep -q "Status: active"; then
-    echo "   UFW detectado e ativo, liberando portas..."
-
-    # Liberar as portas do cliente
-    ufw allow $FRONTEND_PORT/tcp comment "Prevencao $CLIENT_NAME - Frontend" > /dev/null 2>&1
-    ufw allow $BACKEND_PORT/tcp comment "Prevencao $CLIENT_NAME - Backend" > /dev/null 2>&1
-    ufw allow $POSTGRES_PORT/tcp comment "Prevencao $CLIENT_NAME - PostgreSQL" > /dev/null 2>&1
-    ufw allow $MINIO_API_PORT/tcp comment "Prevencao $CLIENT_NAME - MinIO API" > /dev/null 2>&1
-    ufw allow $MINIO_CONSOLE_PORT/tcp comment "Prevencao $CLIENT_NAME - MinIO Console" > /dev/null 2>&1
-
-    # Garantir que portas HTTP/HTTPS estão abertas para Nginx
-    ufw allow 80/tcp comment "HTTP - Nginx" > /dev/null 2>&1
-    ufw allow 443/tcp comment "HTTPS - Nginx" > /dev/null 2>&1
-
-    echo "✅ Portas liberadas no UFW"
-else
-    echo "   UFW não está ativo ou não instalado - pulando configuração de firewall"
-fi
-
-echo ""
-
-# ============================================
-# GERAÇÃO DE SENHAS ALEATÓRIAS
-# ============================================
-
-echo "🔐 Gerando senhas seguras..."
-
+# Função para gerar senha segura
 generate_password() {
-    tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32
+    openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 32
 }
 
-MINIO_ROOT_USER="admin"
-MINIO_ROOT_PASSWORD=$(generate_password)
 POSTGRES_USER="postgres"
 POSTGRES_PASSWORD=$(generate_password)
 JWT_SECRET=$(generate_password)
 API_TOKEN=$(generate_password)
+MINIO_ROOT_USER="minioadmin"
+MINIO_ROOT_PASSWORD=$(generate_password)
+MINIO_ACCESS_KEY="$MINIO_ROOT_USER"
+MINIO_SECRET_KEY="$MINIO_ROOT_PASSWORD"
 
-echo "✅ Senhas geradas"
+echo "✅ Credenciais geradas"
 echo ""
 
 # ============================================
 # CRIAR ARQUIVO .env
 # ============================================
 
-echo "📝 Criando arquivo de configuração..."
+echo "📝 Criando arquivo .env..."
 
 cat > .env << EOF
 # ============================================
-# CLIENTE: $CLIENT_NAME
+# CONFIGURAÇÃO DO CLIENTE: $CLIENT_NAME
 # Gerado em: $(date)
 # ============================================
 
-# Identificação do Cliente
+# Identificação
 CLIENT_NAME=$CLIENT_NAME
 CLIENT_SUBDOMAIN=$CLIENT_SUBDOMAIN
 
-# IP da VPS
-HOST_IP=$HOST_IP
-
-# ============================================
-# PORTAS (específicas deste cliente)
-# ============================================
+# Portas
 FRONTEND_PORT=$FRONTEND_PORT
 BACKEND_PORT=$BACKEND_PORT
 POSTGRES_PORT=$POSTGRES_PORT
-MINIO_API_PORT=$MINIO_API_PORT
-MINIO_CONSOLE_PORT=$MINIO_CONSOLE_PORT
 
-# ============================================
-# MINIO - Armazenamento de Arquivos
-# ============================================
-MINIO_ROOT_USER=$MINIO_ROOT_USER
-MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD
-MINIO_ACCESS_KEY=$MINIO_ROOT_USER
-MINIO_SECRET_KEY=$MINIO_ROOT_PASSWORD
-MINIO_BUCKET_NAME=$MINIO_BUCKET_NAME
-MINIO_PUBLIC_ENDPOINT=$HOST_IP
-MINIO_PUBLIC_PORT=$MINIO_API_PORT
-MINIO_PUBLIC_USE_SSL=false
-
-# ============================================
 # POSTGRESQL - Banco de Dados
-# ============================================
 POSTGRES_USER=$POSTGRES_USER
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 POSTGRES_DB=$POSTGRES_DB_NAME
-
-# Conexão do Backend ao PostgreSQL (interno Docker)
 DB_HOST=${CONTAINER_PREFIX}-postgres
 DB_PORT=5432
 DB_USER=$POSTGRES_USER
 DB_PASSWORD=$POSTGRES_PASSWORD
 DB_NAME=$POSTGRES_DB_NAME
 
-# ============================================
-# BACKEND - API
-# ============================================
-NODE_ENV=production
-PORT=3001
+# MINIO - Armazenamento
+MINIO_API_PORT=$MINIO_API_PORT
+MINIO_CONSOLE_PORT=$MINIO_CONSOLE_PORT
+MINIO_ROOT_USER=$MINIO_ROOT_USER
+MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD
+MINIO_ACCESS_KEY=$MINIO_ACCESS_KEY
+MINIO_SECRET_KEY=$MINIO_SECRET_KEY
+MINIO_BUCKET_NAME=$MINIO_BUCKET_NAME
+
+# MINIO PÚBLICO - Para acesso via HTTPS (navegador)
+# Configurado para usar proxy Nginx em /storage/
+MINIO_PUBLIC_ENDPOINT=$CLIENT_SUBDOMAIN
+MINIO_PUBLIC_PORT=443
+MINIO_PUBLIC_USE_SSL=true
+MINIO_PUBLIC_PATH=/storage
+
+# SEGURANÇA
 JWT_SECRET=$JWT_SECRET
 API_TOKEN=$API_TOKEN
 
-# ============================================
-# EMAIL - Recuperação de Senha
-# ============================================
-EMAIL_USER=betotradicao76@gmail.com
-EMAIL_PASS=fqojjjhztvganfya
-
-# ============================================
-# FRONTEND - Interface Web
-# ============================================
+# VITE (Frontend)
 VITE_API_URL=https://$CLIENT_SUBDOMAIN/api
+
+# APP
+HOST_IP=$HOST_IP
+NODE_ENV=production
 FRONTEND_URL=https://$CLIENT_SUBDOMAIN
 
+# EMAIL (configurar depois)
+EMAIL_USER=
+EMAIL_PASS=
 EOF
 
 echo "✅ Arquivo .env criado"
@@ -389,11 +359,9 @@ echo ""
 # CRIAR DOCKER-COMPOSE.YML
 # ============================================
 
-echo "📝 Criando docker-compose.yml..."
+echo "📦 Criando docker-compose.yml..."
 
 cat > docker-compose.yml << EOF
-version: '3.8'
-
 services:
   # ============================================
   # POSTGRESQL - Banco de Dados
@@ -462,13 +430,13 @@ services:
       DB_USER: \${POSTGRES_USER}
       DB_PASSWORD: \${POSTGRES_PASSWORD}
       DB_NAME: \${POSTGRES_DB}
-      # Variáveis para seed de configurações (IGUAL AO INSTALAR-AUTO.sh)
+      # Variáveis para seed de configurações
       POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
       HOST_IP: \${HOST_IP}
       # Segurança
       JWT_SECRET: \${JWT_SECRET}
       API_TOKEN: \${API_TOKEN}
-      # MinIO interno
+      # MinIO interno (comunicação entre containers)
       MINIO_ENDPOINT: ${CONTAINER_PREFIX}-minio
       MINIO_PORT: 9000
       MINIO_ACCESS_KEY: \${MINIO_ACCESS_KEY}
@@ -476,10 +444,11 @@ services:
       MINIO_ROOT_USER: \${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: \${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET_NAME: \${MINIO_BUCKET_NAME}
-      # MinIO público (para seed)
-      MINIO_PUBLIC_ENDPOINT: \${HOST_IP}
-      MINIO_PUBLIC_PORT: \${MINIO_API_PORT}
-      MINIO_PUBLIC_USE_SSL: "false"
+      # MinIO público (para URLs geradas - HTTPS via proxy Nginx)
+      MINIO_PUBLIC_ENDPOINT: \${MINIO_PUBLIC_ENDPOINT}
+      MINIO_PUBLIC_PORT: \${MINIO_PUBLIC_PORT}
+      MINIO_PUBLIC_USE_SSL: \${MINIO_PUBLIC_USE_SSL}
+      MINIO_PUBLIC_PATH: \${MINIO_PUBLIC_PATH}
       # Email
       EMAIL_USER: \${EMAIL_USER}
       EMAIL_PASS: \${EMAIL_PASS}
@@ -540,13 +509,11 @@ echo "🌐 Configurando Nginx para $CLIENT_SUBDOMAIN..."
 cat > /etc/nginx/sites-available/$CLIENT_NAME << EOF
 # Configuração para: $CLIENT_NAME
 # Subdomínio: $CLIENT_SUBDOMAIN
+# Versão: 2.0 - Com proxy MinIO para HTTPS
 
 server {
     listen 80;
     server_name $CLIENT_SUBDOMAIN;
-
-    # Redirecionar para HTTPS (após certificado)
-    # return 301 https://\$server_name\$request_uri;
 
     # Frontend
     location / {
@@ -596,6 +563,20 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
+
+    # PROXY MINIO - Serve imagens via HTTPS (evita Mixed Content)
+    location /storage/ {
+        proxy_pass http://127.0.0.1:$MINIO_API_PORT/$MINIO_BUCKET_NAME/;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+
+        # Cache para imagens (7 dias)
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
 }
 EOF
 
@@ -624,10 +605,8 @@ echo ""
 echo "⏳ Aguardando containers iniciarem..."
 sleep 15
 
-# O backend vai inicializar o banco automaticamente com migrations e seed
-
 # ============================================
-# AGUARDAR BACKEND INICIALIZAR E FAZER SEED
+# AGUARDAR BACKEND INICIALIZAR
 # ============================================
 
 echo ""
@@ -669,19 +648,76 @@ fi
 echo "✅ Sistema configurado automaticamente pelo backend!"
 echo ""
 
-# Atualizar configurações específicas do multi-tenant (portas diferentes)
-echo "⚙️  Atualizando configurações específicas deste cliente..."
+# ============================================
+# CRIAR TABELAS ADICIONAIS (não cobertas por migrations)
+# ============================================
+
+echo "🗄️  Criando tabelas adicionais..."
+
 docker exec -i ${CONTAINER_PREFIX}-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB_NAME << EOSQL || true
+-- Tabela para identificação de suspeitos em bipagens
+CREATE TABLE IF NOT EXISTS suspect_identifications (
+  id SERIAL PRIMARY KEY,
+  identification_number VARCHAR(255) NOT NULL,
+  bip_id INTEGER REFERENCES bips(id) ON DELETE CASCADE,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_suspect_identifications_bip_id ON suspect_identifications(bip_id);
+EOSQL
+
+echo "✅ Tabelas adicionais criadas"
+echo ""
+
+# ============================================
+# ATUALIZAR CONFIGURAÇÕES PARA HTTPS
+# ============================================
+
+echo "⚙️  Atualizando configurações para HTTPS..."
+
+docker exec -i ${CONTAINER_PREFIX}-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB_NAME << EOSQL || true
+-- Configurar MinIO para usar proxy HTTPS
+UPDATE configurations SET value = '$CLIENT_SUBDOMAIN' WHERE key = 'minio_public_endpoint';
+UPDATE configurations SET value = '443' WHERE key = 'minio_public_port';
+
+-- Inserir configurações de SSL se não existirem
+INSERT INTO configurations (id, key, value, encrypted, created_at, updated_at)
+SELECT uuid_generate_v4(), 'minio_public_use_ssl', 'true', false, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM configurations WHERE key = 'minio_public_use_ssl');
+
+-- Inserir path do proxy MinIO
+INSERT INTO configurations (id, key, value, encrypted, created_at, updated_at)
+SELECT uuid_generate_v4(), 'minio_public_path', '/storage', false, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM configurations WHERE key = 'minio_public_path');
+
 -- Atualizar portas específicas do multi-tenant
 UPDATE configurations SET value = '$HOST_IP' WHERE key = 'minio_endpoint';
 UPDATE configurations SET value = '$MINIO_API_PORT' WHERE key = 'minio_port';
-UPDATE configurations SET value = '$HOST_IP' WHERE key = 'minio_public_endpoint';
-UPDATE configurations SET value = '$MINIO_API_PORT' WHERE key = 'minio_public_port';
 UPDATE configurations SET value = '$MINIO_CONSOLE_PORT' WHERE key = 'minio_console_port';
 UPDATE configurations SET value = '$POSTGRES_PORT' WHERE key = 'postgres_port';
 EOSQL
 
-echo "✅ Configurações atualizadas"
+echo "✅ Configurações atualizadas para HTTPS"
+echo ""
+
+# ============================================
+# CRIAR BUCKET NO MINIO
+# ============================================
+
+echo "📦 Criando bucket no MinIO..."
+
+# Aguardar MinIO estar pronto
+sleep 5
+
+# Usar mc (MinIO Client) para criar bucket
+docker exec ${CONTAINER_PREFIX}-minio sh -c "
+  mc alias set local http://localhost:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD 2>/dev/null || true
+  mc mb local/$MINIO_BUCKET_NAME 2>/dev/null || true
+  mc anonymous set download local/$MINIO_BUCKET_NAME 2>/dev/null || true
+" 2>/dev/null || echo "⚠️  Bucket pode já existir ou será criado pelo backend"
+
+echo "✅ Bucket MinIO configurado"
+echo ""
 
 # ============================================
 # CRIAR USUÁRIO MASTER
@@ -767,6 +803,7 @@ cat > CREDENCIAIS.txt << EOF
 ╔════════════════════════════════════════════════════════════╗
 ║   CLIENTE: $CLIENT_NAME
 ║   Gerado em: $(date)
+║   Versão do Instalador: 2.0
 ╚════════════════════════════════════════════════════════════╝
 
 🌐 URL: https://$CLIENT_SUBDOMAIN
@@ -785,6 +822,7 @@ cat > CREDENCIAIS.txt << EOF
    Usuário: $MINIO_ROOT_USER
    Senha: $MINIO_ROOT_PASSWORD
    Bucket: $MINIO_BUCKET_NAME
+   Proxy HTTPS: https://$CLIENT_SUBDOMAIN/storage/
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
