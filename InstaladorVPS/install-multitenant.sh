@@ -210,12 +210,12 @@ if [ -d "$REPO_DIR" ]; then
     echo "📥 Atualizando repositório..."
     cd "$REPO_DIR"
     git fetch origin
-    git reset --hard origin/main
-    git pull origin main
+    git reset --hard origin/TESTE
+    git pull origin TESTE
     cd "$CLIENT_DIR"
 else
     echo "📥 Clonando repositório..."
-    git clone https://github.com/roneyfraga/roberto-prevencao-no-radar.git "$REPO_DIR"
+    git clone -b TESTE https://github.com/Betotradicao/TESTES-.git "$REPO_DIR"
 fi
 
 echo "✅ Repositório atualizado"
