@@ -219,6 +219,116 @@ else
 fi
 
 echo "✅ Repositório atualizado"
+
+# ============================================
+# CORRIGIR DOCKERFILES (npm ci -> npm install)
+# O repositório pode ter Dockerfiles com npm ci que falham
+# porque não existe package-lock.json
+# ============================================
+
+echo "🔧 Corrigindo Dockerfiles..."
+
+# Corrigir Backend Dockerfile
+cat > "$REPO_DIR/packages/backend/Dockerfile" << 'BACKEND_DOCKERFILE'
+# ===================================
+# STAGE 1: Build
+# ===================================
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Copiar package files
+COPY package*.json ./
+COPY tsconfig.json ./
+
+# Instalar dependências
+RUN npm install && \
+    npm cache clean --force
+
+# Copiar código fonte
+COPY src ./src
+
+# Build TypeScript
+RUN npm install -g typescript && \
+    tsc && \
+    # Copiar arquivos .js que não são compilados pelo TypeScript
+    find src -name "*.js" -exec sh -c 'mkdir -p dist/$(dirname ${1#src/}) && cp "$1" dist/${1#src/}' _ {} \;
+
+# ===================================
+# STAGE 2: Production
+# ===================================
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Instalar apenas dependências de produção
+COPY package*.json ./
+RUN npm install --omit=dev && \
+    npm cache clean --force
+
+# Copiar código compilado do builder (inclui migrations já compiladas)
+COPY --from=builder /app/dist ./dist
+
+# Expor porta
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3001/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# Comando para iniciar
+CMD ["node", "dist/index.js"]
+BACKEND_DOCKERFILE
+
+# Corrigir Frontend Dockerfile
+cat > "$REPO_DIR/packages/frontend/Dockerfile" << 'FRONTEND_DOCKERFILE'
+# ===================================
+# STAGE 1: Build
+# ===================================
+FROM node:18-alpine AS builder
+
+# Argumentos de build para variáveis do Vite
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
+WORKDIR /app
+
+# Copiar package files
+COPY package*.json ./
+
+# Instalar dependências
+RUN npm install && \
+    npm cache clean --force
+
+# Copiar código fonte
+COPY . .
+
+# Build do Vite (as variáveis VITE_* são injetadas no build)
+RUN npm run build
+
+# ===================================
+# STAGE 2: Production com Nginx
+# ===================================
+FROM nginx:alpine
+
+# Copiar build do Vite
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Copiar configuração customizada do Nginx
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Expor porta
+EXPOSE 3004
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://localhost:3004 || exit 1
+
+# Iniciar Nginx
+CMD ["nginx", "-g", "daemon off;"]
+FRONTEND_DOCKERFILE
+
+echo "✅ Dockerfiles corrigidos"
 echo ""
 
 # ============================================
