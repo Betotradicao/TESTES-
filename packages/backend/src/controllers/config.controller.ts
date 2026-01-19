@@ -215,27 +215,16 @@ export class ConfigController {
       const formDataVendas = new URLSearchParams();
       formDataVendas.append('str_json', JSON.stringify(jsonDataVendas));
 
-      // Faz as duas requisições em paralelo
-      const [responseProdutos, responseVendas] = await Promise.all([
-        axios.post(fullUrl, formDataProdutos.toString(), config),
-        axios.post(fullUrl, formDataVendas.toString(), config)
-      ]);
+      // Testa apenas vendas para ser mais rápido
+      const responseVendas = await axios.post(fullUrl, formDataVendas.toString(), config);
 
-      const produtosContent = responseProdutos.data?.QUERY?.CONTENT;
       const vendasContent = responseVendas.data?.QUERY?.CONTENT;
-
-      const firstProduct = Array.isArray(produtosContent) ? produtosContent[0] : produtosContent;
       const firstSale = Array.isArray(vendasContent) ? vendasContent[0] : vendasContent;
 
       return res.json({
         success: true,
         message: 'Conexão OK! API Zanthus respondeu.',
         data: {
-          products: {
-            endpoint: fullUrl,
-            sample: firstProduct,
-            total: Array.isArray(produtosContent) ? produtosContent.length : 1
-          },
           sales: {
             endpoint: fullUrl,
             sample: firstSale,
