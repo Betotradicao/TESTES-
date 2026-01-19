@@ -771,9 +771,12 @@ CREATE TABLE IF NOT EXISTS suspect_identifications (
   identification_number VARCHAR(255) NOT NULL,
   bip_id INTEGER REFERENCES bips(id) ON DELETE CASCADE,
   notes TEXT,
-  created_at TIMESTAMP DEFAULT NOW()
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_suspect_identifications_bip_id ON suspect_identifications(bip_id);
+-- Adicionar coluna updated_at se não existir (para instalações anteriores)
+ALTER TABLE suspect_identifications ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
 EOSQL
 
 echo "✅ Tabelas adicionais criadas"

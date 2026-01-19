@@ -55,8 +55,8 @@ export const create = async (req: Request, res: Response) => {
     // Criar nova identificação
     const result = await AppDataSource.query(
       `INSERT INTO suspect_identifications
-       (identification_number, bip_id, notes, created_at, updated_at)
-       VALUES ($1, $2, $3, NOW(), NOW())
+       (identification_number, bip_id, notes, created_at)
+       VALUES ($1, $2, $3, NOW())
        RETURNING *`,
       [identification_number, bip_id, notes || null]
     );
