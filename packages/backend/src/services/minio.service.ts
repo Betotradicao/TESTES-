@@ -161,7 +161,10 @@ export class MinioService {
       const shouldIncludePort = publicPort && publicPort !== '80' && publicPort !== '443';
       const portPart = shouldIncludePort ? `:${publicPort}` : '';
 
-      const url = `${publicUseSSL ? 'https' : 'http'}://${publicEndpoint}${portPart}/${this.bucketName}/${fileName}`;
+      // Use custom path if configured (for HTTPS proxy), otherwise use bucket name
+      const publicPath = (configs.minio_public_path as string) || process.env.MINIO_PUBLIC_PATH || `/${this.bucketName}`;
+
+      const url = `${publicUseSSL ? 'https' : 'http'}://${publicEndpoint}${portPart}${publicPath}/${fileName}`;
       console.log(`🔗 MinIO: URL gerada: ${url}`);
 
       return url;
