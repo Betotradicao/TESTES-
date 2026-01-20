@@ -213,9 +213,21 @@ export class BipsController {
         .getMany();
 
       // Create a map of bip_id -> sell data for quick lookup
+      // Formata a data sem converter para UTC (mantem horario de Brasilia)
+      const formatDateWithoutTimezone = (date: Date | null): string | null => {
+        if (!date) return null;
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+      };
+
       const sellsMap = new Map(
         sells.map(sell => [sell.bipId, {
-          sell_date: sell.sellDate ? sell.sellDate.toISOString().replace("T", " ").substring(0, 19) : null,
+          sell_date: formatDateWithoutTimezone(sell.sellDate),
           sell_num_cupom_fiscal: sell.numCupomFiscal,
           sell_point_of_sale_code: sell.pointOfSaleCode
         }])
