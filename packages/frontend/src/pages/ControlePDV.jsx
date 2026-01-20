@@ -3,6 +3,19 @@ import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 
+// Formata data/hora sem conversao de timezone (usa string diretamente)
+const formatDateTime = (dateTimeStr) => {
+  if (!dateTimeStr) return '-';
+  // Se vier no formato "YYYY-MM-DD HH:MM:SS", formata para "DD/MM/YYYY, HH:MM:SS"
+  const match = dateTimeStr.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
+  if (match) {
+    const [, year, month, day, hour, min, sec] = match;
+    return `${day}/${month}/${year}, ${hour}:${min}:${sec}`;
+  }
+  // Fallback para outros formatos
+  return dateTimeStr;
+};
+
 export default function ControlePDV() {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -314,7 +327,7 @@ export default function ControlePDV() {
                             <td className="py-2 px-3 text-gray-700">{dev.descProduto}</td>
                             <td className="text-right py-2 px-3 text-red-600">{dev.quantidade}</td>
                             <td className="text-right py-2 px-3 text-red-600 font-semibold">{formatCurrency(dev.valorTotal)}</td>
-                            <td className="py-2 px-3 text-gray-700">{new Date(dev.dataHora).toLocaleString('pt-BR')}</td>
+                            <td className="py-2 px-3 text-gray-700">{formatDateTime(dev.dataHora)}</td>
                           </tr>
                         ))}
                       </tbody>

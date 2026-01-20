@@ -345,26 +345,19 @@ export default function Bipagens() {
   };
 
   // Formatação de data/hora da VENDA DO PDV (sell_date)
-  // Vendas do Zanthus precisam de conversão de timezone
+  // A data vem do banco ja no horario de Brasilia, nao precisa converter
   const formatSellDateTime = (dateString) => {
     if (!dateString) return '-';
 
-    // A data vem do Zanthus como 'YYYY-MM-DD HH:MM:SS' sem timezone
-    // PostgreSQL salva como timestamp e o backend retorna em UTC
-    // Precisamos converter de volta para horário do Brasil (UTC-3)
-    const date = new Date(dateString);
-
-    // Usa toLocaleString com timezone do Brasil para exibir horário correto
-    return date.toLocaleString('pt-BR', {
-      timeZone: 'America/Sao_Paulo',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
+    // A data vem como 'YYYY-MM-DD HH:MM:SS' ja no horario correto de Brasilia
+    // Nao usar new Date() para evitar conversao de timezone
+    const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})/);
+    if (match) {
+      const [, year, month, day, hour, min, sec] = match;
+      return `${day}/${month}/${year}, ${hour}:${min}:${sec}`;
+    }
+    // Fallback para outros formatos
+    return dateString;
   };
 
   // Formatação de valor
