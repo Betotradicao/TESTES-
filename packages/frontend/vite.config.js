@@ -16,8 +16,8 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 3004,
-    strictPort: true, // 🔒 NÃO MUDA DE PORTA! Dá erro se 3004 estiver ocupada
+    port: 5173,
+    strictPort: false, // Permite mudar de porta se estiver ocupada
     allowedHosts: [
       '.ngrok-free.dev',
       '.ngrok.io',

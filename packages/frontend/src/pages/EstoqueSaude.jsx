@@ -1,5 +1,5 @@
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
@@ -475,7 +475,7 @@ export default function EstoqueSaude() {
     );
 
     // Gerar tabela
-    doc.autoTable({
+    autoTable(doc, {
       head: headers,
       body: data,
       startY: 28,

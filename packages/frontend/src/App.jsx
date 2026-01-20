@@ -33,6 +33,7 @@ import EstoqueSaude from './pages/EstoqueSaude';
 import HortFrutLancador from './pages/HortFrutLancador';
 import HortFrutConferencia from './pages/HortFrutConferencia';
 import HortFrutResultados from './pages/HortFrutResultados';
+import Fornecedores from './pages/Fornecedores';
 
 function App() {
   return (
@@ -260,6 +261,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <HortFrutResultados />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/fornecedores"
+              element={
+                <ProtectedRoute>
+                  <Fornecedores />
                 </ProtectedRoute>
               }
             />

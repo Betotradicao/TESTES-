@@ -36,6 +36,7 @@ import whatsappRouter from './routes/whatsapp.routes';
 import pdvRouter from './routes/pdv.routes';
 import productionAuditRouter from './routes/production-audit.routes';
 import hortfrutRouter from './routes/hortfrut.routes';
+import suppliersRouter from './routes/suppliers.routes';
 import { minioService } from './services/minio.service';
 import { EmailMonitorService } from './services/email-monitor.service';
 import { seedMasterUser } from './database/seeds/masterUser.seed';
@@ -108,6 +109,7 @@ app.use('/api/whatsapp', whatsappRouter);
 app.use('/api/pdv', pdvRouter);
 app.use('/api/production', productionAuditRouter);
 app.use('/api/hortfrut', hortfrutRouter);
+app.use('/api/suppliers', suppliersRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {

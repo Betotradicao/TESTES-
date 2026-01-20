@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import Layout from '../components/Layout';
 import { api } from '../utils/api';
 
@@ -8,8 +9,6 @@ export default function HortFrutLancador() {
   const [file, setFile] = useState(null);
   const [conferenceDate, setConferenceDate] = useState('');
   const [supplierName, setSupplierName] = useState('');
-  const [invoiceNumber, setInvoiceNumber] = useState('');
-  const [observations, setObservations] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -44,7 +43,23 @@ export default function HortFrutLancador() {
       const year = monthDate.getFullYear();
       const month = monthDate.getMonth() + 1;
       const response = await api.get(`/hortfrut/conferences/by-date?year=${year}&month=${month}`);
-      setMonthConferences(response.data || {});
+
+      // Re-agrupar usando a data correta de cada conferência (evita problema de timezone do backend)
+      const allConferences = Object.values(response.data || {}).flat();
+      const regrouped = {};
+
+      for (const conf of allConferences) {
+        // Extrair data diretamente da string (sem conversão de Date)
+        const dateKey = String(conf.conferenceDate).split('T')[0];
+        if (!regrouped[dateKey]) {
+          regrouped[dateKey] = [];
+        }
+        regrouped[dateKey].push(conf);
+      }
+
+      console.log('Conferências reagrupadas:', regrouped);
+      console.log('Chaves (datas):', Object.keys(regrouped));
+      setMonthConferences(regrouped);
     } catch (err) {
       console.error('Erro ao carregar conferências do mês:', err);
     }
@@ -65,23 +80,27 @@ export default function HortFrutLancador() {
   const getDayColor = (day) => {
     const today = new Date();
     const dayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const dateKey = dayDate.toISOString().split('T')[0];
-    const hasConferences = monthConferences[dateKey] && monthConferences[dateKey].length > 0;
+    const hasConferences = getDayConferences(day).length > 0;
 
+    // Dia futuro - branco
     if (dayDate > today) {
       return 'bg-white text-gray-400';
     }
 
+    // Dia passado com conferência - verde claro
     if (hasConferences) {
       return 'bg-green-100 text-green-800 font-semibold';
     }
 
-    return 'bg-gray-50 text-gray-600';
+    // Dia passado sem conferência - vermelho claro
+    return 'bg-red-100 text-red-600';
   };
 
   const getDayConferences = (day) => {
-    const dayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const dateKey = dayDate.toISOString().split('T')[0];
+    const year = currentMonth.getFullYear();
+    const month = String(currentMonth.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(day).padStart(2, '0');
+    const dateKey = `${year}-${month}-${dayStr}`;
     return monthConferences[dateKey] || [];
   };
 
@@ -123,11 +142,121 @@ export default function HortFrutLancador() {
     const day = String(today.getDate()).padStart(2, '0');
     setConferenceDate(`${year}-${month}-${day}`);
 
-    // Ler e parsear o arquivo CSV
+    // Ler e parsear o arquivo
     if (fileExtension === '.csv') {
       parseCSVFile(selectedFile);
+    } else if (fileExtension === '.xls' || fileExtension === '.xlsx') {
+      parseExcelFile(selectedFile);
     }
   };
+
+  const parseExcelFile = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        console.log('=== EXCEL DEBUG ===');
+
+        // Encontrar a linha do cabeçalho real (procurar por "Código" ou "Descri")
+        let headerLineIndex = 0;
+        for (let i = 0; i < Math.min(10, jsonData.length); i++) {
+          const row = jsonData[i];
+          if (row && row.length > 0) {
+            const rowText = row.join(' ').toLowerCase();
+            if (rowText.includes('código') || rowText.includes('codigo') || rowText.includes('descri')) {
+              headerLineIndex = i;
+              console.log(`Cabeçalho encontrado na linha ${i}`);
+              break;
+            }
+          }
+        }
+
+        // Parsear cabeçalho para encontrar índices das colunas
+        const headerRow = jsonData[headerLineIndex] || [];
+        const headerCols = headerRow.map(col => String(col || '').trim().toLowerCase());
+        console.log('Colunas do cabeçalho:', headerCols);
+
+        // Mapear índices das colunas por nome
+        const colIndex = {
+          barcode: headerCols.findIndex(c => c.includes('código') || c.includes('codigo') || c.includes('barras')),
+          productName: headerCols.findIndex(c => (c.includes('descri') && !c.includes('grupo') && !c.includes('seção') && !c.includes('secao') && !c.includes('subgrupo') && !c.includes('fornecedor')) || c.includes('produto')),
+          curve: headerCols.findIndex(c => c === 'curva'),
+          currentCost: headerCols.findIndex(c => c.includes('custo')),
+          currentSalePrice: headerCols.findIndex(c => c.includes('venda') && !c.includes('média') && !c.includes('media') && !c.includes('data')),
+          referenceMargin: headerCols.findIndex(c => c.includes('margem') && c.includes('ref')),
+          currentMargin: headerCols.findIndex(c => c.includes('mark') || (c.includes('margem') && c.includes('prat'))),
+          section: headerCols.findIndex(c => (c.includes('seção') || c.includes('secao')) && c.includes('descri')),
+          productGroup: headerCols.findIndex(c => c.includes('grupo') && !c.includes('sub') && c.includes('descri')),
+          subGroup: headerCols.findIndex(c => c.includes('subgrupo') || (c.includes('sub') && c.includes('grupo')))
+        };
+
+        console.log('Índices das colunas detectados:', colIndex);
+
+        // Se não encontrou pelo nome, usar posições fixas (formato HortFrut original)
+        const useFixedPositions = colIndex.productName === -1;
+        if (useFixedPositions) {
+          console.log('Usando posições fixas (formato HortFrut)');
+          colIndex.barcode = 0;
+          colIndex.productName = 1;
+          colIndex.curve = 2;
+          colIndex.currentCost = 3;
+          colIndex.currentSalePrice = 4;
+          colIndex.referenceMargin = 8;
+          colIndex.currentMargin = 9;
+          colIndex.section = 10;
+          colIndex.productGroup = 11;
+          colIndex.subGroup = 12;
+        }
+
+        // Processar dados (pular cabeçalho)
+        const items = [];
+        for (let i = headerLineIndex + 1; i < jsonData.length; i++) {
+          const row = jsonData[i];
+          if (!row || row.length < 2) continue;
+
+          // Verificar se tem dados válidos
+          const productName = colIndex.productName >= 0 ? String(row[colIndex.productName] || '').trim() : '';
+          if (!productName || productName.length < 2) continue;
+
+          // Ignorar linhas que parecem cabeçalho de empresa
+          if (productName.toLowerCase().includes('supermercado') ||
+              productName.toLowerCase().includes('cnpj') ||
+              productName.toLowerCase().includes('cep')) continue;
+
+          items.push({
+            barcode: colIndex.barcode >= 0 ? String(row[colIndex.barcode] || '').trim() : '',
+            productName: productName,
+            curve: colIndex.curve >= 0 ? String(row[colIndex.curve] || '').trim() : '',
+            currentCost: colIndex.currentCost >= 0 ? String(row[colIndex.currentCost] || '').replace(',', '.') : '',
+            currentSalePrice: colIndex.currentSalePrice >= 0 ? String(row[colIndex.currentSalePrice] || '').replace(',', '.') : '',
+            referenceMargin: colIndex.referenceMargin >= 0 ? String(row[colIndex.referenceMargin] || '').replace(',', '.') : '',
+            currentMargin: colIndex.currentMargin >= 0 ? String(row[colIndex.currentMargin] || '').replace(',', '.') : '',
+            section: colIndex.section >= 0 ? String(row[colIndex.section] || '').trim() : '',
+            productGroup: colIndex.productGroup >= 0 ? String(row[colIndex.productGroup] || '').trim() : '',
+            subGroup: colIndex.subGroup >= 0 ? String(row[colIndex.subGroup] || '').trim() : ''
+          });
+        }
+
+        console.log('Primeiro item parseado:', items[0]);
+        console.log('Total de itens:', items.length);
+        console.log('=== FIM EXCEL DEBUG ===');
+
+        setParsedItems(items);
+        if (items.length > 0) {
+          setSuccess(`${items.length} produtos encontrados no arquivo Excel`);
+        }
+      } catch (err) {
+        console.error('Erro ao parsear Excel:', err);
+        setError('Erro ao ler arquivo Excel');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
 
   const parseCSVFile = (file) => {
     const reader = new FileReader();
@@ -136,31 +265,146 @@ export default function HortFrutLancador() {
         const text = e.target.result;
         const lines = text.split('\n').filter(line => line.trim());
 
-        // Detectar separador (vírgula ou ponto-e-vírgula)
-        const firstLine = lines[0];
-        const separator = firstLine.includes(';') ? ';' : ',';
+        console.log('=== CSV DEBUG ===');
+        console.log('Total de linhas:', lines.length);
+        console.log('Primeiras 6 linhas:');
+        for (let i = 0; i < Math.min(6, lines.length); i++) {
+          console.log(`  Linha ${i}: "${lines[i].substring(0, 80)}..."`);
+        }
 
-        // Pular cabeçalho
-        const items = [];
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(separator).map(col => col.trim().replace(/"/g, ''));
+        // Detectar separador - procurar linha com mais separadores (cabeçalho real)
+        let separator = ';';
+        let headerLineIndex = 0;
+        let maxSeparators = 0;
 
-          // Esperado: Código, Descrição, Curva, Seção, Grupo, SubGrupo, Custo Atual, Preço Venda, Margem Ref, Margem Atual
-          if (cols.length >= 2 && cols[1]) {
-            items.push({
-              barcode: cols[0] || '',
-              productName: cols[1] || '',
-              curve: cols[2] || '',
-              section: cols[3] || '',
-              productGroup: cols[4] || '',
-              subGroup: cols[5] || '',
-              currentCost: cols[6] || '',
-              currentSalePrice: cols[7] || '',
-              referenceMargin: cols[8] || '',
-              currentMargin: cols[9] || ''
-            });
+        for (let i = 0; i < Math.min(10, lines.length); i++) {
+          const semicolonCount = (lines[i].match(/;/g) || []).length;
+          const commaCount = (lines[i].match(/,/g) || []).length;
+          const lineMaxSep = Math.max(semicolonCount, commaCount);
+
+          if (lineMaxSep > maxSeparators) {
+            maxSeparators = lineMaxSep;
+            headerLineIndex = i;
+            separator = semicolonCount >= commaCount ? ';' : ',';
           }
         }
+
+        console.log(`Cabeçalho detectado na linha ${headerLineIndex} com ${maxSeparators} separadores "${separator}"`);
+        console.log(`Linha do cabeçalho: "${lines[headerLineIndex]}"`);
+
+        // Parsear cabeçalho para encontrar índices das colunas
+        const headerCols = lines[headerLineIndex].split(separator).map(col => col.trim().replace(/"/g, '').toLowerCase());
+        console.log('Colunas do cabeçalho parseadas:', headerCols);
+
+        // Normalizar texto removendo acentos para comparação
+        const normalize = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+        // Mapear índices das colunas por nome (com normalização de acentos)
+        const colIndex = {
+          barcode: headerCols.findIndex(c => {
+            const cn = normalize(c);
+            return cn.includes('codigo') || cn.includes('barras');
+          }),
+          productName: headerCols.findIndex(c => {
+            const cn = normalize(c);
+            return (cn.includes('descri') && cn.includes('completa')) ||
+                   (cn.includes('descri') && !cn.includes('grupo') && !cn.includes('secao') && !cn.includes('subgrupo') && !cn.includes('fornecedor')) ||
+                   cn.includes('produto');
+          }),
+          curve: headerCols.findIndex(c => normalize(c) === 'curva'),
+          currentCost: headerCols.findIndex(c => normalize(c).includes('custo')),
+          currentSalePrice: headerCols.findIndex(c => {
+            const cn = normalize(c);
+            return cn === 'venda' || (cn.includes('venda') && !cn.includes('media') && !cn.includes('data') && !cn.includes('ult'));
+          }),
+          referenceMargin: headerCols.findIndex(c => {
+            const cn = normalize(c);
+            return cn.includes('margem') && cn.includes('ref');
+          }),
+          currentMargin: headerCols.findIndex(c => {
+            const cn = normalize(c);
+            return cn.includes('mark') || (cn.includes('margem') && cn.includes('prat'));
+          }),
+          section: headerCols.findIndex(c => {
+            const cn = normalize(c);
+            return cn.includes('secao') && cn.includes('descri');
+          }),
+          productGroup: headerCols.findIndex(c => {
+            const cn = normalize(c);
+            return cn.includes('grupo') && !cn.includes('sub') && cn.includes('descri');
+          }),
+          subGroup: headerCols.findIndex(c => {
+            const cn = normalize(c);
+            return cn.includes('subgrupo') || (cn.includes('sub') && cn.includes('grupo'));
+          })
+        };
+
+        console.log('Índices das colunas detectados:', colIndex);
+
+        // Se não encontrou productName pelo nome, usar posição 1 (padrão)
+        if (colIndex.productName === -1) {
+          console.log('productName não encontrado, usando posição 1');
+          colIndex.productName = 1;
+        }
+        if (colIndex.barcode === -1) {
+          console.log('barcode não encontrado, usando posição 0');
+          colIndex.barcode = 0;
+        }
+        if (colIndex.curve === -1) {
+          console.log('curve não encontrado, usando posição 2');
+          colIndex.curve = 2;
+        }
+        if (colIndex.currentCost === -1) {
+          console.log('currentCost não encontrado, usando posição 3');
+          colIndex.currentCost = 3;
+        }
+        if (colIndex.currentSalePrice === -1) {
+          console.log('currentSalePrice não encontrado, usando posição 4');
+          colIndex.currentSalePrice = 4;
+        }
+
+        console.log('Índices finais:', colIndex);
+
+        // Processar dados (pular cabeçalho)
+        const items = [];
+        for (let i = headerLineIndex + 1; i < lines.length; i++) {
+          const cols = lines[i].split(separator).map(col => col.trim().replace(/"/g, ''));
+
+          // Debug primeira linha de dados
+          if (i === headerLineIndex + 1) {
+            console.log('Primeira linha de dados parseada:', cols);
+            console.log(`  barcode[${colIndex.barcode}]: "${cols[colIndex.barcode]}"`);
+            console.log(`  productName[${colIndex.productName}]: "${cols[colIndex.productName]}"`);
+            console.log(`  curve[${colIndex.curve}]: "${cols[colIndex.curve]}"`);
+            console.log(`  currentCost[${colIndex.currentCost}]: "${cols[colIndex.currentCost]}"`);
+            console.log(`  currentSalePrice[${colIndex.currentSalePrice}]: "${cols[colIndex.currentSalePrice]}"`);
+          }
+
+          // Verificar se tem dados válidos
+          const productName = colIndex.productName >= 0 ? cols[colIndex.productName] : '';
+          if (!productName || productName.length < 2) continue;
+
+          // Ignorar linhas que parecem cabeçalho de empresa
+          const pnLower = productName.toLowerCase();
+          if (pnLower.includes('supermercado') || pnLower.includes('cnpj') || pnLower.includes('cep')) continue;
+
+          items.push({
+            barcode: colIndex.barcode >= 0 ? (cols[colIndex.barcode] || '') : '',
+            productName: productName,
+            curve: colIndex.curve >= 0 ? (cols[colIndex.curve] || '') : '',
+            currentCost: colIndex.currentCost >= 0 ? (cols[colIndex.currentCost] || '').replace(',', '.') : '',
+            currentSalePrice: colIndex.currentSalePrice >= 0 ? (cols[colIndex.currentSalePrice] || '').replace(',', '.') : '',
+            referenceMargin: colIndex.referenceMargin >= 0 ? (cols[colIndex.referenceMargin] || '').replace(',', '.') : '',
+            currentMargin: colIndex.currentMargin >= 0 ? (cols[colIndex.currentMargin] || '').replace(',', '.') : '',
+            section: colIndex.section >= 0 ? (cols[colIndex.section] || '') : '',
+            productGroup: colIndex.productGroup >= 0 ? (cols[colIndex.productGroup] || '') : '',
+            subGroup: colIndex.subGroup >= 0 ? (cols[colIndex.subGroup] || '') : ''
+          });
+        }
+
+        console.log('Primeiro item final:', items[0]);
+        console.log('Total de itens:', items.length);
+        console.log('=== FIM CSV DEBUG ===');
 
         setParsedItems(items);
         if (items.length > 0) {
@@ -171,7 +415,7 @@ export default function HortFrutLancador() {
         setError('Erro ao ler arquivo CSV');
       }
     };
-    reader.readAsText(file, 'UTF-8');
+    reader.readAsText(file, 'ISO-8859-1'); // Usar encoding latino para arquivos BR
   };
 
   const handleCreateConference = async () => {
@@ -194,8 +438,6 @@ export default function HortFrutLancador() {
       const confResponse = await api.post('/hortfrut/conferences', {
         conferenceDate,
         supplierName: supplierName.trim() || null,
-        invoiceNumber: invoiceNumber.trim() || null,
-        observations: observations.trim() || null
       });
 
       const conferenceId = confResponse.data.id;
@@ -216,8 +458,6 @@ export default function HortFrutLancador() {
       setParsedItems([]);
       setConferenceDate('');
       setSupplierName('');
-      setInvoiceNumber('');
-      setObservations('');
 
       // Redirecionar para conferência
       setTimeout(() => {
@@ -246,6 +486,15 @@ export default function HortFrutLancador() {
     } catch (err) {
       setError(err.response?.data?.error || 'Erro ao excluir conferência');
     }
+  };
+
+  // Formatar data sem conversão de timezone (evita problema de -1 dia)
+  const formatConferenceDate = (dateStr) => {
+    if (!dateStr) return '-';
+    // dateStr pode ser "2026-01-20" ou "2026-01-20T00:00:00.000Z"
+    const datePart = dateStr.split('T')[0]; // Pega só a parte da data
+    const [year, month, day] = datePart.split('-');
+    return `${day}/${month}/${year}`;
   };
 
   const getStatusBadge = (status) => {
@@ -411,33 +660,6 @@ export default function HortFrutLancador() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      📄 Nota Fiscal:
-                    </label>
-                    <input
-                      type="text"
-                      value={invoiceNumber}
-                      onChange={(e) => setInvoiceNumber(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      placeholder="Número da NF (opcional)"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      📝 Observações:
-                    </label>
-                    <input
-                      type="text"
-                      value={observations}
-                      onChange={(e) => setObservations(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      placeholder="Observações (opcional)"
-                    />
-                  </div>
-                </div>
-
                 <div className="flex space-x-4">
                   <button
                     onClick={() => {
@@ -445,8 +667,6 @@ export default function HortFrutLancador() {
                       setParsedItems([]);
                       setConferenceDate('');
                       setSupplierName('');
-                      setInvoiceNumber('');
-                      setObservations('');
                     }}
                     className="flex-1 py-3 px-6 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                   >
@@ -560,7 +780,7 @@ export default function HortFrutLancador() {
                     >
                       <div className="flex items-center justify-between mb-0.5">
                         <span className="font-semibold text-gray-800 text-xs">
-                          {new Date(conf.conferenceDate).toLocaleDateString('pt-BR')}
+                          {formatConferenceDate(conf.conferenceDate)}
                         </span>
                         {getStatusBadge(conf.status)}
                       </div>
@@ -592,7 +812,7 @@ export default function HortFrutLancador() {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-semibold text-gray-800">
-                      {new Date(conf.conferenceDate).toLocaleDateString('pt-BR')}
+                      {formatConferenceDate(conf.conferenceDate)}
                       {conf.supplierName && ` - ${conf.supplierName}`}
                     </h3>
                     <div className="flex items-center gap-2">
@@ -603,11 +823,7 @@ export default function HortFrutLancador() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
-                    <div>
-                      <p className="text-xs text-gray-500">Nota Fiscal</p>
-                      <p className="font-semibold text-gray-700">{conf.invoiceNumber || '-'}</p>
-                    </div>
+                  <div className="grid grid-cols-3 gap-4 mb-3">
                     <div>
                       <p className="text-xs text-gray-500">Peso Esperado</p>
                       <p className="font-semibold text-gray-700">

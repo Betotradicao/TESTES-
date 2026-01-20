@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { HortFrutConference } from './HortFrutConference';
 import { HortFrutBox } from './HortFrutBox';
+import { Supplier } from './Supplier';
 
 @Entity('hortfrut_conference_items')
 export class HortFrutConferenceItem {
@@ -23,7 +24,7 @@ export class HortFrutConferenceItem {
   conference?: HortFrutConference;
 
   // Dados do produto (importados do CSV)
-  @Column({ name: 'barcode', type: 'varchar', length: 50, nullable: true })
+  @Column({ name: 'barcode', type: 'varchar', length: 100, nullable: true })
   barcode?: string;
 
   @Column({ name: 'product_name', type: 'varchar', length: 255 })
@@ -55,8 +56,33 @@ export class HortFrutConferenceItem {
   currentMargin?: number;
 
   // Dados da conferência (informados pelo usuário)
+  @Column({ name: 'product_type', type: 'varchar', length: 10, nullable: true })
+  productType?: string; // 'kg' ou 'unit'
+
+  @Column({ name: 'total_paid_value', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  totalPaidValue?: number; // Valor total pago R$
+
   @Column({ name: 'new_cost', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  newCost?: number;
+  newCost?: number; // Preço do kg ou preço da unidade (calculado)
+
+  @Column({ name: 'invoice_box_quantity', type: 'int', nullable: true })
+  invoiceBoxQuantity?: number; // Quantidade de caixas na nota (para conferência)
+
+  @Column({ name: 'invoice_status', type: 'varchar', length: 20, nullable: true })
+  invoiceStatus?: string; // 'immediate' ou 'later' (Nota no ato / Nota posterior)
+
+  @Column({ name: 'units_per_box', type: 'int', nullable: true })
+  unitsPerBox?: number; // Qtd unidades por caixa (modo unidade)
+
+  @Column({ name: 'total_units', type: 'int', nullable: true })
+  totalUnits?: number; // Total de unidades (calculado)
+
+  @Column({ name: 'supplier_id', type: 'int', nullable: true })
+  supplier_id?: number;
+
+  @ManyToOne(() => Supplier)
+  @JoinColumn({ name: 'supplier_id' })
+  supplier?: Supplier;
 
   @Column({ name: 'box_id', type: 'int', nullable: true })
   box_id?: number;

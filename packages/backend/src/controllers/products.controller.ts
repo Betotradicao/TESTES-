@@ -11,16 +11,20 @@ import * as path from 'path';
 export class ProductsController {
   static async getProducts(req: AuthRequest, res: Response) {
     try {
-      // Busca configurações do banco de dados (fallback para .env)
-      const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
-      const port = await ConfigurationService.get('intersolid_port', null);
-      const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
+      // Prioriza variável de ambiente (desenvolvimento local), fallback para banco (produção Docker)
+      let erpApiUrl: string;
 
-      // Monta a URL completa
-      const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
-      const erpApiUrl = baseUrl
-        ? `${baseUrl}${productsEndpoint}`
-        : process.env.ERP_PRODUCTS_API_URL || 'http://mock-erp-api.com';
+      if (process.env.ERP_PRODUCTS_API_URL) {
+        // Usa URL do .env diretamente (desenvolvimento local)
+        erpApiUrl = process.env.ERP_PRODUCTS_API_URL;
+      } else {
+        // Fallback: busca do banco de dados (produção Docker)
+        const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
+        const port = await ConfigurationService.get('intersolid_port', null);
+        const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
+        const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
+        erpApiUrl = baseUrl ? `${baseUrl}${productsEndpoint}` : 'http://mock-erp-api.com';
+      }
 
       // Use cache service to fetch ERP products
       const erpProducts = await CacheService.executeWithCache(

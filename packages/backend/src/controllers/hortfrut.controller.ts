@@ -170,7 +170,7 @@ export class HortFrutController {
 
       const conference = await conferenceRepository.findOne({
         where: { id: parseInt(id) },
-        relations: ['user', 'items', 'items.box'],
+        relations: ['user', 'items', 'items.box', 'items.supplier'],
       });
 
       if (!conference) {
@@ -194,12 +194,16 @@ export class HortFrutController {
         return res.status(400).json({ error: 'Data da conferência é obrigatória' });
       }
 
+      // Para campo tipo 'date' no PostgreSQL, passar a string diretamente
+      // evita problemas de conversão de timezone do JavaScript Date
+      console.log(`[HortFrut] Criando conferência - Data recebida: ${conferenceDate}`);
+
       const conferenceRepository = AppDataSource.getRepository(HortFrutConference);
 
       const conference = conferenceRepository.create({
         company_id: companyId as string,
         user_id: userId,
-        conferenceDate: new Date(conferenceDate),
+        conferenceDate: conferenceDate as any, // String "YYYY-MM-DD" direto para o banco
         supplierName,
         invoiceNumber,
         observations,
@@ -331,15 +335,24 @@ export class HortFrutController {
     try {
       const { id, itemId } = req.params;
       const {
+        productType,
+        totalPaidValue,
         newCost,
+        invoiceBoxQuantity,
+        invoiceStatus,
+        unitsPerBox,
+        totalUnits,
         box_id,
         boxQuantity,
         grossWeight,
         quality,
         photoUrl,
         observations,
-        checked
+        checked,
+        supplier_id
       } = req.body;
+
+      console.log(`[HortFrut] Atualizando item ${itemId} da conferência ${id}:`, req.body);
 
       const itemRepository = AppDataSource.getRepository(HortFrutConferenceItem);
       const boxRepository = AppDataSource.getRepository(HortFrutBox);
@@ -352,22 +365,58 @@ export class HortFrutController {
         return res.status(404).json({ error: 'Item não encontrado' });
       }
 
-      // Atualizar campos
-      if (newCost !== undefined) item.newCost = parseFloat(newCost);
-      if (box_id !== undefined) item.box_id = box_id;
-      if (boxQuantity !== undefined) item.boxQuantity = parseInt(boxQuantity);
-      if (grossWeight !== undefined) item.grossWeight = parseFloat(grossWeight);
-      if (quality !== undefined) item.quality = quality;
-      if (photoUrl !== undefined) item.photoUrl = photoUrl;
-      if (observations !== undefined) item.observations = observations;
+      // Atualizar campos básicos (com tratamento de valores nulos/vazios)
+      if (productType !== undefined) item.productType = productType || undefined;
+      if (totalPaidValue !== undefined && totalPaidValue !== null) {
+        item.totalPaidValue = parseFloat(totalPaidValue);
+      }
+      if (newCost !== undefined && newCost !== null) {
+        item.newCost = parseFloat(newCost);
+      }
+      if (invoiceBoxQuantity !== undefined && invoiceBoxQuantity !== null) {
+        item.invoiceBoxQuantity = parseInt(invoiceBoxQuantity);
+      }
+      if (invoiceStatus !== undefined) item.invoiceStatus = invoiceStatus || undefined;
+      if (unitsPerBox !== undefined && unitsPerBox !== null) {
+        item.unitsPerBox = parseInt(unitsPerBox);
+      }
+      if (totalUnits !== undefined && totalUnits !== null) {
+        item.totalUnits = parseInt(totalUnits);
+      }
+      if (box_id !== undefined) {
+        item.box_id = box_id ? parseInt(box_id) : undefined;
+      }
+      if (boxQuantity !== undefined && boxQuantity !== null) {
+        item.boxQuantity = parseInt(boxQuantity);
+      }
+      if (grossWeight !== undefined && grossWeight !== null) {
+        item.grossWeight = parseFloat(grossWeight);
+      }
+      if (quality !== undefined) item.quality = quality || undefined;
+      if (photoUrl !== undefined) item.photoUrl = photoUrl || undefined;
+      if (observations !== undefined) item.observations = observations || undefined;
       if (checked !== undefined) item.checked = checked;
+      if (supplier_id !== undefined) {
+        item.supplier_id = supplier_id ? parseInt(supplier_id) : undefined;
+      }
 
-      // Calcular peso líquido se tiver peso bruto e caixa
+      // Calcular peso líquido se tiver peso bruto e caixa (modo KG)
       if (item.grossWeight && item.box_id && item.boxQuantity) {
         const box = await boxRepository.findOne({ where: { id: item.box_id } });
         if (box) {
           const boxTotalWeight = parseFloat(box.weight.toString()) * item.boxQuantity;
           item.netWeight = item.grossWeight - boxTotalWeight;
+        }
+      }
+
+      // Calcular novo custo baseado no tipo de produto
+      if (item.totalPaidValue) {
+        if (item.productType === 'kg' && item.netWeight && item.netWeight > 0) {
+          // Modo KG: Preço por kg = Valor Total / Peso Líquido
+          item.newCost = item.totalPaidValue / item.netWeight;
+        } else if (item.productType === 'unit' && item.totalUnits && item.totalUnits > 0) {
+          // Modo Unidade: Preço por unidade = Valor Total / Total de Unidades
+          item.newCost = item.totalPaidValue / item.totalUnits;
         }
       }
 
@@ -412,10 +461,20 @@ export class HortFrutController {
         order: { conferenceDate: 'DESC' },
       });
 
-      // Agrupar por data
+      // Agrupar por data - extrair string da data diretamente sem conversão de timezone
       const grouped: { [key: string]: any[] } = {};
       for (const conf of conferences) {
-        const dateKey = conf.conferenceDate.toISOString().split('T')[0];
+        // conferenceDate pode vir como Date ou string do banco
+        // Converter para string e pegar apenas a parte da data (YYYY-MM-DD)
+        let dateKey: string;
+        if (conf.conferenceDate instanceof Date) {
+          // Se for Date, usar toISOString mas pegar só a parte da data
+          dateKey = conf.conferenceDate.toISOString().split('T')[0];
+        } else {
+          // Se for string, pegar só a parte da data
+          dateKey = String(conf.conferenceDate).split('T')[0];
+        }
+
         if (!grouped[dateKey]) {
           grouped[dateKey] = [];
         }

@@ -1,23 +1,34 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { api } from '../utils/api';
 
 export default function HortFrutResultados() {
-  const navigate = useNavigate();
   const [conferences, setConferences] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [selectedConference, setSelectedConference] = useState(null);
+
+  // Novos filtros
+  const [supplierFilter, setSupplierFilter] = useState('');
+  const [invoiceFilter, setInvoiceFilter] = useState(''); // '' = todas, 'no_ato' = no ato, 'posterior' = posterior
+  const [qualityFilter, setQualityFilter] = useState(''); // '' = todas, 'good', 'regular', 'bad'
+
+  // Lista de fornecedores únicos
+  const [suppliers, setSuppliers] = useState([]);
+
+  // Ordenação
+  const [sortColumn, setSortColumn] = useState(''); // coluna de ordenação
+  const [sortDirection, setSortDirection] = useState('asc'); // 'asc' ou 'desc'
+
+  // Modal de foto expandida
+  const [expandedPhoto, setExpandedPhoto] = useState(null);
 
   useEffect(() => {
-    // Definir período padrão (últimos 30 dias)
+    // Definir período padrão (dia 1 do mês atual até hoje)
     const end = new Date();
-    const start = new Date();
-    start.setDate(start.getDate() - 30);
+    const start = new Date(end.getFullYear(), end.getMonth(), 1); // Dia 1 do mês atual
 
     setStartDate(start.toISOString().split('T')[0]);
     setEndDate(end.toISOString().split('T')[0]);
@@ -40,7 +51,37 @@ export default function HortFrutResultados() {
       }
 
       const response = await api.get(url);
-      setConferences(response.data || []);
+      const data = response.data || [];
+
+      // Buscar detalhes de cada conferência para ter os itens
+      const conferencesWithItems = await Promise.all(
+        data.map(async (conf) => {
+          try {
+            const detailResponse = await api.get(`/hortfrut/conferences/${conf.id}`);
+            return detailResponse.data;
+          } catch {
+            return conf;
+          }
+        })
+      );
+
+      setConferences(conferencesWithItems);
+
+      // Extrair fornecedores únicos dos ITENS (não das conferências)
+      const allSuppliers = [];
+      for (const conf of conferencesWithItems) {
+        if (conf.items) {
+          for (const item of conf.items) {
+            // Supplier usa fantasyName (não name)
+            const supplierName = item.supplier?.fantasyName || null;
+            if (item.checked && supplierName) {
+              allSuppliers.push(supplierName);
+            }
+          }
+        }
+      }
+      const uniqueSuppliers = [...new Set(allSuppliers)].sort();
+      setSuppliers(uniqueSuppliers);
     } catch (err) {
       console.error('Erro ao carregar conferências:', err);
       setError('Erro ao carregar conferências');
@@ -51,29 +92,6 @@ export default function HortFrutResultados() {
 
   const handleFilter = () => {
     loadConferences();
-  };
-
-  const handleViewDetails = async (conf) => {
-    try {
-      const response = await api.get(`/hortfrut/conferences/${conf.id}`);
-      setSelectedConference(response.data);
-    } catch (err) {
-      console.error('Erro ao carregar detalhes:', err);
-      setError('Erro ao carregar detalhes da conferência');
-    }
-  };
-
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'pending':
-        return <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">Pendente</span>;
-      case 'in_progress':
-        return <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">Em Andamento</span>;
-      case 'completed':
-        return <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">Finalizada</span>;
-      default:
-        return <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full">{status}</span>;
-    }
   };
 
   const getQualityBadge = (quality) => {
@@ -89,12 +107,164 @@ export default function HortFrutResultados() {
     }
   };
 
-  // Calcular totais gerais
-  const totals = conferences.reduce((acc, conf) => {
-    acc.totalCost += parseFloat(conf.totalCost || 0);
-    acc.totalWeight += parseFloat(conf.totalActualWeight || 0);
+  // Extrair todos os itens conferidos de todas as conferências, aplicando filtros
+  const getAllCheckedItems = () => {
+    const allItems = [];
+
+    for (const conf of conferences) {
+      // Adicionar apenas itens conferidos (checked = true)
+      if (conf.items && conf.items.length > 0) {
+        for (const item of conf.items) {
+          // Somente itens checked
+          if (!item.checked) continue;
+
+          // Filtro de fornecedor (do ITEM - usar fantasyName)
+          const itemSupplierName = item.supplier?.fantasyName || '';
+          if (supplierFilter && itemSupplierName !== supplierFilter) {
+            continue;
+          }
+
+          // Filtro de nota fiscal (do ITEM: 'immediate' = no ato, 'later' = posterior)
+          if (invoiceFilter === 'no_ato' && item.invoiceStatus !== 'immediate') {
+            continue;
+          }
+          if (invoiceFilter === 'posterior' && item.invoiceStatus !== 'later') {
+            continue;
+          }
+
+          // Filtro de qualidade
+          if (qualityFilter && item.quality !== qualityFilter) {
+            continue;
+          }
+
+          allItems.push({
+            ...item,
+            conferenceId: conf.id,
+            conferenceDate: conf.conferenceDate,
+            supplierName: itemSupplierName, // Fornecedor do item
+            invoiceNumber: conf.invoiceNumber,
+          });
+        }
+      }
+    }
+
+    return allItems;
+  };
+
+  const checkedItems = getAllCheckedItems();
+
+  // Função para ordenar
+  const handleSort = (column) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Função para calcular margem futura: ((preço venda - novo custo) / preço venda) * 100
+  const calcularMargemFutura = (item) => {
+    if (!item.currentSalePrice || !item.newCost) return null;
+    const precoVenda = parseFloat(item.currentSalePrice);
+    const novoCusto = parseFloat(item.newCost);
+    if (precoVenda <= 0) return null;
+    return ((precoVenda - novoCusto) / precoVenda) * 100;
+  };
+
+  // Ordenar itens
+  const sortedItems = [...checkedItems].sort((a, b) => {
+    if (!sortColumn) return 0;
+
+    let valueA, valueB;
+
+    switch (sortColumn) {
+      case 'productName':
+        valueA = a.productName || '';
+        valueB = b.productName || '';
+        break;
+      case 'supplierName':
+        valueA = a.supplierName || '';
+        valueB = b.supplierName || '';
+        break;
+      case 'currentCost':
+        valueA = parseFloat(a.currentCost) || 0;
+        valueB = parseFloat(b.currentCost) || 0;
+        break;
+      case 'newCost':
+        valueA = parseFloat(a.newCost) || 0;
+        valueB = parseFloat(b.newCost) || 0;
+        break;
+      case 'suggestedPrice':
+        valueA = parseFloat(a.suggestedPrice) || 0;
+        valueB = parseFloat(b.suggestedPrice) || 0;
+        break;
+      case 'referenceMargin':
+        valueA = parseFloat(a.referenceMargin) || 0;
+        valueB = parseFloat(b.referenceMargin) || 0;
+        break;
+      case 'currentMargin':
+        valueA = parseFloat(a.currentMargin) || 0;
+        valueB = parseFloat(b.currentMargin) || 0;
+        break;
+      case 'futureMargin':
+        valueA = calcularMargemFutura(a) || 0;
+        valueB = calcularMargemFutura(b) || 0;
+        break;
+      case 'netWeight':
+        valueA = parseFloat(a.netWeight) || 0;
+        valueB = parseFloat(b.netWeight) || 0;
+        break;
+      case 'quality':
+        valueA = a.quality || '';
+        valueB = b.quality || '';
+        break;
+      default:
+        return 0;
+    }
+
+    if (typeof valueA === 'string') {
+      return sortDirection === 'asc'
+        ? valueA.localeCompare(valueB)
+        : valueB.localeCompare(valueA);
+    }
+
+    return sortDirection === 'asc' ? valueA - valueB : valueB - valueA;
+  });
+
+  // Ícone de ordenação
+  const getSortIcon = (column) => {
+    if (sortColumn !== column) return '↕️';
+    return sortDirection === 'asc' ? '⬆️' : '⬇️';
+  };
+
+  // Calcular totais gerais considerando os filtros (apenas itens conferidos)
+  const totals = checkedItems.reduce((acc, item) => {
+    // Peso total
+    acc.totalWeight += parseFloat(item.netWeight || 0);
+
+    // Total da compra (custo)
+    if (item.newCost && item.netWeight) {
+      const custoItem = parseFloat(item.newCost) * parseFloat(item.netWeight);
+      acc.totalCost += custoItem;
+    }
+
+    // Vendas simuladas
+    if (item.currentSalePrice && item.netWeight) {
+      const vendaSimulada = parseFloat(item.currentSalePrice) * parseFloat(item.netWeight);
+      acc.totalVendasSimuladas += vendaSimulada;
+    }
+
     return acc;
-  }, { totalCost: 0, totalWeight: 0 });
+  }, { totalCost: 0, totalWeight: 0, totalVendasSimuladas: 0 });
+
+  // Lucro simulado = Vendas - Custo
+  const lucroSimulado = totals.totalVendasSimuladas - totals.totalCost;
+
+  // Margem de lucro simulada = (Vendas - Custo) / Vendas * 100
+  const margemLucroSimulada = totals.totalVendasSimuladas > 0
+    ? (lucroSimulado / totals.totalVendasSimuladas) * 100
+    : 0;
 
   return (
     <Layout title="Resultados HortFruti">
@@ -122,7 +292,8 @@ export default function HortFrutResultados() {
 
         {/* Filtros */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Primeira linha de filtros */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Data Inicial:</label>
               <input
@@ -154,7 +325,49 @@ export default function HortFrutResultados() {
                 <option value="completed">Finalizada</option>
               </select>
             </div>
-            <div className="flex items-end">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Fornecedor:</label>
+              <select
+                value={supplierFilter}
+                onChange={(e) => setSupplierFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+              >
+                <option value="">Todos</option>
+                {suppliers.map((supplier) => (
+                  <option key={supplier} value={supplier}>{supplier}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Segunda linha de filtros */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nota Fiscal:</label>
+              <select
+                value={invoiceFilter}
+                onChange={(e) => setInvoiceFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+              >
+                <option value="">Todas</option>
+                <option value="no_ato">No Ato (Com NF)</option>
+                <option value="posterior">Posterior (Sem NF)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Qualidade:</label>
+              <select
+                value={qualityFilter}
+                onChange={(e) => setQualityFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+              >
+                <option value="">Todas</option>
+                <option value="good">Boa</option>
+                <option value="regular">Regular</option>
+                <option value="bad">Ruim</option>
+              </select>
+            </div>
+            <div className="md:col-span-2 flex items-end">
               <button
                 onClick={handleFilter}
                 className="w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
@@ -166,224 +379,301 @@ export default function HortFrutResultados() {
         </div>
 
         {/* Cards de resumo */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow-md p-4">
-            <p className="text-sm text-gray-500">Total de Conferências</p>
-            <p className="text-3xl font-bold text-gray-800">{conferences.length}</p>
+            <p className="text-sm text-gray-500">Total de Itens</p>
+            <p className="text-2xl font-bold text-gray-800">{checkedItems.length}</p>
           </div>
           <div className="bg-white rounded-lg shadow-md p-4">
-            <p className="text-sm text-gray-500">Peso Total Conferido</p>
-            <p className="text-3xl font-bold text-blue-600">{totals.totalWeight.toFixed(2)} kg</p>
+            <p className="text-sm text-gray-500">Peso Total</p>
+            <p className="text-2xl font-bold text-blue-600">{totals.totalWeight.toFixed(2)} kg</p>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-4">
+          <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-orange-500">
             <p className="text-sm text-gray-500">Custo Total</p>
-            <p className="text-3xl font-bold text-green-600">R$ {totals.totalCost.toFixed(2)}</p>
+            <p className="text-2xl font-bold text-orange-600">R$ {totals.totalCost.toFixed(2)}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-green-500">
+            <p className="text-sm text-gray-500">Vendas Simuladas</p>
+            <p className="text-2xl font-bold text-green-600">R$ {totals.totalVendasSimuladas.toFixed(2)}</p>
+          </div>
+          <div className={`bg-white rounded-lg shadow-md p-4 border-l-4 ${margemLucroSimulada >= 20 ? 'border-green-500' : margemLucroSimulada >= 10 ? 'border-yellow-500' : 'border-red-500'}`}>
+            <p className="text-sm text-gray-500">Margem Simulada</p>
+            <p className={`text-2xl font-bold ${margemLucroSimulada >= 20 ? 'text-green-600' : margemLucroSimulada >= 10 ? 'text-yellow-600' : 'text-red-600'}`}>
+              {margemLucroSimulada.toFixed(1)}%
+            </p>
           </div>
         </div>
 
-        {/* Lista de conferências */}
+        {/* Tabela de Itens Conferidos */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="bg-gray-50 px-4 py-3 border-b">
+            <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+              <span>📦</span> Itens Conferidos
+            </h3>
+          </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fornecedor</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">NF</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Peso Total</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Custo Total</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
+                  <th
+                    className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('productName')}
+                  >
+                    Produto {getSortIcon('productName')}
+                  </th>
+                  <th
+                    className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('supplierName')}
+                  >
+                    Fornecedor {getSortIcon('supplierName')}
+                  </th>
+                  <th
+                    className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('currentCost')}
+                  >
+                    Custo Ant. {getSortIcon('currentCost')}
+                  </th>
+                  <th
+                    className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('newCost')}
+                  >
+                    Novo Custo {getSortIcon('newCost')}
+                  </th>
+                  <th
+                    className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('suggestedPrice')}
+                  >
+                    Preço Sug. {getSortIcon('suggestedPrice')}
+                  </th>
+                  <th
+                    className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('referenceMargin')}
+                  >
+                    Marg. Ref. {getSortIcon('referenceMargin')}
+                  </th>
+                  <th
+                    className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('currentMargin')}
+                  >
+                    Marg. Atual {getSortIcon('currentMargin')}
+                  </th>
+                  <th
+                    className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('futureMargin')}
+                  >
+                    Marg. Futura {getSortIcon('futureMargin')}
+                  </th>
+                  <th
+                    className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('netWeight')}
+                  >
+                    Peso Líq. {getSortIcon('netWeight')}
+                  </th>
+                  <th
+                    className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('quality')}
+                  >
+                    Qualidade {getSortIcon('quality')}
+                  </th>
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                    Foto
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Observações
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-100">
                 {loading ? (
                   <tr>
-                    <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan="12" className="px-4 py-8 text-center text-gray-500">
                       Carregando...
                     </td>
                   </tr>
-                ) : conferences.length === 0 ? (
+                ) : sortedItems.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
-                      Nenhuma conferência encontrada
+                    <td colSpan="12" className="px-4 py-8 text-center text-gray-500">
+                      Nenhum item conferido encontrado
                     </td>
                   </tr>
                 ) : (
-                  conferences.map((conf) => (
-                    <tr key={conf.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {new Date(conf.conferenceDate).toLocaleDateString('pt-BR')}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        {conf.supplierName || '-'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        {conf.invoiceNumber || '-'}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {getStatusBadge(conf.status)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-700">
-                        {conf.totalActualWeight ? `${parseFloat(conf.totalActualWeight).toFixed(2)} kg` : '-'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right font-semibold text-green-700">
-                        {conf.totalCost ? `R$ ${parseFloat(conf.totalCost).toFixed(2)}` : '-'}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex justify-center gap-2">
-                          <button
-                            onClick={() => handleViewDetails(conf)}
-                            className="text-blue-600 hover:text-blue-800 text-sm"
-                            title="Ver detalhes"
-                          >
-                            👁️
-                          </button>
-                          <button
-                            onClick={() => navigate(`/hortfrut-conferencia/${conf.id}`)}
-                            className="text-orange-600 hover:text-orange-800 text-sm"
-                            title="Abrir conferência"
-                          >
-                            📋
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  sortedItems.map((item, index) => {
+                    const margemFutura = calcularMargemFutura(item);
+                    return (
+                      <tr key={`${item.conferenceId}-${item.id}-${index}`} className="hover:bg-gray-50">
+                        <td className="px-3 py-2">
+                          <p className="font-medium text-gray-900">{item.productName}</p>
+                          <p className="text-xs text-gray-500">{item.barcode || '-'}</p>
+                        </td>
+                        <td className="px-3 py-2 text-left text-gray-700 text-xs">
+                          {item.supplierName || '-'}
+                        </td>
+                        <td className="px-3 py-2 text-right text-gray-600">
+                          {item.currentCost ? `R$ ${parseFloat(item.currentCost).toFixed(2)}` : '-'}
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold text-orange-700">
+                          {item.newCost ? `R$ ${parseFloat(item.newCost).toFixed(2)}` : '-'}
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold text-green-700">
+                          {item.suggestedPrice ? `R$ ${parseFloat(item.suggestedPrice).toFixed(2)}` : '-'}
+                        </td>
+                        {/* Margem de Referência */}
+                        <td className="px-3 py-2 text-right">
+                          {item.referenceMargin !== null && item.referenceMargin !== undefined ? (
+                            <span className="font-semibold text-blue-600">
+                              {parseFloat(item.referenceMargin).toFixed(1)}%
+                            </span>
+                          ) : '-'}
+                        </td>
+                        {/* Margem Atual */}
+                        <td className="px-3 py-2 text-right">
+                          {item.currentMargin !== null && item.currentMargin !== undefined ? (
+                            <span className={`font-semibold ${
+                              parseFloat(item.currentMargin) < 0 ? 'text-red-600' :
+                              parseFloat(item.currentMargin) < 10 ? 'text-yellow-600' :
+                              'text-green-600'
+                            }`}>
+                              {parseFloat(item.currentMargin).toFixed(1)}%
+                            </span>
+                          ) : '-'}
+                        </td>
+                        {/* Margem Futura */}
+                        <td className="px-3 py-2 text-right">
+                          {margemFutura !== null ? (
+                            <span className={`font-semibold ${
+                              margemFutura < 0 ? 'text-red-600' :
+                              margemFutura < 10 ? 'text-yellow-600' :
+                              'text-green-600'
+                            }`}>
+                              {margemFutura.toFixed(1)}%
+                            </span>
+                          ) : '-'}
+                        </td>
+                        <td className="px-3 py-2 text-right text-gray-700">
+                          {item.netWeight ? `${parseFloat(item.netWeight).toFixed(3)} kg` : '-'}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {getQualityBadge(item.quality)}
+                        </td>
+                        {/* Foto do produto */}
+                        <td className="px-3 py-2 text-center">
+                          {item.photoUrl ? (() => {
+                            const photos = item.photoUrl.split(',').filter(p => p.trim());
+                            const firstPhoto = photos[0];
+                            return (
+                              <div className="relative inline-block">
+                                <img
+                                  src={firstPhoto}
+                                  alt="Foto do produto"
+                                  className="w-10 h-10 object-cover rounded cursor-pointer hover:opacity-80 border border-gray-200 mx-auto"
+                                  onClick={() => setExpandedPhoto({ photos, name: item.productName, currentIndex: 0 })}
+                                />
+                                {photos.length > 1 && (
+                                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                                    {photos.length}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })() : (
+                            <span className="text-gray-300">-</span>
+                          )}
+                        </td>
+                        {/* Observações */}
+                        <td className="px-3 py-2 text-left text-xs text-gray-600 max-w-[150px]">
+                          {item.observations ? (
+                            <span className="line-clamp-2" title={item.observations}>
+                              {item.observations}
+                            </span>
+                          ) : (
+                            <span className="text-gray-300">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* Modal de detalhes */}
-        {selectedConference && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white p-4 rounded-t-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-bold">
-                      Conferência {new Date(selectedConference.conferenceDate).toLocaleDateString('pt-BR')}
-                    </h3>
-                    <p className="text-sm text-white/80">
-                      {selectedConference.supplierName || 'Sem fornecedor'}
-                      {selectedConference.invoiceNumber && ` | NF: ${selectedConference.invoiceNumber}`}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setSelectedConference(null)}
-                    className="text-white hover:text-white/80"
-                  >
-                    ✕
-                  </button>
-                </div>
+        {/* Modal de foto expandida com navegação */}
+        {expandedPhoto && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90"
+            onClick={() => setExpandedPhoto(null)}
+          >
+            <div className="relative max-w-2xl max-h-[85vh] mx-4" onClick={(e) => e.stopPropagation()}>
+              {/* Botão fechar */}
+              <button
+                onClick={() => setExpandedPhoto(null)}
+                className="absolute -top-10 right-0 text-white hover:text-gray-300 transition z-10"
+              >
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              {/* Navegação - Anterior */}
+              {expandedPhoto.photos && expandedPhoto.photos.length > 1 && expandedPhoto.currentIndex > 0 && (
+                <button
+                  onClick={() => setExpandedPhoto({ ...expandedPhoto, currentIndex: expandedPhoto.currentIndex - 1 })}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 -ml-12 text-white hover:text-gray-300 transition"
+                >
+                  <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+              )}
+
+              {/* Navegação - Próximo */}
+              {expandedPhoto.photos && expandedPhoto.photos.length > 1 && expandedPhoto.currentIndex < expandedPhoto.photos.length - 1 && (
+                <button
+                  onClick={() => setExpandedPhoto({ ...expandedPhoto, currentIndex: expandedPhoto.currentIndex + 1 })}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 -mr-12 text-white hover:text-gray-300 transition"
+                >
+                  <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              )}
+
+              {/* Imagem */}
+              <img
+                src={expandedPhoto.photos ? expandedPhoto.photos[expandedPhoto.currentIndex] : expandedPhoto.url}
+                alt={expandedPhoto.name}
+                className="max-w-full max-h-[70vh] rounded-lg shadow-2xl object-contain mx-auto"
+              />
+
+              {/* Info e contador */}
+              <div className="text-center mt-3">
+                <p className="text-white text-lg font-medium">{expandedPhoto.name}</p>
+                {expandedPhoto.photos && expandedPhoto.photos.length > 1 && (
+                  <p className="text-gray-400 text-sm mt-1">
+                    Foto {expandedPhoto.currentIndex + 1} de {expandedPhoto.photos.length}
+                  </p>
+                )}
               </div>
 
-              <div className="p-6">
-                {/* Resumo da conferência */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs text-gray-500">Total de Itens</p>
-                    <p className="text-xl font-bold text-gray-800">
-                      {selectedConference.items?.length || 0}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs text-gray-500">Peso Total</p>
-                    <p className="text-xl font-bold text-blue-600">
-                      {selectedConference.totalActualWeight
-                        ? `${parseFloat(selectedConference.totalActualWeight).toFixed(2)} kg`
-                        : '-'}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs text-gray-500">Custo Total</p>
-                    <p className="text-xl font-bold text-green-600">
-                      {selectedConference.totalCost
-                        ? `R$ ${parseFloat(selectedConference.totalCost).toFixed(2)}`
-                        : '-'}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs text-gray-500">Status</p>
-                    <div className="mt-1">{getStatusBadge(selectedConference.status)}</div>
-                  </div>
+              {/* Miniaturas */}
+              {expandedPhoto.photos && expandedPhoto.photos.length > 1 && (
+                <div className="flex justify-center gap-2 mt-3">
+                  {expandedPhoto.photos.map((photo, idx) => (
+                    <img
+                      key={idx}
+                      src={photo}
+                      alt={`Miniatura ${idx + 1}`}
+                      className={`w-12 h-12 object-cover rounded cursor-pointer transition-all ${
+                        idx === expandedPhoto.currentIndex
+                          ? 'ring-2 ring-white opacity-100'
+                          : 'opacity-50 hover:opacity-80'
+                      }`}
+                      onClick={() => setExpandedPhoto({ ...expandedPhoto, currentIndex: idx })}
+                    />
+                  ))}
                 </div>
-
-                {/* Lista de itens */}
-                <h4 className="font-semibold text-gray-800 mb-3">📦 Itens Conferidos</h4>
-                <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                  <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Produto</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Custo Ant.</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Novo Custo</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Preço Sug.</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Margem Manter</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Peso Líq.</th>
-                        <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Qualidade</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {selectedConference.items?.map((item) => (
-                        <tr key={item.id} className={item.checked ? 'bg-green-50' : ''}>
-                          <td className="px-3 py-2">
-                            <p className="font-medium text-gray-900">{item.productName}</p>
-                            <p className="text-xs text-gray-500">{item.barcode || '-'}</p>
-                          </td>
-                          <td className="px-3 py-2 text-right text-gray-600">
-                            {item.currentCost ? `R$ ${parseFloat(item.currentCost).toFixed(2)}` : '-'}
-                          </td>
-                          <td className="px-3 py-2 text-right font-semibold text-orange-700">
-                            {item.newCost ? `R$ ${parseFloat(item.newCost).toFixed(2)}` : '-'}
-                          </td>
-                          <td className="px-3 py-2 text-right font-semibold text-green-700">
-                            {item.suggestedPrice ? `R$ ${parseFloat(item.suggestedPrice).toFixed(2)}` : '-'}
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            {item.marginIfKeepPrice !== null && item.marginIfKeepPrice !== undefined ? (
-                              <span className={`font-semibold ${
-                                parseFloat(item.marginIfKeepPrice) < 0 ? 'text-red-600' :
-                                parseFloat(item.marginIfKeepPrice) < 10 ? 'text-yellow-600' :
-                                'text-green-600'
-                              }`}>
-                                {parseFloat(item.marginIfKeepPrice).toFixed(1)}%
-                              </span>
-                            ) : '-'}
-                          </td>
-                          <td className="px-3 py-2 text-right text-gray-700">
-                            {item.netWeight ? `${parseFloat(item.netWeight).toFixed(3)} kg` : '-'}
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            {getQualityBadge(item.quality)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Botões */}
-                <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-                  <button
-                    onClick={() => setSelectedConference(null)}
-                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                  >
-                    Fechar
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedConference(null);
-                      navigate(`/hortfrut-conferencia/${selectedConference.id}`);
-                    }}
-                    className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
-                  >
-                    📋 Abrir Conferência
-                  </button>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         )}
