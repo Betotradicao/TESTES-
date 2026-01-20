@@ -1113,5 +1113,170 @@ Em caso de dúvidas ou problemas durante a instalação:
 
 ---
 
+## ⚠️ REGRAS DE ATUALIZAÇÃO DO AUTO-INSTALADOR
+
+### IMPORTANTE: Leia ANTES de fazer qualquer commit!
+
+Sempre que fizer alterações no código que afetem o sistema em produção, você **DEVE** verificar se o auto-instalador precisa ser atualizado.
+
+---
+
+### 📋 CHECKLIST OBRIGATÓRIO ANTES DE COMMITAR
+
+#### 1. Alterações no Backend (`packages/backend/`)
+
+| Alteração | Ação Necessária |
+|-----------|-----------------|
+| Novo arquivo `.env` / variável de ambiente | Atualizar geração do `.env` no `INSTALAR-AUTO.sh` (seção ETAPA 7) |
+| Nova dependência no `package.json` | Nenhuma (npm install roda automaticamente) |
+| Alteração no `Dockerfile` | Atualizar `InstaladorVPS/Dockerfile.backend` |
+| Alteração no `Dockerfile.cron` | Verificar se `docker-compose-producao.yml` precisa atualizar |
+| Nova pasta de uploads | Atualizar `RUN mkdir -p` no `Dockerfile.backend` |
+| Nova porta exposta | Atualizar `docker-compose-producao.yml` e documentação |
+| Novo comando/script npm | Atualizar `Dockerfile.cron` se for tarefa agendada |
+
+#### 2. Alterações no Frontend (`packages/frontend/`)
+
+| Alteração | Ação Necessária |
+|-----------|-----------------|
+| Nova variável `VITE_*` | Atualizar `.env` no `INSTALAR-AUTO.sh` e `docker-compose-producao.yml` |
+| Alteração no `Dockerfile` | Atualizar `InstaladorVPS/Dockerfile.frontend` |
+| Nova porta | Atualizar `docker-compose-producao.yml` |
+
+#### 3. Alterações no Docker Compose
+
+| Alteração | Ação Necessária |
+|-----------|-----------------|
+| Novo serviço | Adicionar em `InstaladorVPS/docker-compose-producao.yml` |
+| Nova rede | Adicionar em `InstaladorVPS/docker-compose-producao.yml` |
+| Novo volume | Adicionar em `InstaladorVPS/docker-compose-producao.yml` |
+| Alteração de portas | Atualizar `docker-compose-producao.yml` + documentação |
+
+#### 4. Alterações em Configurações
+
+| Alteração | Ação Necessária |
+|-----------|-----------------|
+| Novo serviço externo (Redis, etc) | Adicionar no `docker-compose-producao.yml` + `INSTALAR-AUTO.sh` |
+| Alteração de timezone | Verificar `TZ` no docker-compose |
+| Novo CRON job | Atualizar `Dockerfile.cron` |
+
+---
+
+### 🔄 COMO ATUALIZAR O AUTO-INSTALADOR
+
+#### Passo 1: Identificar os arquivos afetados
+
+```bash
+# Ver arquivos alterados
+git status
+git diff --name-only HEAD~5
+```
+
+#### Passo 2: Verificar correspondência
+
+| Arquivo no Projeto | Arquivo no InstaladorVPS |
+|--------------------|--------------------------|
+| `packages/backend/Dockerfile` | `InstaladorVPS/Dockerfile.backend` |
+| `packages/backend/Dockerfile.cron` | Referenciado no `docker-compose-producao.yml` |
+| `packages/frontend/Dockerfile` | `InstaladorVPS/Dockerfile.frontend` |
+| `docker-compose.yml` (raiz) | `InstaladorVPS/docker-compose-producao.yml` |
+| `.env.example` | Geração do `.env` no `INSTALAR-AUTO.sh` |
+
+#### Passo 3: Copiar/Sincronizar alterações
+
+```bash
+# Exemplo: Atualizar Dockerfile do backend
+cp packages/backend/Dockerfile InstaladorVPS/Dockerfile.backend
+
+# Exemplo: Atualizar docker-compose
+# (Não copiar direto! Verificar diferenças e aplicar manualmente)
+diff docker-compose.yml InstaladorVPS/docker-compose-producao.yml
+```
+
+#### Passo 4: Testar o instalador (se possível)
+
+```bash
+# Em uma VPS de teste:
+cd /root && rm -rf prevencao-radar-install && git clone REPO prevencao-radar-install && cd prevencao-radar-install/InstaladorVPS && bash INSTALAR-AUTO.sh
+```
+
+---
+
+### 📁 ESTRUTURA DE ARQUIVOS - MAPEAMENTO
+
+```
+PROJETO (packages/)                    INSTALADOR (InstaladorVPS/)
+========================              ============================
+packages/backend/
+├── Dockerfile             ─────────► Dockerfile.backend
+├── Dockerfile.cron        ─────────► (usado via docker-compose)
+├── package.json           ─────────► (copiado automaticamente)
+└── src/                   ─────────► (copiado automaticamente)
+
+packages/frontend/
+├── Dockerfile             ─────────► Dockerfile.frontend
+├── package.json           ─────────► (copiado automaticamente)
+└── src/                   ─────────► (copiado automaticamente)
+
+raiz/
+├── docker-compose.yml     ─────────► docker-compose-producao.yml
+├── .env.example           ─────────► INSTALAR-AUTO.sh (geração do .env)
+└── README.md              ─────────► README.md (InstaladorVPS)
+```
+
+---
+
+### ❌ ERROS COMUNS A EVITAR
+
+1. **Alterar variável de ambiente e não atualizar o instalador**
+   - Sistema funciona no dev mas quebra em produção nova
+
+2. **Adicionar nova pasta de uploads sem atualizar Dockerfile**
+   - Erros de "permission denied" ou "folder not found"
+
+3. **Mudar porta e não atualizar docker-compose-producao.yml**
+   - Container não consegue se comunicar
+
+4. **Adicionar novo serviço (Redis, etc) sem adicionar no instalador**
+   - Sistema funciona localmente mas não em produção
+
+5. **Esquecer de commitar os arquivos do InstaladorVPS/**
+   - Alterações não vão para o repositório
+
+---
+
+### ✅ EXEMPLO DE COMMIT CORRETO
+
+```bash
+# Alterou o backend E atualizou o instalador
+git add packages/backend/Dockerfile
+git add InstaladorVPS/Dockerfile.backend
+git commit -m "feat: Adiciona suporte a upload de PDFs
+
+- Atualizado Dockerfile com nova pasta /app/uploads/pdfs
+- Atualizado InstaladorVPS/Dockerfile.backend para produção"
+```
+
+---
+
+### 🧪 TESTANDO ALTERAÇÕES DO INSTALADOR
+
+#### Opção 1: VPS de Teste
+- Usar uma VPS separada para testar instalação limpa
+
+#### Opção 2: Teste Local com Docker
+```bash
+cd InstaladorVPS
+docker compose -f docker-compose-producao.yml config  # Valida sintaxe
+docker compose -f docker-compose-producao.yml build   # Testa build
+```
+
+#### Opção 3: Dry Run do Script
+```bash
+bash -n INSTALAR-AUTO.sh  # Verifica sintaxe do script
+```
+
+---
+
 **Desenvolvido por:** Roberto Santos
 **Última atualização:** Janeiro 2026
