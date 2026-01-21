@@ -366,5 +366,132 @@ docker volume rm nome-do-volume  # Só se LINKS=0
 
 ---
 
-**Última atualização:** 11/01/2026 - Adicionado troubleshooting de hash de senha corrompido e limpeza de recursos
+---
+
+## 🖥️ VPS 46 - MÚLTIPLOS CLIENTES (ATENÇÃO ESPECIAL!)
+
+### ⚠️ ESTRUTURA DIFERENTE DAS OUTRAS VPS
+
+A VPS 46 (`46.202.150.64`) tem uma estrutura **multi-tenant** com vários clientes instalados. **NÃO** é igual às outras VPS!
+
+### 📍 IPs e Identificação das VPS
+
+| VPS | IP | Uso | Diretório Principal |
+|-----|-----|-----|---------------------|
+| VPS 145 | `145.223.92.152` | TESTE | `/root/prevencao-radar-install` |
+| VPS 31 | `31.97.82.235` | PRODUÇÃO | `/root/NOVO-PREVEN-O` |
+| VPS 46 | `46.202.150.64` | MULTI-CLIENTES | `/root/clientes/[cliente]` |
+
+### 🏢 Clientes na VPS 46
+
+```
+/root/clientes/
+├── tradicao/          # Cliente Tradição SJC
+│   ├── docker-compose.yml
+│   ├── .env
+│   └── CREDENCIAIS.txt
+├── piratininga/       # Cliente Piratininga
+└── central/           # Cliente Central
+```
+
+### 📦 Containers por Cliente na VPS 46
+
+| Cliente | Frontend | Backend | Postgres | MinIO |
+|---------|----------|---------|----------|-------|
+| tradicao | `prevencao-tradicao-frontend` | `prevencao-tradicao-backend` | `prevencao-tradicao-postgres` | `prevencao-tradicao-minio` |
+| piratininga | `prevencao-piratininga-frontend` | `prevencao-piratininga-backend` | `prevencao-piratininga-postgres` | `prevencao-piratininga-minio` |
+| central | `prevencao-central-frontend` | `prevencao-central-backend` | `prevencao-central-postgres` | `prevencao-central-minio` |
+
+⚠️ **ATENÇÃO:** Também existem containers `prevencao-frontend-prod` e `prevencao-backend-prod` na VPS 46, mas **NÃO são usados pelos clientes**! São de uma instalação antiga/teste.
+
+### 📂 Estrutura de Código na VPS 46
+
+```
+/root/
+├── prevencao-radar-repo/      # ← CÓDIGO FONTE (git clone do TESTES-)
+│   ├── packages/
+│   │   ├── frontend/          # Código do frontend
+│   │   └── backend/           # Código do backend
+│   └── ...
+├── clientes/
+│   └── tradicao/
+│       ├── docker-compose.yml # ← Referencia o código de /root/prevencao-radar-repo
+│       └── .env               # ← Configurações específicas do cliente
+└── prevencao-radar-install/   # ⚠️ NÃO USAR - instalação antiga
+```
+
+### ✅ DEPLOY CORRETO NA VPS 46 (Cliente Tradição)
+
+```bash
+# 1. Conectar na VPS 46
+ssh root@46.202.150.64
+
+# 2. Atualizar código fonte
+cd /root/prevencao-radar-repo
+git pull origin TESTE
+
+# 3. Ir para pasta do cliente
+cd /root/clientes/tradicao
+
+# 4. Build do frontend (se mudou frontend)
+docker compose build --no-cache frontend
+docker compose up -d --no-deps frontend
+
+# 5. Build do backend (se mudou backend ou migrations)
+docker compose build --no-cache backend
+docker compose up -d --no-deps backend
+
+# 6. Verificar logs
+docker logs prevencao-tradicao-backend --tail 50
+docker logs prevencao-tradicao-frontend --tail 20
+```
+
+### 🔄 Comando Único para Deploy Completo (Tradição)
+
+```bash
+# Frontend + Backend
+ssh root@46.202.150.64 "cd /root/prevencao-radar-repo && git pull origin TESTE && cd /root/clientes/tradicao && docker compose build --no-cache frontend backend && docker compose up -d --no-deps frontend backend"
+
+# Apenas Frontend
+ssh root@46.202.150.64 "cd /root/prevencao-radar-repo && git pull origin TESTE && cd /root/clientes/tradicao && docker compose build --no-cache frontend && docker compose up -d --no-deps frontend"
+
+# Apenas Backend
+ssh root@46.202.150.64 "cd /root/prevencao-radar-repo && git pull origin TESTE && cd /root/clientes/tradicao && docker compose build --no-cache backend && docker compose up -d --no-deps backend"
+```
+
+### 🔍 Verificar Status dos Clientes
+
+```bash
+# Ver todos os containers da VPS 46
+ssh root@46.202.150.64 "docker ps --format 'table {{.Names}}\t{{.Status}}'"
+
+# Ver logs do tradicao
+ssh root@46.202.150.64 "docker logs prevencao-tradicao-backend --tail 30"
+ssh root@46.202.150.64 "docker logs prevencao-tradicao-frontend --tail 10"
+
+# Verificar banco do tradicao
+ssh root@46.202.150.64 "docker exec prevencao-tradicao-postgres psql -U postgres -d postgres_tradicao -c '\\dt'"
+```
+
+### ❌ ERROS COMUNS NA VPS 46
+
+1. **Atualizou container errado**: Verificar se está usando `prevencao-tradicao-*` e não `prevencao-*-prod`
+2. **Git pull no diretório errado**: Deve ser em `/root/prevencao-radar-repo`, não em `/root/prevencao-radar-install`
+3. **Docker compose no lugar errado**: Deve rodar em `/root/clientes/tradicao`, não em `/root/prevencao-radar-repo`
+
+### 🎓 Lição Aprendida (20/01/2026)
+
+**Problema:** Deploy não funcionava na VPS 46 - site continuava mostrando versão antiga.
+
+**Causa:** Estava atualizando `/root/prevencao-radar-install` e o container `prevencao-frontend-prod`, que não tem relação com o site `tradicao.prevencaonoradar.com.br`.
+
+**Solução:**
+1. Identificar que VPS 46 tem múltiplos clientes
+2. Descobrir que o código está em `/root/prevencao-radar-repo`
+3. Descobrir que o docker-compose está em `/root/clientes/tradicao`
+4. Usar os containers corretos: `prevencao-tradicao-frontend` e `prevencao-tradicao-backend`
+
+---
+
+**Última atualização:** 20/01/2026 - Adicionado documentação completa da VPS 46 (multi-tenant)
 **Criado por:** Claude (aprendendo com cada erro 🎓)
