@@ -3,14 +3,15 @@ import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 
-// Função para obter a URL base do backend (mesma lógica do api.js)
-function getBackendBaseUrl() {
+// Função para obter a URL base para uploads (imagens DVR)
+function getUploadsBaseUrl() {
   const hostname = window.location.hostname;
+  const protocol = window.location.protocol;
 
-  // Se tiver variável de ambiente configurada, usar ela
-  if (window.ENV?.VITE_API_URL || import.meta.env.VITE_API_URL) {
-    const apiUrl = window.ENV?.VITE_API_URL || import.meta.env.VITE_API_URL;
-    return apiUrl.replace('/api', ''); // Remove /api para ter só a URL base
+  // Se acessando pelo domínio prevencaonoradar.com.br (subdomínios como tradicao.prevencaonoradar.com.br)
+  // Usar o mesmo domínio com HTTPS - o Nginx faz proxy para /uploads/
+  if (hostname.includes('prevencaonoradar.com.br')) {
+    return `${protocol}//${hostname}`;
   }
 
   // Se acessando pelo ngrok
@@ -18,19 +19,14 @@ function getBackendBaseUrl() {
     return 'http://10.6.1.171:3001';
   }
 
-  // Se acessando pelo domínio Cloudflare
-  if (hostname.includes('prevencaonoradar.com.br')) {
-    return 'https://api.prevencaonoradar.com.br';
+  // Se tiver variável de ambiente configurada, usar ela
+  if (window.ENV?.VITE_API_URL || import.meta.env.VITE_API_URL) {
+    const apiUrl = window.ENV?.VITE_API_URL || import.meta.env.VITE_API_URL;
+    return apiUrl.replace('/api', ''); // Remove /api para ter só a URL base
   }
 
   // FORÇAR: Se NÃO for localhost, usar o hostname atual com porta 3001
   if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-    return `http://${hostname}:3001`;
-  }
-
-  // Se acessando por IP (código legado, não deve chegar aqui)
-  const isIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
-  if (isIP || hostname.startsWith('10.') || hostname.startsWith('192.168.') || hostname.startsWith('172.') || hostname.startsWith('31.')) {
     return `http://${hostname}:3001`;
   }
 
@@ -426,7 +422,7 @@ export default function ReconhecimentoFacial() {
                       <div className="aspect-square bg-gray-200 relative overflow-hidden">
                         {log.image_path ? (
                           <img
-                            src={`${getBackendBaseUrl()}/uploads/dvr_images/${log.image_path}`}
+                            src={`${getUploadsBaseUrl()}/uploads/dvr_images/${log.image_path}`}
                             alt={info.nome || 'Reconhecimento facial'}
                             className="w-full h-full object-cover"
                             onError={(e) => {
