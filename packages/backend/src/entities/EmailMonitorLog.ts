@@ -15,7 +15,7 @@ export class EmailMonitorLog {
   email_body: string | null;
 
   @Column({ type: 'varchar', length: 100 })
-  status: string; // 'success', 'error', 'skipped'
+  status: string; // 'success', 'error', 'skipped', 'partial' (WhatsApp enviado mas sem imagem na galeria)
 
   @Column({ type: 'text', nullable: true })
   error_message: string | null;

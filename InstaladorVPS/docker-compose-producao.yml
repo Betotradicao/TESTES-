@@ -168,6 +168,10 @@ services:
 
       # App
       NODE_ENV: ${NODE_ENV}
+    volumes:
+      # IMPORTANTE: Compartilhar volume de uploads com o backend
+      # para que as imagens do email-monitor (DVR) sejam acessíveis pela API
+      - backend-uploads:/app/uploads
     networks:
       - prevencao-network
     depends_on:

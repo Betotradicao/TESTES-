@@ -111,8 +111,19 @@ export class EmailMonitorService {
    */
   private static async saveImageAttachment(attachment: Attachment): Promise<string | null> {
     try {
+      console.log(`📎 Processando anexo: tipo=${attachment.contentType}, tamanho=${attachment.content?.length || 0} bytes`);
+
+      // Verificar se o conteúdo existe
+      if (!attachment.content || attachment.content.length === 0) {
+        console.error('❌ Anexo sem conteúdo');
+        return null;
+      }
+
       const tempDir = path.join(__dirname, '../../temp');
+      console.log(`📁 Diretório temporário: ${tempDir}`);
+
       if (!fs.existsSync(tempDir)) {
+        console.log(`📁 Criando diretório temporário: ${tempDir}`);
         fs.mkdirSync(tempDir, { recursive: true });
       }
 
@@ -129,11 +140,19 @@ export class EmailMonitorService {
       const tempFile = path.join(tempDir, `image_${Date.now()}.${ext}`);
       fs.writeFileSync(tempFile, attachment.content);
 
-      console.log(`🖼️  Imagem salva temporariamente: ${tempFile}`);
+      // Verificar se o arquivo foi salvo
+      if (fs.existsSync(tempFile)) {
+        const stats = fs.statSync(tempFile);
+        console.log(`🖼️  Imagem salva temporariamente: ${tempFile} (${(stats.size / 1024).toFixed(2)} KB)`);
+      } else {
+        console.error(`❌ Arquivo não foi salvo: ${tempFile}`);
+        return null;
+      }
 
       return tempFile;
     } catch (error) {
       console.error('❌ Erro ao salvar imagem:', error);
+      console.error('❌ Stack:', error instanceof Error ? error.stack : 'N/A');
       return null;
     }
   }
@@ -143,25 +162,52 @@ export class EmailMonitorService {
    */
   private static async savePermanentImage(tempFilePath: string): Promise<string | null> {
     try {
+      // Verificar se o arquivo temporário existe
+      if (!fs.existsSync(tempFilePath)) {
+        console.error(`❌ Arquivo temporário não existe: ${tempFilePath}`);
+        return null;
+      }
+
+      // Verificar se é um arquivo de imagem válido (não PDF)
+      const ext = path.extname(tempFilePath).toLowerCase();
+      if (ext === '.pdf') {
+        console.warn(`⚠️ Arquivo PDF não pode ser salvo como imagem: ${tempFilePath}`);
+        return null;
+      }
+
       const uploadsDir = path.join(__dirname, '../../uploads/dvr_images');
+      console.log(`📂 Diretório de uploads: ${uploadsDir}`);
+
       if (!fs.existsSync(uploadsDir)) {
+        console.log(`📁 Criando diretório de uploads: ${uploadsDir}`);
         fs.mkdirSync(uploadsDir, { recursive: true });
       }
 
       // Gerar nome único para a imagem permanente
-      const ext = path.extname(tempFilePath);
       const filename = `dvr_${Date.now()}${ext}`;
       const permanentPath = path.join(uploadsDir, filename);
+
+      // Verificar tamanho do arquivo antes de copiar
+      const stats = fs.statSync(tempFilePath);
+      console.log(`📊 Tamanho do arquivo: ${(stats.size / 1024).toFixed(2)} KB`);
 
       // Copiar arquivo temporário para o diretório permanente
       fs.copyFileSync(tempFilePath, permanentPath);
 
-      console.log(`💾 Imagem permanente salva: ${permanentPath}`);
+      // Verificar se o arquivo foi copiado corretamente
+      if (!fs.existsSync(permanentPath)) {
+        console.error(`❌ Falha ao copiar arquivo para: ${permanentPath}`);
+        return null;
+      }
+
+      const savedStats = fs.statSync(permanentPath);
+      console.log(`💾 Imagem permanente salva: ${permanentPath} (${(savedStats.size / 1024).toFixed(2)} KB)`);
 
       // Retornar apenas o nome do arquivo (não o caminho completo)
       return filename;
     } catch (error) {
       console.error('❌ Erro ao salvar imagem permanente:', error);
+      console.error('❌ Stack:', error instanceof Error ? error.stack : 'N/A');
       return null;
     }
   }
@@ -279,22 +325,28 @@ export class EmailMonitorService {
       // Salvar cópia permanente da imagem para a galeria
       const permanentImageFilename = await this.savePermanentImage(filePath);
 
+      // Log warning se imagem não foi salva para galeria
+      if (!permanentImageFilename) {
+        console.warn(`⚠️ Imagem não foi salva para galeria (pode ser PDF ou erro de salvamento)`);
+      }
+
       // Send to WhatsApp
       await this.sendToWhatsApp(config.whatsapp_group_id, textBody, filePath);
 
-      // Log success
+      // Log success (mesmo que imagem não tenha sido salva na galeria, WhatsApp foi enviado)
       await logRepository.save({
         email_subject: subject,
         sender: from,
         email_body: textBody.substring(0, 500),
-        status: 'success',
-        error_message: null,
+        status: permanentImageFilename ? 'success' : 'partial',
+        error_message: permanentImageFilename ? null : 'WhatsApp enviado, mas imagem não salva na galeria',
         has_attachment: true,
         whatsapp_group_id: config.whatsapp_group_id,
         image_path: permanentImageFilename
       });
 
-      console.log(`✅ Email processado e enviado para WhatsApp`);
+      console.log(`✅ Email processado e enviado para WhatsApp${permanentImageFilename ? ' (imagem salva na galeria)' : ' (sem imagem na galeria)'}`);
+      console.log(`📷 Image path salvo: ${permanentImageFilename || 'null'}`);
 
       // Clean up temp file
       if (fs.existsSync(filePath)) {
