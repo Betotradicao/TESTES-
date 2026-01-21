@@ -547,6 +547,7 @@ export class ProductsController {
         // Criar produto se não existir
         product = productRepository.create({
           erp_product_id: id,
+          description: `Produto ${id}`, // Campo obrigatório
           active: false
         });
       }
