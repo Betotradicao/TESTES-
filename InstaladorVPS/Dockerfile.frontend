@@ -1,75 +1,44 @@
-# ==================================
-# DOCKERFILE FRONTEND - PRODUÇÃO
-# ==================================
-# Build React/Vite e servir com Nginx
-
-# ===== ESTÁGIO 1: BUILD =====
+# ===================================
+# STAGE 1: Build
+# ===================================
 FROM node:18-alpine AS builder
 
-WORKDIR /app
-
-# Argumentos de build (recebe do docker-compose)
+# Argumentos de build para variáveis do Vite
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
+
+WORKDIR /app
 
 # Copiar package files
 COPY package*.json ./
 
 # Instalar dependências
-RUN npm install
+RUN npm install && \
+    npm cache clean --force
 
 # Copiar código fonte
 COPY . .
 
-# Build de produção do Vite com variável de ambiente
+# Build do Vite (as variáveis VITE_* são injetadas no build)
 RUN npm run build
 
-# ===== ESTÁGIO 2: NGINX =====
+# ===================================
+# STAGE 2: Production com Nginx
+# ===================================
 FROM nginx:alpine
 
-# Copiar build estático
+# Copiar build do Vite
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Configuração customizada do Nginx
-RUN echo 'server {' > /etc/nginx/conf.d/default.conf && \
-    echo '    listen 80;' >> /etc/nginx/conf.d/default.conf && \
-    echo '    server_name _;' >> /etc/nginx/conf.d/default.conf && \
-    echo '    root /usr/share/nginx/html;' >> /etc/nginx/conf.d/default.conf && \
-    echo '    index index.html;' >> /etc/nginx/conf.d/default.conf && \
-    echo '' >> /etc/nginx/conf.d/default.conf && \
-    echo '    # NUNCA cachear index.html - sempre buscar versão nova' >> /etc/nginx/conf.d/default.conf && \
-    echo '    location = /index.html {' >> /etc/nginx/conf.d/default.conf && \
-    echo '        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";' >> /etc/nginx/conf.d/default.conf && \
-    echo '        add_header Pragma "no-cache";' >> /etc/nginx/conf.d/default.conf && \
-    echo '        add_header Expires "0";' >> /etc/nginx/conf.d/default.conf && \
-    echo '        expires -1;' >> /etc/nginx/conf.d/default.conf && \
-    echo '        etag off;' >> /etc/nginx/conf.d/default.conf && \
-    echo '    }' >> /etc/nginx/conf.d/default.conf && \
-    echo '' >> /etc/nginx/conf.d/default.conf && \
-    echo '    # NUNCA cachear arquivos JS e CSS - Vite já adiciona hash nos nomes' >> /etc/nginx/conf.d/default.conf && \
-    echo '    location ~* \.(js|css)$ {' >> /etc/nginx/conf.d/default.conf && \
-    echo '        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";' >> /etc/nginx/conf.d/default.conf && \
-    echo '        add_header Pragma "no-cache";' >> /etc/nginx/conf.d/default.conf && \
-    echo '        expires -1;' >> /etc/nginx/conf.d/default.conf && \
-    echo '    }' >> /etc/nginx/conf.d/default.conf && \
-    echo '' >> /etc/nginx/conf.d/default.conf && \
-    echo '    # SPA - Redirecionar tudo para index.html' >> /etc/nginx/conf.d/default.conf && \
-    echo '    location / {' >> /etc/nginx/conf.d/default.conf && \
-    echo '        try_files $uri $uri/ /index.html;' >> /etc/nginx/conf.d/default.conf && \
-    echo '    }' >> /etc/nginx/conf.d/default.conf && \
-    echo '' >> /etc/nginx/conf.d/default.conf && \
-    echo '    # Gzip compression' >> /etc/nginx/conf.d/default.conf && \
-    echo '    gzip on;' >> /etc/nginx/conf.d/default.conf && \
-    echo '    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;' >> /etc/nginx/conf.d/default.conf && \
-    echo '    gzip_min_length 1000;' >> /etc/nginx/conf.d/default.conf && \
-    echo '}' >> /etc/nginx/conf.d/default.conf
+# Copiar configuração customizada do Nginx
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expor porta 80
+# Expor porta (80 para produção com nginx)
 EXPOSE 80
 
-# Healthcheck
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://localhost:80 || exit 1
 
-# Comando de inicialização
+# Iniciar Nginx
 CMD ["nginx", "-g", "daemon off;"]
