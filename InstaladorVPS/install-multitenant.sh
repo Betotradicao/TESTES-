@@ -5,14 +5,14 @@ set -e
 # INSTALADOR MULTI-TENANT - VPS LINUX
 # Sistema: Prevenção no Radar
 # Suporte a múltiplos clientes com subdomínios
-# VERSÃO CORRIGIDA: MinIO HTTPS, tabela suspect_identifications
+# VERSÃO 3.0: CRON service, volume compartilhado DVR
 # ============================================
 
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║                                                            ║"
 echo "║   INSTALADOR MULTI-TENANT - PREVENÇÃO NO RADAR            ║"
 echo "║   Sistema com subdomínios por cliente                      ║"
-echo "║   VERSÃO: 2.0 (Janeiro 2026)                              ║"
+echo "║   VERSÃO: 3.0 (Janeiro 2026)                              ║"
 echo "║                                                            ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
@@ -569,6 +569,9 @@ services:
       TZ: America/Sao_Paulo
     ports:
       - "\${BACKEND_PORT}:3001"
+    volumes:
+      # Volume compartilhado para imagens do DVR (email-monitor)
+      - backend_uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -597,6 +600,41 @@ services:
     networks:
       - ${CLIENT_NAME}_network
 
+  # ============================================
+  # CRON - Tarefas Agendadas (DVR, Verificações)
+  # ============================================
+  cron:
+    build:
+      context: /root/prevencao-radar-repo/packages/backend
+      dockerfile: Dockerfile.cron
+    container_name: ${CONTAINER_PREFIX}-cron
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DB_HOST: ${CONTAINER_PREFIX}-postgres
+      DB_PORT: 5432
+      DB_USER: \${POSTGRES_USER}
+      DB_PASSWORD: \${POSTGRES_PASSWORD}
+      DB_NAME: \${POSTGRES_DB}
+      MINIO_ENDPOINT: ${CONTAINER_PREFIX}-minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: \${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: \${MINIO_SECRET_KEY}
+      MINIO_BUCKET_NAME: \${MINIO_BUCKET_NAME}
+      MINIO_PUBLIC_ENDPOINT: \${MINIO_PUBLIC_ENDPOINT}
+      MINIO_PUBLIC_PORT: \${MINIO_PUBLIC_PORT}
+      MINIO_PUBLIC_USE_SSL: \${MINIO_PUBLIC_USE_SSL}
+      TZ: America/Sao_Paulo
+    volumes:
+      # IMPORTANTE: Compartilhar volume de uploads com o backend
+      # para que as imagens do email-monitor (DVR) sejam acessíveis pela API
+      - backend_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ${CLIENT_NAME}_network
+
 networks:
   ${CLIENT_NAME}_network:
     name: ${CLIENT_NAME}_network
@@ -607,6 +645,8 @@ volumes:
     name: ${CONTAINER_PREFIX}_postgres_data
   minio_data:
     name: ${CONTAINER_PREFIX}_minio_data
+  backend_uploads:
+    name: ${CONTAINER_PREFIX}_backend_uploads
 EOF
 
 echo "✅ docker-compose.yml criado"
@@ -689,6 +729,20 @@ server {
         # Cache para imagens (7 dias)
         expires 7d;
         add_header Cache-Control "public, immutable";
+    }
+
+    # PROXY UPLOADS - Serve imagens do DVR (Reconhecimento Facial)
+    location /uploads/ {
+        proxy_pass http://127.0.0.1:$BACKEND_PORT/uploads/;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+
+        # Cache para imagens (1 dia)
+        expires 1d;
+        add_header Cache-Control "public";
     }
 }
 EOF
@@ -919,7 +973,7 @@ cat > CREDENCIAIS.txt << EOF
 ╔════════════════════════════════════════════════════════════╗
 ║   CLIENTE: $CLIENT_NAME
 ║   Gerado em: $(date)
-║   Versão do Instalador: 2.0
+║   Versão do Instalador: 3.0
 ╚════════════════════════════════════════════════════════════╝
 
 🌐 URL: https://$CLIENT_SUBDOMAIN
@@ -961,6 +1015,7 @@ cat > CREDENCIAIS.txt << EOF
    Backend: ${CONTAINER_PREFIX}-backend (porta $BACKEND_PORT)
    PostgreSQL: ${CONTAINER_PREFIX}-postgres (porta $POSTGRES_PORT)
    MinIO: ${CONTAINER_PREFIX}-minio (portas $MINIO_API_PORT, $MINIO_CONSOLE_PORT)
+   Cron: ${CONTAINER_PREFIX}-cron (verificações automáticas)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
