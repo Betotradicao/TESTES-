@@ -95,13 +95,27 @@ export class ProductionAuditController {
       });
 
       // Fetch products from ERP API
-      const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
-      const port = await ConfigurationService.get('intersolid_port', null);
-      const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
-      const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
-      const erpApiUrl = baseUrl
-        ? `${baseUrl}${productsEndpoint}`
-        : process.env.ERP_PRODUCTS_API_URL || 'http://mock-erp-api.com';
+      // Em produção (VPS), usa localhost via túnel SSH
+      // Em desenvolvimento (local), usa IP direto do banco de dados
+      const isProduction = process.env.NODE_ENV === 'production';
+
+      let erpApiUrl: string;
+      if (isProduction) {
+        // VPS: usar localhost (túnel SSH expõe a porta 3003 localmente)
+        const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
+        erpApiUrl = `http://127.0.0.1:3003${productsEndpoint}`;
+        console.log('🔗 Produção: usando túnel SSH em', erpApiUrl);
+      } else {
+        // Local: usar configuração do banco de dados
+        const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
+        const port = await ConfigurationService.get('intersolid_port', null);
+        const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
+        const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
+        erpApiUrl = baseUrl
+          ? `${baseUrl}${productsEndpoint}`
+          : process.env.ERP_PRODUCTS_API_URL || 'http://mock-erp-api.com';
+        console.log('🔗 Desenvolvimento: usando configuração do banco em', erpApiUrl);
+      }
 
       const erpProducts = await CacheService.executeWithCache(
         'erp-bakery-products',
