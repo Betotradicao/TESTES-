@@ -26,15 +26,20 @@ export class EmailMonitorService {
   static async getConfig(): Promise<EmailMonitorConfig> {
     const email = await ConfigurationService.get('email_monitor_email', '');
     const app_password = await ConfigurationService.get('email_monitor_app_password', '');
-    const subject_filter = await ConfigurationService.get('email_monitor_subject_filter', 'DVR');
+    // IMPORTANTE: Não usar fallback 'DVR' - o filtro deve vir do banco de dados
+    // Cada cliente pode ter seu próprio filtro (ex: DVR TRADICAO, DVR CENTRAL, DVR VITAL)
+    const subject_filter = await ConfigurationService.get('email_monitor_subject_filter', '');
     const check_interval = await ConfigurationService.get('email_monitor_check_interval', '30');
     const whatsapp_group_id = await ConfigurationService.get('email_monitor_whatsapp_group', '');
     const enabled = await ConfigurationService.get('email_monitor_enabled', 'false');
 
+    // Log para debug das configurações carregadas
+    console.log(`📋 Config carregada - Filtro: "${subject_filter}", Grupo: "${whatsapp_group_id}", Habilitado: ${enabled}`);
+
     return {
       email: email || '',
       app_password: app_password || '',
-      subject_filter: subject_filter || 'DVR',
+      subject_filter: subject_filter || '', // Sem fallback - usa valor do banco
       check_interval_seconds: parseInt(check_interval || '30'),
       whatsapp_group_id: whatsapp_group_id || '',
       enabled: enabled === 'true'
@@ -261,10 +266,14 @@ export class EmailMonitorService {
       const textBody = mail.text || '';
 
       console.log(`📧 Processando email: ${subject} de ${from}`);
+      console.log(`🔍 Filtro configurado: "${config.subject_filter}"`);
 
-      // Check if subject matches filter
-      if (!subject.toLowerCase().includes(config.subject_filter.toLowerCase())) {
-        console.log(`⏭️  Email ignorado (filtro de assunto não corresponde)`);
+      // Check if subject matches filter (se filtro vazio, processa todos)
+      const hasFilter = config.subject_filter && config.subject_filter.trim() !== '';
+      const matchesFilter = !hasFilter || subject.toLowerCase().includes(config.subject_filter.toLowerCase());
+
+      if (!matchesFilter) {
+        console.log(`⏭️  Email ignorado - assunto "${subject}" não contém "${config.subject_filter}"`);
 
         await logRepository.save({
           email_subject: subject,
