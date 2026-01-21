@@ -219,6 +219,12 @@ router.get('/', authenticateToken, ProductsController.getProducts);
 // Caso contrário, "bulk-activate" seria interpretado como valor do parâmetro :id
 router.put('/bulk-activate', authenticateToken, ProductsController.bulkActivateProducts);
 
+// Listar seções únicas dos produtos
+router.get('/sections', authenticateToken, ProductsController.getSections);
+
+// Buscar produtos por seção
+router.get('/by-section', authenticateToken, ProductsController.getProductsBySection);
+
 /**
  * @swagger
  * /api/products/{id}/activate:

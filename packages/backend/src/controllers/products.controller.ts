@@ -694,6 +694,119 @@ export class ProductsController {
   }
 
   /**
+   * Listar seções únicas dos produtos da API
+   * GET /api/products/sections
+   */
+  static async getSections(req: AuthRequest, res: Response) {
+    try {
+      // Buscar produtos da API
+      let erpApiUrl: string;
+
+      if (process.env.ERP_PRODUCTS_API_URL) {
+        erpApiUrl = process.env.ERP_PRODUCTS_API_URL;
+      } else {
+        const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
+        const port = await ConfigurationService.get('intersolid_port', null);
+        const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
+        const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
+        erpApiUrl = baseUrl ? `${baseUrl}${productsEndpoint}` : 'http://mock-erp-api.com';
+      }
+
+      const erpProducts = await CacheService.executeWithCache(
+        'erp-products',
+        async () => {
+          console.log('Fetching products from ERP API:', erpApiUrl);
+          const response = await axios.get(`${erpApiUrl}`);
+          return response.data;
+        }
+      );
+
+      // Extrair seções únicas
+      const sectionsSet = new Set<string>();
+      erpProducts.forEach((product: any) => {
+        if (product.desSecao) {
+          sectionsSet.add(product.desSecao);
+        }
+      });
+
+      // Converter para array e ordenar
+      const sections = Array.from(sectionsSet).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+      res.json(sections);
+
+    } catch (error) {
+      console.error('Get sections error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  /**
+   * Buscar produtos filtrados por seção
+   * GET /api/products/by-section?section=HORTIFRUTI
+   */
+  static async getProductsBySection(req: AuthRequest, res: Response) {
+    try {
+      const { section } = req.query;
+
+      if (!section) {
+        return res.status(400).json({ error: 'Parâmetro section é obrigatório' });
+      }
+
+      // Buscar produtos da API
+      let erpApiUrl: string;
+
+      if (process.env.ERP_PRODUCTS_API_URL) {
+        erpApiUrl = process.env.ERP_PRODUCTS_API_URL;
+      } else {
+        const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
+        const port = await ConfigurationService.get('intersolid_port', null);
+        const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
+        const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
+        erpApiUrl = baseUrl ? `${baseUrl}${productsEndpoint}` : 'http://mock-erp-api.com';
+      }
+
+      const erpProducts = await CacheService.executeWithCache(
+        'erp-products',
+        async () => {
+          console.log('Fetching products from ERP API:', erpApiUrl);
+          const response = await axios.get(`${erpApiUrl}`);
+          return response.data;
+        }
+      );
+
+      // Filtrar por seção (case insensitive)
+      const sectionUpper = String(section).toUpperCase();
+      const filteredProducts = erpProducts.filter((product: any) =>
+        product.desSecao && product.desSecao.toUpperCase().includes(sectionUpper)
+      );
+
+      // Mapear para formato esperado pelo HortFrut
+      const items = filteredProducts.map((product: any) => ({
+        barcode: product.ean || product.codigo,
+        productName: product.descricao,
+        curve: product.curva || '',
+        currentCost: product.valCustoRep || 0,
+        currentSalePrice: product.valvenda || product.valvendaloja || 0,
+        referenceMargin: product.margemRef || 0,
+        currentMargin: product.markupAtual || 0,
+        section: product.desSecao || '',
+        productGroup: product.desGrupo || '',
+        subGroup: product.desSubGrupo || ''
+      }));
+
+      res.json({
+        section: section,
+        total: items.length,
+        items
+      });
+
+    } catch (error) {
+      console.error('Get products by section error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  /**
    * Excluir foto do produto
    * DELETE /api/products/:id/photo
    */

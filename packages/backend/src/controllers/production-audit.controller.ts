@@ -177,6 +177,154 @@ export class ProductionAuditController {
   }
 
   /**
+   * Listar todas as seções únicas do ERP (sem filtrar por ativos)
+   * GET /api/production/erp-sections
+   */
+  static async getErpSections(req: AuthRequest, res: Response) {
+    try {
+      // Fetch products from ERP API
+      let erpApiUrl: string;
+
+      if (process.env.ERP_PRODUCTS_API_URL) {
+        erpApiUrl = process.env.ERP_PRODUCTS_API_URL;
+      } else {
+        const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
+        const port = await ConfigurationService.get('intersolid_port', null);
+        const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
+        const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
+        erpApiUrl = baseUrl ? `${baseUrl}${productsEndpoint}` : 'http://mock-erp-api.com';
+      }
+
+      const erpProducts = await CacheService.executeWithCache(
+        'erp-products',
+        async () => {
+          console.log('Fetching products from ERP API:', erpApiUrl);
+          const response = await axios.get(`${erpApiUrl}`);
+          return response.data;
+        }
+      );
+
+      // Extrair seções únicas
+      const sectionsSet = new Set<string>();
+      erpProducts.forEach((product: any) => {
+        if (product.desSecao) {
+          sectionsSet.add(product.desSecao);
+        }
+      });
+
+      // Converter para array e ordenar
+      const sections = Array.from(sectionsSet).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+      res.json(sections);
+    } catch (error) {
+      console.error('Get ERP sections error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  /**
+   * Listar todos os produtos de uma seção do ERP (sem filtrar por ativos)
+   * GET /api/production/erp-products-by-section?section=PADARIA
+   */
+  static async getErpProductsBySection(req: AuthRequest, res: Response) {
+    try {
+      const { section } = req.query;
+
+      if (!section) {
+        return res.status(400).json({ error: 'Parâmetro section é obrigatório' });
+      }
+
+      const productRepository = AppDataSource.getRepository(Product);
+
+      // Get active products from database with section info and foto
+      const activeProducts = await productRepository.find({
+        where: { active: true },
+        select: ['erp_product_id', 'peso_medio_kg', 'production_days', 'section_name', 'foto_referencia'],
+      });
+
+      // Fetch products from ERP API
+      let erpApiUrl: string;
+
+      if (process.env.ERP_PRODUCTS_API_URL) {
+        erpApiUrl = process.env.ERP_PRODUCTS_API_URL;
+      } else {
+        const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
+        const port = await ConfigurationService.get('intersolid_port', null);
+        const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
+        const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
+        erpApiUrl = baseUrl ? `${baseUrl}${productsEndpoint}` : 'http://mock-erp-api.com';
+      }
+
+      console.log('🔗 Buscando produtos da seção:', section, 'em:', erpApiUrl);
+
+      const erpProducts = await CacheService.executeWithCache(
+        'erp-products',
+        async () => {
+          const response = await axios.get(`${erpApiUrl}`);
+          return response.data;
+        }
+      );
+
+      // Map active products
+      const activeProductsMap = new Map(
+        activeProducts.map((p: any) => [p.erp_product_id, { peso_medio_kg: p.peso_medio_kg, production_days: p.production_days, section_name: p.section_name, foto_referencia: p.foto_referencia }])
+      );
+
+      // Filtrar por seção (case insensitive)
+      const sectionUpper = String(section).toUpperCase();
+      const filteredProducts = erpProducts.filter((product: any) =>
+        product.desSecao && product.desSecao.toUpperCase() === sectionUpper
+      );
+
+      // Retornar TODOS os produtos da seção (ativos ou não), mas enriquecer os ativos
+      const allProducts = filteredProducts.map((product: any) => {
+        const productData = activeProductsMap.get(product.codigo);
+        const isActive = !!productData;
+        const pesoMedio = productData?.peso_medio_kg ? parseFloat(productData.peso_medio_kg) : null;
+        const productionDays = productData?.production_days || 1;
+
+        // Calcular venda média em unidades (kg / peso_medio)
+        const vendaMediaKg = product.vendaMedia || 0;
+        const vendaMediaUnd = pesoMedio && pesoMedio > 0 ? vendaMediaKg / pesoMedio : 0;
+
+        // Campos financeiros
+        const custo = product.valCustoRep || 0;
+        const precoVenda = product.valvenda || product.valvendaloja || 0;
+        const margemRef = product.margemRef || 0;
+        const margemReal = precoVenda > 0 ? ((precoVenda - custo) / precoVenda) * 100 : 0;
+
+        return {
+          codigo: product.codigo,
+          descricao: product.descricao,
+          desReduzida: product.desReduzida,
+          peso_medio_kg: pesoMedio,
+          production_days: productionDays,
+          vendaMedia: vendaMediaKg,
+          vendaMediaUnd: vendaMediaUnd,
+          pesavel: product.pesavel,
+          tipoEvento: product.tipoEvento || 'DIRETA',
+          desSecao: product.desSecao,
+          estoque: product.estoque || 0,
+          custo: custo,
+          precoVenda: precoVenda,
+          margemRef: margemRef,
+          margemReal: margemReal,
+          foto_referencia: productData?.foto_referencia || null,
+          dtaUltMovVenda: product.dtaUltMovVenda || null,
+          isActive: isActive, // Flag para indicar se está ativo
+        };
+      });
+
+      console.log('✅ Total produtos da seção', section, ':', allProducts.length);
+
+      res.json(allProducts);
+    } catch (error) {
+      console.error('Get ERP products by section error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  /**
    * Criar ou atualizar auditoria de produção
    */
   static async createOrUpdateAudit(req: AuthRequest, res: Response) {

@@ -886,11 +886,11 @@ export class RuptureSurveyService {
     const itemRepository = AppDataSource.getRepository(RuptureSurveyItem);
     const surveyRepository = AppDataSource.getRepository(RuptureSurvey);
 
-    // Buscar surveys no período
+    // Buscar surveys no período (usando data_criacao que é o campo correto)
     const surveys = await surveyRepository
       .createQueryBuilder('survey')
-      .where('DATE(survey.data_pesquisa) >= :dataInicio', { dataInicio })
-      .andWhere('DATE(survey.data_pesquisa) <= :dataFim', { dataFim })
+      .where('DATE(survey.data_criacao) >= :dataInicio', { dataInicio })
+      .andWhere('DATE(survey.data_criacao) <= :dataFim', { dataFim })
       .getMany();
 
     if (surveys.length === 0) {
@@ -899,15 +899,48 @@ export class RuptureSurveyService {
 
     const surveyIds = surveys.map(s => s.id);
 
-    // Buscar e excluir itens com o código do produto nas surveys do período
+    // Buscar e excluir itens com a descrição do produto nas surveys do período
+    // Usamos descricao porque é o campo usado para agrupar produtos na agregação
     const result = await itemRepository
       .createQueryBuilder()
       .delete()
       .from(RuptureSurveyItem)
       .where('survey_id IN (:...surveyIds)', { surveyIds })
-      .andWhere('codigo = :codigo', { codigo })
+      .andWhere('descricao = :codigo', { codigo })
       .execute();
 
+    // Recalcular totais de cada survey afetada
+    for (const surveyId of surveyIds) {
+      await this.recalculateSurveyTotals(surveyId);
+    }
+
     return result.affected || 0;
+  }
+
+  /**
+   * Recalcula os totais de uma survey baseado nos itens atuais
+   */
+  static async recalculateSurveyTotals(surveyId: number): Promise<void> {
+    const itemRepository = AppDataSource.getRepository(RuptureSurveyItem);
+    const surveyRepository = AppDataSource.getRepository(RuptureSurvey);
+
+    // Buscar todos os itens da survey
+    const items = await itemRepository.find({ where: { survey_id: surveyId } });
+
+    // Calcular totais
+    const total_itens = items.length;
+    const itens_verificados = items.filter(i => i.status_verificacao !== 'pendente').length;
+    const itens_encontrados = items.filter(i => i.status_verificacao === 'encontrado').length;
+    const itens_nao_encontrados = items.filter(i =>
+      i.status_verificacao === 'nao_encontrado' || i.status_verificacao === 'ruptura_estoque'
+    ).length;
+
+    // Atualizar survey
+    await surveyRepository.update(surveyId, {
+      total_itens,
+      itens_verificados,
+      itens_encontrados,
+      itens_nao_encontrados
+    });
   }
 }

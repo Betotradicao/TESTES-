@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { api } from '../utils/api';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function HortFrutResultados() {
   const [conferences, setConferences] = useState([]);
@@ -266,6 +268,114 @@ export default function HortFrutResultados() {
     ? (lucroSimulado / totals.totalVendasSimuladas) * 100
     : 0;
 
+  // Função para gerar PDF
+  const generatePDF = () => {
+    const doc = new jsPDF('landscape', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Título
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Relatório de Resultados HortFruti', pageWidth / 2, 15, { align: 'center' });
+
+    // Período
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    const periodo = `Período: ${startDate ? startDate.split('-').reverse().join('/') : '-'} a ${endDate ? endDate.split('-').reverse().join('/') : '-'}`;
+    doc.text(periodo, pageWidth / 2, 22, { align: 'center' });
+
+    // Filtros aplicados
+    let filtrosTexto = [];
+    if (supplierFilter) filtrosTexto.push(`Fornecedor: ${supplierFilter}`);
+    if (invoiceFilter) filtrosTexto.push(`NF: ${invoiceFilter === 'no_ato' ? 'No Ato' : 'Posterior'}`);
+    if (qualityFilter) filtrosTexto.push(`Qualidade: ${qualityFilter === 'good' ? 'Boa' : qualityFilter === 'regular' ? 'Regular' : 'Ruim'}`);
+    if (filtrosTexto.length > 0) {
+      doc.setFontSize(9);
+      doc.text(`Filtros: ${filtrosTexto.join(' | ')}`, pageWidth / 2, 27, { align: 'center' });
+    }
+
+    // Resumo
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    const resumoY = filtrosTexto.length > 0 ? 35 : 30;
+    doc.text('Resumo:', 14, resumoY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Total de Itens: ${checkedItems.length}`, 14, resumoY + 5);
+    doc.text(`Peso Total: ${totals.totalWeight.toFixed(2)} kg`, 70, resumoY + 5);
+    doc.text(`Custo Total: R$ ${totals.totalCost.toFixed(2)}`, 130, resumoY + 5);
+    doc.text(`Vendas Simuladas: R$ ${totals.totalVendasSimuladas.toFixed(2)}`, 190, resumoY + 5);
+    doc.text(`Margem Simulada: ${margemLucroSimulada.toFixed(1)}%`, 250, resumoY + 5);
+
+    // Tabela
+    const tableData = sortedItems.map(item => {
+      const margemFutura = calcularMargemFutura(item);
+      return [
+        item.productName || '-',
+        item.supplierName || '-',
+        item.currentCost ? `R$ ${parseFloat(item.currentCost).toFixed(2)}` : '-',
+        item.newCost ? `R$ ${parseFloat(item.newCost).toFixed(2)}` : '-',
+        item.suggestedPrice ? `R$ ${parseFloat(item.suggestedPrice).toFixed(2)}` : '-',
+        item.referenceMargin ? `${parseFloat(item.referenceMargin).toFixed(1)}%` : '-',
+        item.currentMargin ? `${parseFloat(item.currentMargin).toFixed(1)}%` : '-',
+        margemFutura !== null ? `${margemFutura.toFixed(1)}%` : '-',
+        item.netWeight ? `${parseFloat(item.netWeight).toFixed(3)} kg` : '-',
+        item.quality === 'good' ? 'Boa' : item.quality === 'regular' ? 'Regular' : item.quality === 'bad' ? 'Ruim' : '-',
+        item.observations || '-'
+      ];
+    });
+
+    autoTable(doc, {
+      startY: resumoY + 12,
+      head: [['Produto', 'Fornecedor', 'Custo Ant.', 'Novo Custo', 'Preço Sug.', 'Marg. Ref.', 'Marg. Atual', 'Marg. Futura', 'Peso Líq.', 'Qualidade', 'Obs.']],
+      body: tableData,
+      styles: {
+        fontSize: 7,
+        cellPadding: 1.5,
+      },
+      headStyles: {
+        fillColor: [234, 88, 12], // orange-600
+        textColor: 255,
+        fontStyle: 'bold',
+        fontSize: 7,
+      },
+      columnStyles: {
+        0: { cellWidth: 40 }, // Produto
+        1: { cellWidth: 25 }, // Fornecedor
+        2: { cellWidth: 18, halign: 'right' }, // Custo Ant.
+        3: { cellWidth: 18, halign: 'right' }, // Novo Custo
+        4: { cellWidth: 18, halign: 'right' }, // Preço Sug.
+        5: { cellWidth: 15, halign: 'right' }, // Marg. Ref.
+        6: { cellWidth: 15, halign: 'right' }, // Marg. Atual
+        7: { cellWidth: 18, halign: 'right' }, // Marg. Futura
+        8: { cellWidth: 18, halign: 'right' }, // Peso Líq.
+        9: { cellWidth: 15, halign: 'center' }, // Qualidade
+        10: { cellWidth: 35 }, // Obs.
+      },
+      alternateRowStyles: {
+        fillColor: [255, 247, 237], // orange-50
+      },
+      margin: { left: 14, right: 14 },
+    });
+
+    // Rodapé
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(128);
+      doc.text(
+        `Gerado em ${new Date().toLocaleString('pt-BR')} - Página ${i} de ${pageCount}`,
+        pageWidth / 2,
+        doc.internal.pageSize.getHeight() - 10,
+        { align: 'center' }
+      );
+    }
+
+    // Salvar
+    const fileName = `resultados-hortfruti-${startDate || 'inicio'}-a-${endDate || 'fim'}.pdf`;
+    doc.save(fileName);
+  };
+
   return (
     <Layout title="Resultados HortFruti">
       <div className="p-4 lg:p-8">
@@ -406,10 +516,21 @@ export default function HortFrutResultados() {
 
         {/* Tabela de Itens Conferidos */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="bg-gray-50 px-4 py-3 border-b">
+          <div className="bg-gray-50 px-4 py-3 border-b flex items-center justify-between">
             <h3 className="font-semibold text-gray-800 flex items-center gap-2">
               <span>📦</span> Itens Conferidos
             </h3>
+            <button
+              onClick={generatePDF}
+              disabled={checkedItems.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+              title="Exportar para PDF"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              PDF
+            </button>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 text-sm">

@@ -142,22 +142,23 @@ export default function RupturaResultadosAuditorias() {
     }
   };
 
-  // Função para excluir ruptura por código do produto
-  const handleDeleteRuptura = async (codigo, descricao) => {
+  // Função para excluir ruptura por descrição do produto
+  const handleDeleteRuptura = async (descricaoProduto, descricaoExibicao) => {
     if (!canDelete) {
       alert('Você não tem permissão para excluir rupturas.');
       return;
     }
 
-    const confirmMessage = `Tem certeza que deseja excluir todas as rupturas do produto:\n\n"${descricao}"\n\nNo período de ${dataInicio} a ${dataFim}?\n\nEsta ação não pode ser desfeita.`;
+    const confirmMessage = `Tem certeza que deseja excluir todas as rupturas do produto:\n\n"${descricaoExibicao}"\n\nNo período de ${dataInicio} a ${dataFim}?\n\nEsta ação não pode ser desfeita.`;
 
     if (!window.confirm(confirmMessage)) {
       return;
     }
 
-    setDeletingProduct(codigo);
+    setDeletingProduct(descricaoProduto);
     try {
-      const response = await api.delete(`/rupture-surveys/by-product/${codigo}?data_inicio=${dataInicio}&data_fim=${dataFim}`);
+      // Usar encodeURIComponent para codificar a descrição na URL
+      const response = await api.delete(`/rupture-surveys/by-product/${encodeURIComponent(descricaoProduto)}?data_inicio=${dataInicio}&data_fim=${dataFim}`);
 
       if (response.data.success) {
         alert(`${response.data.deletedCount} registro(s) excluído(s) com sucesso!`);
@@ -171,6 +172,7 @@ export default function RupturaResultadosAuditorias() {
       setDeletingProduct(null);
     }
   };
+
 
   // Aplicar ordenação
   if (sortColumn) {
@@ -743,16 +745,16 @@ export default function RupturaResultadosAuditorias() {
                             {canDelete && (
                               <td className="px-3 py-2 text-center">
                                 <button
-                                  onClick={() => handleDeleteRuptura(item.codigo, item.descricao)}
-                                  disabled={deletingProduct === item.codigo}
+                                  onClick={() => handleDeleteRuptura(item.descricao, item.descricao)}
+                                  disabled={deletingProduct === item.descricao}
                                   className={`p-1.5 rounded transition-colors ${
-                                    deletingProduct === item.codigo
+                                    deletingProduct === item.descricao
                                       ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                                       : 'bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700'
                                   }`}
                                   title="Excluir ruptura"
                                 >
-                                  {deletingProduct === item.codigo ? (
+                                  {deletingProduct === item.descricao ? (
                                     <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>

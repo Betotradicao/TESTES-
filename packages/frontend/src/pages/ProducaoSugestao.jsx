@@ -12,6 +12,7 @@ export default function ProducaoSugestao() {
   const [success, setSuccess] = useState('');
   const [products, setProducts] = useState([]);
   const [allProducts, setAllProducts] = useState([]);
+  const [sections, setSections] = useState([]);
   const [selectedSecao, setSelectedSecao] = useState('PADARIA');
   const [selectedTipo, setSelectedTipo] = useState('PRODUCAO');
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,16 +46,34 @@ export default function ProducaoSugestao() {
   useEffect(() => {
     setError('');
     setSuccess('');
-    loadBakeryProducts();
+    loadSections();
     loadTodayAudit();
   }, []);
 
-  const loadBakeryProducts = async () => {
+  // Carregar seções do ERP (todas, não apenas ativos)
+  const loadSections = async () => {
+    try {
+      const response = await api.get('/production/erp-sections');
+      setSections(response.data);
+      // Se PADARIA existe nas seções, manter; caso contrário, selecionar a primeira
+      if (response.data.length > 0 && !response.data.includes('PADARIA')) {
+        setSelectedSecao(response.data[0]);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar seções:', err);
+    }
+  };
+
+  // Carregar produtos quando mudar seção ou tipo
+  const loadProductsBySection = async (secao, tipo) => {
     try {
       setLoading(true);
-      const response = await api.get('/production/bakery-products');
-      setAllProducts(response.data);
-      filterProducts(response.data, selectedSecao, selectedTipo);
+      const response = await api.get(`/production/erp-products-by-section?section=${encodeURIComponent(secao)}`);
+      const allProds = response.data;
+      setAllProducts(allProds);
+      // Filtrar por tipo de evento
+      const filtered = allProds.filter(p => p.tipoEvento === tipo);
+      setProducts(filtered);
     } catch (err) {
       console.error('Erro ao carregar produtos:', err);
       const errorMessage = err.response?.status === 500
@@ -66,14 +85,10 @@ export default function ProducaoSugestao() {
     }
   };
 
-  const filterProducts = (allProds, secao, tipo) => {
-    const filtered = allProds.filter(p => p.desSecao === secao && p.tipoEvento === tipo);
-    setProducts(filtered);
-  };
-
+  // Carregar produtos quando mudar seção ou tipo
   useEffect(() => {
-    if (allProducts.length > 0) {
-      filterProducts(allProducts, selectedSecao, selectedTipo);
+    if (selectedSecao) {
+      loadProductsBySection(selectedSecao, selectedTipo);
     }
   }, [selectedSecao, selectedTipo]);
 
@@ -547,7 +562,7 @@ export default function ProducaoSugestao() {
                 onChange={(e) => setSelectedSecao(e.target.value)}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm"
               >
-                {[...new Set(allProducts.map(p => p.desSecao))].sort().map(secao => (
+                {sections.map(secao => (
                   <option key={secao} value={secao}>{secao}</option>
                 ))}
               </select>
@@ -556,7 +571,7 @@ export default function ProducaoSugestao() {
                 onChange={(e) => setSelectedTipo(e.target.value)}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm"
               >
-                {[...new Set(allProducts.map(p => p.tipoEvento))].sort().map(tipo => (
+                {[...new Set(allProducts.map(p => p.tipoEvento).filter(Boolean))].sort().map(tipo => (
                   <option key={tipo} value={tipo}>{tipo}</option>
                 ))}
               </select>

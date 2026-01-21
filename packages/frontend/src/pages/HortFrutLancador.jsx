@@ -20,10 +20,24 @@ export default function HortFrutLancador() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [monthConferences, setMonthConferences] = useState({});
 
+  // Estados para modo Direto da API
+  const [importMode, setImportMode] = useState('arquivo'); // 'arquivo' ou 'direto'
+  const [sections, setSections] = useState([]);
+  const [selectedSection, setSelectedSection] = useState('');
+  const [loadingSections, setLoadingSections] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+
   useEffect(() => {
     loadRecentConferences();
     loadMonthConferences(currentMonth);
   }, []);
+
+  // Carregar seções quando mudar para modo direto
+  useEffect(() => {
+    if (importMode === 'direto' && sections.length === 0) {
+      loadSections();
+    }
+  }, [importMode]);
 
   useEffect(() => {
     loadMonthConferences(currentMonth);
@@ -35,6 +49,62 @@ export default function HortFrutLancador() {
       setRecentConferences(response.data.slice(0, 5));
     } catch (err) {
       console.error('Erro ao carregar conferências:', err);
+    }
+  };
+
+  // Carregar seções da API
+  const loadSections = async () => {
+    setLoadingSections(true);
+    try {
+      const response = await api.get('/products/sections');
+      setSections(response.data || []);
+      // Pré-selecionar seção que contenha "HORT" ou "FLV"
+      const hortSection = response.data.find(s =>
+        s.toUpperCase().includes('HORT') || s.toUpperCase().includes('FLV')
+      );
+      if (hortSection) {
+        setSelectedSection(hortSection);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar seções:', err);
+      setError('Erro ao carregar seções da API');
+    } finally {
+      setLoadingSections(false);
+    }
+  };
+
+  // Carregar produtos por seção
+  const loadProductsBySection = async () => {
+    if (!selectedSection) {
+      setError('Selecione uma seção');
+      return;
+    }
+
+    setLoadingProducts(true);
+    setError('');
+
+    try {
+      const response = await api.get(`/products/by-section?section=${encodeURIComponent(selectedSection)}`);
+      const items = response.data.items || [];
+
+      setParsedItems(items);
+
+      if (items.length > 0) {
+        setSuccess(`${items.length} produtos encontrados na seção "${selectedSection}"`);
+        // Definir data como hoje
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        setConferenceDate(`${year}-${month}-${day}`);
+      } else {
+        setError('Nenhum produto encontrado nesta seção');
+      }
+    } catch (err) {
+      console.error('Erro ao carregar produtos:', err);
+      setError(err.response?.data?.error || 'Erro ao carregar produtos da seção');
+    } finally {
+      setLoadingProducts(false);
     }
   };
 
@@ -546,36 +616,123 @@ export default function HortFrutLancador() {
           <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-4">Nova Conferência</h2>
 
-            <div
-              className={`border-2 border-dashed rounded-lg p-8 text-center ${
-                dragging ? 'border-orange-500 bg-orange-50' : 'border-gray-300'
-              }`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragging(true);
-              }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={handleDrop}
-            >
-              <input
-                type="file"
-                id="fileInput"
-                accept=".csv,.xlsx,.xls"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              <label htmlFor="fileInput" className="cursor-pointer">
-                <div className="text-5xl mb-3">📋</div>
-                <p className="text-base font-semibold text-gray-700 mb-1">
-                  Clique ou arraste planilha de produtos HortFruti
-                </p>
-                <p className="text-xs text-gray-500">
-                  Formatos aceitos: .csv, .xlsx, .xls (máx. 10MB)
-                </p>
-              </label>
+            {/* Toggle: Arquivo ou Direto */}
+            <div className="flex items-center gap-2 mb-4">
+              <button
+                onClick={() => {
+                  setImportMode('arquivo');
+                  setParsedItems([]);
+                  setFile(null);
+                  setSuccess('');
+                  setError('');
+                }}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                  importMode === 'arquivo'
+                    ? 'bg-orange-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                📄 Via Arquivo
+              </button>
+              <button
+                onClick={() => {
+                  setImportMode('direto');
+                  setParsedItems([]);
+                  setFile(null);
+                  setSuccess('');
+                  setError('');
+                }}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                  importMode === 'direto'
+                    ? 'bg-orange-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                🔗 Direto da API
+              </button>
             </div>
 
-            {file && (
+            {/* Modo Arquivo */}
+            {importMode === 'arquivo' && (
+              <div
+                className={`border-2 border-dashed rounded-lg p-8 text-center ${
+                  dragging ? 'border-orange-500 bg-orange-50' : 'border-gray-300'
+                }`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={handleDrop}
+              >
+                <input
+                  type="file"
+                  id="fileInput"
+                  accept=".csv,.xlsx,.xls"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <label htmlFor="fileInput" className="cursor-pointer">
+                  <div className="text-5xl mb-3">📋</div>
+                  <p className="text-base font-semibold text-gray-700 mb-1">
+                    Clique ou arraste planilha de produtos HortFruti
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Formatos aceitos: .csv, .xlsx, .xls (máx. 10MB)
+                  </p>
+                </label>
+              </div>
+            )}
+
+            {/* Modo Direto da API */}
+            {importMode === 'direto' && (
+              <div className="border-2 border-dashed rounded-lg p-6 border-gray-300">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    📦 Selecione a Seção:
+                  </label>
+                  <select
+                    value={selectedSection}
+                    onChange={(e) => setSelectedSection(e.target.value)}
+                    disabled={loadingSections}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  >
+                    <option value="">
+                      {loadingSections ? 'Carregando seções...' : 'Selecione uma seção'}
+                    </option>
+                    {sections.map((section) => (
+                      <option key={section} value={section}>
+                        {section}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  onClick={loadProductsBySection}
+                  disabled={loadingProducts || !selectedSection}
+                  className="w-full py-3 px-6 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {loadingProducts ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Carregando produtos...
+                    </>
+                  ) : (
+                    <>🔍 Buscar Produtos da Seção</>
+                  )}
+                </button>
+
+                <p className="text-xs text-gray-500 text-center mt-3">
+                  Busca produtos diretamente do sistema ERP pela seção selecionada
+                </p>
+              </div>
+            )}
+
+            {file && importMode === 'arquivo' && (
               <div className="mt-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center">
@@ -633,31 +790,17 @@ export default function HortFrutLancador() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      📅 Data da Conferência: *
-                    </label>
-                    <input
-                      type="date"
-                      value={conferenceDate}
-                      onChange={(e) => setConferenceDate(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      🚚 Fornecedor:
-                    </label>
-                    <input
-                      type="text"
-                      value={supplierName}
-                      onChange={(e) => setSupplierName(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      placeholder="Nome do fornecedor (opcional)"
-                    />
-                  </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    📅 Data da Conferência: *
+                  </label>
+                  <input
+                    type="date"
+                    value={conferenceDate}
+                    onChange={(e) => setConferenceDate(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    required
+                  />
                 </div>
 
                 <div className="flex space-x-4">
@@ -666,7 +809,98 @@ export default function HortFrutLancador() {
                       setFile(null);
                       setParsedItems([]);
                       setConferenceDate('');
-                      setSupplierName('');
+                    }}
+                    className="flex-1 py-3 px-6 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleCreateConference}
+                    disabled={loading || parsedItems.length === 0}
+                    className="flex-1 py-3 px-6 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? '⏳ Criando...' : '✅ Iniciar Conferência'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Produtos carregados da API (modo direto) */}
+            {importMode === 'direto' && parsedItems.length > 0 && (
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <span className="text-green-500 text-2xl mr-2">✅</span>
+                    <div>
+                      <p className="font-semibold text-gray-700">Seção: {selectedSection}</p>
+                      <p className="text-sm text-gray-500">
+                        {parsedItems.length} produtos carregados da API
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setParsedItems([]);
+                      setSuccess('');
+                    }}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    🗑️ Limpar
+                  </button>
+                </div>
+
+                {/* Preview dos itens */}
+                <div className="mb-4 max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
+                  <table className="min-w-full text-xs">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="px-2 py-1 text-left">Código</th>
+                        <th className="px-2 py-1 text-left">Produto</th>
+                        <th className="px-2 py-1 text-left">Curva</th>
+                        <th className="px-2 py-1 text-right">Custo</th>
+                        <th className="px-2 py-1 text-right">Preço</th>
+                        <th className="px-2 py-1 text-right">Margem Ref</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {parsedItems.slice(0, 10).map((item, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-2 py-1">{item.barcode}</td>
+                          <td className="px-2 py-1 truncate max-w-[150px]">{item.productName}</td>
+                          <td className="px-2 py-1">{item.curve}</td>
+                          <td className="px-2 py-1 text-right">{item.currentCost ? `R$ ${parseFloat(item.currentCost).toFixed(2)}` : '-'}</td>
+                          <td className="px-2 py-1 text-right">{item.currentSalePrice ? `R$ ${parseFloat(item.currentSalePrice).toFixed(2)}` : '-'}</td>
+                          <td className="px-2 py-1 text-right">{item.referenceMargin ? `${item.referenceMargin}%` : '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {parsedItems.length > 10 && (
+                    <p className="text-center text-gray-500 text-xs py-2">
+                      ... e mais {parsedItems.length - 10} produtos
+                    </p>
+                  )}
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    📅 Data da Conferência: *
+                  </label>
+                  <input
+                    type="date"
+                    value={conferenceDate}
+                    onChange={(e) => setConferenceDate(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => {
+                      setParsedItems([]);
+                      setConferenceDate('');
+                      setSuccess('');
                     }}
                     className="flex-1 py-3 px-6 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                   >
@@ -684,14 +918,16 @@ export default function HortFrutLancador() {
             )}
 
             {/* Informações sobre o formato */}
-            <div className="mt-6 bg-orange-50 border border-orange-200 rounded-lg p-4">
-              <h3 className="font-semibold text-orange-900 mb-2">ℹ️ Formato do arquivo</h3>
-              <ul className="text-sm text-orange-800 space-y-1">
-                <li>• A planilha deve conter as colunas: <strong>Código de Barras, Descrição, Curva, Seção, Grupo, SubGrupo, Custo Atual, Preço Venda, Margem Referência, Margem Atual</strong></li>
-                <li>• Na conferência, você informará: <strong>Novo Custo, Tipo de Caixa, Quantidade de Caixas, Peso Bruto</strong></li>
-                <li>• O sistema calculará: <strong>Peso Líquido, Preço Sugerido (baseado na margem de referência), Margem se manter preço atual</strong></li>
-              </ul>
-            </div>
+            {importMode === 'arquivo' && (
+              <div className="mt-6 bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <h3 className="font-semibold text-orange-900 mb-2">ℹ️ Formato do arquivo</h3>
+                <ul className="text-sm text-orange-800 space-y-1">
+                  <li>• A planilha deve conter as colunas: <strong>Código de Barras, Descrição, Curva, Seção, Grupo, SubGrupo, Custo Atual, Preço Venda, Margem Referência, Margem Atual</strong></li>
+                  <li>• Na conferência, você informará: <strong>Novo Custo, Tipo de Caixa, Quantidade de Caixas, Peso Bruto</strong></li>
+                  <li>• O sistema calculará: <strong>Peso Líquido, Preço Sugerido (baseado na margem de referência), Margem se manter preço atual</strong></li>
+                </ul>
+              </div>
+            )}
           </div>
 
           {/* Calendário - 1/3 do espaço */}

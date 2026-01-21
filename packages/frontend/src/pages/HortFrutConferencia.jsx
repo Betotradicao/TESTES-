@@ -452,14 +452,26 @@ export default function HortFrutConferencia() {
         {/* Header com info da conferência */}
         <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg p-6 mb-6 text-white">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-bold mb-2">
-                🥬 Conferência {conference.conferenceDate ? conference.conferenceDate.split('T')[0].split('-').reverse().join('/') : ''}
-              </h1>
-              <p className="text-white/90">
-                {conference.supplierName || 'Sem fornecedor'}
-                {conference.invoiceNumber && ` | NF: ${conference.invoiceNumber}`}
-              </p>
+            <div className="flex items-start gap-4">
+              <button
+                onClick={() => navigate('/hortfrut-lancador')}
+                className="bg-white/20 hover:bg-white/30 text-white rounded-lg px-3 py-2 transition-colors flex items-center gap-1"
+                title="Voltar"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                <span className="hidden sm:inline">Voltar</span>
+              </button>
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-bold mb-2">
+                  🥬 Conferência {conference.conferenceDate ? conference.conferenceDate.split('T')[0].split('-').reverse().join('/') : ''}
+                </h1>
+                <p className="text-white/90">
+                  {conference.supplierName || 'Sem fornecedor'}
+                  {conference.invoiceNumber && ` | NF: ${conference.invoiceNumber}`}
+                </p>
+              </div>
             </div>
             <div className="flex gap-4 mt-4 lg:mt-0">
               <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2 text-center">
@@ -667,18 +679,24 @@ export default function HortFrutConferencia() {
                   >
                     <option value="">-- Selecione um produto --</option>
                     <optgroup label="⏳ Pendentes">
-                      {items.filter(i => !i.checked).map(item => (
-                        <option key={item.id} value={item.id}>
-                          {item.productName || item.barcode || `Item ${item.id}`}
-                        </option>
-                      ))}
+                      {items
+                        .filter(i => !i.checked)
+                        .sort((a, b) => (a.productName || '').localeCompare(b.productName || '', 'pt-BR'))
+                        .map(item => (
+                          <option key={item.id} value={item.id}>
+                            {item.productName || item.barcode || `Item ${item.id}`}
+                          </option>
+                        ))}
                     </optgroup>
                     <optgroup label="✅ Conferidos">
-                      {items.filter(i => i.checked).map(item => (
-                        <option key={item.id} value={item.id}>
-                          {item.productName || item.barcode || `Item ${item.id}`}
-                        </option>
-                      ))}
+                      {items
+                        .filter(i => i.checked)
+                        .sort((a, b) => (a.productName || '').localeCompare(b.productName || '', 'pt-BR'))
+                        .map(item => (
+                          <option key={item.id} value={item.id}>
+                            {item.productName || item.barcode || `Item ${item.id}`}
+                          </option>
+                        ))}
                     </optgroup>
                   </select>
                 </div>
@@ -1287,15 +1305,6 @@ export default function HortFrutConferencia() {
           </div>
         )}
 
-        {/* Botão Voltar */}
-        <div className="mt-6">
-          <button
-            onClick={() => navigate('/hortfrut-lancador')}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-          >
-            ← Voltar para Lançador
-          </button>
-        </div>
       </div>
     </Layout>
   );

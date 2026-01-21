@@ -17,8 +17,14 @@ router.get('/audits/:id', ProductionAuditController.getAuditById);
 // Obter auditoria por data
 router.get('/audits/date/:date', ProductionAuditController.getAuditByDate);
 
-// Listar produtos de padaria disponíveis
+// Listar produtos de padaria disponíveis (apenas ativos)
 router.get('/bakery-products', ProductionAuditController.getBakeryProducts);
+
+// Listar todas as seções do ERP (sem filtrar por ativos)
+router.get('/erp-sections', ProductionAuditController.getErpSections);
+
+// Listar todos os produtos de uma seção do ERP (sem filtrar por ativos)
+router.get('/erp-products-by-section', ProductionAuditController.getErpProductsBySection);
 
 // Criar ou atualizar auditoria
 router.post('/audits', ProductionAuditController.createOrUpdateAudit);
