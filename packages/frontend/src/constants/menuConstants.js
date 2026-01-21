@@ -185,7 +185,7 @@ export const MENU_STRUCTURE = [
       {
         id: MENU_SUBMENUS.PRODUCAO_SUGESTAO,
         title: 'Sugestão Produção Padaria',
-        path: '/producao/sugestao'
+        path: '/producao-sugestao'
       },
       {
         id: MENU_SUBMENUS.PRODUCAO_RESULTADOS,

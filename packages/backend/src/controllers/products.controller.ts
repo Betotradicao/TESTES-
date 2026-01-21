@@ -39,12 +39,12 @@ export class ProductsController {
       // Get active products from our database
       const productRepository = AppDataSource.getRepository(Product);
       const activeProducts = await productRepository.find({
-        select: ['erp_product_id', 'active', 'peso_medio_kg', 'production_days']
+        select: ['erp_product_id', 'active', 'peso_medio_kg', 'production_days', 'foto_referencia']
       });
 
-      // Create a map for quick lookup (includes active status, peso_medio_kg and production_days)
+      // Create a map for quick lookup (includes active status, peso_medio_kg, production_days and foto_referencia)
       const productsMap = new Map(
-        activeProducts.map(p => [p.erp_product_id, { active: p.active, peso_medio_kg: p.peso_medio_kg, production_days: p.production_days }])
+        activeProducts.map(p => [p.erp_product_id, { active: p.active, peso_medio_kg: p.peso_medio_kg, production_days: p.production_days, foto_referencia: p.foto_referencia }])
       );
 
       // Enrich ERP products with active status and filter fields
@@ -78,7 +78,8 @@ export class ProductsController {
           pesavel: product.pesavel,
           active: dbProduct?.active || false,
           peso_medio_kg: dbProduct?.peso_medio_kg || null,
-          production_days: dbProduct?.production_days || 1
+          production_days: dbProduct?.production_days || 1,
+          foto_referencia: dbProduct?.foto_referencia || null
         };
       });
 
@@ -527,62 +528,49 @@ export class ProductsController {
   static async uploadAndAnalyzePhoto(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params; // ERP product ID
-      const file = req.file; // Multer file
+      const file = req.file; // Multer file (em memória)
 
       if (!file) {
         return res.status(400).json({ error: 'Nenhum arquivo enviado' });
       }
 
-      // Importar service de análise
-      const { ImageAnalysisService } = await import('../services/image-analysis.service');
-      const analysisService = new ImageAnalysisService();
+      // Importar serviço do MinIO
+      const { minioService } = await import('../services/minio.service');
 
-      // Validar se é imagem
-      if (!analysisService.isValidImage(file.path)) {
-        return res.status(400).json({ error: 'Arquivo não é uma imagem válida' });
-      }
-
-      // Analisar imagem com IA
-      const analysis = await analysisService.analyzeProductImage(file.path);
-
-      // Salvar foto e características no produto
+      // Salvar foto no produto
       const productRepository = AppDataSource.getRepository(Product);
       let product = await productRepository.findOne({
         where: { erp_product_id: id }
       });
 
       if (!product) {
-        return res.status(404).json({ error: 'Produto não encontrado' });
+        // Criar produto se não existir
+        product = productRepository.create({
+          erp_product_id: id,
+          active: false
+        });
       }
 
-      // Atualizar produto com dados da análise
-      product.foto_referencia = `/uploads/products/${file.filename}`;
-      product.coloracao = analysis.coloracao;
-      product.formato = analysis.formato;
-      product.gordura_visivel = analysis.gordura_visivel;
-      product.presenca_osso = analysis.presenca_osso;
+      // Gerar nome único para o arquivo
+      const ext = file.originalname.split('.').pop() || 'jpg';
+      const fileName = `products/${id}-${Date.now()}.${ext}`;
 
+      // Upload para MinIO
+      const fotoUrl = await minioService.uploadFile(fileName, file.buffer, file.mimetype);
+
+      // Atualizar produto com URL da foto
+      product.foto_referencia = fotoUrl;
       await productRepository.save(product);
 
-      console.log(`✅ Foto analisada e salva para produto ${id}`);
-      console.log(`   Confiança: ${analysis.confianca}%`);
+      console.log(`✅ Foto salva no MinIO para produto ${id}: ${fotoUrl}`);
 
       res.json({
-        message: 'Foto analisada com sucesso',
-        foto_url: product.foto_referencia,
-        analysis: {
-          coloracao: analysis.coloracao,
-          coloracao_rgb: analysis.coloracao_rgb,
-          formato: analysis.formato,
-          gordura_visivel: analysis.gordura_visivel,
-          presenca_osso: analysis.presenca_osso,
-          confianca: analysis.confianca,
-          descricao: analysis.descricao_detalhada
-        }
+        message: 'Foto enviada com sucesso',
+        foto_url: fotoUrl
       });
 
     } catch (error) {
-      console.error('Upload and analyze photo error:', error);
+      console.error('Upload photo error:', error);
       res.status(500).json({ error: 'Erro ao processar imagem' });
     }
   }
@@ -701,6 +689,58 @@ export class ProductsController {
       res.status(500).json({
         error: error.message || 'Erro ao capturar foto da câmera'
       });
+    }
+  }
+
+  /**
+   * Excluir foto do produto
+   * DELETE /api/products/:id/photo
+   */
+  static async deletePhoto(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params; // ERP product ID
+
+      const productRepository = AppDataSource.getRepository(Product);
+      const product = await productRepository.findOne({
+        where: { erp_product_id: id }
+      });
+
+      if (!product) {
+        return res.status(404).json({ error: 'Produto não encontrado' });
+      }
+
+      if (!product.foto_referencia) {
+        return res.status(400).json({ error: 'Produto não possui foto' });
+      }
+
+      // Tentar deletar o arquivo físico (não bloqueia se falhar)
+      try {
+        const fs = await import('fs/promises');
+        const filePath = path.join(process.cwd(), 'public', product.foto_referencia);
+        await fs.unlink(filePath);
+        console.log(`🗑️ Arquivo de foto deletado: ${filePath}`);
+      } catch (fileError) {
+        console.warn('⚠️ Não foi possível deletar o arquivo físico da foto:', fileError);
+      }
+
+      // Limpar referência da foto e características de IA no banco
+      product.foto_referencia = undefined;
+      product.coloracao = undefined;
+      product.formato = undefined;
+      product.gordura_visivel = undefined;
+      product.presenca_osso = undefined;
+
+      await productRepository.save(product);
+
+      console.log(`✅ Foto excluída do produto ${id}`);
+
+      res.json({
+        message: 'Foto excluída com sucesso'
+      });
+
+    } catch (error) {
+      console.error('Delete photo error:', error);
+      res.status(500).json({ error: 'Erro ao excluir foto' });
     }
   }
 }

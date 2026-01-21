@@ -23,6 +23,12 @@ router.get('/bakery-products', ProductionAuditController.getBakeryProducts);
 // Criar ou atualizar auditoria
 router.post('/audits', ProductionAuditController.createOrUpdateAudit);
 
+// Salvar item individual (cria auditoria se não existir)
+router.post('/audits/save-item', ProductionAuditController.saveItem);
+
+// Remover item individual de uma auditoria
+router.delete('/audits/:id/items/:productCode', ProductionAuditController.deleteItem);
+
 // Finalizar auditoria
 router.put('/audits/:id/complete', ProductionAuditController.completeAudit);
 

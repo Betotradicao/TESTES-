@@ -6,42 +6,48 @@ import api from '../services/api';
 export default function ProducaoSugestao() {
   const navigate = useNavigate();
 
-  // Estados do calendário
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [monthAudits, setMonthAudits] = useState([]);
-
-  // Estados da auditoria
+  // Estados principais
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [products, setProducts] = useState([]);
   const [allProducts, setAllProducts] = useState([]);
-  const [allAudits, setAllAudits] = useState([]);
   const [selectedSecao, setSelectedSecao] = useState('PADARIA');
   const [selectedTipo, setSelectedTipo] = useState('PRODUCAO');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filter, setFilter] = useState('all'); // all, pending, checked
+
+  // Estados do modal
+  const [editingItem, setEditingItem] = useState(null);
+  const [showEmptyModal, setShowEmptyModal] = useState(false);
+  const [productSearchTerm, setProductSearchTerm] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // Estado do formulário do item
+  const [itemForm, setItemForm] = useState({
+    quantity_units: '',
+    production_days: '1'
+  });
 
   // Data fixada no dia atual
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const [selectedDate] = useState(todayStr);
-  const [auditItems, setAuditItems] = useState({});
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortOrder, setSortOrder] = useState('asc'); // 'asc' ou 'desc'
-  const [auditSortField, setAuditSortField] = useState('audit_date');
-  const [auditSortOrder, setAuditSortOrder] = useState('desc');
+  console.log('📅 Data de hoje (todayStr):', todayStr);
 
-  // Carregar produtos de padaria e auditoria do dia
+  // Estado da auditoria do dia
+  const [todayAudit, setTodayAudit] = useState(null);
+  const [auditItems, setAuditItems] = useState({}); // { product_code: { quantity_units, production_days, checked } }
+
+  // Estado de ordenação
+  const [sortConfig, setSortConfig] = useState({ key: 'descricao', direction: 'asc' });
+
+  // Carregar dados ao iniciar
   useEffect(() => {
-    setError(''); // Limpar erros ao carregar a página
+    setError('');
     setSuccess('');
     loadBakeryProducts();
     loadTodayAudit();
   }, []);
-
-  // Carregar auditorias do mês
-  useEffect(() => {
-    loadMonthAudits(currentMonth);
-  }, [currentMonth]);
 
   const loadBakeryProducts = async () => {
     try {
@@ -50,9 +56,9 @@ export default function ProducaoSugestao() {
       setAllProducts(response.data);
       filterProducts(response.data, selectedSecao, selectedTipo);
     } catch (err) {
-      console.error('❌ Erro ao carregar produtos:', err);
+      console.error('Erro ao carregar produtos:', err);
       const errorMessage = err.response?.status === 500
-        ? '⚠️ Servidor ERP indisponível. Aguarde alguns minutos e tente novamente.'
+        ? 'Servidor ERP indisponível. Aguarde alguns minutos e tente novamente.'
         : 'Erro ao carregar produtos: ' + (err.response?.data?.error || err.message);
       setError(errorMessage);
     } finally {
@@ -63,12 +69,6 @@ export default function ProducaoSugestao() {
   const filterProducts = (allProds, secao, tipo) => {
     const filtered = allProds.filter(p => p.desSecao === secao && p.tipoEvento === tipo);
     setProducts(filtered);
-    const initialItems = {};
-    filtered.forEach(product => {
-      // Usa o production_days pré-configurado do produto, ou 1 como padrão
-      initialItems[product.codigo] = { quantity_units: 0, production_days: product.production_days || 1 };
-    });
-    setAuditItems(initialItems);
   };
 
   useEffect(() => {
@@ -79,314 +79,403 @@ export default function ProducaoSugestao() {
 
   const loadTodayAudit = async () => {
     try {
-      // Buscar auditoria do dia atual
       const response = await api.get('/production/audits');
       const allAudits = response.data;
 
-      // Recalcular todayStr dentro da função
-      const now = new Date();
-      const currentDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      // Usar a mesma data que usamos para salvar (todayStr)
+      const currentDateStr = todayStr;
+      console.log('🔍 Buscando auditoria para data:', currentDateStr);
+      console.log('🔍 Total de auditorias:', allAudits.length);
 
-      const todayAudit = allAudits.find(audit => {
-        const auditDate = new Date(audit.audit_date);
-        const auditDateStr = `${auditDate.getFullYear()}-${String(auditDate.getMonth() + 1).padStart(2, '0')}-${String(auditDate.getDate()).padStart(2, '0')}`;
+      const audit = allAudits.find(a => {
+        // Pegar apenas a parte da data (YYYY-MM-DD) sem timezone
+        const auditDateStr = String(a.audit_date).split('T')[0];
+        console.log('🔍 Comparando:', auditDateStr, 'com', currentDateStr);
         return auditDateStr === currentDateStr;
       });
 
-      if (todayAudit) {
-        loadAuditData(todayAudit.id);
+      console.log('🔍 Auditoria encontrada:', audit ? `ID ${audit.id} com ${audit.items?.length} itens` : 'Nenhuma');
+
+      if (audit) {
+        setTodayAudit(audit);
+        // Carregar itens já conferidos com todos os dados salvos
+        const items = {};
+        audit.items.forEach(item => {
+          items[item.product_code] = {
+            quantity_units: item.quantity_units,
+            production_days: item.production_days,
+            unit_weight_kg: item.unit_weight_kg,
+            avg_sales_kg: item.avg_sales_kg,
+            suggested_production_kg: item.suggested_production_kg,
+            suggested_production_units: item.suggested_production_units,
+            last_sale_date: item.last_sale_date,
+            days_without_sale: item.days_without_sale,
+            checked: true
+          };
+        });
+        setAuditItems(items);
+        console.log('✅ Carregados', Object.keys(items).length, 'itens já conferidos');
       }
     } catch (err) {
       console.error('Erro ao carregar auditoria do dia:', err);
     }
   };
 
-  const loadMonthAudits = async (monthDate) => {
-    try {
-      const response = await api.get('/production/audits');
-      const audits = response.data;
-
-      // Salvar todas as auditorias
-      setAllAudits(audits);
-
-      // Filtrar apenas auditorias do mês selecionado
-      const year = monthDate.getFullYear();
-      const month = monthDate.getMonth();
-
-      const filtered = audits.filter(audit => {
-        const auditDate = new Date(audit.audit_date);
-        return auditDate.getFullYear() === year && auditDate.getMonth() === month;
-      });
-
-      setMonthAudits(filtered);
-    } catch (err) {
-      console.error('Erro ao carregar auditorias do mês:', err);
-    }
-  };
-
-  // Funções para navegação do calendário
-  const prevMonth = () => {
-    const newMonth = new Date(currentMonth);
-    newMonth.setMonth(newMonth.getMonth() - 1);
-    setCurrentMonth(newMonth);
-  };
-
-  const nextMonth = () => {
-    const newMonth = new Date(currentMonth);
-    newMonth.setMonth(newMonth.getMonth() + 1);
-    setCurrentMonth(newMonth);
-  };
-
-  // Verificar se dia tem auditoria
-  const getDayAudit = (day) => {
-    return monthAudits.find(audit => {
-      const auditDate = new Date(audit.audit_date);
-      return auditDate.getDate() === day;
+  // Abrir modal para editar item
+  const handleEditItem = (product) => {
+    setEditingItem(product);
+    const existingData = auditItems[product.codigo];
+    setItemForm({
+      quantity_units: existingData?.quantity_units?.toString() || '',
+      production_days: existingData?.production_days?.toString() || product.production_days?.toString() || '1'
     });
   };
 
-  // Obter cor do dia no calendário
-  const getDayColor = (day) => {
-    const today = new Date();
-    const dayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const audit = getDayAudit(day);
+  // Calcular sugestão para o item atual
+  const calculateSuggestion = () => {
+    if (!editingItem) return { sugestaoKg: 0, sugestaoUnidades: 0 };
 
-    // Dia futuro - branco
-    if (dayDate > today) {
-      return 'bg-white text-gray-400';
-    }
+    const estoqueUnidades = parseInt(itemForm.quantity_units) || 0;
+    const diasProducao = parseInt(itemForm.production_days) || 1;
+    const pesoMedio = editingItem.peso_medio_kg || 0;
+    const estoqueKg = estoqueUnidades * pesoMedio;
+    const vendaMediaKg = editingItem.vendaMedia || 0;
+    const necessidadeKg = vendaMediaKg * diasProducao;
+    const sugestaoKg = Math.max(0, necessidadeKg - estoqueKg);
+    const sugestaoUnidades = pesoMedio > 0 ? Math.ceil(sugestaoKg / pesoMedio) : 0;
 
-    // Dia com auditoria concluída - verde claro
-    if (audit && audit.status === 'completed') {
-      return 'bg-green-100 text-green-800 font-semibold cursor-pointer hover:bg-green-200';
-    }
-
-    // Dia com auditoria em andamento - laranja
-    if (audit && audit.status === 'in_progress') {
-      return 'bg-orange-100 text-orange-800 font-semibold cursor-pointer hover:bg-orange-200';
-    }
-
-    // Dia passado sem auditoria - vermelho claro
-    return 'bg-red-100 text-red-600';
+    return { sugestaoKg, sugestaoUnidades, estoqueKg, necessidadeKg };
   };
 
-  // Dia não é mais clicável - data fixa no dia atual
-  const handleDayClick = (day) => {
-    // Desabilitado - data sempre fixada no dia atual
-    return;
-  };
+  // Salvar item individual
+  const handleSaveItem = async () => {
+    if (!editingItem) return;
 
-  const loadAuditData = async (auditId) => {
+    setSaving(true);
+    setError('');
+
     try {
-      const response = await api.get(`/production/audits/${auditId}`);
-      const audit = response.data;
+      const { sugestaoKg, sugestaoUnidades } = calculateSuggestion();
 
-      // Preencher os campos com os dados da auditoria
-      const items = {};
-      audit.items.forEach(item => {
-        items[item.product_code] = {
-          quantity_units: item.quantity_units,
-          production_days: item.production_days
+      const itemData = {
+        product_code: editingItem.codigo,
+        product_name: editingItem.descricao,
+        quantity_units: parseInt(itemForm.quantity_units) || 0,
+        production_days: parseInt(itemForm.production_days) || 1,
+        unit_weight_kg: editingItem.peso_medio_kg || 0,
+        avg_sales_kg: editingItem.vendaMedia || 0,
+        suggested_production_kg: sugestaoKg,
+        suggested_production_units: sugestaoUnidades,
+        last_sale_date: editingItem.dtaUltMovVenda || null,
+        days_without_sale: calcularDiasSemVenda(editingItem.dtaUltMovVenda)
+      };
+
+      // Salvar no backend (criar ou atualizar auditoria)
+      const response = await api.post('/production/audits/save-item', {
+        audit_date: todayStr,
+        item: itemData
+      });
+
+      // Atualizar estado local
+      setAuditItems(prev => ({
+        ...prev,
+        [editingItem.codigo]: {
+          quantity_units: itemData.quantity_units,
+          production_days: itemData.production_days,
+          checked: true
+        }
+      }));
+
+      if (response.data.audit) {
+        setTodayAudit(response.data.audit);
+      }
+
+      setSuccess('Item salvo com sucesso!');
+      setTimeout(() => setSuccess(''), 2000);
+
+      // Fechar modal
+      setEditingItem(null);
+      setShowEmptyModal(false);
+      setItemForm({ quantity_units: '', production_days: '1' });
+    } catch (err) {
+      console.error('Erro ao salvar item:', err);
+      setError(err.response?.data?.error || 'Erro ao salvar item');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Salvar e ir para próximo
+  const handleSaveAndNext = async () => {
+    if (!editingItem) return;
+
+    setSaving(true);
+    setError('');
+
+    try {
+      const { sugestaoKg, sugestaoUnidades } = calculateSuggestion();
+
+      const itemData = {
+        product_code: editingItem.codigo,
+        product_name: editingItem.descricao,
+        quantity_units: parseInt(itemForm.quantity_units) || 0,
+        production_days: parseInt(itemForm.production_days) || 1,
+        unit_weight_kg: editingItem.peso_medio_kg || 0,
+        avg_sales_kg: editingItem.vendaMedia || 0,
+        suggested_production_kg: sugestaoKg,
+        suggested_production_units: sugestaoUnidades,
+        last_sale_date: editingItem.dtaUltMovVenda || null,
+        days_without_sale: calcularDiasSemVenda(editingItem.dtaUltMovVenda)
+      };
+
+      const response = await api.post('/production/audits/save-item', {
+        audit_date: todayStr,
+        item: itemData
+      });
+
+      // Atualizar estado local
+      setAuditItems(prev => ({
+        ...prev,
+        [editingItem.codigo]: {
+          quantity_units: itemData.quantity_units,
+          production_days: itemData.production_days,
+          checked: true
+        }
+      }));
+
+      if (response.data.audit) {
+        setTodayAudit(response.data.audit);
+      }
+
+      // Encontrar próximo item pendente
+      const pendingProducts = filteredProducts.filter(p => !auditItems[p.codigo]?.checked && p.codigo !== editingItem.codigo);
+
+      if (pendingProducts.length > 0) {
+        const nextProduct = pendingProducts[0];
+        setEditingItem(nextProduct);
+        const existingData = auditItems[nextProduct.codigo];
+        setItemForm({
+          quantity_units: existingData?.quantity_units?.toString() || '',
+          production_days: existingData?.production_days?.toString() || nextProduct.production_days?.toString() || '1'
+        });
+      } else {
+        setEditingItem(null);
+        setShowEmptyModal(false);
+        setSuccess('Todos os itens foram conferidos!');
+        setTimeout(() => setSuccess(''), 3000);
+      }
+    } catch (err) {
+      console.error('Erro ao salvar item:', err);
+      setError(err.response?.data?.error || 'Erro ao salvar item');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Desmarcar item (remover da auditoria)
+  const handleUncheckItem = async (product) => {
+    if (!todayAudit) return;
+
+    try {
+      await api.delete(`/production/audits/${todayAudit.id}/items/${product.codigo}`);
+
+      // Atualizar auditItems
+      setAuditItems(prev => {
+        const newItems = { ...prev };
+        delete newItems[product.codigo];
+        return newItems;
+      });
+
+      // Atualizar todayAudit removendo o item
+      setTodayAudit(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          items: prev.items.filter(item => item.product_code !== product.codigo)
         };
       });
-      setAuditItems(items);
+
+      setSuccess('Item removido da auditoria');
+      setTimeout(() => setSuccess(''), 2000);
     } catch (err) {
-      console.error('Erro ao carregar auditoria:', err);
+      console.error('Erro ao remover item:', err);
+      setError('Erro ao remover item');
     }
   };
 
-  const handleItemChange = (productCode, field, value) => {
-    setAuditItems(prev => ({
-      ...prev,
-      [productCode]: {
-        ...prev[productCode],
-        [field]: parseInt(value) || 0
-      }
-    }));
-  };
-
-  const handleSave = async () => {
-    try {
-      setLoading(true);
-      setError('');
-
-      // Filtrar produtos que tenham quantidade definida (permite zero)
-      const items = products
-        .filter(p => auditItems[p.codigo]?.quantity_units !== undefined && auditItems[p.codigo]?.quantity_units !== '')
-        .map(p => ({
-          product_code: p.codigo,
-          product_name: p.descricao,
-          quantity_units: auditItems[p.codigo].quantity_units,
-          production_days: auditItems[p.codigo].production_days,
-          unit_weight_kg: p.peso_medio_kg,
-          avg_sales_kg: p.vendaMedia || 0,
-        }));
-
-      if (items.length === 0) {
-        setError('Adicione ao menos um produto (estoque pode ser zero)');
-        return;
-      }
-
-      // Salvar auditoria
-      const response = await api.post('/production/audits', {
-        audit_date: selectedDate,
-        items
-      });
-
-      const auditId = response.data.id;
-
-      // Enviar para WhatsApp
-      try {
-        await api.post(`/production/audits/${auditId}/send-whatsapp`);
-        setSuccess('Auditoria salva e enviada para WhatsApp com sucesso!');
-      } catch (whatsappErr) {
-        console.error('Erro ao enviar para WhatsApp:', whatsappErr);
-        setSuccess('Auditoria salva com sucesso! (Erro ao enviar para WhatsApp)');
-      }
-
-      await loadMonthAudits(currentMonth);
-
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      console.error('Erro ao salvar auditoria:', err);
-      setError(err.response?.data?.error || 'Erro ao salvar auditoria');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResendWhatsApp = async (auditId) => {
-    try {
-      await api.post(`/production/audits/${auditId}/send-whatsapp`);
-      alert('Relatório reenviado para WhatsApp com sucesso!');
-    } catch (err) {
-      console.error('Erro ao reenviar para WhatsApp:', err);
-      alert('Erro ao reenviar relatório para WhatsApp');
-    }
-  };
-
-  const handleDeleteAudit = async (auditId) => {
-    if (!confirm('Tem certeza que deseja excluir esta auditoria?')) {
+  // Salvar e finalizar auditoria
+  const handleSendWhatsApp = async () => {
+    if (!todayAudit) {
+      setError('Nenhuma auditoria para salvar');
       return;
     }
 
     try {
-      await api.delete(`/production/audits/${auditId}`);
-      setSuccess('Auditoria excluída com sucesso!');
-      await loadMonthAudits(currentMonth);
-      setTimeout(() => setSuccess(''), 3000);
+      // 1. Finalizar a auditoria (mudar status para completed)
+      await api.put(`/production/audits/${todayAudit.id}/complete`);
+
+      // 2. Enviar para WhatsApp
+      await api.post(`/production/audits/${todayAudit.id}/send-whatsapp`);
+
+      setSuccess('Auditoria finalizada e enviada para WhatsApp com sucesso!');
+      // Voltar para a tela do calendário após 1.5 segundos
+      setTimeout(() => {
+        navigate('/producao-lancador');
+      }, 1500);
     } catch (err) {
-      console.error('Erro ao excluir auditoria:', err);
-      setError('Erro ao excluir auditoria');
+      console.error('Erro ao salvar auditoria:', err);
+      setError('Erro ao salvar auditoria');
     }
   };
 
-  const handleProductSort = () => {
-    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+  // Função para alternar ordenação
+  const handleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
   };
 
-  const handleAuditSort = (field) => {
-    if (auditSortField === field) {
-      setAuditSortOrder(auditSortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setAuditSortField(field);
-      setAuditSortOrder('asc');
+  // Função para calcular dias sem venda (formato YYYYMMDD)
+  const calcularDiasSemVenda = (dtaUltMovVenda) => {
+    if (!dtaUltMovVenda) return null;
+    // Formato: YYYYMMDD (ex: "20250118")
+    const ano = parseInt(dtaUltMovVenda.slice(0, 4));
+    const mes = parseInt(dtaUltMovVenda.slice(4, 6)) - 1; // Mês é 0-indexed
+    const dia = parseInt(dtaUltMovVenda.slice(6, 8));
+    const dataUltVenda = new Date(ano, mes, dia);
+    const hoje = new Date();
+    const diffTime = hoje.getTime() - dataUltVenda.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  // Função para formatar data (formato YYYYMMDD para DD/MM/YYYY)
+  const formatarData = (data) => {
+    if (!data) return '-';
+    // Formato: YYYYMMDD (ex: "20250118")
+    const ano = data.slice(0, 4);
+    const mes = data.slice(4, 6);
+    const dia = data.slice(6, 8);
+    return `${dia}/${mes}/${ano}`;
+  };
+
+  // Função para obter valor de ordenação
+  const getSortValue = (product, key) => {
+    switch (key) {
+      case 'codigo':
+        return product.codigo || '';
+      case 'descricao':
+        return product.descricao || '';
+      case 'dtaUltMovVenda':
+        return product.dtaUltMovVenda || '';
+      case 'diasSemVenda':
+        return calcularDiasSemVenda(product.dtaUltMovVenda) ?? 9999;
+      case 'peso_medio_kg':
+        return product.peso_medio_kg || 0;
+      case 'vendaMedia':
+        return product.vendaMedia || 0;
+      case 'vendaMediaUnd':
+        return product.vendaMediaUnd || 0;
+      case 'custo':
+        return product.custo || 0;
+      case 'precoVenda':
+        return product.precoVenda || 0;
+      case 'margemRef':
+        return product.margemRef || 0;
+      case 'margemReal':
+        return product.margemReal || 0;
+      default:
+        return '';
     }
   };
 
-  const getSortedAudits = () => {
-    return [...allAudits].sort((a, b) => {
-      let aValue, bValue;
-
-      switch (auditSortField) {
-        case 'audit_date':
-          aValue = new Date(a.audit_date);
-          bValue = new Date(b.audit_date);
-          break;
-        case 'auditor':
-          aValue = (a.user?.name || a.user?.username || '').toLowerCase();
-          bValue = (b.user?.name || b.user?.username || '').toLowerCase();
-          break;
-        case 'group':
-          aValue = (a.whatsapp_group_name || '').toLowerCase();
-          bValue = (b.whatsapp_group_name || '').toLowerCase();
-          break;
-        case 'total':
-          aValue = a.items?.length || 0;
-          bValue = b.items?.length || 0;
-          break;
-        case 'with_suggestion':
-          aValue = a.items?.filter(item => (item.suggested_production_units || 0) > 0).length || 0;
-          bValue = b.items?.filter(item => (item.suggested_production_units || 0) > 0).length || 0;
-          break;
-        default:
-          return 0;
-      }
-
-      if (aValue < bValue) return auditSortOrder === 'asc' ? -1 : 1;
-      if (aValue > bValue) return auditSortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-  };
-
-  // Gerar dias do calendário
-  const getDaysInMonth = () => {
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    const days = [];
-
-    // Espaços vazios antes do primeiro dia
-    for (let i = 0; i < firstDay; i++) {
-      days.push(null);
-    }
-
-    // Dias do mês
-    for (let day = 1; day <= daysInMonth; day++) {
-      days.push(day);
-    }
-
-    return days;
-  };
-
-  const monthName = currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-
-  // Filtrar e ordenar produtos
+  // Filtrar produtos
   const filteredProducts = products
     .filter(product => {
-      if (!searchTerm) return true;
-      const term = searchTerm.toLowerCase();
-      return (
-        product.descricao?.toLowerCase().includes(term) ||
-        product.codigo?.toLowerCase().includes(term)
-      );
+      // Filtro por status
+      if (filter === 'pending' && auditItems[product.codigo]?.checked) return false;
+      if (filter === 'checked' && !auditItems[product.codigo]?.checked) return false;
+
+      // Filtro por busca
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        return (
+          product.descricao?.toLowerCase().includes(term) ||
+          product.codigo?.toLowerCase().includes(term)
+        );
+      }
+      return true;
     })
     .sort((a, b) => {
-      const nameA = a.descricao?.toLowerCase() || '';
-      const nameB = b.descricao?.toLowerCase() || '';
-      return sortOrder === 'asc'
-        ? nameA.localeCompare(nameB)
-        : nameB.localeCompare(nameA);
+      const aValue = getSortValue(a, sortConfig.key);
+      const bValue = getSortValue(b, sortConfig.key);
+
+      // Ordenação para strings
+      if (typeof aValue === 'string') {
+        const comparison = aValue.localeCompare(bValue);
+        return sortConfig.direction === 'asc' ? comparison : -comparison;
+      }
+
+      // Ordenação para números
+      const comparison = aValue - bValue;
+      return sortConfig.direction === 'asc' ? comparison : -comparison;
     });
+
+  // Estatísticas - usar dados do banco quando disponível
+  const checkedCount = todayAudit?.items?.length || Object.values(auditItems).filter(item => item.checked).length;
+  const stats = {
+    total: products.length,
+    checked: checkedCount,
+    pending: products.filter(p => !auditItems[p.codigo]?.checked).length
+  };
+
+  const { sugestaoKg, sugestaoUnidades, estoqueKg, necessidadeKg } = calculateSuggestion();
+
+  // Componente de header clicável para ordenação
+  const SortableHeader = ({ sortKey, children, align = 'left' }) => (
+    <th
+      onClick={() => handleSort(sortKey)}
+      className={`px-4 py-3 text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 transition-colors select-none ${
+        align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'
+      }`}
+    >
+      <div className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : ''}`}>
+        {children}
+        {sortConfig.key === sortKey && (
+          <span className="text-orange-600">
+            {sortConfig.direction === 'asc' ? '▲' : '▼'}
+          </span>
+        )}
+      </div>
+    </th>
+  );
 
   return (
     <Layout>
       <div className="p-4 lg:p-8">
-        {/* Header com Gradiente Laranja */}
-        <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg p-6 mb-8 text-white">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl lg:text-3xl font-bold">🥖 Sugestão de Produção - Padaria</h1>
-            <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-              </svg>
+        {/* Header com Gradiente */}
+        <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg p-6 mb-6 text-white">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold mb-2">
+                🥖 Auditoria de Produção - {todayStr.split('-').reverse().join('/')}
+              </h1>
+              <p className="text-white/90">
+                Registre o estoque e receba sugestões de produção
+              </p>
+            </div>
+            <div className="flex gap-4 mt-4 lg:mt-0">
+              <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2 text-center">
+                <p className="text-2xl font-bold">{stats.checked}/{stats.total}</p>
+                <p className="text-xs">Conferidos</p>
+              </div>
+              <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2 text-center">
+                <p className="text-2xl font-bold">{stats.pending}</p>
+                <p className="text-xs">Pendentes</p>
+              </div>
             </div>
           </div>
-          <p className="text-white/90">
-            Registre o estoque atual e receba sugestões de produção
-          </p>
         </div>
 
         {error && (
@@ -401,254 +490,519 @@ export default function ProducaoSugestao() {
           </div>
         )}
 
-        {/* Layout: Data Fixa + Formulário */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Data do Dia - 1/3 do espaço */}
-          <div className="lg:col-span-1 bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-semibold text-gray-700 mb-4">Data da Auditoria</h2>
-            <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-6 text-center">
-              <div className="text-4xl font-bold text-blue-600 mb-2">
-                {today.getDate()}
-              </div>
-              <div className="text-sm font-medium text-blue-800 capitalize">
-                {new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(today)}
-              </div>
-              <div className="text-xs text-gray-600 mt-2">
-                {new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(today)}
-              </div>
-            </div>
-
-            {/* Informação fixa */}
-            <div className="mt-6 text-center text-sm text-gray-600">
-              <p className="font-medium">Auditoria fixada no dia atual</p>
-              <p className="text-xs mt-1">A data muda automaticamente todos os dias</p>
-            </div>
-          </div>
-
-          {/* Formulário de Lançamento - 2/3 do espaço */}
-          <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">
-                Auditoria de {selectedDate.split('-').reverse().join('/')}
-              </h2>
+        {/* Barra de filtros */}
+        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex gap-2 flex-wrap">
               <button
-                onClick={handleSave}
-                disabled={loading}
-                className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg font-semibold disabled:opacity-50"
+                onClick={() => navigate('/producao-lancador')}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-500 text-white hover:bg-gray-600"
               >
-                {loading ? 'Salvando...' : 'Salvar'}
+                ← Voltar ao Calendário
+              </button>
+              <button
+                onClick={() => {
+                  // Abre direto no primeiro produto pendente
+                  const pendingProducts = filteredProducts.filter(p => !auditItems[p.codigo]?.checked);
+                  if (pendingProducts.length > 0) {
+                    handleEditItem(pendingProducts[0]);
+                  } else {
+                    setError('Todos os produtos já foram conferidos!');
+                    setTimeout(() => setError(''), 3000);
+                  }
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-green-600 text-white hover:bg-green-700"
+              >
+                🚀 Iniciar Auditoria
+              </button>
+              <button
+                onClick={() => setFilter('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  filter === 'all' ? 'bg-orange-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Todos ({stats.total})
+              </button>
+              <button
+                onClick={() => setFilter('pending')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  filter === 'pending' ? 'bg-yellow-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Pendentes ({stats.pending})
+              </button>
+              <button
+                onClick={() => setFilter('checked')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  filter === 'checked' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Conferidos ({stats.checked})
               </button>
             </div>
 
-            {/* Filtros Dinâmicos */}
-            <div className="mb-4 flex gap-4 items-center text-sm flex-wrap">
-              <div className="flex-1 min-w-[250px]">
-                <input
-                  type="text"
-                  placeholder="🔍 Buscar produto por nome ou código..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-gray-700">Seção:</span>
-                <select
-                  value={selectedSecao}
-                  onChange={(e) => setSelectedSecao(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+            <div className="flex gap-2 flex-wrap items-center">
+              <select
+                value={selectedSecao}
+                onChange={(e) => setSelectedSecao(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm"
+              >
+                {[...new Set(allProducts.map(p => p.desSecao))].sort().map(secao => (
+                  <option key={secao} value={secao}>{secao}</option>
+                ))}
+              </select>
+              <select
+                value={selectedTipo}
+                onChange={(e) => setSelectedTipo(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm"
+              >
+                {[...new Set(allProducts.map(p => p.tipoEvento))].sort().map(tipo => (
+                  <option key={tipo} value={tipo}>{tipo}</option>
+                ))}
+              </select>
+              <input
+                type="text"
+                placeholder="Buscar produto..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm"
+              />
+              {(todayAudit?.items?.length > 0 || stats.checked > 0) && (
+                <button
+                  onClick={handleSendWhatsApp}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
                 >
-                  {[...new Set(allProducts.map(p => p.desSecao))].sort().map(secao => (
-                    <option key={secao} value={secao}>{secao}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-gray-700">Tipo:</span>
-                <select
-                  value={selectedTipo}
-                  onChange={(e) => setSelectedTipo(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  {[...new Set(allProducts.map(p => p.tipoEvento))].sort().map(tipo => (
-                    <option key={tipo} value={tipo}>{tipo}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg">
-                <span className="font-semibold text-gray-700">Total:</span>
-                <span className="text-gray-900">{filteredProducts.length} produtos</span>
-              </div>
-            </div>
-
-            <div className="overflow-y-auto" style={{ maxHeight: '600px' }}>
-              <table className="min-w-full">
-                <thead className="bg-gray-50 sticky top-0">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Código</th>
-                    <th
-                      className="px-4 py-2 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100 select-none"
-                      onClick={handleProductSort}
-                    >
-                      Produto {sortOrder === 'asc' ? '↑' : '↓'}
-                    </th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Estoque (und)</th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Peso Médio</th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Dias Produção</th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Venda Média (kg/dia)</th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 bg-green-50">Sugestão (kg)</th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 bg-blue-50">Sugestão (und)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredProducts.map(product => {
-                    const estoqueUnidades = auditItems[product.codigo]?.quantity_units || 0;
-                    const diasProducao = auditItems[product.codigo]?.production_days || 1;
-                    const pesoMedio = product.peso_medio_kg || 0;
-                    const estoqueKg = estoqueUnidades * pesoMedio;
-                    const vendaMediaKg = product.vendaMedia || 0;
-                    const necessidadeKg = vendaMediaKg * diasProducao;
-                    const sugestaoKg = Math.max(0, necessidadeKg - estoqueKg);
-                    const sugestaoUnidades = pesoMedio > 0 ? Math.ceil(sugestaoKg / pesoMedio) : 0;
-
-                    return (
-                    <tr key={product.codigo} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 text-sm text-gray-600">
-                        {product.codigo || '-'}
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        <div className="font-medium">{product.descricao}</div>
-                      </td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="number"
-                          min="0"
-                          value={auditItems[product.codigo]?.quantity_units || ''}
-                          onChange={(e) => handleItemChange(product.codigo, 'quantity_units', e.target.value)}
-                          placeholder="0"
-                          className="w-20 px-2 py-1 border border-gray-300 rounded text-center text-sm focus:ring-orange-500 focus:border-orange-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
-                      </td>
-                      <td className="px-4 py-2 text-center text-sm text-gray-600">
-                        {product.peso_medio_kg ? `${product.peso_medio_kg.toFixed(3)} kg` : '-'}
-                      </td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="number"
-                          min="1"
-                          value={auditItems[product.codigo]?.production_days || ''}
-                          onChange={(e) => handleItemChange(product.codigo, 'production_days', e.target.value)}
-                          placeholder="1"
-                          className="w-16 px-2 py-1 border border-gray-300 rounded text-center text-sm focus:ring-orange-500 focus:border-orange-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
-                      </td>
-                      <td className="px-4 py-2 text-center text-sm">
-                        {product.vendaMedia?.toFixed(3) || '0.000'}
-                      </td>
-                      <td className="px-4 py-2 text-center text-sm font-semibold text-green-700 bg-green-50">
-                        {sugestaoKg.toFixed(3)}
-                      </td>
-                      <td className="px-4 py-2 text-center text-sm font-semibold text-blue-700 bg-blue-50">
-                        {sugestaoUnidades}
-                      </td>
-                    </tr>
-                  );
-                  })}
-                </tbody>
-              </table>
+                  💾 Salvar Auditoria
+                </button>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Seção de Auditorias Salvas - Largura Total */}
-        {allAudits.length > 0 && (
-          <div className="mt-8 bg-white rounded-lg shadow-lg p-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">📋 Auditorias Salvas</h2>
+        {/* Modal de edição */}
+        {(editingItem || showEmptyModal) && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto">
+              {/* Header do modal */}
+              <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white p-4 rounded-t-lg sticky top-0 z-10">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-lg font-bold">{editingItem ? editingItem.descricao : 'Selecione um produto'}</h3>
+                    <p className="text-sm text-white/80">Código: {editingItem?.codigo || '-'}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditingItem(null);
+                      setShowEmptyModal(false);
+                      setProductSearchTerm('');
+                    }}
+                    className="text-white/80 hover:text-white text-2xl leading-none"
+                  >
+                    &times;
+                  </button>
+                </div>
+                {/* Info do produto */}
+                {editingItem && (
+                  <div className="grid grid-cols-3 gap-2 mt-3 text-center">
+                    <div className="bg-white/20 rounded px-2 py-1">
+                      <p className="text-[10px] text-white/70">Peso Médio</p>
+                      <p className="text-xs font-bold">
+                        {editingItem.peso_medio_kg ? `${editingItem.peso_medio_kg.toFixed(3)} kg` : '-'}
+                      </p>
+                    </div>
+                    <div className="bg-white/20 rounded px-2 py-1">
+                      <p className="text-[10px] text-white/70">Venda Média</p>
+                      <p className="text-xs font-bold">
+                        {editingItem.vendaMedia ? `${editingItem.vendaMedia.toFixed(3)} kg/dia` : '-'}
+                      </p>
+                    </div>
+                    <div className="bg-white/20 rounded px-2 py-1">
+                      <p className="text-[10px] text-white/70">Dias Padrão</p>
+                      <p className="text-xs font-bold">
+                        {editingItem.production_days || 1}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 space-y-4">
+                {/* Busca de Produto */}
+                <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    🔍 Buscar Produto (nome ou código):
+                  </label>
+                  <input
+                    type="text"
+                    value={productSearchTerm}
+                    onChange={(e) => setProductSearchTerm(e.target.value)}
+                    placeholder="Digite o nome ou código..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm mb-2"
+                  />
+                  {productSearchTerm && (
+                    <div className="max-h-40 overflow-y-auto bg-white border border-gray-200 rounded-lg">
+                      {filteredProducts
+                        .filter(p =>
+                          p.descricao.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+                          (p.codigo && p.codigo.includes(productSearchTerm))
+                        )
+                        .slice(0, 10)
+                        .map(product => (
+                          <button
+                            key={product.codigo}
+                            onClick={() => {
+                              handleEditItem(product);
+                              setShowEmptyModal(false);
+                              setProductSearchTerm('');
+                            }}
+                            className={`w-full text-left px-3 py-2 hover:bg-orange-100 border-b border-gray-100 last:border-b-0 text-sm ${
+                              auditItems[product.codigo]?.checked ? 'bg-green-50' : ''
+                            }`}
+                          >
+                            <span className={auditItems[product.codigo]?.checked ? 'text-green-700' : 'text-gray-800'}>
+                              {auditItems[product.codigo]?.checked ? '✅ ' : '⏳ '}{product.codigo} - {product.descricao}
+                            </span>
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Seletor de Produto (dropdown) */}
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Selecionar Produto:
+                  </label>
+                  <select
+                    value={editingItem?.codigo || ''}
+                    onChange={(e) => {
+                      const selectedProduct = products.find(p => p.codigo === e.target.value);
+                      if (selectedProduct) {
+                        handleEditItem(selectedProduct);
+                        setShowEmptyModal(false);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm"
+                  >
+                    <option value="">-- Selecione um produto --</option>
+                    <optgroup label="⏳ Pendentes">
+                      {products.filter(p => !auditItems[p.codigo]?.checked).map(product => (
+                        <option key={product.codigo} value={product.codigo}>
+                          {product.codigo} - {product.descricao}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="✅ Conferidos">
+                      {products.filter(p => auditItems[p.codigo]?.checked).map(product => (
+                        <option key={product.codigo} value={product.codigo}>
+                          {product.codigo} - {product.descricao}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </div>
+
+                {editingItem && (
+                  <>
+                    {/* Imagem do Produto */}
+                    {editingItem.foto_referencia && (
+                      <div className="flex justify-center">
+                        <img
+                          src={editingItem.foto_referencia}
+                          alt={editingItem.descricao}
+                          className="w-40 h-40 object-cover rounded-lg border-2 border-orange-200 shadow-md"
+                        />
+                      </div>
+                    )}
+
+                    {/* Estoque em Unidades */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Estoque Atual (unidades):
+                      </label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min="0"
+                        value={itemForm.quantity_units}
+                        onChange={(e) => setItemForm({ ...itemForm, quantity_units: e.target.value })}
+                        placeholder="Ex: 10"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-lg"
+                        autoFocus
+                      />
+                    </div>
+
+                    {/* Dias de Produção */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Dias de Produção:
+                      </label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min="1"
+                        value={itemForm.production_days}
+                        onChange={(e) => setItemForm({ ...itemForm, production_days: e.target.value })}
+                        placeholder="1"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-lg"
+                      />
+                    </div>
+
+                    {/* Cálculos em tempo real */}
+                    <div className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-orange-900 mb-3 text-sm">CÁLCULOS:</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Estoque em KG:</span>
+                          <span className="font-bold text-gray-800">{estoqueKg?.toFixed(3) || '0.000'} kg</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Necessidade ({itemForm.production_days || 1} dias):</span>
+                          <span className="font-bold text-gray-800">{necessidadeKg?.toFixed(3) || '0.000'} kg</span>
+                        </div>
+                        <div className="flex justify-between items-center border-t border-orange-200 pt-2">
+                          <span className="text-sm text-gray-600 font-semibold">Sugestão:</span>
+                          <div className="text-right">
+                            <span className="font-bold text-green-700 text-lg">{sugestaoKg?.toFixed(3) || '0.000'} kg</span>
+                            <span className="text-blue-700 font-bold ml-2">({sugestaoUnidades} und)</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Botões */}
+                    <div className="flex flex-col gap-3 pt-4 border-t">
+                      <button
+                        onClick={handleSaveAndNext}
+                        disabled={saving}
+                        className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium text-lg"
+                      >
+                        {saving ? 'Salvando...' : '✅ Salvar e Próximo'}
+                      </button>
+                      <button
+                        onClick={handleSaveItem}
+                        disabled={saving}
+                        className="w-full px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 font-medium"
+                      >
+                        {saving ? 'Salvando...' : '💾 Salvar Item'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingItem(null);
+                          setShowEmptyModal(false);
+                        }}
+                        className="w-full px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Lista de Itens Pendentes */}
+        {filter !== 'checked' && stats.pending > 0 && (
+          <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+            <div className="bg-yellow-50 px-4 py-3 border-b border-yellow-200">
+              <h2 className="text-lg font-semibold text-yellow-800">
+                ⏳ Itens Pendentes ({stats.pending})
+              </h2>
+            </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full text-base">
+              <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th
-                      className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleAuditSort('audit_date')}
-                    >
-                      Data {auditSortField === 'audit_date' && (auditSortOrder === 'asc' ? '↑' : '↓')}
-                    </th>
-                    <th
-                      className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleAuditSort('auditor')}
-                    >
-                      Auditor {auditSortField === 'auditor' && (auditSortOrder === 'asc' ? '↑' : '↓')}
-                    </th>
-                    <th
-                      className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleAuditSort('group')}
-                    >
-                      Grupo WhatsApp {auditSortField === 'group' && (auditSortOrder === 'asc' ? '↑' : '↓')}
-                    </th>
-                    <th
-                      className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleAuditSort('total')}
-                    >
-                      Total {auditSortField === 'total' && (auditSortOrder === 'asc' ? '↑' : '↓')}
-                    </th>
-                    <th
-                      className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleAuditSort('with_suggestion')}
-                    >
-                      Com Sugestão {auditSortField === 'with_suggestion' && (auditSortOrder === 'asc' ? '↑' : '↓')}
-                    </th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase">Sem Necessidade</th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase">Ações</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Foto</th>
+                    <SortableHeader sortKey="codigo">Código</SortableHeader>
+                    <SortableHeader sortKey="descricao">Produto</SortableHeader>
+                    <SortableHeader sortKey="dtaUltMovVenda" align="center">Última Venda</SortableHeader>
+                    <SortableHeader sortKey="diasSemVenda" align="center">Dias Sem Venda</SortableHeader>
+                    <SortableHeader sortKey="peso_medio_kg" align="right">Peso Médio</SortableHeader>
+                    <SortableHeader sortKey="vendaMedia" align="right">Venda Média (kg)</SortableHeader>
+                    <SortableHeader sortKey="vendaMediaUnd" align="right">Venda Média (und)</SortableHeader>
+                    <SortableHeader sortKey="custo" align="right">Custo</SortableHeader>
+                    <SortableHeader sortKey="precoVenda" align="right">Preço Venda</SortableHeader>
+                    <SortableHeader sortKey="margemRef" align="right">Margem Referência</SortableHeader>
+                    <SortableHeader sortKey="margemReal" align="right">Margem Real</SortableHeader>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {getSortedAudits().map(audit => {
-                      const totalProducts = audit.items?.length || 0;
-                      const withSuggestion = audit.items?.filter(item => (item.suggested_production_units || 0) > 0).length || 0;
-                      const withoutSuggestion = totalProducts - withSuggestion;
+                  {filteredProducts
+                    .filter(p => !auditItems[p.codigo]?.checked)
+                    .map((product) => (
+                      <tr key={product.codigo} className="hover:bg-yellow-50 cursor-pointer" onClick={() => handleEditItem(product)}>
+                        <td className="px-4 py-3 text-center">
+                          {product.foto_referencia ? (
+                            <img
+                              src={product.foto_referencia}
+                              alt={product.descricao}
+                              className="w-10 h-10 object-cover rounded-lg border border-gray-200 mx-auto"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center mx-auto">
+                              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{product.codigo}</td>
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-gray-900 text-sm">{product.descricao}</p>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-center text-gray-700">
+                          {formatarData(product.dtaUltMovVenda)}
+                        </td>
+                        <td className={`px-4 py-3 text-sm text-center font-semibold ${
+                          (() => {
+                            const dias = calcularDiasSemVenda(product.dtaUltMovVenda);
+                            if (dias === null) return 'text-gray-400';
+                            if (dias <= 1) return 'text-green-600 bg-green-50';
+                            if (dias <= 3) return 'text-yellow-600 bg-yellow-50';
+                            return 'text-red-600 bg-red-50';
+                          })()
+                        }`}>
+                          {calcularDiasSemVenda(product.dtaUltMovVenda) ?? '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-700">
+                          {product.peso_medio_kg ? `${product.peso_medio_kg.toFixed(3)} kg` : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-700">
+                          {product.vendaMedia ? `${product.vendaMedia.toFixed(3)} kg/dia` : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-700">
+                          {product.vendaMediaUnd ? `${product.vendaMediaUnd.toFixed(1)} und/dia` : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-700">
+                          {product.custo ? `R$ ${product.custo.toFixed(2)}` : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-700">
+                          {product.precoVenda ? `R$ ${product.precoVenda.toFixed(2)}` : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-700">
+                          {product.margemRef ? `${product.margemRef.toFixed(1)}%` : '-'}
+                        </td>
+                        <td className={`px-4 py-3 text-sm text-right font-semibold ${
+                          product.margemReal && product.margemRef
+                            ? product.margemReal >= product.margemRef
+                              ? 'text-green-600 bg-green-50'
+                              : 'text-red-600 bg-red-50'
+                            : 'text-gray-700'
+                        }`}>
+                          {product.margemReal ? `${product.margemReal.toFixed(1)}%` : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleEditItem(product); }}
+                            className="px-3 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 text-sm"
+                          >
+                            Conferir
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Lista de Itens Conferidos - Usa dados salvos no banco */}
+        {todayAudit && todayAudit.items && todayAudit.items.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="bg-green-50 px-4 py-3 border-b border-green-200 flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-green-800">
+                ✅ Itens Conferidos ({todayAudit.items.length})
+              </h2>
+              {todayAudit.items.length > 0 && (
+                <button
+                  onClick={handleSendWhatsApp}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+                >
+                  💾 Salvar Auditoria
+                </button>
+              )}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Produto</th>
+                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Últ. Venda</th>
+                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Dias S/Venda</th>
+                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Peso Médio</th>
+                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Venda Média</th>
+                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estoque</th>
+                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Dias Prod.</th>
+                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase bg-green-50">Sugestão (kg)</th>
+                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase bg-blue-50">Sugestão (und)</th>
+                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {todayAudit.items
+                    .sort((a, b) => a.product_name.localeCompare(b.product_name))
+                    .map((item) => {
+                      // Buscar produto na lista de produtos ERP para poder editar
+                      const productFromERP = allProducts.find(p => p.codigo === item.product_code);
+                      const diasSemVenda = item.days_without_sale ?? calcularDiasSemVenda(item.last_sale_date);
 
                       return (
-                        <tr key={audit.id} className="hover:bg-gray-50 transition">
-                          <td className="px-6 py-4 text-base text-gray-900 font-medium">
-                            {new Date(audit.audit_date).toLocaleDateString('pt-BR')}
+                        <tr
+                          key={item.product_code}
+                          className="bg-green-50 hover:bg-green-100 cursor-pointer"
+                          onClick={() => productFromERP && handleEditItem(productFromERP)}
+                        >
+                          <td className="px-3 py-3 text-sm text-gray-600">{item.product_code}</td>
+                          <td className="px-3 py-3">
+                            <p className="font-medium text-gray-900 text-sm">{item.product_name}</p>
                           </td>
-                          <td className="px-6 py-4 text-base text-gray-900">
-                            {audit.user?.name || audit.user?.username || 'N/A'}
+                          <td className="px-3 py-3 text-sm text-center text-gray-700">
+                            {formatarData(item.last_sale_date)}
                           </td>
-                          <td className="px-6 py-4 text-base text-gray-900">
-                            <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-md text-sm font-medium">
-                              {audit.whatsapp_group_name || 'Não enviado'}
-                            </span>
+                          <td className={`px-3 py-3 text-sm text-center font-semibold ${
+                            diasSemVenda === null ? 'text-gray-400' :
+                            diasSemVenda <= 1 ? 'text-green-600' :
+                            diasSemVenda <= 3 ? 'text-yellow-600' : 'text-red-600'
+                          }`}>
+                            {diasSemVenda ?? '-'}
                           </td>
-                          <td className="px-6 py-4 text-base text-center text-gray-900 font-semibold">
-                            {totalProducts}
+                          <td className="px-3 py-3 text-sm text-right text-gray-700">
+                            {item.unit_weight_kg ? `${parseFloat(item.unit_weight_kg).toFixed(3)} kg` : '-'}
                           </td>
-                          <td className="px-6 py-4 text-base text-center">
-                            <span className="px-3 py-1.5 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
-                              {withSuggestion}
-                            </span>
+                          <td className="px-3 py-3 text-sm text-right text-gray-700">
+                            {item.avg_sales_kg ? `${parseFloat(item.avg_sales_kg).toFixed(3)} kg/dia` : '-'}
                           </td>
-                          <td className="px-6 py-4 text-base text-center">
-                            <span className="px-3 py-1.5 bg-gray-100 text-gray-800 rounded-full text-sm font-semibold">
-                              {withoutSuggestion}
-                            </span>
+                          <td className="px-3 py-3 text-sm text-center font-medium">{item.quantity_units} und</td>
+                          <td className="px-3 py-3 text-sm text-center">{item.production_days || 1}</td>
+                          <td className="px-3 py-3 text-sm text-center font-semibold text-green-700 bg-green-50">
+                            {parseFloat(item.suggested_production_kg || 0).toFixed(3)}
                           </td>
-                          <td className="px-6 py-4 text-base text-center">
-                            <div className="flex gap-2 justify-center">
+                          <td className="px-3 py-3 text-sm text-center font-semibold text-blue-700 bg-blue-50">
+                            {item.suggested_production_units || 0}
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            <div className="flex justify-center gap-2">
+                              {productFromERP && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleEditItem(productFromERP); }}
+                                  className="text-blue-600 hover:text-blue-800 text-sm"
+                                  title="Editar"
+                                >
+                                  ✏️
+                                </button>
+                              )}
                               <button
-                                onClick={() => handleResendWhatsApp(audit.id)}
-                                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md text-sm font-semibold shadow-sm hover:shadow transition"
-                                title="Reenviar para WhatsApp"
+                                onClick={(e) => { e.stopPropagation(); handleUncheckItem({ codigo: item.product_code }); }}
+                                className="text-yellow-600 hover:text-yellow-800 text-sm"
+                                title="Remover"
                               >
-                                📱 Reenviar
-                              </button>
-                              <button
-                                onClick={() => handleDeleteAudit(audit.id)}
-                                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md text-sm font-semibold shadow-sm hover:shadow transition"
-                                title="Excluir auditoria"
-                              >
-                                🗑️ Excluir
+                                ↩️
                               </button>
                             </div>
                           </td>
@@ -658,6 +1012,19 @@ export default function ProducaoSugestao() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* Mensagem quando não há itens */}
+        {loading && (
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+            <p className="text-gray-500">Carregando produtos...</p>
+          </div>
+        )}
+
+        {!loading && products.length === 0 && (
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+            <p className="text-gray-500">Nenhum produto encontrado para esta seção/tipo</p>
           </div>
         )}
       </div>

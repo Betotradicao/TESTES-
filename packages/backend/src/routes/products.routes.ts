@@ -1,8 +1,26 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { ProductsController } from '../controllers/products.controller';
 import { authenticateToken } from '../middleware/auth';
 
 const router: Router = Router();
+
+// Configurar multer para upload de imagens
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10 MB máximo
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Apenas arquivos de imagem são permitidos'));
+    }
+  }
+});
 
 /**
  * @swagger
@@ -122,78 +140,6 @@ router.get('/', authenticateToken, ProductsController.getProducts);
 
 /**
  * @swagger
- * /api/products/{id}/activate:
- *   put:
- *     summary: Activate or deactivate a product for monitoring
- *     tags: [Products]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: The ERP product ID (codigo)
- *         example: "00012874"
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/ActivateProductRequest'
- *     responses:
- *       200:
- *         description: Product activation status updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ActivateProductResponse'
- *       400:
- *         description: Bad request - Invalid parameters
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Active field must be a boolean"
- *       401:
- *         description: Unauthorized - Missing or invalid token
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Access token required"
- *       404:
- *         description: Product not found in ERP
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Product not found in ERP"
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Internal server error"
- */
-router.put('/:id/activate', authenticateToken, ProductsController.activateProduct);
-
-/**
- * @swagger
  * /api/products/bulk-activate:
  *   put:
  *     summary: Bulk activate or deactivate multiple products
@@ -269,10 +215,87 @@ router.put('/:id/activate', authenticateToken, ProductsController.activateProduc
  *       500:
  *         description: Internal server error
  */
+// IMPORTANTE: Rotas específicas DEVEM vir ANTES de rotas com parâmetros (:id)
+// Caso contrário, "bulk-activate" seria interpretado como valor do parâmetro :id
 router.put('/bulk-activate', authenticateToken, ProductsController.bulkActivateProducts);
 
+/**
+ * @swagger
+ * /api/products/{id}/activate:
+ *   put:
+ *     summary: Activate or deactivate a product for monitoring
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ERP product ID (codigo)
+ *         example: "00012874"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ActivateProductRequest'
+ *     responses:
+ *       200:
+ *         description: Product activation status updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ActivateProductResponse'
+ *       400:
+ *         description: Bad request - Invalid parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Active field must be a boolean"
+ *       401:
+ *         description: Unauthorized - Missing or invalid token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Access token required"
+ *       404:
+ *         description: Product not found in ERP
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Product not found in ERP"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
+router.put('/:id/activate', authenticateToken, ProductsController.activateProduct);
+
 // Upload de foto com análise automática por IA
-router.post('/:id/upload-photo', authenticateToken, ProductsController.uploadAndAnalyzePhoto);
+router.post('/:id/upload-photo', authenticateToken, upload.single('photo'), ProductsController.uploadAndAnalyzePhoto);
+
+// Excluir foto do produto
+router.delete('/:id/photo', authenticateToken, ProductsController.deletePhoto);
 
 // Capturar foto da câmera do DVR e analisar com YOLO
 router.post('/:id/capture-from-camera', authenticateToken, ProductsController.captureFromCamera);

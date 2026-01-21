@@ -34,6 +34,12 @@ export class ProductionAuditItem {
   @Column({ type: 'decimal', precision: 10, scale: 3, nullable: true })
   avg_sales_kg: number | null; // Média de venda diária (em kg)
 
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  last_sale_date: string | null; // Data da última venda (formato YYYYMMDD)
+
+  @Column({ type: 'integer', nullable: true })
+  days_without_sale: number | null; // Dias sem venda
+
   @Column({ type: 'decimal', precision: 10, scale: 3, nullable: true })
   suggested_production_kg: number | null; // Sugestão calculada
 

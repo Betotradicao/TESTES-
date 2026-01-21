@@ -23,6 +23,33 @@ export class ProductionPDFService {
   }
 
   /**
+   * Formata data de YYYYMMDD para DD/MM/YYYY
+   */
+  private static formatDate(dateStr: string | null): string {
+    if (!dateStr || dateStr.length !== 8) return '-';
+    const year = dateStr.substring(0, 4);
+    const month = dateStr.substring(4, 6);
+    const day = dateStr.substring(6, 8);
+    return `${day}/${month}/${year}`;
+  }
+
+  /**
+   * Calcula dias sem venda a partir da data YYYYMMDD
+   */
+  private static calculateDaysWithoutSale(dateStr: string | null): number {
+    if (!dateStr || dateStr.length !== 8) return 999;
+    const year = parseInt(dateStr.substring(0, 4));
+    const month = parseInt(dateStr.substring(4, 6)) - 1;
+    const day = parseInt(dateStr.substring(6, 8));
+    const lastSaleDate = new Date(year, month, day);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffTime = today.getTime() - lastSaleDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 ? diffDays : 0;
+  }
+
+  /**
    * Gera PDF da sugestão de produção
    * Retorna o caminho do arquivo PDF gerado
    */
@@ -97,16 +124,22 @@ export class ProductionPDFService {
           a.product_name.localeCompare(b.product_name)
         );
 
-        // Desenhar cabeçalho da tabela
-        this.drawTableHeader(doc, [
+        // Larguras customizadas das colunas (em pontos)
+        // Total disponível: 515 (A4 width 595 - margens 80)
+        const columnWidths = [55, 180, 45, 50, 50, 45, 45, 45]; // Total: 515
+        const columnHeaders = [
           'Código',
           'Produto',
-          'Estoque (kg)',
-          'Estoque (und)',
-          'Dias',
-          'Produzir (kg)',
-          'Produzir (und)'
-        ]);
+          'Dias S/V',
+          'Peso Méd',
+          'Venda Méd',
+          'Estoque',
+          'Sug.(kg)',
+          'Sug.(und)'
+        ];
+
+        // Desenhar cabeçalho da tabela
+        this.drawTableHeaderCustom(doc, columnHeaders, columnWidths);
 
         // Desenhar linhas da tabela
         sortedItems.forEach((item, index) => {
@@ -117,16 +150,18 @@ export class ProductionPDFService {
 
           const suggestedKg = this.toNumber(item.suggested_production_kg);
           const suggestedUnits = item.suggested_production_units || 0;
+          const daysWithoutSale = item.days_without_sale ?? this.calculateDaysWithoutSale(item.last_sale_date);
 
-          this.drawTableRow(doc, [
+          this.drawTableRowCustom(doc, [
             item.product_code || '',
-            this.truncate(item.product_name, 30),
-            this.formatKg(item.quantity_kg),
+            item.product_name, // Nome completo do produto
+            daysWithoutSale.toString(),
+            this.formatKg(item.unit_weight_kg),
+            this.formatKg(item.avg_sales_kg),
             item.quantity_units.toString(),
-            item.production_days.toString(),
             this.formatKg(item.suggested_production_kg),
             suggestedUnits > 0 ? suggestedUnits.toString() : '-'
-          ], index % 2 === 0, suggestedKg > 0);
+          ], columnWidths, index % 2 === 0, suggestedKg > 0);
         });
 
         // Rodapé
@@ -165,11 +200,10 @@ export class ProductionPDFService {
   }
 
   /**
-   * Desenha cabeçalho da tabela com fundo laranja
+   * Desenha cabeçalho da tabela com larguras customizadas
    */
-  private static drawTableHeader(doc: PDFKit.PDFDocument, columns: string[]) {
+  private static drawTableHeaderCustom(doc: PDFKit.PDFDocument, columns: string[], widths: number[]) {
     const startY = doc.y;
-    const colWidth = (doc.page.width - 80) / columns.length;
     const rowHeight = 20;
 
     // Fundo laranja para o cabeçalho
@@ -179,13 +213,15 @@ export class ProductionPDFService {
     // Texto branco em negrito
     doc.fontSize(9).font('Helvetica-Bold').fillColor('white');
 
+    let xPos = 40;
     columns.forEach((col, idx) => {
       doc.text(
         col,
-        40 + idx * colWidth,
+        xPos,
         startY + 5,
-        { width: colWidth - 5, align: 'left', lineBreak: false }
+        { width: widths[idx] - 5, align: 'left', lineBreak: false }
       );
+      xPos += widths[idx];
     });
 
     doc.fillColor('black');
@@ -193,16 +229,16 @@ export class ProductionPDFService {
   }
 
   /**
-   * Desenha linha da tabela com zebra (alternando cores)
+   * Desenha linha da tabela com larguras customizadas
    */
-  private static drawTableRow(
+  private static drawTableRowCustom(
     doc: PDFKit.PDFDocument,
     columns: string[],
+    widths: number[],
     isEven: boolean,
     highlightRed: boolean = false
   ) {
     const startY = doc.y;
-    const colWidth = (doc.page.width - 80) / columns.length;
     const rowHeight = 22;
 
     // Fundo zebrado - cinza claro para linhas pares, branco para ímpares
@@ -213,9 +249,10 @@ export class ProductionPDFService {
     // Texto preto (ou vermelho para valores com produção sugerida)
     doc.fontSize(8).font('Helvetica');
 
+    let xPos = 40;
     columns.forEach((col, idx) => {
-      // Destacar em vermelho as últimas duas colunas (Produzir kg/und) se highlightRed
-      if (highlightRed && idx >= 5) {
+      // Destacar em vermelho as últimas duas colunas (Sugestão kg/und) se highlightRed
+      if (highlightRed && idx >= 6) {
         doc.fillColor('#DC2626').font('Helvetica-Bold');
       } else {
         doc.fillColor('black').font('Helvetica');
@@ -223,10 +260,11 @@ export class ProductionPDFService {
 
       doc.text(
         col,
-        40 + idx * colWidth + 3,
+        xPos + 3,
         startY + 5,
-        { width: colWidth - 8, align: 'left', lineBreak: false, ellipsis: true }
+        { width: widths[idx] - 8, align: 'left', lineBreak: false, ellipsis: true }
       );
+      xPos += widths[idx];
     });
 
     doc.fillColor('black').font('Helvetica');

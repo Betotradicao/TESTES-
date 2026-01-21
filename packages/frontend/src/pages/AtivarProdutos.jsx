@@ -26,6 +26,10 @@ export default function AtivarProdutos() {
   const [selectAll, setSelectAll] = useState(false);
   const [bulkUpdating, setBulkUpdating] = useState(false);
 
+  // Estados para upload de foto
+  const [uploadingPhoto, setUploadingPhoto] = useState(null);
+  const [photoModalProduct, setPhotoModalProduct] = useState(null);
+
   // Estado para ordenação
   const [sort, setSort] = useState({ field: '', direction: 'asc' });
 
@@ -203,49 +207,6 @@ export default function AtivarProdutos() {
     setSelectAll(false);
   };
 
-  const handleCaptureFromCamera = async (productCode) => {
-    try {
-      setUpdating(prev => ({ ...prev, [productCode]: true }));
-      setError('');
-
-      console.log(`📸 Capturando foto da câmera para produto ${productCode}...`);
-
-      // Chamar API para capturar foto da câmera 15 (balança)
-      const response = await api.post(`/products/${productCode}/capture-from-camera`, {
-        cameraId: 15
-      });
-
-      console.log('✅ Foto capturada e analisada:', response.data);
-
-      // Atualizar produto localmente com os dados da análise
-      setProducts(products.map(product =>
-        product.codigo === productCode
-          ? {
-              ...product,
-              foto_referencia: response.data.foto_url,
-              coloracao: response.data.analysis.coloracao,
-              formato: response.data.analysis.formato,
-              gordura_visivel: response.data.analysis.gordura_visivel,
-              presenca_osso: response.data.analysis.presenca_osso
-            }
-          : product
-      ));
-
-      setSuccess(`Foto capturada e analisada! Confiança: ${response.data.analysis.confianca}%`);
-
-    } catch (err) {
-      console.error('Erro ao capturar foto:', err);
-      if (err.response?.status === 401) {
-        logout();
-      } else {
-        const errorMsg = err.response?.data?.error || 'Erro ao capturar foto da câmera. Verifique se o DVR está configurado.';
-        setError(errorMsg);
-      }
-    } finally {
-      setUpdating(prev => ({ ...prev, [productCode]: false }));
-    }
-  };
-
   const handleBulkActivate = async (activate) => {
     if (selectedProducts.size === 0) return;
 
@@ -287,6 +248,69 @@ export default function AtivarProdutos() {
       }
     } finally {
       setBulkUpdating(false);
+    }
+  };
+
+  // Função para fazer upload de foto
+  const handlePhotoUpload = async (productId, file) => {
+    if (!file) return;
+
+    try {
+      setUploadingPhoto(productId);
+      setError('');
+
+      const formData = new FormData();
+      formData.append('photo', file);
+
+      const response = await api.post(`/products/${productId}/upload-photo`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // Atualizar produto localmente com a nova URL da foto
+      const newFotoUrl = response.data.foto_url || response.data.foto_referencia;
+      setProducts(prevProducts =>
+        prevProducts.map(p =>
+          p.codigo === productId ? { ...p, foto_referencia: newFotoUrl } : p
+        )
+      );
+
+      // Atualizar também o modal se ainda estiver aberto
+      setPhotoModalProduct(prev => prev ? { ...prev, foto_referencia: newFotoUrl } : null);
+      setSuccess('Foto enviada com sucesso!');
+    } catch (err) {
+      console.error('Erro ao enviar foto:', err);
+      setError('Erro ao enviar foto. Tente novamente.');
+    } finally {
+      setUploadingPhoto(null);
+    }
+  };
+
+  // Função para excluir foto
+  const handleDeletePhoto = async (productId) => {
+    if (!confirm('Tem certeza que deseja excluir esta foto?')) return;
+
+    try {
+      setUploadingPhoto(productId);
+      setError('');
+
+      await api.delete(`/products/${productId}/photo`);
+
+      // Atualizar produto localmente removendo a foto
+      setProducts(prevProducts =>
+        prevProducts.map(p =>
+          p.codigo === productId ? { ...p, foto_referencia: null } : p
+        )
+      );
+
+      setSuccess('Foto excluída com sucesso!');
+      setPhotoModalProduct(null);
+    } catch (err) {
+      console.error('Erro ao excluir foto:', err);
+      setError('Erro ao excluir foto. Tente novamente.');
+    } finally {
+      setUploadingPhoto(null);
     }
   };
 
@@ -772,6 +796,9 @@ export default function AtivarProdutos() {
                             />
                           </div>
                         </th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Foto
+                        </th>
                         <SortableHeader field="codigo">
                           Código
                         </SortableHeader>
@@ -781,23 +808,11 @@ export default function AtivarProdutos() {
                         <SortableHeader field="descricao">
                           Descrição
                         </SortableHeader>
-                        <SortableHeader field="valvenda">
-                          Preço
-                        </SortableHeader>
-                        <SortableHeader field="vendaMedia">
-                          Venda Média/Dia
-                        </SortableHeader>
-                        <SortableHeader field="diasCobertura">
-                          Dias Cobertura
-                        </SortableHeader>
                         <SortableHeader field="tipoEspecie">
                           Tipo Espécie
                         </SortableHeader>
                         <SortableHeader field="tipoEvento">
                           Tipo Evento
-                        </SortableHeader>
-                        <SortableHeader field="dtaUltMovVenda">
-                          Última Venda
                         </SortableHeader>
                         <SortableHeader field="pesavel">
                           Pesável
@@ -831,6 +846,27 @@ export default function AtivarProdutos() {
                             </div>
                           </td>
 
+                          {/* Foto */}
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            {product.foto_referencia ? (
+                              <img
+                                src={product.foto_referencia}
+                                alt={product.descricao}
+                                className="w-12 h-12 object-cover rounded-lg border border-gray-200 mx-auto cursor-pointer hover:scale-110 hover:border-orange-400 transition-all"
+                                onClick={() => setPhotoModalProduct(product)}
+                              />
+                            ) : (
+                              <div
+                                className="w-12 h-12 bg-gray-100 rounded-lg border border-gray-200 border-dashed flex items-center justify-center mx-auto cursor-pointer hover:bg-orange-50 hover:border-orange-400 transition-all"
+                                onClick={() => setPhotoModalProduct(product)}
+                              >
+                                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                              </div>
+                            )}
+                          </td>
+
                           {/* Código */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {product.codigo}
@@ -846,21 +882,6 @@ export default function AtivarProdutos() {
                             {product.descricao}
                           </td>
 
-                          {/* Preço */}
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {product.valvenda ? `R$ ${product.valvenda.toFixed(2).replace('.', ',')}` : '-'}
-                          </td>
-
-                          {/* Venda Média Diária */}
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {product.vendaMedia ? product.vendaMedia.toFixed(2) : '-'}
-                          </td>
-
-                          {/* Dias de Cobertura */}
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {product.diasCobertura || 0} dias
-                          </td>
-
                           {/* Tipo Espécie */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                             {product.tipoEspecie || '-'}
@@ -869,11 +890,6 @@ export default function AtivarProdutos() {
                           {/* Tipo Evento */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                             {product.tipoEvento || '-'}
-                          </td>
-
-                          {/* Data Última Venda */}
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                            {product.dtaUltMovVenda ? new Date(product.dtaUltMovVenda.substring(0, 8).replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')).toLocaleDateString('pt-BR') : '-'}
                           </td>
 
                           {/* Pesável */}
@@ -960,6 +976,26 @@ export default function AtivarProdutos() {
                             onChange={() => handleSelectProduct(product.codigo)}
                             className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
                           />
+                          {/* Foto do Produto */}
+                          <div className="flex-shrink-0">
+                            {product.foto_referencia ? (
+                              <img
+                                src={product.foto_referencia}
+                                alt={product.descricao}
+                                className="w-14 h-14 object-cover rounded-lg border border-gray-200 cursor-pointer hover:scale-110 hover:border-orange-400 transition-all"
+                                onClick={() => setPhotoModalProduct(product)}
+                              />
+                            ) : (
+                              <div
+                                className="w-14 h-14 bg-gray-100 rounded-lg border border-gray-200 border-dashed flex items-center justify-center cursor-pointer hover:bg-orange-50 hover:border-orange-400 transition-all"
+                                onClick={() => setPhotoModalProduct(product)}
+                              >
+                                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
                           <div className="flex-1">
                             <div className="text-sm font-medium text-gray-900">
                               {product.codigo}
@@ -970,20 +1006,7 @@ export default function AtivarProdutos() {
                             <div className="text-sm text-gray-600 mt-1">
                               {product.descricao}
                             </div>
-                            {product.valvenda && (
-                              <div className="text-sm font-medium text-gray-900 mt-1">
-                                R$ {product.valvenda.toFixed(2).replace('.', ',')}
-                              </div>
-                            )}
                             <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
-                              <div>
-                                <span className="text-gray-500">Venda Média/Dia:</span>
-                                <span className="ml-1 font-medium">{product.vendaMedia ? product.vendaMedia.toFixed(2) : '-'}</span>
-                              </div>
-                              <div>
-                                <span className="text-gray-500">Cobertura:</span>
-                                <span className="ml-1 font-medium">{product.diasCobertura || 0}d</span>
-                              </div>
                               <div>
                                 <span className="text-gray-500">Tipo:</span>
                                 <span className="ml-1 font-medium">{product.tipoEspecie || '-'}</span>
@@ -991,12 +1014,6 @@ export default function AtivarProdutos() {
                               <div>
                                 <span className="text-gray-500">Evento:</span>
                                 <span className="ml-1 font-medium">{product.tipoEvento || '-'}</span>
-                              </div>
-                              <div className="col-span-2">
-                                <span className="text-gray-500">Última Venda:</span>
-                                <span className="ml-1 font-medium">
-                                  {product.dtaUltMovVenda ? new Date(product.dtaUltMovVenda.substring(0, 8).replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')).toLocaleDateString('pt-BR') : '-'}
-                                </span>
                               </div>
                               <div>
                                 <span className="text-gray-500">Pesável:</span>
@@ -1186,6 +1203,157 @@ export default function AtivarProdutos() {
           </div>
         </main>
       </div>
+
+      {/* Modal de Foto */}
+      {photoModalProduct && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+            {/* Header do Modal */}
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {photoModalProduct.foto_referencia ? 'Foto do Produto' : 'Adicionar Foto'}
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {photoModalProduct.codigo} - {photoModalProduct.descricao}
+                </p>
+              </div>
+              <button
+                onClick={() => setPhotoModalProduct(null)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Conteúdo do Modal */}
+            <div className="p-6">
+              {photoModalProduct.foto_referencia ? (
+                /* Quando há foto - Exibir foto expandida */
+                <div className="space-y-4">
+                  <div className="flex justify-center">
+                    <img
+                      src={photoModalProduct.foto_referencia}
+                      alt={photoModalProduct.descricao}
+                      className="max-w-full max-h-[50vh] object-contain rounded-lg border border-gray-200"
+                    />
+                  </div>
+                  <div className="flex justify-center gap-3">
+                    <button
+                      onClick={() => handleDeletePhoto(photoModalProduct.codigo)}
+                      disabled={uploadingPhoto === photoModalProduct.codigo}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                    >
+                      {uploadingPhoto === photoModalProduct.codigo ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Excluindo...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Excluir Foto
+                        </>
+                      )}
+                    </button>
+                    <label className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 cursor-pointer transition-colors flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      Substituir Foto
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files?.[0]) {
+                            handlePhotoUpload(photoModalProduct.codigo, e.target.files[0]);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              ) : (
+                /* Quando não há foto - Exibir opções de upload */
+                <div className="space-y-4">
+                  {uploadingPhoto === photoModalProduct.codigo ? (
+                    /* Loading state */
+                    <div className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-orange-300 rounded-lg bg-orange-50">
+                      <svg className="animate-spin h-12 w-12 text-orange-500 mb-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <p className="text-sm text-gray-600">Enviando foto...</p>
+                    </div>
+                  ) : (
+                    /* Opções de captura */
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Opção de Tirar Foto (Câmera) - Mais visível no mobile */}
+                      <label className="flex flex-col items-center justify-center h-48 border-2 border-dashed border-orange-300 rounded-lg cursor-pointer hover:border-orange-500 hover:bg-orange-50 transition-all bg-orange-50/50">
+                        <svg className="w-12 h-12 text-orange-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <p className="text-sm font-semibold text-orange-600">Tirar Foto</p>
+                        <p className="text-xs text-gray-500 mt-1">Usar a câmera</p>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files?.[0]) {
+                              handlePhotoUpload(photoModalProduct.codigo, e.target.files[0]);
+                            }
+                          }}
+                        />
+                      </label>
+
+                      {/* Opção de Selecionar da Galeria */}
+                      <label className="flex flex-col items-center justify-center h-48 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-orange-400 hover:bg-gray-50 transition-all">
+                        <svg className="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <p className="text-sm font-semibold text-gray-600">Galeria</p>
+                        <p className="text-xs text-gray-500 mt-1">Selecionar arquivo</p>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files?.[0]) {
+                              handlePhotoUpload(photoModalProduct.codigo, e.target.files[0]);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500 text-center">PNG, JPG ou JPEG (máx. 5MB)</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer do Modal */}
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setPhotoModalProduct(null)}
+                className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

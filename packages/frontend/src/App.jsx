@@ -27,6 +27,7 @@ import EtiquetaResultadosAuditorias from './pages/EtiquetaResultadosAuditorias';
 import PerdasLancador from './pages/PerdasLancador';
 import PerdasResultados from './pages/PerdasResultados';
 import ControlePDV from './pages/ControlePDV';
+import ProducaoLancador from './pages/ProducaoLancador';
 import ProducaoSugestao from './pages/ProducaoSugestao';
 import ProducaoResultados from './pages/ProducaoResultados';
 import EstoqueSaude from './pages/EstoqueSaude';
@@ -217,7 +218,15 @@ function App() {
               }
             />
             <Route
-              path="/producao/sugestao"
+              path="/producao-lancador"
+              element={
+                <ProtectedRoute>
+                  <ProducaoLancador />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/producao-sugestao"
               element={
                 <ProtectedRoute>
                   <ProducaoSugestao />
