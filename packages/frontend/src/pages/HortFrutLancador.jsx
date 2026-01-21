@@ -818,7 +818,7 @@ export default function HortFrutLancador() {
                     <div className="flex items-center gap-2">
                       {getStatusBadge(conf.status)}
                       <span className="text-sm text-gray-500">
-                        {new Date(conf.createdAt).toLocaleDateString('pt-BR')}
+                        {formatConferenceDate(conf.createdAt)}
                       </span>
                     </div>
                   </div>

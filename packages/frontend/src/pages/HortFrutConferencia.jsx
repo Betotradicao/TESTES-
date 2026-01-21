@@ -454,7 +454,7 @@ export default function HortFrutConferencia() {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h1 className="text-2xl lg:text-3xl font-bold mb-2">
-                🥬 Conferência {new Date(conference.conferenceDate).toLocaleDateString('pt-BR')}
+                🥬 Conferência {conference.conferenceDate ? conference.conferenceDate.split('T')[0].split('-').reverse().join('/') : ''}
               </h1>
               <p className="text-white/90">
                 {conference.supplierName || 'Sem fornecedor'}
