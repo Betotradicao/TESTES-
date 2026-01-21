@@ -101,7 +101,7 @@ export class ProductionAuditController {
 
       let erpApiUrl: string;
       if (isProduction) {
-        // VPS: usar localhost (túnel SSH expõe a porta 3003 localmente)
+        // VPS: usar localhost onde o túnel SSH reverso expõe a porta 3003
         const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
         erpApiUrl = `http://127.0.0.1:3003${productsEndpoint}`;
         console.log('🔗 Produção: usando túnel SSH em', erpApiUrl);
