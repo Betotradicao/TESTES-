@@ -68,6 +68,13 @@ router.get(
   RuptureSurveyController.getFornecedores
 );
 
+// Excluir rupturas por código do produto (apenas admin/master)
+router.delete(
+  '/by-product/:codigo',
+  authenticateToken,
+  RuptureSurveyController.deleteByProductCode
+);
+
 router.get(
   '/:id',
   authenticateToken,

@@ -874,4 +874,40 @@ export class RuptureSurveyService {
       }
     });
   }
+
+  /**
+   * Excluir itens de ruptura por código do produto em um período
+   */
+  static async deleteByProductCode(
+    codigo: string,
+    dataInicio: string,
+    dataFim: string
+  ): Promise<number> {
+    const itemRepository = AppDataSource.getRepository(RuptureSurveyItem);
+    const surveyRepository = AppDataSource.getRepository(RuptureSurvey);
+
+    // Buscar surveys no período
+    const surveys = await surveyRepository
+      .createQueryBuilder('survey')
+      .where('DATE(survey.data_pesquisa) >= :dataInicio', { dataInicio })
+      .andWhere('DATE(survey.data_pesquisa) <= :dataFim', { dataFim })
+      .getMany();
+
+    if (surveys.length === 0) {
+      return 0;
+    }
+
+    const surveyIds = surveys.map(s => s.id);
+
+    // Buscar e excluir itens com o código do produto nas surveys do período
+    const result = await itemRepository
+      .createQueryBuilder()
+      .delete()
+      .from(RuptureSurveyItem)
+      .where('survey_id IN (:...surveyIds)', { surveyIds })
+      .andWhere('codigo = :codigo', { codigo })
+      .execute();
+
+    return result.affected || 0;
+  }
 }

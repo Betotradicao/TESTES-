@@ -4,9 +4,14 @@ import Layout from '../components/Layout';
 import api from '../services/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function RupturaResultadosAuditorias() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Verificar se usuário pode excluir (admin ou master)
+  const canDelete = user?.role === 'admin' || user?.isMaster;
 
   // Filtros
   const [dataInicio, setDataInicio] = useState('');
@@ -31,17 +36,17 @@ export default function RupturaResultadosAuditorias() {
   const [resultados, setResultados] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [deletingProduct, setDeletingProduct] = useState(null); // código do produto sendo excluído
 
   useEffect(() => {
     loadFilterOptions();
 
-    // Definir período padrão: últimos 30 dias
+    // Definir período padrão: dia 1 do mês atual até hoje
     const hoje = new Date();
-    const trintaDiasAtras = new Date();
-    trintaDiasAtras.setDate(hoje.getDate() - 30);
+    const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
 
     setDataFim(hoje.toISOString().split('T')[0]);
-    setDataInicio(trintaDiasAtras.toISOString().split('T')[0]);
+    setDataInicio(primeiroDiaMes.toISOString().split('T')[0]);
   }, []);
 
   const loadFilterOptions = async () => {
@@ -134,6 +139,36 @@ export default function RupturaResultadosAuditorias() {
       // Nova coluna, começa com ascendente
       setSortColumn(column);
       setSortDirection('asc');
+    }
+  };
+
+  // Função para excluir ruptura por código do produto
+  const handleDeleteRuptura = async (codigo, descricao) => {
+    if (!canDelete) {
+      alert('Você não tem permissão para excluir rupturas.');
+      return;
+    }
+
+    const confirmMessage = `Tem certeza que deseja excluir todas as rupturas do produto:\n\n"${descricao}"\n\nNo período de ${dataInicio} a ${dataFim}?\n\nEsta ação não pode ser desfeita.`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setDeletingProduct(codigo);
+    try {
+      const response = await api.delete(`/rupture-surveys/by-product/${codigo}?data_inicio=${dataInicio}&data_fim=${dataFim}`);
+
+      if (response.data.success) {
+        alert(`${response.data.deletedCount} registro(s) excluído(s) com sucesso!`);
+        // Recarregar dados para atualizar totais
+        handleFiltrar();
+      }
+    } catch (err) {
+      console.error('Erro ao excluir ruptura:', err);
+      alert(err.response?.data?.error || 'Erro ao excluir ruptura');
+    } finally {
+      setDeletingProduct(null);
     }
   };
 
@@ -641,6 +676,11 @@ export default function RupturaResultadosAuditorias() {
                               )}
                             </div>
                           </th>
+                          {canDelete && (
+                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                              Ação
+                            </th>
+                          )}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
@@ -700,6 +740,31 @@ export default function RupturaResultadosAuditorias() {
                                 R$ {Number(item.perda_total || 0).toFixed(2)}
                               </span>
                             </td>
+                            {canDelete && (
+                              <td className="px-3 py-2 text-center">
+                                <button
+                                  onClick={() => handleDeleteRuptura(item.codigo, item.descricao)}
+                                  disabled={deletingProduct === item.codigo}
+                                  className={`p-1.5 rounded transition-colors ${
+                                    deletingProduct === item.codigo
+                                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                      : 'bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700'
+                                  }`}
+                                  title="Excluir ruptura"
+                                >
+                                  {deletingProduct === item.codigo ? (
+                                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                  )}
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>

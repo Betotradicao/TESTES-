@@ -202,6 +202,50 @@ export class RuptureSurveyController {
   }
 
   /**
+   * Excluir itens de ruptura por código do produto em um período
+   * Apenas admin e master podem excluir
+   */
+  static async deleteByProductCode(req: AuthRequest, res: Response) {
+    try {
+      const { codigo } = req.params;
+      const { data_inicio, data_fim } = req.query;
+
+      // Verificar permissão (apenas admin e master)
+      const userRole = req.user?.role;
+      const isMaster = req.user?.isMaster;
+
+      if (userRole !== 'admin' && !isMaster) {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem excluir rupturas.' });
+      }
+
+      if (!codigo) {
+        return res.status(400).json({ error: 'Código do produto é obrigatório' });
+      }
+
+      if (!data_inicio || !data_fim) {
+        return res.status(400).json({ error: 'Período (data_inicio e data_fim) é obrigatório' });
+      }
+
+      const deletedCount = await RuptureSurveyService.deleteByProductCode(
+        codigo,
+        data_inicio as string,
+        data_fim as string
+      );
+
+      console.log(`🗑️ Excluídos ${deletedCount} itens de ruptura do produto ${codigo}`);
+
+      res.json({
+        success: true,
+        message: `${deletedCount} registro(s) de ruptura excluído(s) com sucesso`,
+        deletedCount
+      });
+    } catch (error: any) {
+      console.error('❌ Erro ao excluir rupturas por código:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
    * Finalizar auditoria e enviar relatório para WhatsApp
    */
   static async finalizeSurvey(req: AuthRequest, res: Response) {
