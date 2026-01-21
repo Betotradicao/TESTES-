@@ -18,7 +18,7 @@ Instalador automatizado para servidores Linux (VPS). Detecta automaticamente o I
 Cole este comando no terminal da sua VPS para instalar tudo automaticamente:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Betotradicao/roberto-prevencao-no-radar/TESTE/InstaladorVPS/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/Betotradicao/TESTES-/TESTE/InstaladorVPS/install.sh | bash
 ```
 
 **O que este comando faz:**
@@ -212,7 +212,7 @@ cd /root
 rm -rf prevencao-radar-install
 
 # Instalar novamente
-curl -sSL https://raw.githubusercontent.com/Betotradicao/roberto-prevencao-no-radar/TESTE/InstaladorVPS/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/Betotradicao/TESTES-/TESTE/InstaladorVPS/install.sh | bash
 ```
 
 ---
@@ -289,7 +289,7 @@ Necessario para Nginx e certificados SSL.
 
 ```bash
 cd /root
-git clone -b TESTE https://github.com/Betotradicao/roberto-prevencao-no-radar.git prevencao-radar-repo
+git clone -b TESTE https://github.com/Betotradicao/TESTES-.git prevencao-radar-repo
 ```
 
 ### Passo 2: Instalar um cliente
@@ -555,7 +555,7 @@ ufw allow 9100:9300/tcp   # MinIO
 
 ## SUPORTE
 
-- **Repositorio:** https://github.com/Betotradicao/roberto-prevencao-no-radar
+- **Repositorio:** https://github.com/Betotradicao/TESTES-
 - **Branch de producao:** TESTE
 
 ---
