@@ -493,5 +493,74 @@ ssh root@46.202.150.64 "docker exec prevencao-tradicao-postgres psql -U postgres
 
 ---
 
-**Última atualização:** 20/01/2026 - Adicionado documentação completa da VPS 46 (multi-tenant)
+## 🔗 CONEXÃO COM INTERSOLID - LOCAL vs VPS (ATENÇÃO!)
+
+### ⚠️ PROBLEMA: Código local funciona mas VPS não conecta no ERP
+
+**Contexto:**
+- **Local (Windows)**: Conecta diretamente no IP da máquina Intersolid (ex: `10.6.1.102:3003`)
+- **VPS (Docker)**: Conecta via túnel SSH reverso que expõe a porta no host
+
+**O problema:**
+- O container Docker na VPS está numa rede isolada
+- `127.0.0.1` dentro do container aponta para o próprio container, NÃO para o host
+- O túnel SSH escuta no host da VPS, não dentro do container
+
+### ✅ SOLUÇÃO CORRETA: Usar configuração do banco de dados
+
+**NUNCA faça isso no código:**
+```typescript
+// ❌ ERRADO - não funciona no container Docker
+if (isProduction) {
+  erpApiUrl = `http://127.0.0.1:3003/v1/produtos`;
+}
+```
+
+**SEMPRE faça assim:**
+```typescript
+// ✅ CORRETO - usa configuração do banco que já tem o IP certo
+if (process.env.ERP_PRODUCTS_API_URL) {
+  // Desenvolvimento local: usa .env
+  erpApiUrl = process.env.ERP_PRODUCTS_API_URL;
+} else {
+  // Produção (VPS): busca do banco de dados
+  const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
+  const port = await ConfigurationService.get('intersolid_port', null);
+  const endpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
+  const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
+  erpApiUrl = baseUrl ? `${baseUrl}${endpoint}` : 'http://mock-erp-api.com';
+}
+```
+
+### 📝 Configuração do banco na VPS (já configurado)
+
+| Chave | Valor | Descrição |
+|-------|-------|-----------|
+| `intersolid_api_url` | `http://172.20.0.1` | Gateway Docker (acessa o host) |
+| `intersolid_port` | `3003` | Porta do túnel SSH |
+| `intersolid_products_endpoint` | `/v1/produtos` | Endpoint de produtos |
+
+**Por que `172.20.0.1`?**
+- É o gateway da rede Docker
+- Permite o container acessar serviços rodando no host da VPS
+- O túnel SSH reverso expõe a porta 3003 no host
+
+### 🎓 Lição Aprendida (21/01/2026)
+
+**Problema:** Tela de Auditoria de Produção dava erro 500 - `ECONNREFUSED 127.0.0.1:3003`
+
+**Causa:** Código usava IP fixo `127.0.0.1:3003` que não funciona dentro do container Docker
+
+**Solução:** Alterado para usar `ConfigurationService.get('intersolid_api_url')` igual às outras telas
+
+**Arquivos que devem seguir esse padrão:**
+- `products.controller.ts` ✅
+- `production-audit.controller.ts` ✅ (corrigido)
+- `bip-webhook.service.ts` ✅
+- `sales.service.ts` ✅
+- Qualquer novo arquivo que conecte no Intersolid
+
+---
+
+**Última atualização:** 21/01/2026 - Adicionado regra de conexão Intersolid (local vs VPS)
 **Criado por:** Claude (aprendendo com cada erro 🎓)
