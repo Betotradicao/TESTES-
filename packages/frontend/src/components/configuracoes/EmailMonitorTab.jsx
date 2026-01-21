@@ -470,10 +470,18 @@ export default function EmailMonitorTab() {
         </p>
       </div>
 
+      {!config.whatsapp_group_id && (
+        <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+          <p className="text-xs text-orange-800">
+            <strong>Aviso:</strong> Sem grupo selecionado, os emails serão processados mas NÃO serão enviados para WhatsApp. As imagens ainda serão salvas na galeria.
+          </p>
+        </div>
+      )}
+
       <div className="flex justify-end">
         <button
           onClick={handleSave}
-          disabled={saving || !config.whatsapp_group_id}
+          disabled={saving}
           className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
         >
           {saving ? 'Salvando...' : 'Salvar Configurações'}
