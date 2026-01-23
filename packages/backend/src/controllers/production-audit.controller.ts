@@ -4,6 +4,7 @@ import { AppDataSource } from '../config/database';
 import { ProductionAudit } from '../entities/ProductionAudit';
 import { ProductionAuditItem } from '../entities/ProductionAuditItem';
 import { Product } from '../entities/Product';
+import { Not, IsNull } from 'typeorm';
 import axios from 'axios';
 import { ConfigurationService } from '../services/configuration.service';
 import { CacheService } from '../services/cache.service';
@@ -88,11 +89,22 @@ export class ProductionAuditController {
     try {
       const productRepository = AppDataSource.getRepository(Product);
 
-      // Get active products from database with section info and foto
+      // Get active products from database with section info
       const activeProducts = await productRepository.find({
         where: { active: true },
         select: ['erp_product_id', 'peso_medio_kg', 'production_days', 'section_name', 'foto_referencia'],
       });
+
+      // Get ALL products with photos (regardless of active status)
+      const productsWithPhotos = await productRepository.find({
+        where: { foto_referencia: Not(IsNull()) },
+        select: ['erp_product_id', 'foto_referencia'],
+      });
+
+      // Create a separate map for photos
+      const photoMap = new Map(
+        productsWithPhotos.map((p: any) => [p.erp_product_id, p.foto_referencia])
+      );
 
       // Fetch products from ERP API (usa configuração do banco de dados)
       let erpApiUrl: string;
@@ -160,8 +172,8 @@ export class ProductionAuditController {
             precoVenda: precoVenda,
             margemRef: margemRef,
             margemReal: margemReal,
-            // Foto do produto
-            foto_referencia: productData?.foto_referencia || null,
+            // Foto do produto (busca no mapa de fotos independente de ativo)
+            foto_referencia: photoMap.get(product.codigo) || productData?.foto_referencia || null,
             // Data última venda
             dtaUltMovVenda: product.dtaUltMovVenda || null,
           };
@@ -236,11 +248,22 @@ export class ProductionAuditController {
 
       const productRepository = AppDataSource.getRepository(Product);
 
-      // Get active products from database with section info and foto
+      // Get active products from database with section info
       const activeProducts = await productRepository.find({
         where: { active: true },
         select: ['erp_product_id', 'peso_medio_kg', 'production_days', 'section_name', 'foto_referencia'],
       });
+
+      // Get ALL products with photos (regardless of active status)
+      const productsWithPhotos = await productRepository.find({
+        where: { foto_referencia: Not(IsNull()) },
+        select: ['erp_product_id', 'foto_referencia'],
+      });
+
+      // Create a separate map for photos
+      const photoMap = new Map(
+        productsWithPhotos.map((p: any) => [p.erp_product_id, p.foto_referencia])
+      );
 
       // Fetch products from ERP API
       let erpApiUrl: string;
@@ -309,7 +332,8 @@ export class ProductionAuditController {
           precoVenda: precoVenda,
           margemRef: margemRef,
           margemReal: margemReal,
-          foto_referencia: productData?.foto_referencia || null,
+          // Foto do produto (busca no mapa de fotos independente de ativo)
+          foto_referencia: photoMap.get(product.codigo) || productData?.foto_referencia || null,
           dtaUltMovVenda: product.dtaUltMovVenda || null,
           isActive: isActive, // Flag para indicar se está ativo
         };

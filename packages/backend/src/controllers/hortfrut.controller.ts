@@ -3,8 +3,9 @@ import { AppDataSource } from '../config/database';
 import { HortFrutBox } from '../entities/HortFrutBox';
 import { HortFrutConference } from '../entities/HortFrutConference';
 import { HortFrutConferenceItem } from '../entities/HortFrutConferenceItem';
+import { Product } from '../entities/Product';
 import { AuthRequest } from '../middleware/auth';
-import { Between } from 'typeorm';
+import { Between, In, Not, IsNull } from 'typeorm';
 import { minioService } from '../services/minio.service';
 import { Company } from '../entities/Company';
 
@@ -175,6 +176,53 @@ export class HortFrutController {
 
       if (!conference) {
         return res.status(404).json({ error: 'Conferência não encontrada' });
+      }
+
+      // Buscar fotos dos produtos cadastrados (baseado no barcode)
+      if (conference.items && conference.items.length > 0) {
+        // Buscar TODOS os produtos com foto (independente de ativo)
+        const productRepository = AppDataSource.getRepository(Product);
+        const productsWithPhotos = await productRepository.find({
+          where: { foto_referencia: Not(IsNull()) },
+          select: ['ean', 'erp_product_id', 'foto_referencia']
+        });
+
+        // Criar mapa de barcode -> foto com múltiplos formatos de chave
+        const photoMap = new Map<string, string>();
+        for (const product of productsWithPhotos) {
+          if (product.foto_referencia) {
+            // Adicionar com formato original
+            if (product.ean) {
+              photoMap.set(product.ean, product.foto_referencia);
+              // Também adicionar versão sem zeros à esquerda e com zeros à esquerda
+              const stripped = product.ean.replace(/^0+/, '');
+              photoMap.set(stripped, product.foto_referencia);
+              photoMap.set(stripped.padStart(13, '0'), product.foto_referencia);
+            }
+            if (product.erp_product_id) {
+              photoMap.set(product.erp_product_id, product.foto_referencia);
+              const stripped = product.erp_product_id.replace(/^0+/, '');
+              photoMap.set(stripped, product.foto_referencia);
+              photoMap.set(stripped.padStart(13, '0'), product.foto_referencia);
+            }
+          }
+        }
+
+        // Adicionar foto aos itens
+        for (const item of conference.items) {
+          if (item.barcode) {
+            // Tentar encontrar foto com o barcode original
+            let foto = photoMap.get(item.barcode);
+            // Se não encontrar, tentar sem zeros à esquerda
+            if (!foto) {
+              const stripped = item.barcode.replace(/^0+/, '');
+              foto = photoMap.get(stripped);
+            }
+            if (foto) {
+              (item as any).productPhotoUrl = foto;
+            }
+          }
+        }
       }
 
       res.json(conference);
@@ -426,7 +474,16 @@ export class HortFrutController {
         item.suggestedPrice = item.newCost / (1 - margin);
       }
 
-      // Calcular margem se mantiver preço atual
+      // Calcular margem ATUAL (baseada no custo anterior e preço de venda atual)
+      if (item.currentCost && item.currentSalePrice) {
+        const custoAtual = parseFloat(item.currentCost.toString());
+        const precoVenda = parseFloat(item.currentSalePrice.toString());
+        if (precoVenda > 0) {
+          item.currentMargin = ((precoVenda - custoAtual) / precoVenda) * 100;
+        }
+      }
+
+      // Calcular margem FUTURA (se mantiver preço atual com novo custo)
       if (item.newCost && item.currentSalePrice) {
         const cost = parseFloat(item.newCost.toString());
         const price = parseFloat(item.currentSalePrice.toString());

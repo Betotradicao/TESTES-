@@ -27,6 +27,55 @@ export default function HortFrutResultados() {
   // Modal de foto expandida
   const [expandedPhoto, setExpandedPhoto] = useState(null);
 
+  // Colunas padrão da tabela
+  const defaultColumns = [
+    { id: 'productPhoto', label: 'Foto Prod.', visible: true },
+    { id: 'productName', label: 'Produto', visible: true },
+    { id: 'supplierName', label: 'Fornecedor', visible: true },
+    { id: 'currentCost', label: 'Custo Ant.', visible: true },
+    { id: 'newCost', label: 'Novo Custo', visible: true },
+    { id: 'currentSalePrice', label: 'Preço Venda', visible: true },
+    { id: 'suggestedPrice', label: 'Preço Sug.', visible: true },
+    { id: 'referenceMargin', label: 'Marg. Ref.', visible: true },
+    { id: 'currentMargin', label: 'Marg. Atual', visible: true },
+    { id: 'futureMargin', label: 'Marg. Futura', visible: true },
+    { id: 'grossWeight', label: 'Peso Bruto', visible: true },
+    { id: 'netWeight', label: 'Peso Líq.', visible: true },
+    { id: 'totalUnits', label: 'Und. Conf.', visible: true },
+    { id: 'totalValue', label: 'Valor Total', visible: true },
+    { id: 'boxesInvoice', label: 'Cxs Nota', visible: true },
+    { id: 'boxesConference', label: 'Cxs Conf.', visible: true },
+    { id: 'boxesDifference', label: 'Dif. Cxs', visible: true },
+    { id: 'boxType', label: 'Caixa Usada', visible: true },
+    { id: 'boxPhoto', label: 'Foto Caixa', visible: true },
+    { id: 'quality', label: 'Qualidade', visible: true },
+    { id: 'photo', label: 'Foto Conf.', visible: true },
+    { id: 'observations', label: 'Observações', visible: true },
+  ];
+
+  // Carregar colunas do localStorage ou usar padrão
+  const [columns, setColumns] = useState(() => {
+    const saved = localStorage.getItem('hortfrut_resultados_columns');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Merge com colunas padrão caso tenha novas colunas
+        const savedIds = parsed.map(c => c.id);
+        const newCols = defaultColumns.filter(c => !savedIds.includes(c.id));
+        return [...parsed, ...newCols];
+      } catch {
+        return defaultColumns;
+      }
+    }
+    return defaultColumns;
+  });
+  const [draggedColumn, setDraggedColumn] = useState(null);
+
+  // Salvar colunas no localStorage quando mudar
+  useEffect(() => {
+    localStorage.setItem('hortfrut_resultados_columns', JSON.stringify(columns));
+  }, [columns]);
+
   useEffect(() => {
     // Definir período padrão (dia 1 do mês atual até hoje)
     const end = new Date();
@@ -165,6 +214,45 @@ export default function HortFrutResultados() {
     }
   };
 
+  // Funções de Drag & Drop para reordenar colunas
+  const handleDragStart = (e, columnId) => {
+    setDraggedColumn(columnId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, targetColumnId) => {
+    e.preventDefault();
+    if (!draggedColumn || draggedColumn === targetColumnId) return;
+
+    const newColumns = [...columns];
+    const draggedIndex = newColumns.findIndex(c => c.id === draggedColumn);
+    const targetIndex = newColumns.findIndex(c => c.id === targetColumnId);
+
+    const [removed] = newColumns.splice(draggedIndex, 1);
+    newColumns.splice(targetIndex, 0, removed);
+
+    setColumns(newColumns);
+    setDraggedColumn(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedColumn(null);
+  };
+
+  // Função para calcular margem atual: ((preço venda - custo anterior) / preço venda) * 100
+  const calcularMargemAtual = (item) => {
+    if (!item.currentSalePrice || !item.currentCost) return null;
+    const precoVenda = parseFloat(item.currentSalePrice);
+    const custoAtual = parseFloat(item.currentCost);
+    if (precoVenda <= 0) return null;
+    return ((precoVenda - custoAtual) / precoVenda) * 100;
+  };
+
   // Função para calcular margem futura: ((preço venda - novo custo) / preço venda) * 100
   const calcularMargemFutura = (item) => {
     if (!item.currentSalePrice || !item.newCost) return null;
@@ -197,6 +285,10 @@ export default function HortFrutResultados() {
         valueA = parseFloat(a.newCost) || 0;
         valueB = parseFloat(b.newCost) || 0;
         break;
+      case 'currentSalePrice':
+        valueA = parseFloat(a.currentSalePrice) || 0;
+        valueB = parseFloat(b.currentSalePrice) || 0;
+        break;
       case 'suggestedPrice':
         valueA = parseFloat(a.suggestedPrice) || 0;
         valueB = parseFloat(b.suggestedPrice) || 0;
@@ -206,16 +298,51 @@ export default function HortFrutResultados() {
         valueB = parseFloat(b.referenceMargin) || 0;
         break;
       case 'currentMargin':
-        valueA = parseFloat(a.currentMargin) || 0;
-        valueB = parseFloat(b.currentMargin) || 0;
+        valueA = calcularMargemAtual(a) || 0;
+        valueB = calcularMargemAtual(b) || 0;
         break;
       case 'futureMargin':
         valueA = calcularMargemFutura(a) || 0;
         valueB = calcularMargemFutura(b) || 0;
         break;
+      case 'grossWeight':
+        valueA = parseFloat(a.grossWeight) || 0;
+        valueB = parseFloat(b.grossWeight) || 0;
+        break;
       case 'netWeight':
         valueA = parseFloat(a.netWeight) || 0;
         valueB = parseFloat(b.netWeight) || 0;
+        break;
+      case 'totalUnits':
+        valueA = parseFloat(a.totalUnits) || 0;
+        valueB = parseFloat(b.totalUnits) || 0;
+        break;
+      case 'totalValue':
+        // Valor total = novo custo * quantidade (peso ou unidades)
+        const totalA = a.productType === 'unit' && a.totalUnits
+          ? (parseFloat(a.newCost) || 0) * parseFloat(a.totalUnits)
+          : (parseFloat(a.newCost) || 0) * (parseFloat(a.netWeight) || 0);
+        const totalB = b.productType === 'unit' && b.totalUnits
+          ? (parseFloat(b.newCost) || 0) * parseFloat(b.totalUnits)
+          : (parseFloat(b.newCost) || 0) * (parseFloat(b.netWeight) || 0);
+        valueA = totalA;
+        valueB = totalB;
+        break;
+      case 'boxesInvoice':
+        valueA = parseFloat(a.invoiceBoxQuantity) || 0;
+        valueB = parseFloat(b.invoiceBoxQuantity) || 0;
+        break;
+      case 'boxesConference':
+        valueA = parseFloat(a.boxQuantity) || 0;
+        valueB = parseFloat(b.boxQuantity) || 0;
+        break;
+      case 'boxesDifference':
+        valueA = (parseFloat(a.invoiceBoxQuantity) || 0) - (parseFloat(a.boxQuantity) || 0);
+        valueB = (parseFloat(b.invoiceBoxQuantity) || 0) - (parseFloat(b.boxQuantity) || 0);
+        break;
+      case 'boxType':
+        valueA = a.box?.name || '';
+        valueB = b.box?.name || '';
         break;
       case 'quality':
         valueA = a.quality || '';
@@ -234,31 +361,175 @@ export default function HortFrutResultados() {
     return sortDirection === 'asc' ? valueA - valueB : valueB - valueA;
   });
 
-  // Ícone de ordenação
-  const getSortIcon = (column) => {
-    if (sortColumn !== column) return '↕️';
-    return sortDirection === 'asc' ? '⬆️' : '⬇️';
+  // Função para renderizar célula baseada no tipo de coluna
+  const renderCell = (item, columnId) => {
+    const margemAtual = calcularMargemAtual(item);
+    const margemFutura = calcularMargemFutura(item);
+
+    switch (columnId) {
+      case 'productName':
+        return (
+          <>
+            <p className="font-medium text-gray-900">{item.productName}</p>
+            <p className="text-xs text-gray-500">{item.barcode || '-'}</p>
+          </>
+        );
+      case 'supplierName':
+        return <span className="text-gray-700 text-xs">{item.supplierName || '-'}</span>;
+      case 'currentCost':
+        return <span className="text-gray-600">{item.currentCost ? `R$ ${parseFloat(item.currentCost).toFixed(2)}` : '-'}</span>;
+      case 'newCost':
+        return <span className="font-semibold text-orange-700">{item.newCost ? `R$ ${parseFloat(item.newCost).toFixed(2)}` : '-'}</span>;
+      case 'currentSalePrice':
+        return <span className="font-semibold text-purple-700">{item.currentSalePrice ? `R$ ${parseFloat(item.currentSalePrice).toFixed(2)}` : '-'}</span>;
+      case 'suggestedPrice':
+        return <span className="font-semibold text-green-700">{item.suggestedPrice ? `R$ ${parseFloat(item.suggestedPrice).toFixed(2)}` : '-'}</span>;
+      case 'referenceMargin':
+        return item.referenceMargin != null ? (
+          <span className="font-semibold text-blue-600">{parseFloat(item.referenceMargin).toFixed(1)}%</span>
+        ) : '-';
+      case 'currentMargin':
+        return margemAtual != null ? (
+          <span className={`font-semibold ${
+            margemAtual < 0 ? 'text-red-600' :
+            margemAtual < 10 ? 'text-yellow-600' : 'text-green-600'
+          }`}>{margemAtual.toFixed(1)}%</span>
+        ) : '-';
+      case 'futureMargin':
+        // Comparar margem futura com margem de referência
+        const margemRef = parseFloat(item.referenceMargin) || 0;
+        return margemFutura != null ? (
+          <span className={`font-semibold px-2 py-1 rounded ${
+            margemFutura < margemRef ? 'text-red-600 bg-red-50' : 'text-green-600 bg-green-50'
+          }`}>{margemFutura.toFixed(1)}%</span>
+        ) : '-';
+      case 'grossWeight':
+        return <span className="text-gray-700">{item.grossWeight ? `${parseFloat(item.grossWeight).toFixed(3)} kg` : '-'}</span>;
+      case 'netWeight':
+        return <span className="text-gray-700">{item.netWeight ? `${parseFloat(item.netWeight).toFixed(3)} kg` : '-'}</span>;
+      case 'totalUnits':
+        // Apenas para produtos por unidade
+        if (item.productType !== 'unit') return <span className="text-gray-300">-</span>;
+        return <span className="font-semibold text-purple-700">{item.totalUnits || '-'}</span>;
+      case 'totalValue':
+        // Valor total = novo custo * quantidade (peso ou unidades)
+        const valorTotal = item.productType === 'unit' && item.totalUnits
+          ? (parseFloat(item.newCost) || 0) * parseFloat(item.totalUnits)
+          : (parseFloat(item.newCost) || 0) * (parseFloat(item.netWeight) || 0);
+        return <span className="font-semibold text-orange-700">{valorTotal > 0 ? `R$ ${valorTotal.toFixed(2)}` : '-'}</span>;
+      case 'boxesInvoice':
+        return <span className="text-gray-700">{item.invoiceBoxQuantity || '-'}</span>;
+      case 'boxesConference':
+        return <span className="text-gray-700">{item.boxQuantity || '-'}</span>;
+      case 'boxesDifference':
+        const difCaixas = (parseFloat(item.invoiceBoxQuantity) || 0) - (parseFloat(item.boxQuantity) || 0);
+        if (difCaixas === 0 || (!item.invoiceBoxQuantity && !item.boxQuantity)) {
+          return <span className="text-gray-400">-</span>;
+        }
+        return (
+          <span className={`font-semibold flex items-center justify-end gap-1 ${difCaixas !== 0 ? 'text-red-600' : 'text-green-600'}`}>
+            {difCaixas !== 0 && <span className="text-lg">⚠️</span>}
+            {difCaixas > 0 ? `+${difCaixas}` : difCaixas}
+          </span>
+        );
+      case 'boxType':
+        return <span className="text-gray-700 text-xs">{item.box?.name || '-'}</span>;
+      case 'boxPhoto':
+        if (!item.box?.photoUrl) return <span className="text-gray-300">-</span>;
+        return (
+          <img
+            src={item.box.photoUrl}
+            alt="Foto da caixa"
+            className="w-10 h-10 object-cover rounded cursor-pointer hover:opacity-80 border border-gray-200 mx-auto"
+            onClick={() => setExpandedPhoto({ photos: [item.box.photoUrl], name: `Caixa - ${item.box?.name || item.productName}`, currentIndex: 0 })}
+          />
+        );
+      case 'productPhoto':
+        // Foto do produto ativado (se existir)
+        if (!item.productPhotoUrl) return <span className="text-gray-300">-</span>;
+        return (
+          <img
+            src={item.productPhotoUrl}
+            alt="Foto do produto"
+            className="w-10 h-10 object-cover rounded cursor-pointer hover:opacity-80 border border-gray-200 mx-auto"
+            onClick={() => setExpandedPhoto({ photos: [item.productPhotoUrl], name: item.productName, currentIndex: 0 })}
+          />
+        );
+      case 'quality':
+        return getQualityBadge(item.quality);
+      case 'photo':
+        if (!item.photoUrl) return <span className="text-gray-300">-</span>;
+        const photos = item.photoUrl.split(',').filter(p => p.trim());
+        const firstPhoto = photos[0];
+        return (
+          <div className="relative inline-block">
+            <img
+              src={firstPhoto}
+              alt="Foto do produto"
+              className="w-10 h-10 object-cover rounded cursor-pointer hover:opacity-80 border border-gray-200 mx-auto"
+              onClick={() => setExpandedPhoto({ photos, name: item.productName, currentIndex: 0 })}
+            />
+            {photos.length > 1 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                {photos.length}
+              </span>
+            )}
+          </div>
+        );
+      case 'observations':
+        return item.observations ? (
+          <span className="line-clamp-2 text-xs text-gray-600" title={item.observations}>{item.observations}</span>
+        ) : <span className="text-gray-300">-</span>;
+      default:
+        return '-';
+    }
   };
 
   // Calcular totais gerais considerando os filtros (apenas itens conferidos)
   const totals = checkedItems.reduce((acc, item) => {
-    // Peso total
-    acc.totalWeight += parseFloat(item.netWeight || 0);
-
-    // Total da compra (custo)
-    if (item.newCost && item.netWeight) {
-      const custoItem = parseFloat(item.newCost) * parseFloat(item.netWeight);
-      acc.totalCost += custoItem;
+    // Peso total bruto (grossWeight)
+    if (item.grossWeight) {
+      acc.totalWeight += parseFloat(item.grossWeight);
     }
 
-    // Vendas simuladas
-    if (item.currentSalePrice && item.netWeight) {
-      const vendaSimulada = parseFloat(item.currentSalePrice) * parseFloat(item.netWeight);
-      acc.totalVendasSimuladas += vendaSimulada;
+    // Peso total líquido (netWeight)
+    if (item.netWeight) {
+      acc.totalNetWeight += parseFloat(item.netWeight);
+    }
+
+    // Total de unidades (apenas para produtos por unidade)
+    if (item.productType === 'unit' && item.totalUnits) {
+      acc.totalUnits += parseFloat(item.totalUnits);
+    }
+
+    // Total da compra (custo) - considera tipo de produto
+    if (item.newCost) {
+      if (item.productType === 'unit' && item.totalUnits) {
+        // Produto por unidade: custo unitário * quantidade
+        const custoItem = parseFloat(item.newCost) * parseFloat(item.totalUnits);
+        acc.totalCost += custoItem;
+      } else if (item.netWeight) {
+        // Produto por KG: custo por kg * peso líquido
+        const custoItem = parseFloat(item.newCost) * parseFloat(item.netWeight);
+        acc.totalCost += custoItem;
+      }
+    }
+
+    // Vendas simuladas - considera tipo de produto
+    if (item.currentSalePrice) {
+      if (item.productType === 'unit' && item.totalUnits) {
+        // Produto por unidade: preço unitário * quantidade
+        const vendaSimulada = parseFloat(item.currentSalePrice) * parseFloat(item.totalUnits);
+        acc.totalVendasSimuladas += vendaSimulada;
+      } else if (item.netWeight) {
+        // Produto por KG: preço por kg * peso líquido
+        const vendaSimulada = parseFloat(item.currentSalePrice) * parseFloat(item.netWeight);
+        acc.totalVendasSimuladas += vendaSimulada;
+      }
     }
 
     return acc;
-  }, { totalCost: 0, totalWeight: 0, totalVendasSimuladas: 0 });
+  }, { totalCost: 0, totalWeight: 0, totalNetWeight: 0, totalUnits: 0, totalVendasSimuladas: 0 });
 
   // Lucro simulado = Vendas - Custo
   const lucroSimulado = totals.totalVendasSimuladas - totals.totalCost;
@@ -301,55 +572,74 @@ export default function HortFrutResultados() {
     doc.text('Resumo:', 14, resumoY);
     doc.setFont('helvetica', 'normal');
     doc.text(`Total de Itens: ${checkedItems.length}`, 14, resumoY + 5);
-    doc.text(`Peso Total: ${totals.totalWeight.toFixed(2)} kg`, 70, resumoY + 5);
-    doc.text(`Custo Total: R$ ${totals.totalCost.toFixed(2)}`, 130, resumoY + 5);
-    doc.text(`Vendas Simuladas: R$ ${totals.totalVendasSimuladas.toFixed(2)}`, 190, resumoY + 5);
-    doc.text(`Margem Simulada: ${margemLucroSimulada.toFixed(1)}%`, 250, resumoY + 5);
+    doc.text(`Peso Bruto: ${totals.totalWeight.toFixed(2)} kg`, 60, resumoY + 5);
+    doc.text(`Peso Líq.: ${totals.totalNetWeight.toFixed(2)} kg`, 110, resumoY + 5);
+    if (totals.totalUnits > 0) {
+      doc.text(`Total Unid.: ${totals.totalUnits}`, 155, resumoY + 5);
+    }
+    doc.text(`Custo Total: R$ ${totals.totalCost.toFixed(2)}`, 195, resumoY + 5);
+    doc.text(`Margem: ${margemLucroSimulada.toFixed(1)}%`, 255, resumoY + 5);
 
     // Tabela
     const tableData = sortedItems.map(item => {
+      const margemAtualCalc = calcularMargemAtual(item);
       const margemFutura = calcularMargemFutura(item);
+      const valorTotal = item.productType === 'unit' && item.totalUnits
+        ? (parseFloat(item.newCost) || 0) * parseFloat(item.totalUnits)
+        : (parseFloat(item.newCost) || 0) * (parseFloat(item.netWeight) || 0);
+      const difCaixas = (parseFloat(item.invoiceBoxQuantity) || 0) - (parseFloat(item.boxQuantity) || 0);
+
       return [
         item.productName || '-',
         item.supplierName || '-',
         item.currentCost ? `R$ ${parseFloat(item.currentCost).toFixed(2)}` : '-',
         item.newCost ? `R$ ${parseFloat(item.newCost).toFixed(2)}` : '-',
+        item.currentSalePrice ? `R$ ${parseFloat(item.currentSalePrice).toFixed(2)}` : '-',
         item.suggestedPrice ? `R$ ${parseFloat(item.suggestedPrice).toFixed(2)}` : '-',
         item.referenceMargin ? `${parseFloat(item.referenceMargin).toFixed(1)}%` : '-',
-        item.currentMargin ? `${parseFloat(item.currentMargin).toFixed(1)}%` : '-',
+        margemAtualCalc !== null ? `${margemAtualCalc.toFixed(1)}%` : '-',
         margemFutura !== null ? `${margemFutura.toFixed(1)}%` : '-',
-        item.netWeight ? `${parseFloat(item.netWeight).toFixed(3)} kg` : '-',
+        item.grossWeight ? `${parseFloat(item.grossWeight).toFixed(2)}` : '-',
+        item.netWeight ? `${parseFloat(item.netWeight).toFixed(2)}` : '-',
+        item.productType === 'unit' ? (item.totalUnits || '-') : '-',
+        valorTotal > 0 ? `R$ ${valorTotal.toFixed(2)}` : '-',
+        difCaixas !== 0 ? difCaixas : '-',
+        item.box?.name || '-',
         item.quality === 'good' ? 'Boa' : item.quality === 'regular' ? 'Regular' : item.quality === 'bad' ? 'Ruim' : '-',
-        item.observations || '-'
       ];
     });
 
     autoTable(doc, {
       startY: resumoY + 12,
-      head: [['Produto', 'Fornecedor', 'Custo Ant.', 'Novo Custo', 'Preço Sug.', 'Marg. Ref.', 'Marg. Atual', 'Marg. Futura', 'Peso Líq.', 'Qualidade', 'Obs.']],
+      head: [['Produto', 'Forn.', 'C.Ant', 'N.Custo', 'P.Venda', 'P.Sug', 'M.Ref', 'M.Atual', 'M.Fut', 'P.Bruto', 'P.Líq', 'Und', 'V.Total', 'Dif.Cx', 'Caixa', 'Qual.']],
       body: tableData,
       styles: {
-        fontSize: 7,
-        cellPadding: 1.5,
+        fontSize: 5.5,
+        cellPadding: 1,
       },
       headStyles: {
         fillColor: [234, 88, 12], // orange-600
         textColor: 255,
         fontStyle: 'bold',
-        fontSize: 7,
+        fontSize: 5.5,
       },
       columnStyles: {
-        0: { cellWidth: 40 }, // Produto
-        1: { cellWidth: 25 }, // Fornecedor
-        2: { cellWidth: 18, halign: 'right' }, // Custo Ant.
-        3: { cellWidth: 18, halign: 'right' }, // Novo Custo
-        4: { cellWidth: 18, halign: 'right' }, // Preço Sug.
-        5: { cellWidth: 15, halign: 'right' }, // Marg. Ref.
-        6: { cellWidth: 15, halign: 'right' }, // Marg. Atual
-        7: { cellWidth: 18, halign: 'right' }, // Marg. Futura
-        8: { cellWidth: 18, halign: 'right' }, // Peso Líq.
-        9: { cellWidth: 15, halign: 'center' }, // Qualidade
-        10: { cellWidth: 35 }, // Obs.
+        0: { cellWidth: 32 }, // Produto
+        1: { cellWidth: 18 }, // Fornecedor
+        2: { cellWidth: 14, halign: 'right' }, // C.Ant
+        3: { cellWidth: 14, halign: 'right' }, // N.Custo
+        4: { cellWidth: 14, halign: 'right' }, // P.Venda
+        5: { cellWidth: 14, halign: 'right' }, // P.Sug
+        6: { cellWidth: 12, halign: 'right' }, // M.Ref
+        7: { cellWidth: 13, halign: 'right' }, // M.Atual
+        8: { cellWidth: 12, halign: 'right' }, // M.Fut
+        9: { cellWidth: 14, halign: 'right' }, // P.Bruto
+        10: { cellWidth: 14, halign: 'right' }, // P.Líq
+        11: { cellWidth: 10, halign: 'right' }, // Und
+        12: { cellWidth: 16, halign: 'right' }, // V.Total
+        13: { cellWidth: 12, halign: 'center' }, // Dif.Cx
+        14: { cellWidth: 18 }, // Caixa
+        15: { cellWidth: 12, halign: 'center' }, // Qual.
       },
       alternateRowStyles: {
         fillColor: [255, 247, 237], // orange-50
@@ -489,15 +779,25 @@ export default function HortFrutResultados() {
         </div>
 
         {/* Cards de resumo */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow-md p-4">
             <p className="text-sm text-gray-500">Total de Itens</p>
             <p className="text-2xl font-bold text-gray-800">{checkedItems.length}</p>
           </div>
           <div className="bg-white rounded-lg shadow-md p-4">
-            <p className="text-sm text-gray-500">Peso Total</p>
+            <p className="text-sm text-gray-500">Peso Bruto</p>
             <p className="text-2xl font-bold text-blue-600">{totals.totalWeight.toFixed(2)} kg</p>
           </div>
+          <div className="bg-white rounded-lg shadow-md p-4">
+            <p className="text-sm text-gray-500">Peso Líquido</p>
+            <p className="text-2xl font-bold text-blue-500">{totals.totalNetWeight.toFixed(2)} kg</p>
+          </div>
+          {totals.totalUnits > 0 && (
+            <div className="bg-white rounded-lg shadow-md p-4">
+              <p className="text-sm text-gray-500">Total Unidades</p>
+              <p className="text-2xl font-bold text-purple-600">{totals.totalUnits}</p>
+            </div>
+          )}
           <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-orange-500">
             <p className="text-sm text-gray-500">Custo Total</p>
             <p className="text-2xl font-bold text-orange-600">R$ {totals.totalCost.toFixed(2)}</p>
@@ -532,187 +832,63 @@ export default function HortFrutResultados() {
               PDF
             </button>
           </div>
+          <p className="text-xs text-gray-400 px-4 py-1 bg-gray-50 border-b">
+            💡 Arraste os cabeçalhos das colunas para reordená-las
+          </p>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th
-                    className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('productName')}
-                  >
-                    Produto {getSortIcon('productName')}
-                  </th>
-                  <th
-                    className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('supplierName')}
-                  >
-                    Fornecedor {getSortIcon('supplierName')}
-                  </th>
-                  <th
-                    className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('currentCost')}
-                  >
-                    Custo Ant. {getSortIcon('currentCost')}
-                  </th>
-                  <th
-                    className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('newCost')}
-                  >
-                    Novo Custo {getSortIcon('newCost')}
-                  </th>
-                  <th
-                    className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('suggestedPrice')}
-                  >
-                    Preço Sug. {getSortIcon('suggestedPrice')}
-                  </th>
-                  <th
-                    className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('referenceMargin')}
-                  >
-                    Marg. Ref. {getSortIcon('referenceMargin')}
-                  </th>
-                  <th
-                    className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('currentMargin')}
-                  >
-                    Marg. Atual {getSortIcon('currentMargin')}
-                  </th>
-                  <th
-                    className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('futureMargin')}
-                  >
-                    Marg. Futura {getSortIcon('futureMargin')}
-                  </th>
-                  <th
-                    className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('netWeight')}
-                  >
-                    Peso Líq. {getSortIcon('netWeight')}
-                  </th>
-                  <th
-                    className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('quality')}
-                  >
-                    Qualidade {getSortIcon('quality')}
-                  </th>
-                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">
-                    Foto
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Observações
-                  </th>
+                  {columns.filter(c => c.visible).map((col) => (
+                    <th
+                      key={col.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, col.id)}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, col.id)}
+                      onDragEnd={handleDragEnd}
+                      className={`px-3 py-3 text-xs font-medium text-gray-500 uppercase cursor-grab hover:bg-gray-100 select-none transition-all ${
+                        draggedColumn === col.id ? 'opacity-50 bg-blue-100' : ''
+                      } ${['productName', 'supplierName', 'observations'].includes(col.id) ? 'text-left' : ['quality', 'photo', 'boxPhoto', 'productPhoto'].includes(col.id) ? 'text-center' : 'text-right'}`}
+                      onClick={() => !['photo', 'observations', 'boxPhoto', 'productPhoto'].includes(col.id) && handleSort(col.id)}
+                    >
+                      <span className="flex items-center gap-1 justify-inherit">
+                        <span className="text-gray-300 mr-1">⋮⋮</span>
+                        {col.label}
+                      </span>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
                   <tr>
-                    <td colSpan="12" className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={columns.filter(c => c.visible).length} className="px-4 py-8 text-center text-gray-500">
                       Carregando...
                     </td>
                   </tr>
                 ) : sortedItems.length === 0 ? (
                   <tr>
-                    <td colSpan="12" className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={columns.filter(c => c.visible).length} className="px-4 py-8 text-center text-gray-500">
                       Nenhum item conferido encontrado
                     </td>
                   </tr>
                 ) : (
-                  sortedItems.map((item, index) => {
-                    const margemFutura = calcularMargemFutura(item);
-                    return (
-                      <tr key={`${item.conferenceId}-${item.id}-${index}`} className="hover:bg-gray-50">
-                        <td className="px-3 py-2">
-                          <p className="font-medium text-gray-900">{item.productName}</p>
-                          <p className="text-xs text-gray-500">{item.barcode || '-'}</p>
+                  sortedItems.map((item, index) => (
+                    <tr key={`${item.conferenceId}-${item.id}-${index}`} className="hover:bg-gray-50">
+                      {columns.filter(c => c.visible).map((col) => (
+                        <td
+                          key={col.id}
+                          className={`px-3 py-2 ${
+                            ['productName', 'supplierName', 'observations'].includes(col.id) ? 'text-left' :
+                            ['quality', 'photo', 'boxPhoto', 'productPhoto'].includes(col.id) ? 'text-center' : 'text-right'
+                          } ${col.id === 'observations' ? 'max-w-[150px]' : ''}`}
+                        >
+                          {renderCell(item, col.id)}
                         </td>
-                        <td className="px-3 py-2 text-left text-gray-700 text-xs">
-                          {item.supplierName || '-'}
-                        </td>
-                        <td className="px-3 py-2 text-right text-gray-600">
-                          {item.currentCost ? `R$ ${parseFloat(item.currentCost).toFixed(2)}` : '-'}
-                        </td>
-                        <td className="px-3 py-2 text-right font-semibold text-orange-700">
-                          {item.newCost ? `R$ ${parseFloat(item.newCost).toFixed(2)}` : '-'}
-                        </td>
-                        <td className="px-3 py-2 text-right font-semibold text-green-700">
-                          {item.suggestedPrice ? `R$ ${parseFloat(item.suggestedPrice).toFixed(2)}` : '-'}
-                        </td>
-                        {/* Margem de Referência */}
-                        <td className="px-3 py-2 text-right">
-                          {item.referenceMargin !== null && item.referenceMargin !== undefined ? (
-                            <span className="font-semibold text-blue-600">
-                              {parseFloat(item.referenceMargin).toFixed(1)}%
-                            </span>
-                          ) : '-'}
-                        </td>
-                        {/* Margem Atual */}
-                        <td className="px-3 py-2 text-right">
-                          {item.currentMargin !== null && item.currentMargin !== undefined ? (
-                            <span className={`font-semibold ${
-                              parseFloat(item.currentMargin) < 0 ? 'text-red-600' :
-                              parseFloat(item.currentMargin) < 10 ? 'text-yellow-600' :
-                              'text-green-600'
-                            }`}>
-                              {parseFloat(item.currentMargin).toFixed(1)}%
-                            </span>
-                          ) : '-'}
-                        </td>
-                        {/* Margem Futura */}
-                        <td className="px-3 py-2 text-right">
-                          {margemFutura !== null ? (
-                            <span className={`font-semibold ${
-                              margemFutura < 0 ? 'text-red-600' :
-                              margemFutura < 10 ? 'text-yellow-600' :
-                              'text-green-600'
-                            }`}>
-                              {margemFutura.toFixed(1)}%
-                            </span>
-                          ) : '-'}
-                        </td>
-                        <td className="px-3 py-2 text-right text-gray-700">
-                          {item.netWeight ? `${parseFloat(item.netWeight).toFixed(3)} kg` : '-'}
-                        </td>
-                        <td className="px-3 py-2 text-center">
-                          {getQualityBadge(item.quality)}
-                        </td>
-                        {/* Foto do produto */}
-                        <td className="px-3 py-2 text-center">
-                          {item.photoUrl ? (() => {
-                            const photos = item.photoUrl.split(',').filter(p => p.trim());
-                            const firstPhoto = photos[0];
-                            return (
-                              <div className="relative inline-block">
-                                <img
-                                  src={firstPhoto}
-                                  alt="Foto do produto"
-                                  className="w-10 h-10 object-cover rounded cursor-pointer hover:opacity-80 border border-gray-200 mx-auto"
-                                  onClick={() => setExpandedPhoto({ photos, name: item.productName, currentIndex: 0 })}
-                                />
-                                {photos.length > 1 && (
-                                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
-                                    {photos.length}
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })() : (
-                            <span className="text-gray-300">-</span>
-                          )}
-                        </td>
-                        {/* Observações */}
-                        <td className="px-3 py-2 text-left text-xs text-gray-600 max-w-[150px]">
-                          {item.observations ? (
-                            <span className="line-clamp-2" title={item.observations}>
-                              {item.observations}
-                            </span>
-                          ) : (
-                            <span className="text-gray-300">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
+                      ))}
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
