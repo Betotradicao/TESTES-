@@ -10,6 +10,7 @@ export const MENU_MODULES = {
   PRODUCAO: 'producao',
   HORTFRUT: 'hortfrut',
   ESTOQUE_MARGEM: 'estoque-margem',
+  COMPRA_VENDA: 'compra-venda',
 };
 
 // IDs dos sub-menus
@@ -52,6 +53,9 @@ export const MENU_SUBMENUS = {
   // Estoque e Margem
   ESTOQUE_MARGEM_LANCADOR: 'estoque-margem-lancador',
   ESTOQUE_MARGEM_RESULTADOS: 'estoque-margem-resultados',
+
+  // Compra x Venda
+  COMPRA_VENDA_ANALISE: 'compra-venda-analise',
 };
 
 // Estrutura completa do menu
@@ -225,6 +229,18 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.ESTOQUE_MARGEM_RESULTADOS,
         title: 'Resultado dos Lançamentos',
         path: '/estoque-margem-resultados'
+      }
+    ]
+  },
+  {
+    id: MENU_MODULES.COMPRA_VENDA,
+    title: 'Compra x Venda',
+    icon: 'compra-venda',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.COMPRA_VENDA_ANALISE,
+        title: 'Análise',
+        path: '/compra-venda-analise'
       }
     ]
   }

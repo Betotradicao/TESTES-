@@ -37,7 +37,9 @@ import pdvRouter from './routes/pdv.routes';
 import productionAuditRouter from './routes/production-audit.routes';
 import hortfrutRouter from './routes/hortfrut.routes';
 import suppliersRouter from './routes/suppliers.routes';
+import compraVendaRouter from './routes/compra-venda.routes';
 import { minioService } from './services/minio.service';
+import { OracleService } from './services/oracle.service';
 import { EmailMonitorService } from './services/email-monitor.service';
 import { seedMasterUser } from './database/seeds/masterUser.seed';
 import seedConfigurations from './scripts/seed-configurations';
@@ -110,6 +112,7 @@ app.use('/api/pdv', pdvRouter);
 app.use('/api/production', productionAuditRouter);
 app.use('/api/hortfrut', hortfrutRouter);
 app.use('/api/suppliers', suppliersRouter);
+app.use('/api/compra-venda', compraVendaRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {
@@ -168,6 +171,15 @@ const startServer = async () => {
   } catch (error) {
     console.error('❌ MinIO initialization failed:', error);
     console.log('Continuing without MinIO (avatar uploads will fail)');
+  }
+
+  // Initialize Oracle connection (optional - for Compra x Venda)
+  try {
+    await OracleService.initialize();
+    console.log('✅ Oracle connection pool initialized');
+  } catch (error) {
+    console.error('⚠️ Oracle initialization failed (Compra x Venda may not work):', error);
+    console.log('Continuing without Oracle connection');
   }
 
   app.listen(PORT, () => {

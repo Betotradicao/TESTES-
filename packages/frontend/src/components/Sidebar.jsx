@@ -405,6 +405,29 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       ]
     },
     {
+      id: 'compra-venda',
+      title: 'Compra x Venda',
+      moduleId: 'compra-venda',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+        </svg>
+      ),
+      expandable: true,
+      items: [
+        {
+          id: MENU_SUBMENUS.COMPRA_VENDA_ANALISE,
+          title: 'Análise',
+          path: '/compra-venda-analise',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+          )
+        }
+      ]
+    },
+    {
       id: 'configuracoes',
       title: 'Configurações',
       path: '/configuracoes',
