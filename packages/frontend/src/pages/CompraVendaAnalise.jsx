@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
+import DetalheEmprestimoPopover from '../components/compra-venda/DetalheEmprestimoPopover';
 
 // Configuração inicial das colunas
 const INITIAL_COLUMNS = [
@@ -33,7 +34,25 @@ export default function CompraVendaAnalise() {
   const [totais, setTotais] = useState(null);
 
   // Estado para ordem das colunas (drag and drop)
-  const [columns, setColumns] = useState(INITIAL_COLUMNS);
+  const [columns, setColumns] = useState(() => {
+    // Carregar ordem salva do localStorage
+    const savedOrder = localStorage.getItem('compra_venda_columns_order');
+    if (savedOrder) {
+      try {
+        const savedIds = JSON.parse(savedOrder);
+        // Reordenar INITIAL_COLUMNS baseado na ordem salva
+        const reordered = savedIds
+          .map(id => INITIAL_COLUMNS.find(col => col.id === id))
+          .filter(Boolean);
+        // Adicionar colunas novas que não existiam na ordem salva
+        const newColumns = INITIAL_COLUMNS.filter(col => !savedIds.includes(col.id));
+        return [...reordered, ...newColumns];
+      } catch (e) {
+        return INITIAL_COLUMNS;
+      }
+    }
+    return INITIAL_COLUMNS;
+  });
   const [draggedColumn, setDraggedColumn] = useState(null);
   const [dragOverColumn, setDragOverColumn] = useState(null);
 
@@ -504,10 +523,27 @@ export default function CompraVendaAnalise() {
     setColumns(newColumns);
     setDraggedColumn(null);
     setDragOverColumn(null);
+
+    // Salvar ordem no localStorage
+    const columnIds = newColumns.map(col => col.id);
+    localStorage.setItem('compra_venda_columns_order', JSON.stringify(columnIds));
   };
 
+  // Prepara filtros para o popover de detalhamento
+  const getPopoverFilters = () => ({
+    dataInicio: formatDateForApi(filters.dataInicio),
+    dataFim: formatDateForApi(filters.dataFim),
+    codLoja: filters.codLoja || null,
+    tipoNotaFiscal: {
+      compras: filters.tipoCompras,
+      outras: filters.tipoOutras,
+      bonificacao: filters.tipoBonificacao
+    }
+  });
+
   // Função para renderizar valor da célula baseado no ID da coluna
-  const renderCellValue = (row, columnId, isTotal = false) => {
+  // context: { nivel: 'secao'|'grupo'|'subgrupo'|'item', codSecao, codGrupo, codSubGrupo, codProduto }
+  const renderCellValue = (row, columnId, isTotal = false, context = null) => {
     if (isTotal && columnId === 'LOJA') return '-';
     if (isTotal && columnId === 'VENDA_PCT') return '100%';
     if (isTotal && columnId === 'SECAO') return 'TOTAIS';
@@ -554,10 +590,50 @@ export default function CompraVendaAnalise() {
         return formatPercent(row.DIFERENCA_PCT);
       case 'DIFERENCA_RS':
         return formatCurrency(isTotal ? totais?.DIFERENCA_RS : row.DIFERENCA_RS);
-      case 'EMPRESTEI':
-        return formatCurrency(isTotal ? totais?.EMPRESTEI : row.EMPRESTEI);
-      case 'EMPRESTADO':
-        return formatCurrency(isTotal ? totais?.EMPRESTADO : row.EMPRESTADO);
+      case 'EMPRESTEI': {
+        const valor = isTotal ? totais?.EMPRESTEI : row.EMPRESTEI;
+        const valorFormatado = formatCurrency(valor);
+        // Se tem contexto e valor > 0 e decomposicao = filhos, mostra popover
+        if (context && valor > 0 && filters.decomposicao === 'filhos') {
+          return (
+            <DetalheEmprestimoPopover
+              tipo="emprestei"
+              nivel={context.nivel}
+              codSecao={context.codSecao}
+              codGrupo={context.codGrupo}
+              codSubGrupo={context.codSubGrupo}
+              codProduto={context.codProduto}
+              filters={getPopoverFilters()}
+              valor={valor}
+            >
+              <span>{valorFormatado}</span>
+            </DetalheEmprestimoPopover>
+          );
+        }
+        return valorFormatado;
+      }
+      case 'EMPRESTADO': {
+        const valor = isTotal ? totais?.EMPRESTADO : row.EMPRESTADO;
+        const valorFormatado = formatCurrency(valor);
+        // Se tem contexto e valor > 0 e decomposicao = filhos, mostra popover
+        if (context && valor > 0 && filters.decomposicao === 'filhos') {
+          return (
+            <DetalheEmprestimoPopover
+              tipo="emprestado"
+              nivel={context.nivel}
+              codSecao={context.codSecao}
+              codGrupo={context.codGrupo}
+              codSubGrupo={context.codSubGrupo}
+              codProduto={context.codProduto}
+              filters={getPopoverFilters()}
+              valor={valor}
+            >
+              <span>{valorFormatado}</span>
+            </DetalheEmprestimoPopover>
+          );
+        }
+        return valorFormatado;
+      }
       case 'COMPRA_FINAL':
         return formatCurrency(isTotal ? totais?.COMPRA_FINAL : row.COMPRA_FINAL);
       default:
@@ -1068,7 +1144,7 @@ export default function CompraVendaAnalise() {
                                         </span>
                                         {secaoRow.SECAO}
                                       </button>
-                                    ) : renderCellValue(secaoRow, col.id)}
+                                    ) : renderCellValue(secaoRow, col.id, false, { nivel: 'secao', codSecao })}
                                   </td>
                                 ))}
                               </tr>
@@ -1101,7 +1177,7 @@ export default function CompraVendaAnalise() {
                                               </span>
                                               {grupoRow.GRUPO}
                                             </button>
-                                          ) : col.id === 'LOJA' ? (grupoRow.LOJA || '-') : renderCellValue(grupoRow, col.id)}
+                                          ) : col.id === 'LOJA' ? (grupoRow.LOJA || '-') : renderCellValue(grupoRow, col.id, false, { nivel: 'grupo', codSecao, codGrupo })}
                                         </td>
                                       ))}
                                     </tr>
@@ -1134,7 +1210,7 @@ export default function CompraVendaAnalise() {
                                                     </span>
                                                     {subgrupoRow.SUBGRUPO}
                                                   </button>
-                                                ) : col.id === 'LOJA' ? (subgrupoRow.LOJA || '-') : renderCellValue(subgrupoRow, col.id)}
+                                                ) : col.id === 'LOJA' ? (subgrupoRow.LOJA || '-') : renderCellValue(subgrupoRow, col.id, false, { nivel: 'subgrupo', codSecao, codGrupo, codSubGrupo })}
                                               </td>
                                             ))}
                                           </tr>
@@ -1152,7 +1228,7 @@ export default function CompraVendaAnalise() {
                                                       <span className="w-2 h-2 rounded-full bg-purple-300"></span>
                                                       {itemRow.PRODUTO}
                                                     </span>
-                                                  ) : col.id === 'LOJA' ? (itemRow.LOJA || '-') : renderCellValue(itemRow, col.id)}
+                                                  ) : col.id === 'LOJA' ? (itemRow.LOJA || '-') : renderCellValue(itemRow, col.id, false, { nivel: 'item', codSecao, codGrupo, codSubGrupo, codProduto: itemRow.COD_PRODUTO })}
                                                 </td>
                                               ))}
                                             </tr>

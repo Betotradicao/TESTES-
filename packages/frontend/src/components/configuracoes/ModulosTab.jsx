@@ -10,8 +10,9 @@ export default function ModulosTab() {
     { id: 'etiquetas', name: 'Prevenção Etiquetas', icon: '🔖', active: true },
     { id: 'perdas', name: 'Prevenção Quebras', icon: '📊', active: true },
     { id: 'producao', name: 'Prevenção Produção', icon: '🥖', active: true },
-    { id: 'hortfruti', name: 'Prevenção HortFruti', icon: '🥬', active: true },
-    { id: 'estoque-margem', name: 'Prevenção Estoque e Margem', icon: '📦', active: true }
+    { id: 'hortfrut', name: 'Prevenção HortFruti', icon: '🥬', active: true },
+    { id: 'estoque-margem', name: 'Prevenção Estoque e Margem', icon: '📦', active: true },
+    { id: 'compra-venda', name: 'Compra x Venda', icon: '📈', active: true }
   ];
 
   const [modules, setModules] = useState(defaultModules);

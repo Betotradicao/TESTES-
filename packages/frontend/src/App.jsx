@@ -36,6 +36,7 @@ import HortFrutConferencia from './pages/HortFrutConferencia';
 import HortFrutResultados from './pages/HortFrutResultados';
 import Fornecedores from './pages/Fornecedores';
 import CompraVendaAnalise from './pages/CompraVendaAnalise';
+import FrenteCaixa from './pages/FrenteCaixa';
 
 function App() {
   return (
@@ -287,6 +288,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <CompraVendaAnalise />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/frente-caixa"
+              element={
+                <ProtectedRoute>
+                  <FrenteCaixa />
                 </ProtectedRoute>
               }
             />

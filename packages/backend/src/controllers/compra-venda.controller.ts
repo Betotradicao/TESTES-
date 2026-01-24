@@ -455,4 +455,59 @@ export class CompraVendaController {
       });
     }
   }
+
+  /**
+   * Busca detalhamento dos valores de Emprestei/Emprestado
+   * Retorna a lista de itens que compõem o valor de empréstimo
+   */
+  static async getDetalheEmprestimo(req: Request, res: Response) {
+    try {
+      const {
+        dataInicio, dataFim, codLoja,
+        tipoCompras, tipoOutras, tipoBonificacao,
+        nivel, tipo,
+        codSecao, codGrupo, codSubGrupo, codProduto
+      } = req.query;
+
+      if (!dataInicio || !dataFim || !nivel || !tipo) {
+        return res.status(400).json({
+          success: false,
+          error: 'Parâmetros obrigatórios: dataInicio, dataFim, nivel, tipo'
+        });
+      }
+
+      const filters: any = {
+        dataInicio: dataInicio as string,
+        dataFim: dataFim as string,
+        codLoja: codLoja ? Number(codLoja) : undefined,
+        tipoNotaFiscal: {
+          compras: tipoCompras === 'true',
+          outras: tipoOutras === 'true',
+          bonificacao: tipoBonificacao === 'true'
+        },
+        nivel: nivel as 'secao' | 'grupo' | 'subgrupo' | 'item',
+        tipo: tipo as 'emprestei' | 'emprestado',
+        codSecao: codSecao ? Number(codSecao) : undefined,
+        codGrupo: codGrupo ? Number(codGrupo) : undefined,
+        codSubGrupo: codSubGrupo ? Number(codSubGrupo) : undefined,
+        codProduto: codProduto ? Number(codProduto) : undefined
+      };
+
+      console.log('📊 Buscando detalhe empréstimo:', { nivel, tipo, codSecao, codGrupo, codSubGrupo, codProduto });
+
+      const data = await CompraVendaService.getDetalheEmprestimo(filters);
+
+      return res.json({
+        success: true,
+        data
+      });
+    } catch (error: any) {
+      console.error('Erro ao buscar detalhe de empréstimo:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao buscar detalhe de empréstimo',
+        message: error.message
+      });
+    }
+  }
 }

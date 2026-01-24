@@ -4,7 +4,7 @@ import BarcodeDisplay from './BarcodeDisplay';
 import PermissionsSelector from '../colaboradores/PermissionsSelector';
 import api from '../../services/api';
 
-export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvatar }) {
+export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvatar, onSaveComplete }) {
   const [formData, setFormData] = useState({
     name: '',
     sector_id: '',
@@ -83,22 +83,29 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
     setIsSubmitting(true);
 
     try {
-      // Save employee data
+      // Save employee data - agora retorna o employee com ID
       const savedEmployee = await onSave(formData);
 
       // Get employee ID (from editing or newly created)
       const employeeId = employee?.id || savedEmployee?.id;
 
-      // If there's a new avatar and we have the employee ID, upload it
-      if (avatarFile && employeeId) {
+      if (!employeeId) {
+        throw new Error('Não foi possível obter o ID do colaborador');
+      }
+
+      // If there's a new avatar, upload it
+      if (avatarFile) {
         await onUploadAvatar(employeeId, avatarFile);
       }
 
-      // Save permissions
-      if (employeeId && permissions.length > 0) {
-        await api.put(`/employees/${employeeId}/permissions`, {
-          permissions
-        });
+      // Save permissions (mesmo que vazio, para limpar permissões existentes)
+      await api.put(`/employees/${employeeId}/permissions`, {
+        permissions
+      });
+
+      // Tudo salvo com sucesso - fechar modal e atualizar lista
+      if (onSaveComplete) {
+        await onSaveComplete();
       }
     } catch (error) {
       if (error.errors) {

@@ -901,6 +901,72 @@ export class CompraVendaService {
         GROUP BY p_final.COD_GRUPO, vendas.COD_LOJA
       ) emp_final ON g.COD_GRUPO = emp_final.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
       ` : ''}
+      ${calcAssociacao ? `
+      -- EMPRESTEI (ASSOCIAÇÃO): Produto BASE empresta para produtos ASSOCIADOS (TAB_PRODUTO_LOJA)
+      LEFT JOIN (
+        SELECT
+          p_base.COD_GRUPO,
+          compras.COD_LOJA,
+          SUM(
+            vendas.QTD_VENDIDA * NVL(pl.QTD_ASSOC, 1) *
+            (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
+          ) as VALOR_EMPRESTEI
+        FROM INTERSOLID.TAB_PRODUTO_LOJA pl
+        JOIN INTERSOLID.TAB_PRODUTO p_base ON pl.COD_PRODUTO_ASSOC = p_base.COD_PRODUTO
+        JOIN (
+          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          FROM INTERSOLID.TAB_NF nf
+          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.TIPO_OPERACAO = 0
+          ${tipoNfFilter}
+          ${lojaFilterCompras}
+          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+        ) compras ON pl.COD_PRODUTO_ASSOC = compras.COD_ITEM
+        JOIN (
+          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          ${tipoVendaFilter}
+          ${lojaFilterVendas}
+          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
+        ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
+        WHERE p_base.COD_SECAO = :codSecao
+        GROUP BY p_base.COD_GRUPO, compras.COD_LOJA
+      ) emp_assoc_pai ON g.COD_GRUPO = emp_assoc_pai.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
+      -- EMPRESTADO (ASSOCIAÇÃO): Produtos ASSOCIADOS recebem do produto BASE
+      LEFT JOIN (
+        SELECT
+          p_assoc.COD_GRUPO,
+          vendas.COD_LOJA,
+          SUM(
+            vendas.QTD_VENDIDA * NVL(pl.QTD_ASSOC, 1) *
+            (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
+          ) as VALOR_EMPRESTADO
+        FROM INTERSOLID.TAB_PRODUTO_LOJA pl
+        JOIN INTERSOLID.TAB_PRODUTO p_assoc ON pl.COD_PRODUTO = p_assoc.COD_PRODUTO
+        JOIN (
+          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          ${tipoVendaFilter}
+          ${lojaFilterVendas}
+          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
+        ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO
+        LEFT JOIN (
+          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          FROM INTERSOLID.TAB_NF nf
+          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.TIPO_OPERACAO = 0
+          ${tipoNfFilter}
+          ${lojaFilterCompras}
+          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+        ) compras ON pl.COD_PRODUTO_ASSOC = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
+        WHERE p_assoc.COD_SECAO = :codSecao
+        GROUP BY p_assoc.COD_GRUPO, vendas.COD_LOJA
+      ) emp_assoc_filho ON g.COD_GRUPO = emp_assoc_filho.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
+      ` : ''}
       WHERE g.COD_SECAO = :codSecao
       AND (c.COD_GRUPO IS NOT NULL OR v.COD_GRUPO IS NOT NULL)
       ORDER BY VENDAS DESC NULLS LAST
@@ -987,9 +1053,11 @@ export class CompraVendaService {
         END as PCT,
         NVL(v.CUSTO_VENDA, 0) - NVL(c.VALOR_COMPRAS, 0) as DIFERENCA_RS,
         ${calcDecomposicao ? 'NVL(emp_pai.VALOR_EMPRESTEI, 0)' : '0'}
-        + ${calcProducao ? 'NVL(emp_insumo.VALOR_EMPRESTEI, 0)' : '0'} as EMPRESTEI,
+        + ${calcProducao ? 'NVL(emp_insumo.VALOR_EMPRESTEI, 0)' : '0'}
+        + ${calcAssociacao ? 'NVL(emp_assoc_pai.VALOR_EMPRESTEI, 0)' : '0'} as EMPRESTEI,
         ${calcDecomposicao ? 'NVL(emp_filho.VALOR_EMPRESTADO, 0)' : '0'}
-        + ${calcProducao ? 'NVL(emp_final.VALOR_EMPRESTADO, 0)' : '0'} as EMPRESTADO
+        + ${calcProducao ? 'NVL(emp_final.VALOR_EMPRESTADO, 0)' : '0'}
+        + ${calcAssociacao ? 'NVL(emp_assoc_filho.VALOR_EMPRESTADO, 0)' : '0'} as EMPRESTADO
       FROM INTERSOLID.TAB_SUBGRUPO sg
       LEFT JOIN (
         SELECT
@@ -1403,5 +1471,301 @@ export class CompraVendaService {
         COMPRA_FINAL: Math.round(compraFinal * 100) / 100
       };
     });
+  }
+
+  /**
+   * Busca o detalhamento dos valores de Emprestei/Emprestado
+   * Retorna os itens que compõem cada tipo de empréstimo (decomposição, produção, associação)
+   */
+  static async getDetalheEmprestimo(filters: CompraVendaFilters & {
+    nivel: 'secao' | 'grupo' | 'subgrupo' | 'item';
+    codSecao?: number;
+    codGrupo?: number;
+    codSubGrupo?: number;
+    codProduto?: number;
+    tipo: 'emprestei' | 'emprestado';
+  }): Promise<{
+    decomposicao: any[];
+    producao: any[];
+    associacao: any[];
+    totalDecomposicao: number;
+    totalProducao: number;
+    totalAssociacao: number;
+    total: number;
+  }> {
+    const { dataInicio, dataFim, codLoja, tipoNotaFiscal, tipoVenda, nivel, tipo, codSecao, codGrupo, codSubGrupo, codProduto } = filters;
+
+    const params: any = { dataInicio, dataFim };
+    const tipoNfFilter = this.buildTipoNfFilter(tipoNotaFiscal);
+    const tipoVendaFilter = this.buildTipoVendaFilter(tipoVenda);
+
+    let lojaFilterCompras = '';
+    let lojaFilterVendas = '';
+    if (codLoja) {
+      lojaFilterCompras = ` AND nf.COD_LOJA = :codLoja`;
+      lojaFilterVendas = ` AND pv.COD_LOJA = :codLoja`;
+      params.codLoja = codLoja;
+    }
+
+    // Filtro de nível
+    let nivelFilter = '';
+    if (codSecao) {
+      nivelFilter += ` AND p.COD_SECAO = :codSecao`;
+      params.codSecao = codSecao;
+    }
+    if (codGrupo) {
+      nivelFilter += ` AND p.COD_GRUPO = :codGrupo`;
+      params.codGrupo = codGrupo;
+    }
+    if (codSubGrupo) {
+      nivelFilter += ` AND p.COD_SUB_GRUPO = :codSubGrupo`;
+      params.codSubGrupo = codSubGrupo;
+    }
+    if (codProduto) {
+      nivelFilter += ` AND p.COD_PRODUTO = :codProduto`;
+      params.codProduto = codProduto;
+    }
+
+    const result = {
+      decomposicao: [] as any[],
+      producao: [] as any[],
+      associacao: [] as any[],
+      totalDecomposicao: 0,
+      totalProducao: 0,
+      totalAssociacao: 0,
+      total: 0
+    };
+
+    // ========== DECOMPOSIÇÃO ==========
+    if (tipo === 'emprestei') {
+      // EMPRESTEI: Produtos MATRIZ que emprestam para FILHOS
+      const sqlDecomp = `
+        SELECT
+          p_pai.COD_PRODUTO as COD_ORIGEM,
+          p_pai.DES_PRODUTO as PRODUTO_ORIGEM,
+          p_filho.COD_PRODUTO as COD_DESTINO,
+          p_filho.DES_PRODUTO as PRODUTO_DESTINO,
+          d.QTD_DECOMP as PERCENTUAL,
+          NVL(compras.VAL_TOTAL, 0) * d.QTD_DECOMP / 100 as VALOR
+        FROM INTERSOLID.TAB_PRODUTO p_pai
+        JOIN INTERSOLID.TAB_PRODUTO_DECOMPOSICAO d ON p_pai.COD_PRODUTO = d.COD_PRODUTO
+        JOIN INTERSOLID.TAB_PRODUTO p_filho ON d.COD_PRODUTO_DECOM = p_filho.COD_PRODUTO
+        LEFT JOIN (
+          SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL
+          FROM INTERSOLID.TAB_NF nf
+          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+            AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
+            AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.TIPO_OPERACAO = 0
+          ${tipoNfFilter}
+          ${lojaFilterCompras}
+          GROUP BY ni.COD_ITEM
+        ) compras ON p_pai.COD_PRODUTO = compras.COD_ITEM
+        WHERE 1=1 ${nivelFilter.replace(/p\./g, 'p_pai.')}
+        AND compras.VAL_TOTAL > 0
+        ORDER BY VALOR DESC NULLS LAST
+      `;
+      result.decomposicao = await OracleService.query<any>(sqlDecomp, params);
+      result.totalDecomposicao = result.decomposicao.reduce((sum, r) => sum + (r.VALOR || 0), 0);
+    } else {
+      // EMPRESTADO: Produtos FILHO que recebem de MATRIZ
+      const sqlDecomp = `
+        SELECT
+          p_filho.COD_PRODUTO as COD_DESTINO,
+          p_filho.DES_PRODUTO as PRODUTO_DESTINO,
+          p_pai.COD_PRODUTO as COD_ORIGEM,
+          p_pai.DES_PRODUTO as PRODUTO_ORIGEM,
+          d.QTD_DECOMP as PERCENTUAL,
+          NVL(compras.VAL_TOTAL, 0) * d.QTD_DECOMP / 100 as VALOR
+        FROM INTERSOLID.TAB_PRODUTO p_filho
+        JOIN INTERSOLID.TAB_PRODUTO_DECOMPOSICAO d ON p_filho.COD_PRODUTO = d.COD_PRODUTO_DECOM
+        JOIN INTERSOLID.TAB_PRODUTO p_pai ON d.COD_PRODUTO = p_pai.COD_PRODUTO
+        LEFT JOIN (
+          SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL
+          FROM INTERSOLID.TAB_NF nf
+          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+            AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
+            AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.TIPO_OPERACAO = 0
+          ${tipoNfFilter}
+          ${lojaFilterCompras}
+          GROUP BY ni.COD_ITEM
+        ) compras ON p_pai.COD_PRODUTO = compras.COD_ITEM
+        WHERE 1=1 ${nivelFilter.replace(/p\./g, 'p_filho.')}
+        AND compras.VAL_TOTAL > 0
+        ORDER BY VALOR DESC NULLS LAST
+      `;
+      result.decomposicao = await OracleService.query<any>(sqlDecomp, params);
+      result.totalDecomposicao = result.decomposicao.reduce((sum, r) => sum + (r.VALOR || 0), 0);
+    }
+
+    // ========== PRODUÇÃO ==========
+    if (tipo === 'emprestei') {
+      // EMPRESTEI: Insumos que emprestam para produtos finais (baseado em VENDAS)
+      const sqlProd = `
+        SELECT
+          p_insumo.COD_PRODUTO as COD_ORIGEM,
+          p_insumo.DES_PRODUTO as PRODUTO_ORIGEM,
+          p_final.COD_PRODUTO as COD_DESTINO,
+          p_final.DES_PRODUTO as PRODUTO_DESTINO,
+          pp.QTD_PRODUCAO as QTD_RECEITA,
+          NVL(vendas.QTD_VENDIDA, 0) * pp.QTD_PRODUCAO * (NVL(compras.VAL_TOTAL, 0) / NULLIF(compras.QTD_TOTAL, 0)) as VALOR
+        FROM INTERSOLID.TAB_PRODUTO_PRODUCAO pp
+        JOIN INTERSOLID.TAB_PRODUTO p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
+        JOIN INTERSOLID.TAB_PRODUTO p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
+        LEFT JOIN (
+          SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          FROM INTERSOLID.TAB_NF nf
+          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+            AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
+            AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.TIPO_OPERACAO = 0
+          ${tipoNfFilter}
+          ${lojaFilterCompras}
+          GROUP BY ni.COD_ITEM
+        ) compras ON p_insumo.COD_PRODUTO = compras.COD_ITEM
+        LEFT JOIN (
+          SELECT pv.COD_PRODUTO, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          ${tipoVendaFilter}
+          ${lojaFilterVendas}
+          GROUP BY pv.COD_PRODUTO
+        ) vendas ON p_final.COD_PRODUTO = vendas.COD_PRODUTO
+        WHERE 1=1 ${nivelFilter.replace(/p\./g, 'p_insumo.')}
+        AND vendas.QTD_VENDIDA > 0
+        ORDER BY VALOR DESC NULLS LAST
+      `;
+      result.producao = await OracleService.query<any>(sqlProd, params);
+      result.totalProducao = result.producao.reduce((sum, r) => sum + (r.VALOR || 0), 0);
+    } else {
+      // EMPRESTADO: Produtos finais que recebem de insumos
+      const sqlProd = `
+        SELECT
+          p_final.COD_PRODUTO as COD_DESTINO,
+          p_final.DES_PRODUTO as PRODUTO_DESTINO,
+          p_insumo.COD_PRODUTO as COD_ORIGEM,
+          p_insumo.DES_PRODUTO as PRODUTO_ORIGEM,
+          pp.QTD_PRODUCAO as QTD_RECEITA,
+          NVL(vendas.QTD_VENDIDA, 0) * pp.QTD_PRODUCAO * (NVL(compras.VAL_TOTAL, 0) / NULLIF(compras.QTD_TOTAL, 0)) as VALOR
+        FROM INTERSOLID.TAB_PRODUTO_PRODUCAO pp
+        JOIN INTERSOLID.TAB_PRODUTO p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
+        JOIN INTERSOLID.TAB_PRODUTO p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
+        LEFT JOIN (
+          SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          FROM INTERSOLID.TAB_NF nf
+          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+            AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
+            AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.TIPO_OPERACAO = 0
+          ${tipoNfFilter}
+          ${lojaFilterCompras}
+          GROUP BY ni.COD_ITEM
+        ) compras ON p_insumo.COD_PRODUTO = compras.COD_ITEM
+        LEFT JOIN (
+          SELECT pv.COD_PRODUTO, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          ${tipoVendaFilter}
+          ${lojaFilterVendas}
+          GROUP BY pv.COD_PRODUTO
+        ) vendas ON p_final.COD_PRODUTO = vendas.COD_PRODUTO
+        WHERE 1=1 ${nivelFilter.replace(/p\./g, 'p_final.')}
+        AND vendas.QTD_VENDIDA > 0
+        ORDER BY VALOR DESC NULLS LAST
+      `;
+      result.producao = await OracleService.query<any>(sqlProd, params);
+      result.totalProducao = result.producao.reduce((sum, r) => sum + (r.VALOR || 0), 0);
+    }
+
+    // ========== ASSOCIAÇÃO ==========
+    if (tipo === 'emprestei') {
+      // EMPRESTEI: Produtos BASE que emprestam para ASSOCIADOS
+      const sqlAssoc = `
+        SELECT
+          p_base.COD_PRODUTO as COD_ORIGEM,
+          p_base.DES_PRODUTO as PRODUTO_ORIGEM,
+          p_assoc.COD_PRODUTO as COD_DESTINO,
+          p_assoc.DES_PRODUTO as PRODUTO_DESTINO,
+          pl.QTD_ASSOC as QTD_ASSOC,
+          NVL(vendas.QTD_VENDIDA, 0) * NVL(pl.QTD_ASSOC, 1) * (NVL(compras.VAL_TOTAL, 0) / NULLIF(compras.QTD_TOTAL, 0)) as VALOR
+        FROM INTERSOLID.TAB_PRODUTO_LOJA pl
+        JOIN INTERSOLID.TAB_PRODUTO p_base ON pl.COD_PRODUTO_ASSOC = p_base.COD_PRODUTO
+        JOIN INTERSOLID.TAB_PRODUTO p_assoc ON pl.COD_PRODUTO = p_assoc.COD_PRODUTO
+        LEFT JOIN (
+          SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          FROM INTERSOLID.TAB_NF nf
+          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+            AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
+            AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.TIPO_OPERACAO = 0
+          ${tipoNfFilter}
+          ${lojaFilterCompras}
+          GROUP BY ni.COD_ITEM
+        ) compras ON p_base.COD_PRODUTO = compras.COD_ITEM
+        LEFT JOIN (
+          SELECT pv.COD_PRODUTO, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          ${tipoVendaFilter}
+          ${lojaFilterVendas}
+          GROUP BY pv.COD_PRODUTO
+        ) vendas ON p_assoc.COD_PRODUTO = vendas.COD_PRODUTO
+        WHERE pl.COD_PRODUTO_ASSOC IS NOT NULL
+        ${nivelFilter.replace(/p\./g, 'p_base.')}
+        AND vendas.QTD_VENDIDA > 0
+        ORDER BY VALOR DESC NULLS LAST
+      `;
+      result.associacao = await OracleService.query<any>(sqlAssoc, params);
+      result.totalAssociacao = result.associacao.reduce((sum, r) => sum + (r.VALOR || 0), 0);
+    } else {
+      // EMPRESTADO: Produtos ASSOCIADOS que recebem de BASE
+      const sqlAssoc = `
+        SELECT
+          p_assoc.COD_PRODUTO as COD_DESTINO,
+          p_assoc.DES_PRODUTO as PRODUTO_DESTINO,
+          p_base.COD_PRODUTO as COD_ORIGEM,
+          p_base.DES_PRODUTO as PRODUTO_ORIGEM,
+          pl.QTD_ASSOC as QTD_ASSOC,
+          NVL(vendas.QTD_VENDIDA, 0) * NVL(pl.QTD_ASSOC, 1) * (NVL(compras.VAL_TOTAL, 0) / NULLIF(compras.QTD_TOTAL, 0)) as VALOR
+        FROM INTERSOLID.TAB_PRODUTO_LOJA pl
+        JOIN INTERSOLID.TAB_PRODUTO p_assoc ON pl.COD_PRODUTO = p_assoc.COD_PRODUTO
+        JOIN INTERSOLID.TAB_PRODUTO p_base ON pl.COD_PRODUTO_ASSOC = p_base.COD_PRODUTO
+        LEFT JOIN (
+          SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          FROM INTERSOLID.TAB_NF nf
+          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+            AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
+            AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.TIPO_OPERACAO = 0
+          ${tipoNfFilter}
+          ${lojaFilterCompras}
+          GROUP BY ni.COD_ITEM
+        ) compras ON p_base.COD_PRODUTO = compras.COD_ITEM
+        LEFT JOIN (
+          SELECT pv.COD_PRODUTO, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          ${tipoVendaFilter}
+          ${lojaFilterVendas}
+          GROUP BY pv.COD_PRODUTO
+        ) vendas ON p_assoc.COD_PRODUTO = vendas.COD_PRODUTO
+        WHERE pl.COD_PRODUTO_ASSOC IS NOT NULL
+        ${nivelFilter.replace(/p\./g, 'p_assoc.')}
+        AND vendas.QTD_VENDIDA > 0
+        ORDER BY VALOR DESC NULLS LAST
+      `;
+      result.associacao = await OracleService.query<any>(sqlAssoc, params);
+      result.totalAssociacao = result.associacao.reduce((sum, r) => sum + (r.VALOR || 0), 0);
+    }
+
+    result.total = result.totalDecomposicao + result.totalProducao + result.totalAssociacao;
+    return result;
   }
 }

@@ -34,20 +34,27 @@ export default function EmployeesTab() {
 
   const handleSave = async (employeeData) => {
     try {
+      let savedEmployee;
       if (editingEmployee) {
-        await updateEmployee(editingEmployee.id, employeeData);
+        savedEmployee = await updateEmployee(editingEmployee.id, employeeData);
         toast.success('Colaborador atualizado com sucesso!');
       } else {
-        await createEmployee(employeeData);
+        savedEmployee = await createEmployee(employeeData);
         toast.success('Colaborador criado com sucesso!');
       }
-      await loadEmployees(pagination.page);
-      setShowModal(false);
-      setEditingEmployee(null);
+      // Retornar o employee salvo para o modal usar o ID
+      return savedEmployee;
     } catch (err) {
       console.error('Save employee error:', err);
       throw err;
     }
+  };
+
+  // Função para fechar o modal após todas as operações
+  const handleSaveComplete = async () => {
+    await loadEmployees(pagination.page);
+    setShowModal(false);
+    setEditingEmployee(null);
   };
 
   const handleEdit = (employee) => {
@@ -159,6 +166,7 @@ export default function EmployeesTab() {
           onSave={handleSave}
           onCancel={handleCancel}
           onUploadAvatar={handleUploadAvatar}
+          onSaveComplete={handleSaveComplete}
         />
       )}
 

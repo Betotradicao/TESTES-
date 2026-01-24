@@ -759,7 +759,7 @@ export default function Bipagens() {
                         {/* Ícones e Seta - centralizados */}
                         <div className="flex items-start gap-4 mb-1">
                           {/* Scanner Icon */}
-                          <div className="flex flex-col items-center gap-1">
+                          <div className="flex flex-col items-center gap-1 min-h-[70px]">
                             <div
                               className="w-10 h-10 rounded-full flex items-center justify-center text-white"
                               style={{ backgroundColor: equipment.color_hash }}
@@ -769,11 +769,9 @@ export default function Bipagens() {
                             <span className="text-[10px] text-gray-600 font-medium">
                               Scaner {equipment.id}
                             </span>
-                            {equipment.port_number && (
-                              <span className="text-[9px] text-gray-500 font-semibold">
-                                Porta {equipment.port_number}
-                              </span>
-                            )}
+                            <span className="text-[9px] text-gray-500 font-semibold">
+                              {equipment.port_number ? `Porta ${equipment.port_number}` : '-'}
+                            </span>
                           </div>
 
                           {/* Seta no meio - alinhada apenas com os ícones (h-10) */}
@@ -782,7 +780,7 @@ export default function Bipagens() {
                           </div>
 
                           {/* Vendedor Icon/Photo */}
-                          <div className="flex flex-col items-center gap-1">
+                          <div className="flex flex-col items-center gap-1 min-h-[70px]">
                             {loggedEmployee?.avatar ? (
                               <img
                                 src={loggedEmployee.avatar}

@@ -35,4 +35,7 @@ router.get('/drill-down/grupos', CompraVendaController.getDrillDownGrupos);
 router.get('/drill-down/subgrupos', CompraVendaController.getDrillDownSubGrupos);
 router.get('/drill-down/itens', CompraVendaController.getDrillDownItens);
 
+// Detalhamento de empréstimos (para tooltip)
+router.get('/detalhe-emprestimo', CompraVendaController.getDetalheEmprestimo);
+
 export default router;

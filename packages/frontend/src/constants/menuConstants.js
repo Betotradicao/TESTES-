@@ -22,10 +22,7 @@ export const MENU_SUBMENUS = {
   BIPAGENS_RANKINGS: 'bipagens-rankings',
 
   // PDV
-  PDV_CADASTRAR: 'pdv-cadastrar',
-  PDV_BUSCAR: 'pdv-buscar',
-  PDV_RESULTADOS: 'pdv-resultados',
-  PDV_CONTROLE: 'pdv-controle',
+  PDV_FRENTE_CAIXA: 'pdv-frente-caixa',
 
   // Facial
   FACIAL_RECONHECIMENTO: 'facial-reconhecimento',
@@ -99,22 +96,9 @@ export const MENU_STRUCTURE = [
     icon: 'pdv',
     submenus: [
       {
-        id: MENU_SUBMENUS.PDV_CADASTRAR,
-        title: 'Cadastrar Eventos'
-      },
-      {
-        id: MENU_SUBMENUS.PDV_BUSCAR,
-        title: 'Buscar Eventos'
-      },
-      {
-        id: MENU_SUBMENUS.PDV_RESULTADOS,
-        title: 'Resultados do Dia',
-        path: '/resultados-do-dia'
-      },
-      {
-        id: MENU_SUBMENUS.PDV_CONTROLE,
-        title: 'Controle PDV',
-        path: '/controle-pdv'
+        id: MENU_SUBMENUS.PDV_FRENTE_CAIXA,
+        title: 'Frente de Caixa',
+        path: '/frente-caixa'
       }
     ]
   },

@@ -178,7 +178,8 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
     'perdas': '📊',
     'producao': '🥖',
     'hortfrut': '🥬',
-    'estoque-margem': '📦'
+    'estoque-margem': '📦',
+    'compra-venda': '📈'
   };
 
   return (
