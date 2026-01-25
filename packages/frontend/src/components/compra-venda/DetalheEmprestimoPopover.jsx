@@ -266,43 +266,73 @@ function Section({ title, emoji, subtitle, items, total, tipo, formatCurrency })
       {expanded && (
         <div className="bg-white">
           {hasItems ? (
-            <table className="w-full text-xs">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">
-                    {tipo === 'emprestei' ? 'Origem (Este Item)' : 'Este Item'}
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">
-                    {tipo === 'emprestei' ? 'Destino' : 'Origem'}
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-gray-600">Valor</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {items.slice(0, 20).map((item, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50">
-                    <td className="px-3 py-1.5 text-gray-700 truncate max-w-[180px]" title={item.PRODUTO_ORIGEM}>
-                      <span className="text-gray-400 mr-1">{item.COD_ORIGEM || item.COD_DESTINO}</span>
-                      {tipo === 'emprestei' ? item.PRODUTO_ORIGEM : item.PRODUTO_DESTINO}
-                    </td>
-                    <td className="px-3 py-1.5 text-gray-700 truncate max-w-[180px]" title={item.PRODUTO_DESTINO}>
-                      <span className="text-gray-400 mr-1">{tipo === 'emprestei' ? item.COD_DESTINO : item.COD_ORIGEM}</span>
-                      {tipo === 'emprestei' ? item.PRODUTO_DESTINO : item.PRODUTO_ORIGEM}
-                    </td>
-                    <td className="px-3 py-1.5 text-right font-medium text-gray-900">
-                      {formatCurrency(item.VALOR)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="divide-y divide-gray-200">
+              {items.slice(0, 20).map((item, idx) => (
+                <div key={idx} className="overflow-hidden">
+                  {/* Item Principal - Fundo Verde */}
+                  <div className="bg-green-50 border-l-4 border-green-500 px-3 py-2">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="text-xs font-semibold text-green-700 mb-1">
+                          {tipo === 'emprestei' ? '📤 ESTE ITEM (Origem)' : '📥 ESTE ITEM'}
+                        </div>
+                        <div className="font-medium text-gray-900 text-sm">
+                          <span className="text-green-600 mr-1 text-xs font-mono">
+                            {tipo === 'emprestei' ? item.COD_ORIGEM : item.COD_DESTINO}
+                          </span>
+                          {tipo === 'emprestei' ? item.PRODUTO_ORIGEM : item.PRODUTO_DESTINO}
+                        </div>
+                        <div className="text-xs text-green-600 mt-1">
+                          📍 {tipo === 'emprestei'
+                            ? `${item.SECAO_ORIGEM || '-'} › ${item.GRUPO_ORIGEM || '-'} › ${item.SUBGRUPO_ORIGEM || '-'}`
+                            : `${item.SECAO_DESTINO || '-'} › ${item.GRUPO_DESTINO || '-'} › ${item.SUBGRUPO_DESTINO || '-'}`
+                          }
+                        </div>
+                      </div>
+                      <div className="text-right ml-2">
+                        <div className="bg-green-600 text-white px-2 py-1 rounded font-bold text-sm">
+                          {formatCurrency(item.VALOR)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Item Relacionado - Fundo Salmão */}
+                  <div className="bg-orange-50 border-l-4 border-orange-400 px-3 py-2 ml-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="text-xs font-semibold text-orange-700 mb-1">
+                          {tipo === 'emprestei' ? '➡️ DESTINO' : '⬅️ ORIGEM'}
+                        </div>
+                        <div className="text-gray-800 text-sm">
+                          <span className="text-orange-600 mr-1 text-xs font-mono">
+                            {tipo === 'emprestei' ? item.COD_DESTINO : item.COD_ORIGEM}
+                          </span>
+                          {tipo === 'emprestei' ? item.PRODUTO_DESTINO : item.PRODUTO_ORIGEM}
+                        </div>
+                        <div className="text-xs text-orange-600 mt-1">
+                          📍 {tipo === 'emprestei'
+                            ? `${item.SECAO_DESTINO || '-'} › ${item.GRUPO_DESTINO || '-'} › ${item.SUBGRUPO_DESTINO || '-'}`
+                            : `${item.SECAO_ORIGEM || '-'} › ${item.GRUPO_ORIGEM || '-'} › ${item.SUBGRUPO_ORIGEM || '-'}`
+                          }
+                        </div>
+                      </div>
+                      <div className="text-right ml-2">
+                        <div className="bg-orange-500 text-white px-2 py-1 rounded font-bold text-sm">
+                          {formatCurrency(item.VALOR)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="px-3 py-4 text-center text-gray-400 text-xs">
               Nenhum registro encontrado
             </div>
           )}
           {hasItems && items.length > 20 && (
-            <div className="px-3 py-2 bg-gray-50 text-xs text-gray-500 text-center">
+            <div className="px-3 py-2 bg-gray-100 text-xs text-gray-600 text-center font-medium">
               Mostrando 20 de {items.length} registros
             </div>
           )}

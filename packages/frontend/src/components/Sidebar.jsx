@@ -6,8 +6,17 @@ import { MENU_SUBMENUS } from '../constants/menuConstants';
 export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileMenuOpen }) {
   const [expandedSections, setExpandedSections] = useState({});
   const [modulesConfig, setModulesConfig] = useState([]);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebar_collapsed');
+    return saved === 'true';
+  });
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Salvar estado do collapse no localStorage
+  useEffect(() => {
+    localStorage.setItem('sidebar_collapsed', isCollapsed.toString());
+  }, [isCollapsed]);
 
   // Carregar configuração de módulos do localStorage
   useEffect(() => {
@@ -437,13 +446,35 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       {/* Sidebar */}
       <div className={`
         fixed lg:static inset-y-0 left-0 z-50 lg:z-auto
-        w-80 bg-white h-screen shadow-lg flex flex-col
-        transform transition-transform duration-300 ease-in-out lg:transform-none
+        ${isCollapsed ? 'w-16' : 'w-80'} bg-white h-screen shadow-lg flex flex-col
+        transform transition-all duration-300 ease-in-out lg:transform-none
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
       {/* Logo Section */}
-      <div className="p-6 border-b border-gray-200 flex justify-center">
-        <Logo size="medium" />
+      <div className={`${isCollapsed ? 'p-2' : 'p-6'} border-b border-gray-200 flex justify-center relative`}>
+        {isCollapsed ? (
+          <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold text-sm">PR</span>
+          </div>
+        ) : (
+          <Logo size="medium" />
+        )}
+
+        {/* Botão de Toggle - Desktop only */}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="hidden lg:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border border-gray-200 rounded-full items-center justify-center shadow-sm hover:bg-gray-50 transition-colors"
+          title={isCollapsed ? 'Expandir menu' : 'Minimizar menu'}
+        >
+          <svg
+            className={`w-3 h-3 text-gray-500 transition-transform ${isCollapsed ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/>
+          </svg>
+        </button>
       </div>
 
       {/* Menu Items */}
@@ -475,11 +506,25 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             return true;
           }) : item.items;
 
-          return <div key={item.id} className="mb-2">
+          return <div key={item.id} className={isCollapsed ? 'mb-1' : 'mb-2'}>
             <button
               onClick={() => {
                 // Se o módulo estiver desativado, não faz nada
                 if (!moduleActive) {
+                  return;
+                }
+
+                // Se colapsado e tem path direto, navega
+                if (isCollapsed && item.path) {
+                  navigate(item.path);
+                  setIsMobileMenuOpen(false);
+                  return;
+                }
+
+                // Se colapsado e expandable, expande a sidebar primeiro
+                if (isCollapsed && item.expandable) {
+                  setIsCollapsed(false);
+                  toggleSection(item.id);
                   return;
                 }
 
@@ -490,18 +535,19 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
                   setIsMobileMenuOpen(false);
                 }
               }}
-              className={`w-full flex items-center justify-between px-6 py-3 text-left transition-colors ${
+              className={`w-full flex items-center ${isCollapsed ? 'justify-center px-2' : 'justify-between px-6'} py-3 text-left transition-colors ${
                 moduleActive
                   ? 'text-gray-700 hover:bg-gray-50 cursor-pointer'
                   : 'text-gray-400 cursor-not-allowed opacity-60'
               }`}
               disabled={!moduleActive}
+              title={isCollapsed ? item.title : ''}
             >
-              <div className="flex items-center space-x-3">
+              <div className={`flex items-center ${isCollapsed ? '' : 'space-x-3'}`}>
                 <span className={moduleActive ? 'text-gray-500' : 'text-gray-400'}>{item.icon}</span>
-                <span className="text-sm font-medium">{item.title}</span>
+                {!isCollapsed && <span className="text-sm font-medium">{item.title}</span>}
               </div>
-              {item.expandable && (
+              {!isCollapsed && item.expandable && (
                 <svg
                   className={`w-4 h-4 text-gray-400 transform transition-transform ${
                     expandedSections[item.id] ? 'rotate-180' : ''
@@ -515,8 +561,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
               )}
             </button>
 
-            {/* Submenu Items */}
-            {item.expandable && expandedSections[item.id] && (
+            {/* Submenu Items - Só mostra se não colapsado */}
+            {!isCollapsed && item.expandable && expandedSections[item.id] && (
               <div className="pl-14 pr-6 pb-2">
                 {filteredItems.map((subItem, index) => (
                   <button
@@ -552,55 +598,97 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       </div>
 
       {/* User Section at Bottom */}
-      <div className="border-t border-gray-200 p-4">
-        <div className="flex items-center justify-between mb-3">
-          <button
-            onClick={() => {
-              if (user?.type === 'employee') {
-                navigate('/perfil');
-                setIsMobileMenuOpen(false);
-              }
-            }}
-            className={`flex items-center space-x-3 flex-1 ${
-              user?.type === 'employee' ? 'cursor-pointer' : 'cursor-default'
-            }`}
-          >
-            {user?.avatar ? (
-              <img
-                src={user.avatar}
-                alt={user.name || user.email}
-                className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-              />
-            ) : (
-              <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
-                <span className="text-white text-sm font-medium">
-                  {(user?.name?.charAt(0) || user?.email?.charAt(0) || 'U').toUpperCase()}
-                </span>
-              </div>
-            )}
-            <div className="flex-1 min-w-0 text-center">
-              <p className="text-sm font-medium text-gray-900 truncate">
-                {user?.name || 'Prevenção Radar'}
-              </p>
-              <p className="text-xs text-gray-500 truncate">
-                {user?.type === 'employee' ? user?.sector?.name || 'Colaborador' : 'Sistema de Segurança'}
-              </p>
+      <div className={`border-t border-gray-200 ${isCollapsed ? 'p-2' : 'p-4'}`}>
+        {isCollapsed ? (
+          // Versão colapsada - só o avatar e logout
+          <div className="flex flex-col items-center gap-2">
+            <button
+              onClick={() => {
+                if (user?.type === 'employee') {
+                  navigate('/perfil');
+                  setIsMobileMenuOpen(false);
+                }
+              }}
+              className={user?.type === 'employee' ? 'cursor-pointer' : 'cursor-default'}
+              title={user?.name || 'Usuário'}
+            >
+              {user?.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={user.name || user.email}
+                  className="w-8 h-8 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">
+                    {(user?.name?.charAt(0) || user?.email?.charAt(0) || 'U').toUpperCase()}
+                  </span>
+                </div>
+              )}
+            </button>
+            <button
+              onClick={onLogout}
+              className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+              title="Sair"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+              </svg>
+            </button>
+          </div>
+        ) : (
+          // Versão expandida - completa
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <button
+                onClick={() => {
+                  if (user?.type === 'employee') {
+                    navigate('/perfil');
+                    setIsMobileMenuOpen(false);
+                  }
+                }}
+                className={`flex items-center space-x-3 flex-1 ${
+                  user?.type === 'employee' ? 'cursor-pointer' : 'cursor-default'
+                }`}
+              >
+                {user?.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={user.name || user.email}
+                    className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-sm font-medium">
+                      {(user?.name?.charAt(0) || user?.email?.charAt(0) || 'U').toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                <div className="flex-1 min-w-0 text-center">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {user?.name || 'Prevenção Radar'}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {user?.type === 'employee' ? user?.sector?.name || 'Colaborador' : 'Sistema de Segurança'}
+                  </p>
+                </div>
+              </button>
+              <button
+                onClick={onLogout}
+                className="p-2 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                title="Sair"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                </svg>
+              </button>
             </div>
-          </button>
-          <button
-            onClick={onLogout}
-            className="p-2 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
-            title="Sair"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-            </svg>
-          </button>
-        </div>
-        {user?.type === 'employee' && (
-          <p className="text-xs text-gray-500 text-center">
-            Clique no seu nome para acessar o perfil
-          </p>
+            {user?.type === 'employee' && (
+              <p className="text-xs text-gray-500 text-center">
+                Clique no seu nome para acessar o perfil
+              </p>
+            )}
+          </>
         )}
       </div>
 

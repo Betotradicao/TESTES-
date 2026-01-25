@@ -41,6 +41,7 @@ export interface CompraVendaData {
   VENDAS: number;
   // Colunas conforme Intersolid:
   MARK_DOWN_PCT: number;    // (Vendas - Custo) / Vendas * 100
+  MG_LIQUIDA_PCT: number;   // Lucro Líquido / (Vendas - Imposto) * 100
   COMPRA_PCT: number;       // Compra Seção / Total Compras * 100
   VENDA_PCT: number;        // Venda Seção / Total Vendas * 100
   META_PCT: number;         // Custo / Vendas * 100
@@ -48,6 +49,7 @@ export interface CompraVendaData {
   PCT: number;              // Compras / Vendas * 100
   DIFERENCA_PCT: number;    // META_PCT - PCT
   DIFERENCA_RS: number;     // Custo - Compras
+  TOTAL_IMPOSTO: number;    // Soma dos impostos de saída (VAL_IMPOSTO_DEBITO)
   // Colunas de Empréstimo (Decomposição/Receituário/Associação):
   EMPRESTEI: number;        // Valor que PAI/ingredientes emprestaram
   EMPRESTADO: number;       // Valor que FILHOS/compostos tomaram emprestado
@@ -121,8 +123,10 @@ export class CompraVendaService {
 
   /**
    * Busca os subgrupos disponíveis
+   * TAB_SUBGRUPO tem COD_SECAO e COD_GRUPO - filtra diretamente
    */
-  static async getSubGrupos(codGrupo?: number): Promise<any[]> {
+  static async getSubGrupos(codSecao?: number, codGrupo?: number): Promise<any[]> {
+    // Filtra diretamente na TAB_SUBGRUPO por COD_SECAO e COD_GRUPO
     let sql = `
       SELECT DISTINCT COD_SUB_GRUPO, DES_SUB_GRUPO
       FROM INTERSOLID.TAB_SUBGRUPO
@@ -131,6 +135,12 @@ export class CompraVendaService {
 
     const params: any = {};
 
+    // Filtrar por seção E grupo (chave composta)
+    if (codSecao) {
+      sql += ` AND COD_SECAO = :codSecao`;
+      params.codSecao = codSecao;
+    }
+
     if (codGrupo) {
       sql += ` AND COD_GRUPO = :codGrupo`;
       params.codGrupo = codGrupo;
@@ -138,7 +148,14 @@ export class CompraVendaService {
 
     sql += ` ORDER BY DES_SUB_GRUPO`;
 
-    return OracleService.query(sql, params);
+    console.log('📦 getSubGrupos - codSecao:', codSecao, 'codGrupo:', codGrupo);
+    console.log('📦 getSubGrupos SQL:', sql);
+    console.log('📦 getSubGrupos params:', params);
+
+    const result = await OracleService.query(sql, params);
+    console.log('📦 getSubGrupos resultado:', result.length, 'subgrupos');
+
+    return result;
   }
 
   /**
@@ -204,21 +221,15 @@ export class CompraVendaService {
     }
 
     // Filtro de Produtos Bonificados
-    // Produtos bonificados são aqueles que têm registro em TAB_FORN_PROD_RAT_BONIF
-    if (produtosBonificados === 'sem') {
-      // Sem bonificados: exclui produtos que têm registro de bonificação
-      filterSql += ` AND NOT EXISTS (
-        SELECT 1 FROM INTERSOLID.TAB_FORN_PROD_RAT_BONIF b
-        WHERE b.COD_PRODUTO = TO_CHAR(p.COD_PRODUTO)
-      )`;
-    } else if (produtosBonificados === 'somente') {
-      // Somente bonificados: inclui apenas produtos com bonificação
-      filterSql += ` AND EXISTS (
-        SELECT 1 FROM INTERSOLID.TAB_FORN_PROD_RAT_BONIF b
-        WHERE b.COD_PRODUTO = TO_CHAR(p.COD_PRODUTO)
-      )`;
-    }
-    // 'com' = todos, não precisa filtrar
+    // Este filtro controla a inclusão de notas por CFOP:
+    // - "com" = inclui tudo (compras normais + bonificação)
+    // - "sem" = só pega notas com CFOP de compra normal (exclui bonificação)
+    // - "somente" = só pega notas com CFOP de bonificação
+    //
+    // NOTA: A filtragem por CFOP é feita pelo método buildTipoNfFilter.
+    // O filtro produtosBonificados controla automaticamente o tipoNotaFiscal no frontend.
+    // Aqui apenas mantemos compatibilidade com a variável.
+    // 'com', 'sem', 'somente' = tratado pelo frontend via tipoNotaFiscal
 
     // Filtro de Decomposição
     // PAI = Todos os produtos (sem filtro - comportamento padrão)
@@ -369,6 +380,14 @@ export class CompraVendaService {
              ELSE 0
         END as MARK_DOWN_PCT,
         CASE WHEN NVL(v.VALOR_VENDAS, 0) > 0
+             THEN ROUND(((NVL(v.VALOR_VENDAS, 0) - NVL(v.CUSTO_VENDA, 0) - NVL(v.TOTAL_IMPOSTO, 0) + NVL(v.TOTAL_IMPOSTO_CREDITO, 0)) / NVL(v.VALOR_VENDAS, 0)) * 100, 2)
+             ELSE 0
+        END as MG_LUCRO_PCT,
+        CASE WHEN NVL(v.VALOR_VENDAS, 0) > 0
+             THEN ROUND(((NVL(v.VALOR_VENDAS, 0) - NVL(v.CUSTO_VENDA, 0) - NVL(v.TOTAL_IMPOSTO, 0) + NVL(v.TOTAL_IMPOSTO_CREDITO, 0)) / NULLIF(NVL(v.VALOR_VENDAS, 0) - NVL(v.TOTAL_IMPOSTO, 0), 0)) * 100, 2)
+             ELSE 0
+        END as MG_LIQUIDA_PCT,
+        CASE WHEN NVL(v.VALOR_VENDAS, 0) > 0
              THEN ROUND((NVL(v.CUSTO_VENDA, 0) / NVL(v.VALOR_VENDAS, 0)) * 100, 2)
              ELSE 0
         END as META_PCT,
@@ -377,6 +396,8 @@ export class CompraVendaService {
              ELSE 0
         END as PCT,
         NVL(v.CUSTO_VENDA, 0) - NVL(c.VALOR_COMPRAS, 0) as DIFERENCA_RS,
+        NVL(v.TOTAL_IMPOSTO, 0) as TOTAL_IMPOSTO,
+        NVL(v.TOTAL_IMPOSTO_CREDITO, 0) as TOTAL_IMPOSTO_CREDITO,
         -- EMPRESTEI/EMPRESTADO: Só calcula quando filtro "Filhos" está ativo
         -- Soma os tipos selecionados: DECOMPOSIÇÃO + PRODUÇÃO + ASSOCIAÇÃO
         ${calcDecomposicao ? 'NVL(emp_pai.VALOR_EMPRESTEI, 0)' : '0'}
@@ -412,7 +433,9 @@ export class CompraVendaService {
           pv.COD_LOJA,
           SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDA,
           SUM(pv.VAL_TOTAL_PRODUTO) as VALOR_VENDAS,
-          SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO) as CUSTO_VENDA
+          SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO) as CUSTO_VENDA,
+          SUM(NVL(pv.VAL_IMPOSTO_DEBITO, 0)) as TOTAL_IMPOSTO,
+          SUM(NVL(pv.VAL_IMPOSTO_CREDITO, 0)) as TOTAL_IMPOSTO_CREDITO
         FROM INTERSOLID.TAB_PRODUTO_PDV pv
         JOIN INTERSOLID.TAB_PRODUTO p ON pv.COD_PRODUTO = p.COD_PRODUTO
         WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
@@ -539,19 +562,20 @@ export class CompraVendaService {
       ) emp_final ON sec.COD_SECAO = emp_final.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
       ` : ''}
       ${calcAssociacao ? `
-      -- EMPRESTEI (ASSOCIAÇÃO): Produto BASE empresta para produtos ASSOCIADOS (TAB_PRODUTO_LOJA)
-      -- Ex: PRD P BASE PAO FRANCES CONGELADO → PDR (REVENDA) PAO FRANCES
-      -- Fórmula: Σ(QTD_VENDIDA_ASSOCIADO × QTD_ASSOC × CUSTO_UNITÁRIO_BASE)
+      -- EMPRESTEI (ASSOCIAÇÃO): Produto BASE empresta para produtos VENDIDOS (que têm COD_ASSOCIADO)
+      -- COD_PRODUTO = produto vendido (ex: YAKULT C6), COD_ASSOCIADO = produto base comprado (ex: YAKULT unidade)
+      -- Fórmula: Σ(QTD_VENDIDA × QTD_EMBALAGEM_VENDA × CUSTO_UNITÁRIO_BASE)
       LEFT JOIN (
         SELECT
           p_base.COD_SECAO,
           compras.COD_LOJA,
           SUM(
-            vendas.QTD_VENDIDA * NVL(pl.QTD_ASSOC, 1) *
+            vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTEI
         FROM INTERSOLID.TAB_PRODUTO_LOJA pl
-        JOIN INTERSOLID.TAB_PRODUTO p_base ON pl.COD_PRODUTO_ASSOC = p_base.COD_PRODUTO
+        JOIN INTERSOLID.TAB_PRODUTO p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        JOIN INTERSOLID.TAB_PRODUTO p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
         -- Compras do produto BASE para calcular custo unitário
         JOIN (
           SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
@@ -562,8 +586,8 @@ export class CompraVendaService {
           ${tipoNfFilter}
           ${lojaFilterCompras}
           GROUP BY ni.COD_ITEM, nf.COD_LOJA
-        ) compras ON pl.COD_PRODUTO_ASSOC = compras.COD_ITEM
-        -- Vendas dos produtos ASSOCIADOS que usam este BASE
+        ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM
+        -- Vendas dos produtos que têm associação
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM INTERSOLID.TAB_PRODUTO_PDV pv
@@ -572,21 +596,22 @@ export class CompraVendaService {
           ${lojaFilterVendas}
           GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
         ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
+        WHERE pl.COD_ASSOCIADO IS NOT NULL
         GROUP BY p_base.COD_SECAO, compras.COD_LOJA
       ) emp_assoc_pai ON sec.COD_SECAO = emp_assoc_pai.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
-      -- EMPRESTADO (ASSOCIAÇÃO): Produtos ASSOCIADOS recebem do produto BASE
-      -- Fórmula: QTD_VENDIDA × QTD_ASSOC × CUSTO_UNITÁRIO_BASE
+      -- EMPRESTADO (ASSOCIAÇÃO): Produtos VENDIDOS recebem custo do produto BASE
+      -- Fórmula: QTD_VENDIDA × QTD_EMBALAGEM_VENDA × CUSTO_UNITÁRIO_BASE
       LEFT JOIN (
         SELECT
-          p_assoc.COD_SECAO,
+          p_venda.COD_SECAO,
           vendas.COD_LOJA,
           SUM(
-            vendas.QTD_VENDIDA * NVL(pl.QTD_ASSOC, 1) *
+            vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTADO
         FROM INTERSOLID.TAB_PRODUTO_LOJA pl
-        JOIN INTERSOLID.TAB_PRODUTO p_assoc ON pl.COD_PRODUTO = p_assoc.COD_PRODUTO
-        -- Vendas do produto ASSOCIADO
+        JOIN INTERSOLID.TAB_PRODUTO p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        -- Vendas do produto
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM INTERSOLID.TAB_PRODUTO_PDV pv
@@ -605,8 +630,9 @@ export class CompraVendaService {
           ${tipoNfFilter}
           ${lojaFilterCompras}
           GROUP BY ni.COD_ITEM, nf.COD_LOJA
-        ) compras ON pl.COD_PRODUTO_ASSOC = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
-        GROUP BY p_assoc.COD_SECAO, vendas.COD_LOJA
+        ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
+        WHERE pl.COD_ASSOCIADO IS NOT NULL
+        GROUP BY p_venda.COD_SECAO, vendas.COD_LOJA
       ) emp_assoc_filho ON sec.COD_SECAO = emp_assoc_filho.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
       ` : ''}
       WHERE (sec.FLG_INATIVO IS NULL OR sec.FLG_INATIVO = 'N')
@@ -652,14 +678,22 @@ export class CompraVendaService {
       COMPRAS: acc.COMPRAS + (row.COMPRAS || 0),
       CUSTO_VENDA: acc.CUSTO_VENDA + (row.CUSTO_VENDA || 0),
       VENDAS: acc.VENDAS + (row.VENDAS || 0),
-      DIFERENCA_RS: acc.DIFERENCA_RS + (row.DIFERENCA_RS || 0)
+      DIFERENCA_RS: acc.DIFERENCA_RS + (row.DIFERENCA_RS || 0),
+      TOTAL_IMPOSTO: acc.TOTAL_IMPOSTO + (row.TOTAL_IMPOSTO || 0),
+      EMPRESTEI: acc.EMPRESTEI + (row.EMPRESTEI || 0),
+      EMPRESTADO: acc.EMPRESTADO + (row.EMPRESTADO || 0),
+      COMPRA_FINAL: acc.COMPRA_FINAL + (row.COMPRA_FINAL || 0)
     }), {
       QTD_COMPRA: 0,
       QTD_VENDA: 0,
       COMPRAS: 0,
       CUSTO_VENDA: 0,
       VENDAS: 0,
-      DIFERENCA_RS: 0
+      DIFERENCA_RS: 0,
+      TOTAL_IMPOSTO: 0,
+      EMPRESTEI: 0,
+      EMPRESTADO: 0,
+      COMPRA_FINAL: 0
     });
 
     // Calcular margem total (Mark Down)
@@ -677,9 +711,17 @@ export class CompraVendaService {
       ? (totais.COMPRAS / totais.VENDAS) * 100
       : 0;
 
+    // Calcular Margem Líquida total: Lucro Líquido / (Vendas - Imposto) * 100
+    const vendaLiquida = totais.VENDAS - totais.TOTAL_IMPOSTO;
+    const lucroLiquido = totais.VENDAS - totais.CUSTO_VENDA - totais.TOTAL_IMPOSTO;
+    const mgLiquidaTotal = vendaLiquida > 0
+      ? (lucroLiquido / vendaLiquida) * 100
+      : 0;
+
     return {
       ...totais,
       MARK_DOWN_PCT: Math.round(markDownTotal * 100) / 100,
+      MG_LIQUIDA_PCT: Math.round(mgLiquidaTotal * 100) / 100,
       META_PCT: Math.round(metaTotal * 100) / 100,
       PCT: Math.round(pctTotal * 100) / 100,
       DIFERENCA_PCT: Math.round((metaTotal - pctTotal) * 100) / 100,
@@ -738,6 +780,14 @@ export class CompraVendaService {
              ELSE 0
         END as MARK_DOWN_PCT,
         CASE WHEN NVL(v.VALOR_VENDAS, 0) > 0
+             THEN ROUND(((NVL(v.VALOR_VENDAS, 0) - NVL(v.CUSTO_VENDA, 0) - NVL(v.TOTAL_IMPOSTO, 0) + NVL(v.TOTAL_IMPOSTO_CREDITO, 0)) / NVL(v.VALOR_VENDAS, 0)) * 100, 2)
+             ELSE 0
+        END as MG_LUCRO_PCT,
+        CASE WHEN NVL(v.VALOR_VENDAS, 0) > 0
+             THEN ROUND(((NVL(v.VALOR_VENDAS, 0) - NVL(v.CUSTO_VENDA, 0) - NVL(v.TOTAL_IMPOSTO, 0) + NVL(v.TOTAL_IMPOSTO_CREDITO, 0)) / NULLIF(NVL(v.VALOR_VENDAS, 0) - NVL(v.TOTAL_IMPOSTO, 0), 0)) * 100, 2)
+             ELSE 0
+        END as MG_LIQUIDA_PCT,
+        CASE WHEN NVL(v.VALOR_VENDAS, 0) > 0
              THEN ROUND((NVL(v.CUSTO_VENDA, 0) / NVL(v.VALOR_VENDAS, 0)) * 100, 2)
              ELSE 0
         END as META_PCT,
@@ -746,6 +796,8 @@ export class CompraVendaService {
              ELSE 0
         END as PCT,
         NVL(v.CUSTO_VENDA, 0) - NVL(c.VALOR_COMPRAS, 0) as DIFERENCA_RS,
+        NVL(v.TOTAL_IMPOSTO, 0) as TOTAL_IMPOSTO,
+        NVL(v.TOTAL_IMPOSTO_CREDITO, 0) as TOTAL_IMPOSTO_CREDITO,
         ${calcDecomposicao ? 'NVL(emp_pai.VALOR_EMPRESTEI, 0)' : '0'}
         + ${calcProducao ? 'NVL(emp_insumo.VALOR_EMPRESTEI, 0)' : '0'}
         + ${calcAssociacao ? 'NVL(emp_assoc_pai.VALOR_EMPRESTEI, 0)' : '0'} as EMPRESTEI,
@@ -778,7 +830,9 @@ export class CompraVendaService {
           pv.COD_LOJA,
           SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDA,
           SUM(pv.VAL_TOTAL_PRODUTO) as VALOR_VENDAS,
-          SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO) as CUSTO_VENDA
+          SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO) as CUSTO_VENDA,
+          SUM(NVL(pv.VAL_IMPOSTO_DEBITO, 0)) as TOTAL_IMPOSTO,
+          SUM(NVL(pv.VAL_IMPOSTO_CREDITO, 0)) as TOTAL_IMPOSTO_CREDITO
         FROM INTERSOLID.TAB_PRODUTO_PDV pv
         JOIN INTERSOLID.TAB_PRODUTO p ON pv.COD_PRODUTO = p.COD_PRODUTO
         WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
@@ -902,17 +956,18 @@ export class CompraVendaService {
       ) emp_final ON g.COD_GRUPO = emp_final.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
       ` : ''}
       ${calcAssociacao ? `
-      -- EMPRESTEI (ASSOCIAÇÃO): Produto BASE empresta para produtos ASSOCIADOS (TAB_PRODUTO_LOJA)
+      -- EMPRESTEI (ASSOCIAÇÃO): Produto BASE empresta para produtos VENDIDOS
       LEFT JOIN (
         SELECT
           p_base.COD_GRUPO,
           compras.COD_LOJA,
           SUM(
-            vendas.QTD_VENDIDA * NVL(pl.QTD_ASSOC, 1) *
+            vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTEI
         FROM INTERSOLID.TAB_PRODUTO_LOJA pl
-        JOIN INTERSOLID.TAB_PRODUTO p_base ON pl.COD_PRODUTO_ASSOC = p_base.COD_PRODUTO
+        JOIN INTERSOLID.TAB_PRODUTO p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        JOIN INTERSOLID.TAB_PRODUTO p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
         JOIN (
           SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM INTERSOLID.TAB_NF nf
@@ -922,7 +977,7 @@ export class CompraVendaService {
           ${tipoNfFilter}
           ${lojaFilterCompras}
           GROUP BY ni.COD_ITEM, nf.COD_LOJA
-        ) compras ON pl.COD_PRODUTO_ASSOC = compras.COD_ITEM
+        ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM INTERSOLID.TAB_PRODUTO_PDV pv
@@ -931,20 +986,20 @@ export class CompraVendaService {
           ${lojaFilterVendas}
           GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
         ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
-        WHERE p_base.COD_SECAO = :codSecao
+        WHERE pl.COD_ASSOCIADO IS NOT NULL AND p_base.COD_SECAO = :codSecao
         GROUP BY p_base.COD_GRUPO, compras.COD_LOJA
       ) emp_assoc_pai ON g.COD_GRUPO = emp_assoc_pai.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
-      -- EMPRESTADO (ASSOCIAÇÃO): Produtos ASSOCIADOS recebem do produto BASE
+      -- EMPRESTADO (ASSOCIAÇÃO): Produtos VENDIDOS recebem custo do BASE
       LEFT JOIN (
         SELECT
-          p_assoc.COD_GRUPO,
+          p_venda.COD_GRUPO,
           vendas.COD_LOJA,
           SUM(
-            vendas.QTD_VENDIDA * NVL(pl.QTD_ASSOC, 1) *
+            vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTADO
         FROM INTERSOLID.TAB_PRODUTO_LOJA pl
-        JOIN INTERSOLID.TAB_PRODUTO p_assoc ON pl.COD_PRODUTO = p_assoc.COD_PRODUTO
+        JOIN INTERSOLID.TAB_PRODUTO p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM INTERSOLID.TAB_PRODUTO_PDV pv
@@ -962,9 +1017,9 @@ export class CompraVendaService {
           ${tipoNfFilter}
           ${lojaFilterCompras}
           GROUP BY ni.COD_ITEM, nf.COD_LOJA
-        ) compras ON pl.COD_PRODUTO_ASSOC = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
-        WHERE p_assoc.COD_SECAO = :codSecao
-        GROUP BY p_assoc.COD_GRUPO, vendas.COD_LOJA
+        ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
+        WHERE pl.COD_ASSOCIADO IS NOT NULL AND p_venda.COD_SECAO = :codSecao
+        GROUP BY p_venda.COD_GRUPO, vendas.COD_LOJA
       ) emp_assoc_filho ON g.COD_GRUPO = emp_assoc_filho.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
       ` : ''}
       WHERE g.COD_SECAO = :codSecao
@@ -1044,6 +1099,14 @@ export class CompraVendaService {
              ELSE 0
         END as MARK_DOWN_PCT,
         CASE WHEN NVL(v.VALOR_VENDAS, 0) > 0
+             THEN ROUND(((NVL(v.VALOR_VENDAS, 0) - NVL(v.CUSTO_VENDA, 0) - NVL(v.TOTAL_IMPOSTO, 0) + NVL(v.TOTAL_IMPOSTO_CREDITO, 0)) / NVL(v.VALOR_VENDAS, 0)) * 100, 2)
+             ELSE 0
+        END as MG_LUCRO_PCT,
+        CASE WHEN NVL(v.VALOR_VENDAS, 0) > 0
+             THEN ROUND(((NVL(v.VALOR_VENDAS, 0) - NVL(v.CUSTO_VENDA, 0) - NVL(v.TOTAL_IMPOSTO, 0) + NVL(v.TOTAL_IMPOSTO_CREDITO, 0)) / NULLIF(NVL(v.VALOR_VENDAS, 0) - NVL(v.TOTAL_IMPOSTO, 0), 0)) * 100, 2)
+             ELSE 0
+        END as MG_LIQUIDA_PCT,
+        CASE WHEN NVL(v.VALOR_VENDAS, 0) > 0
              THEN ROUND((NVL(v.CUSTO_VENDA, 0) / NVL(v.VALOR_VENDAS, 0)) * 100, 2)
              ELSE 0
         END as META_PCT,
@@ -1052,6 +1115,8 @@ export class CompraVendaService {
              ELSE 0
         END as PCT,
         NVL(v.CUSTO_VENDA, 0) - NVL(c.VALOR_COMPRAS, 0) as DIFERENCA_RS,
+        NVL(v.TOTAL_IMPOSTO, 0) as TOTAL_IMPOSTO,
+        NVL(v.TOTAL_IMPOSTO_CREDITO, 0) as TOTAL_IMPOSTO_CREDITO,
         ${calcDecomposicao ? 'NVL(emp_pai.VALOR_EMPRESTEI, 0)' : '0'}
         + ${calcProducao ? 'NVL(emp_insumo.VALOR_EMPRESTEI, 0)' : '0'}
         + ${calcAssociacao ? 'NVL(emp_assoc_pai.VALOR_EMPRESTEI, 0)' : '0'} as EMPRESTEI,
@@ -1085,7 +1150,9 @@ export class CompraVendaService {
           pv.COD_LOJA,
           SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDA,
           SUM(pv.VAL_TOTAL_PRODUTO) as VALOR_VENDAS,
-          SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO) as CUSTO_VENDA
+          SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO) as CUSTO_VENDA,
+          SUM(NVL(pv.VAL_IMPOSTO_DEBITO, 0)) as TOTAL_IMPOSTO,
+          SUM(NVL(pv.VAL_IMPOSTO_CREDITO, 0)) as TOTAL_IMPOSTO_CREDITO
         FROM INTERSOLID.TAB_PRODUTO_PDV pv
         JOIN INTERSOLID.TAB_PRODUTO p ON pv.COD_PRODUTO = p.COD_PRODUTO
         WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
@@ -1211,6 +1278,73 @@ export class CompraVendaService {
         GROUP BY p_final.COD_SUB_GRUPO, vendas.COD_LOJA
       ) emp_final ON sg.COD_SUB_GRUPO = emp_final.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
       ` : ''}
+      ${calcAssociacao ? `
+      -- EMPRESTEI (ASSOCIAÇÃO): Produto BASE empresta para produtos VENDIDOS
+      LEFT JOIN (
+        SELECT
+          p_base.COD_SUB_GRUPO,
+          compras.COD_LOJA,
+          SUM(
+            vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
+            (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
+          ) as VALOR_EMPRESTEI
+        FROM INTERSOLID.TAB_PRODUTO_LOJA pl
+        JOIN INTERSOLID.TAB_PRODUTO p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        JOIN INTERSOLID.TAB_PRODUTO p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
+        JOIN (
+          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          FROM INTERSOLID.TAB_NF nf
+          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.TIPO_OPERACAO = 0
+          ${tipoNfFilter}
+          ${lojaFilterCompras}
+          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+        ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM
+        JOIN (
+          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          ${tipoVendaFilter}
+          ${lojaFilterVendas}
+          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
+        ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
+        WHERE pl.COD_ASSOCIADO IS NOT NULL AND p_base.COD_SECAO = :codSecao AND p_base.COD_GRUPO = :codGrupo
+        GROUP BY p_base.COD_SUB_GRUPO, compras.COD_LOJA
+      ) emp_assoc_pai ON sg.COD_SUB_GRUPO = emp_assoc_pai.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
+      -- EMPRESTADO (ASSOCIAÇÃO): Produtos VENDIDOS recebem custo do BASE
+      LEFT JOIN (
+        SELECT
+          p_venda.COD_SUB_GRUPO,
+          vendas.COD_LOJA,
+          SUM(
+            vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
+            (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
+          ) as VALOR_EMPRESTADO
+        FROM INTERSOLID.TAB_PRODUTO_LOJA pl
+        JOIN INTERSOLID.TAB_PRODUTO p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        JOIN (
+          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          ${tipoVendaFilter}
+          ${lojaFilterVendas}
+          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
+        ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO
+        LEFT JOIN (
+          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          FROM INTERSOLID.TAB_NF nf
+          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.TIPO_OPERACAO = 0
+          ${tipoNfFilter}
+          ${lojaFilterCompras}
+          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+        ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
+        WHERE pl.COD_ASSOCIADO IS NOT NULL AND p_venda.COD_SECAO = :codSecao AND p_venda.COD_GRUPO = :codGrupo
+        GROUP BY p_venda.COD_SUB_GRUPO, vendas.COD_LOJA
+      ) emp_assoc_filho ON sg.COD_SUB_GRUPO = emp_assoc_filho.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
+      ` : ''}
       WHERE sg.COD_SECAO = :codSecao
       AND sg.COD_GRUPO = :codGrupo
       AND (c.COD_SUB_GRUPO IS NOT NULL OR v.COD_SUB_GRUPO IS NOT NULL)
@@ -1290,6 +1424,14 @@ export class CompraVendaService {
              ELSE 0
         END as MARK_DOWN_PCT,
         CASE WHEN NVL(v.VALOR_VENDAS, 0) > 0
+             THEN ROUND(((NVL(v.VALOR_VENDAS, 0) - NVL(v.CUSTO_VENDA, 0) - NVL(v.TOTAL_IMPOSTO, 0) + NVL(v.TOTAL_IMPOSTO_CREDITO, 0)) / NVL(v.VALOR_VENDAS, 0)) * 100, 2)
+             ELSE 0
+        END as MG_LUCRO_PCT,
+        CASE WHEN NVL(v.VALOR_VENDAS, 0) > 0
+             THEN ROUND(((NVL(v.VALOR_VENDAS, 0) - NVL(v.CUSTO_VENDA, 0) - NVL(v.TOTAL_IMPOSTO, 0) + NVL(v.TOTAL_IMPOSTO_CREDITO, 0)) / NULLIF(NVL(v.VALOR_VENDAS, 0) - NVL(v.TOTAL_IMPOSTO, 0), 0)) * 100, 2)
+             ELSE 0
+        END as MG_LIQUIDA_PCT,
+        CASE WHEN NVL(v.VALOR_VENDAS, 0) > 0
              THEN ROUND((NVL(v.CUSTO_VENDA, 0) / NVL(v.VALOR_VENDAS, 0)) * 100, 2)
              ELSE 0
         END as META_PCT,
@@ -1298,10 +1440,16 @@ export class CompraVendaService {
              ELSE 0
         END as PCT,
         NVL(v.CUSTO_VENDA, 0) - NVL(c.VALOR_COMPRAS, 0) as DIFERENCA_RS,
+        NVL(v.TOTAL_IMPOSTO, 0) as TOTAL_IMPOSTO,
+        NVL(v.TOTAL_IMPOSTO_CREDITO, 0) as TOTAL_IMPOSTO_CREDITO,
         ${calcDecomposicao ? 'NVL(emp_pai.VALOR_EMPRESTEI, 0)' : '0'}
-        + ${calcProducao ? 'NVL(emp_insumo.VALOR_EMPRESTEI, 0)' : '0'} as EMPRESTEI,
+        + ${calcProducao ? 'NVL(emp_insumo.VALOR_EMPRESTEI, 0)' : '0'}
+        + ${calcAssociacao ? 'NVL(emp_assoc_pai.VALOR_EMPRESTEI, 0)' : '0'} as EMPRESTEI,
         ${calcDecomposicao ? 'NVL(emp_filho.VALOR_EMPRESTADO, 0)' : '0'}
-        + ${calcProducao ? 'NVL(emp_final.VALOR_EMPRESTADO, 0)' : '0'} as EMPRESTADO
+        + ${calcProducao ? 'NVL(emp_final.VALOR_EMPRESTADO, 0)' : '0'}
+        + ${calcAssociacao ? 'NVL(emp_assoc_filho.VALOR_EMPRESTADO, 0)' : '0'} as EMPRESTADO,
+        NVL(est.QTD_EST_ATUAL, 0) as ESTOQUE_ATUAL,
+        NVL(est.QTD_COBERTURA, 0) as DIAS_COBERTURA
       FROM INTERSOLID.TAB_PRODUTO p
       LEFT JOIN (
         SELECT
@@ -1330,7 +1478,9 @@ export class CompraVendaService {
           pv.COD_LOJA,
           SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDA,
           SUM(pv.VAL_TOTAL_PRODUTO) as VALOR_VENDAS,
-          SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO) as CUSTO_VENDA
+          SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO) as CUSTO_VENDA,
+          SUM(NVL(pv.VAL_IMPOSTO_DEBITO, 0)) as TOTAL_IMPOSTO,
+          SUM(NVL(pv.VAL_IMPOSTO_CREDITO, 0)) as TOTAL_IMPOSTO_CREDITO
         FROM INTERSOLID.TAB_PRODUTO_PDV pv
         JOIN INTERSOLID.TAB_PRODUTO prod ON pv.COD_PRODUTO = prod.COD_PRODUTO
         WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
@@ -1446,11 +1596,83 @@ export class CompraVendaService {
         GROUP BY pp.COD_PRODUTO, vendas.COD_LOJA
       ) emp_final ON p.COD_PRODUTO = emp_final.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
       ` : ''}
+      ${calcAssociacao ? `
+      -- EMPRESTEI (ASSOCIAÇÃO): Produto BASE empresta para produtos VENDIDOS
+      LEFT JOIN (
+        SELECT
+          pl.COD_ASSOCIADO as COD_PRODUTO,
+          compras.COD_LOJA,
+          SUM(
+            vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
+            (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
+          ) as VALOR_EMPRESTEI
+        FROM INTERSOLID.TAB_PRODUTO_LOJA pl
+        JOIN INTERSOLID.TAB_PRODUTO p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        JOIN (
+          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          FROM INTERSOLID.TAB_NF nf
+          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.TIPO_OPERACAO = 0
+          ${tipoNfFilter}
+          ${lojaFilterCompras}
+          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+        ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM
+        JOIN (
+          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          ${tipoVendaFilter}
+          ${lojaFilterVendas}
+          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
+        ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
+        WHERE pl.COD_ASSOCIADO IS NOT NULL
+        GROUP BY pl.COD_ASSOCIADO, compras.COD_LOJA
+      ) emp_assoc_pai ON p.COD_PRODUTO = emp_assoc_pai.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
+      -- EMPRESTADO (ASSOCIAÇÃO): Produtos VENDIDOS recebem custo do BASE
+      LEFT JOIN (
+        SELECT
+          pl.COD_PRODUTO,
+          vendas.COD_LOJA,
+          SUM(
+            vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
+            (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
+          ) as VALOR_EMPRESTADO
+        FROM INTERSOLID.TAB_PRODUTO_LOJA pl
+        JOIN INTERSOLID.TAB_PRODUTO p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        JOIN (
+          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          ${tipoVendaFilter}
+          ${lojaFilterVendas}
+          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
+        ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO
+        LEFT JOIN (
+          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          FROM INTERSOLID.TAB_NF nf
+          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.TIPO_OPERACAO = 0
+          ${tipoNfFilter}
+          ${lojaFilterCompras}
+          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+        ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
+        WHERE pl.COD_ASSOCIADO IS NOT NULL
+        GROUP BY pl.COD_PRODUTO, vendas.COD_LOJA
+      ) emp_assoc_filho ON p.COD_PRODUTO = emp_assoc_filho.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
+      ` : ''}
+      -- ESTOQUE: Busca estoque atual e dias de cobertura da TAB_PRODUTO_LOJA
+      LEFT JOIN INTERSOLID.TAB_PRODUTO_LOJA est ON p.COD_PRODUTO = est.COD_PRODUTO
+        AND est.COD_LOJA = NVL(c.COD_LOJA, v.COD_LOJA)
       WHERE p.COD_SECAO = :codSecao
       AND p.COD_GRUPO = :codGrupo
       AND p.COD_SUB_GRUPO = :codSubGrupo
-      AND (c.COD_ITEM IS NOT NULL OR v.COD_PRODUTO IS NOT NULL)
-      ORDER BY VENDAS DESC NULLS LAST
+      AND (c.COD_ITEM IS NOT NULL OR v.COD_PRODUTO IS NOT NULL
+           ${calcDecomposicao ? 'OR emp_pai.COD_PRODUTO IS NOT NULL OR emp_filho.COD_PRODUTO IS NOT NULL' : ''}
+           ${calcProducao ? 'OR emp_insumo.COD_PRODUTO IS NOT NULL OR emp_final.COD_PRODUTO IS NOT NULL' : ''}
+           ${calcAssociacao ? 'OR emp_assoc_pai.COD_PRODUTO IS NOT NULL OR emp_assoc_filho.COD_PRODUTO IS NOT NULL' : ''})
+      ORDER BY p.DES_PRODUTO ASC
     `;
 
     const rows = await OracleService.query<any>(sql, params);
@@ -1543,13 +1765,25 @@ export class CompraVendaService {
         SELECT
           p_pai.COD_PRODUTO as COD_ORIGEM,
           p_pai.DES_PRODUTO as PRODUTO_ORIGEM,
+          sec_pai.DES_SECAO as SECAO_ORIGEM,
+          grp_pai.DES_GRUPO as GRUPO_ORIGEM,
+          sgp_pai.DES_SUB_GRUPO as SUBGRUPO_ORIGEM,
           p_filho.COD_PRODUTO as COD_DESTINO,
           p_filho.DES_PRODUTO as PRODUTO_DESTINO,
+          sec_filho.DES_SECAO as SECAO_DESTINO,
+          grp_filho.DES_GRUPO as GRUPO_DESTINO,
+          sgp_filho.DES_SUB_GRUPO as SUBGRUPO_DESTINO,
           d.QTD_DECOMP as PERCENTUAL,
           NVL(compras.VAL_TOTAL, 0) * d.QTD_DECOMP / 100 as VALOR
         FROM INTERSOLID.TAB_PRODUTO p_pai
         JOIN INTERSOLID.TAB_PRODUTO_DECOMPOSICAO d ON p_pai.COD_PRODUTO = d.COD_PRODUTO
         JOIN INTERSOLID.TAB_PRODUTO p_filho ON d.COD_PRODUTO_DECOM = p_filho.COD_PRODUTO
+        LEFT JOIN INTERSOLID.TAB_SECAO sec_pai ON p_pai.COD_SECAO = sec_pai.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_GRUPO grp_pai ON p_pai.COD_SECAO = grp_pai.COD_SECAO AND p_pai.COD_GRUPO = grp_pai.COD_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_pai ON p_pai.COD_SECAO = sgp_pai.COD_SECAO AND p_pai.COD_GRUPO = sgp_pai.COD_GRUPO AND p_pai.COD_SUB_GRUPO = sgp_pai.COD_SUB_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SECAO sec_filho ON p_filho.COD_SECAO = sec_filho.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_GRUPO grp_filho ON p_filho.COD_SECAO = grp_filho.COD_SECAO AND p_filho.COD_GRUPO = grp_filho.COD_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_filho ON p_filho.COD_SECAO = sgp_filho.COD_SECAO AND p_filho.COD_GRUPO = sgp_filho.COD_GRUPO AND p_filho.COD_SUB_GRUPO = sgp_filho.COD_SUB_GRUPO
         LEFT JOIN (
           SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL
           FROM INTERSOLID.TAB_NF nf
@@ -1574,13 +1808,25 @@ export class CompraVendaService {
         SELECT
           p_filho.COD_PRODUTO as COD_DESTINO,
           p_filho.DES_PRODUTO as PRODUTO_DESTINO,
+          sec_filho.DES_SECAO as SECAO_DESTINO,
+          grp_filho.DES_GRUPO as GRUPO_DESTINO,
+          sgp_filho.DES_SUB_GRUPO as SUBGRUPO_DESTINO,
           p_pai.COD_PRODUTO as COD_ORIGEM,
           p_pai.DES_PRODUTO as PRODUTO_ORIGEM,
+          sec_pai.DES_SECAO as SECAO_ORIGEM,
+          grp_pai.DES_GRUPO as GRUPO_ORIGEM,
+          sgp_pai.DES_SUB_GRUPO as SUBGRUPO_ORIGEM,
           d.QTD_DECOMP as PERCENTUAL,
           NVL(compras.VAL_TOTAL, 0) * d.QTD_DECOMP / 100 as VALOR
         FROM INTERSOLID.TAB_PRODUTO p_filho
         JOIN INTERSOLID.TAB_PRODUTO_DECOMPOSICAO d ON p_filho.COD_PRODUTO = d.COD_PRODUTO_DECOM
         JOIN INTERSOLID.TAB_PRODUTO p_pai ON d.COD_PRODUTO = p_pai.COD_PRODUTO
+        LEFT JOIN INTERSOLID.TAB_SECAO sec_pai ON p_pai.COD_SECAO = sec_pai.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_GRUPO grp_pai ON p_pai.COD_SECAO = grp_pai.COD_SECAO AND p_pai.COD_GRUPO = grp_pai.COD_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_pai ON p_pai.COD_SECAO = sgp_pai.COD_SECAO AND p_pai.COD_GRUPO = sgp_pai.COD_GRUPO AND p_pai.COD_SUB_GRUPO = sgp_pai.COD_SUB_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SECAO sec_filho ON p_filho.COD_SECAO = sec_filho.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_GRUPO grp_filho ON p_filho.COD_SECAO = grp_filho.COD_SECAO AND p_filho.COD_GRUPO = grp_filho.COD_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_filho ON p_filho.COD_SECAO = sgp_filho.COD_SECAO AND p_filho.COD_GRUPO = sgp_filho.COD_GRUPO AND p_filho.COD_SUB_GRUPO = sgp_filho.COD_SUB_GRUPO
         LEFT JOIN (
           SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL
           FROM INTERSOLID.TAB_NF nf
@@ -1608,13 +1854,25 @@ export class CompraVendaService {
         SELECT
           p_insumo.COD_PRODUTO as COD_ORIGEM,
           p_insumo.DES_PRODUTO as PRODUTO_ORIGEM,
+          sec_insumo.DES_SECAO as SECAO_ORIGEM,
+          grp_insumo.DES_GRUPO as GRUPO_ORIGEM,
+          sgp_insumo.DES_SUB_GRUPO as SUBGRUPO_ORIGEM,
           p_final.COD_PRODUTO as COD_DESTINO,
           p_final.DES_PRODUTO as PRODUTO_DESTINO,
+          sec_final.DES_SECAO as SECAO_DESTINO,
+          grp_final.DES_GRUPO as GRUPO_DESTINO,
+          sgp_final.DES_SUB_GRUPO as SUBGRUPO_DESTINO,
           pp.QTD_PRODUCAO as QTD_RECEITA,
           NVL(vendas.QTD_VENDIDA, 0) * pp.QTD_PRODUCAO * (NVL(compras.VAL_TOTAL, 0) / NULLIF(compras.QTD_TOTAL, 0)) as VALOR
         FROM INTERSOLID.TAB_PRODUTO_PRODUCAO pp
         JOIN INTERSOLID.TAB_PRODUTO p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
         JOIN INTERSOLID.TAB_PRODUTO p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
+        LEFT JOIN INTERSOLID.TAB_SECAO sec_insumo ON p_insumo.COD_SECAO = sec_insumo.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_GRUPO grp_insumo ON p_insumo.COD_SECAO = grp_insumo.COD_SECAO AND p_insumo.COD_GRUPO = grp_insumo.COD_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_insumo ON p_insumo.COD_SECAO = sgp_insumo.COD_SECAO AND p_insumo.COD_GRUPO = sgp_insumo.COD_GRUPO AND p_insumo.COD_SUB_GRUPO = sgp_insumo.COD_SUB_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SECAO sec_final ON p_final.COD_SECAO = sec_final.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_GRUPO grp_final ON p_final.COD_SECAO = grp_final.COD_SECAO AND p_final.COD_GRUPO = grp_final.COD_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_final ON p_final.COD_SECAO = sgp_final.COD_SECAO AND p_final.COD_GRUPO = sgp_final.COD_GRUPO AND p_final.COD_SUB_GRUPO = sgp_final.COD_SUB_GRUPO
         LEFT JOIN (
           SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM INTERSOLID.TAB_NF nf
@@ -1647,13 +1905,25 @@ export class CompraVendaService {
         SELECT
           p_final.COD_PRODUTO as COD_DESTINO,
           p_final.DES_PRODUTO as PRODUTO_DESTINO,
+          sec_final.DES_SECAO as SECAO_DESTINO,
+          grp_final.DES_GRUPO as GRUPO_DESTINO,
+          sgp_final.DES_SUB_GRUPO as SUBGRUPO_DESTINO,
           p_insumo.COD_PRODUTO as COD_ORIGEM,
           p_insumo.DES_PRODUTO as PRODUTO_ORIGEM,
+          sec_insumo.DES_SECAO as SECAO_ORIGEM,
+          grp_insumo.DES_GRUPO as GRUPO_ORIGEM,
+          sgp_insumo.DES_SUB_GRUPO as SUBGRUPO_ORIGEM,
           pp.QTD_PRODUCAO as QTD_RECEITA,
           NVL(vendas.QTD_VENDIDA, 0) * pp.QTD_PRODUCAO * (NVL(compras.VAL_TOTAL, 0) / NULLIF(compras.QTD_TOTAL, 0)) as VALOR
         FROM INTERSOLID.TAB_PRODUTO_PRODUCAO pp
         JOIN INTERSOLID.TAB_PRODUTO p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
         JOIN INTERSOLID.TAB_PRODUTO p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
+        LEFT JOIN INTERSOLID.TAB_SECAO sec_insumo ON p_insumo.COD_SECAO = sec_insumo.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_GRUPO grp_insumo ON p_insumo.COD_SECAO = grp_insumo.COD_SECAO AND p_insumo.COD_GRUPO = grp_insumo.COD_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_insumo ON p_insumo.COD_SECAO = sgp_insumo.COD_SECAO AND p_insumo.COD_GRUPO = sgp_insumo.COD_GRUPO AND p_insumo.COD_SUB_GRUPO = sgp_insumo.COD_SUB_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SECAO sec_final ON p_final.COD_SECAO = sec_final.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_GRUPO grp_final ON p_final.COD_SECAO = grp_final.COD_SECAO AND p_final.COD_GRUPO = grp_final.COD_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_final ON p_final.COD_SECAO = sgp_final.COD_SECAO AND p_final.COD_GRUPO = sgp_final.COD_GRUPO AND p_final.COD_SUB_GRUPO = sgp_final.COD_SUB_GRUPO
         LEFT JOIN (
           SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM INTERSOLID.TAB_NF nf
@@ -1689,13 +1959,25 @@ export class CompraVendaService {
         SELECT
           p_base.COD_PRODUTO as COD_ORIGEM,
           p_base.DES_PRODUTO as PRODUTO_ORIGEM,
+          sec_base.DES_SECAO as SECAO_ORIGEM,
+          grp_base.DES_GRUPO as GRUPO_ORIGEM,
+          sgp_base.DES_SUB_GRUPO as SUBGRUPO_ORIGEM,
           p_assoc.COD_PRODUTO as COD_DESTINO,
           p_assoc.DES_PRODUTO as PRODUTO_DESTINO,
-          pl.QTD_ASSOC as QTD_ASSOC,
-          NVL(vendas.QTD_VENDIDA, 0) * NVL(pl.QTD_ASSOC, 1) * (NVL(compras.VAL_TOTAL, 0) / NULLIF(compras.QTD_TOTAL, 0)) as VALOR
+          sec_assoc.DES_SECAO as SECAO_DESTINO,
+          grp_assoc.DES_GRUPO as GRUPO_DESTINO,
+          sgp_assoc.DES_SUB_GRUPO as SUBGRUPO_DESTINO,
+          NVL(p_assoc.QTD_EMBALAGEM_VENDA, 1) as QTD_ASSOC,
+          NVL(vendas.QTD_VENDIDA, 0) * NVL(p_assoc.QTD_EMBALAGEM_VENDA, 1) * (NVL(compras.VAL_TOTAL, 0) / NULLIF(compras.QTD_TOTAL, 0)) as VALOR
         FROM INTERSOLID.TAB_PRODUTO_LOJA pl
-        JOIN INTERSOLID.TAB_PRODUTO p_base ON pl.COD_PRODUTO_ASSOC = p_base.COD_PRODUTO
+        JOIN INTERSOLID.TAB_PRODUTO p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
         JOIN INTERSOLID.TAB_PRODUTO p_assoc ON pl.COD_PRODUTO = p_assoc.COD_PRODUTO
+        LEFT JOIN INTERSOLID.TAB_SECAO sec_base ON p_base.COD_SECAO = sec_base.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_GRUPO grp_base ON p_base.COD_SECAO = grp_base.COD_SECAO AND p_base.COD_GRUPO = grp_base.COD_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_base ON p_base.COD_SECAO = sgp_base.COD_SECAO AND p_base.COD_GRUPO = sgp_base.COD_GRUPO AND p_base.COD_SUB_GRUPO = sgp_base.COD_SUB_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SECAO sec_assoc ON p_assoc.COD_SECAO = sec_assoc.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_GRUPO grp_assoc ON p_assoc.COD_SECAO = grp_assoc.COD_SECAO AND p_assoc.COD_GRUPO = grp_assoc.COD_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_assoc ON p_assoc.COD_SECAO = sgp_assoc.COD_SECAO AND p_assoc.COD_GRUPO = sgp_assoc.COD_GRUPO AND p_assoc.COD_SUB_GRUPO = sgp_assoc.COD_SUB_GRUPO
         LEFT JOIN (
           SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM INTERSOLID.TAB_NF nf
@@ -1716,7 +1998,7 @@ export class CompraVendaService {
           ${lojaFilterVendas}
           GROUP BY pv.COD_PRODUTO
         ) vendas ON p_assoc.COD_PRODUTO = vendas.COD_PRODUTO
-        WHERE pl.COD_PRODUTO_ASSOC IS NOT NULL
+        WHERE pl.COD_ASSOCIADO IS NOT NULL
         ${nivelFilter.replace(/p\./g, 'p_base.')}
         AND vendas.QTD_VENDIDA > 0
         ORDER BY VALOR DESC NULLS LAST
@@ -1729,13 +2011,25 @@ export class CompraVendaService {
         SELECT
           p_assoc.COD_PRODUTO as COD_DESTINO,
           p_assoc.DES_PRODUTO as PRODUTO_DESTINO,
+          sec_assoc.DES_SECAO as SECAO_DESTINO,
+          grp_assoc.DES_GRUPO as GRUPO_DESTINO,
+          sgp_assoc.DES_SUB_GRUPO as SUBGRUPO_DESTINO,
           p_base.COD_PRODUTO as COD_ORIGEM,
           p_base.DES_PRODUTO as PRODUTO_ORIGEM,
-          pl.QTD_ASSOC as QTD_ASSOC,
-          NVL(vendas.QTD_VENDIDA, 0) * NVL(pl.QTD_ASSOC, 1) * (NVL(compras.VAL_TOTAL, 0) / NULLIF(compras.QTD_TOTAL, 0)) as VALOR
+          sec_base.DES_SECAO as SECAO_ORIGEM,
+          grp_base.DES_GRUPO as GRUPO_ORIGEM,
+          sgp_base.DES_SUB_GRUPO as SUBGRUPO_ORIGEM,
+          NVL(p_assoc.QTD_EMBALAGEM_VENDA, 1) as QTD_ASSOC,
+          NVL(vendas.QTD_VENDIDA, 0) * NVL(p_assoc.QTD_EMBALAGEM_VENDA, 1) * (NVL(compras.VAL_TOTAL, 0) / NULLIF(compras.QTD_TOTAL, 0)) as VALOR
         FROM INTERSOLID.TAB_PRODUTO_LOJA pl
         JOIN INTERSOLID.TAB_PRODUTO p_assoc ON pl.COD_PRODUTO = p_assoc.COD_PRODUTO
-        JOIN INTERSOLID.TAB_PRODUTO p_base ON pl.COD_PRODUTO_ASSOC = p_base.COD_PRODUTO
+        JOIN INTERSOLID.TAB_PRODUTO p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
+        LEFT JOIN INTERSOLID.TAB_SECAO sec_base ON p_base.COD_SECAO = sec_base.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_GRUPO grp_base ON p_base.COD_SECAO = grp_base.COD_SECAO AND p_base.COD_GRUPO = grp_base.COD_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_base ON p_base.COD_SECAO = sgp_base.COD_SECAO AND p_base.COD_GRUPO = sgp_base.COD_GRUPO AND p_base.COD_SUB_GRUPO = sgp_base.COD_SUB_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SECAO sec_assoc ON p_assoc.COD_SECAO = sec_assoc.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_GRUPO grp_assoc ON p_assoc.COD_SECAO = grp_assoc.COD_SECAO AND p_assoc.COD_GRUPO = grp_assoc.COD_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_assoc ON p_assoc.COD_SECAO = sgp_assoc.COD_SECAO AND p_assoc.COD_GRUPO = sgp_assoc.COD_GRUPO AND p_assoc.COD_SUB_GRUPO = sgp_assoc.COD_SUB_GRUPO
         LEFT JOIN (
           SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM INTERSOLID.TAB_NF nf
@@ -1756,7 +2050,7 @@ export class CompraVendaService {
           ${lojaFilterVendas}
           GROUP BY pv.COD_PRODUTO
         ) vendas ON p_assoc.COD_PRODUTO = vendas.COD_PRODUTO
-        WHERE pl.COD_PRODUTO_ASSOC IS NOT NULL
+        WHERE pl.COD_ASSOCIADO IS NOT NULL
         ${nivelFilter.replace(/p\./g, 'p_assoc.')}
         AND vendas.QTD_VENDIDA > 0
         ORDER BY VALOR DESC NULLS LAST

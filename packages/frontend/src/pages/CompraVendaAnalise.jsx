@@ -4,26 +4,31 @@ import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
 import DetalheEmprestimoPopover from '../components/compra-venda/DetalheEmprestimoPopover';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // Configuração inicial das colunas
 const INITIAL_COLUMNS = [
   { id: 'LOJA', header: 'Loja', align: 'left' },
   { id: 'VENDA_PCT', header: '% Setor', align: 'right' },
-  { id: 'SECAO', header: 'Seção', align: 'left' },
+  { id: 'SECAO', header: 'Seção', align: 'left', smallFont: true },
   { id: 'COMPRAS', header: 'Compras', align: 'right' },
   { id: 'MARK_DOWN_PCT', header: 'Mark Down (%)', align: 'right' },
+  { id: 'MG_LUCRO_PCT', header: 'Mg Lucro (%)', align: 'right' },
   { id: 'QTD_COMPRA', header: 'Qtde Compra', align: 'right' },
   { id: 'QTD_VENDA', header: 'Qtde Venda', align: 'right' },
   { id: 'COMPRA_PCT', header: 'Compra (%)', align: 'right' },
   { id: 'CUSTO_VENDA', header: 'Custo Venda', align: 'right' },
   { id: 'VENDAS', header: 'Vendas', align: 'right' },
   { id: 'META_PCT', header: 'Meta (%)', align: 'right' },
-  { id: 'PCT', header: '%', align: 'right' },
+  { id: 'PCT', header: 'Atingido (%)', align: 'right' },
   { id: 'DIFERENCA_PCT', header: 'Dif. (%)', align: 'right' },
   { id: 'DIFERENCA_RS', header: 'Diferença (R$)', align: 'right' },
   { id: 'EMPRESTEI', header: 'Emprestei (R$)', align: 'right', highlight: true },
   { id: 'EMPRESTADO', header: 'Emprestado (R$)', align: 'right', highlight: true },
   { id: 'COMPRA_FINAL', header: 'Compra Final (R$)', align: 'right', highlightGreen: true },
+  { id: 'ESTOQUE_ATUAL', header: 'Estoque Atual', align: 'right' },
+  { id: 'DIAS_COBERTURA', header: 'Dias Cobertura', align: 'right' },
 ];
 
 export default function CompraVendaAnalise() {
@@ -94,12 +99,12 @@ export default function CompraVendaAnalise() {
     tipoCompras: true,
     tipoOutras: false,
     tipoBonificacao: false,
-    // Produtos Bonificados
+    // Produtos Bonificados (filtra por CFOP das compras no período)
     produtosBonificados: 'sem',
     // Detalhamento
     detalhamentoAnalitico: false,
     // Decomposição
-    decomposicao: 'pai',
+    decomposicao: 'filhos',
     // Tipos de Empréstimo (quando "Filhos" selecionado)
     tipoEmprestimoProducao: true,
     tipoEmprestimoAssociacao: true,
@@ -149,7 +154,7 @@ export default function CompraVendaAnalise() {
   // Carregar subgrupos quando grupo mudar
   useEffect(() => {
     if (filters.codGrupo) {
-      loadSubgrupos(filters.codGrupo);
+      loadSubgrupos(filters.codGrupo, filters.codSecao);
     } else {
       setSubgrupos([]);
       setFilters(prev => ({ ...prev, codSubGrupo: '' }));
@@ -204,9 +209,15 @@ export default function CompraVendaAnalise() {
     }
   };
 
-  const loadSubgrupos = async (codGrupo) => {
+  const loadSubgrupos = async (codGrupo, codSecao) => {
     try {
-      const response = await api.get(`/compra-venda/subgrupos?codGrupo=${codGrupo}`);
+      let url = `/compra-venda/subgrupos?codGrupo=${codGrupo}`;
+      if (codSecao) {
+        url += `&codSecao=${codSecao}`;
+      }
+      console.log('📦 loadSubgrupos - URL:', url, '- codGrupo:', codGrupo, '- codSecao:', codSecao);
+      const response = await api.get(url);
+      console.log('📦 loadSubgrupos - Retornou', response.data?.length, 'subgrupos');
       setSubgrupos(response.data || []);
     } catch (error) {
       console.error('Erro ao carregar subgrupos:', error);
@@ -262,13 +273,15 @@ export default function CompraVendaAnalise() {
 
         // Calcular totais
         const totalData = response.data.data || [];
-        const totaisCalc = totalData.reduce((acc, row) => ({
+        const totaisSoma = totalData.reduce((acc, row) => ({
           QTD_COMPRA: acc.QTD_COMPRA + (row.QTD_COMPRA || 0),
           QTD_VENDA: acc.QTD_VENDA + (row.QTD_VENDA || 0),
           COMPRAS: acc.COMPRAS + (row.COMPRAS || 0),
           CUSTO_VENDA: acc.CUSTO_VENDA + (row.CUSTO_VENDA || 0),
           VENDAS: acc.VENDAS + (row.VENDAS || 0),
           DIFERENCA_RS: acc.DIFERENCA_RS + (row.DIFERENCA_RS || 0),
+          TOTAL_IMPOSTO: acc.TOTAL_IMPOSTO + (row.TOTAL_IMPOSTO || 0),
+          TOTAL_IMPOSTO_CREDITO: acc.TOTAL_IMPOSTO_CREDITO + (row.TOTAL_IMPOSTO_CREDITO || 0),
           EMPRESTEI: acc.EMPRESTEI + (row.EMPRESTEI || 0),
           EMPRESTADO: acc.EMPRESTADO + (row.EMPRESTADO || 0),
           COMPRA_FINAL: acc.COMPRA_FINAL + (row.COMPRA_FINAL || 0)
@@ -279,11 +292,28 @@ export default function CompraVendaAnalise() {
           CUSTO_VENDA: 0,
           VENDAS: 0,
           DIFERENCA_RS: 0,
+          TOTAL_IMPOSTO: 0,
+          TOTAL_IMPOSTO_CREDITO: 0,
           EMPRESTEI: 0,
           EMPRESTADO: 0,
           COMPRA_FINAL: 0
         });
-        setTotais(totaisCalc);
+
+        // Calcular margens totais
+        const vendaLiquida = totaisSoma.VENDAS - totaisSoma.TOTAL_IMPOSTO;
+        const lucroLiquido = totaisSoma.VENDAS - totaisSoma.CUSTO_VENDA - totaisSoma.TOTAL_IMPOSTO + totaisSoma.TOTAL_IMPOSTO_CREDITO;
+
+        // MG_LUCRO_PCT = Lucro / Vendas * 100
+        const mgLucroTotal = totaisSoma.VENDAS > 0 ? (lucroLiquido / totaisSoma.VENDAS) * 100 : 0;
+
+        // MG_LIQUIDA_PCT = Lucro / (Vendas - Imposto) * 100
+        const mgLiquidaTotal = vendaLiquida > 0 ? (lucroLiquido / vendaLiquida) * 100 : 0;
+
+        setTotais({
+          ...totaisSoma,
+          MG_LUCRO_PCT: Math.round(mgLucroTotal * 100) / 100,
+          MG_LIQUIDA_PCT: Math.round(mgLiquidaTotal * 100) / 100
+        });
 
         toast.success(`${response.data.count} registros encontrados`);
       } else {
@@ -315,7 +345,7 @@ export default function CompraVendaAnalise() {
       tipoBonificacao: false,
       produtosBonificados: 'sem',
       detalhamentoAnalitico: false,
-      decomposicao: 'pai',
+      decomposicao: 'filhos',
       tipoEmprestimoProducao: true,
       tipoEmprestimoAssociacao: true,
       tipoEmprestimoDecomposicao: true,
@@ -332,6 +362,131 @@ export default function CompraVendaAnalise() {
     setGruposData({});
     setSubgruposData({});
     setItensData({});
+  };
+
+  // Função para exportar PDF
+  const handleExportPDF = () => {
+    if (data.length === 0) {
+      toast.error('Não há dados para exportar');
+      return;
+    }
+
+    const doc = new jsPDF('landscape', 'mm', 'a4');
+
+    // Título
+    doc.setFontSize(16);
+    doc.text('Relatório Compra x Venda', 14, 15);
+
+    // Subtítulo com período
+    doc.setFontSize(10);
+    doc.text(`Período: ${filters.dataInicio} a ${filters.dataFim}`, 14, 22);
+
+    // Preparar dados da tabela
+    const tableColumns = columns
+      .filter(col => !['EMPRESTEI', 'EMPRESTADO'].includes(col.id))
+      .map(col => col.header);
+
+    const tableData = data.map(row =>
+      columns
+        .filter(col => !['EMPRESTEI', 'EMPRESTADO'].includes(col.id))
+        .map(col => {
+          const value = row[col.id];
+          if (col.id.includes('PCT') || col.id === 'MARK_DOWN_PCT' || col.id === 'MG_LUCRO_PCT') {
+            return value != null ? `${Number(value).toFixed(2)}%` : '-';
+          }
+          if (['COMPRAS', 'CUSTO_VENDA', 'VENDAS', 'DIFERENCA_RS', 'COMPRA_FINAL'].includes(col.id)) {
+            return value != null ? `R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
+          }
+          if (['QTD_COMPRA', 'QTD_VENDA', 'ESTOQUE_ATUAL'].includes(col.id)) {
+            return value != null ? Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-';
+          }
+          if (col.id === 'DIAS_COBERTURA') {
+            return value != null ? String(value) : '-';
+          }
+          return value != null ? String(value) : '-';
+        })
+    );
+
+    // Adicionar linha de totais
+    if (totais) {
+      const totaisRow = columns
+        .filter(col => !['EMPRESTEI', 'EMPRESTADO'].includes(col.id))
+        .map(col => {
+          if (col.id === 'SECAO') return 'TOTAIS';
+          if (col.id === 'LOJA') return '-';
+          if (col.id === 'VENDA_PCT') return '100%';
+          if (col.id === 'COMPRA_PCT') return '100%';
+
+          // Calcular valores específicos
+          if (col.id === 'MARK_DOWN_PCT') {
+            const v = totais.VENDAS > 0 ? ((totais.VENDAS - totais.CUSTO_VENDA) / totais.VENDAS) * 100 : 0;
+            return `${v.toFixed(2)}%`;
+          }
+          if (col.id === 'MG_LUCRO_PCT') {
+            return `${(totais.MG_LUCRO_PCT || 0).toFixed(2)}%`;
+          }
+          if (col.id === 'META_PCT') {
+            const v = totais.VENDAS > 0 ? (totais.CUSTO_VENDA / totais.VENDAS) * 100 : 0;
+            return `${v.toFixed(2)}%`;
+          }
+          if (col.id === 'PCT') {
+            const v = totais.VENDAS > 0 ? (totais.COMPRA_FINAL / totais.VENDAS) * 100 : 0;
+            return `${v.toFixed(2)}%`;
+          }
+          if (col.id === 'DIFERENCA_PCT') {
+            const meta = totais.VENDAS > 0 ? (totais.CUSTO_VENDA / totais.VENDAS) * 100 : 0;
+            const pct = totais.VENDAS > 0 ? (totais.COMPRA_FINAL / totais.VENDAS) * 100 : 0;
+            return `${(meta - pct).toFixed(2)}%`;
+          }
+
+          const value = totais[col.id];
+          if (['COMPRAS', 'CUSTO_VENDA', 'VENDAS', 'DIFERENCA_RS', 'COMPRA_FINAL'].includes(col.id)) {
+            return value != null ? `R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
+          }
+          if (['QTD_COMPRA', 'QTD_VENDA'].includes(col.id)) {
+            return value != null ? Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-';
+          }
+          // Estoque e Dias Cobertura não fazem sentido no total
+          if (['ESTOQUE_ATUAL', 'DIAS_COBERTURA'].includes(col.id)) {
+            return '-';
+          }
+          return value != null ? String(value) : '-';
+        });
+      tableData.push(totaisRow);
+    }
+
+    // Encontrar índice da coluna Diferença (R$)
+    const colunasVisiveis = columns.filter(col => !['EMPRESTEI', 'EMPRESTADO'].includes(col.id));
+    const indexDiferenca = colunasVisiveis.findIndex(col => col.id === 'DIFERENCA_RS');
+
+    // Gerar tabela - ajustado para caber em uma página
+    autoTable(doc, {
+      head: [tableColumns],
+      body: tableData,
+      startY: 25,
+      margin: { left: 5, right: 5, top: 5, bottom: 5 },
+      styles: { fontSize: 7, cellPadding: 1.3 },
+      headStyles: { fillColor: [234, 88, 12], textColor: 255, fontSize: 7 },
+      alternateRowStyles: { fillColor: [255, 247, 237] },
+      footStyles: { fillColor: [254, 215, 170], fontStyle: 'bold' },
+      didParseCell: function(data) {
+        // Colorir coluna Diferença (R$)
+        if (data.section === 'body' && data.column.index === indexDiferenca) {
+          const cellText = data.cell.text[0] || '';
+          // Verificar se é negativo (contém '-' após 'R$')
+          if (cellText.includes('-')) {
+            data.cell.styles.textColor = [220, 38, 38]; // Vermelho
+          } else if (cellText.includes('R$') && !cellText.includes('-')) {
+            data.cell.styles.textColor = [22, 163, 74]; // Verde
+          }
+        }
+      },
+    });
+
+    // Salvar
+    const fileName = `compra_venda_${filters.dataInicio.replace(/\//g, '-')}_${filters.dataFim.replace(/\//g, '-')}.pdf`;
+    doc.save(fileName);
+    toast.success('PDF exportado com sucesso!');
   };
 
   // ========== FUNÇÕES DE DRILL-DOWN ==========
@@ -563,6 +718,12 @@ export default function CompraVendaAnalise() {
           return formatPercent(totais.VENDAS > 0 ? ((totais.VENDAS - totais.CUSTO_VENDA) / totais.VENDAS) * 100 : 0);
         }
         return formatPercent(row.MARK_DOWN_PCT);
+      case 'MG_LUCRO_PCT':
+        // Margem Lucro = Lucro Líquido / Vendas * 100
+        if (isTotal && totais) {
+          return formatPercent(totais.MG_LUCRO_PCT);
+        }
+        return formatPercent(row.MG_LUCRO_PCT);
       case 'QTD_COMPRA':
         return formatNumber(isTotal ? totais?.QTD_COMPRA : row.QTD_COMPRA, 2);
       case 'QTD_VENDA':
@@ -580,12 +741,14 @@ export default function CompraVendaAnalise() {
         return formatPercent(row.META_PCT);
       case 'PCT':
         if (isTotal && totais) {
-          return formatPercent(totais.VENDAS > 0 ? (totais.COMPRAS / totais.VENDAS) * 100 : 0);
+          // PCT usa COMPRA_FINAL (ajustado com empréstimos), não COMPRAS
+          return formatPercent(totais.VENDAS > 0 ? (totais.COMPRA_FINAL / totais.VENDAS) * 100 : 0);
         }
         return formatPercent(row.PCT);
       case 'DIFERENCA_PCT':
         if (isTotal && totais) {
-          return formatPercent(totais.VENDAS > 0 ? ((totais.CUSTO_VENDA / totais.VENDAS) - (totais.COMPRAS / totais.VENDAS)) * 100 : 0);
+          // Diferença = Meta% - PCT% = (CUSTO_VENDA/VENDAS - COMPRA_FINAL/VENDAS) * 100
+          return formatPercent(totais.VENDAS > 0 ? ((totais.CUSTO_VENDA / totais.VENDAS) - (totais.COMPRA_FINAL / totais.VENDAS)) * 100 : 0);
         }
         return formatPercent(row.DIFERENCA_PCT);
       case 'DIFERENCA_RS':
@@ -636,6 +799,14 @@ export default function CompraVendaAnalise() {
       }
       case 'COMPRA_FINAL':
         return formatCurrency(isTotal ? totais?.COMPRA_FINAL : row.COMPRA_FINAL);
+      case 'ESTOQUE_ATUAL':
+        // Estoque só faz sentido no nível de item (produto individual)
+        if (context?.nivel !== 'item') return '-';
+        return formatNumber(row.ESTOQUE_ATUAL, 2);
+      case 'DIAS_COBERTURA':
+        // Dias de cobertura só faz sentido no nível de item (produto individual)
+        if (context?.nivel !== 'item') return '-';
+        return row.DIAS_COBERTURA != null ? row.DIAS_COBERTURA : '-';
       default:
         return '-';
     }
@@ -719,7 +890,22 @@ export default function CompraVendaAnalise() {
           {/* Filtros */}
           <div className="bg-white rounded-lg shadow p-4 mb-6">
             {/* Linha 1: Dropdowns principais */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Loja</label>
+                <select
+                  value={filters.codLoja}
+                  onChange={(e) => setFilters({ ...filters, codLoja: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  disabled={loadingFilters}
+                >
+                  <option value="">{loadingFilters ? 'Carregando...' : 'Todas'}</option>
+                  {lojas.map((l) => (
+                    <option key={l.COD_LOJA} value={l.COD_LOJA}>{l.DES_LOJA}</option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Seção</label>
                 <select
@@ -823,213 +1009,294 @@ export default function CompraVendaAnalise() {
                   Exibir Transf.?
                 </label>
               </div>
-
-              <div className="flex items-end">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={filters.detalhamentoAnalitico}
-                    onChange={(e) => setFilters({ ...filters, detalhamentoAnalitico: e.target.checked })}
-                    className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                  />
-                  Detalhamento Analítico Itens?
-                </label>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Loja</label>
-                <select
-                  value={filters.codLoja}
-                  onChange={(e) => setFilters({ ...filters, codLoja: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
-                  disabled={loadingFilters}
-                >
-                  <option value="">{loadingFilters ? 'Carregando...' : 'Todas'}</option>
-                  {lojas.map((l) => (
-                    <option key={l.COD_LOJA} value={l.COD_LOJA}>{l.DES_LOJA}</option>
-                  ))}
-                </select>
-              </div>
             </div>
 
-            {/* Linha 3: Tipo Venda, Tipo NF, Produtos Bonificados */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-              <div className="border border-gray-200 rounded-md p-3">
-                <span className="block text-sm font-medium text-gray-700 mb-2">Tipo Venda</span>
-                <div className="space-y-1">
-                  <label className="flex items-center gap-2 text-sm">
+            {/* Linha 3: Tipo Venda, Tipo NF, Prod. Bonificados, Decomposição + Cards de Margem */}
+            <div className="grid grid-cols-1 md:grid-cols-8 gap-1 mb-4">
+              {/* Filtro Tipo Venda - Compacto */}
+              <div className="border border-gray-200 rounded-md p-1.5">
+                <span className="block text-[10px] font-medium text-gray-700 mb-0.5">Tipo Venda</span>
+                <div className="space-y-0">
+                  <label className="flex items-center gap-0.5 text-[10px]">
                     <input
                       type="checkbox"
                       checked={filters.tipoPdv}
                       onChange={(e) => setFilters({ ...filters, tipoPdv: e.target.checked })}
-                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
                     />
                     PDV
                   </label>
-                  <label className="flex items-center gap-2 text-sm">
+                  <label className="flex items-center gap-0.5 text-[10px]">
                     <input
                       type="checkbox"
                       checked={filters.tipoNfCliente}
                       onChange={(e) => setFilters({ ...filters, tipoNfCliente: e.target.checked })}
-                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
                     />
                     N.F. Cliente
                   </label>
-                  <label className="flex items-center gap-2 text-sm">
+                  <label className="flex items-center gap-0.5 text-[10px]">
                     <input
                       type="checkbox"
                       checked={filters.tipoVendaBalcao}
                       onChange={(e) => setFilters({ ...filters, tipoVendaBalcao: e.target.checked })}
-                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
                     />
-                    Venda Balcão
+                    Venda Balcao
                   </label>
-                  <label className="flex items-center gap-2 text-sm">
+                  <label className="flex items-center gap-0.5 text-[10px]">
                     <input
                       type="checkbox"
                       checked={filters.tipoNfTransferencia}
                       onChange={(e) => setFilters({ ...filters, tipoNfTransferencia: e.target.checked })}
-                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
                     />
-                    N.F. de Transferência
+                    N.F. Transf.
                   </label>
                 </div>
               </div>
 
-              <div className="border border-gray-200 rounded-md p-3">
-                <span className="block text-sm font-medium text-gray-700 mb-2">Tipo Nota Fiscal</span>
-                <div className="space-y-1">
-                  <label className="flex items-center gap-2 text-sm">
+              {/* Filtro Tipo NF - Compacto */}
+              <div className="border border-gray-200 rounded-md p-1.5">
+                <span className="block text-[10px] font-medium text-gray-700 mb-0.5">Tipo Nota Fiscal</span>
+                <div className="space-y-0">
+                  <label className="flex items-center gap-0.5 text-[10px]">
                     <input
                       type="checkbox"
                       checked={filters.tipoCompras}
                       onChange={(e) => setFilters({ ...filters, tipoCompras: e.target.checked })}
-                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
                     />
                     Compras
                   </label>
-                  <label className="flex items-center gap-2 text-sm">
+                  <label className="flex items-center gap-0.5 text-[10px]">
                     <input
                       type="checkbox"
                       checked={filters.tipoOutras}
                       onChange={(e) => setFilters({ ...filters, tipoOutras: e.target.checked })}
-                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
                     />
                     Outras
                   </label>
-                  <label className="flex items-center gap-2 text-sm">
+                  <label className="flex items-center gap-0.5 text-[10px]">
                     <input
                       type="checkbox"
                       checked={filters.tipoBonificacao}
                       onChange={(e) => setFilters({ ...filters, tipoBonificacao: e.target.checked })}
-                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
                     />
-                    Bonificação
+                    Bonificacao
                   </label>
                 </div>
               </div>
 
-              <div className="border border-gray-200 rounded-md p-3">
-                <span className="block text-sm font-medium text-gray-700 mb-2">Produtos Bonificados</span>
-                <div className="space-y-1">
-                  <label className="flex items-center gap-2 text-sm">
+              {/* Filtro Produtos Bonificados - Compacto */}
+              {/* Controla automaticamente o checkbox de Bonificação no Tipo Nota Fiscal */}
+              <div className="border border-gray-200 rounded-md p-1.5">
+                <span className="block text-[10px] font-medium text-gray-700 mb-0.5">Prod. Bonific.</span>
+                <div className="space-y-0">
+                  <label className="flex items-center gap-0.5 text-[10px]">
                     <input
                       type="radio"
                       name="produtosBonificados"
                       value="com"
                       checked={filters.produtosBonificados === 'com'}
-                      onChange={(e) => setFilters({ ...filters, produtosBonificados: e.target.value })}
-                      className="border-gray-300 text-orange-600 focus:ring-orange-500"
+                      onChange={(e) => setFilters({ ...filters, produtosBonificados: e.target.value, tipoCompras: true, tipoBonificacao: true })}
+                      className="border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
                     />
                     Com
                   </label>
-                  <label className="flex items-center gap-2 text-sm">
+                  <label className="flex items-center gap-0.5 text-[10px]">
                     <input
                       type="radio"
                       name="produtosBonificados"
                       value="sem"
                       checked={filters.produtosBonificados === 'sem'}
-                      onChange={(e) => setFilters({ ...filters, produtosBonificados: e.target.value })}
-                      className="border-gray-300 text-orange-600 focus:ring-orange-500"
+                      onChange={(e) => setFilters({ ...filters, produtosBonificados: e.target.value, tipoCompras: true, tipoBonificacao: false })}
+                      className="border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
                     />
                     Sem
                   </label>
-                  <label className="flex items-center gap-2 text-sm">
+                  <label className="flex items-center gap-0.5 text-[10px]">
                     <input
                       type="radio"
                       name="produtosBonificados"
                       value="somente"
                       checked={filters.produtosBonificados === 'somente'}
-                      onChange={(e) => setFilters({ ...filters, produtosBonificados: e.target.value })}
-                      className="border-gray-300 text-orange-600 focus:ring-orange-500"
+                      onChange={(e) => setFilters({ ...filters, produtosBonificados: e.target.value, tipoCompras: false, tipoBonificacao: true })}
+                      className="border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
                     />
                     Somente
                   </label>
                 </div>
               </div>
 
-              <div className="border border-gray-200 rounded-md p-3">
-                <span className="block text-sm font-medium text-gray-700 mb-2">Decomposição</span>
-                <div className="space-y-1">
-                  <label className="flex items-center gap-2 text-sm">
+              {/* Filtro Decomposicao - Compacto */}
+              <div className="border border-gray-200 rounded-md p-1.5">
+                <span className="block text-[10px] font-medium text-gray-700 mb-0.5">Decomposicao</span>
+                <div className="space-y-0">
+                  <label className="flex items-center gap-0.5 text-[10px]">
                     <input
                       type="radio"
                       name="decomposicao"
                       value="pai"
                       checked={filters.decomposicao === 'pai'}
                       onChange={(e) => setFilters({ ...filters, decomposicao: e.target.value })}
-                      className="border-gray-300 text-orange-600 focus:ring-orange-500"
+                      className="border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
                     />
                     Pai
                   </label>
-                  <label className="flex items-center gap-2 text-sm">
+                  <label className="flex items-center gap-0.5 text-[10px]">
                     <input
                       type="radio"
                       name="decomposicao"
                       value="filhos"
                       checked={filters.decomposicao === 'filhos'}
                       onChange={(e) => setFilters({ ...filters, decomposicao: e.target.value })}
-                      className="border-gray-300 text-orange-600 focus:ring-orange-500"
+                      className="border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
                     />
                     Filhos
                   </label>
                 </div>
-
-                {/* Tipos de Empréstimo - só aparece quando Filhos selecionado */}
                 {filters.decomposicao === 'filhos' && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <span className="block text-xs font-medium text-gray-600 mb-2">Tipos de Empréstimo:</span>
-                    <div className="space-y-1">
-                      <label className="flex items-center gap-2 text-sm">
+                  <div className="mt-0.5 pt-0.5 border-t border-gray-200">
+                    <span className="block text-[9px] font-medium text-gray-600 mb-0">Emprestimo:</span>
+                    <div className="space-y-0">
+                      <label className="flex items-center gap-0.5 text-[9px]">
                         <input
                           type="checkbox"
                           checked={filters.tipoEmprestimoProducao}
                           onChange={(e) => setFilters({ ...filters, tipoEmprestimoProducao: e.target.checked })}
-                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2 h-2"
                         />
-                        Produção
+                        Producao
                       </label>
-                      <label className="flex items-center gap-2 text-sm">
+                      <label className="flex items-center gap-0.5 text-[9px]">
                         <input
                           type="checkbox"
                           checked={filters.tipoEmprestimoAssociacao}
                           onChange={(e) => setFilters({ ...filters, tipoEmprestimoAssociacao: e.target.checked })}
-                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2 h-2"
                         />
-                        Associação
+                        Assoc.
                       </label>
-                      <label className="flex items-center gap-2 text-sm">
+                      <label className="flex items-center gap-0.5 text-[9px]">
                         <input
                           type="checkbox"
                           checked={filters.tipoEmprestimoDecomposicao}
                           onChange={(e) => setFilters({ ...filters, tipoEmprestimoDecomposicao: e.target.checked })}
-                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2 h-2"
                         />
-                        Decomposição
+                        Decomp.
                       </label>
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Card 1: Mark Down Atual */}
+              <div className="border-2 border-blue-300 rounded-lg p-3 bg-blue-50">
+                <div className="text-center">
+                  <span className="block text-xs font-bold text-blue-800 uppercase">Mark Down</span>
+                  <span className="block text-xs font-medium text-blue-700">Atual</span>
+                  {totais ? (
+                    <div className="mt-2">
+                      <span className="text-3xl font-bold text-blue-600">
+                        {(totais.VENDAS > 0 ? ((totais.VENDAS - totais.CUSTO_VENDA) / totais.VENDAS) * 100 : 0).toFixed(2)}%
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="mt-2">
+                      <span className="text-2xl font-bold text-gray-400">--%</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 2: Excesso de Compras ou Perdas */}
+              <div className="border-2 border-purple-300 rounded-lg p-3 bg-purple-50">
+                <div className="text-center">
+                  <span className="block text-xs font-bold text-purple-800 uppercase">Excesso de Compras</span>
+                  <span className="block text-xs font-medium text-purple-700">ou Perdas</span>
+                  {totais ? (
+                    <>
+                      <div className="mt-1">
+                        <span className={`text-2xl font-bold ${totais.VENDAS > 0 && ((totais.CUSTO_VENDA / totais.VENDAS) - (totais.COMPRA_FINAL / totais.VENDAS)) * 100 >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {(totais.VENDAS > 0 ? ((totais.CUSTO_VENDA / totais.VENDAS) - (totais.COMPRA_FINAL / totais.VENDAS)) * 100 : 0).toFixed(2)}%
+                        </span>
+                      </div>
+                      <div className={`text-xl font-bold mt-0.5 ${(totais.DIFERENCA_RS || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        R$ {(totais.DIFERENCA_RS || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="mt-2">
+                      <span className="text-2xl font-bold text-gray-400">--%</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 3: Margem Compra e Venda */}
+              <div className="border-2 border-orange-300 rounded-lg p-3 bg-orange-50">
+                <div className="text-center">
+                  <span className="block text-xs font-bold text-orange-800 uppercase">Margem</span>
+                  <span className="block text-xs font-medium text-orange-700">Compra e Venda</span>
+                  {totais ? (
+                    <>
+                      <div className="mt-2">
+                        <span className="text-3xl font-bold text-orange-600">
+                          {(() => {
+                            // Mark Down = (Vendas - Custo) / Vendas
+                            const markDown = totais.VENDAS > 0 ? ((totais.VENDAS - totais.CUSTO_VENDA) / totais.VENDAS) * 100 : 0;
+                            // Dif = Meta - PCT = (Custo/Vendas) - (Compra Final/Vendas)
+                            const dif = totais.VENDAS > 0 ? ((totais.CUSTO_VENDA / totais.VENDAS) - (totais.COMPRA_FINAL / totais.VENDAS)) * 100 : 0;
+                            // Margem = Mark Down + Dif (Dif já é negativo quando PCT > Meta)
+                            return (markDown + dif).toFixed(2);
+                          })()}%
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-gray-500 mt-1">
+                        Mark Down - Atingido
+                      </div>
+                    </>
+                  ) : (
+                    <div className="mt-2">
+                      <span className="text-2xl font-bold text-gray-400">--%</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 4: Margem Limpo de Impostos */}
+              <div className="border-2 border-green-300 rounded-lg p-3 bg-green-50">
+                <div className="text-center">
+                  <span className="block text-xs font-bold text-green-800 uppercase">Margem Compra e Venda</span>
+                  <span className="block text-xs font-medium text-green-700">Limpo de Impostos</span>
+                  {totais ? (
+                    <>
+                      <div className="mt-2">
+                        <span className="text-3xl font-bold text-green-600">
+                          {(() => {
+                            // Mg Lucro total
+                            const mgLucro = totais.MG_LUCRO_PCT || 0;
+                            // Dif = Meta - PCT = (Custo/Vendas) - (Compra Final/Vendas)
+                            const dif = totais.VENDAS > 0 ? ((totais.CUSTO_VENDA / totais.VENDAS) - (totais.COMPRA_FINAL / totais.VENDAS)) * 100 : 0;
+                            // Margem Limpo = Mg Lucro + Dif (quando Dif é negativo, subtrai)
+                            return (mgLucro + dif).toFixed(2);
+                          })()}%
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-gray-500 mt-1">
+                        Mg Lucro + Dif
+                      </div>
+                    </>
+                  ) : (
+                    <div className="mt-2">
+                      <span className="text-2xl font-bold text-gray-400">--%</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1065,6 +1332,17 @@ export default function CompraVendaAnalise() {
                 >
                   Limpar
                 </button>
+
+                <button
+                  onClick={handleExportPDF}
+                  disabled={data.length === 0}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  PDF
+                </button>
               </div>
             </div>
           </div>
@@ -1084,7 +1362,7 @@ export default function CompraVendaAnalise() {
                         onDragOver={(e) => handleDragOver(e, col.id)}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, col.id)}
-                        className={`px-3 py-3 text-xs font-medium text-orange-800 uppercase tracking-wider cursor-move select-none transition-all
+                        className={`px-3 py-3 text-xs font-medium text-orange-800 uppercase tracking-wider cursor-move select-none transition-all whitespace-nowrap
                           ${col.align === 'right' ? 'text-right' : 'text-left'}
                           ${dragOverColumn === col.id ? 'bg-orange-200 border-l-2 border-orange-500' : ''}
                           ${draggedColumn === col.id ? 'opacity-50' : ''}
@@ -1092,6 +1370,7 @@ export default function CompraVendaAnalise() {
                           ${col.highlightGreen ? 'bg-green-200 font-bold' : ''}
                           hover:bg-orange-200
                         `}
+                        style={col.minWidth ? { minWidth: col.minWidth } : undefined}
                         title="Arraste para reordenar"
                       >
                         <div className="flex items-center gap-1">
@@ -1135,11 +1414,11 @@ export default function CompraVendaAnalise() {
                                     {col.id === 'SECAO' ? (
                                       <button
                                         onClick={() => toggleSecao(codSecao)}
-                                        className="flex items-center gap-2 font-semibold text-gray-900 hover:text-orange-600 transition-colors"
+                                        className="flex items-center gap-1 font-semibold text-gray-900 hover:text-orange-600 transition-colors whitespace-nowrap text-xs"
                                       >
-                                        <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold transition-colors ${isSecaoExpanded ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-600 hover:bg-orange-200'}`}>
+                                        <span className={`inline-flex items-center justify-center w-4 h-4 rounded text-[10px] font-bold transition-colors ${isSecaoExpanded ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-600 hover:bg-orange-200'}`}>
                                           {isLoadingGrupos ? (
-                                            <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                                            <svg className="animate-spin h-2 w-2" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                                           ) : isSecaoExpanded ? '−' : '+'}
                                         </span>
                                         {secaoRow.SECAO}
