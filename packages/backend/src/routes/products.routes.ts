@@ -222,8 +222,23 @@ router.put('/bulk-activate', authenticateToken, ProductsController.bulkActivateP
 // Listar seções únicas dos produtos
 router.get('/sections', authenticateToken, ProductsController.getSections);
 
+// Listar seções do Oracle com código e nome
+router.get('/sections-oracle', authenticateToken, ProductsController.getSectionsOracle);
+
 // Buscar produtos por seção
 router.get('/by-section', authenticateToken, ProductsController.getProductsBySection);
+
+// Buscar produtos por seção do Oracle (para HortFrut)
+router.get('/by-section-oracle', authenticateToken, ProductsController.getProductsBySectionOracle);
+
+// Buscar produtos para pesquisa de ruptura (com filtros de dias sem venda e curva)
+router.get('/for-rupture', authenticateToken, ProductsController.getProductsForRupture);
+
+// Buscar produtos para auditoria de etiquetas (com filtros de data de alteração de preço)
+router.get('/for-label-audit', authenticateToken, ProductsController.getProductsForLabelAudit);
+
+// Buscar TODOS os produtos do Oracle (para Prevenção Estoque e Margem)
+router.get('/oracle', authenticateToken, ProductsController.getProductsOracle);
 
 /**
  * @swagger

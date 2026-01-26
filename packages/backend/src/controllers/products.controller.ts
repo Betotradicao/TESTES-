@@ -5,6 +5,7 @@ import { ProductActivationHistory } from '../entities/ProductActivationHistory';
 import { AuthRequest } from '../middleware/auth';
 import { CacheService } from '../services/cache.service';
 import { ConfigurationService } from '../services/configuration.service';
+import { OracleService } from '../services/oracle.service';
 import axios from 'axios';
 import * as path from 'path';
 
@@ -741,6 +742,108 @@ export class ProductsController {
   }
 
   /**
+   * Buscar seções do Oracle com código e nome
+   * GET /api/products/sections-oracle
+   */
+  static async getSectionsOracle(req: AuthRequest, res: Response) {
+    try {
+      const sql = `
+        SELECT COD_SECAO, DES_SECAO
+        FROM INTERSOLID.TAB_SECAO
+        ORDER BY COD_SECAO
+      `;
+
+      const rows = await OracleService.query(sql);
+
+      // Retorna array de objetos com código e nome
+      const sections = rows.map((row: any) => ({
+        codigo: row.COD_SECAO,
+        nome: row.DES_SECAO
+      }));
+
+      res.json(sections);
+    } catch (error) {
+      console.error('Get sections Oracle error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  /**
+   * Buscar produtos filtrados por seção do Oracle
+   * GET /api/products/by-section-oracle?section=HORT FRUTI&codLoja=1
+   */
+  static async getProductsBySectionOracle(req: AuthRequest, res: Response) {
+    try {
+      const { section, codLoja } = req.query;
+
+      if (!section) {
+        return res.status(400).json({ error: 'Parâmetro section é obrigatório' });
+      }
+
+      const loja = codLoja ? parseInt(codLoja as string) : 1;
+
+      console.log('📦 Buscando produtos por seção do Oracle:', { section, loja });
+
+      // Query para buscar produtos com informações completas
+      // VAL_MARGEM_FIXA = margem de referência, VAL_MARGEM = margem atual
+      const sql = `
+        SELECT
+          p.COD_PRODUTO,
+          p.COD_BARRA_PRINCIPAL,
+          p.DES_PRODUTO,
+          s.DES_SECAO,
+          g.DES_GRUPO,
+          TRIM(pl.DES_RANK_PRODLOJA) as CURVA,
+          NVL(pl.VAL_CUSTO_REP, 0) as VAL_CUSTO_REP,
+          NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
+          NVL(pl.VAL_MARGEM, 0) as VAL_MARGEM,
+          NVL(pl.VAL_MARGEM_FIXA, pl.VAL_MARGEM) as VAL_MARGEM_REF
+        FROM INTERSOLID.TAB_PRODUTO p
+        INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+        LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
+        WHERE pl.COD_LOJA = :codLoja
+        AND UPPER(s.DES_SECAO) LIKE :sectionFilter
+        AND NVL(pl.INATIVO, 'N') = 'N'
+        ORDER BY p.DES_PRODUTO
+      `;
+
+      const params = {
+        codLoja: loja,
+        sectionFilter: `%${String(section).toUpperCase()}%`
+      };
+
+      const rows = await OracleService.query(sql, params);
+
+      // Mapear para formato esperado pelo HortFrut
+      const items = rows.map((row: any) => ({
+        barcode: row.COD_BARRA_PRINCIPAL || String(row.COD_PRODUTO),
+        productName: row.DES_PRODUTO || '',
+        curve: row.CURVA || '',
+        currentCost: parseFloat(row.VAL_CUSTO_REP) || 0,
+        currentSalePrice: parseFloat(row.VAL_VENDA) || 0,
+        referenceMargin: parseFloat(row.VAL_MARGEM_REF) || 0,
+        currentMargin: parseFloat(row.VAL_MARGEM) || 0,
+        section: row.DES_SECAO || '',
+        productGroup: row.DES_GRUPO || '',
+        subGroup: ''
+      }));
+
+      console.log(`✅ ${items.length} produtos encontrados na seção "${section}"`);
+
+      res.json({
+        section: section,
+        total: items.length,
+        items
+      });
+
+    } catch (error: any) {
+      console.error('Get products by section Oracle error:', error);
+      res.status(500).json({ error: error.message || 'Internal server error' });
+    }
+  }
+
+  /**
    * Buscar produtos filtrados por seção
    * GET /api/products/by-section?section=HORTIFRUTI
    */
@@ -807,6 +910,282 @@ export class ProductsController {
   }
 
   /**
+   * Buscar produtos para pesquisa de ruptura com filtros
+   * GET /api/products/for-rupture?diasSemVenda=7&curvas=A,B,C&secoes=MERCEARIA,BEBIDAS&codLoja=1
+   * Busca diretamente do banco Oracle
+   */
+  static async getProductsForRupture(req: AuthRequest, res: Response) {
+    try {
+      const { diasSemVenda, curvas, secoes, codLoja } = req.query;
+
+      // Importar OracleService
+      const { OracleService } = await import('../services/oracle.service');
+
+      // Montar query Oracle
+      let whereConditions: string[] = [];
+      const params: any = {};
+
+      // Filtro de loja (default = 1)
+      const loja = codLoja ? parseInt(codLoja as string) : 1;
+      whereConditions.push('pl.COD_LOJA = :codLoja');
+      params.codLoja = loja;
+
+      // Filtro de dias sem venda
+      if (diasSemVenda) {
+        const dias = parseInt(diasSemVenda as string);
+        if (!isNaN(dias) && dias > 0) {
+          whereConditions.push(`(pl.DTA_ULT_MOV_VENDA IS NULL OR pl.DTA_ULT_MOV_VENDA <= SYSDATE - :diasSemVenda)`);
+          params.diasSemVenda = dias;
+        }
+      }
+
+      // Filtro de curvas
+      if (curvas && curvas !== 'TODOS') {
+        const curvasArray = (curvas as string).split(',').map(c => c.trim().toUpperCase());
+        whereConditions.push(`pl.DES_RANK_PRODLOJA IN (${curvasArray.map((_, i) => `:curva${i}`).join(', ')})`);
+        curvasArray.forEach((curva, i) => {
+          params[`curva${i}`] = curva;
+        });
+      }
+
+      // Filtro de seções
+      if (secoes) {
+        const secoesArray = (secoes as string).split(',').map(s => s.trim().toUpperCase());
+        const secaoConditions = secoesArray.map((_, i) => `UPPER(s.DES_SECAO) LIKE :secao${i}`);
+        whereConditions.push(`(${secaoConditions.join(' OR ')})`);
+        secoesArray.forEach((secao, i) => {
+          params[`secao${i}`] = `%${secao}%`;
+        });
+      }
+
+      // Filtrar apenas produtos ativos
+      whereConditions.push(`NVL(pl.INATIVO, 'N') = 'N'`);
+      whereConditions.push(`p.COD_PRODUTO IS NOT NULL`);
+
+      const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
+
+      const sql = `
+        SELECT
+          p.COD_BARRA_PRINCIPAL as CODIGO_BARRAS,
+          p.COD_PRODUTO as ERP_PRODUCT_ID,
+          p.DES_PRODUTO as DESCRICAO,
+          TRIM(pl.DES_RANK_PRODLOJA) as CURVA,
+          NVL(pl.QTD_EST_ATUAL, 0) as ESTOQUE_ATUAL,
+          NVL(pl.QTD_COBERTURA, 0) as COBERTURA_DIAS,
+          g.DES_GRUPO as GRUPO,
+          s.DES_SECAO as SECAO,
+          pl.COD_FORN_ULT_COMPRA as COD_FORNECEDOR,
+          f.DES_FORNECEDOR as FORNECEDOR,
+          NVL(pl.VAL_MARGEM, 0) as MARGEM_LUCRO,
+          1 as QTD_EMBALAGEM,
+          NVL(pl.VAL_VENDA, 0) as VALOR_VENDA,
+          NVL(pl.VAL_CUSTO_REP, 0) as CUSTO_COM_IMPOSTO,
+          NVL(pl.VAL_VENDA_MEDIA, 0) as VENDA_MEDIA_DIA,
+          CASE WHEN NVL(pl.QTD_PEDIDO_COMPRA, 0) > 0 THEN 'Sim' ELSE 'Nao' END as TEM_PEDIDO,
+          pl.DTA_ULT_MOV_VENDA as DTA_ULT_VENDA,
+          CASE
+            WHEN pl.DTA_ULT_MOV_VENDA IS NULL THEN 9999
+            ELSE TRUNC(SYSDATE - pl.DTA_ULT_MOV_VENDA)
+          END as DIAS_SEM_VENDA
+        FROM INTERSOLID.TAB_PRODUTO p
+        INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+        LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
+        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
+        ${whereClause}
+        ORDER BY DIAS_SEM_VENDA DESC, pl.DES_RANK_PRODLOJA ASC
+      `;
+
+      console.log('📊 Buscando produtos para ruptura do Oracle...');
+      console.log('Filtros:', { diasSemVenda, curvas, secoes, codLoja: loja });
+
+      const rows = await OracleService.query(sql, params);
+
+      // Mapear para formato esperado
+      const items = rows.map((row: any) => ({
+        codigo_barras: row.CODIGO_BARRAS || String(row.ERP_PRODUCT_ID),
+        erp_product_id: String(row.ERP_PRODUCT_ID),
+        descricao: row.DESCRICAO || '',
+        curva: row.CURVA || '',
+        estoque_atual: row.ESTOQUE_ATUAL || 0,
+        cobertura_dias: row.COBERTURA_DIAS || 0,
+        grupo: row.GRUPO || '',
+        secao: row.SECAO || '',
+        fornecedor: row.FORNECEDOR || '',
+        margem_lucro: row.MARGEM_LUCRO || 0,
+        qtd_embalagem: 1,
+        valor_venda: row.VALOR_VENDA || 0,
+        custo_com_imposto: row.CUSTO_COM_IMPOSTO || 0,
+        venda_media_dia: row.VENDA_MEDIA_DIA || 0,
+        tem_pedido: row.TEM_PEDIDO || 'Nao',
+        dias_sem_venda: row.DIAS_SEM_VENDA === 9999 ? null : row.DIAS_SEM_VENDA,
+        dta_ult_venda: row.DTA_ULT_VENDA
+      }));
+
+      console.log(`✅ ${items.length} produtos encontrados`);
+
+      res.json({
+        total: items.length,
+        filtros: {
+          diasSemVenda: diasSemVenda || null,
+          curvas: curvas || 'TODOS',
+          secoes: secoes || null,
+          codLoja: loja
+        },
+        items
+      });
+
+    } catch (error: any) {
+      console.error('Get products for rupture error:', error);
+      res.status(500).json({ error: error.message || 'Internal server error' });
+    }
+  }
+
+  /**
+   * Buscar produtos para auditoria de etiquetas (alteração de preço de VENDA)
+   * GET /api/products/for-label-audit
+   * Filtros: dataInicio, dataFim, tipoOferta (todos, com_oferta, sem_oferta), secoes
+   *
+   * Usa TAB_PRODUTO_HISTORICO.DTA_ULT_ALT_PRECO_VENDA para buscar alterações
+   * específicas do preço de venda (não confundir com DTA_ALTERACAO_PRECO que
+   * captura outras alterações também)
+   */
+  static async getProductsForLabelAudit(req: AuthRequest, res: Response) {
+    try {
+      const { dataInicio, dataFim, tipoOferta, secoes, codLoja } = req.query;
+
+      // Validar datas
+      if (!dataInicio || !dataFim) {
+        return res.status(400).json({ error: 'Data início e data fim são obrigatórias' });
+      }
+
+      // Loja padrão = 1
+      const loja = codLoja || 1;
+
+      // Construir WHERE dinâmico
+      const whereConditions: string[] = [];
+      const params: any = {
+        dataInicio: dataInicio,
+        dataFim: dataFim,
+        codLoja: loja
+      };
+
+      // Filtro de data de alteração de preço de VENDA usando TAB_PRODUTO_HISTORICO
+      // DTA_ULT_ALT_PRECO_VENDA é a coluna correta para capturar alterações de preço de venda
+      whereConditions.push(`(
+        h.DTA_ULT_ALT_PRECO_VENDA >= TO_DATE(:dataInicio, 'YYYY-MM-DD')
+        AND h.DTA_ULT_ALT_PRECO_VENDA < TO_DATE(:dataFim, 'YYYY-MM-DD') + 1
+      )`);
+
+      // Filtro de loja
+      whereConditions.push(`h.COD_LOJA = :codLoja`);
+
+      // Filtro de tipo de oferta
+      if (tipoOferta === 'com_oferta') {
+        whereConditions.push(`pl.VAL_OFERTA IS NOT NULL AND pl.VAL_OFERTA > 0 AND TRUNC(SYSDATE) <= NVL(pl.DTA_VALIDA_OFERTA, TRUNC(SYSDATE))`);
+      } else if (tipoOferta === 'sem_oferta') {
+        whereConditions.push(`(pl.VAL_OFERTA IS NULL OR pl.VAL_OFERTA = 0 OR TRUNC(SYSDATE) > NVL(pl.DTA_VALIDA_OFERTA, TRUNC(SYSDATE) - 1))`);
+      }
+
+      // Filtro de seções (opcional)
+      if (secoes && typeof secoes === 'string') {
+        const secoesArray = secoes.split(',').map(s => s.trim().toUpperCase());
+        const secaoConditions = secoesArray.map((_, i) => `UPPER(s.DES_SECAO) LIKE :secao${i}`);
+        whereConditions.push(`(${secaoConditions.join(' OR ')})`);
+        secoesArray.forEach((secao, i) => {
+          params[`secao${i}`] = `%${secao}%`;
+        });
+      }
+
+      // Filtrar apenas produtos com preço válido
+      whereConditions.push(`p.COD_PRODUTO IS NOT NULL`);
+      whereConditions.push(`pl.VAL_VENDA IS NOT NULL`);
+
+      const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
+
+      // Query usando TAB_PRODUTO_HISTORICO para pegar DTA_ULT_ALT_PRECO_VENDA
+      // e VAL_VENDA_ANT (preço anterior) / VAL_VENDA_PDV (preço no PDV)
+      const sql = `
+        SELECT
+          p.COD_BARRA_PRINCIPAL as CODIGO_BARRAS,
+          p.COD_PRODUTO as ERP_PRODUCT_ID,
+          p.DES_PRODUTO as DESCRICAO,
+          s.DES_SECAO as SECAO,
+          g.DES_GRUPO as GRUPO,
+          NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
+          NVL(h.VAL_VENDA_ANT, 0) as VAL_VENDA_ANTERIOR,
+          NVL(h.VAL_VENDA_PDV, 0) as VAL_VENDA_PDV,
+          NVL(pl.VAL_OFERTA, 0) as VAL_OFERTA,
+          pl.DTA_VALIDA_OFERTA,
+          h.DTA_ULT_ALT_PRECO_VENDA as DTA_ALTERACAO,
+          h.DTA_CARGA_PDV,
+          NVL(pl.VAL_MARGEM, 0) as VAL_MARGEM,
+          f.DES_FORNECEDOR as FORNECEDOR,
+          CASE
+            WHEN pl.VAL_OFERTA IS NOT NULL AND pl.VAL_OFERTA > 0
+                 AND TRUNC(SYSDATE) <= NVL(pl.DTA_VALIDA_OFERTA, TRUNC(SYSDATE))
+            THEN 'S'
+            ELSE 'N'
+          END as EM_OFERTA
+        FROM INTERSOLID.TAB_PRODUTO_HISTORICO h
+        JOIN INTERSOLID.TAB_PRODUTO p ON h.COD_PRODUTO = p.COD_PRODUTO
+        JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON h.COD_PRODUTO = pl.COD_PRODUTO AND h.COD_LOJA = pl.COD_LOJA
+        LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
+        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
+        ${whereClause}
+        ORDER BY s.DES_SECAO ASC NULLS LAST, p.DES_PRODUTO ASC
+      `;
+
+      console.log('📊 Buscando produtos para auditoria de etiquetas do Oracle...');
+      console.log('Filtros:', { dataInicio, dataFim, tipoOferta, secoes, codLoja: loja });
+
+      const rows = await OracleService.query(sql, params);
+
+      // Mapear para formato esperado
+      const items = rows.map((row: any) => ({
+        codigo_barras: row.CODIGO_BARRAS || String(row.ERP_PRODUCT_ID),
+        erp_product_id: String(row.ERP_PRODUCT_ID),
+        descricao: row.DESCRICAO || '',
+        secao: row.SECAO || '',
+        grupo: row.GRUPO || '',
+        valor_venda: row.VAL_VENDA || 0,
+        valor_venda_anterior: row.VAL_VENDA_ANTERIOR || 0,
+        valor_venda_pdv: row.VAL_VENDA_PDV || 0,
+        valor_oferta: row.VAL_OFERTA || 0,
+        em_oferta: row.EM_OFERTA === 'S',
+        dta_valida_oferta: row.DTA_VALIDA_OFERTA,
+        dta_alteracao: row.DTA_ALTERACAO,
+        dta_carga_pdv: row.DTA_CARGA_PDV,
+        margem_lucro: row.VAL_MARGEM || 0,
+        fornecedor: row.FORNECEDOR || '',
+        // Para auditoria de etiquetas, o valor esperado na etiqueta é o preço atual
+        etiqueta: row.VAL_OFERTA > 0 && row.EM_OFERTA === 'S'
+          ? `R$ ${Number(row.VAL_OFERTA).toFixed(2)}`
+          : `R$ ${Number(row.VAL_VENDA).toFixed(2)}`
+      }));
+
+      console.log(`✅ ${items.length} produtos encontrados com alteração de preço de venda`);
+
+      res.json({
+        total: items.length,
+        filtros: {
+          dataInicio,
+          dataFim,
+          tipoOferta: tipoOferta || 'todos',
+          secoes: secoes || null,
+          codLoja: loja
+        },
+        items
+      });
+
+    } catch (error: any) {
+      console.error('Get products for label audit error:', error);
+      res.status(500).json({ error: error.message || 'Internal server error' });
+    }
+  }
+
+  /**
    * Excluir foto do produto
    * DELETE /api/products/:id/photo
    */
@@ -855,6 +1234,140 @@ export class ProductsController {
     } catch (error) {
       console.error('Delete photo error:', error);
       res.status(500).json({ error: 'Erro ao excluir foto' });
+    }
+  }
+
+  /**
+   * Buscar TODOS os produtos diretamente do Oracle
+   * GET /api/products/oracle?codLoja=1
+   * Usado pela tela de Prevenção Estoque e Margem
+   */
+  static async getProductsOracle(req: AuthRequest, res: Response) {
+    try {
+      const { codLoja } = req.query;
+      const loja = codLoja ? parseInt(codLoja as string) : 1;
+
+      console.log('📦 Buscando todos os produtos do Oracle para loja:', loja);
+
+      // Query completa para buscar produtos com todas as informações necessárias
+      const sql = `
+        SELECT
+          p.COD_PRODUTO as CODIGO,
+          p.COD_BARRA_PRINCIPAL as EAN,
+          p.DES_PRODUTO as DESCRICAO,
+          p.DES_REDUZIDA as DES_REDUZIDA,
+          NVL(pl.VAL_CUSTO_REP, 0) as VAL_CUSTO_REP,
+          NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
+          NVL(pl.VAL_VENDA_LOJA, pl.VAL_VENDA) as VAL_VENDA_LOJA,
+          NVL(pl.VAL_OFERTA, 0) as VAL_OFERTA,
+          NVL(pl.ESTOQUE, 0) as ESTOQUE,
+          s.DES_SECAO,
+          g.DES_GRUPO,
+          sg.DES_SUB_GRUPO as DES_SUBGRUPO,
+          f.NOM_FANTASIA as FANTASIA_FORN,
+          NVL(pl.VAL_MARGEM_FIXA, pl.VAL_MARGEM) as MARGEM_REF,
+          NVL(pl.VAL_MARGEM, 0) as VAL_MARGEM,
+          NVL(pl.QTD_VENDA_MEDIA, 0) as VENDA_MEDIA,
+          CASE
+            WHEN pl.QTD_VENDA_MEDIA > 0 THEN ROUND(pl.ESTOQUE / pl.QTD_VENDA_MEDIA, 0)
+            ELSE 0
+          END as DIAS_COBERTURA,
+          pl.DTA_ULTIMA_COMPRA as DTA_ULT_COMPRA,
+          pl.QTD_ULTIMA_COMPRA as QTD_ULT_COMPRA,
+          NVL(pl.QTD_PEDIDO_COMPRA, 0) as QTD_PEDIDO_COMPRA,
+          NVL(pl.ESTOQUE_MINIMO, 0) as ESTOQUE_MINIMO,
+          TO_CHAR(pl.DTA_ULT_MOV_VENDA, 'YYYYMMDD') as DTA_ULT_MOV_VENDA,
+          TRIM(pl.DES_RANK_PRODLOJA) as CURVA,
+          CASE p.TIPO_ESPECIE
+            WHEN 0 THEN 'MERCADORIA'
+            WHEN 2 THEN 'SERVICO'
+            WHEN 3 THEN 'INSUMO'
+            WHEN 4 THEN 'IMOBILIZADO'
+            ELSE 'OUTROS'
+          END as TIPO_ESPECIE,
+          CASE p.TIPO_EVENTO
+            WHEN 0 THEN 'DIRETA'
+            WHEN 1 THEN 'PRODUCAO'
+            WHEN 2 THEN 'TRANSFERENCIA'
+            WHEN 3 THEN 'EMPRESTADO'
+            ELSE 'OUTROS'
+          END as TIPO_EVENTO,
+          p.DTA_CADASTRO
+        FROM INTERSOLID.TAB_PRODUTO p
+        INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+        LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
+        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON p.COD_FORNECEDOR = f.COD_FORNECEDOR
+        WHERE pl.COD_LOJA = :codLoja
+        AND NVL(pl.INATIVO, 'N') = 'N'
+        ORDER BY p.DES_PRODUTO
+      `;
+
+      const rows = await OracleService.query(sql, { codLoja: loja });
+
+      // Buscar produtos ativos do banco local para enriquecer
+      const productRepository = AppDataSource.getRepository(Product);
+      const activeProducts = await productRepository.find({
+        select: ['erp_product_id', 'active', 'peso_medio_kg', 'production_days', 'foto_referencia']
+      });
+
+      const productsMap = new Map(
+        activeProducts.map(p => [p.erp_product_id, {
+          active: p.active,
+          peso_medio_kg: p.peso_medio_kg,
+          production_days: p.production_days,
+          foto_referencia: p.foto_referencia
+        }])
+      );
+
+      // Mapear para o formato esperado pelo frontend
+      const items = rows.map((row: any) => {
+        const dbProduct = productsMap.get(String(row.CODIGO));
+        return {
+          codigo: String(row.CODIGO),
+          ean: row.EAN || '',
+          descricao: row.DESCRICAO || '',
+          desReduzida: row.DES_REDUZIDA || '',
+          valCustoRep: parseFloat(row.VAL_CUSTO_REP) || 0,
+          valvendaloja: parseFloat(row.VAL_VENDA_LOJA) || 0,
+          valvenda: parseFloat(row.VAL_VENDA) || 0,
+          valOferta: parseFloat(row.VAL_OFERTA) || 0,
+          estoque: parseFloat(row.ESTOQUE) || 0,
+          desSecao: row.DES_SECAO || '',
+          desGrupo: row.DES_GRUPO || '',
+          desSubGrupo: row.DES_SUBGRUPO || '',
+          fantasiaForn: row.FANTASIA_FORN || '',
+          margemRef: parseFloat(row.MARGEM_REF) || 0,
+          vendaMedia: parseFloat(row.VENDA_MEDIA) || 0,
+          diasCobertura: parseInt(row.DIAS_COBERTURA) || 0,
+          dtaUltCompra: row.DTA_ULT_COMPRA || null,
+          qtdUltCompra: parseFloat(row.QTD_ULT_COMPRA) || 0,
+          qtdPedidoCompra: parseFloat(row.QTD_PEDIDO_COMPRA) || 0,
+          estoqueMinimo: parseFloat(row.ESTOQUE_MINIMO) || 0,
+          dtaUltMovVenda: row.DTA_ULT_MOV_VENDA || null,
+          curva: row.CURVA || '',
+          tipoEspecie: row.TIPO_ESPECIE || 'MERCADORIA',
+          tipoEvento: row.TIPO_EVENTO || 'DIRETA',
+          dtaCadastro: row.DTA_CADASTRO || null,
+          // Campos do banco local
+          active: dbProduct?.active || false,
+          peso_medio_kg: dbProduct?.peso_medio_kg || null,
+          production_days: dbProduct?.production_days || 1,
+          foto_referencia: dbProduct?.foto_referencia || null
+        };
+      });
+
+      console.log(`✅ ${items.length} produtos encontrados no Oracle`);
+
+      res.json({
+        data: items,
+        total: items.length
+      });
+
+    } catch (error: any) {
+      console.error('Get products Oracle error:', error);
+      res.status(500).json({ error: error.message || 'Internal server error' });
     }
   }
 }

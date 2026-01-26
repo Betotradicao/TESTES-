@@ -5,12 +5,13 @@ import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 
-// Definição das 24 colunas disponíveis
+// Definição das 25 colunas disponíveis
 const AVAILABLE_COLUMNS = [
   { id: 'codigo', label: 'Código', visible: true },
   { id: 'descricao', label: 'Descrição', visible: true },
   { id: 'desReduzida', label: 'Desc. Reduzida', visible: false },
   { id: 'ean', label: 'EAN', visible: true },
+  { id: 'curva', label: 'Curva', visible: true },
   { id: 'valCustoRep', label: 'Custo', visible: true },
   { id: 'valvendaloja', label: 'Preço Loja', visible: false },
   { id: 'valvenda', label: 'Preço Venda', visible: true },
@@ -48,11 +49,12 @@ export default function EstoqueSaude() {
   });
 
   // Filtros
-  const [filterTipoEspecie, setFilterTipoEspecie] = useState('MERCADORIA');
-  const [filterTipoEvento, setFilterTipoEvento] = useState('DIRETA');
+  const [filterTipoEspecie, setFilterTipoEspecie] = useState('');
+  const [filterTipoEvento, setFilterTipoEvento] = useState('');
   const [filterSecao, setFilterSecao] = useState('');
   const [filterGrupo, setFilterGrupo] = useState('');
   const [filterSubGrupo, setFilterSubGrupo] = useState('');
+  const [filterCurva, setFilterCurva] = useState('');
   const [activeCardFilter, setActiveCardFilter] = useState('todos');
 
   // Ordenação
@@ -105,13 +107,14 @@ export default function EstoqueSaude() {
     setDraggedColumn(null);
   };
 
-  // Buscar produtos
+  // Buscar produtos diretamente do Oracle
   const fetchProducts = async () => {
     try {
       setLoading(true);
       setError('');
 
-      const response = await api.get('/products');
+      // Usar endpoint Oracle diretamente
+      const response = await api.get('/products/oracle');
       const allProducts = response.data.data || response.data;
 
       // Adicionar colunas calculadas
@@ -164,6 +167,10 @@ export default function EstoqueSaude() {
 
   // Opções únicas para os filtros (dependentes entre si)
   const filterOptions = useMemo(() => {
+    // Tipo Espécie e Tipo Evento disponíveis
+    const tipoEspecies = [...new Set(products.map(p => p.tipoEspecie).filter(Boolean))].sort();
+    const tipoEventos = [...new Set(products.map(p => p.tipoEvento).filter(Boolean))].sort();
+
     // Todas as seções disponíveis
     const secoes = [...new Set(products.map(p => p.desSecao).filter(Boolean))].sort();
 
@@ -184,7 +191,10 @@ export default function EstoqueSaude() {
     }
     const subgrupos = [...new Set(produtosFiltradosParaSubgrupo.map(p => p.desSubGrupo).filter(Boolean))].sort();
 
-    return { secoes, grupos, subgrupos };
+    // Curvas disponíveis (A, B, C, D, E, X, etc.)
+    const curvas = [...new Set(products.map(p => p.curva).filter(Boolean))].sort();
+
+    return { secoes, grupos, subgrupos, curvas, tipoEspecies, tipoEventos };
   }, [products, filterSecao, filterGrupo]);
 
   // Produtos filtrados e ordenados
@@ -216,6 +226,11 @@ export default function EstoqueSaude() {
       filtered = filtered.filter(p => p.desSubGrupo === filterSubGrupo);
     }
 
+    // Filtro de Curva
+    if (filterCurva) {
+      filtered = filtered.filter(p => p.curva === filterCurva);
+    }
+
     // Filtro por Card clicado
     if (activeCardFilter === 'zerado') {
       filtered = filtered.filter(p => p.estoque === 0);
@@ -231,6 +246,8 @@ export default function EstoqueSaude() {
       filtered = filtered.filter(p => !p.valCustoRep || p.valCustoRep === 0);
     } else if (activeCardFilter === 'preco_venda_zerado') {
       filtered = filtered.filter(p => !p.valvenda || p.valvenda === 0);
+    } else if (activeCardFilter === 'curva_x') {
+      filtered = filtered.filter(p => p.curva === 'X' || !p.curva);
     }
 
     // Ordenação
@@ -261,7 +278,7 @@ export default function EstoqueSaude() {
     }
 
     return filtered;
-  }, [products, filterTipoEspecie, filterTipoEvento, filterSecao, filterGrupo, filterSubGrupo, activeCardFilter, sortColumn, sortDirection]);
+  }, [products, filterTipoEspecie, filterTipoEvento, filterSecao, filterGrupo, filterSubGrupo, filterCurva, activeCardFilter, sortColumn, sortDirection]);
 
   // Resetar filtros dependentes quando filtro pai muda
   useEffect(() => {
@@ -278,7 +295,7 @@ export default function EstoqueSaude() {
   // Resetar para página 1 quando mudar filtros
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterTipoEspecie, filterTipoEvento, filterSecao, filterGrupo, filterSubGrupo, activeCardFilter, sortColumn, sortDirection]);
+  }, [filterTipoEspecie, filterTipoEvento, filterSecao, filterGrupo, filterSubGrupo, filterCurva, activeCardFilter, sortColumn, sortDirection]);
 
   // Produtos paginados
   const paginatedProducts = useMemo(() => {
@@ -313,6 +330,7 @@ export default function EstoqueSaude() {
       margemAbaixoMeta: filtered.filter(p => p.margemCalculada < p.margemRef && p.margemCalculada >= 0).length,
       custoZerado: filtered.filter(p => !p.valCustoRep || p.valCustoRep === 0).length,
       precoVendaZerado: filtered.filter(p => !p.valvenda || p.valvenda === 0).length,
+      curvaX: filtered.filter(p => p.curva === 'X' || !p.curva).length,
       total: filtered.length,
       valorTotalEstoque
     };
@@ -378,6 +396,11 @@ export default function EstoqueSaude() {
         if (value === 0) return 'Hoje';
         if (value === 1) return '1 dia';
         return `${value} dias`;
+
+      // Curva
+      case 'curva':
+        if (!value || value === '') return 'X';
+        return value;
 
       // Texto padrão
       default:
@@ -606,7 +629,7 @@ export default function EstoqueSaude() {
 
           {/* Filtros */}
           <div className="bg-white rounded-lg shadow p-4 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   🏪 Seção
@@ -665,7 +688,9 @@ export default function EstoqueSaude() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
                   <option value="">Todos</option>
-                  <option value="MERCADORIA">MERCADORIA</option>
+                  {filterOptions.tipoEspecies.map(tipo => (
+                    <option key={tipo} value={tipo}>{tipo}</option>
+                  ))}
                 </select>
               </div>
 
@@ -679,7 +704,25 @@ export default function EstoqueSaude() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
                   <option value="">Todos</option>
-                  <option value="DIRETA">DIRETA</option>
+                  {filterOptions.tipoEventos.map(tipo => (
+                    <option key={tipo} value={tipo}>{tipo}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  📊 Curva
+                </label>
+                <select
+                  value={filterCurva}
+                  onChange={(e) => setFilterCurva(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="">Todas</option>
+                  {filterOptions.curvas.map(curva => (
+                    <option key={curva} value={curva}>{curva}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -827,6 +870,21 @@ export default function EstoqueSaude() {
               <p className="text-xs text-gray-500">produtos</p>
             </button>
 
+            {/* Card Curva X */}
+            <button
+              onClick={() => setActiveCardFilter(activeCardFilter === 'curva_x' ? 'todos' : 'curva_x')}
+              className={`bg-white rounded-lg shadow p-6 text-left transition-all hover:shadow-lg ${
+                activeCardFilter === 'curva_x' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-3xl">❌</span>
+                <span className="text-2xl font-bold text-gray-600">{stats.curvaX}</span>
+              </div>
+              <p className="text-sm font-medium text-gray-700">Curva X</p>
+              <p className="text-xs text-gray-500">sem classificação</p>
+            </button>
+
             {/* Card Valor Total Estoque (não clicável) */}
             <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg shadow p-6 text-white">
               <div className="flex items-center justify-between mb-2">
@@ -854,7 +912,8 @@ export default function EstoqueSaude() {
                         activeCardFilter === 'margem_negativa' ? '💸 Margem Negativa' :
                         activeCardFilter === 'margem_baixa' ? '💰 Margem Abaixo da Meta' :
                         activeCardFilter === 'custo_zerado' ? '🏷️ Custo Zerado' :
-                        '💵 Preço Venda Zerado'
+                        activeCardFilter === 'preco_venda_zerado' ? '💵 Preço Venda Zerado' :
+                        '❌ Curva X (Sem Classificação)'
                       }
                     </p>
                     <span className="bg-orange-200 text-orange-900 px-3 py-1 rounded-full text-xs font-bold">

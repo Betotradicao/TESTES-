@@ -143,7 +143,19 @@ export class HortFrutController {
       const where: any = { company_id: companyId };
 
       if (startDate && endDate) {
-        where.conferenceDate = Between(new Date(startDate as string), new Date(endDate as string));
+        // Ajustar datas para incluir o dia inteiro independente do timezone
+        // Criar datas em UTC explicitamente para evitar problemas de timezone
+        const startDateStr = startDate as string; // formato YYYY-MM-DD
+        const endDateStr = endDate as string;
+
+        // startDate: início do dia em UTC
+        const startDateObj = new Date(`${startDateStr}T00:00:00.000Z`);
+        // endDate: final do dia em UTC (23:59:59.999)
+        const endDateObj = new Date(`${endDateStr}T23:59:59.999Z`);
+
+        console.log(`[HortFrut] Filtro de datas: ${startDateObj.toISOString()} até ${endDateObj.toISOString()}`);
+
+        where.conferenceDate = Between(startDateObj, endDateObj);
       }
 
       if (status) {
