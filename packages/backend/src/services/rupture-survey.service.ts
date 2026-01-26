@@ -829,13 +829,15 @@ export class RuptureSurveyService {
 
         doc.moveDown(8);
 
-        // Função para desenhar tabela
-        const drawTable = (title: string, items: RuptureSurveyItem[], startY: number) => {
+        // Função para desenhar tabela - startNumber mantém a numeração contínua entre páginas
+        const drawTable = (title: string, items: RuptureSurveyItem[], startY: number, startNumber: number = 1): number => {
           if (items.length === 0) return startY;
 
-          // Título da seção
-          doc.fontSize(12).fillColor('#000').text(title, 30, startY);
-          startY += 20;
+          // Título da seção (só mostra na primeira página da seção)
+          if (startNumber === 1) {
+            doc.fontSize(12).fillColor('#000').text(title, 30, startY);
+            startY += 20;
+          }
 
           // Definir colunas - adicionando Código de Barras e reordenando PEDIDO após PRODUTO
           const colX = [30, 50, 120, 260, 320, 360, 395, 445, 500, 560, 615, 670, 735];
@@ -864,7 +866,8 @@ export class RuptureSurveyService {
           // Linhas de dados (zebradas) - usar for loop para permitir break após recursão
           for (let idx = 0; idx < items.length; idx++) {
             const item = items[idx];
-            const bgColor = idx % 2 === 0 ? '#F5F5F5' : '#FFFFFF';
+            const rowNumber = startNumber + idx; // Numeração contínua
+            const bgColor = rowNumber % 2 === 1 ? '#F5F5F5' : '#FFFFFF';
             doc.rect(30, startY, 780, rowHeight).fillAndStroke(bgColor, '#DDD');
             doc.fontSize(5.5).fillColor('#000');
 
@@ -876,7 +879,7 @@ export class RuptureSurveyService {
             const perdaVenda = valorVenda * vendaMedia;
             const perdaLucro = perdaVenda * (margem / 100);
 
-            doc.text(`${idx + 1}`, colX[0] + 2, startY + 5, { width: colWidth[0], align: 'left' });
+            doc.text(`${rowNumber}`, colX[0] + 2, startY + 5, { width: colWidth[0], align: 'left' });
             doc.text(item.codigo_barras?.substring(0, 13) || '-', colX[1] + 2, startY + 5, { width: colWidth[1], align: 'left' });
             doc.text(item.descricao?.substring(0, 35) || '', colX[2] + 2, startY + 5, { width: colWidth[2], align: 'left' });
             doc.text(item.tem_pedido || '-', colX[3] + 2, startY + 5, { width: colWidth[3], align: 'center' });
@@ -892,12 +895,12 @@ export class RuptureSurveyService {
 
             startY += rowHeight;
 
-            // Nova página se necessário - usar break para parar o loop após recursão
+            // Nova página se necessário - passar startNumber correto para manter numeração
             if (startY > 500 && idx < items.length - 1) {
               doc.addPage();
               startY = 30;
-              drawTable(title, items.slice(idx + 1), startY);
-              break; // ✅ CRITICAL: Para o loop para evitar duplicação
+              // Passa o próximo número sequencial e os itens restantes
+              return drawTable(title, items.slice(idx + 1), startY, rowNumber + 1);
             }
           }
 
@@ -908,7 +911,7 @@ export class RuptureSurveyService {
         let currentY = doc.y;
 
         if (naoEncontrado.length > 0) {
-          currentY = drawTable('RUPTURA - NÃO ENCONTRADO', naoEncontrado, currentY);
+          currentY = drawTable('RUPTURA - NÃO ENCONTRADO', naoEncontrado, currentY, 1);
         }
 
         if (emEstoque.length > 0) {
@@ -916,7 +919,7 @@ export class RuptureSurveyService {
             doc.addPage();
             currentY = 30;
           }
-          currentY = drawTable('RUPTURA - EM ESTOQUE', emEstoque, currentY);
+          currentY = drawTable('RUPTURA - EM ESTOQUE', emEstoque, currentY, 1);
         }
 
         doc.end();
