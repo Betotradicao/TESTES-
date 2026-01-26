@@ -34,6 +34,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libaio1 \
     curl \
     unzip \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     # Criar diretório para Oracle Instant Client
     && mkdir -p /opt/oracle \
