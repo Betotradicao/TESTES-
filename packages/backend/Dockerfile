@@ -1,7 +1,7 @@
 # ===================================
 # STAGE 1: Build
 # ===================================
-FROM node:18-alpine AS builder
+FROM node:18-slim AS builder
 
 WORKDIR /app
 
@@ -25,24 +25,26 @@ RUN npm install -g typescript && \
 # ===================================
 # STAGE 2: Production
 # ===================================
-FROM node:18-alpine
+FROM node:18-slim
 
 WORKDIR /app
 
 # Instalar dependências do sistema para Oracle Instant Client
-RUN apk add --no-cache libaio libnsl libc6-compat curl unzip && \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libaio1 \
+    curl \
+    unzip \
+    && rm -rf /var/lib/apt/lists/* \
     # Criar diretório para Oracle Instant Client
-    mkdir -p /opt/oracle && \
-    cd /opt/oracle && \
+    && mkdir -p /opt/oracle \
+    && cd /opt/oracle \
     # Download Oracle Instant Client Basic Light (menor tamanho)
-    curl -o instantclient.zip https://download.oracle.com/otn_software/linux/instantclient/2340000/instantclient-basiclite-linux.x64-23.4.0.24.05.zip && \
-    unzip instantclient.zip && \
-    rm instantclient.zip && \
-    # Criar links simbólicos necessários
-    cd /opt/oracle/instantclient_23_4 && \
-    ln -s libnsl.so.2 libnsl.so.1 2>/dev/null || true && \
+    && curl -o instantclient.zip https://download.oracle.com/otn_software/linux/instantclient/2340000/instantclient-basiclite-linux.x64-23.4.0.24.05.zip \
+    && unzip instantclient.zip \
+    && rm instantclient.zip \
     # Configurar library path
-    echo /opt/oracle/instantclient_23_4 > /etc/ld-musl-x86_64.path
+    && echo /opt/oracle/instantclient_23_4 > /etc/ld.so.conf.d/oracle-instantclient.conf \
+    && ldconfig
 
 # Configurar variáveis de ambiente para Oracle
 ENV LD_LIBRARY_PATH=/opt/oracle/instantclient_23_4:$LD_LIBRARY_PATH
