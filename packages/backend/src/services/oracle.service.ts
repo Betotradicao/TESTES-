@@ -81,8 +81,12 @@ export class OracleService {
     if (this.thickModeInitialized) return;
 
     try {
-      // Caminho do Oracle Instant Client 64-bit
-      const oracleClientPath = 'C:\\oracle\\instantclient_64\\instantclient_23_4';
+      // Detecta o ambiente (Windows vs Linux)
+      const isWindows = process.platform === 'win32';
+      const oracleClientPath = isWindows
+        ? 'C:\\oracle\\instantclient_64\\instantclient_23_4'
+        : '/opt/oracle/instantclient_23_4';
+
       oracledb.initOracleClient({ libDir: oracleClientPath });
       this.thickModeInitialized = true;
       console.log('✅ Oracle Thick Mode initialized with client:', oracleClientPath);
@@ -93,6 +97,8 @@ export class OracleService {
         console.log('✅ Oracle Thick Mode já estava inicializado');
       } else {
         console.error('⚠️ Oracle Thick Mode init error:', error.message);
+        // Em ambiente de produção Linux, continua sem Thick mode (tentará Thin)
+        console.log('📝 Continuando sem Thick Mode...');
       }
     }
   }
