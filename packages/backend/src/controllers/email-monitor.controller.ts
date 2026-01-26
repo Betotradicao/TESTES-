@@ -10,11 +10,8 @@ export class EmailMonitorController {
     try {
       const config = await EmailMonitorService.getConfig();
 
-      // Don't send the app_password to frontend for security
-      return res.json({
-        ...config,
-        app_password: config.app_password ? '***************' : ''
-      });
+      // Return full config including password (internal system, not public facing)
+      return res.json(config);
     } catch (error) {
       console.error('Error fetching email monitor config:', error);
       return res.status(500).json({ error: 'Failed to fetch email monitor configuration' });
@@ -39,8 +36,8 @@ export class EmailMonitorController {
       const updates: any = {};
 
       if (email !== undefined) updates.email = email;
-      if (app_password !== undefined && app_password !== '***************') {
-        // Only update if it's not the masked value
+      if (app_password !== undefined && app_password !== '') {
+        // Only update if a new password is provided
         updates.app_password = app_password;
       }
       if (subject_filter !== undefined) updates.subject_filter = subject_filter;
