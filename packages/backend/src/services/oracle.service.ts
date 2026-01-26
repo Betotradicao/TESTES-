@@ -56,8 +56,8 @@ export class OracleService {
         const oraclePassword = await ConfigurationService.get('oracle_password', DEFAULT_ORACLE_CONFIG.password);
 
         this.oracleConfig = {
-          user: oracleUser,
-          password: oraclePassword,
+          user: oracleUser ?? DEFAULT_ORACLE_CONFIG.user,
+          password: oraclePassword ?? DEFAULT_ORACLE_CONFIG.password,
           connectString: `${oracleHost}:${oraclePort}/${oracleService}`
         };
         console.log(`📦 Oracle config loaded from database: ${oracleHost}:${oraclePort}/${oracleService}`);
