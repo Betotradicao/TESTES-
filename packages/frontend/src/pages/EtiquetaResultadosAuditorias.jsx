@@ -27,18 +27,45 @@ export default function EtiquetaResultadosAuditorias() {
   const [resultados, setResultados] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [secoesMap, setSecoesMap] = useState({}); // Mapeamento código -> nome da seção
 
   useEffect(() => {
     loadFilterOptions();
+    loadSecoesOracle();
 
-    // Definir período padrão: últimos 30 dias
+    // Definir período padrão: dia 1 do mês atual até hoje
     const hoje = new Date();
-    const trintaDiasAtras = new Date();
-    trintaDiasAtras.setDate(hoje.getDate() - 30);
+    const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
 
     setDataFim(hoje.toISOString().split('T')[0]);
-    setDataInicio(trintaDiasAtras.toISOString().split('T')[0]);
+    setDataInicio(primeiroDiaMes.toISOString().split('T')[0]);
   }, []);
+
+  // Carregar seções do Oracle para mapeamento código -> nome
+  const loadSecoesOracle = async () => {
+    try {
+      const response = await api.get('/products/sections-oracle');
+      const map = {};
+      response.data.forEach(sec => {
+        map[sec.codigo] = sec.nome;
+        map[String(sec.codigo)] = sec.nome;
+      });
+      setSecoesMap(map);
+    } catch (err) {
+      console.error('Erro ao carregar seções Oracle:', err);
+    }
+  };
+
+  // Função para formatar seção (código + nome ou só nome)
+  const formatSecao = (secao) => {
+    if (!secao) return 'Sem seção';
+    // Se for um número, busca o nome no mapeamento
+    if (!isNaN(secao) && secoesMap[secao]) {
+      return `${secao} - ${secoesMap[secao]}`;
+    }
+    // Se já for o nome completo ou não encontrar mapeamento
+    return secao;
+  };
 
   const loadFilterOptions = async () => {
     try {
@@ -430,8 +457,8 @@ export default function EtiquetaResultadosAuditorias() {
                                 {item.descricao}
                               </p>
                             </td>
-                            <td className="px-3 py-2 text-gray-600 max-w-xs truncate" title={item.secao}>
-                              {item.secao}
+                            <td className="px-3 py-2 text-gray-600 max-w-xs truncate" title={formatSecao(item.secao)}>
+                              {formatSecao(item.secao)}
                             </td>
                             <td className="px-3 py-2 text-right text-gray-700">
                               R$ {Number(item.valor_venda || 0).toFixed(2)}
@@ -481,8 +508,8 @@ export default function EtiquetaResultadosAuditorias() {
                         >
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex-1">
-                              <p className="font-semibold text-gray-800 text-sm truncate" title={sec.secao}>
-                                {sec.secao}
+                              <p className="font-semibold text-gray-800 text-sm truncate" title={formatSecao(sec.secao)}>
+                                {formatSecao(sec.secao)}
                               </p>
                               <p className="text-xs text-gray-500">
                                 {sec.rupturas} {sec.rupturas === 1 ? 'Produto Sem Etiqueta' : 'Produtos Sem Etiquetas'}

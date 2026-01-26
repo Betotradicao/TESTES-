@@ -25,6 +25,154 @@ export class CompraVendaController {
   }
 
   /**
+   * Debug: Verifica estrutura de tabelas Oracle e busca produto específico
+   */
+  static async debugTableStructure(req: Request, res: Response) {
+    try {
+      const tableName = req.query.table as string || 'TAB_PRODUTO_LOJA';
+      const codProduto = req.query.codProduto as string;
+      const busca = req.query.busca as string;
+
+      // Se passou busca por nome de produto
+      if (busca) {
+        const produtos = await OracleService.query(`
+          SELECT COD_PRODUTO, DES_PRODUTO, COD_SECAO, COD_GRUPO
+          FROM INTERSOLID.TAB_PRODUTO
+          WHERE UPPER(DES_PRODUTO) LIKE UPPER(:busca)
+          AND ROWNUM <= 20
+        `, { busca: `%${busca}%` });
+
+        return res.json({ produtos });
+      }
+
+      // Se passou busca por nome de tabela
+      const buscaTabela = req.query.buscaTabela as string;
+      if (buscaTabela) {
+        const tabelas = await OracleService.query(`
+          SELECT TABLE_NAME, NUM_ROWS
+          FROM ALL_TABLES
+          WHERE OWNER = 'INTERSOLID'
+          AND UPPER(TABLE_NAME) LIKE UPPER(:buscaTabela)
+          ORDER BY TABLE_NAME
+        `, { buscaTabela: `%${buscaTabela}%` });
+
+        return res.json({
+          buscaTabela,
+          quantidadeEncontrada: tabelas.length,
+          tabelas
+        });
+      }
+
+      // Se passou código do produto, busca todas as relações
+      if (codProduto) {
+        const produto = await OracleService.query(`
+          SELECT p.*, s.DES_SECAO, g.DES_GRUPO, sg.DES_SUB_GRUPO
+          FROM INTERSOLID.TAB_PRODUTO p
+          LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+          LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
+          LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
+          WHERE p.COD_PRODUTO = :codProduto
+        `, { codProduto });
+
+        // Compras no período (01/01/2025 a 25/01/2025)
+        const compras = await OracleService.query(`
+          SELECT nf.NUM_NF, nf.DTA_ENTRADA, ni.QTD_TOTAL, ni.VAL_TOTAL, ni.CFOP, nf.COD_LOJA
+          FROM INTERSOLID.TAB_NF nf
+          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+            AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
+            AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          WHERE ni.COD_ITEM = :codProduto
+          AND nf.DTA_ENTRADA BETWEEN TO_DATE('01/01/2025', 'DD/MM/YYYY') AND TO_DATE('25/01/2025', 'DD/MM/YYYY')
+          AND nf.TIPO_OPERACAO = 0
+          ORDER BY nf.DTA_ENTRADA
+        `, { codProduto });
+
+        const totalCompras = compras.reduce((sum: number, c: any) => sum + (c.VAL_TOTAL || 0), 0);
+
+        // Vendas no período
+        const vendas = await OracleService.query(`
+          SELECT COUNT(*) as QTD_CUPONS, SUM(QTD_TOTAL_PRODUTO) as QTD_TOTAL, SUM(VAL_TOTAL_PRODUTO) as VALOR_TOTAL
+          FROM INTERSOLID.TAB_PRODUTO_PDV
+          WHERE COD_PRODUTO = :codProduto
+          AND DTA_SAIDA BETWEEN TO_DATE('01/01/2025', 'DD/MM/YYYY') AND TO_DATE('25/01/2025', 'DD/MM/YYYY')
+        `, { codProduto });
+
+        // É filho de decomposição?
+        const ehFilhoDecomp = await OracleService.query(`
+          SELECT d.COD_PRODUTO as COD_MATRIZ, p.DES_PRODUTO as MATRIZ, d.QTD_DECOMP as PERCENTUAL
+          FROM INTERSOLID.TAB_PRODUTO_DECOMPOSICAO d
+          JOIN INTERSOLID.TAB_PRODUTO p ON d.COD_PRODUTO = p.COD_PRODUTO
+          WHERE d.COD_PRODUTO_DECOM = :codProduto
+        `, { codProduto });
+
+        // É matriz de decomposição?
+        const ehMatrizDecomp = await OracleService.query(`
+          SELECT d.COD_PRODUTO_DECOM as COD_FILHO, p.DES_PRODUTO as FILHO, d.QTD_DECOMP as PERCENTUAL
+          FROM INTERSOLID.TAB_PRODUTO_DECOMPOSICAO d
+          JOIN INTERSOLID.TAB_PRODUTO p ON d.COD_PRODUTO_DECOM = p.COD_PRODUTO
+          WHERE d.COD_PRODUTO = :codProduto
+        `, { codProduto });
+
+        // Resumo
+        const venda = vendas[0] || {};
+        const motivo = [];
+        if (totalCompras === 0) motivo.push('SEM COMPRAS no período');
+        if ((venda.VALOR_TOTAL || 0) === 0) motivo.push('SEM VENDAS no período');
+        if (ehFilhoDecomp.length === 0) motivo.push('NÃO é filho de decomposição');
+        if (ehMatrizDecomp.length === 0) motivo.push('NÃO é matriz de decomposição');
+
+        return res.json({
+          codProduto,
+          produto: produto[0],
+          resumo: {
+            totalCompras,
+            totalVendas: venda.VALOR_TOTAL || 0,
+            qtdCupons: venda.QTD_CUPONS || 0,
+            ehFilhoDecomposicao: ehFilhoDecomp.length > 0,
+            ehMatrizDecomposicao: ehMatrizDecomp.length > 0,
+            motivoNaoAparece: motivo.length === 4 ? motivo.join(', ') : null
+          },
+          compras,
+          vendas: venda,
+          decomposicao: {
+            ehFilho: ehFilhoDecomp,
+            ehMatriz: ehMatrizDecomp
+          }
+        });
+      }
+
+      // Estrutura da tabela genérica
+      const estrutura = await OracleService.query(`
+        SELECT COLUMN_NAME, DATA_TYPE, DATA_LENGTH
+        FROM ALL_TAB_COLUMNS
+        WHERE TABLE_NAME = :tableName AND OWNER = 'INTERSOLID'
+        ORDER BY COLUMN_ID
+      `, { tableName });
+
+      const exemplos = await OracleService.query(`
+        SELECT * FROM INTERSOLID.${tableName} WHERE ROWNUM <= 5
+      `);
+
+      const count = await OracleService.query(`
+        SELECT COUNT(*) as TOTAL FROM INTERSOLID.${tableName}
+      `);
+
+      return res.json({
+        tabela: tableName,
+        estrutura,
+        exemplos,
+        total: count[0]?.TOTAL || 0
+      });
+    } catch (error: any) {
+      console.error('Erro ao verificar estrutura:', error);
+      return res.status(500).json({
+        error: 'Erro ao verificar estrutura',
+        message: error.message
+      });
+    }
+  }
+
+  /**
    * Lista seções disponíveis
    */
   static async getSecoes(req: Request, res: Response) {
@@ -62,8 +210,12 @@ export class CompraVendaController {
    */
   static async getSubGrupos(req: Request, res: Response) {
     try {
+      console.log('🔍 getSubGrupos - query recebida:', req.query);
+      const codSecao = req.query.codSecao ? Number(req.query.codSecao) : undefined;
       const codGrupo = req.query.codGrupo ? Number(req.query.codGrupo) : undefined;
-      const subgrupos = await CompraVendaService.getSubGrupos(codGrupo);
+      console.log('🔍 getSubGrupos - codSecao:', codSecao, 'codGrupo:', codGrupo);
+      const subgrupos = await CompraVendaService.getSubGrupos(codSecao, codGrupo);
+      console.log('🔍 getSubGrupos - retornando', subgrupos.length, 'subgrupos');
       return res.json(subgrupos);
     } catch (error: any) {
       console.error('Erro ao buscar subgrupos:', error);

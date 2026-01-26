@@ -201,6 +201,20 @@ export default function RupturaResultadosAuditorias() {
   const countNaoEncontrado = todosItensRuptura.filter(item => item.ocorrencias_nao_encontrado > 0).length;
   const countEmEstoque = todosItensRuptura.filter(item => item.ocorrencias_em_estoque > 0).length;
 
+  // Calcular estatísticas baseadas nos itens filtrados
+  const filteredStats = {
+    total_rupturas: itensRuptura.length,
+    perda_venda_periodo: itensRuptura.reduce((sum, item) => sum + Number(item.perda_total || 0), 0),
+    perda_lucro_periodo: itensRuptura.reduce((sum, item) => {
+      const perdaVenda = Number(item.perda_total || 0);
+      const margem = Number(item.margem_lucro || 0) / 100;
+      return sum + (perdaVenda * margem);
+    }, 0),
+  };
+
+  // Verificar se há filtro ativo
+  const hasActiveFilter = filtroTipoRuptura !== 'todos' || filtroFornecedorTabela !== 'todos' || filtroSetorTabela !== 'todos';
+
   // Função para gerar PDF
   const gerarPDF = () => {
     const doc = new jsPDF('landscape'); // Paisagem para caber todas as colunas
@@ -417,20 +431,34 @@ export default function RupturaResultadosAuditorias() {
               </div>
             </div>
 
-            {/* Financial Impact - Baseado no Período */}
+            {/* Financial Impact - Baseado no Período ou Filtro */}
             <div className="grid grid-cols-2 md:grid-cols-2 gap-4 mb-6">
               <div className="bg-red-50 border border-red-200 rounded-lg shadow p-6 text-center">
                 <div className="text-3xl font-bold text-red-700">
-                  R$ {Number(stats.perda_venda_periodo || 0).toFixed(2)}
+                  R$ {Number(hasActiveFilter ? filteredStats.perda_venda_periodo : stats.perda_venda_periodo || 0).toFixed(2)}
                 </div>
-                <div className="text-sm text-red-600 mt-1">Perda Venda no Período</div>
+                <div className="text-sm text-red-600 mt-1">
+                  Perda Venda {hasActiveFilter ? '(Filtrado)' : 'no Período'}
+                </div>
+                {hasActiveFilter && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    Total: R$ {Number(stats.perda_venda_periodo || 0).toFixed(2)}
+                  </div>
+                )}
               </div>
 
               <div className="bg-orange-50 border border-orange-200 rounded-lg shadow p-6 text-center">
                 <div className="text-3xl font-bold text-orange-700">
-                  R$ {Number(stats.perda_lucro_periodo || 0).toFixed(2)}
+                  R$ {Number(hasActiveFilter ? filteredStats.perda_lucro_periodo : stats.perda_lucro_periodo || 0).toFixed(2)}
                 </div>
-                <div className="text-sm text-orange-600 mt-1">Perda Lucro no Período</div>
+                <div className="text-sm text-orange-600 mt-1">
+                  Perda Lucro {hasActiveFilter ? '(Filtrado)' : 'no Período'}
+                </div>
+                {hasActiveFilter && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    Total: R$ {Number(stats.perda_lucro_periodo || 0).toFixed(2)}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -532,7 +560,7 @@ export default function RupturaResultadosAuditorias() {
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
-                      <thead className="bg-gray-50 border-b">
+                      <thead className="bg-orange-100 border-b">
                         <tr>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
                           <th

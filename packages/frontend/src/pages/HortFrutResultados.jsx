@@ -81,20 +81,28 @@ export default function HortFrutResultados() {
     const end = new Date();
     const start = new Date(end.getFullYear(), end.getMonth(), 1); // Dia 1 do mês atual
 
-    setStartDate(start.toISOString().split('T')[0]);
-    setEndDate(end.toISOString().split('T')[0]);
+    const startStr = start.toISOString().split('T')[0];
+    const endStr = end.toISOString().split('T')[0];
 
-    loadConferences();
+    setStartDate(startStr);
+    setEndDate(endStr);
+
+    // Carregar conferências com as datas já definidas (não esperar state update)
+    loadConferences(startStr, endStr);
   }, []);
 
-  const loadConferences = async () => {
+  const loadConferences = async (overrideStartDate, overrideEndDate) => {
     try {
       setLoading(true);
       let url = '/hortfrut/conferences';
       const params = new URLSearchParams();
 
-      if (startDate) params.append('startDate', startDate);
-      if (endDate) params.append('endDate', endDate);
+      // Usar parâmetros passados ou valores do state
+      const useStartDate = overrideStartDate !== undefined ? overrideStartDate : startDate;
+      const useEndDate = overrideEndDate !== undefined ? overrideEndDate : endDate;
+
+      if (useStartDate) params.append('startDate', useStartDate);
+      if (useEndDate) params.append('endDate', useEndDate);
       if (statusFilter) params.append('status', statusFilter);
 
       if (params.toString()) {

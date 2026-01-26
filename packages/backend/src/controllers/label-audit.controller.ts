@@ -75,6 +75,39 @@ export class LabelAuditController {
   }
 
   /**
+   * POST /api/label-audits/from-items
+   * Criar auditoria a partir de itens (Direto Sistema)
+   */
+  static async createFromItems(req: Request, res: Response) {
+    try {
+      const { nome_auditoria, items } = req.body;
+      const userId = (req as any).user?.id || 'system';
+
+      if (!nome_auditoria) {
+        return res.status(400).json({ error: 'Nome da auditoria é obrigatório' });
+      }
+
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: 'Lista de itens é obrigatória' });
+      }
+
+      const audit = await LabelAuditService.createFromItems(
+        nome_auditoria,
+        items,
+        userId
+      );
+
+      return res.status(201).json({
+        message: 'Auditoria criada com sucesso',
+        audit
+      });
+    } catch (error: any) {
+      console.error('Erro ao criar auditoria a partir de itens:', error);
+      return res.status(500).json({ error: error.message || 'Erro ao criar auditoria' });
+    }
+  }
+
+  /**
    * GET /api/label-audits
    * Listar todas as auditorias
    */

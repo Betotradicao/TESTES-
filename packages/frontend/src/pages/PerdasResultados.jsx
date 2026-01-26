@@ -1,15 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { api } from '../utils/api';
 
 export default function PerdasResultados() {
-  const navigate = useNavigate();
-
   // Filtros
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
-  const [produtoSelecionado, setProdutoSelecionado] = useState('todos');
   const [motivoSelecionado, setMotivoSelecionado] = useState('todos');
 
   // Paginação e visualização
@@ -21,37 +17,36 @@ export default function PerdasResultados() {
   const [ordenacao, setOrdenacao] = useState({ campo: null, direcao: 'asc' });
 
   // Dados
-  const [produtos, setProdutos] = useState([]);
-  const [motivosIgnorados, setMotivosIgnorados] = useState(new Set());
+  // motivosAtivos: motivos que estão ATIVADOS (contabilizados nos KPIs)
+  // Por padrão vazio = nenhum ativo = KPIs zerados
+  const [motivosAtivos, setMotivosAtivos] = useState(new Set());
   const [resultados, setResultados] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    loadFilterOptions();
+    loadMotivosAtivos();
 
-    // Definir período padrão: últimos 30 dias
+    // Definir período padrão: primeiro dia do mês até hoje
     const hoje = new Date();
-    const trintaDiasAtras = new Date();
-    trintaDiasAtras.setDate(hoje.getDate() - 30);
+    const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
 
     setDataFim(hoje.toISOString().split('T')[0]);
-    setDataInicio(trintaDiasAtras.toISOString().split('T')[0]);
+    setDataInicio(primeiroDiaMes.toISOString().split('T')[0]);
   }, []);
 
-  const loadFilterOptions = async () => {
+  const loadMotivosAtivos = async () => {
     try {
-      // Buscar produtos únicos
-      const produtosRes = await api.get('/losses/filters/produtos');
-      setProdutos(Array.isArray(produtosRes.data) ? produtosRes.data : []);
-
-      // Buscar motivos ignorados
+      // Buscar motivos ativos (configuração local - invertido do ignorados)
+      // Os que NÃO estão na lista de ignorados são os ativos
       const ignoradosRes = await api.get('/losses/motivos/ignorados');
       const ignoradosSet = new Set(ignoradosRes.data.map(m => m.motivo));
-      setMotivosIgnorados(ignoradosSet);
+      // Motivos ativos são os que NÃO estão ignorados
+      // Mas como não temos a lista completa aqui, vamos inverter a lógica:
+      // Se está na lista de "ignorados" do banco, significa que está ATIVO (selecionado)
+      setMotivosAtivos(ignoradosSet);
     } catch (err) {
-      console.error('Erro ao carregar filtros:', err);
-      setProdutos([]);
+      console.error('Erro ao carregar motivos ativos:', err);
     }
   };
 
@@ -69,17 +64,15 @@ export default function PerdasResultados() {
       const params = new URLSearchParams({
         data_inicio: dataInicio,
         data_fim: dataFim,
-        produto: produtoSelecionado,
         motivo: motivoSelecionado,
         tipo: tipoVisualizacao,
-        page: page.toString(),
-        limit: '50',
       });
 
-      const response = await api.get(`/losses/agregado?${params}`);
+      // Buscar diretamente do Oracle
+      const response = await api.get(`/losses/oracle?${params}`);
       setResultados(response.data);
     } catch (err) {
-      setError(err.response?.data?.error || 'Erro ao buscar resultados');
+      setError(err.response?.data?.error || 'Erro ao buscar resultados do Oracle');
     } finally {
       setLoading(false);
     }
@@ -92,32 +85,54 @@ export default function PerdasResultados() {
     }
   }, [dataInicio, dataFim, motivoSelecionado, tipoVisualizacao]);
 
-  const toggleMotivoIgnorado = async (motivo) => {
+  const toggleMotivoAtivo = async (motivo) => {
     try {
       await api.post('/losses/motivos/toggle', { motivo });
 
-      // Atualizar lista de ignorados
-      const newIgnorados = new Set(motivosIgnorados);
-      if (newIgnorados.has(motivo)) {
-        newIgnorados.delete(motivo);
+      // Atualizar lista de ativos
+      const newAtivos = new Set(motivosAtivos);
+      if (newAtivos.has(motivo)) {
+        newAtivos.delete(motivo);
       } else {
-        newIgnorados.add(motivo);
+        newAtivos.add(motivo);
       }
-      setMotivosIgnorados(newIgnorados);
-
-      // Recarregar resultados
-      handleFiltrar(paginaAtual);
+      setMotivosAtivos(newAtivos);
     } catch (err) {
       console.error('Erro ao alternar motivo:', err);
       alert('Erro ao alternar configuração do motivo');
     }
   };
 
-  const stats = resultados?.estatisticas || {};
+  // Cards sempre mostram todos os motivos
   const motivosRanking = resultados?.motivos_ranking || [];
   const entradasRanking = resultados?.entradas_ranking || [];
-  const produtosRanking = resultados?.produtos_ranking || [];
+  const produtosRankingOriginal = resultados?.produtos_ranking || [];
   const paginacao = resultados?.paginacao || {};
+
+  // Filtrar produtos pelo motivo selecionado (para a tabela)
+  const produtosRanking = motivoSelecionado !== 'todos'
+    ? produtosRankingOriginal.filter(p => p.motivo === motivoSelecionado)
+    : produtosRankingOriginal;
+
+  // KPIs: baseados nos motivos ATIVOS via engrenagem
+  // Filtra produtos cujo motivo ESTÁ na lista de ativos
+  const produtosParaKPI = produtosRankingOriginal.filter(p => motivosAtivos.has(p.motivo));
+
+  const stats = {
+    total_itens: produtosParaKPI.length,
+    total_perdas: produtosParaKPI.filter(p => p.quantidade < 0).length,
+    total_entradas: produtosParaKPI.filter(p => p.quantidade > 0).length,
+    valor_total_perdas: Math.round(
+      produtosParaKPI
+        .filter(p => p.quantidade < 0)
+        .reduce((acc, p) => acc + Math.abs(p.valorPerda || 0), 0) * 100
+    ) / 100,
+    valor_total_entradas: Math.round(
+      produtosParaKPI
+        .filter(p => p.quantidade > 0)
+        .reduce((acc, p) => acc + (p.valorPerda || 0), 0) * 100
+    ) / 100,
+  };
 
   // Função para ordenar produtos
   const ordenarProdutos = (produtos) => {
@@ -213,7 +228,7 @@ export default function PerdasResultados() {
             </div>
           </div>
           <p className="text-white/90">
-            Análise de perdas e quebras por motivo com filtros avançados
+            Análise de perdas e quebras direto do sistema Oracle (Intersolid)
           </p>
         </div>
 
@@ -221,7 +236,7 @@ export default function PerdasResultados() {
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-lg font-bold text-gray-800 mb-4">🔍 Filtros</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Data Início */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -247,45 +262,29 @@ export default function PerdasResultados() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
             </div>
-
-            {/* Produto */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Produto
-              </label>
-              <input
-                type="text"
-                value={produtoSelecionado === 'todos' ? '' : produtoSelecionado}
-                onChange={(e) => setProdutoSelecionado(e.target.value || 'todos')}
-                placeholder="Digite o nome do produto ou deixe vazio para todos"
-                list="produtos-list"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-              <datalist id="produtos-list">
-                {Array.isArray(produtos) && produtos.map((p) => (
-                  <option key={p} value={p} />
-                ))}
-              </datalist>
-            </div>
           </div>
 
-          <div className="mt-4 flex space-x-4">
-            <button
-              onClick={() => handleFiltrar(1)}
-              disabled={loading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
-              {loading ? '⏳ Carregando...' : '🔍 Aplicar Filtros'}
-            </button>
-            <button
-              onClick={() => {
-                setProdutoSelecionado('todos');
-                setMotivoSelecionado('todos');
-              }}
-              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-            >
-              🔄 Limpar Filtros
-            </button>
+          <div className="mt-4 flex items-center justify-between">
+            <div className="flex space-x-4">
+              <button
+                onClick={() => handleFiltrar(1)}
+                disabled={loading}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {loading ? '⏳ Carregando...' : '🔍 Aplicar Filtros'}
+              </button>
+              {motivoSelecionado !== 'todos' && (
+                <button
+                  onClick={() => setMotivoSelecionado('todos')}
+                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  🔄 Limpar Filtro de Motivo
+                </button>
+              )}
+            </div>
+            <div className="text-sm text-gray-500">
+              Fonte: Oracle (Intersolid)
+            </div>
           </div>
 
           {error && (
@@ -299,7 +298,7 @@ export default function PerdasResultados() {
         {resultados && (
           <>
             {/* KPI Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
               <div className="bg-white rounded-lg shadow p-6 text-center">
                 <div className="text-4xl font-bold text-gray-800">{stats.total_itens || 0}</div>
                 <div className="text-sm text-gray-600 mt-1">Total Itens</div>
@@ -328,14 +327,33 @@ export default function PerdasResultados() {
                 </div>
                 <div className="text-sm text-green-600 mt-1">Valor Entradas</div>
               </div>
+
+              <div className={`${(stats.valor_total_perdas - stats.valor_total_entradas) > 0 ? 'bg-red-100 border-red-300' : 'bg-green-100 border-green-300'} border-2 rounded-lg shadow p-6 text-center`}>
+                <div className={`text-3xl font-bold ${(stats.valor_total_perdas - stats.valor_total_entradas) > 0 ? 'text-red-700' : 'text-green-700'}`}>
+                  R$ {Math.abs((stats.valor_total_perdas || 0) - (stats.valor_total_entradas || 0)).toFixed(2)}
+                </div>
+                <div className={`text-sm mt-1 ${(stats.valor_total_perdas - stats.valor_total_entradas) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  Perdas - Ganhos
+                </div>
+              </div>
             </div>
 
             {/* Cards de Motivos - Clicáveis como filtro */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-800">
-                  📋 {tipoVisualizacao === 'perdas' ? 'Perdas por Motivo' : tipoVisualizacao === 'entradas' ? 'Entradas por Ajuste' : 'Perdas e Entradas por Motivo'} {motivoSelecionado !== 'todos' && `(Filtrado: ${motivoSelecionado})`}
-                </h2>
+                <div className="flex items-center gap-4">
+                  <h2 className="text-xl font-bold text-gray-800">
+                    📋 {tipoVisualizacao === 'perdas' ? 'Perdas por Motivo' : tipoVisualizacao === 'entradas' ? 'Entradas por Ajuste' : 'Perdas e Entradas por Motivo'}
+                  </h2>
+                  {motivoSelecionado !== 'todos' && (
+                    <button
+                      onClick={() => setMotivoSelecionado('todos')}
+                      className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors"
+                    >
+                      ✕ Limpar filtro: {motivoSelecionado}
+                    </button>
+                  )}
+                </div>
 
                 {/* Seletor de Tipo para Cards */}
                 <select
@@ -361,7 +379,7 @@ export default function PerdasResultados() {
               {(tipoVisualizacao === 'perdas' || tipoVisualizacao === 'ambos') && motivosRanking.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
                   {motivosRanking.map((motivo, idx) => {
-                    const isIgnorado = motivosIgnorados.has(motivo.motivo);
+                    const isAtivo = motivosAtivos.has(motivo.motivo);
                     const isFiltrado = motivoSelecionado === motivo.motivo;
 
                     // Cores alternadas para os cards
@@ -381,26 +399,33 @@ export default function PerdasResultados() {
                         onClick={() => setMotivoSelecionado(isFiltrado ? 'todos' : motivo.motivo)}
                         className={`${colorScheme.bg} ${colorScheme.border} border-2 rounded-lg shadow-md p-6 ${colorScheme.hover} transition-all cursor-pointer relative ${
                           isFiltrado ? 'ring-4 ring-blue-400' : ''
-                        } ${isIgnorado ? 'opacity-30' : ''}`}
+                        } ${!isAtivo ? 'opacity-40' : ''}`}
                       >
-                        {/* Botão de configurações */}
+                        {/* Botão de ativar/desativar */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            toggleMotivoIgnorado(motivo.motivo);
+                            toggleMotivoAtivo(motivo.motivo);
                           }}
-                          className="absolute top-2 right-2 p-2 bg-white/80 rounded-full hover:bg-white transition-colors"
-                          title={isIgnorado ? "Incluir no cálculo" : "Excluir do cálculo"}
+                          className={`absolute top-2 right-2 p-2 rounded-full transition-colors ${
+                            isAtivo ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-300 hover:bg-gray-400'
+                          }`}
+                          title={isAtivo ? "Desativar (remover do cálculo)" : "Ativar (incluir no cálculo)"}
                         >
-                          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
+                          {isAtivo ? (
+                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                          )}
                         </button>
 
-                        {isIgnorado && (
-                          <div className="absolute top-2 left-2 bg-gray-800 text-white text-xs px-2 py-1 rounded">
-                            Ignorado
+                        {isAtivo && (
+                          <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded">
+                            Ativo
                           </div>
                         )}
 
@@ -431,7 +456,7 @@ export default function PerdasResultados() {
                           </div>
                         </div>
 
-                        {/* Barra de progresso */}
+                        {/* Barra de progresso - usa valores originais para referência */}
                         <div className="mt-4">
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
@@ -442,7 +467,7 @@ export default function PerdasResultados() {
                                           colorScheme.bg === 'bg-purple-50' ? 'bg-purple-500' : 'bg-pink-500'
                                         } h-2 rounded-full transition-all`}
                               style={{
-                                width: `${Math.min((motivo.valorPerdas / motivosRanking[0].valorPerdas) * 100, 100)}%`
+                                width: `${Math.min((motivo.valorPerdas / (motivosRanking[0]?.valorPerdas || 1)) * 100, 100)}%`
                               }}
                             />
                           </div>
@@ -464,7 +489,7 @@ export default function PerdasResultados() {
               {(tipoVisualizacao === 'entradas' || tipoVisualizacao === 'ambos') && entradasRanking.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
                   {entradasRanking.map((entrada, idx) => {
-                    const isIgnorado = motivosIgnorados.has(entrada.motivo);
+                    const isAtivo = motivosAtivos.has(entrada.motivo);
                     const isFiltrado = motivoSelecionado === entrada.motivo;
 
                     // Cores verdes para entradas
@@ -484,26 +509,33 @@ export default function PerdasResultados() {
                         onClick={() => setMotivoSelecionado(isFiltrado ? 'todos' : entrada.motivo)}
                         className={`${colorScheme.bg} ${colorScheme.border} border-2 rounded-lg shadow-md p-6 ${colorScheme.hover} transition-all cursor-pointer relative ${
                           isFiltrado ? 'ring-4 ring-blue-400' : ''
-                        } ${isIgnorado ? 'opacity-30' : ''}`}
+                        } ${!isAtivo ? 'opacity-40' : ''}`}
                       >
-                        {/* Botão de configurações */}
+                        {/* Botão de ativar/desativar */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            toggleMotivoIgnorado(entrada.motivo);
+                            toggleMotivoAtivo(entrada.motivo);
                           }}
-                          className="absolute top-2 right-2 p-2 bg-white/80 rounded-full hover:bg-white transition-colors"
-                          title={isIgnorado ? "Incluir no cálculo" : "Excluir do cálculo"}
+                          className={`absolute top-2 right-2 p-2 rounded-full transition-colors ${
+                            isAtivo ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-300 hover:bg-gray-400'
+                          }`}
+                          title={isAtivo ? "Desativar (remover do cálculo)" : "Ativar (incluir no cálculo)"}
                         >
-                          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
+                          {isAtivo ? (
+                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                          )}
                         </button>
 
-                        {isIgnorado && (
-                          <div className="absolute top-2 left-2 bg-gray-800 text-white text-xs px-2 py-1 rounded">
-                            Ignorado
+                        {isAtivo && (
+                          <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded">
+                            Ativo
                           </div>
                         )}
 
@@ -534,7 +566,7 @@ export default function PerdasResultados() {
                           </div>
                         </div>
 
-                        {/* Barra de progresso */}
+                        {/* Barra de progresso - usa valores originais para referência */}
                         <div className="mt-4">
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
@@ -545,7 +577,7 @@ export default function PerdasResultados() {
                                           colorScheme.bg === 'bg-lime-50' ? 'bg-lime-500' : 'bg-green-600'
                                         } h-2 rounded-full transition-all`}
                               style={{
-                                width: `${Math.min((entrada.valorEntradas / entradasRanking[0].valorEntradas) * 100, 100)}%`
+                                width: `${Math.min((entrada.valorEntradas / (entradasRanking[0]?.valorEntradas || 1)) * 100, 100)}%`
                               }}
                             />
                           </div>
@@ -585,9 +617,12 @@ export default function PerdasResultados() {
                 </div>
 
                 {produtosExibicao.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">
-                    🎉 Nenhuma perda encontrada no período!
-                  </p>
+                  <div className="text-center py-8">
+                    <div className="text-4xl mb-2">🎉</div>
+                    <p className="text-gray-500">
+                      Nenhum produto encontrado no período!
+                    </p>
+                  </div>
                 ) : (
                   <>
                     <div className="overflow-x-auto">

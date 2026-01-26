@@ -18,11 +18,98 @@ export default function EtiquetaLancadorItens() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [monthSurveys, setMonthSurveys] = useState([]);
 
+  // Estados para modo Direto Sistema
+  const [importMode, setImportMode] = useState('arquivo'); // 'arquivo' ou 'direto'
+  const [dataInicio, setDataInicio] = useState(() => {
+    // Data de ontem
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday.toISOString().split('T')[0];
+  });
+  const [dataFim, setDataFim] = useState(() => {
+    // Data de hoje
+    return new Date().toISOString().split('T')[0];
+  });
+  const [tipoOferta, setTipoOferta] = useState('todos'); // 'todos', 'com_oferta', 'sem_oferta'
+  const [secoes, setSecoes] = useState([]);
+  const [secoesSelecionadas, setSecoesSelecionadas] = useState([]);
+  const [loadingSections, setLoadingSections] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [parsedItems, setParsedItems] = useState([]);
+
   // Carregar pesquisas recentes e do mês ao montar
   useEffect(() => {
     loadRecentSurveys();
     loadMonthSurveys(currentMonth);
   }, []);
+
+  // Carregar seções quando mudar para modo direto
+  useEffect(() => {
+    if (importMode === 'direto' && secoes.length === 0) {
+      loadSections();
+    }
+  }, [importMode]);
+
+  // Carregar seções da API
+  const loadSections = async () => {
+    setLoadingSections(true);
+    try {
+      const response = await api.get('/products/sections');
+      setSecoes(response.data || []);
+    } catch (err) {
+      console.error('Erro ao carregar seções:', err);
+      setError('Erro ao carregar seções da API');
+    } finally {
+      setLoadingSections(false);
+    }
+  };
+
+  // Carregar produtos filtrados para auditoria de etiquetas
+  const loadProductsForLabelAudit = async () => {
+    setLoadingProducts(true);
+    setError('');
+
+    try {
+      const params = new URLSearchParams();
+      params.append('dataInicio', dataInicio);
+      params.append('dataFim', dataFim);
+      if (tipoOferta !== 'todos') {
+        params.append('tipoOferta', tipoOferta);
+      }
+      if (secoesSelecionadas.length > 0) {
+        params.append('secoes', secoesSelecionadas.join(','));
+      }
+
+      const response = await api.get(`/products/for-label-audit?${params.toString()}`);
+      const items = response.data.items || [];
+
+      setParsedItems(items);
+
+      if (items.length > 0) {
+        setSuccess(`${items.length} produtos encontrados com alteração de preço`);
+        // Definir nome padrão da auditoria
+        const today = new Date();
+        setNomeAuditoria(`Auditoria ${today.toLocaleDateString('pt-BR')} - ${items.length} itens`);
+      } else {
+        setError('Nenhum produto encontrado com os filtros selecionados');
+      }
+    } catch (err) {
+      console.error('Erro ao carregar produtos:', err);
+      setError(err.response?.data?.error || 'Erro ao carregar produtos');
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+  // Toggle seção selecionada
+  const toggleSecao = (secao) => {
+    setSecoesSelecionadas(prev => {
+      if (prev.includes(secao)) {
+        return prev.filter(s => s !== secao);
+      }
+      return [...prev, secao];
+    });
+  };
 
   // Recarregar pesquisas quando o mês mudar
   useEffect(() => {
@@ -45,7 +132,6 @@ export default function EtiquetaLancadorItens() {
     try {
       const response = await api.get('/label-audits');
       console.log('🔍 ETIQUETAS - DADOS RECEBIDOS DA API:', response.data);
-      console.log('🔍 ETIQUETAS - PRIMEIRA PESQUISA:', response.data[0]);
       setRecentSurveys(response.data.slice(0, 5)); // Só 5 mais recentes
     } catch (err) {
       console.error('Erro ao carregar pesquisas:', err);
@@ -174,12 +260,10 @@ export default function EtiquetaLancadorItens() {
     setError('');
 
     try {
-      // Recriar o FormData a partir do arquivo selecionado novamente
-      // para evitar ERR_UPLOAD_FILE_CHANGED
       const formData = new FormData();
       formData.append('file', file);
       formData.append('titulo', nomeAuditoria);
-      formData.append('data_referencia', new Date().toISOString().split('T')[0]); // YYYY-MM-DD
+      formData.append('data_referencia', new Date().toISOString().split('T')[0]);
 
       const response = await api.post('/label-audits/upload', formData, {
         headers: {
@@ -187,14 +271,12 @@ export default function EtiquetaLancadorItens() {
         },
       });
 
-      setSuccess(`✅ ${response.data.audit?.total_itens || 'Vários'} itens importados com sucesso!`);
+      setSuccess(`${response.data.audit?.total_itens || 'Vários'} itens importados com sucesso!`);
       setFile(null);
       setPreview(null);
 
-      // Recarregar lista de pesquisas
       await loadRecentSurveys();
 
-      // Após 2 segundos, perguntar se quer visualizar
       setTimeout(() => {
         const start = window.confirm('Deseja visualizar a auditoria agora?');
         if (start) {
@@ -204,14 +286,57 @@ export default function EtiquetaLancadorItens() {
     } catch (err) {
       console.error('Upload error:', err);
 
-      // Mensagens de erro mais específicas
       if (err.message && err.message.includes('ERR_UPLOAD_FILE_CHANGED')) {
-        setError('⚠️ O arquivo foi modificado durante o envio. Feche o Excel e tente novamente.');
+        setError('O arquivo foi modificado durante o envio. Feche o Excel e tente novamente.');
       } else if (err.code === 'ERR_NETWORK') {
-        setError('❌ Erro de conexão. Verifique sua internet.');
+        setError('Erro de conexão. Verifique sua internet.');
       } else {
         setError(err.response?.data?.error || 'Erro ao importar arquivo. Tente novamente.');
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Criar auditoria a partir dos itens carregados do sistema
+  const handleCreateAuditFromItems = async () => {
+    if (parsedItems.length === 0) {
+      setError('Carregue os produtos primeiro');
+      return;
+    }
+
+    if (!nomeAuditoria.trim()) {
+      setError('Digite um nome para a auditoria');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await api.post('/label-audits/from-items', {
+        nome_auditoria: nomeAuditoria,
+        items: parsedItems
+      });
+
+      setSuccess(`Auditoria criada com ${response.data.audit.total_itens} produtos!`);
+
+      await loadRecentSurveys();
+      await loadMonthSurveys(currentMonth);
+
+      setParsedItems([]);
+      setNomeAuditoria('');
+
+      setTimeout(() => {
+        const start = window.confirm('Deseja visualizar a auditoria agora?');
+        if (start) {
+          navigate(`/etiquetas/verificar/${response.data.audit.id}`);
+        }
+      }, 1500);
+
+    } catch (err) {
+      console.error('Erro ao criar auditoria:', err);
+      setError(err.response?.data?.error || 'Erro ao criar auditoria');
     } finally {
       setLoading(false);
     }
@@ -253,10 +378,10 @@ export default function EtiquetaLancadorItens() {
 
   const getStatusText = (status) => {
     switch (status) {
-      case 'rascunho': return '📝 Rascunho';
-      case 'em_andamento': return '🔄 INICIADO';
-      case 'concluida': return '✅ Concluída';
-      case 'cancelada': return '❌ Cancelada';
+      case 'rascunho': return 'Rascunho';
+      case 'em_andamento': return 'INICIADO';
+      case 'concluida': return 'Concluída';
+      case 'cancelada': return 'Cancelada';
       default: return status;
     }
   };
@@ -267,7 +392,7 @@ export default function EtiquetaLancadorItens() {
         {/* Card com Gradiente Laranja */}
         <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg p-6 mb-8 text-white">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl lg:text-3xl font-bold">📤 Lançador de Itens</h1>
+            <h1 className="text-2xl lg:text-3xl font-bold">Lançador de Itens</h1>
             <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
@@ -291,109 +416,362 @@ export default function EtiquetaLancadorItens() {
           </div>
         )}
 
-        {/* Layout: Upload + Calendário (metade do tamanho) */}
+        {/* Layout: Upload + Calendário */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* Upload Area - 2/3 do espaço */}
           <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
-          <div
-            className={`border-2 border-dashed rounded-lg p-8 text-center ${
-              dragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-            }`}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragging(true);
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={handleDrop}
-          >
-            <input
-              type="file"
-              id="fileInput"
-              accept=".csv,.xlsx,.xls"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            <label
-              htmlFor="fileInput"
-              className="cursor-pointer"
-            >
-              <div className="text-5xl mb-3">📁</div>
-              <p className="text-base font-semibold text-gray-700 mb-1">
-                Clique ou arraste arquivo Excel aqui
-              </p>
-              <p className="text-xs text-gray-500">
-                Formatos aceitos: .csv, .xlsx, .xls (máx. 10MB)
-              </p>
-            </label>
-          </div>
+            <h2 className="text-lg font-bold text-gray-800 mb-4">Nova Auditoria de Etiquetas</h2>
 
-          {file && (
-            <div className="mt-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center">
-                  <span className="text-green-500 text-2xl mr-2">✅</span>
-                  <div>
-                    <p className="font-semibold text-gray-700">{file.name}</p>
-                    <p className="text-sm text-gray-500">
-                      {(file.size / 1024).toFixed(2)} KB
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setFile(null);
-                    setPreview(null);
-                  }}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  🗑️ Remover
-                </button>
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nome da Auditoria:
-                </label>
-                <input
-                  type="text"
-                  value={nomeAuditoria}
-                  onChange={(e) => setNomeAuditoria(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Ex: Auditoria 30/12/2025"
-                />
-              </div>
-
-              {preview && (
-                <div className="mb-4">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
-                  <div className="bg-gray-50 p-4 rounded-lg max-h-48 overflow-auto">
-                    <pre className="text-xs text-gray-600 whitespace-pre-wrap">
-                      {preview.join('\n')}
-                    </pre>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => {
-                    setFile(null);
-                    setPreview(null);
-                  }}
-                  className="flex-1 py-3 px-6 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleUpload}
-                  disabled={loading}
-                  className="flex-1 py-3 px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? '⏳ Importando...' : '📱 Importar e Criar Auditoria'}
-                </button>
-              </div>
+            {/* Toggle: Arquivo ou Direto Sistema */}
+            <div className="flex items-center gap-2 mb-4">
+              <button
+                onClick={() => {
+                  setImportMode('arquivo');
+                  setParsedItems([]);
+                  setFile(null);
+                  setPreview(null);
+                  setSuccess('');
+                  setError('');
+                }}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                  importMode === 'arquivo'
+                    ? 'bg-orange-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Via Arquivo
+              </button>
+              <button
+                onClick={() => {
+                  setImportMode('direto');
+                  setParsedItems([]);
+                  setFile(null);
+                  setPreview(null);
+                  setSuccess('');
+                  setError('');
+                }}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                  importMode === 'direto'
+                    ? 'bg-orange-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Direto Sistema
+              </button>
             </div>
-          )}
+
+            {/* Modo Arquivo */}
+            {importMode === 'arquivo' && (
+              <>
+                <div
+                  className={`border-2 border-dashed rounded-lg p-8 text-center ${
+                    dragging ? 'border-orange-500 bg-orange-50' : 'border-gray-300'
+                  }`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragging(true);
+                  }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={handleDrop}
+                >
+                  <input
+                    type="file"
+                    id="fileInput"
+                    accept=".csv,.xlsx,.xls"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="fileInput"
+                    className="cursor-pointer"
+                  >
+                    <div className="text-5xl mb-3">📁</div>
+                    <p className="text-base font-semibold text-gray-700 mb-1">
+                      Clique ou arraste arquivo Excel aqui
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Formatos aceitos: .csv, .xlsx, .xls (máx. 10MB)
+                    </p>
+                  </label>
+                </div>
+
+                {file && (
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center">
+                        <span className="text-green-500 text-2xl mr-2">OK</span>
+                        <div>
+                          <p className="font-semibold text-gray-700">{file.name}</p>
+                          <p className="text-sm text-gray-500">
+                            {(file.size / 1024).toFixed(2)} KB
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setFile(null);
+                          setPreview(null);
+                        }}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        Remover
+                      </button>
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nome da Auditoria:
+                      </label>
+                      <input
+                        type="text"
+                        value={nomeAuditoria}
+                        onChange={(e) => setNomeAuditoria(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        placeholder="Ex: Auditoria 30/12/2025"
+                      />
+                    </div>
+
+                    {preview && (
+                      <div className="mb-4">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
+                        <div className="bg-gray-50 p-4 rounded-lg max-h-48 overflow-auto">
+                          <pre className="text-xs text-gray-600 whitespace-pre-wrap">
+                            {preview.join('\n')}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex space-x-4">
+                      <button
+                        onClick={() => {
+                          setFile(null);
+                          setPreview(null);
+                        }}
+                        className="flex-1 py-3 px-6 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleUpload}
+                        disabled={loading}
+                        className="flex-1 py-3 px-6 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? 'Importando...' : 'Importar e Criar Auditoria'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Modo Direto Sistema */}
+            {importMode === 'direto' && (
+              <div className="border-2 border-dashed rounded-lg p-6 border-gray-300">
+                {/* Filtros de Data */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Data Início:
+                    </label>
+                    <input
+                      type="date"
+                      value={dataInicio}
+                      onChange={(e) => setDataInicio(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Data Fim:
+                    </label>
+                    <input
+                      type="date"
+                      value={dataFim}
+                      onChange={(e) => setDataFim(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                {/* Filtro de Tipo de Oferta */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tipo de Item:
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { value: 'todos', label: 'Todos' },
+                      { value: 'com_oferta', label: 'Com Oferta' },
+                      { value: 'sem_oferta', label: 'Sem Oferta' }
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setTipoOferta(opt.value)}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                          tipoOferta === opt.value
+                            ? 'bg-orange-600 text-white'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Filtro de seções (opcional) */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Seções (opcional):
+                  </label>
+                  {loadingSections ? (
+                    <p className="text-gray-500 text-sm">Carregando seções...</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                      {secoes.map((secao) => (
+                        <button
+                          key={secao}
+                          onClick={() => toggleSecao(secao)}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${
+                            secoesSelecionadas.includes(secao)
+                              ? 'bg-orange-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {secao}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {secoesSelecionadas.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {secoesSelecionadas.length} seção(ões) selecionada(s)
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  onClick={loadProductsForLabelAudit}
+                  disabled={loadingProducts}
+                  className="w-full py-3 px-6 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {loadingProducts ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Buscando produtos...
+                    </>
+                  ) : (
+                    <>Buscar Produtos com Alteração de Preço</>
+                  )}
+                </button>
+
+                <p className="text-xs text-gray-500 text-center mt-3">
+                  Busca produtos com preço alterado no período selecionado
+                </p>
+              </div>
+            )}
+
+            {/* Produtos carregados do sistema (modo direto) */}
+            {importMode === 'direto' && parsedItems.length > 0 && (
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <span className="text-green-500 text-2xl mr-2">OK</span>
+                    <div>
+                      <p className="font-semibold text-gray-700">{parsedItems.length} produtos carregados</p>
+                      <p className="text-sm text-gray-500">
+                        Período: {dataInicio.split('-').reverse().join('/')} a {dataFim.split('-').reverse().join('/')} | Tipo: {tipoOferta === 'todos' ? 'Todos' : tipoOferta === 'com_oferta' ? 'Com Oferta' : 'Sem Oferta'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setParsedItems([]);
+                      setSuccess('');
+                    }}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    Limpar
+                  </button>
+                </div>
+
+                {/* Preview dos itens */}
+                <div className="mb-4 max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
+                  <table className="min-w-full text-xs">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="px-2 py-1 text-left">Código</th>
+                        <th className="px-2 py-1 text-left">Produto</th>
+                        <th className="px-2 py-1 text-right">Anterior</th>
+                        <th className="px-2 py-1 text-right">Atual</th>
+                        <th className="px-2 py-1 text-center">Alteração</th>
+                        <th className="px-2 py-1 text-left">Seção</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {parsedItems.slice(0, 15).map((item, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-2 py-1">{item.codigo_barras || '-'}</td>
+                          <td className="px-2 py-1 truncate max-w-[150px]" title={item.descricao}>{item.descricao}</td>
+                          <td className="px-2 py-1 text-right text-gray-500">
+                            {item.valor_venda_anterior > 0 ? `R$ ${Number(item.valor_venda_anterior).toFixed(2)}` : '-'}
+                          </td>
+                          <td className="px-2 py-1 text-right font-semibold">
+                            R$ {Number(item.valor_venda || 0).toFixed(2)}
+                          </td>
+                          <td className="px-2 py-1 text-center text-gray-500">
+                            {item.dta_alteracao ? new Date(item.dta_alteracao).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
+                          </td>
+                          <td className="px-2 py-1 truncate max-w-[80px]">{item.secao || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {parsedItems.length > 15 && (
+                    <p className="text-center text-gray-500 text-xs py-2">
+                      ... e mais {parsedItems.length - 15} produtos
+                    </p>
+                  )}
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nome da Auditoria:
+                  </label>
+                  <input
+                    type="text"
+                    value={nomeAuditoria}
+                    onChange={(e) => setNomeAuditoria(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Ex: Auditoria 30/12/2025"
+                  />
+                </div>
+
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => {
+                      setParsedItems([]);
+                      setNomeAuditoria('');
+                      setSuccess('');
+                    }}
+                    className="flex-1 py-3 px-6 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleCreateAuditFromItems}
+                    disabled={loading || parsedItems.length === 0}
+                    className="flex-1 py-3 px-6 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'Criando...' : 'Criar Auditoria'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Calendário de Auditorias */}
@@ -469,7 +847,7 @@ export default function EtiquetaLancadorItens() {
             {/* Lista de auditorias do mês */}
             <div className="pt-3 border-t border-gray-200">
               <h4 className="text-xs font-bold text-gray-700 mb-2">
-                📋 Auditorias ({monthSurveys.length})
+                Auditorias ({monthSurveys.length})
               </h4>
 
               {monthSurveys.length === 0 ? (
@@ -509,7 +887,7 @@ export default function EtiquetaLancadorItens() {
 
         {/* Recent Surveys */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold mb-4 text-gray-800">📋 Auditorias Recentes</h2>
+          <h2 className="text-xl font-bold mb-4 text-gray-800">Auditorias Recentes</h2>
 
           {recentSurveys.length === 0 ? (
             <p className="text-gray-500 text-center py-8">
@@ -536,7 +914,7 @@ export default function EtiquetaLancadorItens() {
                     <div className="mb-3 bg-orange-50 p-3 rounded-lg border border-orange-200">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-semibold text-orange-800">
-                          📊 Progresso: {survey.itens_verificados || 0} de {survey.total_itens || 0}
+                          Progresso: {survey.itens_verificados || 0} de {survey.total_itens || 0}
                         </span>
                         <span className="text-sm font-semibold text-orange-800">
                           {survey.total_itens > 0 ? Math.round(((survey.itens_verificados || 0) / survey.total_itens) * 100) : 0}%
@@ -552,8 +930,8 @@ export default function EtiquetaLancadorItens() {
                         ></div>
                       </div>
                       <div className="flex items-center justify-between mt-2 text-xs text-gray-600">
-                        <span>✅ {survey.itens_corretos || 0} corretos</span>
-                        <span>❌ {survey.itens_incorretos || 0} incorretos</span>
+                        <span>Corretos: {survey.itens_corretos || 0}</span>
+                        <span>Incorretos: {survey.itens_incorretos || 0}</span>
                       </div>
                     </div>
                   )}
@@ -568,12 +946,12 @@ export default function EtiquetaLancadorItens() {
                       <p className="font-semibold text-gray-700">{survey.itens_verificados}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Encontrados</p>
-                      <p className="font-semibold text-green-600">{survey.itens_encontrados}</p>
+                      <p className="text-xs text-gray-500">Corretos</p>
+                      <p className="font-semibold text-green-600">{survey.itens_corretos || 0}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Etiquetas</p>
-                      <p className="font-semibold text-red-600">{survey.itens_nao_encontrados}</p>
+                      <p className="text-xs text-gray-500">Divergentes</p>
+                      <p className="font-semibold text-red-600">{survey.itens_divergentes || survey.itens_incorretos || 0}</p>
                     </div>
                   </div>
 
@@ -583,24 +961,15 @@ export default function EtiquetaLancadorItens() {
                         onClick={() => handleStartSurvey(survey.id)}
                         className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
                       >
-                        📱 Iniciar Auditoria
+                        Iniciar Auditoria
                       </button>
                     )}
                     {survey.status === 'em_andamento' && (
                       <button
-                        onClick={() => {
-                          console.log('🔵 Botão Continuar Verificação clicado (onClick)');
-                          navigate(`/etiquetas/verificar/${survey.id}`);
-                        }}
-                        onTouchEnd={(e) => {
-                          e.preventDefault();
-                          console.log('📱 Touch event no botão Continuar Verificação');
-                          navigate(`/etiquetas/verificar/${survey.id}`);
-                        }}
-                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 active:bg-green-800 text-sm relative z-10"
-                        style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                        onClick={() => navigate(`/etiquetas/verificar/${survey.id}`)}
+                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
                       >
-                        ▶️ Continuar Verificação
+                        Continuar Verificação
                       </button>
                     )}
                     <button
@@ -608,7 +977,7 @@ export default function EtiquetaLancadorItens() {
                       className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
                       title="Excluir pesquisa"
                     >
-                      🗑️ Excluir
+                      Excluir
                     </button>
                   </div>
                 </div>

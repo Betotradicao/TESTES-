@@ -18,11 +18,100 @@ export default function RupturaLancadorItens() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [monthSurveys, setMonthSurveys] = useState([]);
 
+  // Estados para modo Direto Sistema
+  const [importMode, setImportMode] = useState('arquivo'); // 'arquivo' ou 'direto'
+  const [diasSemVenda, setDiasSemVenda] = useState(2);
+  const [curvasSelecionadas, setCurvasSelecionadas] = useState(['A']);
+  const [secoes, setSecoes] = useState([]);
+  const [secoesSelecionadas, setSecoesSelecionadas] = useState([]);
+  const [loadingSections, setLoadingSections] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [parsedItems, setParsedItems] = useState([]);
+
   // Carregar pesquisas recentes e do mês ao montar
   useEffect(() => {
     loadRecentSurveys();
     loadMonthSurveys(currentMonth);
   }, []);
+
+  // Carregar seções quando mudar para modo direto
+  useEffect(() => {
+    if (importMode === 'direto' && secoes.length === 0) {
+      loadSections();
+    }
+  }, [importMode]);
+
+  // Carregar seções da API
+  const loadSections = async () => {
+    setLoadingSections(true);
+    try {
+      const response = await api.get('/products/sections');
+      setSecoes(response.data || []);
+    } catch (err) {
+      console.error('Erro ao carregar seções:', err);
+      setError('Erro ao carregar seções da API');
+    } finally {
+      setLoadingSections(false);
+    }
+  };
+
+  // Carregar produtos filtrados para ruptura
+  const loadProductsForRupture = async () => {
+    setLoadingProducts(true);
+    setError('');
+
+    try {
+      const params = new URLSearchParams();
+      if (diasSemVenda > 0) {
+        params.append('diasSemVenda', diasSemVenda.toString());
+      }
+      if (curvasSelecionadas.length > 0 && curvasSelecionadas.length < 5) {
+        params.append('curvas', curvasSelecionadas.join(','));
+      }
+      if (secoesSelecionadas.length > 0) {
+        params.append('secoes', secoesSelecionadas.join(','));
+      }
+
+      const response = await api.get(`/products/for-rupture?${params.toString()}`);
+      const items = response.data.items || [];
+
+      setParsedItems(items);
+
+      if (items.length > 0) {
+        setSuccess(`${items.length} produtos encontrados com os filtros selecionados`);
+        // Definir nome padrão da pesquisa
+        const today = new Date();
+        setNomePesquisa(`Pesquisa ${today.toLocaleDateString('pt-BR')} - ${items.length} itens`);
+      } else {
+        setError('Nenhum produto encontrado com os filtros selecionados');
+      }
+    } catch (err) {
+      console.error('Erro ao carregar produtos:', err);
+      setError(err.response?.data?.error || 'Erro ao carregar produtos');
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+  // Toggle curva selecionada
+  const toggleCurva = (curva) => {
+    setCurvasSelecionadas(prev => {
+      if (prev.includes(curva)) {
+        return prev.filter(c => c !== curva);
+      }
+      return [...prev, curva];
+    });
+  };
+
+  // Toggle seção selecionada
+  const toggleSecao = (secao) => {
+    setSecoesSelecionadas(prev => {
+      if (prev.includes(secao)) {
+        return prev.filter(s => s !== secao);
+      }
+      return [...prev, secao];
+    });
+  };
 
   // Recarregar pesquisas quando o mês mudar
   useEffect(() => {
@@ -225,6 +314,54 @@ export default function RupturaLancadorItens() {
     }
   };
 
+  // Criar pesquisa a partir dos itens carregados do sistema
+  const handleCreateSurveyFromItems = async () => {
+    if (parsedItems.length === 0) {
+      setError('Carregue os produtos primeiro');
+      return;
+    }
+
+    if (!nomePesquisa.trim()) {
+      setError('Digite um nome para a pesquisa');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      // Criar pesquisa via API
+      const response = await api.post('/rupture-surveys/from-items', {
+        nome_pesquisa: nomePesquisa,
+        items: parsedItems
+      });
+
+      setSuccess(`Pesquisa criada com ${response.data.survey.total_itens} produtos!`);
+
+      // Recarregar listas
+      await loadRecentSurveys();
+      await loadMonthSurveys(currentMonth);
+
+      // Limpar campos
+      setParsedItems([]);
+      setNomePesquisa('');
+
+      // Perguntar se quer iniciar
+      setTimeout(() => {
+        const start = window.confirm('Deseja iniciar a pesquisa agora e gerar link para o celular?');
+        if (start) {
+          handleStartSurvey(response.data.survey.id);
+        }
+      }, 1500);
+
+    } catch (err) {
+      console.error('Erro ao criar pesquisa:', err);
+      setError(err.response?.data?.error || 'Erro ao criar pesquisa');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDeleteSurvey = async (surveyId) => {
     if (!window.confirm('Tem certeza que deseja excluir esta pesquisa? Esta ação não pode ser desfeita.')) {
       return;
@@ -294,105 +431,354 @@ export default function RupturaLancadorItens() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* Upload Area - 2/3 do espaço */}
           <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
-          <div
-            className={`border-2 border-dashed rounded-lg p-8 text-center ${
-              dragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-            }`}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragging(true);
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={handleDrop}
-          >
-            <input
-              type="file"
-              id="fileInput"
-              accept=".csv,.xlsx,.xls"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            <label
-              htmlFor="fileInput"
-              className="cursor-pointer"
-            >
-              <div className="text-5xl mb-3">📁</div>
-              <p className="text-base font-semibold text-gray-700 mb-1">
-                Clique ou arraste arquivo Excel aqui
-              </p>
-              <p className="text-xs text-gray-500">
-                Formatos aceitos: .csv, .xlsx, .xls (máx. 10MB)
-              </p>
-            </label>
-          </div>
+            <h2 className="text-lg font-bold text-gray-800 mb-4">Nova Pesquisa de Ruptura</h2>
 
-          {file && (
-            <div className="mt-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center">
-                  <span className="text-green-500 text-2xl mr-2">✅</span>
-                  <div>
-                    <p className="font-semibold text-gray-700">{file.name}</p>
-                    <p className="text-sm text-gray-500">
-                      {(file.size / 1024).toFixed(2)} KB
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setFile(null);
-                    setPreview(null);
-                  }}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  🗑️ Remover
-                </button>
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nome da Pesquisa:
-                </label>
-                <input
-                  type="text"
-                  value={nomePesquisa}
-                  onChange={(e) => setNomePesquisa(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Ex: Pesquisa 30/12/2025"
-                />
-              </div>
-
-              {preview && (
-                <div className="mb-4">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
-                  <div className="bg-gray-50 p-4 rounded-lg max-h-48 overflow-auto">
-                    <pre className="text-xs text-gray-600 whitespace-pre-wrap">
-                      {preview.join('\n')}
-                    </pre>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => {
-                    setFile(null);
-                    setPreview(null);
-                  }}
-                  className="flex-1 py-3 px-6 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleUpload}
-                  disabled={loading}
-                  className="flex-1 py-3 px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? '⏳ Importando...' : '📱 Importar e Criar Pesquisa'}
-                </button>
-              </div>
+            {/* Toggle: Arquivo ou Direto Sistema */}
+            <div className="flex items-center gap-2 mb-4">
+              <button
+                onClick={() => {
+                  setImportMode('arquivo');
+                  setParsedItems([]);
+                  setFile(null);
+                  setPreview(null);
+                  setSuccess('');
+                  setError('');
+                }}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                  importMode === 'arquivo'
+                    ? 'bg-orange-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                📄 Via Arquivo
+              </button>
+              <button
+                onClick={() => {
+                  setImportMode('direto');
+                  setParsedItems([]);
+                  setFile(null);
+                  setPreview(null);
+                  setSuccess('');
+                  setError('');
+                }}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                  importMode === 'direto'
+                    ? 'bg-orange-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                🔗 Direto Sistema
+              </button>
             </div>
-          )}
+
+            {/* Modo Arquivo */}
+            {importMode === 'arquivo' && (
+              <>
+                <div
+                  className={`border-2 border-dashed rounded-lg p-8 text-center ${
+                    dragging ? 'border-orange-500 bg-orange-50' : 'border-gray-300'
+                  }`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragging(true);
+                  }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={handleDrop}
+                >
+                  <input
+                    type="file"
+                    id="fileInput"
+                    accept=".csv,.xlsx,.xls"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="fileInput"
+                    className="cursor-pointer"
+                  >
+                    <div className="text-5xl mb-3">📁</div>
+                    <p className="text-base font-semibold text-gray-700 mb-1">
+                      Clique ou arraste arquivo Excel aqui
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Formatos aceitos: .csv, .xlsx, .xls (máx. 10MB)
+                    </p>
+                  </label>
+                </div>
+
+                {file && (
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center">
+                        <span className="text-green-500 text-2xl mr-2">✅</span>
+                        <div>
+                          <p className="font-semibold text-gray-700">{file.name}</p>
+                          <p className="text-sm text-gray-500">
+                            {(file.size / 1024).toFixed(2)} KB
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setFile(null);
+                          setPreview(null);
+                        }}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        🗑️ Remover
+                      </button>
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nome da Pesquisa:
+                      </label>
+                      <input
+                        type="text"
+                        value={nomePesquisa}
+                        onChange={(e) => setNomePesquisa(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        placeholder="Ex: Pesquisa 30/12/2025"
+                      />
+                    </div>
+
+                    {preview && (
+                      <div className="mb-4">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
+                        <div className="bg-gray-50 p-4 rounded-lg max-h-48 overflow-auto">
+                          <pre className="text-xs text-gray-600 whitespace-pre-wrap">
+                            {preview.join('\n')}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex space-x-4">
+                      <button
+                        onClick={() => {
+                          setFile(null);
+                          setPreview(null);
+                        }}
+                        className="flex-1 py-3 px-6 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleUpload}
+                        disabled={loading}
+                        className="flex-1 py-3 px-6 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? '⏳ Importando...' : '📱 Importar e Criar Pesquisa'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Modo Direto Sistema */}
+            {importMode === 'direto' && (
+              <div className="border-2 border-dashed rounded-lg p-6 border-gray-300">
+                {/* Filtro de dias sem venda */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Produtos sem venda há pelo menos:
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      max="365"
+                      value={diasSemVenda}
+                      onChange={(e) => setDiasSemVenda(parseInt(e.target.value) || 0)}
+                      className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    />
+                    <span className="text-gray-600">dias</span>
+                  </div>
+                </div>
+
+                {/* Filtro de curvas */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Curvas ABC:
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {['A', 'B', 'C', 'D', 'E'].map((curva) => (
+                      <button
+                        key={curva}
+                        onClick={() => toggleCurva(curva)}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                          curvasSelecionadas.includes(curva)
+                            ? 'bg-orange-600 text-white'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                      >
+                        Curva {curva}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setCurvasSelecionadas(['A', 'B', 'C', 'D', 'E'])}
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        curvasSelecionadas.length === 5
+                          ? 'bg-orange-600 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      TODAS
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filtro de seções (opcional) */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Seções (opcional):
+                  </label>
+                  {loadingSections ? (
+                    <p className="text-gray-500 text-sm">Carregando seções...</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                      {secoes.map((secao) => (
+                        <button
+                          key={secao}
+                          onClick={() => toggleSecao(secao)}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${
+                            secoesSelecionadas.includes(secao)
+                              ? 'bg-orange-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {secao}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {secoesSelecionadas.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {secoesSelecionadas.length} seção(ões) selecionada(s)
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  onClick={loadProductsForRupture}
+                  disabled={loadingProducts}
+                  className="w-full py-3 px-6 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {loadingProducts ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Buscando produtos...
+                    </>
+                  ) : (
+                    <>🔍 Buscar Produtos</>
+                  )}
+                </button>
+
+                <p className="text-xs text-gray-500 text-center mt-3">
+                  Busca produtos diretamente do sistema ERP com os filtros selecionados
+                </p>
+              </div>
+            )}
+
+            {/* Produtos carregados do sistema (modo direto) */}
+            {importMode === 'direto' && parsedItems.length > 0 && (
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <span className="text-green-500 text-2xl mr-2">✅</span>
+                    <div>
+                      <p className="font-semibold text-gray-700">{parsedItems.length} produtos carregados</p>
+                      <p className="text-sm text-gray-500">
+                        Filtro: {diasSemVenda}+ dias sem venda | Curvas: {curvasSelecionadas.join(', ')}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setParsedItems([]);
+                      setSuccess('');
+                    }}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    🗑️ Limpar
+                  </button>
+                </div>
+
+                {/* Preview dos itens */}
+                <div className="mb-4 max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
+                  <table className="min-w-full text-xs">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="px-2 py-1 text-left">Código</th>
+                        <th className="px-2 py-1 text-left">Produto</th>
+                        <th className="px-2 py-1 text-left">Fornecedor</th>
+                        <th className="px-2 py-1 text-left">Curva</th>
+                        <th className="px-2 py-1 text-center">Últ. Venda</th>
+                        <th className="px-2 py-1 text-right">Dias</th>
+                        <th className="px-2 py-1 text-right">Estoque</th>
+                        <th className="px-2 py-1 text-left">Seção</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {parsedItems.slice(0, 10).map((item, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-2 py-1">{item.codigo_barras || '-'}</td>
+                          <td className="px-2 py-1 truncate max-w-[120px]">{item.descricao}</td>
+                          <td className="px-2 py-1 truncate max-w-[120px]">{item.fornecedor || '-'}</td>
+                          <td className="px-2 py-1">{item.curva || '-'}</td>
+                          <td className="px-2 py-1 text-center">{item.dta_ult_venda ? new Date(item.dta_ult_venda).toLocaleDateString('pt-BR') : '-'}</td>
+                          <td className="px-2 py-1 text-right">{item.dias_sem_venda != null ? item.dias_sem_venda : '-'}</td>
+                          <td className="px-2 py-1 text-right">{item.estoque_atual || 0}</td>
+                          <td className="px-2 py-1 truncate max-w-[80px]">{item.secao || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {parsedItems.length > 10 && (
+                    <p className="text-center text-gray-500 text-xs py-2">
+                      ... e mais {parsedItems.length - 10} produtos
+                    </p>
+                  )}
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nome da Pesquisa:
+                  </label>
+                  <input
+                    type="text"
+                    value={nomePesquisa}
+                    onChange={(e) => setNomePesquisa(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Ex: Pesquisa 30/12/2025"
+                  />
+                </div>
+
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => {
+                      setParsedItems([]);
+                      setNomePesquisa('');
+                      setSuccess('');
+                    }}
+                    className="flex-1 py-3 px-6 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleCreateSurveyFromItems}
+                    disabled={loading || parsedItems.length === 0}
+                    className="flex-1 py-3 px-6 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? '⏳ Criando...' : '✅ Criar Pesquisa'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Calendário de Auditorias */}

@@ -17,6 +17,9 @@ router.get('/', LabelAuditController.getAllAudits);
 // IMPORTANTE: Rotas específicas devem vir ANTES das rotas com parâmetros
 router.get('/agregado', LabelAuditController.getAgregated);
 
+// Criar auditoria a partir de itens (Direto Sistema)
+router.post('/from-items', LabelAuditController.createFromItems);
+
 // Buscar auditoria por ID
 router.get('/:id', LabelAuditController.getAuditById);
 

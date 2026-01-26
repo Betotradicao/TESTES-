@@ -154,11 +154,6 @@ export const MENU_STRUCTURE = [
     icon: 'chart',
     submenus: [
       {
-        id: MENU_SUBMENUS.PERDAS_LANCADOR,
-        title: 'Lançador de Itens',
-        path: '/perdas-lancador'
-      },
-      {
         id: MENU_SUBMENUS.PERDAS_RESULTADOS,
         title: 'Resultados dos Lançamentos',
         path: '/perdas-resultados'

@@ -53,6 +53,42 @@ export class RuptureSurveyController {
   }
 
   /**
+   * Criar pesquisa a partir de itens (Direto Sistema)
+   */
+  static async createFromItems(req: AuthRequest, res: Response) {
+    try {
+      const { nome_pesquisa, items } = req.body;
+
+      if (!nome_pesquisa) {
+        return res.status(400).json({ error: 'Nome da pesquisa é obrigatório' });
+      }
+
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: 'Lista de itens é obrigatória' });
+      }
+
+      const userId = req.user!.id;
+
+      // Criar pesquisa
+      const survey = await RuptureSurveyService.createSurveyFromItems(
+        nome_pesquisa,
+        items,
+        userId
+      );
+
+      res.json({
+        message: 'Pesquisa criada com sucesso',
+        survey,
+      });
+    } catch (error: any) {
+      console.error('❌ Erro ao criar pesquisa a partir dos itens:', error);
+      res.status(500).json({
+        error: error.message || 'Erro ao criar pesquisa',
+      });
+    }
+  }
+
+  /**
    * Listar todas as pesquisas
    */
   static async getAll(req: AuthRequest, res: Response) {

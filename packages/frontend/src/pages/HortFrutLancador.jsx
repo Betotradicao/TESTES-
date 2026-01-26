@@ -20,7 +20,7 @@ export default function HortFrutLancador() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [monthConferences, setMonthConferences] = useState({});
 
-  // Estados para modo Direto da API
+  // Estados para modo Direto do Sistema
   const [importMode, setImportMode] = useState('arquivo'); // 'arquivo' ou 'direto'
   const [sections, setSections] = useState([]);
   const [selectedSection, setSelectedSection] = useState('');
@@ -52,28 +52,30 @@ export default function HortFrutLancador() {
     }
   };
 
-  // Carregar seções da API
+  // Carregar seções do Oracle
   const loadSections = async () => {
     setLoadingSections(true);
     try {
-      const response = await api.get('/products/sections');
-      setSections(response.data || []);
-      // Pré-selecionar seção que contenha "HORT" ou "FLV"
-      const hortSection = response.data.find(s =>
-        s.toUpperCase().includes('HORT') || s.toUpperCase().includes('FLV')
+      const response = await api.get('/products/sections-oracle');
+      // sections-oracle retorna array de {codigo, nome}
+      const sectionNames = (response.data || []).map(s => s.nome);
+      setSections(sectionNames);
+      // Pré-selecionar seção "HORT FRUTI" exata ou que contenha "HORT"
+      const hortSection = sectionNames.find(s =>
+        s.toUpperCase() === 'HORT FRUTI' || s.toUpperCase().includes('HORT') || s.toUpperCase().includes('FLV')
       );
       if (hortSection) {
         setSelectedSection(hortSection);
       }
     } catch (err) {
       console.error('Erro ao carregar seções:', err);
-      setError('Erro ao carregar seções da API');
+      setError('Erro ao carregar seções do sistema');
     } finally {
       setLoadingSections(false);
     }
   };
 
-  // Carregar produtos por seção
+  // Carregar produtos por seção do Oracle
   const loadProductsBySection = async () => {
     if (!selectedSection) {
       setError('Selecione uma seção');
@@ -84,7 +86,7 @@ export default function HortFrutLancador() {
     setError('');
 
     try {
-      const response = await api.get(`/products/by-section?section=${encodeURIComponent(selectedSection)}`);
+      const response = await api.get(`/products/by-section-oracle?section=${encodeURIComponent(selectedSection)}`);
       const items = response.data.items || [];
 
       setParsedItems(items);
@@ -648,7 +650,7 @@ export default function HortFrutLancador() {
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
               >
-                🔗 Direto da API
+                🔗 Direto do Sistema
               </button>
             </div>
 
@@ -684,7 +686,7 @@ export default function HortFrutLancador() {
               </div>
             )}
 
-            {/* Modo Direto da API */}
+            {/* Modo Direto do Sistema */}
             {importMode === 'direto' && (
               <div className="border-2 border-dashed rounded-lg p-6 border-gray-300">
                 <div className="mb-4">
@@ -825,7 +827,7 @@ export default function HortFrutLancador() {
               </div>
             )}
 
-            {/* Produtos carregados da API (modo direto) */}
+            {/* Produtos carregados do Sistema (modo direto) */}
             {importMode === 'direto' && parsedItems.length > 0 && (
               <div className="mt-6">
                 <div className="flex items-center justify-between mb-4">
@@ -834,7 +836,7 @@ export default function HortFrutLancador() {
                     <div>
                       <p className="font-semibold text-gray-700">Seção: {selectedSection}</p>
                       <p className="text-sm text-gray-500">
-                        {parsedItems.length} produtos carregados da API
+                        {parsedItems.length} produtos carregados do Sistema
                       </p>
                     </div>
                   </div>

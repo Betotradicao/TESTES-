@@ -36,6 +36,34 @@ router.post(
 
 // IMPORTANTE: Rotas específicas devem vir ANTES das rotas com parâmetros
 
+// Buscar ajustes diretamente do Oracle (Prevenção de Quebras)
+router.get(
+  '/oracle',
+  authenticateToken,
+  LossController.getFromOracle
+);
+
+// Buscar tipos de ajuste do Oracle
+router.get(
+  '/oracle/tipos',
+  authenticateToken,
+  LossController.getTiposAjusteOracle
+);
+
+// Buscar trocas agrupadas por fornecedor
+router.get(
+  '/oracle/trocas',
+  authenticateToken,
+  LossController.getTrocasFornecedor
+);
+
+// Buscar itens de troca de um fornecedor
+router.get(
+  '/oracle/trocas/itens',
+  authenticateToken,
+  LossController.getTrocasItensFornecedor
+);
+
 // Buscar resultados agregados com filtros
 router.get(
   '/agregado',

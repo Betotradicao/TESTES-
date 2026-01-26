@@ -197,6 +197,65 @@ export class LabelAuditService {
   }
 
   /**
+   * Cria auditoria a partir de itens já carregados (Direto Sistema)
+   */
+  static async createFromItems(
+    nomeAuditoria: string,
+    items: any[],
+    userId: string
+  ): Promise<LabelAudit> {
+    try {
+      console.log(`📊 Criando auditoria de etiquetas com ${items.length} itens do sistema`);
+
+      // Criar auditoria
+      const auditRepository = AppDataSource.getRepository(LabelAudit);
+      const audit = auditRepository.create({
+        titulo: nomeAuditoria,
+        data_referencia: new Date(),
+        status: 'em_andamento',
+      });
+
+      await auditRepository.save(audit);
+      console.log(`✅ Auditoria criada: ID ${audit.id}`);
+
+      // Criar itens
+      const itemRepository = AppDataSource.getRepository(LabelAuditItem);
+      const auditItems: LabelAuditItem[] = [];
+
+      for (const item of items) {
+        const auditItem = itemRepository.create({
+          audit_id: audit.id,
+          codigo_barras: item.codigo_barras || null,
+          descricao: item.descricao || '',
+          etiqueta: item.etiqueta || null,
+          secao: item.secao || null,
+          valor_venda: item.valor_venda || 0,
+          valor_oferta: item.valor_oferta || 0,
+          margem_pratica: item.margem_lucro ? String(item.margem_lucro) : null,
+          status_verificacao: 'pendente',
+        });
+
+        auditItems.push(auditItem);
+      }
+
+      await itemRepository.save(auditItems);
+      console.log(`✅ ${auditItems.length} itens criados`);
+
+      // Atualizar estatísticas da auditoria
+      audit.total_itens = auditItems.length;
+      audit.itens_pendentes = auditItems.length;
+      audit.itens_verificados = 0;
+      audit.itens_corretos = 0;
+      audit.itens_divergentes = 0;
+
+      return audit;
+    } catch (error: any) {
+      console.error('❌ Erro ao criar auditoria a partir dos itens:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Listar todas as auditorias com estatísticas
    */
   static async getAllAudits(): Promise<LabelAudit[]> {
@@ -252,11 +311,11 @@ export class LabelAuditService {
 
     console.log('✅ [ETIQUETAS] Auditoria encontrada:', audit.titulo);
 
-    // Buscar itens ordenados por seção (numérica) e depois descrição (alfabética)
+    // Buscar itens ordenados por seção (alfabética) e depois descrição (alfabética)
     const items = await itemRepository
       .createQueryBuilder('item')
       .where('item.audit_id = :auditId', { auditId })
-      .orderBy('CAST(item.secao AS INTEGER)', 'ASC')
+      .orderBy('item.secao', 'ASC')
       .addOrderBy('item.descricao', 'ASC')
       .getMany();
 
@@ -296,7 +355,7 @@ export class LabelAuditService {
       .createQueryBuilder('item')
       .where('item.audit_id = :auditId', { auditId })
       .andWhere('item.status_verificacao = :status', { status: 'pendente' })
-      .orderBy('CAST(item.secao AS INTEGER)', 'ASC')
+      .orderBy('item.secao', 'ASC')
       .addOrderBy('item.descricao', 'ASC')
       .getMany();
 
@@ -646,8 +705,8 @@ export class LabelAuditService {
     });
 
     const secoesRanking = Object.entries(divergentesPorSecao)
-      .map(([secao, quantidade]) => ({ secao, quantidade }))
-      .sort((a, b) => b.quantidade - a.quantidade);
+      .map(([secao, quantidade]) => ({ secao, rupturas: quantidade }))
+      .sort((a, b) => b.rupturas - a.rupturas);
 
     // Calcular taxa de divergência (o frontend espera taxa_ruptura)
     const taxaDivergencia = totalItensVerificados > 0 ? (totalDivergentes / totalItensVerificados) * 100 : 0;

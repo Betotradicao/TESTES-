@@ -56,6 +56,13 @@ router.get(
   RuptureSurveyController.getAgregated
 );
 
+// Criar pesquisa a partir de itens (Direto Sistema)
+router.post(
+  '/from-items',
+  authenticateToken,
+  RuptureSurveyController.createFromItems
+);
+
 router.get(
   '/filters/produtos',
   authenticateToken,

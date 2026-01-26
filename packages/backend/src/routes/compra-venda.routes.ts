@@ -13,6 +13,9 @@ const router: Router = Router();
 router.get('/explorar', CompraVendaController.explorarTabelas);
 router.post('/query-teste', CompraVendaController.queryTeste);
 
+// Debug: verificar estrutura de tabelas (público)
+router.get('/debug-table', CompraVendaController.debugTableStructure);
+
 // Todas as outras rotas requerem autenticação
 router.use(authenticateToken);
 

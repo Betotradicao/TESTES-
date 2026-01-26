@@ -165,6 +165,68 @@ export class RuptureSurveyService {
   }
 
   /**
+   * Cria pesquisa a partir de itens já carregados (Direto Sistema)
+   */
+  static async createSurveyFromItems(
+    nomePesquisa: string,
+    items: any[],
+    userId: string
+  ): Promise<RuptureSurvey> {
+    try {
+      console.log(`📊 Criando pesquisa com ${items.length} itens do sistema`);
+
+      // Criar pesquisa
+      const surveyRepository = AppDataSource.getRepository(RuptureSurvey);
+      const survey = surveyRepository.create({
+        nome_pesquisa: nomePesquisa,
+        user_id: userId,
+        total_itens: items.length,
+        status: 'rascunho',
+      });
+
+      await surveyRepository.save(survey);
+      console.log(`✅ Pesquisa criada: ID ${survey.id}`);
+
+      // Criar itens
+      const itemRepository = AppDataSource.getRepository(RuptureSurveyItem);
+      const surveyItems: RuptureSurveyItem[] = [];
+
+      for (const item of items) {
+        const surveyItem = itemRepository.create({
+          survey_id: survey.id,
+          codigo_barras: item.codigo_barras || null,
+          erp_product_id: item.erp_product_id || null,
+          descricao: item.descricao || '',
+          curva: item.curva || null,
+          estoque_atual: item.estoque_atual || null,
+          cobertura_dias: item.cobertura_dias || null,
+          grupo: item.grupo || null,
+          secao: item.secao || null,
+          subgrupo: item.subgrupo || null,
+          fornecedor: item.fornecedor || null,
+          margem_lucro: item.margem_lucro || null,
+          qtd_embalagem: item.qtd_embalagem || null,
+          valor_venda: item.valor_venda || null,
+          custo_com_imposto: item.custo_com_imposto || null,
+          venda_media_dia: item.venda_media_dia || null,
+          tem_pedido: item.tem_pedido || null,
+          status_verificacao: 'pendente',
+        });
+
+        surveyItems.push(surveyItem);
+      }
+
+      await itemRepository.save(surveyItems);
+      console.log(`✅ ${surveyItems.length} itens criados`);
+
+      return survey;
+    } catch (error: any) {
+      console.error('❌ Erro ao criar pesquisa a partir dos itens:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Atualizar status de um item da pesquisa
    */
   static async updateItemStatus(
