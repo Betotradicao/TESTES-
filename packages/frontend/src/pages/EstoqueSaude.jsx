@@ -23,12 +23,12 @@ const AVAILABLE_COLUMNS = [
   { id: 'fantasiaForn', label: 'Fornecedor', visible: true },
   { id: 'margemRef', label: 'Margem Meta', visible: false },
   { id: 'margemCalculada', label: 'Margem %', visible: true },
-  { id: 'vendaMedia', label: 'Venda Média', visible: false },
-  { id: 'diasCobertura', label: 'Dias Cobertura', visible: false },
-  { id: 'dtaUltCompra', label: 'Últ. Compra', visible: false },
-  { id: 'qtdUltCompra', label: 'Qtd Últ. Compra', visible: false },
-  { id: 'qtdPedidoCompra', label: 'Pedido Compra', visible: false },
-  { id: 'estoqueMinimo', label: 'Estoque Mín', visible: false },
+  { id: 'vendaMedia', label: 'Venda Média', visible: true },
+  { id: 'diasCobertura', label: 'Dias Cobertura', visible: true },
+  { id: 'dtaUltCompra', label: 'Últ. Compra', visible: true },
+  { id: 'qtdUltCompra', label: 'Qtd Últ. Compra', visible: true },
+  { id: 'qtdPedidoCompra', label: 'Pedido Compra', visible: true },
+  { id: 'estoqueMinimo', label: 'Estoque Mín', visible: true },
   { id: 'tipoEspecie', label: 'Tipo Espécie', visible: false },
   { id: 'dtaCadastro', label: 'Data Cadastro', visible: false },
   { id: 'diasSemVenda', label: 'Dias s/ Venda', visible: true },
@@ -48,9 +48,9 @@ export default function EstoqueSaude() {
     return saved ? JSON.parse(saved) : AVAILABLE_COLUMNS;
   });
 
-  // Filtros
-  const [filterTipoEspecie, setFilterTipoEspecie] = useState('');
-  const [filterTipoEvento, setFilterTipoEvento] = useState('');
+  // Filtros - valores padrão: MERCADORIA e Direta
+  const [filterTipoEspecie, setFilterTipoEspecie] = useState('MERCADORIA');
+  const [filterTipoEvento, setFilterTipoEvento] = useState('Direta');
   const [filterSecao, setFilterSecao] = useState('');
   const [filterGrupo, setFilterGrupo] = useState('');
   const [filterSubGrupo, setFilterSubGrupo] = useState('');
@@ -80,7 +80,10 @@ export default function EstoqueSaude() {
     ));
   };
 
-  // Funções de Drag and Drop
+  // Estado adicional para drag over
+  const [dragOverColumn, setDragOverColumn] = useState(null);
+
+  // Funções de Drag and Drop para o seletor de colunas
   const handleDragStart = (index) => {
     setDraggedColumn(index);
   };
@@ -105,6 +108,46 @@ export default function EstoqueSaude() {
 
   const handleDragEnd = () => {
     setDraggedColumn(null);
+  };
+
+  // Funções de Drag and Drop para os headers da tabela
+  const handleHeaderDragStart = (e, columnId) => {
+    setDraggedColumn(columnId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.target.style.opacity = '0.5';
+  };
+
+  const handleHeaderDragEnd = (e) => {
+    e.target.style.opacity = '1';
+    setDraggedColumn(null);
+    setDragOverColumn(null);
+  };
+
+  const handleHeaderDragOver = (e, columnId) => {
+    e.preventDefault();
+    if (draggedColumn !== columnId) {
+      setDragOverColumn(columnId);
+    }
+  };
+
+  const handleHeaderDragLeave = () => {
+    setDragOverColumn(null);
+  };
+
+  const handleHeaderDrop = (e, targetColumnId) => {
+    e.preventDefault();
+    if (!draggedColumn || draggedColumn === targetColumnId) return;
+
+    const newColumns = [...columns];
+    const draggedIndex = newColumns.findIndex(col => col.id === draggedColumn);
+    const targetIndex = newColumns.findIndex(col => col.id === targetColumnId);
+
+    const [removed] = newColumns.splice(draggedIndex, 1);
+    newColumns.splice(targetIndex, 0, removed);
+
+    setColumns(newColumns);
+    setDraggedColumn(null);
+    setDragOverColumn(null);
   };
 
   // Buscar produtos diretamente do Oracle
@@ -685,7 +728,7 @@ export default function EstoqueSaude() {
                 <select
                   value={filterTipoEspecie}
                   onChange={(e) => setFilterTipoEspecie(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full px-3 py-2 uppercase border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
                   <option value="">Todos</option>
                   {filterOptions.tipoEspecies.map(tipo => (
@@ -701,7 +744,7 @@ export default function EstoqueSaude() {
                 <select
                   value={filterTipoEvento}
                   onChange={(e) => setFilterTipoEvento(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full px-3 py-2 uppercase border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
                   <option value="">Todos</option>
                   {filterOptions.tipoEventos.map(tipo => (
@@ -727,40 +770,6 @@ export default function EstoqueSaude() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-
-              <div className="flex items-end">
-                <button
-                  onClick={fetchProducts}
-                  disabled={loading}
-                  className="w-full px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                >
-                  {loading ? '🔄 Carregando...' : '🔄 Atualizar'}
-                </button>
-              </div>
-
-              <div className="flex items-end gap-2">
-                <button
-                  onClick={exportToPDF}
-                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center justify-center gap-2"
-                  title="Exportar para PDF"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                  </svg>
-                  PDF
-                </button>
-                <button
-                  onClick={() => setShowColumnSelector(!showColumnSelector)}
-                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center justify-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                  </svg>
-                  ⚙️ Colunas ({visibleColumns.length}/{columns.length})
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* Cards de Resumo - Clicáveis */}
@@ -920,21 +929,65 @@ export default function EstoqueSaude() {
                       {filteredProducts.length} produtos
                     </span>
                   </div>
-                  <button
-                    onClick={() => setActiveCardFilter('todos')}
-                    className="text-orange-600 hover:text-orange-800 font-medium text-sm"
-                  >
-                    ✕ Limpar filtro
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={exportToPDF}
+                      className="px-3 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center justify-center gap-1 text-sm"
+                      title="Exportar para PDF"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                      PDF
+                    </button>
+                    <button
+                      onClick={() => setShowColumnSelector(!showColumnSelector)}
+                      className="px-3 py-1.5 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center justify-center gap-1 text-sm"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                      </svg>
+                      Colunas ({visibleColumns.length}/{columns.length})
+                    </button>
+                    <button
+                      onClick={() => setActiveCardFilter('todos')}
+                      className="text-orange-600 hover:text-orange-800 font-medium text-sm"
+                    >
+                      ✕ Limpar
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
               <div className="flex-1 bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
-                <div className="flex items-center gap-3">
-                  <span className="text-blue-800 font-medium">📊 Total de produtos:</span>
-                  <span className="bg-blue-200 text-blue-900 px-3 py-1 rounded-full text-sm font-bold">
-                    {filteredProducts.length} produtos
-                  </span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-blue-800 font-medium">📊 Total de produtos:</span>
+                    <span className="bg-blue-200 text-blue-900 px-3 py-1 rounded-full text-sm font-bold">
+                      {filteredProducts.length} produtos
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={exportToPDF}
+                      className="px-3 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center justify-center gap-1 text-sm"
+                      title="Exportar para PDF"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                      PDF
+                    </button>
+                    <button
+                      onClick={() => setShowColumnSelector(!showColumnSelector)}
+                      className="px-3 py-1.5 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center justify-center gap-1 text-sm"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                      </svg>
+                      Colunas ({visibleColumns.length}/{columns.length})
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -949,7 +1002,15 @@ export default function EstoqueSaude() {
                     {visibleColumns.map(col => (
                       <th
                         key={col.id}
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                        draggable
+                        onDragStart={(e) => handleHeaderDragStart(e, col.id)}
+                        onDragEnd={handleHeaderDragEnd}
+                        onDragOver={(e) => handleHeaderDragOver(e, col.id)}
+                        onDragLeave={handleHeaderDragLeave}
+                        onDrop={(e) => handleHeaderDrop(e, col.id)}
+                        className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-move hover:bg-gray-100 select-none transition-all ${
+                          dragOverColumn === col.id ? 'bg-orange-100 border-l-2 border-orange-500' : ''
+                        }`}
                         onClick={() => handleSort(col.id)}
                       >
                         <div className="flex items-center gap-1">

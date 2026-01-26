@@ -1250,6 +1250,7 @@ export class ProductsController {
       console.log('📦 Buscando todos os produtos do Oracle para loja:', loja);
 
       // Query completa para buscar produtos com todas as informações necessárias
+      // Colunas baseadas na query de ruptura que funciona
       const sql = `
         SELECT
           p.COD_PRODUTO as CODIGO,
@@ -1258,39 +1259,36 @@ export class ProductsController {
           p.DES_REDUZIDA as DES_REDUZIDA,
           NVL(pl.VAL_CUSTO_REP, 0) as VAL_CUSTO_REP,
           NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
-          NVL(pl.VAL_VENDA_LOJA, pl.VAL_VENDA) as VAL_VENDA_LOJA,
-          NVL(pl.VAL_OFERTA, 0) as VAL_OFERTA,
-          NVL(pl.ESTOQUE, 0) as ESTOQUE,
+          NVL(pl.VAL_VENDA, 0) as VAL_VENDA_LOJA,
+          0 as VAL_OFERTA,
+          NVL(pl.QTD_EST_ATUAL, 0) as ESTOQUE,
           s.DES_SECAO,
           g.DES_GRUPO,
           sg.DES_SUB_GRUPO as DES_SUBGRUPO,
-          f.NOM_FANTASIA as FANTASIA_FORN,
-          NVL(pl.VAL_MARGEM_FIXA, pl.VAL_MARGEM) as MARGEM_REF,
+          f.DES_FORNECEDOR as FANTASIA_FORN,
+          NVL(pl.VAL_MARGEM, 0) as MARGEM_REF,
           NVL(pl.VAL_MARGEM, 0) as VAL_MARGEM,
-          NVL(pl.QTD_VENDA_MEDIA, 0) as VENDA_MEDIA,
-          CASE
-            WHEN pl.QTD_VENDA_MEDIA > 0 THEN ROUND(pl.ESTOQUE / pl.QTD_VENDA_MEDIA, 0)
-            ELSE 0
-          END as DIAS_COBERTURA,
-          pl.DTA_ULTIMA_COMPRA as DTA_ULT_COMPRA,
-          pl.QTD_ULTIMA_COMPRA as QTD_ULT_COMPRA,
+          NVL(pl.VAL_VENDA_MEDIA, 0) as VENDA_MEDIA,
+          NVL(pl.QTD_COBERTURA, 0) as DIAS_COBERTURA,
           NVL(pl.QTD_PEDIDO_COMPRA, 0) as QTD_PEDIDO_COMPRA,
-          NVL(pl.ESTOQUE_MINIMO, 0) as ESTOQUE_MINIMO,
+          TO_CHAR(pl.DTA_ULT_COMPRA, 'DD/MM/YYYY') as DTA_ULT_COMPRA,
+          NVL(pl.QTD_ULT_COMPRA, 0) as QTD_ULT_COMPRA,
+          NVL(pl.QTD_EST_MINIMO, 0) as QTD_EST_MINIMO,
           TO_CHAR(pl.DTA_ULT_MOV_VENDA, 'YYYYMMDD') as DTA_ULT_MOV_VENDA,
-          TRIM(pl.DES_RANK_PRODLOJA) as CURVA,
+          NVL(TRIM(pl.DES_RANK_PRODLOJA), 'X') as CURVA,
           CASE p.TIPO_ESPECIE
             WHEN 0 THEN 'MERCADORIA'
             WHEN 2 THEN 'SERVICO'
-            WHEN 3 THEN 'INSUMO'
-            WHEN 4 THEN 'IMOBILIZADO'
+            WHEN 3 THEN 'IMOBILIZADO'
+            WHEN 4 THEN 'INSUMO'
             ELSE 'OUTROS'
           END as TIPO_ESPECIE,
           CASE p.TIPO_EVENTO
-            WHEN 0 THEN 'DIRETA'
-            WHEN 1 THEN 'PRODUCAO'
-            WHEN 2 THEN 'TRANSFERENCIA'
-            WHEN 3 THEN 'EMPRESTADO'
-            ELSE 'OUTROS'
+            WHEN 0 THEN 'Direta'
+            WHEN 1 THEN 'Decomposição'
+            WHEN 2 THEN 'Composição'
+            WHEN 3 THEN 'Produção'
+            ELSE 'Outros'
           END as TIPO_EVENTO,
           p.DTA_CADASTRO
         FROM INTERSOLID.TAB_PRODUTO p
@@ -1298,7 +1296,7 @@ export class ProductsController {
         LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
         LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
         LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON p.COD_FORNECEDOR = f.COD_FORNECEDOR
+        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
         WHERE pl.COD_LOJA = :codLoja
         AND NVL(pl.INATIVO, 'N') = 'N'
         ORDER BY p.DES_PRODUTO
@@ -1344,7 +1342,7 @@ export class ProductsController {
           dtaUltCompra: row.DTA_ULT_COMPRA || null,
           qtdUltCompra: parseFloat(row.QTD_ULT_COMPRA) || 0,
           qtdPedidoCompra: parseFloat(row.QTD_PEDIDO_COMPRA) || 0,
-          estoqueMinimo: parseFloat(row.ESTOQUE_MINIMO) || 0,
+          estoqueMinimo: parseFloat(row.QTD_EST_MINIMO) || 0,
           dtaUltMovVenda: row.DTA_ULT_MOV_VENDA || null,
           curva: row.CURVA || '',
           tipoEspecie: row.TIPO_ESPECIE || 'MERCADORIA',

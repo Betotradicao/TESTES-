@@ -163,13 +163,13 @@ export class FrenteCaixaService {
         sub.COD_OPERADOR,
         COUNT(*) as TOTAL_ITENS
       FROM (
-        SELECT DISTINCT p.NUM_CUPOM_FISCAL, p.NUM_SEQ_ITEM, cf.COD_OPERADOR
+        SELECT DISTINCT p.NUM_CUPOM_FISCAL, p.COD_PRODUTO, cf.COD_OPERADOR
         FROM INTERSOLID.TAB_PRODUTO_PDV p
         JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON p.NUM_CUPOM_FISCAL = cf.NUM_CUPOM_FISCAL
           AND p.COD_LOJA = cf.COD_LOJA
         WHERE p.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
           AND p.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND p.FLG_CUPOM_CANCELADO = 'N'
+          AND NVL(p.FLG_CUPOM_CANCELADO, 'N') = 'N'
     `;
     if (codOperador) sqlItens += ` AND cf.COD_OPERADOR = :codOperador`;
     if (codLoja) sqlItens += ` AND p.COD_LOJA = :codLoja`;
@@ -180,19 +180,20 @@ export class FrenteCaixaService {
     console.log(`✅ [Frente Caixa] Itens: ${itens.length} registros`);
     const itensMap = new Map(itens.map(i => [i.COD_OPERADOR, i.TOTAL_ITENS]));
 
-    // Buscar descontos usando subquery
+    // Buscar descontos usando subquery (exclui itens com 100% de desconto = bonificações)
     let sqlDescontos = `
       SELECT
         sub.COD_OPERADOR,
         SUM(sub.VAL_DESCONTO) as TOTAL_DESCONTOS
       FROM (
-        SELECT DISTINCT p.NUM_CUPOM_FISCAL, p.NUM_SEQ_ITEM, p.VAL_DESCONTO, cf.COD_OPERADOR
+        SELECT DISTINCT p.NUM_CUPOM_FISCAL, p.COD_PRODUTO, p.VAL_DESCONTO, cf.COD_OPERADOR
         FROM INTERSOLID.TAB_PRODUTO_PDV p
         JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON p.NUM_CUPOM_FISCAL = cf.NUM_CUPOM_FISCAL
           AND p.COD_LOJA = cf.COD_LOJA
         WHERE p.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
           AND p.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND p.VAL_DESCONTO > 0
+          AND NVL(p.VAL_DESCONTO, 0) > 0
+          AND NVL(p.VAL_DESCONTO, 0) < NVL(p.VAL_TOTAL_PRODUTO, 0)
     `;
     if (codOperador) sqlDescontos += ` AND cf.COD_OPERADOR = :codOperador`;
     if (codLoja) sqlDescontos += ` AND p.COD_LOJA = :codLoja`;
@@ -203,22 +204,34 @@ export class FrenteCaixaService {
     console.log(`✅ [Frente Caixa] Descontos: ${descontos.length} registros`);
     const descontosMap = new Map(descontos.map(d => [d.COD_OPERADOR, d.TOTAL_DESCONTOS]));
 
-    // Buscar cancelamentos usando subquery
+    // Buscar cancelamentos - usa APENAS TAB_PRODUTO_PDV_ESTORNO (corresponde ao Z003)
+    // Busca operador pelo cupom original - primeiro tenta mesma data, senão usa última ocorrência do cupom
     let sqlCancelamentos = `
       SELECT
         sub.COD_OPERADOR,
         SUM(sub.VAL_TOTAL_PRODUTO) as TOTAL_CANCELAMENTOS
       FROM (
-        SELECT DISTINCT e.NUM_CUPOM_FISCAL, e.NUM_SEQ_ITEM, e.VAL_TOTAL_PRODUTO, cf.COD_OPERADOR
+        SELECT
+          e.VAL_TOTAL_PRODUTO,
+          NVL(
+            (SELECT MAX(cf.COD_OPERADOR) FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+             WHERE cf.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
+             AND cf.COD_LOJA = e.COD_LOJA
+             AND cf.NUM_PDV = e.NUM_PDV
+             AND TRUNC(cf.DTA_VENDA) = TRUNC(e.DTA_SAIDA)),
+            (SELECT MAX(cf2.COD_OPERADOR) FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf2
+             WHERE cf2.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
+             AND cf2.COD_LOJA = e.COD_LOJA
+             AND cf2.NUM_PDV = e.NUM_PDV)
+          ) as COD_OPERADOR
         FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
-        JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON e.NUM_CUPOM_FISCAL = cf.NUM_CUPOM_FISCAL
-          AND e.COD_LOJA = cf.COD_LOJA
         WHERE e.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
           AND e.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-    `;
-    if (codOperador) sqlCancelamentos += ` AND cf.COD_OPERADOR = :codOperador`;
-    if (codLoja) sqlCancelamentos += ` AND e.COD_LOJA = :codLoja`;
-    sqlCancelamentos += `) sub GROUP BY sub.COD_OPERADOR`;
+          ${codLoja ? 'AND e.COD_LOJA = :codLoja' : ''}
+      ) sub
+      WHERE sub.COD_OPERADOR IS NOT NULL
+        ${codOperador ? 'AND sub.COD_OPERADOR = :codOperador' : ''}
+      GROUP BY sub.COD_OPERADOR`;
 
     console.log('🔍 [Frente Caixa] Executando query de cancelamentos...');
     const cancelamentos = await OracleService.query<any>(sqlCancelamentos, params);
@@ -328,64 +341,80 @@ export class FrenteCaixaService {
 
     const vendas = await OracleService.query<any>(sqlVendas, params);
 
-    // Buscar itens por dia usando subquery para evitar produto cartesiano
+    // Buscar itens por dia - contagem direta (NUM_SEQ_ITEM não existe na tabela)
     let sqlItens = `
       SELECT
-        sub.DATA,
+        TO_CHAR(p.DTA_SAIDA, 'DD/MM/YYYY') as DATA,
         COUNT(*) as TOTAL_ITENS
-      FROM (
-        SELECT DISTINCT p.NUM_CUPOM_FISCAL, p.NUM_SEQ_ITEM, TO_CHAR(p.DTA_SAIDA, 'DD/MM/YYYY') as DATA
-        FROM INTERSOLID.TAB_PRODUTO_PDV p
-        JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON p.NUM_CUPOM_FISCAL = cf.NUM_CUPOM_FISCAL
-          AND p.COD_LOJA = cf.COD_LOJA
-        WHERE p.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-          AND p.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND p.FLG_CUPOM_CANCELADO = 'N'
-          AND cf.COD_OPERADOR = :codOperador
+      FROM INTERSOLID.TAB_PRODUTO_PDV p
+      JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON p.NUM_CUPOM_FISCAL = cf.NUM_CUPOM_FISCAL
+        AND p.COD_LOJA = cf.COD_LOJA
+      WHERE p.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND p.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND NVL(p.FLG_CUPOM_CANCELADO, 'N') = 'N'
+        AND cf.COD_OPERADOR = :codOperador
     `;
     if (codLoja) sqlItens += ` AND p.COD_LOJA = :codLoja`;
-    sqlItens += `) sub GROUP BY sub.DATA`;
+    sqlItens += ` GROUP BY TO_CHAR(p.DTA_SAIDA, 'DD/MM/YYYY')`;
 
     const itens = await OracleService.query<any>(sqlItens, params);
     const itensMap = new Map(itens.map(i => [i.DATA, i.TOTAL_ITENS]));
 
-    // Buscar descontos por dia usando subquery
+    // Buscar descontos por dia (exclui itens com 100% de desconto = bonificações)
     let sqlDescontos = `
       SELECT
-        sub.DATA,
-        SUM(sub.VAL_DESCONTO) as TOTAL_DESCONTOS
-      FROM (
-        SELECT DISTINCT p.NUM_CUPOM_FISCAL, p.NUM_SEQ_ITEM, p.VAL_DESCONTO, TO_CHAR(p.DTA_SAIDA, 'DD/MM/YYYY') as DATA
-        FROM INTERSOLID.TAB_PRODUTO_PDV p
-        JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON p.NUM_CUPOM_FISCAL = cf.NUM_CUPOM_FISCAL
-          AND p.COD_LOJA = cf.COD_LOJA
-        WHERE p.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-          AND p.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND p.VAL_DESCONTO > 0
-          AND cf.COD_OPERADOR = :codOperador
+        TO_CHAR(p.DTA_SAIDA, 'DD/MM/YYYY') as DATA,
+        SUM(NVL(p.VAL_DESCONTO, 0)) as TOTAL_DESCONTOS
+      FROM INTERSOLID.TAB_PRODUTO_PDV p
+      JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON p.NUM_CUPOM_FISCAL = cf.NUM_CUPOM_FISCAL
+        AND p.COD_LOJA = cf.COD_LOJA
+      WHERE p.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND p.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND NVL(p.VAL_DESCONTO, 0) > 0
+        AND NVL(p.VAL_DESCONTO, 0) < NVL(p.VAL_TOTAL_PRODUTO, 0)
+        AND cf.COD_OPERADOR = :codOperador
     `;
     if (codLoja) sqlDescontos += ` AND p.COD_LOJA = :codLoja`;
-    sqlDescontos += `) sub GROUP BY sub.DATA`;
+    sqlDescontos += ` GROUP BY TO_CHAR(p.DTA_SAIDA, 'DD/MM/YYYY')`;
 
     const descontos = await OracleService.query<any>(sqlDescontos, params);
     const descontosMap = new Map(descontos.map(d => [d.DATA, d.TOTAL_DESCONTOS]));
 
-    // Buscar cancelamentos por dia usando subquery
+    // Buscar cancelamentos por dia - usa APENAS TAB_PRODUTO_PDV_ESTORNO (corresponde ao Z003)
+    // Busca operador pelo cupom original - primeiro tenta mesma data, senão usa qualquer ocorrência do cupom
     let sqlCancelamentos = `
       SELECT
-        sub.DATA,
-        SUM(sub.VAL_TOTAL_PRODUTO) as TOTAL_CANCELAMENTOS
-      FROM (
-        SELECT DISTINCT e.NUM_CUPOM_FISCAL, e.NUM_SEQ_ITEM, e.VAL_TOTAL_PRODUTO, TO_CHAR(e.DTA_SAIDA, 'DD/MM/YYYY') as DATA
-        FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
-        JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON e.NUM_CUPOM_FISCAL = cf.NUM_CUPOM_FISCAL
-          AND e.COD_LOJA = cf.COD_LOJA
-        WHERE e.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-          AND e.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND cf.COD_OPERADOR = :codOperador
-    `;
-    if (codLoja) sqlCancelamentos += ` AND e.COD_LOJA = :codLoja`;
-    sqlCancelamentos += `) sub GROUP BY sub.DATA`;
+        TO_CHAR(e.DTA_SAIDA, 'DD/MM/YYYY') as DATA,
+        SUM(e.VAL_TOTAL_PRODUTO) as TOTAL_CANCELAMENTOS
+      FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
+      WHERE e.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND e.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        ${codLoja ? 'AND e.COD_LOJA = :codLoja' : ''}
+        AND (
+          EXISTS (
+            SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+            WHERE cf.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
+            AND cf.COD_LOJA = e.COD_LOJA
+            AND cf.NUM_PDV = e.NUM_PDV
+            AND TRUNC(cf.DTA_VENDA) = TRUNC(e.DTA_SAIDA)
+            AND cf.COD_OPERADOR = :codOperador
+          )
+          OR EXISTS (
+            SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf2
+            WHERE cf2.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
+            AND cf2.COD_LOJA = e.COD_LOJA
+            AND cf2.NUM_PDV = e.NUM_PDV
+            AND cf2.COD_OPERADOR = :codOperador
+            AND NOT EXISTS (
+              SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf3
+              WHERE cf3.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
+              AND cf3.COD_LOJA = e.COD_LOJA
+              AND cf3.NUM_PDV = e.NUM_PDV
+              AND TRUNC(cf3.DTA_VENDA) = TRUNC(e.DTA_SAIDA)
+            )
+          )
+        )
+      GROUP BY TO_CHAR(e.DTA_SAIDA, 'DD/MM/YYYY')`;
 
     const cancelamentos = await OracleService.query<any>(sqlCancelamentos, params);
     const cancelamentosMap = new Map(cancelamentos.map(c => [c.DATA, c.TOTAL_CANCELAMENTOS]));
@@ -555,57 +584,153 @@ export class FrenteCaixaService {
     const params: any = { codOperador, data };
     if (codLoja) params.codLoja = codLoja;
 
+    // Query com JOIN para trazer informações de desconto e cancelamento
+    // Inclui itens da TAB_PRODUTO_PDV (100% desconto) E da TAB_PRODUTO_PDV_ESTORNO (estornos)
+    // Filtra itens pela mesma data do cupom para evitar mostrar itens de datas diferentes
     let sql = `
-      SELECT DISTINCT
+      SELECT
         cf.NUM_CUPOM_FISCAL,
         cf.COD_LOJA,
-        TO_CHAR(cf.DTA_VENDA, 'DD/MM/YYYY HH24:MI') as DATA_HORA,
-        cf.VAL_LIQUIDO as VALOR_CUPOM,
-        CASE WHEN cc.NUM_CFE IS NOT NULL THEN 'S' ELSE 'N' END as FLG_CANCELADO
+        TO_CHAR(MIN(cf.DTA_VENDA), 'DD/MM/YYYY HH24:MI') as DATA_HORA,
+        SUM(cf.VAL_LIQUIDO) as VALOR_CUPOM,
+        NVL(info.TOTAL_DESCONTO, 0) as TOTAL_DESCONTO,
+        NVL(info.QTD_ITENS_DESCONTO, 0) as QTD_ITENS_DESCONTO,
+        NVL(info.TOTAL_CANCELADO, 0) + NVL(estornos.TOTAL_ESTORNOS, 0) as TOTAL_CANCELADO,
+        NVL(info.QTD_ITENS_CANCELADOS, 0) + NVL(estornos.QTD_ESTORNOS, 0) as QTD_ITENS_CANCELADOS,
+        NVL(info.QTD_ITENS_TOTAL, 0) as QTD_ITENS_TOTAL,
+        CASE WHEN NVL(info.QTD_ITENS_CANCELADOS, 0) + NVL(estornos.QTD_ESTORNOS, 0) = NVL(info.QTD_ITENS_TOTAL, 0) AND NVL(info.QTD_ITENS_TOTAL, 0) > 0 THEN 'S' ELSE 'N' END as FLG_CANCELADO
       FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
-      LEFT JOIN INTERSOLID.TAB_CUPOM_CANCELADO cc ON cf.NUM_CUPOM_FISCAL = cc.NUM_CFE
-        AND cf.COD_LOJA = cc.COD_LOJA
+      LEFT JOIN (
+        SELECT
+          pv.NUM_CUPOM_FISCAL,
+          pv.COD_LOJA,
+          SUM(CASE WHEN NVL(pv.VAL_DESCONTO, 0) < NVL(pv.VAL_TOTAL_PRODUTO, 0) THEN NVL(pv.VAL_DESCONTO, 0) ELSE 0 END) as TOTAL_DESCONTO,
+          SUM(CASE WHEN NVL(pv.VAL_DESCONTO, 0) > 0 AND NVL(pv.VAL_DESCONTO, 0) < NVL(pv.VAL_TOTAL_PRODUTO, 0) THEN 1 ELSE 0 END) as QTD_ITENS_DESCONTO,
+          SUM(CASE WHEN pv.FLG_CUPOM_CANCELADO = 'S' OR NVL(pv.VAL_DESCONTO, 0) >= NVL(pv.VAL_TOTAL_PRODUTO, 0) THEN NVL(pv.VAL_TOTAL_PRODUTO, 0) ELSE 0 END) as TOTAL_CANCELADO,
+          SUM(CASE WHEN pv.FLG_CUPOM_CANCELADO = 'S' OR NVL(pv.VAL_DESCONTO, 0) >= NVL(pv.VAL_TOTAL_PRODUTO, 0) THEN 1 ELSE 0 END) as QTD_ITENS_CANCELADOS,
+          COUNT(*) as QTD_ITENS_TOTAL
+        FROM INTERSOLID.TAB_PRODUTO_PDV pv
+        WHERE TO_CHAR(pv.DTA_SAIDA, 'DD/MM/YYYY') = :data
+        GROUP BY pv.NUM_CUPOM_FISCAL, pv.COD_LOJA
+      ) info ON cf.NUM_CUPOM_FISCAL = info.NUM_CUPOM_FISCAL AND cf.COD_LOJA = info.COD_LOJA
+      LEFT JOIN (
+        SELECT
+          e.NUM_CUPOM_FISCAL,
+          e.COD_LOJA,
+          SUM(e.VAL_TOTAL_PRODUTO) as TOTAL_ESTORNOS,
+          COUNT(*) as QTD_ESTORNOS
+        FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
+        WHERE TO_CHAR(e.DTA_SAIDA, 'DD/MM/YYYY') = :data
+        GROUP BY e.NUM_CUPOM_FISCAL, e.COD_LOJA
+      ) estornos ON cf.NUM_CUPOM_FISCAL = estornos.NUM_CUPOM_FISCAL AND cf.COD_LOJA = estornos.COD_LOJA
       WHERE cf.COD_OPERADOR = :codOperador
         AND TO_CHAR(cf.DTA_VENDA, 'DD/MM/YYYY') = :data
         AND cf.COD_TIPO = 1110
     `;
     if (codLoja) sql += ` AND cf.COD_LOJA = :codLoja`;
-    sql += ` ORDER BY cf.DTA_VENDA`;
+    sql += ` GROUP BY cf.NUM_CUPOM_FISCAL, cf.COD_LOJA, info.TOTAL_DESCONTO, info.QTD_ITENS_DESCONTO, info.TOTAL_CANCELADO, info.QTD_ITENS_CANCELADOS, info.QTD_ITENS_TOTAL, estornos.TOTAL_ESTORNOS, estornos.QTD_ESTORNOS`;
+    sql += ` ORDER BY MIN(cf.DTA_VENDA)`;
 
     console.log('🔍 [Frente Caixa] Buscando cupons do operador', codOperador, 'em', data);
-    const cupons = await OracleService.query<any>(sql, params);
-    console.log(`✅ [Frente Caixa] Encontrados ${cupons.length} cupons`);
+    console.log('🔍 [Frente Caixa] SQL:', sql);
+    console.log('🔍 [Frente Caixa] Params:', params);
 
-    return cupons;
+    try {
+      const cupons = await OracleService.query<any>(sql, params);
+      console.log(`✅ [Frente Caixa] Encontrados ${cupons.length} cupons`);
+      return cupons;
+    } catch (error: any) {
+      console.error('❌ [Frente Caixa] Erro na query de cupons:', error.message);
+      throw error;
+    }
   }
 
   /**
    * Busca itens de um cupom específico
+   * @param data - Data opcional para filtrar itens apenas dessa data
    */
-  static async getItensPorCupom(numCupom: number, codLoja: number): Promise<any[]> {
-    const sql = `
+  static async getItensPorCupom(numCupom: number, codLoja: number, data?: string): Promise<any[]> {
+    // Query corrigida - TAB_PRODUTO_PDV tem colunas diferentes
+    // Fazemos JOIN com TAB_PRODUTO para pegar a descrição do produto
+    // Itens com 100% de desconto são marcados como estornados
+    const params: any = { numCupom, codLoja };
+
+    // Query para itens normais
+    let sqlItens = `
       SELECT
-        p.NUM_SEQ_ITEM,
-        p.COD_PRODUTO,
+        pv.COD_PRODUTO,
         p.DES_PRODUTO,
-        p.QTD_PRODUTO,
-        p.VAL_UNITARIO,
-        p.VAL_TOTAL_PRODUTO,
-        p.VAL_DESCONTO,
-        CASE WHEN e.NUM_CUPOM_FISCAL IS NOT NULL THEN 'S' ELSE 'N' END as FLG_ESTORNADO
-      FROM INTERSOLID.TAB_PRODUTO_PDV p
-      LEFT JOIN INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e ON p.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
-        AND p.COD_LOJA = e.COD_LOJA
-        AND p.NUM_SEQ_ITEM = e.NUM_SEQ_ITEM
-      WHERE p.NUM_CUPOM_FISCAL = :numCupom
-        AND p.COD_LOJA = :codLoja
-      ORDER BY p.NUM_SEQ_ITEM
+        pv.QTD_TOTAL_PRODUTO as QTD_PRODUTO,
+        CASE WHEN pv.QTD_TOTAL_PRODUTO > 0
+             THEN pv.VAL_TOTAL_PRODUTO / pv.QTD_TOTAL_PRODUTO
+             ELSE 0
+        END as VAL_UNITARIO,
+        pv.VAL_TOTAL_PRODUTO,
+        CASE WHEN NVL(pv.VAL_DESCONTO, 0) >= NVL(pv.VAL_TOTAL_PRODUTO, 0) AND NVL(pv.VAL_TOTAL_PRODUTO, 0) > 0
+             THEN 0
+             ELSE NVL(pv.VAL_DESCONTO, 0)
+        END as VAL_DESCONTO,
+        CASE WHEN pv.FLG_CUPOM_CANCELADO = 'S' OR (NVL(pv.VAL_DESCONTO, 0) >= NVL(pv.VAL_TOTAL_PRODUTO, 0) AND NVL(pv.VAL_TOTAL_PRODUTO, 0) > 0)
+             THEN 'S'
+             ELSE 'N'
+        END as FLG_ESTORNADO,
+        'N' as ITEM_ESTORNO
+      FROM INTERSOLID.TAB_PRODUTO_PDV pv
+      LEFT JOIN INTERSOLID.TAB_PRODUTO p ON pv.COD_PRODUTO = p.COD_PRODUTO
+      WHERE pv.NUM_CUPOM_FISCAL = :numCupom
+        AND pv.COD_LOJA = :codLoja
     `;
 
-    console.log('🔍 [Frente Caixa] Buscando itens do cupom', numCupom, 'loja', codLoja);
-    const itens = await OracleService.query<any>(sql, { numCupom, codLoja });
-    console.log(`✅ [Frente Caixa] Encontrados ${itens.length} itens`);
+    if (data) {
+      sqlItens += ` AND TO_CHAR(pv.DTA_SAIDA, 'DD/MM/YYYY') = :data`;
+      params.data = data;
+    }
 
-    return itens;
+    // Query para itens estornados (da TAB_PRODUTO_PDV_ESTORNO)
+    let sqlEstornos = `
+      SELECT
+        e.COD_PRODUTO,
+        p.DES_PRODUTO,
+        e.QTD_TOTAL_PRODUTO as QTD_PRODUTO,
+        CASE WHEN e.QTD_TOTAL_PRODUTO > 0
+             THEN e.VAL_TOTAL_PRODUTO / e.QTD_TOTAL_PRODUTO
+             ELSE 0
+        END as VAL_UNITARIO,
+        e.VAL_TOTAL_PRODUTO,
+        0 as VAL_DESCONTO,
+        'S' as FLG_ESTORNADO,
+        'S' as ITEM_ESTORNO
+      FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
+      LEFT JOIN INTERSOLID.TAB_PRODUTO p ON e.COD_PRODUTO = p.COD_PRODUTO
+      WHERE e.NUM_CUPOM_FISCAL = :numCupom
+        AND e.COD_LOJA = :codLoja
+    `;
+
+    if (data) {
+      sqlEstornos += ` AND TO_CHAR(e.DTA_SAIDA, 'DD/MM/YYYY') = :data`;
+    }
+
+    console.log('🔍 [Frente Caixa] Buscando itens do cupom', numCupom, 'loja', codLoja, data ? `data: ${data}` : '');
+
+    try {
+      // Buscar itens normais
+      const itens = await OracleService.query<any>(sqlItens, params);
+      console.log(`✅ [Frente Caixa] Encontrados ${itens.length} itens normais`);
+
+      // Buscar itens estornados
+      const estornos = await OracleService.query<any>(sqlEstornos, params);
+      console.log(`✅ [Frente Caixa] Encontrados ${estornos.length} itens estornados`);
+
+      // Combinar e numerar
+      const todos = [...itens, ...estornos].map((item, index) => ({
+        ...item,
+        NUM_SEQ_ITEM: index + 1
+      }));
+
+      return todos;
+    } catch (error: any) {
+      console.error('❌ [Frente Caixa] Erro na query de itens:', error.message);
+      throw error;
+    }
   }
 }

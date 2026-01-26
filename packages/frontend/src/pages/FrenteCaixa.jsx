@@ -54,23 +54,35 @@ export default function FrenteCaixa() {
   // Estado para ordem das colunas (drag and drop)
   const [columns, setColumns] = useState(() => {
     const savedOrder = localStorage.getItem('frente_caixa_columns_order');
+    console.log('🔄 [FrenteCaixa] Carregando ordem de colunas do localStorage:', savedOrder);
     if (savedOrder) {
       try {
         const savedIds = JSON.parse(savedOrder);
+        console.log('📋 [FrenteCaixa] IDs salvos:', savedIds);
         const reordered = savedIds
           .map(id => INITIAL_COLUMNS.find(col => col.id === id))
           .filter(Boolean);
         const newColumns = INITIAL_COLUMNS.filter(col => !savedIds.includes(col.id));
-        return [...reordered, ...newColumns];
+        const finalOrder = [...reordered, ...newColumns];
+        console.log('✅ [FrenteCaixa] Ordem restaurada:', finalOrder.map(c => c.id));
+        return finalOrder;
       } catch (e) {
+        console.error('❌ [FrenteCaixa] Erro ao restaurar ordem:', e);
         return INITIAL_COLUMNS;
       }
     }
+    console.log('ℹ️ [FrenteCaixa] Nenhuma ordem salva, usando padrão');
     return INITIAL_COLUMNS;
   });
 
   const [draggedColumn, setDraggedColumn] = useState(null);
   const [dragOverColumn, setDragOverColumn] = useState(null);
+
+  // Sincronizar ordem das colunas com localStorage sempre que mudar
+  useEffect(() => {
+    const columnIds = columns.map(col => col.id);
+    localStorage.setItem('frente_caixa_columns_order', JSON.stringify(columnIds));
+  }, [columns]);
 
   // Estado para ordenação
   const [sortConfig, setSortConfig] = useState({ key: 'TOTAL_VENDAS', direction: 'desc' });
@@ -216,6 +228,7 @@ export default function FrenteCaixa() {
   const toggleOperador = async (codOperador) => {
     const key = String(codOperador);
     const isExpanded = expandedOperadores[key];
+    console.log('🔍 [FrenteCaixa] toggleOperador chamado:', { codOperador, key, isExpanded });
 
     if (isExpanded) {
       setExpandedOperadores(prev => ({ ...prev, [key]: false }));
@@ -228,13 +241,23 @@ export default function FrenteCaixa() {
           params.append('dataFim', formatDateForApi(filters.dataFim));
           params.append('codOperador', key);
 
+          console.log('📡 [FrenteCaixa] Buscando detalhe por dia:', `/frente-caixa/detalhe-dia?${params.toString()}`);
           const response = await api.get(`/frente-caixa/detalhe-dia?${params.toString()}`);
+          console.log('📦 [FrenteCaixa] Resposta detalhe:', response.data);
+
           if (response.data.success) {
             setOperadorDetalhe(prev => ({ ...prev, [key]: response.data.data }));
+            if (response.data.data.length === 0) {
+              toast('Nenhum dia encontrado para este operador', { icon: 'ℹ️' });
+            } else {
+              toast.success(`${response.data.data.length} dias carregados`);
+            }
+          } else {
+            toast.error('Erro na resposta da API');
           }
         } catch (error) {
-          console.error('Erro ao carregar detalhe:', error);
-          toast.error('Erro ao carregar detalhe por dia');
+          console.error('❌ [FrenteCaixa] Erro ao carregar detalhe:', error);
+          toast.error(`Erro ao carregar detalhe: ${error.message}`);
         } finally {
           setLoadingDetalhe(prev => ({ ...prev, [key]: false }));
         }
@@ -247,6 +270,7 @@ export default function FrenteCaixa() {
   const toggleDia = async (codOperador, data) => {
     const key = `${codOperador}-${data}`;
     const isExpanded = expandedDias[key];
+    console.log('🔍 [FrenteCaixa] toggleDia chamado:', { codOperador, data, key, isExpanded });
 
     if (isExpanded) {
       setExpandedDias(prev => ({ ...prev, [key]: false }));
@@ -258,13 +282,23 @@ export default function FrenteCaixa() {
           params.append('codOperador', codOperador);
           params.append('data', data);
 
+          console.log('📡 [FrenteCaixa] Buscando cupons:', `/frente-caixa/cupons?${params.toString()}`);
           const response = await api.get(`/frente-caixa/cupons?${params.toString()}`);
+          console.log('📦 [FrenteCaixa] Resposta cupons:', response.data);
+
           if (response.data.success) {
             setDiaCupons(prev => ({ ...prev, [key]: response.data.data }));
+            if (response.data.data.length === 0) {
+              toast('Nenhum cupom encontrado para este dia', { icon: 'ℹ️' });
+            } else {
+              toast.success(`${response.data.data.length} cupons carregados`);
+            }
+          } else {
+            toast.error('Erro na resposta da API');
           }
         } catch (error) {
-          console.error('Erro ao carregar cupons:', error);
-          toast.error('Erro ao carregar cupons do dia');
+          console.error('❌ [FrenteCaixa] Erro ao carregar cupons:', error);
+          toast.error(`Erro ao carregar cupons: ${error.message}`);
         } finally {
           setLoadingCupons(prev => ({ ...prev, [key]: false }));
         }
@@ -274,9 +308,10 @@ export default function FrenteCaixa() {
   };
 
   // Toggle expansão de cupom -> mostra itens
-  const toggleCupom = async (numCupom, codLoja) => {
+  const toggleCupom = async (numCupom, codLoja, data) => {
     const key = `${numCupom}-${codLoja}`;
     const isExpanded = expandedCupons[key];
+    console.log('🔍 [FrenteCaixa] toggleCupom chamado:', { numCupom, codLoja, data, key, isExpanded });
 
     if (isExpanded) {
       setExpandedCupons(prev => ({ ...prev, [key]: false }));
@@ -287,14 +322,25 @@ export default function FrenteCaixa() {
           const params = new URLSearchParams();
           params.append('numCupom', numCupom);
           params.append('codLoja', codLoja);
+          if (data) params.append('data', data);
 
+          console.log('📡 [FrenteCaixa] Buscando itens:', `/frente-caixa/itens?${params.toString()}`);
           const response = await api.get(`/frente-caixa/itens?${params.toString()}`);
+          console.log('📦 [FrenteCaixa] Resposta itens:', response.data);
+
           if (response.data.success) {
             setCupomItens(prev => ({ ...prev, [key]: response.data.data }));
+            if (response.data.data.length === 0) {
+              toast('Nenhum item encontrado neste cupom', { icon: 'ℹ️' });
+            } else {
+              toast.success(`${response.data.data.length} itens carregados`);
+            }
+          } else {
+            toast.error('Erro na resposta da API');
           }
         } catch (error) {
-          console.error('Erro ao carregar itens:', error);
-          toast.error('Erro ao carregar itens do cupom');
+          console.error('❌ [FrenteCaixa] Erro ao carregar itens:', error);
+          toast.error(`Erro ao carregar itens: ${error.message}`);
         } finally {
           setLoadingItens(prev => ({ ...prev, [key]: false }));
         }
@@ -373,7 +419,13 @@ export default function FrenteCaixa() {
 
     // Salvar ordem no localStorage
     const columnIds = newColumns.map(col => col.id);
+    console.log('💾 [FrenteCaixa] Salvando ordem de colunas:', columnIds);
     localStorage.setItem('frente_caixa_columns_order', JSON.stringify(columnIds));
+
+    // Verificar se salvou corretamente
+    const saved = localStorage.getItem('frente_caixa_columns_order');
+    console.log('✅ [FrenteCaixa] Ordem salva no localStorage:', saved);
+    toast.success('Ordem das colunas salva!');
   };
 
   // Formatação
@@ -890,10 +942,18 @@ export default function FrenteCaixa() {
                                     const cupomKey = `${cupom.NUM_CUPOM_FISCAL}-${cupom.COD_LOJA}`;
                                     return (
                                       <React.Fragment key={`cupom-${cupomIndex}`}>
-                                        {/* Linha do cupom */}
+                                        {/* Linha do cupom - vermelho se tem cancelamento */}
                                         <tr
-                                          className={`bg-blue-50/50 hover:bg-blue-100/50 cursor-pointer ${cupom.FLG_CANCELADO === 'S' ? 'line-through text-red-400' : ''}`}
-                                          onClick={() => toggleCupom(cupom.NUM_CUPOM_FISCAL, cupom.COD_LOJA)}
+                                          className={`cursor-pointer transition-colors ${
+                                            cupom.FLG_CANCELADO === 'S'
+                                              ? 'bg-red-100 hover:bg-red-200 line-through'
+                                              : cupom.QTD_ITENS_CANCELADOS > 0
+                                                ? 'bg-red-50 hover:bg-red-100'
+                                                : cupom.TOTAL_DESCONTO > 0
+                                                  ? 'bg-yellow-50 hover:bg-yellow-100'
+                                                  : 'bg-blue-50/50 hover:bg-blue-100/50'
+                                          }`}
+                                          onClick={() => toggleCupom(cupom.NUM_CUPOM_FISCAL, cupom.COD_LOJA, dia.DATA)}
                                         >
                                           <td className="px-2 py-1">
                                             {loadingItens[cupomKey] ? (
@@ -914,8 +974,27 @@ export default function FrenteCaixa() {
                                               <span className={`font-medium ${cupom.FLG_CANCELADO === 'S' ? 'text-red-500' : 'text-green-600'}`}>
                                                 {formatCurrency(cupom.VALOR_CUPOM)}
                                               </span>
+                                              {cupom.QTD_ITENS_TOTAL > 0 && (
+                                                <span className="text-gray-400 text-xs">
+                                                  ({cupom.QTD_ITENS_TOTAL} {cupom.QTD_ITENS_TOTAL === 1 ? 'item' : 'itens'})
+                                                </span>
+                                              )}
+                                              {cupom.TOTAL_DESCONTO > 0 && (
+                                                <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded flex items-center gap-1">
+                                                  🏷️ Desc: {formatCurrency(cupom.TOTAL_DESCONTO)}
+                                                  {cupom.QTD_ITENS_DESCONTO > 0 && (
+                                                    <span className="text-yellow-600">({cupom.QTD_ITENS_DESCONTO})</span>
+                                                  )}
+                                                </span>
+                                              )}
+                                              {cupom.QTD_ITENS_CANCELADOS > 0 && (
+                                                <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded flex items-center gap-1">
+                                                  ❌ Cancel: {formatCurrency(cupom.TOTAL_CANCELADO)}
+                                                  <span>({cupom.QTD_ITENS_CANCELADOS} {cupom.QTD_ITENS_CANCELADOS === 1 ? 'item' : 'itens'})</span>
+                                                </span>
+                                              )}
                                               {cupom.FLG_CANCELADO === 'S' && (
-                                                <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded">CANCELADO</span>
+                                                <span className="bg-red-200 text-red-700 text-xs px-2 py-0.5 rounded font-bold">CUPOM CANCELADO</span>
                                               )}
                                             </div>
                                           </td>
@@ -924,23 +1003,36 @@ export default function FrenteCaixa() {
                                         {/* Linhas de itens do cupom */}
                                         {expandedCupons[cupomKey] && cupomItens[cupomKey] && (
                                           cupomItens[cupomKey].map((item, itemIndex) => (
-                                            <tr key={`item-${itemIndex}`} className={`bg-gray-50/80 ${item.FLG_ESTORNADO === 'S' ? 'line-through text-red-400' : ''}`}>
+                                            <tr
+                                              key={`item-${itemIndex}`}
+                                              className={`${
+                                                item.FLG_ESTORNADO === 'S'
+                                                  ? 'bg-red-100 line-through'
+                                                  : item.VAL_DESCONTO > 0
+                                                    ? 'bg-yellow-50'
+                                                    : 'bg-gray-50/80'
+                                              }`}
+                                            >
                                               <td className="px-2 py-1"></td>
                                               <td colSpan={visibleColumns.length} className="px-3 py-1 text-xs">
                                                 <div className="flex items-center gap-4 pl-12">
-                                                  <span className="text-gray-400 w-8">#{item.NUM_SEQ_ITEM}</span>
-                                                  <span className="text-gray-600 w-16">{item.COD_PRODUTO}</span>
-                                                  <span className="text-gray-800 flex-1 truncate max-w-xs">{item.DES_PRODUTO}</span>
-                                                  <span className="text-gray-500 w-12 text-right">{item.QTD_PRODUTO}x</span>
-                                                  <span className="text-gray-500 w-20 text-right">{formatCurrency(item.VAL_UNITARIO)}</span>
-                                                  <span className={`w-24 text-right font-medium ${item.FLG_ESTORNADO === 'S' ? 'text-red-500' : 'text-gray-800'}`}>
+                                                  <span className={`w-8 ${item.FLG_ESTORNADO === 'S' ? 'text-red-400' : 'text-gray-400'}`}>#{item.NUM_SEQ_ITEM}</span>
+                                                  <span className={`w-16 ${item.FLG_ESTORNADO === 'S' ? 'text-red-500' : 'text-gray-600'}`}>{item.COD_PRODUTO}</span>
+                                                  <span className={`flex-1 truncate max-w-xs ${item.FLG_ESTORNADO === 'S' ? 'text-red-600' : 'text-gray-800'}`}>{item.DES_PRODUTO}</span>
+                                                  <span className={`w-12 text-right ${item.FLG_ESTORNADO === 'S' ? 'text-red-400' : 'text-gray-500'}`}>{Number(item.QTD_PRODUTO).toFixed(3)}x</span>
+                                                  <span className={`w-20 text-right ${item.FLG_ESTORNADO === 'S' ? 'text-red-400' : 'text-gray-500'}`}>{formatCurrency(item.VAL_UNITARIO)}</span>
+                                                  <span className={`w-24 text-right font-medium ${item.FLG_ESTORNADO === 'S' ? 'text-red-600' : 'text-gray-800'}`}>
                                                     {formatCurrency(item.VAL_TOTAL_PRODUTO)}
                                                   </span>
                                                   {item.VAL_DESCONTO > 0 && (
-                                                    <span className="text-yellow-600 text-xs">-{formatCurrency(item.VAL_DESCONTO)}</span>
+                                                    <span className="bg-yellow-200 text-yellow-800 text-xs px-1.5 py-0.5 rounded font-medium">
+                                                      🏷️ -{formatCurrency(item.VAL_DESCONTO)}
+                                                    </span>
                                                   )}
-                                                  {item.FLG_ESTORNADO === 'S' && (
-                                                    <span className="bg-red-100 text-red-600 text-xs px-1 py-0.5 rounded">EST</span>
+                                                  {item.ITEM_ESTORNO === 'S' ? (
+                                                    <span className="bg-red-300 text-red-800 text-xs px-1.5 py-0.5 rounded font-bold">🔄 ESTORNADO</span>
+                                                  ) : item.FLG_ESTORNADO === 'S' && (
+                                                    <span className="bg-red-200 text-red-700 text-xs px-1.5 py-0.5 rounded font-bold">❌ CANCELADO</span>
                                                   )}
                                                 </div>
                                               </td>

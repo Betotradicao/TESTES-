@@ -213,7 +213,7 @@ export class FrenteCaixaController {
    */
   static async getItensPorCupom(req: Request, res: Response) {
     try {
-      const { numCupom, codLoja } = req.query;
+      const { numCupom, codLoja, data } = req.query;
 
       if (!numCupom || !codLoja) {
         return res.status(400).json({
@@ -222,11 +222,12 @@ export class FrenteCaixaController {
         });
       }
 
-      console.log('📋 Buscando itens do cupom:', numCupom, 'loja:', codLoja);
+      console.log('📋 Buscando itens do cupom:', numCupom, 'loja:', codLoja, 'data:', data || 'todas');
 
       const itens = await FrenteCaixaService.getItensPorCupom(
         Number(numCupom),
-        Number(codLoja)
+        Number(codLoja),
+        data as string | undefined
       );
 
       return res.json({
