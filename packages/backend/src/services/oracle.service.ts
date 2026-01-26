@@ -4,12 +4,18 @@
  *
  * IMPORTANTE: Este serviço é SOMENTE LEITURA (SELECT)
  * Não executar INSERT, UPDATE, DELETE, DROP, etc.
+ *
+ * Configuração:
+ * - Local (dev): usa variáveis de ambiente ORACLE_USER, ORACLE_PASSWORD, ORACLE_CONNECT_STRING
+ * - VPS (prod): usa configurações do banco (oracle_user, oracle_password, oracle_host, oracle_port, oracle_service)
+ * - Fallback: valores padrão hardcoded
  */
 
 import oracledb from 'oracledb';
+import { ConfigurationService } from './configuration.service';
 
-// Configuração do Oracle
-const ORACLE_CONFIG = {
+// Configuração padrão do Oracle (fallback)
+const DEFAULT_ORACLE_CONFIG = {
   user: 'POWERBI',
   password: 'OdRz6J4LY6Y6',
   connectString: '10.6.1.100:1521/orcl.intersoul'
@@ -18,6 +24,55 @@ const ORACLE_CONFIG = {
 export class OracleService {
   private static pool: oracledb.Pool | null = null;
   private static thickModeInitialized = false;
+  private static configLoaded = false;
+  private static oracleConfig = { ...DEFAULT_ORACLE_CONFIG };
+
+  /**
+   * Carrega configuração do Oracle de forma dinâmica
+   * Prioridade: 1. Variáveis de ambiente, 2. Banco de dados, 3. Valores padrão
+   */
+  private static async loadConfig(): Promise<void> {
+    if (this.configLoaded) return;
+
+    try {
+      // 1. Primeiro tenta variáveis de ambiente (desenvolvimento local)
+      if (process.env.ORACLE_CONNECT_STRING) {
+        this.oracleConfig = {
+          user: process.env.ORACLE_USER || DEFAULT_ORACLE_CONFIG.user,
+          password: process.env.ORACLE_PASSWORD || DEFAULT_ORACLE_CONFIG.password,
+          connectString: process.env.ORACLE_CONNECT_STRING
+        };
+        console.log('📦 Oracle config loaded from environment variables');
+        this.configLoaded = true;
+        return;
+      }
+
+      // 2. Tenta carregar do banco de dados (produção VPS)
+      const oracleHost = await ConfigurationService.get('oracle_host', null);
+      if (oracleHost) {
+        const oraclePort = await ConfigurationService.get('oracle_port', '1521');
+        const oracleService = await ConfigurationService.get('oracle_service', 'orcl.intersoul');
+        const oracleUser = await ConfigurationService.get('oracle_user', DEFAULT_ORACLE_CONFIG.user);
+        const oraclePassword = await ConfigurationService.get('oracle_password', DEFAULT_ORACLE_CONFIG.password);
+
+        this.oracleConfig = {
+          user: oracleUser,
+          password: oraclePassword,
+          connectString: `${oracleHost}:${oraclePort}/${oracleService}`
+        };
+        console.log(`📦 Oracle config loaded from database: ${oracleHost}:${oraclePort}/${oracleService}`);
+        this.configLoaded = true;
+        return;
+      }
+
+      // 3. Usa valores padrão (fallback)
+      console.log('📦 Oracle config using default values (local network)');
+      this.configLoaded = true;
+    } catch (error: any) {
+      console.error('⚠️ Error loading Oracle config, using defaults:', error.message);
+      this.configLoaded = true;
+    }
+  }
 
   /**
    * Inicializa o Thick Mode do Oracle (necessário para versões antigas do Oracle)
@@ -47,16 +102,19 @@ export class OracleService {
    */
   static async initialize(): Promise<void> {
     try {
-      // Inicializa Thick Mode primeiro (necessário para Oracle 11g)
+      // Carrega configuração dinâmica primeiro
+      await this.loadConfig();
+
+      // Inicializa Thick Mode (necessário para Oracle 11g)
       this.initThickMode();
 
       // Configura o cliente Oracle
       oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT;
       oracledb.autoCommit = false; // Segurança: não permite commit
 
-      // Cria pool de conexões
+      // Cria pool de conexões com a configuração carregada
       this.pool = await oracledb.createPool({
-        ...ORACLE_CONFIG,
+        ...this.oracleConfig,
         poolMin: 1,
         poolMax: 5,
         poolIncrement: 1,
@@ -98,11 +156,22 @@ export class OracleService {
       throw new Error('SEGURANÇA: Apenas queries SELECT são permitidas');
     }
 
-    // Bloqueia comandos perigosos
-    const blockedCommands = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'TRUNCATE', 'ALTER', 'CREATE', 'GRANT', 'REVOKE'];
-    for (const cmd of blockedCommands) {
-      if (sqlUpper.includes(cmd)) {
-        throw new Error(`SEGURANÇA: Comando ${cmd} não é permitido`);
+    // Bloqueia comandos perigosos (verifica comandos SQL reais, não partes de nomes de colunas)
+    // Usa regex para detectar comandos no início de statements ou após ponto-e-vírgula
+    const blockedPatterns = [
+      /\bINSERT\s+INTO\b/i,
+      /\bUPDATE\s+\w+\s+SET\b/i,
+      /\bDELETE\s+FROM\b/i,
+      /\bDROP\s+(TABLE|INDEX|VIEW|DATABASE)\b/i,
+      /\bTRUNCATE\s+TABLE\b/i,
+      /\bALTER\s+(TABLE|INDEX|SESSION)\b/i,
+      /\bCREATE\s+(TABLE|INDEX|VIEW|DATABASE)\b/i,
+      /\bGRANT\s+\w+\s+ON\b/i,
+      /\bREVOKE\s+\w+\s+ON\b/i
+    ];
+    for (const pattern of blockedPatterns) {
+      if (pattern.test(sql)) {
+        throw new Error(`SEGURANÇA: Comando SQL perigoso detectado`);
       }
     }
 
