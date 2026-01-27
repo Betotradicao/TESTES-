@@ -1260,7 +1260,7 @@ export class ProductsController {
           NVL(pl.VAL_CUSTO_REP, 0) as VAL_CUSTO_REP,
           NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
           NVL(pl.VAL_VENDA, 0) as VAL_VENDA_LOJA,
-          0 as VAL_OFERTA,
+          NVL(pl.VAL_OFERTA, 0) as VAL_OFERTA,
           NVL(pl.QTD_EST_ATUAL, 0) as ESTOQUE,
           s.DES_SECAO,
           g.DES_GRUPO,

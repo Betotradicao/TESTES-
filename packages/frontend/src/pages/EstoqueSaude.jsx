@@ -56,17 +56,218 @@ export default function EstoqueSaude() {
   const [filterSubGrupo, setFilterSubGrupo] = useState('');
   const [filterCurva, setFilterCurva] = useState('');
   const [activeCardFilter, setActiveCardFilter] = useState('todos');
+  const [activeCardCurva, setActiveCardCurva] = useState(''); // Filtro de curva dentro do card
+  const [viewMode, setViewMode] = useState('geral'); // 'geral' ou 'pontuacao'
 
   // Ordenação
   const [sortColumn, setSortColumn] = useState(null);
   const [sortDirection, setSortDirection] = useState('asc'); // 'asc' ou 'desc'
 
+  // Ordenação da tabela de pontuação
+  const [sortPontuacao, setSortPontuacao] = useState({ column: 'totalPontos', direction: 'desc' });
+
+  // Definição das colunas da tabela de pontuação (para drag and drop)
+  const PONTUACAO_COLUMNS_DEFAULT = [
+    { id: 'codigo', label: 'Código', type: 'info' },
+    { id: 'descricao', label: 'Descrição', type: 'info' },
+    { id: 'curva', label: 'Curva', type: 'info' },
+    { id: 'estoque', label: 'Estoque', type: 'info' },
+    { id: 'diasSemVenda', label: 'Dias Venda', type: 'info' },
+    { id: 'desSecao', label: 'Seção', type: 'info' },
+    { id: 'qtdPedidoCompra', label: 'Pedido', type: 'info' },
+    { id: 'pontosZerado', label: '📭 Est. Zerado', type: 'pontos', bg: 'bg-red-600' },
+    { id: 'pontosNegativo', label: '⚠️ Est. Negativo', type: 'pontos', bg: 'bg-red-700' },
+    { id: 'pontosSemVenda', label: '⏸️ Sem Venda', type: 'pontos', bg: 'bg-orange-600' },
+    { id: 'pontosMargemNegativa', label: '💸 Mg. Negativa', type: 'pontos', bg: 'bg-red-800' },
+    { id: 'pontosMargemBaixa', label: '💰 Mg. Baixa', type: 'pontos', bg: 'bg-yellow-600' },
+    { id: 'pontosCustoZerado', label: '🏷️ Custo Zero', type: 'pontos', bg: 'bg-purple-600' },
+    { id: 'pontosPrecoZerado', label: '💵 Preço Zero', type: 'pontos', bg: 'bg-pink-600' },
+    { id: 'totalPontos', label: 'TOTAL', type: 'total', bg: 'bg-gray-800' },
+    { id: 'nivelRisco', label: 'NÍVEL', type: 'risco', bg: 'bg-gray-700' },
+  ];
+
+  // Estado para ordem das colunas de pontuação (persistido no localStorage)
+  const [pontuacaoColumns, setPontuacaoColumns] = useState(() => {
+    const saved = localStorage.getItem('estoque_saude_pontuacao_columns');
+    if (saved) {
+      try {
+        const savedOrder = JSON.parse(saved);
+        // Reordenar baseado nos IDs salvos
+        const reordered = savedOrder.map(id => PONTUACAO_COLUMNS_DEFAULT.find(c => c.id === id)).filter(Boolean);
+        // Adicionar novas colunas que não existiam no localStorage
+        const newColumns = PONTUACAO_COLUMNS_DEFAULT.filter(col => !savedOrder.includes(col.id));
+        return [...reordered, ...newColumns];
+      } catch (e) {}
+    }
+    return PONTUACAO_COLUMNS_DEFAULT;
+  });
+
+  // Persistir ordem das colunas de pontuação
+  useEffect(() => {
+    const columnIds = pontuacaoColumns.map(col => col.id);
+    localStorage.setItem('estoque_saude_pontuacao_columns', JSON.stringify(columnIds));
+  }, [pontuacaoColumns]);
+
+  // Drag and drop para colunas de pontuação
+  const [draggedPontuacaoCol, setDraggedPontuacaoCol] = useState(null);
+  const [dragOverPontuacaoCol, setDragOverPontuacaoCol] = useState(null);
+
+  const handlePontuacaoDragStart = (e, columnId) => {
+    setDraggedPontuacaoCol(columnId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.target.style.opacity = '0.5';
+  };
+
+  const handlePontuacaoDragEnd = (e) => {
+    e.target.style.opacity = '1';
+    setDraggedPontuacaoCol(null);
+    setDragOverPontuacaoCol(null);
+  };
+
+  const handlePontuacaoDragOver = (e, columnId) => {
+    e.preventDefault();
+    if (draggedPontuacaoCol === columnId) return;
+    setDragOverPontuacaoCol(columnId);
+  };
+
+  const handlePontuacaoDrop = (e, targetColumnId) => {
+    e.preventDefault();
+    if (!draggedPontuacaoCol || draggedPontuacaoCol === targetColumnId) return;
+
+    const newColumns = [...pontuacaoColumns];
+    const draggedIndex = newColumns.findIndex(c => c.id === draggedPontuacaoCol);
+    const targetIndex = newColumns.findIndex(c => c.id === targetColumnId);
+
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    const [draggedItem] = newColumns.splice(draggedIndex, 1);
+    newColumns.splice(targetIndex, 0, draggedItem);
+
+    setPontuacaoColumns(newColumns);
+    setDraggedPontuacaoCol(null);
+    setDragOverPontuacaoCol(null);
+  };
+
   // Paginação
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
+  // Paginação da tabela de pontuação
+  const [currentPagePontuacao, setCurrentPagePontuacao] = useState(1);
+  const itemsPerPagePontuacao = 50;
+
   // Drag and Drop para reordenar colunas
   const [draggedColumn, setDraggedColumn] = useState(null);
+
+  // Modal de configuração de pontuação por card
+  const [configModalOpen, setConfigModalOpen] = useState(null); // null ou 'zerado', 'negativo', etc
+
+  // Modal de configuração de níveis de risco
+  const [riskConfigModalOpen, setRiskConfigModalOpen] = useState(false);
+
+  // Configuração de níveis de risco (persistido no localStorage)
+  const [riskConfig, setRiskConfig] = useState(() => {
+    const defaults = {
+      semRisco: { min: 0, max: 0 },
+      moderado: { min: 1, max: 100 },
+      critico: { min: 101, max: 150 },
+      muitoCritico: { min: 151, max: 999999 }
+    };
+    const saved = localStorage.getItem('estoque_saude_risk_config');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return defaults;
+  });
+
+  // Persistir configuração de risco
+  useEffect(() => {
+    localStorage.setItem('estoque_saude_risk_config', JSON.stringify(riskConfig));
+  }, [riskConfig]);
+
+  // Filtro de risco ativo
+  const [activeRiskFilter, setActiveRiskFilter] = useState(null); // null, 'semRisco', 'moderado', 'critico', 'muitoCritico'
+
+  // Configuração de pontuação por curva para cada indicador
+  // sem_venda tem estrutura diferente: { curva: { dias: X, pontos: Y } }
+  const [pontuacaoConfig, setPontuacaoConfig] = useState(() => {
+    const defaults = {
+      zerado: { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 },
+      negativo: { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 },
+      sem_venda: {
+        A: { dias: 3, pontos: 50 },
+        B: { dias: 7, pontos: 40 },
+        C: { dias: 15, pontos: 30 },
+        D: { dias: 30, pontos: 20 },
+        E: { dias: 45, pontos: 10 },
+        X: { dias: 60, pontos: 5 }
+      },
+      margem_negativa: { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 },
+      margem_baixa: { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 },
+      custo_zerado: { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 },
+      preco_venda_zerado: { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 },
+      curva_x: { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 },
+    };
+    const saved = localStorage.getItem('estoque_saude_pontuacao');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Merge saved values with defaults to ensure all keys exist
+        const result = {};
+        for (const key of Object.keys(defaults)) {
+          if (key === 'sem_venda') {
+            // Estrutura especial para sem_venda
+            result[key] = {};
+            for (const curva of ['A', 'B', 'C', 'D', 'E', 'X']) {
+              if (parsed[key]?.[curva] && typeof parsed[key][curva] === 'object') {
+                result[key][curva] = { ...defaults[key][curva], ...parsed[key][curva] };
+              } else {
+                result[key][curva] = defaults[key][curva];
+              }
+            }
+          } else {
+            result[key] = { ...defaults[key], ...(parsed[key] || {}) };
+          }
+        }
+        return result;
+      } catch (e) {
+        return defaults;
+      }
+    }
+    return defaults;
+  });
+
+  // Salvar pontuação no localStorage
+  useEffect(() => {
+    localStorage.setItem('estoque_saude_pontuacao', JSON.stringify(pontuacaoConfig));
+  }, [pontuacaoConfig]);
+
+  // Função para atualizar pontuação de uma curva específica
+  const updatePontuacao = (indicador, curva, valor) => {
+    setPontuacaoConfig(prev => ({
+      ...prev,
+      [indicador]: {
+        ...prev[indicador],
+        [curva]: parseInt(valor) || 0
+      }
+    }));
+  };
+
+  // Função específica para atualizar sem_venda (dias ou pontos)
+  const updateSemVenda = (curva, campo, valor) => {
+    setPontuacaoConfig(prev => ({
+      ...prev,
+      sem_venda: {
+        ...prev.sem_venda,
+        [curva]: {
+          ...prev.sem_venda[curva],
+          [campo]: parseInt(valor) || 0
+        }
+      }
+    }));
+  };
 
   // Salvar colunas no localStorage
   useEffect(() => {
@@ -280,7 +481,13 @@ export default function EstoqueSaude() {
     } else if (activeCardFilter === 'negativo') {
       filtered = filtered.filter(p => p.estoque < 0);
     } else if (activeCardFilter === 'sem_venda') {
-      filtered = filtered.filter(p => p.diasSemVenda > 30);
+      // Filtra usando dias específicos da curva do produto
+      filtered = filtered.filter(p => {
+        const curva = p.curva || 'X';
+        const curvaKey = ['A', 'B', 'C', 'D', 'E', 'X'].includes(curva) ? curva : 'X';
+        const diasLimite = pontuacaoConfig.sem_venda?.[curvaKey]?.dias || 30;
+        return p.diasSemVenda > diasLimite;
+      });
     } else if (activeCardFilter === 'margem_negativa') {
       filtered = filtered.filter(p => p.margemCalculada < 0);
     } else if (activeCardFilter === 'margem_baixa') {
@@ -291,6 +498,15 @@ export default function EstoqueSaude() {
       filtered = filtered.filter(p => !p.valvenda || p.valvenda === 0);
     } else if (activeCardFilter === 'curva_x') {
       filtered = filtered.filter(p => p.curva === 'X' || !p.curva);
+    }
+
+    // Filtro de curva específica dentro do card
+    if (activeCardCurva) {
+      if (activeCardCurva === 'X') {
+        filtered = filtered.filter(p => p.curva === 'X' || !p.curva);
+      } else {
+        filtered = filtered.filter(p => p.curva === activeCardCurva);
+      }
     }
 
     // Ordenação
@@ -321,7 +537,7 @@ export default function EstoqueSaude() {
     }
 
     return filtered;
-  }, [products, filterTipoEspecie, filterTipoEvento, filterSecao, filterGrupo, filterSubGrupo, filterCurva, activeCardFilter, sortColumn, sortDirection]);
+  }, [products, filterTipoEspecie, filterTipoEvento, filterSecao, filterGrupo, filterSubGrupo, filterCurva, activeCardFilter, activeCardCurva, sortColumn, sortDirection, pontuacaoConfig.sem_venda]);
 
   // Resetar filtros dependentes quando filtro pai muda
   useEffect(() => {
@@ -335,10 +551,15 @@ export default function EstoqueSaude() {
     setFilterSubGrupo('');
   }, [filterGrupo]);
 
+  // Resetar curva do card quando mudar de card
+  useEffect(() => {
+    setActiveCardCurva('');
+  }, [activeCardFilter]);
+
   // Resetar para página 1 quando mudar filtros
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterTipoEspecie, filterTipoEvento, filterSecao, filterGrupo, filterSubGrupo, filterCurva, activeCardFilter, sortColumn, sortDirection]);
+  }, [filterTipoEspecie, filterTipoEvento, filterSecao, filterGrupo, filterSubGrupo, filterCurva, activeCardFilter, activeCardCurva, sortColumn, sortDirection]);
 
   // Produtos paginados
   const paginatedProducts = useMemo(() => {
@@ -349,6 +570,20 @@ export default function EstoqueSaude() {
 
   // Total de páginas
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+
+  // Função para contar produtos por curva em um conjunto filtrado
+  const contarPorCurva = (produtosFiltrados) => {
+    const contagem = { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 };
+    produtosFiltrados.forEach(p => {
+      const curva = p.curva || 'X';
+      if (contagem[curva] !== undefined) {
+        contagem[curva]++;
+      } else {
+        contagem['X']++;
+      }
+    });
+    return contagem;
+  };
 
   // Cálculos dos cards
   const stats = useMemo(() => {
@@ -365,19 +600,278 @@ export default function EstoqueSaude() {
       return total + valorItem;
     }, 0);
 
-    return {
-      estoqueZerado: filtered.filter(p => p.estoque === 0).length,
-      estoqueNegativo: filtered.filter(p => p.estoque < 0).length,
-      semVenda30Dias: filtered.filter(p => p.diasSemVenda > 30).length,
-      margemNegativa: filtered.filter(p => p.margemCalculada < 0).length,
-      margemAbaixoMeta: filtered.filter(p => p.margemCalculada < p.margemRef && p.margemCalculada >= 0).length,
-      custoZerado: filtered.filter(p => !p.valCustoRep || p.valCustoRep === 0).length,
-      precoVendaZerado: filtered.filter(p => !p.valvenda || p.valvenda === 0).length,
-      curvaX: filtered.filter(p => p.curva === 'X' || !p.curva).length,
-      total: filtered.length,
-      valorTotalEstoque
+    // Filtros para cada indicador
+    const produtosZerado = filtered.filter(p => p.estoque === 0);
+    const produtosNegativo = filtered.filter(p => p.estoque < 0);
+
+    // Sem Venda: filtrar por curva com dias específicos de cada curva
+    const contarSemVendaPorCurva = () => {
+      const contagem = { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 };
+      filtered.forEach(p => {
+        const curva = p.curva || 'X';
+        const curvaKey = ['A', 'B', 'C', 'D', 'E', 'X'].includes(curva) ? curva : 'X';
+        const diasLimite = pontuacaoConfig.sem_venda?.[curvaKey]?.dias || 30;
+        if (p.diasSemVenda > diasLimite) {
+          contagem[curvaKey]++;
+        }
+      });
+      return contagem;
     };
-  }, [products, filterTipoEspecie, filterTipoEvento]);
+    const semVendaPorCurva = contarSemVendaPorCurva();
+    const totalSemVenda = Object.values(semVendaPorCurva).reduce((a, b) => a + b, 0);
+
+    // Produtos sem venda para filtro (usa dias do próprio produto conforme sua curva)
+    const produtosSemVenda = filtered.filter(p => {
+      const curva = p.curva || 'X';
+      const curvaKey = ['A', 'B', 'C', 'D', 'E', 'X'].includes(curva) ? curva : 'X';
+      const diasLimite = pontuacaoConfig.sem_venda?.[curvaKey]?.dias || 30;
+      return p.diasSemVenda > diasLimite;
+    });
+
+    const produtosMargemNegativa = filtered.filter(p => p.margemCalculada < 0);
+    const produtosMargemBaixa = filtered.filter(p => p.margemCalculada < p.margemRef && p.margemCalculada >= 0);
+    const produtosCustoZerado = filtered.filter(p => !p.valCustoRep || p.valCustoRep === 0);
+    const produtosPrecoZerado = filtered.filter(p => !p.valvenda || p.valvenda === 0);
+    const produtosCurvaX = filtered.filter(p => p.curva === 'X' || !p.curva);
+
+    return {
+      estoqueZerado: produtosZerado.length,
+      estoqueNegativo: produtosNegativo.length,
+      semVenda30Dias: totalSemVenda,
+      margemNegativa: produtosMargemNegativa.length,
+      margemAbaixoMeta: produtosMargemBaixa.length,
+      custoZerado: produtosCustoZerado.length,
+      precoVendaZerado: produtosPrecoZerado.length,
+      curvaX: produtosCurvaX.length,
+      total: filtered.length,
+      valorTotalEstoque,
+      // Contagem por curva para cada indicador
+      curvasPorIndicador: {
+        zerado: contarPorCurva(produtosZerado),
+        negativo: contarPorCurva(produtosNegativo),
+        sem_venda: semVendaPorCurva,
+        margem_negativa: contarPorCurva(produtosMargemNegativa),
+        margem_baixa: contarPorCurva(produtosMargemBaixa),
+        custo_zerado: contarPorCurva(produtosCustoZerado),
+        preco_venda_zerado: contarPorCurva(produtosPrecoZerado),
+        curva_x: contarPorCurva(produtosCurvaX),
+      }
+    };
+  }, [products, filterTipoEspecie, filterTipoEvento, pontuacaoConfig.sem_venda]);
+
+  // Calcular pontos para cada produto (para a visualização de pontuação)
+  const produtosComPontuacao = useMemo(() => {
+    const produtos = filteredProducts.map(p => {
+      const curva = p.curva || 'X';
+      const curvaKey = ['A', 'B', 'C', 'D', 'E', 'X'].includes(curva) ? curva : 'X';
+
+      // Calcular pontos para cada indicador
+      const pontosZerado = p.estoque === 0 ? (pontuacaoConfig.zerado?.[curvaKey] || 0) : 0;
+      const pontosNegativo = p.estoque < 0 ? (pontuacaoConfig.negativo?.[curvaKey] || 0) : 0;
+
+      // Sem venda: verificar se dias sem venda > limite da curva
+      const diasLimite = pontuacaoConfig.sem_venda?.[curvaKey]?.dias || 30;
+      const pontosSemVenda = p.diasSemVenda > diasLimite ? (pontuacaoConfig.sem_venda?.[curvaKey]?.pontos || 0) : 0;
+
+      const pontosMargemNegativa = p.margemCalculada < 0 ? (pontuacaoConfig.margem_negativa?.[curvaKey] || 0) : 0;
+      const pontosMargemBaixa = (p.margemCalculada < p.margemRef && p.margemCalculada >= 0) ? (pontuacaoConfig.margem_baixa?.[curvaKey] || 0) : 0;
+      const pontosCustoZerado = (!p.valCustoRep || p.valCustoRep === 0) ? (pontuacaoConfig.custo_zerado?.[curvaKey] || 0) : 0;
+      const pontosPrecoZerado = (!p.valvenda || p.valvenda === 0) ? (pontuacaoConfig.preco_venda_zerado?.[curvaKey] || 0) : 0;
+
+      // Total de pontos (sem curva_x)
+      const totalPontos = pontosZerado + pontosNegativo + pontosSemVenda + pontosMargemNegativa + pontosMargemBaixa + pontosCustoZerado + pontosPrecoZerado;
+
+      return {
+        ...p,
+        pontosZerado,
+        pontosNegativo,
+        pontosSemVenda,
+        pontosMargemNegativa,
+        pontosMargemBaixa,
+        pontosCustoZerado,
+        pontosPrecoZerado,
+        totalPontos
+      };
+    }).filter(p => p.totalPontos > 0); // Mostrar apenas produtos com pontuação > 0
+
+    // Ordenar baseado em sortPontuacao
+    const { column, direction } = sortPontuacao;
+    return [...produtos].sort((a, b) => {
+      let aVal = a[column];
+      let bVal = b[column];
+
+      // Para strings (codigo, descricao, curva)
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return direction === 'asc'
+          ? aVal.localeCompare(bVal, 'pt-BR')
+          : bVal.localeCompare(aVal, 'pt-BR');
+      }
+
+      // Para números
+      aVal = aVal || 0;
+      bVal = bVal || 0;
+      return direction === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+  }, [filteredProducts, pontuacaoConfig, sortPontuacao]);
+
+  // Função para alternar ordenação da tabela de pontuação
+  const handleSortPontuacao = (column) => {
+    setSortPontuacao(prev => ({
+      column,
+      direction: prev.column === column && prev.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
+
+  // Calcular contagens de risco
+  const riskCounts = useMemo(() => {
+    const counts = {
+      semRisco: 0,
+      moderado: 0,
+      critico: 0,
+      muitoCritico: 0
+    };
+
+    produtosComPontuacao.forEach(p => {
+      const pontos = p.totalPontos || 0;
+      if (pontos >= riskConfig.muitoCritico.min) {
+        counts.muitoCritico++;
+      } else if (pontos >= riskConfig.critico.min && pontos <= riskConfig.critico.max) {
+        counts.critico++;
+      } else if (pontos >= riskConfig.moderado.min && pontos <= riskConfig.moderado.max) {
+        counts.moderado++;
+      } else if (pontos === 0) {
+        counts.semRisco++;
+      }
+    });
+
+    // Adicionar produtos com 0 pontos que não estão em produtosComPontuacao
+    counts.semRisco = filteredProducts.length - produtosComPontuacao.length;
+
+    return counts;
+  }, [produtosComPontuacao, filteredProducts, riskConfig]);
+
+  // Filtrar produtos por nível de risco
+  const produtosFiltradosPorRisco = useMemo(() => {
+    if (!activeRiskFilter) return produtosComPontuacao;
+
+    return produtosComPontuacao.filter(p => {
+      const pontos = p.totalPontos || 0;
+      switch (activeRiskFilter) {
+        case 'muitoCritico':
+          return pontos >= riskConfig.muitoCritico.min;
+        case 'critico':
+          return pontos >= riskConfig.critico.min && pontos <= riskConfig.critico.max;
+        case 'moderado':
+          return pontos >= riskConfig.moderado.min && pontos <= riskConfig.moderado.max;
+        case 'semRisco':
+          return pontos === 0;
+        default:
+          return true;
+      }
+    });
+  }, [produtosComPontuacao, activeRiskFilter, riskConfig]);
+
+  // Resetar página de pontuação quando filtro de risco muda
+  useEffect(() => {
+    setCurrentPagePontuacao(1);
+  }, [activeRiskFilter]);
+
+  // Lista de produtos para a tabela de pontuação (com ou sem filtro de risco)
+  const produtosPontuacaoList = activeRiskFilter ? produtosFiltradosPorRisco : produtosComPontuacao;
+
+  // Paginação da tabela de pontuação
+  const paginatedProdutosPontuacao = useMemo(() => {
+    const startIndex = (currentPagePontuacao - 1) * itemsPerPagePontuacao;
+    const endIndex = startIndex + itemsPerPagePontuacao;
+    return produtosPontuacaoList.slice(startIndex, endIndex);
+  }, [produtosPontuacaoList, currentPagePontuacao, itemsPerPagePontuacao]);
+
+  const totalPagesPontuacao = Math.ceil(produtosPontuacaoList.length / itemsPerPagePontuacao);
+
+  // Renderizar célula da tabela de pontuação
+  const renderPontuacaoCell = (product, col) => {
+    switch (col.id) {
+      case 'codigo':
+        return <td key={col.id} className="px-3 py-2 text-sm text-gray-900 font-mono">{product.codigo}</td>;
+      case 'descricao':
+        return <td key={col.id} className="px-3 py-2 text-sm text-gray-900 max-w-xs truncate" title={product.descricao}>{product.descricao}</td>;
+      case 'curva':
+        return (
+          <td key={col.id} className="px-3 py-2 text-center">
+            <span className={`px-2 py-1 rounded text-xs font-bold ${
+              product.curva === 'A' ? 'bg-green-100 text-green-800' :
+              product.curva === 'B' ? 'bg-blue-100 text-blue-800' :
+              product.curva === 'C' ? 'bg-yellow-100 text-yellow-800' :
+              product.curva === 'D' ? 'bg-orange-100 text-orange-800' :
+              product.curva === 'E' ? 'bg-red-100 text-red-800' :
+              'bg-gray-100 text-gray-800'
+            }`}>{product.curva || 'X'}</span>
+          </td>
+        );
+      case 'estoque':
+        return (
+          <td key={col.id} className={`px-3 py-2 text-center text-sm ${product.estoque < 0 ? 'text-red-600 font-bold' : product.estoque === 0 ? 'text-orange-600' : 'text-gray-700'}`}>
+            {product.estoque?.toFixed(2).replace('.', ',') || '0'}
+          </td>
+        );
+      case 'diasSemVenda':
+        return (
+          <td key={col.id} className="px-3 py-2 text-center text-sm text-gray-700">
+            {product.diasSemVenda === 999 ? 'Nunca' : product.diasSemVenda === 0 ? 'Hoje' : `${product.diasSemVenda} d`}
+          </td>
+        );
+      case 'desSecao':
+        return (
+          <td key={col.id} className="px-3 py-2 text-sm text-gray-700 min-w-[150px]" title={product.desSecao}>
+            {product.desSecao || '-'}
+          </td>
+        );
+      case 'qtdPedidoCompra':
+        return (
+          <td key={col.id} className="px-3 py-2 text-center">
+            <span className={`px-2 py-1 rounded text-xs font-semibold ${
+              product.qtdPedidoCompra > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+            }`}>
+              {product.qtdPedidoCompra > 0 ? 'Sim' : 'Não'}
+            </span>
+          </td>
+        );
+      case 'pontosZerado':
+        return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosZerado > 0 ? 'text-red-600 bg-red-50' : 'text-gray-400'}`}>{product.pontosZerado > 0 ? product.pontosZerado : '-'}</td>;
+      case 'pontosNegativo':
+        return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosNegativo > 0 ? 'text-red-700 bg-red-50' : 'text-gray-400'}`}>{product.pontosNegativo > 0 ? product.pontosNegativo : '-'}</td>;
+      case 'pontosSemVenda':
+        return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosSemVenda > 0 ? 'text-orange-600 bg-orange-50' : 'text-gray-400'}`}>{product.pontosSemVenda > 0 ? product.pontosSemVenda : '-'}</td>;
+      case 'pontosMargemNegativa':
+        return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosMargemNegativa > 0 ? 'text-red-800 bg-red-50' : 'text-gray-400'}`}>{product.pontosMargemNegativa > 0 ? product.pontosMargemNegativa : '-'}</td>;
+      case 'pontosMargemBaixa':
+        return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosMargemBaixa > 0 ? 'text-yellow-600 bg-yellow-50' : 'text-gray-400'}`}>{product.pontosMargemBaixa > 0 ? product.pontosMargemBaixa : '-'}</td>;
+      case 'pontosCustoZerado':
+        return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosCustoZerado > 0 ? 'text-purple-600 bg-purple-50' : 'text-gray-400'}`}>{product.pontosCustoZerado > 0 ? product.pontosCustoZerado : '-'}</td>;
+      case 'pontosPrecoZerado':
+        return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosPrecoZerado > 0 ? 'text-pink-600 bg-pink-50' : 'text-gray-400'}`}>{product.pontosPrecoZerado > 0 ? product.pontosPrecoZerado : '-'}</td>;
+      case 'totalPontos':
+        return <td key={col.id} className="px-3 py-2 text-center text-sm font-bold text-white bg-gray-800">{product.totalPontos}</td>;
+      case 'nivelRisco': {
+        const pontos = product.totalPontos || 0;
+        let nivel = { label: 'SEM RISCO', color: 'bg-green-500 text-white' };
+        if (pontos >= riskConfig.muitoCritico.min) {
+          nivel = { label: 'MUITO CRÍTICO', color: 'bg-red-600 text-white' };
+        } else if (pontos >= riskConfig.critico.min && pontos <= riskConfig.critico.max) {
+          nivel = { label: 'CRÍTICO', color: 'bg-orange-500 text-white' };
+        } else if (pontos >= riskConfig.moderado.min && pontos <= riskConfig.moderado.max) {
+          nivel = { label: 'MODERADO', color: 'bg-yellow-500 text-white' };
+        }
+        return (
+          <td key={col.id} className={`px-3 py-2 text-center text-xs font-bold ${nivel.color}`}>
+            {nivel.label}
+          </td>
+        );
+      }
+      default:
+        return <td key={col.id} className="px-3 py-2 text-center text-sm text-gray-700">-</td>;
+    }
+  };
 
   // Renderizar valor da célula
   const renderCellValue = (product, columnId) => {
@@ -454,127 +948,239 @@ export default function EstoqueSaude() {
 
   // Função para exportar para PDF
   const exportToPDF = () => {
-    if (filteredProducts.length === 0) {
-      alert('Nenhum produto encontrado com os filtros aplicados!');
-      return;
-    }
+    // Verificar se está na aba de pontuação ou geral
+    if (viewMode === 'pontuacao') {
+      // Exportar tabela de pontuação
+      if (produtosPontuacaoList.length === 0) {
+        alert('Nenhum produto com pontuação encontrado!');
+        return;
+      }
 
-    const doc = new jsPDF('landscape');
+      const doc = new jsPDF('landscape');
 
-    // Título
-    doc.setFontSize(16);
-    doc.text('Relatório de Estoque e Margem', 14, 15);
+      // Título
+      doc.setFontSize(16);
+      doc.text('Relatório de Pontuação - Saúde do Estoque', 14, 15);
 
-    // Subtítulo com filtros aplicados
-    doc.setFontSize(10);
-    let subtitle = 'Filtros: ';
-    const filtrosAtivos = [];
-    if (filterSecao) filtrosAtivos.push(`Seção: ${filterSecao}`);
-    if (filterGrupo) filtrosAtivos.push(`Grupo: ${filterGrupo}`);
-    if (filterSubGrupo) filtrosAtivos.push(`Subgrupo: ${filterSubGrupo}`);
-    if (activeCardFilter) {
-      const filterLabels = {
-        zerado: 'Estoque Zerado',
-        negativo: 'Estoque Negativo',
-        sem_venda: 'Sem Venda +30 dias',
-        margem_negativa: 'Margem Negativa',
-        margem_baixa: 'Margem Abaixo da Meta',
-        custo_zerado: 'Custo Zerado',
-        preco_venda_zerado: 'Preço Venda Zerado'
+      // Subtítulo com filtro de risco
+      doc.setFontSize(10);
+      let subtitle = 'Filtro de Risco: ';
+      if (activeRiskFilter) {
+        const riskLabels = {
+          muitoCritico: 'MUITO CRÍTICO',
+          critico: 'CRÍTICO',
+          moderado: 'MODERADO',
+          semRisco: 'SEM RISCO'
+        };
+        subtitle += riskLabels[activeRiskFilter] || 'Todos';
+      } else {
+        subtitle += 'Todos os níveis';
+      }
+      doc.text(subtitle, 14, 22);
+
+      // Preparar colunas da pontuação
+      const headers = [pontuacaoColumns.map(col => col.label)];
+
+      // Função para obter nível de risco
+      const getNivelRisco = (pontos) => {
+        if (pontos >= riskConfig.muitoCritico.min) return 'MUITO CRÍTICO';
+        if (pontos >= riskConfig.critico.min && pontos <= riskConfig.critico.max) return 'CRÍTICO';
+        if (pontos >= riskConfig.moderado.min && pontos <= riskConfig.moderado.max) return 'MODERADO';
+        return 'SEM RISCO';
       };
-      filtrosAtivos.push(filterLabels[activeCardFilter]);
-    }
-    subtitle += filtrosAtivos.length > 0 ? filtrosAtivos.join(', ') : 'Nenhum';
-    doc.text(subtitle, 14, 22);
 
-    // Preparar colunas visíveis
-    const visibleCols = columns.filter(col => col.visible);
-    const headers = [visibleCols.map(col => col.label)];
-
-    // Preparar dados
-    const data = filteredProducts.map(product =>
-      visibleCols.map(col => {
-        const value = product[col.id];
-
-        // Formatar valores para PDF
-        switch (col.id) {
-          case 'valCustoRep':
-          case 'valvendaloja':
-          case 'valvenda':
-          case 'valOferta':
-            if (value == null || value === 0) return 'R$ 0,00';
-            return `R$ ${value.toFixed(2).replace('.', ',')}`;
-
-          case 'estoque':
-          case 'vendaMedia':
-          case 'margemRef':
-          case 'margemCalculada':
-            if (value == null || value === 0) return '0';
-            return value.toFixed(2).replace('.', ',');
-
-          case 'qtdUltCompra':
-          case 'qtdPedidoCompra':
-            if (value == null) return '-';
-            if (value === 0) return '0';
-            return value.toString();
-
-          case 'diasCobertura':
-            if (value == null || value === 0) return '-';
-            return `${value} dias`;
-
-          case 'dtaUltCompra':
-          case 'dtaCadastro':
-            if (!value) return '-';
-            return new Date(value).toLocaleDateString('pt-BR');
-
-          case 'diasSemVenda':
-            if (value === 999) return 'Nunca vendeu';
-            if (value === 0) return 'Hoje';
-            if (value === 1) return '1 dia';
-            return `${value} dias`;
-
-          default:
-            if (value == null || value === '') return '-';
-            return String(value);
-        }
-      })
-    );
-
-    // Gerar tabela
-    autoTable(doc, {
-      head: headers,
-      body: data,
-      startY: 28,
-      styles: {
-        fontSize: 8,
-        cellPadding: 2
-      },
-      headStyles: {
-        fillColor: [249, 115, 22], // orange-500
-        textColor: 255,
-        fontStyle: 'bold'
-      },
-      alternateRowStyles: {
-        fillColor: [249, 250, 251] // gray-50
-      },
-      margin: { top: 28 }
-    });
-
-    // Adicionar rodapé com data e total de registros
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(
-        `Página ${i} de ${pageCount} | Total de produtos: ${filteredProducts.length} | Gerado em ${new Date().toLocaleString('pt-BR')}`,
-        14,
-        doc.internal.pageSize.height - 10
+      // Preparar dados
+      const data = produtosPontuacaoList.map(product =>
+        pontuacaoColumns.map(col => {
+          switch (col.id) {
+            case 'codigo': return product.codigo || '-';
+            case 'descricao': return product.descricao || '-';
+            case 'curva': return product.curva || 'X';
+            case 'estoque': return product.estoque?.toFixed(2).replace('.', ',') || '0';
+            case 'diasSemVenda':
+              if (product.diasSemVenda === 999) return 'Nunca';
+              if (product.diasSemVenda === 0) return 'Hoje';
+              return `${product.diasSemVenda} d`;
+            case 'desSecao': return product.desSecao || '-';
+            case 'qtdPedidoCompra': return product.qtdPedidoCompra > 0 ? 'Sim' : 'Não';
+            case 'pontosZerado': return product.pontosZerado > 0 ? product.pontosZerado.toString() : '-';
+            case 'pontosNegativo': return product.pontosNegativo > 0 ? product.pontosNegativo.toString() : '-';
+            case 'pontosSemVenda': return product.pontosSemVenda > 0 ? product.pontosSemVenda.toString() : '-';
+            case 'pontosMargemNegativa': return product.pontosMargemNegativa > 0 ? product.pontosMargemNegativa.toString() : '-';
+            case 'pontosMargemBaixa': return product.pontosMargemBaixa > 0 ? product.pontosMargemBaixa.toString() : '-';
+            case 'pontosCustoZerado': return product.pontosCustoZerado > 0 ? product.pontosCustoZerado.toString() : '-';
+            case 'pontosPrecoZerado': return product.pontosPrecoZerado > 0 ? product.pontosPrecoZerado.toString() : '-';
+            case 'totalPontos': return product.totalPontos.toString();
+            case 'nivelRisco': return getNivelRisco(product.totalPontos || 0);
+            default: return '-';
+          }
+        })
       );
-    }
 
-    // Salvar PDF
-    const filename = `estoque_saude_${new Date().toISOString().slice(0, 10)}.pdf`;
-    doc.save(filename);
+      // Gerar tabela
+      autoTable(doc, {
+        head: headers,
+        body: data,
+        startY: 28,
+        styles: {
+          fontSize: 7,
+          cellPadding: 2
+        },
+        headStyles: {
+          fillColor: [249, 115, 22], // orange-500
+          textColor: 255,
+          fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+          fillColor: [249, 250, 251] // gray-50
+        },
+        columnStyles: {
+          0: { cellWidth: 18 }, // Código
+          1: { cellWidth: 45 }, // Descrição
+        },
+        margin: { top: 28 }
+      });
+
+      // Adicionar rodapé
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.text(
+          `Página ${i} de ${pageCount} | Total de produtos: ${produtosPontuacaoList.length} | Gerado em ${new Date().toLocaleString('pt-BR')}`,
+          14,
+          doc.internal.pageSize.height - 10
+        );
+      }
+
+      // Salvar PDF
+      const filename = `estoque_pontuacao_${new Date().toISOString().slice(0, 10)}.pdf`;
+      doc.save(filename);
+
+    } else {
+      // Exportar tabela geral (comportamento original)
+      if (filteredProducts.length === 0) {
+        alert('Nenhum produto encontrado com os filtros aplicados!');
+        return;
+      }
+
+      const doc = new jsPDF('landscape');
+
+      // Título
+      doc.setFontSize(16);
+      doc.text('Relatório de Estoque e Margem', 14, 15);
+
+      // Subtítulo com filtros aplicados
+      doc.setFontSize(10);
+      let subtitle = 'Filtros: ';
+      const filtrosAtivos = [];
+      if (filterSecao) filtrosAtivos.push(`Seção: ${filterSecao}`);
+      if (filterGrupo) filtrosAtivos.push(`Grupo: ${filterGrupo}`);
+      if (filterSubGrupo) filtrosAtivos.push(`Subgrupo: ${filterSubGrupo}`);
+      if (activeCardFilter) {
+        const filterLabels = {
+          zerado: 'Estoque Zerado',
+          negativo: 'Estoque Negativo',
+          sem_venda: 'Sem Venda',
+          margem_negativa: 'Margem Negativa',
+          margem_baixa: 'Margem Abaixo da Meta',
+          custo_zerado: 'Custo Zerado',
+          preco_venda_zerado: 'Preço Venda Zerado'
+        };
+        filtrosAtivos.push(filterLabels[activeCardFilter]);
+      }
+      subtitle += filtrosAtivos.length > 0 ? filtrosAtivos.join(', ') : 'Nenhum';
+      doc.text(subtitle, 14, 22);
+
+      // Preparar colunas visíveis
+      const visibleCols = columns.filter(col => col.visible);
+      const headers = [visibleCols.map(col => col.label)];
+
+      // Preparar dados
+      const data = filteredProducts.map(product =>
+        visibleCols.map(col => {
+          const value = product[col.id];
+
+          // Formatar valores para PDF
+          switch (col.id) {
+            case 'valCustoRep':
+            case 'valvendaloja':
+            case 'valvenda':
+            case 'valOferta':
+              if (value == null || value === 0) return 'R$ 0,00';
+              return `R$ ${value.toFixed(2).replace('.', ',')}`;
+
+            case 'estoque':
+            case 'vendaMedia':
+            case 'margemRef':
+            case 'margemCalculada':
+              if (value == null || value === 0) return '0';
+              return value.toFixed(2).replace('.', ',');
+
+            case 'qtdUltCompra':
+            case 'qtdPedidoCompra':
+              if (value == null) return '-';
+              if (value === 0) return '0';
+              return value.toString();
+
+            case 'diasCobertura':
+              if (value == null || value === 0) return '-';
+              return `${value} dias`;
+
+            case 'dtaUltCompra':
+            case 'dtaCadastro':
+              if (!value) return '-';
+              return new Date(value).toLocaleDateString('pt-BR');
+
+            case 'diasSemVenda':
+              if (value === 999) return 'Nunca vendeu';
+              if (value === 0) return 'Hoje';
+              if (value === 1) return '1 dia';
+              return `${value} dias`;
+
+            default:
+              if (value == null || value === '') return '-';
+              return String(value);
+          }
+        })
+      );
+
+      // Gerar tabela
+      autoTable(doc, {
+        head: headers,
+        body: data,
+        startY: 28,
+        styles: {
+          fontSize: 8,
+          cellPadding: 2
+        },
+        headStyles: {
+          fillColor: [249, 115, 22], // orange-500
+          textColor: 255,
+          fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+          fillColor: [249, 250, 251] // gray-50
+        },
+        margin: { top: 28 }
+      });
+
+      // Adicionar rodapé com data e total de registros
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.text(
+          `Página ${i} de ${pageCount} | Total de produtos: ${filteredProducts.length} | Gerado em ${new Date().toLocaleString('pt-BR')}`,
+          14,
+          doc.internal.pageSize.height - 10
+        );
+      }
+
+      // Salvar PDF
+      const filename = `estoque_saude_${new Date().toISOString().slice(0, 10)}.pdf`;
+      doc.save(filename);
+    }
   };
 
   // Função para obter classe CSS da célula
@@ -775,136 +1381,546 @@ export default function EstoqueSaude() {
           {/* Cards de Resumo - Clicáveis */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {/* Card Estoque Zerado */}
-            <button
-              onClick={() => setActiveCardFilter(activeCardFilter === 'zerado' ? 'todos' : 'zerado')}
-              className={`bg-white rounded-lg shadow p-6 text-left transition-all hover:shadow-lg ${
+            <div className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg ${
                 activeCardFilter === 'zerado' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
               }`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-3xl">📭</span>
-                <span className="text-2xl font-bold text-red-600">{stats.estoqueZerado}</span>
+              <button
+                onClick={() => {
+                  setActiveCardFilter(activeCardFilter === 'zerado' ? 'todos' : 'zerado');
+                }}
+                className="w-full text-left"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-2xl">📭</span>
+                  <span className="text-2xl font-bold text-red-600">{stats.estoqueZerado}</span>
+                </div>
+                <p className="text-sm font-medium text-gray-700">Estoque Zerado</p>
+              </button>
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <div className="flex gap-1 justify-between items-start">
+                  {['A', 'B', 'C', 'D', 'E', 'X'].map(curva => (
+                    <button
+                      key={curva}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (activeCardFilter !== 'zerado') {
+                          setActiveCardFilter('zerado');
+                        }
+                        setActiveCardCurva(activeCardCurva === curva ? '' : curva);
+                      }}
+                      className={`flex flex-col items-center px-1.5 py-1 rounded transition-all ${
+                        activeCardFilter === 'zerado' && activeCardCurva === curva
+                          ? 'ring-2 ring-orange-500 bg-orange-100'
+                          : ''
+                      } ${
+                        curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
+                        curva === 'B' ? 'bg-blue-50 hover:bg-blue-100' :
+                        curva === 'C' ? 'bg-yellow-50 hover:bg-yellow-100' :
+                        curva === 'D' ? 'bg-orange-50 hover:bg-orange-100' :
+                        curva === 'E' ? 'bg-red-50 hover:bg-red-100' :
+                        'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      title={`Filtrar curva ${curva}`}
+                    >
+                      <span className={`text-xs font-bold ${
+                        curva === 'A' ? 'text-green-700' :
+                        curva === 'B' ? 'text-blue-700' :
+                        curva === 'C' ? 'text-yellow-700' :
+                        curva === 'D' ? 'text-orange-700' :
+                        curva === 'E' ? 'text-red-700' :
+                        'text-gray-700'
+                      }`}>
+                        {curva}:{stats.curvasPorIndicador?.zerado?.[curva] || 0}
+                      </span>
+                      <span className="text-[10px] text-gray-500 mt-0.5">
+                        {pontuacaoConfig.zerado?.[curva] || 0}pts
+                      </span>
+                    </button>
+                  ))}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfigModalOpen(configModalOpen === 'zerado' ? null : 'zerado');
+                    }}
+                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center"
+                    title="Configurar pontuação"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
-              <p className="text-sm font-medium text-gray-700">Estoque Zerado</p>
-              <p className="text-xs text-gray-500">produtos</p>
-            </button>
+            </div>
 
             {/* Card Estoque Negativo */}
-            <button
-              onClick={() => setActiveCardFilter(activeCardFilter === 'negativo' ? 'todos' : 'negativo')}
-              className={`bg-white rounded-lg shadow p-6 text-left transition-all hover:shadow-lg ${
+            <div className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg ${
                 activeCardFilter === 'negativo' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
               }`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-3xl">⚠️</span>
-                <span className="text-2xl font-bold text-red-700">{stats.estoqueNegativo}</span>
+              <button
+                onClick={() => setActiveCardFilter(activeCardFilter === 'negativo' ? 'todos' : 'negativo')}
+                className="w-full text-left"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-2xl">⚠️</span>
+                  <span className="text-2xl font-bold text-red-700">{stats.estoqueNegativo}</span>
+                </div>
+                <p className="text-sm font-medium text-gray-700">Estoque Negativo</p>
+              </button>
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <div className="flex gap-1 justify-between items-start">
+                  {['A', 'B', 'C', 'D', 'E', 'X'].map(curva => (
+                    <button
+                      key={curva}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (activeCardFilter !== 'negativo') setActiveCardFilter('negativo');
+                        setActiveCardCurva(activeCardCurva === curva ? '' : curva);
+                      }}
+                      className={`flex flex-col items-center px-1.5 py-1 rounded transition-all ${
+                        activeCardFilter === 'negativo' && activeCardCurva === curva ? 'ring-2 ring-orange-500 bg-orange-100' : ''
+                      } ${
+                        curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
+                        curva === 'B' ? 'bg-blue-50 hover:bg-blue-100' :
+                        curva === 'C' ? 'bg-yellow-50 hover:bg-yellow-100' :
+                        curva === 'D' ? 'bg-orange-50 hover:bg-orange-100' :
+                        curva === 'E' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      title={`Filtrar curva ${curva}`}
+                    >
+                      <span className={`text-xs font-bold ${
+                        curva === 'A' ? 'text-green-700' : curva === 'B' ? 'text-blue-700' :
+                        curva === 'C' ? 'text-yellow-700' : curva === 'D' ? 'text-orange-700' :
+                        curva === 'E' ? 'text-red-700' : 'text-gray-700'
+                      }`}>{curva}:{stats.curvasPorIndicador?.negativo?.[curva] || 0}</span>
+                      <span className="text-[10px] text-gray-500 mt-0.5">{pontuacaoConfig.negativo?.[curva] || 0}pts</span>
+                    </button>
+                  ))}
+                  <button onClick={(e) => { e.stopPropagation(); setConfigModalOpen(configModalOpen === 'negativo' ? null : 'negativo'); }}
+                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center" title="Configurar pontuação">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  </button>
+                </div>
               </div>
-              <p className="text-sm font-medium text-gray-700">Estoque Negativo</p>
-              <p className="text-xs text-gray-500">produtos</p>
-            </button>
+            </div>
 
-            {/* Card Sem Venda +30 dias */}
-            <button
-              onClick={() => setActiveCardFilter(activeCardFilter === 'sem_venda' ? 'todos' : 'sem_venda')}
-              className={`bg-white rounded-lg shadow p-6 text-left transition-all hover:shadow-lg ${
+            {/* Card Sem Venda - dias configurável por curva */}
+            <div className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg ${
                 activeCardFilter === 'sem_venda' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
               }`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-3xl">⏸️</span>
-                <span className="text-2xl font-bold text-orange-600">{stats.semVenda30Dias}</span>
+              <button
+                onClick={() => setActiveCardFilter(activeCardFilter === 'sem_venda' ? 'todos' : 'sem_venda')}
+                className="w-full text-left"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-2xl">⏸️</span>
+                  <span className="text-2xl font-bold text-orange-600">{stats.semVenda30Dias}</span>
+                </div>
+                <p className="text-sm font-medium text-gray-700">Sem Venda</p>
+              </button>
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <div className="flex gap-1 justify-between items-start">
+                  {['A', 'B', 'C', 'D', 'E', 'X'].map(curva => (
+                    <button
+                      key={curva}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (activeCardFilter !== 'sem_venda') setActiveCardFilter('sem_venda');
+                        setActiveCardCurva(activeCardCurva === curva ? '' : curva);
+                      }}
+                      className={`flex flex-col items-center px-1 py-1 rounded transition-all ${
+                        activeCardFilter === 'sem_venda' && activeCardCurva === curva ? 'ring-2 ring-orange-500 bg-orange-100' : ''
+                      } ${
+                        curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
+                        curva === 'B' ? 'bg-blue-50 hover:bg-blue-100' :
+                        curva === 'C' ? 'bg-yellow-50 hover:bg-yellow-100' :
+                        curva === 'D' ? 'bg-orange-50 hover:bg-orange-100' :
+                        curva === 'E' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      title={`Curva ${curva}: >${pontuacaoConfig.sem_venda?.[curva]?.dias || 0} dias = ${pontuacaoConfig.sem_venda?.[curva]?.pontos || 0}pts`}
+                    >
+                      <span className={`text-[10px] font-bold ${
+                        curva === 'A' ? 'text-green-700' : curva === 'B' ? 'text-blue-700' :
+                        curva === 'C' ? 'text-yellow-700' : curva === 'D' ? 'text-orange-700' :
+                        curva === 'E' ? 'text-red-700' : 'text-gray-700'
+                      }`}>{curva}:{stats.curvasPorIndicador?.sem_venda?.[curva] || 0}</span>
+                      <span className="text-[9px] text-gray-500">{pontuacaoConfig.sem_venda?.[curva]?.dias || 0}d</span>
+                      <span className="text-[9px] text-gray-500">{pontuacaoConfig.sem_venda?.[curva]?.pontos || 0}pts</span>
+                    </button>
+                  ))}
+                  <button onClick={(e) => { e.stopPropagation(); setConfigModalOpen(configModalOpen === 'sem_venda' ? null : 'sem_venda'); }}
+                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center" title="Configurar dias e pontuação">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  </button>
+                </div>
               </div>
-              <p className="text-sm font-medium text-gray-700">Sem Venda +30d</p>
-              <p className="text-xs text-gray-500">produtos</p>
-            </button>
+            </div>
 
             {/* Card Margem Negativa */}
-            <button
-              onClick={() => setActiveCardFilter(activeCardFilter === 'margem_negativa' ? 'todos' : 'margem_negativa')}
-              className={`bg-white rounded-lg shadow p-6 text-left transition-all hover:shadow-lg ${
+            <div className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg ${
                 activeCardFilter === 'margem_negativa' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
               }`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-3xl">💸</span>
-                <span className="text-2xl font-bold text-red-800">{stats.margemNegativa}</span>
+              <button
+                onClick={() => setActiveCardFilter(activeCardFilter === 'margem_negativa' ? 'todos' : 'margem_negativa')}
+                className="w-full text-left"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-2xl">💸</span>
+                  <span className="text-2xl font-bold text-red-800">{stats.margemNegativa}</span>
+                </div>
+                <p className="text-sm font-medium text-gray-700">Margem Negativa</p>
+              </button>
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <div className="flex gap-1 justify-between items-start">
+                  {['A', 'B', 'C', 'D', 'E', 'X'].map(curva => (
+                    <button
+                      key={curva}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (activeCardFilter !== 'margem_negativa') setActiveCardFilter('margem_negativa');
+                        setActiveCardCurva(activeCardCurva === curva ? '' : curva);
+                      }}
+                      className={`flex flex-col items-center px-1.5 py-1 rounded transition-all ${
+                        activeCardFilter === 'margem_negativa' && activeCardCurva === curva ? 'ring-2 ring-orange-500 bg-orange-100' : ''
+                      } ${
+                        curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
+                        curva === 'B' ? 'bg-blue-50 hover:bg-blue-100' :
+                        curva === 'C' ? 'bg-yellow-50 hover:bg-yellow-100' :
+                        curva === 'D' ? 'bg-orange-50 hover:bg-orange-100' :
+                        curva === 'E' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      title={`Filtrar curva ${curva}`}
+                    >
+                      <span className={`text-xs font-bold ${
+                        curva === 'A' ? 'text-green-700' : curva === 'B' ? 'text-blue-700' :
+                        curva === 'C' ? 'text-yellow-700' : curva === 'D' ? 'text-orange-700' :
+                        curva === 'E' ? 'text-red-700' : 'text-gray-700'
+                      }`}>{curva}:{stats.curvasPorIndicador?.margem_negativa?.[curva] || 0}</span>
+                      <span className="text-[10px] text-gray-500 mt-0.5">{pontuacaoConfig.margem_negativa?.[curva] || 0}pts</span>
+                    </button>
+                  ))}
+                  <button onClick={(e) => { e.stopPropagation(); setConfigModalOpen(configModalOpen === 'margem_negativa' ? null : 'margem_negativa'); }}
+                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center" title="Configurar pontuação">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  </button>
+                </div>
               </div>
-              <p className="text-sm font-medium text-gray-700">Margem Negativa</p>
-              <p className="text-xs text-gray-500">produtos</p>
-            </button>
+            </div>
 
             {/* Card Margem Abaixo Meta */}
-            <button
-              onClick={() => setActiveCardFilter(activeCardFilter === 'margem_baixa' ? 'todos' : 'margem_baixa')}
-              className={`bg-white rounded-lg shadow p-6 text-left transition-all hover:shadow-lg ${
+            <div className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg ${
                 activeCardFilter === 'margem_baixa' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
               }`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-3xl">💰</span>
-                <span className="text-2xl font-bold text-yellow-600">{stats.margemAbaixoMeta}</span>
+              <button
+                onClick={() => setActiveCardFilter(activeCardFilter === 'margem_baixa' ? 'todos' : 'margem_baixa')}
+                className="w-full text-left"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-2xl">💰</span>
+                  <span className="text-2xl font-bold text-yellow-600">{stats.margemAbaixoMeta}</span>
+                </div>
+                <p className="text-sm font-medium text-gray-700">Margem Abaixo Meta</p>
+              </button>
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <div className="flex gap-1 justify-between items-start">
+                  {['A', 'B', 'C', 'D', 'E', 'X'].map(curva => (
+                    <button
+                      key={curva}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (activeCardFilter !== 'margem_baixa') setActiveCardFilter('margem_baixa');
+                        setActiveCardCurva(activeCardCurva === curva ? '' : curva);
+                      }}
+                      className={`flex flex-col items-center px-1.5 py-1 rounded transition-all ${
+                        activeCardFilter === 'margem_baixa' && activeCardCurva === curva ? 'ring-2 ring-orange-500 bg-orange-100' : ''
+                      } ${
+                        curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
+                        curva === 'B' ? 'bg-blue-50 hover:bg-blue-100' :
+                        curva === 'C' ? 'bg-yellow-50 hover:bg-yellow-100' :
+                        curva === 'D' ? 'bg-orange-50 hover:bg-orange-100' :
+                        curva === 'E' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      title={`Filtrar curva ${curva}`}
+                    >
+                      <span className={`text-xs font-bold ${
+                        curva === 'A' ? 'text-green-700' : curva === 'B' ? 'text-blue-700' :
+                        curva === 'C' ? 'text-yellow-700' : curva === 'D' ? 'text-orange-700' :
+                        curva === 'E' ? 'text-red-700' : 'text-gray-700'
+                      }`}>{curva}:{stats.curvasPorIndicador?.margem_baixa?.[curva] || 0}</span>
+                      <span className="text-[10px] text-gray-500 mt-0.5">{pontuacaoConfig.margem_baixa?.[curva] || 0}pts</span>
+                    </button>
+                  ))}
+                  <button onClick={(e) => { e.stopPropagation(); setConfigModalOpen(configModalOpen === 'margem_baixa' ? null : 'margem_baixa'); }}
+                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center" title="Configurar pontuação">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  </button>
+                </div>
               </div>
-              <p className="text-sm font-medium text-gray-700">Margem Abaixo Meta</p>
-              <p className="text-xs text-gray-500">produtos</p>
-            </button>
+            </div>
 
             {/* Card Custo Zerado */}
-            <button
-              onClick={() => setActiveCardFilter(activeCardFilter === 'custo_zerado' ? 'todos' : 'custo_zerado')}
-              className={`bg-white rounded-lg shadow p-6 text-left transition-all hover:shadow-lg ${
+            <div className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg ${
                 activeCardFilter === 'custo_zerado' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
               }`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-3xl">🏷️</span>
-                <span className="text-2xl font-bold text-purple-600">{stats.custoZerado}</span>
+              <button
+                onClick={() => setActiveCardFilter(activeCardFilter === 'custo_zerado' ? 'todos' : 'custo_zerado')}
+                className="w-full text-left"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-2xl">🏷️</span>
+                  <span className="text-2xl font-bold text-purple-600">{stats.custoZerado}</span>
+                </div>
+                <p className="text-sm font-medium text-gray-700">Custo Zerado</p>
+              </button>
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <div className="flex gap-1 justify-between items-start">
+                  {['A', 'B', 'C', 'D', 'E', 'X'].map(curva => (
+                    <button
+                      key={curva}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (activeCardFilter !== 'custo_zerado') setActiveCardFilter('custo_zerado');
+                        setActiveCardCurva(activeCardCurva === curva ? '' : curva);
+                      }}
+                      className={`flex flex-col items-center px-1.5 py-1 rounded transition-all ${
+                        activeCardFilter === 'custo_zerado' && activeCardCurva === curva ? 'ring-2 ring-orange-500 bg-orange-100' : ''
+                      } ${
+                        curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
+                        curva === 'B' ? 'bg-blue-50 hover:bg-blue-100' :
+                        curva === 'C' ? 'bg-yellow-50 hover:bg-yellow-100' :
+                        curva === 'D' ? 'bg-orange-50 hover:bg-orange-100' :
+                        curva === 'E' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      title={`Filtrar curva ${curva}`}
+                    >
+                      <span className={`text-xs font-bold ${
+                        curva === 'A' ? 'text-green-700' : curva === 'B' ? 'text-blue-700' :
+                        curva === 'C' ? 'text-yellow-700' : curva === 'D' ? 'text-orange-700' :
+                        curva === 'E' ? 'text-red-700' : 'text-gray-700'
+                      }`}>{curva}:{stats.curvasPorIndicador?.custo_zerado?.[curva] || 0}</span>
+                      <span className="text-[10px] text-gray-500 mt-0.5">{pontuacaoConfig.custo_zerado?.[curva] || 0}pts</span>
+                    </button>
+                  ))}
+                  <button onClick={(e) => { e.stopPropagation(); setConfigModalOpen(configModalOpen === 'custo_zerado' ? null : 'custo_zerado'); }}
+                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center" title="Configurar pontuação">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  </button>
+                </div>
               </div>
-              <p className="text-sm font-medium text-gray-700">Custo Zerado</p>
-              <p className="text-xs text-gray-500">produtos</p>
-            </button>
+            </div>
 
             {/* Card Preço Venda Zerado */}
-            <button
-              onClick={() => setActiveCardFilter(activeCardFilter === 'preco_venda_zerado' ? 'todos' : 'preco_venda_zerado')}
-              className={`bg-white rounded-lg shadow p-6 text-left transition-all hover:shadow-lg ${
+            <div className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg ${
                 activeCardFilter === 'preco_venda_zerado' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
               }`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-3xl">💵</span>
-                <span className="text-2xl font-bold text-pink-600">{stats.precoVendaZerado}</span>
+              <button
+                onClick={() => setActiveCardFilter(activeCardFilter === 'preco_venda_zerado' ? 'todos' : 'preco_venda_zerado')}
+                className="w-full text-left"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-2xl">💵</span>
+                  <span className="text-2xl font-bold text-pink-600">{stats.precoVendaZerado}</span>
+                </div>
+                <p className="text-sm font-medium text-gray-700">Preço Venda Zerado</p>
+              </button>
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <div className="flex gap-1 justify-between items-start">
+                  {['A', 'B', 'C', 'D', 'E', 'X'].map(curva => (
+                    <button
+                      key={curva}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (activeCardFilter !== 'preco_venda_zerado') setActiveCardFilter('preco_venda_zerado');
+                        setActiveCardCurva(activeCardCurva === curva ? '' : curva);
+                      }}
+                      className={`flex flex-col items-center px-1.5 py-1 rounded transition-all ${
+                        activeCardFilter === 'preco_venda_zerado' && activeCardCurva === curva ? 'ring-2 ring-orange-500 bg-orange-100' : ''
+                      } ${
+                        curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
+                        curva === 'B' ? 'bg-blue-50 hover:bg-blue-100' :
+                        curva === 'C' ? 'bg-yellow-50 hover:bg-yellow-100' :
+                        curva === 'D' ? 'bg-orange-50 hover:bg-orange-100' :
+                        curva === 'E' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      title={`Filtrar curva ${curva}`}
+                    >
+                      <span className={`text-xs font-bold ${
+                        curva === 'A' ? 'text-green-700' : curva === 'B' ? 'text-blue-700' :
+                        curva === 'C' ? 'text-yellow-700' : curva === 'D' ? 'text-orange-700' :
+                        curva === 'E' ? 'text-red-700' : 'text-gray-700'
+                      }`}>{curva}:{stats.curvasPorIndicador?.preco_venda_zerado?.[curva] || 0}</span>
+                      <span className="text-[10px] text-gray-500 mt-0.5">{pontuacaoConfig.preco_venda_zerado?.[curva] || 0}pts</span>
+                    </button>
+                  ))}
+                  <button onClick={(e) => { e.stopPropagation(); setConfigModalOpen(configModalOpen === 'preco_venda_zerado' ? null : 'preco_venda_zerado'); }}
+                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center" title="Configurar pontuação">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  </button>
+                </div>
               </div>
-              <p className="text-sm font-medium text-gray-700">Preço Venda Zerado</p>
-              <p className="text-xs text-gray-500">produtos</p>
-            </button>
+            </div>
 
             {/* Card Curva X */}
-            <button
-              onClick={() => setActiveCardFilter(activeCardFilter === 'curva_x' ? 'todos' : 'curva_x')}
-              className={`bg-white rounded-lg shadow p-6 text-left transition-all hover:shadow-lg ${
+            <div className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg ${
                 activeCardFilter === 'curva_x' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
               }`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-3xl">❌</span>
-                <span className="text-2xl font-bold text-gray-600">{stats.curvaX}</span>
+              <button
+                onClick={() => setActiveCardFilter(activeCardFilter === 'curva_x' ? 'todos' : 'curva_x')}
+                className="w-full text-left"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-2xl">❌</span>
+                  <span className="text-2xl font-bold text-gray-600">{stats.curvaX}</span>
+                </div>
+                <p className="text-sm font-medium text-gray-700">Curva X</p>
+              </button>
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <div className="flex gap-1 justify-between items-start">
+                  {['A', 'B', 'C', 'D', 'E', 'X'].map(curva => (
+                    <button
+                      key={curva}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (activeCardFilter !== 'curva_x') setActiveCardFilter('curva_x');
+                        setActiveCardCurva(activeCardCurva === curva ? '' : curva);
+                      }}
+                      className={`flex flex-col items-center px-1.5 py-1 rounded transition-all ${
+                        activeCardFilter === 'curva_x' && activeCardCurva === curva ? 'ring-2 ring-orange-500 bg-orange-100' : ''
+                      } ${
+                        curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
+                        curva === 'B' ? 'bg-blue-50 hover:bg-blue-100' :
+                        curva === 'C' ? 'bg-yellow-50 hover:bg-yellow-100' :
+                        curva === 'D' ? 'bg-orange-50 hover:bg-orange-100' :
+                        curva === 'E' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      title={`Filtrar curva ${curva}`}
+                    >
+                      <span className={`text-xs font-bold ${
+                        curva === 'A' ? 'text-green-700' : curva === 'B' ? 'text-blue-700' :
+                        curva === 'C' ? 'text-yellow-700' : curva === 'D' ? 'text-orange-700' :
+                        curva === 'E' ? 'text-red-700' : 'text-gray-700'
+                      }`}>{curva}:{stats.curvasPorIndicador?.curva_x?.[curva] || 0}</span>
+                      <span className="text-[10px] text-gray-500 mt-0.5">{pontuacaoConfig.curva_x?.[curva] || 0}pts</span>
+                    </button>
+                  ))}
+                  <button onClick={(e) => { e.stopPropagation(); setConfigModalOpen(configModalOpen === 'curva_x' ? null : 'curva_x'); }}
+                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center" title="Configurar pontuação">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  </button>
+                </div>
               </div>
-              <p className="text-sm font-medium text-gray-700">Curva X</p>
-              <p className="text-xs text-gray-500">sem classificação</p>
+            </div>
+
+          </div>
+
+          {/* Botões de Visualização: GERAL / PONTUAÇÃO + Cards de Risco */}
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <button
+              onClick={() => setViewMode('geral')}
+              className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                viewMode === 'geral'
+                  ? 'bg-orange-500 text-white shadow-lg'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              GERAL
+            </button>
+            <button
+              onClick={() => setViewMode('pontuacao')}
+              className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                viewMode === 'pontuacao'
+                  ? 'bg-orange-500 text-white shadow-lg'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              PONTUAÇÃO
             </button>
 
-            {/* Card Valor Total Estoque (não clicável) */}
-            <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg shadow p-6 text-white">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-3xl">💰</span>
-                <span className="text-lg font-bold">
-                  R$ {(stats.valorTotalEstoque / 1000).toFixed(0)}k
+            {/* Cards de Risco - só aparecem na aba de pontuação */}
+            {viewMode === 'pontuacao' && (
+              <>
+                {/* Separador */}
+                <div className="w-px h-8 bg-gray-300 mx-2"></div>
+
+                <button
+                  onClick={() => { setActiveRiskFilter(activeRiskFilter === 'muitoCritico' ? null : 'muitoCritico'); }}
+                  className={`px-3 py-1.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
+                    activeRiskFilter === 'muitoCritico'
+                      ? 'bg-red-600 text-white shadow-lg ring-2 ring-red-400'
+                      : 'bg-red-100 text-red-700 hover:bg-red-200'
+                  }`}
+                >
+                  <span>🔴</span>
+                  <span>MUITO CRÍTICO</span>
+                  <span className="bg-white text-red-600 px-2 py-0.5 rounded-full text-xs font-bold">{riskCounts.muitoCritico}</span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveRiskFilter(activeRiskFilter === 'critico' ? null : 'critico'); }}
+                  className={`px-3 py-1.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
+                    activeRiskFilter === 'critico'
+                      ? 'bg-orange-600 text-white shadow-lg ring-2 ring-orange-400'
+                      : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                  }`}
+                >
+                  <span>🟠</span>
+                  <span>CRÍTICO</span>
+                  <span className="bg-white text-orange-600 px-2 py-0.5 rounded-full text-xs font-bold">{riskCounts.critico}</span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveRiskFilter(activeRiskFilter === 'moderado' ? null : 'moderado'); }}
+                  className={`px-3 py-1.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
+                    activeRiskFilter === 'moderado'
+                      ? 'bg-yellow-500 text-white shadow-lg ring-2 ring-yellow-400'
+                      : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                  }`}
+                >
+                  <span>🟡</span>
+                  <span>MODERADO</span>
+                  <span className="bg-white text-yellow-600 px-2 py-0.5 rounded-full text-xs font-bold">{riskCounts.moderado}</span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveRiskFilter(activeRiskFilter === 'semRisco' ? null : 'semRisco'); }}
+                  className={`px-3 py-1.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
+                    activeRiskFilter === 'semRisco'
+                      ? 'bg-green-600 text-white shadow-lg ring-2 ring-green-400'
+                      : 'bg-green-100 text-green-700 hover:bg-green-200'
+                  }`}
+                >
+                  <span>🟢</span>
+                  <span>SEM RISCO</span>
+                  <span className="bg-white text-green-600 px-2 py-0.5 rounded-full text-xs font-bold">{riskCounts.semRisco}</span>
+                </button>
+
+                {/* Botão de Configuração de Risco */}
+                <button
+                  onClick={() => setRiskConfigModalOpen(true)}
+                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
+                  title="Configurar níveis de risco"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
+                </button>
+
+                <span className="ml-2 text-sm text-gray-600">
+                  {activeRiskFilter ? produtosFiltradosPorRisco.length : produtosComPontuacao.length} produtos
                 </span>
-              </div>
-              <p className="text-sm font-medium">Valor Total Estoque</p>
-              <p className="text-xs text-white/80">custo total</p>
-            </div>
+              </>
+            )}
+
           </div>
 
           {/* Info do filtro ativo e contador */}
@@ -917,7 +1933,7 @@ export default function EstoqueSaude() {
                       <strong>Filtro ativo:</strong> {
                         activeCardFilter === 'zerado' ? '📭 Estoque Zerado' :
                         activeCardFilter === 'negativo' ? '⚠️ Estoque Negativo' :
-                        activeCardFilter === 'sem_venda' ? '⏸️ Sem Venda +30 dias' :
+                        activeCardFilter === 'sem_venda' ? '⏸️ Sem Venda' :
                         activeCardFilter === 'margem_negativa' ? '💸 Margem Negativa' :
                         activeCardFilter === 'margem_baixa' ? '💰 Margem Abaixo da Meta' :
                         activeCardFilter === 'custo_zerado' ? '🏷️ Custo Zerado' :
@@ -927,6 +1943,10 @@ export default function EstoqueSaude() {
                     </p>
                     <span className="bg-orange-200 text-orange-900 px-3 py-1 rounded-full text-xs font-bold">
                       {filteredProducts.length} produtos
+                    </span>
+                    <span className="text-orange-800 font-medium">💰 Valor Total:</span>
+                    <span className="bg-orange-200 text-orange-900 px-3 py-1 rounded-full text-xs font-bold">
+                      R$ {(stats.valorTotalEstoque / 1000).toFixed(0)}k
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -961,11 +1981,19 @@ export default function EstoqueSaude() {
             ) : (
               <div className="flex-1 bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-blue-800 font-medium">📊 Total de produtos:</span>
-                    <span className="bg-blue-200 text-blue-900 px-3 py-1 rounded-full text-sm font-bold">
-                      {filteredProducts.length} produtos
-                    </span>
+                  <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                      <span className="text-blue-800 font-medium">📊 Total de produtos:</span>
+                      <span className="bg-blue-200 text-blue-900 px-3 py-1 rounded-full text-sm font-bold">
+                        {filteredProducts.length} produtos
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-blue-800 font-medium">💰 Valor Total Estoque:</span>
+                      <span className="bg-blue-200 text-blue-900 px-3 py-1 rounded-full text-sm font-bold">
+                        R$ {(stats.valorTotalEstoque / 1000).toFixed(0)}k
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -993,122 +2021,611 @@ export default function EstoqueSaude() {
             )}
           </div>
 
-          {/* Tabela de Produtos */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {visibleColumns.map(col => (
-                      <th
-                        key={col.id}
-                        draggable
-                        onDragStart={(e) => handleHeaderDragStart(e, col.id)}
-                        onDragEnd={handleHeaderDragEnd}
-                        onDragOver={(e) => handleHeaderDragOver(e, col.id)}
-                        onDragLeave={handleHeaderDragLeave}
-                        onDrop={(e) => handleHeaderDrop(e, col.id)}
-                        className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-move hover:bg-gray-100 select-none transition-all ${
-                          dragOverColumn === col.id ? 'bg-orange-100 border-l-2 border-orange-500' : ''
-                        }`}
-                        onClick={() => handleSort(col.id)}
-                      >
-                        <div className="flex items-center gap-1">
-                          <span>{col.label}</span>
-                          {sortColumn === col.id && (
-                            <span className="text-orange-500">
-                              {sortDirection === 'asc' ? '▲' : '▼'}
-                            </span>
-                          )}
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {loading ? (
+          {/* Tabela de Produtos ou Pontuação */}
+          {viewMode === 'geral' ? (
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
                     <tr>
-                      <td colSpan={visibleColumns.length} className="px-4 py-8 text-center text-gray-500">
-                        🔄 Carregando produtos...
-                      </td>
+                      {visibleColumns.map(col => (
+                        <th
+                          key={col.id}
+                          draggable
+                          onDragStart={(e) => handleHeaderDragStart(e, col.id)}
+                          onDragEnd={handleHeaderDragEnd}
+                          onDragOver={(e) => handleHeaderDragOver(e, col.id)}
+                          onDragLeave={handleHeaderDragLeave}
+                          onDrop={(e) => handleHeaderDrop(e, col.id)}
+                          className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-move hover:bg-gray-100 select-none transition-all ${
+                            dragOverColumn === col.id ? 'bg-orange-100 border-l-2 border-orange-500' : ''
+                          }`}
+                          onClick={() => handleSort(col.id)}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span>{col.label}</span>
+                            {sortColumn === col.id && (
+                              <span className="text-orange-500">
+                                {sortDirection === 'asc' ? '▲' : '▼'}
+                              </span>
+                            )}
+                          </div>
+                        </th>
+                      ))}
                     </tr>
-                  ) : error ? (
-                    <tr>
-                      <td colSpan={visibleColumns.length} className="px-4 py-8 text-center text-red-500">
-                        ❌ {error}
-                      </td>
-                    </tr>
-                  ) : filteredProducts.length === 0 ? (
-                    <tr>
-                      <td colSpan={visibleColumns.length} className="px-4 py-8 text-center text-gray-500">
-                        📭 Nenhum produto encontrado
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedProducts.map((product) => (
-                      <tr key={product.codigo} className="hover:bg-gray-50">
-                        {visibleColumns.map(col => (
-                          <td key={col.id} className={getCellClassName(product, col.id)}>
-                            {renderCellValue(product, col.id)}
-                          </td>
-                        ))}
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={visibleColumns.length} className="px-4 py-8 text-center text-gray-500">
+                          🔄 Carregando produtos...
+                        </td>
                       </tr>
-                    ))
+                    ) : error ? (
+                      <tr>
+                        <td colSpan={visibleColumns.length} className="px-4 py-8 text-center text-red-500">
+                          ❌ {error}
+                        </td>
+                      </tr>
+                    ) : filteredProducts.length === 0 ? (
+                      <tr>
+                        <td colSpan={visibleColumns.length} className="px-4 py-8 text-center text-gray-500">
+                          📭 Nenhum produto encontrado
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedProducts.map((product) => (
+                        <tr key={product.codigo} className="hover:bg-gray-50">
+                          {visibleColumns.map(col => (
+                            <td key={col.id} className={getCellClassName(product, col.id)}>
+                              {renderCellValue(product, col.id)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Footer da Tabela com Paginação */}
+              {!loading && !error && filteredProducts.length > 0 && (
+                <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between">
+                  <p className="text-sm text-gray-700">
+                    Exibindo <strong>{(currentPage - 1) * itemsPerPage + 1}</strong> - <strong>{Math.min(currentPage * itemsPerPage, filteredProducts.length)}</strong> de <strong>{filteredProducts.length}</strong> produtos
+                  </p>
+
+                  {/* Controles de Paginação */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      >
+                        ⏮️ Primeira
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      >
+                        ◀️ Anterior
+                      </button>
+
+                      <span className="text-sm text-gray-700 px-3">
+                        Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong>
+                      </span>
+
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      >
+                        Próxima ▶️
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      >
+                        Última ⏭️
+                      </button>
+                    </div>
                   )}
-                </tbody>
-              </table>
+                </div>
+              )}
             </div>
+          ) : (
+            /* Tabela de Pontuação */
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
+                    <tr>
+                      {pontuacaoColumns.map((col) => (
+                        <th
+                          key={col.id}
+                          draggable
+                          onDragStart={(e) => handlePontuacaoDragStart(e, col.id)}
+                          onDragEnd={handlePontuacaoDragEnd}
+                          onDragOver={(e) => handlePontuacaoDragOver(e, col.id)}
+                          onDrop={(e) => handlePontuacaoDrop(e, col.id)}
+                          onClick={() => handleSortPontuacao(col.id)}
+                          className={`px-3 py-3 text-xs font-medium uppercase cursor-move select-none transition-all
+                            ${col.type === 'info' ? 'hover:bg-orange-600' : ''}
+                            ${col.bg || ''}
+                            ${col.id === 'desSecao' ? 'min-w-[150px]' : ''}
+                            ${col.id === 'codigo' || col.id === 'descricao' || col.id === 'desSecao' ? 'text-left' : 'text-center'}
+                            ${dragOverPontuacaoCol === col.id ? 'bg-orange-700 scale-105' : ''}
+                            ${col.type === 'total' ? 'font-bold' : ''}
+                          `}
+                        >
+                          <div className={`flex items-center gap-1 ${col.id !== 'codigo' && col.id !== 'descricao' && col.id !== 'desSecao' ? 'justify-center' : ''}`}>
+                            {col.label}
+                            {sortPontuacao.column === col.id && (
+                              <span>{sortPontuacao.direction === 'asc' ? '▲' : '▼'}</span>
+                            )}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={pontuacaoColumns.length} className="px-4 py-8 text-center text-gray-500">
+                          🔄 Carregando produtos...
+                        </td>
+                      </tr>
+                    ) : produtosPontuacaoList.length === 0 ? (
+                      <tr>
+                        <td colSpan={pontuacaoColumns.length} className="px-4 py-8 text-center text-gray-500">
+                          📊 {activeRiskFilter ? 'Nenhum produto neste nível de risco.' : 'Nenhum produto com pontuação. Configure os pontos em cada card.'}
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedProdutosPontuacao.map((product) => (
+                        <tr key={product.codigo} className="hover:bg-gray-50">
+                          {pontuacaoColumns.map((col) => renderPontuacaoCell(product, col))}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  {produtosPontuacaoList.length > 0 && (
+                    <tfoot className="bg-gray-100">
+                      <tr className="font-bold">
+                        {pontuacaoColumns.map((col, idx) => {
+                          // Colunas de info: mostrar "TOTAL GERAL:" na última coluna de info
+                          const infoColumns = pontuacaoColumns.filter(c => c.type === 'info');
+                          const isLastInfo = col.type === 'info' && idx === pontuacaoColumns.indexOf(infoColumns[infoColumns.length - 1]);
+                          const isInfo = col.type === 'info' && !isLastInfo;
 
-            {/* Footer da Tabela com Paginação */}
-            {!loading && !error && filteredProducts.length > 0 && (
-              <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between">
-                <p className="text-sm text-gray-700">
-                  Exibindo <strong>{(currentPage - 1) * itemsPerPage + 1}</strong> - <strong>{Math.min(currentPage * itemsPerPage, filteredProducts.length)}</strong> de <strong>{filteredProducts.length}</strong> produtos
-                </p>
+                          if (isInfo) return <td key={col.id} className="px-3 py-3"></td>;
+                          if (isLastInfo) return <td key={col.id} className="px-3 py-3 text-right text-sm">TOTAL {activeRiskFilter ? 'FILTRADO' : 'GERAL'}:</td>;
 
-                {/* Controles de Paginação */}
-                {totalPages > 1 && (
+                          // Usar lista filtrada se houver filtro de risco ativo
+                          const dataList = produtosPontuacaoList;
+
+                          // Colunas de pontos
+                          const totals = {
+                            pontosZerado: { value: dataList.reduce((sum, p) => sum + p.pontosZerado, 0), color: 'text-red-600' },
+                            pontosNegativo: { value: dataList.reduce((sum, p) => sum + p.pontosNegativo, 0), color: 'text-red-700' },
+                            pontosSemVenda: { value: dataList.reduce((sum, p) => sum + p.pontosSemVenda, 0), color: 'text-orange-600' },
+                            pontosMargemNegativa: { value: dataList.reduce((sum, p) => sum + p.pontosMargemNegativa, 0), color: 'text-red-800' },
+                            pontosMargemBaixa: { value: dataList.reduce((sum, p) => sum + p.pontosMargemBaixa, 0), color: 'text-yellow-600' },
+                            pontosCustoZerado: { value: dataList.reduce((sum, p) => sum + p.pontosCustoZerado, 0), color: 'text-purple-600' },
+                            pontosPrecoZerado: { value: dataList.reduce((sum, p) => sum + p.pontosPrecoZerado, 0), color: 'text-pink-600' },
+                            totalPontos: { value: dataList.reduce((sum, p) => sum + p.totalPontos, 0), color: 'text-white', bg: 'bg-gray-800' },
+                          };
+
+                          const total = totals[col.id];
+                          if (total) {
+                            return (
+                              <td key={col.id} className={`px-3 py-3 text-center text-sm ${total.color} ${total.bg || ''}`}>
+                                {total.value}
+                              </td>
+                            );
+                          }
+                          return <td key={col.id} className="px-3 py-3"></td>;
+                        })}
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+              {/* Controles de paginação */}
+              {produtosPontuacaoList.length > 0 && (
+                <div className="bg-gray-50 px-4 py-3 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <span className="text-sm text-gray-700">
+                    Exibindo <strong>{(currentPagePontuacao - 1) * itemsPerPagePontuacao + 1}</strong> - <strong>{Math.min(currentPagePontuacao * itemsPerPagePontuacao, produtosPontuacaoList.length)}</strong> de <strong>{produtosPontuacaoList.length}</strong> produtos
+                  </span>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      onClick={() => setCurrentPagePontuacao(1)}
+                      disabled={currentPagePontuacao === 1}
+                      className="px-2 py-1 text-sm border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      ⏮️ Primeira
+                      ««
                     </button>
                     <button
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      onClick={() => setCurrentPagePontuacao(p => Math.max(1, p - 1))}
+                      disabled={currentPagePontuacao === 1}
+                      className="px-3 py-1 text-sm border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      ◀️ Anterior
+                      Anterior
                     </button>
-
-                    <span className="text-sm text-gray-700 px-3">
-                      Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong>
+                    <span className="text-sm text-gray-600 px-2">
+                      Página <strong>{currentPagePontuacao}</strong> de <strong>{totalPagesPontuacao || 1}</strong>
                     </span>
-
                     <button
-                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      onClick={() => setCurrentPagePontuacao(p => Math.min(totalPagesPontuacao, p + 1))}
+                      disabled={currentPagePontuacao === totalPagesPontuacao || totalPagesPontuacao === 0}
+                      className="px-3 py-1 text-sm border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Próxima ▶️
+                      Próxima
                     </button>
                     <button
-                      onClick={() => setCurrentPage(totalPages)}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      onClick={() => setCurrentPagePontuacao(totalPagesPontuacao)}
+                      disabled={currentPagePontuacao === totalPagesPontuacao || totalPagesPontuacao === 0}
+                      className="px-2 py-1 text-sm border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Última ⏭️
+                      »»
                     </button>
                   </div>
-                )}
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Modal de Configuração de Pontuação */}
+      {configModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setConfigModalOpen(null)}>
+          <div
+            className="bg-white rounded-lg shadow-2xl w-full max-w-lg mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-gradient-to-r from-orange-500 to-red-600 p-4 rounded-t-lg text-white">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold">
+                  {configModalOpen === 'zerado' && '📭 Pontuação - Estoque Zerado'}
+                  {configModalOpen === 'negativo' && '⚠️ Pontuação - Estoque Negativo'}
+                  {configModalOpen === 'sem_venda' && '⏸️ Configuração - Sem Venda'}
+                  {configModalOpen === 'margem_negativa' && '💸 Pontuação - Margem Negativa'}
+                  {configModalOpen === 'margem_baixa' && '💰 Pontuação - Margem Baixa'}
+                  {configModalOpen === 'custo_zerado' && '🏷️ Pontuação - Custo Zerado'}
+                  {configModalOpen === 'preco_venda_zerado' && '💵 Pontuação - Preço Zerado'}
+                  {configModalOpen === 'curva_x' && '❌ Pontuação - Curva X'}
+                </h2>
+                <button
+                  onClick={() => setConfigModalOpen(null)}
+                  className="text-white hover:text-gray-200"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+              <p className="text-sm text-white/80 mt-1">
+                {configModalOpen === 'sem_venda'
+                  ? 'Defina dias sem venda e pontos para cada curva'
+                  : 'Defina a pontuação para cada curva'}
+              </p>
+            </div>
+
+            <div className="p-6">
+              {configModalOpen === 'sem_venda' ? (
+                <>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Informe quantos dias sem venda e quantos pontos cada produto recebe, por curva:
+                  </p>
+                  <div className="space-y-3">
+                    {/* Cabeçalho */}
+                    <div className="flex items-center gap-2 text-xs font-medium text-gray-500 border-b pb-2">
+                      <div className="w-10"></div>
+                      <div className="flex-1">Curva</div>
+                      <div className="w-20 text-center">Dias</div>
+                      <div className="w-20 text-center">Pontos</div>
+                    </div>
+                    {['A', 'B', 'C', 'D', 'E', 'X'].map((curva) => (
+                      <div key={curva} className="flex items-center gap-2">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${
+                          curva === 'A' ? 'bg-green-500' :
+                          curva === 'B' ? 'bg-blue-500' :
+                          curva === 'C' ? 'bg-yellow-500' :
+                          curva === 'D' ? 'bg-orange-500' :
+                          curva === 'E' ? 'bg-red-500' :
+                          'bg-gray-500'
+                        }`}>
+                          {curva}
+                        </div>
+                        <label className="flex-1 text-sm font-medium text-gray-700">
+                          Curva {curva}
+                        </label>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-gray-400">{'>'}</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="999"
+                            value={pontuacaoConfig.sem_venda?.[curva]?.dias || 0}
+                            onChange={(e) => updateSemVenda(curva, 'dias', e.target.value)}
+                            className="w-16 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-center text-sm"
+                          />
+                          <span className="text-xs text-gray-500">d</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={pontuacaoConfig.sem_venda?.[curva]?.pontos || 0}
+                            onChange={(e) => updateSemVenda(curva, 'pontos', e.target.value)}
+                            className="w-16 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-center text-sm"
+                          />
+                          <span className="text-xs text-gray-500">pts</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Informe quantos pontos cada produto com esta condição recebe, de acordo com sua curva:
+                  </p>
+                  <div className="space-y-3">
+                    {['A', 'B', 'C', 'D', 'E', 'X'].map((curva) => (
+                      <div key={curva} className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${
+                          curva === 'A' ? 'bg-green-500' :
+                          curva === 'B' ? 'bg-blue-500' :
+                          curva === 'C' ? 'bg-yellow-500' :
+                          curva === 'D' ? 'bg-orange-500' :
+                          curva === 'E' ? 'bg-red-500' :
+                          'bg-gray-500'
+                        }`}>
+                          {curva}
+                        </div>
+                        <label className="flex-1 text-sm font-medium text-gray-700">
+                          Curva {curva}
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={pontuacaoConfig[configModalOpen]?.[curva] || 0}
+                            onChange={(e) => updatePontuacao(configModalOpen, curva, e.target.value)}
+                            className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-center"
+                          />
+                          <span className="text-sm text-gray-500">pontos</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => {
+                      if (configModalOpen === 'sem_venda') {
+                        // Zerar/resetar valores do sem_venda
+                        setPontuacaoConfig(prev => ({
+                          ...prev,
+                          sem_venda: {
+                            A: { dias: 3, pontos: 0 },
+                            B: { dias: 7, pontos: 0 },
+                            C: { dias: 15, pontos: 0 },
+                            D: { dias: 30, pontos: 0 },
+                            E: { dias: 45, pontos: 0 },
+                            X: { dias: 60, pontos: 0 }
+                          }
+                        }));
+                      } else {
+                        // Zerar todas as pontuações deste indicador
+                        setPontuacaoConfig(prev => ({
+                          ...prev,
+                          [configModalOpen]: { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 }
+                        }));
+                      }
+                    }}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm"
+                  >
+                    Zerar valores
+                  </button>
+                  <button
+                    onClick={() => setConfigModalOpen(null)}
+                    className="px-6 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 font-medium"
+                  >
+                    Salvar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Configuração de Níveis de Risco */}
+      {riskConfigModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setRiskConfigModalOpen(false)}>
+          <div
+            className="bg-white rounded-lg shadow-2xl w-full max-w-lg mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-4 rounded-t-lg text-white">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold">
+                  ⚙️ Configuração de Níveis de Risco
+                </h2>
+                <button
+                  onClick={() => setRiskConfigModalOpen(false)}
+                  className="text-white hover:text-gray-200"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+              <p className="text-sm text-white/80 mt-1">
+                Defina os intervalos de pontos para cada nível de risco
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Sem Risco */}
+              <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">🟢</span>
+                  <span className="font-bold text-green-700">SEM RISCO</span>
+                </div>
+                <p className="text-xs text-green-600 mb-2">Produtos com 0 pontos</p>
+              </div>
+
+              {/* Moderado */}
+              <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">🟡</span>
+                  <span className="font-bold text-yellow-700">MODERADO</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-yellow-700">De</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={riskConfig.moderado.min}
+                    onChange={(e) => {
+                      const newMin = parseInt(e.target.value) || 1;
+                      setRiskConfig(prev => ({
+                        ...prev,
+                        moderado: { ...prev.moderado, min: newMin }
+                      }));
+                    }}
+                    className="w-20 px-2 py-1 border border-yellow-300 rounded text-center text-sm"
+                  />
+                  <span className="text-sm text-yellow-700">até</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={riskConfig.moderado.max}
+                    onChange={(e) => {
+                      const newMax = parseInt(e.target.value) || 1;
+                      setRiskConfig(prev => ({
+                        ...prev,
+                        moderado: { ...prev.moderado, max: newMax },
+                        critico: { ...prev.critico, min: newMax + 1 }
+                      }));
+                    }}
+                    className="w-20 px-2 py-1 border border-yellow-300 rounded text-center text-sm"
+                  />
+                  <span className="text-sm text-yellow-700">pontos</span>
+                </div>
+              </div>
+
+              {/* Crítico */}
+              <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">🟠</span>
+                  <span className="font-bold text-orange-700">CRÍTICO</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-orange-700">De</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={riskConfig.critico.min}
+                    onChange={(e) => {
+                      const newMin = parseInt(e.target.value) || 1;
+                      setRiskConfig(prev => ({
+                        ...prev,
+                        critico: { ...prev.critico, min: newMin },
+                        moderado: { ...prev.moderado, max: newMin - 1 }
+                      }));
+                    }}
+                    className="w-20 px-2 py-1 border border-orange-300 rounded text-center text-sm"
+                  />
+                  <span className="text-sm text-orange-700">até</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={riskConfig.critico.max}
+                    onChange={(e) => {
+                      const newMax = parseInt(e.target.value) || 1;
+                      setRiskConfig(prev => ({
+                        ...prev,
+                        critico: { ...prev.critico, max: newMax },
+                        muitoCritico: { ...prev.muitoCritico, min: newMax + 1 }
+                      }));
+                    }}
+                    className="w-20 px-2 py-1 border border-orange-300 rounded text-center text-sm"
+                  />
+                  <span className="text-sm text-orange-700">pontos</span>
+                </div>
+              </div>
+
+              {/* Muito Crítico */}
+              <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">🔴</span>
+                  <span className="font-bold text-red-700">MUITO CRÍTICO</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-red-700">A partir de</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={riskConfig.muitoCritico.min}
+                    onChange={(e) => {
+                      const newMin = parseInt(e.target.value) || 1;
+                      setRiskConfig(prev => ({
+                        ...prev,
+                        muitoCritico: { ...prev.muitoCritico, min: newMin },
+                        critico: { ...prev.critico, max: newMin - 1 }
+                      }));
+                    }}
+                    className="w-20 px-2 py-1 border border-red-300 rounded text-center text-sm"
+                  />
+                  <span className="text-sm text-red-700">pontos ou mais</span>
+                </div>
+              </div>
+
+              {/* Info box */}
+              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-xs text-blue-700">
+                  💡 <strong>Dica:</strong> Os intervalos são ajustados automaticamente para não haver sobreposição.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-between p-4 border-t bg-gray-50 rounded-b-lg">
+              <button
+                onClick={() => {
+                  setRiskConfig({
+                    semRisco: { min: 0, max: 0 },
+                    moderado: { min: 1, max: 100 },
+                    critico: { min: 101, max: 150 },
+                    muitoCritico: { min: 151, max: 999999 }
+                  });
+                }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm"
+              >
+                Restaurar padrão
+              </button>
+              <button
+                onClick={() => setRiskConfigModalOpen(false)}
+                className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 font-medium"
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sidebar de Seleção de Colunas */}
       {showColumnSelector && (
