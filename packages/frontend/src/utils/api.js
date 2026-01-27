@@ -159,4 +159,7 @@ api.interceptors.response.use(
   }
 );
 
+// Exportar a função para uso em URLs diretas (ex: abrir PDF em nova aba)
+export { getApiBaseUrl };
+
 export default api;

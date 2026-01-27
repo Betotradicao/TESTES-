@@ -581,25 +581,25 @@ export default function FrenteCaixa() {
         </div>
 
         {/* Header Laranja */}
-        <div className="bg-gradient-to-r from-orange-500 to-orange-600 shadow-lg">
-          <div className="px-4 md:px-6 py-4">
+        <div className="bg-gradient-to-br from-orange-500 to-red-600 shadow-lg">
+          <div className="px-4 md:px-6 py-6">
             <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">🛒 Frente de Caixa</h1>
+                <p className="text-white/90">Vendas, cancelamentos, descontos e diferença de caixa por colaborador</p>
+              </div>
               <div className="flex items-center gap-3">
-                <div className="bg-white/20 p-2 rounded-lg">
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${oracleStatus.connected ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+                  <div className={`w-2 h-2 rounded-full ${oracleStatus.connected ? 'bg-white animate-pulse' : 'bg-white'}`}></div>
+                  <span className="text-sm font-medium">
+                    {oracleStatus.connected ? 'Oracle Conectado' : 'Oracle Desconectado'}
+                  </span>
+                </div>
+                <div className="bg-white/20 backdrop-blur-sm rounded-full p-3 hidden lg:block">
                   <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                 </div>
-                <div>
-                  <h1 className="text-xl md:text-2xl font-bold text-white">Frente de Caixa</h1>
-                  <p className="text-orange-100 text-sm">Vendas, cancelamentos, descontos e diferença de caixa por colaborador</p>
-                </div>
-              </div>
-              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${oracleStatus.connected ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
-                <div className={`w-2 h-2 rounded-full ${oracleStatus.connected ? 'bg-white animate-pulse' : 'bg-white'}`}></div>
-                <span className="text-sm font-medium hidden md:inline">
-                  {oracleStatus.connected ? 'Oracle Conectado' : 'Oracle Desconectado'}
-                </span>
               </div>
             </div>
           </div>

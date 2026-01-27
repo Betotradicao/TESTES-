@@ -1290,7 +1290,10 @@ export class ProductsController {
             WHEN 3 THEN 'Produção'
             ELSE 'Outros'
           END as TIPO_EVENTO,
-          p.DTA_CADASTRO
+          p.DTA_CADASTRO,
+          NVL(p.QTD_EMBALAGEM_VENDA, 1) as QTD_EMBALAGEM_VENDA,
+          p.DES_EMBALAGEM,
+          NVL(p.QTD_EMBALAGEM_COMPRA, 1) as QTD_EMBALAGEM_COMPRA
         FROM INTERSOLID.TAB_PRODUTO p
         INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
         LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
@@ -1348,6 +1351,9 @@ export class ProductsController {
           tipoEspecie: row.TIPO_ESPECIE || 'MERCADORIA',
           tipoEvento: row.TIPO_EVENTO || 'DIRETA',
           dtaCadastro: row.DTA_CADASTRO || null,
+          qtdEmbalagem: parseFloat(row.QTD_EMBALAGEM_VENDA) || 1,
+          desEmbalagem: row.DES_EMBALAGEM || '',
+          qtdEmbalagemCompra: parseFloat(row.QTD_EMBALAGEM_COMPRA) || 1,
           // Campos do banco local
           active: dbProduct?.active || false,
           peso_medio_kg: dbProduct?.peso_medio_kg || null,
@@ -1366,6 +1372,221 @@ export class ProductsController {
     } catch (error: any) {
       console.error('Get products Oracle error:', error);
       res.status(500).json({ error: error.message || 'Internal server error' });
+    }
+  }
+
+  /**
+   * Buscar histórico de compras de um produto
+   * GET /api/products/:id/purchase-history?limit=10&descricao=NOME_PRODUTO
+   * Retorna as últimas compras com: data, fornecedor, preço e quantidade
+   * Aceita código do produto OU descrição (busca o código primeiro)
+   */
+  static async getPurchaseHistory(req: AuthRequest, res: Response) {
+    try {
+      let { id } = req.params; // COD_PRODUTO ou código de barras
+      const { limit, descricao } = req.query;
+      const maxResults = limit ? parseInt(limit as string) : 10;
+
+      console.log(`📜 Buscando histórico de compras do produto ${id}...`);
+
+      // Se foi passada descrição ou o ID não parece ser um código numérico válido,
+      // tentar buscar o código do produto pelo nome ou EAN
+      let codProdutoFinal = id;
+
+      // Verificar se o ID parece ser um código de barras (13+ dígitos) ou descrição
+      const isEAN = /^\d{13,}$/.test(id);
+      const isNumericCode = /^\d{1,10}$/.test(id);
+
+      if (!isNumericCode || isEAN || descricao) {
+        console.log(`🔍 Buscando código do produto por ${isEAN ? 'EAN' : 'descrição'}...`);
+
+        let searchSql: string;
+        let searchParams: any;
+
+        if (isEAN) {
+          // Buscar por código de barras (EAN)
+          searchSql = `
+            SELECT COD_PRODUTO FROM INTERSOLID.TAB_PRODUTO
+            WHERE COD_BARRAS = :ean AND ROWNUM = 1
+          `;
+          searchParams = { ean: id };
+        } else if (descricao) {
+          // Buscar por descrição - primeiro tentar exata, depois parcial
+          searchSql = `
+            SELECT COD_PRODUTO FROM INTERSOLID.TAB_PRODUTO
+            WHERE UPPER(DES_PRODUTO) LIKE UPPER(:descricao) AND ROWNUM = 1
+          `;
+          // Usar % para busca parcial se a descrição tiver mais de 10 caracteres
+          const descricaoStr = descricao as string;
+          searchParams = { descricao: descricaoStr.length > 10 ? `%${descricaoStr.substring(0, 30)}%` : descricaoStr };
+        } else {
+          // Tentar buscar por descrição usando o id como texto
+          searchSql = `
+            SELECT COD_PRODUTO FROM INTERSOLID.TAB_PRODUTO
+            WHERE UPPER(DES_PRODUTO) LIKE UPPER(:descricao) AND ROWNUM = 1
+          `;
+          searchParams = { descricao: `%${id}%` };
+        }
+
+        const searchResult = await OracleService.query(searchSql, searchParams);
+
+        if (searchResult.length > 0) {
+          codProdutoFinal = searchResult[0].COD_PRODUTO;
+          console.log(`✅ Código encontrado: ${codProdutoFinal}`);
+        } else {
+          console.log(`⚠️ Produto não encontrado no Oracle, tentando com ID original: ${id}`);
+        }
+      }
+
+      // Query para buscar as últimas compras do produto
+      // Usando TAB_NF (notas fiscais) e TAB_NF_ITEM (itens)
+      // TIPO_OPERACAO = 0 é entrada (compra)
+      // CUSTO_UNITARIO = ni.VAL_CUSTO_SCRED (custo de reposição unitário histórico da compra)
+      const sql = `
+        SELECT * FROM (
+          SELECT
+            TO_CHAR(nf.DTA_ENTRADA, 'DD/MM/YYYY') as DATA_COMPRA,
+            nf.DTA_ENTRADA,
+            f.DES_FORNECEDOR as FORNECEDOR,
+            f.DES_FANTASIA as FANTASIA_FORN,
+            NVL(ni.VAL_CUSTO_SCRED, 0) as CUSTO_UNITARIO,
+            ni.QTD_ENTRADA as QUANTIDADE,
+            ni.VAL_TOTAL as VALOR_TOTAL,
+            nf.NUM_NF as NUMERO_NF,
+            nf.NUM_SERIE_NF as SERIE_NF,
+            TRUNC(SYSDATE - nf.DTA_ENTRADA) as DIAS_DESDE_COMPRA
+          FROM INTERSOLID.TAB_NF nf
+          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+            AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
+            AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON nf.COD_PARCEIRO = f.COD_FORNECEDOR
+          WHERE ni.COD_ITEM = :codProduto
+            AND nf.TIPO_OPERACAO = 0
+          ORDER BY nf.DTA_ENTRADA DESC
+        ) WHERE ROWNUM <= :maxResults
+      `;
+
+      const rows = await OracleService.query(sql, {
+        codProduto: codProdutoFinal,
+        maxResults
+      });
+
+      // Mapear para formato esperado
+      const historico = rows.map((row: any) => ({
+        data: row.DATA_COMPRA || '',
+        dataCompra: row.DTA_ENTRADA,
+        fornecedor: row.FANTASIA_FORN || row.FORNECEDOR || 'Não informado',
+        custoReposicao: parseFloat(row.CUSTO_UNITARIO) || 0,
+        quantidade: parseFloat(row.QUANTIDADE) || 0,
+        valorTotal: parseFloat(row.VALOR_TOTAL) || 0,
+        numeroNF: row.NUMERO_NF || '',
+        serieNF: row.SERIE_NF || '',
+        diasDesdeCompra: parseInt(row.DIAS_DESDE_COMPRA) || 0
+      }));
+
+      console.log(`✅ ${historico.length} compras encontradas para produto ${id}`);
+
+      res.json({
+        codProduto: id,
+        total: historico.length,
+        historico
+      });
+
+    } catch (error: any) {
+      console.error('Get purchase history error:', error);
+      res.status(500).json({ error: error.message || 'Internal server error' });
+    }
+  }
+
+  /**
+   * Buscar DANFE (PDF da Nota Fiscal) pelo número da NF
+   * GET /api/products/nf/:numNf/danfe
+   * Retorna o PDF da nota fiscal armazenado no Oracle
+   */
+  static async getDanfe(req: AuthRequest, res: Response) {
+    try {
+      const { numNf } = req.params;
+
+      if (!numNf) {
+        return res.status(400).json({ error: 'Número da NF é obrigatório' });
+      }
+
+      console.log(`📄 Buscando DANFE da NF ${numNf}...`);
+
+      // 1. Buscar a chave de acesso da NF na TAB_NF
+      const nfSql = `
+        SELECT NUM_CHAVE_ACESSO, NUM_NF, NUM_SERIE_NF
+        FROM INTERSOLID.TAB_NF
+        WHERE NUM_NF = :numNf
+        AND ROWNUM = 1
+      `;
+
+      const nfResult = await OracleService.query(nfSql, { numNf: parseInt(numNf) });
+
+      if (nfResult.length === 0) {
+        return res.status(404).json({ error: 'Nota fiscal não encontrada' });
+      }
+
+      const chaveAcesso = nfResult[0].NUM_CHAVE_ACESSO;
+
+      if (!chaveAcesso) {
+        return res.status(404).json({ error: 'Nota fiscal não possui chave de acesso' });
+      }
+
+      console.log(`🔑 Chave de acesso encontrada: ${chaveAcesso}`);
+
+      // 2. Buscar o ID_NOTA na SNFETNE usando a chave
+      const snfetneSql = `
+        SELECT ID_NOTA
+        FROM INTERSOLID.SNFETNE
+        WHERE NR_CHAVE = :chave
+        AND ROWNUM = 1
+      `;
+
+      const snfetneResult = await OracleService.query(snfetneSql, { chave: chaveAcesso });
+
+      if (snfetneResult.length === 0) {
+        return res.status(404).json({ error: 'XML da nota não encontrado no sistema' });
+      }
+
+      const idNota = snfetneResult[0].ID_NOTA;
+      console.log(`📋 ID da nota encontrado: ${idNota}`);
+
+      // 3. Buscar o PDF (DANFE) na SNFETNEF
+      const danfeSql = `
+        SELECT DF_DANFE
+        FROM INTERSOLID.SNFETNEF
+        WHERE ID_NOTA = :idNota
+        AND ROWNUM = 1
+      `;
+
+      console.log(`🔍 Buscando DANFE na SNFETNEF para ID_NOTA: ${idNota}...`);
+      const danfeResult = await OracleService.queryWithBlob(danfeSql, { idNota });
+      console.log(`📊 Resultado da query SNFETNEF: ${danfeResult.length} registros`);
+
+      if (danfeResult.length === 0) {
+        console.log(`❌ Nenhum registro encontrado em SNFETNEF para ID_NOTA ${idNota}`);
+        return res.status(404).json({ error: 'DANFE não encontrado para esta nota' });
+      }
+
+      if (!danfeResult[0].DF_DANFE) {
+        console.log(`❌ Registro encontrado mas DF_DANFE está vazio/null`);
+        return res.status(404).json({ error: 'DANFE está vazio para esta nota' });
+      }
+
+      const pdfBuffer = danfeResult[0].DF_DANFE;
+
+      console.log(`✅ DANFE encontrado! Tamanho: ${pdfBuffer.length} bytes`);
+
+      // 4. Retornar o PDF
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="DANFE_${numNf}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+
+    } catch (error: any) {
+      console.error('Get DANFE error:', error);
+      res.status(500).json({ error: error.message || 'Erro ao buscar DANFE' });
     }
   }
 }

@@ -240,6 +240,10 @@ router.get('/for-label-audit', authenticateToken, ProductsController.getProducts
 // Buscar TODOS os produtos do Oracle (para Prevenção Estoque e Margem)
 router.get('/oracle', authenticateToken, ProductsController.getProductsOracle);
 
+// Buscar DANFE (PDF da Nota Fiscal) pela número da NF
+// IMPORTANTE: Esta rota específica deve vir ANTES de rotas com /:id
+router.get('/nf/:numNf/danfe', authenticateToken, ProductsController.getDanfe);
+
 /**
  * @swagger
  * /api/products/{id}/activate:
@@ -329,5 +333,8 @@ router.put('/:id/peso-medio', authenticateToken, ProductsController.updatePesoMe
 
 // Atualizar dias de produção do produto
 router.put('/:id/production-days', authenticateToken, ProductsController.updateProductionDays);
+
+// Buscar histórico de compras do produto
+router.get('/:id/purchase-history', authenticateToken, ProductsController.getPurchaseHistory);
 
 export default router;

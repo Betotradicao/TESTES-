@@ -207,6 +207,73 @@ export class OracleService {
   }
 
   /**
+   * Executa uma query SELECT que retorna campos BLOB
+   * @param sql - Query SQL (deve começar com SELECT)
+   * @param params - Parâmetros da query
+   * @returns Resultado com BLOBs já convertidos para Buffer
+   */
+  static async queryWithBlob<T = any>(sql: string, params: any = {}): Promise<T[]> {
+    // SEGURANÇA: Verifica se é apenas SELECT
+    const sqlUpper = sql.trim().toUpperCase();
+    if (!sqlUpper.startsWith('SELECT')) {
+      throw new Error('SEGURANÇA: Apenas queries SELECT são permitidas');
+    }
+
+    let connection: oracledb.Connection | null = null;
+
+    try {
+      connection = await this.getConnection();
+
+      // Configura para receber LOBs como Buffer
+      const result = await connection.execute(sql, params, {
+        outFormat: oracledb.OUT_FORMAT_OBJECT,
+        fetchInfo: {
+          // Trata colunas BLOB automaticamente
+          "DF_DANFE": { type: oracledb.BUFFER }
+        }
+      });
+
+      // Processa os resultados para converter Lobs em Buffers
+      const rows = result.rows || [];
+      const processedRows: T[] = [];
+
+      for (const row of rows as any[]) {
+        const processedRow: any = {};
+        for (const key of Object.keys(row)) {
+          const value = row[key];
+
+          // Se for um Lob, lê o conteúdo
+          if (value && typeof value.getData === 'function') {
+            try {
+              const data = await value.getData();
+              processedRow[key] = data;
+            } catch (lobError) {
+              console.error(`Erro ao ler LOB da coluna ${key}:`, lobError);
+              processedRow[key] = null;
+            }
+          } else {
+            processedRow[key] = value;
+          }
+        }
+        processedRows.push(processedRow as T);
+      }
+
+      return processedRows;
+    } catch (error: any) {
+      console.error('Oracle BLOB query error:', error.message);
+      throw error;
+    } finally {
+      if (connection) {
+        try {
+          await connection.close();
+        } catch (err) {
+          console.error('Error closing Oracle connection:', err);
+        }
+      }
+    }
+  }
+
+  /**
    * Testa a conexão com o Oracle
    */
   static async testConnection(): Promise<{ success: boolean; message: string }> {

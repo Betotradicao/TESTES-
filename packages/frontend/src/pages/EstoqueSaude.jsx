@@ -74,6 +74,8 @@ export default function EstoqueSaude() {
     { id: 'estoque', label: 'Estoque', type: 'info' },
     { id: 'diasSemVenda', label: 'Dias Venda', type: 'info' },
     { id: 'desSecao', label: 'Seção', type: 'info' },
+    { id: 'fornecedor', label: 'Fornecedor', type: 'info' },
+    { id: 'historico', label: 'Hist.', type: 'action' },
     { id: 'qtdPedidoCompra', label: 'Pedido', type: 'info' },
     { id: 'pontosZerado', label: '📭 Est. Zerado', type: 'pontos', bg: 'bg-red-600' },
     { id: 'pontosNegativo', label: '⚠️ Est. Negativo', type: 'pontos', bg: 'bg-red-700' },
@@ -189,6 +191,141 @@ export default function EstoqueSaude() {
 
   // Filtro de risco ativo
   const [activeRiskFilter, setActiveRiskFilter] = useState(null); // null, 'semRisco', 'moderado', 'critico', 'muitoCritico'
+
+  // ============ SISTEMA DE PEDIDOS ============
+  // Produtos selecionados para pedido (Set de códigos)
+  const [selectedForPedido, setSelectedForPedido] = useState(new Set());
+
+  // Quantidades dos pedidos (Map: codigo -> quantidade)
+  const [pedidoQuantidades, setPedidoQuantidades] = useState({});
+
+  // Pedidos salvos (persistidos no localStorage)
+  const [pedidosSalvos, setPedidosSalvos] = useState(() => {
+    const saved = localStorage.getItem('estoque_saude_pedidos');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Persistir pedidos salvos
+  useEffect(() => {
+    localStorage.setItem('estoque_saude_pedidos', JSON.stringify(pedidosSalvos));
+  }, [pedidosSalvos]);
+
+  // Estado para controlar qual pedido está expandido
+  const [expandedPedido, setExpandedPedido] = useState(null);
+
+  // Estados para modal de histórico de compras
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyProduct, setHistoryProduct] = useState(null);
+  const [historyData, setHistoryData] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Buscar histórico de compras de um produto
+  const fetchPurchaseHistory = async (product) => {
+    setHistoryProduct(product);
+    setShowHistoryModal(true);
+    setLoadingHistory(true);
+    setHistoryData([]);
+
+    try {
+      const response = await api.get(`/products/${product.codigo}/purchase-history?limit=10`);
+      setHistoryData(response.data.historico || []);
+    } catch (err) {
+      console.error('Erro ao buscar histórico:', err);
+      setHistoryData([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  // Toggle seleção de produto para pedido
+  const togglePedidoSelection = (codigo) => {
+    setSelectedForPedido(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(codigo)) {
+        newSet.delete(codigo);
+      } else {
+        newSet.add(codigo);
+      }
+      return newSet;
+    });
+  };
+
+  // Selecionar todos os produtos visíveis
+  const selectAllForPedido = () => {
+    const visibleCodigos = paginatedProdutosPontuacao.map(p => p.codigo);
+    setSelectedForPedido(prev => {
+      const newSet = new Set(prev);
+      visibleCodigos.forEach(codigo => newSet.add(codigo));
+      return newSet;
+    });
+  };
+
+  // Desmarcar todos
+  const clearPedidoSelection = () => {
+    setSelectedForPedido(new Set());
+    setPedidoQuantidades({});
+  };
+
+  // Atualizar quantidade de um item no pedido
+  const updatePedidoQuantidade = (codigo, quantidade) => {
+    setPedidoQuantidades(prev => ({
+      ...prev,
+      [codigo]: quantidade
+    }));
+  };
+
+  // Salvar pedido atual
+  const salvarPedido = () => {
+    if (selectedForPedido.size === 0) return;
+
+    const itensPedido = Array.from(selectedForPedido).map(codigo => {
+      const produto = products.find(p => p.codigo === codigo);
+      return {
+        codigo: produto?.codigo || codigo,
+        ean: produto?.ean || '',
+        descricao: produto?.descricao || '',
+        desSecao: produto?.desSecao || '',
+        fornecedor: produto?.fantasiaForn || '',
+        desEmbalagem: produto?.desEmbalagem || '',
+        qtdEmbalagemCompra: produto?.qtdEmbalagemCompra || 1,
+        quantidade: pedidoQuantidades[codigo] || 1
+      };
+    });
+
+    const novoPedido = {
+      id: Date.now(),
+      data: new Date().toLocaleString('pt-BR'),
+      itens: itensPedido,
+      totalItens: itensPedido.length
+    };
+
+    setPedidosSalvos(prev => [...prev, novoPedido]);
+    clearPedidoSelection();
+    setViewMode('pontuacao');
+  };
+
+  // Excluir um pedido salvo
+  const excluirPedido = (pedidoId) => {
+    setPedidosSalvos(prev => prev.filter(p => p.id !== pedidoId));
+  };
+
+  // Produtos selecionados com dados completos
+  const produtosSelecionadosPedido = useMemo(() => {
+    return Array.from(selectedForPedido).map(codigo => {
+      const produto = products.find(p => p.codigo === codigo);
+      return {
+        codigo: produto?.codigo || codigo,
+        ean: produto?.ean || '',
+        descricao: produto?.descricao || '',
+        desSecao: produto?.desSecao || '',
+        fornecedor: produto?.fantasiaForn || '',
+        desEmbalagem: produto?.desEmbalagem || '',
+        qtdEmbalagemCompra: produto?.qtdEmbalagemCompra || 1,
+        quantidade: pedidoQuantidades[codigo] || 1
+      };
+    });
+  }, [selectedForPedido, products, pedidoQuantidades]);
+  // ============ FIM SISTEMA DE PEDIDOS ============
 
   // Configuração de pontuação por curva para cada indicador
   // sem_venda tem estrutura diferente: { curva: { dias: X, pontos: Y } }
@@ -826,6 +963,26 @@ export default function EstoqueSaude() {
             {product.desSecao || '-'}
           </td>
         );
+      case 'fornecedor':
+        return (
+          <td key={col.id} className="px-3 py-2 text-sm text-gray-700 min-w-[120px]" title={product.fantasiaForn}>
+            {product.fantasiaForn || '-'}
+          </td>
+        );
+      case 'historico':
+        return (
+          <td key={col.id} className="px-2 py-2 text-center">
+            <button
+              onClick={() => fetchPurchaseHistory(product)}
+              className="p-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-full transition-colors"
+              title="Ver histórico de compras"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+          </td>
+        );
       case 'qtdPedidoCompra':
         return (
           <td key={col.id} className="px-3 py-2 text-center">
@@ -1181,6 +1338,151 @@ export default function EstoqueSaude() {
       const filename = `estoque_saude_${new Date().toISOString().slice(0, 10)}.pdf`;
       doc.save(filename);
     }
+  };
+
+  // Função para exportar pedido atual para PDF
+  const exportPedidoToPDF = () => {
+    if (selectedForPedido.size === 0) return;
+
+    const doc = new jsPDF('portrait');
+
+    // Título
+    doc.setFontSize(18);
+    doc.text('PEDIDO DE COMPRAS', 105, 20, { align: 'center' });
+
+    // Subtítulo
+    doc.setFontSize(10);
+    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 30);
+    doc.text(`Total de itens: ${selectedForPedido.size}`, 14, 36);
+
+    // Preparar dados
+    const headers = [['Código', 'EAN', 'Descrição', 'Seção', 'Fornecedor', 'Tipo', 'Emb.', 'Qtd']];
+    const data = produtosSelecionadosPedido.map(item => [
+      item.codigo,
+      item.ean || '-',
+      item.descricao.substring(0, 30) + (item.descricao.length > 30 ? '...' : ''),
+      (item.desSecao || '-').substring(0, 12),
+      (item.fornecedor || '-').substring(0, 15),
+      item.desEmbalagem || '-',
+      item.qtdEmbalagemCompra || 1,
+      pedidoQuantidades[item.codigo] || 1
+    ]);
+
+    // Gerar tabela
+    autoTable(doc, {
+      head: headers,
+      body: data,
+      startY: 42,
+      styles: {
+        fontSize: 7,
+        cellPadding: 2
+      },
+      headStyles: {
+        fillColor: [234, 88, 12], // orange-600
+        textColor: 255,
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: {
+        fillColor: [255, 247, 237] // orange-50
+      },
+      columnStyles: {
+        0: { cellWidth: 16 },
+        1: { cellWidth: 24 },
+        2: { cellWidth: 45 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 25 },
+        5: { cellWidth: 12, halign: 'center' },
+        6: { cellWidth: 12, halign: 'center' },
+        7: { cellWidth: 12, halign: 'center' }
+      }
+    });
+
+    // Rodapé
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(
+        `Página ${i} de ${pageCount} | Gerado em ${new Date().toLocaleString('pt-BR')}`,
+        105,
+        doc.internal.pageSize.height - 10,
+        { align: 'center' }
+      );
+    }
+
+    doc.save(`pedido_compras_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  // Função para exportar pedido salvo para PDF
+  const exportPedidoSalvoToPDF = (pedido) => {
+    const doc = new jsPDF('portrait');
+
+    // Título
+    doc.setFontSize(18);
+    doc.text('PEDIDO DE COMPRAS', 105, 20, { align: 'center' });
+
+    // Subtítulo
+    doc.setFontSize(10);
+    doc.text(`Pedido #${pedido.id}`, 14, 30);
+    doc.text(`Data: ${pedido.data}`, 14, 36);
+    doc.text(`Total de itens: ${pedido.totalItens}`, 14, 42);
+
+    // Preparar dados
+    const headers = [['Código', 'EAN', 'Descrição', 'Seção', 'Fornecedor', 'Tipo', 'Emb.', 'Qtd']];
+    const data = pedido.itens.map(item => [
+      item.codigo,
+      item.ean || '-',
+      item.descricao.substring(0, 30) + (item.descricao.length > 30 ? '...' : ''),
+      (item.desSecao || '-').substring(0, 12),
+      (item.fornecedor || '-').substring(0, 15),
+      item.desEmbalagem || '-',
+      item.qtdEmbalagemCompra || 1,
+      item.quantidade || 1
+    ]);
+
+    // Gerar tabela
+    autoTable(doc, {
+      head: headers,
+      body: data,
+      startY: 48,
+      styles: {
+        fontSize: 7,
+        cellPadding: 2
+      },
+      headStyles: {
+        fillColor: [234, 88, 12], // orange-600
+        textColor: 255,
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: {
+        fillColor: [255, 247, 237] // orange-50
+      },
+      columnStyles: {
+        0: { cellWidth: 16 },
+        1: { cellWidth: 24 },
+        2: { cellWidth: 45 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 25 },
+        5: { cellWidth: 12, halign: 'center' },
+        6: { cellWidth: 12, halign: 'center' },
+        7: { cellWidth: 12, halign: 'center' }
+      }
+    });
+
+    // Rodapé
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(
+        `Página ${i} de ${pageCount} | Gerado em ${new Date().toLocaleString('pt-BR')}`,
+        105,
+        doc.internal.pageSize.height - 10,
+        { align: 'center' }
+      );
+    }
+
+    doc.save(`pedido_${pedido.id}_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   // Função para obter classe CSS da célula
@@ -1844,86 +2146,41 @@ export default function EstoqueSaude() {
             >
               PONTUAÇÃO
             </button>
-
-            {/* Cards de Risco - só aparecem na aba de pontuação */}
-            {viewMode === 'pontuacao' && (
-              <>
-                {/* Separador */}
-                <div className="w-px h-8 bg-gray-300 mx-2"></div>
-
-                <button
-                  onClick={() => { setActiveRiskFilter(activeRiskFilter === 'muitoCritico' ? null : 'muitoCritico'); }}
-                  className={`px-3 py-1.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
-                    activeRiskFilter === 'muitoCritico'
-                      ? 'bg-red-600 text-white shadow-lg ring-2 ring-red-400'
-                      : 'bg-red-100 text-red-700 hover:bg-red-200'
-                  }`}
-                >
-                  <span>🔴</span>
-                  <span>MUITO CRÍTICO</span>
-                  <span className="bg-white text-red-600 px-2 py-0.5 rounded-full text-xs font-bold">{riskCounts.muitoCritico}</span>
-                </button>
-
-                <button
-                  onClick={() => { setActiveRiskFilter(activeRiskFilter === 'critico' ? null : 'critico'); }}
-                  className={`px-3 py-1.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
-                    activeRiskFilter === 'critico'
-                      ? 'bg-orange-600 text-white shadow-lg ring-2 ring-orange-400'
-                      : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                  }`}
-                >
-                  <span>🟠</span>
-                  <span>CRÍTICO</span>
-                  <span className="bg-white text-orange-600 px-2 py-0.5 rounded-full text-xs font-bold">{riskCounts.critico}</span>
-                </button>
-
-                <button
-                  onClick={() => { setActiveRiskFilter(activeRiskFilter === 'moderado' ? null : 'moderado'); }}
-                  className={`px-3 py-1.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
-                    activeRiskFilter === 'moderado'
-                      ? 'bg-yellow-500 text-white shadow-lg ring-2 ring-yellow-400'
-                      : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                  }`}
-                >
-                  <span>🟡</span>
-                  <span>MODERADO</span>
-                  <span className="bg-white text-yellow-600 px-2 py-0.5 rounded-full text-xs font-bold">{riskCounts.moderado}</span>
-                </button>
-
-                <button
-                  onClick={() => { setActiveRiskFilter(activeRiskFilter === 'semRisco' ? null : 'semRisco'); }}
-                  className={`px-3 py-1.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
-                    activeRiskFilter === 'semRisco'
-                      ? 'bg-green-600 text-white shadow-lg ring-2 ring-green-400'
-                      : 'bg-green-100 text-green-700 hover:bg-green-200'
-                  }`}
-                >
-                  <span>🟢</span>
-                  <span>SEM RISCO</span>
-                  <span className="bg-white text-green-600 px-2 py-0.5 rounded-full text-xs font-bold">{riskCounts.semRisco}</span>
-                </button>
-
-                {/* Botão de Configuração de Risco */}
-                <button
-                  onClick={() => setRiskConfigModalOpen(true)}
-                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
-                  title="Configurar níveis de risco"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                  </svg>
-                </button>
-
-                <span className="ml-2 text-sm text-gray-600">
-                  {activeRiskFilter ? produtosFiltradosPorRisco.length : produtosComPontuacao.length} produtos
+            <button
+              onClick={() => setViewMode('pedido')}
+              className={`px-6 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                viewMode === 'pedido'
+                  ? 'bg-orange-600 text-white shadow-lg'
+                  : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+              }`}
+            >
+              📋 PEDIDO
+              {selectedForPedido.size > 0 && (
+                <span className="bg-white text-orange-600 px-2 py-0.5 rounded-full text-xs font-bold">
+                  {selectedForPedido.size}
                 </span>
-              </>
-            )}
+              )}
+            </button>
+            <button
+              onClick={() => setViewMode('pedidosRealizados')}
+              className={`px-6 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                viewMode === 'pedidosRealizados'
+                  ? 'bg-orange-600 text-white shadow-lg'
+                  : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+              }`}
+            >
+              📁 PEDIDOS REALIZADOS
+              {pedidosSalvos.length > 0 && (
+                <span className="bg-white text-orange-600 px-2 py-0.5 rounded-full text-xs font-bold">
+                  {pedidosSalvos.length}
+                </span>
+              )}
+            </button>
 
           </div>
 
-          {/* Info do filtro ativo e contador */}
+          {/* Info do filtro ativo e contador - NÃO mostrar nas telas de pedido */}
+          {viewMode !== 'pedido' && viewMode !== 'pedidosRealizados' && (
           <div className="flex items-center justify-between mb-6">
             {activeCardFilter !== 'todos' ? (
               <div className="flex-1 bg-orange-50 border-l-4 border-orange-500 p-4 rounded">
@@ -1980,49 +2237,124 @@ export default function EstoqueSaude() {
               </div>
             ) : (
               <div className="flex-1 bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2">
-                      <span className="text-blue-800 font-medium">📊 Total de produtos:</span>
-                      <span className="bg-blue-200 text-blue-900 px-3 py-1 rounded-full text-sm font-bold">
-                        {filteredProducts.length} produtos
-                      </span>
+                <div className="flex flex-col gap-3">
+                  {/* Cards de Risco - só aparecem na aba de pontuação */}
+                  {viewMode === 'pontuacao' && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => { setActiveRiskFilter(activeRiskFilter === 'muitoCritico' ? null : 'muitoCritico'); }}
+                        className={`px-3 py-1.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
+                          activeRiskFilter === 'muitoCritico'
+                            ? 'bg-red-600 text-white shadow-lg ring-2 ring-red-400'
+                            : 'bg-red-100 text-red-700 hover:bg-red-200'
+                        }`}
+                      >
+                        <span>🔴</span>
+                        <span>MUITO CRÍTICO</span>
+                        <span className="bg-white text-red-600 px-2 py-0.5 rounded-full text-xs font-bold">{riskCounts.muitoCritico}</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setActiveRiskFilter(activeRiskFilter === 'critico' ? null : 'critico'); }}
+                        className={`px-3 py-1.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
+                          activeRiskFilter === 'critico'
+                            ? 'bg-orange-600 text-white shadow-lg ring-2 ring-orange-400'
+                            : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                        }`}
+                      >
+                        <span>🟠</span>
+                        <span>CRÍTICO</span>
+                        <span className="bg-white text-orange-600 px-2 py-0.5 rounded-full text-xs font-bold">{riskCounts.critico}</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setActiveRiskFilter(activeRiskFilter === 'moderado' ? null : 'moderado'); }}
+                        className={`px-3 py-1.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
+                          activeRiskFilter === 'moderado'
+                            ? 'bg-yellow-500 text-white shadow-lg ring-2 ring-yellow-400'
+                            : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                        }`}
+                      >
+                        <span>🟡</span>
+                        <span>MODERADO</span>
+                        <span className="bg-white text-yellow-600 px-2 py-0.5 rounded-full text-xs font-bold">{riskCounts.moderado}</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setActiveRiskFilter(activeRiskFilter === 'semRisco' ? null : 'semRisco'); }}
+                        className={`px-3 py-1.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
+                          activeRiskFilter === 'semRisco'
+                            ? 'bg-green-600 text-white shadow-lg ring-2 ring-green-400'
+                            : 'bg-green-100 text-green-700 hover:bg-green-200'
+                        }`}
+                      >
+                        <span>🟢</span>
+                        <span>SEM RISCO</span>
+                        <span className="bg-white text-green-600 px-2 py-0.5 rounded-full text-xs font-bold">{riskCounts.semRisco}</span>
+                      </button>
+
+                      {/* Botão de Configuração de Risco */}
+                      <button
+                        onClick={() => setRiskConfigModalOpen(true)}
+                        className="p-2 text-gray-500 hover:text-gray-700 hover:bg-blue-100 rounded-lg transition-all"
+                        title="Configurar níveis de risco"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Info de Total e Valor */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-800 font-medium">📊 Total de produtos:</span>
+                        <span className="bg-blue-200 text-blue-900 px-3 py-1 rounded-full text-sm font-bold">
+                          {viewMode === 'pontuacao'
+                            ? (activeRiskFilter ? produtosFiltradosPorRisco.length : produtosComPontuacao.length)
+                            : filteredProducts.length} produtos
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-800 font-medium">💰 Valor Total Estoque:</span>
+                        <span className="bg-blue-200 text-blue-900 px-3 py-1 rounded-full text-sm font-bold">
+                          R$ {(stats.valorTotalEstoque / 1000).toFixed(0)}k
+                        </span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-blue-800 font-medium">💰 Valor Total Estoque:</span>
-                      <span className="bg-blue-200 text-blue-900 px-3 py-1 rounded-full text-sm font-bold">
-                        R$ {(stats.valorTotalEstoque / 1000).toFixed(0)}k
-                      </span>
+                      <button
+                        onClick={exportToPDF}
+                        className="px-3 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center justify-center gap-1 text-sm"
+                        title="Exportar para PDF"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        PDF
+                      </button>
+                      <button
+                        onClick={() => setShowColumnSelector(!showColumnSelector)}
+                        className="px-3 py-1.5 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center justify-center gap-1 text-sm"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                        Colunas ({visibleColumns.length}/{columns.length})
+                      </button>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={exportToPDF}
-                      className="px-3 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center justify-center gap-1 text-sm"
-                      title="Exportar para PDF"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                      </svg>
-                      PDF
-                    </button>
-                    <button
-                      onClick={() => setShowColumnSelector(!showColumnSelector)}
-                      className="px-3 py-1.5 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center justify-center gap-1 text-sm"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                      </svg>
-                      Colunas ({visibleColumns.length}/{columns.length})
-                    </button>
                   </div>
                 </div>
               </div>
             )}
           </div>
+          )}
 
-          {/* Tabela de Produtos ou Pontuação */}
-          {viewMode === 'geral' ? (
+          {/* Tabela de Produtos ou Pontuação - NÃO mostrar na tela de pedido nem pedidos realizados */}
+          {viewMode !== 'pedido' && viewMode !== 'pedidosRealizados' && (viewMode === 'geral' ? (
             <div className="bg-white rounded-lg shadow overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -2143,6 +2475,24 @@ export default function EstoqueSaude() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
                     <tr>
+                      {/* Coluna de seleção para pedido */}
+                      <th className="px-2 py-3 text-center w-12">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="text-[10px]">Pedido</span>
+                          <input
+                            type="checkbox"
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                selectAllForPedido();
+                              } else {
+                                clearPedidoSelection();
+                              }
+                            }}
+                            checked={paginatedProdutosPontuacao.length > 0 && paginatedProdutosPontuacao.every(p => selectedForPedido.has(p.codigo))}
+                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                        </div>
+                      </th>
                       {pontuacaoColumns.map((col) => (
                         <th
                           key={col.id}
@@ -2174,19 +2524,28 @@ export default function EstoqueSaude() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {loading ? (
                       <tr>
-                        <td colSpan={pontuacaoColumns.length} className="px-4 py-8 text-center text-gray-500">
+                        <td colSpan={pontuacaoColumns.length + 1} className="px-4 py-8 text-center text-gray-500">
                           🔄 Carregando produtos...
                         </td>
                       </tr>
                     ) : produtosPontuacaoList.length === 0 ? (
                       <tr>
-                        <td colSpan={pontuacaoColumns.length} className="px-4 py-8 text-center text-gray-500">
+                        <td colSpan={pontuacaoColumns.length + 1} className="px-4 py-8 text-center text-gray-500">
                           📊 {activeRiskFilter ? 'Nenhum produto neste nível de risco.' : 'Nenhum produto com pontuação. Configure os pontos em cada card.'}
                         </td>
                       </tr>
                     ) : (
                       paginatedProdutosPontuacao.map((product) => (
-                        <tr key={product.codigo} className="hover:bg-gray-50">
+                        <tr key={product.codigo} className={`hover:bg-gray-50 ${selectedForPedido.has(product.codigo) ? 'bg-blue-50' : ''}`}>
+                          {/* Checkbox de seleção */}
+                          <td className="px-2 py-2 text-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedForPedido.has(product.codigo)}
+                              onChange={() => togglePedidoSelection(product.codigo)}
+                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                          </td>
                           {pontuacaoColumns.map((col) => renderPontuacaoCell(product, col))}
                         </tr>
                       ))
@@ -2195,6 +2554,8 @@ export default function EstoqueSaude() {
                   {produtosPontuacaoList.length > 0 && (
                     <tfoot className="bg-gray-100">
                       <tr className="font-bold">
+                        {/* Célula vazia para coluna de checkbox */}
+                        <td className="px-2 py-3"></td>
                         {pontuacaoColumns.map((col, idx) => {
                           // Colunas de info: mostrar "TOTAL GERAL:" na última coluna de info
                           const infoColumns = pontuacaoColumns.filter(c => c.type === 'info');
@@ -2276,9 +2637,338 @@ export default function EstoqueSaude() {
                 </div>
               )}
             </div>
+          ))}
+
+          {/* ========== TELA DE PEDIDO ========== */}
+          {viewMode === 'pedido' && (
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold">📋 Novo Pedido</h2>
+                    <p className="text-orange-100 text-sm">
+                      {selectedForPedido.size} produto(s) selecionado(s)
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={clearPedidoSelection}
+                      className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-all"
+                    >
+                      Limpar Seleção
+                    </button>
+                    <button
+                      onClick={salvarPedido}
+                      disabled={selectedForPedido.size === 0}
+                      className="px-4 py-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/>
+                      </svg>
+                      Salvar Pedido
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (selectedForPedido.size === 0) return;
+                        exportPedidoToPDF();
+                      }}
+                      disabled={selectedForPedido.size === 0}
+                      className="px-4 py-2 bg-red-500 hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                      PDF
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {selectedForPedido.size === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  <div className="text-6xl mb-4">📭</div>
+                  <p className="text-lg font-medium">Nenhum produto selecionado</p>
+                  <p className="text-sm mt-2">Vá até a aba PONTUAÇÃO e marque os produtos que deseja incluir no pedido.</p>
+                  <button
+                    onClick={() => setViewMode('pontuacao')}
+                    className="mt-4 px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all"
+                  >
+                    Ir para Pontuação
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-orange-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-orange-800 uppercase">Código</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-orange-800 uppercase">Cód. Barras (EAN)</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-orange-800 uppercase min-w-[200px]">Descrição</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-orange-800 uppercase">Seção</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-orange-800 uppercase">Fornecedor</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-orange-800 uppercase">Tipo Emb.</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-orange-800 uppercase">Qtd Emb.</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-orange-800 uppercase w-24">Qtd. Pedido</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-orange-800 uppercase w-16">Remover</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {produtosSelecionadosPedido.map((item) => (
+                        <tr key={item.codigo} className="hover:bg-orange-50/50">
+                          <td className="px-4 py-3 text-sm font-mono text-gray-900">{item.codigo}</td>
+                          <td className="px-4 py-3 text-sm font-mono text-gray-600">{item.ean || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{item.descricao}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{item.desSecao || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{item.fornecedor || '-'}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm font-medium">
+                              {item.desEmbalagem || '-'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-sm font-medium">
+                              {item.qtdEmbalagemCompra || 1}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <input
+                              type="number"
+                              min="1"
+                              value={pedidoQuantidades[item.codigo] || 1}
+                              onChange={(e) => updatePedidoQuantidade(item.codigo, parseInt(e.target.value) || 1)}
+                              className="w-20 px-2 py-1 border border-gray-300 rounded text-center text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <button
+                              onClick={() => togglePedidoSelection(item.codigo)}
+                              className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                              title="Remover do pedido"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ========== TELA DE PEDIDOS REALIZADOS ========== */}
+          {viewMode === 'pedidosRealizados' && (
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold">📁 Pedidos Realizados</h2>
+                    <p className="text-orange-100 text-sm">
+                      {pedidosSalvos.length} pedido(s) salvo(s)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {pedidosSalvos.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  <div className="text-6xl mb-4">📭</div>
+                  <p className="text-lg font-medium">Nenhum pedido realizado</p>
+                  <p className="text-sm mt-2">Crie um pedido na aba PEDIDO e salve para vê-lo aqui.</p>
+                  <button
+                    onClick={() => setViewMode('pedido')}
+                    className="mt-4 px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all"
+                  >
+                    Ir para Pedido
+                  </button>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-200">
+                  {pedidosSalvos.map((pedido) => (
+                    <div key={pedido.id}>
+                      {/* Linha resumida - clicável */}
+                      <div
+                        className={`flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors ${expandedPedido === pedido.id ? 'bg-orange-50' : ''}`}
+                        onClick={() => setExpandedPedido(expandedPedido === pedido.id ? null : pedido.id)}
+                      >
+                        <div className="flex items-center gap-4">
+                          {/* Ícone de expandir/colapsar */}
+                          <svg
+                            className={`w-5 h-5 text-gray-500 transition-transform ${expandedPedido === pedido.id ? 'rotate-90' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/>
+                          </svg>
+                          <div className="bg-orange-600 text-white px-3 py-1 rounded text-sm font-bold">
+                            #{pedido.id}
+                          </div>
+                          <span className="font-medium text-gray-800">{pedido.data}</span>
+                          <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm font-semibold">
+                            {pedido.totalItens} itens
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => exportPedidoSalvoToPDF(pedido)}
+                            className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 text-sm font-medium flex items-center gap-1"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            PDF
+                          </button>
+                          <button
+                            onClick={() => excluirPedido(pedido.id)}
+                            className="px-3 py-1.5 bg-gray-400 text-white rounded hover:bg-gray-500 text-sm font-medium"
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Itens do pedido - expandível */}
+                      {expandedPedido === pedido.id && (
+                        <div className="bg-gray-50 border-t border-gray-200">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-orange-100">
+                              <tr>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-orange-800">Código</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-orange-800">Descrição</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-orange-800">Seção</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-orange-800">Fornecedor</th>
+                                <th className="px-4 py-2 text-center text-xs font-medium text-orange-800">Qtd</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 bg-white">
+                              {pedido.itens.map((item, idx) => (
+                                <tr key={idx} className="hover:bg-orange-50/50">
+                                  <td className="px-4 py-2 text-sm font-mono text-gray-700">{item.codigo}</td>
+                                  <td className="px-4 py-2 text-sm text-gray-800">{item.descricao}</td>
+                                  <td className="px-4 py-2 text-sm text-gray-600">{item.desSecao || '-'}</td>
+                                  <td className="px-4 py-2 text-sm text-gray-600">{item.fornecedor || '-'}</td>
+                                  <td className="px-4 py-2 text-center text-sm font-semibold text-orange-600">{item.quantidade}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
+
+      {/* Modal de Histórico de Compras */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setShowHistoryModal(false)}>
+          <div
+            className="bg-white rounded-lg shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-gradient-to-r from-blue-500 to-blue-700 p-4 rounded-t-lg text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold">Histórico de Compras</h2>
+                  {historyProduct && (
+                    <p className="text-sm text-blue-100">{historyProduct.codigo} - {historyProduct.descricao}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowHistoryModal(false)}
+                  className="text-white hover:text-gray-200"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 overflow-y-auto max-h-[60vh]">
+              {loadingHistory ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <span className="ml-2 text-gray-600">Carregando histórico...</span>
+                </div>
+              ) : historyData.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p>Nenhum registro de compra encontrado</p>
+                </div>
+              ) : (
+                (() => {
+                  const custos = historyData.map(item => Number(item.custoReposicao || item.precoUnitario || 0)).filter(c => c > 0);
+                  const menorCusto = custos.length > 0 ? Math.min(...custos) : 0;
+                  return (
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Data</th>
+                          <th className="px-3 py-2 text-center font-semibold text-gray-700">Dias</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Fornecedor</th>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-700">Qtd</th>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-700">Custo Rep.</th>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-700">Total</th>
+                          <th className="px-3 py-2 text-center font-semibold text-gray-700">NF</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {historyData.map((item, index) => {
+                          const custo = Number(item.custoReposicao || item.precoUnitario || 0);
+                          const isMenor = custo > 0 && custo === menorCusto;
+                          return (
+                            <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                              <td className="px-3 py-2 text-gray-900 font-medium">{item.data}</td>
+                              <td className="px-3 py-2 text-center text-gray-500">
+                                {item.diasDesdeCompra || 0}
+                              </td>
+                              <td className="px-3 py-2 text-gray-700 max-w-[200px] truncate" title={item.fornecedor}>
+                                {item.fornecedor}
+                              </td>
+                              <td className="px-3 py-2 text-right text-gray-900 font-medium">
+                                {item.quantidade?.toFixed(0)}
+                              </td>
+                              <td className={`px-3 py-2 text-right font-medium ${isMenor ? 'text-green-600' : 'text-red-600'}`}>
+                                R$ {custo.toFixed(2).replace('.', ',')}
+                              </td>
+                              <td className="px-3 py-2 text-right text-blue-600 font-bold">
+                                R$ {item.valorTotal?.toFixed(2).replace('.', ',')}
+                              </td>
+                              <td className="px-3 py-2 text-center text-gray-600">
+                                {item.numeroNF || '-'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  );
+                })()
+              )}
+            </div>
+
+            <div className="border-t p-4 bg-gray-50 flex justify-end">
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Configuração de Pontuação */}
       {configModalOpen && (

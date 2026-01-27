@@ -1,3 +1,4 @@
-import { api } from '../utils/api';
+import { api, getApiBaseUrl } from '../utils/api';
 
+export { getApiBaseUrl };
 export default api;

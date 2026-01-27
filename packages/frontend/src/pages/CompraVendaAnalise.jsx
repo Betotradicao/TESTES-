@@ -852,33 +852,33 @@ export default function CompraVendaAnalise() {
         </div>
 
         {/* Header Laranja */}
-        <div className="bg-gradient-to-r from-orange-500 to-orange-600 shadow-lg">
-          <div className="px-4 md:px-6 py-4">
+        <div className="bg-gradient-to-br from-orange-500 to-red-600 shadow-lg">
+          <div className="px-4 md:px-6 py-6">
             <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">📊 Compras x Vendas por Classificação Mercadológica</h1>
+                <p className="text-white/90">Análise comparativa de compras e vendas por seção</p>
+              </div>
               <div className="flex items-center gap-3">
-                <div className="bg-white/20 p-2 rounded-lg">
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${oracleStatus.connected ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+                  <div className={`w-2 h-2 rounded-full ${oracleStatus.connected ? 'bg-white animate-pulse' : 'bg-white'}`}></div>
+                  <span className="text-sm font-medium">
+                    {loadingFilters ? 'Conectando...' : oracleStatus.connected ? 'Oracle' : 'Desconectado'}
+                  </span>
+                  {!loadingFilters && !oracleStatus.connected && (
+                    <button
+                      onClick={loadFilterData}
+                      className="ml-2 text-xs underline hover:no-underline"
+                    >
+                      Reconectar
+                    </button>
+                  )}
+                </div>
+                <div className="bg-white/20 backdrop-blur-sm rounded-full p-3 hidden lg:block">
                   <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
-                <div>
-                  <h1 className="text-xl md:text-2xl font-bold text-white">Compras x Vendas por Classificação Mercadológica</h1>
-                  <p className="text-orange-100 text-sm">Análise comparativa de compras e vendas por seção</p>
-                </div>
-              </div>
-              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${oracleStatus.connected ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
-                <div className={`w-2 h-2 rounded-full ${oracleStatus.connected ? 'bg-white animate-pulse' : 'bg-white'}`}></div>
-                <span className="text-sm font-medium">
-                  {loadingFilters ? 'Conectando...' : oracleStatus.connected ? 'Oracle' : 'Desconectado'}
-                </span>
-                {!loadingFilters && !oracleStatus.connected && (
-                  <button
-                    onClick={loadFilterData}
-                    className="ml-2 text-xs underline hover:no-underline"
-                  >
-                    Reconectar
-                  </button>
-                )}
               </div>
             </div>
           </div>
@@ -1014,42 +1014,42 @@ export default function CompraVendaAnalise() {
             {/* Linha 3: Tipo Venda, Tipo NF, Prod. Bonificados, Decomposição + Cards de Margem */}
             <div className="grid grid-cols-1 md:grid-cols-8 gap-1 mb-4">
               {/* Filtro Tipo Venda - Compacto */}
-              <div className="border border-gray-200 rounded-md p-1.5">
-                <span className="block text-[10px] font-medium text-gray-700 mb-0.5">Tipo Venda</span>
-                <div className="space-y-0">
-                  <label className="flex items-center gap-0.5 text-[10px]">
+              <div className="border border-gray-200 rounded-md p-2">
+                <span className="block text-xs font-medium text-gray-700 mb-1">Tipo Venda</span>
+                <div className="space-y-0.5">
+                  <label className="flex items-center gap-1 text-xs">
                     <input
                       type="checkbox"
                       checked={filters.tipoPdv}
                       onChange={(e) => setFilters({ ...filters, tipoPdv: e.target.checked })}
-                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
+                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3"
                     />
                     PDV
                   </label>
-                  <label className="flex items-center gap-0.5 text-[10px]">
+                  <label className="flex items-center gap-1 text-xs">
                     <input
                       type="checkbox"
                       checked={filters.tipoNfCliente}
                       onChange={(e) => setFilters({ ...filters, tipoNfCliente: e.target.checked })}
-                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
+                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3"
                     />
                     N.F. Cliente
                   </label>
-                  <label className="flex items-center gap-0.5 text-[10px]">
+                  <label className="flex items-center gap-1 text-xs">
                     <input
                       type="checkbox"
                       checked={filters.tipoVendaBalcao}
                       onChange={(e) => setFilters({ ...filters, tipoVendaBalcao: e.target.checked })}
-                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
+                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3"
                     />
                     Venda Balcao
                   </label>
-                  <label className="flex items-center gap-0.5 text-[10px]">
+                  <label className="flex items-center gap-1 text-xs">
                     <input
                       type="checkbox"
                       checked={filters.tipoNfTransferencia}
                       onChange={(e) => setFilters({ ...filters, tipoNfTransferencia: e.target.checked })}
-                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
+                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3"
                     />
                     N.F. Transf.
                   </label>
@@ -1057,33 +1057,33 @@ export default function CompraVendaAnalise() {
               </div>
 
               {/* Filtro Tipo NF - Compacto */}
-              <div className="border border-gray-200 rounded-md p-1.5">
-                <span className="block text-[10px] font-medium text-gray-700 mb-0.5">Tipo Nota Fiscal</span>
-                <div className="space-y-0">
-                  <label className="flex items-center gap-0.5 text-[10px]">
+              <div className="border border-gray-200 rounded-md p-2">
+                <span className="block text-xs font-medium text-gray-700 mb-1">Tipo Nota Fiscal</span>
+                <div className="space-y-0.5">
+                  <label className="flex items-center gap-1 text-xs">
                     <input
                       type="checkbox"
                       checked={filters.tipoCompras}
                       onChange={(e) => setFilters({ ...filters, tipoCompras: e.target.checked })}
-                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
+                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3"
                     />
                     Compras
                   </label>
-                  <label className="flex items-center gap-0.5 text-[10px]">
+                  <label className="flex items-center gap-1 text-xs">
                     <input
                       type="checkbox"
                       checked={filters.tipoOutras}
                       onChange={(e) => setFilters({ ...filters, tipoOutras: e.target.checked })}
-                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
+                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3"
                     />
                     Outras
                   </label>
-                  <label className="flex items-center gap-0.5 text-[10px]">
+                  <label className="flex items-center gap-1 text-xs">
                     <input
                       type="checkbox"
                       checked={filters.tipoBonificacao}
                       onChange={(e) => setFilters({ ...filters, tipoBonificacao: e.target.checked })}
-                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
+                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3"
                     />
                     Bonificacao
                   </label>
@@ -1092,39 +1092,39 @@ export default function CompraVendaAnalise() {
 
               {/* Filtro Produtos Bonificados - Compacto */}
               {/* Controla automaticamente o checkbox de Bonificação no Tipo Nota Fiscal */}
-              <div className="border border-gray-200 rounded-md p-1.5">
-                <span className="block text-[10px] font-medium text-gray-700 mb-0.5">Prod. Bonific.</span>
-                <div className="space-y-0">
-                  <label className="flex items-center gap-0.5 text-[10px]">
+              <div className="border border-gray-200 rounded-md p-2">
+                <span className="block text-xs font-medium text-gray-700 mb-1">Prod. Bonific.</span>
+                <div className="space-y-0.5">
+                  <label className="flex items-center gap-1 text-xs">
                     <input
                       type="radio"
                       name="produtosBonificados"
                       value="com"
                       checked={filters.produtosBonificados === 'com'}
                       onChange={(e) => setFilters({ ...filters, produtosBonificados: e.target.value, tipoCompras: true, tipoBonificacao: true })}
-                      className="border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
+                      className="border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3"
                     />
                     Com
                   </label>
-                  <label className="flex items-center gap-0.5 text-[10px]">
+                  <label className="flex items-center gap-1 text-xs">
                     <input
                       type="radio"
                       name="produtosBonificados"
                       value="sem"
                       checked={filters.produtosBonificados === 'sem'}
                       onChange={(e) => setFilters({ ...filters, produtosBonificados: e.target.value, tipoCompras: true, tipoBonificacao: false })}
-                      className="border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
+                      className="border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3"
                     />
                     Sem
                   </label>
-                  <label className="flex items-center gap-0.5 text-[10px]">
+                  <label className="flex items-center gap-1 text-xs">
                     <input
                       type="radio"
                       name="produtosBonificados"
                       value="somente"
                       checked={filters.produtosBonificados === 'somente'}
                       onChange={(e) => setFilters({ ...filters, produtosBonificados: e.target.value, tipoCompras: false, tipoBonificacao: true })}
-                      className="border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
+                      className="border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3"
                     />
                     Somente
                   </label>
@@ -1132,60 +1132,60 @@ export default function CompraVendaAnalise() {
               </div>
 
               {/* Filtro Decomposicao - Compacto */}
-              <div className="border border-gray-200 rounded-md p-1.5">
-                <span className="block text-[10px] font-medium text-gray-700 mb-0.5">Decomposicao</span>
-                <div className="space-y-0">
-                  <label className="flex items-center gap-0.5 text-[10px]">
+              <div className="border border-gray-200 rounded-md p-2">
+                <span className="block text-xs font-medium text-gray-700 mb-1">Decomposicao</span>
+                <div className="space-y-0.5">
+                  <label className="flex items-center gap-1 text-xs">
                     <input
                       type="radio"
                       name="decomposicao"
                       value="pai"
                       checked={filters.decomposicao === 'pai'}
                       onChange={(e) => setFilters({ ...filters, decomposicao: e.target.value })}
-                      className="border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
+                      className="border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3"
                     />
                     Pai
                   </label>
-                  <label className="flex items-center gap-0.5 text-[10px]">
+                  <label className="flex items-center gap-1 text-xs">
                     <input
                       type="radio"
                       name="decomposicao"
                       value="filhos"
                       checked={filters.decomposicao === 'filhos'}
                       onChange={(e) => setFilters({ ...filters, decomposicao: e.target.value })}
-                      className="border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
+                      className="border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3"
                     />
                     Filhos
                   </label>
                 </div>
                 {filters.decomposicao === 'filhos' && (
-                  <div className="mt-0.5 pt-0.5 border-t border-gray-200">
-                    <span className="block text-[9px] font-medium text-gray-600 mb-0">Emprestimo:</span>
-                    <div className="space-y-0">
-                      <label className="flex items-center gap-0.5 text-[9px]">
+                  <div className="mt-1 pt-1 border-t border-gray-200">
+                    <span className="block text-[10px] font-medium text-gray-600 mb-0.5">Emprestimo:</span>
+                    <div className="space-y-0.5">
+                      <label className="flex items-center gap-1 text-[10px]">
                         <input
                           type="checkbox"
                           checked={filters.tipoEmprestimoProducao}
                           onChange={(e) => setFilters({ ...filters, tipoEmprestimoProducao: e.target.checked })}
-                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2 h-2"
+                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
                         />
                         Producao
                       </label>
-                      <label className="flex items-center gap-0.5 text-[9px]">
+                      <label className="flex items-center gap-1 text-[10px]">
                         <input
                           type="checkbox"
                           checked={filters.tipoEmprestimoAssociacao}
                           onChange={(e) => setFilters({ ...filters, tipoEmprestimoAssociacao: e.target.checked })}
-                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2 h-2"
+                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
                         />
                         Assoc.
                       </label>
-                      <label className="flex items-center gap-0.5 text-[9px]">
+                      <label className="flex items-center gap-1 text-[10px]">
                         <input
                           type="checkbox"
                           checked={filters.tipoEmprestimoDecomposicao}
                           onChange={(e) => setFilters({ ...filters, tipoEmprestimoDecomposicao: e.target.checked })}
-                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2 h-2"
+                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-2.5 h-2.5"
                         />
                         Decomp.
                       </label>

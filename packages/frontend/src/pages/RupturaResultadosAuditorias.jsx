@@ -1,10 +1,26 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import api from '../services/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAuth } from '../contexts/AuthContext';
+
+// Definição das colunas padrão da tabela de ruptura
+const RUPTURA_COLUMNS_DEFAULT = [
+  { id: 'descricao', label: 'Produto', align: 'left', sortable: true },
+  { id: 'fornecedor', label: 'Fornecedor', align: 'left', sortable: true },
+  { id: 'secao', label: 'Seção', align: 'left', sortable: true },
+  { id: 'curva', label: 'Curva', align: 'center', sortable: true },
+  { id: 'estoque_atual', label: 'Estoque', align: 'right', sortable: true },
+  { id: 'venda_media_dia', label: 'V.Média/Dia', align: 'right', sortable: true },
+  { id: 'valor_venda', label: 'Valor Venda', align: 'right', sortable: true },
+  { id: 'margem_lucro', label: 'Margem %', align: 'right', sortable: true },
+  { id: 'tem_pedido', label: 'Pedido', align: 'center', sortable: true },
+  { id: 'ocorrencias', label: 'Ocorrências', align: 'center', sortable: true },
+  { id: 'perda_total', label: 'Perda Total', align: 'right', sortable: true },
+  { id: 'historico', label: 'Hist.', align: 'center', sortable: false },
+];
 
 export default function RupturaResultadosAuditorias() {
   const navigate = useNavigate();
@@ -20,14 +36,44 @@ export default function RupturaResultadosAuditorias() {
   const [fornecedorSelecionado, setFornecedorSelecionado] = useState('todos');
   const [auditorSelecionado, setAuditorSelecionado] = useState('todos');
 
-  // Filtros da tabela de produtos
-  const [filtroTipoRuptura, setFiltroTipoRuptura] = useState('todos'); // 'todos', 'nao_encontrado', 'ruptura_estoque'
-  const [filtroFornecedorTabela, setFiltroFornecedorTabela] = useState('todos');
-  const [filtroSetorTabela, setFiltroSetorTabela] = useState('todos');
+  // Filtros da tabela de produtos - carrega do localStorage se existir
+  const [filtroTipoRuptura, setFiltroTipoRuptura] = useState(() => {
+    return localStorage.getItem('ruptura_filtro_tipo') || 'todos';
+  }); // 'todos', 'nao_encontrado', 'ruptura_estoque'
+  const [filtroFornecedorTabela, setFiltroFornecedorTabela] = useState(() => {
+    return localStorage.getItem('ruptura_filtro_fornecedor') || 'todos';
+  });
+  const [filtroSetorTabela, setFiltroSetorTabela] = useState(() => {
+    return localStorage.getItem('ruptura_filtro_setor') || 'todos';
+  });
 
-  // Estado de ordenação
-  const [sortColumn, setSortColumn] = useState(null);
-  const [sortDirection, setSortDirection] = useState('asc'); // 'asc' ou 'desc'
+  // Salvar filtros no localStorage quando mudarem
+  useEffect(() => {
+    localStorage.setItem('ruptura_filtro_tipo', filtroTipoRuptura);
+    localStorage.setItem('ruptura_filtro_fornecedor', filtroFornecedorTabela);
+    localStorage.setItem('ruptura_filtro_setor', filtroSetorTabela);
+  }, [filtroTipoRuptura, filtroFornecedorTabela, filtroSetorTabela]);
+
+  // Estado de ordenação - carrega do localStorage se existir
+  const [sortColumn, setSortColumn] = useState(() => {
+    const saved = localStorage.getItem('ruptura_sort_column');
+    return saved || null;
+  });
+  const [sortDirection, setSortDirection] = useState(() => {
+    const saved = localStorage.getItem('ruptura_sort_direction');
+    return saved || 'asc';
+  }); // 'asc' ou 'desc'
+
+  // Salvar ordenação no localStorage quando mudar
+  useEffect(() => {
+    if (sortColumn) {
+      localStorage.setItem('ruptura_sort_column', sortColumn);
+      localStorage.setItem('ruptura_sort_direction', sortDirection);
+    } else {
+      localStorage.removeItem('ruptura_sort_column');
+      localStorage.removeItem('ruptura_sort_direction');
+    }
+  }, [sortColumn, sortDirection]);
 
   // Dados
   const [produtos, setProdutos] = useState([]);
@@ -37,6 +83,210 @@ export default function RupturaResultadosAuditorias() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [deletingProduct, setDeletingProduct] = useState(null); // código do produto sendo excluído
+
+  // Estados para o modal de histórico de compras
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyProduct, setHistoryProduct] = useState(null);
+  const [historyData, setHistoryData] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [productsWithHistory, setProductsWithHistory] = useState(new Set()); // Produtos COM histórico (azul)
+
+  // Estado para linhas expandidas (mostrar datas das ocorrências)
+  const [expandedRows, setExpandedRows] = useState(new Set());
+
+  // Toggle expandir linha
+  const toggleExpandRow = (descricao) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(descricao)) {
+        newSet.delete(descricao);
+      } else {
+        newSet.add(descricao);
+      }
+      return newSet;
+    });
+  };
+
+  // Estado para ordem das colunas (persistido no localStorage)
+  const [rupturaColumns, setRupturaColumns] = useState(() => {
+    const saved = localStorage.getItem('ruptura_columns_order');
+    if (saved) {
+      try {
+        const savedOrder = JSON.parse(saved);
+        const reordered = savedOrder.map(id => RUPTURA_COLUMNS_DEFAULT.find(c => c.id === id)).filter(Boolean);
+        const newColumns = RUPTURA_COLUMNS_DEFAULT.filter(col => !savedOrder.includes(col.id));
+        return [...reordered, ...newColumns];
+      } catch (e) {}
+    }
+    return RUPTURA_COLUMNS_DEFAULT;
+  });
+
+  // Persistir ordem das colunas
+  useEffect(() => {
+    const columnIds = rupturaColumns.map(col => col.id);
+    localStorage.setItem('ruptura_columns_order', JSON.stringify(columnIds));
+  }, [rupturaColumns]);
+
+  // Drag and drop para colunas
+  const [draggedCol, setDraggedCol] = useState(null);
+  const [dragOverCol, setDragOverCol] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleColumnDragStart = (e, columnId) => {
+    setIsDragging(true);
+    setDraggedCol(columnId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', columnId); // Necessário para Firefox
+    e.target.style.opacity = '0.5';
+  };
+
+  const handleColumnDragEnd = (e) => {
+    e.target.style.opacity = '1';
+    setDraggedCol(null);
+    setDragOverCol(null);
+    // Delay para evitar que o click seja disparado após o drag
+    setTimeout(() => setIsDragging(false), 100);
+  };
+
+  const handleColumnDragOver = (e, columnId) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedCol === columnId) return;
+    setDragOverCol(columnId);
+  };
+
+  const handleColumnDrop = (e, targetColumnId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!draggedCol || draggedCol === targetColumnId) return;
+
+    const newColumns = [...rupturaColumns];
+    const draggedIndex = newColumns.findIndex(c => c.id === draggedCol);
+    const targetIndex = newColumns.findIndex(c => c.id === targetColumnId);
+
+    const [removed] = newColumns.splice(draggedIndex, 1);
+    newColumns.splice(targetIndex, 0, removed);
+
+    setRupturaColumns(newColumns);
+    setDraggedCol(null);
+    setDragOverCol(null);
+  };
+
+  // Função para buscar histórico de compras
+  const fetchPurchaseHistory = async (product) => {
+    setHistoryProduct(product);
+    setShowHistoryModal(true);
+    setLoadingHistory(true);
+    try {
+      // Usar código se disponível, senão usar descrição codificada para busca
+      const codigo = product.codigo || 'buscar';
+      const descricaoParam = encodeURIComponent(product.descricao || '');
+      const response = await api.get(`/products/${codigo}/purchase-history?limit=10&descricao=${descricaoParam}`);
+      const historico = response.data.historico || [];
+      setHistoryData(historico);
+
+      // Se encontrou histórico, marcar o produto como tendo histórico (botão azul)
+      if (historico.length > 0) {
+        setProductsWithHistory(prev => new Set([...prev, product.descricao]));
+      }
+    } catch (err) {
+      console.error('Erro ao buscar histórico:', err);
+      setHistoryData([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  // Função para renderizar valor da célula baseado na coluna
+  const renderCellValue = (item, columnId) => {
+    switch (columnId) {
+      case 'descricao':
+        return (
+          <div className="flex items-center gap-1">
+            {item.ocorrencias > 1 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleExpandRow(item.descricao); }}
+                className="w-5 h-5 flex items-center justify-center text-blue-600 hover:bg-blue-100 rounded transition-colors font-bold"
+              >
+                {expandedRows.has(item.descricao) ? '−' : '+'}
+              </button>
+            )}
+            <p className="font-medium text-gray-800 max-w-xs truncate" title={item.descricao}>
+              {item.descricao}
+            </p>
+          </div>
+        );
+      case 'fornecedor':
+        return <span className="text-gray-600 max-w-xs truncate block" title={item.fornecedor}>{item.fornecedor}</span>;
+      case 'secao':
+        return <span className="text-gray-600 max-w-xs truncate block" title={item.secao}>{item.secao}</span>;
+      case 'curva':
+        return (
+          <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${
+            item.curva === 'A' ? 'bg-red-100 text-red-700' :
+            item.curva === 'B' ? 'bg-yellow-100 text-yellow-700' :
+            item.curva === 'C' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+          }`}>
+            {item.curva}
+          </span>
+        );
+      case 'estoque_atual':
+        return (
+          <span className={item.estoque_atual > 0 ? 'text-green-600' : 'text-red-600'}>
+            {Number(item.estoque_atual || 0).toFixed(0)}
+          </span>
+        );
+      case 'venda_media_dia':
+        return <span className="text-gray-700">{Number(item.venda_media_dia || 0).toFixed(2)}</span>;
+      case 'valor_venda':
+        return <span className="text-gray-700">R$ {Number(item.valor_venda || 0).toFixed(2)}</span>;
+      case 'margem_lucro':
+        return <span className="text-gray-700">{Number(item.margem_lucro || 0).toFixed(1)}%</span>;
+      case 'tem_pedido':
+        return (
+          <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${
+            item.tem_pedido === 'Sim' ? 'bg-green-100 text-green-700' :
+            item.tem_pedido === 'Não' ? 'bg-red-100 text-red-700' :
+            'bg-gray-100 text-gray-600'
+          }`}>
+            {item.tem_pedido || '-'}
+          </span>
+        );
+      case 'ocorrencias':
+        return (
+          <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${
+            item.ocorrencias > 1 ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
+          }`}>
+            {item.ocorrencias}
+          </span>
+        );
+      case 'perda_total':
+        return <span className="font-bold text-red-600">R$ {Number(item.perda_total || 0).toFixed(2)}</span>;
+      case 'historico':
+        // Botão cinza por padrão, azul se já verificou e tem histórico
+        const hasHistory = productsWithHistory.has(item.descricao);
+        return (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              fetchPurchaseHistory({ codigo: item.codigo || item.codigo_barras, descricao: item.descricao });
+            }}
+            className={`p-1.5 rounded transition-colors ${
+              hasHistory
+                ? 'bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-700'
+                : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+            }`}
+            title={hasHistory ? 'Ver histórico de compras' : 'Verificar histórico'}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </button>
+        );
+      default:
+        return item[columnId] || '-';
+    }
+  };
 
   useEffect(() => {
     loadFilterOptions();
@@ -130,8 +380,11 @@ export default function RupturaResultadosAuditorias() {
     itensRuptura = itensRuptura.filter(item => item.secao === filtroSetorTabela);
   }
 
-  // Função para ordenar
+  // Função para ordenar (só se não estiver arrastando)
   const handleSort = (column) => {
+    // Não ordenar se estiver no meio de um drag
+    if (isDragging) return;
+
     if (sortColumn === column) {
       // Se já está ordenando por essa coluna, inverte a direção
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -462,6 +715,140 @@ export default function RupturaResultadosAuditorias() {
               </div>
             </div>
 
+            {/* Fornecedores e Setores - Movido para cima */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+
+              {/* Fornecedores com mais Rupturas */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">
+                  🏪 Fornecedores
+                </h2>
+
+                {fornecedoresRanking.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">
+                    Nenhuma ruptura
+                  </p>
+                ) : (
+                  <div className="space-y-4 max-h-64 overflow-y-auto">
+                    {fornecedoresRanking.slice(0, 15).map((forn, idx) => {
+                      const maxPerda = Math.max(...fornecedoresRanking.map(f => f.perda_total));
+                      const percentage = maxPerda > 0 ? (forn.perda_total / maxPerda) * 100 : 0;
+                      const isSelected = filtroFornecedorTabela === forn.fornecedor;
+
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            if (isSelected) {
+                              // Se já está selecionado, remove o filtro
+                              setFiltroFornecedorTabela('todos');
+                            } else {
+                              // Seleciona o fornecedor
+                              setFiltroFornecedorTabela(forn.fornecedor);
+                              setFiltroTipoRuptura('todos');
+                              setFiltroSetorTabela('todos');
+                            }
+                          }}
+                          className={`cursor-pointer p-2 rounded-lg transition-colors ${
+                            isSelected
+                              ? 'bg-purple-100 border-2 border-purple-500'
+                              : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex-1">
+                              <p className="font-semibold text-gray-800 text-sm truncate" title={forn.fornecedor}>
+                                {forn.fornecedor}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {forn.rupturas} {forn.rupturas === 1 ? 'ruptura' : 'rupturas'}
+                              </p>
+                            </div>
+                            <div className="text-right ml-4">
+                              <p className="text-sm font-bold text-red-600">
+                                R$ {Number(forn.perda_total || 0).toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-red-500 h-2 rounded-full transition-all"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Setores (Seções) com mais Rupturas */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">
+                  🏬 Setores
+                </h2>
+
+                {secoesRanking.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">
+                    Nenhuma ruptura
+                  </p>
+                ) : (
+                  <div className="space-y-4 max-h-64 overflow-y-auto">
+                    {secoesRanking.slice(0, 15).map((sec, idx) => {
+                      const maxPerda = Math.max(...secoesRanking.map(s => s.perda_total));
+                      const percentage = maxPerda > 0 ? (sec.perda_total / maxPerda) * 100 : 0;
+                      const isSelected = filtroSetorTabela === sec.secao;
+
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            if (isSelected) {
+                              // Se já está selecionado, remove o filtro
+                              setFiltroSetorTabela('todos');
+                            } else {
+                              // Seleciona o setor
+                              setFiltroSetorTabela(sec.secao);
+                              setFiltroTipoRuptura('todos');
+                              setFiltroFornecedorTabela('todos');
+                            }
+                          }}
+                          className={`cursor-pointer p-2 rounded-lg transition-colors ${
+                            isSelected
+                              ? 'bg-orange-100 border-2 border-orange-500'
+                              : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex-1">
+                              <p className="font-semibold text-gray-800 text-sm truncate" title={sec.secao}>
+                                {sec.secao}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {sec.rupturas} {sec.rupturas === 1 ? 'ruptura' : 'rupturas'}
+                              </p>
+                            </div>
+                            <div className="text-right ml-4">
+                              <p className="text-sm font-bold text-red-600">
+                                R$ {Number(sec.perda_total || 0).toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-orange-500 h-2 rounded-full transition-all"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Produtos com Ruptura - Largura Total */}
             <div className="mb-6">
               <div className="bg-white rounded-lg shadow p-6">
@@ -563,239 +950,101 @@ export default function RupturaResultadosAuditorias() {
                       <thead className="bg-orange-100 border-b">
                         <tr>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                          <th
-                            className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
-                            onClick={() => handleSort('descricao')}
-                          >
-                            <div className="flex items-center gap-1">
-                              Produto
-                              {sortColumn === 'descricao' && (
-                                <span className="text-blue-600">
-                                  {sortDirection === 'asc' ? '↑' : '↓'}
-                                </span>
-                              )}
-                            </div>
-                          </th>
-                          <th
-                            className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
-                            onClick={() => handleSort('fornecedor')}
-                          >
-                            <div className="flex items-center gap-1">
-                              Fornecedor
-                              {sortColumn === 'fornecedor' && (
-                                <span className="text-blue-600">
-                                  {sortDirection === 'asc' ? '↑' : '↓'}
-                                </span>
-                              )}
-                            </div>
-                          </th>
-                          <th
-                            className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
-                            onClick={() => handleSort('secao')}
-                          >
-                            <div className="flex items-center gap-1">
-                              Seção
-                              {sortColumn === 'secao' && (
-                                <span className="text-blue-600">
-                                  {sortDirection === 'asc' ? '↑' : '↓'}
-                                </span>
-                              )}
-                            </div>
-                          </th>
-                          <th
-                            className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
-                            onClick={() => handleSort('curva')}
-                          >
-                            <div className="flex items-center justify-center gap-1">
-                              Curva
-                              {sortColumn === 'curva' && (
-                                <span className="text-blue-600">
-                                  {sortDirection === 'asc' ? '↑' : '↓'}
-                                </span>
-                              )}
-                            </div>
-                          </th>
-                          <th
-                            className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
-                            onClick={() => handleSort('estoque_atual')}
-                          >
-                            <div className="flex items-center justify-end gap-1">
-                              Estoque
-                              {sortColumn === 'estoque_atual' && (
-                                <span className="text-blue-600">
-                                  {sortDirection === 'asc' ? '↑' : '↓'}
-                                </span>
-                              )}
-                            </div>
-                          </th>
-                          <th
-                            className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
-                            onClick={() => handleSort('venda_media_dia')}
-                          >
-                            <div className="flex items-center justify-end gap-1">
-                              V.Média/Dia
-                              {sortColumn === 'venda_media_dia' && (
-                                <span className="text-blue-600">
-                                  {sortDirection === 'asc' ? '↑' : '↓'}
-                                </span>
-                              )}
-                            </div>
-                          </th>
-                          <th
-                            className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
-                            onClick={() => handleSort('valor_venda')}
-                          >
-                            <div className="flex items-center justify-end gap-1">
-                              Valor Venda
-                              {sortColumn === 'valor_venda' && (
-                                <span className="text-blue-600">
-                                  {sortDirection === 'asc' ? '↑' : '↓'}
-                                </span>
-                              )}
-                            </div>
-                          </th>
-                          <th
-                            className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
-                            onClick={() => handleSort('margem_lucro')}
-                          >
-                            <div className="flex items-center justify-end gap-1">
-                              Margem %
-                              {sortColumn === 'margem_lucro' && (
-                                <span className="text-blue-600">
-                                  {sortDirection === 'asc' ? '↑' : '↓'}
-                                </span>
-                              )}
-                            </div>
-                          </th>
-                          <th
-                            className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
-                            onClick={() => handleSort('tem_pedido')}
-                          >
-                            <div className="flex items-center justify-center gap-1">
-                              Pedido
-                              {sortColumn === 'tem_pedido' && (
-                                <span className="text-blue-600">
-                                  {sortDirection === 'asc' ? '↑' : '↓'}
-                                </span>
-                              )}
-                            </div>
-                          </th>
-                          <th
-                            className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
-                            onClick={() => handleSort('ocorrencias')}
-                          >
-                            <div className="flex items-center justify-center gap-1">
-                              Ocorrências
-                              {sortColumn === 'ocorrencias' && (
-                                <span className="text-blue-600">
-                                  {sortDirection === 'asc' ? '↑' : '↓'}
-                                </span>
-                              )}
-                            </div>
-                          </th>
-                          <th
-                            className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
-                            onClick={() => handleSort('perda_total')}
-                          >
-                            <div className="flex items-center justify-end gap-1">
-                              Perda Total
-                              {sortColumn === 'perda_total' && (
-                                <span className="text-blue-600">
-                                  {sortDirection === 'asc' ? '↑' : '↓'}
-                                </span>
-                              )}
-                            </div>
-                          </th>
+                          {rupturaColumns.map((col) => (
+                            <th
+                              key={col.id}
+                              draggable="true"
+                              onDragStart={(e) => handleColumnDragStart(e, col.id)}
+                              onDragEnd={handleColumnDragEnd}
+                              onDragOver={(e) => handleColumnDragOver(e, col.id)}
+                              onDrop={(e) => handleColumnDrop(e, col.id)}
+                              className={`px-3 py-2 text-${col.align} text-xs font-medium text-gray-500 uppercase select-none transition-all ${
+                                col.sortable ? 'hover:bg-orange-200 cursor-pointer' : ''
+                              } ${draggedCol === col.id ? 'opacity-50 bg-blue-200' : ''} ${dragOverCol === col.id ? 'bg-blue-100 border-l-2 border-blue-500' : ''}`}
+                              onClick={() => col.sortable && handleSort(col.id)}
+                              title={col.sortable ? "Arraste para reordenar | Clique para ordenar" : "Arraste para reordenar"}
+                            >
+                              <div className={`flex items-center gap-1 ${col.align === 'right' ? 'justify-end' : col.align === 'center' ? 'justify-center' : ''}`}>
+                                <span className="text-gray-400 cursor-grab text-[10px]">⋮⋮</span>
+                                {col.label}
+                                {sortColumn === col.id && (
+                                  <span className="text-blue-600">
+                                    {sortDirection === 'asc' ? '↑' : '↓'}
+                                  </span>
+                                )}
+                              </div>
+                            </th>
+                          ))}
                           {canDelete && (
                             <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                              Ação
+                              Excluir
                             </th>
                           )}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
                         {itensRuptura.map((item, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 text-gray-600">{idx + 1}</td>
-                            <td className="px-3 py-2">
-                              <p className="font-medium text-gray-800 max-w-xs truncate" title={item.descricao}>
-                                {item.descricao}
-                              </p>
-                            </td>
-                            <td className="px-3 py-2 text-gray-600 max-w-xs truncate" title={item.fornecedor}>
-                              {item.fornecedor}
-                            </td>
-                            <td className="px-3 py-2 text-gray-600 max-w-xs truncate" title={item.secao}>
-                              {item.secao}
-                            </td>
-                            <td className="px-3 py-2 text-center">
-                              <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${
-                                item.curva === 'A' ? 'bg-red-100 text-red-700' :
-                                item.curva === 'B' ? 'bg-yellow-100 text-yellow-700' :
-                                item.curva === 'C' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                              }`}>
-                                {item.curva}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              <span className={item.estoque_atual > 0 ? 'text-green-600' : 'text-red-600'}>
-                                {Number(item.estoque_atual || 0).toFixed(0)}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-right text-gray-700">
-                              {Number(item.venda_media_dia || 0).toFixed(2)}
-                            </td>
-                            <td className="px-3 py-2 text-right text-gray-700">
-                              R$ {Number(item.valor_venda || 0).toFixed(2)}
-                            </td>
-                            <td className="px-3 py-2 text-right text-gray-700">
-                              {Number(item.margem_lucro || 0).toFixed(1)}%
-                            </td>
-                            <td className="px-3 py-2 text-center">
-                              <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${
-                                item.tem_pedido === 'Sim' ? 'bg-green-100 text-green-700' :
-                                item.tem_pedido === 'Não' ? 'bg-red-100 text-red-700' :
-                                'bg-gray-100 text-gray-600'
-                              }`}>
-                                {item.tem_pedido || '-'}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-center">
-                              <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold">
-                                {item.ocorrencias}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              <span className="font-bold text-red-600">
-                                R$ {Number(item.perda_total || 0).toFixed(2)}
-                              </span>
-                            </td>
-                            {canDelete && (
-                              <td className="px-3 py-2 text-center">
-                                <button
-                                  onClick={() => handleDeleteRuptura(item.descricao, item.descricao)}
-                                  disabled={deletingProduct === item.descricao}
-                                  className={`p-1.5 rounded transition-colors ${
-                                    deletingProduct === item.descricao
-                                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                      : 'bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700'
-                                  }`}
-                                  title="Excluir ruptura"
-                                >
-                                  {deletingProduct === item.descricao ? (
-                                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                  ) : (
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                    </svg>
-                                  )}
-                                </button>
-                              </td>
+                          <Fragment key={idx}>
+                            <tr className={`hover:bg-gray-50 ${item.ocorrencias > 1 ? 'cursor-pointer' : ''}`}>
+                              <td className="px-3 py-2 text-gray-600">{idx + 1}</td>
+                              {rupturaColumns.map((col) => (
+                                <td key={col.id} className={`px-3 py-2 text-${col.align}`}>
+                                  {renderCellValue(item, col.id)}
+                                </td>
+                              ))}
+                              {/* Coluna de excluir */}
+                              {canDelete && (
+                                <td className="px-3 py-2 text-center">
+                                  <button
+                                    onClick={() => handleDeleteRuptura(item.descricao, item.descricao)}
+                                    disabled={deletingProduct === item.descricao}
+                                    className={`p-1.5 rounded transition-colors ${
+                                      deletingProduct === item.descricao
+                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                        : 'bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700'
+                                    }`}
+                                    title="Excluir ruptura"
+                                  >
+                                    {deletingProduct === item.descricao ? (
+                                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                      </svg>
+                                    ) : (
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                      </svg>
+                                    )}
+                                  </button>
+                                </td>
+                              )}
+                            </tr>
+                            {/* Linha de expansão para mostrar datas das ocorrências */}
+                            {expandedRows.has(item.descricao) && item.datas_ocorrencias && item.datas_ocorrencias.length > 0 && (
+                              <tr className="bg-blue-50">
+                                <td colSpan={rupturaColumns.length + 2} className="px-6 py-3">
+                                  <div className="text-sm">
+                                    <p className="font-semibold text-gray-700 mb-2">Datas das Ocorrências ({item.datas_ocorrencias.length}):</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                      {item.datas_ocorrencias.map((oc, i) => (
+                                        <div key={i} className="flex items-center gap-2 bg-white p-2 rounded border">
+                                          <span className="font-medium text-gray-800">{oc.data}</span>
+                                          <span className={`text-xs px-2 py-0.5 rounded ${
+                                            oc.status === 'Não Encontrado' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                                          }`}>
+                                            {oc.status}
+                                          </span>
+                                          {oc.verificado_por && oc.verificado_por !== 'N/A' && (
+                                            <span className="text-xs text-gray-500">por {oc.verificado_por}</span>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
                             )}
-                          </tr>
+                          </Fragment>
                         ))}
                       </tbody>
                     </table>
@@ -804,117 +1053,6 @@ export default function RupturaResultadosAuditorias() {
               </div>
             </div>
 
-            {/* Fornecedores e Setores */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-
-              {/* Fornecedores com mais Rupturas */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">
-                  🏪 Fornecedores
-                </h2>
-
-                {fornecedoresRanking.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">
-                    Nenhuma ruptura
-                  </p>
-                ) : (
-                  <div className="space-y-4 max-h-96 overflow-y-auto">
-                    {fornecedoresRanking.slice(0, 15).map((forn, idx) => {
-                      const maxRupturas = Math.max(...fornecedoresRanking.map(f => f.rupturas));
-                      const percentage = (forn.rupturas / maxRupturas) * 100;
-
-                      return (
-                        <div
-                          key={idx}
-                          onClick={() => {
-                            setFiltroFornecedorTabela(forn.fornecedor);
-                            setFiltroTipoRuptura('todos');
-                            setFiltroSetorTabela('todos');
-                          }}
-                          className="cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex-1">
-                              <p className="font-semibold text-gray-800 text-sm truncate" title={forn.fornecedor}>
-                                {forn.fornecedor}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {forn.rupturas} {forn.rupturas === 1 ? 'ruptura' : 'rupturas'}
-                              </p>
-                            </div>
-                            <div className="text-right ml-4">
-                              <p className="text-sm font-bold text-red-600">
-                                R$ {Number(forn.perda_total || 0).toFixed(2)}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-red-500 h-2 rounded-full transition-all"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Setores (Seções) com mais Rupturas */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">
-                  🏬 Setores
-                </h2>
-
-                {secoesRanking.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">
-                    Nenhuma ruptura
-                  </p>
-                ) : (
-                  <div className="space-y-4 max-h-96 overflow-y-auto">
-                    {secoesRanking.slice(0, 15).map((sec, idx) => {
-                      const maxRupturas = Math.max(...secoesRanking.map(s => s.rupturas));
-                      const percentage = (sec.rupturas / maxRupturas) * 100;
-
-                      return (
-                        <div
-                          key={idx}
-                          onClick={() => {
-                            setFiltroSetorTabela(sec.secao);
-                            setFiltroTipoRuptura('todos');
-                            setFiltroFornecedorTabela('todos');
-                          }}
-                          className="cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex-1">
-                              <p className="font-semibold text-gray-800 text-sm truncate" title={sec.secao}>
-                                {sec.secao}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {sec.rupturas} {sec.rupturas === 1 ? 'ruptura' : 'rupturas'}
-                              </p>
-                            </div>
-                            <div className="text-right ml-4">
-                              <p className="text-sm font-bold text-red-600">
-                                R$ {Number(sec.perda_total || 0).toFixed(2)}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-orange-500 h-2 rounded-full transition-all"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
           </>
         )}
 
@@ -927,6 +1065,106 @@ export default function RupturaResultadosAuditorias() {
           </div>
         )}
       </div>
+
+      {/* Modal de Histórico de Compras */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[80vh] overflow-hidden">
+            <div className="p-4 border-b flex items-center justify-between bg-blue-50">
+              <h3 className="text-lg font-bold text-gray-800">
+                Histórico de Compras
+              </h3>
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="p-1 hover:bg-gray-200 rounded"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            <div className="p-4">
+              {historyProduct && (
+                <p className="text-sm text-gray-600 mb-4">
+                  Produto: <strong>{historyProduct.descricao}</strong>
+                </p>
+              )}
+              {loadingHistory ? (
+                <div className="flex items-center justify-center py-8">
+                  <svg className="w-8 h-8 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+              ) : historyData.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">
+                  Nenhum histórico de compras encontrado para este produto.
+                </p>
+              ) : (
+                <div className="overflow-x-auto max-h-[50vh]">
+                  {/* Calcular menor custo para destacar */}
+                  {(() => {
+                    const custos = historyData.map(item => Number(item.custoReposicao || 0)).filter(c => c > 0);
+                    const menorCusto = custos.length > 0 ? Math.min(...custos) : 0;
+                    return (
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-gray-100 sticky top-0">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
+                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Dias</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fornecedor</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Qtd</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Custo Rep.</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">NF</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {historyData.map((item, idx) => {
+                            const custo = Number(item.custoReposicao || 0);
+                            const isMenor = custo > 0 && custo === menorCusto;
+                            return (
+                              <tr key={idx} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 text-gray-600">{item.data}</td>
+                                <td className="px-3 py-2 text-center text-gray-500">
+                                  {item.diasDesdeCompra || 0}
+                                </td>
+                                <td className="px-3 py-2 text-gray-800 max-w-xs truncate" title={item.fornecedor}>
+                                  {item.fornecedor || 'N/A'}
+                                </td>
+                                <td className="px-3 py-2 text-right text-gray-700">
+                                  {Number(item.quantidade || 0).toFixed(0)}
+                                </td>
+                                <td className={`px-3 py-2 text-right font-medium ${isMenor ? 'text-green-600' : 'text-red-600'}`}>
+                                  R$ {custo.toFixed(2)}
+                                </td>
+                                <td className="px-3 py-2 text-right font-medium text-gray-800">
+                                  R$ {Number(item.valorTotal || 0).toFixed(2)}
+                                </td>
+                                <td className="px-3 py-2 text-center text-gray-600">
+                                  {item.numeroNF || '-'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t bg-gray-50 flex justify-end">
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

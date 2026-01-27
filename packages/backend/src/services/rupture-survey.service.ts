@@ -131,9 +131,25 @@ export class RuptureSurveyService {
           console.log('🔍 pedidoValue final =', pedidoValue);
         }
 
+        // Buscar código do produto - pode estar em várias colunas
+        const codigoProduto = row['Código'] || row['C�digo'] || row['Codigo'] ||
+                              row['Cod_Produto'] || row['COD_PRODUTO'] || row['Código Produto'] ||
+                              row['codigo'] || row['cod'] || row['CodProduto'] || row['CODIGO'] ||
+                              row['Cód'] || row['C�d'] || row['Cd Produto'] || row['CD_PRODUTO'] ||
+                              row['Codigo Produto'] || row['CodigoProduto'] || row['ID'] || null;
+
+        // Buscar código de barras
+        const codigoBarras = row['Código Barras'] || row['C�digo Barras'] || row['Codigo Barras'] ||
+                             row['EAN'] || row['ean'] || row['GTIN'] || row['gtin'] ||
+                             row['CodBarras'] || row['COD_BARRAS'] || null;
+
+        // Usar código de barras como fallback se não tiver código de produto
+        const codigoFinal = codigoProduto || codigoBarras || null;
+
         const item = itemRepository.create({
           survey_id: survey.id,
-          codigo_barras: row['Código Barras'] || row['C�digo Barras'] || null,
+          codigo_barras: codigoBarras,
+          erp_product_id: codigoFinal ? String(codigoFinal) : null,
           descricao: row['Descrição'] || row['Descri��o'] || '',
           curva: row['Curva'] || null,
           estoque_atual: parseNumber(row['Estoque Atual']),
@@ -192,10 +208,13 @@ export class RuptureSurveyService {
       const surveyItems: RuptureSurveyItem[] = [];
 
       for (const item of items) {
+        // Usar codigo como fallback se erp_product_id não existir
+        const codigoFinal = item.erp_product_id || item.codigo || item.ean || item.codigo_barras || null;
+
         const surveyItem = itemRepository.create({
           survey_id: survey.id,
-          codigo_barras: item.codigo_barras || null,
-          erp_product_id: item.erp_product_id || null,
+          codigo_barras: item.codigo_barras || item.ean || null,
+          erp_product_id: codigoFinal ? String(codigoFinal) : null,
           descricao: item.descricao || '',
           curva: item.curva || null,
           estoque_atual: item.estoque_atual || null,
@@ -533,6 +552,8 @@ export class RuptureSurveyService {
       const key = item.descricao;
       if (!rupturasPorProduto[key]) {
         rupturasPorProduto[key] = {
+          codigo: item.erp_product_id || item.codigo_barras || null, // Código do produto (ERP ou barras como fallback)
+          codigo_barras: item.codigo_barras || null,
           descricao: item.descricao,
           fornecedor: item.fornecedor || 'Sem fornecedor',
           secao: item.secao || 'Sem seção',
@@ -547,10 +568,24 @@ export class RuptureSurveyService {
           ocorrencias_nao_encontrado: 0,
           ocorrencias_em_estoque: 0,
           perda_total: 0,
+          datas_ocorrencias: [], // Lista de datas das ocorrências
         };
       }
       rupturasPorProduto[key].ocorrencias++;
       rupturasPorProduto[key].perda_total += item.perda_venda_dia;
+
+      // Adicionar data da ocorrência
+      const dataOcorrencia = item.data_verificacao || item.created_at;
+      if (dataOcorrencia) {
+        const dataFormatada = new Date(dataOcorrencia).toLocaleDateString('pt-BR');
+        // Adicionar com detalhes da ocorrência
+        rupturasPorProduto[key].datas_ocorrencias.push({
+          data: dataFormatada,
+          status: item.status_verificacao === 'nao_encontrado' ? 'Não Encontrado' : 'Em Estoque',
+          verificado_por: item.verificado_por || 'N/A',
+          perda_dia: item.perda_venda_dia || 0,
+        });
+      }
 
       // Contar ocorrências por tipo
       if (item.status_verificacao === 'nao_encontrado') {
@@ -581,7 +616,7 @@ export class RuptureSurveyService {
         rupturas: stats.count,
         perda_total: stats.perda,
       }))
-      .sort((a, b) => b.rupturas - a.rupturas);
+      .sort((a, b) => b.perda_total - a.perda_total); // Ordenar por maior perda
 
     // Agrupar rupturas por seção (setor)
     const rupturasPorSecao: { [key: string]: { count: number; perda: number } } = {};
@@ -601,7 +636,7 @@ export class RuptureSurveyService {
         rupturas: stats.count,
         perda_total: stats.perda,
       }))
-      .sort((a, b) => b.rupturas - a.rupturas);
+      .sort((a, b) => b.perda_total - a.perda_total); // Ordenar por maior perda
 
     return {
       estatisticas: {
