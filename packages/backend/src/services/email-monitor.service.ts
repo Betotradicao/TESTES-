@@ -6,6 +6,7 @@ import { EmailMonitorLog } from '../entities/EmailMonitorLog';
 import * as fs from 'fs';
 import * as path from 'path';
 import axios from 'axios';
+import { minioService } from './minio.service';
 
 export interface EmailMonitorConfig {
   email: string;
@@ -164,6 +165,7 @@ export class EmailMonitorService {
 
   /**
    * Salva uma cópia permanente da imagem para a galeria
+   * Tenta fazer upload para o MinIO primeiro, com fallback para armazenamento local
    */
   private static async savePermanentImage(tempFilePath: string): Promise<string | null> {
     try {
@@ -180,21 +182,40 @@ export class EmailMonitorService {
         return null;
       }
 
+      // Ler o conteúdo do arquivo
+      const fileBuffer = fs.readFileSync(tempFilePath);
+      const stats = fs.statSync(tempFilePath);
+      console.log(`📊 Tamanho do arquivo: ${(stats.size / 1024).toFixed(2)} KB`);
+
+      // Gerar nome único para a imagem
+      const filename = `dvr_${Date.now()}${ext}`;
+
+      // Determinar content type
+      let contentType = 'image/jpeg';
+      if (ext === '.png') contentType = 'image/png';
+      else if (ext === '.gif') contentType = 'image/gif';
+      else if (ext === '.bmp') contentType = 'image/bmp';
+
+      // Tentar fazer upload para o MinIO
+      try {
+        console.log(`☁️ Tentando upload para MinIO: ${filename}`);
+        const minioUrl = await minioService.uploadFile(filename, fileBuffer, contentType);
+        console.log(`✅ Imagem enviada para MinIO: ${minioUrl}`);
+        return minioUrl; // Retorna a URL completa do MinIO
+      } catch (minioError) {
+        console.warn(`⚠️ Falha no upload para MinIO, usando armazenamento local:`, minioError);
+      }
+
+      // Fallback: salvar localmente se MinIO falhar
       const uploadsDir = path.join(__dirname, '../../uploads/dvr_images');
-      console.log(`📂 Diretório de uploads: ${uploadsDir}`);
+      console.log(`📂 Fallback - Diretório de uploads: ${uploadsDir}`);
 
       if (!fs.existsSync(uploadsDir)) {
         console.log(`📁 Criando diretório de uploads: ${uploadsDir}`);
         fs.mkdirSync(uploadsDir, { recursive: true });
       }
 
-      // Gerar nome único para a imagem permanente
-      const filename = `dvr_${Date.now()}${ext}`;
       const permanentPath = path.join(uploadsDir, filename);
-
-      // Verificar tamanho do arquivo antes de copiar
-      const stats = fs.statSync(tempFilePath);
-      console.log(`📊 Tamanho do arquivo: ${(stats.size / 1024).toFixed(2)} KB`);
 
       // Copiar arquivo temporário para o diretório permanente
       fs.copyFileSync(tempFilePath, permanentPath);
@@ -206,9 +227,9 @@ export class EmailMonitorService {
       }
 
       const savedStats = fs.statSync(permanentPath);
-      console.log(`💾 Imagem permanente salva: ${permanentPath} (${(savedStats.size / 1024).toFixed(2)} KB)`);
+      console.log(`💾 Imagem permanente salva localmente: ${permanentPath} (${(savedStats.size / 1024).toFixed(2)} KB)`);
 
-      // Retornar apenas o nome do arquivo (não o caminho completo)
+      // Retornar apenas o nome do arquivo (não o caminho completo) para fallback local
       return filename;
     } catch (error) {
       console.error('❌ Erro ao salvar imagem permanente:', error);

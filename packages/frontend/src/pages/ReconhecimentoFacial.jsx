@@ -34,6 +34,21 @@ function getUploadsBaseUrl() {
   return 'http://localhost:3001';
 }
 
+// Função para obter a URL completa da imagem
+// Se image_path é uma URL completa (MinIO), usa diretamente
+// Se é apenas o nome do arquivo, constrói o caminho local
+function getImageUrl(imagePath) {
+  if (!imagePath) return null;
+
+  // Se já é uma URL completa (MinIO), usar diretamente
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+
+  // Caso contrário, construir URL local
+  return `${getUploadsBaseUrl()}/uploads/dvr_images/${imagePath}`;
+}
+
 export default function ReconhecimentoFacial() {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -422,7 +437,7 @@ export default function ReconhecimentoFacial() {
                       <div className="aspect-square bg-gray-200 relative overflow-hidden">
                         {log.image_path ? (
                           <img
-                            src={`${getUploadsBaseUrl()}/uploads/dvr_images/${log.image_path}`}
+                            src={getImageUrl(log.image_path)}
                             alt={info.nome || 'Reconhecimento facial'}
                             className="w-full h-full object-cover"
                             onError={(e) => {
@@ -545,7 +560,7 @@ export default function ReconhecimentoFacial() {
             <div className="flex-1 bg-black flex items-center justify-center p-4 overflow-auto">
               {imageViewerModal.log.image_path ? (
                 <img
-                  src={`${getBackendBaseUrl()}/uploads/dvr_images/${imageViewerModal.log.image_path}`}
+                  src={getImageUrl(imageViewerModal.log.image_path)}
                   alt="Reconhecimento facial"
                   className="object-contain transition-all duration-200"
                   style={{
