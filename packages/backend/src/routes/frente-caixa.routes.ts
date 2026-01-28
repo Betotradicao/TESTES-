@@ -29,4 +29,7 @@ router.get('/cupons', FrenteCaixaController.getCuponsPorDia);
 // Itens de um cupom específico
 router.get('/itens', FrenteCaixaController.getItensPorCupom);
 
+// Estornos órfãos de um operador em uma data (Canc. Cupom)
+router.get('/estornos-orfaos', FrenteCaixaController.getEstornosOrfaos);
+
 export default router;

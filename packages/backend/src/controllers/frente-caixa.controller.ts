@@ -244,4 +244,46 @@ export class FrenteCaixaController {
       });
     }
   }
+
+  /**
+   * Busca estornos órfãos de um operador em uma data específica
+   * Estornos órfãos são cancelamentos que não têm cupom associado no mesmo PDV
+   */
+  static async getEstornosOrfaos(req: Request, res: Response) {
+    try {
+      const { codOperador, data, codLoja } = req.query;
+
+      if (!codOperador || !data) {
+        return res.status(400).json({
+          error: 'Parâmetros obrigatórios',
+          message: 'codOperador e data são obrigatórios'
+        });
+      }
+
+      console.log('📋 Buscando estornos órfãos do operador:', codOperador, 'em', data);
+
+      const estornos = await FrenteCaixaService.getEstornosOrfaos(
+        Number(codOperador),
+        data as string,
+        codLoja ? Number(codLoja) : undefined
+      );
+
+      // Calcular total
+      const total = estornos.reduce((sum, e) => sum + (e.VAL_TOTAL_PRODUTO || 0), 0);
+
+      return res.json({
+        success: true,
+        data: estornos,
+        count: estornos.length,
+        total
+      });
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar estornos órfãos:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao buscar estornos órfãos',
+        message: error.message
+      });
+    }
+  }
 }

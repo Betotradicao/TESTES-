@@ -33,6 +33,7 @@ export interface OperadorResumo {
   OUTROS: number;
   TOTAL_DESCONTOS: number;
   CANCELAMENTOS: number;     // Cancelamentos (estornos de itens/cupons)
+  ESTORNOS_ORFAOS: number;   // Estornos órfãos associados por PDV + horário
   VAL_SOBRA: number;
   VAL_QUEBRA: number;
   VAL_DIFERENCA: number;
@@ -58,6 +59,7 @@ export interface OperadorPorDia {
   OUTROS: number;
   TOTAL_DESCONTOS: number;
   CANCELAMENTOS: number;     // Cancelamentos (estornos de itens/cupons)
+  ESTORNOS_ORFAOS: number;   // Estornos órfãos associados por PDV + horário
   VAL_SOBRA: number;
   VAL_QUEBRA: number;
   VAL_DIFERENCA: number;
@@ -238,6 +240,58 @@ export class FrenteCaixaService {
     console.log(`✅ [Frente Caixa] Cancelamentos: ${cancelamentos.length} registros`);
     const cancelamentosMap = new Map(cancelamentos.map(c => [c.COD_OPERADOR, c.TOTAL_CANCELAMENTOS]));
 
+    // Buscar estornos órfãos - estornos sem match de cupom, associados pelo operador que estava no PDV naquele horário
+    // A lógica é: encontrar quem fez a venda mais próxima (por horário) no mesmo PDV no mesmo dia
+    // DES_HORA está no formato HHMM (ex: 931 = 9:31, 1253 = 12:53), DTA_VENDA tem o horário completo
+    // FALLBACK: Se não houver vendas no PDV, busca quem fechou o caixa (tesouraria) naquele PDV no dia
+    let sqlEstornosOrfaos = `
+      SELECT
+        sub.COD_OPERADOR,
+        SUM(sub.VAL_TOTAL_PRODUTO) as TOTAL_ESTORNOS_ORFAOS
+      FROM (
+        SELECT
+          e.VAL_TOTAL_PRODUTO,
+          e.NUM_PDV,
+          e.DTA_SAIDA,
+          e.DES_HORA,
+          NVL(
+            (
+              -- Primeira tentativa: operador que fez a venda mais próxima (por horário) no mesmo PDV no mesmo dia
+              SELECT MIN(cf.COD_OPERADOR) KEEP (DENSE_RANK FIRST ORDER BY ABS(TO_NUMBER(TO_CHAR(cf.DTA_VENDA, 'HH24MI')) - TO_NUMBER(NVL(e.DES_HORA, '0'))))
+              FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+              WHERE cf.NUM_PDV = e.NUM_PDV
+                AND cf.COD_LOJA = e.COD_LOJA
+                AND TRUNC(cf.DTA_VENDA) = TRUNC(e.DTA_SAIDA)
+            ),
+            (
+              -- Fallback: quem estava na tesouraria (fechou caixa) nesse PDV no mesmo dia
+              SELECT MAX(th.COD_OPERADOR) FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th
+              WHERE th.NUM_PDV = e.NUM_PDV
+                AND th.COD_LOJA = e.COD_LOJA
+                AND TRUNC(th.DTA_MOVIMENTO) = TRUNC(e.DTA_SAIDA)
+            )
+          ) as COD_OPERADOR
+        FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
+        WHERE e.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+          AND e.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+          ${codLoja ? 'AND e.COD_LOJA = :codLoja' : ''}
+          -- Somente estornos órfãos (sem match de cupom no mesmo PDV)
+          AND NOT EXISTS (
+            SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+            WHERE cf.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
+            AND cf.COD_LOJA = e.COD_LOJA
+            AND cf.NUM_PDV = e.NUM_PDV
+          )
+      ) sub
+      WHERE sub.COD_OPERADOR IS NOT NULL
+        ${codOperador ? 'AND sub.COD_OPERADOR = :codOperador' : ''}
+      GROUP BY sub.COD_OPERADOR`;
+
+    console.log('🔍 [Frente Caixa] Executando query de estornos órfãos...');
+    const estornosOrfaos = await OracleService.query<any>(sqlEstornosOrfaos, params);
+    console.log(`✅ [Frente Caixa] Estornos órfãos: ${estornosOrfaos.length} registros`);
+    const estornosOrfaosMap = new Map(estornosOrfaos.map(e => [e.COD_OPERADOR, e.TOTAL_ESTORNOS_ORFAOS]));
+
     // Buscar sobra/quebra de caixa (pegando apenas o último registro de cada combinação)
     let sqlTesouraria = `
       SELECT
@@ -289,6 +343,7 @@ export class FrenteCaixaService {
         OUTROS: v.OUTROS || 0,
         TOTAL_DESCONTOS: descontosMap.get(v.COD_OPERADOR) || 0,
         CANCELAMENTOS: cancelamentosMap.get(v.COD_OPERADOR) || 0,
+        ESTORNOS_ORFAOS: estornosOrfaosMap.get(v.COD_OPERADOR) || 0,
         VAL_SOBRA: tes.sobra,
         VAL_QUEBRA: tes.quebra,
         VAL_DIFERENCA: tes.sobra - tes.quebra
@@ -419,6 +474,45 @@ export class FrenteCaixaService {
     const cancelamentos = await OracleService.query<any>(sqlCancelamentos, params);
     const cancelamentosMap = new Map(cancelamentos.map(c => [c.DATA, c.TOTAL_CANCELAMENTOS]));
 
+    // Buscar estornos órfãos por dia - associados pelo operador que fez a venda mais próxima (por horário) no mesmo PDV
+    // FALLBACK: Se não houver vendas no PDV, busca quem fechou o caixa (tesouraria) naquele PDV no dia
+    let sqlEstornosOrfaos = `
+      SELECT
+        TO_CHAR(e.DTA_SAIDA, 'DD/MM/YYYY') as DATA,
+        SUM(e.VAL_TOTAL_PRODUTO) as TOTAL_ESTORNOS_ORFAOS
+      FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
+      WHERE e.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND e.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        ${codLoja ? 'AND e.COD_LOJA = :codLoja' : ''}
+        -- Somente estornos órfãos (sem match de cupom no mesmo PDV)
+        AND NOT EXISTS (
+          SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+          WHERE cf.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
+          AND cf.COD_LOJA = e.COD_LOJA
+          AND cf.NUM_PDV = e.NUM_PDV
+        )
+        -- Associar ao operador: primeiro pela venda mais próxima, fallback pela tesouraria
+        AND :codOperador = NVL(
+          (
+            SELECT MIN(cf2.COD_OPERADOR) KEEP (DENSE_RANK FIRST ORDER BY ABS(TO_NUMBER(TO_CHAR(cf2.DTA_VENDA, 'HH24MI')) - TO_NUMBER(NVL(e.DES_HORA, '0'))))
+            FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf2
+            WHERE cf2.NUM_PDV = e.NUM_PDV
+              AND cf2.COD_LOJA = e.COD_LOJA
+              AND TRUNC(cf2.DTA_VENDA) = TRUNC(e.DTA_SAIDA)
+          ),
+          (
+            -- Fallback: quem estava na tesouraria (fechou caixa) nesse PDV no mesmo dia
+            SELECT MAX(th.COD_OPERADOR) FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th
+            WHERE th.NUM_PDV = e.NUM_PDV
+              AND th.COD_LOJA = e.COD_LOJA
+              AND TRUNC(th.DTA_MOVIMENTO) = TRUNC(e.DTA_SAIDA)
+          )
+        )
+      GROUP BY TO_CHAR(e.DTA_SAIDA, 'DD/MM/YYYY')`;
+
+    const estornosOrfaos = await OracleService.query<any>(sqlEstornosOrfaos, params);
+    const estornosOrfaosMap = new Map(estornosOrfaos.map(e => [e.DATA, e.TOTAL_ESTORNOS_ORFAOS]));
+
     // Buscar sobra/quebra por dia (pegando apenas o último registro de cada combinação)
     let sqlTesouraria = `
       SELECT
@@ -470,6 +564,7 @@ export class FrenteCaixaService {
         OUTROS: v.OUTROS || 0,
         TOTAL_DESCONTOS: descontosMap.get(v.DATA) || 0,
         CANCELAMENTOS: cancelamentosMap.get(v.DATA) || 0,
+        ESTORNOS_ORFAOS: estornosOrfaosMap.get(v.DATA) || 0,
         VAL_SOBRA: tes.sobra,
         VAL_QUEBRA: tes.quebra,
         VAL_DIFERENCA: tes.sobra - tes.quebra
@@ -521,15 +616,38 @@ export class FrenteCaixaService {
     `;
     const descontos = await OracleService.query<any>(sqlDescontos, params);
 
-    // Buscar totais de cancelamentos (estornos)
+    // Buscar totais de cancelamentos (estornos) - separando os que têm associação dos órfãos
+    // Cancelamentos com associação = estornos onde existe cupom no mesmo PDV
     const sqlCancelamentos = `
       SELECT SUM(VAL_TOTAL_PRODUTO) as CANCELAMENTOS
-      FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO
-      WHERE DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-        ${codLoja ? 'AND COD_LOJA = :codLoja' : ''}
+      FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
+      WHERE e.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND e.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        ${codLoja ? 'AND e.COD_LOJA = :codLoja' : ''}
+        AND EXISTS (
+          SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+          WHERE cf.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
+          AND cf.COD_LOJA = e.COD_LOJA
+          AND cf.NUM_PDV = e.NUM_PDV
+        )
     `;
     const cancelamentos = await OracleService.query<any>(sqlCancelamentos, params);
+
+    // Estornos órfãos = estornos onde NÃO existe cupom no mesmo PDV
+    const sqlEstornosOrfaos = `
+      SELECT SUM(VAL_TOTAL_PRODUTO) as ESTORNOS_ORFAOS
+      FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
+      WHERE e.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND e.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        ${codLoja ? 'AND e.COD_LOJA = :codLoja' : ''}
+        AND NOT EXISTS (
+          SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+          WHERE cf.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
+          AND cf.COD_LOJA = e.COD_LOJA
+          AND cf.NUM_PDV = e.NUM_PDV
+        )
+    `;
+    const estornosOrfaos = await OracleService.query<any>(sqlEstornosOrfaos, params);
 
     // Buscar totais de sobra/quebra (pegando apenas o último registro de cada combinação)
     const sqlTesouraria = `
@@ -571,6 +689,7 @@ export class FrenteCaixaService {
       OUTROS: totais[0]?.OUTROS || 0,
       TOTAL_DESCONTOS: descontos[0]?.TOTAL_DESCONTOS || 0,
       CANCELAMENTOS: cancelamentos[0]?.CANCELAMENTOS || 0,
+      ESTORNOS_ORFAOS: estornosOrfaos[0]?.ESTORNOS_ORFAOS || 0,
       TOTAL_SOBRA: tesouraria[0]?.TOTAL_SOBRA || 0,
       TOTAL_QUEBRA: tesouraria[0]?.TOTAL_QUEBRA || 0,
       TOTAL_DIFERENCA: (tesouraria[0]?.TOTAL_SOBRA || 0) - (tesouraria[0]?.TOTAL_QUEBRA || 0)
@@ -730,6 +849,88 @@ export class FrenteCaixaService {
       return todos;
     } catch (error: any) {
       console.error('❌ [Frente Caixa] Erro na query de itens:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Busca estornos órfãos atribuídos a um operador em uma data específica
+   * Estornos órfãos são cancelamentos que não têm cupom associado no mesmo PDV
+   * São atribuídos ao operador que estava trabalhando no PDV naquele horário
+   */
+  static async getEstornosOrfaos(
+    codOperador: number,
+    data: string,
+    codLoja?: number
+  ): Promise<any[]> {
+    const params: any = {
+      codOperador,
+      data
+    };
+    if (codLoja) params.codLoja = codLoja;
+
+    const sql = `
+      SELECT
+        sub.NUM_CUPOM_FISCAL,
+        sub.NUM_PDV,
+        sub.COD_PRODUTO,
+        sub.DES_PRODUTO,
+        sub.QTD_TOTAL_PRODUTO,
+        sub.VAL_TOTAL_PRODUTO,
+        sub.DES_HORA,
+        sub.DATA_HORA,
+        sub.COD_OPERADOR_ATRIBUIDO
+      FROM (
+        SELECT
+          e.NUM_CUPOM_FISCAL,
+          e.NUM_PDV,
+          e.COD_PRODUTO,
+          p.DES_PRODUTO,
+          e.QTD_TOTAL_PRODUTO,
+          e.VAL_TOTAL_PRODUTO,
+          e.DES_HORA,
+          TO_CHAR(e.DTA_SAIDA, 'DD/MM/YYYY HH24:MI') as DATA_HORA,
+          NVL(
+            (
+              -- Primeira tentativa: operador que fez a venda mais próxima (por horário) no mesmo PDV no mesmo dia
+              SELECT MIN(cf.COD_OPERADOR) KEEP (DENSE_RANK FIRST ORDER BY ABS(TO_NUMBER(TO_CHAR(cf.DTA_VENDA, 'HH24MI')) - TO_NUMBER(NVL(e.DES_HORA, '0'))))
+              FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+              WHERE cf.NUM_PDV = e.NUM_PDV
+                AND cf.COD_LOJA = e.COD_LOJA
+                AND TRUNC(cf.DTA_VENDA) = TRUNC(e.DTA_SAIDA)
+            ),
+            (
+              -- Fallback: quem estava na tesouraria (fechou caixa) nesse PDV no mesmo dia
+              SELECT MAX(th.COD_OPERADOR) FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th
+              WHERE th.NUM_PDV = e.NUM_PDV
+                AND th.COD_LOJA = e.COD_LOJA
+                AND TRUNC(th.DTA_MOVIMENTO) = TRUNC(e.DTA_SAIDA)
+            )
+          ) as COD_OPERADOR_ATRIBUIDO
+        FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
+        LEFT JOIN INTERSOLID.TAB_PRODUTO p ON e.COD_PRODUTO = p.COD_PRODUTO
+        WHERE TO_CHAR(e.DTA_SAIDA, 'DD/MM/YYYY') = :data
+          ${codLoja ? 'AND e.COD_LOJA = :codLoja' : ''}
+          -- Somente estornos órfãos (sem match de cupom no mesmo PDV)
+          AND NOT EXISTS (
+            SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+            WHERE cf.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
+              AND cf.COD_LOJA = e.COD_LOJA
+              AND cf.NUM_PDV = e.NUM_PDV
+          )
+      ) sub
+      WHERE sub.COD_OPERADOR_ATRIBUIDO = :codOperador
+      ORDER BY sub.NUM_PDV, sub.DES_HORA
+    `;
+
+    console.log('🔍 [Frente Caixa] Buscando estornos órfãos do operador', codOperador, 'em', data);
+
+    try {
+      const estornos = await OracleService.query<any>(sql, params);
+      console.log(`✅ [Frente Caixa] Encontrados ${estornos.length} estornos órfãos`);
+      return estornos;
+    } catch (error: any) {
+      console.error('❌ [Frente Caixa] Erro na query de estornos órfãos:', error.message);
       throw error;
     }
   }
