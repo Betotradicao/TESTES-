@@ -120,4 +120,266 @@ router.get('/fetch-groups', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/whatsapp/send-bips-now
+ * Envia manualmente o relatório de bipagens pendentes (ignora se já foi notificado)
+ */
+router.post('/send-bips-now', async (req, res) => {
+  try {
+    const { AppDataSource } = require('../config/database');
+    const { Bip, BipStatus } = require('../entities/Bip');
+    const { Between } = require('typeorm');
+
+    // Calcular data de ontem no horário do Brasil
+    const now = new Date();
+    const brDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    const yesterdayBR = new Date(brDate);
+    yesterdayBR.setDate(yesterdayBR.getDate() - 1);
+
+    const year = yesterdayBR.getFullYear();
+    const month = String(yesterdayBR.getMonth() + 1).padStart(2, '0');
+    const day = String(yesterdayBR.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+
+    console.log(`📤 [ENVIO MANUAL] Buscando bipagens pendentes de ${dateStr}...`);
+
+    // Calcular período do dia em UTC (Brasil é UTC-3)
+    const startOfDayBrazil = new Date(`${dateStr}T03:00:00.000Z`);
+    const endOfDayBrazil = new Date(`${dateStr}T03:00:00.000Z`);
+    endOfDayBrazil.setDate(endOfDayBrazil.getDate() + 1);
+    endOfDayBrazil.setMilliseconds(endOfDayBrazil.getMilliseconds() - 1);
+
+    const bipRepository = AppDataSource.getRepository(Bip);
+
+    // Buscar TODAS as bipagens pendentes de ontem (ignorando notified_at)
+    const pendingBips = await bipRepository.find({
+      where: {
+        status: BipStatus.PENDING,
+        event_date: Between(startOfDayBrazil, endOfDayBrazil)
+      },
+      relations: ['equipment', 'equipment.sector', 'employee'],
+      order: {
+        event_date: 'ASC'
+      }
+    });
+
+    console.log(`📱 [ENVIO MANUAL] Encontradas ${pendingBips.length} bipagens pendentes`);
+
+    if (pendingBips.length === 0) {
+      return res.json({
+        success: true,
+        message: `Nenhuma bipagem pendente encontrada para ${dateStr}`,
+        count: 0
+      });
+    }
+
+    // Enviar PDF
+    const pdfSent = await WhatsAppService.sendPendingBipsPDF(pendingBips, dateStr);
+
+    if (pdfSent) {
+      // Atualizar notified_at
+      const notifiedAt = new Date();
+      for (const bip of pendingBips) {
+        bip.notified_at = notifiedAt;
+      }
+      await bipRepository.save(pendingBips);
+
+      console.log(`✅ [ENVIO MANUAL] ${pendingBips.length} bipagens enviadas e marcadas como notificadas`);
+
+      res.json({
+        success: true,
+        message: `Relatório enviado com sucesso! ${pendingBips.length} bipagens de ${dateStr}`,
+        count: pendingBips.length,
+        date: dateStr
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'Falha ao enviar o PDF para o WhatsApp'
+      });
+    }
+  } catch (error: any) {
+    console.error('❌ [ENVIO MANUAL] Erro:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erro ao enviar relatório de bipagens'
+    });
+  }
+});
+
+/**
+ * POST /api/whatsapp/send-losses-now
+ * Envia manualmente o relatório de quebras/ajustes do dia anterior
+ * Busca dados diretamente do Oracle (ERP)
+ */
+router.post('/send-losses-now', async (req, res) => {
+  try {
+    const { OracleService } = require('../services/oracle.service');
+    const { LossPDFService } = require('../services/loss-pdf.service');
+    const { AppDataSource } = require('../config/database');
+    const { LossReasonConfig } = require('../entities/LossReasonConfig');
+
+    // Calcular data de ontem no horário do Brasil
+    const now = new Date();
+    const brDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    const yesterdayBR = new Date(brDate);
+    yesterdayBR.setDate(yesterdayBR.getDate() - 1);
+
+    const year = yesterdayBR.getFullYear();
+    const month = String(yesterdayBR.getMonth() + 1).padStart(2, '0');
+    const day = String(yesterdayBR.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    const dateFormatted = `${day}/${month}/${year}`;
+
+    console.log(`📤 [ENVIO MANUAL QUEBRAS] Buscando quebras do Oracle de ${dateStr}...`);
+
+    // Buscar motivos ATIVOS do PostgreSQL (ignorarCalculo: true = motivo ativo na interface)
+    const reasonConfigRepository = AppDataSource.getRepository(LossReasonConfig);
+    const activeReasons = await reasonConfigRepository.find({
+      where: { ignorarCalculo: true }
+    });
+    const activeReasonNames = activeReasons.map((r: any) => r.motivo);
+
+    console.log(`📋 [ENVIO MANUAL QUEBRAS] Motivos ativos: ${activeReasonNames.join(', ')}`);
+
+    // Query para buscar todas as quebras do dia anterior do Oracle
+    const codigoLoja = 1; // TODO: Pegar da configuração se necessário
+
+    const itensQuery = `
+      SELECT
+        ae.COD_PRODUTO,
+        p.DES_PRODUTO as DESCRICAO,
+        p.COD_BARRA_PRINCIPAL as CODIGO_BARRAS,
+        ta.DES_AJUSTE as MOTIVO,
+        NVL(ae.QTD_AJUSTE, 0) as QUANTIDADE,
+        NVL(ae.VAL_CUSTO_REP, 0) as CUSTO_REPOSICAO,
+        NVL(ae.QTD_AJUSTE, 0) * NVL(ae.VAL_CUSTO_REP, 0) as VALOR_TOTAL,
+        s.COD_SECAO,
+        s.DES_SECAO as SECAO
+      FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
+      JOIN INTERSOLID.TAB_PRODUTO p ON ae.COD_PRODUTO = p.COD_PRODUTO
+      LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.COD_AJUSTE = ta.COD_AJUSTE
+      LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+      WHERE ae.COD_LOJA = :loja
+      AND ae.DTA_AJUSTE >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
+      AND ae.DTA_AJUSTE < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
+      AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO != 'S')
+      ORDER BY ta.DES_AJUSTE ASC, p.DES_PRODUTO ASC
+    `;
+
+    const params = {
+      loja: codigoLoja,
+      data_inicio: dateStr,
+      data_fim: dateStr,
+    };
+
+    const oracleItems = await OracleService.query(itensQuery, params);
+
+    console.log(`📊 [ENVIO MANUAL QUEBRAS] Encontradas ${oracleItems.length} quebras no Oracle`);
+
+    if (oracleItems.length === 0) {
+      return res.json({
+        success: true,
+        message: `Nenhuma quebra encontrada para ${dateFormatted}`,
+        count: 0
+      });
+    }
+
+    // Converter para formato esperado pelo LossPDFService
+    const losses = oracleItems.map((item: any) => ({
+      codigoBarras: item.CODIGO_BARRAS || '',
+      descricaoReduzida: item.DESCRICAO || '',
+      quantidadeAjuste: parseFloat(item.QUANTIDADE) || 0,
+      custoReposicao: parseFloat(item.CUSTO_REPOSICAO) || 0,
+      descricaoAjusteCompleta: item.MOTIVO || 'SEM MOTIVO',
+      secao: item.COD_SECAO || '',
+      secaoNome: item.SECAO || 'SEM SEÇÃO',
+    }));
+
+    // Filtrar itens para INCLUIR apenas motivos ATIVOS
+    const filteredLosses = losses.filter((item: any) =>
+      activeReasonNames.includes(item.descricaoAjusteCompleta)
+    );
+
+    console.log(`📊 [ENVIO MANUAL QUEBRAS] ${losses.length} quebras totais, ${filteredLosses.length} com motivos ativos`);
+
+    if (filteredLosses.length === 0) {
+      return res.json({
+        success: true,
+        message: `Nenhuma quebra com motivo ativo encontrada para ${dateFormatted} (${losses.length} quebras totais)`,
+        count: 0
+      });
+    }
+
+    // Separar saídas e entradas
+    const saidas = filteredLosses.filter((item: any) => item.quantidadeAjuste < 0);
+    const entradas = filteredLosses.filter((item: any) => item.quantidadeAjuste >= 0);
+
+    // Calcular totais
+    const totalSaidas = saidas.length;
+    const totalEntradas = entradas.length;
+    const valorSaidas = saidas.reduce((sum: number, item: any) =>
+      sum + Math.abs(item.quantidadeAjuste * item.custoReposicao), 0);
+    const valorEntradas = entradas.reduce((sum: number, item: any) =>
+      sum + Math.abs(item.quantidadeAjuste * item.custoReposicao), 0);
+
+    // Gerar resumo para WhatsApp
+    const summary = LossPDFService.generateWhatsAppSummary(filteredLosses);
+    const saidasPorMotivo = summary.saidas;
+    const entradasPorMotivo = summary.entradas;
+
+    // Gerar PDF
+    const nomeLote = `Quebras ${dateFormatted}`;
+    const pdfPath = await LossPDFService.generateLossesPDF(
+      nomeLote,
+      dateStr,
+      dateStr,
+      filteredLosses
+    );
+
+    console.log(`📄 [ENVIO MANUAL QUEBRAS] PDF gerado: ${pdfPath}`);
+
+    // Enviar para WhatsApp
+    const sent = await WhatsAppService.sendLossesReport(
+      pdfPath,
+      nomeLote,
+      filteredLosses.length,
+      totalSaidas,
+      totalEntradas,
+      valorSaidas,
+      valorEntradas,
+      saidasPorMotivo,
+      entradasPorMotivo
+    );
+
+    // Limpar arquivo temporário
+    const fs = require('fs');
+    if (fs.existsSync(pdfPath)) {
+      fs.unlinkSync(pdfPath);
+    }
+
+    if (sent) {
+      console.log(`✅ [ENVIO MANUAL QUEBRAS] ${filteredLosses.length} quebras enviadas com sucesso`);
+
+      res.json({
+        success: true,
+        message: `Relatório enviado com sucesso! ${filteredLosses.length} quebras de ${dateFormatted} (${totalSaidas} saídas: R$ ${valorSaidas.toFixed(2)}, ${totalEntradas} entradas: R$ ${valorEntradas.toFixed(2)})`,
+        count: filteredLosses.length,
+        date: dateStr
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'Falha ao enviar o PDF para o WhatsApp'
+      });
+    }
+  } catch (error: any) {
+    console.error('❌ [ENVIO MANUAL QUEBRAS] Erro:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erro ao enviar relatório de quebras'
+    });
+  }
+});
+
 export default router;

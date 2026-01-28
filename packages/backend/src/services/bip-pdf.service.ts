@@ -109,17 +109,21 @@ export class BipPDFService {
         doc.rect(30, startY, 535, rowHeight).fillAndStroke(bgColor, '#DDD');
 
         const preco = bip.bip_price_cents ? `R$ ${(bip.bip_price_cents / 100).toFixed(2).replace('.', ',')}` : '-';
-        const dataHora = bip.event_date
-          ? new Date(bip.event_date).toLocaleString('pt-BR', {
-              timeZone: 'America/Sao_Paulo',
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit'
-            })
-          : '-';
+
+        // Formatar data/hora - adicionar 3 horas para compensar UTC e exibir horário Brasil
+        let dataHora = '-';
+        if (bip.event_date) {
+          const eventDate = new Date(bip.event_date);
+          // Adicionar 3 horas para converter de UTC para Brasil (UTC-3)
+          eventDate.setHours(eventDate.getHours() + 3);
+          const dia = String(eventDate.getDate()).padStart(2, '0');
+          const mes = String(eventDate.getMonth() + 1).padStart(2, '0');
+          const ano = eventDate.getFullYear();
+          const hora = String(eventDate.getHours()).padStart(2, '0');
+          const min = String(eventDate.getMinutes()).padStart(2, '0');
+          const seg = String(eventDate.getSeconds()).padStart(2, '0');
+          dataHora = `${dia}/${mes}/${ano}, ${hora}:${min}:${seg}`;
+        }
 
         // Nome do bipador (employee)
         const bipadorNome = bip.employee?.name || 'Desconhecido';

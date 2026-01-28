@@ -8,7 +8,6 @@ export default function EmailMonitorTab() {
   const [testing, setTesting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
-  const [groups, setGroups] = useState([]);
   const [logs, setLogs] = useState([]);
   const [config, setConfig] = useState({
     email: '',
@@ -21,7 +20,6 @@ export default function EmailMonitorTab() {
 
   useEffect(() => {
     fetchConfig();
-    fetchGroups();
   }, []);
 
   useEffect(() => {
@@ -40,18 +38,6 @@ export default function EmailMonitorTab() {
       showMessage('error', 'Erro ao carregar configurações');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchGroups = async () => {
-    try {
-      // Buscar grupos do WhatsApp via Evolution API
-      const response = await api.get('/email-monitor/whatsapp-groups');
-      const fetchedGroups = response.data.groups || [];
-      setGroups(fetchedGroups);
-    } catch (error) {
-      console.error('Erro ao buscar grupos:', error);
-      showMessage('error', 'Erro ao carregar grupos do WhatsApp. Verifique se a Evolution API está configurada.');
     }
   };
 
@@ -222,7 +208,6 @@ export default function EmailMonitorTab() {
         {[
           { id: 'gmail', label: 'Gmail', icon: '📧' },
           { id: 'filters', label: 'Filtros', icon: '🔍' },
-          { id: 'whatsapp', label: 'WhatsApp', icon: '📱' },
           { id: 'logs', label: 'Logs', icon: '📊' },
           { id: 'monitor-dvr', label: 'Monitor DVR', icon: '🔧' }
         ].map(tab => (
@@ -399,7 +384,7 @@ export default function EmailMonitorTab() {
           <li>O sistema verifica emails não lidos a cada {config.check_interval_seconds} segundos</li>
           <li>Procura emails com "{config.subject_filter}" no assunto</li>
           <li>Extrai o texto e imagem do PDF anexado</li>
-          <li>Envia automaticamente para o grupo WhatsApp configurado</li>
+          <li>Envia automaticamente para o grupo WhatsApp configurado em <strong>Grupos WhatsApp → Prevenção Facial</strong></li>
           <li>Marca o email como lido para não processar novamente</li>
         </ul>
       </div>
@@ -416,64 +401,6 @@ export default function EmailMonitorTab() {
           Habilitar monitoramento automático
         </label>
       </div>
-
-      <div className="flex justify-end">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
-        >
-          {saving ? 'Salvando...' : 'Salvar Configurações'}
-        </button>
-      </div>
-    </div>
-  );
-
-  const renderWhatsAppTab = () => (
-    <div className="space-y-6">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Grupo WhatsApp de Destino
-        </label>
-        <select
-          value={config.whatsapp_group_id}
-          onChange={(e) => setConfig({ ...config, whatsapp_group_id: e.target.value })}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          <option value="">Selecione um grupo</option>
-          {groups.map(group => (
-            <option key={group.id} value={group.id}>
-              {group.name} ({group.id})
-            </option>
-          ))}
-        </select>
-        <p className="mt-1 text-xs text-gray-500">
-          Grupo onde serão enviados os alertas do DVR
-        </p>
-      </div>
-
-      <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-        <h4 className="text-sm font-medium text-gray-900 mb-2">Formato da mensagem:</h4>
-        <div className="mt-2 p-3 bg-white border border-gray-300 rounded text-xs font-mono">
-          🚨 Alerta DVR<br/><br/>
-          [Texto do email]<br/><br/>
-          [Imagem do PDF anexado]
-        </div>
-      </div>
-
-      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-        <p className="text-xs text-yellow-800">
-          <strong>Nota:</strong> Certifique-se de que o grupo está configurado nas Configurações de APIs
-        </p>
-      </div>
-
-      {!config.whatsapp_group_id && (
-        <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-          <p className="text-xs text-orange-800">
-            <strong>Aviso:</strong> Sem grupo selecionado, os emails serão processados mas NÃO serão enviados para WhatsApp. As imagens ainda serão salvas na galeria.
-          </p>
-        </div>
-      )}
 
       <div className="flex justify-end">
         <button
@@ -605,7 +532,6 @@ export default function EmailMonitorTab() {
 
       {activeSubTab === 'gmail' && renderGmailTab()}
       {activeSubTab === 'filters' && renderFiltersTab()}
-      {activeSubTab === 'whatsapp' && renderWhatsAppTab()}
       {activeSubTab === 'logs' && renderLogsTab()}
       {activeSubTab === 'monitor-dvr' && renderMonitorDVRTab()}
     </div>

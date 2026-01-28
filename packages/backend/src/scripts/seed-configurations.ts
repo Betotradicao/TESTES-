@@ -273,6 +273,11 @@ async function seedConfigurations() {
         description: 'ID do grupo WhatsApp para notificações do Monitor'
       },
       {
+        key: 'email_monitor_whatsapp_group_name',
+        value: 'Prevenção Facial',
+        description: 'Nome do grupo WhatsApp para notificações do Monitor DVR'
+      },
+      {
         key: 'email_monitor_enabled',
         value: 'true',
         description: 'Monitor habilitado (true/false)'
@@ -331,8 +336,13 @@ async function seedConfigurations() {
       },
       {
         key: 'whatsapp_bips_schedule_time',
-        value: '08:00',
+        value: '09:00',
         description: 'Horário de envio automático do relatório de bipagens pendentes (formato HH:MM)'
+      },
+      {
+        key: 'whatsapp_losses_schedule_time',
+        value: '07:00',
+        description: 'Horário de envio automático do relatório de quebras/ajustes (formato HH:MM)'
       }
     ];
 

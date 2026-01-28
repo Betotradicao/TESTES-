@@ -39,6 +39,8 @@ import hortfrutRouter from './routes/hortfrut.routes';
 import suppliersRouter from './routes/suppliers.routes';
 import compraVendaRouter from './routes/compra-venda.routes';
 import frenteCaixaRouter from './routes/frente-caixa.routes';
+import pedidosCompraRouter from './routes/pedidos-compra.routes';
+import rupturaIndustriaRouter from './routes/ruptura-industria.routes';
 import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
 import { EmailMonitorService } from './services/email-monitor.service';
@@ -115,6 +117,8 @@ app.use('/api/hortfrut', hortfrutRouter);
 app.use('/api/suppliers', suppliersRouter);
 app.use('/api/compra-venda', compraVendaRouter);
 app.use('/api/frente-caixa', frenteCaixaRouter);
+app.use('/api/pedidos-compra', pedidosCompraRouter);
+app.use('/api/ruptura-industria', rupturaIndustriaRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {
@@ -206,17 +210,27 @@ const startServer = async () => {
   cron.schedule('* * * * *', async () => {
     try {
       const { ConfigurationService } = await import('./services/configuration.service');
-      const scheduleTimeValue = await ConfigurationService.get('whatsapp_bips_schedule_time', '08:00');
-      const scheduleTime = scheduleTimeValue || '08:00';
+      const scheduleTime = await ConfigurationService.get('whatsapp_bips_schedule_time');
 
       // Converter horário do Brasil para comparação
       const now = new Date();
       const brDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+
+      // Log a cada minuto para debug
+      console.log(`🔍 [BIPS CRON] Horário Brasil: ${brDate.toLocaleTimeString('pt-BR')} | Configurado: ${scheduleTime || 'NÃO CONFIGURADO'}`);
+
+      // Se não houver horário configurado, não envia
+      if (!scheduleTime) {
+        return;
+      }
+
       const [configHours, configMinutes] = scheduleTime.split(':').map(Number);
 
       // Verificar se é o horário configurado (em horário do Brasil)
       const currentMinuteKey = brDate.getHours() * 60 + brDate.getMinutes();
       const scheduleMinuteKey = configHours * 60 + configMinutes;
+
+      console.log(`🔍 [BIPS CRON] currentMinuteKey: ${currentMinuteKey} | scheduleMinuteKey: ${scheduleMinuteKey} | lastSent: ${lastBipsSendMinute}`);
 
       if (currentMinuteKey === scheduleMinuteKey && lastBipsSendMinute !== currentMinuteKey) {
         lastBipsSendMinute = currentMinuteKey;
@@ -224,10 +238,15 @@ const startServer = async () => {
         console.log(`⏰ Horário de envio de bipagens pendentes: ${scheduleTime} (Brasil)`);
         console.log(`📅 Horário atual (Brasil): ${brDate.toLocaleTimeString('pt-BR')}`);
 
-        // Buscar bipagens do dia anterior
-        const yesterday = new Date(brDate);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const dateStr = yesterday.toISOString().split('T')[0]; // YYYY-MM-DD
+        // Buscar bipagens do dia anterior (em horário do Brasil)
+        const yesterdayBR = new Date(brDate);
+        yesterdayBR.setDate(yesterdayBR.getDate() - 1);
+
+        // Formatar data no padrão YYYY-MM-DD usando horário do Brasil
+        const year = yesterdayBR.getFullYear();
+        const month = String(yesterdayBR.getMonth() + 1).padStart(2, '0');
+        const day = String(yesterdayBR.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
 
         console.log(`📊 Buscando bipagens pendentes de ${dateStr}...`);
 
@@ -236,17 +255,22 @@ const startServer = async () => {
         const { IsNull, Between } = await import('typeorm');
 
         const bipRepository = AppDataSource.getRepository(Bip);
-        const filterDate = new Date(dateStr);
-        const startOfDay = new Date(filterDate);
-        startOfDay.setUTCHours(0, 0, 0, 0);
-        const endOfDay = new Date(filterDate);
-        endOfDay.setUTCHours(23, 59, 59, 999);
+
+        // Calcular início e fim do dia em UTC (considerando que Brasil é UTC-3)
+        // Início do dia no Brasil (00:00) = 03:00 UTC
+        // Fim do dia no Brasil (23:59:59) = 02:59:59 UTC do dia seguinte
+        const startOfDayBrazil = new Date(`${dateStr}T03:00:00.000Z`); // 00:00 Brasil = 03:00 UTC
+        const endOfDayBrazil = new Date(`${dateStr}T03:00:00.000Z`);
+        endOfDayBrazil.setDate(endOfDayBrazil.getDate() + 1);
+        endOfDayBrazil.setMilliseconds(endOfDayBrazil.getMilliseconds() - 1); // 23:59:59.999 Brasil
+
+        console.log(`🕐 Período de busca (UTC): ${startOfDayBrazil.toISOString()} até ${endOfDayBrazil.toISOString()}`);
 
         const pendingBips = await bipRepository.find({
           where: {
             status: BipStatus.PENDING,
             notified_at: IsNull(),
-            event_date: Between(startOfDay, endOfDay)
+            event_date: Between(startOfDayBrazil, endOfDayBrazil)
           },
           relations: ['equipment', 'equipment.sector', 'employee'],
           order: {
@@ -281,6 +305,187 @@ const startServer = async () => {
   });
 
   console.log('🔔 Pending bips report cron job started (checks every minute, respects Brazil timezone)');
+
+  // Losses Report Cron Job - runs every minute and checks configured schedule time
+  let lastLossesSendMinute = -1; // Evitar enviar múltiplas vezes no mesmo minuto
+
+  cron.schedule('* * * * *', async () => {
+    try {
+      const { ConfigurationService } = await import('./services/configuration.service');
+      const scheduleTime = await ConfigurationService.get('whatsapp_losses_schedule_time');
+
+      // Converter horário do Brasil para comparação
+      const now = new Date();
+      const brDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+
+      // Se não houver horário configurado, não envia
+      if (!scheduleTime) {
+        return;
+      }
+
+      const [configHours, configMinutes] = scheduleTime.split(':').map(Number);
+
+      // Verificar se é o horário configurado (em horário do Brasil)
+      const currentMinuteKey = brDate.getHours() * 60 + brDate.getMinutes();
+      const scheduleMinuteKey = configHours * 60 + configMinutes;
+
+      if (currentMinuteKey === scheduleMinuteKey && lastLossesSendMinute !== currentMinuteKey) {
+        lastLossesSendMinute = currentMinuteKey;
+
+        console.log(`⏰ [QUEBRAS CRON] Horário de envio: ${scheduleTime} (Brasil)`);
+        console.log(`📅 [QUEBRAS CRON] Horário atual (Brasil): ${brDate.toLocaleTimeString('pt-BR')}`);
+
+        // Buscar quebras do dia anterior (em horário do Brasil)
+        const yesterdayBR = new Date(brDate);
+        yesterdayBR.setDate(yesterdayBR.getDate() - 1);
+
+        // Formatar data no padrão YYYY-MM-DD usando horário do Brasil
+        const year = yesterdayBR.getFullYear();
+        const month = String(yesterdayBR.getMonth() + 1).padStart(2, '0');
+        const day = String(yesterdayBR.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        const dateFormatted = `${day}/${month}/${year}`;
+
+        console.log(`📊 [QUEBRAS CRON] Buscando quebras do Oracle de ${dateStr}...`);
+
+        const { AppDataSource } = await import('./config/database');
+        const { LossReasonConfig } = await import('./entities/LossReasonConfig');
+        const { LossPDFService } = await import('./services/loss-pdf.service');
+        const { WhatsAppService } = await import('./services/whatsapp.service');
+        const { OracleService } = await import('./services/oracle.service');
+        const fs = await import('fs');
+
+        const reasonConfigRepository = AppDataSource.getRepository(LossReasonConfig);
+
+        // Buscar motivos ATIVOS (ignorarCalculo: true = motivo ativo na interface)
+        const activeReasons = await reasonConfigRepository.find({
+          where: { ignorarCalculo: true }
+        });
+        const activeReasonNames = activeReasons.map((r: any) => r.motivo);
+
+        console.log(`📋 [QUEBRAS CRON] Motivos ativos: ${activeReasonNames.join(', ')}`);
+
+        // Buscar todas as quebras do dia anterior do Oracle
+        const codigoLoja = 1; // TODO: Pegar da configuração se necessário
+
+        const itensQuery = `
+          SELECT
+            ae.COD_PRODUTO,
+            p.DES_PRODUTO as DESCRICAO,
+            p.COD_BARRA_PRINCIPAL as CODIGO_BARRAS,
+            ta.DES_AJUSTE as MOTIVO,
+            NVL(ae.QTD_AJUSTE, 0) as QUANTIDADE,
+            NVL(ae.VAL_CUSTO_REP, 0) as CUSTO_REPOSICAO,
+            NVL(ae.QTD_AJUSTE, 0) * NVL(ae.VAL_CUSTO_REP, 0) as VALOR_TOTAL,
+            s.COD_SECAO,
+            s.DES_SECAO as SECAO
+          FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
+          JOIN INTERSOLID.TAB_PRODUTO p ON ae.COD_PRODUTO = p.COD_PRODUTO
+          LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.COD_AJUSTE = ta.COD_AJUSTE
+          LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+          WHERE ae.COD_LOJA = :loja
+          AND ae.DTA_AJUSTE >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
+          AND ae.DTA_AJUSTE < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
+          AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO != 'S')
+          ORDER BY ta.DES_AJUSTE ASC, p.DES_PRODUTO ASC
+        `;
+
+        const params = {
+          loja: codigoLoja,
+          data_inicio: dateStr,
+          data_fim: dateStr,
+        };
+
+        const oracleItems = await OracleService.query(itensQuery, params);
+
+        console.log(`📊 [QUEBRAS CRON] Encontradas ${oracleItems.length} quebras no Oracle`);
+
+        if (oracleItems.length === 0) {
+          console.log(`ℹ️ [QUEBRAS CRON] Nenhuma quebra para enviar em ${dateStr}`);
+          return;
+        }
+
+        // Converter para formato esperado pelo LossPDFService
+        const losses = oracleItems.map((item: any) => ({
+          codigoBarras: item.CODIGO_BARRAS || '',
+          descricaoReduzida: item.DESCRICAO || '',
+          quantidadeAjuste: parseFloat(item.QUANTIDADE) || 0,
+          custoReposicao: parseFloat(item.CUSTO_REPOSICAO) || 0,
+          descricaoAjusteCompleta: item.MOTIVO || 'SEM MOTIVO',
+          secao: item.COD_SECAO || '',
+          secaoNome: item.SECAO || 'SEM SEÇÃO',
+        }));
+
+        // Filtrar itens para INCLUIR apenas motivos ATIVOS
+        const filteredLosses = losses.filter((item: any) =>
+          activeReasonNames.includes(item.descricaoAjusteCompleta)
+        );
+
+        console.log(`📊 [QUEBRAS CRON] ${losses.length} quebras totais, ${filteredLosses.length} com motivos ativos`);
+
+        if (filteredLosses.length === 0) {
+          console.log(`ℹ️ [QUEBRAS CRON] Nenhuma quebra com motivo ativo encontrada`);
+          return;
+        }
+
+        // Separar saídas e entradas
+        const saidas = filteredLosses.filter((item: any) => item.quantidadeAjuste < 0);
+        const entradas = filteredLosses.filter((item: any) => item.quantidadeAjuste >= 0);
+
+        // Calcular totais
+        const totalSaidas = saidas.length;
+        const totalEntradas = entradas.length;
+        const valorSaidas = saidas.reduce((sum: number, item: any) =>
+          sum + Math.abs(item.quantidadeAjuste * item.custoReposicao), 0);
+        const valorEntradas = entradas.reduce((sum: number, item: any) =>
+          sum + Math.abs(item.quantidadeAjuste * item.custoReposicao), 0);
+
+        // Gerar resumo para WhatsApp
+        const summary = LossPDFService.generateWhatsAppSummary(filteredLosses);
+        const saidasPorMotivo = summary.saidas;
+        const entradasPorMotivo = summary.entradas;
+
+        // Gerar PDF
+        const nomeLote = `Quebras ${dateFormatted}`;
+        const pdfPath = await LossPDFService.generateLossesPDF(
+          nomeLote,
+          dateStr,
+          dateStr,
+          filteredLosses
+        );
+
+        console.log(`📄 [QUEBRAS CRON] PDF gerado: ${pdfPath}`);
+
+        // Enviar para WhatsApp
+        const sent = await WhatsAppService.sendLossesReport(
+          pdfPath,
+          nomeLote,
+          filteredLosses.length,
+          totalSaidas,
+          totalEntradas,
+          valorSaidas,
+          valorEntradas,
+          saidasPorMotivo,
+          entradasPorMotivo
+        );
+
+        // Limpar arquivo temporário
+        if (fs.existsSync(pdfPath)) {
+          fs.unlinkSync(pdfPath);
+        }
+
+        if (sent) {
+          console.log(`✅ [QUEBRAS CRON] ${filteredLosses.length} quebras enviadas com sucesso`);
+        } else {
+          console.error(`❌ [QUEBRAS CRON] Falha ao enviar PDF de quebras`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Losses cron error:', error);
+    }
+  });
+
+  console.log('📊 Losses report cron job started (checks every minute, respects Brazil timezone)');
 };
 
 startServer();

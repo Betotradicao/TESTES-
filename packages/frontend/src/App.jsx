@@ -38,6 +38,8 @@ import HortFrutResultados from './pages/HortFrutResultados';
 import Fornecedores from './pages/Fornecedores';
 import CompraVendaAnalise from './pages/CompraVendaAnalise';
 import FrenteCaixa from './pages/FrenteCaixa';
+import PrevencaoPedidos from './pages/PrevencaoPedidos';
+import RupturaIndustria from './pages/RupturaIndustria';
 
 function App() {
   return (
@@ -305,6 +307,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <FrenteCaixa />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/prevencao-pedidos"
+              element={
+                <ProtectedRoute>
+                  <PrevencaoPedidos />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ruptura-industria"
+              element={
+                <ProtectedRoute>
+                  <RupturaIndustria />
                 </ProtectedRoute>
               }
             />

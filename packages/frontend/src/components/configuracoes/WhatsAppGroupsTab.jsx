@@ -10,6 +10,8 @@ export default function WhatsAppGroupsTab() {
   const [isFetchingGroups, setIsFetchingGroups] = useState(false);
   const [availableGroups, setAvailableGroups] = useState([]);
   const [showGroupsModal, setShowGroupsModal] = useState(false);
+  const [isSendingNow, setIsSendingNow] = useState(false);
+  const [sendNowResult, setSendNowResult] = useState('');
 
   const [groupConfigs, setGroupConfigs] = useState({
     ruptura: {
@@ -28,8 +30,13 @@ export default function WhatsAppGroupsTab() {
     quebras: {
       groupId: '',
       groupName: '',
+      scheduleTime: '07:00'
     },
     producao: {
+      groupId: '',
+      groupName: '',
+    },
+    facial: {
       groupId: '',
       groupName: '',
     }
@@ -40,7 +47,8 @@ export default function WhatsAppGroupsTab() {
     { id: 'etiquetas', label: '🏷️ Prevenção Etiquetas', icon: '🏷️' },
     { id: 'bipagens', label: '🔔 Prevenção Bipagens', icon: '🔔' },
     { id: 'quebras', label: '📊 Prevenção Quebras', icon: '📊' },
-    { id: 'producao', label: '🥖 Prevenção Produção', icon: '🥖' }
+    { id: 'producao', label: '🥖 Prevenção Produção', icon: '🥖' },
+    { id: 'facial', label: '👤 Prevenção Facial', icon: '👤' }
   ];
 
   // Mensagens de exemplo para cada tipo
@@ -122,7 +130,15 @@ export default function WhatsAppGroupsTab() {
 • Dias de produção configurados
 • Estoque atual informado
 
-📄 Confira o relatório detalhado em PDF anexo.`
+📄 Confira o relatório detalhado em PDF anexo.`,
+
+    facial: `🚨 *ALERTA DVR*
+
+📷 Detecção de movimento identificada
+📅 Data: 28/01/2026, 14:30:00
+
+Alerta recebido do sistema DVR.
+Imagem anexada para verificação.`
   };
 
   useEffect(() => {
@@ -137,28 +153,30 @@ export default function WhatsAppGroupsTab() {
       if (response.data.success && response.data.data) {
         const configs = response.data.data;
 
+        // Função auxiliar para determinar groupId e groupName
+        // Se o nome for "Nenhum (Desabilitado)", o ID deve ser vazio também
+        const getGroupConfig = (idKey, nameKey) => {
+          const name = configs[nameKey] || '';
+          const isDisabled = name === 'Nenhum (Desabilitado)';
+          return {
+            groupId: isDisabled ? '' : (configs[idKey] || ''),
+            groupName: name || (configs[idKey] ? 'Grupo Configurado' : '')
+          };
+        };
+
         setGroupConfigs({
-          ruptura: {
-            groupId: configs.whatsapp_group_ruptura || configs.evolution_whatsapp_group_id || '',
-            groupName: configs.whatsapp_group_ruptura_name || 'Grupo Padrão',
-          },
-          etiquetas: {
-            groupId: configs.whatsapp_group_etiquetas || configs.evolution_whatsapp_group_id || '',
-            groupName: configs.whatsapp_group_etiquetas_name || 'Grupo Padrão',
-          },
+          ruptura: getGroupConfig('whatsapp_group_ruptura', 'whatsapp_group_ruptura_name'),
+          etiquetas: getGroupConfig('whatsapp_group_etiquetas', 'whatsapp_group_etiquetas_name'),
           bipagens: {
-            groupId: configs.whatsapp_group_bipagens || configs.evolution_whatsapp_group_id || '',
-            groupName: configs.whatsapp_group_bipagens_name || 'Grupo Padrão',
+            ...getGroupConfig('whatsapp_group_bipagens', 'whatsapp_group_bipagens_name'),
             scheduleTime: configs.whatsapp_bips_schedule_time || '08:00'
           },
           quebras: {
-            groupId: configs.whatsapp_group_quebras || configs.evolution_whatsapp_group_id || '',
-            groupName: configs.whatsapp_group_quebras_name || 'Grupo Padrão',
+            ...getGroupConfig('whatsapp_group_quebras', 'whatsapp_group_quebras_name'),
+            scheduleTime: configs.whatsapp_losses_schedule_time || '07:00'
           },
-          producao: {
-            groupId: configs.whatsapp_group_producao || configs.evolution_whatsapp_group_id || '',
-            groupName: configs.whatsapp_group_producao_name || 'Grupo Padrão',
-          }
+          producao: getGroupConfig('whatsapp_group_producao', 'whatsapp_group_producao_name'),
+          facial: getGroupConfig('email_monitor_whatsapp_group', 'email_monitor_whatsapp_group_name'),
         });
       }
     } catch (error) {
@@ -173,17 +191,35 @@ export default function WhatsAppGroupsTab() {
       setIsSaving(true);
       const currentConfig = groupConfigs[activeSubTab];
 
-      const configKey = `whatsapp_group_${activeSubTab}`;
-      const configNameKey = `whatsapp_group_${activeSubTab}_name`;
+      // Se o nome é "Nenhum (Desabilitado)", garantir que o ID seja vazio
+      const groupIdToSave = currentConfig.groupName === 'Nenhum (Desabilitado)' ? '' : currentConfig.groupId;
 
-      const configData = {
-        [configKey]: currentConfig.groupId,
-        [configNameKey]: currentConfig.groupName,
-      };
+      let configData = {};
+
+      // Facial usa chaves especiais (email_monitor_whatsapp_group)
+      if (activeSubTab === 'facial') {
+        configData = {
+          email_monitor_whatsapp_group: groupIdToSave,
+          email_monitor_whatsapp_group_name: currentConfig.groupName,
+        };
+      } else {
+        const configKey = `whatsapp_group_${activeSubTab}`;
+        const configNameKey = `whatsapp_group_${activeSubTab}_name`;
+
+        configData = {
+          [configKey]: groupIdToSave,
+          [configNameKey]: currentConfig.groupName,
+        };
+      }
 
       // Se for bipagens, salvar também o horário
       if (activeSubTab === 'bipagens' && currentConfig.scheduleTime) {
         configData.whatsapp_bips_schedule_time = currentConfig.scheduleTime;
+      }
+
+      // Se for quebras, salvar também o horário
+      if (activeSubTab === 'quebras' && currentConfig.scheduleTime) {
+        configData.whatsapp_losses_schedule_time = currentConfig.scheduleTime;
       }
 
       await api.post('/config/configurations', configData);
@@ -237,13 +273,22 @@ export default function WhatsAppGroupsTab() {
   };
 
   const handleInputChange = (field, value) => {
-    setGroupConfigs(prev => ({
-      ...prev,
-      [activeSubTab]: {
+    setGroupConfigs(prev => {
+      const updatedConfig = {
         ...prev[activeSubTab],
         [field]: value
+      };
+
+      // Se estiver mudando o groupName para "Nenhum (Desabilitado)", limpar o groupId também
+      if (field === 'groupName' && value === 'Nenhum (Desabilitado)') {
+        updatedConfig.groupId = '';
       }
-    }));
+
+      return {
+        ...prev,
+        [activeSubTab]: updatedConfig
+      };
+    });
   };
 
   const handleFetchGroups = async () => {
@@ -269,6 +314,60 @@ export default function WhatsAppGroupsTab() {
     handleInputChange('groupId', group.id);
     handleInputChange('groupName', group.subject || 'Grupo sem nome');
     setShowGroupsModal(false);
+  };
+
+  const handleSelectNone = () => {
+    handleInputChange('groupId', '');
+    handleInputChange('groupName', 'Nenhum (Desabilitado)');
+    setShowGroupsModal(false);
+  };
+
+  const handleSendBipsNow = async () => {
+    try {
+      setIsSendingNow(true);
+      setSendNowResult('');
+
+      const response = await api.post('/whatsapp/send-bips-now');
+
+      if (response.data.success) {
+        if (response.data.count === 0) {
+          setSendNowResult(`ℹ️ ${response.data.message}`);
+        } else {
+          setSendNowResult(`✅ ${response.data.message}`);
+        }
+      } else {
+        setSendNowResult('❌ Erro ao enviar: ' + (response.data.error || 'Erro desconhecido'));
+      }
+    } catch (error) {
+      console.error('Erro ao enviar bipagens:', error);
+      setSendNowResult('❌ Erro ao enviar: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setIsSendingNow(false);
+    }
+  };
+
+  const handleSendLossesNow = async () => {
+    try {
+      setIsSendingNow(true);
+      setSendNowResult('');
+
+      const response = await api.post('/whatsapp/send-losses-now');
+
+      if (response.data.success) {
+        if (response.data.count === 0) {
+          setSendNowResult(`ℹ️ ${response.data.message}`);
+        } else {
+          setSendNowResult(`✅ ${response.data.message}`);
+        }
+      } else {
+        setSendNowResult('❌ Erro ao enviar: ' + (response.data.error || 'Erro desconhecido'));
+      }
+    } catch (error) {
+      console.error('Erro ao enviar quebras:', error);
+      setSendNowResult('❌ Erro ao enviar: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setIsSendingNow(false);
+    }
   };
 
   const currentConfig = groupConfigs[activeSubTab];
@@ -328,8 +427,11 @@ export default function WhatsAppGroupsTab() {
                     type="text"
                     value={currentConfig.groupId}
                     onChange={(e) => handleInputChange('groupId', e.target.value)}
-                    placeholder="120363422563235781@g.us"
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder={currentConfig.groupName === 'Nenhum (Desabilitado)' ? 'Nenhum grupo selecionado' : '120363422563235781@g.us'}
+                    className={`flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                      !currentConfig.groupId ? 'border-gray-300 bg-gray-50' : 'border-gray-300'
+                    }`}
+                    disabled={currentConfig.groupName === 'Nenhum (Desabilitado)'}
                   />
                   <button
                     onClick={handleFetchGroups}
@@ -360,20 +462,31 @@ export default function WhatsAppGroupsTab() {
                 </p>
               </div>
 
-              {/* Campo de Horário - Somente para Bipagens */}
-              {activeSubTab === 'bipagens' && (
+              {/* Campo de Horário - Para Bipagens e Quebras */}
+              {(activeSubTab === 'bipagens' || activeSubTab === 'quebras') && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     ⏰ Horário de Envio Automático
                   </label>
                   <input
                     type="time"
-                    value={currentConfig.scheduleTime || '08:00'}
+                    value={currentConfig.scheduleTime || (activeSubTab === 'bipagens' ? '08:00' : '07:00')}
                     onChange={(e) => handleInputChange('scheduleTime', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-calendar-picker-indicator]:hidden"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    📅 PDF de bipagens pendentes será enviado automaticamente todos os dias neste horário
+                    📅 {activeSubTab === 'bipagens'
+                      ? 'PDF de bipagens pendentes do dia anterior será enviado automaticamente todos os dias neste horário'
+                      : 'PDF de quebras/ajustes do dia anterior será enviado automaticamente todos os dias neste horário'}
+                  </p>
+                </div>
+              )}
+
+              {/* Status do Grupo */}
+              {!currentConfig.groupId && (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    <strong>⚠️ Envio desabilitado:</strong> Nenhum grupo selecionado. Os relatórios de {activeSubTab} não serão enviados automaticamente.
                   </p>
                 </div>
               )}
@@ -382,7 +495,7 @@ export default function WhatsAppGroupsTab() {
               <div className="flex space-x-3 pt-4">
                 <button
                   onClick={handleSave}
-                  disabled={isSaving || !currentConfig.groupId.trim()}
+                  disabled={isSaving}
                   className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                 >
                   {isSaving ? '💾 Salvando...' : '💾 Salvar Configuração'}
@@ -395,6 +508,26 @@ export default function WhatsAppGroupsTab() {
                 >
                   {isTesting ? '🧪 Testando...' : '🧪 Testar Envio'}
                 </button>
+
+                {activeSubTab === 'bipagens' && (
+                  <button
+                    onClick={handleSendBipsNow}
+                    disabled={isSendingNow || !currentConfig.groupId.trim()}
+                    className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                  >
+                    {isSendingNow ? '📤 Enviando...' : '📤 Enviar Agora'}
+                  </button>
+                )}
+
+                {activeSubTab === 'quebras' && (
+                  <button
+                    onClick={handleSendLossesNow}
+                    disabled={isSendingNow || !currentConfig.groupId.trim()}
+                    className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                  >
+                    {isSendingNow ? '📤 Enviando...' : '📤 Enviar Agora'}
+                  </button>
+                )}
               </div>
 
               {/* Resultado do Teste */}
@@ -406,6 +539,23 @@ export default function WhatsAppGroupsTab() {
                     testResult.startsWith('✅') ? 'text-green-800' : 'text-red-800'
                   }`}>
                     {testResult}
+                  </p>
+                </div>
+              )}
+
+              {/* Resultado do Envio Manual (Bipagens e Quebras) */}
+              {sendNowResult && (activeSubTab === 'bipagens' || activeSubTab === 'quebras') && (
+                <div className={`p-4 rounded-lg ${
+                  sendNowResult.startsWith('✅') ? 'bg-green-50 border border-green-200' :
+                  sendNowResult.startsWith('ℹ️') ? 'bg-blue-50 border border-blue-200' :
+                  'bg-red-50 border border-red-200'
+                }`}>
+                  <p className={`text-sm ${
+                    sendNowResult.startsWith('✅') ? 'text-green-800' :
+                    sendNowResult.startsWith('ℹ️') ? 'text-blue-800' :
+                    'text-red-800'
+                  }`}>
+                    {sendNowResult}
                   </p>
                 </div>
               )}
@@ -429,9 +579,14 @@ export default function WhatsAppGroupsTab() {
                 <p className="text-xs text-blue-800">
                   <strong>ℹ️ Informação:</strong> Esta é a mensagem que será enviada automaticamente
                   {activeSubTab === 'bipagens'
-                    ? ' todos os dias no horário configurado com as bipagens pendentes.'
+                    ? ' todos os dias no horário configurado com as bipagens pendentes do dia anterior.'
+                    : activeSubTab === 'quebras'
+                    ? ' todos os dias no horário configurado com as quebras/ajustes do dia anterior.'
+                    : activeSubTab === 'facial'
+                    ? ' quando o sistema de DVR detectar movimento ou alerta.'
                     : ` quando uma auditoria de ${activeSubTab} for finalizada.`}
-                  {' '}O PDF do relatório será anexado junto com esta mensagem.
+                  {activeSubTab !== 'facial' && ' O PDF do relatório será anexado junto com esta mensagem.'}
+                  {activeSubTab === 'facial' && ' A imagem do alerta será anexada.'}
                 </p>
               </div>
             </div>
@@ -446,6 +601,7 @@ export default function WhatsAppGroupsTab() {
             <li>Use o botão "Testar Envio" para verificar se a configuração está correta</li>
             <li>Você pode configurar grupos diferentes para cada tipo de relatório</li>
             <li>As mensagens são enviadas automaticamente ao finalizar auditorias</li>
+            <li><strong>Para desabilitar o envio:</strong> Clique em "Carregar Grupos" e selecione "Nenhum Grupo"</li>
           </ul>
         </div>
       </div>
@@ -467,6 +623,28 @@ export default function WhatsAppGroupsTab() {
 
             {/* Lista de Grupos */}
             <div className="p-4 overflow-y-auto max-h-[60vh]">
+              {/* Opção Nenhum Grupo */}
+              <div className="mb-4">
+                <button
+                  onClick={handleSelectNone}
+                  className="w-full p-4 border-2 border-dashed border-red-300 rounded-lg hover:bg-red-50 hover:border-red-500 transition-colors text-left"
+                >
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mr-3">
+                      <span className="text-red-500 text-xl">🚫</span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-red-700">Nenhum Grupo (Desabilitar Envio)</h4>
+                      <p className="text-sm text-red-600">Selecione para não enviar mensagens automaticamente</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              <div className="border-t border-gray-200 pt-4 mb-2">
+                <p className="text-sm text-gray-500 mb-2">Grupos disponíveis:</p>
+              </div>
+
               {availableGroups.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <p>Nenhum grupo encontrado.</p>

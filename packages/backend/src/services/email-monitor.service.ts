@@ -339,22 +339,43 @@ export class EmailMonitorService {
         console.warn(`⚠️ Imagem não foi salva para galeria (pode ser PDF ou erro de salvamento)`);
       }
 
-      // Send to WhatsApp
-      await this.sendToWhatsApp(config.whatsapp_group_id, textBody, filePath);
+      // Verificar se há grupo configurado antes de enviar para WhatsApp
+      const whatsappSent = config.whatsapp_group_id && config.whatsapp_group_id.trim() !== '';
+      if (!whatsappSent) {
+        console.log(`⏭️ WhatsApp desabilitado - nenhum grupo configurado. Email processado e imagem salva na galeria.`);
+      } else {
+        // Send to WhatsApp
+        await this.sendToWhatsApp(config.whatsapp_group_id, textBody, filePath);
+      }
 
-      // Log success (mesmo que imagem não tenha sido salva na galeria, WhatsApp foi enviado)
+      // Determinar status e mensagem do log
+      let logStatus = 'success';
+      let logMessage: string | null = null;
+
+      if (!whatsappSent && !permanentImageFilename) {
+        logStatus = 'partial';
+        logMessage = 'WhatsApp desabilitado e imagem não salva na galeria';
+      } else if (!whatsappSent) {
+        logStatus = 'partial';
+        logMessage = 'WhatsApp desabilitado (nenhum grupo configurado) - imagem salva na galeria';
+      } else if (!permanentImageFilename) {
+        logStatus = 'partial';
+        logMessage = 'WhatsApp enviado, mas imagem não salva na galeria';
+      }
+
+      // Log success
       await logRepository.save({
         email_subject: subject,
         sender: from,
         email_body: textBody.substring(0, 500),
-        status: permanentImageFilename ? 'success' : 'partial',
-        error_message: permanentImageFilename ? null : 'WhatsApp enviado, mas imagem não salva na galeria',
+        status: logStatus,
+        error_message: logMessage,
         has_attachment: true,
-        whatsapp_group_id: config.whatsapp_group_id,
+        whatsapp_group_id: config.whatsapp_group_id || null,
         image_path: permanentImageFilename
       });
 
-      console.log(`✅ Email processado e enviado para WhatsApp${permanentImageFilename ? ' (imagem salva na galeria)' : ' (sem imagem na galeria)'}`);
+      console.log(`✅ Email processado${whatsappSent ? ' e enviado para WhatsApp' : ' (WhatsApp desabilitado)'}${permanentImageFilename ? ' (imagem salva na galeria)' : ' (sem imagem na galeria)'}`);
       console.log(`📷 Image path salvo: ${permanentImageFilename || 'null'}`);
 
       // Clean up temp file
