@@ -37,6 +37,7 @@ router.put('/:id', authenticateToken, isAdmin, EmployeesController.update);
 router.patch('/:id/avatar', authenticateToken, isAdmin, upload.single('avatar'), EmployeesController.uploadAvatar);
 router.patch('/:id/toggle', authenticateToken, isAdmin, EmployeesController.toggleStatus);
 router.post('/:id/reset-password', authenticateToken, isAdmin, EmployeesController.resetPassword);
+router.delete('/:id', authenticateToken, isAdmin, EmployeesController.delete);
 
 // Permissions routes - Admin only
 router.get('/:id/permissions', authenticateToken, isAdmin, EmployeesController.getPermissions);

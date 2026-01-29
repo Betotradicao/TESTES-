@@ -1,4 +1,4 @@
-export default function EmployeesList({ employees, onEdit, onToggle, pagination, onPageChange, isLoading }) {
+export default function EmployeesList({ employees, onEdit, onToggle, onDelete, pagination, onPageChange, isLoading }) {
   if (!employees || employees.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
@@ -95,13 +95,19 @@ export default function EmployeesList({ employees, onEdit, onToggle, pagination,
                   </button>
                   <button
                     onClick={() => onToggle(employee.id)}
-                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full transition ${
+                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full transition mr-2 ${
                       employee.active
                         ? 'bg-red-100 text-red-800 hover:bg-red-200'
                         : 'bg-green-100 text-green-800 hover:bg-green-200'
                     }`}
                   >
                     {employee.active ? 'Desativar' : 'Ativar'}
+                  </button>
+                  <button
+                    onClick={() => onDelete(employee.id, employee.name)}
+                    className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800 hover:bg-gray-300 transition"
+                  >
+                    Excluir
                   </button>
                 </td>
               </tr>

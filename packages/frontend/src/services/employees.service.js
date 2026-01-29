@@ -53,3 +53,8 @@ export async function resetEmployeePassword(id, newPassword) {
   });
   return response.data;
 }
+
+export async function deleteEmployee(id) {
+  const response = await api.delete(`/employees/${id}`);
+  return response.data;
+}

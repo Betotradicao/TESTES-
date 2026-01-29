@@ -333,4 +333,21 @@ export class EmployeesController {
       res.status(500).json({ error: 'Internal server error' });
     }
   }
+
+  static async delete(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+
+      const result = await EmployeesService.delete(id);
+      res.json(result);
+    } catch (error: any) {
+      console.error('Delete employee error:', error);
+
+      if (error.message === 'Employee not found') {
+        return res.status(404).json({ error: error.message });
+      }
+
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
 }

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import EmployeeModal from './EmployeeModal';
 import EmployeesList from './EmployeesList';
-import { fetchEmployees, createEmployee, updateEmployee, toggleEmployeeStatus, uploadEmployeeAvatar } from '../../services/employees.service';
+import { fetchEmployees, createEmployee, updateEmployee, toggleEmployeeStatus, uploadEmployeeAvatar, deleteEmployee, resetEmployeePassword } from '../../services/employees.service';
 
 export default function EmployeesTab() {
   const [employees, setEmployees] = useState([]);
@@ -114,6 +114,59 @@ export default function EmployeesTab() {
     }
   };
 
+  const handleDelete = async (id, name) => {
+    toast((t) => (
+      <div>
+        <p className="font-medium text-red-600">Excluir Colaborador</p>
+        <p className="text-sm text-gray-600 mt-1">
+          Tem certeza que deseja excluir <strong>{name}</strong>?
+        </p>
+        <p className="text-xs text-red-500 mt-1">
+          Esta ação não pode ser desfeita!
+        </p>
+        <div className="flex gap-2 mt-3">
+          <button
+            onClick={async () => {
+              toast.dismiss(t.id);
+              try {
+                await deleteEmployee(id);
+                await loadEmployees(pagination.page);
+                toast.success('Colaborador excluído com sucesso!');
+              } catch (err) {
+                console.error('Delete employee error:', err);
+                toast.error('Erro ao excluir colaborador');
+              }
+            }}
+            className="px-3 py-1.5 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded transition"
+          >
+            Excluir
+          </button>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    ), {
+      duration: 10000,
+      position: 'top-center',
+    });
+  };
+
+  const handleResetPassword = async (id, newPassword) => {
+    try {
+      await resetEmployeePassword(id, newPassword);
+      toast.success('Senha alterada com sucesso!');
+      return true;
+    } catch (err) {
+      console.error('Reset password error:', err);
+      toast.error('Erro ao alterar senha');
+      return false;
+    }
+  };
+
   const handleCancel = () => {
     setShowModal(false);
     setEditingEmployee(null);
@@ -167,6 +220,7 @@ export default function EmployeesTab() {
           onCancel={handleCancel}
           onUploadAvatar={handleUploadAvatar}
           onSaveComplete={handleSaveComplete}
+          onResetPassword={handleResetPassword}
         />
       )}
 
@@ -174,6 +228,7 @@ export default function EmployeesTab() {
         employees={employees}
         onEdit={handleEdit}
         onToggle={handleToggle}
+        onDelete={handleDelete}
         onUploadAvatar={handleUploadAvatar}
         pagination={pagination}
         onPageChange={handlePageChange}

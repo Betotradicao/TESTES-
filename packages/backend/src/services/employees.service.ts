@@ -305,4 +305,31 @@ export class EmployeesService {
 
     return employee;
   }
+
+  /**
+   * Delete employee permanently
+   */
+  static async delete(id: string) {
+    const employeeRepository = AppDataSource.getRepository(Employee);
+
+    const employee = await employeeRepository.findOne({ where: { id } });
+    if (!employee) {
+      throw new Error('Employee not found');
+    }
+
+    // Delete avatar if exists
+    if (employee.avatar) {
+      try {
+        const fileName = minioService.extractFileNameFromUrl(employee.avatar);
+        await minioService.deleteFile(fileName);
+      } catch (error) {
+        console.error('Error deleting avatar:', error);
+        // Continue anyway
+      }
+    }
+
+    await employeeRepository.remove(employee);
+
+    return { message: 'Employee deleted successfully' };
+  }
 }
