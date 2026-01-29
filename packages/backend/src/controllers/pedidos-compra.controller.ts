@@ -140,6 +140,9 @@ export class PedidosCompraController {
             f.NUM_CGC,
             f.NUM_CELULAR,
             f.DES_CONTATO,
+            f.NUM_FREQ_VISITA,
+            f.NUM_PRAZO as PRAZO_ENTREGA,
+            f.NUM_MED_CPGTO as COND_PAGAMENTO,
             TRUNC(SYSDATE) - TRUNC(p.DTA_ENTREGA) as DIAS_ATRASO,
             ROW_NUMBER() OVER (${orderByClause}) as RN
           FROM INTERSOLID.TAB_PEDIDO p

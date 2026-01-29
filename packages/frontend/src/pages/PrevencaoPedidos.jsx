@@ -77,6 +77,9 @@ export default function PrevencaoPedidos() {
     { key: 'NUM_CGC', label: 'CNPJ', sortable: true },
     { key: 'DES_CONTATO', label: 'CONTATO', sortable: false },
     { key: 'NUM_CELULAR', label: 'CELULAR', sortable: false },
+    { key: 'NUM_FREQ_VISITA', label: 'VISITA', sortable: true },
+    { key: 'PRAZO_ENTREGA', label: 'PRAZO ENT.', sortable: true },
+    { key: 'COND_PAGAMENTO', label: 'COND. PGTO', sortable: true },
     { key: 'DTA_EMISSAO', label: 'EMISSAO', sortable: true },
     { key: 'DTA_ENTREGA', label: 'ENTREGA', sortable: true },
     { key: 'ATRASO', label: 'ATRASO', sortable: false },
@@ -1111,6 +1114,42 @@ export default function PrevencaoPedidos() {
                               )}
                             </td>
                           );
+                        case 'NUM_FREQ_VISITA':
+                          return (
+                            <td key={col.key} className="px-2 py-1.5 text-center text-xs">
+                              {pedido.NUM_FREQ_VISITA ? (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-medium">
+                                  {pedido.NUM_FREQ_VISITA}d
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                          );
+                        case 'PRAZO_ENTREGA':
+                          return (
+                            <td key={col.key} className="px-2 py-1.5 text-center text-xs">
+                              {pedido.PRAZO_ENTREGA ? (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-green-100 text-green-800 font-medium">
+                                  {pedido.PRAZO_ENTREGA}d
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                          );
+                        case 'COND_PAGAMENTO':
+                          return (
+                            <td key={col.key} className="px-2 py-1.5 text-center text-xs">
+                              {pedido.COND_PAGAMENTO ? (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 font-medium">
+                                  {pedido.COND_PAGAMENTO}d
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                          );
                         case 'DTA_EMISSAO':
                           return <td key={col.key} className="px-2 py-1.5 text-center text-xs">{formatDate(pedido.DTA_EMISSAO)}</td>;
                         case 'DTA_ENTREGA':
@@ -1161,7 +1200,7 @@ export default function PrevencaoPedidos() {
                         {/* Linha expandida com itens */}
                         {isExpanded && (
                           <tr key={`${pedido.NUM_PEDIDO}-itens`}>
-                            <td colSpan="14" className="bg-gray-50 p-3 border-t border-b border-orange-200">
+                            <td colSpan="17" className="bg-gray-50 p-3 border-t border-b border-orange-200">
                               <div className="ml-6">
                                 <h4 className="text-xs font-semibold text-gray-700 mb-2">
                                   {filters.parciaisFinalizadas
