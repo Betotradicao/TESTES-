@@ -30,6 +30,8 @@ export const MENU_SUBMENUS = {
   // Rupturas
   RUPTURA_LANCADOR: 'ruptura-lancador',
   RUPTURA_AUDITORIAS: 'ruptura-auditorias',
+  RUPTURA_PEDIDOS: 'pedidos-lista',
+  RUPTURA_INDUSTRIA: 'ruptura-industria',
 
   // Etiquetas
   ETIQUETAS_LANCAR: 'etiquetas-lancar',
@@ -128,6 +130,16 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.RUPTURA_AUDITORIAS,
         title: 'Resultados das Auditorias',
         path: '/ruptura-auditorias'
+      },
+      {
+        id: MENU_SUBMENUS.RUPTURA_PEDIDOS,
+        title: 'Pedidos',
+        path: '/prevencao-pedidos'
+      },
+      {
+        id: MENU_SUBMENUS.RUPTURA_INDUSTRIA,
+        title: 'Ruptura INDUSTRIA',
+        path: '/ruptura-industria'
       }
     ]
   },
