@@ -166,7 +166,20 @@ export class PedidosCompraController {
         ) WHERE RN > :offset AND RN <= :maxRow
       `;
 
-      // Query para estatísticas básicas
+      // Construir filtro de data para estatísticas
+      const statsDateConditions: string[] = [];
+      const statsParams: any = {};
+      if (dataInicio) {
+        statsDateConditions.push('TRUNC(DTA_EMISSAO) >= TO_DATE(:statsDataInicio, \'YYYY-MM-DD\')');
+        statsParams.statsDataInicio = dataInicio;
+      }
+      if (dataFim) {
+        statsDateConditions.push('TRUNC(DTA_EMISSAO) <= TO_DATE(:statsDataFim, \'YYYY-MM-DD\')');
+        statsParams.statsDataFim = dataFim;
+      }
+      const statsDateFilter = statsDateConditions.length > 0 ? ' AND ' + statsDateConditions.join(' AND ') : '';
+
+      // Query para estatísticas básicas (com filtro de data opcional)
       const statsQuery = `
         SELECT
           SUM(CASE WHEN TIPO_RECEBIMENTO = 0 THEN 1 ELSE 0 END) as PENDENTES,
@@ -176,7 +189,21 @@ export class PedidosCompraController {
           SUM(CASE WHEN TIPO_RECEBIMENTO < 2 AND TRUNC(DTA_ENTREGA) < TRUNC(SYSDATE) THEN 1 ELSE 0 END) as ATRASADOS
         FROM INTERSOLID.TAB_PEDIDO
         WHERE TIPO_PARCEIRO = 1
+        ${statsDateFilter}
       `;
+
+      // Filtro de data para queries com JOIN (formato diferente)
+      const joinDateConditions: string[] = [];
+      const joinParams: any = {};
+      if (dataInicio) {
+        joinDateConditions.push('TRUNC(p.DTA_EMISSAO) >= TO_DATE(:joinDataInicio, \'YYYY-MM-DD\')');
+        joinParams.joinDataInicio = dataInicio;
+      }
+      if (dataFim) {
+        joinDateConditions.push('TRUNC(p.DTA_EMISSAO) <= TO_DATE(:joinDataFim, \'YYYY-MM-DD\')');
+        joinParams.joinDataFim = dataFim;
+      }
+      const joinDateFilter = joinDateConditions.length > 0 ? ' AND ' + joinDateConditions.join(' AND ') : '';
 
       // Query para contar pedidos cancelados que tiveram itens recebidos (parciais finalizadas)
       const parciaisFinalizadasQuery = `
@@ -186,6 +213,7 @@ export class PedidosCompraController {
         WHERE p.TIPO_PARCEIRO = 1
         AND p.TIPO_RECEBIMENTO = 3
         AND NVL(pp.QTD_RECEBIDA, 0) > 0
+        ${joinDateFilter}
       `;
 
       // Query para contar NOTAS canceladas que tiveram itens não recebidos (itens cortados)
@@ -200,6 +228,7 @@ export class PedidosCompraController {
         WHERE p.TIPO_PARCEIRO = 1
         AND p.TIPO_RECEBIMENTO = 3
         AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO
+        ${joinDateFilter}
       `;
 
       // Query para contar pedidos cancelados TOTALMENTE (nenhum item foi recebido)
@@ -215,7 +244,23 @@ export class PedidosCompraController {
           WHERE pp.NUM_PEDIDO = p.NUM_PEDIDO
           AND NVL(pp.QTD_RECEBIDA, 0) > 0
         )
+        ${statsDateFilter}
       `;
+
+      // Filtro de data para NFs sem pedido (usa DTA_ENTRADA)
+      const nfDateConditions: string[] = [];
+      const nfParams: any = {};
+      if (dataInicio) {
+        nfDateConditions.push('TRUNC(fn.DTA_ENTRADA) >= TO_DATE(:nfDataInicio, \'YYYY-MM-DD\')');
+        nfParams.nfDataInicio = dataInicio;
+      } else {
+        nfDateConditions.push('fn.DTA_ENTRADA >= SYSDATE - 30');
+      }
+      if (dataFim) {
+        nfDateConditions.push('TRUNC(fn.DTA_ENTRADA) <= TO_DATE(:nfDataFim, \'YYYY-MM-DD\')');
+        nfParams.nfDataFim = dataFim;
+      }
+      const nfDateFilter = nfDateConditions.join(' AND ');
 
       // Query para contar NFs sem pedido (notas fiscais que entraram sem pedido de compra)
       const nfSemPedidoQuery = `
@@ -223,21 +268,21 @@ export class PedidosCompraController {
           COUNT(*) as TOTAL_NFS,
           SUM(fn.VAL_TOTAL_NF) as VALOR_TOTAL
         FROM INTERSOLID.TAB_FORNECEDOR_NOTA fn
-        WHERE fn.DTA_ENTRADA >= SYSDATE - 30
+        WHERE ${nfDateFilter}
         AND (fn.NUM_PEDIDO IS NULL OR fn.NUM_PEDIDO = 0)
         AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
         AND fn.VAL_TOTAL_NF > 0
       `;
 
-      // Executar queries em paralelo
+      // Executar queries em paralelo (com parâmetros de data)
       const [countResult, pedidos, statsResult, parciaisFinalizadasResult, canceladasTotaisResult, canceladosTotalmenteResult, nfSemPedidoResult] = await Promise.all([
         OracleService.query<{ TOTAL: number }>(countQuery, params),
         OracleService.query(dataQuery, { ...params, offset, maxRow: offset + limitNum }),
-        OracleService.query<{ PENDENTES: number; PARCIAIS_ABERTO: number; RECEBIDOS_INTEGRAL: number; CANCELADOS: number; ATRASADOS: number }>(statsQuery, {}),
-        OracleService.query<{ PARCIAIS_FINALIZADAS: number }>(parciaisFinalizadasQuery, {}),
-        OracleService.query<{ NOTAS_CANCELADAS: number; QTD_CANCELADA: number; VALOR_CANCELADO: number }>(canceladasTotaisQuery, {}),
-        OracleService.query<{ CANCELADOS_TOTALMENTE: number; VALOR_TOTAL: number }>(canceladosTotalmenteQuery, {}),
-        OracleService.query<{ TOTAL_NFS: number; VALOR_TOTAL: number }>(nfSemPedidoQuery, {})
+        OracleService.query<{ PENDENTES: number; PARCIAIS_ABERTO: number; RECEBIDOS_INTEGRAL: number; CANCELADOS: number; ATRASADOS: number }>(statsQuery, statsParams),
+        OracleService.query<{ PARCIAIS_FINALIZADAS: number }>(parciaisFinalizadasQuery, joinParams),
+        OracleService.query<{ NOTAS_CANCELADAS: number; QTD_CANCELADA: number; VALOR_CANCELADO: number }>(canceladasTotaisQuery, joinParams),
+        OracleService.query<{ CANCELADOS_TOTALMENTE: number; VALOR_TOTAL: number }>(canceladosTotalmenteQuery, statsParams),
+        OracleService.query<{ TOTAL_NFS: number; VALOR_TOTAL: number }>(nfSemPedidoQuery, nfParams)
       ]);
 
       const total = countResult[0]?.TOTAL || 0;
@@ -552,6 +597,7 @@ export class PedidosCompraController {
         // Canceladas Totais: mostrar apenas itens cancelados (não recebeu ou recebeu menos)
         filtroCondition = 'AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO';
       }
+      // Nota: filtroItens === 'semNenhumaEntrada' retorna todos os itens (sem filtro adicional)
 
       // Buscar COD_LOJA do pedido para obter a CURVA correta
       const pedidoQuery = `SELECT COD_LOJA FROM INTERSOLID.TAB_PEDIDO WHERE NUM_PEDIDO = :numPedido`;

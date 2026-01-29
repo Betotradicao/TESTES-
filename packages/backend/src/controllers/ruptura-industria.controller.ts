@@ -4,83 +4,127 @@ import { OracleService } from '../services/oracle.service';
 
 /**
  * Controller para Ruptura Indústria
- * Análise de cancelamentos de pedidos por fornecedor
- * Identifica fornecedores com maior índice de falhas de entrega
+ * Análise de itens cortados em pedidos finalizados (TIPO_RECEBIMENTO = 3)
+ * Ruptura = item que foi pedido mas não chegou ou chegou com quantidade menor
+ * Filtra apenas pedidos cancelados/finalizados para consistência com tela de Itens Cortados
  */
 export class RupturaIndustriaController {
   /**
-   * Ranking de fornecedores com mais cancelamentos
+   * Ranking de fornecedores com estatísticas de ruptura por período
+   * Ruptura = itens onde QTD_RECEBIDA < QTD_PEDIDO (item não chegou ou chegou incompleto)
+   * Mostra: total de itens, itens com ruptura, itens OK para cada período
    */
   static async rankingFornecedores(req: AuthRequest, res: Response) {
     try {
-      const {
-        dataInicio,
-        dataFim,
-        limit = '50'
-      } = req.query;
+      const { limit = '50', dataInicio, dataFim } = req.query;
 
-      const conditions: string[] = [
-        'p.TIPO_PARCEIRO = 1',
-        'p.TIPO_RECEBIMENTO = 3' // Apenas pedidos cancelados
-      ];
-      const params: any = {};
+      // Parâmetros - filtro de data vai dentro dos CASE para PERIODO, não no WHERE
+      const params: any = { limitNum: parseInt(limit as string, 10) };
 
-      if (dataInicio) {
-        conditions.push('TRUNC(p.DTA_EMISSAO) >= TO_DATE(:dataInicio, \'YYYY-MM-DD\')');
-        params.dataInicio = dataInicio;
+      // Condições de data para PERIODO (aplicadas dentro dos CASE, não no WHERE)
+      let periodoDateCondition = '1=1'; // default: todos os registros
+      if (dataInicio && dataFim) {
+        periodoDateCondition = `TRUNC(p.DTA_EMISSAO) >= TO_DATE('${dataInicio}', 'YYYY-MM-DD') AND TRUNC(p.DTA_EMISSAO) <= TO_DATE('${dataFim}', 'YYYY-MM-DD')`;
+      } else if (dataInicio) {
+        periodoDateCondition = `TRUNC(p.DTA_EMISSAO) >= TO_DATE('${dataInicio}', 'YYYY-MM-DD')`;
+      } else if (dataFim) {
+        periodoDateCondition = `TRUNC(p.DTA_EMISSAO) <= TO_DATE('${dataFim}', 'YYYY-MM-DD')`;
       }
 
-      if (dataFim) {
-        conditions.push('TRUNC(p.DTA_EMISSAO) <= TO_DATE(:dataFim, \'YYYY-MM-DD\')');
-        params.dataFim = dataFim;
-      }
-
-      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-
-      // Query para ranking de fornecedores com mais cancelamentos
+      // Query para ranking de fornecedores baseado em ITENS com ruptura
+      // Ruptura = NVL(QTD_RECEBIDA, 0) < QTD_PEDIDO
+      // PERIODO usa filtro de data nos CASE, MES/SEMESTRE/ANO usam ADD_MONTHS independentemente
       const query = `
         SELECT * FROM (
           SELECT
             f.COD_FORNECEDOR,
             f.DES_FORNECEDOR,
             f.NUM_CGC,
-            COUNT(DISTINCT p.NUM_PEDIDO) as QTD_PEDIDOS_CANCELADOS,
-            SUM(p.VAL_PEDIDO) as VALOR_TOTAL_CANCELADO,
-            MIN(p.DTA_EMISSAO) as PRIMEIRO_CANCELAMENTO,
-            MAX(p.DTA_EMISSAO) as ULTIMO_CANCELAMENTO,
-            COUNT(DISTINCT pp.COD_PRODUTO) as QTD_PRODUTOS_AFETADOS,
-            SUM(pp.QTD_PEDIDO) as QTD_ITENS_CANCELADOS
+            -- PERÍODO SELECIONADO - Quantidade de pedidos (filtrado por data)
+            COUNT(DISTINCT CASE WHEN ${periodoDateCondition} THEN p.NUM_PEDIDO END) as PERIODO_PEDIDOS,
+            -- PERÍODO SELECIONADO - Total de itens (filtrado por data)
+            COUNT(CASE WHEN ${periodoDateCondition} THEN 1 END) as PERIODO_TOTAL,
+            -- PERÍODO SELECIONADO - Itens com ruptura (filtrado por data)
+            COUNT(CASE WHEN ${periodoDateCondition} AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN 1 END) as PERIODO_RUPTURA,
+            -- PERÍODO SELECIONADO - Itens OK (filtrado por data)
+            COUNT(CASE WHEN ${periodoDateCondition} AND NVL(pp.QTD_RECEBIDA, 0) >= pp.QTD_PEDIDO THEN 1 END) as PERIODO_OK,
+            -- PERÍODO SELECIONADO - Valor ruptura (filtrado por data)
+            SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN (pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0)) * pp.VAL_TABELA ELSE 0 END) as PERIODO_VALOR,
+            -- Último Mês - Quantidade de pedidos
+            COUNT(DISTINCT CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -1) THEN p.NUM_PEDIDO END) as MES_PEDIDOS,
+            -- Último Mês - Total de itens pedidos
+            COUNT(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -1) THEN 1 END) as MES_TOTAL,
+            -- Último Mês - Itens com ruptura
+            COUNT(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN 1 END) as MES_RUPTURA,
+            -- Último Mês - Itens OK
+            COUNT(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.QTD_RECEBIDA, 0) >= pp.QTD_PEDIDO THEN 1 END) as MES_OK,
+            -- Último Mês - Valor ruptura
+            SUM(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN (pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0)) * pp.VAL_TABELA ELSE 0 END) as MES_VALOR,
+            -- Últimos 6 Meses - Quantidade de pedidos
+            COUNT(DISTINCT CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -6) THEN p.NUM_PEDIDO END) as SEMESTRE_PEDIDOS,
+            -- Últimos 6 Meses - Total de itens
+            COUNT(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -6) THEN 1 END) as SEMESTRE_TOTAL,
+            -- Últimos 6 Meses - Itens com ruptura
+            COUNT(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN 1 END) as SEMESTRE_RUPTURA,
+            -- Últimos 6 Meses - Itens OK
+            COUNT(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.QTD_RECEBIDA, 0) >= pp.QTD_PEDIDO THEN 1 END) as SEMESTRE_OK,
+            -- Últimos 6 Meses - Valor ruptura
+            SUM(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN (pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0)) * pp.VAL_TABELA ELSE 0 END) as SEMESTRE_VALOR,
+            -- Último Ano - Quantidade de pedidos
+            COUNT(DISTINCT CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) THEN p.NUM_PEDIDO END) as ANO_PEDIDOS,
+            -- Último Ano - Total de itens pedidos
+            COUNT(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) THEN 1 END) as ANO_TOTAL,
+            -- Último Ano - Itens com ruptura (não chegaram ou chegaram incompletos)
+            COUNT(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN 1 END) as ANO_RUPTURA,
+            -- Último Ano - Itens OK (chegaram completos)
+            COUNT(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.QTD_RECEBIDA, 0) >= pp.QTD_PEDIDO THEN 1 END) as ANO_OK,
+            -- Último Ano - Valor ruptura
+            SUM(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN (pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0)) * pp.VAL_TABELA ELSE 0 END) as ANO_VALOR,
+            -- Total geral de itens com ruptura (último ano para ordenação)
+            COUNT(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN 1 END) as QTD_ITENS_RUPTURA,
+            -- Quantidade total faltante (último ano)
+            SUM(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) as QTD_FALTANTE,
+            -- Valor total não faturado (último ano)
+            SUM(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN (pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0)) * pp.VAL_TABELA ELSE 0 END) as VALOR_NAO_FATURADO,
+            -- Última ruptura
+            MAX(CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN p.DTA_EMISSAO END) as ULTIMA_RUPTURA,
+            -- Produtos distintos afetados (último ano)
+            COUNT(DISTINCT CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN pp.COD_PRODUTO END) as QTD_PRODUTOS_AFETADOS
           FROM INTERSOLID.TAB_PEDIDO p
           INNER JOIN INTERSOLID.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = p.COD_PARCEIRO
-          LEFT JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
-          ${whereClause}
+          INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
+          WHERE p.TIPO_PARCEIRO = 1
+          AND p.TIPO_RECEBIMENTO = 3
+          AND p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12)
           GROUP BY f.COD_FORNECEDOR, f.DES_FORNECEDOR, f.NUM_CGC
-          ORDER BY COUNT(DISTINCT p.NUM_PEDIDO) DESC
+          HAVING COUNT(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN 1 END) > 0
+          ORDER BY COUNT(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN 1 END) DESC
         ) WHERE ROWNUM <= :limitNum
       `;
 
-      const fornecedores = await OracleService.query(query, {
-        ...params,
-        limitNum: parseInt(limit as string, 10)
-      });
+      const fornecedores = await OracleService.query(query, params);
 
-      // Query para estatísticas gerais
+      // Query para estatísticas gerais baseada em ITENS
+      // Filtra apenas pedidos cancelados/finalizados (TIPO_RECEBIMENTO = 3)
+      // Usa o período selecionado dentro dos CASE
       const statsQuery = `
         SELECT
-          COUNT(DISTINCT p.NUM_PEDIDO) as TOTAL_PEDIDOS_CANCELADOS,
-          COUNT(DISTINCT p.COD_PARCEIRO) as TOTAL_FORNECEDORES_AFETADOS,
-          SUM(p.VAL_PEDIDO) as VALOR_TOTAL_PERDIDO,
-          COUNT(DISTINCT pp.COD_PRODUTO) as TOTAL_PRODUTOS_AFETADOS
+          COUNT(CASE WHEN ${periodoDateCondition} AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN 1 END) as TOTAL_ITENS_RUPTURA,
+          COUNT(DISTINCT CASE WHEN ${periodoDateCondition} AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN p.COD_PARCEIRO END) as TOTAL_FORNECEDORES_AFETADOS,
+          SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN (pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0)) * pp.VAL_TABELA ELSE 0 END) as VALOR_NAO_FATURADO,
+          COUNT(DISTINCT CASE WHEN ${periodoDateCondition} AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN pp.COD_PRODUTO END) as TOTAL_PRODUTOS_AFETADOS
         FROM INTERSOLID.TAB_PEDIDO p
-        LEFT JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
-        ${whereClause}
+        INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
+        WHERE p.TIPO_PARCEIRO = 1
+        AND p.TIPO_RECEBIMENTO = 3
+        AND p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12)
       `;
 
-      const statsResult = await OracleService.query(statsQuery, params);
+      const statsResult = await OracleService.query(statsQuery, {});
       const stats = statsResult[0] || {
-        TOTAL_PEDIDOS_CANCELADOS: 0,
+        TOTAL_ITENS_RUPTURA: 0,
         TOTAL_FORNECEDORES_AFETADOS: 0,
-        VALOR_TOTAL_PERDIDO: 0,
+        VALOR_NAO_FATURADO: 0,
         TOTAL_PRODUTOS_AFETADOS: 0
       };
 
@@ -95,34 +139,106 @@ export class RupturaIndustriaController {
   }
 
   /**
-   * Produtos cancelados de um fornecedor específico
+   * Produtos com ruptura de um fornecedor específico
+   * Ruptura = itens onde QTD_RECEBIDA < QTD_PEDIDO
+   * Com estatísticas por período (último ano, 6 meses, último mês)
    */
   static async produtosFornecedor(req: AuthRequest, res: Response) {
     console.log('=== INICIO produtosFornecedor ===');
 
     try {
       const { codFornecedor } = req.params;
+      const { dataInicio, dataFim } = req.query;
       console.log('codFornecedor:', codFornecedor, 'tipo:', typeof codFornecedor);
+      console.log('dataInicio:', dataInicio, 'dataFim:', dataFim);
 
       const codFornecedorNum = parseInt(codFornecedor, 10);
       console.log('codFornecedorNum:', codFornecedorNum);
 
-      // Query MUITO simples para testar
+      // Condição de data para PERIODO (período selecionado pelo usuário)
+      let periodoDateCondition = '1=1'; // default: todos os registros
+      if (dataInicio && dataFim) {
+        periodoDateCondition = `TRUNC(p.DTA_EMISSAO) >= TO_DATE('${dataInicio}', 'YYYY-MM-DD') AND TRUNC(p.DTA_EMISSAO) <= TO_DATE('${dataFim}', 'YYYY-MM-DD')`;
+      } else if (dataInicio) {
+        periodoDateCondition = `TRUNC(p.DTA_EMISSAO) >= TO_DATE('${dataInicio}', 'YYYY-MM-DD')`;
+      } else if (dataFim) {
+        periodoDateCondition = `TRUNC(p.DTA_EMISSAO) <= TO_DATE('${dataFim}', 'YYYY-MM-DD')`;
+      }
+
+      // Query para produtos com ruptura do fornecedor
+      // Ruptura = NVL(QTD_RECEBIDA, 0) < QTD_PEDIDO
+      // Inclui métricas por período: ANO, SEMESTRE, MES e TOTAL (período selecionado)
+      // Colunas: Pedidos Feitos, Pedidos Cortados, Qtd Cortada, Valor por período
       const query = `
-        SELECT
-          pp.COD_PRODUTO,
-          pr.DES_PRODUTO,
-          COUNT(*) as VEZES_CANCELADO,
-          SUM(pp.QTD_PEDIDO) as QTD_TOTAL_CANCELADA
-        FROM INTERSOLID.TAB_PEDIDO p
-        INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
-        LEFT JOIN INTERSOLID.TAB_PRODUTO pr ON pr.COD_PRODUTO = pp.COD_PRODUTO
-        WHERE p.TIPO_PARCEIRO = 1
-        AND p.TIPO_RECEBIMENTO = 3
-        AND p.COD_PARCEIRO = :codFornecedor
-        GROUP BY pp.COD_PRODUTO, pr.DES_PRODUTO
-        ORDER BY COUNT(*) DESC
-        FETCH FIRST 50 ROWS ONLY
+        SELECT * FROM (
+          SELECT
+            pp.COD_PRODUTO,
+            pr.DES_PRODUTO,
+            -- ===== PERÍODO SELECIONADO (TOTAL_) =====
+            COUNT(DISTINCT CASE WHEN ${periodoDateCondition} THEN p.NUM_PEDIDO END) as TOTAL_PEDIDOS_FEITOS,
+            COUNT(DISTINCT CASE WHEN ${periodoDateCondition} AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN p.NUM_PEDIDO END) as TOTAL_PEDIDOS_CORTADOS,
+            SUM(CASE WHEN ${periodoDateCondition} THEN pp.QTD_PEDIDO ELSE 0 END) as TOTAL_QTD_PEDIDA,
+            SUM(CASE WHEN ${periodoDateCondition} THEN NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) as TOTAL_QTD_ENTREGUE,
+            SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) as TOTAL_QTD_CORTADA,
+            SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN (pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0)) * pp.VAL_TABELA ELSE 0 END) as TOTAL_VALOR,
+            -- ===== ÚLTIMO ANO =====
+            COUNT(DISTINCT CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) THEN p.NUM_PEDIDO END) as ANO_PEDIDOS_FEITOS,
+            COUNT(DISTINCT CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN p.NUM_PEDIDO END) as ANO_PEDIDOS_CORTADOS,
+            SUM(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) THEN pp.QTD_PEDIDO ELSE 0 END) as ANO_QTD_PEDIDA,
+            SUM(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) THEN NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) as ANO_QTD_ENTREGUE,
+            SUM(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) as ANO_QTD_CORTADA,
+            SUM(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN (pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0)) * pp.VAL_TABELA ELSE 0 END) as ANO_VALOR,
+            -- ===== ÚLTIMOS 6 MESES =====
+            COUNT(DISTINCT CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -6) THEN p.NUM_PEDIDO END) as SEMESTRE_PEDIDOS_FEITOS,
+            COUNT(DISTINCT CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN p.NUM_PEDIDO END) as SEMESTRE_PEDIDOS_CORTADOS,
+            SUM(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -6) THEN pp.QTD_PEDIDO ELSE 0 END) as SEMESTRE_QTD_PEDIDA,
+            SUM(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -6) THEN NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) as SEMESTRE_QTD_ENTREGUE,
+            SUM(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) as SEMESTRE_QTD_CORTADA,
+            SUM(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN (pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0)) * pp.VAL_TABELA ELSE 0 END) as SEMESTRE_VALOR,
+            -- ===== ÚLTIMO MÊS =====
+            COUNT(DISTINCT CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -1) THEN p.NUM_PEDIDO END) as MES_PEDIDOS_FEITOS,
+            COUNT(DISTINCT CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN p.NUM_PEDIDO END) as MES_PEDIDOS_CORTADOS,
+            SUM(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -1) THEN pp.QTD_PEDIDO ELSE 0 END) as MES_QTD_PEDIDA,
+            SUM(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -1) THEN NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) as MES_QTD_ENTREGUE,
+            SUM(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) as MES_QTD_CORTADA,
+            SUM(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN (pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0)) * pp.VAL_TABELA ELSE 0 END) as MES_VALOR,
+            -- Legado (manter compatibilidade)
+            COUNT(CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN 1 END) as TOTAL_RUPTURA,
+            COUNT(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN 1 END) as ANO_RUPTURA,
+            COUNT(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN 1 END) as SEMESTRE_RUPTURA,
+            COUNT(CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN 1 END) as MES_RUPTURA,
+            SUM(CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) as QTD_FALTANTE,
+            SUM(CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN (pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0)) * pp.VAL_TABELA ELSE 0 END) as VALOR_NAO_FATURADO,
+            -- Flag: tem outros fornecedores que vendem esse produto?
+            (SELECT COUNT(DISTINCT p2.COD_PARCEIRO)
+             FROM INTERSOLID.TAB_PEDIDO p2
+             INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp2 ON pp2.NUM_PEDIDO = p2.NUM_PEDIDO
+             WHERE p2.TIPO_PARCEIRO = 1
+             AND p2.TIPO_RECEBIMENTO = 3
+             AND pp2.COD_PRODUTO = pp.COD_PRODUTO
+             AND p2.COD_PARCEIRO != :codFornecedor
+             AND p2.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12)
+             AND NVL(pp2.QTD_RECEBIDA, 0) > 0
+            ) as QTD_OUTROS_FORNECEDORES
+          FROM INTERSOLID.TAB_PEDIDO p
+          INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
+          LEFT JOIN INTERSOLID.TAB_PRODUTO pr ON pr.COD_PRODUTO = pp.COD_PRODUTO
+          WHERE p.TIPO_PARCEIRO = 1
+          AND p.TIPO_RECEBIMENTO = 3
+          AND p.COD_PARCEIRO = :codFornecedor
+          GROUP BY pp.COD_PRODUTO, pr.DES_PRODUTO
+          HAVING COUNT(CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN 1 END) > 0
+          ORDER BY
+            -- Ordenar por % de ruptura no período selecionado (maior para menor)
+            CASE
+              WHEN SUM(CASE WHEN ${periodoDateCondition} THEN pp.QTD_PEDIDO ELSE 0 END) > 0
+              THEN SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END)
+                   / SUM(CASE WHEN ${periodoDateCondition} THEN pp.QTD_PEDIDO ELSE 0 END)
+              ELSE 0
+            END DESC,
+            -- Desempate: maior quantidade cortada no período
+            SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) DESC
+        ) WHERE ROWNUM <= 100
       `;
 
       console.log('Executando query...');
@@ -315,6 +431,402 @@ export class RupturaIndustriaController {
     } catch (error: any) {
       console.error('Erro ao buscar evolução mensal:', error);
       res.status(500).json({ error: 'Erro ao buscar evolução mensal', details: error.message });
+    }
+  }
+
+  /**
+   * Histórico de compras de um produto (todos os fornecedores)
+   * Para mostrar alternativas de fornecedores
+   */
+  static async historicoComprasProduto(req: AuthRequest, res: Response) {
+    try {
+      const { codProduto } = req.params;
+      const { codFornecedorAtual } = req.query;
+
+      const codProdutoNum = parseInt(codProduto, 10);
+      const codFornecedorAtualNum = codFornecedorAtual ? parseInt(codFornecedorAtual as string, 10) : null;
+
+      // Buscar histórico de compras desse produto de todos os fornecedores
+      // Usando TAB_NF (notas fiscais) e TAB_NF_ITEM (itens) - mesma fonte da tela de Pontuação
+      // VAL_CUSTO_SCRED = custo de reposição unitário correto
+      // TIPO_OPERACAO = 0 é entrada (compra)
+      const query = `
+        SELECT * FROM (
+          SELECT
+            nf.DTA_ENTRADA as DATA,
+            TRUNC(SYSDATE) - TRUNC(nf.DTA_ENTRADA) as DIAS,
+            f.DES_FORNECEDOR as FORNECEDOR,
+            f.COD_FORNECEDOR,
+            ni.QTD_ENTRADA as QTD,
+            NVL(ni.VAL_CUSTO_SCRED, 0) as CUSTO_REP,
+            ni.VAL_TOTAL as TOTAL,
+            nf.NUM_NF as NF
+          FROM INTERSOLID.TAB_NF nf
+          INNER JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+            AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
+            AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON nf.COD_PARCEIRO = f.COD_FORNECEDOR
+          WHERE ni.COD_ITEM = :codProduto
+          AND nf.TIPO_OPERACAO = 0
+          ORDER BY nf.DTA_ENTRADA DESC
+        ) WHERE ROWNUM <= 50
+      `;
+
+      const historico = await OracleService.query(query, { codProduto: codProdutoNum });
+
+      // Dados do produto
+      const produtoQuery = `
+        SELECT COD_PRODUTO, DES_PRODUTO
+        FROM INTERSOLID.TAB_PRODUTO
+        WHERE COD_PRODUTO = :codProduto
+      `;
+      const produtoResult = await OracleService.query(produtoQuery, { codProduto: codProdutoNum });
+      const produto = produtoResult[0] || null;
+
+      // Verificar se tem fornecedores diferentes do atual
+      const temOutrosFornecedores = codFornecedorAtualNum
+        ? historico.some((h: any) => h.COD_FORNECEDOR !== codFornecedorAtualNum)
+        : historico.length > 0;
+
+      res.json({
+        produto,
+        historico,
+        temOutrosFornecedores
+      });
+    } catch (error: any) {
+      console.error('Erro ao buscar histórico de compras do produto:', error);
+      res.status(500).json({ error: 'Erro ao buscar histórico de compras', details: error.message });
+    }
+  }
+
+  /**
+   * Pedidos detalhados de um produto de um fornecedor
+   * Mostra cada pedido individual com data, qtd pedida, qtd entregue, qtd cortada
+   */
+  static async pedidosProduto(req: AuthRequest, res: Response) {
+    try {
+      const { codProduto } = req.params;
+      const { codFornecedor } = req.query;
+
+      const codProdutoNum = parseInt(codProduto, 10);
+      const codFornecedorNum = codFornecedor ? parseInt(codFornecedor as string, 10) : null;
+
+      // Query para buscar todos os pedidos do produto com o fornecedor
+      const query = `
+        SELECT * FROM (
+          SELECT
+            p.NUM_PEDIDO,
+            p.DTA_EMISSAO as DATA,
+            TRUNC(SYSDATE) - TRUNC(p.DTA_EMISSAO) as DIAS,
+            pp.QTD_PEDIDO as QTD_PEDIDA,
+            NVL(pp.QTD_RECEBIDA, 0) as QTD_ENTREGUE,
+            CASE
+              WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO
+              THEN pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0)
+              ELSE 0
+            END as QTD_CORTADA,
+            CASE
+              WHEN NVL(pp.QTD_RECEBIDA, 0) > pp.QTD_PEDIDO
+              THEN NVL(pp.QTD_RECEBIDA, 0) - pp.QTD_PEDIDO
+              ELSE 0
+            END as QTD_EXTRA,
+            pp.VAL_TABELA as PRECO_UNIT,
+            CASE
+              WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO
+              THEN (pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0)) * pp.VAL_TABELA
+              ELSE 0
+            END as VALOR_CORTADO,
+            CASE
+              WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN 'RUPTURA'
+              WHEN NVL(pp.QTD_RECEBIDA, 0) > pp.QTD_PEDIDO THEN 'EXCESSO'
+              ELSE 'OK'
+            END as STATUS
+          FROM INTERSOLID.TAB_PEDIDO p
+          INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
+          WHERE p.TIPO_PARCEIRO = 1
+          AND p.TIPO_RECEBIMENTO = 3
+          AND pp.COD_PRODUTO = :codProduto
+          AND p.COD_PARCEIRO = :codFornecedor
+          ORDER BY p.DTA_EMISSAO DESC
+        ) WHERE ROWNUM <= 100
+      `;
+
+      const pedidos = await OracleService.query(query, {
+        codProduto: codProdutoNum,
+        codFornecedor: codFornecedorNum
+      });
+
+      // Dados do produto
+      const produtoQuery = `
+        SELECT COD_PRODUTO, DES_PRODUTO
+        FROM INTERSOLID.TAB_PRODUTO
+        WHERE COD_PRODUTO = :codProduto
+      `;
+      const produtoResult = await OracleService.query(produtoQuery, { codProduto: codProdutoNum });
+      const produto = produtoResult[0] || null;
+
+      // Dados do fornecedor
+      const fornecedorQuery = `
+        SELECT COD_FORNECEDOR, DES_FORNECEDOR
+        FROM INTERSOLID.TAB_FORNECEDOR
+        WHERE COD_FORNECEDOR = :codFornecedor
+      `;
+      const fornecedorResult = await OracleService.query(fornecedorQuery, { codFornecedor: codFornecedorNum });
+      const fornecedor = fornecedorResult[0] || null;
+
+      // Calcular totais
+      const totais = {
+        TOTAL_PEDIDOS: pedidos.length,
+        TOTAL_QTD_PEDIDA: pedidos.reduce((sum: number, p: any) => sum + (p.QTD_PEDIDA || 0), 0),
+        TOTAL_QTD_ENTREGUE: pedidos.reduce((sum: number, p: any) => sum + (p.QTD_ENTREGUE || 0), 0),
+        TOTAL_QTD_CORTADA: pedidos.reduce((sum: number, p: any) => sum + (p.QTD_CORTADA || 0), 0),
+        TOTAL_VALOR_CORTADO: pedidos.reduce((sum: number, p: any) => sum + (p.VALOR_CORTADO || 0), 0),
+        PEDIDOS_COM_RUPTURA: pedidos.filter((p: any) => p.STATUS === 'RUPTURA').length,
+        PEDIDOS_COM_EXCESSO: pedidos.filter((p: any) => p.STATUS === 'EXCESSO').length,
+        PEDIDOS_OK: pedidos.filter((p: any) => p.STATUS === 'OK').length
+      };
+
+      res.json({
+        produto,
+        fornecedor: fornecedor?.DES_FORNECEDOR || null,
+        pedidos,
+        totais
+      });
+    } catch (error: any) {
+      console.error('Erro ao buscar pedidos do produto:', error);
+      res.status(500).json({ error: 'Erro ao buscar pedidos do produto', details: error.message });
+    }
+  }
+
+  /**
+   * Buscar nota fiscal relacionada a um pedido
+   * Procura a NF do mesmo fornecedor/produto próxima à data do pedido
+   */
+  static async notaFiscalPedido(req: AuthRequest, res: Response) {
+    try {
+      const { numPedido } = req.params;
+      const { codProduto, codFornecedor } = req.query;
+
+      const numPedidoNum = parseInt(numPedido, 10);
+      const codProdutoNum = codProduto ? parseInt(codProduto as string, 10) : null;
+      const codFornecedorNum = codFornecedor ? parseInt(codFornecedor as string, 10) : null;
+
+      // Buscar dados do pedido primeiro
+      const pedidoQuery = `
+        SELECT
+          p.NUM_PEDIDO,
+          p.DTA_EMISSAO,
+          p.DTA_ENTREGA,
+          p.COD_PARCEIRO,
+          pp.COD_PRODUTO,
+          pp.QTD_PEDIDO,
+          pp.QTD_RECEBIDA,
+          pp.VAL_TABELA,
+          pr.DES_PRODUTO,
+          f.DES_FORNECEDOR
+        FROM INTERSOLID.TAB_PEDIDO p
+        INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
+        LEFT JOIN INTERSOLID.TAB_PRODUTO pr ON pr.COD_PRODUTO = pp.COD_PRODUTO
+        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = p.COD_PARCEIRO
+        WHERE p.NUM_PEDIDO = :numPedido
+        ${codProdutoNum ? 'AND pp.COD_PRODUTO = :codProduto' : ''}
+      `;
+
+      const pedidoParams: any = { numPedido: numPedidoNum };
+      if (codProdutoNum) pedidoParams.codProduto = codProdutoNum;
+
+      const pedidoResult = await OracleService.query(pedidoQuery, pedidoParams);
+      const pedido = pedidoResult[0] || null;
+
+      if (!pedido) {
+        return res.json({ pedido: null, notasFiscais: [], message: 'Pedido não encontrado' });
+      }
+
+      // Buscar notas fiscais relacionadas
+      // Procura NFs do mesmo fornecedor e produto, em um período de 30 dias após a emissão do pedido
+      const nfQuery = `
+        SELECT * FROM (
+          SELECT
+            nf.NUM_NF,
+            nf.NUM_SERIE_NF,
+            nf.DTA_ENTRADA,
+            nf.COD_PARCEIRO,
+            ni.COD_ITEM as COD_PRODUTO,
+            ni.QTD_ENTRADA,
+            ni.VAL_UNITARIO,
+            ni.VAL_TOTAL,
+            NVL(ni.VAL_CUSTO_SCRED, 0) as CUSTO_REP,
+            f.DES_FORNECEDOR,
+            pr.DES_PRODUTO,
+            TRUNC(nf.DTA_ENTRADA) - TRUNC(:dtaEmissao) as DIAS_APOS_PEDIDO
+          FROM INTERSOLID.TAB_NF nf
+          INNER JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+            AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
+            AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON nf.COD_PARCEIRO = f.COD_FORNECEDOR
+          LEFT JOIN INTERSOLID.TAB_PRODUTO pr ON pr.COD_PRODUTO = ni.COD_ITEM
+          WHERE nf.TIPO_OPERACAO = 0
+          AND nf.COD_PARCEIRO = :codFornecedor
+          AND ni.COD_ITEM = :codProduto
+          AND nf.DTA_ENTRADA >= TRUNC(:dtaEmissao) - 5
+          AND nf.DTA_ENTRADA <= TRUNC(:dtaEmissao) + 60
+          ORDER BY ABS(TRUNC(nf.DTA_ENTRADA) - TRUNC(:dtaEmissao)) ASC
+        ) WHERE ROWNUM <= 10
+      `;
+
+      const notasFiscais = await OracleService.query(nfQuery, {
+        dtaEmissao: pedido.DTA_EMISSAO,
+        codFornecedor: pedido.COD_PARCEIRO,
+        codProduto: pedido.COD_PRODUTO
+      });
+
+      res.json({
+        pedido,
+        notasFiscais
+      });
+    } catch (error: any) {
+      console.error('Erro ao buscar nota fiscal do pedido:', error);
+      res.status(500).json({ error: 'Erro ao buscar nota fiscal', details: error.message });
+    }
+  }
+
+  /**
+   * Ranking de produtos com maior índice de ruptura
+   * Mostra cada produto com dados de cada fornecedor que vende
+   * Formato: Produto | Fornecedor1 (Ped/Cort/%) | Fornecedor2 (Ped/Cort/%) | ...
+   */
+  static async rankingProdutosFornecedores(req: AuthRequest, res: Response) {
+    try {
+      const { dataInicio, dataFim, limit = '50' } = req.query;
+
+      // Condição de data
+      let dateCondition = '1=1';
+      if (dataInicio && dataFim) {
+        dateCondition = `TRUNC(p.DTA_EMISSAO) >= TO_DATE('${dataInicio}', 'YYYY-MM-DD') AND TRUNC(p.DTA_EMISSAO) <= TO_DATE('${dataFim}', 'YYYY-MM-DD')`;
+      } else if (dataInicio) {
+        dateCondition = `TRUNC(p.DTA_EMISSAO) >= TO_DATE('${dataInicio}', 'YYYY-MM-DD')`;
+      } else if (dataFim) {
+        dateCondition = `TRUNC(p.DTA_EMISSAO) <= TO_DATE('${dataFim}', 'YYYY-MM-DD')`;
+      }
+
+      // Query para buscar produtos com maior % de ruptura
+      // Calcula totais gerais do produto (todos os fornecedores)
+      // Corte Total: QTD_RECEBIDA = 0 (nada foi entregue)
+      // Corte Parcial: QTD_RECEBIDA > 0 mas < QTD_PEDIDO (entrega parcial)
+      const produtosQuery = `
+        SELECT * FROM (
+          SELECT
+            pp.COD_PRODUTO,
+            pr.DES_PRODUTO,
+            -- Totais gerais do produto
+            COUNT(DISTINCT p.NUM_PEDIDO) as TOTAL_PEDIDOS,
+            COUNT(DISTINCT CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN p.NUM_PEDIDO END) as TOTAL_PEDIDOS_CORTADOS,
+            -- Corte Total: pedidos onde QTD_RECEBIDA = 0
+            COUNT(DISTINCT CASE WHEN NVL(pp.QTD_RECEBIDA, 0) = 0 AND pp.QTD_PEDIDO > 0 THEN p.NUM_PEDIDO END) as CORTE_TOTAL,
+            -- Corte Parcial: pedidos onde 0 < QTD_RECEBIDA < QTD_PEDIDO
+            COUNT(DISTINCT CASE WHEN NVL(pp.QTD_RECEBIDA, 0) > 0 AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN p.NUM_PEDIDO END) as CORTE_PARCIAL,
+            SUM(pp.QTD_PEDIDO) as TOTAL_QTD_PEDIDA,
+            SUM(NVL(pp.QTD_RECEBIDA, 0)) as TOTAL_QTD_ENTREGUE,
+            SUM(CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) as TOTAL_QTD_CORTADA,
+            SUM(CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN (pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0)) * pp.VAL_TABELA ELSE 0 END) as TOTAL_VALOR_CORTADO,
+            COUNT(DISTINCT p.COD_PARCEIRO) as QTD_FORNECEDORES,
+            -- % de ruptura (baseado em quantidade)
+            CASE
+              WHEN SUM(pp.QTD_PEDIDO) > 0
+              THEN ROUND(SUM(CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) * 100 / SUM(pp.QTD_PEDIDO), 1)
+              ELSE 0
+            END as PERCENTUAL_RUPTURA
+          FROM INTERSOLID.TAB_PEDIDO p
+          INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
+          LEFT JOIN INTERSOLID.TAB_PRODUTO pr ON pr.COD_PRODUTO = pp.COD_PRODUTO
+          WHERE p.TIPO_PARCEIRO = 1
+          AND p.TIPO_RECEBIMENTO = 3
+          AND ${dateCondition}
+          GROUP BY pp.COD_PRODUTO, pr.DES_PRODUTO
+          HAVING SUM(CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) > 0
+          ORDER BY
+            CASE
+              WHEN SUM(pp.QTD_PEDIDO) > 0
+              THEN SUM(CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) / SUM(pp.QTD_PEDIDO)
+              ELSE 0
+            END DESC,
+            SUM(CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) DESC
+        ) WHERE ROWNUM <= :limitNum
+      `;
+
+      const produtos = await OracleService.query(produtosQuery, { limitNum: parseInt(limit as string, 10) });
+
+      // Para cada produto, buscar os dados por fornecedor
+      const produtosComFornecedores = [];
+
+      for (const produto of produtos) {
+        // Query para buscar dados por fornecedor deste produto
+        const fornecedoresQuery = `
+          SELECT * FROM (
+            SELECT
+              f.COD_FORNECEDOR,
+              f.DES_FORNECEDOR,
+              COUNT(DISTINCT p.NUM_PEDIDO) as PEDIDOS,
+              COUNT(DISTINCT CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN p.NUM_PEDIDO END) as CORTADOS,
+              -- Corte Total: pedidos onde QTD_RECEBIDA = 0
+              COUNT(DISTINCT CASE WHEN NVL(pp.QTD_RECEBIDA, 0) = 0 AND pp.QTD_PEDIDO > 0 THEN p.NUM_PEDIDO END) as CORTE_TOTAL,
+              -- Corte Parcial: pedidos onde 0 < QTD_RECEBIDA < QTD_PEDIDO
+              COUNT(DISTINCT CASE WHEN NVL(pp.QTD_RECEBIDA, 0) > 0 AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN p.NUM_PEDIDO END) as CORTE_PARCIAL,
+              SUM(pp.QTD_PEDIDO) as QTD_PEDIDA,
+              SUM(NVL(pp.QTD_RECEBIDA, 0)) as QTD_ENTREGUE,
+              SUM(CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) as QTD_CORTADA,
+              CASE
+                WHEN SUM(pp.QTD_PEDIDO) > 0
+                THEN ROUND(SUM(CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) * 100 / SUM(pp.QTD_PEDIDO), 1)
+                ELSE 0
+              END as PERCENTUAL
+            FROM INTERSOLID.TAB_PEDIDO p
+            INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
+            INNER JOIN INTERSOLID.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = p.COD_PARCEIRO
+            WHERE p.TIPO_PARCEIRO = 1
+            AND p.TIPO_RECEBIMENTO = 3
+            AND pp.COD_PRODUTO = :codProduto
+            AND ${dateCondition}
+            GROUP BY f.COD_FORNECEDOR, f.DES_FORNECEDOR
+            ORDER BY
+              CASE
+                WHEN SUM(pp.QTD_PEDIDO) > 0
+                THEN SUM(CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO THEN pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) / SUM(pp.QTD_PEDIDO)
+                ELSE 0
+              END DESC
+          ) WHERE ROWNUM <= 5
+        `;
+
+        const fornecedores = await OracleService.query(fornecedoresQuery, { codProduto: produto.COD_PRODUTO });
+
+        produtosComFornecedores.push({
+          ...produto,
+          fornecedores
+        });
+      }
+
+      // Coletar todos os fornecedores únicos para o cabeçalho da tabela
+      const fornecedoresUnicos = new Map();
+      produtosComFornecedores.forEach(p => {
+        p.fornecedores.forEach((f: any) => {
+          if (!fornecedoresUnicos.has(f.COD_FORNECEDOR)) {
+            fornecedoresUnicos.set(f.COD_FORNECEDOR, f.DES_FORNECEDOR);
+          }
+        });
+      });
+
+      // Converter para array e limitar aos top 5 mais frequentes
+      const fornecedoresArray = Array.from(fornecedoresUnicos.entries())
+        .map(([cod, nome]) => ({ COD_FORNECEDOR: cod, DES_FORNECEDOR: nome }))
+        .slice(0, 5);
+
+      res.json({
+        produtos: produtosComFornecedores,
+        fornecedoresHeader: fornecedoresArray
+      });
+    } catch (error: any) {
+      console.error('Erro ao buscar ranking de produtos:', error);
+      res.status(500).json({ error: 'Erro ao buscar ranking de produtos', details: error.message });
     }
   }
 }

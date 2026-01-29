@@ -16,7 +16,7 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 5173,
+    port: 3004,
     strictPort: false, // Permite mudar de porta se estiver ocupada
     allowedHosts: [
       '.ngrok-free.dev',
@@ -25,10 +25,10 @@ export default defineConfig({
       'www.prevencaonoradar.com.br',
       'localhost',
     ],
-    // Proxy para encaminhar chamadas /api para o backend na porta 3001
+    // Proxy para encaminhar chamadas /api para o backend na porta 3000
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
       },

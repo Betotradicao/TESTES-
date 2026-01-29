@@ -21,10 +21,22 @@ router.get('/fornecedor/:codFornecedor/produtos', RupturaIndustriaController.pro
 // Histórico de cancelamentos de um produto
 router.get('/produto/:codProduto/historico', RupturaIndustriaController.historicoProduto);
 
+// Histórico de compras de um produto (todos os fornecedores)
+router.get('/produto/:codProduto/compras', RupturaIndustriaController.historicoComprasProduto);
+
+// Pedidos detalhados de um produto (mostra cada pedido individual)
+router.get('/produto/:codProduto/pedidos', RupturaIndustriaController.pedidosProduto);
+
+// Nota fiscal relacionada a um pedido
+router.get('/pedido/:numPedido/nota-fiscal', RupturaIndustriaController.notaFiscalPedido);
+
 // Top produtos mais cancelados (geral)
 router.get('/top-produtos', RupturaIndustriaController.topProdutosCancelados);
 
 // Evolução mensal de cancelamentos
 router.get('/evolucao-mensal', RupturaIndustriaController.evolucaoMensal);
+
+// Ranking de produtos com dados por fornecedor (para aba Ranking)
+router.get('/ranking-produtos-fornecedores', RupturaIndustriaController.rankingProdutosFornecedores);
 
 export default router;
