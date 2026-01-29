@@ -143,10 +143,25 @@ export class PedidosCompraController {
             f.NUM_FREQ_VISITA,
             f.NUM_PRAZO as PRAZO_ENTREGA,
             f.NUM_MED_CPGTO as COND_PAGAMENTO,
+            pm.PRAZO_MEDIO_REAL,
+            pm.QTD_NFS_PRAZO,
             TRUNC(SYSDATE) - TRUNC(p.DTA_ENTREGA) as DIAS_ATRASO,
             ROW_NUMBER() OVER (${orderByClause}) as RN
           FROM INTERSOLID.TAB_PEDIDO p
           LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = p.COD_PARCEIRO
+          LEFT JOIN (
+            SELECT
+              fn.COD_FORNECEDOR,
+              ROUND(AVG(TRUNC(fn.DTA_ENTRADA) - TRUNC(ped.DTA_EMISSAO)), 1) as PRAZO_MEDIO_REAL,
+              COUNT(DISTINCT fn.NUM_NF_FORN) as QTD_NFS_PRAZO
+            FROM INTERSOLID.TAB_FORNECEDOR_NOTA fn
+            JOIN INTERSOLID.TAB_PEDIDO ped ON ped.NUM_PEDIDO = fn.NUM_PEDIDO AND ped.TIPO_PARCEIRO = 1
+            WHERE fn.DTA_ENTRADA >= SYSDATE - 90
+            AND fn.NUM_PEDIDO IS NOT NULL
+            AND fn.NUM_PEDIDO > 0
+            AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
+            GROUP BY fn.COD_FORNECEDOR
+          ) pm ON pm.COD_FORNECEDOR = p.COD_PARCEIRO
           ${whereClause}
         ) WHERE RN > :offset AND RN <= :maxRow
       `;

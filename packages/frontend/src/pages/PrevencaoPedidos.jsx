@@ -79,6 +79,7 @@ export default function PrevencaoPedidos() {
     { key: 'NUM_CELULAR', label: 'CELULAR', sortable: false },
     { key: 'NUM_FREQ_VISITA', label: 'VISITA', sortable: true },
     { key: 'PRAZO_ENTREGA', label: 'PRAZO ENT.', sortable: true },
+    { key: 'PRAZO_MEDIO_REAL', label: 'PRAZO MÉD.', sortable: true },
     { key: 'COND_PAGAMENTO', label: 'COND. PGTO', sortable: true },
     { key: 'DTA_EMISSAO', label: 'EMISSAO', sortable: true },
     { key: 'DTA_ENTREGA', label: 'ENTREGA', sortable: true },
@@ -1138,6 +1139,29 @@ export default function PrevencaoPedidos() {
                               )}
                             </td>
                           );
+                        case 'PRAZO_MEDIO_REAL':
+                          const prazoMedio = pedido.PRAZO_MEDIO_REAL;
+                          const prazoCad = pedido.PRAZO_ENTREGA || 0;
+                          const diferenca = prazoMedio ? (prazoMedio - prazoCad) : null;
+                          // Cor baseada na diferença: vermelho se atrasa muito, amarelo se atrasa pouco, verde se OK
+                          const prazoMedioColor = !prazoMedio ? 'bg-gray-100 text-gray-500' :
+                            diferenca > 2 ? 'bg-red-100 text-red-800' :
+                            diferenca > 0 ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-green-100 text-green-800';
+                          return (
+                            <td key={col.key} className="px-2 py-1.5 text-center text-xs">
+                              {prazoMedio ? (
+                                <span
+                                  className={`inline-flex items-center px-1.5 py-0.5 rounded font-medium ${prazoMedioColor}`}
+                                  title={`Prazo médio real baseado em ${pedido.QTD_NFS_PRAZO || 0} NFs nos últimos 90 dias. Diferença: ${diferenca > 0 ? '+' : ''}${diferenca?.toFixed(1) || 0}d`}
+                                >
+                                  {prazoMedio}d
+                                </span>
+                              ) : (
+                                <span className="text-gray-400" title="Sem dados suficientes">-</span>
+                              )}
+                            </td>
+                          );
                         case 'COND_PAGAMENTO':
                           return (
                             <td key={col.key} className="px-2 py-1.5 text-center text-xs">
@@ -1200,7 +1224,7 @@ export default function PrevencaoPedidos() {
                         {/* Linha expandida com itens */}
                         {isExpanded && (
                           <tr key={`${pedido.NUM_PEDIDO}-itens`}>
-                            <td colSpan="17" className="bg-gray-50 p-3 border-t border-b border-orange-200">
+                            <td colSpan="18" className="bg-gray-50 p-3 border-t border-b border-orange-200">
                               <div className="ml-6">
                                 <h4 className="text-xs font-semibold text-gray-700 mb-2">
                                   {filters.parciaisFinalizadas
