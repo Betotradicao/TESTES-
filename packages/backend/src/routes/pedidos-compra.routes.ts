@@ -18,6 +18,18 @@ router.get('/', PedidosCompraController.listarPedidos);
 // Lista compradores disponíveis
 router.get('/compradores', PedidosCompraController.listarCompradores);
 
+// Lista classificações de fornecedores
+router.get('/classificacoes', PedidosCompraController.listarClassificacoes);
+
+// Lista NFs sem pedido de compra
+router.get('/nf-sem-pedido', PedidosCompraController.listarNfSemPedido);
+
+// Lista contatos com totais de NFs sem pedido
+router.get('/nf-sem-pedido/contatos', PedidosCompraController.listarContatosNfSemPedido);
+
+// Itens de uma NF específica
+router.get('/nf/:numNf/:codFornecedor/:codLoja/itens', PedidosCompraController.itensNf);
+
 // Detalhes de um pedido específico
 router.get('/:numPedido', PedidosCompraController.detalhesPedido);
 

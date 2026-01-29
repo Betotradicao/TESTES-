@@ -20,7 +20,18 @@ export default function PrevencaoPedidos() {
     fornecedor: '',
     numPedido: '',
     comprador: '',
-    apenasAtrasados: false
+    apenasAtrasados: false,
+    parciaisFinalizadas: false,
+    canceladasTotais: false,
+    semNenhumaEntrada: false,
+    nfSemPedido: false
+  });
+  const [nfsSemPedido, setNfsSemPedido] = useState([]);
+  const [nfPagination, setNfPagination] = useState({
+    page: 1,
+    limit: 50,
+    total: 0,
+    totalPages: 0
   });
   const [pagination, setPagination] = useState({
     page: 1,
@@ -30,16 +41,95 @@ export default function PrevencaoPedidos() {
   });
   const [stats, setStats] = useState({
     pendentes: 0,
-    parciais: 0,
-    recebidos: 0,
+    parciaisAberto: 0,
+    recebidosIntegral: 0,
     cancelados: 0,
-    atrasados: 0
+    atrasados: 0,
+    parciaisFinalizadas: 0,
+    notasCanceladas: 0,
+    valorCancelado: 0,
+    canceladosTotalmente: 0,
+    valorCanceladoTotalmente: 0,
+    nfSemPedido: 0,
+    valorNfSemPedido: 0
   });
   const [expandedPedido, setExpandedPedido] = useState(null);
   const [itensPedido, setItensPedido] = useState({});
   const [loadingItens, setLoadingItens] = useState({});
   const [compradores, setCompradores] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [nfSortConfig, setNfSortConfig] = useState({ key: null, direction: 'asc' });
+  const [expandedNf, setExpandedNf] = useState(null);
+  const [itensNf, setItensNf] = useState({});
+  const [loadingItensNf, setLoadingItensNf] = useState({});
+  const [classificacoes, setClassificacoes] = useState([]);
+  const [semCadastroCount, setSemCadastroCount] = useState(0);
+  const [selectedClassificacoes, setSelectedClassificacoes] = useState([]);
+  const [showClassifDropdown, setShowClassifDropdown] = useState(false);
+  const [draggedColumn, setDraggedColumn] = useState(null);
+
+  // Definição das colunas da tabela de pedidos (ordem inicial)
+  const [pedidoColumns, setPedidoColumns] = useState([
+    { key: 'expand', label: '', sortable: false, width: 'w-8' },
+    { key: 'NUM_PEDIDO', label: 'N. PEDIDO', sortable: true },
+    { key: 'TIPO_RECEBIMENTO', label: 'STATUS', sortable: true },
+    { key: 'DES_FORNECEDOR', label: 'FORNECEDOR', sortable: true },
+    { key: 'NUM_CGC', label: 'CNPJ', sortable: true },
+    { key: 'DES_CONTATO', label: 'CONTATO', sortable: false },
+    { key: 'NUM_CELULAR', label: 'CELULAR', sortable: false },
+    { key: 'DTA_EMISSAO', label: 'EMISSAO', sortable: true },
+    { key: 'DTA_ENTREGA', label: 'ENTREGA', sortable: true },
+    { key: 'ATRASO', label: 'ATRASO', sortable: false },
+    { key: 'DTA_PEDIDO_CANCELADO', label: 'DT CANCEL', sortable: true },
+    { key: 'VAL_PEDIDO', label: 'VALOR (R$)', sortable: true },
+    { key: 'USUARIO', label: 'COMPRADOR', sortable: true },
+    { key: 'OBS', label: 'OBS', sortable: false }
+  ]);
+
+  // Definição das colunas da tabela de NFs (ordem inicial)
+  const [nfColumns, setNfColumns] = useState([
+    { key: 'expand', label: '', sortable: false, width: 'w-8' },
+    { key: 'NUM_NF', label: 'NUM NF', sortable: true },
+    { key: 'FORNECEDOR', label: 'FORNECEDOR', sortable: true },
+    { key: 'DES_CLASSIFICACAO', label: 'CLASSIF', sortable: true },
+    { key: 'NUM_CGC', label: 'CNPJ', sortable: false },
+    { key: 'DES_CONTATO', label: 'CONTATO', sortable: false },
+    { key: 'NUM_CELULAR', label: 'CELULAR', sortable: false },
+    { key: 'DTA_EMISSAO', label: 'EMISSAO', sortable: true },
+    { key: 'DTA_ENTRADA', label: 'ENTRADA', sortable: true },
+    { key: 'VAL_TOTAL_NF', label: 'VALOR (R$)', sortable: true },
+    { key: 'DES_NATUREZA', label: 'NATUREZA', sortable: false }
+  ]);
+
+  // Handlers para drag and drop de colunas
+  const handleDragStart = (e, columnKey, tableType) => {
+    setDraggedColumn({ key: columnKey, tableType });
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, targetColumnKey, tableType) => {
+    e.preventDefault();
+    if (!draggedColumn || draggedColumn.tableType !== tableType) return;
+
+    const columns = tableType === 'pedido' ? [...pedidoColumns] : [...nfColumns];
+    const setColumns = tableType === 'pedido' ? setPedidoColumns : setNfColumns;
+
+    const draggedIndex = columns.findIndex(c => c.key === draggedColumn.key);
+    const targetIndex = columns.findIndex(c => c.key === targetColumnKey);
+
+    if (draggedIndex === -1 || targetIndex === -1 || draggedIndex === targetIndex) return;
+
+    // Reordenar
+    const [removed] = columns.splice(draggedIndex, 1);
+    columns.splice(targetIndex, 0, removed);
+    setColumns(columns);
+    setDraggedColumn(null);
+  };
 
   // Calcular dias de atraso
   const calcularDiasAtraso = (dataEntrega) => {
@@ -70,6 +160,9 @@ export default function PrevencaoPedidos() {
       if (activeFilters.numPedido) params.append('numPedido', activeFilters.numPedido);
       if (activeFilters.comprador) params.append('comprador', activeFilters.comprador);
       if (activeFilters.apenasAtrasados) params.append('apenasAtrasados', 'true');
+      if (activeFilters.parciaisFinalizadas) params.append('parciaisFinalizadas', 'true');
+      if (activeFilters.canceladasTotais) params.append('canceladasTotais', 'true');
+      if (activeFilters.semNenhumaEntrada) params.append('semNenhumaEntrada', 'true');
 
       const response = await api.get(`/pedidos-compra?${params.toString()}`);
 
@@ -82,10 +175,13 @@ export default function PrevencaoPedidos() {
       }));
       setStats(response.data.stats || {
         pendentes: 0,
-        parciais: 0,
-        recebidos: 0,
+        parciaisAberto: 0,
+        recebidosIntegral: 0,
         cancelados: 0,
-        atrasados: 0
+        atrasados: 0,
+        parciaisFinalizadas: 0,
+        notasCanceladas: 0,
+        valorCancelado: 0
       });
     } catch (err) {
       console.error('Erro ao carregar pedidos:', err);
@@ -96,16 +192,22 @@ export default function PrevencaoPedidos() {
   };
 
   // Carregar itens do pedido
-  const loadItensPedido = async (numPedido) => {
-    if (itensPedido[numPedido]) return;
+  // filtroItens: 'apenasRecebidos' para Parciais Finalizadas, 'apenasRuptura' para Canceladas Totais, 'semNenhumaEntrada' para Cancelados Integral
+  const loadItensPedido = async (numPedido, filtroItens = null) => {
+    // Usar chave única incluindo o filtro para permitir recarregar com filtros diferentes
+    const cacheKey = filtroItens ? `${numPedido}_${filtroItens}` : numPedido;
+    if (itensPedido[cacheKey]) return;
 
     setLoadingItens(prev => ({ ...prev, [numPedido]: true }));
     try {
-      const response = await api.get(`/pedidos-compra/${numPedido}/itens`);
-      setItensPedido(prev => ({ ...prev, [numPedido]: response.data.itens || [] }));
+      const url = filtroItens
+        ? `/pedidos-compra/${numPedido}/itens?filtroItens=${filtroItens}`
+        : `/pedidos-compra/${numPedido}/itens`;
+      const response = await api.get(url);
+      setItensPedido(prev => ({ ...prev, [cacheKey]: response.data.itens || [] }));
     } catch (err) {
       console.error('Erro ao carregar itens:', err);
-      setItensPedido(prev => ({ ...prev, [numPedido]: [] }));
+      setItensPedido(prev => ({ ...prev, [cacheKey]: [] }));
     } finally {
       setLoadingItens(prev => ({ ...prev, [numPedido]: false }));
     }
@@ -121,9 +223,142 @@ export default function PrevencaoPedidos() {
     }
   };
 
+  // Carregar classificações de fornecedores (com contagem de NFs)
+  const loadClassificacoes = async () => {
+    try {
+      const response = await api.get('/pedidos-compra/classificacoes');
+      setClassificacoes(response.data.classificacoes || []);
+      setSemCadastroCount(response.data.semCadastroCount || 0);
+    } catch (err) {
+      console.error('Erro ao carregar classificações:', err);
+    }
+  };
+
+  // Carregar NFs sem pedido
+  const loadNfsSemPedido = async (page = 1, classifFilter = null) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      params.append('page', page);
+      params.append('limit', nfPagination.limit);
+
+      if (filters.dataInicio) params.append('dataInicio', filters.dataInicio);
+      if (filters.dataFim) params.append('dataFim', filters.dataFim);
+      if (filters.fornecedor) params.append('fornecedor', filters.fornecedor);
+
+      // Filtro de classificações
+      const classifs = classifFilter !== null ? classifFilter : selectedClassificacoes;
+      if (classifs.length > 0) {
+        params.append('classificacoes', classifs.join(','));
+      }
+
+      const response = await api.get(`/pedidos-compra/nf-sem-pedido?${params.toString()}`);
+
+      setNfsSemPedido(response.data.nfs || []);
+      setNfPagination(prev => ({
+        ...prev,
+        page: response.data.page || 1,
+        total: response.data.total || 0,
+        totalPages: response.data.totalPages || 0
+      }));
+    } catch (err) {
+      console.error('Erro ao carregar NFs sem pedido:', err);
+      setError('Erro ao carregar NFs sem pedido.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Carregar itens de uma NF
+  const loadItensNf = async (numNf, codFornecedor, codLoja) => {
+    const cacheKey = `${numNf}_${codFornecedor}_${codLoja}`;
+    if (itensNf[cacheKey]) return;
+
+    setLoadingItensNf(prev => ({ ...prev, [cacheKey]: true }));
+    try {
+      const response = await api.get(`/pedidos-compra/nf/${numNf}/${codFornecedor}/${codLoja}/itens`);
+      setItensNf(prev => ({ ...prev, [cacheKey]: response.data.itens || [] }));
+    } catch (err) {
+      console.error('Erro ao carregar itens da NF:', err);
+      setItensNf(prev => ({ ...prev, [cacheKey]: [] }));
+    } finally {
+      setLoadingItensNf(prev => ({ ...prev, [cacheKey]: false }));
+    }
+  };
+
+  // Formatar celular para WhatsApp
+  const formatWhatsApp = (celular) => {
+    if (!celular) return null;
+    // Remove tudo que não for número
+    const numero = String(celular).replace(/\D/g, '');
+    if (numero.length < 10) return null;
+    // Adiciona 55 se não tiver
+    const numeroCompleto = numero.startsWith('55') ? numero : '55' + numero;
+    return `https://wa.me/${numeroCompleto}`;
+  };
+
+  // Formatar celular para exibição
+  const formatCelular = (celular) => {
+    if (!celular) return '-';
+    const numero = String(celular).replace(/\D/g, '');
+    if (numero.length === 11) {
+      return `(${numero.substring(0, 2)}) ${numero.substring(2, 7)}-${numero.substring(7)}`;
+    } else if (numero.length === 10) {
+      return `(${numero.substring(0, 2)}) ${numero.substring(2, 6)}-${numero.substring(6)}`;
+    }
+    return celular;
+  };
+
+  // Toggle NF expandida
+  const toggleNf = (nf) => {
+    const nfKey = `${nf.NUM_NF}_${nf.COD_FORNECEDOR}_${nf.COD_LOJA}`;
+    if (expandedNf === nfKey) {
+      setExpandedNf(null);
+    } else {
+      setExpandedNf(nfKey);
+      loadItensNf(nf.NUM_NF, nf.COD_FORNECEDOR, nf.COD_LOJA);
+    }
+  };
+
+  // Ordenar NFs
+  const handleNfSort = (key) => {
+    let direction = 'asc';
+    if (nfSortConfig.key === key && nfSortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setNfSortConfig({ key, direction });
+  };
+
+  const sortedNfs = [...nfsSemPedido].sort((a, b) => {
+    if (!nfSortConfig.key) return 0;
+    let aVal = a[nfSortConfig.key];
+    let bVal = b[nfSortConfig.key];
+    if (aVal === null || aVal === undefined) aVal = '';
+    if (bVal === null || bVal === undefined) bVal = '';
+    if (typeof aVal === 'string') {
+      aVal = aVal.toLowerCase();
+      bVal = String(bVal).toLowerCase();
+    }
+    if (aVal < bVal) return nfSortConfig.direction === 'asc' ? -1 : 1;
+    if (aVal > bVal) return nfSortConfig.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const NfSortIcon = ({ columnKey }) => (
+    <span className="ml-1 inline-block">
+      {nfSortConfig.key === columnKey ? (
+        nfSortConfig.direction === 'asc' ? '▲' : '▼'
+      ) : (
+        <span className="text-gray-300">⇅</span>
+      )}
+    </span>
+  );
+
   useEffect(() => {
     loadPedidos();
     loadCompradores();
+    loadClassificacoes();
   }, []);
 
   const handleFilter = () => {
@@ -138,7 +373,11 @@ export default function PrevencaoPedidos() {
       fornecedor: '',
       numPedido: '',
       comprador: '',
-      apenasAtrasados: false
+      apenasAtrasados: false,
+      parciaisFinalizadas: false,
+      canceladasTotais: false,
+      semNenhumaEntrada: false,
+      nfSemPedido: false
     });
     setTimeout(() => loadPedidos(1), 100);
   };
@@ -152,7 +391,16 @@ export default function PrevencaoPedidos() {
       setExpandedPedido(null);
     } else {
       setExpandedPedido(numPedido);
-      loadItensPedido(numPedido);
+      // Determinar qual filtro de itens usar baseado no filtro ativo
+      let filtroItens = null;
+      if (filters.parciaisFinalizadas) {
+        filtroItens = 'apenasRecebidos'; // Mostrar apenas itens que foram recebidos
+      } else if (filters.canceladasTotais) {
+        filtroItens = 'apenasRuptura'; // Mostrar apenas itens com ruptura/não recebidos
+      } else if (filters.semNenhumaEntrada) {
+        filtroItens = 'semNenhumaEntrada'; // Mostrar todos os itens (nenhum foi recebido)
+      }
+      loadItensPedido(numPedido, filtroItens);
     }
   };
 
@@ -220,13 +468,13 @@ export default function PrevencaoPedidos() {
     <Layout title="Prevenção Pedidos">
       <div className="p-4 lg:p-6">
         {/* Header com estatísticas */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+        <div className="grid grid-cols-2 lg:grid-cols-8 gap-3 mb-4">
           <div
             className={`bg-white rounded-lg shadow p-3 cursor-pointer border-2 transition-all ${
-              filters.tipoRecebimento === '0' && !filters.apenasAtrasados ? 'border-yellow-500 ring-2 ring-yellow-200' : 'border-transparent hover:border-yellow-300'
+              filters.tipoRecebimento === '0' && !filters.apenasAtrasados && !filters.parciaisFinalizadas && !filters.canceladasTotais ? 'border-yellow-500 ring-2 ring-yellow-200' : 'border-transparent hover:border-yellow-300'
             }`}
             onClick={() => {
-              const newFilters = { ...filters, tipoRecebimento: filters.tipoRecebimento === '0' ? '' : '0', apenasAtrasados: false };
+              const newFilters = { ...filters, tipoRecebimento: filters.tipoRecebimento === '0' ? '' : '0', apenasAtrasados: false, parciaisFinalizadas: false, canceladasTotais: false, semNenhumaEntrada: false, nfSemPedido: false };
               setFilters(newFilters);
               loadPedidos(1, newFilters);
             }}
@@ -242,18 +490,18 @@ export default function PrevencaoPedidos() {
 
           <div
             className={`bg-white rounded-lg shadow p-3 cursor-pointer border-2 transition-all ${
-              filters.tipoRecebimento === '1' && !filters.apenasAtrasados ? 'border-blue-500 ring-2 ring-blue-200' : 'border-transparent hover:border-blue-300'
+              filters.tipoRecebimento === '1' && !filters.apenasAtrasados && !filters.parciaisFinalizadas && !filters.canceladasTotais ? 'border-blue-500 ring-2 ring-blue-200' : 'border-transparent hover:border-blue-300'
             }`}
             onClick={() => {
-              const newFilters = { ...filters, tipoRecebimento: filters.tipoRecebimento === '1' ? '' : '1', apenasAtrasados: false };
+              const newFilters = { ...filters, tipoRecebimento: filters.tipoRecebimento === '1' ? '' : '1', apenasAtrasados: false, parciaisFinalizadas: false, canceladasTotais: false, semNenhumaEntrada: false, nfSemPedido: false };
               setFilters(newFilters);
               loadPedidos(1, newFilters);
             }}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500">Parciais</p>
-                <p className="text-xl font-bold text-blue-600">{stats.parciais}</p>
+                <p className="text-xs text-gray-500">Parciais em Aberto</p>
+                <p className="text-xl font-bold text-blue-600">{stats.parciaisAberto}</p>
               </div>
               <span className="text-2xl">📦</span>
             </div>
@@ -261,18 +509,18 @@ export default function PrevencaoPedidos() {
 
           <div
             className={`bg-white rounded-lg shadow p-3 cursor-pointer border-2 transition-all ${
-              filters.tipoRecebimento === '2' && !filters.apenasAtrasados ? 'border-green-500 ring-2 ring-green-200' : 'border-transparent hover:border-green-300'
+              filters.tipoRecebimento === '2' && !filters.apenasAtrasados && !filters.parciaisFinalizadas && !filters.canceladasTotais ? 'border-green-500 ring-2 ring-green-200' : 'border-transparent hover:border-green-300'
             }`}
             onClick={() => {
-              const newFilters = { ...filters, tipoRecebimento: filters.tipoRecebimento === '2' ? '' : '2', apenasAtrasados: false };
+              const newFilters = { ...filters, tipoRecebimento: filters.tipoRecebimento === '2' ? '' : '2', apenasAtrasados: false, parciaisFinalizadas: false, canceladasTotais: false, semNenhumaEntrada: false, nfSemPedido: false };
               setFilters(newFilters);
               loadPedidos(1, newFilters);
             }}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500">Recebidos</p>
-                <p className="text-xl font-bold text-green-600">{stats.recebidos}</p>
+                <p className="text-xs text-gray-500">Recebidas Integralmente</p>
+                <p className="text-xl font-bold text-green-600">{stats.recebidosIntegral}</p>
               </div>
               <span className="text-2xl">✅</span>
             </div>
@@ -280,20 +528,60 @@ export default function PrevencaoPedidos() {
 
           <div
             className={`bg-white rounded-lg shadow p-3 cursor-pointer border-2 transition-all ${
-              filters.tipoRecebimento === '3' && !filters.apenasAtrasados ? 'border-red-500 ring-2 ring-red-200' : 'border-transparent hover:border-red-300'
+              filters.parciaisFinalizadas ? 'border-purple-500 ring-2 ring-purple-200' : 'border-transparent hover:border-purple-300'
             }`}
             onClick={() => {
-              const newFilters = { ...filters, tipoRecebimento: filters.tipoRecebimento === '3' ? '' : '3', apenasAtrasados: false };
+              const newFilters = { ...filters, parciaisFinalizadas: !filters.parciaisFinalizadas, canceladasTotais: false, apenasAtrasados: false, semNenhumaEntrada: false, tipoRecebimento: '', nfSemPedido: false };
               setFilters(newFilters);
               loadPedidos(1, newFilters);
             }}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500">Cancelados</p>
-                <p className="text-xl font-bold text-red-600">{stats.cancelados}</p>
+                <p className="text-xs text-gray-500">Parciais Finalizadas</p>
+                <p className="text-xl font-bold text-purple-600">{stats.parciaisFinalizadas}</p>
               </div>
-              <span className="text-2xl">❌</span>
+              <span className="text-2xl">📋</span>
+            </div>
+          </div>
+
+          <div
+            className={`bg-white rounded-lg shadow p-3 cursor-pointer border-2 transition-all ${
+              filters.canceladasTotais ? 'border-pink-500 ring-2 ring-pink-200' : 'border-transparent hover:border-pink-300'
+            }`}
+            onClick={() => {
+              const newFilters = { ...filters, canceladasTotais: !filters.canceladasTotais, parciaisFinalizadas: false, apenasAtrasados: false, semNenhumaEntrada: false, tipoRecebimento: '', nfSemPedido: false };
+              setFilters(newFilters);
+              loadPedidos(1, newFilters);
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500">Itens Cortados</p>
+                <p className="text-xl font-bold text-pink-600">{stats.notasCanceladas}</p>
+                <p className="text-xs font-semibold text-pink-500">R$ {(stats.valorCancelado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+              </div>
+              <span className="text-2xl">🚫</span>
+            </div>
+          </div>
+
+          <div
+            className={`bg-white rounded-lg shadow p-3 cursor-pointer border-2 transition-all ${
+              filters.semNenhumaEntrada ? 'border-gray-500 ring-2 ring-gray-200' : 'border-transparent hover:border-gray-300'
+            }`}
+            onClick={() => {
+              const newFilters = { ...filters, semNenhumaEntrada: !filters.semNenhumaEntrada, parciaisFinalizadas: false, canceladasTotais: false, apenasAtrasados: false, tipoRecebimento: '', nfSemPedido: false };
+              setFilters(newFilters);
+              loadPedidos(1, newFilters);
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500">Cancelados INTEGRAL</p>
+                <p className="text-xl font-bold text-gray-700">{stats.canceladosTotalmente || 0}</p>
+                <p className="text-xs font-semibold text-gray-600">R$ {(stats.valorCanceladoTotalmente || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+              </div>
+              <span className="text-2xl">⛔</span>
             </div>
           </div>
 
@@ -302,7 +590,7 @@ export default function PrevencaoPedidos() {
               filters.apenasAtrasados ? 'border-orange-500 ring-2 ring-orange-200' : 'border-transparent hover:border-orange-300'
             }`}
             onClick={() => {
-              const newFilters = { ...filters, apenasAtrasados: !filters.apenasAtrasados, tipoRecebimento: '' };
+              const newFilters = { ...filters, apenasAtrasados: !filters.apenasAtrasados, tipoRecebimento: '', parciaisFinalizadas: false, canceladasTotais: false, semNenhumaEntrada: false, nfSemPedido: false };
               setFilters(newFilters);
               loadPedidos(1, newFilters);
             }}
@@ -315,37 +603,152 @@ export default function PrevencaoPedidos() {
               <span className="text-2xl">🚨</span>
             </div>
           </div>
+
+          <div
+            className={`bg-white rounded-lg shadow p-3 cursor-pointer border-2 transition-all ${
+              filters.nfSemPedido ? 'border-amber-500 ring-2 ring-amber-200' : 'border-transparent hover:border-amber-300'
+            }`}
+            onClick={() => {
+              const newFilters = { ...filters, nfSemPedido: !filters.nfSemPedido, apenasAtrasados: false, tipoRecebimento: '', parciaisFinalizadas: false, canceladasTotais: false, semNenhumaEntrada: false };
+              setFilters(newFilters);
+              if (!filters.nfSemPedido) {
+                // Classificações pré-selecionadas por padrão
+                const defaultClassifs = ['SEM_CADASTRO', 12, 21, 40];
+                setSelectedClassificacoes(defaultClassifs);
+                loadNfsSemPedido(1, defaultClassifs);
+              } else {
+                setSelectedClassificacoes([]);
+                loadPedidos(1, { ...newFilters, nfSemPedido: false });
+              }
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500">NF sem Pedido</p>
+                <p className="text-xl font-bold text-amber-600">{stats.nfSemPedido || 0}</p>
+                <p className="text-xs font-semibold text-amber-500">R$ {(stats.valorNfSemPedido || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+              </div>
+              <span className="text-2xl">📄</span>
+            </div>
+          </div>
         </div>
 
         {/* Filtros */}
         <div className="bg-white rounded-lg shadow p-3 mb-4">
-          <h3 className="text-sm font-semibold mb-2">Filtros</h3>
+          <h3 className="text-sm font-semibold mb-2">Filtros {filters.nfSemPedido && <span className="text-amber-600">(NF sem Pedido)</span>}</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
-              <select
-                value={filters.tipoRecebimento}
-                onChange={(e) => setFilters(prev => ({ ...prev, tipoRecebimento: e.target.value }))}
-                className="w-full border rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
-              >
-                <option value="">Todos</option>
-                <option value="0">Pendente</option>
-                <option value="1">Parcial</option>
-                <option value="2">Recebido</option>
-                <option value="3">Cancelado</option>
-              </select>
-            </div>
+            {!filters.nfSemPedido && (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={filters.tipoRecebimento}
+                    onChange={(e) => setFilters(prev => ({ ...prev, tipoRecebimento: e.target.value }))}
+                    className="w-full border rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                  >
+                    <option value="">Todos</option>
+                    <option value="0">Pendente</option>
+                    <option value="1">Parcial</option>
+                    <option value="2">Recebido</option>
+                    <option value="3">Cancelado</option>
+                  </select>
+                </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">N. Pedido</label>
-              <input
-                type="text"
-                value={filters.numPedido}
-                onChange={(e) => setFilters(prev => ({ ...prev, numPedido: e.target.value }))}
-                className="w-full border rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
-                placeholder="Ex: 4600"
-              />
-            </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">N. Pedido</label>
+                  <input
+                    type="text"
+                    value={filters.numPedido}
+                    onChange={(e) => setFilters(prev => ({ ...prev, numPedido: e.target.value }))}
+                    className="w-full border rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                    placeholder="Ex: 4600"
+                  />
+                </div>
+              </>
+            )}
+
+            {filters.nfSemPedido && (
+              <div className="relative col-span-2">
+                <label className="block text-xs font-medium text-gray-700 mb-1">Classificação</label>
+                <div
+                  className="w-full border rounded px-2 py-1 text-sm cursor-pointer bg-white min-h-[30px] flex items-center flex-wrap gap-1"
+                  onClick={() => setShowClassifDropdown(!showClassifDropdown)}
+                >
+                  {selectedClassificacoes.length === 0 ? (
+                    <span className="text-gray-400">Todas as classificações</span>
+                  ) : (
+                    selectedClassificacoes.map(cod => {
+                      const isSemCadastro = cod === 'SEM_CADASTRO';
+                      const classif = !isSemCadastro ? classificacoes.find(c => c.cod === cod) : null;
+                      return (
+                        <span key={cod} className={`inline-flex items-center text-xs px-1.5 py-0.5 rounded ${isSemCadastro ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>
+                          {isSemCadastro ? '⚠️ SEM CADASTRO' : (classif?.descricao || cod)}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedClassificacoes(prev => prev.filter(c => c !== cod));
+                            }}
+                            className={`ml-1 ${isSemCadastro ? 'hover:text-red-900' : 'hover:text-amber-900'}`}
+                          >×</button>
+                        </span>
+                      );
+                    })
+                  )}
+                </div>
+                {showClassifDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border rounded shadow-lg max-h-60 overflow-y-auto">
+                    {/* Opção especial: Sem Cadastro */}
+                    <label
+                      className="flex items-center px-2 py-1.5 hover:bg-red-50 cursor-pointer text-xs border-b border-gray-200 bg-gray-50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedClassificacoes.includes('SEM_CADASTRO')}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedClassificacoes(prev => [...prev, 'SEM_CADASTRO']);
+                          } else {
+                            setSelectedClassificacoes(prev => prev.filter(c => c !== 'SEM_CADASTRO'));
+                          }
+                        }}
+                        className="mr-2 rounded text-red-500 focus:ring-red-500"
+                      />
+                      <span className="text-red-600 font-medium flex-1">⚠️ SEM CADASTRO (sem classificação)</span>
+                      {semCadastroCount > 0 && (
+                        <span className="ml-2 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full font-bold min-w-[20px] text-center">
+                          {semCadastroCount}
+                        </span>
+                      )}
+                    </label>
+                    {classificacoes.map(classif => (
+                      <label
+                        key={classif.cod}
+                        className="flex items-center px-2 py-1.5 hover:bg-amber-50 cursor-pointer text-xs"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedClassificacoes.includes(classif.cod)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedClassificacoes(prev => [...prev, classif.cod]);
+                            } else {
+                              setSelectedClassificacoes(prev => prev.filter(c => c !== classif.cod));
+                            }
+                          }}
+                          className="mr-2 rounded text-amber-500 focus:ring-amber-500"
+                        />
+                        <span className="flex-1">{classif.cod} - {classif.descricao}</span>
+                        {classif.qtdNfs > 0 && (
+                          <span className="ml-2 px-1.5 py-0.5 bg-amber-500 text-white text-xs rounded-full font-bold min-w-[20px] text-center">
+                            {classif.qtdNfs}
+                          </span>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Data Início</label>
@@ -378,29 +781,41 @@ export default function PrevencaoPedidos() {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Comprador</label>
-              <select
-                value={filters.comprador}
-                onChange={(e) => setFilters(prev => ({ ...prev, comprador: e.target.value }))}
-                className="w-full border rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
-              >
-                <option value="">Todos</option>
-                {compradores.map((comp) => (
-                  <option key={comp} value={comp}>{comp}</option>
-                ))}
-              </select>
-            </div>
+            {!filters.nfSemPedido && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Comprador</label>
+                <select
+                  value={filters.comprador}
+                  onChange={(e) => setFilters(prev => ({ ...prev, comprador: e.target.value }))}
+                  className="w-full border rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                >
+                  <option value="">Todos</option>
+                  {compradores.map((comp) => (
+                    <option key={comp} value={comp}>{comp}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="flex items-end gap-1">
               <button
-                onClick={handleFilter}
+                onClick={() => {
+                  if (filters.nfSemPedido) {
+                    loadNfsSemPedido(1, selectedClassificacoes);
+                  } else {
+                    handleFilter();
+                  }
+                }}
                 className="px-3 py-1 bg-orange-500 text-white rounded text-sm hover:bg-orange-600 transition-colors"
               >
                 Filtrar
               </button>
               <button
-                onClick={handleClearFilters}
+                onClick={() => {
+                  handleClearFilters();
+                  setSelectedClassificacoes([]);
+                  setShowClassifDropdown(false);
+                }}
                 className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300 transition-colors"
               >
                 Limpar
@@ -409,7 +824,7 @@ export default function PrevencaoPedidos() {
           </div>
         </div>
 
-        {/* Tabela de Pedidos */}
+        {/* Tabela de Pedidos ou NFs sem Pedido */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center py-12">
@@ -419,12 +834,185 @@ export default function PrevencaoPedidos() {
             <div className="text-center py-12 text-red-500">
               <p>{error}</p>
               <button
-                onClick={() => loadPedidos()}
+                onClick={() => filters.nfSemPedido ? loadNfsSemPedido() : loadPedidos()}
                 className="mt-4 px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
               >
                 Tentar novamente
               </button>
             </div>
+          ) : filters.nfSemPedido ? (
+            // Tabela de NFs sem Pedido
+            nfsSemPedido.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                Nenhuma NF sem pedido encontrada
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-amber-50 border-b border-amber-200">
+                    <tr>
+                      {nfColumns.map((col) => (
+                        <th
+                          key={col.key}
+                          draggable={col.key !== 'expand'}
+                          onDragStart={(e) => handleDragStart(e, col.key, 'nf')}
+                          onDragOver={handleDragOver}
+                          onDrop={(e) => handleDrop(e, col.key, 'nf')}
+                          className={`px-2 py-2 text-xs font-semibold text-amber-800 whitespace-nowrap ${
+                            col.key !== 'expand' ? 'cursor-grab active:cursor-grabbing' : ''
+                          } ${col.sortable ? 'cursor-pointer hover:bg-amber-100' : ''} ${
+                            col.key === 'VAL_TOTAL_NF' ? 'text-right' : col.key === 'NUM_CELULAR' || col.key === 'DTA_EMISSAO' || col.key === 'DTA_ENTRADA' ? 'text-center' : 'text-left'
+                          } ${draggedColumn?.key === col.key ? 'opacity-50' : ''}`}
+                          onClick={() => col.sortable && handleNfSort(col.key)}
+                          title={col.key !== 'expand' ? 'Arraste para reordenar' : ''}
+                        >
+                          {col.label}{col.sortable && <NfSortIcon columnKey={col.key} />}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {sortedNfs.map((nf, idx) => {
+                      const nfKey = `${nf.NUM_NF}_${nf.COD_FORNECEDOR}_${nf.COD_LOJA}`;
+                      const isExpanded = expandedNf === nfKey;
+                      const itens = itensNf[nfKey] || [];
+                      const isLoadingItensNfRow = loadingItensNf[nfKey];
+                      const whatsappUrl = formatWhatsApp(nf.NUM_CELULAR);
+
+                      // Função para renderizar cada célula baseado na coluna
+                      const renderNfCell = (col) => {
+                        switch(col.key) {
+                          case 'expand':
+                            return (
+                              <td key={col.key} className="px-2 py-1.5">
+                                <button className={`w-5 h-5 flex items-center justify-center rounded border text-xs font-bold transition-colors ${isExpanded ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-gray-500 border-gray-300 hover:border-amber-500 hover:text-amber-500'}`}>
+                                  {isExpanded ? '−' : '+'}
+                                </button>
+                              </td>
+                            );
+                          case 'NUM_NF':
+                            return <td key={col.key} className="px-2 py-1.5 font-semibold text-gray-900">{nf.NUM_NF}</td>;
+                          case 'FORNECEDOR':
+                            return <td key={col.key} className="px-2 py-1.5 max-w-[180px] truncate" title={nf.FORNECEDOR}>{nf.FORNECEDOR || '-'}</td>;
+                          case 'DES_CLASSIFICACAO':
+                            return <td key={col.key} className="px-2 py-1.5 text-xs max-w-[120px] truncate" title={nf.DES_CLASSIFICACAO}>{nf.DES_CLASSIFICACAO || '-'}</td>;
+                          case 'NUM_CGC':
+                            return <td key={col.key} className="px-2 py-1.5 text-xs text-gray-500 font-mono">{formatCNPJ(nf.NUM_CGC)}</td>;
+                          case 'DES_CONTATO':
+                            return <td key={col.key} className="px-2 py-1.5 text-xs max-w-[100px] truncate" title={nf.DES_CONTATO}>{nf.DES_CONTATO || '-'}</td>;
+                          case 'NUM_CELULAR':
+                            return (
+                              <td key={col.key} className="px-2 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                                {whatsappUrl ? (
+                                  <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200 transition-colors" title="Abrir WhatsApp">
+                                    <span>📱</span>
+                                    <span className="font-medium">{formatCelular(nf.NUM_CELULAR)}</span>
+                                  </a>
+                                ) : (
+                                  <span className="text-gray-400 text-xs">-</span>
+                                )}
+                              </td>
+                            );
+                          case 'DTA_EMISSAO':
+                            return <td key={col.key} className="px-2 py-1.5 text-center text-xs">{formatDate(nf.DTA_EMISSAO)}</td>;
+                          case 'DTA_ENTRADA':
+                            return <td key={col.key} className="px-2 py-1.5 text-center text-xs">{formatDate(nf.DTA_ENTRADA)}</td>;
+                          case 'VAL_TOTAL_NF':
+                            return <td key={col.key} className="px-2 py-1.5 text-right font-semibold text-green-600">{formatCurrency(nf.VAL_TOTAL_NF)}</td>;
+                          case 'DES_NATUREZA':
+                            return <td key={col.key} className="px-2 py-1.5 text-xs max-w-[150px] truncate" title={nf.DES_NATUREZA}>{nf.DES_NATUREZA || '-'}</td>;
+                          default:
+                            return <td key={col.key} className="px-2 py-1.5">-</td>;
+                        }
+                      };
+
+                      return (
+                        <>
+                          <tr key={`${nf.NUM_NF}-${nf.COD_FORNECEDOR}-${idx}`} className={`hover:bg-amber-50 cursor-pointer ${isExpanded ? 'bg-amber-50' : ''}`} onClick={() => toggleNf(nf)}>
+                            {nfColumns.map(col => renderNfCell(col))}
+                          </tr>
+
+                          {/* Linha expandida com itens da NF */}
+                          {isExpanded && (
+                            <tr key={`${nf.NUM_NF}-${nf.COD_FORNECEDOR}-itens`}>
+                              <td colSpan="11" className="bg-gray-50 p-3 border-t border-b border-amber-200">
+                                <div className="ml-6">
+                                  <h4 className="text-xs font-semibold text-gray-700 mb-2">
+                                    📄 Itens da NF {nf.NUM_NF} - {nf.FORNECEDOR}
+                                  </h4>
+
+                                  {isLoadingItensNfRow ? (
+                                    <div className="flex items-center justify-center py-4">
+                                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-500"></div>
+                                    </div>
+                                  ) : itens.length === 0 ? (
+                                    <p className="text-gray-500 text-xs py-2">Nenhum item encontrado</p>
+                                  ) : (
+                                    <table className="w-full text-xs border border-gray-200 rounded">
+                                      <thead className="bg-gray-100">
+                                        <tr>
+                                          <th className="px-2 py-1 text-left font-medium text-gray-600">COD</th>
+                                          <th className="px-2 py-1 text-left font-medium text-gray-600">PRODUTO</th>
+                                          <th className="px-2 py-1 text-center font-medium text-gray-600">CURVA</th>
+                                          <th className="px-2 py-1 text-right font-medium text-gray-600">QTD</th>
+                                          <th className="px-2 py-1 text-center font-medium text-gray-600">UN</th>
+                                          <th className="px-2 py-1 text-right font-medium text-gray-600">VLR CUSTO</th>
+                                          <th className="px-2 py-1 text-right font-medium text-gray-600">VLR VENDA</th>
+                                          <th className="px-2 py-1 text-right font-medium text-gray-600">VLR TOTAL</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="bg-white divide-y divide-gray-100">
+                                        {itens.map((item, itemIdx) => {
+                                          const curva = item.CURVA || 'X';
+                                          const curvaColor =
+                                            curva === 'A' ? 'bg-green-100 text-green-800' :
+                                            curva === 'B' ? 'bg-blue-100 text-blue-800' :
+                                            curva === 'C' ? 'bg-yellow-100 text-yellow-800' :
+                                            curva === 'D' ? 'bg-orange-100 text-orange-800' :
+                                            curva === 'E' ? 'bg-red-100 text-red-800' :
+                                            'bg-gray-100 text-gray-800';
+
+                                          return (
+                                            <tr key={itemIdx} className="hover:bg-gray-50">
+                                              <td className="px-2 py-1 font-mono">{item.COD_PRODUTO}</td>
+                                              <td className="px-2 py-1 max-w-[200px] truncate" title={item.DES_PRODUTO}>
+                                                {item.DES_PRODUTO || '-'}
+                                              </td>
+                                              <td className="px-2 py-1 text-center">
+                                                <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${curvaColor}`}>
+                                                  {curva}
+                                                </span>
+                                              </td>
+                                              <td className="px-2 py-1 text-right">{(item.QTD_ENTRADA || 0).toFixed(2)}</td>
+                                              <td className="px-2 py-1 text-center">{item.DES_UNIDADE || '-'}</td>
+                                              <td className="px-2 py-1 text-right">{formatCurrency(item.VAL_CUSTO)}</td>
+                                              <td className="px-2 py-1 text-right">{formatCurrency(item.VAL_VENDA)}</td>
+                                              <td className="px-2 py-1 text-right font-medium text-green-600">{formatCurrency(item.VAL_TOTAL)}</td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                      <tfoot className="bg-gray-100">
+                                        <tr>
+                                          <td colSpan="7" className="px-2 py-1 text-right font-medium">Total:</td>
+                                          <td className="px-2 py-1 text-right font-bold text-green-600">
+                                            {formatCurrency(itens.reduce((sum, item) => sum + (item.VAL_TOTAL || 0), 0))}
+                                          </td>
+                                        </tr>
+                                      </tfoot>
+                                    </table>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
           ) : sortedPedidos.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               Nenhum pedido encontrado
@@ -434,46 +1022,131 @@ export default function PrevencaoPedidos() {
               <table className="w-full text-sm">
                 <thead className="bg-orange-50 border-b border-orange-200">
                   <tr>
-                    <th className="px-2 py-2 text-left text-xs font-semibold text-orange-800 whitespace-nowrap"></th>
-                    <th className="px-2 py-2 text-left text-xs font-semibold text-orange-800 whitespace-nowrap cursor-pointer hover:bg-orange-100" onClick={() => handleSort('NUM_PEDIDO')}>
-                      N. PEDIDO<SortIcon columnKey="NUM_PEDIDO" />
-                    </th>
-                    <th className="px-2 py-2 text-left text-xs font-semibold text-orange-800 whitespace-nowrap cursor-pointer hover:bg-orange-100" onClick={() => handleSort('TIPO_RECEBIMENTO')}>
-                      STATUS<SortIcon columnKey="TIPO_RECEBIMENTO" />
-                    </th>
-                    <th className="px-2 py-2 text-left text-xs font-semibold text-orange-800 whitespace-nowrap cursor-pointer hover:bg-orange-100" onClick={() => handleSort('DES_FORNECEDOR')}>
-                      FORNECEDOR<SortIcon columnKey="DES_FORNECEDOR" />
-                    </th>
-                    <th className="px-2 py-2 text-left text-xs font-semibold text-orange-800 whitespace-nowrap cursor-pointer hover:bg-orange-100" onClick={() => handleSort('NUM_CGC')}>
-                      CNPJ<SortIcon columnKey="NUM_CGC" />
-                    </th>
-                    <th className="px-2 py-2 text-center text-xs font-semibold text-orange-800 whitespace-nowrap cursor-pointer hover:bg-orange-100" onClick={() => handleSort('DTA_EMISSAO')}>
-                      EMISSAO<SortIcon columnKey="DTA_EMISSAO" />
-                    </th>
-                    <th className="px-2 py-2 text-center text-xs font-semibold text-orange-800 whitespace-nowrap cursor-pointer hover:bg-orange-100" onClick={() => handleSort('DTA_ENTREGA')}>
-                      ENTREGA<SortIcon columnKey="DTA_ENTREGA" />
-                    </th>
-                    <th className="px-2 py-2 text-center text-xs font-semibold text-orange-800 whitespace-nowrap">ATRASO</th>
-                    <th className="px-2 py-2 text-center text-xs font-semibold text-orange-800 whitespace-nowrap cursor-pointer hover:bg-orange-100" onClick={() => handleSort('DTA_PEDIDO_CANCELADO')}>
-                      DT CANCEL<SortIcon columnKey="DTA_PEDIDO_CANCELADO" />
-                    </th>
-                    <th className="px-2 py-2 text-right text-xs font-semibold text-orange-800 whitespace-nowrap cursor-pointer hover:bg-orange-100" onClick={() => handleSort('VAL_PEDIDO')}>
-                      VALOR (R$)<SortIcon columnKey="VAL_PEDIDO" />
-                    </th>
-                    <th className="px-2 py-2 text-left text-xs font-semibold text-orange-800 whitespace-nowrap cursor-pointer hover:bg-orange-100" onClick={() => handleSort('USUARIO')}>
-                      COMPRADOR<SortIcon columnKey="USUARIO" />
-                    </th>
-                    <th className="px-2 py-2 text-left text-xs font-semibold text-orange-800 whitespace-nowrap">OBS</th>
+                    {pedidoColumns.map((col) => (
+                      <th
+                        key={col.key}
+                        draggable={col.key !== 'expand'}
+                        onDragStart={(e) => handleDragStart(e, col.key, 'pedido')}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, col.key, 'pedido')}
+                        className={`px-2 py-2 text-xs font-semibold text-orange-800 whitespace-nowrap ${
+                          col.key !== 'expand' ? 'cursor-grab active:cursor-grabbing' : ''
+                        } ${col.sortable ? 'cursor-pointer hover:bg-orange-100' : ''} ${
+                          col.key === 'VAL_PEDIDO' ? 'text-right' :
+                          col.key === 'NUM_CELULAR' || col.key === 'DTA_EMISSAO' || col.key === 'DTA_ENTREGA' || col.key === 'ATRASO' || col.key === 'DTA_PEDIDO_CANCELADO' ? 'text-center' : 'text-left'
+                        } ${draggedColumn?.key === col.key ? 'opacity-50' : ''}`}
+                        onClick={() => col.sortable && handleSort(col.key)}
+                        title={col.key !== 'expand' ? 'Arraste para reordenar' : ''}
+                      >
+                        {col.label}{col.sortable && <SortIcon columnKey={col.key} />}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {sortedPedidos.map((pedido) => {
-                    const status = STATUS_RECEBIMENTO[pedido.TIPO_RECEBIMENTO] || STATUS_RECEBIMENTO[0];
+                    // Determinar status baseado no filtro ativo
+                    let status = STATUS_RECEBIMENTO[pedido.TIPO_RECEBIMENTO] || STATUS_RECEBIMENTO[0];
+
+                    // Sobrescrever status quando em filtros especiais
+                    if (filters.parciaisFinalizadas) {
+                      status = { label: 'Parcial Finalizada', color: 'bg-purple-100 text-purple-800', icon: '📋' };
+                    } else if (filters.canceladasTotais) {
+                      status = { label: 'Itens Cortados', color: 'bg-pink-100 text-pink-800', icon: '🚫' };
+                    } else if (filters.semNenhumaEntrada) {
+                      status = { label: 'Cancelado INTEGRAL', color: 'bg-gray-200 text-gray-800', icon: '⛔' };
+                    }
+
                     const diasAtraso = calcularDiasAtraso(pedido.DTA_ENTREGA);
                     const isAtrasado = diasAtraso > 0 && pedido.TIPO_RECEBIMENTO < 2;
                     const isExpanded = expandedPedido === pedido.NUM_PEDIDO;
-                    const itens = itensPedido[pedido.NUM_PEDIDO] || [];
+                    // Determinar chave do cache baseada no filtro ativo
+                    const cacheKey = filters.parciaisFinalizadas
+                      ? `${pedido.NUM_PEDIDO}_apenasRecebidos`
+                      : filters.canceladasTotais
+                        ? `${pedido.NUM_PEDIDO}_apenasRuptura`
+                        : filters.semNenhumaEntrada
+                          ? `${pedido.NUM_PEDIDO}_semNenhumaEntrada`
+                          : pedido.NUM_PEDIDO;
+                    const itens = itensPedido[cacheKey] || [];
                     const isLoadingItens = loadingItens[pedido.NUM_PEDIDO];
+
+                    // Função para renderizar cada célula baseado na coluna
+                    const renderPedidoCell = (col) => {
+                      switch(col.key) {
+                        case 'expand':
+                          return (
+                            <td key={col.key} className="px-2 py-1.5">
+                              <button className={`w-5 h-5 flex items-center justify-center rounded border text-xs font-bold transition-colors ${isExpanded ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-500 border-gray-300 hover:border-orange-500 hover:text-orange-500'}`}>
+                                {isExpanded ? '−' : '+'}
+                              </button>
+                            </td>
+                          );
+                        case 'NUM_PEDIDO':
+                          return <td key={col.key} className="px-2 py-1.5 font-semibold text-gray-900">#{pedido.NUM_PEDIDO}</td>;
+                        case 'TIPO_RECEBIMENTO':
+                          return (
+                            <td key={col.key} className="px-2 py-1.5">
+                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${status.color}`}>
+                                {status.icon} {status.label}
+                              </span>
+                            </td>
+                          );
+                        case 'DES_FORNECEDOR':
+                          return <td key={col.key} className="px-2 py-1.5 max-w-[180px] truncate" title={pedido.DES_FORNECEDOR}>{pedido.DES_FORNECEDOR || '-'}</td>;
+                        case 'NUM_CGC':
+                          return <td key={col.key} className="px-2 py-1.5 text-xs text-gray-500 font-mono">{formatCNPJ(pedido.NUM_CGC)}</td>;
+                        case 'DES_CONTATO':
+                          return <td key={col.key} className="px-2 py-1.5 text-xs max-w-[100px] truncate" title={pedido.DES_CONTATO}>{pedido.DES_CONTATO || '-'}</td>;
+                        case 'NUM_CELULAR':
+                          return (
+                            <td key={col.key} className="px-2 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                              {formatWhatsApp(pedido.NUM_CELULAR) ? (
+                                <a href={formatWhatsApp(pedido.NUM_CELULAR)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200 transition-colors" title="Abrir WhatsApp">
+                                  <span>📱</span>
+                                  <span className="font-medium">{formatCelular(pedido.NUM_CELULAR)}</span>
+                                </a>
+                              ) : (
+                                <span className="text-gray-400 text-xs">-</span>
+                              )}
+                            </td>
+                          );
+                        case 'DTA_EMISSAO':
+                          return <td key={col.key} className="px-2 py-1.5 text-center text-xs">{formatDate(pedido.DTA_EMISSAO)}</td>;
+                        case 'DTA_ENTREGA':
+                          return <td key={col.key} className={`px-2 py-1.5 text-center text-xs ${isAtrasado ? 'text-red-600 font-semibold' : ''}`}>{formatDate(pedido.DTA_ENTREGA)}</td>;
+                        case 'ATRASO':
+                          return (
+                            <td key={col.key} className="px-2 py-1.5 text-center">
+                              {isAtrasado ? (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-500 text-white">{diasAtraso}d</span>
+                              ) : (
+                                <span className="text-gray-400 text-xs">-</span>
+                              )}
+                            </td>
+                          );
+                        case 'DTA_PEDIDO_CANCELADO':
+                          return (
+                            <td key={col.key} className="px-2 py-1.5 text-center text-xs">
+                              {pedido.TIPO_RECEBIMENTO === 3 ? (
+                                <span className={filters.canceladasTotais ? "text-pink-600 font-semibold" : "text-red-600 font-semibold"}>
+                                  {formatDate(pedido.DTA_PEDIDO_CANCELADO || pedido.DTA_ALTERACAO)}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                          );
+                        case 'VAL_PEDIDO':
+                          return <td key={col.key} className="px-2 py-1.5 text-right font-semibold text-green-600">{formatCurrency(pedido.VAL_PEDIDO)}</td>;
+                        case 'USUARIO':
+                          return <td key={col.key} className="px-2 py-1.5 text-xs max-w-[80px] truncate" title={pedido.USUARIO}>{pedido.USUARIO || '-'}</td>;
+                        case 'OBS':
+                          return <td key={col.key} className="px-2 py-1.5 text-xs max-w-[100px] truncate text-gray-500" title={pedido.DES_OBSERVACAO || pedido.DES_CANCELAMENTO}>{pedido.DES_CANCELAMENTO || pedido.DES_OBSERVACAO || '-'}</td>;
+                        default:
+                          return <td key={col.key} className="px-2 py-1.5">-</td>;
+                      }
+                    };
 
                     return (
                       <>
@@ -482,66 +1155,24 @@ export default function PrevencaoPedidos() {
                           className={`hover:bg-gray-50 cursor-pointer ${isAtrasado ? 'bg-red-50' : ''} ${isExpanded ? 'bg-orange-50' : ''}`}
                           onClick={() => togglePedido(pedido.NUM_PEDIDO)}
                         >
-                          <td className="px-2 py-1.5">
-                            <button
-                              className={`w-5 h-5 flex items-center justify-center rounded border text-xs font-bold transition-colors ${
-                                isExpanded
-                                  ? 'bg-orange-500 text-white border-orange-500'
-                                  : 'bg-white text-gray-500 border-gray-300 hover:border-orange-500 hover:text-orange-500'
-                              }`}
-                            >
-                              {isExpanded ? '−' : '+'}
-                            </button>
-                          </td>
-                          <td className="px-2 py-1.5 font-semibold text-gray-900">#{pedido.NUM_PEDIDO}</td>
-                          <td className="px-2 py-1.5">
-                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${status.color}`}>
-                              {status.icon} {status.label}
-                            </span>
-                          </td>
-                          <td className="px-2 py-1.5 max-w-[180px] truncate" title={pedido.DES_FORNECEDOR}>
-                            {pedido.DES_FORNECEDOR || '-'}
-                          </td>
-                          <td className="px-2 py-1.5 text-xs text-gray-500 font-mono">
-                            {formatCNPJ(pedido.NUM_CGC)}
-                          </td>
-                          <td className="px-2 py-1.5 text-center text-xs">{formatDate(pedido.DTA_EMISSAO)}</td>
-                          <td className={`px-2 py-1.5 text-center text-xs ${isAtrasado ? 'text-red-600 font-semibold' : ''}`}>
-                            {formatDate(pedido.DTA_ENTREGA)}
-                          </td>
-                          <td className="px-2 py-1.5 text-center">
-                            {isAtrasado ? (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-500 text-white">
-                                {diasAtraso}d
-                              </span>
-                            ) : (
-                              <span className="text-gray-400 text-xs">-</span>
-                            )}
-                          </td>
-                          <td className="px-2 py-1.5 text-center text-xs">
-                            {pedido.TIPO_RECEBIMENTO === 3 && pedido.DTA_PEDIDO_CANCELADO ? (
-                              <span className="text-red-600 font-semibold">{formatDate(pedido.DTA_PEDIDO_CANCELADO)}</span>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </td>
-                          <td className="px-2 py-1.5 text-right font-semibold text-green-600">
-                            {formatCurrency(pedido.VAL_PEDIDO)}
-                          </td>
-                          <td className="px-2 py-1.5 text-xs max-w-[80px] truncate" title={pedido.USUARIO}>
-                            {pedido.USUARIO || '-'}
-                          </td>
-                          <td className="px-2 py-1.5 text-xs max-w-[100px] truncate text-gray-500" title={pedido.DES_OBSERVACAO || pedido.DES_CANCELAMENTO}>
-                            {pedido.DES_CANCELAMENTO || pedido.DES_OBSERVACAO || '-'}
-                          </td>
+                          {pedidoColumns.map(col => renderPedidoCell(col))}
                         </tr>
 
                         {/* Linha expandida com itens */}
                         {isExpanded && (
                           <tr key={`${pedido.NUM_PEDIDO}-itens`}>
-                            <td colSpan="12" className="bg-gray-50 p-3 border-t border-b border-orange-200">
+                            <td colSpan="14" className="bg-gray-50 p-3 border-t border-b border-orange-200">
                               <div className="ml-6">
-                                <h4 className="text-xs font-semibold text-gray-700 mb-2">Itens do Pedido #{pedido.NUM_PEDIDO}</h4>
+                                <h4 className="text-xs font-semibold text-gray-700 mb-2">
+                                  {filters.parciaisFinalizadas
+                                    ? `📋 Itens Recebidos OK - Pedido #${pedido.NUM_PEDIDO}`
+                                    : filters.canceladasTotais
+                                      ? `🚫 Itens Cortados - Pedido #${pedido.NUM_PEDIDO}`
+                                      : filters.semNenhumaEntrada
+                                        ? `⛔ Cancelado INTEGRAL - Pedido #${pedido.NUM_PEDIDO}`
+                                        : `Itens do Pedido #${pedido.NUM_PEDIDO}`
+                                  }
+                                </h4>
 
                                 {isLoadingItens ? (
                                   <div className="flex items-center justify-center py-4">
@@ -555,6 +1186,7 @@ export default function PrevencaoPedidos() {
                                       <tr>
                                         <th className="px-2 py-1 text-left font-medium text-gray-600">COD</th>
                                         <th className="px-2 py-1 text-left font-medium text-gray-600">PRODUTO</th>
+                                        <th className="px-2 py-1 text-center font-medium text-gray-600">CURVA</th>
                                         <th className="px-2 py-1 text-right font-medium text-gray-600">QTD PED</th>
                                         <th className="px-2 py-1 text-right font-medium text-gray-600">QTD REC</th>
                                         <th className="px-2 py-1 text-center font-medium text-gray-600">STATUS</th>
@@ -571,11 +1203,38 @@ export default function PrevencaoPedidos() {
                                         const isPendente = (item.QTD_RECEBIDA || 0) < (item.QTD_PEDIDO || 0);
                                         const isCancelado = pedido.TIPO_RECEBIMENTO === 3;
 
+                                        // Determinar cor de fundo baseada no contexto
+                                        let rowBgColor = '';
+                                        if (filters.parciaisFinalizadas) {
+                                          rowBgColor = 'bg-purple-50'; // Roxo claro para itens OK
+                                        } else if (filters.canceladasTotais) {
+                                          rowBgColor = 'bg-pink-50'; // Rosa claro para itens cancelados
+                                        } else if (filters.semNenhumaEntrada) {
+                                          rowBgColor = 'bg-gray-100'; // Cinza claro para cancelados integral
+                                        } else if (isPendente) {
+                                          rowBgColor = isCancelado ? 'bg-red-50' : 'bg-yellow-50';
+                                        }
+
+                                        // Definir cor da curva
+                                        const curva = item.CURVA || 'X';
+                                        const curvaColor =
+                                          curva === 'A' ? 'bg-green-100 text-green-800' :
+                                          curva === 'B' ? 'bg-blue-100 text-blue-800' :
+                                          curva === 'C' ? 'bg-yellow-100 text-yellow-800' :
+                                          curva === 'D' ? 'bg-orange-100 text-orange-800' :
+                                          curva === 'E' ? 'bg-red-100 text-red-800' :
+                                          'bg-gray-100 text-gray-800';
+
                                         return (
-                                          <tr key={idx} className={`hover:bg-gray-50 ${isPendente ? (isCancelado ? 'bg-red-50' : 'bg-yellow-50') : ''}`}>
+                                          <tr key={idx} className={`hover:bg-gray-50 ${rowBgColor}`}>
                                             <td className="px-2 py-1 font-mono">{item.COD_PRODUTO}</td>
                                             <td className="px-2 py-1 max-w-[200px] truncate" title={item.DES_PRODUTO}>
                                               {item.DES_PRODUTO || '-'}
+                                            </td>
+                                            <td className="px-2 py-1 text-center">
+                                              <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${curvaColor}`}>
+                                                {curva}
+                                              </span>
                                             </td>
                                             <td className="px-2 py-1 text-right">{(item.QTD_PEDIDO || 0).toFixed(2)}</td>
                                             <td className={`px-2 py-1 text-right font-medium ${
@@ -585,7 +1244,22 @@ export default function PrevencaoPedidos() {
                                               {(item.QTD_RECEBIDA || 0).toFixed(2)}
                                             </td>
                                             <td className="px-2 py-1 text-center">
-                                              {isPendente ? (
+                                              {filters.parciaisFinalizadas ? (
+                                                // Na tela de Parciais Finalizadas, mostra apenas itens OK em roxo
+                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-purple-600 text-white">
+                                                  RECEBIDO OK
+                                                </span>
+                                              ) : filters.canceladasTotais ? (
+                                                // Na tela de Canceladas Totais, mostra apenas itens cancelados em rosa
+                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-pink-600 text-white">
+                                                  ITEM CORTADO
+                                                </span>
+                                              ) : filters.semNenhumaEntrada ? (
+                                                // Na tela de Cancelados Integral, todos os itens foram cancelados
+                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-gray-700 text-white">
+                                                  NÃO RECEBIDO
+                                                </span>
+                                              ) : isPendente ? (
                                                 isCancelado ? (
                                                   <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-gray-700 text-white">
                                                     CANCELADO
@@ -633,25 +1307,33 @@ export default function PrevencaoPedidos() {
           )}
 
           {/* Paginacao */}
-          {!loading && pagination.totalPages > 1 && (
+          {!loading && (filters.nfSemPedido ? nfPagination.totalPages > 1 : pagination.totalPages > 1) && (
             <div className="px-3 py-2 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-sm">
               <div className="text-xs text-gray-500">
-                {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total}
+                {filters.nfSemPedido ? (
+                  <>
+                    {((nfPagination.page - 1) * nfPagination.limit) + 1} - {Math.min(nfPagination.page * nfPagination.limit, nfPagination.total)} de {nfPagination.total}
+                  </>
+                ) : (
+                  <>
+                    {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total}
+                  </>
+                )}
               </div>
               <div className="flex gap-1">
                 <button
-                  onClick={() => handlePageChange(pagination.page - 1)}
-                  disabled={pagination.page <= 1}
+                  onClick={() => filters.nfSemPedido ? loadNfsSemPedido(nfPagination.page - 1) : handlePageChange(pagination.page - 1)}
+                  disabled={filters.nfSemPedido ? nfPagination.page <= 1 : pagination.page <= 1}
                   className="px-2 py-1 border rounded text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                 >
                   Anterior
                 </button>
                 <span className="px-2 py-1 text-xs">
-                  {pagination.page} / {pagination.totalPages}
+                  {filters.nfSemPedido ? nfPagination.page : pagination.page} / {filters.nfSemPedido ? nfPagination.totalPages : pagination.totalPages}
                 </span>
                 <button
-                  onClick={() => handlePageChange(pagination.page + 1)}
-                  disabled={pagination.page >= pagination.totalPages}
+                  onClick={() => filters.nfSemPedido ? loadNfsSemPedido(nfPagination.page + 1) : handlePageChange(pagination.page + 1)}
+                  disabled={filters.nfSemPedido ? nfPagination.page >= nfPagination.totalPages : pagination.page >= pagination.totalPages}
                   className="px-2 py-1 border rounded text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                 >
                   Proxima
