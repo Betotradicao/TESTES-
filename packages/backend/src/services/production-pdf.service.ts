@@ -126,13 +126,15 @@ export class ProductionPDFService {
 
         // Larguras customizadas das colunas (em pontos)
         // Total disponível: 515 (A4 width 595 - margens 80)
-        const columnWidths = [55, 180, 45, 50, 50, 45, 45, 45]; // Total: 515
+        const columnWidths = [45, 125, 25, 35, 40, 45, 45, 40, 40, 40, 35]; // Total: 515
         const columnHeaders = [
           'Código',
           'Produto',
+          'Curva',
           'Dias S/V',
           'Peso Méd',
-          'Venda Méd',
+          'V.Med kg',
+          'V.Med und',
           'Estoque',
           'Sug.(kg)',
           'Sug.(und)'
@@ -152,12 +154,16 @@ export class ProductionPDFService {
           const suggestedUnits = item.suggested_production_units || 0;
           const daysWithoutSale = item.days_without_sale ?? this.calculateDaysWithoutSale(item.last_sale_date);
 
+          const avgSalesUnits = this.toNumber(item.avg_sales_units);
+
           this.drawTableRowCustom(doc, [
             item.product_code || '',
             item.product_name, // Nome completo do produto
+            item.curva || '-',
             daysWithoutSale.toString(),
             this.formatKg(item.unit_weight_kg),
             this.formatKg(item.avg_sales_kg),
+            avgSalesUnits > 0 ? avgSalesUnits.toFixed(1) : '-',
             item.quantity_units.toString(),
             this.formatKg(item.suggested_production_kg),
             suggestedUnits > 0 ? suggestedUnits.toString() : '-'
@@ -252,7 +258,7 @@ export class ProductionPDFService {
     let xPos = 40;
     columns.forEach((col, idx) => {
       // Destacar em vermelho as últimas duas colunas (Sugestão kg/und) se highlightRed
-      if (highlightRed && idx >= 6) {
+      if (highlightRed && idx >= 8) {
         doc.fillColor('#DC2626').font('Helvetica-Bold');
       } else {
         doc.fillColor('black').font('Helvetica');

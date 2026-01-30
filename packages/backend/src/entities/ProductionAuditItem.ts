@@ -55,6 +55,12 @@ export class ProductionAuditItem {
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
   profit_margin: number | null; // Margem de lucro em %
 
+  @Column({ type: 'varchar', length: 5, nullable: true })
+  curva: string | null; // Curva ABC do produto
+
+  @Column({ type: 'decimal', precision: 10, scale: 3, nullable: true })
+  avg_sales_units: number | null; // Média de venda diária em unidades
+
   @CreateDateColumn()
   created_at: Date;
 }

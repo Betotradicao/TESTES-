@@ -10,6 +10,7 @@ import { ConfigurationService } from '../services/configuration.service';
 import { CacheService } from '../services/cache.service';
 import { ProductionPDFService } from '../services/production-pdf.service';
 import { WhatsAppService } from '../services/whatsapp.service';
+import { OracleService } from '../services/oracle.service';
 import * as fs from 'fs';
 
 export class ProductionAuditController {
@@ -84,6 +85,7 @@ export class ProductionAuditController {
 
   /**
    * Listar produtos ativos disponíveis para auditoria (com filtros opcionais)
+   * Busca dados do Oracle e enriquece com informações locais
    */
   static async getBakeryProducts(req: AuthRequest, res: Response) {
     try {
@@ -106,78 +108,98 @@ export class ProductionAuditController {
         productsWithPhotos.map((p: any) => [p.erp_product_id, p.foto_referencia])
       );
 
-      // Fetch products from ERP API (usa configuração do banco de dados)
-      let erpApiUrl: string;
-
-      if (process.env.ERP_PRODUCTS_API_URL) {
-        // Usa URL do .env diretamente (desenvolvimento local)
-        erpApiUrl = process.env.ERP_PRODUCTS_API_URL;
-      } else {
-        // Fallback: busca do banco de dados (produção Docker)
-        const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
-        const port = await ConfigurationService.get('intersolid_port', null);
-        const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
-        const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
-        erpApiUrl = baseUrl ? `${baseUrl}${productsEndpoint}` : 'http://mock-erp-api.com';
-      }
-
-      console.log('🔗 Buscando produtos da padaria em:', erpApiUrl);
-
-      const erpProducts = await CacheService.executeWithCache(
-        'erp-bakery-products',
-        async () => {
-          const response = await axios.get(`${erpApiUrl}`);
-          return response.data;
-        }
-      );
-
       // Map active products with peso_medio_kg, production_days and foto_referencia
       const activeProductsMap = new Map(
         activeProducts.map((p: any) => [p.erp_product_id, { peso_medio_kg: p.peso_medio_kg, production_days: p.production_days, section_name: p.section_name, foto_referencia: p.foto_referencia }])
       );
 
-      // Return ALL active products with full info
-      const allProducts = erpProducts
-        .filter((product: any) => activeProductsMap.has(product.codigo))
-        .map((product: any) => {
-          const productData = activeProductsMap.get(product.codigo);
-          const pesoMedio = productData?.peso_medio_kg ? parseFloat(productData.peso_medio_kg) : null;
-          const productionDays = productData?.production_days || 1;
+      // Get list of active product codes for Oracle IN clause
+      const activeProductCodes = activeProducts.map((p: any) => p.erp_product_id);
 
-          // Calcular venda média em unidades (kg / peso_medio)
-          const vendaMediaKg = product.vendaMedia || 0;
-          const vendaMediaUnd = pesoMedio && pesoMedio > 0 ? vendaMediaKg / pesoMedio : 0;
+      if (activeProductCodes.length === 0) {
+        console.log('⚠️ Nenhum produto ativo cadastrado');
+        return res.json([]);
+      }
 
-          // Campos financeiros
-          const custo = product.valCustoRep || 0;
-          const precoVenda = product.valvenda || product.valvendaloja || 0;
-          const margemRef = product.margemRef || 0;
-          // Calcular margem real: ((preço - custo) / preço) * 100
-          const margemReal = precoVenda > 0 ? ((precoVenda - custo) / precoVenda) * 100 : 0;
+      console.log('🔗 Buscando produtos ativos do Oracle...');
 
-          return {
-            codigo: product.codigo,
-            descricao: product.descricao,
-            desReduzida: product.desReduzida,
-            peso_medio_kg: pesoMedio,
-            production_days: productionDays,
-            vendaMedia: vendaMediaKg,
-            vendaMediaUnd: vendaMediaUnd,
-            pesavel: product.pesavel,
-            tipoEvento: product.tipoEvento || 'DIRETA',
-            desSecao: product.desSecao || productData?.section_name || 'SEM SEÇÃO',
-            estoque: product.estoque || 0,
-            // Campos financeiros
-            custo: custo,
-            precoVenda: precoVenda,
-            margemRef: margemRef,
-            margemReal: margemReal,
-            // Foto do produto (busca no mapa de fotos independente de ativo)
-            foto_referencia: photoMap.get(product.codigo) || productData?.foto_referencia || null,
-            // Data última venda
-            dtaUltMovVenda: product.dtaUltMovVenda || null,
-          };
-        });
+      // Busca produtos do Oracle (apenas os que estão ativos no banco local)
+      const oracleProducts = await CacheService.executeWithCache(
+        'oracle-bakery-products',
+        async () => {
+          // Criar placeholders para IN clause
+          const placeholders = activeProductCodes.map((_, i) => `:p${i}`).join(',');
+          const params: any = {};
+          activeProductCodes.forEach((code, i) => {
+            params[`p${i}`] = code;
+          });
+
+          const result = await OracleService.query<any>(`
+            SELECT
+              p.COD_PRODUTO,
+              p.DES_PRODUTO,
+              s.DES_SECAO,
+              NVL(pl.VAL_CUSTO_REP, 0) as VAL_CUSTO_REP,
+              NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
+              NVL(pl.VAL_MARGEM_FIXA, pl.VAL_MARGEM) as VAL_MARGEM_REF,
+              NVL(pl.QTD_EST_ATUAL, 0) as QTD_ESTOQUE,
+              NVL(pl.VAL_VENDA_MEDIA, 0) as VAL_VENDA_MEDIA,
+              p.FLG_ENVIA_BALANCA as FLG_BALANCA,
+              TO_CHAR(pl.DTA_ULT_MOV_VENDA, 'YYYY-MM-DD') as DTA_ULT_MOV_VENDA,
+              CASE p.TIPO_EVENTO
+                WHEN 0 THEN 'DIRETA'
+                WHEN 1 THEN 'DECOMPOSICAO'
+                WHEN 2 THEN 'COMPOSICAO'
+                WHEN 3 THEN 'PRODUCAO'
+                ELSE 'OUTROS'
+              END as TIPO_EVENTO
+            FROM INTERSOLID.TAB_PRODUTO p
+            INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+            LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+            WHERE pl.COD_LOJA = 1
+            AND p.COD_PRODUTO IN (${placeholders})
+            ORDER BY p.DES_PRODUTO
+          `, params);
+          return result;
+        }
+      );
+
+      // Mapear produtos Oracle para formato esperado
+      const allProducts = oracleProducts.map((product: any) => {
+        const productData = activeProductsMap.get(product.COD_PRODUTO);
+        const pesoMedio = productData?.peso_medio_kg ? parseFloat(productData.peso_medio_kg) : null;
+        const productionDays = productData?.production_days || 1;
+
+        // Campos financeiros
+        const custo = parseFloat(product.VAL_CUSTO_REP) || 0;
+        const precoVenda = parseFloat(product.VAL_VENDA) || 0;
+        const margemRef = parseFloat(product.VAL_MARGEM_REF) || 0;
+        const margemReal = precoVenda > 0 ? ((precoVenda - custo) / precoVenda) * 100 : 0;
+
+        // Venda média em kg (do Oracle)
+        const vendaMediaKg = parseFloat(product.VAL_VENDA_MEDIA) || 0;
+        const vendaMediaUnd = pesoMedio && pesoMedio > 0 ? vendaMediaKg / pesoMedio : 0;
+
+        return {
+          codigo: product.COD_PRODUTO,
+          descricao: product.DES_PRODUTO,
+          desReduzida: product.DES_PRODUTO?.substring(0, 20) || '',
+          peso_medio_kg: pesoMedio,
+          production_days: productionDays,
+          vendaMedia: vendaMediaKg,
+          vendaMediaUnd: vendaMediaUnd,
+          pesavel: product.FLG_BALANCA === 'S',
+          tipoEvento: product.TIPO_EVENTO || 'DIRETA',
+          desSecao: product.DES_SECAO || productData?.section_name || 'SEM SEÇÃO',
+          estoque: parseFloat(product.QTD_ESTOQUE) || 0,
+          custo: custo,
+          precoVenda: precoVenda,
+          margemRef: margemRef,
+          margemReal: margemReal,
+          foto_referencia: photoMap.get(product.COD_PRODUTO) || productData?.foto_referencia || null,
+          dtaUltMovVenda: product.DTA_ULT_MOV_VENDA || null,
+        };
+      });
 
       console.log('✅ Total produtos ativos:', allProducts.length);
 
@@ -189,53 +211,36 @@ export class ProductionAuditController {
   }
 
   /**
-   * Listar todas as seções únicas do ERP (sem filtrar por ativos)
+   * Listar todas as seções únicas do Oracle (sem filtrar por ativos)
    * GET /api/production/erp-sections
    */
   static async getErpSections(req: AuthRequest, res: Response) {
     try {
-      // Fetch products from ERP API
-      let erpApiUrl: string;
+      console.log('🔗 Buscando seções do Oracle...');
 
-      if (process.env.ERP_PRODUCTS_API_URL) {
-        erpApiUrl = process.env.ERP_PRODUCTS_API_URL;
-      } else {
-        const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
-        const port = await ConfigurationService.get('intersolid_port', null);
-        const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
-        const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
-        erpApiUrl = baseUrl ? `${baseUrl}${productsEndpoint}` : 'http://mock-erp-api.com';
-      }
-
-      const erpProducts = await CacheService.executeWithCache(
-        'erp-products',
+      // Busca seções únicas diretamente do banco Oracle (mesma query do HortiFrut)
+      const sections = await CacheService.executeWithCache(
+        'oracle-production-sections',
         async () => {
-          console.log('Fetching products from ERP API:', erpApiUrl);
-          const response = await axios.get(`${erpApiUrl}`);
-          return response.data;
+          const result = await OracleService.query<{ DES_SECAO: string }>(`
+            SELECT COD_SECAO, DES_SECAO
+            FROM INTERSOLID.TAB_SECAO
+            ORDER BY DES_SECAO
+          `);
+          return result.map(r => r.DES_SECAO);
         }
       );
 
-      // Extrair seções únicas
-      const sectionsSet = new Set<string>();
-      erpProducts.forEach((product: any) => {
-        if (product.desSecao) {
-          sectionsSet.add(product.desSecao);
-        }
-      });
-
-      // Converter para array e ordenar
-      const sections = Array.from(sectionsSet).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-
+      console.log('✅ Total seções encontradas:', sections.length);
       res.json(sections);
     } catch (error) {
-      console.error('Get ERP sections error:', error);
+      console.error('Get Oracle sections error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   /**
-   * Listar todos os produtos de uma seção do ERP (sem filtrar por ativos)
+   * Listar todos os produtos de uma seção do Oracle (sem filtrar por ativos)
    * GET /api/production/erp-products-by-section?section=PADARIA
    */
   static async getErpProductsBySection(req: AuthRequest, res: Response) {
@@ -248,94 +253,98 @@ export class ProductionAuditController {
 
       const productRepository = AppDataSource.getRepository(Product);
 
-      // Get active products from database with section info
-      const activeProducts = await productRepository.find({
-        where: { active: true },
-        select: ['erp_product_id', 'peso_medio_kg', 'production_days', 'section_name', 'foto_referencia'],
+      // Get ALL products from database (regardless of active status) to get peso_medio_kg
+      const allLocalProducts = await productRepository.find({
+        select: ['erp_product_id', 'peso_medio_kg', 'production_days', 'section_name', 'foto_referencia', 'active'],
       });
 
-      // Get ALL products with photos (regardless of active status)
-      const productsWithPhotos = await productRepository.find({
-        where: { foto_referencia: Not(IsNull()) },
-        select: ['erp_product_id', 'foto_referencia'],
-      });
-
-      // Create a separate map for photos
-      const photoMap = new Map(
-        productsWithPhotos.map((p: any) => [p.erp_product_id, p.foto_referencia])
+      // Create map for all local product data (peso médio, production_days, etc)
+      const localProductsMap = new Map(
+        allLocalProducts.map((p: any) => [p.erp_product_id, {
+          peso_medio_kg: p.peso_medio_kg,
+          production_days: p.production_days,
+          section_name: p.section_name,
+          foto_referencia: p.foto_referencia,
+          active: p.active
+        }])
       );
 
-      // Fetch products from ERP API
-      let erpApiUrl: string;
+      console.log('🔗 Buscando produtos da seção:', section, 'do Oracle...');
 
-      if (process.env.ERP_PRODUCTS_API_URL) {
-        erpApiUrl = process.env.ERP_PRODUCTS_API_URL;
-      } else {
-        const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
-        const port = await ConfigurationService.get('intersolid_port', null);
-        const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
-        const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
-        erpApiUrl = baseUrl ? `${baseUrl}${productsEndpoint}` : 'http://mock-erp-api.com';
-      }
-
-      console.log('🔗 Buscando produtos da seção:', section, 'em:', erpApiUrl);
-
-      const erpProducts = await CacheService.executeWithCache(
-        'erp-products',
+      // Busca produtos do Oracle por seção (com cache)
+      const oracleProducts = await CacheService.executeWithCache(
+        `oracle-products-section-${String(section).toUpperCase()}`,
         async () => {
-          const response = await axios.get(`${erpApiUrl}`);
-          return response.data;
+          const result = await OracleService.query<any>(`
+            SELECT
+              p.COD_PRODUTO,
+              p.DES_PRODUTO,
+              s.DES_SECAO,
+              NVL(pl.VAL_CUSTO_REP, 0) as VAL_CUSTO_REP,
+              NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
+              NVL(pl.VAL_MARGEM, 0) as VAL_MARGEM_REF,
+              NVL(pl.QTD_EST_ATUAL, 0) as QTD_ESTOQUE,
+              NVL(pl.VAL_VENDA_MEDIA, 0) as VAL_VENDA_MEDIA,
+              p.FLG_ENVIA_BALANCA as FLG_BALANCA,
+              TO_CHAR(pl.DTA_ULT_MOV_VENDA, 'YYYYMMDD') as DTA_ULT_MOV_VENDA,
+              CASE p.TIPO_EVENTO
+                WHEN 0 THEN 'DIRETA'
+                WHEN 1 THEN 'DECOMPOSICAO'
+                WHEN 2 THEN 'COMPOSICAO'
+                WHEN 3 THEN 'PRODUCAO'
+                ELSE 'OUTROS'
+              END as TIPO_EVENTO,
+              NVL(TRIM(pl.DES_RANK_PRODLOJA), 'X') as CURVA
+            FROM INTERSOLID.TAB_PRODUTO p
+            INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+            LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+            WHERE pl.COD_LOJA = 1
+            AND UPPER(s.DES_SECAO) = :sectionUpper
+            AND NVL(pl.INATIVO, 'N') = 'N'
+            AND NVL(pl.FORA_LINHA, 'N') = 'N'
+            ORDER BY p.DES_PRODUTO
+          `, { sectionUpper: String(section).toUpperCase() });
+          return result;
         }
       );
 
-      // Map active products
-      const activeProductsMap = new Map(
-        activeProducts.map((p: any) => [p.erp_product_id, { peso_medio_kg: p.peso_medio_kg, production_days: p.production_days, section_name: p.section_name, foto_referencia: p.foto_referencia }])
-      );
-
-      // Filtrar por seção (case insensitive)
-      const sectionUpper = String(section).toUpperCase();
-      const filteredProducts = erpProducts.filter((product: any) =>
-        product.desSecao && product.desSecao.toUpperCase() === sectionUpper
-      );
-
-      // Retornar TODOS os produtos da seção (ativos ou não), mas enriquecer os ativos
-      const allProducts = filteredProducts.map((product: any) => {
-        const productData = activeProductsMap.get(product.codigo);
-        const isActive = !!productData;
+      // Mapear produtos Oracle para formato esperado
+      const allProducts = oracleProducts.map((product: any) => {
+        const productData = localProductsMap.get(product.COD_PRODUTO);
+        const isActive = productData?.active || false;
         const pesoMedio = productData?.peso_medio_kg ? parseFloat(productData.peso_medio_kg) : null;
         const productionDays = productData?.production_days || 1;
 
-        // Calcular venda média em unidades (kg / peso_medio)
-        const vendaMediaKg = product.vendaMedia || 0;
-        const vendaMediaUnd = pesoMedio && pesoMedio > 0 ? vendaMediaKg / pesoMedio : 0;
-
         // Campos financeiros
-        const custo = product.valCustoRep || 0;
-        const precoVenda = product.valvenda || product.valvendaloja || 0;
-        const margemRef = product.margemRef || 0;
+        const custo = parseFloat(product.VAL_CUSTO_REP) || 0;
+        const precoVenda = parseFloat(product.VAL_VENDA) || 0;
+        const margemRef = parseFloat(product.VAL_MARGEM_REF) || 0;
         const margemReal = precoVenda > 0 ? ((precoVenda - custo) / precoVenda) * 100 : 0;
 
+        // Venda média em kg (do Oracle)
+        const vendaMediaKg = parseFloat(product.VAL_VENDA_MEDIA) || 0;
+        const vendaMediaUnd = pesoMedio && pesoMedio > 0 ? vendaMediaKg / pesoMedio : 0;
+
         return {
-          codigo: product.codigo,
-          descricao: product.descricao,
-          desReduzida: product.desReduzida,
+          codigo: product.COD_PRODUTO,
+          descricao: product.DES_PRODUTO,
+          desReduzida: product.DES_PRODUTO?.substring(0, 20) || '',
           peso_medio_kg: pesoMedio,
           production_days: productionDays,
           vendaMedia: vendaMediaKg,
           vendaMediaUnd: vendaMediaUnd,
-          pesavel: product.pesavel,
-          tipoEvento: product.tipoEvento || 'DIRETA',
-          desSecao: product.desSecao,
-          estoque: product.estoque || 0,
+          pesavel: product.FLG_BALANCA === 'S',
+          tipoEvento: product.TIPO_EVENTO || 'DIRETA',
+          desSecao: product.DES_SECAO,
+          estoque: parseFloat(product.QTD_ESTOQUE) || 0,
           custo: custo,
           precoVenda: precoVenda,
           margemRef: margemRef,
           margemReal: margemReal,
-          // Foto do produto (busca no mapa de fotos independente de ativo)
-          foto_referencia: photoMap.get(product.codigo) || productData?.foto_referencia || null,
-          dtaUltMovVenda: product.dtaUltMovVenda || null,
-          isActive: isActive, // Flag para indicar se está ativo
+          foto_referencia: productData?.foto_referencia || null,
+          dtaUltMovVenda: product.DTA_ULT_MOV_VENDA || null,
+          isActive: isActive,
+          curva: product.CURVA || 'X',
         };
       });
 
@@ -343,7 +352,7 @@ export class ProductionAuditController {
 
       res.json(allProducts);
     } catch (error) {
-      console.error('Get ERP products by section error:', error);
+      console.error('Get Oracle products by section error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -588,6 +597,8 @@ export class ProductionAuditController {
         existingItem.suggested_production_units = suggested_production_units;
         existingItem.last_sale_date = item.last_sale_date || null;
         existingItem.days_without_sale = item.days_without_sale || null;
+        existingItem.curva = item.curva || null;
+        existingItem.avg_sales_units = item.avg_sales_units || null;
         await itemRepository.save(existingItem);
       } else {
         // Create new item
@@ -604,6 +615,8 @@ export class ProductionAuditController {
           suggested_production_units,
           last_sale_date: item.last_sale_date || null,
           days_without_sale: item.days_without_sale || null,
+          curva: item.curva || null,
+          avg_sales_units: item.avg_sales_units || null,
         });
         await itemRepository.save(newItem);
       }
@@ -757,6 +770,20 @@ export class ProductionAuditController {
     } catch (error) {
       console.error('Send production report error:', error);
       res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  /**
+   * Limpar cache de produtos (força recarregar do Oracle)
+   */
+  static async clearCache(req: AuthRequest, res: Response) {
+    try {
+      await CacheService.clearCache();
+      console.log('🗑️ Cache de produção limpo manualmente');
+      res.json({ message: 'Cache limpo com sucesso' });
+    } catch (error) {
+      console.error('Clear cache error:', error);
+      res.status(500).json({ error: 'Erro ao limpar cache' });
     }
   }
 }

@@ -23,6 +23,8 @@ export default function ProducaoSugestao() {
   const [showEmptyModal, setShowEmptyModal] = useState(false);
   const [productSearchTerm, setProductSearchTerm] = useState('');
   const [saving, setSaving] = useState(false);
+  const [savingAudit, setSavingAudit] = useState(false);
+  const [clearingCache, setClearingCache] = useState(false);
 
   // Estado do formulário do item
   const [itemForm, setItemForm] = useState({
@@ -41,6 +43,25 @@ export default function ProducaoSugestao() {
 
   // Estado de ordenação
   const [sortConfig, setSortConfig] = useState({ key: 'descricao', direction: 'asc' });
+
+  // Estado para ordem das colunas (drag-and-drop)
+  const [columnOrder, setColumnOrder] = useState([
+    { key: 'foto', label: 'Foto', sortable: false, align: 'center' },
+    { key: 'codigo', label: 'Código', sortable: true, align: 'left' },
+    { key: 'descricao', label: 'Produto', sortable: true, align: 'left' },
+    { key: 'dtaUltMovVenda', label: 'Última Venda', sortable: true, align: 'center' },
+    { key: 'diasSemVenda', label: 'Dias Sem Venda', sortable: true, align: 'center' },
+    { key: 'peso_medio_kg', label: 'Peso Médio', sortable: true, align: 'right' },
+    { key: 'vendaMedia', label: 'Venda Média (kg)', sortable: true, align: 'right' },
+    { key: 'vendaMediaUnd', label: 'Venda Média (und)', sortable: true, align: 'right' },
+    { key: 'custo', label: 'Custo', sortable: true, align: 'right' },
+    { key: 'precoVenda', label: 'Preço Venda', sortable: true, align: 'right' },
+    { key: 'margemRef', label: 'Margem Referência', sortable: true, align: 'right' },
+    { key: 'margemReal', label: 'Margem Real', sortable: true, align: 'right' },
+    { key: 'curva', label: 'Curva', sortable: true, align: 'center' },
+    { key: 'acoes', label: 'Ações', sortable: false, align: 'center' },
+  ]);
+  const [draggedColumn, setDraggedColumn] = useState(null);
 
   // Carregar dados ao iniciar
   useEffect(() => {
@@ -136,6 +157,26 @@ export default function ProducaoSugestao() {
     }
   };
 
+  // Limpar cache e recarregar produtos
+  const handleClearCache = async () => {
+    if (clearingCache) return;
+
+    setClearingCache(true);
+    try {
+      await api.post('/production/clear-cache');
+      setSuccess('Cache limpo! Recarregando produtos...');
+      setTimeout(() => setSuccess(''), 2000);
+      // Recarregar produtos
+      await loadProductsBySection(selectedSecao, selectedTipo);
+    } catch (err) {
+      console.error('Erro ao limpar cache:', err);
+      setError('Erro ao limpar cache');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setClearingCache(false);
+    }
+  };
+
   // Abrir modal para editar item
   const handleEditItem = (product) => {
     setEditingItem(product);
@@ -179,10 +220,12 @@ export default function ProducaoSugestao() {
         production_days: parseInt(itemForm.production_days) || 1,
         unit_weight_kg: editingItem.peso_medio_kg || 0,
         avg_sales_kg: editingItem.vendaMedia || 0,
+        avg_sales_units: editingItem.vendaMediaUnd || 0,
         suggested_production_kg: sugestaoKg,
         suggested_production_units: sugestaoUnidades,
         last_sale_date: editingItem.dtaUltMovVenda || null,
-        days_without_sale: calcularDiasSemVenda(editingItem.dtaUltMovVenda)
+        days_without_sale: calcularDiasSemVenda(editingItem.dtaUltMovVenda),
+        curva: editingItem.curva || null
       };
 
       // Salvar no backend (criar ou atualizar auditoria)
@@ -237,10 +280,12 @@ export default function ProducaoSugestao() {
         production_days: parseInt(itemForm.production_days) || 1,
         unit_weight_kg: editingItem.peso_medio_kg || 0,
         avg_sales_kg: editingItem.vendaMedia || 0,
+        avg_sales_units: editingItem.vendaMediaUnd || 0,
         suggested_production_kg: sugestaoKg,
         suggested_production_units: sugestaoUnidades,
         last_sale_date: editingItem.dtaUltMovVenda || null,
-        days_without_sale: calcularDiasSemVenda(editingItem.dtaUltMovVenda)
+        days_without_sale: calcularDiasSemVenda(editingItem.dtaUltMovVenda),
+        curva: editingItem.curva || null
       };
 
       const response = await api.post('/production/audits/save-item', {
@@ -325,6 +370,9 @@ export default function ProducaoSugestao() {
       return;
     }
 
+    setSavingAudit(true);
+    setError('');
+
     try {
       // 1. Finalizar a auditoria (mudar status para completed)
       await api.put(`/production/audits/${todayAudit.id}/complete`);
@@ -340,6 +388,8 @@ export default function ProducaoSugestao() {
     } catch (err) {
       console.error('Erro ao salvar auditoria:', err);
       setError('Erro ao salvar auditoria');
+    } finally {
+      setSavingAudit(false);
     }
   };
 
@@ -400,8 +450,121 @@ export default function ProducaoSugestao() {
         return product.margemRef || 0;
       case 'margemReal':
         return product.margemReal || 0;
+      case 'curva':
+        return product.curva || 'Z';
       default:
         return '';
+    }
+  };
+
+  // Handlers de drag-and-drop para colunas
+  const handleDragStart = (e, index) => {
+    setDraggedColumn(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', index);
+    e.target.style.opacity = '0.5';
+  };
+
+  const handleDragEnd = (e) => {
+    e.target.style.opacity = '1';
+    setDraggedColumn(null);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, dropIndex) => {
+    e.preventDefault();
+    if (draggedColumn === null || draggedColumn === dropIndex) return;
+
+    const newOrder = [...columnOrder];
+    const draggedItem = newOrder[draggedColumn];
+    newOrder.splice(draggedColumn, 1);
+    newOrder.splice(dropIndex, 0, draggedItem);
+    setColumnOrder(newOrder);
+    setDraggedColumn(null);
+  };
+
+  // Função para obter classe CSS da célula (cores de fundo)
+  const getCellClass = (product, columnKey) => {
+    switch (columnKey) {
+      case 'diasSemVenda':
+        const dias = calcularDiasSemVenda(product.dtaUltMovVenda);
+        if (dias === null) return 'text-gray-400';
+        if (dias <= 1) return 'text-green-600 bg-green-50 font-semibold';
+        if (dias <= 3) return 'text-yellow-600 bg-yellow-50 font-semibold';
+        return 'text-red-600 bg-red-50 font-semibold';
+      case 'margemReal':
+        if (product.margemReal && product.margemRef) {
+          return product.margemReal >= product.margemRef
+            ? 'text-green-600 bg-green-50 font-semibold'
+            : 'text-red-600 bg-red-50 font-semibold';
+        }
+        return 'text-gray-700';
+      case 'curva':
+        if (product.curva === 'A') return 'text-green-600 bg-green-50 font-bold';
+        if (product.curva === 'B') return 'text-blue-600 bg-blue-50 font-bold';
+        if (product.curva === 'C') return 'text-yellow-600 bg-yellow-50 font-bold';
+        return 'text-gray-400';
+      default:
+        return '';
+    }
+  };
+
+  // Função para renderizar o valor de uma célula
+  const renderCellValue = (product, columnKey) => {
+    switch (columnKey) {
+      case 'foto':
+        return product.foto_referencia ? (
+          <img
+            src={product.foto_referencia}
+            alt={product.descricao}
+            className="w-10 h-10 object-cover rounded-lg border border-gray-200 mx-auto"
+          />
+        ) : (
+          <div className="w-10 h-10 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center mx-auto">
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+        );
+      case 'codigo':
+        return product.codigo;
+      case 'descricao':
+        return <span className="font-medium text-gray-900">{product.descricao}</span>;
+      case 'dtaUltMovVenda':
+        return formatarData(product.dtaUltMovVenda);
+      case 'diasSemVenda':
+        return calcularDiasSemVenda(product.dtaUltMovVenda) ?? '-';
+      case 'peso_medio_kg':
+        return product.peso_medio_kg ? `${product.peso_medio_kg.toFixed(3)} kg` : '-';
+      case 'vendaMedia':
+        return product.vendaMedia ? `${product.vendaMedia.toFixed(3)} kg/dia` : '-';
+      case 'vendaMediaUnd':
+        return product.vendaMediaUnd ? `${product.vendaMediaUnd.toFixed(1)} und/dia` : '-';
+      case 'custo':
+        return product.custo ? `R$ ${product.custo.toFixed(2)}` : '-';
+      case 'precoVenda':
+        return product.precoVenda ? `R$ ${product.precoVenda.toFixed(2)}` : '-';
+      case 'margemRef':
+        return product.margemRef ? `${product.margemRef.toFixed(1)}%` : '-';
+      case 'margemReal':
+        return product.margemReal ? `${product.margemReal.toFixed(1)}%` : '-';
+      case 'curva':
+        return product.curva || '-';
+      case 'acoes':
+        return (
+          <button
+            onClick={(e) => { e.stopPropagation(); handleEditItem(product); }}
+            className="px-3 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 text-sm"
+          >
+            Conferir
+          </button>
+        );
+      default:
+        return '-';
     }
   };
 
@@ -480,7 +643,7 @@ export default function ProducaoSugestao() {
                 Registre o estoque e receba sugestões de produção
               </p>
             </div>
-            <div className="flex gap-4 mt-4 lg:mt-0">
+            <div className="flex gap-4 mt-4 lg:mt-0 items-center">
               <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2 text-center">
                 <p className="text-2xl font-bold">{stats.checked}/{stats.total}</p>
                 <p className="text-xs">Conferidos</p>
@@ -489,6 +652,23 @@ export default function ProducaoSugestao() {
                 <p className="text-2xl font-bold">{stats.pending}</p>
                 <p className="text-xs">Pendentes</p>
               </div>
+              <button
+                onClick={handleClearCache}
+                disabled={clearingCache || loading}
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg p-2 transition-colors disabled:opacity-50"
+                title="Limpar cache e recarregar produtos"
+              >
+                {clearingCache ? (
+                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -571,9 +751,10 @@ export default function ProducaoSugestao() {
                 onChange={(e) => setSelectedTipo(e.target.value)}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm"
               >
-                {[...new Set(allProducts.map(p => p.tipoEvento).filter(Boolean))].sort().map(tipo => (
-                  <option key={tipo} value={tipo}>{tipo}</option>
-                ))}
+                <option value="PRODUCAO">PRODUCAO</option>
+                <option value="DIRETA">DIRETA</option>
+                <option value="COMPOSICAO">COMPOSICAO</option>
+                <option value="DECOMPOSICAO">DECOMPOSICAO</option>
               </select>
               <input
                 type="text"
@@ -585,9 +766,10 @@ export default function ProducaoSugestao() {
               {(todayAudit?.items?.length > 0 || stats.checked > 0) && (
                 <button
                   onClick={handleSendWhatsApp}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+                  disabled={savingAudit}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  💾 Salvar Auditoria
+                  {savingAudit ? '⏳ Salvando...' : '💾 Salvar Auditoria'}
                 </button>
               )}
             </div>
@@ -821,28 +1003,41 @@ export default function ProducaoSugestao() {
         {/* Lista de Itens Pendentes */}
         {filter !== 'checked' && stats.pending > 0 && (
           <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-            <div className="bg-yellow-50 px-4 py-3 border-b border-yellow-200">
+            <div className="bg-yellow-50 px-4 py-3 border-b border-yellow-200 flex justify-between items-center">
               <h2 className="text-lg font-semibold text-yellow-800">
                 ⏳ Itens Pendentes ({stats.pending})
               </h2>
+              <span className="text-xs text-yellow-600">💡 Arraste os cabeçalhos para reordenar colunas</span>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Foto</th>
-                    <SortableHeader sortKey="codigo">Código</SortableHeader>
-                    <SortableHeader sortKey="descricao">Produto</SortableHeader>
-                    <SortableHeader sortKey="dtaUltMovVenda" align="center">Última Venda</SortableHeader>
-                    <SortableHeader sortKey="diasSemVenda" align="center">Dias Sem Venda</SortableHeader>
-                    <SortableHeader sortKey="peso_medio_kg" align="right">Peso Médio</SortableHeader>
-                    <SortableHeader sortKey="vendaMedia" align="right">Venda Média (kg)</SortableHeader>
-                    <SortableHeader sortKey="vendaMediaUnd" align="right">Venda Média (und)</SortableHeader>
-                    <SortableHeader sortKey="custo" align="right">Custo</SortableHeader>
-                    <SortableHeader sortKey="precoVenda" align="right">Preço Venda</SortableHeader>
-                    <SortableHeader sortKey="margemRef" align="right">Margem Referência</SortableHeader>
-                    <SortableHeader sortKey="margemReal" align="right">Margem Real</SortableHeader>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
+                    {columnOrder.map((column, index) => (
+                      <th
+                        key={column.key}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, index)}
+                        onDragEnd={handleDragEnd}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, index)}
+                        onClick={() => column.sortable && handleSort(column.key)}
+                        className={`px-4 py-3 text-xs font-medium text-gray-500 uppercase cursor-grab select-none whitespace-nowrap
+                          ${column.align === 'center' ? 'text-center' : column.align === 'right' ? 'text-right' : 'text-left'}
+                          ${column.sortable ? 'hover:bg-gray-100' : ''}
+                          ${draggedColumn === index ? 'bg-orange-100 border-2 border-dashed border-orange-400' : ''}
+                        `}
+                        title={column.sortable ? 'Clique para ordenar | Arraste para mover' : 'Arraste para mover'}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          <span className="text-gray-300">⠿</span>
+                          {column.label}
+                          {column.sortable && sortConfig.key === column.key && (
+                            <span className="text-orange-500 ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                        </span>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -850,74 +1045,14 @@ export default function ProducaoSugestao() {
                     .filter(p => !auditItems[p.codigo]?.checked)
                     .map((product) => (
                       <tr key={product.codigo} className="hover:bg-yellow-50 cursor-pointer" onClick={() => handleEditItem(product)}>
-                        <td className="px-4 py-3 text-center">
-                          {product.foto_referencia ? (
-                            <img
-                              src={product.foto_referencia}
-                              alt={product.descricao}
-                              className="w-10 h-10 object-cover rounded-lg border border-gray-200 mx-auto"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center mx-auto">
-                              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{product.codigo}</td>
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-gray-900 text-sm">{product.descricao}</p>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-center text-gray-700">
-                          {formatarData(product.dtaUltMovVenda)}
-                        </td>
-                        <td className={`px-4 py-3 text-sm text-center font-semibold ${
-                          (() => {
-                            const dias = calcularDiasSemVenda(product.dtaUltMovVenda);
-                            if (dias === null) return 'text-gray-400';
-                            if (dias <= 1) return 'text-green-600 bg-green-50';
-                            if (dias <= 3) return 'text-yellow-600 bg-yellow-50';
-                            return 'text-red-600 bg-red-50';
-                          })()
-                        }`}>
-                          {calcularDiasSemVenda(product.dtaUltMovVenda) ?? '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-700">
-                          {product.peso_medio_kg ? `${product.peso_medio_kg.toFixed(3)} kg` : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-700">
-                          {product.vendaMedia ? `${product.vendaMedia.toFixed(3)} kg/dia` : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-700">
-                          {product.vendaMediaUnd ? `${product.vendaMediaUnd.toFixed(1)} und/dia` : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-700">
-                          {product.custo ? `R$ ${product.custo.toFixed(2)}` : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-700">
-                          {product.precoVenda ? `R$ ${product.precoVenda.toFixed(2)}` : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-700">
-                          {product.margemRef ? `${product.margemRef.toFixed(1)}%` : '-'}
-                        </td>
-                        <td className={`px-4 py-3 text-sm text-right font-semibold ${
-                          product.margemReal && product.margemRef
-                            ? product.margemReal >= product.margemRef
-                              ? 'text-green-600 bg-green-50'
-                              : 'text-red-600 bg-red-50'
-                            : 'text-gray-700'
-                        }`}>
-                          {product.margemReal ? `${product.margemReal.toFixed(1)}%` : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleEditItem(product); }}
-                            className="px-3 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 text-sm"
+                        {columnOrder.map((column) => (
+                          <td
+                            key={column.key}
+                            className={`px-4 py-3 text-sm ${column.align === 'center' ? 'text-center' : column.align === 'right' ? 'text-right' : 'text-left'} ${getCellClass(product, column.key)}`}
                           >
-                            Conferir
-                          </button>
-                        </td>
+                            {renderCellValue(product, column.key)}
+                          </td>
+                        ))}
                       </tr>
                     ))}
                 </tbody>
@@ -936,9 +1071,10 @@ export default function ProducaoSugestao() {
               {todayAudit.items.length > 0 && (
                 <button
                   onClick={handleSendWhatsApp}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+                  disabled={savingAudit}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  💾 Salvar Auditoria
+                  {savingAudit ? '⏳ Salvando...' : '💾 Salvar Auditoria'}
                 </button>
               )}
             </div>

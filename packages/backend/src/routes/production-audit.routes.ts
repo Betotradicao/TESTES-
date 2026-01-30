@@ -44,4 +44,7 @@ router.delete('/audits/:id', ProductionAuditController.deleteAudit);
 // Enviar relatório para WhatsApp
 router.post('/audits/:id/send-whatsapp', ProductionAuditController.sendToWhatsApp);
 
+// Limpar cache de produtos (força recarregar do Oracle)
+router.post('/clear-cache', ProductionAuditController.clearCache);
+
 export default router;

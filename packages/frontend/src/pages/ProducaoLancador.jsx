@@ -136,11 +136,22 @@ export default function ProducaoLancador() {
         return auditDate === todayStr;
       });
 
-      if (existingAudit) {
-        // Redirecionar para auditoria existente
+      if (existingAudit && existingAudit.status === 'completed') {
+        // Auditoria completa existe - perguntar se quer criar nova ou editar
+        const wantNew = window.confirm(
+          'Já existe uma auditoria finalizada para hoje.\n\n' +
+          '• Clique em "OK" para criar uma NOVA auditoria (a anterior será mantida)\n' +
+          '• Clique em "Cancelar" para EDITAR a auditoria existente'
+        );
+
+        if (wantNew) {
+          // Deletar a auditoria existente e criar uma nova
+          await api.delete(`/production/audits/${existingAudit.id}`);
+          await loadRecentAudits();
+        }
         navigate(`/producao-sugestao`);
       } else {
-        // Navegar direto para tela de auditoria (ela cria a auditoria ao salvar primeiro item)
+        // Não existe auditoria ou está em andamento - navegar normalmente
         navigate(`/producao-sugestao`);
       }
     } catch (err) {
@@ -239,11 +250,8 @@ export default function ProducaoLancador() {
 
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
               <div className="text-5xl mb-3">🥖</div>
-              <p className="text-base font-semibold text-gray-700 mb-1">
+              <p className="text-base font-semibold text-gray-700 mb-4">
                 Gerar Auditoria de Produção
-              </p>
-              <p className="text-sm text-gray-500 mb-4">
-                {productCount > 0 ? `${productCount} produtos ativos para conferir` : 'Carregando produtos...'}
               </p>
 
               <button
