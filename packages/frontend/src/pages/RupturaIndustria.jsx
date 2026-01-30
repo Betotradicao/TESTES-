@@ -61,6 +61,7 @@ export default function RupturaIndustria() {
     TOTAL_ITENS_RUPTURA: 0,
     TOTAL_FORNECEDORES_AFETADOS: 0,
     VALOR_NAO_FATURADO: 0,
+    VALOR_EXCESSO: 0,
     TOTAL_PRODUTOS_AFETADOS: 0
   });
   const [loading, setLoading] = useState(true);
@@ -78,6 +79,8 @@ export default function RupturaIndustria() {
   const [rankingPage, setRankingPage] = useState(1);
   const rankingPerPage = 20; // Itens por página
   const [expandedRankingProduto, setExpandedRankingProduto] = useState(null); // COD_PRODUTO expandido
+  const [rankingExpandedFornecedor, setRankingExpandedFornecedor] = useState(null); // COD_FORNECEDOR expandido dentro do produto
+  const [rankingExpandedPedidos, setRankingExpandedPedidos] = useState({}); // Pedidos carregados por COD_PRODUTO_COD_FORNECEDOR
   const [rankingSortConfig, setRankingSortConfig] = useState({ key: 'PERCENTUAL_RUPTURA', direction: 'desc' }); // Ordenação do ranking
 
   // Estado para modal de histórico de compras
@@ -125,6 +128,29 @@ export default function RupturaIndustria() {
     const prefix = selectedPeriodo === 'periodo' ? 'TOTAL_' :
                    selectedPeriodo === 'mes' ? 'MES_' :
                    selectedPeriodo === 'semestre' ? 'SEMESTRE_' : 'ANO_';
+
+    // Caso especial para % RUPTURA - calcular a porcentagem
+    if (key === 'PERCENT_RUPTURA') {
+      const qtdPedida = produto[prefix + 'QTD_PEDIDA'] || 0;
+      const qtdCortada = produto[prefix + 'QTD_CORTADA'] || 0;
+      return qtdPedida > 0 ? (qtdCortada / qtdPedida) * 100 : 0;
+    }
+
+    // Caso especial para VALOR
+    if (key === 'VALOR') {
+      return produto[prefix + 'VALOR'] || 0;
+    }
+
+    // Caso especial para CURVA - não depende do período
+    if (key === 'CURVA') {
+      return produto.CURVA || 'Z'; // Z para ordenar "sem curva" por último
+    }
+
+    // Caso especial para FORA_LINHA - não depende do período
+    if (key === 'FORA_LINHA') {
+      return produto.FORA_LINHA || 'N'; // N = ativo (aparece primeiro em asc), S = fora do mix
+    }
+
     return produto[prefix + key] || 0;
   };
 
@@ -153,15 +179,51 @@ export default function RupturaIndustria() {
   const sortedRankingProdutos = [...rankingProdutos].sort((a, b) => {
     if (!rankingSortConfig.key) return 0;
 
-    let aVal = a[rankingSortConfig.key];
-    let bVal = b[rankingSortConfig.key];
+    let aVal, bVal;
+
+    // Caso especial para % EXCESSO - usar TOTAL_QTD_EXCESSO do backend
+    if (rankingSortConfig.key === 'PERCENTUAL_EXCESSO') {
+      const aExcesso = a.TOTAL_QTD_EXCESSO || 0;
+      const aPedida = a.TOTAL_QTD_PEDIDA || 1;
+      const bExcesso = b.TOTAL_QTD_EXCESSO || 0;
+      const bPedida = b.TOTAL_QTD_PEDIDA || 1;
+      aVal = aExcesso > 0 ? (aExcesso / aPedida) * 100 : 0;
+      bVal = bExcesso > 0 ? (bExcesso / bPedida) * 100 : 0;
+    }
+    // Caso especial para QTD EXCESSO - usar TOTAL_QTD_EXCESSO do backend
+    else if (rankingSortConfig.key === 'QTD_EXCESSO') {
+      aVal = a.TOTAL_QTD_EXCESSO || 0;
+      bVal = b.TOTAL_QTD_EXCESSO || 0;
+    }
+    // Caso especial para R$ EXCESSO - calcular valor do excesso
+    else if (rankingSortConfig.key === 'TOTAL_VALOR_EXCESSO') {
+      aVal = a.TOTAL_VALOR_EXCESSO || 0;
+      bVal = b.TOTAL_VALOR_EXCESSO || 0;
+    }
+    // Caso especial para FORA_LINHA - ordenação alfabética (N = ativo, S = fora do mix)
+    else if (rankingSortConfig.key === 'FORA_LINHA') {
+      aVal = a.FORA_LINHA || 'N';
+      bVal = b.FORA_LINHA || 'N';
+    } else {
+      aVal = a[rankingSortConfig.key];
+      bVal = b[rankingSortConfig.key];
+    }
 
     if (aVal === null || aVal === undefined) aVal = 0;
     if (bVal === null || bVal === undefined) bVal = 0;
 
-    if (typeof aVal === 'string') {
+    // Converter strings numéricas para números
+    if (typeof aVal === 'string' && !isNaN(parseFloat(aVal))) {
+      aVal = parseFloat(aVal);
+    }
+    if (typeof bVal === 'string' && !isNaN(parseFloat(bVal))) {
+      bVal = parseFloat(bVal);
+    }
+
+    // Comparação de strings (para campos de texto)
+    if (typeof aVal === 'string' && typeof bVal === 'string') {
       aVal = aVal.toLowerCase();
-      bVal = String(bVal).toLowerCase();
+      bVal = bVal.toLowerCase();
     }
 
     if (aVal < bVal) return rankingSortConfig.direction === 'asc' ? -1 : 1;
@@ -217,6 +279,79 @@ export default function RupturaIndustria() {
     }
   };
 
+  // Função para toggle do ranking - apenas expande para mostrar fornecedores (não carrega pedidos)
+  const toggleRankingExpand = (produto) => {
+    const codProduto = produto.COD_PRODUTO;
+    const isExpanded = expandedRankingProduto === codProduto;
+
+    if (isExpanded) {
+      // Fechar - também fecha fornecedor expandido
+      setExpandedRankingProduto(null);
+      setRankingExpandedFornecedor(null);
+    } else {
+      // Abrir - mostra lista de fornecedores
+      setExpandedRankingProduto(codProduto);
+      setRankingExpandedFornecedor(null); // Reset fornecedor expandido
+    }
+  };
+
+  // Função para toggle do fornecedor dentro do produto expandido - carrega pedidos quando clica
+  const toggleRankingFornecedorExpand = async (codProduto, fornecedor) => {
+    const codFornecedor = fornecedor.COD_FORNECEDOR;
+    const key = `${codProduto}_${codFornecedor}`;
+    const isExpanded = rankingExpandedFornecedor === key;
+
+    if (isExpanded) {
+      // Fechar
+      setRankingExpandedFornecedor(null);
+    } else {
+      // Abrir e carregar pedidos se ainda não carregou
+      setRankingExpandedFornecedor(key);
+
+      // Se já tem pedidos carregados, não precisa carregar novamente
+      if (rankingExpandedPedidos[key]) {
+        return;
+      }
+
+      // Marcar como carregando
+      setRankingExpandedPedidos(prev => ({
+        ...prev,
+        [key]: { loading: true, pedidos: [], fornecedor: null }
+      }));
+
+      try {
+        const response = await api.get(`/ruptura-industria/produto/${codProduto}/pedidos?codFornecedor=${codFornecedor}`);
+        setRankingExpandedPedidos(prev => ({
+          ...prev,
+          [key]: {
+            loading: false,
+            pedidos: response.data.pedidos || [],
+            fornecedor: response.data.fornecedor,
+            totais: response.data.totais
+          }
+        }));
+      } catch (err) {
+        console.error('Erro ao carregar pedidos:', err);
+        setRankingExpandedPedidos(prev => ({
+          ...prev,
+          [key]: { loading: false, pedidos: [], fornecedor: null, error: true }
+        }));
+      }
+    }
+  };
+
+  // Função para abrir modal de pedidos ao clicar na linha do produto
+  const openPedidosModalFromRanking = (produto) => {
+    // Pegar o primeiro fornecedor do produto
+    const fornecedor = produto.fornecedores && produto.fornecedores.length > 0
+      ? produto.fornecedores[0]
+      : null;
+
+    if (fornecedor) {
+      loadPedidosProduto(produto.COD_PRODUTO, fornecedor.COD_FORNECEDOR);
+    }
+  };
+
   // Função para carregar nota fiscal de um pedido
   const loadNotaFiscal = async (numPedido, codProduto, codFornecedor) => {
     setNfModal({ open: true, pedido: null, notasFiscais: [], loading: true });
@@ -250,6 +385,7 @@ export default function RupturaIndustria() {
         TOTAL_ITENS_RUPTURA: 0,
         TOTAL_FORNECEDORES_AFETADOS: 0,
         VALOR_NAO_FATURADO: 0,
+        VALOR_EXCESSO: 0,
         TOTAL_PRODUTOS_AFETADOS: 0
       });
     } catch (err) {
@@ -268,7 +404,7 @@ export default function RupturaIndustria() {
       const params = new URLSearchParams();
       if (filters.dataInicio) params.append('dataInicio', filters.dataInicio);
       if (filters.dataFim) params.append('dataFim', filters.dataFim);
-      params.append('limit', '1000'); // Buscar todos os produtos com ruptura
+      params.append('limit', '5000'); // Buscar todos os produtos com ruptura
 
       const response = await api.get(`/ruptura-industria/ranking-produtos-fornecedores?${params.toString()}`);
       setRankingProdutos(response.data.produtos || []);
@@ -410,7 +546,7 @@ export default function RupturaIndustria() {
     <Layout title="Ruptura Industria">
       <div className="p-4 lg:p-6">
         {/* Header com estatisticas */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
           <div className="bg-white rounded-lg shadow p-4 border-l-4 border-red-500">
             <div className="flex items-center justify-between">
               <div>
@@ -448,6 +584,16 @@ export default function RupturaIndustria() {
                 <p className="text-xl font-bold text-purple-600">{formatCurrency(stats.VALOR_NAO_FATURADO)}</p>
               </div>
               <span className="text-3xl">💸</span>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 uppercase">Valor Excesso</p>
+                <p className="text-xl font-bold text-blue-600">{formatCurrency(stats.VALOR_EXCESSO || 0)}</p>
+              </div>
+              <span className="text-3xl">📈</span>
             </div>
           </div>
         </div>
@@ -885,8 +1031,22 @@ export default function RupturaIndustria() {
                                       <tr>
                                         <th className="px-2 py-1.5 text-left font-medium text-gray-600">COD</th>
                                         <th className="px-2 py-1.5 text-left font-medium text-gray-600">PRODUTO</th>
+                                        <th
+                                          className="px-1 py-1.5 text-center font-medium text-gray-600 cursor-pointer hover:opacity-80"
+                                          title="Status do Mix - Verde: Ativo | Vermelho: Fora do Mix - Clique para ordenar"
+                                          onClick={() => handleProdutosSort('FORA_LINHA')}
+                                        >
+                                          MIX {produtosSortConfig.key === 'FORA_LINHA' ? (produtosSortConfig.direction === 'desc' ? '▼' : '▲') : ''}
+                                        </th>
                                         <th className="px-2 py-1.5 text-center font-medium text-gray-600" title="Opções - Clique para ver histórico de compras de outros fornecedores">
                                           OPÇ.
+                                        </th>
+                                        <th
+                                          className="px-2 py-1.5 text-center font-medium text-gray-600 cursor-pointer hover:opacity-80"
+                                          title="Curva ABC do produto - Clique para ordenar"
+                                          onClick={() => handleProdutosSort('CURVA')}
+                                        >
+                                          CURVA {produtosSortConfig.key === 'CURVA' ? (produtosSortConfig.direction === 'desc' ? '▼' : '▲') : ''}
                                         </th>
                                         <th
                                           className={`px-2 py-1.5 text-center font-medium cursor-pointer hover:opacity-80 ${
@@ -956,17 +1116,21 @@ export default function RupturaIndustria() {
                                           'text-blue-600 bg-blue-50'
                                         }`}
                                           title="% Ruptura - Clique para ordenar"
-                                          onClick={() => handleProdutosSort('QTD_CORTADA')}
+                                          onClick={() => handleProdutosSort('PERCENT_RUPTURA')}
                                         >
-                                          % RUPTURA {produtosSortConfig.key === 'QTD_CORTADA' ? (produtosSortConfig.direction === 'desc' ? '▼' : '▲') : ''}
+                                          % RUPTURA {produtosSortConfig.key === 'PERCENT_RUPTURA' ? (produtosSortConfig.direction === 'desc' ? '▼' : '▲') : ''}
                                         </th>
-                                        <th className={`px-2 py-1.5 text-right font-medium ${
+                                        <th
+                                          className={`px-2 py-1.5 text-right font-medium cursor-pointer hover:opacity-80 ${
                                           selectedPeriodo === 'periodo' ? 'text-teal-600 bg-teal-50' :
                                           selectedPeriodo === 'mes' ? 'text-orange-600 bg-orange-50' :
                                           selectedPeriodo === 'semestre' ? 'text-purple-600 bg-purple-50' :
                                           'text-blue-600 bg-blue-50'
-                                        }`} title="Valor da ruptura">
-                                          VALOR
+                                        }`}
+                                          title="Valor da ruptura - Clique para ordenar"
+                                          onClick={() => handleProdutosSort('VALOR')}
+                                        >
+                                          VALOR {produtosSortConfig.key === 'VALOR' ? (produtosSortConfig.direction === 'desc' ? '▼' : '▲') : ''}
                                         </th>
                                       </tr>
                                     </thead>
@@ -1014,6 +1178,18 @@ export default function RupturaIndustria() {
                                             <td className="px-2 py-1.5 max-w-[300px] truncate" title={produto.DES_PRODUTO}>
                                               {produto.DES_PRODUTO || '-'}
                                             </td>
+                                            <td className="px-1 py-1.5 text-center">
+                                              <span
+                                                className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold ${
+                                                  produto.FORA_LINHA === 'S'
+                                                    ? 'bg-red-500 text-white'
+                                                    : 'bg-green-500 text-white'
+                                                }`}
+                                                title={produto.FORA_LINHA === 'S' ? 'Produto FORA do Mix' : 'Produto Ativo no Mix'}
+                                              >
+                                                {produto.FORA_LINHA === 'S' ? '✕' : '✓'}
+                                              </span>
+                                            </td>
                                             <td className="px-2 py-1.5 text-center">
                                               {(produto.QTD_OUTROS_FORNECEDORES || 0) > 0 && (
                                                 <button
@@ -1027,6 +1203,18 @@ export default function RupturaIndustria() {
                                                   +{produto.QTD_OUTROS_FORNECEDORES}
                                                 </button>
                                               )}
+                                            </td>
+                                            <td className="px-2 py-1.5 text-center">
+                                              <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold ${
+                                                produto.CURVA === 'A' ? 'bg-green-500 text-white' :
+                                                produto.CURVA === 'B' ? 'bg-blue-500 text-white' :
+                                                produto.CURVA === 'C' ? 'bg-yellow-500 text-white' :
+                                                produto.CURVA === 'D' ? 'bg-orange-500 text-white' :
+                                                produto.CURVA === 'E' ? 'bg-red-500 text-white' :
+                                                'bg-gray-300 text-gray-600'
+                                              }`}>
+                                                {produto.CURVA || 'X'}
+                                              </span>
                                             </td>
                                             <td className={`px-2 py-1.5 text-center font-medium ${bgColor}`}>
                                               {pedFeitos || 0}
@@ -1048,8 +1236,8 @@ export default function RupturaIndustria() {
                                             <td className={`px-2 py-1.5 text-center font-medium text-red-600 ${bgColor}`}>
                                               {(qtdCortada || 0).toFixed(0)}
                                             </td>
-                                            <td className={`px-2 py-1.5 text-center font-bold ${bgColor} ${percentRuptura > 50 ? 'text-red-600' : percentRuptura > 20 ? 'text-orange-600' : 'text-yellow-600'}`}>
-                                              {percentRuptura.toFixed(1)}%
+                                            <td className={`px-2 py-1.5 text-center font-bold ${bgColor} text-orange-600`}>
+                                              {percentRuptura.toFixed(2)}%
                                             </td>
                                             <td className={`px-2 py-1.5 text-right font-medium text-red-600 ${bgColor}`}>
                                               {formatCurrency(valor)}
@@ -1156,7 +1344,7 @@ export default function RupturaIndustria() {
                                               selectedPeriodo === 'semestre' ? (p.SEMESTRE_QTD_CORTADA || 0) :
                                               (p.ANO_QTD_CORTADA || 0)
                                             ), 0);
-                                            return totalPedida > 0 ? ((totalCortada / totalPedida) * 100).toFixed(1) : 0;
+                                            return totalPedida > 0 ? ((totalCortada / totalPedida) * 100).toFixed(2) : 0;
                                           })()}%
                                         </td>
                                         <td className={`px-2 py-1.5 text-right font-bold text-red-600 ${
@@ -1230,6 +1418,27 @@ export default function RupturaIndustria() {
                       PRODUTO<RankingSortIcon columnKey="DES_PRODUTO" />
                     </th>
                     <th
+                      className="px-2 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleRankingSort('FORA_LINHA')}
+                      title="Status do Mix - Verde: Ativo | Vermelho: Fora do Mix - Clique para ordenar"
+                    >
+                      MIX<RankingSortIcon columnKey="FORA_LINHA" />
+                    </th>
+                    <th
+                      className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleRankingSort('QTD_FORNECEDORES')}
+                      title="Quantidade de Fornecedores"
+                    >
+                      FORN.<RankingSortIcon columnKey="QTD_FORNECEDORES" />
+                    </th>
+                    <th
+                      className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleRankingSort('CURVA')}
+                      title="Curva ABC do produto"
+                    >
+                      CURVA<RankingSortIcon columnKey="CURVA" />
+                    </th>
+                    <th
                       className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
                       onClick={() => handleRankingSort('TOTAL_PEDIDOS')}
                     >
@@ -1251,28 +1460,58 @@ export default function RupturaIndustria() {
                     </th>
                     <th
                       className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleRankingSort('TOTAL_QTD_CORTADA')}
+                      onClick={() => handleRankingSort('TOTAL_QTD_PEDIDA')}
+                      title="Quantidade Total Pedida"
                     >
-                      QTD<RankingSortIcon columnKey="TOTAL_QTD_CORTADA" />
+                      QTD PED.<RankingSortIcon columnKey="TOTAL_QTD_PEDIDA" />
+                    </th>
+                    <th
+                      className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleRankingSort('TOTAL_QTD_ENTREGUE')}
+                      title="Quantidade Total Entregue"
+                    >
+                      QTD ENT.<RankingSortIcon columnKey="TOTAL_QTD_ENTREGUE" />
+                    </th>
+                    <th
+                      className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleRankingSort('TOTAL_QTD_CORTADA')}
+                      title="Quantidade Total Cortada"
+                    >
+                      QTD CORT.<RankingSortIcon columnKey="TOTAL_QTD_CORTADA" />
+                    </th>
+                    <th
+                      className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleRankingSort('QTD_EXCESSO')}
+                      title="Quantidade Excesso = QTD Entregue - QTD Pedida (quando entrega mais)"
+                    >
+                      QTD EXC.<RankingSortIcon columnKey="QTD_EXCESSO" />
                     </th>
                     <th
                       className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
                       onClick={() => handleRankingSort('PERCENTUAL_RUPTURA')}
+                      title="% Ruptura = QTD Cortada / QTD Pedida × 100"
                     >
-                      %<RankingSortIcon columnKey="PERCENTUAL_RUPTURA" />
+                      % RUPT.<RankingSortIcon columnKey="PERCENTUAL_RUPTURA" />
+                    </th>
+                    <th
+                      className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleRankingSort('PERCENTUAL_EXCESSO')}
+                      title="% Excesso = (QTD Entregue - QTD Pedida) / QTD Pedida × 100 (quando entrega mais que o pedido)"
+                    >
+                      % EXC.<RankingSortIcon columnKey="PERCENTUAL_EXCESSO" />
                     </th>
                     <th
                       className="px-3 py-2 text-right font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
                       onClick={() => handleRankingSort('TOTAL_VALOR_CORTADO')}
                     >
-                      VALOR<RankingSortIcon columnKey="TOTAL_VALOR_CORTADO" />
+                      R$ CORT.<RankingSortIcon columnKey="TOTAL_VALOR_CORTADO" />
                     </th>
                     <th
-                      className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleRankingSort('QTD_FORNECEDORES')}
-                      title="Quantidade de Fornecedores"
+                      className="px-3 py-2 text-right font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleRankingSort('TOTAL_VALOR_EXCESSO')}
+                      title="Valor do Excesso (quando entrega mais que o pedido)"
                     >
-                      FORN.<RankingSortIcon columnKey="QTD_FORNECEDORES" />
+                      R$ EXC.<RankingSortIcon columnKey="TOTAL_VALOR_EXCESSO" />
                     </th>
                   </tr>
                 </thead>
@@ -1287,16 +1526,21 @@ export default function RupturaIndustria() {
                       <React.Fragment key={produto.COD_PRODUTO}>
                         <tr
                           className={`hover:bg-gray-50 cursor-pointer ${isExpanded ? 'bg-purple-50' : ''}`}
-                          onClick={() => setExpandedRankingProduto(isExpanded ? null : produto.COD_PRODUTO)}
+                          onClick={() => openPedidosModalFromRanking(produto)}
                         >
-                          {/* Botão expandir */}
+                          {/* Botão expandir - mostra fornecedores */}
                           <td className="px-2 py-2 text-center">
                             <button
+                              onClick={(e) => {
+                                e.stopPropagation(); // Evita abrir modal
+                                toggleRankingExpand(produto);
+                              }}
                               className={`w-6 h-6 flex items-center justify-center rounded border text-xs font-bold transition-colors ${
                                 isExpanded
-                                  ? 'bg-purple-500 text-white border-purple-500'
-                                  : 'bg-white text-gray-500 border-gray-300 hover:border-purple-500 hover:text-purple-500'
+                                  ? 'bg-blue-500 text-white border-blue-500'
+                                  : 'bg-white text-blue-500 border-blue-300 hover:border-blue-500 hover:bg-blue-50'
                               }`}
+                              title="Ver fornecedores"
                             >
                               {isExpanded ? '−' : '+'}
                             </button>
@@ -1316,91 +1560,218 @@ export default function RupturaIndustria() {
                           <td className="px-3 py-2 font-medium truncate max-w-[300px]" title={produto.DES_PRODUTO}>
                             {produto.DES_PRODUTO}
                           </td>
+                          <td className="px-2 py-2 text-center">
+                            <span
+                              className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${
+                                produto.FORA_LINHA === 'S'
+                                  ? 'bg-red-500 text-white'
+                                  : 'bg-green-500 text-white'
+                              }`}
+                              title={produto.FORA_LINHA === 'S' ? 'Produto FORA do Mix' : 'Produto Ativo no Mix'}
+                            >
+                              {produto.FORA_LINHA === 'S' ? '✕' : '✓'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            <span className="inline-flex items-center justify-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
+                              {produto.fornecedores?.length || produto.QTD_FORNECEDORES || 0}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold ${
+                              produto.CURVA === 'A' ? 'bg-green-500 text-white' :
+                              produto.CURVA === 'B' ? 'bg-blue-500 text-white' :
+                              produto.CURVA === 'C' ? 'bg-yellow-500 text-white' :
+                              produto.CURVA === 'D' ? 'bg-orange-500 text-white' :
+                              produto.CURVA === 'E' ? 'bg-red-500 text-white' :
+                              'bg-gray-300 text-gray-600'
+                            }`}>
+                              {produto.CURVA || 'X'}
+                            </span>
+                          </td>
                           <td className="px-3 py-2 text-center">{produto.TOTAL_PEDIDOS || 0}</td>
                           <td className="px-3 py-2 text-center text-red-700 font-medium" title="Corte Total">{produto.CORTE_TOTAL || 0}</td>
                           <td className="px-3 py-2 text-center text-orange-600 font-medium" title="Corte Parcial">{produto.CORTE_PARCIAL || 0}</td>
-                          <td className="px-3 py-2 text-center text-red-600">{Math.round(produto.TOTAL_QTD_CORTADA || 0)}</td>
-                          <td className={`px-3 py-2 text-center font-bold ${
-                            produto.PERCENTUAL_RUPTURA >= 50 ? 'text-red-600' :
-                            produto.PERCENTUAL_RUPTURA >= 25 ? 'text-orange-500' :
-                            'text-green-600'
-                          }`}>
-                            {produto.PERCENTUAL_RUPTURA || 0}%
+                          <td className="px-3 py-2 text-center">{(produto.TOTAL_QTD_PEDIDA || 0).toFixed(3)}</td>
+                          <td className="px-3 py-2 text-center text-green-600">{(produto.TOTAL_QTD_ENTREGUE || 0).toFixed(3)}</td>
+                          <td className="px-3 py-2 text-center text-red-600">{(produto.TOTAL_QTD_CORTADA || 0).toFixed(3)}</td>
+                          <td className="px-3 py-2 text-center text-blue-600">
+                            {(produto.TOTAL_QTD_EXCESSO || 0) > 0 ? (produto.TOTAL_QTD_EXCESSO || 0).toFixed(3) : '-'}
+                          </td>
+                          <td className="px-3 py-2 text-center font-bold text-orange-600">
+                            {((produto.TOTAL_QTD_CORTADA || 0) / (produto.TOTAL_QTD_PEDIDA || 1) * 100).toFixed(2)}%
+                          </td>
+                          <td className="px-3 py-2 text-center font-bold text-blue-600">
+                            {(produto.TOTAL_QTD_EXCESSO || 0) > 0
+                              ? (((produto.TOTAL_QTD_EXCESSO || 0) / (produto.TOTAL_QTD_PEDIDA || 1)) * 100).toFixed(2) + '%'
+                              : '-'}
                           </td>
                           <td className="px-3 py-2 text-right font-medium text-red-600">
                             {formatCurrency(produto.TOTAL_VALOR_CORTADO || 0)}
                           </td>
-                          <td className="px-3 py-2 text-center">
-                            <span className="inline-flex items-center justify-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
-                              {produto.fornecedores?.length || 0}
-                            </span>
+                          <td className="px-3 py-2 text-right font-medium text-blue-600">
+                            {formatCurrency(produto.TOTAL_VALOR_EXCESSO || 0)}
                           </td>
                         </tr>
 
-                        {/* Linha expandida com fornecedores */}
+                        {/* Linha expandida com CASCADE: Fornecedores → Pedidos */}
                         {isExpanded && (
                           <tr>
-                            <td colSpan="11" className="bg-purple-50 p-4 border-t border-b border-purple-200">
+                            <td colSpan="15" className="bg-blue-50 p-4 border-t border-b border-blue-200">
                               <div className="ml-8">
-                                <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                                  Fornecedores com Ruptura - {produto.DES_PRODUTO}
+                                <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                                  Fornecedores - {produto.DES_PRODUTO}
                                 </h4>
+
                                 {produto.fornecedores && produto.fornecedores.length > 0 ? (
-                                  <table className="w-full text-xs border border-gray-200 rounded bg-white">
-                                    <thead className="bg-gray-100">
-                                      <tr>
-                                        <th className="px-3 py-2 text-left font-medium text-gray-600">FORNECEDOR</th>
-                                        <th className="px-3 py-2 text-center font-medium text-gray-600">PEDIDOS</th>
-                                        <th className="px-3 py-2 text-center font-medium text-gray-600" title="Corte Total">CORT.T</th>
-                                        <th className="px-3 py-2 text-center font-medium text-gray-600" title="Corte Parcial">CORT.P</th>
-                                        <th className="px-3 py-2 text-center font-medium text-gray-600">QTD PEDIDA</th>
-                                        <th className="px-3 py-2 text-center font-medium text-gray-600">QTD ENTREGUE</th>
-                                        <th className="px-3 py-2 text-center font-medium text-gray-600">QTD CORTADA</th>
-                                        <th className="px-3 py-2 text-center font-medium text-gray-600">% RUPTURA</th>
-                                        <th className="px-3 py-2 text-center font-medium text-gray-600">AÇÕES</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                      {produto.fornecedores.map((forn, fidx) => (
-                                        <tr key={fidx} className="hover:bg-gray-50">
-                                          <td className="px-3 py-2 font-medium">{forn.DES_FORNECEDOR}</td>
-                                          <td className="px-3 py-2 text-center">{forn.PEDIDOS || 0}</td>
-                                          <td className="px-3 py-2 text-center text-red-700 font-medium">{forn.CORTE_TOTAL || 0}</td>
-                                          <td className="px-3 py-2 text-center text-orange-600 font-medium">{forn.CORTE_PARCIAL || 0}</td>
-                                          <td className="px-3 py-2 text-center">{Math.round(forn.QTD_PEDIDA || 0)}</td>
-                                          <td className="px-3 py-2 text-center text-green-600">{Math.round(forn.QTD_ENTREGUE || 0)}</td>
-                                          <td className="px-3 py-2 text-center text-red-600 font-medium">{Math.round(forn.QTD_CORTADA || 0)}</td>
-                                          <td className={`px-3 py-2 text-center font-bold ${
-                                            forn.PERCENTUAL >= 50 ? 'text-red-600' :
-                                            forn.PERCENTUAL >= 25 ? 'text-orange-500' :
-                                            'text-green-600'
-                                          }`}>
-                                            {forn.PERCENTUAL || 0}%
-                                          </td>
-                                          <td className="px-3 py-2 text-center">
-                                            <div className="flex items-center justify-center gap-1">
+                                  <div className="space-y-1">
+                                    {/* Cabeçalho das colunas */}
+                                    <div className="flex items-center justify-between px-4 py-1 text-xs font-medium text-gray-500 border-b bg-gray-100 rounded-t">
+                                      <div className="flex items-center gap-3 min-w-[350px]">
+                                        <span className="w-5"></span>
+                                        <span className="w-10">CÓD</span>
+                                        <span>FORNECEDOR</span>
+                                      </div>
+                                      <div className="flex items-center gap-3">
+                                        <span className="w-16 text-center">PED.</span>
+                                        <span className="w-20 text-center">QTD PED.</span>
+                                        <span className="w-20 text-center text-green-600">QTD ENT.</span>
+                                        <span className="w-20 text-center text-red-600">QTD CORT.</span>
+                                        <span className="w-20 text-center text-blue-600">QTD EXC.</span>
+                                        <span className="w-16 text-center text-orange-600">% RUPT.</span>
+                                        <span className="w-16 text-center text-blue-600">% EXC.</span>
+                                        <span className="w-20 text-right text-red-600">R$ CORT.</span>
+                                        <span className="w-20 text-right text-blue-600">R$ EXC.</span>
+                                        <span className="w-20 ml-2"></span>
+                                      </div>
+                                    </div>
+                                    {produto.fornecedores.map((forn, fidx) => {
+                                      const fornKey = `${produto.COD_PRODUTO}_${forn.COD_FORNECEDOR}`;
+                                      const isFornExpanded = rankingExpandedFornecedor === fornKey;
+                                      const pedidosData = rankingExpandedPedidos[fornKey];
+
+                                      // Calcular percentuais do fornecedor
+                                      const qtdPedidaForn = forn.QTD_PEDIDA || 0;
+                                      const qtdCortadaForn = forn.QTD_CORTADA || 0;
+                                      const qtdExcessoForn = forn.QTD_EXCESSO || 0;
+                                      const percRupturaForn = qtdPedidaForn > 0 ? (qtdCortadaForn / qtdPedidaForn) * 100 : 0;
+                                      const percExcessoForn = qtdPedidaForn > 0 && qtdExcessoForn > 0 ? (qtdExcessoForn / qtdPedidaForn) * 100 : 0;
+
+                                      return (
+                                        <div key={fidx} className="border rounded bg-white overflow-hidden">
+                                          {/* Linha do fornecedor - clicável */}
+                                          <div
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              toggleRankingFornecedorExpand(produto.COD_PRODUTO, forn);
+                                            }}
+                                            className={`flex items-center justify-between px-4 py-2 cursor-pointer transition-colors ${
+                                              isFornExpanded ? 'bg-blue-100' : 'hover:bg-gray-50'
+                                            }`}
+                                          >
+                                            <div className="flex items-center gap-3 min-w-[350px]">
+                                              <span className={`w-5 h-5 flex items-center justify-center rounded text-xs font-bold ${
+                                                isFornExpanded ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'
+                                              }`}>
+                                                {isFornExpanded ? '−' : '+'}
+                                              </span>
+                                              <span className="font-mono text-xs text-gray-500">{forn.COD_FORNECEDOR}</span>
+                                              <span className="font-medium text-gray-800 truncate max-w-[250px]" title={forn.DES_FORNECEDOR}>{forn.DES_FORNECEDOR}</span>
+                                            </div>
+                                            <div className="flex items-center gap-3 text-xs">
+                                              <span className="text-gray-600 w-16 text-center">Ped: <strong>{forn.TOTAL_PEDIDOS || 0}</strong></span>
+                                              <span className="text-gray-600 w-20 text-center">{qtdPedidaForn.toFixed(3)}</span>
+                                              <span className="text-green-600 w-20 text-center">{(forn.QTD_ENTREGUE || 0).toFixed(3)}</span>
+                                              <span className="text-red-600 w-20 text-center font-medium">{qtdCortadaForn > 0 ? qtdCortadaForn.toFixed(3) : '-'}</span>
+                                              <span className="text-blue-600 w-20 text-center font-medium">{qtdExcessoForn > 0 ? qtdExcessoForn.toFixed(3) : '-'}</span>
+                                              <span className="text-orange-600 w-16 text-center font-bold">{percRupturaForn > 0 ? percRupturaForn.toFixed(2) + '%' : '-'}</span>
+                                              <span className="text-blue-600 w-16 text-center font-bold">{percExcessoForn > 0 ? percExcessoForn.toFixed(2) + '%' : '-'}</span>
+                                              <span className="text-red-600 w-20 text-right font-medium">{formatCurrency(forn.VALOR_CORTADO || 0)}</span>
+                                              <span className="text-blue-600 w-20 text-right font-medium">{formatCurrency(forn.VALOR_EXCESSO || 0)}</span>
                                               <button
-                                                onClick={(e) => { e.stopPropagation(); loadPedidosProduto(produto.COD_PRODUTO, forn.COD_FORNECEDOR); }}
-                                                className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200"
-                                                title="Ver pedidos"
-                                              >
-                                                Pedidos
-                                              </button>
-                                              <button
-                                                onClick={(e) => { e.stopPropagation(); loadHistoricoCompras(produto.COD_PRODUTO, forn.COD_FORNECEDOR); }}
-                                                className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
-                                                title="Ver histórico de compras"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  loadHistoricoCompras(produto.COD_PRODUTO, forn.COD_FORNECEDOR);
+                                                }}
+                                                className="px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 ml-2"
                                               >
                                                 Histórico
                                               </button>
                                             </div>
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
+                                          </div>
+
+                                          {/* Pedidos do fornecedor (expandido) */}
+                                          {isFornExpanded && (
+                                            <div className="border-t bg-gray-50 p-4">
+                                              {pedidosData?.loading ? (
+                                                <div className="flex items-center justify-center py-4">
+                                                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                                                  <span className="ml-2 text-gray-600 text-sm">Carregando pedidos...</span>
+                                                </div>
+                                              ) : pedidosData?.pedidos?.length > 0 ? (
+                                                <table className="w-full text-xs border border-gray-200 rounded bg-white">
+                                                  <thead className="bg-gray-100">
+                                                    <tr>
+                                                      <th className="px-3 py-2 text-center font-medium text-gray-600">PEDIDO</th>
+                                                      <th className="px-3 py-2 text-center font-medium text-gray-600">DATA</th>
+                                                      <th className="px-3 py-2 text-center font-medium text-gray-600">DIAS</th>
+                                                      <th className="px-3 py-2 text-center font-medium text-gray-600">QTD PEDIDA</th>
+                                                      <th className="px-3 py-2 text-center font-medium text-gray-600">QTD ENTREGUE</th>
+                                                      <th className="px-3 py-2 text-center font-medium text-red-600">QTD CORT.</th>
+                                                      <th className="px-3 py-2 text-center font-medium text-blue-600">QTD EXC.</th>
+                                                      <th className="px-3 py-2 text-center font-medium text-gray-600">STATUS</th>
+                                                      <th className="px-3 py-2 text-right font-medium text-red-600">R$ CORT.</th>
+                                                      <th className="px-3 py-2 text-right font-medium text-blue-600">R$ EXC.</th>
+                                                    </tr>
+                                                  </thead>
+                                                  <tbody className="divide-y divide-gray-100">
+                                                    {pedidosData.pedidos.map((pedido, pidx) => (
+                                                      <tr key={pidx} className={`hover:bg-gray-50 ${pedido.STATUS === 'RUPTURA' ? 'bg-red-50' : pedido.STATUS === 'EXCESSO' ? 'bg-blue-50' : ''}`}>
+                                                        <td className="px-3 py-2 text-center font-mono">{pedido.NUM_PEDIDO}</td>
+                                                        <td className="px-3 py-2 text-center">
+                                                          {pedido.DATA ? new Date(pedido.DATA).toLocaleDateString('pt-BR') : '-'}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-center">{pedido.DIAS || 0}</td>
+                                                        <td className="px-3 py-2 text-center">{(pedido.QTD_PEDIDA || 0).toFixed(3)}</td>
+                                                        <td className="px-3 py-2 text-center text-green-600">
+                                                          {(pedido.QTD_ENTREGUE || 0).toFixed(3)}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-center text-red-600 font-medium">
+                                                          {pedido.QTD_CORTADA > 0 ? pedido.QTD_CORTADA.toFixed(3) : '-'}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-center text-blue-600 font-medium">
+                                                          {pedido.QTD_EXTRA > 0 ? pedido.QTD_EXTRA.toFixed(3) : '-'}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-center">
+                                                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                                            pedido.STATUS === 'RUPTURA' ? 'bg-red-100 text-red-700' :
+                                                            pedido.STATUS === 'EXCESSO' ? 'bg-blue-100 text-blue-700' :
+                                                            'bg-green-100 text-green-700'
+                                                          }`}>
+                                                            {pedido.STATUS}
+                                                          </span>
+                                                        </td>
+                                                        <td className="px-3 py-2 text-right text-red-600 font-medium">
+                                                          {pedido.VALOR_CORTADO > 0 ? formatCurrency(pedido.VALOR_CORTADO) : '-'}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-right text-blue-600 font-medium">
+                                                          {pedido.QTD_EXTRA > 0 ? formatCurrency(pedido.VALOR_EXCESSO || 0) : '-'}
+                                                        </td>
+                                                      </tr>
+                                                    ))}
+                                                  </tbody>
+                                                </table>
+                                              ) : (
+                                                <p className="text-gray-500 text-sm py-2">Nenhum pedido encontrado</p>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
                                 ) : (
-                                  <p className="text-gray-500 text-sm">Nenhum fornecedor encontrado</p>
+                                  <p className="text-gray-500 text-sm py-4">Nenhum fornecedor encontrado</p>
                                 )}
                               </div>
                             </td>
@@ -1606,7 +1977,7 @@ export default function RupturaIndustria() {
                         <p className="text-xs text-purple-600">% Ruptura</p>
                         <p className="text-xl font-bold text-purple-700">
                           {pedidosModal.totais.TOTAL_QTD_PEDIDA > 0
-                            ? ((pedidosModal.totais.TOTAL_QTD_CORTADA / pedidosModal.totais.TOTAL_QTD_PEDIDA) * 100).toFixed(1)
+                            ? ((pedidosModal.totais.TOTAL_QTD_CORTADA / pedidosModal.totais.TOTAL_QTD_PEDIDA) * 100).toFixed(2)
                             : 0}%
                         </p>
                       </div>
