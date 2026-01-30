@@ -75,6 +75,13 @@ router.get(
   RuptureSurveyController.getFornecedores
 );
 
+// Evolução mensal para gráfico
+router.get(
+  '/evolucao-mensal',
+  authenticateToken,
+  RuptureSurveyController.getEvolucaoMensal
+);
+
 // Excluir rupturas por código do produto (apenas admin/master)
 router.delete(
   '/by-product/:codigo',

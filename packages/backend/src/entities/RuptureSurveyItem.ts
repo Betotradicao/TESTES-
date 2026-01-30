@@ -61,6 +61,12 @@ export class RuptureSurveyItem {
   @Column({ type: 'varchar', length: 3, nullable: true })
   tem_pedido: string | null;
 
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  status_pedido: string | null; // 'Pendente', 'Parcial', 'Completo'
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  data_entrega: string | null; // Data prevista de entrega
+
   @Column({
     type: 'enum',
     enum: ['pendente', 'encontrado', 'nao_encontrado', 'ruptura_estoque'],

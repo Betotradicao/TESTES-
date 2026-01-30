@@ -6,8 +6,167 @@ import * as path from 'path';
 import Papa from 'papaparse';
 import PDFDocument from 'pdfkit';
 import { WhatsAppService } from './whatsapp.service';
+import { OracleService } from './oracle.service';
+
+// Interface para dados de pedido do Oracle
+interface PedidoInfo {
+  status_pedido: string | null; // 'Pendente', 'Parcial', 'Completo'
+  data_entrega: string | null;  // Data formatada dd/mm/yyyy
+  dias_atraso: number | null;   // Dias em atraso (se > 0, está atrasado)
+}
 
 export class RuptureSurveyService {
+  /**
+   * Busca informações de pedido do Oracle para um produto
+   * @param codigoProduto Código do produto no ERP
+   * @returns Informações do pedido (status e data de entrega)
+   */
+  static async getPedidoInfoFromOracle(codigoProduto: string): Promise<PedidoInfo | null> {
+    try {
+      const result = await OracleService.query<any>(`
+        SELECT
+          p.NUM_PEDIDO,
+          p.DTA_ENTREGA,
+          p.TIPO_RECEBIMENTO,
+          p.TIPO_PED_FINALIZADO,
+          p.FLG_CANCELADO
+        FROM INTERSOLID.TAB_PEDIDO_PRODUTO pp
+        JOIN INTERSOLID.TAB_PEDIDO p ON p.NUM_PEDIDO = pp.NUM_PEDIDO
+        WHERE pp.COD_PRODUTO = :codigoProduto
+        AND p.TIPO_PARCEIRO = 1
+        AND (p.FLG_CANCELADO IS NULL OR p.FLG_CANCELADO = 'N')
+        AND p.TIPO_PED_FINALIZADO != 2
+        ORDER BY p.DTA_EMISSAO DESC
+      `, { codigoProduto });
+
+      if (result.length === 0) {
+        return null;
+      }
+
+      // Pega o pedido mais recente
+      const pedido = result[0];
+
+      // Determina status do pedido
+      let status_pedido: string | null = null;
+      if (pedido.TIPO_PED_FINALIZADO === 1) {
+        status_pedido = 'Completo';
+      } else if (pedido.TIPO_RECEBIMENTO === 1) {
+        status_pedido = 'Parcial';
+      } else if (pedido.TIPO_RECEBIMENTO === 0 || pedido.TIPO_PED_FINALIZADO === -1) {
+        status_pedido = 'Pendente';
+      }
+
+      // Formata data de entrega e calcula atraso
+      let data_entrega: string | null = null;
+      let dias_atraso: number | null = null;
+      if (pedido.DTA_ENTREGA) {
+        const dtEntrega = new Date(pedido.DTA_ENTREGA);
+        data_entrega = dtEntrega.toLocaleDateString('pt-BR');
+
+        // Calcula dias em atraso (só se o pedido não estiver completo)
+        if (status_pedido !== 'Completo') {
+          const hoje = new Date();
+          hoje.setHours(0, 0, 0, 0);
+          dtEntrega.setHours(0, 0, 0, 0);
+          const diffTime = hoje.getTime() - dtEntrega.getTime();
+          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+          dias_atraso = diffDays > 0 ? diffDays : null;
+        }
+      }
+
+      return { status_pedido, data_entrega, dias_atraso };
+    } catch (error: any) {
+      console.error(`⚠️ Erro ao buscar pedido do Oracle para produto ${codigoProduto}:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Busca informações de pedido do Oracle para múltiplos produtos de uma vez
+   * @param codigosProdutos Array de códigos de produtos
+   * @returns Map com código do produto -> PedidoInfo
+   */
+  static async getPedidosInfoFromOracle(codigosProdutos: string[]): Promise<Map<string, PedidoInfo>> {
+    const pedidosMap = new Map<string, PedidoInfo>();
+
+    if (codigosProdutos.length === 0) return pedidosMap;
+
+    try {
+      // Busca todos os pedidos pendentes/parciais para os produtos
+      const placeholders = codigosProdutos.map((_, i) => `:p${i}`).join(',');
+      const params: any = {};
+      codigosProdutos.forEach((cod, i) => {
+        params[`p${i}`] = cod;
+      });
+
+      // Busca APENAS pedidos EM ABERTO (não finalizados, não cancelados)
+      // TIPO_PED_FINALIZADO = -1 significa "Em Aberto"
+      // TIPO_RECEBIMENTO < 2 significa "Pendente (0) ou Parcial (1)", não "Recebido (2)"
+      const result = await OracleService.query<any>(`
+        SELECT
+          pp.COD_PRODUTO,
+          p.NUM_PEDIDO,
+          p.DTA_ENTREGA,
+          p.TIPO_RECEBIMENTO,
+          p.TIPO_PED_FINALIZADO
+        FROM INTERSOLID.TAB_PEDIDO_PRODUTO pp
+        JOIN INTERSOLID.TAB_PEDIDO p ON p.NUM_PEDIDO = pp.NUM_PEDIDO
+        WHERE pp.COD_PRODUTO IN (${placeholders})
+        AND p.TIPO_PARCEIRO = 1
+        AND (p.FLG_CANCELADO IS NULL OR p.FLG_CANCELADO = 'N')
+        AND p.TIPO_PED_FINALIZADO = -1
+        AND p.TIPO_RECEBIMENTO < 2
+        ORDER BY pp.COD_PRODUTO, p.DTA_EMISSAO DESC
+      `, params);
+
+      // Agrupa por produto (pega o mais recente de cada)
+      const pedidosPorProduto = new Map<string, any>();
+      for (const row of result) {
+        const cod = String(row.COD_PRODUTO);
+        if (!pedidosPorProduto.has(cod)) {
+          pedidosPorProduto.set(cod, row);
+        }
+      }
+
+      // Converte para o formato esperado
+      for (const [cod, pedido] of pedidosPorProduto) {
+        let status_pedido: string | null = null;
+        if (pedido.TIPO_PED_FINALIZADO === 1) {
+          status_pedido = 'Completo';
+        } else if (pedido.TIPO_RECEBIMENTO === 1) {
+          status_pedido = 'Parcial';
+        } else if (pedido.TIPO_RECEBIMENTO === 0 || pedido.TIPO_PED_FINALIZADO === -1) {
+          status_pedido = 'Pendente';
+        }
+
+        let data_entrega: string | null = null;
+        let dias_atraso: number | null = null;
+        if (pedido.DTA_ENTREGA) {
+          const dtEntrega = new Date(pedido.DTA_ENTREGA);
+          data_entrega = dtEntrega.toLocaleDateString('pt-BR');
+
+          // Calcula dias em atraso (só se o pedido não estiver completo)
+          if (status_pedido !== 'Completo') {
+            const hoje = new Date();
+            hoje.setHours(0, 0, 0, 0);
+            dtEntrega.setHours(0, 0, 0, 0);
+            const diffTime = hoje.getTime() - dtEntrega.getTime();
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            dias_atraso = diffDays > 0 ? diffDays : null;
+          }
+        }
+
+        pedidosMap.set(cod, { status_pedido, data_entrega, dias_atraso });
+      }
+
+      console.log(`📦 Buscados dados de pedido para ${pedidosMap.size} produtos do Oracle`);
+    } catch (error: any) {
+      console.error('⚠️ Erro ao buscar pedidos do Oracle em lote:', error.message);
+    }
+
+    return pedidosMap;
+  }
+
   /**
    * Processa arquivo CSV/Excel e cria pesquisa de ruptura
    */
@@ -164,6 +323,8 @@ export class RuptureSurveyService {
           custo_com_imposto: parseNumber(row['Custo c/Imp']),
           venda_media_dia: parseNumber(row['Venda Média'] || row['Venda M�dia']),
           tem_pedido: pedidoValue,
+          status_pedido: row['Status Pedido'] || row['STATUS_PEDIDO'] || null,
+          data_entrega: row['Data Entrega'] || row['DTA_ENTREGA'] || row['Dt. Entrega'] || null,
           status_verificacao: 'pendente',
         });
 
@@ -229,6 +390,8 @@ export class RuptureSurveyService {
           custo_com_imposto: item.custo_com_imposto || null,
           venda_media_dia: item.venda_media_dia || null,
           tem_pedido: item.tem_pedido || null,
+          status_pedido: item.status_pedido || null,
+          data_entrega: item.data_entrega || null,
           status_verificacao: 'pendente',
         });
 
@@ -563,6 +726,8 @@ export class RuptureSurveyService {
           venda_media_dia: item.venda_media_dia || 0,
           margem_lucro: item.margem_lucro || 0,
           tem_pedido: item.tem_pedido || null,
+          status_pedido: item.status_pedido || null, // Status do pedido (Pendente/Parcial)
+          data_entrega: item.data_entrega || null, // Data prevista de entrega
           status_verificacao: item.status_verificacao, // Adicionar status para filtro
           ocorrencias: 0,
           ocorrencias_nao_encontrado: 0,
@@ -595,8 +760,48 @@ export class RuptureSurveyService {
       }
     });
 
-    const produtosRanking = Object.values(rupturasPorProduto)
+    let produtosRanking = Object.values(rupturasPorProduto)
       .sort((a, b) => b.perda_total - a.perda_total);
+
+    // Enriquecer com dados de pedido do Oracle para TODOS os produtos (busca em tempo real)
+    try {
+      // Buscar códigos de TODOS os produtos com código válido
+      const codigosProdutos = produtosRanking
+        .map((p: any) => p.codigo)
+        .filter((cod: string | null) => cod !== null && cod !== '') as string[];
+
+      if (codigosProdutos.length > 0) {
+        console.log(`🔍 Buscando pedidos no Oracle para ${codigosProdutos.length} produtos...`);
+        const pedidosInfo = await this.getPedidosInfoFromOracle(codigosProdutos);
+
+        // Atualiza os produtos com as informações do Oracle (tempo real)
+        // IMPORTANTE: Ignora completamente o tem_pedido da auditoria - usa APENAS dados atuais do Oracle
+        produtosRanking = produtosRanking.map((produto: any) => {
+          if (produto.codigo && pedidosInfo.has(produto.codigo)) {
+            const info = pedidosInfo.get(produto.codigo);
+            return {
+              ...produto,
+              tem_pedido: 'Sim', // Tem pedido ativo no Oracle AGORA
+              status_pedido: info?.status_pedido || null,
+              data_entrega: info?.data_entrega || null,
+              dias_atraso: info?.dias_atraso || null
+            };
+          }
+          // Produto não tem pedido ativo no Oracle atualmente
+          return {
+            ...produto,
+            tem_pedido: 'Não', // NÃO tem pedido no Oracle AGORA (independente do que foi registrado na auditoria)
+            status_pedido: null,
+            data_entrega: null,
+            dias_atraso: null
+          };
+        });
+
+        console.log(`✅ Enriquecidos ${pedidosInfo.size} produtos com dados de pedido do Oracle`);
+      }
+    } catch (oracleError: any) {
+      console.error('⚠️ Erro ao enriquecer com dados do Oracle (continuando sem):', oracleError.message);
+    }
 
     // Agrupar rupturas por fornecedor
     const rupturasPorFornecedor: { [key: string]: { count: number; perda: number } } = {};
@@ -1042,5 +1247,95 @@ export class RuptureSurveyService {
       itens_encontrados,
       itens_nao_encontrados
     });
+  }
+
+  /**
+   * Busca evolução mensal de rupturas para o gráfico
+   * @param ano Ano para buscar os dados
+   */
+  static async getEvolucaoMensal(ano: number): Promise<{
+    mes: number;
+    mesNome: string;
+    totalVerificados: number;
+    totalRupturas: number;
+    taxaRuptura: number;
+    perdaVenda: number;
+    perdaLucro: number;
+  }[]> {
+    const surveyRepository = AppDataSource.getRepository(RuptureSurvey);
+    const itemRepository = AppDataSource.getRepository(RuptureSurveyItem);
+
+    const mesesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const resultado = [];
+
+    for (let mes = 1; mes <= 12; mes++) {
+      // Calcular primeiro e último dia do mês
+      const primeiroDia = new Date(ano, mes - 1, 1);
+      const ultimoDia = new Date(ano, mes, 0);
+
+      // Buscar surveys do mês
+      const surveys = await surveyRepository
+        .createQueryBuilder('survey')
+        .where('survey.data_criacao >= :inicio', { inicio: primeiroDia.toISOString().split('T')[0] })
+        .andWhere('survey.data_criacao <= :fim', { fim: ultimoDia.toISOString().split('T')[0] + ' 23:59:59' })
+        .getMany();
+
+      if (surveys.length === 0) {
+        resultado.push({
+          mes,
+          mesNome: mesesNomes[mes - 1],
+          totalVerificados: 0,
+          totalRupturas: 0,
+          taxaRuptura: 0,
+          perdaVenda: 0,
+          perdaLucro: 0
+        });
+        continue;
+      }
+
+      const surveyIds = surveys.map(s => s.id);
+
+      // Buscar todos os itens das surveys do mês
+      const items = await itemRepository
+        .createQueryBuilder('item')
+        .where('item.survey_id IN (:...surveyIds)', { surveyIds })
+        .getMany();
+
+      // Calcular estatísticas
+      const verificados = items.filter(i => i.status_verificacao !== 'pendente');
+      const rupturas = items.filter(i =>
+        i.status_verificacao === 'nao_encontrado' || i.status_verificacao === 'ruptura_estoque'
+      );
+
+      const totalVerificados = verificados.length;
+      const totalRupturas = rupturas.length;
+      const taxaRuptura = totalVerificados > 0 ? (totalRupturas / totalVerificados) * 100 : 0;
+
+      // Calcular perdas
+      const perdaVenda = rupturas.reduce((total, item) => {
+        const vendaMedia = Number(item.venda_media_dia) || 0;
+        const valorVenda = Number(item.valor_venda) || 0;
+        return total + (vendaMedia * valorVenda);
+      }, 0);
+
+      const perdaLucro = rupturas.reduce((total, item) => {
+        const vendaMedia = Number(item.venda_media_dia) || 0;
+        const valorVenda = Number(item.valor_venda) || 0;
+        const margem = Number(item.margem_lucro) || 0;
+        return total + (vendaMedia * valorVenda * (margem / 100));
+      }, 0);
+
+      resultado.push({
+        mes,
+        mesNome: mesesNomes[mes - 1],
+        totalVerificados,
+        totalRupturas,
+        taxaRuptura,
+        perdaVenda,
+        perdaLucro
+      });
+    }
+
+    return resultado;
   }
 }

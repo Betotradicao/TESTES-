@@ -302,4 +302,25 @@ export class RuptureSurveyController {
       });
     }
   }
+
+  /**
+   * Buscar evolução mensal de rupturas para gráfico
+   */
+  static async getEvolucaoMensal(req: AuthRequest, res: Response) {
+    try {
+      const { ano } = req.query;
+      const anoNumero = ano ? parseInt(ano as string) : new Date().getFullYear();
+
+      console.log(`📊 Buscando evolução mensal para o ano ${anoNumero}`);
+
+      const evolucao = await RuptureSurveyService.getEvolucaoMensal(anoNumero);
+
+      console.log(`✅ Evolução mensal calculada: ${evolucao.filter(e => e.totalVerificados > 0).length} meses com dados`);
+
+      res.json(evolucao);
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar evolução mensal:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
 }
