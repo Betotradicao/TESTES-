@@ -56,13 +56,21 @@ export default function EtiquetaResultadosAuditorias() {
     }
   };
 
-  // Função para formatar seção (código + nome ou só nome)
+  // Função para formatar seção (mostrar apenas o nome, sem número)
   const formatSecao = (secao) => {
     if (!secao) return 'Sem seção';
+
     // Se for um número, busca o nome no mapeamento
     if (!isNaN(secao) && secoesMap[secao]) {
-      return `${secao} - ${secoesMap[secao]}`;
+      return secoesMap[secao]; // Retorna apenas o nome
     }
+
+    // Se já estiver no formato "8 - HORT FRUTI", extrai apenas o nome
+    const match = String(secao).match(/^\d+\s*-\s*(.+)$/);
+    if (match) {
+      return match[1].trim(); // Retorna apenas a parte após o número
+    }
+
     // Se já for o nome completo ou não encontrar mapeamento
     return secao;
   };
