@@ -51,6 +51,11 @@ export class BipWebhookService {
     console.log(`🔍 [ORACLE] Buscando produto PLU ${plu} diretamente do Oracle...`);
 
     try {
+      // Converter PLU para número (remove zeros à esquerda)
+      // Ex: "04688" -> 4688 (Oracle armazena COD_PRODUTO como NUMBER)
+      const codProdutoNum = parseInt(plu, 10);
+      console.log(`🔢 [ORACLE] PLU convertido: "${plu}" -> ${codProdutoNum}`);
+
       // Query para buscar produto pelo código (PLU)
       // COD_LOJA = 1 como padrão (pode ser configurável no futuro)
       const sql = `
@@ -66,7 +71,7 @@ export class BipWebhookService {
         AND ROWNUM = 1
       `;
 
-      const rows = await OracleService.query(sql, { codProduto: plu });
+      const rows = await OracleService.query(sql, { codProduto: codProdutoNum });
 
       if (rows.length === 0) {
         console.log(`⚠️ [ORACLE] Produto PLU ${plu} não encontrado`);
