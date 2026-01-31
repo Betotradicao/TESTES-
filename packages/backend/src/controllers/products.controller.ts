@@ -88,8 +88,7 @@ export class ProductsController {
           `;
 
           return await OracleService.query(sql, { codLoja: loja });
-        },
-        5 * 60 * 1000 // 5 minutos de cache
+        }
       );
 
       // Buscar produtos ativos do banco local para enriquecer
@@ -223,17 +222,17 @@ export class ProductsController {
         product = productRepository.create({
           erp_product_id: String(erpProduct.COD_PRODUTO),
           description: erpProduct.DES_PRODUTO,
-          short_description: erpProduct.DES_REDUZIDA,
-          ean: erpProduct.EAN,
+          short_description: erpProduct.DES_REDUZIDA || null,
+          ean: erpProduct.EAN || null,
           weighable: erpProduct.PESAVEL === 'S',
-          section_code: erpProduct.COD_SECAO ? String(erpProduct.COD_SECAO) : undefined,
-          section_name: erpProduct.DES_SECAO,
-          group_code: erpProduct.COD_GRUPO ? String(erpProduct.COD_GRUPO) : undefined,
-          group_name: erpProduct.DES_GRUPO,
-          subgroup_code: erpProduct.COD_SUB_GRUPO ? String(erpProduct.COD_SUB_GRUPO) : undefined,
-          subgroup_name: erpProduct.DES_SUB_GRUPO,
-          supplier_code: erpProduct.COD_FORN ? String(erpProduct.COD_FORN) : undefined,
-          supplier_name: erpProduct.RAZAO_FORN,
+          section_code: erpProduct.COD_SECAO ? Number(erpProduct.COD_SECAO) : null,
+          section_name: erpProduct.DES_SECAO || null,
+          group_code: erpProduct.COD_GRUPO ? Number(erpProduct.COD_GRUPO) : null,
+          group_name: erpProduct.DES_GRUPO || null,
+          subgroup_code: erpProduct.COD_SUB_GRUPO ? Number(erpProduct.COD_SUB_GRUPO) : null,
+          subgroup_name: erpProduct.DES_SUB_GRUPO || null,
+          supplier_code: erpProduct.COD_FORN ? Number(erpProduct.COD_FORN) : null,
+          supplier_name: erpProduct.RAZAO_FORN || null,
           active
         });
 
@@ -333,17 +332,17 @@ export class ProductsController {
         product = productRepository.create({
           erp_product_id: String(erpProduct.COD_PRODUTO),
           description: erpProduct.DES_PRODUTO,
-          short_description: erpProduct.DES_REDUZIDA,
-          ean: erpProduct.EAN,
+          short_description: erpProduct.DES_REDUZIDA || null,
+          ean: erpProduct.EAN || null,
           weighable: erpProduct.PESAVEL === 'S',
-          section_code: erpProduct.COD_SECAO ? String(erpProduct.COD_SECAO) : undefined,
-          section_name: erpProduct.DES_SECAO,
-          group_code: erpProduct.COD_GRUPO ? String(erpProduct.COD_GRUPO) : undefined,
-          group_name: erpProduct.DES_GRUPO,
-          subgroup_code: erpProduct.COD_SUB_GRUPO ? String(erpProduct.COD_SUB_GRUPO) : undefined,
-          subgroup_name: erpProduct.DES_SUB_GRUPO,
-          supplier_code: erpProduct.COD_FORN ? String(erpProduct.COD_FORN) : undefined,
-          supplier_name: erpProduct.RAZAO_FORN,
+          section_code: erpProduct.COD_SECAO ? Number(erpProduct.COD_SECAO) : null,
+          section_name: erpProduct.DES_SECAO || null,
+          group_code: erpProduct.COD_GRUPO ? Number(erpProduct.COD_GRUPO) : null,
+          group_name: erpProduct.DES_GRUPO || null,
+          subgroup_code: erpProduct.COD_SUB_GRUPO ? Number(erpProduct.COD_SUB_GRUPO) : null,
+          subgroup_name: erpProduct.DES_SUB_GRUPO || null,
+          supplier_code: erpProduct.COD_FORN ? Number(erpProduct.COD_FORN) : null,
+          supplier_name: erpProduct.RAZAO_FORN || null,
           active: false,
           peso_medio_kg
         });
@@ -513,17 +512,17 @@ export class ProductsController {
               product = productRepository.create({
                 erp_product_id: String(erpProduct.COD_PRODUTO),
                 description: erpProduct.DES_PRODUTO,
-                short_description: erpProduct.DES_REDUZIDA,
-                ean: erpProduct.EAN,
+                short_description: erpProduct.DES_REDUZIDA || null,
+                ean: erpProduct.EAN || null,
                 weighable: erpProduct.PESAVEL === 'S',
-                section_code: erpProduct.COD_SECAO ? String(erpProduct.COD_SECAO) : undefined,
-                section_name: erpProduct.DES_SECAO,
-                group_code: erpProduct.COD_GRUPO ? String(erpProduct.COD_GRUPO) : undefined,
-                group_name: erpProduct.DES_GRUPO,
-                subgroup_code: erpProduct.COD_SUB_GRUPO ? String(erpProduct.COD_SUB_GRUPO) : undefined,
-                subgroup_name: erpProduct.DES_SUB_GRUPO,
-                supplier_code: erpProduct.COD_FORN ? String(erpProduct.COD_FORN) : undefined,
-                supplier_name: erpProduct.RAZAO_FORN,
+                section_code: erpProduct.COD_SECAO ? Number(erpProduct.COD_SECAO) : null,
+                section_name: erpProduct.DES_SECAO || null,
+                group_code: erpProduct.COD_GRUPO ? Number(erpProduct.COD_GRUPO) : null,
+                group_name: erpProduct.DES_GRUPO || null,
+                subgroup_code: erpProduct.COD_SUB_GRUPO ? Number(erpProduct.COD_SUB_GRUPO) : null,
+                subgroup_name: erpProduct.DES_SUB_GRUPO || null,
+                supplier_code: erpProduct.COD_FORN ? Number(erpProduct.COD_FORN) : null,
+                supplier_name: erpProduct.RAZAO_FORN || null,
                 active
               });
             } else {
