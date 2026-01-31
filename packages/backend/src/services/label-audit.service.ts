@@ -697,13 +697,36 @@ export class LabelAuditService {
     const itensDivergentesAgrupados = Object.values(divergentesPorProduto)
       .sort((a: any, b: any) => b.ocorrencias - a.ocorrencias);
 
-    // Ranking de seções com mais divergências
+    // Criar mapa de audit_id -> data_referencia para usar no dia da semana
+    const auditDateMap: { [key: number]: Date } = {};
+    audits.forEach(audit => {
+      auditDateMap[audit.id] = new Date(audit.data_referencia);
+    });
+
+    // Ranking de seções com mais divergências e valores por seção
     const divergentesPorSecao: { [key: string]: number } = {};
     const valoresPorSecao: { [key: string]: number } = {};
+
+    // Agrupar por dia da semana (usando data_referencia da auditoria)
+    const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const divergentesPorDiaSemana: { [key: number]: number } = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+
     itensDivergentes.forEach(item => {
       const secao = item.secao || 'Sem seção';
+      const valorVenda = parseFloat(String(item.valor_venda)) || 0;
+
+      // Contagem por seção
       divergentesPorSecao[secao] = (divergentesPorSecao[secao] || 0) + 1;
-      valoresPorSecao[secao] = (valoresPorSecao[secao] || 0) + (Number(item.valor_venda) || 0);
+
+      // Valores por seção
+      valoresPorSecao[secao] = (valoresPorSecao[secao] || 0) + valorVenda;
+
+      // Dia da semana (usa data da auditoria)
+      const auditDate = auditDateMap[item.audit_id];
+      if (auditDate) {
+        const diaSemana = auditDate.getDay(); // 0 = Domingo, 6 = Sábado
+        divergentesPorDiaSemana[diaSemana]++;
+      }
     });
 
     const secoesRanking = Object.entries(divergentesPorSecao)
@@ -715,18 +738,6 @@ export class LabelAuditService {
       .map(([secao, valor]) => ({ secao, valor: parseFloat(valor.toFixed(2)) }))
       .sort((a, b) => b.valor - a.valor);
 
-    // Agrupar por dia da semana (usando data_verificacao dos itens)
-    const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-    const divergentesPorDiaSemana: { [key: number]: number } = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
-
-    itensDivergentes.forEach(item => {
-      if (item.data_verificacao) {
-        const data = new Date(item.data_verificacao);
-        const diaSemana = data.getDay(); // 0 = Domingo, 6 = Sábado
-        divergentesPorDiaSemana[diaSemana]++;
-      }
-    });
-
     const divergentesPorDia = diasSemana.map((nome, index) => ({
       dia: nome,
       quantidade: divergentesPorDiaSemana[index]
@@ -737,7 +748,7 @@ export class LabelAuditService {
 
     // Calcular valor total dos itens divergentes (produtos com preço incorreto)
     const valorTotalDivergentes = itensDivergentes.reduce((acc, item) => {
-      return acc + (Number(item.valor_venda) || 0);
+      return acc + (parseFloat(String(item.valor_venda)) || 0);
     }, 0);
 
     return {
