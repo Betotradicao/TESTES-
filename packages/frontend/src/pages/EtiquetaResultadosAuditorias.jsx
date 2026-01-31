@@ -127,6 +127,8 @@ export default function EtiquetaResultadosAuditorias() {
   const todosItensEtiqueta = resultados?.itens_ruptura || [];
   const fornecedoresRanking = resultados?.fornecedores_ranking || [];
   const secoesRanking = resultados?.secoes_ranking || [];
+  const valoresSecoesRanking = resultados?.valores_secoes_ranking || [];
+  const divergentesPorDia = resultados?.divergentes_por_dia || [];
 
   // Aplicar filtros na tabela de produtos
   let itensEtiqueta = todosItensEtiqueta;
@@ -370,124 +372,10 @@ export default function EtiquetaResultadosAuditorias() {
               </div>
             </div>
 
-            {/* Produtos Sem Etiqueta e Setores - Layout em 2 Colunas */}
+            {/* 3 Cards lado a lado: Setores, Dias da Semana, Valores por Setor */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
 
-              {/* Coluna da Tabela (2/3 da largura) */}
-              <div className="md:col-span-2">
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold text-gray-800">
-                      📦 Produtos Sem Etiqueta ({itensEtiqueta.length})
-                    </h2>
-                  {itensEtiqueta.length > 0 && (
-                    <button
-                      onClick={gerarPDF}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 text-sm font-medium"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                      </svg>
-                      Gerar PDF
-                    </button>
-                  )}
-                </div>
-
-                {/* Filtros de Tipo de Etiqueta */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <button
-                    onClick={() => {
-                      setFiltroTipoEtiqueta('todos');
-                      setFiltroFornecedorTabela('todos');
-                      setFiltroSetorTabela('todos');
-                    }}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      filtroTipoEtiqueta === 'todos' && filtroFornecedorTabela === 'todos' && filtroSetorTabela === 'todos'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    Todos ({countTodos})
-                  </button>
-
-                  {/* Indicador de filtro ativo por fornecedor ou setor */}
-                  {filtroFornecedorTabela !== 'todos' && (
-                    <div className="flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-800 rounded-lg">
-                      <span className="font-medium">Fornecedor: {filtroFornecedorTabela}</span>
-                      <button
-                        onClick={() => setFiltroFornecedorTabela('todos')}
-                        className="ml-2 text-purple-600 hover:text-purple-900"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
-
-                  {filtroSetorTabela !== 'todos' && (
-                    <div className="flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-800 rounded-lg">
-                      <span className="font-medium">Setor: {filtroSetorTabela}</span>
-                      <button
-                        onClick={() => setFiltroSetorTabela('todos')}
-                        className="ml-2 text-orange-600 hover:text-orange-900"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {itensEtiqueta.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">
-                    🎉 Nenhuma ruptura encontrada no período!
-                  </p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-gray-50 border-b">
-                        <tr>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Código de Barras</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Produto</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Seção</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Valor Venda</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Margem %</th>
-                          <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Ocorrências</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {itensEtiqueta.map((item, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 text-gray-600">{idx + 1}</td>
-                            <td className="px-3 py-2 text-gray-600">{item.codigo_barras || '-'}</td>
-                            <td className="px-3 py-2">
-                              <p className="font-medium text-gray-800 max-w-xs truncate" title={item.descricao}>
-                                {item.descricao}
-                              </p>
-                            </td>
-                            <td className="px-3 py-2 text-gray-600 max-w-xs truncate" title={formatSecao(item.secao)}>
-                              {formatSecao(item.secao)}
-                            </td>
-                            <td className="px-3 py-2 text-right text-gray-700">
-                              R$ {Number(item.valor_venda || 0).toFixed(2)}
-                            </td>
-                            <td className="px-3 py-2 text-right text-gray-700">
-                              {item.margem_lucro || '-'}
-                            </td>
-                            <td className="px-3 py-2 text-center">
-                              <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold">
-                                {item.ocorrencias}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-              </div>
-
-              {/* Coluna de Setores (1/3 da largura) */}
+              {/* Card 1: Setores */}
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-bold text-gray-800 mb-4">
                   🏬 Setores
@@ -498,8 +386,8 @@ export default function EtiquetaResultadosAuditorias() {
                     Nenhum produto sem etiqueta
                   </p>
                 ) : (
-                  <div className="space-y-4 max-h-96 overflow-y-auto">
-                    {secoesRanking.slice(0, 15).map((sec, idx) => {
+                  <div className="space-y-4 max-h-80 overflow-y-auto">
+                    {secoesRanking.slice(0, 10).map((sec, idx) => {
                       const maxEtiquetas = Math.max(...secoesRanking.map(s => s.rupturas));
                       const percentage = (sec.rupturas / maxEtiquetas) * 100;
 
@@ -519,7 +407,7 @@ export default function EtiquetaResultadosAuditorias() {
                                 {formatSecao(sec.secao)}
                               </p>
                               <p className="text-xs text-gray-500">
-                                {sec.rupturas} {sec.rupturas === 1 ? 'Produto Sem Etiqueta' : 'Produtos Sem Etiquetas'}
+                                {sec.rupturas} {sec.rupturas === 1 ? 'Produto' : 'Produtos'}
                               </p>
                             </div>
                           </div>
@@ -535,6 +423,202 @@ export default function EtiquetaResultadosAuditorias() {
                   </div>
                 )}
               </div>
+
+              {/* Card 2: Gráfico de Barras - Dias da Semana */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">
+                  📅 Divergências por Dia
+                </h2>
+
+                {divergentesPorDia.length === 0 || divergentesPorDia.every(d => d.quantidade === 0) ? (
+                  <p className="text-gray-500 text-center py-8">
+                    Sem dados de dias da semana
+                  </p>
+                ) : (
+                  <div className="flex items-end justify-between h-64 px-2">
+                    {divergentesPorDia.map((dia, idx) => {
+                      const maxQtd = Math.max(...divergentesPorDia.map(d => d.quantidade));
+                      const heightPercent = maxQtd > 0 ? (dia.quantidade / maxQtd) * 100 : 0;
+
+                      return (
+                        <div key={idx} className="flex flex-col items-center flex-1 mx-1">
+                          <span className="text-xs font-bold text-gray-700 mb-1">
+                            {dia.quantidade}
+                          </span>
+                          <div
+                            className="w-full bg-blue-500 rounded-t-lg transition-all hover:bg-blue-600"
+                            style={{ height: `${Math.max(heightPercent, 5)}%`, minHeight: '8px' }}
+                          />
+                          <span className="text-xs text-gray-600 mt-2 font-medium">
+                            {dia.dia}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Card 3: Valores por Setor */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">
+                  💰 Valores por Setor
+                </h2>
+
+                {valoresSecoesRanking.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">
+                    Nenhum valor registrado
+                  </p>
+                ) : (
+                  <div className="space-y-4 max-h-80 overflow-y-auto">
+                    {valoresSecoesRanking.slice(0, 10).map((sec, idx) => {
+                      const maxValor = Math.max(...valoresSecoesRanking.map(s => s.valor));
+                      const percentage = maxValor > 0 ? (sec.valor / maxValor) * 100 : 0;
+
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setFiltroSetorTabela(sec.secao);
+                            setFiltroTipoEtiqueta('todos');
+                            setFiltroFornecedorTabela('todos');
+                          }}
+                          className="cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex-1">
+                              <p className="font-semibold text-gray-800 text-sm truncate" title={formatSecao(sec.secao)}>
+                                {formatSecao(sec.secao)}
+                              </p>
+                              <p className="text-xs text-green-600 font-bold">
+                                R$ {Number(sec.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-green-500 h-2 rounded-full transition-all"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Tabela de Produtos (embaixo dos cards) */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-800">
+                  📦 Produtos Sem Etiqueta ({itensEtiqueta.length})
+                </h2>
+                {itensEtiqueta.length > 0 && (
+                  <button
+                    onClick={gerarPDF}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 text-sm font-medium"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    Gerar PDF
+                  </button>
+                )}
+              </div>
+
+              {/* Filtros de Tipo de Etiqueta */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                <button
+                  onClick={() => {
+                    setFiltroTipoEtiqueta('todos');
+                    setFiltroFornecedorTabela('todos');
+                    setFiltroSetorTabela('todos');
+                  }}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    filtroTipoEtiqueta === 'todos' && filtroFornecedorTabela === 'todos' && filtroSetorTabela === 'todos'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Todos ({countTodos})
+                </button>
+
+                {/* Indicador de filtro ativo por fornecedor ou setor */}
+                {filtroFornecedorTabela !== 'todos' && (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-800 rounded-lg">
+                    <span className="font-medium">Fornecedor: {filtroFornecedorTabela}</span>
+                    <button
+                      onClick={() => setFiltroFornecedorTabela('todos')}
+                      className="ml-2 text-purple-600 hover:text-purple-900"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
+                {filtroSetorTabela !== 'todos' && (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-800 rounded-lg">
+                    <span className="font-medium">Setor: {filtroSetorTabela}</span>
+                    <button
+                      onClick={() => setFiltroSetorTabela('todos')}
+                      className="ml-2 text-orange-600 hover:text-orange-900"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {itensEtiqueta.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">
+                  🎉 Nenhuma ruptura encontrada no período!
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Código de Barras</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Produto</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Seção</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Valor Venda</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Margem %</th>
+                        <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Ocorrências</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {itensEtiqueta.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 text-gray-600">{idx + 1}</td>
+                          <td className="px-3 py-2 text-gray-600">{item.codigo_barras || '-'}</td>
+                          <td className="px-3 py-2">
+                            <p className="font-medium text-gray-800 max-w-xs truncate" title={item.descricao}>
+                              {item.descricao}
+                            </p>
+                          </td>
+                          <td className="px-3 py-2 text-gray-600 max-w-xs truncate" title={formatSecao(item.secao)}>
+                            {formatSecao(item.secao)}
+                          </td>
+                          <td className="px-3 py-2 text-right text-gray-700">
+                            R$ {Number(item.valor_venda || 0).toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2 text-right text-gray-700">
+                            {item.margem_lucro || '-'}
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold">
+                              {item.ocorrencias}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </>
         )}

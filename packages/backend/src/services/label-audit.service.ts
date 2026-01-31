@@ -699,14 +699,38 @@ export class LabelAuditService {
 
     // Ranking de seções com mais divergências
     const divergentesPorSecao: { [key: string]: number } = {};
+    const valoresPorSecao: { [key: string]: number } = {};
     itensDivergentes.forEach(item => {
       const secao = item.secao || 'Sem seção';
       divergentesPorSecao[secao] = (divergentesPorSecao[secao] || 0) + 1;
+      valoresPorSecao[secao] = (valoresPorSecao[secao] || 0) + (Number(item.valor_venda) || 0);
     });
 
     const secoesRanking = Object.entries(divergentesPorSecao)
       .map(([secao, quantidade]) => ({ secao, rupturas: quantidade }))
       .sort((a, b) => b.rupturas - a.rupturas);
+
+    // Ranking de valores por seção
+    const valoresSecoesRanking = Object.entries(valoresPorSecao)
+      .map(([secao, valor]) => ({ secao, valor: parseFloat(valor.toFixed(2)) }))
+      .sort((a, b) => b.valor - a.valor);
+
+    // Agrupar por dia da semana (usando data_verificacao dos itens)
+    const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const divergentesPorDiaSemana: { [key: number]: number } = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+
+    itensDivergentes.forEach(item => {
+      if (item.data_verificacao) {
+        const data = new Date(item.data_verificacao);
+        const diaSemana = data.getDay(); // 0 = Domingo, 6 = Sábado
+        divergentesPorDiaSemana[diaSemana]++;
+      }
+    });
+
+    const divergentesPorDia = diasSemana.map((nome, index) => ({
+      dia: nome,
+      quantidade: divergentesPorDiaSemana[index]
+    }));
 
     // Calcular taxa de divergência (o frontend espera taxa_ruptura)
     const taxaDivergencia = totalItensVerificados > 0 ? (totalDivergentes / totalItensVerificados) * 100 : 0;
@@ -731,6 +755,8 @@ export class LabelAuditService {
       itens_ruptura: itensDivergentesAgrupados, // Frontend espera itens_ruptura
       fornecedores_ranking: [], // Frontend pode esperar isso
       secoes_ranking: secoesRanking,
+      valores_secoes_ranking: valoresSecoesRanking, // Valores por seção
+      divergentes_por_dia: divergentesPorDia, // Divergentes por dia da semana
     };
   }
 
