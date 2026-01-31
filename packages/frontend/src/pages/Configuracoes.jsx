@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import TabsNavigation from '../components/configuracoes/TabsNavigation';
 import EmpresaConfigTab from '../components/configuracoes/EmpresaConfigTab';
+import AtivarProdutos from './AtivarProdutos';
 import SectorsTab from '../components/configuracoes/SectorsTab';
 import EmployeesTab from '../components/configuracoes/EmployeesTab';
 import PreventionTab from '../components/configuracoes/PreventionTab';
@@ -20,7 +21,7 @@ export default function Configuracoes() {
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && (tabFromUrl === 'empresa' || tabFromUrl === 'sectors' || tabFromUrl === 'employees' || tabFromUrl === 'prevention' || tabFromUrl === 'hortfrut-boxes' || tabFromUrl === 'suppliers')) {
+    if (tabFromUrl && (tabFromUrl === 'empresa' || tabFromUrl === 'ativar-produtos' || tabFromUrl === 'sectors' || tabFromUrl === 'employees' || tabFromUrl === 'prevention' || tabFromUrl === 'hortfrut-boxes' || tabFromUrl === 'suppliers')) {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -82,6 +83,7 @@ export default function Configuracoes() {
 
           <div className="mt-6">
             {activeTab === 'empresa' && <EmpresaConfigTab />}
+            {activeTab === 'ativar-produtos' && <AtivarProdutos embedded />}
             {activeTab === 'sectors' && <SectorsTab />}
             {activeTab === 'employees' && <EmployeesTab />}
             {activeTab === 'prevention' && <PreventionTab />}

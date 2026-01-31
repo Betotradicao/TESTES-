@@ -18,7 +18,6 @@ export const MENU_SUBMENUS = {
   // Bipagens
   BIPAGENS_AO_VIVO: 'bipagens-ao-vivo',
   BIPAGENS_RESULTADOS: 'bipagens-resultados',
-  BIPAGENS_ATIVAR: 'bipagens-ativar',
   BIPAGENS_RANKINGS: 'bipagens-rankings',
 
   // PDV
@@ -79,11 +78,6 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.BIPAGENS_RESULTADOS,
         title: 'Resultados do Dia',
         path: '/resultados-do-dia'
-      },
-      {
-        id: MENU_SUBMENUS.BIPAGENS_ATIVAR,
-        title: 'Ativar Produtos',
-        path: '/ativar-produtos'
       },
       {
         id: MENU_SUBMENUS.BIPAGENS_RANKINGS,
