@@ -52,6 +52,7 @@ export class OracleService {
 
       // 2. Tenta carregar da tabela database_connections (Configurações de Tabelas - visual)
       try {
+        console.log('🔍 Checking database_connections table... AppDataSource.isInitialized:', AppDataSource.isInitialized);
         if (AppDataSource.isInitialized) {
           const connectionRepository = AppDataSource.getRepository(DatabaseConnection);
 
@@ -60,6 +61,8 @@ export class OracleService {
             where: { type: DatabaseType.ORACLE, status: ConnectionStatus.ACTIVE },
             order: { is_default: 'DESC', created_at: 'ASC' }
           });
+
+          console.log('🔍 Oracle connection found in database_connections:', oracleConnection ? oracleConnection.name : 'NONE');
 
           if (oracleConnection) {
             this.oracleConfig = {
@@ -70,7 +73,11 @@ export class OracleService {
             console.log(`📦 Oracle config loaded from database_connections: ${oracleConnection.name} (${oracleConnection.host}:${oracleConnection.port}/${oracleConnection.service})`);
             this.configLoaded = true;
             return;
+          } else {
+            console.log('⚠️ No active Oracle connection found in database_connections table');
           }
+        } else {
+          console.log('⚠️ AppDataSource not initialized yet, skipping database_connections');
         }
       } catch (dbConnError: any) {
         console.log('⚠️ Could not load from database_connections, trying legacy config:', dbConnError.message);
