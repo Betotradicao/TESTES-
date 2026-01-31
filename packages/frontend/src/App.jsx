@@ -13,6 +13,7 @@ import AtivarProdutos from './pages/AtivarProdutos';
 import ResultadosDoDia from './pages/ResultadosDoDia';
 import Configuracoes from './pages/Configuracoes';
 import ConfiguracoesRede from './pages/ConfiguracoesRede';
+import ConfiguracoesTabelas from './pages/ConfiguracoesTabelas';
 import Perfil from './pages/Perfil';
 import ReconhecimentoFacial from './pages/ReconhecimentoFacial';
 import MonitorarEmailDVR from './pages/MonitorarEmailDVR';
@@ -107,6 +108,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ConfiguracoesRede />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/configuracoes-tabelas"
+              element={
+                <ProtectedRoute>
+                  <ConfiguracoesTabelas />
                 </ProtectedRoute>
               }
             />

@@ -440,6 +440,17 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         </svg>
       ),
       items: []
+    },
+    {
+      id: 'configuracoes-tabelas',
+      title: 'Configurações de TABELAS',
+      path: '/configuracoes-tabelas',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
+        </svg>
+      ),
+      items: []
     }
   ];
 
@@ -496,6 +507,10 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           }
           // Hide Configurações de REDE for non-master users
           if (item.id === 'configuracoes-rede' && !user?.isMaster) {
+            return false;
+          }
+          // Hide Configurações de TABELAS for non-master users
+          if (item.id === 'configuracoes-tabelas' && !user?.isMaster) {
             return false;
           }
 
