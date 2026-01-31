@@ -7,6 +7,7 @@ import Papa from 'papaparse';
 import PDFDocument from 'pdfkit';
 import { WhatsAppService } from './whatsapp.service';
 import { ConfigurationService } from './configuration.service';
+import { OracleService } from './oracle.service';
 
 export class LabelAuditService {
   /**
@@ -711,9 +712,18 @@ export class LabelAuditService {
     const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
     const divergentesPorDiaSemana: { [key: number]: number } = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
 
+    // Helper para converter valor decimal do PostgreSQL (pode vir como string, number ou Decimal)
+    const parseDecimal = (value: any): number => {
+      if (value === null || value === undefined) return 0;
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string') return parseFloat(value) || 0;
+      if (typeof value === 'object' && value.toString) return parseFloat(value.toString()) || 0;
+      return 0;
+    };
+
     itensDivergentes.forEach(item => {
       const secao = item.secao || 'Sem seção';
-      const valorVenda = parseFloat(String(item.valor_venda)) || 0;
+      const valorVenda = parseDecimal(item.valor_venda);
 
       // Contagem por seção
       divergentesPorSecao[secao] = (divergentesPorSecao[secao] || 0) + 1;
@@ -748,8 +758,24 @@ export class LabelAuditService {
 
     // Calcular valor total dos itens divergentes (produtos com preço incorreto)
     const valorTotalDivergentes = itensDivergentes.reduce((acc, item) => {
-      return acc + (parseFloat(String(item.valor_venda)) || 0);
+      return acc + parseDecimal(item.valor_venda);
     }, 0);
+
+    // DEBUG: Log para verificar os valores
+    console.log('📊 [ETIQUETAS DEBUG] Total itens divergentes:', itensDivergentes.length);
+    if (itensDivergentes.length > 0) {
+      console.log('📊 [ETIQUETAS DEBUG] Amostra de itens divergentes:');
+      itensDivergentes.slice(0, 3).forEach((item, idx) => {
+        console.log(`  Item ${idx + 1}: valor_venda=${item.valor_venda} (tipo: ${typeof item.valor_venda}), parseDecimal=${parseDecimal(item.valor_venda)}`);
+      });
+    }
+    console.log('📊 [ETIQUETAS DEBUG] Valor total calculado:', valorTotalDivergentes);
+    console.log('📊 [ETIQUETAS DEBUG] Valores por seção:', valoresPorSecao);
+    console.log('📊 [ETIQUETAS DEBUG] Divergentes por dia:', divergentesPorDiaSemana);
+
+    // Buscar descontos PDV do Oracle (mesma fonte do Frente de Caixa)
+    const descontosPDV = await this.getDescontosPDV(filters.data_inicio, filters.data_fim);
+    console.log('📊 [ETIQUETAS DEBUG] Descontos PDV do Oracle:', descontosPDV);
 
     return {
       estatisticas: {
@@ -768,7 +794,89 @@ export class LabelAuditService {
       secoes_ranking: secoesRanking,
       valores_secoes_ranking: valoresSecoesRanking, // Valores por seção
       divergentes_por_dia: divergentesPorDia, // Divergentes por dia da semana
+      descontos_pdv: descontosPDV, // Descontos PDV do Oracle (Intersolid)
     };
+  }
+
+  /**
+   * Busca descontos PDV do Oracle (Intersolid) para o período
+   * Usa a mesma fonte de dados da Frente de Caixa (TAB_PRODUTO_PDV)
+   */
+  static async getDescontosPDV(dataInicio: string, dataFim: string): Promise<{
+    total: number;
+    porSetor: Array<{ secao: string; valor: number }>;
+  }> {
+    try {
+      console.log('📊 [ETIQUETAS] Buscando descontos PDV do Oracle...');
+      console.log(`📅 Período recebido: ${dataInicio} a ${dataFim}`);
+
+      // Converter formato YYYY-MM-DD para DD/MM/YYYY (formato Oracle)
+      const formatDateForOracle = (dateStr: string): string => {
+        if (!dateStr) return dateStr;
+        // Se já estiver no formato DD/MM/YYYY, retorna como está
+        if (dateStr.includes('/')) return dateStr;
+        // Converte YYYY-MM-DD para DD/MM/YYYY
+        const [year, month, day] = dateStr.split('-');
+        return `${day}/${month}/${year}`;
+      };
+
+      const dataInicioOracle = formatDateForOracle(dataInicio);
+      const dataFimOracle = formatDateForOracle(dataFim);
+      console.log(`📅 Período Oracle: ${dataInicioOracle} a ${dataFimOracle}`);
+
+      const params = { dataInicio: dataInicioOracle, dataFim: dataFimOracle };
+
+      // Query para total de descontos (IGUAL ao Frente de Caixa - getTotais)
+      const sqlTotal = `
+        SELECT SUM(VAL_DESCONTO) as TOTAL_DESCONTOS
+        FROM INTERSOLID.TAB_PRODUTO_PDV
+        WHERE DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+          AND DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND VAL_DESCONTO > 0
+      `;
+
+      console.log('🔍 [ETIQUETAS] Executando query de descontos totais...');
+      const totalResult = await OracleService.query<any>(sqlTotal, params);
+      const totalDescontos = totalResult[0]?.TOTAL_DESCONTOS || 0;
+      console.log('✅ [ETIQUETAS] Total de descontos PDV:', totalDescontos);
+
+      // Query para descontos agrupados por seção (mesma lógica do Frente de Caixa)
+      // TAB_PRODUTO_PDV tem COD_PRODUTO, e TAB_PRODUTO tem COD_SECAO
+      const sqlPorSecao = `
+        SELECT
+          NVL(s.DES_SECAO, 'SEM SEÇÃO') as SECAO,
+          SUM(pp.VAL_DESCONTO) as VALOR_DESCONTO
+        FROM INTERSOLID.TAB_PRODUTO_PDV pp
+        LEFT JOIN INTERSOLID.TAB_PRODUTO p ON pp.COD_PRODUTO = p.COD_PRODUTO
+        LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+        WHERE pp.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+          AND pp.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND pp.VAL_DESCONTO > 0
+        GROUP BY s.DES_SECAO
+        ORDER BY VALOR_DESCONTO DESC
+      `;
+
+      console.log('🔍 [ETIQUETAS] Executando query de descontos por seção...');
+      const secaoResult = await OracleService.query<any>(sqlPorSecao, params);
+      console.log(`✅ [ETIQUETAS] Descontos por seção: ${secaoResult.length} seções`);
+
+      const porSetor = secaoResult.map((row: any) => ({
+        secao: row.SECAO || 'Sem seção',
+        valor: parseFloat(row.VALOR_DESCONTO) || 0
+      }));
+
+      return {
+        total: parseFloat(totalDescontos) || 0,
+        porSetor
+      };
+    } catch (error: any) {
+      console.error('❌ [ETIQUETAS] Erro ao buscar descontos PDV:', error.message);
+      // Retornar valores zerados em caso de erro para não quebrar a tela
+      return {
+        total: 0,
+        porSetor: []
+      };
+    }
   }
 
   /**

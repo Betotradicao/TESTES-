@@ -29,6 +29,9 @@ export default function EtiquetaResultadosAuditorias() {
   const [error, setError] = useState('');
   const [secoesMap, setSecoesMap] = useState({}); // Mapeamento código -> nome da seção
 
+  // Dados de descontos do PDV
+  const [descontosPDV, setDescontosPDV] = useState({ total: 0, porSetor: [] });
+
   useEffect(() => {
     loadFilterOptions();
     loadSecoesOracle();
@@ -115,8 +118,14 @@ export default function EtiquetaResultadosAuditorias() {
         auditor: auditorSelecionado,
       });
 
+      // Buscar dados de etiquetas (inclui descontos PDV do Oracle)
       const response = await api.get(`/label-audits/agregado?${params}`);
       setResultados(response.data);
+
+      // Descontos PDV agora vêm junto com os resultados (do Oracle/Intersolid)
+      const descontosPDVData = response.data?.descontos_pdv || { total: 0, porSetor: [] };
+      setDescontosPDV(descontosPDVData);
+      console.log('📊 [DEBUG] Descontos PDV do Oracle:', descontosPDVData);
     } catch (err) {
       setError(err.response?.data?.error || 'Erro ao buscar resultados');
     } finally {
@@ -374,9 +383,9 @@ export default function EtiquetaResultadosAuditorias() {
 
               <div className="bg-white rounded-lg shadow p-6 text-center">
                 <div className="text-4xl font-bold text-yellow-600">
-                  R$ {Number(stats.valor_total_divergentes || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  R$ {Number(descontosPDV.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
-                <div className="text-sm text-gray-600 mt-1">Valor Total Desconformes</div>
+                <div className="text-sm text-gray-600 mt-1">Desconto PDV</div>
               </div>
             </div>
 
@@ -443,19 +452,19 @@ export default function EtiquetaResultadosAuditorias() {
                     Sem dados de dias da semana
                   </p>
                 ) : (
-                  <div className="flex items-end justify-between h-64 px-2">
+                  <div className="flex items-end justify-between px-2" style={{ height: '280px' }}>
                     {divergentesPorDia.map((dia, idx) => {
                       const maxQtd = Math.max(...divergentesPorDia.map(d => d.quantidade));
                       const heightPercent = maxQtd > 0 ? (dia.quantidade / maxQtd) * 100 : 0;
 
                       return (
-                        <div key={idx} className="flex flex-col items-center flex-1 mx-1">
-                          <span className="text-xs font-bold text-gray-700 mb-1">
+                        <div key={idx} className="flex flex-col items-center flex-1 mx-1 h-full justify-end">
+                          <span className="text-sm font-bold text-gray-700 mb-2">
                             {dia.quantidade}
                           </span>
                           <div
                             className="w-full bg-blue-500 rounded-t-lg transition-all hover:bg-blue-600"
-                            style={{ height: `${Math.max(heightPercent, 5)}%`, minHeight: '8px' }}
+                            style={{ height: `${Math.max(heightPercent, 5)}%`, minHeight: '20px' }}
                           />
                           <span className="text-xs text-gray-600 mt-2 font-medium">
                             {dia.dia}
@@ -467,45 +476,40 @@ export default function EtiquetaResultadosAuditorias() {
                 )}
               </div>
 
-              {/* Card 3: Valores por Setor */}
+              {/* Card 3: Descontos PDV por Setor */}
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-bold text-gray-800 mb-4">
-                  💰 Valores por Setor
+                  💰 Descontos por Setor
                 </h2>
 
-                {valoresSecoesRanking.length === 0 ? (
+                {descontosPDV.porSetor.length === 0 ? (
                   <p className="text-gray-500 text-center py-8">
-                    Nenhum valor registrado
+                    Nenhum desconto no período
                   </p>
                 ) : (
                   <div className="space-y-4 max-h-80 overflow-y-auto">
-                    {valoresSecoesRanking.slice(0, 10).map((sec, idx) => {
-                      const maxValor = Math.max(...valoresSecoesRanking.map(s => s.valor));
+                    {descontosPDV.porSetor.slice(0, 10).map((sec, idx) => {
+                      const maxValor = Math.max(...descontosPDV.porSetor.map(s => s.valor));
                       const percentage = maxValor > 0 ? (sec.valor / maxValor) * 100 : 0;
 
                       return (
                         <div
                           key={idx}
-                          onClick={() => {
-                            setFiltroSetorTabela(sec.secao);
-                            setFiltroTipoEtiqueta('todos');
-                            setFiltroFornecedorTabela('todos');
-                          }}
-                          className="cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                          className="p-2 rounded-lg"
                         >
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex-1">
                               <p className="font-semibold text-gray-800 text-sm truncate" title={formatSecao(sec.secao)}>
                                 {formatSecao(sec.secao)}
                               </p>
-                              <p className="text-xs text-green-600 font-bold">
+                              <p className="text-xs text-yellow-600 font-bold">
                                 R$ {Number(sec.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                               </p>
                             </div>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
-                              className="bg-green-500 h-2 rounded-full transition-all"
+                              className="bg-yellow-500 h-2 rounded-full transition-all"
                               style={{ width: `${percentage}%` }}
                             />
                           </div>

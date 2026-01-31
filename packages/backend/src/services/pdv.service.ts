@@ -12,6 +12,7 @@ export interface VendaPDV {
   operadorNome?: string;
   produto: string;
   descProduto: string;
+  secao?: string;
   valor: number;
   quantidade: number;
   valorTotal: number;
