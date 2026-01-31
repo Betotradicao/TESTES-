@@ -1,9 +1,7 @@
-import axios from 'axios';
 import { AppDataSource } from '../config/database';
 import { Bip, BipStatus } from '../entities/Bip';
 import { EanFormatResult, ErpProduct, BipWebhookData } from '../types/webhook.types';
-import { CacheService } from './cache.service';
-import { ConfigurationService } from './configuration.service';
+import { OracleService } from './oracle.service';
 
 export class BipWebhookService {
   /**
@@ -49,37 +47,48 @@ export class BipWebhookService {
   }
 
   static async fetchProductFromERP(plu: string): Promise<ErpProduct | null> {
-    // Busca configurações do banco de dados (fallback para .env)
-    const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
-    const port = await ConfigurationService.get('intersolid_port', null);
-    const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
+    // MIGRADO: Busca diretamente do Oracle ao invés da API Intersolid
+    console.log(`🔍 [ORACLE] Buscando produto PLU ${plu} diretamente do Oracle...`);
 
-    // Monta a URL completa
-    const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
-    const erpApiUrl = baseUrl
-      ? `${baseUrl}${productsEndpoint}`
-      : process.env.ERP_PRODUCTS_API_URL || 'http://mock-erp-api.com';
+    try {
+      // Query para buscar produto pelo código (PLU)
+      // COD_LOJA = 1 como padrão (pode ser configurável no futuro)
+      const sql = `
+        SELECT
+          p.COD_PRODUTO,
+          p.DES_PRODUTO,
+          NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
+          NVL(pl.VAL_OFERTA, 0) as VAL_OFERTA
+        FROM INTERSOLID.TAB_PRODUTO p
+        INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+        WHERE p.COD_PRODUTO = :codProduto
+        AND pl.COD_LOJA = 1
+        AND ROWNUM = 1
+      `;
 
-    console.log(`🌐 Fetching product data from ERP API at ${erpApiUrl} for PLU: ${plu}`);
+      const rows = await OracleService.query(sql, { codProduto: plu });
 
-    let response: any = null;
+      if (rows.length === 0) {
+        console.log(`⚠️ [ORACLE] Produto PLU ${plu} não encontrado`);
+        return null;
+      }
 
-    console.log('Fetching products from ERP API for bipagem...');
-    const params = { id: plu };
-    if (process.env.NODE_ENV === 'development') {
-      response = await axios.get(`${erpApiUrl}`, { params });
-    } else {
-      response = await axios.get(`${erpApiUrl}/${plu}`);
+      const row = rows[0];
+
+      // Mapear para formato esperado pelo sistema (ErpProduct)
+      const product: ErpProduct = {
+        descricao: row.DES_PRODUTO || `Produto ${plu}`,
+        valvenda: String(row.VAL_VENDA || 0),
+        valoferta: row.VAL_OFERTA > 0 ? String(row.VAL_OFERTA) : null
+      };
+
+      console.log(`✅ [ORACLE] Produto encontrado: ${product.descricao}, Preço: R$ ${product.valvenda}, Oferta: ${product.valoferta ? 'R$ ' + product.valoferta : 'N/A'}`);
+
+      return product;
+    } catch (error) {
+      console.error(`❌ [ORACLE] Erro ao buscar produto PLU ${plu}:`, error);
+      throw error;
     }
-
-    const products = response.data;
-
-    if (!Array.isArray(products)) {
-      console.error('Resposta da API do ERP não é um array:', products);
-      return products
-    }
-
-    return products.find((p: any) => p.codigo.includes(plu)) || null;
   }
 
 
