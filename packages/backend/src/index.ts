@@ -41,6 +41,7 @@ import compraVendaRouter from './routes/compra-venda.routes';
 import frenteCaixaRouter from './routes/frente-caixa.routes';
 import pedidosCompraRouter from './routes/pedidos-compra.routes';
 import rupturaIndustriaRouter from './routes/ruptura-industria.routes';
+import databaseConnectionsRouter from './routes/database-connections.routes';
 import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
 import { EmailMonitorService } from './services/email-monitor.service';
@@ -119,6 +120,7 @@ app.use('/api/compra-venda', compraVendaRouter);
 app.use('/api/frente-caixa', frenteCaixaRouter);
 app.use('/api/pedidos-compra', pedidosCompraRouter);
 app.use('/api/ruptura-industria', rupturaIndustriaRouter);
+app.use('/api/database-connections', databaseConnectionsRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {
