@@ -339,7 +339,7 @@ export default function EtiquetaResultadosAuditorias() {
         {resultados && (
           <>
             {/* KPI Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
               <div className="bg-white rounded-lg shadow p-6 text-center">
                 <div className="text-4xl font-bold text-gray-800">{stats.total_itens_verificados || 0}</div>
                 <div className="text-sm text-gray-600 mt-1">Itens Verificados</div>
@@ -360,6 +360,13 @@ export default function EtiquetaResultadosAuditorias() {
                   {stats.taxa_ruptura ? Number(stats.taxa_ruptura).toFixed(1) : '0'}%
                 </div>
                 <div className="text-sm text-gray-600 mt-1">Taxa Etiqueta Desconformes</div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6 text-center">
+                <div className="text-4xl font-bold text-yellow-600">
+                  R$ {Number(stats.valor_total_divergentes || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div className="text-sm text-gray-600 mt-1">Valor Total Desconformes</div>
               </div>
             </div>
 

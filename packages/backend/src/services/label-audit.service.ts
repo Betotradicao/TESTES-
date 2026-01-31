@@ -711,6 +711,11 @@ export class LabelAuditService {
     // Calcular taxa de divergência (o frontend espera taxa_ruptura)
     const taxaDivergencia = totalItensVerificados > 0 ? (totalDivergentes / totalItensVerificados) * 100 : 0;
 
+    // Calcular valor total dos itens divergentes (produtos com preço incorreto)
+    const valorTotalDivergentes = itensDivergentes.reduce((acc, item) => {
+      return acc + (Number(item.valor_venda) || 0);
+    }, 0);
+
     return {
       estatisticas: {
         total_itens_verificados: totalItensVerificados,
@@ -721,6 +726,7 @@ export class LabelAuditService {
         taxa_ruptura: parseFloat(taxaDivergencia.toFixed(2)), // Frontend espera taxa_ruptura
         perda_venda_periodo: 0, // Não calculamos perda para etiquetas
         perda_lucro_periodo: 0, // Não calculamos perda para etiquetas
+        valor_total_divergentes: parseFloat(valorTotalDivergentes.toFixed(2)), // Valor total dos itens com preço divergente
       },
       itens_ruptura: itensDivergentesAgrupados, // Frontend espera itens_ruptura
       fornecedores_ranking: [], // Frontend pode esperar isso
