@@ -5,13 +5,16 @@
  * IMPORTANTE: Este serviço é SOMENTE LEITURA (SELECT)
  * Não executar INSERT, UPDATE, DELETE, DROP, etc.
  *
- * Configuração:
- * - Local (dev): usa variáveis de ambiente ORACLE_USER, ORACLE_PASSWORD, ORACLE_CONNECT_STRING
- * - VPS (prod): usa configurações do banco (oracle_user, oracle_password, oracle_host, oracle_port, oracle_service)
- * - Fallback: valores padrão hardcoded
+ * Configuração (ordem de prioridade):
+ * 1. Variáveis de ambiente ORACLE_* (desenvolvimento local)
+ * 2. Tabela database_connections (Configurações de Tabelas - visual)
+ * 3. Tabela configurations (legado - oracle_host, oracle_port, etc)
+ * 4. Valores padrão hardcoded (fallback)
  */
 
 import oracledb from 'oracledb';
+import { AppDataSource } from '../config/database';
+import { DatabaseConnection, DatabaseType, ConnectionStatus } from '../entities/DatabaseConnection';
 import { ConfigurationService } from './configuration.service';
 
 // Configuração padrão do Oracle (fallback)
@@ -29,7 +32,7 @@ export class OracleService {
 
   /**
    * Carrega configuração do Oracle de forma dinâmica
-   * Prioridade: 1. Variáveis de ambiente, 2. Banco de dados, 3. Valores padrão
+   * Prioridade: 1. Variáveis de ambiente, 2. Tabela database_connections (visual), 3. Tabela configurations (legado), 4. Valores padrão
    */
   private static async loadConfig(): Promise<void> {
     if (this.configLoaded) return;
@@ -47,7 +50,33 @@ export class OracleService {
         return;
       }
 
-      // 2. Tenta carregar do banco de dados (produção VPS)
+      // 2. Tenta carregar da tabela database_connections (Configurações de Tabelas - visual)
+      try {
+        if (AppDataSource.isInitialized) {
+          const connectionRepository = AppDataSource.getRepository(DatabaseConnection);
+
+          // Busca conexão Oracle ativa (prioriza is_default, depois status active)
+          const oracleConnection = await connectionRepository.findOne({
+            where: { type: DatabaseType.ORACLE, status: ConnectionStatus.ACTIVE },
+            order: { is_default: 'DESC', created_at: 'ASC' }
+          });
+
+          if (oracleConnection) {
+            this.oracleConfig = {
+              user: oracleConnection.username,
+              password: oracleConnection.password,
+              connectString: `${oracleConnection.host}:${oracleConnection.port}/${oracleConnection.service || 'orcl'}`
+            };
+            console.log(`📦 Oracle config loaded from database_connections: ${oracleConnection.name} (${oracleConnection.host}:${oracleConnection.port}/${oracleConnection.service})`);
+            this.configLoaded = true;
+            return;
+          }
+        }
+      } catch (dbConnError: any) {
+        console.log('⚠️ Could not load from database_connections, trying legacy config:', dbConnError.message);
+      }
+
+      // 3. Tenta carregar da tabela configurations (legado - para retrocompatibilidade)
       const oracleHost = await ConfigurationService.get('oracle_host', null);
       if (oracleHost) {
         const oraclePort = await ConfigurationService.get('oracle_port', '1521');
@@ -60,12 +89,12 @@ export class OracleService {
           password: oraclePassword ?? DEFAULT_ORACLE_CONFIG.password,
           connectString: `${oracleHost}:${oraclePort}/${oracleService}`
         };
-        console.log(`📦 Oracle config loaded from database: ${oracleHost}:${oraclePort}/${oracleService}`);
+        console.log(`📦 Oracle config loaded from configurations (legacy): ${oracleHost}:${oraclePort}/${oracleService}`);
         this.configLoaded = true;
         return;
       }
 
-      // 3. Usa valores padrão (fallback)
+      // 4. Usa valores padrão (fallback)
       console.log('📦 Oracle config using default values (local network)');
       this.configLoaded = true;
     } catch (error: any) {
