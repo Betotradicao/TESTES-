@@ -1,82 +1,143 @@
-import { response, Response } from 'express';
+import { Response } from 'express';
 import { AppDataSource } from '../config/database';
 import { Product } from '../entities/Product';
 import { ProductActivationHistory } from '../entities/ProductActivationHistory';
 import { AuthRequest } from '../middleware/auth';
 import { CacheService } from '../services/cache.service';
-import { ConfigurationService } from '../services/configuration.service';
 import { OracleService } from '../services/oracle.service';
-import axios from 'axios';
 import * as path from 'path';
 
+// MIGRAÇÃO COMPLETA: Todos os métodos que buscavam da API Intersolid
+// agora buscam diretamente do banco Oracle
+
 export class ProductsController {
+  /**
+   * Buscar produtos diretamente do Oracle
+   * MIGRADO: Antes usava API Intersolid, agora busca direto do banco Oracle
+   * GET /api/products?codLoja=1
+   */
   static async getProducts(req: AuthRequest, res: Response) {
     try {
-      // Prioriza variável de ambiente (desenvolvimento local), fallback para banco (produção Docker)
-      let erpApiUrl: string;
+      const { codLoja } = req.query;
+      const loja = codLoja ? parseInt(codLoja as string) : 1;
 
-      if (process.env.ERP_PRODUCTS_API_URL) {
-        // Usa URL do .env diretamente (desenvolvimento local)
-        erpApiUrl = process.env.ERP_PRODUCTS_API_URL;
-      } else {
-        // Fallback: busca do banco de dados (produção Docker)
-        const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
-        const port = await ConfigurationService.get('intersolid_port', null);
-        const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
-        const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
-        erpApiUrl = baseUrl ? `${baseUrl}${productsEndpoint}` : 'http://mock-erp-api.com';
-      }
+      console.log('📦 [ORACLE] Buscando produtos do Oracle para loja:', loja);
 
-      // Use cache service to fetch ERP products
-      const erpProducts = await CacheService.executeWithCache(
-        'erp-products',
+      // Query completa para buscar produtos com todas as informações necessárias
+      // Usa cache de 5 minutos para melhorar performance
+      const cacheKey = `oracle-products-loja-${loja}`;
+
+      const rows = await CacheService.executeWithCache(
+        cacheKey,
         async () => {
-          console.log('Fetching products from ERP API:', erpApiUrl);
-          const response = await axios.get(`${erpApiUrl}`);
-          return response.data;
-        }
+          console.log('📊 [ORACLE] Cache miss - executando query no Oracle...');
+
+          const sql = `
+            SELECT
+              p.COD_PRODUTO as CODIGO,
+              p.COD_BARRA_PRINCIPAL as EAN,
+              p.DES_PRODUTO as DESCRICAO,
+              p.DES_REDUZIDA as DES_REDUZIDA,
+              NVL(pl.VAL_CUSTO_REP, 0) as VAL_CUSTO_REP,
+              NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
+              NVL(pl.VAL_VENDA, 0) as VAL_VENDA_LOJA,
+              NVL(pl.VAL_OFERTA, 0) as VAL_OFERTA,
+              NVL(pl.QTD_EST_ATUAL, 0) as ESTOQUE,
+              s.DES_SECAO,
+              g.DES_GRUPO,
+              sg.DES_SUB_GRUPO as DES_SUBGRUPO,
+              f.DES_FORNECEDOR as FANTASIA_FORN,
+              NVL(pl.VAL_MARGEM, 0) as MARGEM_REF,
+              NVL(pl.VAL_MARGEM, 0) as VAL_MARGEM,
+              NVL(pl.VAL_VENDA_MEDIA, 0) as VENDA_MEDIA,
+              NVL(pl.QTD_COBERTURA, 0) as DIAS_COBERTURA,
+              NVL(pl.QTD_PEDIDO_COMPRA, 0) as QTD_PEDIDO_COMPRA,
+              TO_CHAR(pl.DTA_ULT_COMPRA, 'DD/MM/YYYY') as DTA_ULT_COMPRA,
+              NVL(pl.QTD_ULT_COMPRA, 0) as QTD_ULT_COMPRA,
+              NVL(pl.QTD_EST_MINIMO, 0) as QTD_EST_MINIMO,
+              TO_CHAR(pl.DTA_ULT_MOV_VENDA, 'YYYYMMDD') as DTA_ULT_MOV_VENDA,
+              NVL(TRIM(pl.DES_RANK_PRODLOJA), 'X') as CURVA,
+              CASE p.TIPO_ESPECIE
+                WHEN 0 THEN 'MERCADORIA'
+                WHEN 2 THEN 'SERVICO'
+                WHEN 3 THEN 'IMOBILIZADO'
+                WHEN 4 THEN 'INSUMO'
+                ELSE 'OUTROS'
+              END as TIPO_ESPECIE,
+              CASE p.TIPO_EVENTO
+                WHEN 0 THEN 'Direta'
+                WHEN 1 THEN 'Decomposição'
+                WHEN 2 THEN 'Composição'
+                WHEN 3 THEN 'Produção'
+                ELSE 'Outros'
+              END as TIPO_EVENTO,
+              p.DTA_CADASTRO,
+              NVL(p.QTD_EMBALAGEM_VENDA, 1) as QTD_EMBALAGEM_VENDA,
+              p.DES_EMBALAGEM,
+              NVL(p.QTD_EMBALAGEM_COMPRA, 1) as QTD_EMBALAGEM_COMPRA,
+              CASE WHEN p.PESAVEL = 'S' THEN 'S' ELSE 'N' END as PESAVEL
+            FROM INTERSOLID.TAB_PRODUTO p
+            INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+            LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+            LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
+            LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
+            LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
+            WHERE pl.COD_LOJA = :codLoja
+            AND NVL(pl.INATIVO, 'N') = 'N'
+            ORDER BY p.DES_PRODUTO
+          `;
+
+          return await OracleService.query(sql, { codLoja: loja });
+        },
+        5 * 60 * 1000 // 5 minutos de cache
       );
 
-      // Get active products from our database
+      // Buscar produtos ativos do banco local para enriquecer
       const productRepository = AppDataSource.getRepository(Product);
       const activeProducts = await productRepository.find({
         select: ['erp_product_id', 'active', 'peso_medio_kg', 'production_days', 'foto_referencia']
       });
 
-      // Create a map for quick lookup (includes active status, peso_medio_kg, production_days and foto_referencia)
       const productsMap = new Map(
-        activeProducts.map(p => [p.erp_product_id, { active: p.active, peso_medio_kg: p.peso_medio_kg, production_days: p.production_days, foto_referencia: p.foto_referencia }])
+        activeProducts.map(p => [p.erp_product_id, {
+          active: p.active,
+          peso_medio_kg: p.peso_medio_kg,
+          production_days: p.production_days,
+          foto_referencia: p.foto_referencia
+        }])
       );
 
-      // Enrich ERP products with active status and filter fields
-      const enrichedProducts = erpProducts.map((product: any) => {
-        const dbProduct = productsMap.get(product.codigo);
+      // Mapear para o formato esperado pelo frontend (compatível com o antigo)
+      const enrichedProducts = rows.map((row: any) => {
+        const dbProduct = productsMap.get(String(row.CODIGO));
         return {
-          codigo: product.codigo,
-          ean: product.ean,
-          descricao: product.descricao,
-          desReduzida: product.desReduzida,
-          valCustoRep: product.valCustoRep,
-          valvendaloja: product.valvendaloja,
-          valvenda: product.valvenda,
-          valOferta: product.valOferta,
-          estoque: product.estoque,
-          desSecao: product.desSecao,
-          desGrupo: product.desGrupo,
-          desSubGrupo: product.desSubGrupo,
-          fantasiaForn: product.fantasiaForn,
-          margemRef: product.margemRef,
-          vendaMedia: product.vendaMedia,
-          diasCobertura: product.diasCobertura,
-          dtaUltCompra: product.dtaUltCompra,
-          qtdUltCompra: product.qtdUltCompra,
-          qtdPedidoCompra: product.qtdPedidoCompra,
-          estoqueMinimo: product.estoqueMinimo,
-          tipoEspecie: product.tipoEspecie,
-          dtaCadastro: product.dtaCadastro,
-          tipoEvento: product.tipoEvento,
-          dtaUltMovVenda: product.dtaUltMovVenda,
-          pesavel: product.pesavel,
+          codigo: String(row.CODIGO),
+          ean: row.EAN || '',
+          descricao: row.DESCRICAO || '',
+          desReduzida: row.DES_REDUZIDA || '',
+          valCustoRep: parseFloat(row.VAL_CUSTO_REP) || 0,
+          valvendaloja: parseFloat(row.VAL_VENDA_LOJA) || 0,
+          valvenda: parseFloat(row.VAL_VENDA) || 0,
+          valOferta: parseFloat(row.VAL_OFERTA) || 0,
+          estoque: parseFloat(row.ESTOQUE) || 0,
+          desSecao: row.DES_SECAO || '',
+          desGrupo: row.DES_GRUPO || '',
+          desSubGrupo: row.DES_SUBGRUPO || '',
+          fantasiaForn: row.FANTASIA_FORN || '',
+          margemRef: parseFloat(row.MARGEM_REF) || 0,
+          vendaMedia: parseFloat(row.VENDA_MEDIA) || 0,
+          diasCobertura: parseInt(row.DIAS_COBERTURA) || 0,
+          dtaUltCompra: row.DTA_ULT_COMPRA || null,
+          qtdUltCompra: parseFloat(row.QTD_ULT_COMPRA) || 0,
+          qtdPedidoCompra: parseFloat(row.QTD_PEDIDO_COMPRA) || 0,
+          estoqueMinimo: parseFloat(row.QTD_EST_MINIMO) || 0,
+          dtaUltMovVenda: row.DTA_ULT_MOV_VENDA || null,
+          curva: row.CURVA || '',
+          tipoEspecie: row.TIPO_ESPECIE || 'MERCADORIA',
+          tipoEvento: row.TIPO_EVENTO || 'Direta',
+          dtaCadastro: row.DTA_CADASTRO || null,
+          pesavel: row.PESAVEL || 'N',
+          // Campos do banco local PostgreSQL
           active: dbProduct?.active || false,
           peso_medio_kg: dbProduct?.peso_medio_kg || null,
           production_days: dbProduct?.production_days || 1,
@@ -84,21 +145,28 @@ export class ProductsController {
         };
       });
 
+      console.log(`✅ [ORACLE] ${enrichedProducts.length} produtos encontrados`);
+
       res.json({
         data: enrichedProducts,
         total: enrichedProducts.length
       });
 
-    } catch (error) {
-      console.error('Get products error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+    } catch (error: any) {
+      console.error('❌ [ORACLE] Get products error:', error);
+      res.status(500).json({ error: error.message || 'Internal server error' });
     }
   }
 
+  /**
+   * Ativar/Desativar produto
+   * MIGRADO: Agora busca do Oracle ao invés da API Intersolid
+   */
   static async activateProduct(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params; // This is the ERP product ID (codigo)
-      const { active } = req.body;
+      const { active, codLoja } = req.body;
+      const loja = codLoja || 1;
 
       if (typeof active !== 'boolean') {
         return res.status(400).json({ error: 'Active field must be a boolean' });
@@ -113,77 +181,63 @@ export class ProductsController {
       });
 
       if (!product) {
-        // Fetch product info from ERP to create it
-        // Busca configurações do banco de dados (fallback para .env)
-        const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
-        const port = await ConfigurationService.get('intersolid_port', null);
-        const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
+        // Buscar produto do Oracle
+        console.log(`[ACTIVATE] Buscando produto ${id} do Oracle...`);
 
-        // Monta a URL completa
-        const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
-        const erpApiUrl = baseUrl
-          ? `${baseUrl}${productsEndpoint}`
-          : process.env.ERP_PRODUCTS_API_URL || 'http://mock-erp-api.com';
+        const sql = `
+          SELECT
+            p.COD_PRODUTO,
+            p.COD_BARRA_PRINCIPAL as EAN,
+            p.DES_PRODUTO,
+            p.DES_REDUZIDA,
+            p.COD_SECAO,
+            s.DES_SECAO,
+            p.COD_GRUPO,
+            g.DES_GRUPO,
+            p.COD_SUB_GRUPO,
+            sg.DES_SUB_GRUPO,
+            pl.COD_FORN_ULT_COMPRA as COD_FORN,
+            f.DES_FORNECEDOR as RAZAO_FORN,
+            CASE WHEN p.PESAVEL = 'S' THEN 'S' ELSE 'N' END as PESAVEL
+          FROM INTERSOLID.TAB_PRODUTO p
+          INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+          LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+          LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
+          LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
+          LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
+          WHERE p.COD_PRODUTO = :codProduto
+          AND pl.COD_LOJA = :codLoja
+          AND ROWNUM = 1
+        `;
 
-        let erpProduct = null;
+        const rows = await OracleService.query(sql, { codProduto: id, codLoja: loja });
 
-        let response: any = null;
-
-        try {
-          // Use cache with UNIQUE key per product to avoid race conditions
-          const cacheKey = `erp-product-${id}`;
-
-          erpProduct = await CacheService.executeWithCache(
-            cacheKey,
-            async () => {
-              console.log(`[ACTIVATE] Fetching product ${id} from ERP API...`, erpApiUrl);
-
-              if (process.env.NODE_ENV === 'development') {
-                // Development: Get all products and filter
-                const params = { id: id };
-                response = await axios.get(`${erpApiUrl}`, { params });
-                const products = Array.isArray(response.data) ? response.data : [response.data];
-                return products.find((p: any) => p.codigo === id) || null;
-              } else {
-                // Production: Get specific product
-                response = await axios.get(`${erpApiUrl}/${id}`);
-                // Handle both single object and array responses
-                if (Array.isArray(response.data)) {
-                  return response.data.find((p: any) => p.codigo === id) || response.data[0] || null;
-                }
-                return response.data || null;
-              }
-            }
-          );
-
-          if (!erpProduct) {
-            console.error(`[ACTIVATE] Product ${id} not found in ERP response`);
-          }
-        } catch (error) {
-          console.error(`[ACTIVATE] Failed to fetch product ${id}:`, error);
+        if (rows.length === 0) {
+          console.error(`[ACTIVATE] Product ${id} not found in Oracle`);
+          return res.status(404).json({ error: 'Product not found in Oracle' });
         }
 
-        if (!erpProduct) {
-          return res.status(404).json({ error: 'Product not found in ERP' });
-        }
+        const erpProduct = rows[0];
 
         // Create new product
         product = productRepository.create({
-          erp_product_id: erpProduct.codigo,
-          description: erpProduct.descricao,
-          short_description: erpProduct.desReduzida,
-          ean: erpProduct.ean,
-          weighable: erpProduct.pesavel === 'S',
-          section_code: erpProduct.codSecao,
-          section_name: erpProduct.desSecao,
-          group_code: erpProduct.codGrupo,
-          group_name: erpProduct.desGrupo,
-          subgroup_code: erpProduct.codSubGrupo,
-          subgroup_name: erpProduct.desSubGrupo,
-          supplier_code: erpProduct.codForn,
-          supplier_name: erpProduct.razaoForn,
+          erp_product_id: String(erpProduct.COD_PRODUTO),
+          description: erpProduct.DES_PRODUTO,
+          short_description: erpProduct.DES_REDUZIDA,
+          ean: erpProduct.EAN,
+          weighable: erpProduct.PESAVEL === 'S',
+          section_code: erpProduct.COD_SECAO ? String(erpProduct.COD_SECAO) : undefined,
+          section_name: erpProduct.DES_SECAO,
+          group_code: erpProduct.COD_GRUPO ? String(erpProduct.COD_GRUPO) : undefined,
+          group_name: erpProduct.DES_GRUPO,
+          subgroup_code: erpProduct.COD_SUB_GRUPO ? String(erpProduct.COD_SUB_GRUPO) : undefined,
+          subgroup_name: erpProduct.DES_SUB_GRUPO,
+          supplier_code: erpProduct.COD_FORN ? String(erpProduct.COD_FORN) : undefined,
+          supplier_name: erpProduct.RAZAO_FORN,
           active
         });
+
+        console.log(`[ACTIVATE] Produto ${id} encontrado no Oracle: ${erpProduct.DES_PRODUTO}`);
       } else {
         // Update existing product
         product.active = active;
@@ -210,16 +264,21 @@ export class ProductsController {
         }
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Activate product error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: error.message || 'Internal server error' });
     }
   }
 
+  /**
+   * Atualizar peso médio do produto
+   * MIGRADO: Agora busca do Oracle ao invés da API Intersolid
+   */
   static async updatePesoMedio(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params; // ERP product ID (codigo)
-      const { peso_medio_kg } = req.body;
+      const { peso_medio_kg, codLoja } = req.body;
+      const loja = codLoja || 1;
 
       if (typeof peso_medio_kg !== 'number' || peso_medio_kg < 0) {
         return res.status(400).json({ error: 'peso_medio_kg must be a positive number' });
@@ -233,42 +292,58 @@ export class ProductsController {
       });
 
       if (!product) {
-        // If product doesn't exist, we need to create it first
-        // Fetch product info from ERP
-        const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
-        const port = await ConfigurationService.get('intersolid_port', null);
-        const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
-        const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
-        const erpApiUrl = baseUrl ? `${baseUrl}${productsEndpoint}` : process.env.ERP_PRODUCTS_API_URL || 'http://mock-erp-api.com';
+        // Buscar produto do Oracle
+        console.log(`[PESO_MEDIO] Buscando produto ${id} do Oracle...`);
 
-        const cacheKey = `erp-product-${id}`;
-        const erpProduct = await CacheService.executeWithCache(cacheKey, async () => {
-          const response = await axios.get(`${erpApiUrl}/${id}`);
-          if (Array.isArray(response.data)) {
-            return response.data.find((p: any) => p.codigo === id) || response.data[0] || null;
-          }
-          return response.data || null;
-        });
+        const sql = `
+          SELECT
+            p.COD_PRODUTO,
+            p.COD_BARRA_PRINCIPAL as EAN,
+            p.DES_PRODUTO,
+            p.DES_REDUZIDA,
+            p.COD_SECAO,
+            s.DES_SECAO,
+            p.COD_GRUPO,
+            g.DES_GRUPO,
+            p.COD_SUB_GRUPO,
+            sg.DES_SUB_GRUPO,
+            pl.COD_FORN_ULT_COMPRA as COD_FORN,
+            f.DES_FORNECEDOR as RAZAO_FORN,
+            CASE WHEN p.PESAVEL = 'S' THEN 'S' ELSE 'N' END as PESAVEL
+          FROM INTERSOLID.TAB_PRODUTO p
+          INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+          LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+          LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
+          LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
+          LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
+          WHERE p.COD_PRODUTO = :codProduto
+          AND pl.COD_LOJA = :codLoja
+          AND ROWNUM = 1
+        `;
 
-        if (!erpProduct) {
-          return res.status(404).json({ error: 'Product not found in ERP' });
+        const rows = await OracleService.query(sql, { codProduto: id, codLoja: loja });
+
+        if (rows.length === 0) {
+          return res.status(404).json({ error: 'Product not found in Oracle' });
         }
+
+        const erpProduct = rows[0];
 
         // Create new product
         product = productRepository.create({
-          erp_product_id: erpProduct.codigo,
-          description: erpProduct.descricao,
-          short_description: erpProduct.desReduzida,
-          ean: erpProduct.ean,
-          weighable: erpProduct.pesavel === 'S',
-          section_code: erpProduct.codSecao,
-          section_name: erpProduct.desSecao,
-          group_code: erpProduct.codGrupo,
-          group_name: erpProduct.desGrupo,
-          subgroup_code: erpProduct.codSubGrupo,
-          subgroup_name: erpProduct.desSubGrupo,
-          supplier_code: erpProduct.codForn,
-          supplier_name: erpProduct.razaoForn,
+          erp_product_id: String(erpProduct.COD_PRODUTO),
+          description: erpProduct.DES_PRODUTO,
+          short_description: erpProduct.DES_REDUZIDA,
+          ean: erpProduct.EAN,
+          weighable: erpProduct.PESAVEL === 'S',
+          section_code: erpProduct.COD_SECAO ? String(erpProduct.COD_SECAO) : undefined,
+          section_name: erpProduct.DES_SECAO,
+          group_code: erpProduct.COD_GRUPO ? String(erpProduct.COD_GRUPO) : undefined,
+          group_name: erpProduct.DES_GRUPO,
+          subgroup_code: erpProduct.COD_SUB_GRUPO ? String(erpProduct.COD_SUB_GRUPO) : undefined,
+          subgroup_name: erpProduct.DES_SUB_GRUPO,
+          supplier_code: erpProduct.COD_FORN ? String(erpProduct.COD_FORN) : undefined,
+          supplier_name: erpProduct.RAZAO_FORN,
           active: false,
           peso_medio_kg
         });
@@ -287,9 +362,9 @@ export class ProductsController {
         }
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Update peso medio error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: error.message || 'Internal server error' });
     }
   }
 
@@ -331,9 +406,15 @@ export class ProductsController {
     }
   }
 
+  /**
+   * Ativação/Desativação em massa de produtos
+   * MIGRADO: Agora busca do Oracle ao invés da API Intersolid
+   * Otimizado para buscar todos os produtos necessários em uma única query
+   */
   static async bulkActivateProducts(req: AuthRequest, res: Response) {
     try {
-      const { productIds, active } = req.body;
+      const { productIds, active, codLoja } = req.body;
+      const loja = codLoja || 1;
 
       if (!Array.isArray(productIds) || typeof active !== 'boolean') {
         return res.status(400).json({
@@ -348,123 +429,109 @@ export class ProductsController {
       const productRepository = AppDataSource.getRepository(Product);
       const historyRepository = AppDataSource.getRepository(ProductActivationHistory);
 
-      type ProductResult = {
-        productId: string;
-        success: true;
-        description: string;
-      } | {
-        productId: string;
-        error: string;
-      };
-
       const results: any[] = [];
       const errors: any[] = [];
 
-      // Process products in parallel using Promise.allSettled with batching
-      const BATCH_SIZE = 100; // Process 10 products simultaneously
-      const batches = [];
+      console.log(`[BULK-ORACLE] Processing ${productIds.length} products...`);
 
-      // Split productIds into batches
-      for (let i = 0; i < productIds.length; i += BATCH_SIZE) {
-        batches.push(productIds.slice(i, i + BATCH_SIZE));
+      // 1. Buscar produtos que já existem no PostgreSQL local
+      const existingProducts = await productRepository
+        .createQueryBuilder('p')
+        .where('p.erp_product_id IN (:...ids)', { ids: productIds })
+        .getMany();
+
+      const existingMap = new Map(existingProducts.map(p => [p.erp_product_id, p]));
+      const missingIds = productIds.filter(id => !existingMap.has(id));
+
+      console.log(`[BULK-ORACLE] ${existingProducts.length} já existem, ${missingIds.length} precisam ser buscados do Oracle`);
+
+      // 2. Buscar produtos faltantes do Oracle (em uma única query)
+      let oracleProductsMap = new Map<string, any>();
+
+      if (missingIds.length > 0) {
+        // Dividir em batches de 500 para evitar limite do Oracle IN clause
+        const ORACLE_BATCH_SIZE = 500;
+        for (let i = 0; i < missingIds.length; i += ORACLE_BATCH_SIZE) {
+          const batchIds = missingIds.slice(i, i + ORACLE_BATCH_SIZE);
+
+          // Construir placeholders para a query
+          const placeholders = batchIds.map((_, idx) => `:id${idx}`).join(', ');
+          const params: any = { codLoja: loja };
+          batchIds.forEach((id, idx) => { params[`id${idx}`] = id; });
+
+          const sql = `
+            SELECT
+              p.COD_PRODUTO,
+              p.COD_BARRA_PRINCIPAL as EAN,
+              p.DES_PRODUTO,
+              p.DES_REDUZIDA,
+              p.COD_SECAO,
+              s.DES_SECAO,
+              p.COD_GRUPO,
+              g.DES_GRUPO,
+              p.COD_SUB_GRUPO,
+              sg.DES_SUB_GRUPO,
+              pl.COD_FORN_ULT_COMPRA as COD_FORN,
+              f.DES_FORNECEDOR as RAZAO_FORN,
+              CASE WHEN p.PESAVEL = 'S' THEN 'S' ELSE 'N' END as PESAVEL
+            FROM INTERSOLID.TAB_PRODUTO p
+            INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+            LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+            LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
+            LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
+            LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
+            WHERE p.COD_PRODUTO IN (${placeholders})
+            AND pl.COD_LOJA = :codLoja
+          `;
+
+          const rows = await OracleService.query(sql, params);
+          rows.forEach((row: any) => {
+            oracleProductsMap.set(String(row.COD_PRODUTO), row);
+          });
+        }
+
+        console.log(`[BULK-ORACLE] ${oracleProductsMap.size} produtos encontrados no Oracle`);
       }
 
-      console.log(`Processing ${productIds.length} products in ${batches.length} batches of ${BATCH_SIZE}`);
-
-      // Process each batch in parallel
-      for (const [batchIndex, batch] of batches.entries()) {
-        console.log(`Processing batch ${batchIndex + 1}/${batches.length} with ${batch.length} products`);
+      // 3. Processar todos os produtos
+      const BATCH_SIZE = 50;
+      for (let i = 0; i < productIds.length; i += BATCH_SIZE) {
+        const batch = productIds.slice(i, i + BATCH_SIZE);
 
         const batchPromises = batch.map(async (productId) => {
           try {
-            // Check if product exists in our database
-            let product = await productRepository.findOne({
-              where: { erp_product_id: productId }
-            });
+            let product = existingMap.get(productId);
 
             if (!product) {
-              // Fetch product info from ERP to create it
-              // Busca configurações do banco de dados (fallback para .env)
-              const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
-              const port = await ConfigurationService.get('intersolid_port', null);
-              const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
-
-              // Monta a URL completa
-              const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
-              const erpApiUrl = baseUrl
-                ? `${baseUrl}${productsEndpoint}`
-                : process.env.ERP_PRODUCTS_API_URL || 'http://mock-erp-api.com';
-
-              let erpProduct = null;
-              let response: any = null;
-
-              try {
-                // Use cache with UNIQUE key per product to avoid race conditions
-                const cacheKey = `erp-product-${productId}`;
-
-                const productData = await CacheService.executeWithCache(
-                  cacheKey,
-                  async () => {
-                    console.log(`[BULK] Fetching product ${productId} from ERP API...`);
-
-                    if (process.env.NODE_ENV === 'development') {
-                      // Development: Get all products and filter
-                      const params = { id: productId };
-                      response = await axios.get(`${erpApiUrl}`, { params });
-                      const products = Array.isArray(response.data) ? response.data : [response.data];
-                      return products.find((p: any) => p.codigo === productId) || null;
-                    } else {
-                      // Production: Get specific product
-                      response = await axios.get(`${erpApiUrl}/${productId}`);
-                      // Handle both single object and array responses
-                      if (Array.isArray(response.data)) {
-                        return response.data.find((p: any) => p.codigo === productId) || response.data[0] || null;
-                      }
-                      return response.data || null;
-                    }
-                  }
-                );
-
-                erpProduct = productData;
-
-                if (!erpProduct) {
-                  console.error(`[BULK] Product ${productId} not found in ERP response`);
-                }
-              } catch (error) {
-                console.error(`[BULK] Failed to fetch product ${productId} from ERP:`, error);
-                return { productId, error: 'Failed to fetch from ERP' };
-              }
+              // Criar produto a partir do Oracle
+              const erpProduct = oracleProductsMap.get(productId);
 
               if (!erpProduct) {
-                return { productId, error: 'Product not found in ERP' };
+                return { productId, error: 'Product not found in Oracle' };
               }
 
-              // Create new product
               product = productRepository.create({
-                erp_product_id: erpProduct.codigo,
-                description: erpProduct.descricao,
-                short_description: erpProduct.desReduzida,
-                ean: erpProduct.ean,
-                weighable: erpProduct.pesavel === 'S',
-                section_code: erpProduct.codSecao,
-                section_name: erpProduct.desSecao,
-                group_code: erpProduct.codGrupo,
-                group_name: erpProduct.desGrupo,
-                subgroup_code: erpProduct.codSubGrupo,
-                subgroup_name: erpProduct.desSubGrupo,
-                supplier_code: erpProduct.codForn,
-                supplier_name: erpProduct.razaoForn,
+                erp_product_id: String(erpProduct.COD_PRODUTO),
+                description: erpProduct.DES_PRODUTO,
+                short_description: erpProduct.DES_REDUZIDA,
+                ean: erpProduct.EAN,
+                weighable: erpProduct.PESAVEL === 'S',
+                section_code: erpProduct.COD_SECAO ? String(erpProduct.COD_SECAO) : undefined,
+                section_name: erpProduct.DES_SECAO,
+                group_code: erpProduct.COD_GRUPO ? String(erpProduct.COD_GRUPO) : undefined,
+                group_name: erpProduct.DES_GRUPO,
+                subgroup_code: erpProduct.COD_SUB_GRUPO ? String(erpProduct.COD_SUB_GRUPO) : undefined,
+                subgroup_name: erpProduct.DES_SUB_GRUPO,
+                supplier_code: erpProduct.COD_FORN ? String(erpProduct.COD_FORN) : undefined,
+                supplier_name: erpProduct.RAZAO_FORN,
                 active
               });
             } else {
-              // Update existing product
               product.active = active;
             }
 
-            // Save product
             await productRepository.save(product);
 
-            // Create history entry
             const history = historyRepository.create({
               user_id: req.user!.id,
               product_id: product.id,
@@ -484,10 +551,8 @@ export class ProductsController {
           }
         });
 
-        // Execute batch in parallel using Promise.allSettled
         const batchResults = await Promise.allSettled(batchPromises);
 
-        // Process batch results
         batchResults.forEach((result, index) => {
           if (result.status === 'fulfilled') {
             const productResult = result.value;
@@ -497,16 +562,15 @@ export class ProductsController {
               errors.push(productResult);
             }
           } else {
-            console.error(`Batch promise rejected for product ${batch[index]}:`, result.reason);
             errors.push({
               productId: batch[index],
               error: 'Promise execution failed'
             });
           }
         });
-
-        console.log(`Batch ${batchIndex + 1} completed. Success: ${results.length}, Errors: ${errors.length}`);
       }
+
+      console.log(`[BULK-ORACLE] Completed. Success: ${results.length}, Errors: ${errors.length}`);
 
       res.json({
         message: `Bulk ${active ? 'activation' : 'deactivation'} completed`,
@@ -516,9 +580,9 @@ export class ProductsController {
         errors
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Bulk activate products error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: error.message || 'Internal server error' });
     }
   }
 
@@ -695,49 +759,33 @@ export class ProductsController {
   }
 
   /**
-   * Listar seções únicas dos produtos da API
+   * Listar seções únicas dos produtos
+   * MIGRADO: Agora busca do Oracle ao invés da API Intersolid
    * GET /api/products/sections
    */
   static async getSections(req: AuthRequest, res: Response) {
     try {
-      // Buscar produtos da API
-      let erpApiUrl: string;
+      console.log('📦 [ORACLE] Buscando seções do Oracle...');
 
-      if (process.env.ERP_PRODUCTS_API_URL) {
-        erpApiUrl = process.env.ERP_PRODUCTS_API_URL;
-      } else {
-        const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
-        const port = await ConfigurationService.get('intersolid_port', null);
-        const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
-        const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
-        erpApiUrl = baseUrl ? `${baseUrl}${productsEndpoint}` : 'http://mock-erp-api.com';
-      }
+      const sql = `
+        SELECT DES_SECAO
+        FROM INTERSOLID.TAB_SECAO
+        WHERE DES_SECAO IS NOT NULL
+        ORDER BY DES_SECAO
+      `;
 
-      const erpProducts = await CacheService.executeWithCache(
-        'erp-products',
-        async () => {
-          console.log('Fetching products from ERP API:', erpApiUrl);
-          const response = await axios.get(`${erpApiUrl}`);
-          return response.data;
-        }
-      );
+      const rows = await OracleService.query(sql);
 
-      // Extrair seções únicas
-      const sectionsSet = new Set<string>();
-      erpProducts.forEach((product: any) => {
-        if (product.desSecao) {
-          sectionsSet.add(product.desSecao);
-        }
-      });
+      // Retorna array de strings (nomes das seções) para manter compatibilidade
+      const sections = rows.map((row: any) => row.DES_SECAO).filter(Boolean);
 
-      // Converter para array e ordenar
-      const sections = Array.from(sectionsSet).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+      console.log(`✅ [ORACLE] ${sections.length} seções encontradas`);
 
       res.json(sections);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Get sections error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: error.message || 'Internal server error' });
     }
   }
 
@@ -845,57 +893,66 @@ export class ProductsController {
 
   /**
    * Buscar produtos filtrados por seção
-   * GET /api/products/by-section?section=HORTIFRUTI
+   * MIGRADO: Agora busca do Oracle ao invés da API Intersolid
+   * GET /api/products/by-section?section=HORTIFRUTI&codLoja=1
    */
   static async getProductsBySection(req: AuthRequest, res: Response) {
     try {
-      const { section } = req.query;
+      const { section, codLoja } = req.query;
+      const loja = codLoja ? parseInt(codLoja as string) : 1;
 
       if (!section) {
         return res.status(400).json({ error: 'Parâmetro section é obrigatório' });
       }
 
-      // Buscar produtos da API
-      let erpApiUrl: string;
+      console.log('📦 [ORACLE] Buscando produtos por seção:', { section, loja });
 
-      if (process.env.ERP_PRODUCTS_API_URL) {
-        erpApiUrl = process.env.ERP_PRODUCTS_API_URL;
-      } else {
-        const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
-        const port = await ConfigurationService.get('intersolid_port', null);
-        const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
-        const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
-        erpApiUrl = baseUrl ? `${baseUrl}${productsEndpoint}` : 'http://mock-erp-api.com';
-      }
+      const sql = `
+        SELECT
+          p.COD_PRODUTO,
+          p.COD_BARRA_PRINCIPAL as EAN,
+          p.DES_PRODUTO,
+          s.DES_SECAO,
+          g.DES_GRUPO,
+          sg.DES_SUB_GRUPO,
+          TRIM(pl.DES_RANK_PRODLOJA) as CURVA,
+          NVL(pl.VAL_CUSTO_REP, 0) as VAL_CUSTO_REP,
+          NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
+          NVL(pl.VAL_MARGEM, 0) as VAL_MARGEM,
+          NVL(pl.VAL_MARGEM_FIXA, pl.VAL_MARGEM) as VAL_MARGEM_REF
+        FROM INTERSOLID.TAB_PRODUTO p
+        INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+        LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
+        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
+        WHERE pl.COD_LOJA = :codLoja
+        AND UPPER(s.DES_SECAO) LIKE :sectionFilter
+        AND NVL(pl.INATIVO, 'N') = 'N'
+        ORDER BY p.DES_PRODUTO
+      `;
 
-      const erpProducts = await CacheService.executeWithCache(
-        'erp-products',
-        async () => {
-          console.log('Fetching products from ERP API:', erpApiUrl);
-          const response = await axios.get(`${erpApiUrl}`);
-          return response.data;
-        }
-      );
+      const params = {
+        codLoja: loja,
+        sectionFilter: `%${String(section).toUpperCase()}%`
+      };
 
-      // Filtrar por seção (case insensitive)
-      const sectionUpper = String(section).toUpperCase();
-      const filteredProducts = erpProducts.filter((product: any) =>
-        product.desSecao && product.desSecao.toUpperCase().includes(sectionUpper)
-      );
+      const rows = await OracleService.query(sql, params);
 
       // Mapear para formato esperado pelo HortFrut
-      const items = filteredProducts.map((product: any) => ({
-        barcode: product.ean || product.codigo,
-        productName: product.descricao,
-        curve: product.curva || '',
-        currentCost: product.valCustoRep || 0,
-        currentSalePrice: product.valvenda || product.valvendaloja || 0,
-        referenceMargin: product.margemRef || 0,
-        currentMargin: product.markupAtual || 0,
-        section: product.desSecao || '',
-        productGroup: product.desGrupo || '',
-        subGroup: product.desSubGrupo || ''
+      const items = rows.map((row: any) => ({
+        barcode: row.EAN || String(row.COD_PRODUTO),
+        productName: row.DES_PRODUTO || '',
+        curve: row.CURVA || '',
+        currentCost: parseFloat(row.VAL_CUSTO_REP) || 0,
+        currentSalePrice: parseFloat(row.VAL_VENDA) || 0,
+        referenceMargin: parseFloat(row.VAL_MARGEM_REF) || 0,
+        currentMargin: parseFloat(row.VAL_MARGEM) || 0,
+        section: row.DES_SECAO || '',
+        productGroup: row.DES_GRUPO || '',
+        subGroup: row.DES_SUB_GRUPO || ''
       }));
+
+      console.log(`✅ [ORACLE] ${items.length} produtos encontrados na seção "${section}"`);
 
       res.json({
         section: section,
@@ -903,9 +960,9 @@ export class ProductsController {
         items
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Get products by section error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: error.message || 'Internal server error' });
     }
   }
 
