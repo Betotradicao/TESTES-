@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response, RequestHandler } from 'express';
 import { AppDataSource } from '../config/database';
 import { ErpTemplate } from '../entities/ErpTemplate';
 import { minioService } from '../services/minio.service';
@@ -8,7 +8,7 @@ const templateRepository = AppDataSource.getRepository(ErpTemplate);
 
 // Configurar multer para upload em memória
 const storage = multer.memoryStorage();
-export const uploadLogoMiddleware = multer({
+export const uploadLogoMiddleware: RequestHandler = multer({
   storage,
   limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
   fileFilter: (req, file, cb) => {

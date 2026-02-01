@@ -1,8 +1,8 @@
-import { Router } from 'express';
+import { Router, IRouter } from 'express';
 import { ErpTemplatesController, uploadLogoMiddleware } from '../controllers/erp-templates.controller';
 import { authenticateToken } from '../middleware/auth';
 
-const router = Router();
+const router: IRouter = Router();
 const controller = new ErpTemplatesController();
 
 // Todas as rotas requerem autenticação
