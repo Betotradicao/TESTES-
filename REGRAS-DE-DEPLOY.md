@@ -563,5 +563,65 @@ if (process.env.ERP_PRODUCTS_API_URL) {
 
 ---
 
-**Última atualização:** 21/01/2026 - Adicionado regra de conexão Intersolid (local vs VPS)
+## 🔶 REGRA #3: HOST ORACLE NA VPS É DIFERENTE DO LOCAL!
+
+### ⚠️ PROBLEMA COMUM APÓS DEPLOY
+
+Após fazer deploy, o Oracle para de conectar na VPS com erro:
+```
+❌ ORA-12170: Cannot connect. TCP connect timeout for host 10.6.1.100 port 1521
+```
+
+### 📍 Causa
+
+A configuração de conexão Oracle é salva na tabela `database_connections` do PostgreSQL.
+
+| Ambiente | Host Correto | Por quê |
+|----------|--------------|---------|
+| **Local** (desenvolvimento) | `10.6.1.100` | Conecta direto na rede local |
+| **VPS** (produção) | `172.20.0.1` | Conecta via túnel SSH pelo gateway Docker |
+
+Quando você configura a conexão Intersolid **localmente**, o sistema salva `10.6.1.100`. Se essa configuração for replicada para a VPS, ela não funciona porque `10.6.1.100` não existe na rede Docker da VPS.
+
+### ✅ Solução: Verificar e corrigir após deploy
+
+```bash
+# 1. Verificar host atual
+ssh root@46.202.150.64 "docker exec prevencao-tradicao-postgres psql -U postgres -d postgres_tradicao -c \"SELECT name, host, port FROM database_connections WHERE type = 'oracle';\""
+
+# 2. Se estiver 10.6.1.100, corrigir para 172.20.0.1
+ssh root@46.202.150.64 "docker exec prevencao-tradicao-postgres psql -U postgres -d postgres_tradicao -c \"UPDATE database_connections SET host = '172.20.0.1' WHERE name = 'Intersolid';\""
+
+# 3. Reiniciar backend para recarregar configuração
+ssh root@46.202.150.64 "docker restart prevencao-tradicao-backend"
+
+# 4. Verificar se conectou
+ssh root@46.202.150.64 "docker logs prevencao-tradicao-backend --tail 20 | grep -i oracle"
+```
+
+**Logs esperados (sucesso):**
+```
+📦 Oracle config loaded from database_connections: Intersolid (172.20.0.1:1521/orcl.intersoul)
+✅ Oracle connection pool initialized
+```
+
+### 📋 Checklist pós-deploy (quando envolve Oracle)
+
+- [ ] Verificar se host Oracle está `172.20.0.1` (não `10.6.1.100`)
+- [ ] Verificar se túnel SSH está ativo: `ss -tlnp | grep 1521`
+- [ ] Verificar logs do backend: `docker logs ... | grep oracle`
+
+### 🎓 Lição Aprendida (01/02/2026)
+
+**Problema:** Após deploy, Oracle parou de conectar na VPS.
+
+**Causa:** A tabela `database_connections` tinha `host = '10.6.1.100'` (IP da rede local) em vez de `host = '172.20.0.1'` (gateway Docker que acessa o túnel SSH).
+
+**Solução:** Atualizar o host no banco PostgreSQL da VPS para `172.20.0.1` e reiniciar o backend.
+
+**Prevenção futura:** Sempre verificar o host Oracle após deploy ou ao configurar conexão Intersolid.
+
+---
+
+**Última atualização:** 01/02/2026 - Adicionado regra do host Oracle (local vs VPS)
 **Criado por:** Claude (aprendendo com cada erro 🎓)
