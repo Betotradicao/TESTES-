@@ -1,3 +1,10 @@
+// Configurar PATH do Oracle Instant Client ANTES de qualquer import
+if (process.platform === 'win32') {
+  const oraclePath = 'C:\\oracle\\instantclient_64\\instantclient_23_4';
+  process.env.PATH = `${oraclePath};${process.env.PATH}`;
+  console.log('✅ Oracle Instant Client adicionado ao PATH');
+}
+
 import 'reflect-metadata';
 import express from 'express';
 import cors from 'cors';
@@ -42,6 +49,7 @@ import frenteCaixaRouter from './routes/frente-caixa.routes';
 import pedidosCompraRouter from './routes/pedidos-compra.routes';
 import rupturaIndustriaRouter from './routes/ruptura-industria.routes';
 import databaseConnectionsRouter from './routes/database-connections.routes';
+import erpTemplatesRouter from './routes/erp-templates.routes';
 import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
 import { EmailMonitorService } from './services/email-monitor.service';
@@ -121,6 +129,7 @@ app.use('/api/frente-caixa', frenteCaixaRouter);
 app.use('/api/pedidos-compra', pedidosCompraRouter);
 app.use('/api/ruptura-industria', rupturaIndustriaRouter);
 app.use('/api/database-connections', databaseConnectionsRouter);
+app.use('/api/erp-templates', erpTemplatesRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {

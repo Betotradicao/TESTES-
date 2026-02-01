@@ -62,7 +62,7 @@ export class DatabaseConnectionsController {
    */
   async create(req: Request, res: Response) {
     try {
-      const { name, type, host, port, service, database, username, password, schema, is_default } = req.body;
+      const { name, type, host, port, service, database, username, password, schema, is_default, status } = req.body;
 
       if (!name || !type || !host || !port || !username || !password) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -71,6 +71,14 @@ export class DatabaseConnectionsController {
       // Se é default, remove default de outras conexões
       if (is_default) {
         await connectionRepository.update({}, { is_default: false });
+      }
+
+      // Mapear status do frontend para o enum
+      let connectionStatus = ConnectionStatus.INACTIVE;
+      if (status === 'active') {
+        connectionStatus = ConnectionStatus.ACTIVE;
+      } else if (status === 'error') {
+        connectionStatus = ConnectionStatus.ERROR;
       }
 
       const connection = connectionRepository.create({
@@ -84,7 +92,7 @@ export class DatabaseConnectionsController {
         password,
         schema,
         is_default: is_default || false,
-        status: ConnectionStatus.INACTIVE
+        status: connectionStatus
       });
 
       const saved = await connectionRepository.save(connection);
@@ -108,7 +116,7 @@ export class DatabaseConnectionsController {
   async update(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { name, type, host, port, service, database, username, password, schema, is_default } = req.body;
+      const { name, type, host, port, service, database, username, password, schema, is_default, status } = req.body;
 
       const connection = await connectionRepository.findOne({
         where: { id: parseInt(id) }
@@ -136,6 +144,15 @@ export class DatabaseConnectionsController {
       }
       connection.schema = schema !== undefined ? schema : connection.schema;
       connection.is_default = is_default !== undefined ? is_default : connection.is_default;
+
+      // Atualizar status se fornecido
+      if (status === 'active') {
+        connection.status = ConnectionStatus.ACTIVE;
+      } else if (status === 'inactive') {
+        connection.status = ConnectionStatus.INACTIVE;
+      } else if (status === 'error') {
+        connection.status = ConnectionStatus.ERROR;
+      }
 
       const saved = await connectionRepository.save(connection);
 
@@ -289,6 +306,205 @@ export class DatabaseConnectionsController {
       return res.status(500).json({
         success: false,
         message: `Erro ao testar conexão: ${error.message}`
+      });
+    }
+  }
+
+  /**
+   * POST /api/database-connections/test-mapping
+   * Testa se uma tabela/coluna existe e retorna um exemplo de dado
+   */
+  async testMapping(req: Request, res: Response) {
+    let connection: oracledb.Connection | null = null;
+
+    try {
+      const { connectionId, tableName, columnName } = req.body;
+
+      if (!connectionId || !tableName || !columnName) {
+        return res.status(400).json({
+          success: false,
+          message: 'Campos obrigatórios: connectionId, tableName, columnName'
+        });
+      }
+
+      // Buscar a conexão
+      const dbConnection = await connectionRepository.findOne({
+        where: { id: parseInt(connectionId) }
+      });
+
+      if (!dbConnection) {
+        return res.status(404).json({
+          success: false,
+          message: 'Conexão não encontrada'
+        });
+      }
+
+      console.log(`🔍 Testing mapping: ${tableName}.${columnName} on ${dbConnection.name}`);
+
+      // Por enquanto, só suporta Oracle
+      if (dbConnection.type !== DatabaseType.ORACLE) {
+        return res.json({
+          success: false,
+          message: `Teste de mapeamento ainda não suportado para ${dbConnection.type}`
+        });
+      }
+
+      const connectString = `${dbConnection.host}:${dbConnection.port}/${dbConnection.service || 'orcl'}`;
+
+      // Inicializa Thick Mode se necessário
+      try {
+        const isWindows = process.platform === 'win32';
+        const oracleClientPath = isWindows
+          ? 'C:\\oracle\\instantclient_64\\instantclient_23_4'
+          : '/opt/oracle/instantclient_23_4';
+        oracledb.initOracleClient({ libDir: oracleClientPath });
+      } catch (initError: any) {
+        if (!initError.message?.includes('already been initialized')) {
+          console.log('⚠️ Thick mode not available, trying thin mode');
+        }
+      }
+
+      connection = await oracledb.getConnection({
+        user: dbConnection.username,
+        password: dbConnection.password,
+        connectString
+      });
+
+      // Sanitizar nomes de tabela e coluna (prevenir SQL injection)
+      const safeTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+      const safeColumnName = columnName.replace(/[^a-zA-Z0-9_]/g, '');
+      const safeSchema = dbConnection.schema ? dbConnection.schema.replace(/[^a-zA-Z0-9_]/g, '') : null;
+
+      // Montar nome da tabela com schema se necessário
+      const fullTableName = safeSchema
+        ? `${safeSchema.toUpperCase()}.${safeTableName.toUpperCase()}`
+        : safeTableName.toUpperCase();
+
+      // Tentar buscar dados diretamente - se falhar, a tabela/coluna não existe
+      let sampleResult: any;
+      let countResult: any;
+
+      try {
+        // Buscar exemplo de dados (3 registros para mostrar variedade)
+        const sampleQuery = `SELECT ${safeColumnName.toUpperCase()} FROM ${fullTableName} WHERE ROWNUM <= 3`;
+        console.log(`📋 Query sample: ${sampleQuery}`);
+        sampleResult = await connection.execute(sampleQuery, [], { outFormat: oracledb.OUT_FORMAT_ARRAY });
+        console.log(`📋 Sample result rows:`, JSON.stringify(sampleResult.rows));
+      } catch (queryError: any) {
+        console.error(`❌ Query failed:`, queryError.message);
+
+        // Verificar tipo de erro
+        if (queryError.message.includes('table or view does not exist')) {
+          return res.json({
+            success: false,
+            message: `Tabela '${safeTableName}' não encontrada`
+          });
+        }
+        if (queryError.message.includes('invalid identifier')) {
+          return res.json({
+            success: false,
+            message: `Coluna '${safeColumnName}' não encontrada na tabela '${safeTableName}'`
+          });
+        }
+
+        return res.json({
+          success: false,
+          message: `Erro na consulta: ${queryError.message}`
+        });
+      }
+
+      // Se chegou aqui, a tabela e coluna existem - buscar contagem
+      try {
+        const countQuery = `SELECT COUNT(*) FROM ${fullTableName}`;
+        countResult = await connection.execute(countQuery, [], { outFormat: oracledb.OUT_FORMAT_ARRAY });
+        console.log(`📋 Count result:`, JSON.stringify(countResult.rows));
+      } catch (countError: any) {
+        console.error(`⚠️ Count query failed:`, countError.message);
+        countResult = { rows: [[0]] };
+      }
+
+      // Extrair valores do resultado (OUT_FORMAT_ARRAY retorna array de arrays)
+      const rows = sampleResult.rows || [];
+      const sampleValues = rows.map((row: any[]) => row[0]).filter((v: any) => v !== null && v !== undefined);
+      const sampleValue = sampleValues.length > 0 ? sampleValues.slice(0, 3).join(', ') : null;
+      const totalCount = countResult.rows?.[0]?.[0] || 0;
+
+      console.log(`✅ Mapping test successful: ${tableName}.${columnName} = "${sampleValue}" (${totalCount} rows)`);
+
+      return res.json({
+        success: true,
+        message: 'Mapeamento válido!',
+        sample: sampleValue !== null && sampleValue !== undefined ? String(sampleValue) : '(vazio)',
+        count: totalCount
+      });
+
+    } catch (error: any) {
+      console.error('Error testing mapping:', error.message);
+      return res.status(500).json({
+        success: false,
+        message: `Erro ao testar mapeamento: ${error.message}`
+      });
+    } finally {
+      if (connection) {
+        try {
+          await connection.close();
+        } catch (closeError) {
+          console.error('Error closing connection:', closeError);
+        }
+      }
+    }
+  }
+
+  /**
+   * POST /api/database-connections/save-mappings
+   * Salva os mapeamentos de tabela/coluna no banco
+   */
+  async saveMappings(req: Request, res: Response) {
+    try {
+      const { connectionId, module, mappings } = req.body;
+
+      if (!connectionId || !module || !mappings) {
+        return res.status(400).json({
+          success: false,
+          message: 'Campos obrigatórios: connectionId, module, mappings'
+        });
+      }
+
+      // Buscar a conexão
+      const dbConnection = await connectionRepository.findOne({
+        where: { id: parseInt(connectionId) }
+      });
+
+      if (!dbConnection) {
+        return res.status(404).json({
+          success: false,
+          message: 'Conexão não encontrada'
+        });
+      }
+
+      // Salvar os mapeamentos como JSON na conexão
+      // Podemos usar um campo específico ou criar uma tabela separada
+      // Por ora, vamos salvar em um campo JSON na própria conexão
+
+      // Atualizar a conexão com os mapeamentos
+      const existingMappings = dbConnection.mappings ? JSON.parse(dbConnection.mappings as string) : {};
+      existingMappings[module] = mappings;
+
+      dbConnection.mappings = JSON.stringify(existingMappings);
+      await connectionRepository.save(dbConnection);
+
+      console.log(`✅ Mappings saved for connection ${dbConnection.name}, module: ${module}`);
+
+      return res.json({
+        success: true,
+        message: 'Mapeamentos salvos com sucesso!'
+      });
+
+    } catch (error: any) {
+      console.error('Error saving mappings:', error.message);
+      return res.status(500).json({
+        success: false,
+        message: `Erro ao salvar mapeamentos: ${error.message}`
       });
     }
   }

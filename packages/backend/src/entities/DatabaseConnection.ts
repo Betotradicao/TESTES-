@@ -64,6 +64,9 @@ export class DatabaseConnection {
   @Column({ nullable: true, type: 'text' })
   last_error: string;
 
+  @Column({ nullable: true, type: 'text' })
+  mappings: string; // JSON com mapeamentos de tabelas/colunas por módulo
+
   @CreateDateColumn()
   created_at: Date;
 

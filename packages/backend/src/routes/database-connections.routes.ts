@@ -18,4 +18,10 @@ router.post('/:id/test', authenticateToken, controller.testConnection.bind(contr
 // Rota para testar nova conexão (sem salvar)
 router.post('/test-new', authenticateToken, controller.testNewConnection.bind(controller));
 
+// Rota para testar mapeamento de tabela/coluna
+router.post('/test-mapping', authenticateToken, controller.testMapping.bind(controller));
+
+// Rota para salvar mapeamentos
+router.post('/save-mappings', authenticateToken, controller.saveMappings.bind(controller));
+
 export default router;
