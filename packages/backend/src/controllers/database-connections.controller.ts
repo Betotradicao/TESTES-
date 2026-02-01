@@ -313,10 +313,9 @@ export class DatabaseConnectionsController {
   /**
    * POST /api/database-connections/test-mapping
    * Testa se uma tabela/coluna existe e retorna um exemplo de dado
+   * Suporta Oracle, PostgreSQL, SQL Server e MySQL
    */
   async testMapping(req: Request, res: Response) {
-    let connection: oracledb.Connection | null = null;
-
     try {
       const { connectionId, tableName, columnName } = req.body;
 
@@ -339,17 +338,56 @@ export class DatabaseConnectionsController {
         });
       }
 
-      console.log(`🔍 Testing mapping: ${tableName}.${columnName} on ${dbConnection.name}`);
+      console.log(`🔍 Testing mapping: ${tableName}.${columnName} on ${dbConnection.name} (${dbConnection.type})`);
 
-      // Por enquanto, só suporta Oracle
-      if (dbConnection.type !== DatabaseType.ORACLE) {
-        return res.json({
-          success: false,
-          message: `Teste de mapeamento ainda não suportado para ${dbConnection.type}`
-        });
+      // Sanitizar nomes de tabela e coluna (prevenir SQL injection)
+      const safeTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+      const safeColumnName = columnName.replace(/[^a-zA-Z0-9_]/g, '');
+      const safeSchema = dbConnection.schema ? dbConnection.schema.replace(/[^a-zA-Z0-9_]/g, '') : null;
+
+      let result: { success: boolean; message: string; sample?: string; count?: number };
+
+      switch (dbConnection.type) {
+        case DatabaseType.ORACLE:
+          result = await this.testMappingOracle(dbConnection, safeTableName, safeColumnName, safeSchema);
+          break;
+        case DatabaseType.POSTGRESQL:
+          result = await this.testMappingPostgres(dbConnection, safeTableName, safeColumnName, safeSchema);
+          break;
+        case DatabaseType.SQLSERVER:
+          result = await this.testMappingSqlServer(dbConnection, safeTableName, safeColumnName, safeSchema);
+          break;
+        case DatabaseType.MYSQL:
+          result = await this.testMappingMySql(dbConnection, safeTableName, safeColumnName, safeSchema);
+          break;
+        default:
+          result = { success: false, message: `Tipo de banco não suportado: ${dbConnection.type}` };
       }
 
-      const connectString = `${dbConnection.host}:${dbConnection.port}/${dbConnection.service || 'orcl'}`;
+      return res.json(result);
+
+    } catch (error: any) {
+      console.error('Error testing mapping:', error.message);
+      return res.status(500).json({
+        success: false,
+        message: `Erro ao testar mapeamento: ${error.message}`
+      });
+    }
+  }
+
+  /**
+   * Testa mapeamento em Oracle
+   */
+  private async testMappingOracle(
+    conn: DatabaseConnection,
+    tableName: string,
+    columnName: string,
+    schema: string | null
+  ): Promise<{ success: boolean; message: string; sample?: string; count?: number }> {
+    let connection: oracledb.Connection | null = null;
+
+    try {
+      const connectString = `${conn.host}:${conn.port}/${conn.service || 'orcl'}`;
 
       // Inicializa Thick Mode se necessário
       try {
@@ -365,92 +403,286 @@ export class DatabaseConnectionsController {
       }
 
       connection = await oracledb.getConnection({
-        user: dbConnection.username,
-        password: dbConnection.password,
+        user: conn.username,
+        password: conn.password,
         connectString
       });
 
-      // Sanitizar nomes de tabela e coluna (prevenir SQL injection)
-      const safeTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
-      const safeColumnName = columnName.replace(/[^a-zA-Z0-9_]/g, '');
-      const safeSchema = dbConnection.schema ? dbConnection.schema.replace(/[^a-zA-Z0-9_]/g, '') : null;
+      const fullTableName = schema
+        ? `${schema.toUpperCase()}.${tableName.toUpperCase()}`
+        : tableName.toUpperCase();
 
-      // Montar nome da tabela com schema se necessário
-      const fullTableName = safeSchema
-        ? `${safeSchema.toUpperCase()}.${safeTableName.toUpperCase()}`
-        : safeTableName.toUpperCase();
+      // Buscar exemplo de dados
+      const sampleQuery = `SELECT ${columnName.toUpperCase()} FROM ${fullTableName} WHERE ROWNUM <= 3`;
+      console.log(`📋 Oracle query: ${sampleQuery}`);
 
-      // Tentar buscar dados diretamente - se falhar, a tabela/coluna não existe
       let sampleResult: any;
-      let countResult: any;
-
       try {
-        // Buscar exemplo de dados (3 registros para mostrar variedade)
-        const sampleQuery = `SELECT ${safeColumnName.toUpperCase()} FROM ${fullTableName} WHERE ROWNUM <= 3`;
-        console.log(`📋 Query sample: ${sampleQuery}`);
         sampleResult = await connection.execute(sampleQuery, [], { outFormat: oracledb.OUT_FORMAT_ARRAY });
-        console.log(`📋 Sample result rows:`, JSON.stringify(sampleResult.rows));
       } catch (queryError: any) {
-        console.error(`❌ Query failed:`, queryError.message);
-
-        // Verificar tipo de erro
         if (queryError.message.includes('table or view does not exist')) {
-          return res.json({
-            success: false,
-            message: `Tabela '${safeTableName}' não encontrada`
-          });
+          return { success: false, message: `Tabela '${tableName}' não encontrada` };
         }
         if (queryError.message.includes('invalid identifier')) {
-          return res.json({
-            success: false,
-            message: `Coluna '${safeColumnName}' não encontrada na tabela '${safeTableName}'`
-          });
+          return { success: false, message: `Coluna '${columnName}' não encontrada na tabela '${tableName}'` };
         }
-
-        return res.json({
-          success: false,
-          message: `Erro na consulta: ${queryError.message}`
-        });
+        return { success: false, message: `Erro na consulta: ${queryError.message}` };
       }
 
-      // Se chegou aqui, a tabela e coluna existem - buscar contagem
-      try {
-        const countQuery = `SELECT COUNT(*) FROM ${fullTableName}`;
-        countResult = await connection.execute(countQuery, [], { outFormat: oracledb.OUT_FORMAT_ARRAY });
-        console.log(`📋 Count result:`, JSON.stringify(countResult.rows));
-      } catch (countError: any) {
-        console.error(`⚠️ Count query failed:`, countError.message);
-        countResult = { rows: [[0]] };
-      }
+      // Buscar contagem
+      const countQuery = `SELECT COUNT(*) FROM ${fullTableName}`;
+      const countResult = await connection.execute(countQuery, [], { outFormat: oracledb.OUT_FORMAT_ARRAY });
 
-      // Extrair valores do resultado (OUT_FORMAT_ARRAY retorna array de arrays)
       const rows = sampleResult.rows || [];
       const sampleValues = rows.map((row: any[]) => row[0]).filter((v: any) => v !== null && v !== undefined);
       const sampleValue = sampleValues.length > 0 ? sampleValues.slice(0, 3).join(', ') : null;
-      const totalCount = countResult.rows?.[0]?.[0] || 0;
+      const totalCount = (countResult.rows as any)?.[0]?.[0] || 0;
 
-      console.log(`✅ Mapping test successful: ${tableName}.${columnName} = "${sampleValue}" (${totalCount} rows)`);
+      console.log(`✅ Oracle mapping test successful: ${tableName}.${columnName} = "${sampleValue}" (${totalCount} rows)`);
 
-      return res.json({
+      return {
         success: true,
         message: 'Mapeamento válido!',
-        sample: sampleValue !== null && sampleValue !== undefined ? String(sampleValue) : '(vazio)',
+        sample: sampleValue !== null ? String(sampleValue) : '(vazio)',
         count: totalCount
-      });
+      };
 
-    } catch (error: any) {
-      console.error('Error testing mapping:', error.message);
-      return res.status(500).json({
-        success: false,
-        message: `Erro ao testar mapeamento: ${error.message}`
-      });
     } finally {
       if (connection) {
-        try {
-          await connection.close();
-        } catch (closeError) {
-          console.error('Error closing connection:', closeError);
+        try { await connection.close(); } catch (e) { }
+      }
+    }
+  }
+
+  /**
+   * Testa mapeamento em PostgreSQL
+   */
+  private async testMappingPostgres(
+    conn: DatabaseConnection,
+    tableName: string,
+    columnName: string,
+    schema: string | null
+  ): Promise<{ success: boolean; message: string; sample?: string; count?: number }> {
+    let client: any = null;
+
+    try {
+      const { Client } = require('pg');
+
+      client = new Client({
+        host: conn.host,
+        port: conn.port,
+        user: conn.username,
+        password: conn.password,
+        database: conn.database || 'postgres',
+        connectionTimeoutMillis: 10000
+      });
+
+      await client.connect();
+
+      const fullTableName = schema
+        ? `"${schema}"."${tableName}"`
+        : `"${tableName}"`;
+
+      // Buscar exemplo de dados
+      const sampleQuery = `SELECT "${columnName}" FROM ${fullTableName} LIMIT 3`;
+      console.log(`📋 PostgreSQL query: ${sampleQuery}`);
+
+      let sampleResult: any;
+      try {
+        sampleResult = await client.query(sampleQuery);
+      } catch (queryError: any) {
+        if (queryError.message.includes('does not exist')) {
+          if (queryError.message.includes('column')) {
+            return { success: false, message: `Coluna '${columnName}' não encontrada na tabela '${tableName}'` };
+          }
+          return { success: false, message: `Tabela '${tableName}' não encontrada` };
         }
+        return { success: false, message: `Erro na consulta: ${queryError.message}` };
+      }
+
+      // Buscar contagem
+      const countQuery = `SELECT COUNT(*) FROM ${fullTableName}`;
+      const countResult = await client.query(countQuery);
+
+      const rows = sampleResult.rows || [];
+      const sampleValues = rows.map((row: any) => row[columnName]).filter((v: any) => v !== null && v !== undefined);
+      const sampleValue = sampleValues.length > 0 ? sampleValues.slice(0, 3).join(', ') : null;
+      const totalCount = parseInt(countResult.rows?.[0]?.count) || 0;
+
+      console.log(`✅ PostgreSQL mapping test successful: ${tableName}.${columnName} = "${sampleValue}" (${totalCount} rows)`);
+
+      return {
+        success: true,
+        message: 'Mapeamento válido!',
+        sample: sampleValue !== null ? String(sampleValue) : '(vazio)',
+        count: totalCount
+      };
+
+    } catch (error: any) {
+      if (error.code === 'MODULE_NOT_FOUND') {
+        return { success: false, message: 'Driver PostgreSQL (pg) não está instalado no servidor' };
+      }
+      return { success: false, message: `Erro PostgreSQL: ${error.message}` };
+    } finally {
+      if (client) {
+        try { await client.end(); } catch (e) { }
+      }
+    }
+  }
+
+  /**
+   * Testa mapeamento em SQL Server
+   */
+  private async testMappingSqlServer(
+    conn: DatabaseConnection,
+    tableName: string,
+    columnName: string,
+    schema: string | null
+  ): Promise<{ success: boolean; message: string; sample?: string; count?: number }> {
+    let pool: any = null;
+
+    try {
+      const mssql = require('mssql');
+
+      const config = {
+        user: conn.username,
+        password: conn.password,
+        server: conn.host,
+        port: conn.port,
+        database: conn.database || 'master',
+        options: {
+          encrypt: false,
+          trustServerCertificate: true
+        },
+        connectionTimeout: 10000
+      };
+
+      pool = await mssql.connect(config);
+
+      const fullTableName = schema
+        ? `[${schema}].[${tableName}]`
+        : `[${tableName}]`;
+
+      // Buscar exemplo de dados
+      const sampleQuery = `SELECT TOP 3 [${columnName}] FROM ${fullTableName}`;
+      console.log(`📋 SQL Server query: ${sampleQuery}`);
+
+      let sampleResult: any;
+      try {
+        sampleResult = await pool.request().query(sampleQuery);
+      } catch (queryError: any) {
+        if (queryError.message.includes('Invalid object name')) {
+          return { success: false, message: `Tabela '${tableName}' não encontrada` };
+        }
+        if (queryError.message.includes('Invalid column name')) {
+          return { success: false, message: `Coluna '${columnName}' não encontrada na tabela '${tableName}'` };
+        }
+        return { success: false, message: `Erro na consulta: ${queryError.message}` };
+      }
+
+      // Buscar contagem
+      const countQuery = `SELECT COUNT(*) as count FROM ${fullTableName}`;
+      const countResult = await pool.request().query(countQuery);
+
+      const rows = sampleResult.recordset || [];
+      const sampleValues = rows.map((row: any) => row[columnName]).filter((v: any) => v !== null && v !== undefined);
+      const sampleValue = sampleValues.length > 0 ? sampleValues.slice(0, 3).join(', ') : null;
+      const totalCount = countResult.recordset?.[0]?.count || 0;
+
+      console.log(`✅ SQL Server mapping test successful: ${tableName}.${columnName} = "${sampleValue}" (${totalCount} rows)`);
+
+      return {
+        success: true,
+        message: 'Mapeamento válido!',
+        sample: sampleValue !== null ? String(sampleValue) : '(vazio)',
+        count: totalCount
+      };
+
+    } catch (error: any) {
+      if (error.code === 'MODULE_NOT_FOUND') {
+        return { success: false, message: 'Driver SQL Server (mssql) não está instalado no servidor' };
+      }
+      return { success: false, message: `Erro SQL Server: ${error.message}` };
+    } finally {
+      if (pool) {
+        try { await pool.close(); } catch (e) { }
+      }
+    }
+  }
+
+  /**
+   * Testa mapeamento em MySQL
+   */
+  private async testMappingMySql(
+    conn: DatabaseConnection,
+    tableName: string,
+    columnName: string,
+    schema: string | null
+  ): Promise<{ success: boolean; message: string; sample?: string; count?: number }> {
+    let connection: any = null;
+
+    try {
+      const mysql = require('mysql2/promise');
+
+      connection = await mysql.createConnection({
+        host: conn.host,
+        port: conn.port,
+        user: conn.username,
+        password: conn.password,
+        database: conn.database || schema || undefined,
+        connectTimeout: 10000
+      });
+
+      const fullTableName = schema && !conn.database
+        ? `\`${schema}\`.\`${tableName}\``
+        : `\`${tableName}\``;
+
+      // Buscar exemplo de dados
+      const sampleQuery = `SELECT \`${columnName}\` FROM ${fullTableName} LIMIT 3`;
+      console.log(`📋 MySQL query: ${sampleQuery}`);
+
+      let sampleResult: any;
+      try {
+        [sampleResult] = await connection.execute(sampleQuery);
+      } catch (queryError: any) {
+        if (queryError.message.includes("doesn't exist")) {
+          if (queryError.message.includes('Unknown column')) {
+            return { success: false, message: `Coluna '${columnName}' não encontrada na tabela '${tableName}'` };
+          }
+          return { success: false, message: `Tabela '${tableName}' não encontrada` };
+        }
+        if (queryError.message.includes('Unknown column')) {
+          return { success: false, message: `Coluna '${columnName}' não encontrada na tabela '${tableName}'` };
+        }
+        return { success: false, message: `Erro na consulta: ${queryError.message}` };
+      }
+
+      // Buscar contagem
+      const countQuery = `SELECT COUNT(*) as count FROM ${fullTableName}`;
+      const [countResult] = await connection.execute(countQuery);
+
+      const rows = sampleResult || [];
+      const sampleValues = rows.map((row: any) => row[columnName]).filter((v: any) => v !== null && v !== undefined);
+      const sampleValue = sampleValues.length > 0 ? sampleValues.slice(0, 3).join(', ') : null;
+      const totalCount = countResult?.[0]?.count || 0;
+
+      console.log(`✅ MySQL mapping test successful: ${tableName}.${columnName} = "${sampleValue}" (${totalCount} rows)`);
+
+      return {
+        success: true,
+        message: 'Mapeamento válido!',
+        sample: sampleValue !== null ? String(sampleValue) : '(vazio)',
+        count: totalCount
+      };
+
+    } catch (error: any) {
+      if (error.code === 'MODULE_NOT_FOUND') {
+        return { success: false, message: 'Driver MySQL (mysql2) não está instalado no servidor' };
+      }
+      return { success: false, message: `Erro MySQL: ${error.message}` };
+    } finally {
+      if (connection) {
+        try { await connection.end(); } catch (e) { }
       }
     }
   }
@@ -483,12 +715,23 @@ export class DatabaseConnectionsController {
       }
 
       // Salvar os mapeamentos como JSON na conexão
-      // Podemos usar um campo específico ou criar uma tabela separada
-      // Por ora, vamos salvar em um campo JSON na própria conexão
+      // Extrair apenas os campos do módulo atual e remover o prefixo do módulo
+      // Ex: "notas_fiscais_numero_nf_table" -> "numero_nf_table"
+
+      const modulePrefix = `${module}_`;
+      const moduleMappings: Record<string, string> = {};
+
+      Object.keys(mappings).forEach(key => {
+        if (key.startsWith(modulePrefix)) {
+          // Remove o prefixo do módulo para salvar
+          const fieldKey = key.substring(modulePrefix.length);
+          moduleMappings[fieldKey] = mappings[key];
+        }
+      });
 
       // Atualizar a conexão com os mapeamentos
       const existingMappings = dbConnection.mappings ? JSON.parse(dbConnection.mappings as string) : {};
-      existingMappings[module] = mappings;
+      existingMappings[module] = moduleMappings;
 
       dbConnection.mappings = JSON.stringify(existingMappings);
       await connectionRepository.save(dbConnection);

@@ -9,7 +9,7 @@ const DATABASE_TYPES = [
   { id: 'oracle', name: 'Oracle', icon: '🔶', color: 'bg-red-500' },
   { id: 'sqlserver', name: 'SQL Server', icon: '🔷', color: 'bg-blue-500' },
   { id: 'mysql', name: 'MySQL', icon: '🐬', color: 'bg-cyan-500' },
-  { id: 'postgres', name: 'PostgreSQL', icon: '🐘', color: 'bg-indigo-500' },
+  { id: 'postgresql', name: 'PostgreSQL', icon: '🐘', color: 'bg-indigo-500' },
 ];
 
 // Módulos do sistema que podem ser mapeados
@@ -35,6 +35,7 @@ const SYSTEM_MODULES = [
       { id: 'subgrupo', name: 'Subgrupo', required: false, description: 'Nome do subgrupo' },
       { id: 'fornecedor', name: 'Fornecedor', required: false, description: 'Nome do fornecedor principal' },
       { id: 'pesavel', name: 'É Pesável?', required: false, description: 'Se o produto é vendido por peso' },
+      { id: 'embalagem', name: 'Embalagem', required: false, description: 'Tipo de embalagem do produto (UN, KG, CX, etc)' },
     ]
   },
   {
@@ -94,6 +95,93 @@ const SYSTEM_MODULES = [
   },
 ];
 
+// Mapeamentos vazios (para quando não há template aplicado)
+const EMPTY_MAPPINGS = {
+  // Módulo: Produtos
+  'produtos_codigo_table': '',
+  'produtos_codigo_column': '',
+  'produtos_descricao_table': '',
+  'produtos_descricao_column': '',
+  'produtos_descricao_reduzida_table': '',
+  'produtos_descricao_reduzida_column': '',
+  'produtos_ean_table': '',
+  'produtos_ean_column': '',
+  'produtos_preco_venda_table': '',
+  'produtos_preco_venda_column': '',
+  'produtos_preco_oferta_table': '',
+  'produtos_preco_oferta_column': '',
+  'produtos_preco_custo_table': '',
+  'produtos_preco_custo_column': '',
+  'produtos_estoque_table': '',
+  'produtos_estoque_column': '',
+  'produtos_margem_table': '',
+  'produtos_margem_column': '',
+  'produtos_curva_table': '',
+  'produtos_curva_column': '',
+  'produtos_secao_table': '',
+  'produtos_secao_column': '',
+  'produtos_grupo_table': '',
+  'produtos_grupo_column': '',
+  'produtos_subgrupo_table': '',
+  'produtos_subgrupo_column': '',
+  'produtos_fornecedor_table': '',
+  'produtos_fornecedor_column': '',
+  'produtos_pesavel_table': '',
+  'produtos_pesavel_column': '',
+  'produtos_embalagem_table': '',
+  'produtos_embalagem_column': '',
+  // Módulo: Vendas
+  'vendas_numero_cupom_table': '',
+  'vendas_numero_cupom_column': '',
+  'vendas_data_venda_table': '',
+  'vendas_data_venda_column': '',
+  'vendas_valor_total_table': '',
+  'vendas_valor_total_column': '',
+  'vendas_cod_operador_table': '',
+  'vendas_cod_operador_column': '',
+  'vendas_nome_operador_table': '',
+  'vendas_nome_operador_column': '',
+  'vendas_cod_pdv_table': '',
+  'vendas_cod_pdv_column': '',
+  'vendas_status_cupom_table': '',
+  'vendas_status_cupom_column': '',
+  // Módulo: Estoque
+  'estoque_cod_produto_table': '',
+  'estoque_cod_produto_column': '',
+  'estoque_quantidade_table': '',
+  'estoque_quantidade_column': '',
+  'estoque_tipo_movimento_table': '',
+  'estoque_tipo_movimento_column': '',
+  'estoque_data_movimento_table': '',
+  'estoque_data_movimento_column': '',
+  'estoque_motivo_table': '',
+  'estoque_motivo_column': '',
+  // Módulo: Fornecedores
+  'fornecedores_codigo_table': '',
+  'fornecedores_codigo_column': '',
+  'fornecedores_razao_social_table': '',
+  'fornecedores_razao_social_column': '',
+  'fornecedores_fantasia_table': '',
+  'fornecedores_fantasia_column': '',
+  'fornecedores_cnpj_table': '',
+  'fornecedores_cnpj_column': '',
+  'fornecedores_telefone_table': '',
+  'fornecedores_telefone_column': '',
+  // Módulo: Notas Fiscais
+  'notas_fiscais_numero_nf_table': '',
+  'notas_fiscais_numero_nf_column': '',
+  'notas_fiscais_serie_table': '',
+  'notas_fiscais_serie_column': '',
+  'notas_fiscais_data_entrada_table': '',
+  'notas_fiscais_data_entrada_column': '',
+  'notas_fiscais_cod_fornecedor_table': '',
+  'notas_fiscais_cod_fornecedor_column': '',
+  'notas_fiscais_valor_total_table': '',
+  'notas_fiscais_valor_total_column': '',
+  'notas_fiscais_chave_acesso_table': '',
+  'notas_fiscais_chave_acesso_column': '',
+};
+
 // Mapeamento padrão para Oracle Intersolid (pré-preenchido para facilitar)
 const DEFAULT_MAPPINGS = {
   // Módulo: Produtos
@@ -127,6 +215,8 @@ const DEFAULT_MAPPINGS = {
   'produtos_fornecedor_column': 'DES_FORNECEDOR',
   'produtos_pesavel_table': 'TAB_PRODUTO',
   'produtos_pesavel_column': 'IPV',
+  'produtos_embalagem_table': 'TAB_PRODUTO',
+  'produtos_embalagem_column': 'DES_EMBALAGEM',
 
   // Módulo: Vendas/PDV (TAB_PRODUTO_PDV é a tabela principal de vendas)
   'vendas_numero_cupom_table': 'TAB_PRODUTO_PDV',
@@ -200,7 +290,7 @@ export default function ConfiguracoesTabelas() {
   // Estado para Mapeamento
   const [selectedModule, setSelectedModule] = useState('produtos');
   const [selectedConnection, setSelectedConnection] = useState(null);
-  const [mappings, setMappings] = useState(DEFAULT_MAPPINGS); // Pré-preenchido com valores padrão
+  const [mappings, setMappings] = useState(EMPTY_MAPPINGS); // Começa vazio, preenche ao selecionar conexão
   const [availableTables, setAvailableTables] = useState([]);
   const [availableColumns, setAvailableColumns] = useState({});
   const [loadingTables, setLoadingTables] = useState(false);
@@ -300,6 +390,98 @@ export default function ConfiguracoesTabelas() {
     } catch (error) {
       console.error('Erro ao aplicar template:', error);
       alert('Erro ao aplicar template');
+    }
+  };
+
+  // Função para mudar conexão selecionada e carregar mapeamentos
+  const handleConnectionChange = (connectionId) => {
+    setSelectedConnection(connectionId || null);
+    setSelectedTemplate(null); // Limpa template selecionado
+    setTestResults({}); // Limpa resultados de testes anteriores
+
+    if (!connectionId) {
+      // Se não selecionou nenhuma conexão, limpa tudo
+      setMappings(EMPTY_MAPPINGS);
+      setSavedModules({
+        produtos: false,
+        vendas: false,
+        estoque: false,
+        fornecedores: false,
+        notas_fiscais: false
+      });
+      return;
+    }
+
+    // Busca a conexão para ver se tem mapeamentos salvos
+    const conn = connections.find(c => c.id == connectionId);
+
+    if (conn?.mappings) {
+      // Se a conexão tem mapeamentos salvos, usa eles
+      try {
+        const savedMappings = typeof conn.mappings === 'string'
+          ? JSON.parse(conn.mappings)
+          : conn.mappings;
+
+        // Mesclar mapeamentos salvos com EMPTY_MAPPINGS (para garantir todas as chaves)
+        const mergedMappings = { ...EMPTY_MAPPINGS };
+
+        // Percorre todos os módulos salvos
+        Object.keys(savedMappings).forEach(moduleKey => {
+          const moduleMappings = savedMappings[moduleKey];
+          if (typeof moduleMappings === 'object') {
+            Object.keys(moduleMappings).forEach(fieldKey => {
+              // Suporta formato antigo (chave já tem prefixo do módulo) e novo (sem prefixo)
+              // Formato antigo: { notas_fiscais: { notas_fiscais_numero_nf_table: "..." } }
+              // Formato novo:   { notas_fiscais: { numero_nf_table: "..." } }
+              let fullKey;
+              if (fieldKey.startsWith(`${moduleKey}_`)) {
+                // Formato antigo - chave já tem o prefixo, usa direto
+                fullKey = fieldKey;
+              } else {
+                // Formato novo - precisa adicionar o prefixo
+                fullKey = `${moduleKey}_${fieldKey}`;
+              }
+              if (mergedMappings.hasOwnProperty(fullKey)) {
+                mergedMappings[fullKey] = moduleMappings[fieldKey];
+              }
+            });
+          }
+        });
+
+        setMappings(mergedMappings);
+
+        // Marcar módulos que têm dados como salvos
+        setSavedModules({
+          produtos: !!savedMappings.produtos,
+          vendas: !!savedMappings.vendas,
+          estoque: !!savedMappings.estoque,
+          fornecedores: !!savedMappings.fornecedores,
+          notas_fiscais: !!savedMappings.notas_fiscais
+        });
+
+        console.log('✅ Mapeamentos carregados da conexão:', conn.name);
+      } catch (error) {
+        console.error('Erro ao carregar mapeamentos:', error);
+        setMappings(EMPTY_MAPPINGS);
+        setSavedModules({
+          produtos: false,
+          vendas: false,
+          estoque: false,
+          fornecedores: false,
+          notas_fiscais: false
+        });
+      }
+    } else {
+      // Se não tem mapeamentos salvos, começa em branco
+      setMappings(EMPTY_MAPPINGS);
+      setSavedModules({
+        produtos: false,
+        vendas: false,
+        estoque: false,
+        fornecedores: false,
+        notas_fiscais: false
+      });
+      console.log('📋 Conexão sem mapeamentos salvos - iniciando em branco');
     }
   };
 
@@ -934,7 +1116,7 @@ export default function ConfiguracoesTabelas() {
             </label>
             <select
               value={selectedConnection || ''}
-              onChange={(e) => setSelectedConnection(e.target.value || null)}
+              onChange={(e) => handleConnectionChange(e.target.value)}
               className="w-full md:w-96 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
             >
               <option value="">Selecione uma conexão...</option>

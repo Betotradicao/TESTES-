@@ -378,9 +378,10 @@ A VPS 46 (`46.202.150.64`) tem uma estrutura **multi-tenant** com vários client
 
 | VPS | IP | Uso | Diretório Principal |
 |-----|-----|-----|---------------------|
-| VPS 145 | `145.223.92.152` | TESTE | `/root/prevencao-radar-install` |
-| VPS 31 | `31.97.82.235` | PRODUÇÃO | `/root/NOVO-PREVEN-O` |
-| VPS 46 | `46.202.150.64` | MULTI-CLIENTES | `/root/clientes/[cliente]` |
+| VPS 46 | `46.202.150.64` | **PRODUÇÃO** (Multi-clientes) | `/root/clientes/[cliente]` |
+| VPS 31 | `31.97.82.235` | Outras finalidades | `/root/NOVO-PREVEN-O` |
+
+> ⚠️ **VPS 145 (145.223.92.152) foi descontinuada - não usar mais!**
 
 ### 🏢 Clientes na VPS 46
 
