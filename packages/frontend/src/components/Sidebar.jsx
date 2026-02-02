@@ -4,7 +4,10 @@ import Logo from './Logo';
 import { MENU_SUBMENUS } from '../constants/menuConstants';
 
 export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileMenuOpen }) {
-  const [expandedSections, setExpandedSections] = useState({});
+  const [expandedSections, setExpandedSections] = useState({
+    'gestao-radar': true,
+    'prevencao-radar': true
+  });
   const [modulesConfig, setModulesConfig] = useState([]);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebar_collapsed');
