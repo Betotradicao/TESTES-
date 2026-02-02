@@ -4,6 +4,7 @@ import { AuthRequest } from '../middleware/auth';
 import { AppDataSource } from '../config/database';
 import { User } from '../entities/User';
 import { OracleService } from '../services/oracle.service';
+import { MappingService } from '../services/mapping.service';
 import * as fs from 'fs';
 
 export class LossController {
@@ -278,11 +279,25 @@ export class LossController {
 
       console.log('📊 Buscando ajustes do Oracle:', { data_inicio, data_fim, codigoLoja, motivo, tipoFiltro });
 
+      // Busca mapeamentos dinâmicos para campos de estoque
+      const estCodProdutoCol = await MappingService.getColumn('estoque', 'cod_produto', 'COD_PRODUTO');
+      const estQuantidadeCol = await MappingService.getColumn('estoque', 'quantidade', 'QTD_AJUSTE');
+      const estTipoMovCol = await MappingService.getColumn('estoque', 'tipo_movimento', 'COD_AJUSTE');
+      const estDataMovCol = await MappingService.getColumn('estoque', 'data_movimento', 'DTA_AJUSTE');
+      const estMotivoCol = await MappingService.getColumn('estoque', 'motivo', 'MOTIVO');
+
+      // Busca mapeamentos dinâmicos para campos de produtos
+      const prodCodigoCol = await MappingService.getColumn('produtos', 'codigo', 'COD_PRODUTO');
+      const prodDescricaoCol = await MappingService.getColumn('produtos', 'descricao', 'DES_PRODUTO');
+      const prodEanCol = await MappingService.getColumn('produtos', 'ean', 'COD_BARRA_PRINCIPAL');
+
+      console.log(`📋 [MAPEAMENTO ESTOQUE] Usando colunas: ${estCodProdutoCol}, ${estQuantidadeCol}, ${estTipoMovCol}, ${estDataMovCol}, ${estMotivoCol}`);
+
       // Query para buscar itens de ajuste com detalhes
       let whereClause = `
         WHERE ae.COD_LOJA = :loja
-        AND ae.DTA_AJUSTE >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
-        AND ae.DTA_AJUSTE < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
+        AND ae.${estDataMovCol} >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
+        AND ae.${estDataMovCol} < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
         AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO != 'S')
       `;
 
@@ -293,9 +308,9 @@ export class LossController {
 
       // Filtro por tipo (perdas = quantidade negativa, entradas = quantidade positiva)
       if (tipoFiltro === 'perdas') {
-        whereClause += ` AND ae.QTD_AJUSTE < 0`;
+        whereClause += ` AND ae.${estQuantidadeCol} < 0`;
       } else if (tipoFiltro === 'entradas') {
-        whereClause += ` AND ae.QTD_AJUSTE > 0`;
+        whereClause += ` AND ae.${estQuantidadeCol} > 0`;
       }
 
       const params: any = {
@@ -313,25 +328,25 @@ export class LossController {
         SELECT
           ae.COD_AJUSTE_ESTOQUE,
           ae.COD_LOJA,
-          ae.COD_AJUSTE,
+          ae.${estTipoMovCol} as COD_AJUSTE,
           ta.DES_AJUSTE as MOTIVO,
-          ae.COD_PRODUTO,
-          p.DES_PRODUTO as DESCRICAO,
-          p.COD_BARRA_PRINCIPAL as CODIGO_BARRAS,
-          NVL(ae.QTD_AJUSTE, 0) as QUANTIDADE,
+          ae.${estCodProdutoCol} as COD_PRODUTO,
+          p.${prodDescricaoCol} as DESCRICAO,
+          p.${prodEanCol} as CODIGO_BARRAS,
+          NVL(ae.${estQuantidadeCol}, 0) as QUANTIDADE,
           NVL(ae.VAL_CUSTO_REP, 0) as CUSTO_REPOSICAO,
-          NVL(ae.QTD_AJUSTE, 0) * NVL(ae.VAL_CUSTO_REP, 0) as VALOR_TOTAL,
-          TO_CHAR(ae.DTA_AJUSTE, 'YYYY-MM-DD') as DATA_AJUSTE,
+          NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0) as VALOR_TOTAL,
+          TO_CHAR(ae.${estDataMovCol}, 'YYYY-MM-DD') as DATA_AJUSTE,
           ae.USUARIO,
-          ae.MOTIVO as OBSERVACAO,
+          ae.${estMotivoCol} as OBSERVACAO,
           s.COD_SECAO,
           s.DES_SECAO as SECAO
         FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
-        JOIN INTERSOLID.TAB_PRODUTO p ON ae.COD_PRODUTO = p.COD_PRODUTO
-        LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.COD_AJUSTE = ta.COD_AJUSTE
+        JOIN INTERSOLID.TAB_PRODUTO p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
+        LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
         LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
         ${whereClause}
-        ORDER BY ae.DTA_AJUSTE DESC, ABS(NVL(ae.QTD_AJUSTE, 0) * NVL(ae.VAL_CUSTO_REP, 0)) DESC
+        ORDER BY ae.${estDataMovCol} DESC, ABS(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0)) DESC
       `;
 
       const itens = await OracleService.query(itensQuery, params);
@@ -341,16 +356,16 @@ export class LossController {
         SELECT
           ta.DES_AJUSTE as MOTIVO,
           COUNT(*) as TOTAL_ITENS,
-          SUM(NVL(ae.QTD_AJUSTE, 0) * NVL(ae.VAL_CUSTO_REP, 0)) as VALOR_TOTAL
+          SUM(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0)) as VALOR_TOTAL
         FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
-        LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.COD_AJUSTE = ta.COD_AJUSTE
+        LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
         WHERE ae.COD_LOJA = :loja
-        AND ae.DTA_AJUSTE >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
-        AND ae.DTA_AJUSTE < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
+        AND ae.${estDataMovCol} >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
+        AND ae.${estDataMovCol} < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
         AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO != 'S')
-        AND ae.QTD_AJUSTE < 0
+        AND ae.${estQuantidadeCol} < 0
         GROUP BY ta.DES_AJUSTE
-        ORDER BY SUM(NVL(ae.QTD_AJUSTE, 0) * NVL(ae.VAL_CUSTO_REP, 0)) ASC
+        ORDER BY SUM(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0)) ASC
       `;
 
       const motivosParams = {
@@ -366,21 +381,21 @@ export class LossController {
         SELECT
           ta.DES_AJUSTE as MOTIVO,
           COUNT(*) as TOTAL_ITENS,
-          SUM(NVL(ae.QTD_AJUSTE, 0) * NVL(ae.VAL_CUSTO_REP, 0)) as VALOR_TOTAL
+          SUM(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0)) as VALOR_TOTAL
         FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
-        LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.COD_AJUSTE = ta.COD_AJUSTE
+        LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
         WHERE ae.COD_LOJA = :loja
-        AND ae.DTA_AJUSTE >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
-        AND ae.DTA_AJUSTE < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
+        AND ae.${estDataMovCol} >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
+        AND ae.${estDataMovCol} < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
         AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO != 'S')
-        AND ae.QTD_AJUSTE > 0
+        AND ae.${estQuantidadeCol} > 0
         GROUP BY ta.DES_AJUSTE
-        ORDER BY SUM(NVL(ae.QTD_AJUSTE, 0) * NVL(ae.VAL_CUSTO_REP, 0)) DESC
+        ORDER BY SUM(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0)) DESC
       `;
 
       const entradasResult = await OracleService.query(entradasQuery, motivosParams);
 
-      // Calcular estatísticas com precisão
+      // Calcular estatísticas com precisão (usa o alias QUANTIDADE da query)
       const totalPerdas = itens.filter((i: any) => Number(i.QUANTIDADE) < 0).length;
       const totalEntradas = itens.filter((i: any) => Number(i.QUANTIDADE) > 0).length;
 
@@ -493,6 +508,16 @@ export class LossController {
 
       console.log('📦 Buscando trocas por fornecedor:', { codigoLoja, tipoTroca, diasFiltro });
 
+      // Busca mapeamentos dinâmicos para campos de estoque
+      const estQuantidadeCol = await MappingService.getColumn('estoque', 'quantidade', 'QTD_AJUSTE');
+      const estTipoMovCol = await MappingService.getColumn('estoque', 'tipo_movimento', 'COD_AJUSTE');
+      const estDataMovCol = await MappingService.getColumn('estoque', 'data_movimento', 'DTA_AJUSTE');
+
+      // Busca mapeamentos dinâmicos para campos de fornecedores
+      const fornCodigoCol = await MappingService.getColumn('fornecedores', 'codigo', 'COD_FORNECEDOR');
+      const fornRazaoSocialCol = await MappingService.getColumn('fornecedores', 'razao_social', 'DES_FORNECEDOR');
+      const fornFantasiaCol = await MappingService.getColumn('fornecedores', 'fantasia', 'DES_FANTASIA');
+
       // Filtro por tipo de ajuste baseado na descrição
       // Saídas: produto sai da loja para troca com fornecedor (tipo principal apenas)
       // Entradas: produto volta do fornecedor para a loja
@@ -501,28 +526,28 @@ export class LossController {
         : "ta.DES_AJUSTE = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR'";
 
       // Filtro de período (dias)
-      const filtroPeriodo = diasFiltro > 0 ? 'AND ae.DTA_AJUSTE >= SYSDATE - :dias' : '';
+      const filtroPeriodo = diasFiltro > 0 ? `AND ae.${estDataMovCol} >= SYSDATE - :dias` : '';
 
       // Query para buscar trocas agrupadas por fornecedor
       // Usando mesma lógica do sistema legado: SOMA dos valores direto, não multiplicado por quantidade
       const fornecedoresQuery = `
         SELECT
-          NVL(f.COD_FORNECEDOR, 0) as COD_FORNECEDOR,
-          NVL(f.DES_FORNECEDOR, 'SEM FORNECEDOR') as FORNECEDOR,
-          NVL(f.DES_FANTASIA, f.DES_FORNECEDOR) as FANTASIA,
+          NVL(f.${fornCodigoCol}, 0) as COD_FORNECEDOR,
+          NVL(f.${fornRazaoSocialCol}, 'SEM FORNECEDOR') as FORNECEDOR,
+          NVL(f.${fornFantasiaCol}, f.${fornRazaoSocialCol}) as FANTASIA,
           COUNT(DISTINCT ae.COD_PRODUTO) as QTD_PRODUTOS,
           COUNT(*) as QTD_ITENS,
-          SUM(ABS(NVL(ae.QTD_AJUSTE, 0))) as QTD_TOTAL,
+          SUM(ABS(NVL(ae.${estQuantidadeCol}, 0))) as QTD_TOTAL,
           SUM(NVL(ae.VAL_CUSTO_REP, 0)) as TOTAL_CUSTO,
           SUM(NVL(ae.VAL_VENDA, 0)) as TOTAL_VENDA
         FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON ae.COD_FORNECEDOR = f.COD_FORNECEDOR
-        LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.COD_AJUSTE = ta.COD_AJUSTE
+        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON ae.COD_FORNECEDOR = f.${fornCodigoCol}
+        LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
         WHERE ae.COD_LOJA = :loja
         AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO = 'N')
         AND ${tipoAjusteFiltro}
         ${filtroPeriodo}
-        GROUP BY f.COD_FORNECEDOR, f.DES_FORNECEDOR, f.DES_FANTASIA
+        GROUP BY f.${fornCodigoCol}, f.${fornRazaoSocialCol}, f.${fornFantasiaCol}
         ORDER BY SUM(NVL(ae.VAL_CUSTO_REP, 0)) DESC
       `;
 
@@ -572,6 +597,227 @@ export class LossController {
   }
 
   /**
+   * Buscar perdas mensais por produto (mês anterior e mês atual)
+   * Usado na tela de Prevenção de Quebras para mostrar histórico
+   */
+  static async getPerdasMensaisPorProduto(req: AuthRequest, res: Response) {
+    try {
+      const { loja, codigos } = req.query;
+
+      const codigoLoja = loja ? parseInt(loja as string) : 1;
+
+      // Calcular datas do mês anterior e mês atual
+      const hoje = new Date();
+      const primeiroDiaMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      const primeiroDiaMesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+      const ultimoDiaMesAnterior = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
+
+      // Formatar datas para Oracle
+      const formatDate = (d: Date) => d.toISOString().split('T')[0];
+      const dataMesAnteriorInicio = formatDate(primeiroDiaMesAnterior);
+      const dataMesAnteriorFim = formatDate(ultimoDiaMesAnterior);
+      const dataMesAtualInicio = formatDate(primeiroDiaMesAtual);
+      const dataMesAtualFim = formatDate(hoje);
+
+      console.log('📊 Buscando perdas mensais por produto:', {
+        codigoLoja,
+        mesAnterior: `${dataMesAnteriorInicio} até ${dataMesAnteriorFim}`,
+        mesAtual: `${dataMesAtualInicio} até ${dataMesAtualFim}`,
+      });
+
+      // Busca mapeamentos dinâmicos para campos de estoque
+      const estCodProdutoCol = await MappingService.getColumn('estoque', 'cod_produto', 'COD_PRODUTO');
+      const estQuantidadeCol = await MappingService.getColumn('estoque', 'quantidade', 'QTD_AJUSTE');
+      const estDataMovCol = await MappingService.getColumn('estoque', 'data_movimento', 'DTA_AJUSTE');
+
+      // Busca mapeamentos dinâmicos para campos de produtos
+      const prodCodigoCol = await MappingService.getColumn('produtos', 'codigo', 'COD_PRODUTO');
+      const prodEanCol = await MappingService.getColumn('produtos', 'ean', 'COD_BARRA_PRINCIPAL');
+
+      // Filtro de códigos específicos (opcional)
+      let filtroCodigosSQL = '';
+
+      // Params separados para cada query (Oracle não aceita bind variables não usadas na query)
+      const paramsMesAnterior: any = {
+        loja: codigoLoja,
+        dtAntIni: dataMesAnteriorInicio,
+        dtAntFim: dataMesAnteriorFim,
+      };
+
+      const paramsMesAtual: any = {
+        loja: codigoLoja,
+        dtAtualIni: dataMesAtualInicio,
+        dtAtualFim: dataMesAtualFim,
+      };
+
+      if (codigos) {
+        const listaCodigos = (codigos as string).split(',').map(c => c.trim());
+        filtroCodigosSQL = ` AND p.${prodEanCol} IN (${listaCodigos.map((_, i) => `:cod${i}`).join(',')})`;
+        listaCodigos.forEach((cod, i) => {
+          paramsMesAnterior[`cod${i}`] = cod;
+          paramsMesAtual[`cod${i}`] = cod;
+        });
+      }
+
+      // Query para perdas do mês anterior (quantidade negativa = perda)
+      // Retorna tanto COD_PRODUTO quanto COD_BARRA_PRINCIPAL para poder fazer match
+      // Inclui tanto VALOR_PERDA (R$) quanto QTD_PERDA (kg)
+      const queryMesAnterior = `
+        SELECT
+          TO_CHAR(p.${prodCodigoCol}) as COD_PRODUTO,
+          p.${prodEanCol} as CODIGO_BARRAS,
+          SUM(ABS(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0))) as VALOR_PERDA,
+          SUM(ABS(NVL(ae.${estQuantidadeCol}, 0))) as QTD_PERDA
+        FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
+        JOIN INTERSOLID.TAB_PRODUTO p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
+        WHERE ae.COD_LOJA = :loja
+        AND ae.${estDataMovCol} >= TO_DATE(:dtAntIni, 'YYYY-MM-DD')
+        AND ae.${estDataMovCol} <= TO_DATE(:dtAntFim, 'YYYY-MM-DD')
+        AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO != 'S')
+        AND ae.${estQuantidadeCol} < 0
+        ${filtroCodigosSQL}
+        GROUP BY p.${prodCodigoCol}, p.${prodEanCol}
+      `;
+
+      // Query para perdas do mês atual
+      const queryMesAtual = `
+        SELECT
+          TO_CHAR(p.${prodCodigoCol}) as COD_PRODUTO,
+          p.${prodEanCol} as CODIGO_BARRAS,
+          SUM(ABS(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0))) as VALOR_PERDA,
+          SUM(ABS(NVL(ae.${estQuantidadeCol}, 0))) as QTD_PERDA
+        FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
+        JOIN INTERSOLID.TAB_PRODUTO p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
+        WHERE ae.COD_LOJA = :loja
+        AND ae.${estDataMovCol} >= TO_DATE(:dtAtualIni, 'YYYY-MM-DD')
+        AND ae.${estDataMovCol} <= TO_DATE(:dtAtualFim, 'YYYY-MM-DD')
+        AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO != 'S')
+        AND ae.${estQuantidadeCol} < 0
+        ${filtroCodigosSQL}
+        GROUP BY p.${prodCodigoCol}, p.${prodEanCol}
+      `;
+
+      // Executar queries em paralelo (com params separados para cada query)
+      const [perdasMesAnterior, perdasMesAtual] = await Promise.all([
+        OracleService.query(queryMesAnterior, paramsMesAnterior),
+        OracleService.query(queryMesAtual, paramsMesAtual),
+      ]);
+
+      // Montar objeto de resultado indexado por código do produto E código de barras
+      // Inclui valor (R$) e quantidade (kg) para mês anterior e atual
+      const resultado: Record<string, {
+        mesAnterior: number;
+        mesAtual: number;
+        qtdMesAnterior: number;
+        qtdMesAtual: number;
+      }> = {};
+
+      // Função helper para indexar perda por múltiplas chaves
+      const indexarPerda = (
+        codProduto: string | null,
+        codigoBarras: string | null,
+        valorPerda: number,
+        qtdPerda: number,
+        campo: 'mesAnterior' | 'mesAtual'
+      ) => {
+        const chaves: string[] = [];
+
+        if (codProduto) {
+          // Adicionar código original exatamente como veio
+          const codStr = String(codProduto);
+          if (!chaves.includes(codStr)) chaves.push(codStr);
+
+          // Adicionar código sem zeros à esquerda (como número convertido para string)
+          const codSemZeros = String(codProduto).replace(/^0+/, '') || codProduto;
+          if (!chaves.includes(codSemZeros)) chaves.push(codSemZeros);
+
+          // Adicionar o código como número puro (caso o frontend use número)
+          const codNumero = parseInt(codSemZeros, 10);
+          if (!isNaN(codNumero)) {
+            const codNumStr = String(codNumero);
+            if (!chaves.includes(codNumStr)) chaves.push(codNumStr);
+          }
+
+          // Adicionar código com vários tamanhos de padding (8, 13, etc)
+          // 8 dígitos: usado na Auditoria de Produção (00017886)
+          // 13 dígitos: usado na Prevenção de Quebras (0000000017886)
+          const tamanhos = [5, 6, 7, 8, 10, 12, 13, 14];
+          tamanhos.forEach(tam => {
+            const codN = codSemZeros.padStart(tam, '0');
+            if (!chaves.includes(codN)) chaves.push(codN);
+          });
+        }
+
+        // Adicionar código de barras/EAN
+        if (codigoBarras) {
+          const eanStr = String(codigoBarras);
+          if (!chaves.includes(eanStr)) chaves.push(eanStr);
+
+          // Também adicionar EAN sem zeros à esquerda
+          const eanSemZeros = eanStr.replace(/^0+/, '') || eanStr;
+          if (!chaves.includes(eanSemZeros)) chaves.push(eanSemZeros);
+        }
+
+        // Indexar por todas as chaves
+        chaves.forEach(chave => {
+          if (!resultado[chave]) {
+            resultado[chave] = { mesAnterior: 0, mesAtual: 0, qtdMesAnterior: 0, qtdMesAtual: 0 };
+          }
+          resultado[chave][campo] += valorPerda;
+          resultado[chave][campo === 'mesAnterior' ? 'qtdMesAnterior' : 'qtdMesAtual'] += qtdPerda;
+        });
+      };
+
+      // Processar perdas do mês anterior
+      console.log(`📊 Processando ${perdasMesAnterior.length} registros de perdas do mês anterior`);
+      if (perdasMesAnterior.length > 0) {
+        console.log('📊 Amostra de dados (mês anterior):', JSON.stringify(perdasMesAnterior.slice(0, 3)));
+      }
+      perdasMesAnterior.forEach((p: any) => {
+        const valorPerda = Math.round((parseFloat(p.VALOR_PERDA) || 0) * 100) / 100;
+        const qtdPerda = Math.round((parseFloat(p.QTD_PERDA) || 0) * 1000) / 1000;
+        indexarPerda(p.COD_PRODUTO, p.CODIGO_BARRAS, valorPerda, qtdPerda, 'mesAnterior');
+      });
+
+      // Processar perdas do mês atual
+      console.log(`📊 Processando ${perdasMesAtual.length} registros de perdas do mês atual`);
+      if (perdasMesAtual.length > 0) {
+        console.log('📊 Amostra de dados (mês atual):', JSON.stringify(perdasMesAtual.slice(0, 3)));
+      }
+      perdasMesAtual.forEach((p: any) => {
+        const valorPerda = Math.round((parseFloat(p.VALOR_PERDA) || 0) * 100) / 100;
+        const qtdPerda = Math.round((parseFloat(p.QTD_PERDA) || 0) * 1000) / 1000;
+        indexarPerda(p.COD_PRODUTO, p.CODIGO_BARRAS, valorPerda, qtdPerda, 'mesAtual');
+      });
+
+      // Log de amostra das chaves geradas
+      const chaves = Object.keys(resultado).slice(0, 20);
+      console.log(`📊 Amostra de chaves indexadas (${Object.keys(resultado).length} total):`, chaves);
+
+      console.log(`✅ Encontradas perdas para ${Object.keys(resultado).length} produtos`);
+
+      res.json({
+        periodo: {
+          mesAnterior: {
+            inicio: dataMesAnteriorInicio,
+            fim: dataMesAnteriorFim,
+            nome: primeiroDiaMesAnterior.toLocaleString('pt-BR', { month: 'long', year: 'numeric' }),
+          },
+          mesAtual: {
+            inicio: dataMesAtualInicio,
+            fim: dataMesAtualFim,
+            nome: primeiroDiaMesAtual.toLocaleString('pt-BR', { month: 'long', year: 'numeric' }),
+          },
+        },
+        perdasPorProduto: resultado,
+      });
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar perdas mensais por produto:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
    * Buscar itens de troca de um fornecedor específico
    */
   static async getTrocasItensFornecedor(req: AuthRequest, res: Response) {
@@ -585,6 +831,17 @@ export class LossController {
 
       console.log('📦 Buscando itens de troca do fornecedor:', { codigoLoja, codForn, tipoTroca, diasFiltro });
 
+      // Busca mapeamentos dinâmicos para campos de estoque
+      const estCodProdutoCol = await MappingService.getColumn('estoque', 'cod_produto', 'COD_PRODUTO');
+      const estQuantidadeCol = await MappingService.getColumn('estoque', 'quantidade', 'QTD_AJUSTE');
+      const estTipoMovCol = await MappingService.getColumn('estoque', 'tipo_movimento', 'COD_AJUSTE');
+      const estDataMovCol = await MappingService.getColumn('estoque', 'data_movimento', 'DTA_AJUSTE');
+
+      // Busca mapeamentos dinâmicos para campos de produtos
+      const prodCodigoCol = await MappingService.getColumn('produtos', 'codigo', 'COD_PRODUTO');
+      const prodDescricaoCol = await MappingService.getColumn('produtos', 'descricao', 'DES_PRODUTO');
+      const prodEanCol = await MappingService.getColumn('produtos', 'ean', 'COD_BARRA_PRINCIPAL');
+
       // Filtro por tipo de ajuste baseado na descrição (tipo principal apenas)
       // Saídas: produto sai da loja para troca com fornecedor
       // Entradas: produto volta do fornecedor para a loja
@@ -593,31 +850,31 @@ export class LossController {
         : "ta.DES_AJUSTE = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR'";
 
       // Filtro de período (dias)
-      const filtroPeriodo = diasFiltro > 0 ? 'AND ae.DTA_AJUSTE >= SYSDATE - :dias' : '';
+      const filtroPeriodo = diasFiltro > 0 ? `AND ae.${estDataMovCol} >= SYSDATE - :dias` : '';
 
       // Query para buscar itens do fornecedor
       const itensQuery = `
         SELECT
-          ae.COD_PRODUTO,
-          p.DES_PRODUTO as DESCRICAO,
-          p.COD_BARRA_PRINCIPAL as CODIGO_BARRAS,
+          ae.${estCodProdutoCol} as COD_PRODUTO,
+          p.${prodDescricaoCol} as DESCRICAO,
+          p.${prodEanCol} as CODIGO_BARRAS,
           ta.DES_AJUSTE as TIPO_AJUSTE,
           s.DES_SECAO as SECAO,
-          NVL(ae.QTD_AJUSTE, 0) as QUANTIDADE,
+          NVL(ae.${estQuantidadeCol}, 0) as QUANTIDADE,
           NVL(ae.VAL_CUSTO_REP, 0) as CUSTO_REPOSICAO,
-          NVL(ae.QTD_AJUSTE, 0) * NVL(ae.VAL_CUSTO_REP, 0) as VALOR_TOTAL,
-          TO_CHAR(ae.DTA_AJUSTE, 'YYYY-MM-DD') as DATA_AJUSTE,
+          NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0) as VALOR_TOTAL,
+          TO_CHAR(ae.${estDataMovCol}, 'YYYY-MM-DD') as DATA_AJUSTE,
           ae.USUARIO
         FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
-        JOIN INTERSOLID.TAB_PRODUTO p ON ae.COD_PRODUTO = p.COD_PRODUTO
-        LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.COD_AJUSTE = ta.COD_AJUSTE
+        JOIN INTERSOLID.TAB_PRODUTO p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
+        LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
         LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
         WHERE ae.COD_LOJA = :loja
         AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO = 'N')
         AND ${tipoAjusteFiltro}
         ${filtroPeriodo}
         AND NVL(ae.COD_FORNECEDOR, 0) = :cod_fornecedor
-        ORDER BY ae.DTA_AJUSTE DESC, ABS(NVL(ae.VAL_CUSTO_REP, 0)) DESC
+        ORDER BY ae.${estDataMovCol} DESC, ABS(NVL(ae.VAL_CUSTO_REP, 0)) DESC
       `;
 
       const params: any = {

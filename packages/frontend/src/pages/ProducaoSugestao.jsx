@@ -21,6 +21,7 @@ export default function ProducaoSugestao() {
   const [filter, setFilter] = useState('all'); // all, pending, checked
   const [employees, setEmployees] = useState([]); // Lista de colaboradores
   const [selectedResponsible, setSelectedResponsible] = useState('TODOS'); // Filtro por responsável
+  const [perdasMensais, setPerdasMensais] = useState({}); // Perdas por produto (mês anterior e atual)
 
   // Estados do modal
   const [editingItem, setEditingItem] = useState(null);
@@ -54,15 +55,19 @@ export default function ProducaoSugestao() {
     { key: 'codigo', label: 'Código', sortable: true, align: 'left' },
     { key: 'descricao', label: 'Produto', sortable: true, align: 'left' },
     { key: 'responsible_name', label: 'Responsável', sortable: true, align: 'center' },
-    { key: 'dtaUltMovVenda', label: 'Última Venda', sortable: true, align: 'center' },
-    { key: 'diasSemVenda', label: 'Dias Sem Venda', sortable: true, align: 'center' },
-    { key: 'peso_medio_kg', label: 'Peso Médio', sortable: true, align: 'right' },
-    { key: 'vendaMedia', label: 'Venda Média (kg)', sortable: true, align: 'right' },
-    { key: 'vendaMediaUnd', label: 'Venda Média (und)', sortable: true, align: 'right' },
+    { key: 'dtaUltMovVenda', label: 'Última\nVenda', sortable: true, align: 'center' },
+    { key: 'diasSemVenda', label: 'Dias\nS/Venda', sortable: true, align: 'center' },
+    { key: 'peso_medio_kg', label: 'Peso\nMédio', sortable: true, align: 'right' },
+    { key: 'vendaMedia', label: 'Venda\nMéd (kg)', sortable: true, align: 'right' },
+    { key: 'vendaMediaUnd', label: 'Venda\nMéd (und)', sortable: true, align: 'right' },
     { key: 'custo', label: 'Custo', sortable: true, align: 'right' },
-    { key: 'precoVenda', label: 'Preço Venda', sortable: true, align: 'right' },
-    { key: 'margemRef', label: 'Margem Referência', sortable: true, align: 'right' },
-    { key: 'margemReal', label: 'Margem Real', sortable: true, align: 'right' },
+    { key: 'precoVenda', label: 'Preço\nVenda', sortable: true, align: 'right' },
+    { key: 'margemRef', label: 'Margem\nRef', sortable: true, align: 'right' },
+    { key: 'margemReal', label: 'Margem\nReal', sortable: true, align: 'right' },
+    { key: 'perdasMesAnterior', label: 'Perdas\nMês Ant', sortable: true, align: 'right' },
+    { key: 'qtdPerdasMesAnterior', label: 'Qtd Prd\nMês Ant', sortable: true, align: 'right' },
+    { key: 'perdasMesAtual', label: 'Perdas\nMês Atual', sortable: true, align: 'right' },
+    { key: 'qtdPerdasMesAtual', label: 'Qtd Prd\nMês Atual', sortable: true, align: 'right' },
     { key: 'curva', label: 'Curva', sortable: true, align: 'center' },
     { key: 'acoes', label: 'Ações', sortable: false, align: 'center' },
   ];
@@ -101,7 +106,25 @@ export default function ProducaoSugestao() {
     loadSections();
     loadTodayAudit();
     loadEmployees();
+    loadPerdasMensais();
   }, []);
+
+  // Carregar perdas mensais por produto
+  const loadPerdasMensais = async () => {
+    try {
+      const response = await api.get('/losses/oracle/perdas-mensais');
+      const perdas = response.data.perdasPorProduto || {};
+      setPerdasMensais(perdas);
+      console.log('📊 Perdas mensais carregadas:', Object.keys(perdas).length, 'produtos');
+      console.log('📊 Amostra de chaves de perdas:', Object.keys(perdas).slice(0, 20));
+      // Debug: mostrar algumas perdas com valores > 0
+      const comValor = Object.entries(perdas).filter(([_, v]) => v.mesAnterior > 0 || v.mesAtual > 0).slice(0, 5);
+      console.log('📊 Amostra de perdas com valor:', comValor);
+    } catch (err) {
+      console.error('Erro ao carregar perdas mensais:', err);
+      // Não impede o carregamento principal
+    }
+  };
 
   // Carregar lista de colaboradores
   const loadEmployees = async () => {
@@ -138,6 +161,9 @@ export default function ProducaoSugestao() {
       // Filtrar por tipo de evento
       const filtered = allProds.filter(p => p.tipoEvento === tipo);
       setProducts(filtered);
+      // Debug: mostrar códigos dos produtos carregados
+      console.log('📦 Produtos carregados:', filtered.length);
+      console.log('📦 Amostra de códigos de produtos:', filtered.slice(0, 10).map(p => ({ codigo: p.codigo, tipo: typeof p.codigo, descricao: p.descricao?.substring(0, 20) })));
     } catch (err) {
       console.error('Erro ao carregar produtos:', err);
       const errorMessage = err.response?.status === 500
@@ -313,6 +339,10 @@ export default function ProducaoSugestao() {
         { key: 'dias_sem_venda', label: 'Dias S/V' },
         { key: 'estoque', label: 'Estoque' },
         { key: 'venda_media', label: 'Venda Média' },
+        { key: 'perdas_mes_ant', label: 'Perdas Ant' },
+        { key: 'qtd_prd_ant', label: 'Qtd Ant' },
+        { key: 'perdas_mes_atual', label: 'Perdas Atual' },
+        { key: 'qtd_prd_atual', label: 'Qtd Atual' },
         { key: 'sug_1_kg', label: '1D (kg)' },
         { key: 'sug_1_und', label: '1D (und)' },
         { key: 'sug_3_kg', label: '3D (kg)' },
@@ -344,6 +374,26 @@ export default function ProducaoSugestao() {
           case 'dias_sem_venda': return diasSemVenda !== null ? diasSemVenda : '-';
           case 'estoque': return `${estoqueUnd} und (${estoqueKg.toFixed(1)} kg)`;
           case 'venda_media': return product.vendaMedia ? `${product.vendaMedia.toFixed(2)} kg/d` : '-';
+          case 'perdas_mes_ant': {
+            const perda = perdasMensais[product.codigo]?.mesAnterior || 0;
+            return perda > 0 ? `R$ ${perda.toFixed(2)}` : '-';
+          }
+          case 'qtd_prd_ant': {
+            const qtdKg = perdasMensais[product.codigo]?.qtdMesAnterior || 0;
+            const pesoMedio = product.peso_medio_kg || 0;
+            const qtdUnd = pesoMedio > 0 ? Math.round(qtdKg / pesoMedio) : 0;
+            return qtdUnd > 0 ? `${qtdUnd} und` : '-';
+          }
+          case 'perdas_mes_atual': {
+            const perda = perdasMensais[product.codigo]?.mesAtual || 0;
+            return perda > 0 ? `R$ ${perda.toFixed(2)}` : '-';
+          }
+          case 'qtd_prd_atual': {
+            const qtdKg = perdasMensais[product.codigo]?.qtdMesAtual || 0;
+            const pesoMedio = product.peso_medio_kg || 0;
+            const qtdUnd = pesoMedio > 0 ? Math.round(qtdKg / pesoMedio) : 0;
+            return qtdUnd > 0 ? `${qtdUnd} und` : '-';
+          }
           case 'sug_1_kg': return calcSugestao(product, 1).kg.toFixed(2);
           case 'sug_1_und': return calcSugestao(product, 1).und;
           case 'sug_3_kg': return calcSugestao(product, 3).kg.toFixed(2);
@@ -364,18 +414,22 @@ export default function ProducaoSugestao() {
 
       // Larguras das colunas para o PDF de sugestão
       const columnWidths = {
-        codigo: 16,
-        descricao: 55,
-        curva: 12,
-        dias_sem_venda: 14,
-        estoque: 28,
-        venda_media: 20,
-        sug_1_kg: 16,
-        sug_1_und: 14,
-        sug_3_kg: 16,
-        sug_3_und: 14,
-        sug_7_kg: 16,
-        sug_7_und: 14
+        codigo: 14,
+        descricao: 42,
+        curva: 10,
+        dias_sem_venda: 12,
+        estoque: 24,
+        venda_media: 18,
+        perdas_mes_ant: 18,
+        qtd_prd_ant: 14,
+        perdas_mes_atual: 18,
+        qtd_prd_atual: 14,
+        sug_1_kg: 14,
+        sug_1_und: 12,
+        sug_3_kg: 14,
+        sug_3_und: 12,
+        sug_7_kg: 14,
+        sug_7_und: 12
       };
 
       // Gerar columnStyles dinâmico
@@ -768,6 +822,20 @@ export default function ProducaoSugestao() {
         return product.curva || 'Z';
       case 'responsible_name':
         return product.responsible_name || 'zzz'; // zzz para ordenar sem responsável por último
+      case 'perdasMesAnterior':
+        return perdasMensais[product.codigo]?.mesAnterior || 0;
+      case 'qtdPerdasMesAnterior':
+        // Quantidade em unidades = kg / peso_medio
+        const qtdKgAnt = perdasMensais[product.codigo]?.qtdMesAnterior || 0;
+        const pesoMedioAnt = product.peso_medio_kg || 1;
+        return pesoMedioAnt > 0 ? qtdKgAnt / pesoMedioAnt : 0;
+      case 'perdasMesAtual':
+        return perdasMensais[product.codigo]?.mesAtual || 0;
+      case 'qtdPerdasMesAtual':
+        // Quantidade em unidades = kg / peso_medio
+        const qtdKgAtual = perdasMensais[product.codigo]?.qtdMesAtual || 0;
+        const pesoMedioAtual = product.peso_medio_kg || 1;
+        return pesoMedioAtual > 0 ? qtdKgAtual / pesoMedioAtual : 0;
       default:
         return '';
     }
@@ -877,6 +945,38 @@ export default function ProducaoSugestao() {
         return product.margemReal ? `${product.margemReal.toFixed(1)}%` : '-';
       case 'curva':
         return product.curva || '-';
+      case 'perdasMesAnterior':
+        const perdaAnterior = perdasMensais[product.codigo]?.mesAnterior;
+        return perdaAnterior > 0 ? (
+          <span className="font-semibold text-blue-600">R$ {perdaAnterior.toFixed(2)}</span>
+        ) : (
+          <span className="text-gray-400">-</span>
+        );
+      case 'qtdPerdasMesAnterior':
+        const qtdKgAnt = perdasMensais[product.codigo]?.qtdMesAnterior || 0;
+        const pesoMedioAnt = product.peso_medio_kg || 0;
+        const qtdUndAnt = pesoMedioAnt > 0 ? Math.round(qtdKgAnt / pesoMedioAnt) : 0;
+        return qtdUndAnt > 0 ? (
+          <span className="font-semibold text-blue-600">{qtdUndAnt} und</span>
+        ) : (
+          <span className="text-gray-400">-</span>
+        );
+      case 'perdasMesAtual':
+        const perdaAtual = perdasMensais[product.codigo]?.mesAtual;
+        return perdaAtual > 0 ? (
+          <span className="font-semibold text-purple-600">R$ {perdaAtual.toFixed(2)}</span>
+        ) : (
+          <span className="text-gray-400">-</span>
+        );
+      case 'qtdPerdasMesAtual':
+        const qtdKgAtual = perdasMensais[product.codigo]?.qtdMesAtual || 0;
+        const pesoMedioAtual = product.peso_medio_kg || 0;
+        const qtdUndAtual = pesoMedioAtual > 0 ? Math.round(qtdKgAtual / pesoMedioAtual) : 0;
+        return qtdUndAtual > 0 ? (
+          <span className="font-semibold text-purple-600">{qtdUndAtual} und</span>
+        ) : (
+          <span className="text-gray-400">-</span>
+        );
       case 'responsible_name':
         return (
           <select
@@ -1427,7 +1527,7 @@ export default function ProducaoSugestao() {
                         onDragOver={handleDragOver}
                         onDrop={(e) => handleDrop(e, index)}
                         onClick={() => column.sortable && handleSort(column.key)}
-                        className={`px-4 py-3 text-xs font-medium text-gray-500 uppercase cursor-grab select-none whitespace-nowrap
+                        className={`px-2 py-2 text-xs font-medium text-gray-500 uppercase cursor-grab select-none
                           ${column.align === 'center' ? 'text-center' : column.align === 'right' ? 'text-right' : 'text-left'}
                           ${column.sortable ? 'hover:bg-gray-100' : ''}
                           ${draggedColumn === index ? 'bg-orange-100 border-2 border-dashed border-orange-400' : ''}
@@ -1436,7 +1536,7 @@ export default function ProducaoSugestao() {
                       >
                         <span className="inline-flex items-center gap-1">
                           <span className="text-gray-300">⠿</span>
-                          {column.label}
+                          <span className="whitespace-pre-line leading-tight">{column.label}</span>
                           {column.sortable && sortConfig.key === column.key && (
                             <span className="text-orange-500 ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
                           )}
@@ -1461,6 +1561,33 @@ export default function ProducaoSugestao() {
                       </tr>
                     ))}
                 </tbody>
+                {/* Rodapé com soma total das perdas */}
+                <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+                  <tr>
+                    <td colSpan={columnOrder.length} className="px-4 py-3 text-right">
+                      <div className="flex justify-end items-center gap-6 text-sm font-semibold">
+                        <span className="text-blue-600">
+                          Total Perdas Mês Ant: R$ {filteredProducts
+                            .filter(p => !auditItems[p.codigo]?.checked)
+                            .reduce((sum, p) => sum + (perdasMensais[p.codigo]?.mesAnterior || 0), 0)
+                            .toFixed(2)}
+                        </span>
+                        <span className="text-purple-600">
+                          Total Perdas Mês Atual: R$ {filteredProducts
+                            .filter(p => !auditItems[p.codigo]?.checked)
+                            .reduce((sum, p) => sum + (perdasMensais[p.codigo]?.mesAtual || 0), 0)
+                            .toFixed(2)}
+                        </span>
+                        <span className="text-red-600 text-base">
+                          📊 TOTAL GERAL: R$ {filteredProducts
+                            .filter(p => !auditItems[p.codigo]?.checked)
+                            .reduce((sum, p) => sum + (perdasMensais[p.codigo]?.mesAnterior || 0) + (perdasMensais[p.codigo]?.mesAtual || 0), 0)
+                            .toFixed(2)}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
@@ -1487,21 +1614,29 @@ export default function ProducaoSugestao() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Produto</th>
-                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Curva</th>
-                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Dias S/Venda</th>
-                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Estoque</th>
-                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Venda Média</th>
+                    <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
+                    <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Produto</th>
+                    <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">Curva</th>
+                    <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase whitespace-pre-line leading-tight">Dias{'\n'}S/Venda</th>
+                    <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase">Estoque</th>
+                    <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase whitespace-pre-line leading-tight">Venda{'\n'}Média</th>
+                    <th className="px-2 py-2 text-right text-xs font-medium text-blue-600 uppercase whitespace-pre-line leading-tight">Perdas{'\n'}Mês Ant</th>
+                    <th className="px-2 py-2 text-right text-xs font-medium text-blue-600 uppercase whitespace-pre-line leading-tight">Qtd Prd{'\n'}Mês Ant</th>
+                    <th className="px-2 py-2 text-right text-xs font-medium text-purple-600 uppercase whitespace-pre-line leading-tight">Perdas{'\n'}Mês Atual</th>
+                    <th className="px-2 py-2 text-right text-xs font-medium text-purple-600 uppercase whitespace-pre-line leading-tight">Qtd Prd{'\n'}Mês Atual</th>
                     {/* Sugestão 1 dia - Verde */}
-                    <th className="px-3 py-3 text-center text-xs font-medium text-green-700 uppercase bg-green-100" colSpan="2">📅 1 Dia</th>
+                    <th className="px-2 py-2 text-center text-xs font-medium text-green-700 uppercase bg-green-100" colSpan="2">📅 1 Dia</th>
                     {/* Sugestão 3 dias - Azul */}
-                    <th className="px-3 py-3 text-center text-xs font-medium text-blue-700 uppercase bg-blue-100" colSpan="2">📅 3 Dias</th>
+                    <th className="px-2 py-2 text-center text-xs font-medium text-blue-700 uppercase bg-blue-100" colSpan="2">📅 3 Dias</th>
                     {/* Sugestão 7 dias - Roxo */}
-                    <th className="px-3 py-3 text-center text-xs font-medium text-purple-700 uppercase bg-purple-100" colSpan="2">📅 7 Dias</th>
-                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
+                    <th className="px-2 py-2 text-center text-xs font-medium text-purple-700 uppercase bg-purple-100" colSpan="2">📅 7 Dias</th>
+                    <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
                   </tr>
                   <tr className="bg-gray-100">
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
                     <th></th>
                     <th></th>
                     <th></th>
@@ -1571,6 +1706,52 @@ export default function ProducaoSugestao() {
                           </td>
                           <td className="px-3 py-3 text-sm text-right text-gray-700">
                             {item.avg_sales_kg ? `${parseFloat(item.avg_sales_kg).toFixed(2)} kg/dia` : '-'}
+                          </td>
+                          {/* Perdas Mês Anterior - Valor */}
+                          <td className="px-2 py-3 text-sm text-right">
+                            {perdasMensais[item.product_code]?.mesAnterior > 0 ? (
+                              <span className="font-semibold text-blue-600">
+                                R$ {perdasMensais[item.product_code]?.mesAnterior.toFixed(2)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          {/* Perdas Mês Anterior - Quantidade */}
+                          <td className="px-2 py-3 text-sm text-right">
+                            {(() => {
+                              const qtdKg = perdasMensais[item.product_code]?.qtdMesAnterior || 0;
+                              const pesoMed = parseFloat(item.unit_weight_kg) || 0;
+                              const qtdUnd = pesoMed > 0 ? Math.round(qtdKg / pesoMed) : 0;
+                              return qtdUnd > 0 ? (
+                                <span className="font-semibold text-blue-600">{qtdUnd} und</span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              );
+                            })()}
+                          </td>
+                          {/* Perdas Mês Atual - Valor */}
+                          <td className="px-2 py-3 text-sm text-right">
+                            {perdasMensais[item.product_code]?.mesAtual > 0 ? (
+                              <span className="font-semibold text-purple-600">
+                                R$ {perdasMensais[item.product_code]?.mesAtual.toFixed(2)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          {/* Perdas Mês Atual - Quantidade */}
+                          <td className="px-2 py-3 text-sm text-right">
+                            {(() => {
+                              const qtdKg = perdasMensais[item.product_code]?.qtdMesAtual || 0;
+                              const pesoMed = parseFloat(item.unit_weight_kg) || 0;
+                              const qtdUnd = pesoMed > 0 ? Math.round(qtdKg / pesoMed) : 0;
+                              return qtdUnd > 0 ? (
+                                <span className="font-semibold text-purple-600">{qtdUnd} und</span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              );
+                            })()}
                           </td>
                           {/* Sugestão 1 dia - Verde */}
                           <td className="px-2 py-3 text-sm text-center font-semibold text-green-700 bg-green-50">

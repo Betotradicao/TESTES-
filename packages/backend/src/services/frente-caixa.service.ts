@@ -6,6 +6,7 @@
  */
 
 import { OracleService } from './oracle.service';
+import { MappingService } from './mapping.service';
 
 // Interfaces
 export interface FrenteCaixaFilters {
@@ -85,13 +86,109 @@ export class FrenteCaixaService {
    */
 
   /**
+   * Helper para buscar todos os mapeamentos de vendas/PDV
+   * Inclui campos de cupom finalizadora, produto PDV e estornos
+   */
+  private static async getVendasMappings() {
+    const [
+      // Campos de cupom/venda
+      numeroCupomCol,
+      dataVendaCol,
+      valorTotalCol,
+      codOperadorCol,
+      nomeOperadorCol,
+      codPdvCol,
+      statusCupomCol,
+      // Campos de finalizadora
+      valorLiquidoCol,
+      codFinalizadoraCol,
+      codTipoCol,
+      // Campos de produto PDV
+      dataSaidaCol,
+      valorDescontoCol,
+      qtdTotalProdutoCol,
+      codLojaCol,
+      // Campos de estorno
+      desHoraCol,
+      // Campos de tesouraria
+      valSobraCol,
+      valQuebraCol,
+      numTurnoCol,
+      numRegistroCol,
+      // Campos de produto
+      codProdutoCol,
+      desProdutoCol
+    ] = await Promise.all([
+      // Campos de cupom/venda
+      MappingService.getColumn('vendas', 'numero_cupom', 'NUM_CUPOM_FISCAL'),
+      MappingService.getColumn('vendas', 'data_venda', 'DTA_VENDA'),
+      MappingService.getColumn('vendas', 'valor_total', 'VAL_TOTAL_PRODUTO'),
+      MappingService.getColumn('vendas', 'cod_operador', 'COD_OPERADOR'),
+      MappingService.getColumn('vendas', 'nome_operador', 'DES_OPERADOR'),
+      MappingService.getColumn('vendas', 'cod_pdv', 'NUM_PDV'),
+      MappingService.getColumn('vendas', 'status_cupom', 'FLG_CUPOM_CANCELADO'),
+      // Campos de finalizadora
+      MappingService.getColumn('vendas', 'valor_liquido', 'VAL_LIQUIDO'),
+      MappingService.getColumn('vendas', 'cod_finalizadora', 'COD_FINALIZADORA'),
+      MappingService.getColumn('vendas', 'cod_tipo', 'COD_TIPO'),
+      // Campos de produto PDV
+      MappingService.getColumn('vendas', 'data_saida', 'DTA_SAIDA'),
+      MappingService.getColumn('vendas', 'valor_desconto', 'VAL_DESCONTO'),
+      MappingService.getColumn('vendas', 'qtd_total_produto', 'QTD_TOTAL_PRODUTO'),
+      MappingService.getColumn('vendas', 'cod_loja', 'COD_LOJA'),
+      // Campos de estorno
+      MappingService.getColumn('vendas', 'des_hora', 'DES_HORA'),
+      // Campos de tesouraria
+      MappingService.getColumn('vendas', 'val_sobra', 'VAL_SOBRA'),
+      MappingService.getColumn('vendas', 'val_quebra', 'VAL_QUEBRA'),
+      MappingService.getColumn('vendas', 'num_turno', 'NUM_TURNO'),
+      MappingService.getColumn('vendas', 'num_registro', 'NUM_REGISTRO'),
+      // Campos de produto
+      MappingService.getColumn('produtos', 'codigo', 'COD_PRODUTO'),
+      MappingService.getColumn('produtos', 'descricao', 'DES_PRODUTO')
+    ]);
+    return {
+      // Campos de cupom/venda
+      numeroCupomCol,
+      dataVendaCol,
+      valorTotalCol,
+      codOperadorCol,
+      nomeOperadorCol,
+      codPdvCol,
+      statusCupomCol,
+      // Campos de finalizadora
+      valorLiquidoCol,
+      codFinalizadoraCol,
+      codTipoCol,
+      // Campos de produto PDV
+      dataSaidaCol,
+      valorDescontoCol,
+      qtdTotalProdutoCol,
+      codLojaCol,
+      // Campos de estorno
+      desHoraCol,
+      // Campos de tesouraria
+      valSobraCol,
+      valQuebraCol,
+      numTurnoCol,
+      numRegistroCol,
+      // Campos de produto
+      codProdutoCol,
+      desProdutoCol
+    };
+  }
+
+  /**
    * Lista operadores disponíveis
+   * NOTA: TAB_OPERADORES sempre usa COD_OPERADOR e DES_OPERADOR (não usar mapeamento de vendas)
    */
   static async getOperadores(codLoja?: number): Promise<Operador[]> {
+    // TAB_OPERADORES tem colunas fixas: COD_OPERADOR, DES_OPERADOR, COD_LOJA
+    // Não confundir com COD_VENDEDOR que é da TAB_PRODUTO_PDV
     let sql = `
       SELECT DISTINCT
-        o.COD_OPERADOR,
-        o.DES_OPERADOR
+        o.COD_OPERADOR as COD_OPERADOR,
+        o.DES_OPERADOR as DES_OPERADOR
       FROM INTERSOLID.TAB_OPERADORES o
       WHERE o.DES_OPERADOR IS NOT NULL
     `;
@@ -114,44 +211,67 @@ export class FrenteCaixaService {
   static async getResumoOperadores(filters: FrenteCaixaFilters): Promise<OperadorResumo[]> {
     const { dataInicio, dataFim, codOperador, codLoja } = filters;
 
+    // Busca mapeamentos dinâmicos
+    const {
+      codOperadorCol,
+      nomeOperadorCol,
+      valorLiquidoCol,
+      numeroCupomCol,
+      codFinalizadoraCol,
+      dataVendaCol,
+      codTipoCol,
+      codLojaCol,
+      dataSaidaCol,
+      statusCupomCol,
+      codProdutoCol,
+      valorTotalCol,
+      valorDescontoCol,
+      codPdvCol,
+      desHoraCol,
+      valSobraCol,
+      valQuebraCol,
+      numTurnoCol,
+      numRegistroCol
+    } = await this.getVendasMappings();
+
     // Query principal - vendas por operador
     let sqlVendas = `
       SELECT
-        cf.COD_OPERADOR,
-        o.DES_OPERADOR,
-        SUM(cf.VAL_LIQUIDO) as TOTAL_VENDAS,
-        COUNT(DISTINCT cf.NUM_CUPOM_FISCAL) as TOTAL_CUPONS,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 1 THEN cf.VAL_LIQUIDO ELSE 0 END) as DINHEIRO,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 7 THEN cf.VAL_LIQUIDO ELSE 0 END) as CARTAO_DEBITO,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 6 THEN cf.VAL_LIQUIDO ELSE 0 END) as CARTAO_CREDITO,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 15 THEN cf.VAL_LIQUIDO ELSE 0 END) as PIX,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 4 THEN cf.VAL_LIQUIDO ELSE 0 END) as FUNCIONARIO,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 5 THEN cf.VAL_LIQUIDO ELSE 0 END) as CARTAO_POS,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 8 THEN cf.VAL_LIQUIDO ELSE 0 END) as TRICARD_PARCELADO,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 10 THEN cf.VAL_LIQUIDO ELSE 0 END) as VALE_TROCA,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 13 THEN cf.VAL_LIQUIDO ELSE 0 END) as VALE_DESCONTO,
-        SUM(CASE WHEN cf.COD_FINALIZADORA NOT IN (1, 4, 5, 6, 7, 8, 10, 13, 15) THEN cf.VAL_LIQUIDO ELSE 0 END) as OUTROS
+        cf.${codOperadorCol} as COD_OPERADOR,
+        o.${nomeOperadorCol} as DES_OPERADOR,
+        SUM(cf.${valorLiquidoCol}) as TOTAL_VENDAS,
+        COUNT(DISTINCT cf.${numeroCupomCol}) as TOTAL_CUPONS,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 1 THEN cf.${valorLiquidoCol} ELSE 0 END) as DINHEIRO,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 7 THEN cf.${valorLiquidoCol} ELSE 0 END) as CARTAO_DEBITO,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 6 THEN cf.${valorLiquidoCol} ELSE 0 END) as CARTAO_CREDITO,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 15 THEN cf.${valorLiquidoCol} ELSE 0 END) as PIX,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 4 THEN cf.${valorLiquidoCol} ELSE 0 END) as FUNCIONARIO,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 5 THEN cf.${valorLiquidoCol} ELSE 0 END) as CARTAO_POS,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 8 THEN cf.${valorLiquidoCol} ELSE 0 END) as TRICARD_PARCELADO,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 10 THEN cf.${valorLiquidoCol} ELSE 0 END) as VALE_TROCA,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 13 THEN cf.${valorLiquidoCol} ELSE 0 END) as VALE_DESCONTO,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} NOT IN (1, 4, 5, 6, 7, 8, 10, 13, 15) THEN cf.${valorLiquidoCol} ELSE 0 END) as OUTROS
       FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
-      LEFT JOIN INTERSOLID.TAB_OPERADORES o ON cf.COD_OPERADOR = o.COD_OPERADOR AND cf.COD_LOJA = o.COD_LOJA
-      WHERE cf.DTA_VENDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND cf.DTA_VENDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND cf.COD_TIPO = 1110
+      LEFT JOIN INTERSOLID.TAB_OPERADORES o ON cf.${codOperadorCol} = o.${codOperadorCol} AND cf.${codLojaCol} = o.${codLojaCol}
+      WHERE cf.${dataVendaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND cf.${dataVendaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND cf.${codTipoCol} = 1110
     `;
 
     const params: any = { dataInicio, dataFim };
 
     if (codOperador) {
-      sqlVendas += ` AND cf.COD_OPERADOR = :codOperador`;
+      sqlVendas += ` AND cf.${codOperadorCol} = :codOperador`;
       params.codOperador = codOperador;
     }
 
     if (codLoja) {
-      sqlVendas += ` AND cf.COD_LOJA = :codLoja`;
+      sqlVendas += ` AND cf.${codLojaCol} = :codLoja`;
       params.codLoja = codLoja;
     }
 
     sqlVendas += `
-      GROUP BY cf.COD_OPERADOR, o.DES_OPERADOR
+      GROUP BY cf.${codOperadorCol}, o.${nomeOperadorCol}
       ORDER BY TOTAL_VENDAS DESC
     `;
 
@@ -165,16 +285,16 @@ export class FrenteCaixaService {
         sub.COD_OPERADOR,
         COUNT(*) as TOTAL_ITENS
       FROM (
-        SELECT DISTINCT p.NUM_CUPOM_FISCAL, p.COD_PRODUTO, cf.COD_OPERADOR
+        SELECT DISTINCT p.${numeroCupomCol}, p.${codProdutoCol}, cf.${codOperadorCol} as COD_OPERADOR
         FROM INTERSOLID.TAB_PRODUTO_PDV p
-        JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON p.NUM_CUPOM_FISCAL = cf.NUM_CUPOM_FISCAL
-          AND p.COD_LOJA = cf.COD_LOJA
-        WHERE p.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-          AND p.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND NVL(p.FLG_CUPOM_CANCELADO, 'N') = 'N'
+        JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON p.${numeroCupomCol} = cf.${numeroCupomCol}
+          AND p.${codLojaCol} = cf.${codLojaCol}
+        WHERE p.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+          AND p.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND NVL(p.${statusCupomCol}, 'N') = 'N'
     `;
-    if (codOperador) sqlItens += ` AND cf.COD_OPERADOR = :codOperador`;
-    if (codLoja) sqlItens += ` AND p.COD_LOJA = :codLoja`;
+    if (codOperador) sqlItens += ` AND cf.${codOperadorCol} = :codOperador`;
+    if (codLoja) sqlItens += ` AND p.${codLojaCol} = :codLoja`;
     sqlItens += `) sub GROUP BY sub.COD_OPERADOR`;
 
     console.log('🔍 [Frente Caixa] Executando query de itens...');
@@ -188,17 +308,17 @@ export class FrenteCaixaService {
         sub.COD_OPERADOR,
         SUM(sub.VAL_DESCONTO) as TOTAL_DESCONTOS
       FROM (
-        SELECT DISTINCT p.NUM_CUPOM_FISCAL, p.COD_PRODUTO, p.VAL_DESCONTO, cf.COD_OPERADOR
+        SELECT DISTINCT p.${numeroCupomCol}, p.${codProdutoCol}, p.${valorDescontoCol} as VAL_DESCONTO, cf.${codOperadorCol} as COD_OPERADOR
         FROM INTERSOLID.TAB_PRODUTO_PDV p
-        JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON p.NUM_CUPOM_FISCAL = cf.NUM_CUPOM_FISCAL
-          AND p.COD_LOJA = cf.COD_LOJA
-        WHERE p.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-          AND p.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND NVL(p.VAL_DESCONTO, 0) > 0
-          AND NVL(p.VAL_DESCONTO, 0) < NVL(p.VAL_TOTAL_PRODUTO, 0)
+        JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON p.${numeroCupomCol} = cf.${numeroCupomCol}
+          AND p.${codLojaCol} = cf.${codLojaCol}
+        WHERE p.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+          AND p.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND NVL(p.${valorDescontoCol}, 0) > 0
+          AND NVL(p.${valorDescontoCol}, 0) < NVL(p.${valorTotalCol}, 0)
     `;
-    if (codOperador) sqlDescontos += ` AND cf.COD_OPERADOR = :codOperador`;
-    if (codLoja) sqlDescontos += ` AND p.COD_LOJA = :codLoja`;
+    if (codOperador) sqlDescontos += ` AND cf.${codOperadorCol} = :codOperador`;
+    if (codLoja) sqlDescontos += ` AND p.${codLojaCol} = :codLoja`;
     sqlDescontos += `) sub GROUP BY sub.COD_OPERADOR`;
 
     console.log('🔍 [Frente Caixa] Executando query de descontos...');
@@ -214,22 +334,22 @@ export class FrenteCaixaService {
         SUM(sub.VAL_TOTAL_PRODUTO) as TOTAL_CANCELAMENTOS
       FROM (
         SELECT
-          e.VAL_TOTAL_PRODUTO,
+          e.${valorTotalCol} as VAL_TOTAL_PRODUTO,
           NVL(
-            (SELECT MAX(cf.COD_OPERADOR) FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
-             WHERE cf.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
-             AND cf.COD_LOJA = e.COD_LOJA
-             AND cf.NUM_PDV = e.NUM_PDV
-             AND TRUNC(cf.DTA_VENDA) = TRUNC(e.DTA_SAIDA)),
-            (SELECT MAX(cf2.COD_OPERADOR) FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf2
-             WHERE cf2.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
-             AND cf2.COD_LOJA = e.COD_LOJA
-             AND cf2.NUM_PDV = e.NUM_PDV)
+            (SELECT MAX(cf.${codOperadorCol}) FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+             WHERE cf.${numeroCupomCol} = e.${numeroCupomCol}
+             AND cf.${codLojaCol} = e.${codLojaCol}
+             AND cf.${codPdvCol} = e.${codPdvCol}
+             AND TRUNC(cf.${dataVendaCol}) = TRUNC(e.${dataSaidaCol})),
+            (SELECT MAX(cf2.${codOperadorCol}) FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf2
+             WHERE cf2.${numeroCupomCol} = e.${numeroCupomCol}
+             AND cf2.${codLojaCol} = e.${codLojaCol}
+             AND cf2.${codPdvCol} = e.${codPdvCol})
           ) as COD_OPERADOR
         FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
-        WHERE e.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-          AND e.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-          ${codLoja ? 'AND e.COD_LOJA = :codLoja' : ''}
+        WHERE e.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+          AND e.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+          ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
       ) sub
       WHERE sub.COD_OPERADOR IS NOT NULL
         ${codOperador ? 'AND sub.COD_OPERADOR = :codOperador' : ''}
@@ -250,37 +370,37 @@ export class FrenteCaixaService {
         SUM(sub.VAL_TOTAL_PRODUTO) as TOTAL_ESTORNOS_ORFAOS
       FROM (
         SELECT
-          e.VAL_TOTAL_PRODUTO,
-          e.NUM_PDV,
-          e.DTA_SAIDA,
-          e.DES_HORA,
+          e.${valorTotalCol} as VAL_TOTAL_PRODUTO,
+          e.${codPdvCol},
+          e.${dataSaidaCol},
+          e.${desHoraCol},
           NVL(
             (
               -- Primeira tentativa: operador que fez a venda mais próxima (por horário) no mesmo PDV no mesmo dia
-              SELECT MIN(cf.COD_OPERADOR) KEEP (DENSE_RANK FIRST ORDER BY ABS(TO_NUMBER(TO_CHAR(cf.DTA_VENDA, 'HH24MI')) - TO_NUMBER(NVL(e.DES_HORA, '0'))))
+              SELECT MIN(cf.${codOperadorCol}) KEEP (DENSE_RANK FIRST ORDER BY ABS(TO_NUMBER(TO_CHAR(cf.${dataVendaCol}, 'HH24MI')) - TO_NUMBER(NVL(e.${desHoraCol}, '0'))))
               FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
-              WHERE cf.NUM_PDV = e.NUM_PDV
-                AND cf.COD_LOJA = e.COD_LOJA
-                AND TRUNC(cf.DTA_VENDA) = TRUNC(e.DTA_SAIDA)
+              WHERE cf.${codPdvCol} = e.${codPdvCol}
+                AND cf.${codLojaCol} = e.${codLojaCol}
+                AND TRUNC(cf.${dataVendaCol}) = TRUNC(e.${dataSaidaCol})
             ),
             (
               -- Fallback: quem estava na tesouraria (fechou caixa) nesse PDV no mesmo dia
-              SELECT MAX(th.COD_OPERADOR) FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th
-              WHERE th.NUM_PDV = e.NUM_PDV
-                AND th.COD_LOJA = e.COD_LOJA
-                AND TRUNC(th.DTA_MOVIMENTO) = TRUNC(e.DTA_SAIDA)
+              SELECT MAX(th.${codOperadorCol}) FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th
+              WHERE th.${codPdvCol} = e.${codPdvCol}
+                AND th.${codLojaCol} = e.${codLojaCol}
+                AND TRUNC(th.DTA_MOVIMENTO) = TRUNC(e.${dataSaidaCol})
             )
           ) as COD_OPERADOR
         FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
-        WHERE e.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-          AND e.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-          ${codLoja ? 'AND e.COD_LOJA = :codLoja' : ''}
+        WHERE e.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+          AND e.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+          ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
           -- Somente estornos órfãos (sem match de cupom no mesmo PDV)
           AND NOT EXISTS (
             SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
-            WHERE cf.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
-            AND cf.COD_LOJA = e.COD_LOJA
-            AND cf.NUM_PDV = e.NUM_PDV
+            WHERE cf.${numeroCupomCol} = e.${numeroCupomCol}
+            AND cf.${codLojaCol} = e.${codLojaCol}
+            AND cf.${codPdvCol} = e.${codPdvCol}
           )
       ) sub
       WHERE sub.COD_OPERADOR IS NOT NULL
@@ -299,22 +419,22 @@ export class FrenteCaixaService {
         SUM(sub.VAL_SOBRA) as VAL_SOBRA,
         SUM(sub.VAL_QUEBRA) as VAL_QUEBRA
       FROM (
-        SELECT th.COD_OPERADOR, th.COD_LOJA, th.NUM_PDV, th.NUM_TURNO, th.VAL_SOBRA, th.VAL_QUEBRA
+        SELECT th.${codOperadorCol} as COD_OPERADOR, th.${codLojaCol}, th.${codPdvCol}, th.${numTurnoCol}, th.${valSobraCol} as VAL_SOBRA, th.${valQuebraCol} as VAL_QUEBRA
         FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th
         WHERE th.DTA_MOVIMENTO >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
           AND th.DTA_MOVIMENTO <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND th.NUM_REGISTRO = (
-            SELECT MAX(th2.NUM_REGISTRO)
+          AND th.${numRegistroCol} = (
+            SELECT MAX(th2.${numRegistroCol})
             FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th2
-            WHERE th2.COD_OPERADOR = th.COD_OPERADOR
-              AND th2.COD_LOJA = th.COD_LOJA
-              AND th2.NUM_PDV = th.NUM_PDV
-              AND th2.NUM_TURNO = th.NUM_TURNO
+            WHERE th2.${codOperadorCol} = th.${codOperadorCol}
+              AND th2.${codLojaCol} = th.${codLojaCol}
+              AND th2.${codPdvCol} = th.${codPdvCol}
+              AND th2.${numTurnoCol} = th.${numTurnoCol}
               AND th2.DTA_MOVIMENTO = th.DTA_MOVIMENTO
           )
     `;
-    if (codOperador) sqlTesouraria += ` AND th.COD_OPERADOR = :codOperador`;
-    if (codLoja) sqlTesouraria += ` AND th.COD_LOJA = :codLoja`;
+    if (codOperador) sqlTesouraria += ` AND th.${codOperadorCol} = :codOperador`;
+    if (codLoja) sqlTesouraria += ` AND th.${codLojaCol} = :codLoja`;
     sqlTesouraria += `) sub GROUP BY sub.COD_OPERADOR`;
 
     console.log('🔍 [Frente Caixa] Executando query de tesouraria...');
@@ -361,34 +481,57 @@ export class FrenteCaixaService {
       throw new Error('codOperador é obrigatório para detalhe por dia');
     }
 
+    // Busca mapeamentos dinâmicos
+    const {
+      codOperadorCol,
+      nomeOperadorCol,
+      valorLiquidoCol,
+      numeroCupomCol,
+      codFinalizadoraCol,
+      dataVendaCol,
+      codTipoCol,
+      codLojaCol,
+      dataSaidaCol,
+      statusCupomCol,
+      codProdutoCol,
+      valorTotalCol,
+      valorDescontoCol,
+      codPdvCol,
+      desHoraCol,
+      valSobraCol,
+      valQuebraCol,
+      numTurnoCol,
+      numRegistroCol
+    } = await this.getVendasMappings();
+
     // Query principal - vendas por dia
     const sqlVendas = `
       SELECT
-        cf.COD_OPERADOR,
-        o.DES_OPERADOR,
-        TO_CHAR(cf.DTA_VENDA, 'DD/MM/YYYY') as DATA,
-        EXTRACT(DAY FROM cf.DTA_VENDA) as DIA,
-        SUM(cf.VAL_LIQUIDO) as TOTAL_VENDAS,
-        COUNT(DISTINCT cf.NUM_CUPOM_FISCAL) as TOTAL_CUPONS,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 1 THEN cf.VAL_LIQUIDO ELSE 0 END) as DINHEIRO,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 7 THEN cf.VAL_LIQUIDO ELSE 0 END) as CARTAO_DEBITO,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 6 THEN cf.VAL_LIQUIDO ELSE 0 END) as CARTAO_CREDITO,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 15 THEN cf.VAL_LIQUIDO ELSE 0 END) as PIX,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 4 THEN cf.VAL_LIQUIDO ELSE 0 END) as FUNCIONARIO,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 5 THEN cf.VAL_LIQUIDO ELSE 0 END) as CARTAO_POS,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 8 THEN cf.VAL_LIQUIDO ELSE 0 END) as TRICARD_PARCELADO,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 10 THEN cf.VAL_LIQUIDO ELSE 0 END) as VALE_TROCA,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 13 THEN cf.VAL_LIQUIDO ELSE 0 END) as VALE_DESCONTO,
-        SUM(CASE WHEN cf.COD_FINALIZADORA NOT IN (1, 4, 5, 6, 7, 8, 10, 13, 15) THEN cf.VAL_LIQUIDO ELSE 0 END) as OUTROS
+        cf.${codOperadorCol} as COD_OPERADOR,
+        o.${nomeOperadorCol} as DES_OPERADOR,
+        TO_CHAR(cf.${dataVendaCol}, 'DD/MM/YYYY') as DATA,
+        EXTRACT(DAY FROM cf.${dataVendaCol}) as DIA,
+        SUM(cf.${valorLiquidoCol}) as TOTAL_VENDAS,
+        COUNT(DISTINCT cf.${numeroCupomCol}) as TOTAL_CUPONS,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 1 THEN cf.${valorLiquidoCol} ELSE 0 END) as DINHEIRO,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 7 THEN cf.${valorLiquidoCol} ELSE 0 END) as CARTAO_DEBITO,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 6 THEN cf.${valorLiquidoCol} ELSE 0 END) as CARTAO_CREDITO,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 15 THEN cf.${valorLiquidoCol} ELSE 0 END) as PIX,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 4 THEN cf.${valorLiquidoCol} ELSE 0 END) as FUNCIONARIO,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 5 THEN cf.${valorLiquidoCol} ELSE 0 END) as CARTAO_POS,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 8 THEN cf.${valorLiquidoCol} ELSE 0 END) as TRICARD_PARCELADO,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 10 THEN cf.${valorLiquidoCol} ELSE 0 END) as VALE_TROCA,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 13 THEN cf.${valorLiquidoCol} ELSE 0 END) as VALE_DESCONTO,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} NOT IN (1, 4, 5, 6, 7, 8, 10, 13, 15) THEN cf.${valorLiquidoCol} ELSE 0 END) as OUTROS
       FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
-      LEFT JOIN INTERSOLID.TAB_OPERADORES o ON cf.COD_OPERADOR = o.COD_OPERADOR AND cf.COD_LOJA = o.COD_LOJA
-      WHERE cf.DTA_VENDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND cf.DTA_VENDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND cf.COD_TIPO = 1110
-        AND cf.COD_OPERADOR = :codOperador
-        ${codLoja ? 'AND cf.COD_LOJA = :codLoja' : ''}
-      GROUP BY cf.COD_OPERADOR, o.DES_OPERADOR, cf.DTA_VENDA
-      ORDER BY cf.DTA_VENDA
+      LEFT JOIN INTERSOLID.TAB_OPERADORES o ON cf.${codOperadorCol} = o.${codOperadorCol} AND cf.${codLojaCol} = o.${codLojaCol}
+      WHERE cf.${dataVendaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND cf.${dataVendaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND cf.${codTipoCol} = 1110
+        AND cf.${codOperadorCol} = :codOperador
+        ${codLoja ? `AND cf.${codLojaCol} = :codLoja` : ''}
+      GROUP BY cf.${codOperadorCol}, o.${nomeOperadorCol}, cf.${dataVendaCol}
+      ORDER BY cf.${dataVendaCol}
     `;
 
     const params: any = { dataInicio, dataFim, codOperador };
@@ -399,18 +542,18 @@ export class FrenteCaixaService {
     // Buscar itens por dia - contagem direta (NUM_SEQ_ITEM não existe na tabela)
     let sqlItens = `
       SELECT
-        TO_CHAR(p.DTA_SAIDA, 'DD/MM/YYYY') as DATA,
+        TO_CHAR(p.${dataSaidaCol}, 'DD/MM/YYYY') as DATA,
         COUNT(*) as TOTAL_ITENS
       FROM INTERSOLID.TAB_PRODUTO_PDV p
-      JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON p.NUM_CUPOM_FISCAL = cf.NUM_CUPOM_FISCAL
-        AND p.COD_LOJA = cf.COD_LOJA
-      WHERE p.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND p.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND NVL(p.FLG_CUPOM_CANCELADO, 'N') = 'N'
-        AND cf.COD_OPERADOR = :codOperador
+      JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON p.${numeroCupomCol} = cf.${numeroCupomCol}
+        AND p.${codLojaCol} = cf.${codLojaCol}
+      WHERE p.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND p.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND NVL(p.${statusCupomCol}, 'N') = 'N'
+        AND cf.${codOperadorCol} = :codOperador
     `;
-    if (codLoja) sqlItens += ` AND p.COD_LOJA = :codLoja`;
-    sqlItens += ` GROUP BY TO_CHAR(p.DTA_SAIDA, 'DD/MM/YYYY')`;
+    if (codLoja) sqlItens += ` AND p.${codLojaCol} = :codLoja`;
+    sqlItens += ` GROUP BY TO_CHAR(p.${dataSaidaCol}, 'DD/MM/YYYY')`;
 
     const itens = await OracleService.query<any>(sqlItens, params);
     const itensMap = new Map(itens.map(i => [i.DATA, i.TOTAL_ITENS]));
@@ -418,19 +561,19 @@ export class FrenteCaixaService {
     // Buscar descontos por dia (exclui itens com 100% de desconto = bonificações)
     let sqlDescontos = `
       SELECT
-        TO_CHAR(p.DTA_SAIDA, 'DD/MM/YYYY') as DATA,
-        SUM(NVL(p.VAL_DESCONTO, 0)) as TOTAL_DESCONTOS
+        TO_CHAR(p.${dataSaidaCol}, 'DD/MM/YYYY') as DATA,
+        SUM(NVL(p.${valorDescontoCol}, 0)) as TOTAL_DESCONTOS
       FROM INTERSOLID.TAB_PRODUTO_PDV p
-      JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON p.NUM_CUPOM_FISCAL = cf.NUM_CUPOM_FISCAL
-        AND p.COD_LOJA = cf.COD_LOJA
-      WHERE p.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND p.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND NVL(p.VAL_DESCONTO, 0) > 0
-        AND NVL(p.VAL_DESCONTO, 0) < NVL(p.VAL_TOTAL_PRODUTO, 0)
-        AND cf.COD_OPERADOR = :codOperador
+      JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON p.${numeroCupomCol} = cf.${numeroCupomCol}
+        AND p.${codLojaCol} = cf.${codLojaCol}
+      WHERE p.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND p.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND NVL(p.${valorDescontoCol}, 0) > 0
+        AND NVL(p.${valorDescontoCol}, 0) < NVL(p.${valorTotalCol}, 0)
+        AND cf.${codOperadorCol} = :codOperador
     `;
-    if (codLoja) sqlDescontos += ` AND p.COD_LOJA = :codLoja`;
-    sqlDescontos += ` GROUP BY TO_CHAR(p.DTA_SAIDA, 'DD/MM/YYYY')`;
+    if (codLoja) sqlDescontos += ` AND p.${codLojaCol} = :codLoja`;
+    sqlDescontos += ` GROUP BY TO_CHAR(p.${dataSaidaCol}, 'DD/MM/YYYY')`;
 
     const descontos = await OracleService.query<any>(sqlDescontos, params);
     const descontosMap = new Map(descontos.map(d => [d.DATA, d.TOTAL_DESCONTOS]));
@@ -439,37 +582,37 @@ export class FrenteCaixaService {
     // Busca operador pelo cupom original - primeiro tenta mesma data, senão usa qualquer ocorrência do cupom
     let sqlCancelamentos = `
       SELECT
-        TO_CHAR(e.DTA_SAIDA, 'DD/MM/YYYY') as DATA,
-        SUM(e.VAL_TOTAL_PRODUTO) as TOTAL_CANCELAMENTOS
+        TO_CHAR(e.${dataSaidaCol}, 'DD/MM/YYYY') as DATA,
+        SUM(e.${valorTotalCol}) as TOTAL_CANCELAMENTOS
       FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
-      WHERE e.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND e.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-        ${codLoja ? 'AND e.COD_LOJA = :codLoja' : ''}
+      WHERE e.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND e.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
         AND (
           EXISTS (
             SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
-            WHERE cf.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
-            AND cf.COD_LOJA = e.COD_LOJA
-            AND cf.NUM_PDV = e.NUM_PDV
-            AND TRUNC(cf.DTA_VENDA) = TRUNC(e.DTA_SAIDA)
-            AND cf.COD_OPERADOR = :codOperador
+            WHERE cf.${numeroCupomCol} = e.${numeroCupomCol}
+            AND cf.${codLojaCol} = e.${codLojaCol}
+            AND cf.${codPdvCol} = e.${codPdvCol}
+            AND TRUNC(cf.${dataVendaCol}) = TRUNC(e.${dataSaidaCol})
+            AND cf.${codOperadorCol} = :codOperador
           )
           OR EXISTS (
             SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf2
-            WHERE cf2.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
-            AND cf2.COD_LOJA = e.COD_LOJA
-            AND cf2.NUM_PDV = e.NUM_PDV
-            AND cf2.COD_OPERADOR = :codOperador
+            WHERE cf2.${numeroCupomCol} = e.${numeroCupomCol}
+            AND cf2.${codLojaCol} = e.${codLojaCol}
+            AND cf2.${codPdvCol} = e.${codPdvCol}
+            AND cf2.${codOperadorCol} = :codOperador
             AND NOT EXISTS (
               SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf3
-              WHERE cf3.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
-              AND cf3.COD_LOJA = e.COD_LOJA
-              AND cf3.NUM_PDV = e.NUM_PDV
-              AND TRUNC(cf3.DTA_VENDA) = TRUNC(e.DTA_SAIDA)
+              WHERE cf3.${numeroCupomCol} = e.${numeroCupomCol}
+              AND cf3.${codLojaCol} = e.${codLojaCol}
+              AND cf3.${codPdvCol} = e.${codPdvCol}
+              AND TRUNC(cf3.${dataVendaCol}) = TRUNC(e.${dataSaidaCol})
             )
           )
         )
-      GROUP BY TO_CHAR(e.DTA_SAIDA, 'DD/MM/YYYY')`;
+      GROUP BY TO_CHAR(e.${dataSaidaCol}, 'DD/MM/YYYY')`;
 
     const cancelamentos = await OracleService.query<any>(sqlCancelamentos, params);
     const cancelamentosMap = new Map(cancelamentos.map(c => [c.DATA, c.TOTAL_CANCELAMENTOS]));
@@ -478,37 +621,37 @@ export class FrenteCaixaService {
     // FALLBACK: Se não houver vendas no PDV, busca quem fechou o caixa (tesouraria) naquele PDV no dia
     let sqlEstornosOrfaos = `
       SELECT
-        TO_CHAR(e.DTA_SAIDA, 'DD/MM/YYYY') as DATA,
-        SUM(e.VAL_TOTAL_PRODUTO) as TOTAL_ESTORNOS_ORFAOS
+        TO_CHAR(e.${dataSaidaCol}, 'DD/MM/YYYY') as DATA,
+        SUM(e.${valorTotalCol}) as TOTAL_ESTORNOS_ORFAOS
       FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
-      WHERE e.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND e.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-        ${codLoja ? 'AND e.COD_LOJA = :codLoja' : ''}
+      WHERE e.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND e.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
         -- Somente estornos órfãos (sem match de cupom no mesmo PDV)
         AND NOT EXISTS (
           SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
-          WHERE cf.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
-          AND cf.COD_LOJA = e.COD_LOJA
-          AND cf.NUM_PDV = e.NUM_PDV
+          WHERE cf.${numeroCupomCol} = e.${numeroCupomCol}
+          AND cf.${codLojaCol} = e.${codLojaCol}
+          AND cf.${codPdvCol} = e.${codPdvCol}
         )
         -- Associar ao operador: primeiro pela venda mais próxima, fallback pela tesouraria
         AND :codOperador = NVL(
           (
-            SELECT MIN(cf2.COD_OPERADOR) KEEP (DENSE_RANK FIRST ORDER BY ABS(TO_NUMBER(TO_CHAR(cf2.DTA_VENDA, 'HH24MI')) - TO_NUMBER(NVL(e.DES_HORA, '0'))))
+            SELECT MIN(cf2.${codOperadorCol}) KEEP (DENSE_RANK FIRST ORDER BY ABS(TO_NUMBER(TO_CHAR(cf2.${dataVendaCol}, 'HH24MI')) - TO_NUMBER(NVL(e.${desHoraCol}, '0'))))
             FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf2
-            WHERE cf2.NUM_PDV = e.NUM_PDV
-              AND cf2.COD_LOJA = e.COD_LOJA
-              AND TRUNC(cf2.DTA_VENDA) = TRUNC(e.DTA_SAIDA)
+            WHERE cf2.${codPdvCol} = e.${codPdvCol}
+              AND cf2.${codLojaCol} = e.${codLojaCol}
+              AND TRUNC(cf2.${dataVendaCol}) = TRUNC(e.${dataSaidaCol})
           ),
           (
             -- Fallback: quem estava na tesouraria (fechou caixa) nesse PDV no mesmo dia
-            SELECT MAX(th.COD_OPERADOR) FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th
-            WHERE th.NUM_PDV = e.NUM_PDV
-              AND th.COD_LOJA = e.COD_LOJA
-              AND TRUNC(th.DTA_MOVIMENTO) = TRUNC(e.DTA_SAIDA)
+            SELECT MAX(th.${codOperadorCol}) FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th
+            WHERE th.${codPdvCol} = e.${codPdvCol}
+              AND th.${codLojaCol} = e.${codLojaCol}
+              AND TRUNC(th.DTA_MOVIMENTO) = TRUNC(e.${dataSaidaCol})
           )
         )
-      GROUP BY TO_CHAR(e.DTA_SAIDA, 'DD/MM/YYYY')`;
+      GROUP BY TO_CHAR(e.${dataSaidaCol}, 'DD/MM/YYYY')`;
 
     const estornosOrfaos = await OracleService.query<any>(sqlEstornosOrfaos, params);
     const estornosOrfaosMap = new Map(estornosOrfaos.map(e => [e.DATA, e.TOTAL_ESTORNOS_ORFAOS]));
@@ -520,22 +663,22 @@ export class FrenteCaixaService {
         SUM(sub.VAL_SOBRA) as VAL_SOBRA,
         SUM(sub.VAL_QUEBRA) as VAL_QUEBRA
       FROM (
-        SELECT TO_CHAR(th.DTA_MOVIMENTO, 'DD/MM/YYYY') as DATA, th.COD_LOJA, th.NUM_PDV, th.NUM_TURNO, th.VAL_SOBRA, th.VAL_QUEBRA
+        SELECT TO_CHAR(th.DTA_MOVIMENTO, 'DD/MM/YYYY') as DATA, th.${codLojaCol}, th.${codPdvCol}, th.${numTurnoCol}, th.${valSobraCol} as VAL_SOBRA, th.${valQuebraCol} as VAL_QUEBRA
         FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th
         WHERE th.DTA_MOVIMENTO >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
           AND th.DTA_MOVIMENTO <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND th.COD_OPERADOR = :codOperador
-          AND th.NUM_REGISTRO = (
-            SELECT MAX(th2.NUM_REGISTRO)
+          AND th.${codOperadorCol} = :codOperador
+          AND th.${numRegistroCol} = (
+            SELECT MAX(th2.${numRegistroCol})
             FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th2
-            WHERE th2.COD_OPERADOR = th.COD_OPERADOR
-              AND th2.COD_LOJA = th.COD_LOJA
-              AND th2.NUM_PDV = th.NUM_PDV
-              AND th2.NUM_TURNO = th.NUM_TURNO
+            WHERE th2.${codOperadorCol} = th.${codOperadorCol}
+              AND th2.${codLojaCol} = th.${codLojaCol}
+              AND th2.${codPdvCol} = th.${codPdvCol}
+              AND th2.${numTurnoCol} = th.${numTurnoCol}
               AND th2.DTA_MOVIMENTO = th.DTA_MOVIMENTO
           )
     `;
-    if (codLoja) sqlTesouraria += ` AND th.COD_LOJA = :codLoja`;
+    if (codLoja) sqlTesouraria += ` AND th.${codLojaCol} = :codLoja`;
     sqlTesouraria += `) sub GROUP BY sub.DATA`;
 
     const tesouraria = await OracleService.query<any>(sqlTesouraria, params);
@@ -578,73 +721,92 @@ export class FrenteCaixaService {
   static async getTotais(filters: FrenteCaixaFilters): Promise<any> {
     const { dataInicio, dataFim, codLoja } = filters;
 
+    // Busca mapeamentos dinâmicos
+    const {
+      valorLiquidoCol,
+      numeroCupomCol,
+      codFinalizadoraCol,
+      dataVendaCol,
+      codTipoCol,
+      codLojaCol,
+      codOperadorCol,
+      dataSaidaCol,
+      valorDescontoCol,
+      valorTotalCol,
+      codPdvCol,
+      valSobraCol,
+      valQuebraCol,
+      numTurnoCol,
+      numRegistroCol
+    } = await this.getVendasMappings();
+
     const params: any = { dataInicio, dataFim };
     if (codLoja) params.codLoja = codLoja;
 
     const sqlTotais = `
       SELECT
-        SUM(cf.VAL_LIQUIDO) as TOTAL_VENDAS,
-        COUNT(DISTINCT cf.NUM_CUPOM_FISCAL) as TOTAL_CUPONS,
-        COUNT(DISTINCT cf.COD_OPERADOR) as TOTAL_OPERADORES,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 1 THEN cf.VAL_LIQUIDO ELSE 0 END) as DINHEIRO,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 7 THEN cf.VAL_LIQUIDO ELSE 0 END) as CARTAO_DEBITO,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 6 THEN cf.VAL_LIQUIDO ELSE 0 END) as CARTAO_CREDITO,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 15 THEN cf.VAL_LIQUIDO ELSE 0 END) as PIX,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 4 THEN cf.VAL_LIQUIDO ELSE 0 END) as FUNCIONARIO,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 5 THEN cf.VAL_LIQUIDO ELSE 0 END) as CARTAO_POS,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 8 THEN cf.VAL_LIQUIDO ELSE 0 END) as TRICARD_PARCELADO,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 10 THEN cf.VAL_LIQUIDO ELSE 0 END) as VALE_TROCA,
-        SUM(CASE WHEN cf.COD_FINALIZADORA = 13 THEN cf.VAL_LIQUIDO ELSE 0 END) as VALE_DESCONTO,
-        SUM(CASE WHEN cf.COD_FINALIZADORA NOT IN (1, 4, 5, 6, 7, 8, 10, 13, 15) THEN cf.VAL_LIQUIDO ELSE 0 END) as OUTROS
+        SUM(cf.${valorLiquidoCol}) as TOTAL_VENDAS,
+        COUNT(DISTINCT cf.${numeroCupomCol}) as TOTAL_CUPONS,
+        COUNT(DISTINCT cf.${codOperadorCol}) as TOTAL_OPERADORES,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 1 THEN cf.${valorLiquidoCol} ELSE 0 END) as DINHEIRO,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 7 THEN cf.${valorLiquidoCol} ELSE 0 END) as CARTAO_DEBITO,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 6 THEN cf.${valorLiquidoCol} ELSE 0 END) as CARTAO_CREDITO,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 15 THEN cf.${valorLiquidoCol} ELSE 0 END) as PIX,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 4 THEN cf.${valorLiquidoCol} ELSE 0 END) as FUNCIONARIO,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 5 THEN cf.${valorLiquidoCol} ELSE 0 END) as CARTAO_POS,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 8 THEN cf.${valorLiquidoCol} ELSE 0 END) as TRICARD_PARCELADO,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 10 THEN cf.${valorLiquidoCol} ELSE 0 END) as VALE_TROCA,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} = 13 THEN cf.${valorLiquidoCol} ELSE 0 END) as VALE_DESCONTO,
+        SUM(CASE WHEN cf.${codFinalizadoraCol} NOT IN (1, 4, 5, 6, 7, 8, 10, 13, 15) THEN cf.${valorLiquidoCol} ELSE 0 END) as OUTROS
       FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
-      WHERE cf.DTA_VENDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND cf.DTA_VENDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND cf.COD_TIPO = 1110
-        ${codLoja ? 'AND cf.COD_LOJA = :codLoja' : ''}
+      WHERE cf.${dataVendaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND cf.${dataVendaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND cf.${codTipoCol} = 1110
+        ${codLoja ? `AND cf.${codLojaCol} = :codLoja` : ''}
     `;
 
     const totais = await OracleService.query<any>(sqlTotais, params);
 
     // Buscar totais de descontos
     const sqlDescontos = `
-      SELECT SUM(VAL_DESCONTO) as TOTAL_DESCONTOS
+      SELECT SUM(${valorDescontoCol}) as TOTAL_DESCONTOS
       FROM INTERSOLID.TAB_PRODUTO_PDV
-      WHERE DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND VAL_DESCONTO > 0
-        ${codLoja ? 'AND COD_LOJA = :codLoja' : ''}
+      WHERE ${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND ${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND ${valorDescontoCol} > 0
+        ${codLoja ? `AND ${codLojaCol} = :codLoja` : ''}
     `;
     const descontos = await OracleService.query<any>(sqlDescontos, params);
 
     // Buscar totais de cancelamentos (estornos) - separando os que têm associação dos órfãos
     // Cancelamentos com associação = estornos onde existe cupom no mesmo PDV
     const sqlCancelamentos = `
-      SELECT SUM(VAL_TOTAL_PRODUTO) as CANCELAMENTOS
+      SELECT SUM(${valorTotalCol}) as CANCELAMENTOS
       FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
-      WHERE e.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND e.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-        ${codLoja ? 'AND e.COD_LOJA = :codLoja' : ''}
+      WHERE e.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND e.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
         AND EXISTS (
           SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
-          WHERE cf.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
-          AND cf.COD_LOJA = e.COD_LOJA
-          AND cf.NUM_PDV = e.NUM_PDV
+          WHERE cf.${numeroCupomCol} = e.${numeroCupomCol}
+          AND cf.${codLojaCol} = e.${codLojaCol}
+          AND cf.${codPdvCol} = e.${codPdvCol}
         )
     `;
     const cancelamentos = await OracleService.query<any>(sqlCancelamentos, params);
 
     // Estornos órfãos = estornos onde NÃO existe cupom no mesmo PDV
     const sqlEstornosOrfaos = `
-      SELECT SUM(VAL_TOTAL_PRODUTO) as ESTORNOS_ORFAOS
+      SELECT SUM(${valorTotalCol}) as ESTORNOS_ORFAOS
       FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
-      WHERE e.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND e.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-        ${codLoja ? 'AND e.COD_LOJA = :codLoja' : ''}
+      WHERE e.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND e.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
         AND NOT EXISTS (
           SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
-          WHERE cf.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
-          AND cf.COD_LOJA = e.COD_LOJA
-          AND cf.NUM_PDV = e.NUM_PDV
+          WHERE cf.${numeroCupomCol} = e.${numeroCupomCol}
+          AND cf.${codLojaCol} = e.${codLojaCol}
+          AND cf.${codPdvCol} = e.${codPdvCol}
         )
     `;
     const estornosOrfaos = await OracleService.query<any>(sqlEstornosOrfaos, params);
@@ -655,18 +817,18 @@ export class FrenteCaixaService {
         SUM(sub.VAL_SOBRA) as TOTAL_SOBRA,
         SUM(sub.VAL_QUEBRA) as TOTAL_QUEBRA
       FROM (
-        SELECT th.COD_OPERADOR, th.COD_LOJA, th.NUM_PDV, th.NUM_TURNO, th.DTA_MOVIMENTO, th.VAL_SOBRA, th.VAL_QUEBRA
+        SELECT th.${codOperadorCol}, th.${codLojaCol}, th.${codPdvCol}, th.${numTurnoCol}, th.DTA_MOVIMENTO, th.${valSobraCol} as VAL_SOBRA, th.${valQuebraCol} as VAL_QUEBRA
         FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th
         WHERE th.DTA_MOVIMENTO >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
           AND th.DTA_MOVIMENTO <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-          ${codLoja ? 'AND th.COD_LOJA = :codLoja' : ''}
-          AND th.NUM_REGISTRO = (
-            SELECT MAX(th2.NUM_REGISTRO)
+          ${codLoja ? `AND th.${codLojaCol} = :codLoja` : ''}
+          AND th.${numRegistroCol} = (
+            SELECT MAX(th2.${numRegistroCol})
             FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th2
-            WHERE th2.COD_OPERADOR = th.COD_OPERADOR
-              AND th2.COD_LOJA = th.COD_LOJA
-              AND th2.NUM_PDV = th.NUM_PDV
-              AND th2.NUM_TURNO = th.NUM_TURNO
+            WHERE th2.${codOperadorCol} = th.${codOperadorCol}
+              AND th2.${codLojaCol} = th.${codLojaCol}
+              AND th2.${codPdvCol} = th.${codPdvCol}
+              AND th2.${numTurnoCol} = th.${numTurnoCol}
               AND th2.DTA_MOVIMENTO = th.DTA_MOVIMENTO
           )
       ) sub
@@ -700,6 +862,20 @@ export class FrenteCaixaService {
    * Busca cupons de um operador em uma data específica
    */
   static async getCuponsPorDia(codOperador: number, data: string, codLoja?: number): Promise<any[]> {
+    // Busca mapeamentos dinâmicos
+    const {
+      numeroCupomCol,
+      codLojaCol,
+      dataVendaCol,
+      valorLiquidoCol,
+      codOperadorCol,
+      codTipoCol,
+      dataSaidaCol,
+      valorDescontoCol,
+      valorTotalCol,
+      statusCupomCol
+    } = await this.getVendasMappings();
+
     const params: any = { codOperador, data };
     if (codLoja) params.codLoja = codLoja;
 
@@ -708,10 +884,10 @@ export class FrenteCaixaService {
     // Filtra itens pela mesma data do cupom para evitar mostrar itens de datas diferentes
     let sql = `
       SELECT
-        cf.NUM_CUPOM_FISCAL,
-        cf.COD_LOJA,
-        TO_CHAR(MIN(cf.DTA_VENDA), 'DD/MM/YYYY HH24:MI') as DATA_HORA,
-        SUM(cf.VAL_LIQUIDO) as VALOR_CUPOM,
+        cf.${numeroCupomCol} as NUM_CUPOM_FISCAL,
+        cf.${codLojaCol} as COD_LOJA,
+        TO_CHAR(MIN(cf.${dataVendaCol}), 'DD/MM/YYYY HH24:MI') as DATA_HORA,
+        SUM(cf.${valorLiquidoCol}) as VALOR_CUPOM,
         NVL(info.TOTAL_DESCONTO, 0) as TOTAL_DESCONTO,
         NVL(info.QTD_ITENS_DESCONTO, 0) as QTD_ITENS_DESCONTO,
         NVL(info.TOTAL_CANCELADO, 0) + NVL(estornos.TOTAL_ESTORNOS, 0) as TOTAL_CANCELADO,
@@ -721,34 +897,34 @@ export class FrenteCaixaService {
       FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
       LEFT JOIN (
         SELECT
-          pv.NUM_CUPOM_FISCAL,
-          pv.COD_LOJA,
-          SUM(CASE WHEN NVL(pv.VAL_DESCONTO, 0) < NVL(pv.VAL_TOTAL_PRODUTO, 0) THEN NVL(pv.VAL_DESCONTO, 0) ELSE 0 END) as TOTAL_DESCONTO,
-          SUM(CASE WHEN NVL(pv.VAL_DESCONTO, 0) > 0 AND NVL(pv.VAL_DESCONTO, 0) < NVL(pv.VAL_TOTAL_PRODUTO, 0) THEN 1 ELSE 0 END) as QTD_ITENS_DESCONTO,
-          SUM(CASE WHEN pv.FLG_CUPOM_CANCELADO = 'S' OR NVL(pv.VAL_DESCONTO, 0) >= NVL(pv.VAL_TOTAL_PRODUTO, 0) THEN NVL(pv.VAL_TOTAL_PRODUTO, 0) ELSE 0 END) as TOTAL_CANCELADO,
-          SUM(CASE WHEN pv.FLG_CUPOM_CANCELADO = 'S' OR NVL(pv.VAL_DESCONTO, 0) >= NVL(pv.VAL_TOTAL_PRODUTO, 0) THEN 1 ELSE 0 END) as QTD_ITENS_CANCELADOS,
+          pv.${numeroCupomCol} as NUM_CUPOM_FISCAL,
+          pv.${codLojaCol} as COD_LOJA,
+          SUM(CASE WHEN NVL(pv.${valorDescontoCol}, 0) < NVL(pv.${valorTotalCol}, 0) THEN NVL(pv.${valorDescontoCol}, 0) ELSE 0 END) as TOTAL_DESCONTO,
+          SUM(CASE WHEN NVL(pv.${valorDescontoCol}, 0) > 0 AND NVL(pv.${valorDescontoCol}, 0) < NVL(pv.${valorTotalCol}, 0) THEN 1 ELSE 0 END) as QTD_ITENS_DESCONTO,
+          SUM(CASE WHEN pv.${statusCupomCol} = 'S' OR NVL(pv.${valorDescontoCol}, 0) >= NVL(pv.${valorTotalCol}, 0) THEN NVL(pv.${valorTotalCol}, 0) ELSE 0 END) as TOTAL_CANCELADO,
+          SUM(CASE WHEN pv.${statusCupomCol} = 'S' OR NVL(pv.${valorDescontoCol}, 0) >= NVL(pv.${valorTotalCol}, 0) THEN 1 ELSE 0 END) as QTD_ITENS_CANCELADOS,
           COUNT(*) as QTD_ITENS_TOTAL
         FROM INTERSOLID.TAB_PRODUTO_PDV pv
-        WHERE TO_CHAR(pv.DTA_SAIDA, 'DD/MM/YYYY') = :data
-        GROUP BY pv.NUM_CUPOM_FISCAL, pv.COD_LOJA
-      ) info ON cf.NUM_CUPOM_FISCAL = info.NUM_CUPOM_FISCAL AND cf.COD_LOJA = info.COD_LOJA
+        WHERE TO_CHAR(pv.${dataSaidaCol}, 'DD/MM/YYYY') = :data
+        GROUP BY pv.${numeroCupomCol}, pv.${codLojaCol}
+      ) info ON cf.${numeroCupomCol} = info.NUM_CUPOM_FISCAL AND cf.${codLojaCol} = info.COD_LOJA
       LEFT JOIN (
         SELECT
-          e.NUM_CUPOM_FISCAL,
-          e.COD_LOJA,
-          SUM(e.VAL_TOTAL_PRODUTO) as TOTAL_ESTORNOS,
+          e.${numeroCupomCol} as NUM_CUPOM_FISCAL,
+          e.${codLojaCol} as COD_LOJA,
+          SUM(e.${valorTotalCol}) as TOTAL_ESTORNOS,
           COUNT(*) as QTD_ESTORNOS
         FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
-        WHERE TO_CHAR(e.DTA_SAIDA, 'DD/MM/YYYY') = :data
-        GROUP BY e.NUM_CUPOM_FISCAL, e.COD_LOJA
-      ) estornos ON cf.NUM_CUPOM_FISCAL = estornos.NUM_CUPOM_FISCAL AND cf.COD_LOJA = estornos.COD_LOJA
-      WHERE cf.COD_OPERADOR = :codOperador
-        AND TO_CHAR(cf.DTA_VENDA, 'DD/MM/YYYY') = :data
-        AND cf.COD_TIPO = 1110
+        WHERE TO_CHAR(e.${dataSaidaCol}, 'DD/MM/YYYY') = :data
+        GROUP BY e.${numeroCupomCol}, e.${codLojaCol}
+      ) estornos ON cf.${numeroCupomCol} = estornos.NUM_CUPOM_FISCAL AND cf.${codLojaCol} = estornos.COD_LOJA
+      WHERE cf.${codOperadorCol} = :codOperador
+        AND TO_CHAR(cf.${dataVendaCol}, 'DD/MM/YYYY') = :data
+        AND cf.${codTipoCol} = 1110
     `;
-    if (codLoja) sql += ` AND cf.COD_LOJA = :codLoja`;
-    sql += ` GROUP BY cf.NUM_CUPOM_FISCAL, cf.COD_LOJA, info.TOTAL_DESCONTO, info.QTD_ITENS_DESCONTO, info.TOTAL_CANCELADO, info.QTD_ITENS_CANCELADOS, info.QTD_ITENS_TOTAL, estornos.TOTAL_ESTORNOS, estornos.QTD_ESTORNOS`;
-    sql += ` ORDER BY MIN(cf.DTA_VENDA)`;
+    if (codLoja) sql += ` AND cf.${codLojaCol} = :codLoja`;
+    sql += ` GROUP BY cf.${numeroCupomCol}, cf.${codLojaCol}, info.TOTAL_DESCONTO, info.QTD_ITENS_DESCONTO, info.TOTAL_CANCELADO, info.QTD_ITENS_CANCELADOS, info.QTD_ITENS_TOTAL, estornos.TOTAL_ESTORNOS, estornos.QTD_ESTORNOS`;
+    sql += ` ORDER BY MIN(cf.${dataVendaCol})`;
 
     console.log('🔍 [Frente Caixa] Buscando cupons do operador', codOperador, 'em', data);
     console.log('🔍 [Frente Caixa] SQL:', sql);
@@ -769,6 +945,19 @@ export class FrenteCaixaService {
    * @param data - Data opcional para filtrar itens apenas dessa data
    */
   static async getItensPorCupom(numCupom: number, codLoja: number, data?: string): Promise<any[]> {
+    // Busca mapeamentos dinâmicos
+    const {
+      codProdutoCol,
+      desProdutoCol,
+      qtdTotalProdutoCol,
+      valorTotalCol,
+      valorDescontoCol,
+      statusCupomCol,
+      numeroCupomCol,
+      codLojaCol,
+      dataSaidaCol
+    } = await this.getVendasMappings();
+
     // Query corrigida - TAB_PRODUTO_PDV tem colunas diferentes
     // Fazemos JOIN com TAB_PRODUTO para pegar a descrição do produto
     // Itens com 100% de desconto são marcados como estornados
@@ -777,56 +966,56 @@ export class FrenteCaixaService {
     // Query para itens normais
     let sqlItens = `
       SELECT
-        pv.COD_PRODUTO,
-        p.DES_PRODUTO,
-        pv.QTD_TOTAL_PRODUTO as QTD_PRODUTO,
-        CASE WHEN pv.QTD_TOTAL_PRODUTO > 0
-             THEN pv.VAL_TOTAL_PRODUTO / pv.QTD_TOTAL_PRODUTO
+        pv.${codProdutoCol} as COD_PRODUTO,
+        p.${desProdutoCol} as DES_PRODUTO,
+        pv.${qtdTotalProdutoCol} as QTD_PRODUTO,
+        CASE WHEN pv.${qtdTotalProdutoCol} > 0
+             THEN pv.${valorTotalCol} / pv.${qtdTotalProdutoCol}
              ELSE 0
         END as VAL_UNITARIO,
-        pv.VAL_TOTAL_PRODUTO,
-        CASE WHEN NVL(pv.VAL_DESCONTO, 0) >= NVL(pv.VAL_TOTAL_PRODUTO, 0) AND NVL(pv.VAL_TOTAL_PRODUTO, 0) > 0
+        pv.${valorTotalCol} as VAL_TOTAL_PRODUTO,
+        CASE WHEN NVL(pv.${valorDescontoCol}, 0) >= NVL(pv.${valorTotalCol}, 0) AND NVL(pv.${valorTotalCol}, 0) > 0
              THEN 0
-             ELSE NVL(pv.VAL_DESCONTO, 0)
+             ELSE NVL(pv.${valorDescontoCol}, 0)
         END as VAL_DESCONTO,
-        CASE WHEN pv.FLG_CUPOM_CANCELADO = 'S' OR (NVL(pv.VAL_DESCONTO, 0) >= NVL(pv.VAL_TOTAL_PRODUTO, 0) AND NVL(pv.VAL_TOTAL_PRODUTO, 0) > 0)
+        CASE WHEN pv.${statusCupomCol} = 'S' OR (NVL(pv.${valorDescontoCol}, 0) >= NVL(pv.${valorTotalCol}, 0) AND NVL(pv.${valorTotalCol}, 0) > 0)
              THEN 'S'
              ELSE 'N'
         END as FLG_ESTORNADO,
         'N' as ITEM_ESTORNO
       FROM INTERSOLID.TAB_PRODUTO_PDV pv
-      LEFT JOIN INTERSOLID.TAB_PRODUTO p ON pv.COD_PRODUTO = p.COD_PRODUTO
-      WHERE pv.NUM_CUPOM_FISCAL = :numCupom
-        AND pv.COD_LOJA = :codLoja
+      LEFT JOIN INTERSOLID.TAB_PRODUTO p ON pv.${codProdutoCol} = p.${codProdutoCol}
+      WHERE pv.${numeroCupomCol} = :numCupom
+        AND pv.${codLojaCol} = :codLoja
     `;
 
     if (data) {
-      sqlItens += ` AND TO_CHAR(pv.DTA_SAIDA, 'DD/MM/YYYY') = :data`;
+      sqlItens += ` AND TO_CHAR(pv.${dataSaidaCol}, 'DD/MM/YYYY') = :data`;
       params.data = data;
     }
 
     // Query para itens estornados (da TAB_PRODUTO_PDV_ESTORNO)
     let sqlEstornos = `
       SELECT
-        e.COD_PRODUTO,
-        p.DES_PRODUTO,
-        e.QTD_TOTAL_PRODUTO as QTD_PRODUTO,
-        CASE WHEN e.QTD_TOTAL_PRODUTO > 0
-             THEN e.VAL_TOTAL_PRODUTO / e.QTD_TOTAL_PRODUTO
+        e.${codProdutoCol} as COD_PRODUTO,
+        p.${desProdutoCol} as DES_PRODUTO,
+        e.${qtdTotalProdutoCol} as QTD_PRODUTO,
+        CASE WHEN e.${qtdTotalProdutoCol} > 0
+             THEN e.${valorTotalCol} / e.${qtdTotalProdutoCol}
              ELSE 0
         END as VAL_UNITARIO,
-        e.VAL_TOTAL_PRODUTO,
+        e.${valorTotalCol} as VAL_TOTAL_PRODUTO,
         0 as VAL_DESCONTO,
         'S' as FLG_ESTORNADO,
         'S' as ITEM_ESTORNO
       FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
-      LEFT JOIN INTERSOLID.TAB_PRODUTO p ON e.COD_PRODUTO = p.COD_PRODUTO
-      WHERE e.NUM_CUPOM_FISCAL = :numCupom
-        AND e.COD_LOJA = :codLoja
+      LEFT JOIN INTERSOLID.TAB_PRODUTO p ON e.${codProdutoCol} = p.${codProdutoCol}
+      WHERE e.${numeroCupomCol} = :numCupom
+        AND e.${codLojaCol} = :codLoja
     `;
 
     if (data) {
-      sqlEstornos += ` AND TO_CHAR(e.DTA_SAIDA, 'DD/MM/YYYY') = :data`;
+      sqlEstornos += ` AND TO_CHAR(e.${dataSaidaCol}, 'DD/MM/YYYY') = :data`;
     }
 
     console.log('🔍 [Frente Caixa] Buscando itens do cupom', numCupom, 'loja', codLoja, data ? `data: ${data}` : '');
@@ -863,6 +1052,21 @@ export class FrenteCaixaService {
     data: string,
     codLoja?: number
   ): Promise<any[]> {
+    // Busca mapeamentos dinâmicos
+    const {
+      numeroCupomCol,
+      codPdvCol,
+      codProdutoCol,
+      desProdutoCol,
+      qtdTotalProdutoCol,
+      valorTotalCol,
+      desHoraCol,
+      dataSaidaCol,
+      codLojaCol,
+      codOperadorCol,
+      dataVendaCol
+    } = await this.getVendasMappings();
+
     const params: any = {
       codOperador,
       data
@@ -882,41 +1086,41 @@ export class FrenteCaixaService {
         sub.COD_OPERADOR_ATRIBUIDO
       FROM (
         SELECT
-          e.NUM_CUPOM_FISCAL,
-          e.NUM_PDV,
-          e.COD_PRODUTO,
-          p.DES_PRODUTO,
-          e.QTD_TOTAL_PRODUTO,
-          e.VAL_TOTAL_PRODUTO,
-          e.DES_HORA,
-          TO_CHAR(e.DTA_SAIDA, 'DD/MM/YYYY HH24:MI') as DATA_HORA,
+          e.${numeroCupomCol} as NUM_CUPOM_FISCAL,
+          e.${codPdvCol} as NUM_PDV,
+          e.${codProdutoCol} as COD_PRODUTO,
+          p.${desProdutoCol} as DES_PRODUTO,
+          e.${qtdTotalProdutoCol} as QTD_TOTAL_PRODUTO,
+          e.${valorTotalCol} as VAL_TOTAL_PRODUTO,
+          e.${desHoraCol} as DES_HORA,
+          TO_CHAR(e.${dataSaidaCol}, 'DD/MM/YYYY HH24:MI') as DATA_HORA,
           NVL(
             (
               -- Primeira tentativa: operador que fez a venda mais próxima (por horário) no mesmo PDV no mesmo dia
-              SELECT MIN(cf.COD_OPERADOR) KEEP (DENSE_RANK FIRST ORDER BY ABS(TO_NUMBER(TO_CHAR(cf.DTA_VENDA, 'HH24MI')) - TO_NUMBER(NVL(e.DES_HORA, '0'))))
+              SELECT MIN(cf.${codOperadorCol}) KEEP (DENSE_RANK FIRST ORDER BY ABS(TO_NUMBER(TO_CHAR(cf.${dataVendaCol}, 'HH24MI')) - TO_NUMBER(NVL(e.${desHoraCol}, '0'))))
               FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
-              WHERE cf.NUM_PDV = e.NUM_PDV
-                AND cf.COD_LOJA = e.COD_LOJA
-                AND TRUNC(cf.DTA_VENDA) = TRUNC(e.DTA_SAIDA)
+              WHERE cf.${codPdvCol} = e.${codPdvCol}
+                AND cf.${codLojaCol} = e.${codLojaCol}
+                AND TRUNC(cf.${dataVendaCol}) = TRUNC(e.${dataSaidaCol})
             ),
             (
               -- Fallback: quem estava na tesouraria (fechou caixa) nesse PDV no mesmo dia
-              SELECT MAX(th.COD_OPERADOR) FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th
-              WHERE th.NUM_PDV = e.NUM_PDV
-                AND th.COD_LOJA = e.COD_LOJA
-                AND TRUNC(th.DTA_MOVIMENTO) = TRUNC(e.DTA_SAIDA)
+              SELECT MAX(th.${codOperadorCol}) FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th
+              WHERE th.${codPdvCol} = e.${codPdvCol}
+                AND th.${codLojaCol} = e.${codLojaCol}
+                AND TRUNC(th.DTA_MOVIMENTO) = TRUNC(e.${dataSaidaCol})
             )
           ) as COD_OPERADOR_ATRIBUIDO
         FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
-        LEFT JOIN INTERSOLID.TAB_PRODUTO p ON e.COD_PRODUTO = p.COD_PRODUTO
-        WHERE TO_CHAR(e.DTA_SAIDA, 'DD/MM/YYYY') = :data
-          ${codLoja ? 'AND e.COD_LOJA = :codLoja' : ''}
+        LEFT JOIN INTERSOLID.TAB_PRODUTO p ON e.${codProdutoCol} = p.${codProdutoCol}
+        WHERE TO_CHAR(e.${dataSaidaCol}, 'DD/MM/YYYY') = :data
+          ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
           -- Somente estornos órfãos (sem match de cupom no mesmo PDV)
           AND NOT EXISTS (
             SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
-            WHERE cf.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
-              AND cf.COD_LOJA = e.COD_LOJA
-              AND cf.NUM_PDV = e.NUM_PDV
+            WHERE cf.${numeroCupomCol} = e.${numeroCupomCol}
+              AND cf.${codLojaCol} = e.${codLojaCol}
+              AND cf.${codPdvCol} = e.${codPdvCol}
           )
       ) sub
       WHERE sub.COD_OPERADOR_ATRIBUIDO = :codOperador

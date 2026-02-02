@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { OracleService } from '../services/oracle.service';
+import { MappingService } from '../services/mapping.service';
 
 /**
  * Controller para Pedidos de Compra do Oracle
@@ -32,6 +33,19 @@ export class PedidosCompraController {
       const limitNum = parseInt(limit as string, 10);
       const offset = (pageNum - 1) * limitNum;
 
+      // Busca mapeamentos dinâmicos para campos de notas fiscais
+      const numeroNfCol = await MappingService.getColumn('notas_fiscais', 'numero_nf', 'NUM_NF_FORN');
+      const dataEntradaCol = await MappingService.getColumn('notas_fiscais', 'data_entrada', 'DTA_ENTRADA');
+      const codFornecedorCol = await MappingService.getColumn('notas_fiscais', 'cod_fornecedor', 'COD_FORNECEDOR');
+      const valorTotalCol = await MappingService.getColumn('notas_fiscais', 'valor_total', 'VAL_TOTAL_NF');
+
+      // Busca mapeamentos dinâmicos para campos de fornecedores
+      const fornCodigoCol = await MappingService.getColumn('fornecedores', 'codigo', 'COD_FORNECEDOR');
+      const fornRazaoSocialCol = await MappingService.getColumn('fornecedores', 'razao_social', 'DES_FORNECEDOR');
+      const fornFantasiaCol = await MappingService.getColumn('fornecedores', 'fantasia', 'DES_FANTASIA');
+      const fornCnpjCol = await MappingService.getColumn('fornecedores', 'cnpj', 'NUM_CGC');
+      const fornTelefoneCol = await MappingService.getColumn('fornecedores', 'telefone', 'NUM_FONE');
+
       // Construir condições WHERE
       const conditions: string[] = ['p.TIPO_PARCEIRO = 1']; // Apenas pedidos de compra (fornecedor)
       const params: any = {};
@@ -52,7 +66,7 @@ export class PedidosCompraController {
       }
 
       if (fornecedor) {
-        conditions.push('UPPER(f.DES_FORNECEDOR) LIKE UPPER(:fornecedor)');
+        conditions.push(`UPPER(f.${fornRazaoSocialCol}) LIKE UPPER(:fornecedor)`);
         params.fornecedor = `%${fornecedor}%`;
       }
 
@@ -111,7 +125,7 @@ export class PedidosCompraController {
       const countQuery = `
         SELECT COUNT(*) as TOTAL
         FROM INTERSOLID.TAB_PEDIDO p
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = p.COD_PARCEIRO
+        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.${fornCodigoCol} = p.COD_PARCEIRO
         ${whereClause}
       `;
 
@@ -136,9 +150,9 @@ export class PedidosCompraController {
             p.COD_USUARIO,
             p.QTD_VOLUME,
             p.COD_COTA,
-            f.DES_FORNECEDOR,
-            f.NUM_CGC,
-            f.NUM_CELULAR,
+            f.${fornRazaoSocialCol} as DES_FORNECEDOR,
+            f.${fornCnpjCol} as NUM_CGC,
+            f.${fornTelefoneCol} as NUM_CELULAR,
             f.DES_CONTATO,
             f.NUM_FREQ_VISITA,
             f.NUM_PRAZO as PRAZO_ENTREGA,
@@ -148,19 +162,19 @@ export class PedidosCompraController {
             TRUNC(SYSDATE) - TRUNC(p.DTA_ENTREGA) as DIAS_ATRASO,
             ROW_NUMBER() OVER (${orderByClause}) as RN
           FROM INTERSOLID.TAB_PEDIDO p
-          LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = p.COD_PARCEIRO
+          LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.${fornCodigoCol} = p.COD_PARCEIRO
           LEFT JOIN (
             SELECT
-              fn.COD_FORNECEDOR,
-              ROUND(AVG(TRUNC(fn.DTA_ENTRADA) - TRUNC(ped.DTA_EMISSAO)), 1) as PRAZO_MEDIO_REAL,
-              COUNT(DISTINCT fn.NUM_NF_FORN) as QTD_NFS_PRAZO
+              fn.${codFornecedorCol} as COD_FORNECEDOR,
+              ROUND(AVG(TRUNC(fn.${dataEntradaCol}) - TRUNC(ped.DTA_EMISSAO)), 1) as PRAZO_MEDIO_REAL,
+              COUNT(DISTINCT fn.${numeroNfCol}) as QTD_NFS_PRAZO
             FROM INTERSOLID.TAB_FORNECEDOR_NOTA fn
             JOIN INTERSOLID.TAB_PEDIDO ped ON ped.NUM_PEDIDO = fn.NUM_PEDIDO AND ped.TIPO_PARCEIRO = 1
-            WHERE fn.DTA_ENTRADA >= SYSDATE - 90
+            WHERE fn.${dataEntradaCol} >= SYSDATE - 90
             AND fn.NUM_PEDIDO IS NOT NULL
             AND fn.NUM_PEDIDO > 0
             AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
-            GROUP BY fn.COD_FORNECEDOR
+            GROUP BY fn.${codFornecedorCol}
           ) pm ON pm.COD_FORNECEDOR = p.COD_PARCEIRO
           ${whereClause}
         ) WHERE RN > :offset AND RN <= :maxRow
@@ -247,17 +261,17 @@ export class PedidosCompraController {
         ${statsDateFilter}
       `;
 
-      // Filtro de data para NFs sem pedido (usa DTA_ENTRADA)
+      // Filtro de data para NFs sem pedido (usa mapeamento dinâmico)
       const nfDateConditions: string[] = [];
       const nfParams: any = {};
       if (dataInicio) {
-        nfDateConditions.push('TRUNC(fn.DTA_ENTRADA) >= TO_DATE(:nfDataInicio, \'YYYY-MM-DD\')');
+        nfDateConditions.push(`TRUNC(fn.${dataEntradaCol}) >= TO_DATE(:nfDataInicio, 'YYYY-MM-DD')`);
         nfParams.nfDataInicio = dataInicio;
       } else {
-        nfDateConditions.push('fn.DTA_ENTRADA >= SYSDATE - 30');
+        nfDateConditions.push(`fn.${dataEntradaCol} >= SYSDATE - 30`);
       }
       if (dataFim) {
-        nfDateConditions.push('TRUNC(fn.DTA_ENTRADA) <= TO_DATE(:nfDataFim, \'YYYY-MM-DD\')');
+        nfDateConditions.push(`TRUNC(fn.${dataEntradaCol}) <= TO_DATE(:nfDataFim, 'YYYY-MM-DD')`);
         nfParams.nfDataFim = dataFim;
       }
       const nfDateFilter = nfDateConditions.join(' AND ');
@@ -266,12 +280,12 @@ export class PedidosCompraController {
       const nfSemPedidoQuery = `
         SELECT
           COUNT(*) as TOTAL_NFS,
-          SUM(fn.VAL_TOTAL_NF) as VALOR_TOTAL
+          SUM(fn.${valorTotalCol}) as VALOR_TOTAL
         FROM INTERSOLID.TAB_FORNECEDOR_NOTA fn
         WHERE ${nfDateFilter}
         AND (fn.NUM_PEDIDO IS NULL OR fn.NUM_PEDIDO = 0)
         AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
-        AND fn.VAL_TOTAL_NF > 0
+        AND fn.${valorTotalCol} > 0
       `;
 
       // Executar queries em paralelo (com parâmetros de data)
@@ -335,6 +349,11 @@ export class PedidosCompraController {
     try {
       const { numPedido } = req.params;
 
+      // Busca mapeamentos dinâmicos para campos de fornecedores
+      const fornCodigoCol = await MappingService.getColumn('fornecedores', 'codigo', 'COD_FORNECEDOR');
+      const fornRazaoSocialCol = await MappingService.getColumn('fornecedores', 'razao_social', 'DES_FORNECEDOR');
+      const fornCnpjCol = await MappingService.getColumn('fornecedores', 'cnpj', 'NUM_CGC');
+
       const query = `
         SELECT
           p.NUM_PEDIDO,
@@ -355,13 +374,13 @@ export class PedidosCompraController {
           p.COD_COTA,
           p.VAL_DESCONTO,
           p.VAL_FRETE,
-          f.DES_FORNECEDOR,
-          f.NUM_CGC,
+          f.${fornRazaoSocialCol} as DES_FORNECEDOR,
+          f.${fornCnpjCol} as NUM_CGC,
           f.DES_BAIRRO,
           f.DES_CIDADE,
           f.DES_UF
         FROM INTERSOLID.TAB_PEDIDO p
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = p.COD_PARCEIRO
+        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.${fornCodigoCol} = p.COD_PARCEIRO
         WHERE p.NUM_PEDIDO = :numPedido
       `;
 
@@ -421,29 +440,46 @@ export class PedidosCompraController {
       const limitNum = parseInt(limit as string, 10);
       const offset = (pageNum - 1) * limitNum;
 
+      // Busca mapeamentos dinâmicos para campos de notas fiscais
+      const numeroNfCol = await MappingService.getColumn('notas_fiscais', 'numero_nf', 'NUM_NF_FORN');
+      const serieCol = await MappingService.getColumn('notas_fiscais', 'serie', 'NUM_SERIE_NF');
+      const dataEntradaCol = await MappingService.getColumn('notas_fiscais', 'data_entrada', 'DTA_ENTRADA');
+      const codFornecedorCol = await MappingService.getColumn('notas_fiscais', 'cod_fornecedor', 'COD_FORNECEDOR');
+      const valorTotalCol = await MappingService.getColumn('notas_fiscais', 'valor_total', 'VAL_TOTAL_NF');
+      const chaveAcessoCol = await MappingService.getColumn('notas_fiscais', 'chave_acesso', 'NUM_CHAVE_ACESSO');
+
+      // Busca mapeamentos dinâmicos para campos de fornecedores
+      const fornCodigoCol = await MappingService.getColumn('fornecedores', 'codigo', 'COD_FORNECEDOR');
+      const fornFantasiaCol = await MappingService.getColumn('fornecedores', 'fantasia', 'DES_FANTASIA');
+      const fornCnpjCol = await MappingService.getColumn('fornecedores', 'cnpj', 'NUM_CGC');
+      const fornTelefoneCol = await MappingService.getColumn('fornecedores', 'telefone', 'NUM_FONE');
+
+      console.log(`📋 [MAPEAMENTO NF] Usando colunas: ${numeroNfCol}, ${serieCol}, ${dataEntradaCol}, ${codFornecedorCol}, ${valorTotalCol}, ${chaveAcessoCol}`);
+      console.log(`📋 [MAPEAMENTO FORN] Usando colunas: ${fornCodigoCol}, ${fornFantasiaCol}, ${fornCnpjCol}, ${fornTelefoneCol}`);
+
       // Construir condições WHERE
       const conditions: string[] = [
         '(fn.NUM_PEDIDO IS NULL OR fn.NUM_PEDIDO = 0)',
         'NVL(fn.FLG_CANCELADO, \'N\') = \'N\'',
-        'fn.VAL_TOTAL_NF > 0'
+        `fn.${valorTotalCol} > 0`
       ];
       const params: any = {};
 
       if (dataInicio) {
-        conditions.push('TRUNC(fn.DTA_ENTRADA) >= TO_DATE(:dataInicio, \'YYYY-MM-DD\')');
+        conditions.push(`TRUNC(fn.${dataEntradaCol}) >= TO_DATE(:dataInicio, 'YYYY-MM-DD')`);
         params.dataInicio = dataInicio;
       } else {
         // Por padrão, últimos 30 dias
-        conditions.push('fn.DTA_ENTRADA >= SYSDATE - 30');
+        conditions.push(`fn.${dataEntradaCol} >= SYSDATE - 30`);
       }
 
       if (dataFim) {
-        conditions.push('TRUNC(fn.DTA_ENTRADA) <= TO_DATE(:dataFim, \'YYYY-MM-DD\')');
+        conditions.push(`TRUNC(fn.${dataEntradaCol}) <= TO_DATE(:dataFim, 'YYYY-MM-DD')`);
         params.dataFim = dataFim;
       }
 
       if (fornecedor) {
-        conditions.push('UPPER(f.DES_FANTASIA) LIKE UPPER(:fornecedor)');
+        conditions.push(`UPPER(f.${fornFantasiaCol}) LIKE UPPER(:fornecedor)`);
         params.fornecedor = `%${fornecedor}%`;
       }
 
@@ -482,34 +518,34 @@ export class PedidosCompraController {
       const countQuery = `
         SELECT COUNT(*) as TOTAL
         FROM INTERSOLID.TAB_FORNECEDOR_NOTA fn
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = fn.COD_FORNECEDOR
+        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.${fornCodigoCol} = fn.${codFornecedorCol}
         ${whereClause}
       `;
 
-      // Query para buscar NFs
+      // Query para buscar NFs (usando mapeamentos dinâmicos)
       const dataQuery = `
         SELECT * FROM (
           SELECT
-            fn.NUM_NF_FORN as NUM_NF,
-            fn.NUM_SERIE_NF,
+            fn.${numeroNfCol} as NUM_NF,
+            fn.${serieCol} as NUM_SERIE_NF,
             fn.COD_LOJA,
-            fn.COD_FORNECEDOR,
+            fn.${codFornecedorCol} as COD_FORNECEDOR,
             fn.DTA_EMISSAO,
-            fn.DTA_ENTRADA,
-            fn.VAL_TOTAL_NF,
+            fn.${dataEntradaCol} as DTA_ENTRADA,
+            fn.${valorTotalCol} as VAL_TOTAL_NF,
             fn.DES_NATUREZA,
             fn.DES_ESPECIE,
             fn.TIPO_NF,
-            fn.NUM_CHAVE_ACESSO,
-            f.DES_FANTASIA as FORNECEDOR,
-            f.NUM_CGC,
-            f.NUM_CELULAR,
+            fn.${chaveAcessoCol} as NUM_CHAVE_ACESSO,
+            f.${fornFantasiaCol} as FORNECEDOR,
+            f.${fornCnpjCol} as NUM_CGC,
+            f.${fornTelefoneCol} as NUM_CELULAR,
             f.DES_CONTATO,
             f.COD_CLASSIF,
             c.DES_CLASSIF as DES_CLASSIFICACAO,
-            ROW_NUMBER() OVER (ORDER BY fn.DTA_ENTRADA DESC, fn.NUM_NF_FORN DESC) as RN
+            ROW_NUMBER() OVER (ORDER BY fn.${dataEntradaCol} DESC, fn.${numeroNfCol} DESC) as RN
           FROM INTERSOLID.TAB_FORNECEDOR_NOTA fn
-          LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = fn.COD_FORNECEDOR
+          LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.${fornCodigoCol} = fn.${codFornecedorCol}
           LEFT JOIN INTERSOLID.TAB_CLASSIFICACAO c ON c.COD_CLASSIF = f.COD_CLASSIF
           ${whereClause}
         ) WHERE RN > :offset AND RN <= :maxRow
@@ -641,19 +677,28 @@ export class PedidosCompraController {
    */
   static async listarClassificacoes(_req: AuthRequest, res: Response) {
     try {
+      // Busca mapeamentos dinâmicos para campos de notas fiscais
+      const numeroNfCol = await MappingService.getColumn('notas_fiscais', 'numero_nf', 'NUM_NF_FORN');
+      const dataEntradaCol = await MappingService.getColumn('notas_fiscais', 'data_entrada', 'DTA_ENTRADA');
+      const codFornecedorCol = await MappingService.getColumn('notas_fiscais', 'cod_fornecedor', 'COD_FORNECEDOR');
+      const valorTotalCol = await MappingService.getColumn('notas_fiscais', 'valor_total', 'VAL_TOTAL_NF');
+
+      // Busca mapeamentos dinâmicos para campos de fornecedores
+      const fornCodigoCol = await MappingService.getColumn('fornecedores', 'codigo', 'COD_FORNECEDOR');
+
       // Query para buscar classificações com contagem de NFs sem pedido (últimos 30 dias)
       const query = `
         SELECT
           c.COD_CLASSIF as COD_CLASSIFICACAO,
           c.DES_CLASSIF as DES_CLASSIFICACAO,
-          COUNT(fn.NUM_NF_FORN) as QTD_NFS
+          COUNT(fn.${numeroNfCol}) as QTD_NFS
         FROM INTERSOLID.TAB_CLASSIFICACAO c
         LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.COD_CLASSIF = c.COD_CLASSIF
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR_NOTA fn ON fn.COD_FORNECEDOR = f.COD_FORNECEDOR
-          AND fn.DTA_ENTRADA >= SYSDATE - 30
+        LEFT JOIN INTERSOLID.TAB_FORNECEDOR_NOTA fn ON fn.${codFornecedorCol} = f.${fornCodigoCol}
+          AND fn.${dataEntradaCol} >= SYSDATE - 30
           AND (fn.NUM_PEDIDO IS NULL OR fn.NUM_PEDIDO = 0)
           AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
-          AND fn.VAL_TOTAL_NF > 0
+          AND fn.${valorTotalCol} > 0
         WHERE EXISTS (
           SELECT 1 FROM INTERSOLID.TAB_FORNECEDOR f2
           WHERE f2.COD_CLASSIF = c.COD_CLASSIF
@@ -666,11 +711,11 @@ export class PedidosCompraController {
       const semCadastroQuery = `
         SELECT COUNT(*) as QTD_NFS
         FROM INTERSOLID.TAB_FORNECEDOR_NOTA fn
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = fn.COD_FORNECEDOR
-        WHERE fn.DTA_ENTRADA >= SYSDATE - 30
+        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.${fornCodigoCol} = fn.${codFornecedorCol}
+        WHERE fn.${dataEntradaCol} >= SYSDATE - 30
         AND (fn.NUM_PEDIDO IS NULL OR fn.NUM_PEDIDO = 0)
         AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
-        AND fn.VAL_TOTAL_NF > 0
+        AND fn.${valorTotalCol} > 0
         AND f.COD_CLASSIF IS NULL
       `;
 
@@ -699,21 +744,30 @@ export class PedidosCompraController {
    */
   static async listarContatosNfSemPedido(_req: AuthRequest, res: Response) {
     try {
+      // Busca mapeamentos dinâmicos para campos de notas fiscais
+      const numeroNfCol = await MappingService.getColumn('notas_fiscais', 'numero_nf', 'NUM_NF_FORN');
+      const dataEntradaCol = await MappingService.getColumn('notas_fiscais', 'data_entrada', 'DTA_ENTRADA');
+      const codFornecedorCol = await MappingService.getColumn('notas_fiscais', 'cod_fornecedor', 'COD_FORNECEDOR');
+      const valorTotalCol = await MappingService.getColumn('notas_fiscais', 'valor_total', 'VAL_TOTAL_NF');
+
+      // Busca mapeamentos dinâmicos para campos de fornecedores
+      const fornCodigoCol = await MappingService.getColumn('fornecedores', 'codigo', 'COD_FORNECEDOR');
+
       // Query para buscar contatos com totais de NFs sem pedido (últimos 30 dias)
       const query = `
         SELECT
           NVL(TRIM(f.DES_CONTATO), 'SEM CONTATO') as CONTATO,
-          COUNT(fn.NUM_NF_FORN) as QTD_NFS,
-          SUM(fn.VAL_TOTAL_NF) as VALOR_TOTAL
+          COUNT(fn.${numeroNfCol}) as QTD_NFS,
+          SUM(fn.${valorTotalCol}) as VALOR_TOTAL
         FROM INTERSOLID.TAB_FORNECEDOR_NOTA fn
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = fn.COD_FORNECEDOR
-        WHERE fn.DTA_ENTRADA >= SYSDATE - 30
+        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.${fornCodigoCol} = fn.${codFornecedorCol}
+        WHERE fn.${dataEntradaCol} >= SYSDATE - 30
         AND (fn.NUM_PEDIDO IS NULL OR fn.NUM_PEDIDO = 0)
         AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
-        AND fn.VAL_TOTAL_NF > 0
+        AND fn.${valorTotalCol} > 0
         GROUP BY NVL(TRIM(f.DES_CONTATO), 'SEM CONTATO')
-        HAVING COUNT(fn.NUM_NF_FORN) > 0
-        ORDER BY SUM(fn.VAL_TOTAL_NF) DESC
+        HAVING COUNT(fn.${numeroNfCol}) > 0
+        ORDER BY SUM(fn.${valorTotalCol}) DESC
       `;
 
       const result = await OracleService.query<{ CONTATO: string; QTD_NFS: number; VALOR_TOTAL: number }>(query, {});

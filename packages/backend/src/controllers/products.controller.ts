@@ -5,12 +5,138 @@ import { ProductActivationHistory } from '../entities/ProductActivationHistory';
 import { AuthRequest } from '../middleware/auth';
 import { CacheService } from '../services/cache.service';
 import { OracleService } from '../services/oracle.service';
+import { MappingService } from '../services/mapping.service';
 import * as path from 'path';
 
 // MIGRAÇÃO COMPLETA: Todos os métodos que buscavam da API Intersolid
 // agora buscam diretamente do banco Oracle
 
 export class ProductsController {
+  /**
+   * Helper para buscar todos os mapeamentos de produtos
+   * Inclui campos de TAB_PRODUTO e TAB_PRODUTO_LOJA
+   */
+  private static async getProdutosMappings() {
+    const [
+      // Campos de TAB_PRODUTO
+      codigoCol,
+      eanCol,
+      descricaoCol,
+      descReduzidaCol,
+      embalagemCol,
+      qtdEmbalagemVendaCol,
+      qtdEmbalagemCompraCol,
+      pesavelCol,
+      tipoEspecieCol,
+      tipoEventoCol,
+      dataCadastroCol,
+      codSecaoCol,
+      codGrupoCol,
+      codSubGrupoCol,
+      // Campos de TAB_PRODUTO_LOJA
+      custoRepCol,
+      valorVendaCol,
+      valorOfertaCol,
+      estoqueAtualCol,
+      margemCol,
+      margemFixaCol,
+      vendaMediaCol,
+      coberturaCol,
+      pedidoCompraCol,
+      dataUltCompraCol,
+      qtdUltCompraCol,
+      estoqueMinCol,
+      dataUltVendaCol,
+      curvaCol,
+      codFornUltCompraCol,
+      inativoCol,
+      // Campos de seção/grupo/subgrupo
+      desSecaoCol,
+      desGrupoCol,
+      desSubGrupoCol,
+      // Campos de fornecedor
+      desFornecedorCol
+    ] = await Promise.all([
+      // Campos de TAB_PRODUTO
+      MappingService.getColumn('produtos', 'codigo', 'COD_PRODUTO'),
+      MappingService.getColumn('produtos', 'ean', 'COD_BARRA_PRINCIPAL'),
+      MappingService.getColumn('produtos', 'descricao', 'DES_PRODUTO'),
+      MappingService.getColumn('produtos', 'descricao_reduzida', 'DES_REDUZIDA'),
+      MappingService.getColumn('produtos', 'embalagem', 'DES_EMBALAGEM'),
+      MappingService.getColumn('produtos', 'qtd_embalagem_venda', 'QTD_EMBALAGEM_VENDA'),
+      MappingService.getColumn('produtos', 'qtd_embalagem_compra', 'QTD_EMBALAGEM_COMPRA'),
+      MappingService.getColumn('produtos', 'pesavel', 'FLG_ENVIA_BALANCA'),
+      MappingService.getColumn('produtos', 'tipo_especie', 'TIPO_ESPECIE'),
+      MappingService.getColumn('produtos', 'tipo_evento', 'TIPO_EVENTO'),
+      MappingService.getColumn('produtos', 'data_cadastro', 'DTA_CADASTRO'),
+      MappingService.getColumn('produtos', 'cod_secao', 'COD_SECAO'),
+      MappingService.getColumn('produtos', 'cod_grupo', 'COD_GRUPO'),
+      MappingService.getColumn('produtos', 'cod_subgrupo', 'COD_SUB_GRUPO'),
+      // Campos de TAB_PRODUTO_LOJA
+      MappingService.getColumn('produtos', 'custo_reposicao', 'VAL_CUSTO_REP'),
+      MappingService.getColumn('produtos', 'valor_venda', 'VAL_VENDA'),
+      MappingService.getColumn('produtos', 'valor_oferta', 'VAL_OFERTA'),
+      MappingService.getColumn('produtos', 'estoque_atual', 'QTD_EST_ATUAL'),
+      MappingService.getColumn('produtos', 'margem', 'VAL_MARGEM'),
+      MappingService.getColumn('produtos', 'margem_fixa', 'VAL_MARGEM_FIXA'),
+      MappingService.getColumn('produtos', 'venda_media', 'VAL_VENDA_MEDIA'),
+      MappingService.getColumn('produtos', 'cobertura', 'QTD_COBERTURA'),
+      MappingService.getColumn('produtos', 'pedido_compra', 'QTD_PEDIDO_COMPRA'),
+      MappingService.getColumn('produtos', 'data_ultima_compra', 'DTA_ULT_COMPRA'),
+      MappingService.getColumn('produtos', 'qtd_ultima_compra', 'QTD_ULT_COMPRA'),
+      MappingService.getColumn('produtos', 'estoque_minimo', 'QTD_EST_MINIMO'),
+      MappingService.getColumn('produtos', 'data_ultima_venda', 'DTA_ULT_MOV_VENDA'),
+      MappingService.getColumn('produtos', 'curva', 'DES_RANK_PRODLOJA'),
+      MappingService.getColumn('produtos', 'cod_fornecedor_ultima_compra', 'COD_FORN_ULT_COMPRA'),
+      MappingService.getColumn('produtos', 'inativo', 'INATIVO'),
+      // Campos de seção/grupo/subgrupo
+      MappingService.getColumn('produtos', 'des_secao', 'DES_SECAO'),
+      MappingService.getColumn('produtos', 'des_grupo', 'DES_GRUPO'),
+      MappingService.getColumn('produtos', 'des_subgrupo', 'DES_SUB_GRUPO'),
+      // Campos de fornecedor
+      MappingService.getColumn('fornecedores', 'razao_social', 'DES_FORNECEDOR')
+    ]);
+    return {
+      // Campos de TAB_PRODUTO
+      codigoCol,
+      eanCol,
+      descricaoCol,
+      descReduzidaCol,
+      embalagemCol,
+      qtdEmbalagemVendaCol,
+      qtdEmbalagemCompraCol,
+      pesavelCol,
+      tipoEspecieCol,
+      tipoEventoCol,
+      dataCadastroCol,
+      codSecaoCol,
+      codGrupoCol,
+      codSubGrupoCol,
+      // Campos de TAB_PRODUTO_LOJA
+      custoRepCol,
+      valorVendaCol,
+      valorOfertaCol,
+      estoqueAtualCol,
+      margemCol,
+      margemFixaCol,
+      vendaMediaCol,
+      coberturaCol,
+      pedidoCompraCol,
+      dataUltCompraCol,
+      qtdUltCompraCol,
+      estoqueMinCol,
+      dataUltVendaCol,
+      curvaCol,
+      codFornUltCompraCol,
+      inativoCol,
+      // Campos de seção/grupo/subgrupo
+      desSecaoCol,
+      desGrupoCol,
+      desSubGrupoCol,
+      // Campos de fornecedor
+      desFornecedorCol
+    };
+  }
   /**
    * Buscar produtos diretamente do Oracle
    * MIGRADO: Antes usava API Intersolid, agora busca direto do banco Oracle
@@ -23,6 +149,46 @@ export class ProductsController {
 
       console.log('📦 [ORACLE] Buscando produtos do Oracle para loja:', loja);
 
+      // Busca mapeamentos dinâmicos para os campos
+      const {
+        codigoCol,
+        eanCol,
+        descricaoCol,
+        descReduzidaCol,
+        embalagemCol,
+        qtdEmbalagemVendaCol,
+        qtdEmbalagemCompraCol,
+        pesavelCol,
+        tipoEspecieCol,
+        tipoEventoCol,
+        dataCadastroCol,
+        codSecaoCol,
+        codGrupoCol,
+        codSubGrupoCol,
+        custoRepCol,
+        valorVendaCol,
+        valorOfertaCol,
+        estoqueAtualCol,
+        margemCol,
+        vendaMediaCol,
+        coberturaCol,
+        pedidoCompraCol,
+        dataUltCompraCol,
+        qtdUltCompraCol,
+        estoqueMinCol,
+        dataUltVendaCol,
+        curvaCol,
+        codFornUltCompraCol,
+        inativoCol,
+        desSecaoCol,
+        desGrupoCol,
+        desSubGrupoCol,
+        desFornecedorCol
+      } = await ProductsController.getProdutosMappings();
+
+      console.log(`📋 [MAPEAMENTO] Campo codigo usando coluna: ${codigoCol}`);
+      console.log(`📋 [MAPEAMENTO] Campo embalagem usando coluna: ${embalagemCol}`);
+
       // Query completa para buscar produtos com todas as informações necessárias
       // Usa cache de 5 minutos para melhorar performance
       const cacheKey = `oracle-products-loja-${loja}`;
@@ -34,57 +200,57 @@ export class ProductsController {
 
           const sql = `
             SELECT
-              p.COD_PRODUTO as CODIGO,
-              p.COD_BARRA_PRINCIPAL as EAN,
-              p.DES_PRODUTO as DESCRICAO,
-              p.DES_REDUZIDA as DES_REDUZIDA,
-              NVL(pl.VAL_CUSTO_REP, 0) as VAL_CUSTO_REP,
-              NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
-              NVL(pl.VAL_VENDA, 0) as VAL_VENDA_LOJA,
-              NVL(pl.VAL_OFERTA, 0) as VAL_OFERTA,
-              NVL(pl.QTD_EST_ATUAL, 0) as ESTOQUE,
-              s.DES_SECAO,
-              g.DES_GRUPO,
-              sg.DES_SUB_GRUPO as DES_SUBGRUPO,
-              f.DES_FORNECEDOR as FANTASIA_FORN,
-              NVL(pl.VAL_MARGEM, 0) as MARGEM_REF,
-              NVL(pl.VAL_MARGEM, 0) as VAL_MARGEM,
-              NVL(pl.VAL_VENDA_MEDIA, 0) as VENDA_MEDIA,
-              NVL(pl.QTD_COBERTURA, 0) as DIAS_COBERTURA,
-              NVL(pl.QTD_PEDIDO_COMPRA, 0) as QTD_PEDIDO_COMPRA,
-              TO_CHAR(pl.DTA_ULT_COMPRA, 'DD/MM/YYYY') as DTA_ULT_COMPRA,
-              NVL(pl.QTD_ULT_COMPRA, 0) as QTD_ULT_COMPRA,
-              NVL(pl.QTD_EST_MINIMO, 0) as QTD_EST_MINIMO,
-              TO_CHAR(pl.DTA_ULT_MOV_VENDA, 'YYYYMMDD') as DTA_ULT_MOV_VENDA,
-              NVL(TRIM(pl.DES_RANK_PRODLOJA), 'X') as CURVA,
-              CASE p.TIPO_ESPECIE
+              p.${codigoCol} as CODIGO,
+              p.${eanCol} as EAN,
+              p.${descricaoCol} as DESCRICAO,
+              p.${descReduzidaCol} as DES_REDUZIDA,
+              NVL(pl.${custoRepCol}, 0) as VAL_CUSTO_REP,
+              NVL(pl.${valorVendaCol}, 0) as VAL_VENDA,
+              NVL(pl.${valorVendaCol}, 0) as VAL_VENDA_LOJA,
+              NVL(pl.${valorOfertaCol}, 0) as VAL_OFERTA,
+              NVL(pl.${estoqueAtualCol}, 0) as ESTOQUE,
+              s.${desSecaoCol} as DES_SECAO,
+              g.${desGrupoCol} as DES_GRUPO,
+              sg.${desSubGrupoCol} as DES_SUBGRUPO,
+              f.${desFornecedorCol} as FANTASIA_FORN,
+              NVL(pl.${margemCol}, 0) as MARGEM_REF,
+              NVL(pl.${margemCol}, 0) as VAL_MARGEM,
+              NVL(pl.${vendaMediaCol}, 0) as VENDA_MEDIA,
+              NVL(pl.${coberturaCol}, 0) as DIAS_COBERTURA,
+              NVL(pl.${pedidoCompraCol}, 0) as QTD_PEDIDO_COMPRA,
+              TO_CHAR(pl.${dataUltCompraCol}, 'DD/MM/YYYY') as DTA_ULT_COMPRA,
+              NVL(pl.${qtdUltCompraCol}, 0) as QTD_ULT_COMPRA,
+              NVL(pl.${estoqueMinCol}, 0) as QTD_EST_MINIMO,
+              TO_CHAR(pl.${dataUltVendaCol}, 'YYYYMMDD') as DTA_ULT_MOV_VENDA,
+              NVL(TRIM(pl.${curvaCol}), 'X') as CURVA,
+              CASE p.${tipoEspecieCol}
                 WHEN 0 THEN 'MERCADORIA'
                 WHEN 2 THEN 'SERVICO'
                 WHEN 3 THEN 'IMOBILIZADO'
                 WHEN 4 THEN 'INSUMO'
                 ELSE 'OUTROS'
               END as TIPO_ESPECIE,
-              CASE p.TIPO_EVENTO
+              CASE p.${tipoEventoCol}
                 WHEN 0 THEN 'Direta'
                 WHEN 1 THEN 'Decomposição'
                 WHEN 2 THEN 'Composição'
                 WHEN 3 THEN 'Produção'
                 ELSE 'Outros'
               END as TIPO_EVENTO,
-              p.DTA_CADASTRO,
-              NVL(p.QTD_EMBALAGEM_VENDA, 1) as QTD_EMBALAGEM_VENDA,
-              p.DES_EMBALAGEM,
-              NVL(p.QTD_EMBALAGEM_COMPRA, 1) as QTD_EMBALAGEM_COMPRA,
-              CASE WHEN p.FLG_ENVIA_BALANCA = 'S' THEN 'S' ELSE 'N' END as PESAVEL
+              p.${dataCadastroCol} as DTA_CADASTRO,
+              NVL(p.${qtdEmbalagemVendaCol}, 1) as QTD_EMBALAGEM_VENDA,
+              p.${embalagemCol} as DES_EMBALAGEM,
+              NVL(p.${qtdEmbalagemCompraCol}, 1) as QTD_EMBALAGEM_COMPRA,
+              CASE WHEN p.${pesavelCol} = 'S' THEN 'S' ELSE 'N' END as PESAVEL
             FROM INTERSOLID.TAB_PRODUTO p
-            INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
-            LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
-            LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
-            LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
-            LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
+            INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.${codigoCol} = pl.${codigoCol}
+            LEFT JOIN INTERSOLID.TAB_SECAO s ON p.${codSecaoCol} = s.${codSecaoCol}
+            LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.${codSecaoCol} = g.${codSecaoCol} AND p.${codGrupoCol} = g.${codGrupoCol}
+            LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.${codSecaoCol} = sg.${codSecaoCol} AND p.${codGrupoCol} = sg.${codGrupoCol} AND p.${codSubGrupoCol} = sg.${codSubGrupoCol}
+            LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON pl.${codFornUltCompraCol} = f.COD_FORNECEDOR
             WHERE pl.COD_LOJA = :codLoja
-            AND NVL(pl.INATIVO, 'N') = 'N'
-            ORDER BY p.DES_PRODUTO
+            AND NVL(pl.${inativoCol}, 'N') = 'N'
+            ORDER BY p.${descricaoCol}
           `;
 
           return await OracleService.query(sql, { codLoja: loja });
@@ -1305,60 +1471,98 @@ export class ProductsController {
 
       console.log('📦 Buscando todos os produtos do Oracle para loja:', loja);
 
+      // Busca mapeamentos dinâmicos para os campos
+      const {
+        codigoCol,
+        eanCol,
+        descricaoCol,
+        descReduzidaCol,
+        embalagemCol,
+        qtdEmbalagemVendaCol,
+        qtdEmbalagemCompraCol,
+        tipoEspecieCol,
+        tipoEventoCol,
+        dataCadastroCol,
+        codSecaoCol,
+        codGrupoCol,
+        codSubGrupoCol,
+        custoRepCol,
+        valorVendaCol,
+        valorOfertaCol,
+        estoqueAtualCol,
+        margemCol,
+        vendaMediaCol,
+        coberturaCol,
+        pedidoCompraCol,
+        dataUltCompraCol,
+        qtdUltCompraCol,
+        estoqueMinCol,
+        dataUltVendaCol,
+        curvaCol,
+        codFornUltCompraCol,
+        inativoCol,
+        desSecaoCol,
+        desGrupoCol,
+        desSubGrupoCol,
+        desFornecedorCol
+      } = await ProductsController.getProdutosMappings();
+
+      console.log(`📋 [MAPEAMENTO] Campo codigo usando coluna: ${codigoCol}`);
+      console.log(`📋 [MAPEAMENTO] Campo embalagem usando coluna: ${embalagemCol}`);
+
       // Query completa para buscar produtos com todas as informações necessárias
-      // Colunas baseadas na query de ruptura que funciona
       const sql = `
         SELECT
-          p.COD_PRODUTO as CODIGO,
-          p.COD_BARRA_PRINCIPAL as EAN,
-          p.DES_PRODUTO as DESCRICAO,
-          p.DES_REDUZIDA as DES_REDUZIDA,
-          NVL(pl.VAL_CUSTO_REP, 0) as VAL_CUSTO_REP,
-          NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
-          NVL(pl.VAL_VENDA, 0) as VAL_VENDA_LOJA,
-          NVL(pl.VAL_OFERTA, 0) as VAL_OFERTA,
-          NVL(pl.QTD_EST_ATUAL, 0) as ESTOQUE,
-          s.DES_SECAO,
-          g.DES_GRUPO,
-          sg.DES_SUB_GRUPO as DES_SUBGRUPO,
-          f.DES_FORNECEDOR as FANTASIA_FORN,
-          NVL(pl.VAL_MARGEM, 0) as MARGEM_REF,
-          NVL(pl.VAL_MARGEM, 0) as VAL_MARGEM,
-          NVL(pl.VAL_VENDA_MEDIA, 0) as VENDA_MEDIA,
-          NVL(pl.QTD_COBERTURA, 0) as DIAS_COBERTURA,
-          NVL(pl.QTD_PEDIDO_COMPRA, 0) as QTD_PEDIDO_COMPRA,
-          TO_CHAR(pl.DTA_ULT_COMPRA, 'DD/MM/YYYY') as DTA_ULT_COMPRA,
-          NVL(pl.QTD_ULT_COMPRA, 0) as QTD_ULT_COMPRA,
-          NVL(pl.QTD_EST_MINIMO, 0) as QTD_EST_MINIMO,
-          TO_CHAR(pl.DTA_ULT_MOV_VENDA, 'YYYYMMDD') as DTA_ULT_MOV_VENDA,
-          NVL(TRIM(pl.DES_RANK_PRODLOJA), 'X') as CURVA,
-          CASE p.TIPO_ESPECIE
+          p.${codigoCol} as CODIGO,
+          p.${eanCol} as EAN,
+          p.${descricaoCol} as DESCRICAO,
+          p.${descReduzidaCol} as DES_REDUZIDA,
+          NVL(pl.${custoRepCol}, 0) as VAL_CUSTO_REP,
+          NVL(pl.${valorVendaCol}, 0) as VAL_VENDA,
+          NVL(pl.${valorVendaCol}, 0) as VAL_VENDA_LOJA,
+          NVL(pl.${valorOfertaCol}, 0) as VAL_OFERTA,
+          NVL(pl.${estoqueAtualCol}, 0) as ESTOQUE,
+          s.${desSecaoCol} as DES_SECAO,
+          g.${desGrupoCol} as DES_GRUPO,
+          sg.${desSubGrupoCol} as DES_SUBGRUPO,
+          f.${desFornecedorCol} as FANTASIA_FORN,
+          NVL(pl.${margemCol}, 0) as MARGEM_REF,
+          NVL(pl.${margemCol}, 0) as VAL_MARGEM,
+          NVL(pl.${vendaMediaCol}, 0) as VENDA_MEDIA,
+          NVL(pl.${coberturaCol}, 0) as DIAS_COBERTURA,
+          NVL(pl.${pedidoCompraCol}, 0) as QTD_PEDIDO_COMPRA,
+          TO_CHAR(pl.${dataUltCompraCol}, 'DD/MM/YYYY') as DTA_ULT_COMPRA,
+          NVL(pl.${qtdUltCompraCol}, 0) as QTD_ULT_COMPRA,
+          NVL(pl.${estoqueMinCol}, 0) as QTD_EST_MINIMO,
+          TO_CHAR(pl.${dataUltVendaCol}, 'YYYYMMDD') as DTA_ULT_MOV_VENDA,
+          NVL(TRIM(pl.${curvaCol}), 'X') as CURVA,
+          CASE p.${tipoEspecieCol}
             WHEN 0 THEN 'MERCADORIA'
             WHEN 2 THEN 'SERVICO'
             WHEN 3 THEN 'IMOBILIZADO'
             WHEN 4 THEN 'INSUMO'
             ELSE 'OUTROS'
           END as TIPO_ESPECIE,
-          CASE p.TIPO_EVENTO
+          CASE p.${tipoEventoCol}
             WHEN 0 THEN 'Direta'
             WHEN 1 THEN 'Decomposição'
             WHEN 2 THEN 'Composição'
             WHEN 3 THEN 'Produção'
             ELSE 'Outros'
           END as TIPO_EVENTO,
-          p.DTA_CADASTRO,
-          NVL(p.QTD_EMBALAGEM_VENDA, 1) as QTD_EMBALAGEM_VENDA,
-          p.DES_EMBALAGEM,
-          NVL(p.QTD_EMBALAGEM_COMPRA, 1) as QTD_EMBALAGEM_COMPRA
+          p.${dataCadastroCol} as DTA_CADASTRO,
+          NVL(p.${qtdEmbalagemVendaCol}, 1) as QTD_EMBALAGEM_VENDA,
+          p.${embalagemCol} as DES_EMBALAGEM,
+          NVL(p.${qtdEmbalagemCompraCol}, 1) as QTD_EMBALAGEM_COMPRA
         FROM INTERSOLID.TAB_PRODUTO p
-        INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
-        LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
+        INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.${codigoCol} = pl.${codigoCol}
+        LEFT JOIN INTERSOLID.TAB_SECAO s ON p.${codSecaoCol} = s.${codSecaoCol}
+        LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.${codSecaoCol} = g.${codSecaoCol} AND p.${codGrupoCol} = g.${codGrupoCol}
+        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.${codSecaoCol} = sg.${codSecaoCol} AND p.${codGrupoCol} = sg.${codGrupoCol} AND p.${codSubGrupoCol} = sg.${codSubGrupoCol}
+        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON pl.${codFornUltCompraCol} = f.COD_FORNECEDOR
         WHERE pl.COD_LOJA = :codLoja
-        AND NVL(pl.INATIVO, 'N') = 'N'
-        ORDER BY p.DES_PRODUTO
+        AND NVL(pl.${inativoCol}, 'N') = 'N'
+        ORDER BY p.${descricaoCol}
       `;
 
       const rows = await OracleService.query(sql, { codLoja: loja });

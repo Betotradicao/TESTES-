@@ -11,6 +11,7 @@ import { CacheService } from '../services/cache.service';
 import { ProductionPDFService } from '../services/production-pdf.service';
 import { WhatsAppService } from '../services/whatsapp.service';
 import { OracleService } from '../services/oracle.service';
+import { MappingService } from '../services/mapping.service';
 import * as fs from 'fs';
 
 export class ProductionAuditController {
@@ -729,9 +730,90 @@ export class ProductionAuditController {
         };
       });
 
-      // Gerar PDF
+      // Buscar dados de perdas mensais do Oracle para incluir no PDF
+      let perdasMensais: Record<string, { mesAnterior: number; mesAtual: number; qtdMesAnterior: number; qtdMesAtual: number }> = {};
+      try {
+        console.log('📊 Buscando perdas mensais para o PDF...');
+        const hoje = new Date();
+        const primeiroDiaMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+        const primeiroDiaMesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+        const ultimoDiaMesAnterior = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
+
+        const formatDate = (d: Date) => d.toISOString().split('T')[0];
+        const dataMesAnteriorInicio = formatDate(primeiroDiaMesAnterior);
+        const dataMesAnteriorFim = formatDate(ultimoDiaMesAnterior);
+        const dataMesAtualInicio = formatDate(primeiroDiaMesAtual);
+        const dataMesAtualFim = formatDate(hoje);
+
+        // Busca mapeamentos dinâmicos
+        const estCodProdutoCol = await MappingService.getColumn('estoque', 'cod_produto', 'COD_PRODUTO');
+        const estQuantidadeCol = await MappingService.getColumn('estoque', 'quantidade', 'QTD_AJUSTE');
+        const estDataMovCol = await MappingService.getColumn('estoque', 'data_movimento', 'DTA_AJUSTE');
+        const prodCodigoCol = await MappingService.getColumn('produtos', 'codigo', 'COD_PRODUTO');
+        const prodEanCol = await MappingService.getColumn('produtos', 'ean', 'COD_BARRA_PRINCIPAL');
+
+        const queryMesAnterior = `
+          SELECT
+            TO_CHAR(p.${prodCodigoCol}) as COD_PRODUTO,
+            SUM(ABS(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0))) as VALOR_PERDA,
+            SUM(ABS(NVL(ae.${estQuantidadeCol}, 0))) as QTD_PERDA
+          FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
+          JOIN INTERSOLID.TAB_PRODUTO p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
+          WHERE ae.COD_LOJA = :loja
+          AND ae.${estDataMovCol} >= TO_DATE(:dtIni, 'YYYY-MM-DD')
+          AND ae.${estDataMovCol} <= TO_DATE(:dtFim, 'YYYY-MM-DD')
+          AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO != 'S')
+          AND ae.${estQuantidadeCol} < 0
+          GROUP BY p.${prodCodigoCol}
+        `;
+
+        const queryMesAtual = `
+          SELECT
+            TO_CHAR(p.${prodCodigoCol}) as COD_PRODUTO,
+            SUM(ABS(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0))) as VALOR_PERDA,
+            SUM(ABS(NVL(ae.${estQuantidadeCol}, 0))) as QTD_PERDA
+          FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
+          JOIN INTERSOLID.TAB_PRODUTO p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
+          WHERE ae.COD_LOJA = :loja
+          AND ae.${estDataMovCol} >= TO_DATE(:dtIni, 'YYYY-MM-DD')
+          AND ae.${estDataMovCol} <= TO_DATE(:dtFim, 'YYYY-MM-DD')
+          AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO != 'S')
+          AND ae.${estQuantidadeCol} < 0
+          GROUP BY p.${prodCodigoCol}
+        `;
+
+        const [perdasAnterior, perdasAtual] = await Promise.all([
+          OracleService.query(queryMesAnterior, { loja: 1, dtIni: dataMesAnteriorInicio, dtFim: dataMesAnteriorFim }),
+          OracleService.query(queryMesAtual, { loja: 1, dtIni: dataMesAtualInicio, dtFim: dataMesAtualFim }),
+        ]);
+
+        // Indexar perdas por código do produto
+        perdasAnterior.forEach((p: any) => {
+          const codigo = String(p.COD_PRODUTO);
+          if (!perdasMensais[codigo]) {
+            perdasMensais[codigo] = { mesAnterior: 0, mesAtual: 0, qtdMesAnterior: 0, qtdMesAtual: 0 };
+          }
+          perdasMensais[codigo].mesAnterior = parseFloat(p.VALOR_PERDA) || 0;
+          perdasMensais[codigo].qtdMesAnterior = parseFloat(p.QTD_PERDA) || 0;
+        });
+
+        perdasAtual.forEach((p: any) => {
+          const codigo = String(p.COD_PRODUTO);
+          if (!perdasMensais[codigo]) {
+            perdasMensais[codigo] = { mesAnterior: 0, mesAtual: 0, qtdMesAnterior: 0, qtdMesAtual: 0 };
+          }
+          perdasMensais[codigo].mesAtual = parseFloat(p.VALOR_PERDA) || 0;
+          perdasMensais[codigo].qtdMesAtual = parseFloat(p.QTD_PERDA) || 0;
+        });
+
+        console.log(`📊 Perdas encontradas para ${Object.keys(perdasMensais).length} produtos`);
+      } catch (perdasError) {
+        console.warn('⚠️ Não foi possível buscar dados de perdas para o PDF:', perdasError);
+      }
+
+      // Gerar PDF com dados de perdas
       console.log('🥖 Gerando PDF de produção...');
-      const pdfPath = await ProductionPDFService.generateProductionPDF(audit, enrichedItems as any);
+      const pdfPath = await ProductionPDFService.generateProductionPDF(audit, enrichedItems as any, perdasMensais);
 
       // Calcular estatísticas
       const totalProducts = audit.items.length;

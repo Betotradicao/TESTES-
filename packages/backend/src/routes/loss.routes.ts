@@ -64,6 +64,13 @@ router.get(
   LossController.getTrocasItensFornecedor
 );
 
+// Buscar perdas mensais por produto (mês anterior e mês atual)
+router.get(
+  '/oracle/perdas-mensais',
+  authenticateToken,
+  LossController.getPerdasMensaisPorProduto
+);
+
 // Buscar resultados agregados com filtros
 router.get(
   '/agregado',

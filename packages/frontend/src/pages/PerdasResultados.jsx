@@ -68,7 +68,7 @@ export default function PerdasResultados() {
         tipo: tipoVisualizacao,
       });
 
-      // Buscar diretamente do Oracle
+      // Buscar diretamente do Oracle (resultados principais)
       const response = await api.get(`/losses/oracle?${params}`);
       setResultados(response.data);
     } catch (err) {
