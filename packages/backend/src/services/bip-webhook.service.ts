@@ -110,7 +110,8 @@ export class BipWebhookService {
     console.log(`📊 Processando dados da bipagem...`);
 
     // === CÁLCULO DO BIP_PRICE_CENTS ===
-    const bipPriceCents = Number(formatResult.sell_price!.replace(/\D+/g, ''));
+    const sellPriceStr = formatResult.sell_price || '0';
+    const bipPriceCents = Number(sellPriceStr.replace(/\D+/g, '')) || 0;
 
     // === CÁLCULO DO BIP_WEIGHT (fórmula exata do N8N) ===
     const erpValOferta = erpProduct.valoferta;
