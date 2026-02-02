@@ -389,7 +389,10 @@ export class DatabaseConnectionsController {
     let connection: oracledb.Connection | null = null;
 
     try {
-      const connectString = `${conn.host}:${conn.port}/${conn.service || 'orcl'}`;
+      // Detecta se está em ambiente VPS/Docker
+      const isVps = process.env.NODE_ENV === 'production' || process.env.DOCKER_CONTAINER === 'true';
+      const hostToUse = isVps && conn.host_vps ? conn.host_vps : conn.host;
+      const connectString = `${hostToUse}:${conn.port}/${conn.service || 'orcl'}`;
 
       // Inicializa Thick Mode se necessário
       try {
@@ -761,9 +764,13 @@ export class DatabaseConnectionsController {
     let connection: oracledb.Connection | null = null;
 
     try {
-      const connectString = `${conn.host}:${conn.port}/${conn.service || 'orcl'}`;
+      // Detecta se está em ambiente VPS/Docker (NODE_ENV=production ou rodando em container)
+      const isVps = process.env.NODE_ENV === 'production' || process.env.DOCKER_CONTAINER === 'true';
+      // Usa host_vps quando na VPS, senão usa host local
+      const hostToUse = isVps && conn.host_vps ? conn.host_vps : conn.host;
+      const connectString = `${hostToUse}:${conn.port}/${conn.service || 'orcl'}`;
 
-      console.log(`🔌 Connecting to Oracle: ${connectString}`);
+      console.log(`🔌 Connecting to Oracle: ${connectString} (ambiente: ${isVps ? 'VPS' : 'Local'})`);
 
       // Inicializa Thick Mode se necessário
       try {
@@ -789,7 +796,7 @@ export class DatabaseConnectionsController {
       const result = await connection.execute("SELECT 'OK' as STATUS FROM DUAL");
 
       if (result.rows && result.rows.length > 0) {
-        console.log(`✅ Oracle connection successful: ${conn.host}`);
+        console.log(`✅ Oracle connection successful: ${connectString}`);
         return { success: true, message: 'Conexão Oracle estabelecida com sucesso!' };
       }
 
