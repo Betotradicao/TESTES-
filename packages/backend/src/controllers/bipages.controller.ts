@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AppDataSource } from '../config/database';
 import { Bip } from '../entities/Bip';
+import { WebhookLog, WebhookLogStatus, WebhookLogReason } from '../entities/WebhookLog';
 import { EanFormatterService } from '../services/ean-formatter.service';
 import { BipCancellationService } from '../services/bip-cancellation.service';
 import { BipWebhookService } from '../services/bip-webhook.service';
@@ -8,6 +9,17 @@ import { EquipmentsService } from '../services/equipments.service';
 import { EmployeesService } from '../services/employees.service';
 import { EquipmentSessionsService } from '../services/equipment-sessions.service';
 import { WebhookPayload } from '../types/webhook.types';
+
+// Helper para salvar logs de webhook
+async function saveWebhookLog(data: Partial<WebhookLog>): Promise<void> {
+  try {
+    const logRepository = AppDataSource.getRepository(WebhookLog);
+    const log = logRepository.create(data);
+    await logRepository.save(log);
+  } catch (error) {
+    console.error('Erro ao salvar log de webhook:', error);
+  }
+}
 
 export class BipagesController {
   /**
@@ -32,6 +44,15 @@ export class BipagesController {
 
         if (!employee) {
           console.log(`❌ Colaborador não encontrado: ${rawCode}`);
+          await saveWebhookLog({
+            status: WebhookLogStatus.REJECTED,
+            reason: WebhookLogReason.EMPLOYEE_NOT_FOUND,
+            raw_payload: JSON.stringify(payload),
+            ean: rawCode,
+            scanner_id: payload.scanner_id,
+            machine_id: payload.machine_id,
+            error_message: 'Colaborador não encontrado'
+          });
           res.status(200).json({
             success: false,
             error: 'Colaborador não encontrado',
@@ -45,6 +66,14 @@ export class BipagesController {
         // Verificar se há equipamento associado
         if (!payload.scanner_id || !payload.machine_id) {
           console.log(`⚠️ Login de colaborador sem informação de equipamento`);
+          await saveWebhookLog({
+            status: WebhookLogStatus.REJECTED,
+            reason: WebhookLogReason.EQUIPMENT_DISABLED,
+            raw_payload: JSON.stringify(payload),
+            ean: rawCode,
+            employee_name: employee.name,
+            error_message: 'Equipamento não identificado'
+          });
           res.status(200).json({
             success: false,
             error: 'Equipamento não identificado',
@@ -68,6 +97,17 @@ export class BipagesController {
         // Verificar se equipamento está ativo
         if (!equipment.active) {
           console.log(`🚫 Equipamento desabilitado: ${payload.scanner_id}`);
+          await saveWebhookLog({
+            status: WebhookLogStatus.REJECTED,
+            reason: WebhookLogReason.EQUIPMENT_DISABLED,
+            raw_payload: JSON.stringify(payload),
+            ean: rawCode,
+            scanner_id: payload.scanner_id,
+            machine_id: payload.machine_id,
+            equipment_id: equipment.id,
+            employee_name: employee.name,
+            error_message: 'Equipamento desabilitado'
+          });
           res.status(200).json({
             success: false,
             error: 'Equipamento desabilitado',
@@ -80,6 +120,18 @@ export class BipagesController {
         // Fazer login do colaborador no equipamento
         const session = await EquipmentSessionsService.loginEmployee(equipment.id, employee.id);
         console.log(`🎉 Colaborador ${employee.name} logado no equipamento ${equipment.id}`);
+
+        // Log de sucesso do login
+        await saveWebhookLog({
+          status: WebhookLogStatus.OK,
+          reason: WebhookLogReason.EMPLOYEE_LOGIN,
+          raw_payload: JSON.stringify(payload),
+          ean: rawCode,
+          scanner_id: payload.scanner_id,
+          machine_id: payload.machine_id,
+          equipment_id: equipment.id,
+          employee_name: employee.name
+        });
 
         // Retornar sucesso SEM criar bipagem
         res.status(200).json({
@@ -111,6 +163,15 @@ export class BipagesController {
 
       if (!formatResult.parse_ok) {
         console.log(`❌ EAN inválido: ${formatResult.erro}`);
+        await saveWebhookLog({
+          status: WebhookLogStatus.REJECTED,
+          reason: WebhookLogReason.EAN_INVALID,
+          raw_payload: JSON.stringify(payload),
+          ean: formatResult.ean,
+          scanner_id: payload.scanner_id,
+          machine_id: payload.machine_id,
+          error_message: formatResult.erro || 'EAN inválido'
+        });
         res.status(200).json({
           success: false,
           error: formatResult.erro,
@@ -127,6 +188,16 @@ export class BipagesController {
 
       if (cancellationResult.cancel) {
         console.log(`🚫 Bipagem cancelada por limite excedido: ${formatResult.ean}`);
+        await saveWebhookLog({
+          status: WebhookLogStatus.REJECTED,
+          reason: WebhookLogReason.CANCELLATION_LIMIT,
+          raw_payload: JSON.stringify(payload),
+          ean: formatResult.ean,
+          plu: formatResult.produto_id,
+          scanner_id: payload.scanner_id,
+          machine_id: payload.machine_id,
+          error_message: 'Limite de bipagens excedido'
+        });
         res.status(200).json({
           success: true,
           message: 'Bipagem cancelada por limite excedido',
@@ -142,6 +213,16 @@ export class BipagesController {
 
       if (!erpProduct) {
         console.log(`❌ Produto não encontrado no ERP: PLU ${formatResult.produto_id}`);
+        await saveWebhookLog({
+          status: WebhookLogStatus.REJECTED,
+          reason: WebhookLogReason.PRODUCT_NOT_FOUND,
+          raw_payload: JSON.stringify(payload),
+          ean: formatResult.ean,
+          plu: formatResult.produto_id,
+          scanner_id: payload.scanner_id,
+          machine_id: payload.machine_id,
+          error_message: `Produto PLU ${formatResult.produto_id} não encontrado no Oracle`
+        });
         res.status(200).json({
           success: false,
           error: 'Produto não encontrado no ERP',
@@ -165,6 +246,18 @@ export class BipagesController {
         // Verificar se equipamento está ativo
         if (!equipment.active) {
           console.log(`🚫 Equipamento desabilitado: ${payload.scanner_id}`);
+          await saveWebhookLog({
+            status: WebhookLogStatus.REJECTED,
+            reason: WebhookLogReason.EQUIPMENT_DISABLED,
+            raw_payload: JSON.stringify(payload),
+            ean: formatResult.ean,
+            plu: formatResult.produto_id,
+            product_description: erpProduct.descricao,
+            scanner_id: payload.scanner_id,
+            machine_id: payload.machine_id,
+            equipment_id: equipment.id,
+            error_message: 'Equipamento desabilitado'
+          });
           res.status(200).json({
             success: false,
             cancelled: true,
@@ -201,6 +294,20 @@ export class BipagesController {
 
       console.log(`🎉 Bipagem processada com sucesso: ID ${savedBip.id}`);
 
+      // Log de sucesso
+      await saveWebhookLog({
+        status: WebhookLogStatus.OK,
+        reason: WebhookLogReason.SUCCESS,
+        raw_payload: JSON.stringify(payload),
+        ean: formatResult.ean,
+        plu: formatResult.produto_id,
+        product_description: erpProduct.descricao,
+        scanner_id: payload.scanner_id,
+        machine_id: payload.machine_id,
+        equipment_id: equipmentId || undefined,
+        bip_id: savedBip.id
+      });
+
       // Resposta de sucesso
       res.status(200).json({
         success: true,
@@ -219,6 +326,16 @@ export class BipagesController {
 
     } catch (error) {
       console.error('❌ Erro no processamento da bipagem:', error);
+
+      // Log de erro
+      await saveWebhookLog({
+        status: WebhookLogStatus.ERROR,
+        reason: WebhookLogReason.INTERNAL_ERROR,
+        raw_payload: JSON.stringify(req.body),
+        scanner_id: req.body?.scanner_id,
+        machine_id: req.body?.machine_id,
+        error_message: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
 
       res.status(500).json({
         success: false,

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getCronStatus, getBarcodeStatus, testZanthusConnection, restartCronService } from '../controllers/system-status.controller';
+import { getCronStatus, getBarcodeStatus, testZanthusConnection, restartCronService, getWebhookLogs } from '../controllers/system-status.controller';
 
 const router: Router = Router();
 
@@ -115,5 +115,35 @@ router.get('/barcode/status', getBarcodeStatus);
  *                   example: 200
  */
 router.get('/zanthus/test', testZanthusConnection);
+
+/**
+ * @swagger
+ * /api/webhook/logs:
+ *   get:
+ *     summary: Retorna logs de webhooks recebidos
+ *     description: Lista todos os webhooks com status OK, rejeitados e erros
+ *     tags: [System Status]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Página atual (default 1)
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Itens por página (default 50)
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [all, ok, rejected, error]
+ *         description: Filtrar por status
+ *     responses:
+ *       200:
+ *         description: Logs retornados com sucesso
+ */
+router.get('/webhook/logs', getWebhookLogs);
 
 export default router;

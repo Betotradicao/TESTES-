@@ -158,6 +158,96 @@ export async function restartCronService(_req: Request, res: Response) {
 }
 
 /**
+ * Retorna logs de webhook com paginação e filtros
+ */
+export async function getWebhookLogs(req: Request, res: Response) {
+  try {
+    const client = await pool.connect();
+
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const status = req.query.status as string;
+      const offset = (page - 1) * limit;
+
+      // Construir query com filtro opcional
+      let whereClause = '';
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      if (status && status !== 'all') {
+        whereClause = `WHERE status = $${paramIndex}`;
+        params.push(status);
+        paramIndex++;
+      }
+
+      // Buscar logs com paginação
+      const logsQuery = `
+        SELECT *
+        FROM webhook_logs
+        ${whereClause}
+        ORDER BY created_at DESC
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      `;
+      params.push(limit, offset);
+
+      const result = await client.query(logsQuery, params);
+
+      // Contar total para paginação
+      const countParams = status && status !== 'all' ? [status] : [];
+      const countQuery = `
+        SELECT COUNT(*) as total
+        FROM webhook_logs
+        ${whereClause}
+      `;
+      const countResult = await client.query(countQuery, countParams);
+      const total = parseInt(countResult.rows[0].total);
+
+      // Contar por status para mostrar resumo
+      const summaryQuery = `
+        SELECT
+          status,
+          COUNT(*) as count
+        FROM webhook_logs
+        WHERE created_at >= CURRENT_DATE
+        GROUP BY status
+      `;
+      const summaryResult = await client.query(summaryQuery);
+
+      const summary = {
+        ok: 0,
+        rejected: 0,
+        error: 0
+      };
+      summaryResult.rows.forEach((row: any) => {
+        if (row.status === 'ok') summary.ok = parseInt(row.count);
+        else if (row.status === 'rejected') summary.rejected = parseInt(row.count);
+        else if (row.status === 'error') summary.error = parseInt(row.count);
+      });
+
+      res.json({
+        logs: result.rows,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit)
+        },
+        summary
+      });
+    } finally {
+      client.release();
+    }
+  } catch (error: any) {
+    console.error('❌ Erro ao buscar logs de webhook:', error);
+    res.status(500).json({
+      error: 'Erro ao buscar logs de webhook',
+      details: error.message,
+    });
+  }
+}
+
+/**
  * Testa conectividade com a API Zanthus
  */
 export async function testZanthusConnection(req: Request, res: Response) {
