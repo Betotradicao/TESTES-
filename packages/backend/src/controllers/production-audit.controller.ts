@@ -253,9 +253,10 @@ export class ProductionAuditController {
 
       const productRepository = AppDataSource.getRepository(Product);
 
-      // Get ALL products from database (regardless of active status) to get peso_medio_kg
+      // Get ALL products from database (regardless of active status) to get peso_medio_kg and responsible
       const allLocalProducts = await productRepository.find({
-        select: ['erp_product_id', 'peso_medio_kg', 'production_days', 'section_name', 'foto_referencia', 'active'],
+        select: ['erp_product_id', 'peso_medio_kg', 'production_days', 'section_name', 'foto_referencia', 'active', 'responsible_id'],
+        relations: ['responsible'],
       });
 
       // Create map for all local product data (peso médio, production_days, etc)
@@ -265,7 +266,9 @@ export class ProductionAuditController {
           production_days: p.production_days,
           section_name: p.section_name,
           foto_referencia: p.foto_referencia,
-          active: p.active
+          active: p.active,
+          responsible_id: p.responsible_id,
+          responsible_name: p.responsible?.name || null
         }])
       );
 
@@ -345,6 +348,8 @@ export class ProductionAuditController {
           dtaUltMovVenda: product.DTA_ULT_MOV_VENDA || null,
           isActive: isActive,
           curva: product.CURVA || 'X',
+          responsible_id: productData?.responsible_id || null,
+          responsible_name: productData?.responsible_name || null,
         };
       });
 
@@ -784,6 +789,52 @@ export class ProductionAuditController {
     } catch (error) {
       console.error('Clear cache error:', error);
       res.status(500).json({ error: 'Erro ao limpar cache' });
+    }
+  }
+
+  /**
+   * Atualizar responsável de um produto
+   * PATCH /api/production/products/:productCode/responsible
+   */
+  static async updateProductResponsible(req: AuthRequest, res: Response) {
+    try {
+      const { productCode } = req.params;
+      const { responsible_id } = req.body;
+
+      const productRepository = AppDataSource.getRepository(Product);
+
+      // Buscar produto pelo código ERP
+      let product = await productRepository.findOne({
+        where: { erp_product_id: productCode }
+      });
+
+      if (!product) {
+        // Se não existe, criar produto com dados mínimos
+        product = productRepository.create({
+          erp_product_id: productCode,
+          description: productCode, // Será atualizado depois
+          responsible_id: responsible_id || null
+        });
+      } else {
+        // Atualizar responsável
+        product.responsible_id = responsible_id || null;
+      }
+
+      await productRepository.save(product);
+
+      console.log(`✅ Responsável do produto ${productCode} atualizado para: ${responsible_id || 'nenhum'}`);
+
+      res.json({
+        success: true,
+        message: 'Responsável atualizado com sucesso',
+        product: {
+          erp_product_id: product.erp_product_id,
+          responsible_id: product.responsible_id
+        }
+      });
+    } catch (error) {
+      console.error('Update product responsible error:', error);
+      res.status(500).json({ error: 'Erro ao atualizar responsável' });
     }
   }
 }

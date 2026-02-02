@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { ProductActivationHistory } from './ProductActivationHistory';
+import { Employee } from './Employee';
 
 @Entity('products')
 export class Product {
@@ -75,6 +76,13 @@ export class Product {
 
   @Column({ type: 'integer', nullable: true, default: 1 })
   production_days?: number;
+
+  @Column({ type: 'uuid', nullable: true })
+  responsible_id?: string;
+
+  @ManyToOne(() => Employee)
+  @JoinColumn({ name: 'responsible_id' })
+  responsible?: Employee;
 
   @Column({ type: 'jsonb', nullable: true })
   posicao_balcao?: {

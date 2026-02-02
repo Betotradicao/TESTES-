@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import api from '../services/api';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function ProducaoSugestao() {
   const navigate = useNavigate();
@@ -17,6 +19,8 @@ export default function ProducaoSugestao() {
   const [selectedTipo, setSelectedTipo] = useState('PRODUCAO');
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState('all'); // all, pending, checked
+  const [employees, setEmployees] = useState([]); // Lista de colaboradores
+  const [selectedResponsible, setSelectedResponsible] = useState('TODOS'); // Filtro por responsável
 
   // Estados do modal
   const [editingItem, setEditingItem] = useState(null);
@@ -29,7 +33,7 @@ export default function ProducaoSugestao() {
   // Estado do formulário do item
   const [itemForm, setItemForm] = useState({
     quantity_units: '',
-    production_days: '1'
+    responsible_id: null
   });
 
   // Data fixada no dia atual
@@ -44,11 +48,12 @@ export default function ProducaoSugestao() {
   // Estado de ordenação
   const [sortConfig, setSortConfig] = useState({ key: 'descricao', direction: 'asc' });
 
-  // Estado para ordem das colunas (drag-and-drop)
-  const [columnOrder, setColumnOrder] = useState([
+  // Ordem padrão das colunas
+  const defaultColumnOrder = [
     { key: 'foto', label: 'Foto', sortable: false, align: 'center' },
     { key: 'codigo', label: 'Código', sortable: true, align: 'left' },
     { key: 'descricao', label: 'Produto', sortable: true, align: 'left' },
+    { key: 'responsible_name', label: 'Responsável', sortable: true, align: 'center' },
     { key: 'dtaUltMovVenda', label: 'Última Venda', sortable: true, align: 'center' },
     { key: 'diasSemVenda', label: 'Dias Sem Venda', sortable: true, align: 'center' },
     { key: 'peso_medio_kg', label: 'Peso Médio', sortable: true, align: 'right' },
@@ -60,7 +65,33 @@ export default function ProducaoSugestao() {
     { key: 'margemReal', label: 'Margem Real', sortable: true, align: 'right' },
     { key: 'curva', label: 'Curva', sortable: true, align: 'center' },
     { key: 'acoes', label: 'Ações', sortable: false, align: 'center' },
-  ]);
+  ];
+
+  // Estado para ordem das colunas (drag-and-drop) - carrega do localStorage se existir
+  const [columnOrder, setColumnOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem('producao-auditoria-column-order');
+      if (saved) {
+        const savedOrder = JSON.parse(saved);
+        // Verificar se tem todas as colunas corretas (mesmo tamanho E mesmas chaves)
+        const defaultKeys = defaultColumnOrder.map(c => c.key).sort();
+        const savedKeys = savedOrder.map(c => c.key).sort();
+        const keysMatch = defaultKeys.length === savedKeys.length &&
+                          defaultKeys.every((key, idx) => key === savedKeys[idx]);
+        if (keysMatch) {
+          return savedOrder;
+        } else {
+          // Chaves mudaram, limpar o localStorage e usar o padrão
+          localStorage.removeItem('producao-auditoria-column-order');
+          console.log('Colunas mudaram, resetando para ordem padrão');
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao carregar ordem das colunas:', e);
+      localStorage.removeItem('producao-auditoria-column-order');
+    }
+    return defaultColumnOrder;
+  });
   const [draggedColumn, setDraggedColumn] = useState(null);
 
   // Carregar dados ao iniciar
@@ -69,7 +100,19 @@ export default function ProducaoSugestao() {
     setSuccess('');
     loadSections();
     loadTodayAudit();
+    loadEmployees();
   }, []);
+
+  // Carregar lista de colaboradores
+  const loadEmployees = async () => {
+    try {
+      // A API retorna { data: [...], pagination: {...} }
+      const response = await api.get('/employees?limit=100');
+      setEmployees(response.data?.data || []);
+    } catch (err) {
+      console.error('Erro ao carregar colaboradores:', err);
+    }
+  };
 
   // Carregar seções do ERP (todas, não apenas ativos)
   const loadSections = async () => {
@@ -177,30 +220,295 @@ export default function ProducaoSugestao() {
     }
   };
 
+  // Atualizar responsável do produto
+  const handleUpdateResponsible = async (productCode, responsibleId) => {
+    try {
+      await api.patch(`/production/products/${productCode}/responsible`, {
+        responsible_id: responsibleId || null
+      });
+
+      // Atualizar produto na lista local
+      setProducts(prevProducts =>
+        prevProducts.map(p =>
+          p.codigo === productCode
+            ? { ...p, responsible_id: responsibleId || null, responsible_name: employees.find(e => e.id === responsibleId)?.name || null }
+            : p
+        )
+      );
+
+      setAllProducts(prevProducts =>
+        prevProducts.map(p =>
+          p.codigo === productCode
+            ? { ...p, responsible_id: responsibleId || null, responsible_name: employees.find(e => e.id === responsibleId)?.name || null }
+            : p
+        )
+      );
+
+      // Atualizar editingItem se for o mesmo produto
+      if (editingItem && editingItem.codigo === productCode) {
+        setEditingItem(prev => ({
+          ...prev,
+          responsible_id: responsibleId || null,
+          responsible_name: employees.find(e => e.id === responsibleId)?.name || null
+        }));
+      }
+
+      console.log(`✅ Responsável atualizado: ${productCode} -> ${responsibleId || 'nenhum'}`);
+    } catch (err) {
+      console.error('Erro ao atualizar responsável:', err);
+      setError('Erro ao salvar responsável');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  // Exportar para PDF - Itens conferidos com sugestões de produção
+  const handleExportPDF = async () => {
+    try {
+      setLoading(true);
+
+      // Produtos conferidos (com estoque informado)
+      const productsToExport = filteredProducts.filter(p => auditItems[p.codigo]?.checked);
+
+      if (productsToExport.length === 0) {
+        setError('Nenhum produto conferido para exportar. Confira os itens primeiro.');
+        setTimeout(() => setError(''), 3000);
+        setLoading(false);
+        return;
+      }
+
+      // Criar PDF em modo paisagem para caber todas colunas
+      const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      // Cores
+      const orangeColor = [234, 88, 12]; // #EA580C
+      const whiteColor = [255, 255, 255];
+      const greenColor = [22, 163, 74];
+      const blueColor = [37, 99, 235];
+      const purpleColor = [147, 51, 234];
+
+      // Header com fundo laranja
+      doc.setFillColor(...orangeColor);
+      doc.rect(0, 0, 297, 25, 'F');
+
+      // Título
+      doc.setTextColor(...whiteColor);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Sugestão de Produção - ${todayStr.split('-').reverse().join('/')}`, 14, 12);
+
+      // Subtítulo
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Seção: ${selectedSecao} | Tipo: ${selectedTipo} | Total: ${productsToExport.length} produtos conferidos`, 14, 20);
+
+      // Colunas fixas para o PDF de sugestão
+      const pdfColumns = [
+        { key: 'codigo', label: 'Código' },
+        { key: 'descricao', label: 'Produto' },
+        { key: 'curva', label: 'Curva' },
+        { key: 'dias_sem_venda', label: 'Dias S/V' },
+        { key: 'estoque', label: 'Estoque' },
+        { key: 'venda_media', label: 'Venda Média' },
+        { key: 'sug_1_kg', label: '1D (kg)' },
+        { key: 'sug_1_und', label: '1D (und)' },
+        { key: 'sug_3_kg', label: '3D (kg)' },
+        { key: 'sug_3_und', label: '3D (und)' },
+        { key: 'sug_7_kg', label: '7D (kg)' },
+        { key: 'sug_7_und', label: '7D (und)' },
+      ];
+
+      // Função para calcular sugestão
+      const calcSugestao = (product, dias) => {
+        const estoqueUnd = auditItems[product.codigo]?.quantity_units || 0;
+        const estoqueKg = estoqueUnd * (product.peso_medio_kg || 0);
+        const necessidadeKg = (product.vendaMedia || 0) * dias;
+        const sugestaoKg = Math.max(0, necessidadeKg - estoqueKg);
+        const sugestaoUnd = product.peso_medio_kg > 0 ? Math.ceil(sugestaoKg / product.peso_medio_kg) : 0;
+        return { kg: sugestaoKg, und: sugestaoUnd };
+      };
+
+      // Função para obter valor de uma coluna
+      const getColumnValue = (product, key) => {
+        const estoqueUnd = auditItems[product.codigo]?.quantity_units || 0;
+        const estoqueKg = estoqueUnd * (product.peso_medio_kg || 0);
+        const diasSemVenda = calcularDiasSemVenda(product.dtaUltMovVenda);
+
+        switch (key) {
+          case 'codigo': return product.codigo || '-';
+          case 'descricao': return product.descricao || '-';
+          case 'curva': return product.curva || '-';
+          case 'dias_sem_venda': return diasSemVenda !== null ? diasSemVenda : '-';
+          case 'estoque': return `${estoqueUnd} und (${estoqueKg.toFixed(1)} kg)`;
+          case 'venda_media': return product.vendaMedia ? `${product.vendaMedia.toFixed(2)} kg/d` : '-';
+          case 'sug_1_kg': return calcSugestao(product, 1).kg.toFixed(2);
+          case 'sug_1_und': return calcSugestao(product, 1).und;
+          case 'sug_3_kg': return calcSugestao(product, 3).kg.toFixed(2);
+          case 'sug_3_und': return calcSugestao(product, 3).und;
+          case 'sug_7_kg': return calcSugestao(product, 7).kg.toFixed(2);
+          case 'sug_7_und': return calcSugestao(product, 7).und;
+          default: return '-';
+        }
+      };
+
+      // Preparar dados da tabela
+      const tableData = productsToExport.map(product =>
+        pdfColumns.map(col => getColumnValue(product, col.key))
+      );
+
+      // Headers
+      const headers = pdfColumns.map(col => col.label);
+
+      // Larguras das colunas para o PDF de sugestão
+      const columnWidths = {
+        codigo: 16,
+        descricao: 55,
+        curva: 12,
+        dias_sem_venda: 14,
+        estoque: 28,
+        venda_media: 20,
+        sug_1_kg: 16,
+        sug_1_und: 14,
+        sug_3_kg: 16,
+        sug_3_und: 14,
+        sug_7_kg: 16,
+        sug_7_und: 14
+      };
+
+      // Gerar columnStyles dinâmico
+      const columnStyles = {};
+      pdfColumns.forEach((col, idx) => {
+        columnStyles[idx] = {
+          cellWidth: columnWidths[col.key] || 20,
+          halign: (col.key === 'codigo' || col.key === 'descricao') ? 'left' : 'center'
+        };
+      });
+
+      autoTable(doc, {
+        head: [headers],
+        body: tableData,
+        startY: 30,
+        theme: 'grid',
+        styles: {
+          fontSize: 7,
+          cellPadding: 2,
+          overflow: 'linebreak',
+          halign: 'center'
+        },
+        headStyles: {
+          fillColor: orangeColor,
+          textColor: whiteColor,
+          fontStyle: 'bold',
+          fontSize: 7
+        },
+        columnStyles,
+        didParseCell: function(data) {
+          // Aplicar cores nas células baseado na key da coluna
+          if (data.section === 'body') {
+            const colIndex = data.column.index;
+            const product = productsToExport[data.row.index];
+            const colKey = pdfColumns[colIndex]?.key;
+
+            // Coluna Curva
+            if (colKey === 'curva') {
+              if (product.curva === 'A') {
+                data.cell.styles.fillColor = [220, 252, 231];
+                data.cell.styles.textColor = [22, 163, 74];
+              } else if (product.curva === 'B') {
+                data.cell.styles.fillColor = [219, 234, 254];
+                data.cell.styles.textColor = [37, 99, 235];
+              } else if (product.curva === 'C') {
+                data.cell.styles.fillColor = [254, 249, 195];
+                data.cell.styles.textColor = [202, 138, 4];
+              } else if (product.curva === 'D' || product.curva === 'E') {
+                data.cell.styles.fillColor = [254, 226, 226];
+                data.cell.styles.textColor = [220, 38, 38];
+              }
+              data.cell.styles.fontStyle = 'bold';
+            }
+
+            // Coluna Dias Sem Venda
+            if (colKey === 'dias_sem_venda') {
+              const diasSemVenda = calcularDiasSemVenda(product.dtaUltMovVenda);
+              if (diasSemVenda !== null) {
+                if (diasSemVenda <= 1) {
+                  data.cell.styles.fillColor = [220, 252, 231]; // verde
+                  data.cell.styles.textColor = [22, 163, 74];
+                } else if (diasSemVenda <= 3) {
+                  data.cell.styles.fillColor = [254, 249, 195]; // amarelo
+                  data.cell.styles.textColor = [202, 138, 4];
+                } else {
+                  data.cell.styles.fillColor = [254, 226, 226]; // vermelho
+                  data.cell.styles.textColor = [220, 38, 38];
+                }
+                data.cell.styles.fontStyle = 'bold';
+              }
+            }
+
+            // Colunas de Sugestão 1 dia - Verde
+            if (colKey === 'sug_1_kg' || colKey === 'sug_1_und') {
+              data.cell.styles.fillColor = [220, 252, 231]; // verde claro
+              data.cell.styles.textColor = [22, 163, 74];
+              data.cell.styles.fontStyle = 'bold';
+            }
+            // Colunas de Sugestão 3 dias - Azul
+            if (colKey === 'sug_3_kg' || colKey === 'sug_3_und') {
+              data.cell.styles.fillColor = [219, 234, 254]; // azul claro
+              data.cell.styles.textColor = [37, 99, 235];
+              data.cell.styles.fontStyle = 'bold';
+            }
+            // Colunas de Sugestão 7 dias - Roxo
+            if (colKey === 'sug_7_kg' || colKey === 'sug_7_und') {
+              data.cell.styles.fillColor = [243, 232, 255]; // roxo claro
+              data.cell.styles.textColor = [147, 51, 234];
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+        },
+        margin: { top: 30, left: 10, right: 10 },
+        didDrawPage: function(data) {
+          // Footer com número de página
+          const pageCount = doc.internal.getNumberOfPages();
+          doc.setFontSize(8);
+          doc.setTextColor(128, 128, 128);
+          doc.text(
+            `Página ${data.pageNumber} de ${pageCount}`,
+            data.settings.margin.left,
+            doc.internal.pageSize.height - 10
+          );
+          doc.text(
+            `Gerado em ${new Date().toLocaleString('pt-BR')}`,
+            doc.internal.pageSize.width - data.settings.margin.right - 50,
+            doc.internal.pageSize.height - 10
+          );
+        }
+      });
+
+      // Salvar PDF
+      doc.save(`sugestao-producao-${selectedSecao}-${todayStr}.pdf`);
+
+      setSuccess('PDF exportado com sucesso!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Erro ao exportar PDF:', err);
+      setError('Erro ao exportar PDF: ' + err.message);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Abrir modal para editar item
   const handleEditItem = (product) => {
     setEditingItem(product);
     const existingData = auditItems[product.codigo];
     setItemForm({
       quantity_units: existingData?.quantity_units?.toString() || '',
-      production_days: existingData?.production_days?.toString() || product.production_days?.toString() || '1'
+      responsible_id: product.responsible_id || null
     });
-  };
-
-  // Calcular sugestão para o item atual
-  const calculateSuggestion = () => {
-    if (!editingItem) return { sugestaoKg: 0, sugestaoUnidades: 0 };
-
-    const estoqueUnidades = parseInt(itemForm.quantity_units) || 0;
-    const diasProducao = parseInt(itemForm.production_days) || 1;
-    const pesoMedio = editingItem.peso_medio_kg || 0;
-    const estoqueKg = estoqueUnidades * pesoMedio;
-    const vendaMediaKg = editingItem.vendaMedia || 0;
-    const necessidadeKg = vendaMediaKg * diasProducao;
-    const sugestaoKg = Math.max(0, necessidadeKg - estoqueKg);
-    const sugestaoUnidades = pesoMedio > 0 ? Math.ceil(sugestaoKg / pesoMedio) : 0;
-
-    return { sugestaoKg, sugestaoUnidades, estoqueKg, necessidadeKg };
   };
 
   // Salvar item individual
@@ -211,13 +519,17 @@ export default function ProducaoSugestao() {
     setError('');
 
     try {
-      const { sugestaoKg, sugestaoUnidades } = calculateSuggestion();
+      const estoqueUnidades = parseInt(itemForm.quantity_units) || 0;
+      const estoqueKg = estoqueUnidades * (editingItem.peso_medio_kg || 0);
+      // Calcular sugestão para 1 dia (valor padrão para backend)
+      const sugestaoKg = Math.max(0, (editingItem.vendaMedia || 0) - estoqueKg);
+      const sugestaoUnidades = editingItem.peso_medio_kg > 0 ? Math.ceil(sugestaoKg / editingItem.peso_medio_kg) : 0;
 
       const itemData = {
         product_code: editingItem.codigo,
         product_name: editingItem.descricao,
-        quantity_units: parseInt(itemForm.quantity_units) || 0,
-        production_days: parseInt(itemForm.production_days) || 1,
+        quantity_units: estoqueUnidades,
+        production_days: 1, // Fixo em 1 dia (sugestões para 1, 3, 7 dias são calculadas no PDF)
         unit_weight_kg: editingItem.peso_medio_kg || 0,
         avg_sales_kg: editingItem.vendaMedia || 0,
         avg_sales_units: editingItem.vendaMediaUnd || 0,
@@ -239,7 +551,6 @@ export default function ProducaoSugestao() {
         ...prev,
         [editingItem.codigo]: {
           quantity_units: itemData.quantity_units,
-          production_days: itemData.production_days,
           checked: true
         }
       }));
@@ -254,7 +565,7 @@ export default function ProducaoSugestao() {
       // Fechar modal
       setEditingItem(null);
       setShowEmptyModal(false);
-      setItemForm({ quantity_units: '', production_days: '1' });
+      setItemForm({ quantity_units: '', responsible_id: null });
     } catch (err) {
       console.error('Erro ao salvar item:', err);
       setError(err.response?.data?.error || 'Erro ao salvar item');
@@ -271,13 +582,17 @@ export default function ProducaoSugestao() {
     setError('');
 
     try {
-      const { sugestaoKg, sugestaoUnidades } = calculateSuggestion();
+      const estoqueUnidades = parseInt(itemForm.quantity_units) || 0;
+      const estoqueKg = estoqueUnidades * (editingItem.peso_medio_kg || 0);
+      // Calcular sugestão para 1 dia (valor padrão para backend)
+      const sugestaoKg = Math.max(0, (editingItem.vendaMedia || 0) - estoqueKg);
+      const sugestaoUnidades = editingItem.peso_medio_kg > 0 ? Math.ceil(sugestaoKg / editingItem.peso_medio_kg) : 0;
 
       const itemData = {
         product_code: editingItem.codigo,
         product_name: editingItem.descricao,
-        quantity_units: parseInt(itemForm.quantity_units) || 0,
-        production_days: parseInt(itemForm.production_days) || 1,
+        quantity_units: estoqueUnidades,
+        production_days: 1, // Fixo em 1 dia
         unit_weight_kg: editingItem.peso_medio_kg || 0,
         avg_sales_kg: editingItem.vendaMedia || 0,
         avg_sales_units: editingItem.vendaMediaUnd || 0,
@@ -298,7 +613,6 @@ export default function ProducaoSugestao() {
         ...prev,
         [editingItem.codigo]: {
           quantity_units: itemData.quantity_units,
-          production_days: itemData.production_days,
           checked: true
         }
       }));
@@ -316,7 +630,7 @@ export default function ProducaoSugestao() {
         const existingData = auditItems[nextProduct.codigo];
         setItemForm({
           quantity_units: existingData?.quantity_units?.toString() || '',
-          production_days: existingData?.production_days?.toString() || nextProduct.production_days?.toString() || '1'
+          responsible_id: nextProduct.responsible_id || null
         });
       } else {
         setEditingItem(null);
@@ -452,6 +766,8 @@ export default function ProducaoSugestao() {
         return product.margemReal || 0;
       case 'curva':
         return product.curva || 'Z';
+      case 'responsible_name':
+        return product.responsible_name || 'zzz'; // zzz para ordenar sem responsável por último
       default:
         return '';
     }
@@ -485,6 +801,13 @@ export default function ProducaoSugestao() {
     newOrder.splice(dropIndex, 0, draggedItem);
     setColumnOrder(newOrder);
     setDraggedColumn(null);
+
+    // Salvar ordem no localStorage
+    try {
+      localStorage.setItem('producao-auditoria-column-order', JSON.stringify(newOrder));
+    } catch (e) {
+      console.error('Erro ao salvar ordem das colunas:', e);
+    }
   };
 
   // Função para obter classe CSS da célula (cores de fundo)
@@ -554,6 +877,27 @@ export default function ProducaoSugestao() {
         return product.margemReal ? `${product.margemReal.toFixed(1)}%` : '-';
       case 'curva':
         return product.curva || '-';
+      case 'responsible_name':
+        return (
+          <select
+            value={product.responsible_id || ''}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              e.stopPropagation();
+              handleUpdateResponsible(product.codigo, e.target.value || null);
+            }}
+            className={`w-full px-2 py-1 text-xs border rounded cursor-pointer ${
+              product.responsible_id
+                ? 'border-blue-300 bg-blue-50 text-blue-700 font-medium'
+                : 'border-gray-300 bg-gray-50 text-gray-500'
+            }`}
+          >
+            <option value="">Sem responsável</option>
+            {(Array.isArray(employees) ? employees : []).filter(e => e.active).map(emp => (
+              <option key={emp.id} value={emp.id}>{emp.name}</option>
+            ))}
+          </select>
+        );
       case 'acoes':
         return (
           <button
@@ -574,6 +918,15 @@ export default function ProducaoSugestao() {
       // Filtro por status
       if (filter === 'pending' && auditItems[product.codigo]?.checked) return false;
       if (filter === 'checked' && !auditItems[product.codigo]?.checked) return false;
+
+      // Filtro por responsável
+      if (selectedResponsible !== 'TODOS') {
+        if (selectedResponsible === 'SEM_RESPONSAVEL') {
+          if (product.responsible_id) return false;
+        } else {
+          if (product.responsible_id !== selectedResponsible) return false;
+        }
+      }
 
       // Filtro por busca
       if (searchTerm) {
@@ -607,8 +960,6 @@ export default function ProducaoSugestao() {
     checked: checkedCount,
     pending: products.filter(p => !auditItems[p.codigo]?.checked).length
   };
-
-  const { sugestaoKg, sugestaoUnidades, estoqueKg, necessidadeKg } = calculateSuggestion();
 
   // Componente de header clicável para ordenação
   const SortableHeader = ({ sortKey, children, align = 'left' }) => (
@@ -737,6 +1088,18 @@ export default function ProducaoSugestao() {
             </div>
 
             <div className="flex gap-2 flex-wrap items-center">
+              {/* Botão PDF */}
+              <button
+                onClick={handleExportPDF}
+                disabled={loading || stats.pending === 0}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                title="Exportar PDF com todos os itens pendentes"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                PDF
+              </button>
               <select
                 value={selectedSecao}
                 onChange={(e) => setSelectedSecao(e.target.value)}
@@ -755,6 +1118,17 @@ export default function ProducaoSugestao() {
                 <option value="DIRETA">DIRETA</option>
                 <option value="COMPOSICAO">COMPOSICAO</option>
                 <option value="DECOMPOSICAO">DECOMPOSICAO</option>
+              </select>
+              <select
+                value={selectedResponsible}
+                onChange={(e) => setSelectedResponsible(e.target.value)}
+                className="px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm bg-blue-50"
+              >
+                <option value="TODOS">TODOS</option>
+                <option value="SEM_RESPONSAVEL">Sem Responsável</option>
+                {(Array.isArray(employees) ? employees : []).filter(e => e.active).map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.name}</option>
+                ))}
               </select>
               <input
                 type="text"
@@ -814,9 +1188,9 @@ export default function ProducaoSugestao() {
                       </p>
                     </div>
                     <div className="bg-white/20 rounded px-2 py-1">
-                      <p className="text-[10px] text-white/70">Dias Padrão</p>
+                      <p className="text-[10px] text-white/70">Peso Médio</p>
                       <p className="text-xs font-bold">
-                        {editingItem.production_days || 1}
+                        {editingItem.peso_medio_kg ? `${editingItem.peso_medio_kg.toFixed(3)} kg` : '-'}
                       </p>
                     </div>
                   </div>
@@ -912,6 +1286,30 @@ export default function ProducaoSugestao() {
                       </div>
                     )}
 
+                    {/* Responsável */}
+                    <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                      <label className="block text-sm font-medium text-blue-800 mb-1">
+                        👤 Responsável:
+                      </label>
+                      <select
+                        value={itemForm.responsible_id || ''}
+                        onChange={(e) => {
+                          const newValue = e.target.value || null;
+                          setItemForm({ ...itemForm, responsible_id: newValue });
+                          // Salvar automaticamente quando mudar
+                          if (editingItem) {
+                            handleUpdateResponsible(editingItem.codigo, newValue);
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                      >
+                        <option value="">Sem responsável</option>
+                        {(Array.isArray(employees) ? employees : []).filter(e => e.active).map(emp => (
+                          <option key={emp.id} value={emp.id}>{emp.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
                     {/* Estoque em Unidades */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -929,39 +1327,46 @@ export default function ProducaoSugestao() {
                       />
                     </div>
 
-                    {/* Dias de Produção */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Dias de Produção:
-                      </label>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        min="1"
-                        value={itemForm.production_days}
-                        onChange={(e) => setItemForm({ ...itemForm, production_days: e.target.value })}
-                        placeholder="1"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-lg"
-                      />
-                    </div>
-
-                    {/* Cálculos em tempo real */}
+                    {/* Cálculos em tempo real - Sugestões para 1, 3 e 7 dias */}
                     <div className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-200 rounded-lg p-4">
-                      <h4 className="font-semibold text-orange-900 mb-3 text-sm">CÁLCULOS:</h4>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600">Estoque em KG:</span>
-                          <span className="font-bold text-gray-800">{estoqueKg?.toFixed(3) || '0.000'} kg</span>
+                      <h4 className="font-semibold text-orange-900 mb-3 text-sm">SUGESTÃO DE PRODUÇÃO:</h4>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-600">Estoque informado:</span>
+                          <span className="font-bold text-gray-800">
+                            {itemForm.quantity_units || 0} und = {((parseInt(itemForm.quantity_units) || 0) * (editingItem?.peso_medio_kg || 0)).toFixed(3)} kg
+                          </span>
                         </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600">Necessidade ({itemForm.production_days || 1} dias):</span>
-                          <span className="font-bold text-gray-800">{necessidadeKg?.toFixed(3) || '0.000'} kg</span>
-                        </div>
-                        <div className="flex justify-between items-center border-t border-orange-200 pt-2">
-                          <span className="text-sm text-gray-600 font-semibold">Sugestão:</span>
-                          <div className="text-right">
-                            <span className="font-bold text-green-700 text-lg">{sugestaoKg?.toFixed(3) || '0.000'} kg</span>
-                            <span className="text-blue-700 font-bold ml-2">({sugestaoUnidades} und)</span>
+                        <div className="border-t border-orange-200 pt-2 space-y-2">
+                          {/* 1 dia */}
+                          <div className="flex justify-between items-center bg-green-50 rounded px-2 py-1">
+                            <span className="text-sm font-medium text-green-800">📅 1 dia:</span>
+                            <span className="font-bold text-green-700">
+                              {Math.max(0, ((editingItem?.vendaMedia || 0) * 1) - ((parseInt(itemForm.quantity_units) || 0) * (editingItem?.peso_medio_kg || 0))).toFixed(3)} kg
+                              <span className="text-green-600 ml-1">
+                                ({Math.ceil(Math.max(0, ((editingItem?.vendaMedia || 0) * 1) - ((parseInt(itemForm.quantity_units) || 0) * (editingItem?.peso_medio_kg || 0))) / (editingItem?.peso_medio_kg || 1))} und)
+                              </span>
+                            </span>
+                          </div>
+                          {/* 3 dias */}
+                          <div className="flex justify-between items-center bg-blue-50 rounded px-2 py-1">
+                            <span className="text-sm font-medium text-blue-800">📅 3 dias:</span>
+                            <span className="font-bold text-blue-700">
+                              {Math.max(0, ((editingItem?.vendaMedia || 0) * 3) - ((parseInt(itemForm.quantity_units) || 0) * (editingItem?.peso_medio_kg || 0))).toFixed(3)} kg
+                              <span className="text-blue-600 ml-1">
+                                ({Math.ceil(Math.max(0, ((editingItem?.vendaMedia || 0) * 3) - ((parseInt(itemForm.quantity_units) || 0) * (editingItem?.peso_medio_kg || 0))) / (editingItem?.peso_medio_kg || 1))} und)
+                              </span>
+                            </span>
+                          </div>
+                          {/* 7 dias */}
+                          <div className="flex justify-between items-center bg-purple-50 rounded px-2 py-1">
+                            <span className="text-sm font-medium text-purple-800">📅 7 dias:</span>
+                            <span className="font-bold text-purple-700">
+                              {Math.max(0, ((editingItem?.vendaMedia || 0) * 7) - ((parseInt(itemForm.quantity_units) || 0) * (editingItem?.peso_medio_kg || 0))).toFixed(3)} kg
+                              <span className="text-purple-600 ml-1">
+                                ({Math.ceil(Math.max(0, ((editingItem?.vendaMedia || 0) * 7) - ((parseInt(itemForm.quantity_units) || 0) * (editingItem?.peso_medio_kg || 0))) / (editingItem?.peso_medio_kg || 1))} und)
+                              </span>
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -1084,15 +1489,32 @@ export default function ProducaoSugestao() {
                   <tr>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Produto</th>
-                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Últ. Venda</th>
+                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Curva</th>
                     <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Dias S/Venda</th>
-                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Peso Médio</th>
+                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Estoque</th>
                     <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Venda Média</th>
-                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estoque</th>
-                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Dias Prod.</th>
-                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase bg-green-50">Sugestão (kg)</th>
-                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase bg-blue-50">Sugestão (und)</th>
+                    {/* Sugestão 1 dia - Verde */}
+                    <th className="px-3 py-3 text-center text-xs font-medium text-green-700 uppercase bg-green-100" colSpan="2">📅 1 Dia</th>
+                    {/* Sugestão 3 dias - Azul */}
+                    <th className="px-3 py-3 text-center text-xs font-medium text-blue-700 uppercase bg-blue-100" colSpan="2">📅 3 Dias</th>
+                    {/* Sugestão 7 dias - Roxo */}
+                    <th className="px-3 py-3 text-center text-xs font-medium text-purple-700 uppercase bg-purple-100" colSpan="2">📅 7 Dias</th>
                     <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
+                  </tr>
+                  <tr className="bg-gray-100">
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th className="px-2 py-1 text-xs font-medium text-green-600 bg-green-50">kg</th>
+                    <th className="px-2 py-1 text-xs font-medium text-green-600 bg-green-50">und</th>
+                    <th className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50">kg</th>
+                    <th className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50">und</th>
+                    <th className="px-2 py-1 text-xs font-medium text-purple-600 bg-purple-50">kg</th>
+                    <th className="px-2 py-1 text-xs font-medium text-purple-600 bg-purple-50">und</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -1102,6 +1524,22 @@ export default function ProducaoSugestao() {
                       // Buscar produto na lista de produtos ERP para poder editar
                       const productFromERP = allProducts.find(p => p.codigo === item.product_code);
                       const diasSemVenda = item.days_without_sale ?? calcularDiasSemVenda(item.last_sale_date);
+
+                      // Calcular sugestões para 1, 3 e 7 dias
+                      const estoqueKg = (item.quantity_units || 0) * (parseFloat(item.unit_weight_kg) || 0);
+                      const vendaMediaKg = parseFloat(item.avg_sales_kg) || 0;
+                      const pesoMedio = parseFloat(item.unit_weight_kg) || 0;
+
+                      const calcSug = (dias) => {
+                        const necessidade = vendaMediaKg * dias;
+                        const sugKg = Math.max(0, necessidade - estoqueKg);
+                        const sugUnd = pesoMedio > 0 ? Math.ceil(sugKg / pesoMedio) : 0;
+                        return { kg: sugKg, und: sugUnd };
+                      };
+
+                      const sug1 = calcSug(1);
+                      const sug3 = calcSug(3);
+                      const sug7 = calcSug(7);
 
                       return (
                         <tr
@@ -1113,29 +1551,47 @@ export default function ProducaoSugestao() {
                           <td className="px-3 py-3">
                             <p className="font-medium text-gray-900 text-sm">{item.product_name}</p>
                           </td>
-                          <td className="px-3 py-3 text-sm text-center text-gray-700">
-                            {formatarData(item.last_sale_date)}
+                          <td className={`px-3 py-3 text-sm text-center font-bold ${
+                            item.curva === 'A' ? 'text-green-600 bg-green-100' :
+                            item.curva === 'B' ? 'text-blue-600 bg-blue-100' :
+                            item.curva === 'C' ? 'text-yellow-600 bg-yellow-100' :
+                            'text-red-600 bg-red-100'
+                          }`}>
+                            {item.curva || '-'}
                           </td>
                           <td className={`px-3 py-3 text-sm text-center font-semibold ${
                             diasSemVenda === null ? 'text-gray-400' :
-                            diasSemVenda <= 1 ? 'text-green-600' :
-                            diasSemVenda <= 3 ? 'text-yellow-600' : 'text-red-600'
+                            diasSemVenda <= 1 ? 'text-green-600 bg-green-100' :
+                            diasSemVenda <= 3 ? 'text-yellow-600 bg-yellow-100' : 'text-red-600 bg-red-100'
                           }`}>
                             {diasSemVenda ?? '-'}
                           </td>
                           <td className="px-3 py-3 text-sm text-right text-gray-700">
-                            {item.unit_weight_kg ? `${parseFloat(item.unit_weight_kg).toFixed(3)} kg` : '-'}
+                            {item.quantity_units} und ({estoqueKg.toFixed(2)} kg)
                           </td>
                           <td className="px-3 py-3 text-sm text-right text-gray-700">
-                            {item.avg_sales_kg ? `${parseFloat(item.avg_sales_kg).toFixed(3)} kg/dia` : '-'}
+                            {item.avg_sales_kg ? `${parseFloat(item.avg_sales_kg).toFixed(2)} kg/dia` : '-'}
                           </td>
-                          <td className="px-3 py-3 text-sm text-center font-medium">{item.quantity_units} und</td>
-                          <td className="px-3 py-3 text-sm text-center">{item.production_days || 1}</td>
-                          <td className="px-3 py-3 text-sm text-center font-semibold text-green-700 bg-green-50">
-                            {parseFloat(item.suggested_production_kg || 0).toFixed(3)}
+                          {/* Sugestão 1 dia - Verde */}
+                          <td className="px-2 py-3 text-sm text-center font-semibold text-green-700 bg-green-50">
+                            {sug1.kg.toFixed(2)}
                           </td>
-                          <td className="px-3 py-3 text-sm text-center font-semibold text-blue-700 bg-blue-50">
-                            {item.suggested_production_units || 0}
+                          <td className="px-2 py-3 text-sm text-center font-semibold text-green-700 bg-green-50">
+                            {sug1.und}
+                          </td>
+                          {/* Sugestão 3 dias - Azul */}
+                          <td className="px-2 py-3 text-sm text-center font-semibold text-blue-700 bg-blue-50">
+                            {sug3.kg.toFixed(2)}
+                          </td>
+                          <td className="px-2 py-3 text-sm text-center font-semibold text-blue-700 bg-blue-50">
+                            {sug3.und}
+                          </td>
+                          {/* Sugestão 7 dias - Roxo */}
+                          <td className="px-2 py-3 text-sm text-center font-semibold text-purple-700 bg-purple-50">
+                            {sug7.kg.toFixed(2)}
+                          </td>
+                          <td className="px-2 py-3 text-sm text-center font-semibold text-purple-700 bg-purple-50">
+                            {sug7.und}
                           </td>
                           <td className="px-3 py-3 text-center">
                             <div className="flex justify-center gap-2">

@@ -47,4 +47,7 @@ router.post('/audits/:id/send-whatsapp', ProductionAuditController.sendToWhatsAp
 // Limpar cache de produtos (força recarregar do Oracle)
 router.post('/clear-cache', ProductionAuditController.clearCache);
 
+// Atualizar responsável do produto
+router.patch('/products/:productCode/responsible', ProductionAuditController.updateProductResponsible);
+
 export default router;
