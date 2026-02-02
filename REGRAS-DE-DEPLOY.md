@@ -621,6 +621,38 @@ ssh root@46.202.150.64 "docker logs prevencao-tradicao-backend --tail 20 | grep 
 
 **Prevenção futura:** Sempre verificar o host Oracle após deploy ou ao configurar conexão Intersolid.
 
+### 🛡️ SOLUÇÃO PERMANENTE: Variáveis de Ambiente
+
+O `OracleService` já suporta uma **ordem de prioridade** para configuração:
+
+1. **Variáveis de ambiente** `ORACLE_CONNECT_STRING` (mais alta prioridade)
+2. **Tabela `database_connections`** (PostgreSQL)
+3. **Valores padrão hardcoded** (fallback)
+
+**A solução para não conflitar nunca mais:**
+
+| Ambiente | Configuração | Como aplicar |
+|----------|--------------|--------------|
+| **VPS (Docker)** | Variável de ambiente no docker-compose | `ORACLE_CONNECT_STRING=172.20.0.1:1521/orcl.intersoul` |
+| **Local** | Usa tabela `database_connections` | Configurar host `10.6.1.100` na tela de Configurações |
+
+**Como configurar na VPS (docker-compose.yml do cliente):**
+
+```yaml
+services:
+  backend:
+    environment:
+      # Força o Oracle a usar o gateway Docker (túnel SSH)
+      ORACLE_CONNECT_STRING: "172.20.0.1:1521/orcl.intersoul"
+      ORACLE_USER: "POWERBI"
+      ORACLE_PASSWORD: "OdRz6J4LY6Y6"
+```
+
+**Benefícios:**
+- VPS **sempre** usa `172.20.0.1` via variável de ambiente
+- Local **sempre** usa o que está configurado na tela (tabela do banco)
+- **Nunca mais conflita!** Cada ambiente tem sua config isolada
+
 ---
 
 **Última atualização:** 01/02/2026 - Adicionado regra do host Oracle (local vs VPS)

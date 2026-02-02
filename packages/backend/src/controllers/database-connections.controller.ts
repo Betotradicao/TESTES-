@@ -62,7 +62,7 @@ export class DatabaseConnectionsController {
    */
   async create(req: Request, res: Response) {
     try {
-      const { name, type, host, port, service, database, username, password, schema, is_default, status } = req.body;
+      const { name, type, host, host_vps, port, service, database, username, password, schema, is_default, status } = req.body;
 
       if (!name || !type || !host || !port || !username || !password) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -85,6 +85,7 @@ export class DatabaseConnectionsController {
         name,
         type,
         host,
+        host_vps: host_vps || '172.20.0.1', // Padrão gateway Docker
         port: parseInt(port),
         service,
         database,
@@ -116,7 +117,7 @@ export class DatabaseConnectionsController {
   async update(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { name, type, host, port, service, database, username, password, schema, is_default, status } = req.body;
+      const { name, type, host, host_vps, port, service, database, username, password, schema, is_default, status } = req.body;
 
       const connection = await connectionRepository.findOne({
         where: { id: parseInt(id) }
@@ -135,6 +136,7 @@ export class DatabaseConnectionsController {
       connection.name = name || connection.name;
       connection.type = type || connection.type;
       connection.host = host || connection.host;
+      connection.host_vps = host_vps !== undefined ? host_vps : connection.host_vps;
       connection.port = port ? parseInt(port) : connection.port;
       connection.service = service !== undefined ? service : connection.service;
       connection.database = database !== undefined ? database : connection.database;

@@ -588,6 +588,7 @@ export default function ConfiguracoesTabelas() {
         name: connectionData.name,
         type: connectionData.type,
         host: connectionData.host,
+        host_vps: connectionData.host_vps || '172.20.0.1', // Host IP VPS (gateway Docker)
         port: connectionData.port,
         service: connectionData.service || connectionData.database, // Oracle usa service
         database: connectionData.database,
@@ -1324,6 +1325,7 @@ export default function ConfiguracoesTabelas() {
           name: editingConnection.name || '',
           type: editingConnection.type || 'oracle',
           host: editingConnection.host || '',
+          host_vps: editingConnection.host_vps || '172.20.0.1',
           port: editingConnection.port?.toString() || '1521',
           service: editingConnection.service || '',
           database: editingConnection.database || editingConnection.service || '',
@@ -1339,6 +1341,7 @@ export default function ConfiguracoesTabelas() {
         name: isFromTemplate ? `Conexão ${selectedTemplate?.name || ''}` : '',
         type: isFromTemplate ? templateDbType : 'oracle',
         host: '',
+        host_vps: '172.20.0.1', // Padrão gateway Docker
         port: '', // Vazio para nova conexão
         service: '',
         database: '',
@@ -1503,15 +1506,28 @@ export default function ConfiguracoesTabelas() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Host/IP *
+                  Host IP Rede Local *
                 </label>
                 <input
                   type="text"
                   value={formData.host}
                   onChange={(e) => handleChange('host', e.target.value)}
-                  placeholder="Ex: 10.0.0.50"
+                  placeholder="Ex: 10.6.1.100"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Host IP VPS
+                </label>
+                <input
+                  type="text"
+                  value={formData.host_vps || '172.20.0.1'}
+                  onChange={(e) => handleChange('host_vps', e.target.value)}
+                  placeholder="172.20.0.1"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-gray-50"
+                />
+                <p className="text-xs text-gray-500 mt-1">Gateway Docker (padrão: 172.20.0.1)</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

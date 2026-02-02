@@ -175,10 +175,11 @@ export class CompraVendaService {
    * Busca as lojas disponíveis
    */
   static async getLojas(): Promise<any[]> {
+    // TAB_LOJA usa FLG_DESATIVADA (não FLG_INATIVO)
     const sql = `
       SELECT COD_LOJA, DES_LOJA
       FROM INTERSOLID.TAB_LOJA
-      WHERE FLG_INATIVO IS NULL OR FLG_INATIVO = 'N'
+      WHERE FLG_DESATIVADA IS NULL OR FLG_DESATIVADA = 'N'
       ORDER BY DES_LOJA
     `;
 

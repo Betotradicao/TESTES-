@@ -65,12 +65,20 @@ export class OracleService {
           console.log('🔍 Oracle connection found in database_connections:', oracleConnection ? oracleConnection.name : 'NONE');
 
           if (oracleConnection) {
+            // Detecta se está em ambiente VPS/Docker (NODE_ENV=production ou rodando em container)
+            const isVps = process.env.NODE_ENV === 'production' || process.env.DOCKER_CONTAINER === 'true';
+            // Usa host_vps quando na VPS, senão usa host local
+            const hostToUse = isVps && oracleConnection.host_vps
+              ? oracleConnection.host_vps
+              : oracleConnection.host;
+
             this.oracleConfig = {
               user: oracleConnection.username,
               password: oracleConnection.password,
-              connectString: `${oracleConnection.host}:${oracleConnection.port}/${oracleConnection.service || 'orcl'}`
+              connectString: `${hostToUse}:${oracleConnection.port}/${oracleConnection.service || 'orcl'}`
             };
-            console.log(`📦 Oracle config loaded from database_connections: ${oracleConnection.name} (${oracleConnection.host}:${oracleConnection.port}/${oracleConnection.service})`);
+            console.log(`📦 Oracle config loaded from database_connections: ${oracleConnection.name}`);
+            console.log(`   Ambiente: ${isVps ? 'VPS/Docker' : 'Local'} → Host: ${hostToUse}:${oracleConnection.port}/${oracleConnection.service}`);
             this.configLoaded = true;
             return;
           } else {
