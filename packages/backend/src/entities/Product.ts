@@ -91,6 +91,12 @@ export class Product {
     posicao?: string;
   };
 
+  @Column({ type: 'boolean', default: false })
+  sem_exposicao: boolean;
+
+  @Column({ type: 'integer', nullable: true })
+  grupo_similar: number | null;
+
   @CreateDateColumn()
   created_at: Date;
 

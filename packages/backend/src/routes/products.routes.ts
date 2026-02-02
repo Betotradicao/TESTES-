@@ -244,6 +244,15 @@ router.get('/oracle', authenticateToken, ProductsController.getProductsOracle);
 // IMPORTANTE: Esta rota específica deve vir ANTES de rotas com /:id
 router.get('/nf/:numNf/danfe', authenticateToken, ProductsController.getDanfe);
 
+// Peculiaridades - Produtos sem exposição em gôndola
+router.get('/peculiaridades', authenticateToken, ProductsController.getPeculiaridades);
+router.put('/peculiaridades', authenticateToken, ProductsController.updatePeculiaridades);
+router.get('/sem-exposicao', authenticateToken, ProductsController.getProductsSemExposicao);
+
+// Produtos Similares - Grupos de produtos alternativos/substitutos
+router.get('/grupos-similares', authenticateToken, ProductsController.getGruposSimilares);
+router.get('/similares/:erp_product_id', authenticateToken, ProductsController.getProductsSimilares);
+
 /**
  * @swagger
  * /api/products/{id}/activate:

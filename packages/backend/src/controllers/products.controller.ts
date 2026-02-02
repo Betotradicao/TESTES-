@@ -1849,4 +1849,274 @@ export class ProductsController {
       res.status(500).json({ error: error.message || 'Erro ao buscar DANFE' });
     }
   }
+
+  /**
+   * Lista produtos para configuração de peculiaridades (sem_exposicao)
+   * Retorna produtos do banco local com status de peculiaridades
+   */
+  static async getPeculiaridades(req: AuthRequest, res: Response) {
+    try {
+      const { search, secao, grupo, subgrupo, page = 1, limit = 50 } = req.query;
+
+      const productRepository = AppDataSource.getRepository(Product);
+
+      const queryBuilder = productRepository.createQueryBuilder('p')
+        .select([
+          'p.id',
+          'p.erp_product_id',
+          'p.ean',
+          'p.description',
+          'p.section_name',
+          'p.group_name',
+          'p.subgroup_name',
+          'p.sem_exposicao',
+          'p.grupo_similar'
+        ]);
+
+      // Array para acumular condições
+      const conditions: string[] = [];
+      const params: Record<string, any> = {};
+
+      // Filtro de busca
+      if (search) {
+        conditions.push('(p.ean ILIKE :search OR p.description ILIKE :search OR p.erp_product_id ILIKE :search)');
+        params.search = `%${search}%`;
+      }
+
+      // Filtro de seção
+      if (secao) {
+        conditions.push('p.section_name = :secao');
+        params.secao = secao;
+      }
+
+      // Filtro de grupo
+      if (grupo) {
+        conditions.push('p.group_name = :grupo');
+        params.grupo = grupo;
+      }
+
+      // Filtro de subgrupo
+      if (subgrupo) {
+        conditions.push('p.subgroup_name = :subgrupo');
+        params.subgrupo = subgrupo;
+      }
+
+      // Aplicar condições
+      if (conditions.length > 0) {
+        queryBuilder.where(conditions.join(' AND '), params);
+      }
+
+      // Paginação
+      const skip = (Number(page) - 1) * Number(limit);
+      queryBuilder.skip(skip).take(Number(limit));
+      queryBuilder.orderBy('p.description', 'ASC');
+
+      const [products, total] = await queryBuilder.getManyAndCount();
+
+      // Buscar listas de grupos e subgrupos FILTRADOS pela seção/grupo selecionados
+      const gruposQuery = productRepository
+        .createQueryBuilder('p')
+        .select('DISTINCT p.group_name', 'group_name')
+        .where('p.group_name IS NOT NULL');
+
+      if (secao) {
+        gruposQuery.andWhere('p.section_name = :secaoGrupo', { secaoGrupo: secao });
+      }
+      const gruposResult = await gruposQuery.orderBy('p.group_name', 'ASC').getRawMany();
+
+      const subgruposQuery = productRepository
+        .createQueryBuilder('p')
+        .select('DISTINCT p.subgroup_name', 'subgroup_name')
+        .where('p.subgroup_name IS NOT NULL');
+
+      if (secao) {
+        subgruposQuery.andWhere('p.section_name = :secaoSub', { secaoSub: secao });
+      }
+      if (grupo) {
+        subgruposQuery.andWhere('p.group_name = :grupoSub', { grupoSub: grupo });
+      }
+      const subgruposResult = await subgruposQuery.orderBy('p.subgroup_name', 'ASC').getRawMany();
+
+      res.json({
+        products: products.map(p => ({
+          id: p.id,
+          erp_product_id: p.erp_product_id,
+          ean: p.ean,
+          description: p.description,
+          section_name: p.section_name,
+          group_name: p.group_name,
+          subgroup_name: p.subgroup_name,
+          sem_exposicao: p.sem_exposicao || false,
+          grupo_similar: p.grupo_similar
+        })),
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / Number(limit)),
+        grupos: gruposResult.map(g => g.group_name).filter(Boolean),
+        subgrupos: subgruposResult.map(s => s.subgroup_name).filter(Boolean)
+      });
+
+    } catch (error: any) {
+      console.error('Get peculiaridades error:', error);
+      res.status(500).json({ error: error.message || 'Erro ao buscar peculiaridades' });
+    }
+  }
+
+  /**
+   * Atualiza peculiaridades (sem_exposicao) em lote
+   */
+  static async updatePeculiaridades(req: AuthRequest, res: Response) {
+    try {
+      const { products } = req.body;
+
+      if (!Array.isArray(products)) {
+        return res.status(400).json({ error: 'products deve ser um array' });
+      }
+
+      const productRepository = AppDataSource.getRepository(Product);
+
+      let updated = 0;
+      let errors: string[] = [];
+
+      for (const item of products) {
+        try {
+          const { erp_product_id, sem_exposicao, grupo_similar } = item;
+
+          if (!erp_product_id) continue;
+
+          const product = await productRepository.findOne({
+            where: { erp_product_id: String(erp_product_id) }
+          });
+
+          if (product) {
+            product.sem_exposicao = Boolean(sem_exposicao);
+            // grupo_similar pode ser null para remover o grupo
+            product.grupo_similar = grupo_similar !== undefined && grupo_similar !== ''
+              ? Number(grupo_similar)
+              : null;
+            await productRepository.save(product);
+            updated++;
+          }
+        } catch (err: any) {
+          errors.push(`Erro no produto ${item.erp_product_id}: ${err.message}`);
+        }
+      }
+
+      res.json({
+        message: `${updated} produtos atualizados`,
+        updated,
+        errors: errors.length > 0 ? errors : undefined
+      });
+
+    } catch (error: any) {
+      console.error('Update peculiaridades error:', error);
+      res.status(500).json({ error: error.message || 'Erro ao atualizar peculiaridades' });
+    }
+  }
+
+  /**
+   * Retorna lista de produtos marcados como sem_exposicao
+   */
+  static async getProductsSemExposicao(req: AuthRequest, res: Response) {
+    try {
+      const productRepository = AppDataSource.getRepository(Product);
+
+      const products = await productRepository.find({
+        where: { sem_exposicao: true, active: true },
+        select: ['erp_product_id', 'ean', 'description']
+      });
+
+      res.json({
+        products: products.map(p => p.erp_product_id),
+        details: products
+      });
+
+    } catch (error: any) {
+      console.error('Get products sem exposicao error:', error);
+      res.status(500).json({ error: error.message || 'Erro ao buscar produtos sem exposição' });
+    }
+  }
+
+  /**
+   * Retorna produtos similares (mesmo grupo_similar)
+   * Usado na verificação de ruptura para mostrar alternativas
+   */
+  static async getProductsSimilares(req: AuthRequest, res: Response) {
+    try {
+      const { erp_product_id } = req.params;
+
+      const productRepository = AppDataSource.getRepository(Product);
+
+      // Primeiro, buscar o produto para obter seu grupo_similar
+      const product = await productRepository.findOne({
+        where: { erp_product_id },
+        select: ['grupo_similar', 'erp_product_id']
+      });
+
+      if (!product || !product.grupo_similar) {
+        return res.json({ similares: [], grupo_similar: null });
+      }
+
+      // Buscar todos os produtos do mesmo grupo (exceto o próprio produto)
+      const similares = await productRepository.find({
+        where: {
+          grupo_similar: product.grupo_similar,
+          active: true
+        },
+        select: ['erp_product_id', 'ean', 'description', 'section_name', 'grupo_similar']
+      });
+
+      // Filtrar o produto atual da lista
+      const outrosSimilares = similares.filter(p => p.erp_product_id !== erp_product_id);
+
+      res.json({
+        grupo_similar: product.grupo_similar,
+        similares: outrosSimilares
+      });
+
+    } catch (error: any) {
+      console.error('Get products similares error:', error);
+      res.status(500).json({ error: error.message || 'Erro ao buscar produtos similares' });
+    }
+  }
+
+  /**
+   * Retorna todos os grupos similares com seus produtos
+   * Útil para listar todos os grupos configurados
+   */
+  static async getGruposSimilares(req: AuthRequest, res: Response) {
+    try {
+      const productRepository = AppDataSource.getRepository(Product);
+
+      const products = await productRepository
+        .createQueryBuilder('p')
+        .select(['p.erp_product_id', 'p.description', 'p.grupo_similar'])
+        .where('p.grupo_similar IS NOT NULL')
+        .andWhere('p.active = :active', { active: true })
+        .orderBy('p.grupo_similar', 'ASC')
+        .addOrderBy('p.description', 'ASC')
+        .getMany();
+
+      // Agrupar por grupo_similar
+      const grupos: Record<number, any[]> = {};
+      for (const p of products) {
+        if (p.grupo_similar) {
+          if (!grupos[p.grupo_similar]) {
+            grupos[p.grupo_similar] = [];
+          }
+          grupos[p.grupo_similar].push({
+            erp_product_id: p.erp_product_id,
+            description: p.description
+          });
+        }
+      }
+
+      res.json({ grupos });
+
+    } catch (error: any) {
+      console.error('Get grupos similares error:', error);
+      res.status(500).json({ error: error.message || 'Erro ao buscar grupos similares' });
+    }
+  }
 }

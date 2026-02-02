@@ -18,11 +18,54 @@ export default function RupturaVerificacao() {
   const [employees, setEmployees] = useState([]);
   const [finalizing, setFinalizing] = useState(false);
   const [produtosSelecionados, setProdutosSelecionados] = useState([]);
+  const [produtosSemExposicao, setProdutosSemExposicao] = useState([]);
+  const [produtosSimilares, setProdutosSimilares] = useState([]);
+  const [loadingSimilares, setLoadingSimilares] = useState(false);
 
   useEffect(() => {
     loadSurvey();
     loadEmployees();
+    loadProdutosSemExposicao();
   }, [surveyId]);
+
+  const loadProdutosSemExposicao = async () => {
+    try {
+      const response = await api.get('/products/sem-exposicao');
+      setProdutosSemExposicao(response.data.products || []);
+    } catch (err) {
+      console.error('Erro ao carregar produtos sem exposicao:', err);
+    }
+  };
+
+  const isProdutoSemExposicao = (codigoProduto) => {
+    return produtosSemExposicao.includes(String(codigoProduto));
+  };
+
+  // Carregar produtos similares quando o item atual mudar
+  const loadProdutosSimilares = async (erpProductId) => {
+    if (!erpProductId) {
+      setProdutosSimilares([]);
+      return;
+    }
+    setLoadingSimilares(true);
+    try {
+      const response = await api.get(`/products/similares/${erpProductId}`);
+      setProdutosSimilares(response.data.similares || []);
+    } catch (err) {
+      console.error('Erro ao carregar produtos similares:', err);
+      setProdutosSimilares([]);
+    } finally {
+      setLoadingSimilares(false);
+    }
+  };
+
+  // Carregar similares quando mudar o item atual
+  useEffect(() => {
+    if (items.length > 0 && items[currentIndex]) {
+      const currentItem = items[currentIndex];
+      loadProdutosSimilares(currentItem.erp_product_id);
+    }
+  }, [currentIndex, items]);
 
   // Carregar progresso somente APÓS items serem carregados
   useEffect(() => {
@@ -467,7 +510,18 @@ export default function RupturaVerificacao() {
         </div>
 
         {/* Product Card */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <div className={`rounded-lg shadow-lg p-6 mb-6 ${isProdutoSemExposicao(currentItem.erp_product_id) ? 'bg-orange-50 border-2 border-orange-400' : 'bg-white'}`}>
+          {/* Badge SEM EXPOSICAO */}
+          {isProdutoSemExposicao(currentItem.erp_product_id) && (
+            <div className="mb-4 bg-orange-500 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span className="font-bold">PRODUTO SEM EXPOSICAO EM GONDOLA</span>
+              <span className="text-sm">(produto interno - nao procurar na prateleira)</span>
+            </div>
+          )}
+
           <div className="mb-4">
             <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-2">
               📦 {currentItem.descricao}
@@ -475,7 +529,7 @@ export default function RupturaVerificacao() {
 
             {currentItem.codigo_barras && (
               <p className="text-sm text-gray-600">
-                Código: {currentItem.codigo_barras}
+                Codigo: {currentItem.codigo_barras}
               </p>
             )}
           </div>
@@ -540,6 +594,44 @@ export default function RupturaVerificacao() {
               </div>
             )}
           </div>
+
+          {/* Produtos Similares */}
+          {produtosSimilares.length > 0 && (
+            <div className="mb-4 p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+                <span className="font-bold text-blue-700">ITENS SIMILARES</span>
+                <span className="text-sm text-blue-600">(alternativas disponiveis)</span>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-blue-600">
+                    <th className="pb-2">Codigo</th>
+                    <th className="pb-2">Descricao</th>
+                    <th className="pb-2">Secao</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-700">
+                  {produtosSimilares.map((similar) => (
+                    <tr key={similar.erp_product_id} className="border-t border-blue-200">
+                      <td className="py-2 font-mono">{similar.erp_product_id}</td>
+                      <td className="py-2">{similar.description}</td>
+                      <td className="py-2">{similar.section_name || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {loadingSimilares && (
+            <div className="mb-4 text-sm text-gray-500 flex items-center gap-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+              Carregando itens similares...
+            </div>
+          )}
 
           {/* Status Buttons */}
           <div className="space-y-3">
