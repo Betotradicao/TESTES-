@@ -655,5 +655,127 @@ services:
 
 ---
 
-**Última atualização:** 01/02/2026 - Adicionado regra do host Oracle (local vs VPS)
+---
+
+## 🧹 REGRA #4: SEMPRE LIMPAR CACHE DO DOCKER APÓS DEPLOY!
+
+### ⚠️ PROBLEMA: Disco enche após múltiplos deploys
+
+O Docker acumula **cache de build** a cada execução de `docker compose build --no-cache`. Isso pode facilmente ocupar **30GB+ de espaço** após alguns deploys, causando:
+
+- VPS travando ou ficando sem resposta
+- Builds falhando por falta de espaço
+- Erro "No space left on device"
+
+### 📊 Exemplo Real (02/02/2026)
+
+```
+ANTES do deploy:  49GB/50GB usado (1GB livre)
+DEPOIS do deploy: VPS travou - disco 100% cheio
+APÓS limpeza:     34GB/96GB usado (62GB livre)
+```
+
+### ✅ PROCESSO CORRETO DE DEPLOY (COM LIMPEZA)
+
+```bash
+# 1. Atualizar código
+cd /root/prevencao-radar-repo && git pull origin TESTE
+
+# 2. Ir para o cliente
+cd /root/clientes/tradicao
+
+# 3. Build com --no-cache (necessário para pegar mudanças no código)
+docker compose build --no-cache frontend backend
+
+# 4. Subir containers (--no-deps preserva PostgreSQL/MinIO)
+docker compose up -d --no-deps frontend backend
+
+# 5. ⚠️ IMPORTANTE: Limpar cache do Docker após o build
+docker builder prune -f
+docker image prune -f
+```
+
+### 📋 Tabela de Referência Rápida
+
+| Flag/Comando | O que faz |
+|--------------|-----------|
+| `--no-cache` | Força rebuild completo (pega alterações no código) |
+| `--no-deps` | Não recria PostgreSQL/MinIO (preserva dados e senhas) |
+| `docker builder prune -f` | Limpa cache de build (libera muito espaço) |
+| `docker image prune -f` | Remove imagens antigas não usadas |
+
+### 🔄 Script de Deploy Completo (Recomendado)
+
+Crie o arquivo `/root/deploy-cliente.sh`:
+
+```bash
+#!/bin/bash
+# Script de deploy seguro com limpeza de cache
+
+CLIENTE=${1:-tradicao}
+
+echo "🚀 Iniciando deploy para cliente: $CLIENTE"
+
+# Atualizar código
+cd /root/prevencao-radar-repo && git pull origin TESTE
+
+# Build e deploy
+cd /root/clientes/$CLIENTE
+docker compose build --no-cache frontend backend
+docker compose up -d --no-deps frontend backend
+
+# Limpar cache (IMPORTANTE!)
+echo "🧹 Limpando cache do Docker..."
+docker builder prune -f
+docker image prune -f
+
+# Verificar
+echo "✅ Deploy concluído! Verificando containers..."
+docker compose ps
+
+echo "📊 Espaço em disco:"
+df -h /
+
+echo "🎉 Pronto!"
+```
+
+**Uso:**
+```bash
+chmod +x /root/deploy-cliente.sh
+./deploy-cliente.sh tradicao    # Deploy no cliente Tradição
+./deploy-cliente.sh piratininga # Deploy no cliente Piratininga
+```
+
+### 🔍 Como verificar espaço do Docker
+
+```bash
+# Ver uso geral do Docker
+docker system df
+
+# Ver detalhado (imagens, containers, volumes, cache)
+docker system df -v
+
+# Ver espaço em disco da VPS
+df -h
+```
+
+### 🎓 Lição Aprendida (02/02/2026)
+
+**Problema:** VPS 46 travou durante deploy - disco encheu e SSH parou de responder.
+
+**Causa:** O `docker compose build --no-cache` acumula cache a cada execução. Sem limpeza periódica, o disco encheu rapidamente (49GB → 100%).
+
+**Solução:**
+1. Usuário aumentou limite da VPS de 50GB para 100GB
+2. Após deploy, executar `docker builder prune -f && docker image prune -f`
+3. Isso liberou ~30GB de espaço
+
+**Prevenção:**
+- Sempre limpar cache após o deploy
+- Verificar `df -h` antes de fazer deploy
+- Se espaço < 10GB, limpar antes do deploy
+
+---
+
+**Última atualização:** 02/02/2026 - Adicionado regra de limpeza de cache Docker após deploy
 **Criado por:** Claude (aprendendo com cada erro 🎓)

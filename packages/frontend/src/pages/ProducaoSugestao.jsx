@@ -287,16 +287,16 @@ export default function ProducaoSugestao() {
     }
   };
 
-  // Exportar para PDF - Itens conferidos com sugestões de produção
+  // Exportar para PDF - Itens PENDENTES (tabela atual)
   const handleExportPDF = async () => {
     try {
       setLoading(true);
 
-      // Produtos conferidos (com estoque informado)
-      const productsToExport = filteredProducts.filter(p => auditItems[p.codigo]?.checked);
+      // Produtos PENDENTES (não conferidos) - mesma lista exibida na tabela
+      const productsToExport = filteredProducts.filter(p => !auditItems[p.codigo]?.checked);
 
       if (productsToExport.length === 0) {
-        setError('Nenhum produto conferido para exportar. Confira os itens primeiro.');
+        setError('Nenhum produto pendente para exportar.');
         setTimeout(() => setError(''), 3000);
         setLoading(false);
         return;
@@ -312,9 +312,6 @@ export default function ProducaoSugestao() {
       // Cores
       const orangeColor = [234, 88, 12]; // #EA580C
       const whiteColor = [255, 255, 255];
-      const greenColor = [22, 163, 74];
-      const blueColor = [37, 99, 235];
-      const purpleColor = [147, 51, 234];
 
       // Header com fundo laranja
       doc.setFillColor(...orangeColor);
@@ -324,82 +321,87 @@ export default function ProducaoSugestao() {
       doc.setTextColor(...whiteColor);
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.text(`Sugestão de Produção - ${todayStr.split('-').reverse().join('/')}`, 14, 12);
+      doc.text(`Itens Pendentes - ${todayStr.split('-').reverse().join('/')}`, 14, 12);
 
       // Subtítulo
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Seção: ${selectedSecao} | Tipo: ${selectedTipo} | Total: ${productsToExport.length} produtos conferidos`, 14, 20);
+      doc.text(`Seção: ${selectedSecao} | Tipo: ${selectedTipo} | Total: ${productsToExport.length} itens pendentes`, 14, 20);
 
-      // Colunas fixas para o PDF de sugestão
+      // Colunas do PDF - TODAS as colunas da tabela (exceto foto e ações)
       const pdfColumns = [
-        { key: 'codigo', label: 'Código' },
-        { key: 'descricao', label: 'Produto' },
-        { key: 'curva', label: 'Curva' },
-        { key: 'dias_sem_venda', label: 'Dias S/V' },
-        { key: 'estoque', label: 'Estoque' },
-        { key: 'venda_media', label: 'Venda Média' },
-        { key: 'perdas_mes_ant', label: 'Perdas Ant' },
-        { key: 'qtd_prd_ant', label: 'Qtd Ant' },
-        { key: 'perdas_mes_atual', label: 'Perdas Atual' },
-        { key: 'qtd_prd_atual', label: 'Qtd Atual' },
-        { key: 'sug_1_kg', label: '1D (kg)' },
-        { key: 'sug_1_und', label: '1D (und)' },
-        { key: 'sug_3_kg', label: '3D (kg)' },
-        { key: 'sug_3_und', label: '3D (und)' },
-        { key: 'sug_7_kg', label: '7D (kg)' },
-        { key: 'sug_7_und', label: '7D (und)' },
+        { key: 'codigo', label: 'Código', width: 14 },
+        { key: 'descricao', label: 'Produto', width: 38 },
+        { key: 'responsible_name', label: 'Responsável', width: 18 },
+        { key: 'curva', label: 'Curva', width: 10 },
+        { key: 'dtaUltMovVenda', label: 'Última Venda', width: 18 },
+        { key: 'diasSemVenda', label: 'Dias S/V', width: 12 },
+        { key: 'peso_medio_kg', label: 'Peso Médio', width: 14 },
+        { key: 'vendaMedia', label: 'V.Méd (kg)', width: 16 },
+        { key: 'vendaMediaUnd', label: 'V.Méd (und)', width: 16 },
+        { key: 'custo', label: 'Custo', width: 14 },
+        { key: 'precoVenda', label: 'Preço Venda', width: 16 },
+        { key: 'margemRef', label: 'Mg Ref', width: 12 },
+        { key: 'margemReal', label: 'Mg Real', width: 12 },
+        { key: 'perdasMesAnterior', label: 'Perdas Ant', width: 16 },
+        { key: 'qtdPerdasMesAnterior', label: 'Qtd Ant', width: 14 },
+        { key: 'perdasMesAtual', label: 'Perdas Atual', width: 16 },
+        { key: 'qtdPerdasMesAtual', label: 'Qtd Atual', width: 14 },
       ];
 
-      // Função para calcular sugestão
-      const calcSugestao = (product, dias) => {
-        const estoqueUnd = auditItems[product.codigo]?.quantity_units || 0;
-        const estoqueKg = estoqueUnd * (product.peso_medio_kg || 0);
-        const necessidadeKg = (product.vendaMedia || 0) * dias;
-        const sugestaoKg = Math.max(0, necessidadeKg - estoqueKg);
-        const sugestaoUnd = product.peso_medio_kg > 0 ? Math.ceil(sugestaoKg / product.peso_medio_kg) : 0;
-        return { kg: sugestaoKg, und: sugestaoUnd };
+      // Função para formatar data YYYYMMDD para DD/MM/YYYY
+      const formatDateYYYYMMDD = (dateStr) => {
+        if (!dateStr || dateStr.length !== 8) return '-';
+        return `${dateStr.substring(6, 8)}/${dateStr.substring(4, 6)}/${dateStr.substring(0, 4)}`;
       };
 
       // Função para obter valor de uma coluna
       const getColumnValue = (product, key) => {
-        const estoqueUnd = auditItems[product.codigo]?.quantity_units || 0;
-        const estoqueKg = estoqueUnd * (product.peso_medio_kg || 0);
         const diasSemVenda = calcularDiasSemVenda(product.dtaUltMovVenda);
 
         switch (key) {
           case 'codigo': return product.codigo || '-';
           case 'descricao': return product.descricao || '-';
+          case 'responsible_name': {
+            if (!product.responsible_id) return '-';
+            const emp = employees.find(e => e.id === product.responsible_id);
+            return emp ? emp.name : '-';
+          }
           case 'curva': return product.curva || '-';
-          case 'dias_sem_venda': return diasSemVenda !== null ? diasSemVenda : '-';
-          case 'estoque': return `${estoqueUnd} und (${estoqueKg.toFixed(1)} kg)`;
-          case 'venda_media': return product.vendaMedia ? `${product.vendaMedia.toFixed(2)} kg/d` : '-';
-          case 'perdas_mes_ant': {
+          case 'dtaUltMovVenda': return formatDateYYYYMMDD(product.dtaUltMovVenda);
+          case 'diasSemVenda': return diasSemVenda !== null ? diasSemVenda : '-';
+          case 'peso_medio_kg': return product.peso_medio_kg ? `${product.peso_medio_kg.toFixed(3)} kg` : '-';
+          case 'vendaMedia': return product.vendaMedia ? `${product.vendaMedia.toFixed(3)} kg/d` : '-';
+          case 'vendaMediaUnd': {
+            if (product.vendaMedia && product.peso_medio_kg > 0) {
+              return `${(product.vendaMedia / product.peso_medio_kg).toFixed(1)} und/d`;
+            }
+            return '-';
+          }
+          case 'custo': return product.custo ? `R$ ${product.custo.toFixed(2)}` : '-';
+          case 'precoVenda': return product.precoVenda ? `R$ ${product.precoVenda.toFixed(2)}` : '-';
+          case 'margemRef': return product.margemRef ? `${product.margemRef.toFixed(1)}%` : '-';
+          case 'margemReal': return product.margemReal ? `${product.margemReal.toFixed(1)}%` : '-';
+          case 'perdasMesAnterior': {
             const perda = perdasMensais[product.codigo]?.mesAnterior || 0;
             return perda > 0 ? `R$ ${perda.toFixed(2)}` : '-';
           }
-          case 'qtd_prd_ant': {
+          case 'qtdPerdasMesAnterior': {
             const qtdKg = perdasMensais[product.codigo]?.qtdMesAnterior || 0;
             const pesoMedio = product.peso_medio_kg || 0;
             const qtdUnd = pesoMedio > 0 ? Math.round(qtdKg / pesoMedio) : 0;
             return qtdUnd > 0 ? `${qtdUnd} und` : '-';
           }
-          case 'perdas_mes_atual': {
+          case 'perdasMesAtual': {
             const perda = perdasMensais[product.codigo]?.mesAtual || 0;
             return perda > 0 ? `R$ ${perda.toFixed(2)}` : '-';
           }
-          case 'qtd_prd_atual': {
+          case 'qtdPerdasMesAtual': {
             const qtdKg = perdasMensais[product.codigo]?.qtdMesAtual || 0;
             const pesoMedio = product.peso_medio_kg || 0;
             const qtdUnd = pesoMedio > 0 ? Math.round(qtdKg / pesoMedio) : 0;
             return qtdUnd > 0 ? `${qtdUnd} und` : '-';
           }
-          case 'sug_1_kg': return calcSugestao(product, 1).kg.toFixed(2);
-          case 'sug_1_und': return calcSugestao(product, 1).und;
-          case 'sug_3_kg': return calcSugestao(product, 3).kg.toFixed(2);
-          case 'sug_3_und': return calcSugestao(product, 3).und;
-          case 'sug_7_kg': return calcSugestao(product, 7).kg.toFixed(2);
-          case 'sug_7_und': return calcSugestao(product, 7).und;
           default: return '-';
         }
       };
@@ -412,34 +414,18 @@ export default function ProducaoSugestao() {
       // Headers
       const headers = pdfColumns.map(col => col.label);
 
-      // Larguras das colunas para o PDF de sugestão
-      const columnWidths = {
-        codigo: 14,
-        descricao: 42,
-        curva: 10,
-        dias_sem_venda: 12,
-        estoque: 24,
-        venda_media: 18,
-        perdas_mes_ant: 18,
-        qtd_prd_ant: 14,
-        perdas_mes_atual: 18,
-        qtd_prd_atual: 14,
-        sug_1_kg: 14,
-        sug_1_und: 12,
-        sug_3_kg: 14,
-        sug_3_und: 12,
-        sug_7_kg: 14,
-        sug_7_und: 12
-      };
-
       // Gerar columnStyles dinâmico
       const columnStyles = {};
       pdfColumns.forEach((col, idx) => {
         columnStyles[idx] = {
-          cellWidth: columnWidths[col.key] || 20,
-          halign: (col.key === 'codigo' || col.key === 'descricao') ? 'left' : 'center'
+          cellWidth: col.width,
+          halign: (col.key === 'codigo' || col.key === 'descricao' || col.key === 'responsible_name') ? 'left' : 'center'
         };
       });
+
+      // Calcular totais para o rodapé
+      const totalPerdasAnt = productsToExport.reduce((sum, p) => sum + (perdasMensais[p.codigo]?.mesAnterior || 0), 0);
+      const totalPerdasAtual = productsToExport.reduce((sum, p) => sum + (perdasMensais[p.codigo]?.mesAtual || 0), 0);
 
       autoTable(doc, {
         head: [headers],
@@ -447,8 +433,8 @@ export default function ProducaoSugestao() {
         startY: 30,
         theme: 'grid',
         styles: {
-          fontSize: 7,
-          cellPadding: 2,
+          fontSize: 6,
+          cellPadding: 1.5,
           overflow: 'linebreak',
           halign: 'center'
         },
@@ -456,7 +442,7 @@ export default function ProducaoSugestao() {
           fillColor: orangeColor,
           textColor: whiteColor,
           fontStyle: 'bold',
-          fontSize: 7
+          fontSize: 6
         },
         columnStyles,
         didParseCell: function(data) {
@@ -485,7 +471,7 @@ export default function ProducaoSugestao() {
             }
 
             // Coluna Dias Sem Venda
-            if (colKey === 'dias_sem_venda') {
+            if (colKey === 'diasSemVenda') {
               const diasSemVenda = calcularDiasSemVenda(product.dtaUltMovVenda);
               if (diasSemVenda !== null) {
                 if (diasSemVenda <= 1) {
@@ -502,29 +488,32 @@ export default function ProducaoSugestao() {
               }
             }
 
-            // Colunas de Sugestão 1 dia - Verde
-            if (colKey === 'sug_1_kg' || colKey === 'sug_1_und') {
-              data.cell.styles.fillColor = [220, 252, 231]; // verde claro
-              data.cell.styles.textColor = [22, 163, 74];
+            // Coluna Margem Real - comparar com margem ref
+            if (colKey === 'margemReal' && product.margemReal && product.margemRef) {
+              if (product.margemReal >= product.margemRef) {
+                data.cell.styles.fillColor = [220, 252, 231]; // verde
+                data.cell.styles.textColor = [22, 163, 74];
+              } else {
+                data.cell.styles.fillColor = [254, 226, 226]; // vermelho
+                data.cell.styles.textColor = [220, 38, 38];
+              }
               data.cell.styles.fontStyle = 'bold';
             }
-            // Colunas de Sugestão 3 dias - Azul
-            if (colKey === 'sug_3_kg' || colKey === 'sug_3_und') {
-              data.cell.styles.fillColor = [219, 234, 254]; // azul claro
-              data.cell.styles.textColor = [37, 99, 235];
-              data.cell.styles.fontStyle = 'bold';
+
+            // Colunas de Perdas - Azul para mês anterior
+            if (colKey === 'perdasMesAnterior' || colKey === 'qtdPerdasMesAnterior') {
+              data.cell.styles.textColor = [37, 99, 235]; // azul
             }
-            // Colunas de Sugestão 7 dias - Roxo
-            if (colKey === 'sug_7_kg' || colKey === 'sug_7_und') {
-              data.cell.styles.fillColor = [243, 232, 255]; // roxo claro
-              data.cell.styles.textColor = [147, 51, 234];
-              data.cell.styles.fontStyle = 'bold';
+
+            // Colunas de Perdas - Roxo para mês atual
+            if (colKey === 'perdasMesAtual' || colKey === 'qtdPerdasMesAtual') {
+              data.cell.styles.textColor = [147, 51, 234]; // roxo
             }
           }
         },
-        margin: { top: 30, left: 10, right: 10 },
+        margin: { top: 30, left: 5, right: 5 },
         didDrawPage: function(data) {
-          // Footer com número de página
+          // Footer com número de página e totais
           const pageCount = doc.internal.getNumberOfPages();
           doc.setFontSize(8);
           doc.setTextColor(128, 128, 128);
@@ -533,6 +522,22 @@ export default function ProducaoSugestao() {
             data.settings.margin.left,
             doc.internal.pageSize.height - 10
           );
+
+          // Totais de perdas
+          doc.setTextColor(37, 99, 235);
+          doc.text(
+            `Total Perdas Ant: R$ ${totalPerdasAnt.toFixed(2)}`,
+            100,
+            doc.internal.pageSize.height - 10
+          );
+          doc.setTextColor(147, 51, 234);
+          doc.text(
+            `Total Perdas Atual: R$ ${totalPerdasAtual.toFixed(2)}`,
+            160,
+            doc.internal.pageSize.height - 10
+          );
+
+          doc.setTextColor(128, 128, 128);
           doc.text(
             `Gerado em ${new Date().toLocaleString('pt-BR')}`,
             doc.internal.pageSize.width - data.settings.margin.right - 50,
@@ -542,7 +547,7 @@ export default function ProducaoSugestao() {
       });
 
       // Salvar PDF
-      doc.save(`sugestao-producao-${selectedSecao}-${todayStr}.pdf`);
+      doc.save(`itens-pendentes-${selectedSecao}-${todayStr}.pdf`);
 
       setSuccess('PDF exportado com sucesso!');
       setTimeout(() => setSuccess(''), 3000);
@@ -1188,12 +1193,12 @@ export default function ProducaoSugestao() {
             </div>
 
             <div className="flex gap-2 flex-wrap items-center">
-              {/* Botão PDF */}
+              {/* Botão PDF - Exporta itens pendentes */}
               <button
                 onClick={handleExportPDF}
-                disabled={loading || stats.pending === 0}
+                disabled={loading || filteredProducts.filter(p => !auditItems[p.codigo]?.checked).length === 0}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                title="Exportar PDF com todos os itens pendentes"
+                title="Exportar PDF com os itens pendentes da tabela atual"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />

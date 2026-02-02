@@ -431,23 +431,92 @@ GatewayPorts yes
 
 Isso permite que o Docker (172.20.0.0/16) acesse o túnel.
 
-### 2. Regra de Firewall (iptables)
+### 2. Regras de Firewall (UFW - OBRIGATÓRIO)
 
-**IMPORTANTE**: O firewall da VPS bloqueia conexões por padrão. É necessário adicionar uma regra para permitir que os containers Docker acessem a porta 1521:
+**IMPORTANTE**: O firewall da VPS (UFW) bloqueia conexões por padrão. É necessário adicionar regras para permitir que os containers Docker acessem TODAS as portas dos túneis:
 
 ```bash
-# Adicionar regra
+# Adicionar regras UFW para TODOS os túneis (OBRIGATÓRIO!)
+ufw allow from 172.20.0.0/16 to any port 1521 proto tcp comment 'Oracle Tunnel - Docker'
+ufw allow from 172.20.0.0/16 to any port 8080 proto tcp comment 'Zanthus Tunnel - Docker'
+ufw allow from 172.20.0.0/16 to any port 3003 proto tcp comment 'Intersolid Tunnel - Docker'
+
+# Verificar se as regras foram adicionadas
+ufw status | grep -E '1521|8080|3003'
+```
+
+**Tabela de regras necessárias:**
+
+| Porta | Serviço | Comando UFW |
+|-------|---------|-------------|
+| 1521 | Oracle | `ufw allow from 172.20.0.0/16 to any port 1521 proto tcp` |
+| 8080 | Zanthus | `ufw allow from 172.20.0.0/16 to any port 8080 proto tcp` |
+| 3003 | Intersolid | `ufw allow from 172.20.0.0/16 to any port 3003 proto tcp` |
+
+**Explicação da regra:**
+- `from 172.20.0.0/16` - Origem: rede Docker
+- `to any port XXXX` - Destino: porta do túnel
+- `proto tcp` - Protocolo TCP
+- `comment` - Comentário para identificação
+
+### 2.1 Alternativa: iptables (não recomendado)
+
+Se preferir usar iptables diretamente (não persiste após reboot sem configuração adicional):
+
+```bash
+# Adicionar regra iptables
 iptables -I INPUT -p tcp --dport 1521 -s 172.20.0.0/16 -j ACCEPT
 
 # Salvar regras (persistir após reboot)
 iptables-save > /etc/iptables/rules.v4
 ```
 
-**Explicação da regra:**
-- `-I INPUT` - Inserir no início da chain INPUT
-- `-p tcp --dport 1521` - Protocolo TCP, porta destino 1521
-- `-s 172.20.0.0/16` - Origem: rede Docker
-- `-j ACCEPT` - Ação: aceitar conexão
+### 2.2 Diagnóstico: Túneis não conectam após deploy
+
+**Problema (02/02/2026):** Após deploy, Oracle parou de conectar com erro `ORA-12170: TNS:Connect timeout` e o cron de verificação de vendas parou de funcionar com erro `ECONNREFUSED` na porta 8080.
+
+**Causa:** As regras UFW para as portas dos túneis não existiam. Os túneis SSH estavam funcionando (portas escutando via sshd), mas o firewall bloqueava conexões dos containers Docker.
+
+**Diagnóstico:**
+```bash
+# 1. Verificar se túneis estão ativos (deve mostrar sshd escutando nas portas)
+ss -tlnp | grep -E '1521|8080|3003'
+
+# 2. Verificar regras UFW (deve mostrar regras para todas as portas)
+ufw status | grep -E '1521|8080|3003'
+
+# 3. Testar TCP do container backend (deve retornar "TCP OK")
+docker exec prevencao-tradicao-backend node -e "
+const net = require('net');
+const client = new net.Socket();
+client.setTimeout(5000);
+client.connect(1521, '172.20.0.1', () => { console.log('TCP 1521 OK'); client.destroy(); });
+client.on('error', (e) => console.log('ERRO:', e.message));
+client.on('timeout', () => { console.log('TIMEOUT'); client.destroy(); });
+"
+
+# 4. Testar TCP do container cron (deve retornar "TCP OK")
+docker exec prevencao-tradicao-cron node -e "
+const net = require('net');
+const client = new net.Socket();
+client.setTimeout(5000);
+client.connect(8080, '172.20.0.1', () => { console.log('TCP 8080 OK'); client.destroy(); });
+client.on('error', (e) => console.log('ERRO:', e.message));
+client.on('timeout', () => { console.log('TIMEOUT'); client.destroy(); });
+"
+```
+
+**Solução:**
+```bash
+# Adicionar TODAS as regras UFW necessárias
+ufw allow from 172.20.0.0/16 to any port 1521 proto tcp comment 'Oracle Tunnel - Docker'
+ufw allow from 172.20.0.0/16 to any port 8080 proto tcp comment 'Zanthus Tunnel - Docker'
+ufw allow from 172.20.0.0/16 to any port 3003 proto tcp comment 'Intersolid Tunnel - Docker'
+```
+
+**Containers que acessam os túneis:**
+- **prevencao-tradicao-backend** - acessa Oracle (1521), Zanthus (8080), Intersolid (3003)
+- **prevencao-tradicao-cron** - acessa Zanthus (8080) para buscar vendas a cada 2 minutos
 
 ---
 
@@ -837,5 +906,5 @@ Quando o backend inicia, ele mostra qual configuração Oracle está usando:
 ---
 
 *Documentação criada em: 20/01/2026*
-*Última atualização: 26/01/2026*
+*Última atualização: 02/02/2026 - Adicionado regras UFW para todas as portas dos túneis (1521, 8080, 3003)*
 *Autor: Claude Code*
