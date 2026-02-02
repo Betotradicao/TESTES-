@@ -12,19 +12,11 @@ export class BipWebhookService {
     try {
       console.log(`🔍 Buscando produto no ERP com PLU: ${plu}`);
 
-      // Use cache similar ao ProductsController
       const erpProduct = await this.fetchProductFromERP(plu);
 
       if (!erpProduct) {
-        console.log(`⚠️  Produto com PLU ${plu} não encontrado no ERP`);
-        console.log(`🎭 Criando produto mock para simulação/teste`);
-
-        // Retorna produto mock para permitir simulação sem ERP configurado
-        return {
-          descricao: `Produto Teste PLU ${plu}`,
-          valvenda: '10.99',
-          valoferta: null
-        };
+        console.log(`⚠️ Produto PLU ${plu} não encontrado no Oracle - bipagem será ignorada`);
+        return null;
       }
 
       console.log(`✅ Produto encontrado no ERP: ${erpProduct.descricao}`);
@@ -35,14 +27,7 @@ export class BipWebhookService {
       };
     } catch (error) {
       console.error(`❌ Erro ao buscar produto ${plu} no ERP:`, error);
-      console.log(`🎭 Criando produto mock para simulação/teste (erro no ERP)`);
-
-      // Fallback para produto mock em caso de erro de conexão com ERP
-      return {
-        descricao: `Produto Teste PLU ${plu}`,
-        valvenda: '10.99',
-        valoferta: null
-      };
+      return null;
     }
   }
 
