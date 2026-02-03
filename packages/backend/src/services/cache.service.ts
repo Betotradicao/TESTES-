@@ -29,7 +29,8 @@ export class CacheService {
 
   static async executeWithCache<T>(
     cacheKey: string,
-    method: () => Promise<T>
+    method: () => Promise<T>,
+    ttlMinutes: number = 60 // TTL em minutos, padrão 1 hora
   ): Promise<T> {
     await this.ensureCacheDir();
 
@@ -59,8 +60,8 @@ export class CacheService {
     console.log(`Executing method for key: ${cacheKey}`);
     const result = await method();
 
-    // Set cache expiration to 1 hour from now
-    const validTo = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour
+    // Set cache expiration based on TTL
+    const validTo = new Date(now.getTime() + ttlMinutes * 60 * 1000);
 
     const cacheData: CacheData<T> = {
       cache_data: result,
