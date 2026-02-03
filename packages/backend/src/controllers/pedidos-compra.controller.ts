@@ -160,6 +160,7 @@ export class PedidosCompraController {
             pm.PRAZO_MEDIO_REAL,
             pm.QTD_NFS_PRAZO,
             TRUNC(SYSDATE) - TRUNC(p.DTA_ENTREGA) as DIAS_ATRASO,
+            NVL(nfc.QTD_NF_A_CONFIRMAR, 0) as QTD_NF_A_CONFIRMAR,
             ROW_NUMBER() OVER (${orderByClause}) as RN
           FROM INTERSOLID.TAB_PEDIDO p
           LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.${fornCodigoCol} = p.COD_PARCEIRO
@@ -176,6 +177,15 @@ export class PedidosCompraController {
             AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
             GROUP BY fn.${codFornecedorCol}
           ) pm ON pm.COD_FORNECEDOR = p.COD_PARCEIRO
+          LEFT JOIN (
+            SELECT
+              nf.${codFornecedorCol} as COD_FORNECEDOR,
+              COUNT(*) as QTD_NF_A_CONFIRMAR
+            FROM INTERSOLID.TAB_FORNECEDOR_NOTA nf
+            WHERE nf.${dataEntradaCol} IS NULL
+            AND NVL(nf.FLG_CANCELADO, 'N') = 'N'
+            GROUP BY nf.${codFornecedorCol}
+          ) nfc ON nfc.COD_FORNECEDOR = p.COD_PARCEIRO
           ${whereClause}
         ) WHERE RN > :offset AND RN <= :maxRow
       `;
@@ -787,16 +797,21 @@ export class PedidosCompraController {
 
   /**
    * Lista NFs com bloqueio pendente de liberação
-   * Dados da TAB_FORNECEDOR_NOTA com FLG_BLOQUEADO_1F = 'S' ou FLG_BLOQUEADO_2F = 'S'
+   * Somente NFs que têm bloqueio ativo E ainda não foram liberadas (autorizador/liberador IS NULL)
    */
   static async listarNfComBloqueio(req: AuthRequest, res: Response) {
     try {
       const { dataInicio, dataFim, fornecedor, tipoBloqueio } = req.query;
 
-      // Construir condições WHERE
-      const conditions: string[] = [
-        "(n.FLG_BLOQUEADO_1F = 'S' OR n.FLG_BLOQUEADO_2F = 'S' OR n.FLG_BLOQUEADO_CUSTO = 'S')"
-      ];
+      // Condição base: NF com bloqueio pendente = tem flag de bloqueio ativo E não tem autorizador/liberador
+      // Uma NF só aparece se tiver pelo menos um bloqueio PENDENTE de liberação
+      const bloqueiosPendentes = `(
+        (n.FLG_BLOQUEADO_1F = 'S' AND n.USU_AUTORIZ_1F IS NULL) OR
+        (n.FLG_BLOQUEADO_2F = 'S' AND n.USU_AUTORIZ_2F IS NULL) OR
+        (n.FLG_BLOQUEADO_CUSTO = 'S' AND n.USU_LIBER_CUSTO IS NULL)
+      )`;
+
+      const conditions: string[] = [bloqueiosPendentes];
       const params: any = {};
 
       if (dataInicio) {
@@ -815,61 +830,76 @@ export class PedidosCompraController {
       }
 
       if (tipoBloqueio === '1f') {
-        conditions.push("n.FLG_BLOQUEADO_1F = 'S'");
+        conditions.push("(n.FLG_BLOQUEADO_1F = 'S' AND n.USU_AUTORIZ_1F IS NULL)");
       } else if (tipoBloqueio === '2f') {
-        conditions.push("n.FLG_BLOQUEADO_2F = 'S'");
+        conditions.push("(n.FLG_BLOQUEADO_2F = 'S' AND n.USU_AUTORIZ_2F IS NULL)");
       } else if (tipoBloqueio === 'custo') {
-        conditions.push("n.FLG_BLOQUEADO_CUSTO = 'S'");
+        conditions.push("(n.FLG_BLOQUEADO_CUSTO = 'S' AND n.USU_LIBER_CUSTO IS NULL)");
       }
 
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-      // Query para contar totais por tipo de bloqueio
-      // Stats sem filtro de data - mostra todas as NFs pendentes de liberação
+      // Query para contar totais por tipo de bloqueio PENDENTE (não liberado ainda)
       const statsQuery = `
         SELECT
-          COUNT(CASE WHEN n.FLG_BLOQUEADO_1F = 'S' THEN 1 END) as TOTAL_BLOQ_1F,
-          COUNT(CASE WHEN n.FLG_BLOQUEADO_2F = 'S' THEN 1 END) as TOTAL_BLOQ_2F,
-          COUNT(CASE WHEN n.FLG_BLOQUEADO_CUSTO = 'S' THEN 1 END) as TOTAL_BLOQ_CUSTO,
+          COUNT(CASE WHEN n.FLG_BLOQUEADO_1F = 'S' AND n.USU_AUTORIZ_1F IS NULL THEN 1 END) as TOTAL_BLOQ_1F,
+          COUNT(CASE WHEN n.FLG_BLOQUEADO_2F = 'S' AND n.USU_AUTORIZ_2F IS NULL THEN 1 END) as TOTAL_BLOQ_2F,
+          COUNT(CASE WHEN n.FLG_BLOQUEADO_CUSTO = 'S' AND n.USU_LIBER_CUSTO IS NULL THEN 1 END) as TOTAL_BLOQ_CUSTO,
           COUNT(*) as TOTAL_COM_BLOQUEIO,
           NVL(SUM(n.VAL_TOTAL_NF), 0) as VALOR_TOTAL_BLOQUEADO
         FROM INTERSOLID.TAB_FORNECEDOR_NOTA n
-        WHERE (n.FLG_BLOQUEADO_1F = 'S' OR n.FLG_BLOQUEADO_2F = 'S' OR n.FLG_BLOQUEADO_CUSTO = 'S')
+        WHERE (
+          (n.FLG_BLOQUEADO_1F = 'S' AND n.USU_AUTORIZ_1F IS NULL) OR
+          (n.FLG_BLOQUEADO_2F = 'S' AND n.USU_AUTORIZ_2F IS NULL) OR
+          (n.FLG_BLOQUEADO_CUSTO = 'S' AND n.USU_LIBER_CUSTO IS NULL)
+        )
       `;
 
-      // Query para buscar NFs com bloqueio
+      // Query para buscar NFs com bloqueio (usa ROWNUM para compatibilidade com Oracle 11g)
       const dataQuery = `
-        SELECT
-          n.COD_LOJA as LOJA,
-          f.NUM_CGC as CNPJ,
-          f.DES_FORNECEDOR,
-          n.NUM_NF_FORN as NUMERO_NF,
-          n.NUM_ROMANEIO as ROMANEIO,
-          n.NUM_SERIE_NF as SERIE,
-          n.VAL_TOTAL_NF,
-          TO_CHAR(n.DTA_ENTRADA, 'DD/MM/YYYY') as DTA_ENTRADA,
-          n.USUARIO as USUARIO_ENTRADA,
-          n.FLG_BLOQUEADO_1F as BLOQ_1F,
-          n.USU_AUTORIZ_1F as AUTORIZADOR_1F,
-          n.FLG_BLOQUEADO_2F as BLOQ_2F,
-          n.USU_AUTORIZ_2F as AUTORIZADOR_2F,
-          n.FLG_BLOQUEADO_CUSTO as BLOQ_CUSTO,
-          n.USU_LIBER_CUSTO as LIBERADOR_CUSTO,
-          c.DES_COMPRADOR as COMPRADOR,
-          n.OBS_LIBERACAO_PEDIDO as OBS_LIBERACAO,
-          n.NUM_PEDIDO
-        FROM INTERSOLID.TAB_FORNECEDOR_NOTA n
-        JOIN INTERSOLID.TAB_FORNECEDOR f ON n.COD_FORNECEDOR = f.COD_FORNECEDOR
-        LEFT JOIN INTERSOLID.TAB_COMPRADOR c ON n.COD_COMPRADOR = c.COD_COMPRADOR
-        ${whereClause}
-        ORDER BY n.DTA_ENTRADA DESC
-        FETCH FIRST 100 ROWS ONLY
+        SELECT * FROM (
+          SELECT
+            n.COD_LOJA as LOJA,
+            n.COD_FORNECEDOR,
+            f.NUM_CGC as CNPJ,
+            f.DES_FORNECEDOR,
+            n.NUM_NF_FORN as NUMERO_NF,
+            n.NUM_ROMANEIO as ROMANEIO,
+            n.NUM_SERIE_NF as SERIE,
+            n.VAL_TOTAL_NF,
+            TO_CHAR(n.DTA_ENTRADA, 'DD/MM/YYYY') as DTA_ENTRADA,
+            n.USUARIO as USUARIO_ENTRADA,
+            n.FLG_BLOQUEADO_1F as BLOQ_1F,
+            n.USU_AUTORIZ_1F as AUTORIZADOR_1F,
+            n.FLG_BLOQUEADO_2F as BLOQ_2F,
+            n.USU_AUTORIZ_2F as AUTORIZADOR_2F,
+            n.FLG_BLOQUEADO_CUSTO as BLOQ_CUSTO,
+            n.USU_LIBER_CUSTO as LIBERADOR_CUSTO,
+            c.DES_COMPRADOR as COMPRADOR,
+            n.OBS_LIBERACAO_PEDIDO as OBS_LIBERACAO,
+            n.NUM_PEDIDO
+          FROM INTERSOLID.TAB_FORNECEDOR_NOTA n
+          JOIN INTERSOLID.TAB_FORNECEDOR f ON n.COD_FORNECEDOR = f.COD_FORNECEDOR
+          LEFT JOIN INTERSOLID.TAB_COMPRADOR c ON n.COD_COMPRADOR = c.COD_COMPRADOR
+          ${whereClause}
+          ORDER BY n.DTA_ENTRADA DESC
+        ) WHERE ROWNUM <= 100
       `;
+
+      console.log('=== DEBUG NF BLOQUEIO ===');
+      console.log('statsQuery:', statsQuery);
+      console.log('dataQuery whereClause:', whereClause);
 
       const [statsResult, dataResult] = await Promise.all([
         OracleService.query<any>(statsQuery, {}),
         OracleService.query<any>(dataQuery, params)
       ]);
+
+      console.log('statsResult:', JSON.stringify(statsResult));
+      console.log('dataResult count:', dataResult.length);
+      if (dataResult.length > 0) {
+        console.log('dataResult[0]:', JSON.stringify(dataResult[0]));
+      }
 
       const stats = statsResult[0] || {
         TOTAL_BLOQ_1F: 0,
@@ -881,6 +911,7 @@ export class PedidosCompraController {
 
       const nfs = dataResult.map((r: any) => ({
         loja: r.LOJA,
+        codFornecedor: r.COD_FORNECEDOR,
         cnpj: r.CNPJ,
         fornecedor: r.DES_FORNECEDOR,
         numeroNf: r.NUMERO_NF,
@@ -913,6 +944,63 @@ export class PedidosCompraController {
     } catch (error: any) {
       console.error('Erro ao listar NFs com bloqueio:', error);
       res.status(500).json({ error: 'Erro ao buscar NFs com bloqueio', details: error.message });
+    }
+  }
+
+  /**
+   * Lista itens de uma NF com bloqueio
+   * Mostra os produtos que compõem a nota fiscal
+   */
+  static async listarItensNfBloqueio(req: AuthRequest, res: Response) {
+    try {
+      const { numNf, codFornecedor, codLoja } = req.params;
+
+      // Usa TAB_FORNECEDOR_PRODUTO que contém os itens das NFs de entrada
+      const query = `
+        SELECT * FROM (
+          SELECT
+            fp.NUM_ITEM as ITEM,
+            fp.COD_PRODUTO,
+            fp.COD_PRODUTO as REFERENCIA,
+            pr.DES_PRODUTO as DESCRICAO,
+            fp.DES_UNIDADE as UNIDADE,
+            fp.QTD_ENTRADA,
+            fp.VAL_TABELA as VAL_CUSTO,
+            fp.VAL_VENDA_VAREJO as VAL_VENDA,
+            (fp.QTD_ENTRADA * fp.VAL_TABELA) as VAL_TOTAL,
+            NVL(TRIM(pl.DES_RANK_PRODLOJA), 'X') as CURVA
+          FROM INTERSOLID.TAB_FORNECEDOR_PRODUTO fp
+          LEFT JOIN INTERSOLID.TAB_PRODUTO pr ON pr.COD_PRODUTO = fp.COD_PRODUTO
+          LEFT JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON pl.COD_PRODUTO = fp.COD_PRODUTO AND pl.COD_LOJA = :codLoja
+          WHERE fp.NUM_NF_FORN = :numNf
+            AND fp.COD_FORNECEDOR = :codFornecedor
+          ORDER BY fp.NUM_ITEM
+        ) WHERE ROWNUM <= 500
+      `;
+
+      const itens = await OracleService.query<any>(query, {
+        numNf: parseInt(numNf),
+        codFornecedor: parseInt(codFornecedor),
+        codLoja: parseInt(codLoja)
+      });
+
+      res.json({
+        itens: itens.map((i: any) => ({
+          item: i.ITEM,
+          codProduto: i.COD_PRODUTO,
+          referencia: i.REFERENCIA,
+          descricao: i.DESCRICAO,
+          unidade: i.UNIDADE,
+          qtdEntrada: i.QTD_ENTRADA || 0,
+          valCusto: i.VAL_CUSTO || 0,
+          valVenda: i.VAL_VENDA || 0,
+          valTotal: i.VAL_TOTAL || 0,
+          curva: i.CURVA
+        }))
+      });
+    } catch (error: any) {
+      console.error('Erro ao listar itens NF bloqueio:', error);
+      res.status(500).json({ error: 'Erro ao buscar itens da NF', details: error.message });
     }
   }
 }

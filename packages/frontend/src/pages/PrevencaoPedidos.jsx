@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import api from '../services/api';
 
@@ -64,6 +64,9 @@ export default function PrevencaoPedidos() {
     valorTotalBloqueado: 0
   });
   const [showNfsBloqueio, setShowNfsBloqueio] = useState(false);
+  const [expandedNfBloqueio, setExpandedNfBloqueio] = useState(null);
+  const [itensNfBloqueio, setItensNfBloqueio] = useState({});
+  const [loadingItensNfBloqueio, setLoadingItensNfBloqueio] = useState({});
   const [expandedPedido, setExpandedPedido] = useState(null);
   const [itensPedido, setItensPedido] = useState({});
   const [loadingItens, setLoadingItens] = useState({});
@@ -84,6 +87,7 @@ export default function PrevencaoPedidos() {
     { key: 'expand', label: '', sortable: false, width: 'w-8' },
     { key: 'NUM_PEDIDO', label: 'N. PEDIDO', sortable: true },
     { key: 'TIPO_RECEBIMENTO', label: 'STATUS', sortable: true },
+    { key: 'QTD_NF_A_CONFIRMAR', label: '', sortable: false, width: 'w-24' },
     { key: 'DES_FORNECEDOR', label: 'FORNECEDOR', sortable: true },
     { key: 'NUM_CGC', label: 'CNPJ', sortable: true },
     { key: 'DES_CONTATO', label: 'CONTATO', sortable: false },
@@ -391,6 +395,35 @@ export default function PrevencaoPedidos() {
       });
     } catch (err) {
       console.error('Erro ao carregar NFs com bloqueio:', err);
+    }
+  };
+
+  // Carregar itens de uma NF com bloqueio (para expandir)
+  const loadItensNfBloqueio = async (nf) => {
+    const nfKey = `${nf.numeroNf}_${nf.codFornecedor}_${nf.loja}`;
+
+    // Se já tem os itens carregados, só expande/colapsa
+    if (itensNfBloqueio[nfKey]) {
+      setExpandedNfBloqueio(expandedNfBloqueio === nfKey ? null : nfKey);
+      return;
+    }
+
+    // Se está expandida, colapsa
+    if (expandedNfBloqueio === nfKey) {
+      setExpandedNfBloqueio(null);
+      return;
+    }
+
+    // Carrega os itens
+    setLoadingItensNfBloqueio(prev => ({ ...prev, [nfKey]: true }));
+    try {
+      const response = await api.get(`/pedidos-compra/nf-com-bloqueio/${nf.numeroNf}/${nf.codFornecedor}/${nf.loja}/itens`);
+      setItensNfBloqueio(prev => ({ ...prev, [nfKey]: response.data.itens || [] }));
+      setExpandedNfBloqueio(nfKey);
+    } catch (err) {
+      console.error('Erro ao carregar itens da NF:', err);
+    } finally {
+      setLoadingItensNfBloqueio(prev => ({ ...prev, [nfKey]: false }));
     }
   };
 
@@ -958,40 +991,106 @@ export default function PrevencaoPedidos() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {nfsComBloqueio.map((nf, idx) => (
-                      <tr key={idx} className="hover:bg-red-50">
-                        <td className="px-2 py-1.5 text-xs">{nf.loja}</td>
-                        <td className="px-2 py-1.5 max-w-[180px] truncate" title={nf.fornecedor}>{nf.fornecedor || '-'}</td>
-                        <td className="px-2 py-1.5 text-xs text-gray-500 font-mono">{formatCNPJ(nf.cnpj)}</td>
-                        <td className="px-2 py-1.5 text-center font-semibold">{nf.numeroNf}</td>
-                        <td className="px-2 py-1.5 text-center text-xs">{formatDate(nf.dataEmissao)}</td>
-                        <td className="px-2 py-1.5 text-right font-semibold text-green-600">{formatCurrency(nf.valorTotal)}</td>
-                        <td className="px-2 py-1.5 text-center">
-                          {nf.bloqueio1f ? (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-red-500 text-white">🔒</span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
+                    {nfsComBloqueio.map((nf, idx) => {
+                      const nfKey = `${nf.numeroNf}_${nf.codFornecedor}_${nf.loja}`;
+                      const isExpanded = expandedNfBloqueio === nfKey;
+                      const itens = itensNfBloqueio[nfKey] || [];
+                      const isLoadingItens = loadingItensNfBloqueio[nfKey];
+
+                      return (
+                        <React.Fragment key={idx}>
+                          <tr className={`hover:bg-red-50 ${isExpanded ? 'bg-red-100' : ''}`}>
+                            <td className="px-2 py-1.5 text-xs">{nf.loja}</td>
+                            <td className="px-2 py-1.5 max-w-[200px]">
+                              <button
+                                onClick={() => loadItensNfBloqueio(nf)}
+                                className="flex items-center gap-1 hover:text-red-600 text-left"
+                                title="Clique para ver itens da NF"
+                              >
+                                <span className={`text-lg font-bold transition-transform ${isExpanded ? 'text-red-600' : 'text-gray-500'}`}>
+                                  {isLoadingItens ? '⏳' : isExpanded ? '−' : '+'}
+                                </span>
+                                <span className="truncate">{nf.fornecedor || '-'}</span>
+                              </button>
+                            </td>
+                            <td className="px-2 py-1.5 text-xs text-gray-500 font-mono">{formatCNPJ(nf.cnpj)}</td>
+                            <td className="px-2 py-1.5 text-center font-semibold">{nf.numeroNf}</td>
+                            <td className="px-2 py-1.5 text-center text-xs">{nf.dataEntrada || '-'}</td>
+                            <td className="px-2 py-1.5 text-right font-semibold text-green-600">{formatCurrency(nf.valorTotal)}</td>
+                            <td className="px-2 py-1.5 text-center">
+                              {nf.bloqueio1f ? (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-red-500 text-white">🔒</span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-1.5 text-center">
+                              {nf.bloqueio2f ? (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-orange-500 text-white">🔒</span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-1.5 text-center">
+                              {nf.bloqueioCusto ? (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-purple-500 text-white">🔒</span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-1.5 text-xs max-w-[100px] truncate" title={nf.autorizador1f || nf.autorizador2f || nf.liberadorCusto}>
+                              {nf.autorizador1f || nf.autorizador2f || nf.liberadorCusto || '-'}
+                            </td>
+                          </tr>
+                          {/* Linha expandida com itens da NF */}
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan="10" className="bg-red-50 p-0">
+                                <div className="p-3 border-l-4 border-red-400">
+                                  <h4 className="text-sm font-bold text-red-800 mb-2">
+                                    Itens da NF {nf.numeroNf} - {nf.fornecedor}
+                                  </h4>
+                                  {itens.length === 0 ? (
+                                    <p className="text-gray-500 text-xs">Nenhum item encontrado</p>
+                                  ) : (
+                                    <div className="overflow-x-auto">
+                                      <table className="w-full text-xs border">
+                                        <thead className="bg-red-100">
+                                          <tr>
+                                            <th className="px-2 py-1 text-left border-b">Item</th>
+                                            <th className="px-2 py-1 text-left border-b">Código</th>
+                                            <th className="px-2 py-1 text-left border-b">Descrição</th>
+                                            <th className="px-2 py-1 text-center border-b">Curva</th>
+                                            <th className="px-2 py-1 text-center border-b">Qtd Entrada</th>
+                                            <th className="px-2 py-1 text-center border-b">Unidade</th>
+                                            <th className="px-2 py-1 text-right border-b">Custo Unit.</th>
+                                            <th className="px-2 py-1 text-right border-b">Total</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {itens.map((item, itemIdx) => (
+                                            <tr key={itemIdx} className="hover:bg-red-100 border-b">
+                                              <td className="px-2 py-1">{item.item}</td>
+                                              <td className="px-2 py-1 font-mono">{item.codProduto}</td>
+                                              <td className="px-2 py-1 max-w-[250px] truncate" title={item.descricao}>{item.descricao}</td>
+                                              <td className="px-2 py-1 text-center font-bold">{item.curva}</td>
+                                              <td className="px-2 py-1 text-center">{item.qtdEntrada}</td>
+                                              <td className="px-2 py-1 text-center">{item.unidade}</td>
+                                              <td className="px-2 py-1 text-right">{formatCurrency(item.valCusto)}</td>
+                                              <td className="px-2 py-1 text-right font-semibold">{formatCurrency(item.valTotal)}</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
                           )}
-                        </td>
-                        <td className="px-2 py-1.5 text-center">
-                          {nf.bloqueio2f ? (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-orange-500 text-white">🔒</span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-1.5 text-center">
-                          {nf.bloqueioCusto ? (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-purple-500 text-white">🔒</span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-1.5 text-xs max-w-[100px] truncate" title={nf.autorizador1f || nf.autorizador2f || nf.autorizadorCusto}>
-                          {nf.autorizador1f || nf.autorizador2f || nf.autorizadorCusto || '-'}
-                        </td>
-                      </tr>
-                    ))}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1246,6 +1345,16 @@ export default function PrevencaoPedidos() {
                               <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${status.color}`}>
                                 {status.icon} {status.label}
                               </span>
+                            </td>
+                          );
+                        case 'QTD_NF_A_CONFIRMAR':
+                          return (
+                            <td key={col.key} className="px-2 py-1.5">
+                              {pedido.QTD_NF_A_CONFIRMAR > 0 && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300" title={`${pedido.QTD_NF_A_CONFIRMAR} NF(s) pendente(s) de confirmação`}>
+                                  ⚠️ À CONFIRMAR
+                                </span>
+                              )}
                             </td>
                           );
                         case 'DES_FORNECEDOR':

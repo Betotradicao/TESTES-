@@ -24,6 +24,9 @@ router.get('/classificacoes', PedidosCompraController.listarClassificacoes);
 // Lista NFs com bloqueio pendente de liberação
 router.get('/nf-com-bloqueio', PedidosCompraController.listarNfComBloqueio);
 
+// Lista itens de uma NF com bloqueio
+router.get('/nf-com-bloqueio/:numNf/:codFornecedor/:codLoja/itens', PedidosCompraController.listarItensNfBloqueio);
+
 // Lista NFs sem pedido de compra
 router.get('/nf-sem-pedido', PedidosCompraController.listarNfSemPedido);
 
