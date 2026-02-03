@@ -23,6 +23,12 @@ export default function ProducaoSugestao() {
   const [selectedResponsible, setSelectedResponsible] = useState('TODOS'); // Filtro por responsável
   const [perdasMensais, setPerdasMensais] = useState({}); // Perdas por produto (mês anterior e atual)
 
+  // Estados de Grupo e Subgrupo
+  const [grupos, setGrupos] = useState([]);
+  const [subgrupos, setSubgrupos] = useState([]);
+  const [selectedGrupo, setSelectedGrupo] = useState('TODOS');
+  const [selectedSubgrupo, setSelectedSubgrupo] = useState('TODOS');
+
   // Estados do modal
   const [editingItem, setEditingItem] = useState(null);
   const [showEmptyModal, setShowEmptyModal] = useState(false);
@@ -30,6 +36,9 @@ export default function ProducaoSugestao() {
   const [saving, setSaving] = useState(false);
   const [savingAudit, setSavingAudit] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
+
+  // Estados do modal de detalhes (receita/nutricional)
+  const [detailsModal, setDetailsModal] = useState({ type: null, code: null, data: null, loading: false });
 
   // Estado do formulário do item
   const [itemForm, setItemForm] = useState({
@@ -69,6 +78,8 @@ export default function ProducaoSugestao() {
     { key: 'perdasMesAtual', label: 'Perdas\nMês Atual', sortable: true, align: 'right' },
     { key: 'qtdPerdasMesAtual', label: 'Qtd Prd\nMês Atual', sortable: true, align: 'right' },
     { key: 'curva', label: 'Curva', sortable: true, align: 'center' },
+    { key: 'receita', label: 'Receita', sortable: true, align: 'center' },
+    { key: 'nutricional', label: 'Nutricional', sortable: true, align: 'center' },
     { key: 'acoes', label: 'Ações', sortable: false, align: 'center' },
   ];
 
@@ -126,6 +137,22 @@ export default function ProducaoSugestao() {
     }
   };
 
+  // Carregar detalhes de receita ou nutricional
+  const loadDetails = async (type, code) => {
+    if (!code) return;
+    setDetailsModal({ type, code, data: null, loading: true });
+    try {
+      const endpoint = type === 'receita'
+        ? `/production/receita/${code}`
+        : `/production/nutricional/${code}`;
+      const response = await api.get(endpoint);
+      setDetailsModal({ type, code, data: response.data, loading: false });
+    } catch (err) {
+      console.error(`Erro ao carregar ${type}:`, err);
+      setDetailsModal({ type, code, data: null, loading: false });
+    }
+  };
+
   // Carregar lista de colaboradores
   const loadEmployees = async () => {
     try {
@@ -151,6 +178,51 @@ export default function ProducaoSugestao() {
     }
   };
 
+  // Carregar grupos do ERP (filtrados por seção)
+  const loadGrupos = async (secao) => {
+    try {
+      const response = await api.get(`/production/erp-grupos?section=${encodeURIComponent(secao)}`);
+      setGrupos(response.data);
+      // Resetar seleção de grupo e subgrupo
+      setSelectedGrupo('TODOS');
+      setSelectedSubgrupo('TODOS');
+      setSubgrupos([]);
+    } catch (err) {
+      console.error('Erro ao carregar grupos:', err);
+      setGrupos([]);
+    }
+  };
+
+  // Carregar subgrupos do ERP (filtrados por grupo)
+  const loadSubgrupos = async (codGrupo) => {
+    try {
+      const response = await api.get(`/production/erp-subgrupos?codGrupo=${codGrupo}`);
+      setSubgrupos(response.data);
+      // Resetar seleção de subgrupo
+      setSelectedSubgrupo('TODOS');
+    } catch (err) {
+      console.error('Erro ao carregar subgrupos:', err);
+      setSubgrupos([]);
+    }
+  };
+
+  // Carregar grupos quando mudar seção
+  useEffect(() => {
+    if (selectedSecao) {
+      loadGrupos(selectedSecao);
+    }
+  }, [selectedSecao]);
+
+  // Carregar subgrupos quando mudar grupo
+  useEffect(() => {
+    if (selectedGrupo && selectedGrupo !== 'TODOS' && selectedGrupo !== 'SEM_GRUPO') {
+      loadSubgrupos(selectedGrupo);
+    } else {
+      setSubgrupos([]);
+      setSelectedSubgrupo('TODOS');
+    }
+  }, [selectedGrupo]);
+
   // Carregar produtos quando mudar seção ou tipo
   const loadProductsBySection = async (secao, tipo) => {
     try {
@@ -163,7 +235,14 @@ export default function ProducaoSugestao() {
       setProducts(filtered);
       // Debug: mostrar códigos dos produtos carregados
       console.log('📦 Produtos carregados:', filtered.length);
-      console.log('📦 Amostra de códigos de produtos:', filtered.slice(0, 10).map(p => ({ codigo: p.codigo, tipo: typeof p.codigo, descricao: p.descricao?.substring(0, 20) })));
+      console.log('📦 Amostra de produtos com grupo/subgrupo:', filtered.slice(0, 5).map(p => ({
+        codigo: p.codigo,
+        descricao: p.descricao?.substring(0, 20),
+        codGrupo: p.codGrupo,
+        codSubgrupo: p.codSubgrupo,
+        desGrupo: p.desGrupo,
+        desSubgrupo: p.desSubgrupo
+      })));
     } catch (err) {
       console.error('Erro ao carregar produtos:', err);
       const errorMessage = err.response?.status === 500
@@ -329,24 +408,27 @@ export default function ProducaoSugestao() {
       doc.text(`Seção: ${selectedSecao} | Tipo: ${selectedTipo} | Total: ${productsToExport.length} itens pendentes`, 14, 20);
 
       // Colunas do PDF - TODAS as colunas da tabela (exceto foto e ações)
+      // Larguras reduzidas para caber em A4 paisagem (~267mm útil)
       const pdfColumns = [
-        { key: 'codigo', label: 'Código', width: 14 },
-        { key: 'descricao', label: 'Produto', width: 38 },
-        { key: 'responsible_name', label: 'Responsável', width: 18 },
-        { key: 'curva', label: 'Curva', width: 10 },
-        { key: 'dtaUltMovVenda', label: 'Última Venda', width: 18 },
-        { key: 'diasSemVenda', label: 'Dias S/V', width: 12 },
-        { key: 'peso_medio_kg', label: 'Peso Médio', width: 14 },
-        { key: 'vendaMedia', label: 'V.Méd (kg)', width: 16 },
-        { key: 'vendaMediaUnd', label: 'V.Méd (und)', width: 16 },
-        { key: 'custo', label: 'Custo', width: 14 },
-        { key: 'precoVenda', label: 'Preço Venda', width: 16 },
-        { key: 'margemRef', label: 'Mg Ref', width: 12 },
-        { key: 'margemReal', label: 'Mg Real', width: 12 },
-        { key: 'perdasMesAnterior', label: 'Perdas Ant', width: 16 },
-        { key: 'qtdPerdasMesAnterior', label: 'Qtd Ant', width: 14 },
-        { key: 'perdasMesAtual', label: 'Perdas Atual', width: 16 },
-        { key: 'qtdPerdasMesAtual', label: 'Qtd Atual', width: 14 },
+        { key: 'codigo', label: 'Cód', width: 11 },
+        { key: 'descricao', label: 'Produto', width: 28 },
+        { key: 'responsible_name', label: 'Resp', width: 12 },
+        { key: 'curva', label: 'Cv', width: 7 },
+        { key: 'dtaUltMovVenda', label: 'Últ Venda', width: 13 },
+        { key: 'diasSemVenda', label: 'D S/V', width: 9 },
+        { key: 'peso_medio_kg', label: 'Peso', width: 11 },
+        { key: 'vendaMedia', label: 'V.Md kg', width: 12 },
+        { key: 'vendaMediaUnd', label: 'V.Md ud', width: 11 },
+        { key: 'custo', label: 'Custo', width: 11 },
+        { key: 'precoVenda', label: 'Preço', width: 11 },
+        { key: 'margemRef', label: 'MgRf', width: 9 },
+        { key: 'margemReal', label: 'MgRl', width: 9 },
+        { key: 'perdasMesAnterior', label: 'Prd Ant', width: 12 },
+        { key: 'qtdPerdasMesAnterior', label: 'Qt Ant', width: 10 },
+        { key: 'perdasMesAtual', label: 'Prd Atu', width: 12 },
+        { key: 'qtdPerdasMesAtual', label: 'Qt Atu', width: 10 },
+        { key: 'receita', label: 'Rec', width: 9 },
+        { key: 'nutricional', label: 'Nut', width: 9 },
       ];
 
       // Função para formatar data YYYYMMDD para DD/MM/YYYY
@@ -402,6 +484,8 @@ export default function ProducaoSugestao() {
             const qtdUnd = pesoMedio > 0 ? Math.round(qtdKg / pesoMedio) : 0;
             return qtdUnd > 0 ? `${qtdUnd} und` : '-';
           }
+          case 'receita': return product.codInfoReceita || '-';
+          case 'nutricional': return product.codInfoNutricional || '-';
           default: return '-';
         }
       };
@@ -841,6 +925,10 @@ export default function ProducaoSugestao() {
         const qtdKgAtual = perdasMensais[product.codigo]?.qtdMesAtual || 0;
         const pesoMedioAtual = product.peso_medio_kg || 1;
         return pesoMedioAtual > 0 ? qtdKgAtual / pesoMedioAtual : 0;
+      case 'receita':
+        return product.codInfoReceita || 0;
+      case 'nutricional':
+        return product.codInfoNutricional || 0;
       default:
         return '';
     }
@@ -1003,6 +1091,28 @@ export default function ProducaoSugestao() {
             ))}
           </select>
         );
+      case 'receita':
+        return product.codInfoReceita ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); loadDetails('receita', product.codInfoReceita); }}
+            className="px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 text-xs font-medium"
+          >
+            {product.codInfoReceita}
+          </button>
+        ) : (
+          <span className="text-gray-400">-</span>
+        );
+      case 'nutricional':
+        return product.codInfoNutricional ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); loadDetails('nutricional', product.codInfoNutricional); }}
+            className="px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-xs font-medium"
+          >
+            {product.codInfoNutricional}
+          </button>
+        ) : (
+          <span className="text-gray-400">-</span>
+        );
       case 'acoes':
         return (
           <button
@@ -1023,6 +1133,24 @@ export default function ProducaoSugestao() {
       // Filtro por status
       if (filter === 'pending' && auditItems[product.codigo]?.checked) return false;
       if (filter === 'checked' && !auditItems[product.codigo]?.checked) return false;
+
+      // Filtro por grupo
+      if (selectedGrupo !== 'TODOS') {
+        if (selectedGrupo === 'SEM_GRUPO') {
+          if (product.codGrupo) return false; // Mostrar apenas sem grupo
+        } else {
+          if (product.codGrupo !== parseInt(selectedGrupo)) return false;
+        }
+      }
+
+      // Filtro por subgrupo
+      if (selectedSubgrupo !== 'TODOS') {
+        if (selectedSubgrupo === 'SEM_SUBGRUPO') {
+          if (product.codSubgrupo) return false; // Mostrar apenas sem subgrupo
+        } else {
+          if (product.codSubgrupo !== parseInt(selectedSubgrupo)) return false;
+        }
+      }
 
       // Filtro por responsável
       if (selectedResponsible !== 'TODOS') {
@@ -1209,15 +1337,42 @@ export default function ProducaoSugestao() {
                 value={selectedSecao}
                 onChange={(e) => setSelectedSecao(e.target.value)}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm"
+                title="Seção"
               >
                 {sections.map(secao => (
                   <option key={secao} value={secao}>{secao}</option>
                 ))}
               </select>
               <select
+                value={selectedGrupo}
+                onChange={(e) => setSelectedGrupo(e.target.value)}
+                className="px-3 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 text-sm bg-green-50"
+                title="Grupo"
+              >
+                <option value="TODOS">Grupo: TODOS</option>
+                <option value="SEM_GRUPO">⚠️ SEM GRUPO</option>
+                {grupos.map(grupo => (
+                  <option key={grupo.codigo} value={grupo.codigo}>{grupo.descricao}</option>
+                ))}
+              </select>
+              <select
+                value={selectedSubgrupo}
+                onChange={(e) => setSelectedSubgrupo(e.target.value)}
+                className="px-3 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm bg-purple-50"
+                disabled={selectedGrupo === 'TODOS' || selectedGrupo === 'SEM_GRUPO'}
+                title="Subgrupo"
+              >
+                <option value="TODOS">Subgrupo: TODOS</option>
+                <option value="SEM_SUBGRUPO">⚠️ SEM SUBGRUPO</option>
+                {subgrupos.map(subgrupo => (
+                  <option key={subgrupo.codigo} value={subgrupo.codigo}>{subgrupo.descricao}</option>
+                ))}
+              </select>
+              <select
                 value={selectedTipo}
                 onChange={(e) => setSelectedTipo(e.target.value)}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm"
+                title="Tipo"
               >
                 <option value="PRODUCAO">PRODUCAO</option>
                 <option value="DIRETA">DIRETA</option>
@@ -1818,6 +1973,103 @@ export default function ProducaoSugestao() {
         {!loading && products.length === 0 && (
           <div className="bg-white rounded-lg shadow-md p-8 text-center">
             <p className="text-gray-500">Nenhum produto encontrado para esta seção/tipo</p>
+          </div>
+        )}
+
+        {/* Modal de Detalhes (Receita/Nutricional) */}
+        {detailsModal.type && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-auto">
+              <div className={`px-4 py-3 border-b ${detailsModal.type === 'receita' ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
+                <div className="flex justify-between items-center">
+                  <h3 className={`font-semibold text-lg ${detailsModal.type === 'receita' ? 'text-green-800' : 'text-blue-800'}`}>
+                    {detailsModal.type === 'receita' ? '📜 Receita' : '🥗 Informação Nutricional'} #{detailsModal.code}
+                  </h3>
+                  <button
+                    onClick={() => setDetailsModal({ type: null, code: null, data: null, loading: false })}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+              <div className="p-4">
+                {detailsModal.loading ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">Carregando...</p>
+                  </div>
+                ) : detailsModal.data ? (
+                  detailsModal.type === 'receita' ? (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Descrição:</label>
+                        <p className="text-gray-900 font-semibold">{detailsModal.data.descricao || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Detalhamento:</label>
+                        <p className="text-gray-800 whitespace-pre-wrap bg-gray-50 p-3 rounded border text-sm">
+                          {detailsModal.data.detalhamento || 'Sem detalhamento disponível'}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Descrição:</label>
+                        <p className="text-gray-900 font-semibold mb-3">{detailsModal.data.descricao || '-'}</p>
+                      </div>
+                      <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                        <h4 className="font-semibold text-blue-800 mb-2">Valores Nutricionais</h4>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          {detailsModal.data.porcao && (
+                            <div className="col-span-2">
+                              <span className="text-gray-600">Porção:</span>
+                              <span className="ml-2 font-medium">{detailsModal.data.porcao}</span>
+                            </div>
+                          )}
+                          {detailsModal.data.valorCalorico != null && (
+                            <div><span className="text-gray-600">Calorias:</span> <span className="font-medium">{detailsModal.data.valorCalorico} kcal</span></div>
+                          )}
+                          {detailsModal.data.carboidrato != null && (
+                            <div><span className="text-gray-600">Carboidratos:</span> <span className="font-medium">{detailsModal.data.carboidrato}g</span></div>
+                          )}
+                          {detailsModal.data.proteina != null && (
+                            <div><span className="text-gray-600">Proteínas:</span> <span className="font-medium">{detailsModal.data.proteina}g</span></div>
+                          )}
+                          {detailsModal.data.gorduraTotal != null && (
+                            <div><span className="text-gray-600">Gordura Total:</span> <span className="font-medium">{detailsModal.data.gorduraTotal}g</span></div>
+                          )}
+                          {detailsModal.data.gorduraSaturada != null && (
+                            <div><span className="text-gray-600">Gordura Saturada:</span> <span className="font-medium">{detailsModal.data.gorduraSaturada}g</span></div>
+                          )}
+                          {detailsModal.data.gorduraTrans != null && (
+                            <div><span className="text-gray-600">Gordura Trans:</span> <span className="font-medium">{detailsModal.data.gorduraTrans}g</span></div>
+                          )}
+                          {detailsModal.data.fibraAlimentar != null && (
+                            <div><span className="text-gray-600">Fibra Alimentar:</span> <span className="font-medium">{detailsModal.data.fibraAlimentar}g</span></div>
+                          )}
+                          {detailsModal.data.sodio != null && (
+                            <div><span className="text-gray-600">Sódio:</span> <span className="font-medium">{detailsModal.data.sodio}mg</span></div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">Nenhuma informação encontrada</p>
+                  </div>
+                )}
+              </div>
+              <div className="px-4 py-3 border-t bg-gray-50">
+                <button
+                  onClick={() => setDetailsModal({ type: null, code: null, data: null, loading: false })}
+                  className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

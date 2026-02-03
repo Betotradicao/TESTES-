@@ -241,6 +241,92 @@ export class ProductionAuditController {
   }
 
   /**
+   * Listar todos os grupos do Oracle (com opção de filtrar por seção)
+   * GET /api/production/erp-grupos?section=PADARIA
+   */
+  static async getErpGrupos(req: AuthRequest, res: Response) {
+    try {
+      const { section } = req.query;
+      console.log('🔗 Buscando grupos do Oracle...', section ? `(seção: ${section})` : '');
+
+      const cacheKey = section ? `oracle-grupos-${String(section).toUpperCase()}` : 'oracle-grupos-all';
+
+      const grupos = await CacheService.executeWithCache(
+        cacheKey,
+        async () => {
+          let query = `
+            SELECT DISTINCT g.COD_GRUPO, g.DES_GRUPO
+            FROM INTERSOLID.TAB_GRUPO g
+          `;
+
+          if (section) {
+            query += `
+              INNER JOIN INTERSOLID.TAB_SECAO s ON g.COD_SECAO = s.COD_SECAO
+              WHERE UPPER(s.DES_SECAO) = :sectionUpper
+              AND NVL(g.FLG_INATIVO, 'N') = 'N'
+            `;
+          } else {
+            query += `WHERE NVL(g.FLG_INATIVO, 'N') = 'N'`;
+          }
+
+          query += ` ORDER BY g.DES_GRUPO`;
+
+          const params = section ? { sectionUpper: String(section).toUpperCase() } : {};
+          const result = await OracleService.query<{ COD_GRUPO: number; DES_GRUPO: string }>(query, params);
+          return result.map(r => ({ codigo: r.COD_GRUPO, descricao: r.DES_GRUPO }));
+        }
+      );
+
+      console.log('✅ Total grupos encontrados:', grupos.length);
+      res.json(grupos);
+    } catch (error) {
+      console.error('Get Oracle grupos error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  /**
+   * Listar todos os subgrupos do Oracle (com opção de filtrar por grupo)
+   * GET /api/production/erp-subgrupos?codGrupo=1
+   */
+  static async getErpSubgrupos(req: AuthRequest, res: Response) {
+    try {
+      const { codGrupo } = req.query;
+      console.log('🔗 Buscando subgrupos do Oracle...', codGrupo ? `(grupo: ${codGrupo})` : '');
+
+      const cacheKey = codGrupo ? `oracle-subgrupos-${codGrupo}` : 'oracle-subgrupos-all';
+
+      const subgrupos = await CacheService.executeWithCache(
+        cacheKey,
+        async () => {
+          let query = `
+            SELECT DISTINCT sg.COD_SUB_GRUPO, sg.DES_SUB_GRUPO, sg.COD_GRUPO
+            FROM INTERSOLID.TAB_SUBGRUPO sg
+          `;
+
+          if (codGrupo) {
+            query += ` WHERE sg.COD_GRUPO = :codGrupo AND NVL(sg.FLG_INATIVO, 'N') = 'N'`;
+          } else {
+            query += ` WHERE NVL(sg.FLG_INATIVO, 'N') = 'N'`;
+          }
+
+          query += ` ORDER BY sg.DES_SUB_GRUPO`;
+
+          const params = codGrupo ? { codGrupo: parseInt(String(codGrupo)) } : {};
+          const result = await OracleService.query<{ COD_SUB_GRUPO: number; DES_SUB_GRUPO: string; COD_GRUPO: number }>(query, params);
+          return result.map(r => ({ codigo: r.COD_SUB_GRUPO, descricao: r.DES_SUB_GRUPO, codGrupo: r.COD_GRUPO }));
+        }
+      );
+
+      console.log('✅ Total subgrupos encontrados:', subgrupos.length);
+      res.json(subgrupos);
+    } catch (error) {
+      console.error('Get Oracle subgrupos error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  /**
    * Listar todos os produtos de uma seção do Oracle (sem filtrar por ativos)
    * GET /api/production/erp-products-by-section?section=PADARIA
    */
@@ -298,7 +384,13 @@ export class ProductionAuditController {
                 WHEN 3 THEN 'PRODUCAO'
                 ELSE 'OUTROS'
               END as TIPO_EVENTO,
-              NVL(TRIM(pl.DES_RANK_PRODLOJA), 'X') as CURVA
+              NVL(TRIM(pl.DES_RANK_PRODLOJA), 'X') as CURVA,
+              p.COD_INFO_NUTRICIONAL,
+              pl.COD_INFO_RECEITA,
+              p.COD_GRUPO,
+              p.COD_SUB_GRUPO,
+              (SELECT MAX(g.DES_GRUPO) FROM INTERSOLID.TAB_GRUPO g WHERE g.COD_GRUPO = p.COD_GRUPO AND g.COD_SECAO = p.COD_SECAO) as DES_GRUPO,
+              (SELECT MAX(sg.DES_SUB_GRUPO) FROM INTERSOLID.TAB_SUBGRUPO sg WHERE sg.COD_SUB_GRUPO = p.COD_SUB_GRUPO AND sg.COD_GRUPO = p.COD_GRUPO AND sg.COD_SECAO = p.COD_SECAO) as DES_SUB_GRUPO
             FROM INTERSOLID.TAB_PRODUTO p
             INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
             LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
@@ -311,6 +403,17 @@ export class ProductionAuditController {
           return result;
         }
       );
+
+      // Debug: verificar campos de receita/nutricional
+      const produtosComInfo = oracleProducts.filter((p: any) => p.COD_INFO_NUTRICIONAL || p.COD_INFO_RECEITA);
+      console.log(`📋 Produtos com info nutricional/receita: ${produtosComInfo.length}/${oracleProducts.length}`);
+      if (produtosComInfo.length > 0) {
+        console.log('📋 Exemplo:', {
+          cod: produtosComInfo[0].COD_PRODUTO,
+          nutri: produtosComInfo[0].COD_INFO_NUTRICIONAL,
+          receita: produtosComInfo[0].COD_INFO_RECEITA
+        });
+      }
 
       // Mapear produtos Oracle para formato esperado
       const allProducts = oracleProducts.map((product: any) => {
@@ -351,6 +454,12 @@ export class ProductionAuditController {
           curva: product.CURVA || 'X',
           responsible_id: productData?.responsible_id || null,
           responsible_name: productData?.responsible_name || null,
+          codInfoNutricional: product.COD_INFO_NUTRICIONAL || null,
+          codInfoReceita: product.COD_INFO_RECEITA || null,
+          codGrupo: product.COD_GRUPO || null,
+          codSubgrupo: product.COD_SUB_GRUPO || null,
+          desGrupo: product.DES_GRUPO || null,
+          desSubgrupo: product.DES_SUB_GRUPO || null,
         };
       });
 
@@ -917,6 +1026,108 @@ export class ProductionAuditController {
     } catch (error) {
       console.error('Update product responsible error:', error);
       res.status(500).json({ error: 'Erro ao atualizar responsável' });
+    }
+  }
+
+  /**
+   * Buscar detalhes de uma receita pelo código
+   * GET /api/production/receita/:codReceita
+   */
+  static async getReceitaDetails(req: AuthRequest, res: Response) {
+    try {
+      const { codReceita } = req.params;
+
+      const result = await OracleService.query<any>(`
+        SELECT
+          COD_INFO_RECEITA,
+          DES_INFO_RECEITA,
+          DETALHAMENTO,
+          USUARIO,
+          TO_CHAR(DTA_CADASTRO, 'DD/MM/YYYY') as DTA_CADASTRO,
+          TO_CHAR(DTA_ALTERACAO, 'DD/MM/YYYY') as DTA_ALTERACAO
+        FROM INTERSOLID.TAB_INFO_RECEITA
+        WHERE COD_INFO_RECEITA = :codReceita
+      `, { codReceita: parseInt(codReceita) });
+
+      if (result.length === 0) {
+        return res.status(404).json({ error: 'Receita não encontrada' });
+      }
+
+      const receita = result[0];
+      res.json({
+        codigo: receita.COD_INFO_RECEITA,
+        descricao: receita.DES_INFO_RECEITA,
+        detalhamento: receita.DETALHAMENTO,
+        usuario: receita.USUARIO,
+        dataCadastro: receita.DTA_CADASTRO,
+        dataAlteracao: receita.DTA_ALTERACAO
+      });
+    } catch (error) {
+      console.error('Get receita details error:', error);
+      res.status(500).json({ error: 'Erro ao buscar receita' });
+    }
+  }
+
+  /**
+   * Buscar detalhes de informação nutricional pelo código
+   * GET /api/production/nutricional/:codNutricional
+   */
+  static async getNutricionalDetails(req: AuthRequest, res: Response) {
+    try {
+      const { codNutricional } = req.params;
+
+      const result = await OracleService.query<any>(`
+        SELECT
+          COD_INFO_NUTRICIONAL,
+          DES_INFO_NUTRICIONAL,
+          PORCAO,
+          UNIDADE_PORCAO,
+          VALOR_CALORICO,
+          CARBOIDRATO,
+          PROTEINA,
+          GORDURA_TOTAL,
+          GORDURA_SATURADA,
+          GORDURA_TRANS,
+          COLESTEROL,
+          FIBRA_ALIMENTAR,
+          CALCIO,
+          FERRO,
+          SODIO,
+          USUARIO,
+          TO_CHAR(DTA_CADASTRO, 'DD/MM/YYYY') as DTA_CADASTRO,
+          TO_CHAR(DTA_ALTERACAO, 'DD/MM/YYYY') as DTA_ALTERACAO
+        FROM INTERSOLID.TAB_INFO_NUTRICIONAL
+        WHERE COD_INFO_NUTRICIONAL = :codNutricional
+      `, { codNutricional: parseInt(codNutricional) });
+
+      if (result.length === 0) {
+        return res.status(404).json({ error: 'Informação nutricional não encontrada' });
+      }
+
+      const nutri = result[0];
+      res.json({
+        codigo: nutri.COD_INFO_NUTRICIONAL,
+        descricao: nutri.DES_INFO_NUTRICIONAL,
+        porcao: nutri.PORCAO,
+        unidadePorcao: nutri.UNIDADE_PORCAO || 'g',
+        valorCalorico: nutri.VALOR_CALORICO || 0,
+        carboidrato: nutri.CARBOIDRATO || 0,
+        proteina: nutri.PROTEINA || 0,
+        gorduraTotal: nutri.GORDURA_TOTAL || 0,
+        gorduraSaturada: nutri.GORDURA_SATURADA || 0,
+        gorduraTrans: nutri.GORDURA_TRANS || 0,
+        colesterol: nutri.COLESTEROL || 0,
+        fibraAlimentar: nutri.FIBRA_ALIMENTAR || 0,
+        calcio: nutri.CALCIO || 0,
+        ferro: nutri.FERRO || 0,
+        sodio: nutri.SODIO || 0,
+        usuario: nutri.USUARIO,
+        dataCadastro: nutri.DTA_CADASTRO,
+        dataAlteracao: nutri.DTA_ALTERACAO
+      });
+    } catch (error) {
+      console.error('Get nutricional details error:', error);
+      res.status(500).json({ error: 'Erro ao buscar informação nutricional' });
     }
   }
 }

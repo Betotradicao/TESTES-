@@ -23,6 +23,12 @@ router.get('/bakery-products', ProductionAuditController.getBakeryProducts);
 // Listar todas as seções do ERP (sem filtrar por ativos)
 router.get('/erp-sections', ProductionAuditController.getErpSections);
 
+// Listar todos os grupos do ERP (com opção de filtrar por seção)
+router.get('/erp-grupos', ProductionAuditController.getErpGrupos);
+
+// Listar todos os subgrupos do ERP (com opção de filtrar por grupo)
+router.get('/erp-subgrupos', ProductionAuditController.getErpSubgrupos);
+
 // Listar todos os produtos de uma seção do ERP (sem filtrar por ativos)
 router.get('/erp-products-by-section', ProductionAuditController.getErpProductsBySection);
 
@@ -49,5 +55,11 @@ router.post('/clear-cache', ProductionAuditController.clearCache);
 
 // Atualizar responsável do produto
 router.patch('/products/:productCode/responsible', ProductionAuditController.updateProductResponsible);
+
+// Buscar detalhes de receita
+router.get('/receita/:codReceita', ProductionAuditController.getReceitaDetails);
+
+// Buscar detalhes de informação nutricional
+router.get('/nutricional/:codNutricional', ProductionAuditController.getNutricionalDetails);
 
 export default router;
