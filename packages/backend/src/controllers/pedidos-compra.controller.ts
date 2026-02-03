@@ -825,6 +825,7 @@ export class PedidosCompraController {
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
       // Query para contar totais por tipo de bloqueio
+      // Stats sem filtro de data - mostra todas as NFs pendentes de liberação
       const statsQuery = `
         SELECT
           COUNT(CASE WHEN n.FLG_BLOQUEADO_1F = 'S' THEN 1 END) as TOTAL_BLOQ_1F,
@@ -834,7 +835,6 @@ export class PedidosCompraController {
           NVL(SUM(n.VAL_TOTAL_NF), 0) as VALOR_TOTAL_BLOQUEADO
         FROM INTERSOLID.TAB_FORNECEDOR_NOTA n
         WHERE (n.FLG_BLOQUEADO_1F = 'S' OR n.FLG_BLOQUEADO_2F = 'S' OR n.FLG_BLOQUEADO_CUSTO = 'S')
-        AND n.DTA_ENTRADA >= ADD_MONTHS(SYSDATE, -3)
       `;
 
       // Query para buscar NFs com bloqueio
