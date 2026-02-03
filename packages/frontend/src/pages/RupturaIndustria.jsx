@@ -545,6 +545,20 @@ export default function RupturaIndustria() {
   return (
     <Layout title="Ruptura Industria">
       <div className="p-4 lg:p-6">
+        {/* Header com Gradiente Laranja */}
+        <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg p-6 mb-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold flex items-center gap-3">
+                🏭 Ruptura Indústria
+              </h1>
+              <p className="text-white/90 mt-1">
+                Ruptura = itens pedidos que não chegaram ou chegaram incompletos. Clique no fornecedor para ver os produtos.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Header com estatisticas */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
           <div className="bg-white rounded-lg shadow p-4 border-l-4 border-red-500">

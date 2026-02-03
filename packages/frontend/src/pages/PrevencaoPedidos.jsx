@@ -471,6 +471,20 @@ export default function PrevencaoPedidos() {
   return (
     <Layout title="Prevenção Pedidos">
       <div className="p-4 lg:p-6">
+        {/* Header com Gradiente Laranja */}
+        <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg p-6 mb-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold flex items-center gap-3">
+                📋 Gestão de Pedidos de Compra
+              </h1>
+              <p className="text-white/90 mt-1">
+                Acompanhe pedidos pendentes, parciais, recebidos e atrasados
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Header com estatísticas */}
         <div className="grid grid-cols-2 lg:grid-cols-8 gap-3 mb-4">
           <div
