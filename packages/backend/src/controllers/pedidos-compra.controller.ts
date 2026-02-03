@@ -784,4 +784,135 @@ export class PedidosCompraController {
       res.status(500).json({ error: 'Erro ao buscar contatos', details: error.message });
     }
   }
+
+  /**
+   * Lista NFs com bloqueio pendente de liberação
+   * Dados da TAB_FORNECEDOR_NOTA com FLG_BLOQUEADO_1F = 'S' ou FLG_BLOQUEADO_2F = 'S'
+   */
+  static async listarNfComBloqueio(req: AuthRequest, res: Response) {
+    try {
+      const { dataInicio, dataFim, fornecedor, tipoBloqueio } = req.query;
+
+      // Construir condições WHERE
+      const conditions: string[] = [
+        "(n.FLG_BLOQUEADO_1F = 'S' OR n.FLG_BLOQUEADO_2F = 'S' OR n.FLG_BLOQUEADO_CUSTO = 'S')"
+      ];
+      const params: any = {};
+
+      if (dataInicio) {
+        conditions.push("TRUNC(n.DTA_ENTRADA) >= TO_DATE(:dataInicio, 'YYYY-MM-DD')");
+        params.dataInicio = dataInicio;
+      }
+
+      if (dataFim) {
+        conditions.push("TRUNC(n.DTA_ENTRADA) <= TO_DATE(:dataFim, 'YYYY-MM-DD')");
+        params.dataFim = dataFim;
+      }
+
+      if (fornecedor) {
+        conditions.push('UPPER(f.DES_FORNECEDOR) LIKE UPPER(:fornecedor)');
+        params.fornecedor = `%${fornecedor}%`;
+      }
+
+      if (tipoBloqueio === '1f') {
+        conditions.push("n.FLG_BLOQUEADO_1F = 'S'");
+      } else if (tipoBloqueio === '2f') {
+        conditions.push("n.FLG_BLOQUEADO_2F = 'S'");
+      } else if (tipoBloqueio === 'custo') {
+        conditions.push("n.FLG_BLOQUEADO_CUSTO = 'S'");
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+      // Query para contar totais por tipo de bloqueio
+      const statsQuery = `
+        SELECT
+          COUNT(CASE WHEN n.FLG_BLOQUEADO_1F = 'S' THEN 1 END) as TOTAL_BLOQ_1F,
+          COUNT(CASE WHEN n.FLG_BLOQUEADO_2F = 'S' THEN 1 END) as TOTAL_BLOQ_2F,
+          COUNT(CASE WHEN n.FLG_BLOQUEADO_CUSTO = 'S' THEN 1 END) as TOTAL_BLOQ_CUSTO,
+          COUNT(*) as TOTAL_COM_BLOQUEIO,
+          NVL(SUM(n.VAL_TOTAL_NF), 0) as VALOR_TOTAL_BLOQUEADO
+        FROM INTERSOLID.TAB_FORNECEDOR_NOTA n
+        WHERE (n.FLG_BLOQUEADO_1F = 'S' OR n.FLG_BLOQUEADO_2F = 'S' OR n.FLG_BLOQUEADO_CUSTO = 'S')
+        AND n.DTA_ENTRADA >= ADD_MONTHS(SYSDATE, -3)
+      `;
+
+      // Query para buscar NFs com bloqueio
+      const dataQuery = `
+        SELECT
+          n.COD_LOJA as LOJA,
+          f.NUM_CGC as CNPJ,
+          f.DES_FORNECEDOR,
+          n.NUM_NF_FORN as NUMERO_NF,
+          n.NUM_ROMANEIO as ROMANEIO,
+          n.NUM_SERIE_NF as SERIE,
+          n.VAL_TOTAL_NF,
+          TO_CHAR(n.DTA_ENTRADA, 'DD/MM/YYYY') as DTA_ENTRADA,
+          n.USUARIO as USUARIO_ENTRADA,
+          n.FLG_BLOQUEADO_1F as BLOQ_1F,
+          n.USU_AUTORIZ_1F as AUTORIZADOR_1F,
+          n.FLG_BLOQUEADO_2F as BLOQ_2F,
+          n.USU_AUTORIZ_2F as AUTORIZADOR_2F,
+          n.FLG_BLOQUEADO_CUSTO as BLOQ_CUSTO,
+          n.USU_LIBER_CUSTO as LIBERADOR_CUSTO,
+          c.DES_COMPRADOR as COMPRADOR,
+          n.OBS_LIBERACAO_PEDIDO as OBS_LIBERACAO,
+          n.NUM_PEDIDO
+        FROM INTERSOLID.TAB_FORNECEDOR_NOTA n
+        JOIN INTERSOLID.TAB_FORNECEDOR f ON n.COD_FORNECEDOR = f.COD_FORNECEDOR
+        LEFT JOIN INTERSOLID.TAB_COMPRADOR c ON n.COD_COMPRADOR = c.COD_COMPRADOR
+        ${whereClause}
+        ORDER BY n.DTA_ENTRADA DESC
+        FETCH FIRST 100 ROWS ONLY
+      `;
+
+      const [statsResult, dataResult] = await Promise.all([
+        OracleService.query<any>(statsQuery, {}),
+        OracleService.query<any>(dataQuery, params)
+      ]);
+
+      const stats = statsResult[0] || {
+        TOTAL_BLOQ_1F: 0,
+        TOTAL_BLOQ_2F: 0,
+        TOTAL_BLOQ_CUSTO: 0,
+        TOTAL_COM_BLOQUEIO: 0,
+        VALOR_TOTAL_BLOQUEADO: 0
+      };
+
+      const nfs = dataResult.map((r: any) => ({
+        loja: r.LOJA,
+        cnpj: r.CNPJ,
+        fornecedor: r.DES_FORNECEDOR,
+        numeroNf: r.NUMERO_NF,
+        romaneio: r.ROMANEIO || 0,
+        serie: r.SERIE,
+        valorTotal: r.VAL_TOTAL_NF || 0,
+        dataEntrada: r.DTA_ENTRADA,
+        usuarioEntrada: r.USUARIO_ENTRADA,
+        bloqueio1f: r.BLOQ_1F === 'S',
+        autorizador1f: r.AUTORIZADOR_1F,
+        bloqueio2f: r.BLOQ_2F === 'S',
+        autorizador2f: r.AUTORIZADOR_2F,
+        bloqueioCusto: r.BLOQ_CUSTO === 'S',
+        liberadorCusto: r.LIBERADOR_CUSTO,
+        comprador: r.COMPRADOR,
+        obsLiberacao: r.OBS_LIBERACAO,
+        numPedido: r.NUM_PEDIDO
+      }));
+
+      res.json({
+        stats: {
+          totalBloq1f: stats.TOTAL_BLOQ_1F || 0,
+          totalBloq2f: stats.TOTAL_BLOQ_2F || 0,
+          totalBloqCusto: stats.TOTAL_BLOQ_CUSTO || 0,
+          totalComBloqueio: stats.TOTAL_COM_BLOQUEIO || 0,
+          valorTotalBloqueado: stats.VALOR_TOTAL_BLOQUEADO || 0
+        },
+        nfs
+      });
+    } catch (error: any) {
+      console.error('Erro ao listar NFs com bloqueio:', error);
+      res.status(500).json({ error: 'Erro ao buscar NFs com bloqueio', details: error.message });
+    }
+  }
 }

@@ -53,6 +53,17 @@ export default function PrevencaoPedidos() {
     nfSemPedido: 0,
     valorNfSemPedido: 0
   });
+
+  // Estado para NFs com bloqueio
+  const [nfsComBloqueio, setNfsComBloqueio] = useState([]);
+  const [statsBloqueio, setStatsBloqueio] = useState({
+    totalBloq1f: 0,
+    totalBloq2f: 0,
+    totalBloqCusto: 0,
+    totalComBloqueio: 0,
+    valorTotalBloqueado: 0
+  });
+  const [showNfsBloqueio, setShowNfsBloqueio] = useState(false);
   const [expandedPedido, setExpandedPedido] = useState(null);
   const [itensPedido, setItensPedido] = useState({});
   const [loadingItens, setLoadingItens] = useState({});
@@ -363,7 +374,25 @@ export default function PrevencaoPedidos() {
     loadPedidos();
     loadCompradores();
     loadClassificacoes();
+    loadNfsBloqueio();
   }, []);
+
+  // Carregar NFs com bloqueio
+  const loadNfsBloqueio = async () => {
+    try {
+      const response = await api.get('/pedidos-compra/nf-com-bloqueio');
+      setNfsComBloqueio(response.data.nfs || []);
+      setStatsBloqueio(response.data.stats || {
+        totalBloq1f: 0,
+        totalBloq2f: 0,
+        totalBloqCusto: 0,
+        totalComBloqueio: 0,
+        valorTotalBloqueado: 0
+      });
+    } catch (err) {
+      console.error('Erro ao carregar NFs com bloqueio:', err);
+    }
+  };
 
   const handleFilter = () => {
     loadPedidos(1);
@@ -486,12 +515,35 @@ export default function PrevencaoPedidos() {
         </div>
 
         {/* Header com estatísticas */}
-        <div className="grid grid-cols-2 lg:grid-cols-8 gap-3 mb-4">
+        <div className="grid grid-cols-2 lg:grid-cols-9 gap-3 mb-4">
+          {/* Card NFs com Bloqueio - ANTES de Pendentes */}
           <div
             className={`bg-white rounded-lg shadow p-3 cursor-pointer border-2 transition-all ${
-              filters.tipoRecebimento === '0' && !filters.apenasAtrasados && !filters.parciaisFinalizadas && !filters.canceladasTotais ? 'border-yellow-500 ring-2 ring-yellow-200' : 'border-transparent hover:border-yellow-300'
+              showNfsBloqueio ? 'border-red-500 ring-2 ring-red-200' : 'border-transparent hover:border-red-300'
             }`}
             onClick={() => {
+              setShowNfsBloqueio(!showNfsBloqueio);
+              if (!showNfsBloqueio) {
+                // Quando ativar o filtro de bloqueio, desativar outros
+                setFilters({ ...filters, tipoRecebimento: '', apenasAtrasados: false, parciaisFinalizadas: false, canceladasTotais: false, semNenhumaEntrada: false, nfSemPedido: false });
+              }
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500">NFs com Bloqueio</p>
+                <p className="text-xl font-bold text-red-600">{statsBloqueio.totalComBloqueio}</p>
+              </div>
+              <span className="text-2xl">🔒</span>
+            </div>
+          </div>
+
+          <div
+            className={`bg-white rounded-lg shadow p-3 cursor-pointer border-2 transition-all ${
+              filters.tipoRecebimento === '0' && !filters.apenasAtrasados && !filters.parciaisFinalizadas && !filters.canceladasTotais && !showNfsBloqueio ? 'border-yellow-500 ring-2 ring-yellow-200' : 'border-transparent hover:border-yellow-300'
+            }`}
+            onClick={() => {
+              setShowNfsBloqueio(false);
               const newFilters = { ...filters, tipoRecebimento: filters.tipoRecebimento === '0' ? '' : '0', apenasAtrasados: false, parciaisFinalizadas: false, canceladasTotais: false, semNenhumaEntrada: false, nfSemPedido: false };
               setFilters(newFilters);
               loadPedidos(1, newFilters);
@@ -511,6 +563,7 @@ export default function PrevencaoPedidos() {
               filters.tipoRecebimento === '1' && !filters.apenasAtrasados && !filters.parciaisFinalizadas && !filters.canceladasTotais ? 'border-blue-500 ring-2 ring-blue-200' : 'border-transparent hover:border-blue-300'
             }`}
             onClick={() => {
+              setShowNfsBloqueio(false);
               const newFilters = { ...filters, tipoRecebimento: filters.tipoRecebimento === '1' ? '' : '1', apenasAtrasados: false, parciaisFinalizadas: false, canceladasTotais: false, semNenhumaEntrada: false, nfSemPedido: false };
               setFilters(newFilters);
               loadPedidos(1, newFilters);
@@ -530,6 +583,7 @@ export default function PrevencaoPedidos() {
               filters.tipoRecebimento === '2' && !filters.apenasAtrasados && !filters.parciaisFinalizadas && !filters.canceladasTotais ? 'border-green-500 ring-2 ring-green-200' : 'border-transparent hover:border-green-300'
             }`}
             onClick={() => {
+              setShowNfsBloqueio(false);
               const newFilters = { ...filters, tipoRecebimento: filters.tipoRecebimento === '2' ? '' : '2', apenasAtrasados: false, parciaisFinalizadas: false, canceladasTotais: false, semNenhumaEntrada: false, nfSemPedido: false };
               setFilters(newFilters);
               loadPedidos(1, newFilters);
@@ -549,6 +603,7 @@ export default function PrevencaoPedidos() {
               filters.parciaisFinalizadas ? 'border-purple-500 ring-2 ring-purple-200' : 'border-transparent hover:border-purple-300'
             }`}
             onClick={() => {
+              setShowNfsBloqueio(false);
               const newFilters = { ...filters, parciaisFinalizadas: !filters.parciaisFinalizadas, canceladasTotais: false, apenasAtrasados: false, semNenhumaEntrada: false, tipoRecebimento: '', nfSemPedido: false };
               setFilters(newFilters);
               loadPedidos(1, newFilters);
@@ -568,6 +623,7 @@ export default function PrevencaoPedidos() {
               filters.canceladasTotais ? 'border-pink-500 ring-2 ring-pink-200' : 'border-transparent hover:border-pink-300'
             }`}
             onClick={() => {
+              setShowNfsBloqueio(false);
               const newFilters = { ...filters, canceladasTotais: !filters.canceladasTotais, parciaisFinalizadas: false, apenasAtrasados: false, semNenhumaEntrada: false, tipoRecebimento: '', nfSemPedido: false };
               setFilters(newFilters);
               loadPedidos(1, newFilters);
@@ -588,6 +644,7 @@ export default function PrevencaoPedidos() {
               filters.semNenhumaEntrada ? 'border-gray-500 ring-2 ring-gray-200' : 'border-transparent hover:border-gray-300'
             }`}
             onClick={() => {
+              setShowNfsBloqueio(false);
               const newFilters = { ...filters, semNenhumaEntrada: !filters.semNenhumaEntrada, parciaisFinalizadas: false, canceladasTotais: false, apenasAtrasados: false, tipoRecebimento: '', nfSemPedido: false };
               setFilters(newFilters);
               loadPedidos(1, newFilters);
@@ -608,6 +665,7 @@ export default function PrevencaoPedidos() {
               filters.apenasAtrasados ? 'border-orange-500 ring-2 ring-orange-200' : 'border-transparent hover:border-orange-300'
             }`}
             onClick={() => {
+              setShowNfsBloqueio(false);
               const newFilters = { ...filters, apenasAtrasados: !filters.apenasAtrasados, tipoRecebimento: '', parciaisFinalizadas: false, canceladasTotais: false, semNenhumaEntrada: false, nfSemPedido: false };
               setFilters(newFilters);
               loadPedidos(1, newFilters);
@@ -627,6 +685,7 @@ export default function PrevencaoPedidos() {
               filters.nfSemPedido ? 'border-amber-500 ring-2 ring-amber-200' : 'border-transparent hover:border-amber-300'
             }`}
             onClick={() => {
+              setShowNfsBloqueio(false);
               const newFilters = { ...filters, nfSemPedido: !filters.nfSemPedido, apenasAtrasados: false, tipoRecebimento: '', parciaisFinalizadas: false, canceladasTotais: false, semNenhumaEntrada: false };
               setFilters(newFilters);
               if (!filters.nfSemPedido) {
@@ -858,6 +917,85 @@ export default function PrevencaoPedidos() {
                 Tentar novamente
               </button>
             </div>
+          ) : showNfsBloqueio ? (
+            // Tabela de NFs com Bloqueio
+            nfsComBloqueio.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                Nenhuma NF com bloqueio encontrada
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                {/* Resumo de bloqueios */}
+                <div className="bg-red-50 p-3 border-b border-red-200">
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    <span className="text-red-700">
+                      <strong>Bloqueio 1ª Fase:</strong> {statsBloqueio.totalBloq1f}
+                    </span>
+                    <span className="text-red-700">
+                      <strong>Bloqueio 2ª Fase:</strong> {statsBloqueio.totalBloq2f}
+                    </span>
+                    <span className="text-red-700">
+                      <strong>Bloqueio Custo:</strong> {statsBloqueio.totalBloqCusto}
+                    </span>
+                    <span className="text-red-800 font-bold">
+                      <strong>Valor Total Bloqueado:</strong> {formatCurrency(statsBloqueio.valorTotalBloqueado)}
+                    </span>
+                  </div>
+                </div>
+                <table className="w-full text-sm">
+                  <thead className="bg-red-50 border-b border-red-200">
+                    <tr>
+                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-left">LOJA</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-left">FORNECEDOR</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-left">CNPJ</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-center">NF</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-center">EMISSÃO</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-right">VALOR</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-center">BLOQ 1F</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-center">BLOQ 2F</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-center">BLOQ CUSTO</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-left">AUTORIZADOR</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {nfsComBloqueio.map((nf, idx) => (
+                      <tr key={idx} className="hover:bg-red-50">
+                        <td className="px-2 py-1.5 text-xs">{nf.loja}</td>
+                        <td className="px-2 py-1.5 max-w-[180px] truncate" title={nf.fornecedor}>{nf.fornecedor || '-'}</td>
+                        <td className="px-2 py-1.5 text-xs text-gray-500 font-mono">{formatCNPJ(nf.cnpj)}</td>
+                        <td className="px-2 py-1.5 text-center font-semibold">{nf.numeroNf}</td>
+                        <td className="px-2 py-1.5 text-center text-xs">{formatDate(nf.dataEmissao)}</td>
+                        <td className="px-2 py-1.5 text-right font-semibold text-green-600">{formatCurrency(nf.valorTotal)}</td>
+                        <td className="px-2 py-1.5 text-center">
+                          {nf.bloqueio1f ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-red-500 text-white">🔒</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5 text-center">
+                          {nf.bloqueio2f ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-orange-500 text-white">🔒</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5 text-center">
+                          {nf.bloqueioCusto ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-purple-500 text-white">🔒</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5 text-xs max-w-[100px] truncate" title={nf.autorizador1f || nf.autorizador2f || nf.autorizadorCusto}>
+                          {nf.autorizador1f || nf.autorizador2f || nf.autorizadorCusto || '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
           ) : filters.nfSemPedido ? (
             // Tabela de NFs sem Pedido
             nfsSemPedido.length === 0 ? (
