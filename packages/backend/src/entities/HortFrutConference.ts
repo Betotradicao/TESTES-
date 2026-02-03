@@ -63,4 +63,7 @@ export class HortFrutConference {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
+
+  @Column({ name: 'cod_loja', type: 'int', nullable: true })
+  codLoja?: number;
 }

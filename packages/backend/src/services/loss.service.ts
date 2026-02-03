@@ -33,7 +33,8 @@ export class LossService {
     nomeLote: string,
     companyId: string | null,
     dataInicioCustom?: string,
-    dataFimCustom?: string
+    dataFimCustom?: string,
+    codLoja?: number
   ): Promise<{ total: number; perdas: number; entradas: number }> {
     try {
       console.log(`📂 Processando arquivo de perdas: ${filePath}`);
@@ -142,6 +143,7 @@ export class LossService {
 
         const loss = lossRepository.create({
           ...(companyId && { companyId }),
+          ...(codLoja && { codLoja }),
           codigoBarras: row['C�digo de Barras'] || row['Código de Barras'] || '',
           descricaoReduzida: row['Descri��o Reduzida'] || row['Descrição Reduzida'] || '',
           quantidadeAjuste: quantidade,
@@ -265,7 +267,7 @@ export class LossService {
   /**
    * Buscar todos os lotes
    */
-  static async getAllLotes(companyId?: string): Promise<any[]> {
+  static async getAllLotes(companyId?: string, codLoja?: number): Promise<any[]> {
     const lossRepository = AppDataSource.getRepository(Loss);
 
     const query = lossRepository
@@ -282,6 +284,15 @@ export class LossService {
     // Adicionar filtro de company apenas se estiver definido
     if (companyId) {
       query.where('loss.company_id = :companyId', { companyId });
+    }
+
+    // Adicionar filtro de loja
+    if (codLoja) {
+      if (companyId) {
+        query.andWhere('loss.cod_loja = :codLoja', { codLoja });
+      } else {
+        query.where('loss.cod_loja = :codLoja', { codLoja });
+      }
     }
 
     const result = await query
@@ -387,6 +398,7 @@ export class LossService {
     produto?: string;
     tipo?: string;
     companyId?: string;
+    codLoja?: number;
     page?: number;
     limit?: number;
   }): Promise<any> {
@@ -413,6 +425,11 @@ export class LossService {
     // Adicionar filtro de company apenas se estiver definido
     if (filters.companyId) {
       query.andWhere('loss.company_id = :companyId', { companyId: filters.companyId });
+    }
+
+    // Adicionar filtro de loja
+    if (filters.codLoja) {
+      query.andWhere('loss.cod_loja = :codLoja', { codLoja: filters.codLoja });
     }
 
     // Filtro por motivo

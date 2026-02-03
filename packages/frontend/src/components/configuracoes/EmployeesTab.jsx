@@ -3,8 +3,10 @@ import toast, { Toaster } from 'react-hot-toast';
 import EmployeeModal from './EmployeeModal';
 import EmployeesList from './EmployeesList';
 import { fetchEmployees, createEmployee, updateEmployee, toggleEmployeeStatus, uploadEmployeeAvatar, deleteEmployee, resetEmployeePassword } from '../../services/employees.service';
+import { useLoja } from '../../contexts/LojaContext';
 
 export default function EmployeesTab() {
+  const { lojaSelecionada } = useLoja();
   const [employees, setEmployees] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [editingEmployee, setEditingEmployee] = useState(null);
@@ -14,13 +16,13 @@ export default function EmployeesTab() {
 
   useEffect(() => {
     loadEmployees(1);
-  }, []);
+  }, [lojaSelecionada]);
 
   const loadEmployees = async (page = pagination.page) => {
     try {
       setIsLoading(true);
       setError(null);
-      const result = await fetchEmployees(page, 10, false);
+      const result = await fetchEmployees(page, 10, false, lojaSelecionada);
       setEmployees(result.data || []);
       setPagination(result.pagination);
     } catch (err) {
@@ -221,6 +223,7 @@ export default function EmployeesTab() {
           onUploadAvatar={handleUploadAvatar}
           onSaveComplete={handleSaveComplete}
           onResetPassword={handleResetPassword}
+          codLoja={lojaSelecionada}
         />
       )}
 

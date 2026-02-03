@@ -4,9 +4,11 @@ import Layout from '../components/Layout';
 import api from '../services/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useLoja } from '../contexts/LojaContext';
 
 export default function ProducaoSugestao() {
   const navigate = useNavigate();
+  const { lojaSelecionada } = useLoja();
 
   // Estados principais
   const [loading, setLoading] = useState(false);
@@ -110,7 +112,7 @@ export default function ProducaoSugestao() {
   });
   const [draggedColumn, setDraggedColumn] = useState(null);
 
-  // Carregar dados ao iniciar
+  // Carregar dados ao iniciar e quando loja mudar
   useEffect(() => {
     setError('');
     setSuccess('');
@@ -118,12 +120,14 @@ export default function ProducaoSugestao() {
     loadTodayAudit();
     loadEmployees();
     loadPerdasMensais();
-  }, []);
+  }, [lojaSelecionada]);
 
   // Carregar perdas mensais por produto
   const loadPerdasMensais = async () => {
     try {
-      const response = await api.get('/losses/oracle/perdas-mensais');
+      const params = new URLSearchParams();
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+      const response = await api.get(`/losses/oracle/perdas-mensais?${params.toString()}`);
       const perdas = response.data.perdasPorProduto || {};
       setPerdasMensais(perdas);
       console.log('📊 Perdas mensais carregadas:', Object.keys(perdas).length, 'produtos');
@@ -227,7 +231,9 @@ export default function ProducaoSugestao() {
   const loadProductsBySection = async (secao, tipo) => {
     try {
       setLoading(true);
-      const response = await api.get(`/production/erp-products-by-section?section=${encodeURIComponent(secao)}`);
+      const params = new URLSearchParams({ section: secao });
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+      const response = await api.get(`/production/erp-products-by-section?${params.toString()}`);
       const allProds = response.data;
       setAllProducts(allProds);
       // Filtrar por tipo de evento
@@ -254,12 +260,12 @@ export default function ProducaoSugestao() {
     }
   };
 
-  // Carregar produtos quando mudar seção ou tipo
+  // Carregar produtos quando mudar seção, tipo ou loja
   useEffect(() => {
     if (selectedSecao) {
       loadProductsBySection(selectedSecao, selectedTipo);
     }
-  }, [selectedSecao, selectedTipo]);
+  }, [selectedSecao, selectedTipo, lojaSelecionada]);
 
   const loadTodayAudit = async () => {
     try {
@@ -686,7 +692,8 @@ export default function ProducaoSugestao() {
       // Salvar no backend (criar ou atualizar auditoria)
       const response = await api.post('/production/audits/save-item', {
         audit_date: todayStr,
-        item: itemData
+        item: itemData,
+        codLoja: lojaSelecionada || undefined
       });
 
       // Atualizar estado local
@@ -748,7 +755,8 @@ export default function ProducaoSugestao() {
 
       const response = await api.post('/production/audits/save-item', {
         audit_date: todayStr,
-        item: itemData
+        item: itemData,
+        codLoja: lojaSelecionada || undefined
       });
 
       // Atualizar estado local

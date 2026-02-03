@@ -17,7 +17,8 @@ export class LabelAuditService {
     filePath: string,
     titulo: string,
     dataReferencia: Date,
-    userId: string
+    userId: string,
+    codLoja?: number
   ): Promise<LabelAudit> {
     try {
       console.log(`📂 Processando arquivo: ${filePath}`);
@@ -100,10 +101,11 @@ export class LabelAuditService {
         titulo,
         data_referencia: dataReferencia,
         status: 'em_andamento',
+        cod_loja: codLoja || null,
       });
 
       await auditRepository.save(audit);
-      console.log(`✅ Auditoria criada com ID: ${audit.id}`);
+      console.log(`✅ Auditoria criada com ID: ${audit.id} (cod_loja: ${codLoja || 'null'})`);
 
       // Criar itens
       const itemRepository = AppDataSource.getRepository(LabelAuditItem);
@@ -203,7 +205,8 @@ export class LabelAuditService {
   static async createFromItems(
     nomeAuditoria: string,
     items: any[],
-    userId: string
+    userId: string,
+    codLoja?: number
   ): Promise<LabelAudit> {
     try {
       console.log(`📊 Criando auditoria de etiquetas com ${items.length} itens do sistema`);
@@ -214,10 +217,11 @@ export class LabelAuditService {
         titulo: nomeAuditoria,
         data_referencia: new Date(),
         status: 'em_andamento',
+        cod_loja: codLoja || null,
       });
 
       await auditRepository.save(audit);
-      console.log(`✅ Auditoria criada: ID ${audit.id}`);
+      console.log(`✅ Auditoria criada: ID ${audit.id} (cod_loja: ${codLoja || 'null'})`);
 
       // Criar itens
       const itemRepository = AppDataSource.getRepository(LabelAuditItem);
@@ -259,11 +263,18 @@ export class LabelAuditService {
   /**
    * Listar todas as auditorias com estatísticas
    */
-  static async getAllAudits(): Promise<LabelAudit[]> {
+  static async getAllAudits(codLoja?: number): Promise<LabelAudit[]> {
     const auditRepository = AppDataSource.getRepository(LabelAudit);
     const itemRepository = AppDataSource.getRepository(LabelAuditItem);
 
+    // Filtrar por loja se especificado
+    const whereCondition: any = {};
+    if (codLoja) {
+      whereCondition.cod_loja = codLoja;
+    }
+
     const audits = await auditRepository.find({
+      where: whereCondition,
       order: { created_at: 'DESC' }
     });
 

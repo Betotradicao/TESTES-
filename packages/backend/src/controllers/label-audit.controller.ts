@@ -44,8 +44,9 @@ export class LabelAuditController {
         return res.status(400).json({ error: 'Nenhum arquivo enviado' });
       }
 
-      const { titulo, data_referencia } = req.body;
+      const { titulo, data_referencia, codLoja } = req.body;
       const userId = (req as any).user?.id || 'system';
+      const codLojaNum = codLoja ? parseInt(codLoja) : undefined;
 
       if (!titulo || !data_referencia) {
         return res.status(400).json({ error: 'Título e data de referência são obrigatórios' });
@@ -55,7 +56,8 @@ export class LabelAuditController {
         req.file.path,
         titulo,
         new Date(data_referencia),
-        userId
+        userId,
+        codLojaNum
       );
 
       // Deletar arquivo após processamento
@@ -80,8 +82,9 @@ export class LabelAuditController {
    */
   static async createFromItems(req: Request, res: Response) {
     try {
-      const { nome_auditoria, items } = req.body;
+      const { nome_auditoria, items, codLoja } = req.body;
       const userId = (req as any).user?.id || 'system';
+      const codLojaNum = codLoja ? parseInt(codLoja) : undefined;
 
       if (!nome_auditoria) {
         return res.status(400).json({ error: 'Nome da auditoria é obrigatório' });
@@ -94,7 +97,8 @@ export class LabelAuditController {
       const audit = await LabelAuditService.createFromItems(
         nome_auditoria,
         items,
-        userId
+        userId,
+        codLojaNum
       );
 
       return res.status(201).json({
@@ -113,7 +117,8 @@ export class LabelAuditController {
    */
   static async getAllAudits(req: Request, res: Response) {
     try {
-      const audits = await LabelAuditService.getAllAudits();
+      const codLoja = req.query.codLoja ? parseInt(req.query.codLoja as string) : undefined;
+      const audits = await LabelAuditService.getAllAudits(codLoja);
       return res.json(audits);
     } catch (error: any) {
       console.error('Erro ao listar auditorias:', error);

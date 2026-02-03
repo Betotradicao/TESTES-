@@ -37,6 +37,9 @@ export class Employee {
   @Column({ type: 'boolean', default: true })
   active: boolean;
 
+  @Column({ type: 'int', nullable: true })
+  cod_loja: number | null;
+
   @CreateDateColumn()
   created_at: Date;
 

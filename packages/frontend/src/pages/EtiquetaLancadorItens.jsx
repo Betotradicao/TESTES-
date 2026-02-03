@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import api from '../services/api';
+import { useLoja } from '../contexts/LojaContext';
 
 export default function EtiquetaLancadorItens() {
   const navigate = useNavigate();
+  const { lojaSelecionada } = useLoja();
   const [file, setFile] = useState(null);
   const [nomeAuditoria, setNomeAuditoria] = useState('');
   const [preview, setPreview] = useState(null);
@@ -37,11 +39,11 @@ export default function EtiquetaLancadorItens() {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [parsedItems, setParsedItems] = useState([]);
 
-  // Carregar pesquisas recentes e do mês ao montar
+  // Carregar pesquisas recentes e do mês ao montar e quando mudar a loja
   useEffect(() => {
     loadRecentSurveys();
     loadMonthSurveys(currentMonth);
-  }, []);
+  }, [lojaSelecionada]);
 
   // Carregar seções quando mudar para modo direto
   useEffect(() => {
@@ -78,6 +80,9 @@ export default function EtiquetaLancadorItens() {
       }
       if (secoesSelecionadas.length > 0) {
         params.append('secoes', secoesSelecionadas.join(','));
+      }
+      if (lojaSelecionada) {
+        params.append('codLoja', lojaSelecionada);
       }
 
       const response = await api.get(`/products/for-label-audit?${params.toString()}`);
@@ -130,7 +135,8 @@ export default function EtiquetaLancadorItens() {
 
   const loadRecentSurveys = async () => {
     try {
-      const response = await api.get('/label-audits');
+      const params = lojaSelecionada ? { codLoja: lojaSelecionada } : {};
+      const response = await api.get('/label-audits', { params });
       console.log('🔍 ETIQUETAS - DADOS RECEBIDOS DA API:', response.data);
       setRecentSurveys(response.data.slice(0, 5)); // Só 5 mais recentes
     } catch (err) {
@@ -140,7 +146,8 @@ export default function EtiquetaLancadorItens() {
 
   const loadMonthSurveys = async (monthDate) => {
     try {
-      const response = await api.get('/label-audits');
+      const params = lojaSelecionada ? { codLoja: lojaSelecionada } : {};
+      const response = await api.get('/label-audits', { params });
       const allSurveys = response.data;
 
       // Filtrar apenas auditorias do mês selecionado
@@ -264,6 +271,9 @@ export default function EtiquetaLancadorItens() {
       formData.append('file', file);
       formData.append('titulo', nomeAuditoria);
       formData.append('data_referencia', new Date().toISOString().split('T')[0]);
+      if (lojaSelecionada) {
+        formData.append('codLoja', lojaSelecionada.toString());
+      }
 
       const response = await api.post('/label-audits/upload', formData, {
         headers: {
@@ -316,7 +326,8 @@ export default function EtiquetaLancadorItens() {
     try {
       const response = await api.post('/label-audits/from-items', {
         nome_auditoria: nomeAuditoria,
-        items: parsedItems
+        items: parsedItems,
+        codLoja: lojaSelecionada || undefined
       });
 
       setSuccess(`Auditoria criada com ${response.data.audit.total_itens} produtos!`);

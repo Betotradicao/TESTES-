@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { api } from '../utils/api';
+import { useLoja } from '../contexts/LojaContext';
 
 export default function GestaoTrocas() {
+  const { lojaSelecionada } = useLoja();
   // Aba selecionada: 'saidas' ou 'entradas'
   const [abaAtiva, setAbaAtiva] = useState('saidas');
 
@@ -19,10 +21,10 @@ export default function GestaoTrocas() {
   const [itensCarregando, setItensCarregando] = useState(new Set());
   const [itensPorFornecedor, setItensPorFornecedor] = useState({});
 
-  // Carregar dados quando a aba ou filtro mudar
+  // Carregar dados quando a aba, filtro ou loja mudar
   useEffect(() => {
     carregarTrocas();
-  }, [abaAtiva, diasFiltro]);
+  }, [abaAtiva, diasFiltro, lojaSelecionada]);
 
   const carregarTrocas = async () => {
     setLoading(true);
@@ -34,6 +36,9 @@ export default function GestaoTrocas() {
       const params = new URLSearchParams({ tipo: abaAtiva });
       if (diasFiltro > 0) {
         params.append('dias', diasFiltro.toString());
+      }
+      if (lojaSelecionada) {
+        params.append('codLoja', lojaSelecionada);
       }
       const response = await api.get(`/losses/oracle/trocas?${params}`);
       setResultados(response.data);
@@ -67,6 +72,9 @@ export default function GestaoTrocas() {
           });
           if (diasFiltro > 0) {
             params.append('dias', diasFiltro.toString());
+          }
+          if (lojaSelecionada) {
+            params.append('codLoja', lojaSelecionada);
           }
 
           const response = await api.get(`/losses/oracle/trocas/itens?${params}`);

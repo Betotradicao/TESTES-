@@ -173,7 +173,8 @@ export class RuptureSurveyService {
   static async createSurveyFromFile(
     filePath: string,
     nomePesquisa: string,
-    userId: string
+    userId: string,
+    codLoja?: number
   ): Promise<RuptureSurvey> {
     try {
       console.log(`📂 Processando arquivo: ${filePath}`);
@@ -257,6 +258,7 @@ export class RuptureSurveyService {
         user_id: userId,
         total_itens: validRows.length,
         status: 'rascunho',
+        cod_loja: codLoja || null,
       });
 
       await surveyRepository.save(survey);
@@ -347,7 +349,8 @@ export class RuptureSurveyService {
   static async createSurveyFromItems(
     nomePesquisa: string,
     items: any[],
-    userId: string
+    userId: string,
+    codLoja?: number
   ): Promise<RuptureSurvey> {
     try {
       console.log(`📊 Criando pesquisa com ${items.length} itens do sistema`);
@@ -359,6 +362,7 @@ export class RuptureSurveyService {
         user_id: userId,
         total_itens: items.length,
         status: 'rascunho',
+        cod_loja: codLoja || null,
       });
 
       await surveyRepository.save(survey);
@@ -568,11 +572,17 @@ export class RuptureSurveyService {
   /**
    * Listar todas as pesquisas COM estatísticas
    */
-  static async getAllSurveys(): Promise<any[]> {
+  static async getAllSurveys(codLoja?: number): Promise<any[]> {
     const surveyRepository = AppDataSource.getRepository(RuptureSurvey);
     const itemRepository = AppDataSource.getRepository(RuptureSurveyItem);
 
+    const whereCondition: any = {};
+    if (codLoja) {
+      whereCondition.cod_loja = codLoja;
+    }
+
     const surveys = await surveyRepository.find({
+      where: whereCondition,
       relations: ['user'],
       order: { data_criacao: 'DESC' },
     });

@@ -48,6 +48,9 @@ export class RuptureSurvey {
   @Column({ type: 'text', nullable: true })
   observacoes: string | null;
 
+  @Column({ type: 'int', nullable: true })
+  cod_loja: number | null;
+
   @OneToMany(() => RuptureSurveyItem, item => item.survey)
   items: RuptureSurveyItem[];
 

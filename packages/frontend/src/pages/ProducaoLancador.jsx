@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import api from '../services/api';
+import { useLoja } from '../contexts/LojaContext';
 
 export default function ProducaoLancador() {
   const navigate = useNavigate();
+  const { lojaSelecionada } = useLoja();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -19,7 +21,7 @@ export default function ProducaoLancador() {
     loadRecentAudits();
     loadMonthAudits(currentMonth);
     loadProductCount();
-  }, []);
+  }, [lojaSelecionada]);
 
   useEffect(() => {
     loadMonthAudits(currentMonth);
@@ -36,7 +38,8 @@ export default function ProducaoLancador() {
 
   const loadRecentAudits = async () => {
     try {
-      const response = await api.get('/production/audits');
+      const params = lojaSelecionada ? { codLoja: lojaSelecionada } : {};
+      const response = await api.get('/production/audits', { params });
       setRecentAudits(response.data.slice(0, 5));
     } catch (err) {
       console.error('Erro ao carregar auditorias:', err);
@@ -45,7 +48,8 @@ export default function ProducaoLancador() {
 
   const loadMonthAudits = async (monthDate) => {
     try {
-      const response = await api.get('/production/audits');
+      const params = lojaSelecionada ? { codLoja: lojaSelecionada } : {};
+      const response = await api.get('/production/audits', { params });
       const allAudits = response.data || [];
 
       // Agrupar por data

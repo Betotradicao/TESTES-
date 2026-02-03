@@ -4,13 +4,14 @@ import BarcodeDisplay from './BarcodeDisplay';
 import PermissionsSelector from '../colaboradores/PermissionsSelector';
 import api from '../../services/api';
 
-export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvatar, onSaveComplete, onResetPassword }) {
+export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvatar, onSaveComplete, onResetPassword, codLoja }) {
   const [formData, setFormData] = useState({
     name: '',
     sector_id: '',
     function_description: '',
     username: '',
-    password: ''
+    password: '',
+    cod_loja: codLoja || null
   });
   const [sectors, setSectors] = useState([]);
   const [errors, setErrors] = useState([]);
@@ -33,14 +34,18 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
         sector_id: employee.sector_id,
         function_description: employee.function_description,
         username: employee.username,
-        password: '' // Never pre-fill password
+        password: '', // Never pre-fill password
+        cod_loja: employee.cod_loja || codLoja || null
       });
       setAvatarPreview(employee.avatar);
 
       // Carregar permissões se estiver editando
       loadPermissions(employee.id);
+    } else {
+      // Novo funcionário - usa a loja selecionada
+      setFormData(prev => ({ ...prev, cod_loja: codLoja || null }));
     }
-  }, [employee]);
+  }, [employee, codLoja]);
 
   const loadPermissions = async (employeeId) => {
     try {

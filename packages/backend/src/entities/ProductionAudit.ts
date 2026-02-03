@@ -46,6 +46,9 @@ export class ProductionAudit {
   @UpdateDateColumn()
   updated_at: Date;
 
+  @Column({ type: 'int', nullable: true })
+  cod_loja: number | null;
+
   @OneToMany(() => ProductionAuditItem, item => item.audit)
   items: ProductionAuditItem[];
 }

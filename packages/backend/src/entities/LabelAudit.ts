@@ -31,6 +31,9 @@ export class LabelAudit {
   @UpdateDateColumn()
   updated_at: Date;
 
+  @Column({ type: 'int', nullable: true })
+  cod_loja: number | null;
+
   // Campos calculados (serão populados via query)
   total_itens?: number;
   itens_pendentes?: number;

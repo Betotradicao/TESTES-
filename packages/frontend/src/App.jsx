@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { LojaProvider } from './contexts/LojaContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import SetupCheck from './components/SetupCheck';
 import Login from './pages/Login';
@@ -41,13 +42,15 @@ import CompraVendaAnalise from './pages/CompraVendaAnalise';
 import FrenteCaixa from './pages/FrenteCaixa';
 import PrevencaoPedidos from './pages/PrevencaoPedidos';
 import RupturaIndustria from './pages/RupturaIndustria';
+import GestaoInteligente from './pages/GestaoInteligente';
 
 function App() {
   return (
     <Router>
       <AuthProvider>
-        <SetupCheck>
-          <Routes>
+        <LojaProvider>
+          <SetupCheck>
+            <Routes>
             {/* Public Routes - First Setup MUST be accessible without auth */}
             <Route path="/first-setup" element={<FirstSetup />} />
             <Route path="/login" element={<Login />} />
@@ -335,11 +338,20 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/gestao-inteligente"
+              element={
+                <ProtectedRoute>
+                  <GestaoInteligente />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </SetupCheck>
-      </AuthProvider>
-    </Router>
+      </LojaProvider>
+    </AuthProvider>
+  </Router>
   );
 }
 

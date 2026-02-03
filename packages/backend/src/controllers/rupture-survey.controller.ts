@@ -14,7 +14,7 @@ export class RuptureSurveyController {
         return res.status(400).json({ error: 'Nenhum arquivo enviado' });
       }
 
-      const { nome_pesquisa } = req.body;
+      const { nome_pesquisa, codLoja } = req.body;
 
       if (!nome_pesquisa) {
         // Remover arquivo temporário
@@ -23,12 +23,14 @@ export class RuptureSurveyController {
       }
 
       const userId = req.user!.id;
+      const codLojaNum = codLoja ? parseInt(codLoja) : undefined;
 
       // Processar arquivo
       const survey = await RuptureSurveyService.createSurveyFromFile(
         req.file.path,
         nome_pesquisa,
-        userId
+        userId,
+        codLojaNum
       );
 
       // Remover arquivo temporário
@@ -57,7 +59,7 @@ export class RuptureSurveyController {
    */
   static async createFromItems(req: AuthRequest, res: Response) {
     try {
-      const { nome_pesquisa, items } = req.body;
+      const { nome_pesquisa, items, codLoja } = req.body;
 
       if (!nome_pesquisa) {
         return res.status(400).json({ error: 'Nome da pesquisa é obrigatório' });
@@ -68,12 +70,14 @@ export class RuptureSurveyController {
       }
 
       const userId = req.user!.id;
+      const codLojaNum = codLoja ? parseInt(codLoja) : undefined;
 
       // Criar pesquisa
       const survey = await RuptureSurveyService.createSurveyFromItems(
         nome_pesquisa,
         items,
-        userId
+        userId,
+        codLojaNum
       );
 
       res.json({
@@ -93,7 +97,8 @@ export class RuptureSurveyController {
    */
   static async getAll(req: AuthRequest, res: Response) {
     try {
-      const surveys = await RuptureSurveyService.getAllSurveys();
+      const codLoja = req.query.codLoja ? parseInt(req.query.codLoja as string) : undefined;
+      const surveys = await RuptureSurveyService.getAllSurveys(codLoja);
       res.json(surveys);
     } catch (error: any) {
       console.error('❌ Erro ao listar pesquisas:', error);

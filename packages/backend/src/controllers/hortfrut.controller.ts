@@ -136,11 +136,17 @@ export class HortFrutController {
   static async getConferences(req: AuthRequest, res: Response) {
     try {
       const companyId = req.user?.companyId ?? undefined;
-      const { startDate, endDate, status } = req.query;
+      const { startDate, endDate, status, codLoja } = req.query;
+      const codLojaNum = codLoja ? parseInt(codLoja as string) : undefined;
 
       const conferenceRepository = AppDataSource.getRepository(HortFrutConference);
 
       const where: any = { company_id: companyId };
+
+      // Filtro por loja se especificado
+      if (codLojaNum) {
+        where.codLoja = codLojaNum;
+      }
 
       if (startDate && endDate) {
         // Ajustar datas para incluir o dia inteiro independente do timezone
@@ -248,7 +254,8 @@ export class HortFrutController {
     try {
       const companyId = req.user?.companyId ?? undefined;
       const userId = req.userId;
-      const { conferenceDate, supplierName, invoiceNumber, observations } = req.body;
+      const { conferenceDate, supplierName, invoiceNumber, observations, codLoja } = req.body;
+      const codLojaNum = codLoja ? parseInt(codLoja) : undefined;
 
       if (!conferenceDate) {
         return res.status(400).json({ error: 'Data da conferência é obrigatória' });
@@ -268,6 +275,7 @@ export class HortFrutController {
         invoiceNumber,
         observations,
         status: 'pending',
+        codLoja: codLojaNum,
       });
 
       await conferenceRepository.save(conference);
@@ -514,7 +522,8 @@ export class HortFrutController {
   static async getConferencesByDate(req: AuthRequest, res: Response) {
     try {
       const companyId = req.user?.companyId ?? undefined;
-      const { year, month } = req.query;
+      const { year, month, codLoja } = req.query;
+      const codLojaNum = codLoja ? parseInt(codLoja as string) : undefined;
 
       const conferenceRepository = AppDataSource.getRepository(HortFrutConference);
 
@@ -522,11 +531,18 @@ export class HortFrutController {
       const startDate = new Date(parseInt(year as string), parseInt(month as string) - 1, 1);
       const endDate = new Date(parseInt(year as string), parseInt(month as string), 0);
 
+      const whereCondition: any = {
+        company_id: companyId as string,
+        conferenceDate: Between(startDate, endDate),
+      };
+
+      // Filtro por loja se especificado
+      if (codLojaNum) {
+        whereCondition.codLoja = codLojaNum;
+      }
+
       const conferences = await conferenceRepository.find({
-        where: {
-          company_id: companyId as string,
-          conferenceDate: Between(startDate, endDate),
-        },
+        where: whereCondition,
         order: { conferenceDate: 'DESC' },
       });
 

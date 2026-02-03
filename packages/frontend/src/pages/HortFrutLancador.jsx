@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import Layout from '../components/Layout';
 import { api } from '../utils/api';
+import { useLoja } from '../contexts/LojaContext';
 
 export default function HortFrutLancador() {
   const navigate = useNavigate();
+  const { lojaSelecionada } = useLoja();
   const [file, setFile] = useState(null);
   const [conferenceDate, setConferenceDate] = useState('');
   const [supplierName, setSupplierName] = useState('');
@@ -30,14 +32,14 @@ export default function HortFrutLancador() {
   useEffect(() => {
     loadRecentConferences();
     loadMonthConferences(currentMonth);
-  }, []);
+  }, [lojaSelecionada]);
 
-  // Carregar seções quando mudar para modo direto
+  // Carregar seções quando mudar para modo direto ou loja mudar
   useEffect(() => {
-    if (importMode === 'direto' && sections.length === 0) {
+    if (importMode === 'direto') {
       loadSections();
     }
-  }, [importMode]);
+  }, [importMode, lojaSelecionada]);
 
   useEffect(() => {
     loadMonthConferences(currentMonth);
@@ -45,7 +47,8 @@ export default function HortFrutLancador() {
 
   const loadRecentConferences = async () => {
     try {
-      const response = await api.get('/hortfrut/conferences');
+      const params = lojaSelecionada ? { codLoja: lojaSelecionada } : {};
+      const response = await api.get('/hortfrut/conferences', { params });
       setRecentConferences(response.data.slice(0, 5));
     } catch (err) {
       console.error('Erro ao carregar conferências:', err);
@@ -56,7 +59,9 @@ export default function HortFrutLancador() {
   const loadSections = async () => {
     setLoadingSections(true);
     try {
-      const response = await api.get('/products/sections-oracle');
+      const params = new URLSearchParams();
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+      const response = await api.get(`/products/sections-oracle?${params.toString()}`);
       // sections-oracle retorna array de {codigo, nome}
       const sectionNames = (response.data || []).map(s => s.nome);
       setSections(sectionNames);
@@ -86,7 +91,9 @@ export default function HortFrutLancador() {
     setError('');
 
     try {
-      const response = await api.get(`/products/by-section-oracle?section=${encodeURIComponent(selectedSection)}`);
+      const params = new URLSearchParams({ section: selectedSection });
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+      const response = await api.get(`/products/by-section-oracle?${params.toString()}`);
       const items = response.data.items || [];
 
       setParsedItems(items);
@@ -114,7 +121,11 @@ export default function HortFrutLancador() {
     try {
       const year = monthDate.getFullYear();
       const month = monthDate.getMonth() + 1;
-      const response = await api.get(`/hortfrut/conferences/by-date?year=${year}&month=${month}`);
+      let url = `/hortfrut/conferences/by-date?year=${year}&month=${month}`;
+      if (lojaSelecionada) {
+        url += `&codLoja=${lojaSelecionada}`;
+      }
+      const response = await api.get(url);
 
       // Re-agrupar usando a data correta de cada conferência (evita problema de timezone do backend)
       const allConferences = Object.values(response.data || {}).flat();
@@ -510,6 +521,7 @@ export default function HortFrutLancador() {
       const confResponse = await api.post('/hortfrut/conferences', {
         conferenceDate,
         supplierName: supplierName.trim() || null,
+        codLoja: lojaSelecionada || undefined,
       });
 
       const conferenceId = confResponse.data.id;

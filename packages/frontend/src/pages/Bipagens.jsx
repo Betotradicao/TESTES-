@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
+import { useLoja } from '../contexts/LojaContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import { fetchSectors } from '../services/sectors.service';
@@ -42,6 +43,7 @@ function PendingTimeDisplay({ eventDate, status, timeUpdate }) {
 
 export default function Bipagens() {
   const { user, logout } = useAuth();
+  const { lojaSelecionada } = useLoja();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [bipages, setBipages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -129,6 +131,8 @@ export default function Bipagens() {
       if (newFilters.search && newFilters.search.length >= 2) params.search = newFilters.search;
       if (newFilters.sector_id) params.sector_id = newFilters.sector_id;
       if (newFilters.employee_id) params.employee_id = newFilters.employee_id;
+      // Filtro por loja (multi-loja)
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
 
       const response = await api.get('/bips', { params });
 
@@ -177,7 +181,7 @@ export default function Bipagens() {
     loadActiveSessions();
     loadEquipments();
     loadEmployees();
-  }, []);
+  }, [lojaSelecionada]); // Recarregar quando mudar a loja
 
   // Função para carregar setores
   const loadSectors = async () => {

@@ -35,20 +35,31 @@ export class EmployeesService {
   /**
    * Find all employees with pagination
    */
-  static async findAll(page: number = 1, limit: number = 10, onlyActive: boolean = false) {
+  static async findAll(page: number = 1, limit: number = 10, onlyActive: boolean = false, codLoja?: number) {
     const employeeRepository = AppDataSource.getRepository(Employee);
 
     const skip = (page - 1) * limit;
 
-    const whereCondition = onlyActive ? { active: true } : {};
+    // Usar query builder para suportar OR condition (cod_loja = X OR cod_loja IS NULL)
+    const queryBuilder = employeeRepository
+      .createQueryBuilder('employee')
+      .leftJoinAndSelect('employee.sector', 'sector');
 
-    const [employees, total] = await employeeRepository.findAndCount({
-      where: whereCondition,
-      relations: ['sector'],
-      order: { created_at: 'DESC' },
-      skip,
-      take: limit,
-    });
+    if (onlyActive) {
+      queryBuilder.andWhere('employee.active = :active', { active: true });
+    }
+
+    // Se codLoja foi passado, filtrar apenas pela loja selecionada
+    if (codLoja) {
+      queryBuilder.andWhere('employee.cod_loja = :codLoja', { codLoja });
+    }
+
+    queryBuilder
+      .orderBy('employee.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    const [employees, total] = await queryBuilder.getManyAndCount();
 
     return {
       data: employees.map(emp => new EmployeeResponseDto(emp)),
@@ -119,6 +130,7 @@ export class EmployeesService {
       barcode,
       first_access: true,
       active: true,
+      cod_loja: data.cod_loja || null,
     });
 
     const savedEmployee = await employeeRepository.save(employee);
@@ -170,6 +182,7 @@ export class EmployeesService {
     if (data.sector_id) employee.sector_id = data.sector_id;
     if (data.function_description) employee.function_description = data.function_description;
     if (data.username) employee.username = data.username;
+    if (data.cod_loja !== undefined) employee.cod_loja = data.cod_loja;
 
     const savedEmployee = await employeeRepository.save(employee);
 

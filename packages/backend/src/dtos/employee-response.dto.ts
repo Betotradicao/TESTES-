@@ -13,6 +13,7 @@ export class EmployeeResponseDto {
   first_access: boolean;
   barcode: string;
   active: boolean;
+  cod_loja: number | null;
   created_at: Date;
   updated_at: Date;
 
@@ -26,6 +27,7 @@ export class EmployeeResponseDto {
     this.first_access = employee.first_access;
     this.barcode = employee.barcode;
     this.active = employee.active;
+    this.cod_loja = employee.cod_loja || null;
     this.created_at = employee.created_at;
     this.updated_at = employee.updated_at;
 

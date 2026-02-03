@@ -4,6 +4,7 @@ export class CreateEmployeeDto {
   function_description: string;
   username: string;
   password: string;
+  cod_loja?: number | null;
 }
 
 export function validateCreateEmployee(data: any): { valid: boolean; errors?: string[] } {

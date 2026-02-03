@@ -95,4 +95,7 @@ export class Bip {
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   image_url: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  cod_loja: number | null;
 }

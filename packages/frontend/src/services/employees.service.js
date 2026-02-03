@@ -1,6 +1,6 @@
 import api from '../utils/api';
 
-export async function fetchEmployees(page = 1, limit = 10, onlyActive = false) {
+export async function fetchEmployees(page = 1, limit = 10, onlyActive = false, codLoja = null) {
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
@@ -8,6 +8,10 @@ export async function fetchEmployees(page = 1, limit = 10, onlyActive = false) {
 
   if (onlyActive) {
     params.append('active', 'true');
+  }
+
+  if (codLoja) {
+    params.append('codLoja', codLoja.toString());
   }
 
   const response = await api.get(`/employees?${params.toString()}`);

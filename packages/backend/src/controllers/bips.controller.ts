@@ -21,7 +21,8 @@ export class BipsController {
         product_description,
         search,
         sector_id,
-        employee_id
+        employee_id,
+        codLoja
       } = req.query;
 
       // LOG: Debug dos parâmetros recebidos
@@ -190,6 +191,11 @@ export class BipsController {
         query = query.andWhere('bip.employee_id = :employee_id', { employee_id });
       }
 
+      // Filtro por loja (multi-loja)
+      if (codLoja) {
+        query = query.andWhere('bip.cod_loja = :codLoja', { codLoja: parseInt(codLoja as string, 10) });
+      }
+
       // Get total count
       const total = await query.getCount();
 
@@ -291,7 +297,8 @@ export class BipsController {
           product_description: product_description || null,
           search: search || null,
           sector_id: sector_id || null,
-          employee_id: employee_id || null
+          employee_id: employee_id || null,
+          codLoja: codLoja || null
         }
       });
 

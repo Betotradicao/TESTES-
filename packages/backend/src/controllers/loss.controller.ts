@@ -46,24 +46,27 @@ export class LossController {
         return res.status(400).json({ error: 'Nenhum arquivo enviado' });
       }
 
-      const { nomeLote, dataInicio, dataFim } = req.body;
+      const { nomeLote, dataInicio, dataFim, codLoja } = req.body;
       if (!nomeLote) {
         return res.status(400).json({ error: 'Nome do lote é obrigatório' });
       }
 
       // Pegar company_id do usuário logado (do token ou do banco)
       const companyId = await LossController.getCompanyId(req);
+      const codLojaNum = codLoja ? parseInt(codLoja) : undefined;
 
       console.log(`📤 Upload de arquivo de perdas: ${req.file.originalname}`);
       console.log(`📦 Lote: ${nomeLote}`);
       console.log(`📅 Período: ${dataInicio || 'hoje'} até ${dataFim || 'hoje'}`);
+      console.log(`🏪 Loja: ${codLojaNum || 'não especificada'}`);
 
       const result = await LossService.importFromFile(
         req.file.path,
         nomeLote,
         companyId,
         dataInicio,
-        dataFim
+        dataFim,
+        codLojaNum
       );
 
       // Deletar arquivo temporário
@@ -95,8 +98,9 @@ export class LossController {
   static async getAllLotes(req: AuthRequest, res: Response) {
     try {
       const companyId = await LossController.getCompanyId(req);
+      const codLoja = req.query.codLoja ? parseInt(req.query.codLoja as string) : undefined;
 
-      const lotes = await LossService.getAllLotes(companyId || undefined);
+      const lotes = await LossService.getAllLotes(companyId || undefined, codLoja);
 
       res.json(lotes);
     } catch (error: any) {
@@ -164,10 +168,11 @@ export class LossController {
    */
   static async getAgregated(req: AuthRequest, res: Response) {
     try {
-      const { data_inicio, data_fim, motivo, produto, page, limit, tipo } = req.query;
+      const { data_inicio, data_fim, motivo, produto, page, limit, tipo, codLoja } = req.query;
       const companyId = await LossController.getCompanyId(req);
+      const codLojaNum = codLoja ? parseInt(codLoja as string) : undefined;
 
-      console.log('📊 Filtros recebidos:', { data_inicio, data_fim, motivo, produto, page, limit, tipo, companyId });
+      console.log('📊 Filtros recebidos:', { data_inicio, data_fim, motivo, produto, page, limit, tipo, companyId, codLoja });
 
       if (!data_inicio || !data_fim) {
         return res.status(400).json({
@@ -184,6 +189,7 @@ export class LossController {
         page: page ? parseInt(page as string) : undefined,
         limit: limit ? parseInt(limit as string) : undefined,
         companyId: companyId || undefined,
+        codLoja: codLojaNum,
       });
 
       console.log('✅ Resultados agregados calculados com sucesso');

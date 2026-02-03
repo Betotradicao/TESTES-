@@ -3,6 +3,7 @@ export class UpdateEmployeeDto {
   sector_id?: number;
   function_description?: string;
   username?: string;
+  cod_loja?: number | null;
 }
 
 export function validateUpdateEmployee(data: any): { valid: boolean; errors?: string[] } {

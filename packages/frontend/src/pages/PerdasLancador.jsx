@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { api } from '../utils/api';
+import { useLoja } from '../contexts/LojaContext';
 
 export default function PerdasLancador() {
   const navigate = useNavigate();
+  const { lojaSelecionada } = useLoja();
   const [file, setFile] = useState(null);
   const [nomeLote, setNomeLote] = useState('');
   const [dataInicio, setDataInicio] = useState(''); // Data inicial do período
@@ -19,20 +21,21 @@ export default function PerdasLancador() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [monthLotes, setMonthLotes] = useState([]);
 
-  // Carregar lotes recentes e do mês ao montar
+  // Carregar lotes recentes e do mês ao montar e quando a loja mudar
   useEffect(() => {
     loadRecentLotes();
     loadMonthLotes(currentMonth);
-  }, []);
+  }, [lojaSelecionada]);
 
   // Recarregar lotes quando o mês mudar
   useEffect(() => {
     loadMonthLotes(currentMonth);
-  }, [currentMonth]);
+  }, [currentMonth, lojaSelecionada]);
 
   const loadRecentLotes = async () => {
     try {
-      const response = await api.get('/losses');
+      const params = lojaSelecionada ? { codLoja: lojaSelecionada } : {};
+      const response = await api.get('/losses', { params });
       setRecentLotes(response.data.slice(0, 5)); // Só 5 mais recentes
     } catch (err) {
       console.error('Erro ao carregar lotes:', err);
@@ -41,7 +44,8 @@ export default function PerdasLancador() {
 
   const loadMonthLotes = async (monthDate) => {
     try {
-      const response = await api.get('/losses');
+      const params = lojaSelecionada ? { codLoja: lojaSelecionada } : {};
+      const response = await api.get('/losses', { params });
       const allLotes = response.data;
 
       // Filtrar apenas lotes do mês selecionado
@@ -230,6 +234,9 @@ export default function PerdasLancador() {
       formData.append('nomeLote', nomeLote.trim());
       formData.append('dataInicio', dataInicio);
       formData.append('dataFim', dataFim);
+      if (lojaSelecionada) {
+        formData.append('codLoja', lojaSelecionada);
+      }
 
       const response = await api.post('/losses/upload', formData, {
         headers: {

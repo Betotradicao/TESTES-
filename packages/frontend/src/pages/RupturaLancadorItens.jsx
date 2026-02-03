@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import api from '../services/api';
 import PeculiaridadesModal from '../components/ruptura/PeculiaridadesModal';
+import { useLoja } from '../contexts/LojaContext';
 
 export default function RupturaLancadorItens() {
   const navigate = useNavigate();
+  const { lojaSelecionada } = useLoja();
   const [file, setFile] = useState(null);
   const [nomePesquisa, setNomePesquisa] = useState('');
   const [preview, setPreview] = useState(null);
@@ -30,11 +32,11 @@ export default function RupturaLancadorItens() {
   const [parsedItems, setParsedItems] = useState([]);
   const [showPeculiaridadesModal, setShowPeculiaridadesModal] = useState(false);
 
-  // Carregar pesquisas recentes e do mês ao montar
+  // Carregar pesquisas recentes e do mês ao montar ou quando mudar a loja
   useEffect(() => {
     loadRecentSurveys();
     loadMonthSurveys(currentMonth);
-  }, []);
+  }, [lojaSelecionada]);
 
   // Carregar seções quando mudar para modo direto
   useEffect(() => {
@@ -72,6 +74,9 @@ export default function RupturaLancadorItens() {
       }
       if (secoesSelecionadas.length > 0) {
         params.append('secoes', secoesSelecionadas.join(','));
+      }
+      if (lojaSelecionada) {
+        params.append('codLoja', lojaSelecionada);
       }
 
       const response = await api.get(`/products/for-rupture?${params.toString()}`);
@@ -134,7 +139,8 @@ export default function RupturaLancadorItens() {
 
   const loadRecentSurveys = async () => {
     try {
-      const response = await api.get('/rupture-surveys');
+      const params = lojaSelecionada ? { codLoja: lojaSelecionada } : {};
+      const response = await api.get('/rupture-surveys', { params });
       console.log('🔍 DADOS RECEBIDOS DA API:', response.data);
       console.log('🔍 PRIMEIRA PESQUISA:', response.data[0]);
       setRecentSurveys(response.data.slice(0, 5)); // Só 5 mais recentes
@@ -270,6 +276,9 @@ export default function RupturaLancadorItens() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('nome_pesquisa', nomePesquisa);
+      if (lojaSelecionada) {
+        formData.append('codLoja', lojaSelecionada.toString());
+      }
 
       const response = await api.post('/rupture-surveys/upload', formData, {
         headers: {
@@ -335,7 +344,8 @@ export default function RupturaLancadorItens() {
       // Criar pesquisa via API
       const response = await api.post('/rupture-surveys/from-items', {
         nome_pesquisa: nomePesquisa,
-        items: parsedItems
+        items: parsedItems,
+        codLoja: lojaSelecionada || undefined
       });
 
       setSuccess(`Pesquisa criada com ${response.data.survey.total_itens} produtos!`);

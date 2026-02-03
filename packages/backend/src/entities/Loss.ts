@@ -54,6 +54,9 @@ export class Loss {
   @Column({ name: 'nome_lote', length: 255 })
   nomeLote!: string;
 
+  @Column({ name: 'cod_loja', type: 'int', nullable: true })
+  codLoja?: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

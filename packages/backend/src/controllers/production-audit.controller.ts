@@ -20,9 +20,17 @@ export class ProductionAuditController {
    */
   static async getAudits(req: AuthRequest, res: Response) {
     try {
+      const codLoja = req.query.codLoja ? parseInt(req.query.codLoja as string) : undefined;
       const auditRepository = AppDataSource.getRepository(ProductionAudit);
 
+      // Filtrar por loja se especificado
+      const whereCondition: any = {};
+      if (codLoja) {
+        whereCondition.cod_loja = codLoja;
+      }
+
       const audits = await auditRepository.find({
+        where: whereCondition,
         relations: ['user', 'employee', 'items'],
         order: {
           audit_date: 'DESC',
@@ -477,9 +485,10 @@ export class ProductionAuditController {
    */
   static async createOrUpdateAudit(req: AuthRequest, res: Response) {
     try {
-      const { audit_date, items } = req.body;
+      const { audit_date, items, codLoja } = req.body;
       const userId = req.userId;
       const userType = req.user?.type;
+      const codLojaNum = codLoja ? parseInt(codLoja) : null;
 
       if (!audit_date || !items || !Array.isArray(items)) {
         return res.status(400).json({
@@ -519,6 +528,7 @@ export class ProductionAuditController {
             employee_id: userId!,
             user_id: null,
             status: 'in_progress',
+            cod_loja: codLojaNum,
           });
         } else {
           audit = auditRepository.create({
@@ -526,6 +536,7 @@ export class ProductionAuditController {
             user_id: userId!,
             employee_id: null,
             status: 'in_progress',
+            cod_loja: codLojaNum,
           });
         }
       }
@@ -629,9 +640,10 @@ export class ProductionAuditController {
    */
   static async saveItem(req: AuthRequest, res: Response) {
     try {
-      const { audit_date, item } = req.body;
+      const { audit_date, item, codLoja } = req.body;
       const userId = req.userId;
       const userType = req.user?.type;
+      const codLojaNum = codLoja ? parseInt(codLoja) : null;
 
       if (!audit_date || !item) {
         return res.status(400).json({
@@ -667,6 +679,7 @@ export class ProductionAuditController {
             employee_id: userId!,
             user_id: null,
             status: 'in_progress',
+            cod_loja: codLojaNum,
           });
         } else {
           audit = auditRepository.create({
@@ -674,10 +687,11 @@ export class ProductionAuditController {
             user_id: userId!,
             employee_id: null,
             status: 'in_progress',
+            cod_loja: codLojaNum,
           });
         }
         await auditRepository.save(audit);
-        console.log('📅 Auditoria criada com ID:', audit.id);
+        console.log('📅 Auditoria criada com ID:', audit.id, '(cod_loja:', codLojaNum, ')');
       } else {
         console.log('📅 Auditoria existente encontrada com ID:', audit.id);
       }

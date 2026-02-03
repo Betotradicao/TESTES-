@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { api } from '../utils/api';
+import { useLoja } from '../contexts/LojaContext';
 
 export default function PerdasResultados() {
+  const { lojaSelecionada } = useLoja();
   // Filtros
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
@@ -67,6 +69,7 @@ export default function PerdasResultados() {
         motivo: motivoSelecionado,
         tipo: tipoVisualizacao,
       });
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
 
       // Buscar diretamente do Oracle (resultados principais)
       const response = await api.get(`/losses/oracle?${params}`);
@@ -83,7 +86,7 @@ export default function PerdasResultados() {
     if (dataInicio && dataFim) {
       handleFiltrar(1);
     }
-  }, [dataInicio, dataFim, motivoSelecionado, tipoVisualizacao]);
+  }, [dataInicio, dataFim, motivoSelecionado, tipoVisualizacao, lojaSelecionada]);
 
   const toggleMotivoAtivo = async (motivo) => {
     try {
