@@ -87,7 +87,7 @@ export default function PrevencaoPedidos() {
     { key: 'expand', label: '', sortable: false, width: 'w-8' },
     { key: 'NUM_PEDIDO', label: 'N. PEDIDO', sortable: true },
     { key: 'TIPO_RECEBIMENTO', label: 'STATUS', sortable: true },
-    { key: 'QTD_NF_A_CONFIRMAR', label: '', sortable: false, width: 'w-24' },
+    { key: 'QTD_NF_A_CONFIRMAR', label: 'À CONF.', sortable: true, width: 'w-24' },
     { key: 'DES_FORNECEDOR', label: 'FORNECEDOR', sortable: true },
     { key: 'NUM_CGC', label: 'CNPJ', sortable: true },
     { key: 'DES_CONTATO', label: 'CONTATO', sortable: false },
@@ -493,8 +493,17 @@ export default function PrevencaoPedidos() {
   // Ordenar pedidos
   const handleSort = (key) => {
     let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+    // Colunas que devem começar do maior para menor
+    const descFirstColumns = ['QTD_NF_A_CONFIRMAR', 'VAL_PEDIDO', 'DIAS_ATRASO'];
+    if (descFirstColumns.includes(key)) {
       direction = 'desc';
+      if (sortConfig.key === key && sortConfig.direction === 'desc') {
+        direction = 'asc';
+      }
+    } else {
+      if (sortConfig.key === key && sortConfig.direction === 'asc') {
+        direction = 'desc';
+      }
     }
     setSortConfig({ key, direction });
   };
@@ -611,6 +620,27 @@ export default function PrevencaoPedidos() {
             </div>
           </div>
 
+          {/* Card Atrasados - após Parciais em Aberto */}
+          <div
+            className={`bg-white rounded-lg shadow p-3 cursor-pointer border-2 transition-all ${
+              filters.apenasAtrasados ? 'border-orange-500 ring-2 ring-orange-200' : 'border-transparent hover:border-orange-300'
+            }`}
+            onClick={() => {
+              setShowNfsBloqueio(false);
+              const newFilters = { ...filters, apenasAtrasados: !filters.apenasAtrasados, tipoRecebimento: '', parciaisFinalizadas: false, canceladasTotais: false, semNenhumaEntrada: false, nfSemPedido: false };
+              setFilters(newFilters);
+              loadPedidos(1, newFilters);
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500">Atrasados</p>
+                <p className="text-xl font-bold text-orange-600">{stats.atrasados}</p>
+              </div>
+              <span className="text-2xl">🚨</span>
+            </div>
+          </div>
+
           <div
             className={`bg-white rounded-lg shadow p-3 cursor-pointer border-2 transition-all ${
               filters.tipoRecebimento === '2' && !filters.apenasAtrasados && !filters.parciaisFinalizadas && !filters.canceladasTotais ? 'border-green-500 ring-2 ring-green-200' : 'border-transparent hover:border-green-300'
@@ -690,26 +720,6 @@ export default function PrevencaoPedidos() {
                 <p className="text-xs font-semibold text-gray-600">R$ {(stats.valorCanceladoTotalmente || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
               </div>
               <span className="text-2xl">⛔</span>
-            </div>
-          </div>
-
-          <div
-            className={`bg-white rounded-lg shadow p-3 cursor-pointer border-2 transition-all ${
-              filters.apenasAtrasados ? 'border-orange-500 ring-2 ring-orange-200' : 'border-transparent hover:border-orange-300'
-            }`}
-            onClick={() => {
-              setShowNfsBloqueio(false);
-              const newFilters = { ...filters, apenasAtrasados: !filters.apenasAtrasados, tipoRecebimento: '', parciaisFinalizadas: false, canceladasTotais: false, semNenhumaEntrada: false, nfSemPedido: false };
-              setFilters(newFilters);
-              loadPedidos(1, newFilters);
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500">Atrasados</p>
-                <p className="text-xl font-bold text-orange-600">{stats.atrasados}</p>
-              </div>
-              <span className="text-2xl">🚨</span>
             </div>
           </div>
 
@@ -1351,8 +1361,8 @@ export default function PrevencaoPedidos() {
                           return (
                             <td key={col.key} className="px-2 py-1.5">
                               {pedido.QTD_NF_A_CONFIRMAR > 0 && (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300" title={`${pedido.QTD_NF_A_CONFIRMAR} NF(s) pendente(s) de confirmação`}>
-                                  ⚠️ À CONFIRMAR
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700 border border-orange-400" title={`${pedido.QTD_NF_A_CONFIRMAR} NF(s) pendente(s) de confirmação`}>
+                                  📋 À CONFIRMAR
                                 </span>
                               )}
                             </td>
