@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLoja } from '../contexts/LojaContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
@@ -69,6 +70,7 @@ function formatDateForApi(dateStr) {
 
 export default function FrenteCaixa() {
   const { user, logout } = useAuth();
+  const { lojaSelecionada } = useLoja();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
@@ -296,7 +298,9 @@ export default function FrenteCaixa() {
 
         if (statusRes.data.success) {
           // Carregar operadores
-          const opRes = await api.get('/frente-caixa/operadores');
+          const params = new URLSearchParams();
+          if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+          const opRes = await api.get(`/frente-caixa/operadores?${params.toString()}`);
           setOperadores(opRes.data || []);
         }
       } catch (error) {
@@ -308,7 +312,7 @@ export default function FrenteCaixa() {
     };
 
     loadFilters();
-  }, []);
+  }, [lojaSelecionada]);
 
   // Buscar dados
   const handleSearch = async () => {
@@ -323,6 +327,7 @@ export default function FrenteCaixa() {
       params.append('dataInicio', formatDateForApi(filters.dataInicio));
       params.append('dataFim', formatDateForApi(filters.dataFim));
       if (filters.codOperador) params.append('codOperador', filters.codOperador);
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
 
       const [resumoRes, totaisRes] = await Promise.all([
         api.get(`/frente-caixa/resumo?${params.toString()}`),
@@ -367,6 +372,7 @@ export default function FrenteCaixa() {
           params.append('dataInicio', formatDateForApi(filters.dataInicio));
           params.append('dataFim', formatDateForApi(filters.dataFim));
           params.append('codOperador', key);
+          if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
 
           console.log('📡 [FrenteCaixa] Buscando detalhe por dia:', `/frente-caixa/detalhe-dia?${params.toString()}`);
           const response = await api.get(`/frente-caixa/detalhe-dia?${params.toString()}`);
@@ -408,6 +414,7 @@ export default function FrenteCaixa() {
           const params = new URLSearchParams();
           params.append('codOperador', codOperador);
           params.append('data', data);
+          if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
 
           console.log('📡 [FrenteCaixa] Buscando cupons:', `/frente-caixa/cupons?${params.toString()}`);
           const response = await api.get(`/frente-caixa/cupons?${params.toString()}`);

@@ -64,4 +64,126 @@ export class GestaoInteligenteController {
       res.status(500).json({ error: 'Erro ao limpar cache' });
     }
   }
+
+  /**
+   * GET /api/gestao-inteligente/vendas-por-setor
+   * Busca vendas agrupadas por setor
+   * Query params: dataInicio, dataFim, codLoja (opcional)
+   */
+  static async getVendasPorSetor(req: AuthRequest, res: Response) {
+    try {
+      const { dataInicio, dataFim, codLoja } = req.query;
+
+      if (!dataInicio || !dataFim) {
+        return res.status(400).json({
+          error: 'Parâmetros dataInicio e dataFim são obrigatórios'
+        });
+      }
+
+      const filters = {
+        dataInicio: String(dataInicio),
+        dataFim: String(dataFim),
+        codLoja: codLoja ? parseInt(String(codLoja)) : undefined
+      };
+
+      const vendasPorSetor = await GestaoInteligenteService.getVendasPorSetor(filters);
+      res.json(vendasPorSetor);
+    } catch (error: any) {
+      console.error('Erro ao buscar vendas por setor:', error);
+      res.status(500).json({ error: error.message || 'Erro interno do servidor' });
+    }
+  }
+
+  /**
+   * GET /api/gestao-inteligente/grupos-por-secao
+   * Busca grupos de uma seção específica
+   * Query params: dataInicio, dataFim, codSecao, codLoja (opcional)
+   */
+  static async getGruposPorSecao(req: AuthRequest, res: Response) {
+    try {
+      const { dataInicio, dataFim, codSecao, codLoja } = req.query;
+
+      if (!dataInicio || !dataFim || !codSecao) {
+        return res.status(400).json({
+          error: 'Parâmetros dataInicio, dataFim e codSecao são obrigatórios'
+        });
+      }
+
+      const filters = {
+        dataInicio: String(dataInicio),
+        dataFim: String(dataFim),
+        codSecao: parseInt(String(codSecao)),
+        codLoja: codLoja ? parseInt(String(codLoja)) : undefined
+      };
+
+      const grupos = await GestaoInteligenteService.getGruposPorSecao(filters);
+      res.json(grupos);
+    } catch (error: any) {
+      console.error('Erro ao buscar grupos por seção:', error);
+      res.status(500).json({ error: error.message || 'Erro interno do servidor' });
+    }
+  }
+
+  /**
+   * GET /api/gestao-inteligente/subgrupos-por-grupo
+   * Busca subgrupos de um grupo específico
+   * Query params: dataInicio, dataFim, codGrupo, codSecao (opcional), codLoja (opcional)
+   */
+  static async getSubgruposPorGrupo(req: AuthRequest, res: Response) {
+    try {
+      const { dataInicio, dataFim, codGrupo, codSecao, codLoja } = req.query;
+
+      if (!dataInicio || !dataFim || !codGrupo) {
+        return res.status(400).json({
+          error: 'Parâmetros dataInicio, dataFim e codGrupo são obrigatórios'
+        });
+      }
+
+      const filters = {
+        dataInicio: String(dataInicio),
+        dataFim: String(dataFim),
+        codGrupo: parseInt(String(codGrupo)),
+        codSecao: codSecao ? parseInt(String(codSecao)) : undefined,
+        codLoja: codLoja ? parseInt(String(codLoja)) : undefined
+      };
+
+      const subgrupos = await GestaoInteligenteService.getSubgruposPorGrupo(filters);
+      res.json(subgrupos);
+    } catch (error: any) {
+      console.error('Erro ao buscar subgrupos por grupo:', error);
+      res.status(500).json({ error: error.message || 'Erro interno do servidor' });
+    }
+  }
+
+  /**
+   * GET /api/gestao-inteligente/itens-por-subgrupo
+   * Busca itens de um subgrupo específico
+   * Query params: dataInicio, dataFim, codSubgrupo, codGrupo (opcional), codSecao (opcional), codLoja (opcional)
+   */
+  static async getItensPorSubgrupo(req: AuthRequest, res: Response) {
+    try {
+      const { dataInicio, dataFim, codSubgrupo, codGrupo, codSecao, codLoja } = req.query;
+
+      if (!dataInicio || !dataFim || !codSubgrupo) {
+        return res.status(400).json({
+          error: 'Parâmetros dataInicio, dataFim e codSubgrupo são obrigatórios'
+        });
+      }
+
+      const filters = {
+        dataInicio: String(dataInicio),
+        dataFim: String(dataFim),
+        codSubgrupo: parseInt(String(codSubgrupo)),
+        codGrupo: codGrupo ? parseInt(String(codGrupo)) : undefined,
+        codSecao: codSecao ? parseInt(String(codSecao)) : undefined,
+        codLoja: codLoja ? parseInt(String(codLoja)) : undefined
+      };
+
+      const itens = await GestaoInteligenteService.getItensPorSubgrupo(filters);
+      res.json(itens);
+    } catch (error: any) {
+      console.error('Erro ao buscar itens por subgrupo:', error);
+      res.status(500).json({ error: error.message || 'Erro interno do servidor' });
+    }
+  }
 }

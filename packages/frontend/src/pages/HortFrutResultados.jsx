@@ -3,8 +3,10 @@ import Layout from '../components/Layout';
 import { api } from '../utils/api';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useLoja } from '../contexts/LojaContext';
 
 export default function HortFrutResultados() {
+  const { lojaSelecionada } = useLoja();
   const [conferences, setConferences] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -89,7 +91,7 @@ export default function HortFrutResultados() {
 
     // Carregar conferências com as datas já definidas (não esperar state update)
     loadConferences(startStr, endStr);
-  }, []);
+  }, [lojaSelecionada]);
 
   const loadConferences = async (overrideStartDate, overrideEndDate) => {
     try {
@@ -104,6 +106,7 @@ export default function HortFrutResultados() {
       if (useStartDate) params.append('startDate', useStartDate);
       if (useEndDate) params.append('endDate', useEndDate);
       if (statusFilter) params.append('status', statusFilter);
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
 
       if (params.toString()) {
         url += '?' + params.toString();

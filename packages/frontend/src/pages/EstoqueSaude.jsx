@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLoja } from '../contexts/LojaContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 
@@ -36,6 +37,7 @@ const AVAILABLE_COLUMNS = [
 
 export default function EstoqueSaude() {
   const { user, logout } = useAuth();
+  const { lojaSelecionada } = useLoja();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -495,7 +497,9 @@ export default function EstoqueSaude() {
       setError('');
 
       // Usar endpoint Oracle diretamente
-      const response = await api.get('/products/oracle');
+      const params = new URLSearchParams();
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+      const response = await api.get(`/products/oracle?${params.toString()}`);
       const allProducts = response.data.data || response.data;
 
       // Adicionar colunas calculadas
@@ -532,7 +536,7 @@ export default function EstoqueSaude() {
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [lojaSelecionada]);
 
   // Função para ordenar produtos
   const handleSort = (columnId) => {

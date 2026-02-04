@@ -1,20 +1,24 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import api from '../services/api';
+import { useLoja } from '../contexts/LojaContext';
 
 export default function ProducaoResultados() {
+  const { lojaSelecionada } = useLoja();
   const [audits, setAudits] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     loadAudits();
-  }, []);
+  }, [lojaSelecionada]);
 
   const loadAudits = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/production/audits');
+      const params = new URLSearchParams();
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+      const response = await api.get(`/production/audits?${params.toString()}`);
       setAudits(response.data);
     } catch (err) {
       console.error('Erro ao carregar auditorias:', err);

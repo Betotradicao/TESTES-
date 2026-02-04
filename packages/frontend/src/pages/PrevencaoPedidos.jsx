@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import api from '../services/api';
+import { useLoja } from '../contexts/LojaContext';
 
 const STATUS_RECEBIMENTO = {
   0: { label: 'Pendente', color: 'bg-yellow-100 text-yellow-800', icon: '⏳' },
@@ -10,6 +11,7 @@ const STATUS_RECEBIMENTO = {
 };
 
 export default function PrevencaoPedidos() {
+  const { lojaSelecionada } = useLoja();
   const [pedidos, setPedidos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -182,6 +184,7 @@ export default function PrevencaoPedidos() {
       if (activeFilters.parciaisFinalizadas) params.append('parciaisFinalizadas', 'true');
       if (activeFilters.canceladasTotais) params.append('canceladasTotais', 'true');
       if (activeFilters.semNenhumaEntrada) params.append('semNenhumaEntrada', 'true');
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
 
       const response = await api.get(`/pedidos-compra?${params.toString()}`);
 
@@ -235,7 +238,9 @@ export default function PrevencaoPedidos() {
   // Carregar compradores disponíveis
   const loadCompradores = async () => {
     try {
-      const response = await api.get('/pedidos-compra/compradores');
+      const params = new URLSearchParams();
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+      const response = await api.get(`/pedidos-compra/compradores?${params.toString()}`);
       setCompradores(response.data.compradores || []);
     } catch (err) {
       console.error('Erro ao carregar compradores:', err);
@@ -245,7 +250,9 @@ export default function PrevencaoPedidos() {
   // Carregar classificações de fornecedores (com contagem de NFs)
   const loadClassificacoes = async () => {
     try {
-      const response = await api.get('/pedidos-compra/classificacoes');
+      const params = new URLSearchParams();
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+      const response = await api.get(`/pedidos-compra/classificacoes?${params.toString()}`);
       setClassificacoes(response.data.classificacoes || []);
       setSemCadastroCount(response.data.semCadastroCount || 0);
     } catch (err) {
@@ -271,6 +278,7 @@ export default function PrevencaoPedidos() {
       if (classifs.length > 0) {
         params.append('classificacoes', classifs.join(','));
       }
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
 
       const response = await api.get(`/pedidos-compra/nf-sem-pedido?${params.toString()}`);
 
@@ -379,12 +387,14 @@ export default function PrevencaoPedidos() {
     loadCompradores();
     loadClassificacoes();
     loadNfsBloqueio();
-  }, []);
+  }, [lojaSelecionada]);
 
   // Carregar NFs com bloqueio
   const loadNfsBloqueio = async () => {
     try {
-      const response = await api.get('/pedidos-compra/nf-com-bloqueio');
+      const params = new URLSearchParams();
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+      const response = await api.get(`/pedidos-compra/nf-com-bloqueio?${params.toString()}`);
       setNfsComBloqueio(response.data.nfs || []);
       setStatsBloqueio(response.data.stats || {
         totalBloq1f: 0,

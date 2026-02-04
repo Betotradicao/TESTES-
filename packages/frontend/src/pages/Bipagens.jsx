@@ -299,7 +299,7 @@ export default function Bipagens() {
         clearInterval(intervalRef.current);
       }
     };
-  }, [pagination.page, filters, autoRefreshEnabled]);
+  }, [pagination.page, filters, autoRefreshEnabled, lojaSelecionada]);
 
   // Aplicar filtros
   const handleFilterChange = (newFilters) => {

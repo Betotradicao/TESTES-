@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import api from '../services/api';
+import { useLoja } from '../contexts/LojaContext';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 export default function EtiquetaResultadosAuditorias() {
   const navigate = useNavigate();
+  const { lojaSelecionada } = useLoja();
 
   // Filtros
   const [dataInicio, setDataInicio] = useState('');
@@ -42,12 +44,14 @@ export default function EtiquetaResultadosAuditorias() {
 
     setDataFim(hoje.toISOString().split('T')[0]);
     setDataInicio(primeiroDiaMes.toISOString().split('T')[0]);
-  }, []);
+  }, [lojaSelecionada]);
 
   // Carregar seções do Oracle para mapeamento código -> nome
   const loadSecoesOracle = async () => {
     try {
-      const response = await api.get('/products/sections-oracle');
+      const params = new URLSearchParams();
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+      const response = await api.get(`/products/sections-oracle?${params.toString()}`);
       const map = {};
       response.data.forEach(sec => {
         map[sec.codigo] = sec.nome;
@@ -117,6 +121,7 @@ export default function EtiquetaResultadosAuditorias() {
         fornecedor: fornecedorSelecionado,
         auditor: auditorSelecionado,
       });
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
 
       // Buscar dados de etiquetas (inclui descontos PDV do Oracle)
       const response = await api.get(`/label-audits/agregado?${params}`);
@@ -133,12 +138,12 @@ export default function EtiquetaResultadosAuditorias() {
     }
   };
 
-  // Executar filtro automaticamente quando período for definido
+  // Executar filtro automaticamente quando período for definido ou loja mudar
   useEffect(() => {
     if (dataInicio && dataFim) {
       handleFiltrar();
     }
-  }, [dataInicio, dataFim]);
+  }, [dataInicio, dataFim, lojaSelecionada]);
 
   const stats = resultados?.estatisticas || {};
   const todosItensEtiqueta = resultados?.itens_ruptura || [];

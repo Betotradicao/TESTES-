@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLoja } from '../contexts/LojaContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
@@ -33,6 +34,7 @@ const INITIAL_COLUMNS = [
 
 export default function CompraVendaAnalise() {
   const { user, logout } = useAuth();
+  const { lojaSelecionada } = useLoja();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
@@ -140,6 +142,15 @@ export default function CompraVendaAnalise() {
   useEffect(() => {
     loadFilterData();
   }, []);
+
+  // Sincronizar com a loja selecionada globalmente
+  useEffect(() => {
+    if (lojaSelecionada !== null && lojaSelecionada !== undefined) {
+      setFilters(prev => ({ ...prev, codLoja: String(lojaSelecionada) }));
+    } else {
+      setFilters(prev => ({ ...prev, codLoja: '' }));
+    }
+  }, [lojaSelecionada]);
 
   // Carregar grupos quando seção mudar
   useEffect(() => {

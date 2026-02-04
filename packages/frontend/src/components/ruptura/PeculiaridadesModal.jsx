@@ -235,7 +235,12 @@ export default function PeculiaridadesModal({ onClose }) {
             {/* Secao */}
             <select
               value={filtroSecao}
-              onChange={(e) => { setFiltroSecao(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                setFiltroSecao(e.target.value);
+                setFiltroGrupo('');
+                setFiltroSubgrupo('');
+                setPage(1);
+              }}
               className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
             >
               <option value="">Todas Secoes</option>
@@ -247,8 +252,13 @@ export default function PeculiaridadesModal({ onClose }) {
             {/* Grupo */}
             <select
               value={filtroGrupo}
-              onChange={(e) => { setFiltroGrupo(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                setFiltroGrupo(e.target.value);
+                setFiltroSubgrupo('');
+                setPage(1);
+              }}
               className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+              disabled={!filtroSecao}
             >
               <option value="">Todos Grupos</option>
               {grupos.map(g => (
@@ -261,6 +271,7 @@ export default function PeculiaridadesModal({ onClose }) {
               value={filtroSubgrupo}
               onChange={(e) => { setFiltroSubgrupo(e.target.value); setPage(1); }}
               className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+              disabled={!filtroGrupo}
             >
               <option value="">Todos Subgrupos</option>
               {subgrupos.map(sg => (

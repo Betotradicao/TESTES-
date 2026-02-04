@@ -1852,109 +1852,173 @@ export class ProductsController {
 
   /**
    * Lista produtos para configuração de peculiaridades (sem_exposicao)
-   * Retorna produtos do banco local com status de peculiaridades
+   * Busca produtos do Oracle e combina com peculiaridades do PostgreSQL
    */
   static async getPeculiaridades(req: AuthRequest, res: Response) {
     try {
       const { search, secao, grupo, subgrupo, page = 1, limit = 50 } = req.query;
+      const pageNum = Number(page);
+      const limitNum = Number(limit);
+      const offset = (pageNum - 1) * limitNum;
 
+      // Filtro base: apenas produtos ATIVOS no Oracle (TAB_PRODUTO_LOJA.INATIVO = 'N')
+      // COD_LOJA = 1 é a loja padrão
+      console.log('🔥🔥🔥 [PECULIARIDADES] V3 NEW CODE - Timestamp:', new Date().toISOString());
+      console.log('🔥 [PECULIARIDADES] Params: search=', search, 'secao=', secao, 'grupo=', grupo, 'subgrupo=', subgrupo);
+      let whereConditions: string[] = [`NVL(pl.INATIVO, 'N') = 'N'`];
+      const oracleParams: Record<string, any> = {};
+
+      if (search) {
+        whereConditions.push(`(UPPER(p.DES_PRODUTO) LIKE UPPER(:search) OR p.COD_PRODUTO LIKE :search OR p.COD_BARRA_PRINCIPAL LIKE :search)`);
+        oracleParams.search = `%${search}%`;
+      }
+
+      if (secao) {
+        whereConditions.push(`s.DES_SECAO = :secao`);
+        oracleParams.secao = secao;
+      }
+
+      if (grupo) {
+        whereConditions.push(`g.DES_GRUPO = :grupo`);
+        oracleParams.grupo = grupo;
+      }
+
+      if (subgrupo) {
+        whereConditions.push(`sg.DES_SUB_GRUPO = :subgrupo`);
+        oracleParams.subgrupo = subgrupo;
+      }
+
+      const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+
+      // Query para contar total - JOIN com TAB_PRODUTO_LOJA para filtrar ativos
+      const countQuery = `
+        SELECT COUNT(*) as TOTAL
+        FROM INTERSOLID.TAB_PRODUTO p
+        JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON pl.COD_PRODUTO = p.COD_PRODUTO AND pl.COD_LOJA = 1
+        LEFT JOIN INTERSOLID.TAB_SECAO s ON s.COD_SECAO = p.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_GRUPO g ON g.COD_GRUPO = p.COD_GRUPO AND g.COD_SECAO = p.COD_SECAO
+        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON sg.COD_SUB_GRUPO = p.COD_SUB_GRUPO AND sg.COD_GRUPO = p.COD_GRUPO AND sg.COD_SECAO = p.COD_SECAO
+        ${whereClause}
+      `;
+
+      // Query para buscar produtos com paginação
+      const productsQuery = `
+        SELECT * FROM (
+          SELECT
+            p.COD_PRODUTO,
+            p.COD_BARRA_PRINCIPAL,
+            p.DES_PRODUTO,
+            s.DES_SECAO,
+            g.DES_GRUPO,
+            sg.DES_SUB_GRUPO,
+            ROW_NUMBER() OVER (ORDER BY p.DES_PRODUTO) as RN
+          FROM INTERSOLID.TAB_PRODUTO p
+          JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON pl.COD_PRODUTO = p.COD_PRODUTO AND pl.COD_LOJA = 1
+          LEFT JOIN INTERSOLID.TAB_SECAO s ON s.COD_SECAO = p.COD_SECAO
+          LEFT JOIN INTERSOLID.TAB_GRUPO g ON g.COD_GRUPO = p.COD_GRUPO AND g.COD_SECAO = p.COD_SECAO
+          LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON sg.COD_SUB_GRUPO = p.COD_SUB_GRUPO AND sg.COD_GRUPO = p.COD_GRUPO AND sg.COD_SECAO = p.COD_SECAO
+          ${whereClause}
+        ) WHERE RN > :offset AND RN <= :maxRow
+      `;
+
+      // Parâmetros separados: countParams não tem offset/maxRow, productsParams tem tudo
+      const countParams = { ...oracleParams };
+      const productsParams = { ...oracleParams, offset, maxRow: offset + limitNum };
+
+      // Query para buscar seções (para o filtro)
+      const secoesQuery = `
+        SELECT DISTINCT s.DES_SECAO
+        FROM INTERSOLID.TAB_SECAO s
+        WHERE s.DES_SECAO IS NOT NULL
+        ORDER BY s.DES_SECAO
+      `;
+
+      // Query para buscar grupos filtrados pela seção
+      let gruposQuery = `
+        SELECT DISTINCT g.DES_GRUPO
+        FROM INTERSOLID.TAB_GRUPO g
+        JOIN INTERSOLID.TAB_SECAO s ON s.COD_SECAO = g.COD_SECAO
+        WHERE g.DES_GRUPO IS NOT NULL
+      `;
+      const gruposParams: Record<string, any> = {};
+      if (secao) {
+        gruposQuery += ` AND s.DES_SECAO = :secaoGrupo`;
+        gruposParams.secaoGrupo = secao;
+      }
+      gruposQuery += ` ORDER BY g.DES_GRUPO`;
+
+      // Query para buscar subgrupos filtrados
+      let subgruposQuery = `
+        SELECT DISTINCT sg.DES_SUB_GRUPO
+        FROM INTERSOLID.TAB_SUBGRUPO sg
+        JOIN INTERSOLID.TAB_GRUPO g ON g.COD_GRUPO = sg.COD_GRUPO AND g.COD_SECAO = sg.COD_SECAO
+        JOIN INTERSOLID.TAB_SECAO s ON s.COD_SECAO = sg.COD_SECAO
+        WHERE sg.DES_SUB_GRUPO IS NOT NULL
+      `;
+      const subgruposParams: Record<string, any> = {};
+      if (secao) {
+        subgruposQuery += ` AND s.DES_SECAO = :secaoSub`;
+        subgruposParams.secaoSub = secao;
+      }
+      if (grupo) {
+        subgruposQuery += ` AND g.DES_GRUPO = :grupoSub`;
+        subgruposParams.grupoSub = grupo;
+      }
+      subgruposQuery += ` ORDER BY sg.DES_SUB_GRUPO`;
+
+      // Executar queries Oracle
+      const [countResult, productsResult, gruposResult, subgruposResult] = await Promise.all([
+        OracleService.query<any>(countQuery, countParams),
+        OracleService.query<any>(productsQuery, productsParams),
+        OracleService.query<any>(gruposQuery, gruposParams),
+        OracleService.query<any>(subgruposQuery, subgruposParams)
+      ]);
+
+      const total = countResult[0]?.TOTAL || 0;
+      const oracleProducts = productsResult || [];
+      console.log('📦 [PECULIARIDADES] Total:', total, 'Produtos retornados:', oracleProducts.length);
+
+      // Buscar peculiaridades do PostgreSQL para os produtos encontrados
+      const productCodes = oracleProducts.map((p: any) => p.COD_PRODUTO);
       const productRepository = AppDataSource.getRepository(Product);
 
-      const queryBuilder = productRepository.createQueryBuilder('p')
-        .select([
-          'p.id',
-          'p.erp_product_id',
-          'p.ean',
-          'p.description',
-          'p.section_name',
-          'p.group_name',
-          'p.subgroup_name',
-          'p.sem_exposicao',
-          'p.grupo_similar'
-        ]);
+      let peculiaridadesMap: Record<string, { sem_exposicao: boolean; grupo_similar: number | null }> = {};
 
-      // Array para acumular condições
-      const conditions: string[] = [];
-      const params: Record<string, any> = {};
+      if (productCodes.length > 0) {
+        const peculiaridades = await productRepository
+          .createQueryBuilder('p')
+          .select(['p.erp_product_id', 'p.sem_exposicao', 'p.grupo_similar'])
+          .where('p.erp_product_id IN (:...codes)', { codes: productCodes })
+          .getMany();
 
-      // Filtro de busca
-      if (search) {
-        conditions.push('(p.ean ILIKE :search OR p.description ILIKE :search OR p.erp_product_id ILIKE :search)');
-        params.search = `%${search}%`;
+        peculiaridades.forEach(p => {
+          peculiaridadesMap[p.erp_product_id] = {
+            sem_exposicao: p.sem_exposicao || false,
+            grupo_similar: p.grupo_similar
+          };
+        });
       }
 
-      // Filtro de seção
-      if (secao) {
-        conditions.push('p.section_name = :secao');
-        params.secao = secao;
-      }
-
-      // Filtro de grupo
-      if (grupo) {
-        conditions.push('p.group_name = :grupo');
-        params.grupo = grupo;
-      }
-
-      // Filtro de subgrupo
-      if (subgrupo) {
-        conditions.push('p.subgroup_name = :subgrupo');
-        params.subgrupo = subgrupo;
-      }
-
-      // Aplicar condições
-      if (conditions.length > 0) {
-        queryBuilder.where(conditions.join(' AND '), params);
-      }
-
-      // Paginação
-      const skip = (Number(page) - 1) * Number(limit);
-      queryBuilder.skip(skip).take(Number(limit));
-      queryBuilder.orderBy('p.description', 'ASC');
-
-      const [products, total] = await queryBuilder.getManyAndCount();
-
-      // Buscar listas de grupos e subgrupos FILTRADOS pela seção/grupo selecionados
-      const gruposQuery = productRepository
-        .createQueryBuilder('p')
-        .select('DISTINCT p.group_name', 'group_name')
-        .where('p.group_name IS NOT NULL');
-
-      if (secao) {
-        gruposQuery.andWhere('p.section_name = :secaoGrupo', { secaoGrupo: secao });
-      }
-      const gruposResult = await gruposQuery.orderBy('p.group_name', 'ASC').getRawMany();
-
-      const subgruposQuery = productRepository
-        .createQueryBuilder('p')
-        .select('DISTINCT p.subgroup_name', 'subgroup_name')
-        .where('p.subgroup_name IS NOT NULL');
-
-      if (secao) {
-        subgruposQuery.andWhere('p.section_name = :secaoSub', { secaoSub: secao });
-      }
-      if (grupo) {
-        subgruposQuery.andWhere('p.group_name = :grupoSub', { grupoSub: grupo });
-      }
-      const subgruposResult = await subgruposQuery.orderBy('p.subgroup_name', 'ASC').getRawMany();
+      // Combinar dados Oracle com peculiaridades
+      const products = oracleProducts.map((p: any) => ({
+        erp_product_id: p.COD_PRODUTO,
+        ean: p.COD_BARRA_PRINCIPAL,
+        description: p.DES_PRODUTO,
+        section_name: p.DES_SECAO,
+        group_name: p.DES_GRUPO,
+        subgroup_name: p.DES_SUB_GRUPO,
+        sem_exposicao: peculiaridadesMap[p.COD_PRODUTO]?.sem_exposicao || false,
+        grupo_similar: peculiaridadesMap[p.COD_PRODUTO]?.grupo_similar || null
+      }));
 
       res.json({
-        products: products.map(p => ({
-          id: p.id,
-          erp_product_id: p.erp_product_id,
-          ean: p.ean,
-          description: p.description,
-          section_name: p.section_name,
-          group_name: p.group_name,
-          subgroup_name: p.subgroup_name,
-          sem_exposicao: p.sem_exposicao || false,
-          grupo_similar: p.grupo_similar
-        })),
+        products,
         total,
-        page: Number(page),
-        limit: Number(limit),
-        totalPages: Math.ceil(total / Number(limit)),
-        grupos: gruposResult.map(g => g.group_name).filter(Boolean),
-        subgrupos: subgruposResult.map(s => s.subgroup_name).filter(Boolean)
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+        grupos: gruposResult.map((g: any) => g.DES_GRUPO).filter(Boolean),
+        subgrupos: subgruposResult.map((s: any) => s.DES_SUB_GRUPO).filter(Boolean)
       });
 
     } catch (error: any) {

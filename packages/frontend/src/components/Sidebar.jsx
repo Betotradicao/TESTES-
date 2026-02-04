@@ -9,6 +9,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     'gestao-radar': true,
     'prevencao-radar': true
   });
+  const [expandedItems, setExpandedItems] = useState({});
   const [modulesConfig, setModulesConfig] = useState([]);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebar_collapsed');
@@ -61,6 +62,45 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       [section]: !prev[section]
     }));
   };
+
+  const toggleItem = (itemId) => {
+    setExpandedItems(prev => ({
+      ...prev,
+      [itemId]: !prev[itemId]
+    }));
+  };
+
+  // Manter submenus expandidos baseado na rota atual
+  useEffect(() => {
+    // Verificar qual submenu deve estar expandido baseado na rota
+    const currentPath = location.pathname;
+
+    // Mapear rotas para seus submenus pais
+    const routeToSubmenu = {
+      '/bipagens': 'bipagens',
+      '/resultados-do-dia': 'bipagens',
+      '/rankings': 'bipagens',
+      '/ruptura-lancador': 'ruptura',
+      '/ruptura-auditorias': 'ruptura',
+      '/etiquetas/lancar': 'etiquetas',
+      '/etiquetas/resultados': 'etiquetas',
+      '/perdas-lancador': 'perdas',
+      '/perdas-resultados': 'perdas',
+      '/producao-lancador': 'producao',
+      '/producao-sugestao': 'producao',
+      '/producao/resultados': 'producao',
+      '/hortfrut-lancador': 'hortfruti',
+      '/hortfrut-resultados': 'hortfruti'
+    };
+
+    const submenuId = routeToSubmenu[currentPath];
+    if (submenuId && !expandedItems[submenuId]) {
+      setExpandedItems(prev => ({
+        ...prev,
+        [submenuId]: true
+      }));
+    }
+  }, [location.pathname]);
 
   // Função para verificar se colaborador tem permissão
   const hasPermission = (moduleId, submenuId = null) => {
@@ -191,12 +231,17 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         {
           id: 'bipagens',
           title: 'Prevenção de Bipagens',
-          path: '/bipagens',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
             </svg>
-          )
+          ),
+          expandable: true,
+          subItems: [
+            { id: 'bipagens', title: 'Bipagens', path: '/bipagens' },
+            { id: 'resultados-do-dia', title: 'Resultados do Dia', path: '/resultados-do-dia' },
+            { id: 'rankings', title: 'Rankings', path: '/rankings' }
+          ]
         },
         {
           id: 'pdv',
@@ -221,52 +266,73 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         {
           id: 'ruptura',
           title: 'Prevenção Rupturas',
-          path: '/ruptura-lancador',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
             </svg>
-          )
+          ),
+          expandable: true,
+          subItems: [
+            { id: 'ruptura-lancador', title: 'Lançar Auditoria', path: '/ruptura-lancador' },
+            { id: 'ruptura-auditorias', title: 'Resultados Auditorias', path: '/ruptura-auditorias' }
+          ]
         },
         {
           id: 'etiquetas',
           title: 'Prevenção Etiquetas',
-          path: '/etiquetas/lancar',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
             </svg>
-          )
+          ),
+          expandable: true,
+          subItems: [
+            { id: 'etiquetas-lancador', title: 'Lançar Auditoria', path: '/etiquetas/lancar' },
+            { id: 'etiquetas-resultados', title: 'Resultados Auditorias', path: '/etiquetas/resultados' }
+          ]
         },
         {
           id: 'perdas',
           title: 'Prevenção Quebras',
-          path: '/perdas-resultados',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
             </svg>
-          )
+          ),
+          expandable: true,
+          subItems: [
+            { id: 'perdas-lancador', title: 'Lançar Quebras', path: '/perdas-lancador' },
+            { id: 'perdas-resultados', title: 'Resultados Quebras', path: '/perdas-resultados' }
+          ]
         },
         {
           id: 'producao',
           title: 'Prevenção Produção',
-          path: '/producao-lancador',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
             </svg>
-          )
+          ),
+          expandable: true,
+          subItems: [
+            { id: 'producao-lancador', title: 'Lançar Produção', path: '/producao-lancador' },
+            { id: 'producao-sugestao', title: 'Sugestão de Produção', path: '/producao-sugestao' },
+            { id: 'producao-resultados', title: 'Resultados', path: '/producao/resultados' }
+          ]
         },
         {
           id: 'hortfruti',
           title: 'Prevenção HortFruti',
-          path: '/hortfrut-lancador',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
             </svg>
-          )
+          ),
+          expandable: true,
+          subItems: [
+            { id: 'hortfrut-lancador', title: 'Lançar HortFruti', path: '/hortfrut-lancador' },
+            { id: 'hortfrut-resultados', title: 'Resultados', path: '/hortfrut-resultados' }
+          ]
         }
       ]
     },
@@ -490,31 +556,76 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             {!isCollapsed && item.expandable && expandedSections[item.id] && (
               <div className="pl-14 pr-6 pb-2">
                 {filteredItems.map((subItem, index) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      // Se o módulo estiver desativado, não permite navegação
-                      if (!moduleActive) {
-                        return;
-                      }
+                  <div key={index}>
+                    <button
+                      onClick={() => {
+                        // Se o módulo estiver desativado, não permite navegação
+                        if (!moduleActive) {
+                          return;
+                        }
 
-                      if (subItem.path) {
-                        navigate(subItem.path);
-                        setIsMobileMenuOpen(false);
-                      }
-                    }}
-                    className={`flex items-center space-x-3 w-full text-left py-2 text-sm transition-colors ${
-                      !moduleActive
-                        ? 'text-gray-400 cursor-not-allowed opacity-60'
-                        : subItem.path && location.pathname === subItem.path
-                        ? 'text-orange-500 font-medium'
-                        : 'text-gray-600 hover:text-orange-500'
-                    }`}
-                    disabled={!moduleActive}
-                  >
-                    <span className={moduleActive ? 'text-gray-400' : 'text-gray-300'}>{subItem.icon}</span>
-                    <span>{subItem.title}</span>
-                  </button>
+                        // Se tem subItems, toggle expand
+                        if (subItem.expandable && subItem.subItems) {
+                          toggleItem(subItem.id);
+                        } else if (subItem.path) {
+                          navigate(subItem.path);
+                          setIsMobileMenuOpen(false);
+                        }
+                      }}
+                      className={`flex items-center justify-between w-full text-left py-2 text-sm transition-colors ${
+                        !moduleActive
+                          ? 'text-gray-400 cursor-not-allowed opacity-60'
+                          : subItem.path && location.pathname === subItem.path
+                          ? 'text-orange-500 font-medium'
+                          : 'text-gray-600 hover:text-orange-500'
+                      }`}
+                      disabled={!moduleActive}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <span className={moduleActive ? 'text-gray-400' : 'text-gray-300'}>{subItem.icon}</span>
+                        <span>{subItem.title}</span>
+                      </div>
+                      {subItem.expandable && subItem.subItems && (
+                        <svg
+                          className={`w-3 h-3 text-gray-400 transform transition-transform ${
+                            expandedItems[subItem.id] ? 'rotate-180' : ''
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                      )}
+                    </button>
+
+                    {/* Sub-submenus */}
+                    {subItem.expandable && subItem.subItems && expandedItems[subItem.id] && (
+                      <div className="pl-7 pb-1">
+                        {subItem.subItems.map((subSubItem, subIndex) => (
+                          <button
+                            key={subIndex}
+                            onClick={() => {
+                              if (subSubItem.path) {
+                                navigate(subSubItem.path);
+                                setIsMobileMenuOpen(false);
+                              }
+                            }}
+                            className={`flex items-center space-x-2 w-full text-left py-1.5 text-sm transition-colors ${
+                              subSubItem.path && location.pathname === subSubItem.path
+                                ? 'text-orange-500 font-medium'
+                                : 'text-gray-500 hover:text-orange-500'
+                            }`}
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                            <span>{subSubItem.title}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             )}

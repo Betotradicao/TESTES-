@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import api from '../services/api';
+import { useLoja } from '../contexts/LojaContext';
 
 // Função para obter datas padrão (primeiro dia do ano até hoje)
 const getDefaultDates = () => {
@@ -53,6 +54,7 @@ const getDateRanges = () => {
 const dateRanges = getDateRanges();
 
 export default function RupturaIndustria() {
+  const { lojaSelecionada } = useLoja();
   // Estado para aba ativa
   const [activeTab, setActiveTab] = useState('geral'); // geral, ranking
 
@@ -377,6 +379,7 @@ export default function RupturaIndustria() {
       const params = new URLSearchParams();
       if (filters.dataInicio) params.append('dataInicio', filters.dataInicio);
       if (filters.dataFim) params.append('dataFim', filters.dataFim);
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
       params.append('limit', '100');
 
       const response = await api.get(`/ruptura-industria/ranking-fornecedores?${params.toString()}`);
@@ -404,6 +407,7 @@ export default function RupturaIndustria() {
       const params = new URLSearchParams();
       if (filters.dataInicio) params.append('dataInicio', filters.dataInicio);
       if (filters.dataFim) params.append('dataFim', filters.dataFim);
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
       params.append('limit', '5000'); // Buscar todos os produtos com ruptura
 
       const response = await api.get(`/ruptura-industria/ranking-produtos-fornecedores?${params.toString()}`);
@@ -427,6 +431,7 @@ export default function RupturaIndustria() {
       const params = new URLSearchParams();
       if (filters.dataInicio) params.append('dataInicio', filters.dataInicio);
       if (filters.dataFim) params.append('dataFim', filters.dataFim);
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
 
       console.log('URL:', `/ruptura-industria/fornecedor/${codFornecedor}/produtos?${params.toString()}`);
       const response = await api.get(`/ruptura-industria/fornecedor/${codFornecedor}/produtos?${params.toString()}`);
@@ -446,7 +451,7 @@ export default function RupturaIndustria() {
   useEffect(() => {
     loadRanking();
     loadRankingProdutos();
-  }, []);
+  }, [lojaSelecionada]);
 
   // Carregar dados quando mudar de aba
   useEffect(() => {
