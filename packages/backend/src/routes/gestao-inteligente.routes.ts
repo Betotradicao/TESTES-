@@ -33,4 +33,7 @@ router.get('/subgrupos-por-grupo', GestaoInteligenteController.getSubgruposPorGr
 // Hierarquia: Itens por Subgrupo
 router.get('/itens-por-subgrupo', GestaoInteligenteController.getItensPorSubgrupo);
 
+// Vendas por Ano (mensal)
+router.get('/vendas-por-ano', GestaoInteligenteController.getVendasPorAno);
+
 export default router;

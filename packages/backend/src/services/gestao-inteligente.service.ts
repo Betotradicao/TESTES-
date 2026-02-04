@@ -31,6 +31,7 @@ export interface IndicadoresGestao {
   pctCompraVenda: IndicadorComparativo;
   qtdCupons: IndicadorComparativo;
   qtdItens: IndicadorComparativo;
+  qtdSkus: IndicadorComparativo;
   pctVendasOferta: IndicadorComparativo;
   vendasOferta: IndicadorComparativo;
   markdownOferta: IndicadorComparativo;
@@ -120,6 +121,7 @@ export class GestaoInteligenteService {
     compras: number;
     vendasOferta: number;
     custoOferta: number;
+    qtdSkus: number;
   }> {
     let vendasQuery = `
       SELECT
@@ -128,7 +130,8 @@ export class GestaoInteligenteService {
         NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD_ITENS,
         NVL(SUM(CASE WHEN pv.FLG_OFERTA = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA,
-        NVL(SUM(CASE WHEN pv.FLG_OFERTA = 'S' THEN pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO ELSE 0 END), 0) as CUSTO_OFERTA
+        NVL(SUM(CASE WHEN pv.FLG_OFERTA = 'S' THEN pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO ELSE 0 END), 0) as CUSTO_OFERTA,
+        COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS
       FROM INTERSOLID.TAB_PRODUTO_PDV pv
       WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
     `;
@@ -178,7 +181,8 @@ export class GestaoInteligenteService {
       qtdCupons: cuponsResult[0]?.QTD_CUPONS || 0,
       compras: comprasResult[0]?.COMPRAS || 0,
       vendasOferta: vendasResult[0]?.VENDAS_OFERTA || 0,
-      custoOferta: vendasResult[0]?.CUSTO_OFERTA || 0
+      custoOferta: vendasResult[0]?.CUSTO_OFERTA || 0,
+      qtdSkus: vendasResult[0]?.QTD_SKUS || 0
     };
   }
 
@@ -194,8 +198,9 @@ export class GestaoInteligenteService {
     compras: number;
     vendasOferta: number;
     custoOferta: number;
+    qtdSkus?: number;
   }) {
-    const { vendas, custoVendas, impostos, qtdItens, qtdCupons, compras, vendasOferta, custoOferta } = dados;
+    const { vendas, custoVendas, impostos, qtdItens, qtdCupons, compras, vendasOferta, custoOferta, qtdSkus = 0 } = dados;
 
     const lucro = vendas - custoVendas;
     const markdown = vendas > 0 ? ((vendas - custoVendas) / vendas) * 100 : 0;
@@ -219,6 +224,7 @@ export class GestaoInteligenteService {
       pctCompraVenda: parseFloat(pctCompraVenda.toFixed(2)),
       qtdCupons,
       qtdItens: parseFloat(qtdItens.toFixed(2)),
+      qtdSkus,
       pctVendasOferta: parseFloat(pctVendasOferta.toFixed(2)),
       vendasOferta: parseFloat(vendasOferta.toFixed(2)),
       markdownOferta: parseFloat(markdownOferta.toFixed(2))
@@ -280,6 +286,7 @@ export class GestaoInteligenteService {
           pctCompraVenda: criarComparativo('pctCompraVenda'),
           qtdCupons: criarComparativo('qtdCupons'),
           qtdItens: criarComparativo('qtdItens'),
+          qtdSkus: criarComparativo('qtdSkus'),
           pctVendasOferta: criarComparativo('pctVendasOferta'),
           vendasOferta: criarComparativo('vendasOferta'),
           markdownOferta: criarComparativo('markdownOferta')
@@ -413,16 +420,20 @@ export class GestaoInteligenteService {
     const dataFim = this.formatDateToOracle(filters.dataFim);
 
     // Buscar subgrupos através dos produtos que pertencem ao grupo
+    // IMPORTANTE: Colunas são COD_SUB_GRUPO e DES_SUB_GRUPO (com underscore)
+    // TAB_SUBGRUPO tem chave composta: COD_SECAO, COD_GRUPO, COD_SUB_GRUPO
     let sql = `
       SELECT
-        p.COD_SUBGRUPO,
-        sg.DES_SUBGRUPO as SUBGRUPO,
+        p.COD_SUB_GRUPO,
+        sg.DES_SUB_GRUPO as SUBGRUPO,
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD
       FROM INTERSOLID.TAB_PRODUTO_PDV pv
       JOIN INTERSOLID.TAB_PRODUTO p ON p.COD_PRODUTO = pv.COD_PRODUTO
-      JOIN INTERSOLID.TAB_SUBGRUPO sg ON sg.COD_SUBGRUPO = p.COD_SUBGRUPO
+      JOIN INTERSOLID.TAB_SUBGRUPO sg ON sg.COD_SECAO = p.COD_SECAO
+        AND sg.COD_GRUPO = p.COD_GRUPO
+        AND sg.COD_SUB_GRUPO = p.COD_SUB_GRUPO
       WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND p.COD_GRUPO = :codGrupo
     `;
@@ -441,7 +452,7 @@ export class GestaoInteligenteService {
     }
 
     sql += `
-      GROUP BY p.COD_SUBGRUPO, sg.DES_SUBGRUPO
+      GROUP BY p.COD_SUB_GRUPO, sg.DES_SUB_GRUPO
       ORDER BY VENDA DESC
     `;
 
@@ -454,7 +465,7 @@ export class GestaoInteligenteService {
       const margem = venda > 0 ? ((venda - custo) / venda) * 100 : 0;
 
       return {
-        codSubgrupo: row.COD_SUBGRUPO,
+        codSubgrupo: row.COD_SUB_GRUPO,
         subgrupo: row.SUBGRUPO,
         venda: parseFloat(venda.toFixed(2)),
         margem: parseFloat(margem.toFixed(2)),
@@ -471,6 +482,7 @@ export class GestaoInteligenteService {
     const dataFim = this.formatDateToOracle(filters.dataFim);
 
     // Buscar produtos que pertencem ao subgrupo, grupo e seção corretos
+    // IMPORTANTE: Coluna é COD_SUB_GRUPO (com underscore)
     let sql = `
       SELECT
         p.COD_PRODUTO,
@@ -480,7 +492,7 @@ export class GestaoInteligenteService {
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD
       FROM INTERSOLID.TAB_PRODUTO_PDV pv
       JOIN INTERSOLID.TAB_PRODUTO p ON p.COD_PRODUTO = pv.COD_PRODUTO
-        AND p.COD_SUBGRUPO = :codSubgrupo
+        AND p.COD_SUB_GRUPO = :codSubgrupo
     `;
 
     const params: any = { dataInicio, dataFim, codSubgrupo: filters.codSubgrupo };
@@ -547,5 +559,167 @@ export class GestaoInteligenteService {
       console.error('❌ [GESTAO INTELIGENTE] Erro ao buscar lojas:', error);
       throw error;
     }
+  }
+
+  /**
+   * Busca vendas por ano (mês a mês)
+   * Retorna dados consolidados por mês com: Venda, Lucro, Margem, Margem Líquida, Ticket Médio, Itens Vendidos, Vendas em Oferta
+   * Também retorna dados consolidados do mesmo período do ano anterior para comparação
+   */
+  static async getVendasPorAno(ano: number, codLoja?: number): Promise<{
+    meses: any[];
+    anoAnterior: {
+      venda: number;
+      lucro: number;
+      margem: number;
+      margemLiquida: number;
+      ticketMedio: number;
+      cupons: number;
+      skus: number;
+      itensVendidos: number;
+      vendasOferta: number;
+      pctOferta: number;
+    };
+  }> {
+    const meses = [
+      { num: 1, nome: 'JANEIRO' },
+      { num: 2, nome: 'FEVEREIRO' },
+      { num: 3, nome: 'MARÇO' },
+      { num: 4, nome: 'ABRIL' },
+      { num: 5, nome: 'MAIO' },
+      { num: 6, nome: 'JUNHO' },
+      { num: 7, nome: 'JULHO' },
+      { num: 8, nome: 'AGOSTO' },
+      { num: 9, nome: 'SETEMBRO' },
+      { num: 10, nome: 'OUTUBRO' },
+      { num: 11, nome: 'NOVEMBRO' },
+      { num: 12, nome: 'DEZEMBRO' }
+    ];
+
+    console.log(`📊 [GESTAO INTELIGENTE] Buscando vendas por ano ${ano}...`);
+
+    const mesAtual = new Date().getMonth() + 1; // 1-12
+    const diaAtual = new Date().getDate();
+    const anoAtual = new Date().getFullYear();
+
+    // Limitar aos meses que já passaram ou ao mês atual
+    const mesesParaBuscar = meses.filter(m => {
+      if (ano < anoAtual) return true; // Ano passado, buscar todos
+      if (ano === anoAtual) return m.num <= mesAtual; // Ano atual, até o mês atual
+      return false; // Ano futuro, não buscar
+    });
+
+    const resultados: any[] = [];
+
+    for (const mes of mesesParaBuscar) {
+      // Calcular primeiro e último dia do mês
+      const ultimoDia = new Date(ano, mes.num, 0).getDate();
+      const dataInicio = `01/${String(mes.num).padStart(2, '0')}/${ano}`;
+      const dataFim = `${ultimoDia}/${String(mes.num).padStart(2, '0')}/${ano}`;
+
+      try {
+        const dados = await this.buscarIndicadoresPeriodo(dataInicio, dataFim, codLoja);
+        const indicadores = this.calcularIndicadores(dados);
+
+        resultados.push({
+          mes: mes.nome,
+          mesNum: mes.num,
+          venda: indicadores.vendas,
+          lucro: indicadores.lucro,
+          margem: indicadores.markdown,
+          margemLiquida: indicadores.margemLimpa,
+          ticketMedio: indicadores.ticketMedio,
+          cupons: indicadores.qtdCupons,
+          skus: indicadores.qtdSkus,
+          itensVendidos: indicadores.qtdItens,
+          vendasOferta: indicadores.vendasOferta,
+          pctOferta: indicadores.pctVendasOferta
+        });
+
+        console.log(`   ✅ ${mes.nome}: Venda ${indicadores.vendas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`);
+      } catch (error) {
+        console.error(`   ❌ Erro ao buscar ${mes.nome}:`, error);
+        resultados.push({
+          mes: mes.nome,
+          mesNum: mes.num,
+          venda: 0,
+          lucro: 0,
+          margem: 0,
+          margemLiquida: 0,
+          ticketMedio: 0,
+          cupons: 0,
+          skus: 0,
+          itensVendidos: 0,
+          vendasOferta: 0,
+          pctOferta: 0
+        });
+      }
+    }
+
+    // Buscar dados do mesmo período do ano anterior
+    // O período vai do primeiro mês com dados até o último mês com dados
+    const mesesComDados = resultados.filter(m => m.venda > 0);
+    let anoAnteriorData = {
+      venda: 0,
+      lucro: 0,
+      margem: 0,
+      margemLiquida: 0,
+      ticketMedio: 0,
+      cupons: 0,
+      skus: 0,
+      itensVendidos: 0,
+      vendasOferta: 0,
+      pctOferta: 0
+    };
+
+    if (mesesComDados.length > 0) {
+      const primeiroMes = Math.min(...mesesComDados.map(m => m.mesNum));
+      const ultimoMes = Math.max(...mesesComDados.map(m => m.mesNum));
+      const anoAnterior = ano - 1;
+
+      // Se estamos no ano atual, limitamos ao dia atual do mês atual
+      // Se estamos vendo um ano passado, pegamos o período completo
+      let dataFimAnoAnterior: string;
+      if (ano === anoAtual) {
+        // Para o ano atual, pegamos até o mesmo dia do ano anterior
+        dataFimAnoAnterior = `${String(diaAtual).padStart(2, '0')}/${String(ultimoMes).padStart(2, '0')}/${anoAnterior}`;
+      } else {
+        // Para anos passados, pegamos o mês completo
+        const ultimoDiaUltimoMes = new Date(anoAnterior, ultimoMes, 0).getDate();
+        dataFimAnoAnterior = `${ultimoDiaUltimoMes}/${String(ultimoMes).padStart(2, '0')}/${anoAnterior}`;
+      }
+
+      const dataInicioAnoAnterior = `01/${String(primeiroMes).padStart(2, '0')}/${anoAnterior}`;
+
+      console.log(`📊 [GESTAO INTELIGENTE] Buscando mesmo período do ano anterior: ${dataInicioAnoAnterior} a ${dataFimAnoAnterior}`);
+
+      try {
+        const dadosAnoAnterior = await this.buscarIndicadoresPeriodo(dataInicioAnoAnterior, dataFimAnoAnterior, codLoja);
+        const indicadoresAnoAnterior = this.calcularIndicadores(dadosAnoAnterior);
+
+        anoAnteriorData = {
+          venda: indicadoresAnoAnterior.vendas,
+          lucro: indicadoresAnoAnterior.lucro,
+          margem: indicadoresAnoAnterior.markdown,
+          margemLiquida: indicadoresAnoAnterior.margemLimpa,
+          ticketMedio: indicadoresAnoAnterior.ticketMedio,
+          cupons: indicadoresAnoAnterior.qtdCupons,
+          skus: indicadoresAnoAnterior.qtdSkus,
+          itensVendidos: indicadoresAnoAnterior.qtdItens,
+          vendasOferta: indicadoresAnoAnterior.vendasOferta,
+          pctOferta: indicadoresAnoAnterior.pctVendasOferta
+        };
+
+        console.log(`   ✅ Ano Anterior (${anoAnterior}): Venda ${indicadoresAnoAnterior.vendas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`);
+      } catch (error) {
+        console.error(`   ❌ Erro ao buscar ano anterior:`, error);
+      }
+    }
+
+    console.log(`✅ [GESTAO INTELIGENTE] ${resultados.length} meses processados`);
+    return {
+      meses: resultados,
+      anoAnterior: anoAnteriorData
+    };
   }
 }

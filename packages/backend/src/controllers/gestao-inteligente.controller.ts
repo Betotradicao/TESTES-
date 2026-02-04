@@ -186,4 +186,30 @@ export class GestaoInteligenteController {
       res.status(500).json({ error: error.message || 'Erro interno do servidor' });
     }
   }
+
+  /**
+   * GET /api/gestao-inteligente/vendas-por-ano
+   * Busca vendas mensais do ano com indicadores consolidados
+   * Query params: ano, codLoja (opcional)
+   */
+  static async getVendasPorAno(req: AuthRequest, res: Response) {
+    try {
+      const { ano, codLoja } = req.query;
+
+      if (!ano) {
+        return res.status(400).json({
+          error: 'Parâmetro ano é obrigatório'
+        });
+      }
+
+      const anoNum = parseInt(String(ano));
+      const codLojaNum = codLoja ? parseInt(String(codLoja)) : undefined;
+
+      const vendasPorAno = await GestaoInteligenteService.getVendasPorAno(anoNum, codLojaNum);
+      res.json(vendasPorAno);
+    } catch (error: any) {
+      console.error('Erro ao buscar vendas por ano:', error);
+      res.status(500).json({ error: error.message || 'Erro interno do servidor' });
+    }
+  }
 }
