@@ -58,7 +58,7 @@ git push
 
 #### a) Deploy APENAS do Frontend
 ```bash
-ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml up -d --no-deps frontend"
+ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/prevencao-radar-repo && git checkout TESTE && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml up -d --no-deps frontend"
 ```
 
 **Quando usar:**
@@ -68,7 +68,7 @@ ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES && git pull && 
 
 #### b) Deploy APENAS do Backend
 ```bash
-ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache backend && docker compose -f docker-compose-producao.yml up -d --no-deps backend"
+ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/prevencao-radar-repo && git checkout TESTE && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache backend && docker compose -f docker-compose-producao.yml up -d --no-deps backend"
 ```
 
 **Quando usar:**
@@ -79,7 +79,7 @@ ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES && git pull && 
 
 #### c) Deploy COMPLETO (Backend + Frontend)
 ```bash
-ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml build --no-cache backend && docker compose -f docker-compose-producao.yml up -d"
+ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/prevencao-radar-repo && git checkout TESTE && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml build --no-cache backend && docker compose -f docker-compose-producao.yml up -d"
 ```
 
 **Quando usar:**
@@ -97,16 +97,16 @@ ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES && git pull && 
 
 ```bash
 # 1. Pull do código
-ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES && git pull"
+ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/prevencao-radar-repo && git checkout TESTE && git pull"
 
 # 2. Build do backend
-ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES/InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache backend"
+ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/prevencao-radar-repo/InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache backend"
 
 # 3. RODAR MIGRATIONS (ANTES DE UP)
-ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES/InstaladorVPS && docker compose -f docker-compose-producao.yml run --rm backend npm run migration:run:prod"
+ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/prevencao-radar-repo/InstaladorVPS && docker compose -f docker-compose-producao.yml run --rm backend npm run migration:run:prod"
 
 # 4. Subir backend
-ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES/InstaladorVPS && docker compose -f docker-compose-producao.yml up -d backend"
+ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/prevencao-radar-repo/InstaladorVPS && docker compose -f docker-compose-producao.yml up -d backend"
 ```
 
 #### b) Como verificar se precisa de migrations
@@ -222,10 +222,10 @@ ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "docker logs -f prevencao-fronte
 ### Reiniciar um serviço específico
 ```bash
 # Backend
-ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES/InstaladorVPS && docker compose -f docker-compose-producao.yml restart backend"
+ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/prevencao-radar-repo/InstaladorVPS && docker compose -f docker-compose-producao.yml restart backend"
 
 # Frontend
-ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES/InstaladorVPS && docker compose -f docker-compose-producao.yml restart frontend"
+ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/prevencao-radar-repo/InstaladorVPS && docker compose -f docker-compose-producao.yml restart frontend"
 ```
 
 ### Acessar banco de dados
@@ -296,7 +296,7 @@ npm run build (em packages/frontend)
 git add . && git commit -m "..." && git push
 
 # Servidor
-ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml up -d --no-deps frontend"
+ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/prevencao-radar-repo && git checkout TESTE && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend && docker compose -f docker-compose-producao.yml up -d --no-deps frontend"
 ```
 
 ### Para mudanças de backend SEM migrations:
@@ -305,7 +305,7 @@ ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES && git pull && 
 git add . && git commit -m "..." && git push
 
 # Servidor
-ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache backend && docker compose -f docker-compose-producao.yml up -d --no-deps backend"
+ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/prevencao-radar-repo && git checkout TESTE && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache backend && docker compose -f docker-compose-producao.yml up -d --no-deps backend"
 ```
 
 ### Para mudanças de backend COM migrations:
@@ -314,7 +314,7 @@ ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES && git pull && 
 git add . && git commit -m "..." && git push
 
 # Servidor
-ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache backend && docker compose -f docker-compose-producao.yml run --rm backend npm run migration:run:prod && docker compose -f docker-compose-producao.yml up -d backend"
+ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/prevencao-radar-repo && git checkout TESTE && git pull && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache backend && docker compose -f docker-compose-producao.yml run --rm backend npm run migration:run:prod && docker compose -f docker-compose-producao.yml up -d backend"
 ```
 
 ---
