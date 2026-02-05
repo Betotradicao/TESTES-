@@ -35,12 +35,17 @@ export class HortFrutController {
     try {
       const companyId = await getEffectiveCompanyId(req);
       const onlyActive = req.query.active === 'true';
+      const codLoja = req.query.cod_loja ? parseInt(req.query.cod_loja as string) : undefined;
 
       const boxRepository = AppDataSource.getRepository(HortFrutBox);
 
       const where: any = { company_id: companyId };
       if (onlyActive) {
         where.active = true;
+      }
+      // Filtrar por loja se especificado
+      if (codLoja !== undefined) {
+        where.cod_loja = codLoja;
       }
 
       const boxes = await boxRepository.find({
@@ -58,7 +63,7 @@ export class HortFrutController {
   static async createBox(req: AuthRequest, res: Response) {
     try {
       const companyId = await getEffectiveCompanyId(req);
-      const { name, description, weight, photoUrl } = req.body;
+      const { name, description, weight, photoUrl, cod_loja } = req.body;
 
       if (!name || weight === undefined) {
         return res.status(400).json({ error: 'Nome e peso são obrigatórios' });
@@ -73,6 +78,7 @@ export class HortFrutController {
         weight: parseFloat(weight),
         photoUrl,
         active: true,
+        cod_loja: cod_loja ? parseInt(cod_loja) : null,
       });
 
       await boxRepository.save(box);
@@ -87,7 +93,7 @@ export class HortFrutController {
   static async updateBox(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
-      const { name, description, weight, active, photoUrl } = req.body;
+      const { name, description, weight, active, photoUrl, cod_loja } = req.body;
 
       const boxRepository = AppDataSource.getRepository(HortFrutBox);
 
@@ -102,6 +108,7 @@ export class HortFrutController {
       if (weight !== undefined) box.weight = parseFloat(weight);
       if (active !== undefined) box.active = active;
       if (photoUrl !== undefined) box.photoUrl = photoUrl;
+      if (cod_loja !== undefined) box.cod_loja = cod_loja ? parseInt(cod_loja) : null;
 
       await boxRepository.save(box);
 

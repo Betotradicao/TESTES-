@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import ColorPicker from './ColorPicker';
+import { useLoja } from '../../contexts/LojaContext';
 
 export default function SectorForm({ sector, onSave, onCancel }) {
+  const { lojas, lojaSelecionada } = useLoja();
   const [formData, setFormData] = useState({
     name: '',
-    color_hash: '#3B82F6'
+    color_hash: '#3B82F6',
+    cod_loja: null
   });
   const [errors, setErrors] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -13,7 +16,8 @@ export default function SectorForm({ sector, onSave, onCancel }) {
     if (sector) {
       setFormData({
         name: sector.name,
-        color_hash: sector.color_hash
+        color_hash: sector.color_hash,
+        cod_loja: sector.cod_loja || null
       });
     } else {
       // Gera cor aleatória para novo setor
@@ -27,13 +31,25 @@ export default function SectorForm({ sector, onSave, onCancel }) {
         '#EC4899', '#F43F5E'
       ];
       const randomColor = colors[Math.floor(Math.random() * colors.length)];
-      setFormData({ name: '', color_hash: randomColor });
+      // Se tem loja selecionada no header, pré-seleciona ela
+      setFormData({
+        name: '',
+        color_hash: randomColor,
+        cod_loja: lojaSelecionada || (lojas.length > 0 ? lojas[0].COD_LOJA : null)
+      });
     }
-  }, [sector]);
+  }, [sector, lojaSelecionada, lojas]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrors([]);
+
+    // Validar se loja foi selecionada
+    if (!formData.cod_loja) {
+      setErrors(['Selecione uma loja']);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -51,7 +67,7 @@ export default function SectorForm({ sector, onSave, onCancel }) {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}>
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 h-[450px] max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] flex flex-col">
         {/* Header fixo */}
         <div className="p-6 border-b border-gray-200">
           <h3 className="text-lg font-semibold">
@@ -72,33 +88,52 @@ export default function SectorForm({ sector, onSave, onCancel }) {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="h-full flex flex-col justify-around" id="sector-form">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Nome do Setor *
-          </label>
-          <input
-            type="text"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Ex: Eletrônicos, Alimentos, etc."
-            required
-            minLength={3}
-            maxLength={255}
-          />
-        </div>
+          <form onSubmit={handleSubmit} className="space-y-4" id="sector-form">
+            {/* Campo de Loja */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Loja *
+              </label>
+              <select
+                value={formData.cod_loja || ''}
+                onChange={(e) => setFormData({ ...formData, cod_loja: e.target.value ? parseInt(e.target.value) : null })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                required
+              >
+                <option value="">Selecione uma loja</option>
+                {lojas.map((loja) => (
+                  <option key={loja.COD_LOJA} value={loja.COD_LOJA}>
+                    {loja.APELIDO || `Loja ${loja.COD_LOJA}`}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Cor de Identificação
-          </label>
-          <ColorPicker
-            color={formData.color_hash}
-            onChange={(color) => setFormData({ ...formData, color_hash: color })}
-          />
-        </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nome do Setor *
+              </label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                placeholder="Ex: Eletrônicos, Alimentos, etc."
+                required
+                minLength={3}
+                maxLength={255}
+              />
+            </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Cor de Identificação
+              </label>
+              <ColorPicker
+                color={formData.color_hash}
+                onChange={(color) => setFormData({ ...formData, color_hash: color })}
+              />
+            </div>
           </form>
         </div>
 

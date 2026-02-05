@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
 import SectorForm from './SectorForm';
 import SectorsList from './SectorsList';
 import { fetchSectors, createSector, updateSector, toggleSectorStatus } from '../../services/sectors.service';
+import { useLoja } from '../../contexts/LojaContext';
 
 export default function SectorsTab() {
+  const { lojaSelecionada, lojas } = useLoja();
   const [sectors, setSectors] = useState([]);
   const [editingSector, setEditingSector] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -12,13 +15,13 @@ export default function SectorsTab() {
 
   useEffect(() => {
     loadSectors();
-  }, []);
+  }, [lojaSelecionada]);
 
   const loadSectors = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await fetchSectors();
+      const data = await fetchSectors(lojaSelecionada);
       setSectors(data || []);
     } catch (err) {
       setError('Erro ao carregar setores');
@@ -32,14 +35,18 @@ export default function SectorsTab() {
     try {
       if (editingSector) {
         await updateSector(editingSector.id, sectorData);
+        toast.success('Setor atualizado com sucesso!');
       } else {
+        // cod_loja já vem do formulário
         await createSector(sectorData);
+        toast.success('Setor criado com sucesso!');
       }
       await loadSectors();
       setShowForm(false);
       setEditingSector(null);
     } catch (err) {
       console.error('Save sector error:', err);
+      toast.error('Erro ao salvar setor');
       throw err;
     }
   };
@@ -53,9 +60,10 @@ export default function SectorsTab() {
     try {
       await toggleSectorStatus(id);
       await loadSectors();
+      toast.success('Status alterado com sucesso!');
     } catch (err) {
       console.error('Toggle sector error:', err);
-      alert('Erro ao alterar status do setor');
+      toast.error('Erro ao alterar status do setor');
     }
   };
 
@@ -87,6 +95,8 @@ export default function SectorsTab() {
 
   return (
     <div>
+      <Toaster />
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
         <h2 className="text-xl font-semibold">Gestão de Setores</h2>
         {!showForm && (
@@ -111,6 +121,7 @@ export default function SectorsTab() {
         sectors={sectors}
         onEdit={handleEdit}
         onToggle={handleToggle}
+        lojas={lojas}
       />
     </div>
   );

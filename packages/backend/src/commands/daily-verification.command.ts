@@ -103,12 +103,6 @@ export class DailyVerificationCommand {
         activeProductMap.set(normalizedCode, product.id);
       });
 
-      // BUGFIX: Se NÃO houver produtos ativos, processar TODAS as vendas
-      // Se houver produtos ativos, processar APENAS as vendas de produtos ativos
-      const activeSales = activeProducts.length === 0
-        ? sales
-        : sales.filter(sale => activeProductMap.has(sale.codProduto));
-
       const bipagesMap = new Map<string, Bip[]>();
 
       bipages.forEach((bip: Bip) => {
@@ -119,8 +113,30 @@ export class DailyVerificationCommand {
         bipagesMap.get(normalizedProductId)!.push(bip);
       });
 
+      // Criar um Set de códigos de produtos que têm bipagem
+      const productsWithBipages = new Set<string>();
+      bipages.forEach((bip: Bip) => {
+        const normalizedProductId = String(parseInt(bip.product_id, 10));
+        productsWithBipages.add(normalizedProductId);
+        productsWithBipages.add(bip.product_id);
+      });
+
+      // BUGFIX: Processar vendas que:
+      // 1. São de produtos ativos OU
+      // 2. Têm bipagem associada (para garantir que o PDV/operador seja salvo)
+      const salesToProcess = activeProducts.length === 0
+        ? sales
+        : sales.filter(sale => {
+            const normalizedCode = String(parseInt(sale.codProduto, 10));
+            const isActiveProduct = activeProductMap.has(sale.codProduto) || activeProductMap.has(normalizedCode);
+            const hasBipage = productsWithBipages.has(sale.codProduto) || productsWithBipages.has(normalizedCode);
+            return isActiveProduct || hasBipage;
+          });
+
+      console.log(`📊 Vendas a processar: ${salesToProcess.length} (${sales.length} total, ${activeProducts.length} produtos ativos)`);
+
       // FASE 3: PROCESSAR VENDAS
-      await this.processSales(activeSales, bipagesMap, activeProductMap, parsedArgs.date, stats);
+      await this.processSales(salesToProcess, bipagesMap, activeProductMap, parsedArgs.date, stats);
 
       // FASE 4: PROCESSAR BIPAGENS
       await this.processBipages(bipages, sales, parsedArgs.notify, stats);
@@ -292,7 +308,10 @@ export class DailyVerificationCommand {
           VALUES ${values}
           ON CONFLICT (product_id, product_weight, num_cupom_fiscal) DO UPDATE SET
             operator_code = EXCLUDED.operator_code,
-            operator_name = EXCLUDED.operator_name
+            operator_name = EXCLUDED.operator_name,
+            point_of_sale_code = COALESCE(EXCLUDED.point_of_sale_code, sells.point_of_sale_code),
+            bip_id = COALESCE(EXCLUDED.bip_id, sells.bip_id),
+            status = CASE WHEN EXCLUDED.bip_id IS NOT NULL THEN 'verified' ELSE sells.status END
         `);
     }
 

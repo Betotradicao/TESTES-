@@ -1,4 +1,4 @@
-export default function SectorsList({ sectors, onEdit, onToggle }) {
+export default function SectorsList({ sectors, onEdit, onToggle, lojas = [] }) {
   if (!sectors || sectors.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
@@ -6,6 +6,23 @@ export default function SectorsList({ sectors, onEdit, onToggle }) {
       </div>
     );
   }
+
+  // Função para obter o badge da loja
+  const getLojaLabel = (codLoja) => {
+    if (!codLoja) return <span className="text-gray-400">-</span>;
+    return (
+      <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+        Loja {codLoja}
+      </span>
+    );
+  };
+
+  // Função para obter o apelido da loja
+  const getApelidoLoja = (codLoja) => {
+    if (!codLoja) return <span className="text-gray-400">-</span>;
+    const loja = lojas.find(l => l.COD_LOJA === codLoja);
+    return loja?.APELIDO || <span className="text-gray-400">-</span>;
+  };
 
   return (
     <div className="overflow-x-auto">
@@ -17,6 +34,12 @@ export default function SectorsList({ sectors, onEdit, onToggle }) {
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Nome
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Loja
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Apelido
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Status
@@ -39,6 +62,12 @@ export default function SectorsList({ sectors, onEdit, onToggle }) {
                 >
                   {sector.name}
                 </span>
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                {getLojaLabel(sector.cod_loja)}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                {getApelidoLoja(sector.cod_loja)}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${

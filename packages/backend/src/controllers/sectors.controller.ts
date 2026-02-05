@@ -8,7 +8,8 @@ export class SectorsController {
   static async getAll(req: AuthRequest, res: Response) {
     try {
       const onlyActive = req.query.active === 'true';
-      const sectors = await SectorsService.findAll(onlyActive);
+      const codLoja = req.query.cod_loja ? parseInt(req.query.cod_loja as string) : undefined;
+      const sectors = await SectorsService.findAll(onlyActive, codLoja);
 
       res.json(sectors);
     } catch (error) {

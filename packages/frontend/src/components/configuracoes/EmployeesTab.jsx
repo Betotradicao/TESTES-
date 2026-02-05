@@ -6,7 +6,7 @@ import { fetchEmployees, createEmployee, updateEmployee, toggleEmployeeStatus, u
 import { useLoja } from '../../contexts/LojaContext';
 
 export default function EmployeesTab() {
-  const { lojaSelecionada } = useLoja();
+  const { lojaSelecionada, lojas } = useLoja();
   const [employees, setEmployees] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [editingEmployee, setEditingEmployee] = useState(null);
@@ -175,6 +175,10 @@ export default function EmployeesTab() {
   };
 
   const handleNewEmployee = () => {
+    if (lojaSelecionada === null) {
+      toast.error('Selecione uma loja específica para criar um novo colaborador');
+      return;
+    }
     setEditingEmployee(null);
     setShowModal(true);
   };
@@ -236,6 +240,7 @@ export default function EmployeesTab() {
         pagination={pagination}
         onPageChange={handlePageChange}
         isLoading={isLoading}
+        lojas={lojas}
       />
     </div>
   );

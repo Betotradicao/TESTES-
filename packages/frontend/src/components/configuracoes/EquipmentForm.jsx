@@ -36,7 +36,7 @@ export default function EquipmentForm({ equipment, onSave, onCancel }) {
   const loadSectors = async () => {
     try {
       setIsLoadingSectors(true);
-      const data = await fetchSectors(true); // Apenas setores ativos
+      const data = await fetchSectors(null, true); // Setores ativos de todas as lojas
       setSectors(data || []);
     } catch (error) {
       console.error('Error loading sectors:', error);

@@ -20,14 +20,21 @@ export class SectorsService {
     return palettes[Math.floor(Math.random() * palettes.length)];
   }
 
-  static async findAll(onlyActive: boolean = false) {
+  static async findAll(onlyActive: boolean = false, codLoja?: number | null) {
     const sectorRepository = AppDataSource.getRepository(Sector);
 
+    const where: any = {};
+
     if (onlyActive) {
-      return sectorRepository.find({ where: { active: true }, order: { name: 'ASC' } });
+      where.active = true;
     }
 
-    return sectorRepository.find({ order: { name: 'ASC' } });
+    // Filtrar por loja se especificado (null = todas as lojas)
+    if (codLoja !== undefined && codLoja !== null) {
+      where.cod_loja = codLoja;
+    }
+
+    return sectorRepository.find({ where, order: { name: 'ASC' } });
   }
 
   static async findById(id: number) {
@@ -41,11 +48,15 @@ export class SectorsService {
     return sector;
   }
 
-  static async create(data: CreateSectorDto) {
+  static async create(data: CreateSectorDto & { cod_loja?: number | null }) {
     const sectorRepository = AppDataSource.getRepository(Sector);
 
-    // Check if name already exists
-    const existingSector = await sectorRepository.findOne({ where: { name: data.name } });
+    // Check if name already exists na mesma loja
+    const whereCheck: any = { name: data.name };
+    if (data.cod_loja !== undefined && data.cod_loja !== null) {
+      whereCheck.cod_loja = data.cod_loja;
+    }
+    const existingSector = await sectorRepository.findOne({ where: whereCheck });
     if (existingSector) {
       throw new Error('Sector name already exists');
     }
@@ -55,21 +66,28 @@ export class SectorsService {
     const sector = sectorRepository.create({
       name: data.name,
       color_hash: color,
-      active: true
+      active: true,
+      cod_loja: data.cod_loja ?? null
     });
 
     return sectorRepository.save(sector);
   }
 
-  static async update(id: number, data: UpdateSectorDto) {
+  static async update(id: number, data: UpdateSectorDto & { cod_loja?: number | null }) {
     const sectorRepository = AppDataSource.getRepository(Sector);
 
     const sector = await this.findById(id);
 
-    // Check if new name already exists (excluding current sector)
+    // Check if new name already exists na mesma loja (excluding current sector)
     if (data.name && data.name !== sector.name) {
-      const existingSector = await sectorRepository.findOne({ where: { name: data.name } });
-      if (existingSector) {
+      const whereCheck: any = { name: data.name };
+      if (data.cod_loja !== undefined) {
+        whereCheck.cod_loja = data.cod_loja;
+      } else if (sector.cod_loja) {
+        whereCheck.cod_loja = sector.cod_loja;
+      }
+      const existingSector = await sectorRepository.findOne({ where: whereCheck });
+      if (existingSector && existingSector.id !== id) {
         throw new Error('Sector name already exists');
       }
     }
@@ -80,6 +98,10 @@ export class SectorsService {
 
     if (data.color_hash) {
       sector.color_hash = data.color_hash.toUpperCase();
+    }
+
+    if (data.cod_loja !== undefined) {
+      sector.cod_loja = data.cod_loja;
     }
 
     return sectorRepository.save(sector);

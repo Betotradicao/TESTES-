@@ -28,13 +28,17 @@ export class SuppliersController {
   static async getAll(req: AuthRequest, res: Response) {
     try {
       const companyId = await getEffectiveCompanyId(req);
-      const { active } = req.query;
+      const { active, cod_loja } = req.query;
 
       const supplierRepository = AppDataSource.getRepository(Supplier);
 
       const whereClause: any = { company_id: companyId };
       if (active !== undefined) {
         whereClause.active = active === 'true';
+      }
+      // Filtrar por loja se especificado
+      if (cod_loja !== undefined) {
+        whereClause.cod_loja = parseInt(cod_loja as string);
       }
 
       const suppliers = await supplierRepository.find({
@@ -76,7 +80,7 @@ export class SuppliersController {
   static async create(req: AuthRequest, res: Response) {
     try {
       const companyId = await getEffectiveCompanyId(req);
-      const { fantasyName, legalName, cnpj, phone, email, address, observations } = req.body;
+      const { fantasyName, legalName, cnpj, phone, email, address, observations, cod_loja } = req.body;
 
       if (!fantasyName) {
         return res.status(400).json({ error: 'Nome fantasia é obrigatório' });
@@ -93,7 +97,8 @@ export class SuppliersController {
         email,
         address,
         observations,
-        active: true
+        active: true,
+        cod_loja: cod_loja ? parseInt(cod_loja) : null
       });
 
       await supplierRepository.save(supplier);
@@ -110,7 +115,7 @@ export class SuppliersController {
     try {
       const companyId = await getEffectiveCompanyId(req);
       const { id } = req.params;
-      const { fantasyName, legalName, cnpj, phone, email, address, observations, active } = req.body;
+      const { fantasyName, legalName, cnpj, phone, email, address, observations, active, cod_loja } = req.body;
 
       const supplierRepository = AppDataSource.getRepository(Supplier);
 
@@ -130,6 +135,7 @@ export class SuppliersController {
       if (address !== undefined) supplier.address = address;
       if (observations !== undefined) supplier.observations = observations;
       if (active !== undefined) supplier.active = active;
+      if (cod_loja !== undefined) supplier.cod_loja = cod_loja ? parseInt(cod_loja) : null;
 
       await supplierRepository.save(supplier);
 

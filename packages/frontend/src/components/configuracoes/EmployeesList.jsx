@@ -1,4 +1,21 @@
-export default function EmployeesList({ employees, onEdit, onToggle, onDelete, pagination, onPageChange, isLoading }) {
+export default function EmployeesList({ employees, onEdit, onToggle, onDelete, pagination, onPageChange, isLoading, lojas = [] }) {
+  // Função para obter o badge da loja
+  const getLojaLabel = (codLoja) => {
+    if (!codLoja) return <span className="text-gray-400">-</span>;
+    return (
+      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+        Loja {codLoja}
+      </span>
+    );
+  };
+
+  // Função para obter o apelido da loja
+  const getApelidoLoja = (codLoja) => {
+    if (!codLoja) return <span className="text-gray-400">-</span>;
+    const loja = lojas.find(l => l.COD_LOJA === codLoja);
+    return loja?.APELIDO || <span className="text-gray-400">-</span>;
+  };
+
   if (!employees || employees.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
@@ -24,6 +41,12 @@ export default function EmployeesList({ employees, onEdit, onToggle, onDelete, p
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Setor
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Loja
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Apelido
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Código de Barras
@@ -73,6 +96,12 @@ export default function EmployeesList({ employees, onEdit, onToggle, onDelete, p
                       {employee.sector.name}
                     </span>
                   )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-center">
+                  {getLojaLabel(employee.cod_loja)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {getApelidoLoja(employee.cod_loja)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
                   {employee.barcode}

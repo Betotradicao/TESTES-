@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
 import { api } from '../../utils/api';
+import { useLoja } from '../../contexts/LojaContext';
 
 export default function SuppliersTab() {
+  const { lojaSelecionada, lojas } = useLoja();
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -16,21 +17,30 @@ export default function SuppliersTab() {
     phone: '',
     email: '',
     address: '',
-    observations: ''
+    observations: '',
+    cod_loja: null
   });
 
   useEffect(() => {
     loadSuppliers();
-  }, []);
+  }, [lojaSelecionada]);
+
+  // Função para obter nome da loja
+  const getNomeLoja = (codLoja) => {
+    if (!codLoja) return <span className="text-gray-400">-</span>;
+    const loja = lojas.find(l => l.COD_LOJA === codLoja);
+    return loja?.APELIDO || `Loja ${codLoja}`;
+  };
 
   const loadSuppliers = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/suppliers');
+      const params = lojaSelecionada !== null ? `?cod_loja=${lojaSelecionada}` : '';
+      const response = await api.get(`/suppliers${params}`);
       setSuppliers(response.data || []);
     } catch (err) {
       console.error('Erro ao carregar fornecedores:', err);
-      setError('Erro ao carregar fornecedores');
+      toast.error('Erro ao carregar fornecedores');
     } finally {
       setLoading(false);
     }
@@ -46,7 +56,8 @@ export default function SuppliersTab() {
         phone: supplier.phone || '',
         email: supplier.email || '',
         address: supplier.address || '',
-        observations: supplier.observations || ''
+        observations: supplier.observations || '',
+        cod_loja: supplier.cod_loja || null
       });
     } else {
       setEditingSupplier(null);
@@ -57,7 +68,8 @@ export default function SuppliersTab() {
         phone: '',
         email: '',
         address: '',
-        observations: ''
+        observations: '',
+        cod_loja: lojaSelecionada || (lojas.length > 0 ? lojas[0].COD_LOJA : null)
       });
     }
     setShowModal(true);
@@ -66,15 +78,6 @@ export default function SuppliersTab() {
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingSupplier(null);
-    setForm({
-      fantasyName: '',
-      legalName: '',
-      cnpj: '',
-      phone: '',
-      email: '',
-      address: '',
-      observations: ''
-    });
   };
 
   const formatCNPJ = (value) => {
@@ -93,13 +96,9 @@ export default function SuppliersTab() {
     const numbers = value.replace(/\D/g, '');
     if (numbers.length <= 11) {
       if (numbers.length <= 10) {
-        return numbers
-          .replace(/(\d{2})(\d)/, '($1) $2')
-          .replace(/(\d{4})(\d)/, '$1-$2');
+        return numbers.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{4})(\d)/, '$1-$2');
       } else {
-        return numbers
-          .replace(/(\d{2})(\d)/, '($1) $2')
-          .replace(/(\d{5})(\d)/, '$1-$2');
+        return numbers.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2');
       }
     }
     return value;
@@ -107,40 +106,41 @@ export default function SuppliersTab() {
 
   const handleSave = async () => {
     if (!form.fantasyName.trim()) {
-      setError('Nome fantasia e obrigatorio');
+      toast.error('Nome fantasia é obrigatório');
+      return;
+    }
+
+    if (!form.cod_loja) {
+      toast.error('Selecione uma loja');
       return;
     }
 
     try {
       if (editingSupplier) {
         await api.put(`/suppliers/${editingSupplier.id}`, form);
-        setSuccess('Fornecedor atualizado com sucesso!');
+        toast.success('Fornecedor atualizado!');
       } else {
         await api.post('/suppliers', form);
-        setSuccess('Fornecedor criado com sucesso!');
+        toast.success('Fornecedor criado!');
       }
       handleCloseModal();
       loadSuppliers();
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Erro ao salvar fornecedor:', err);
-      setError(err.response?.data?.error || 'Erro ao salvar fornecedor');
+      toast.error(err.response?.data?.error || 'Erro ao salvar fornecedor');
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Tem certeza que deseja excluir este fornecedor?')) {
-      return;
-    }
+    if (!window.confirm('Tem certeza que deseja excluir este fornecedor?')) return;
 
     try {
       await api.delete(`/suppliers/${id}`);
-      setSuccess('Fornecedor excluido com sucesso!');
+      toast.success('Fornecedor excluído!');
       loadSuppliers();
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Erro ao excluir fornecedor:', err);
-      setError('Erro ao excluir fornecedor');
+      toast.error('Erro ao excluir fornecedor');
     }
   };
 
@@ -148,8 +148,10 @@ export default function SuppliersTab() {
     try {
       await api.put(`/suppliers/${supplier.id}`, { active: !supplier.active });
       loadSuppliers();
+      toast.success('Status alterado!');
     } catch (err) {
       console.error('Erro ao alterar status:', err);
+      toast.error('Erro ao alterar status');
     }
   };
 
@@ -172,18 +174,7 @@ export default function SuppliersTab() {
 
   return (
     <div>
-      {error && (
-        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-          {error}
-          <button onClick={() => setError('')} className="float-right font-bold">&times;</button>
-        </div>
-      )}
-
-      {success && (
-        <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
-          {success}
-        </div>
-      )}
+      <Toaster />
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -203,7 +194,7 @@ export default function SuppliersTab() {
       <div className="mb-4">
         <input
           type="text"
-          placeholder="Buscar por nome, razao social ou CNPJ..."
+          placeholder="Buscar por nome, razão social ou CNPJ..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -222,11 +213,12 @@ export default function SuppliersTab() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nome Fantasia</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Razao Social</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Razão Social</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Loja</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">CNPJ</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Telefone</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acoes</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -237,22 +229,15 @@ export default function SuppliersTab() {
                         {supplier.fantasyName}
                       </p>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {supplier.legalName || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {supplier.cnpj || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {supplier.phone || '-'}
-                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{supplier.legalName || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{getNomeLoja(supplier.cod_loja)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{supplier.cnpj || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{supplier.phone || '-'}</td>
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => handleToggleActive(supplier)}
                         className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          supplier.active
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-red-100 text-red-700'
+                          supplier.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                         }`}
                       >
                         {supplier.active ? 'Ativo' : 'Inativo'}
@@ -260,16 +245,10 @@ export default function SuppliersTab() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex justify-center gap-2">
-                        <button
-                          onClick={() => handleOpenModal(supplier)}
-                          className="text-blue-600 hover:text-blue-800 text-sm"
-                        >
+                        <button onClick={() => handleOpenModal(supplier)} className="text-blue-600 hover:text-blue-800 text-sm">
                           Editar
                         </button>
-                        <button
-                          onClick={() => handleDelete(supplier.id)}
-                          className="text-red-600 hover:text-red-800 text-sm"
-                        >
+                        <button onClick={() => handleDelete(supplier.id)} className="text-red-600 hover:text-red-800 text-sm">
                           Excluir
                         </button>
                       </div>
@@ -293,10 +272,26 @@ export default function SuppliersTab() {
             </div>
 
             <div className="p-6 space-y-4">
+              {/* Campo de Loja */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nome Fantasia *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Loja *</label>
+                <select
+                  value={form.cod_loja || ''}
+                  onChange={(e) => setForm({ ...form, cod_loja: e.target.value ? parseInt(e.target.value) : null })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Selecione uma loja</option>
+                  {lojas.map((loja) => (
+                    <option key={loja.COD_LOJA} value={loja.COD_LOJA}>
+                      {loja.APELIDO || `Loja ${loja.COD_LOJA}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nome Fantasia *</label>
                 <input
                   type="text"
                   value={form.fantasyName}
@@ -307,22 +302,18 @@ export default function SuppliersTab() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Razao Social
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Razão Social</label>
                 <input
                   type="text"
                   value={form.legalName}
                   onChange={(e) => setForm({ ...form, legalName: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="Razao social completa"
+                  placeholder="Razão social completa"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  CNPJ
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">CNPJ</label>
                 <input
                   type="text"
                   value={form.cnpj}
@@ -334,9 +325,7 @@ export default function SuppliersTab() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Telefone
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
                 <input
                   type="text"
                   value={form.phone}
@@ -348,9 +337,7 @@ export default function SuppliersTab() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                 <input
                   type="email"
                   value={form.email}
@@ -361,42 +348,32 @@ export default function SuppliersTab() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Endereco
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Endereço</label>
                 <textarea
                   value={form.address}
                   onChange={(e) => setForm({ ...form, address: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="Endereco completo"
+                  placeholder="Endereço completo"
                   rows={2}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Observacoes
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
                 <textarea
                   value={form.observations}
                   onChange={(e) => setForm({ ...form, observations: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="Observacoes sobre o fornecedor..."
+                  placeholder="Observações sobre o fornecedor..."
                   rows={2}
                 />
               </div>
 
               <div className="flex gap-3 pt-4 border-t">
-                <button
-                  onClick={handleCloseModal}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                >
+                <button onClick={handleCloseModal} className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
                   Cancelar
                 </button>
-                <button
-                  onClick={handleSave}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
+                <button onClick={handleSave} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                   Salvar
                 </button>
               </div>

@@ -3,8 +3,10 @@ import { fetchSectors } from '../../services/sectors.service';
 import BarcodeDisplay from './BarcodeDisplay';
 import PermissionsSelector from '../colaboradores/PermissionsSelector';
 import api from '../../services/api';
+import { useLoja } from '../../contexts/LojaContext';
 
 export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvatar, onSaveComplete, onResetPassword, codLoja }) {
+  const { lojas, lojaSelecionada } = useLoja();
   const [formData, setFormData] = useState({
     name: '',
     sector_id: '',
@@ -42,10 +44,13 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
       // Carregar permissões se estiver editando
       loadPermissions(employee.id);
     } else {
-      // Novo funcionário - usa a loja selecionada
-      setFormData(prev => ({ ...prev, cod_loja: codLoja || null }));
+      // Novo funcionário - usa a loja selecionada ou primeira loja disponível
+      setFormData(prev => ({
+        ...prev,
+        cod_loja: codLoja || lojaSelecionada || (lojas.length > 0 ? lojas[0].COD_LOJA : null)
+      }));
     }
-  }, [employee, codLoja]);
+  }, [employee, codLoja, lojaSelecionada, lojas]);
 
   const loadPermissions = async (employeeId) => {
     try {
@@ -67,7 +72,7 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
 
   const loadSectors = async () => {
     try {
-      const data = await fetchSectors(true); // Only active sectors
+      const data = await fetchSectors(codLoja, true); // Setores ativos da loja
       setSectors(data || []);
     } catch (error) {
       console.error('Error loading sectors:', error);
@@ -328,6 +333,33 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
               <p className="mt-1 text-xs text-gray-500">
                 JPG, PNG ou WebP. Máximo 5MB.
               </p>
+            </div>
+
+            {/* Loja */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Loja *
+              </label>
+              <select
+                value={formData.cod_loja || ''}
+                onChange={(e) => {
+                  const newCodLoja = e.target.value ? parseInt(e.target.value) : null;
+                  setFormData({ ...formData, cod_loja: newCodLoja, sector_id: '' });
+                  // Recarregar setores da nova loja
+                  if (newCodLoja) {
+                    fetchSectors(newCodLoja, true).then(data => setSectors(data || []));
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                <option value="">Selecione uma loja</option>
+                {lojas.map((loja) => (
+                  <option key={loja.COD_LOJA} value={loja.COD_LOJA}>
+                    {loja.APELIDO || `Loja ${loja.COD_LOJA}`}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Nome */}

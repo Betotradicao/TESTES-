@@ -5,8 +5,11 @@ export class Sector {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true, length: 255 })
+  @Column({ length: 255 })
   name: string;
+
+  @Column({ type: 'int', nullable: true })
+  cod_loja: number | null;
 
   @Column({ length: 7, default: '#000000' })
   color_hash: string;

@@ -36,6 +36,9 @@ export class HortFrutBox {
   @Column({ name: 'photo_url', type: 'varchar', length: 500, nullable: true })
   photoUrl?: string;
 
+  @Column({ type: 'int', nullable: true })
+  cod_loja: number | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
