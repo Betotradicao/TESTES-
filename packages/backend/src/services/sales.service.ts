@@ -1,6 +1,5 @@
-import axios from 'axios';
-import { ConfigurationService } from './configuration.service';
 import { OracleService } from './oracle.service';
+import { MappingService } from './mapping.service';
 
 export interface Sale {
   codLoja: number;
@@ -25,243 +24,131 @@ export interface Sale {
   numSeqItem?: number;
 }
 
+/**
+ * Interface para os mapeamentos de colunas usados nas queries
+ */
+interface SalesMappings {
+  schema: string;
+  // Tabelas
+  tabProdutoPdv: string;
+  tabProduto: string;
+  tabCupomFinalizadora: string;
+  tabOperadores: string;
+  // Colunas TAB_PRODUTO_PDV
+  colNumCupomFiscal: string;
+  colNumSeqItem: string;
+  colCodProdutoPdv: string;
+  colValTotalProduto: string;
+  colQtdTotalProduto: string;
+  colValCustoRep: string;
+  colDtaSaida: string;
+  colTimHora: string;
+  colNumPdv: string;
+  colCodLojaPdv: string;
+  colFlgOferta: string;
+  // Colunas TAB_PRODUTO
+  colDesProduto: string;
+  colCodProduto: string;
+  // Colunas TAB_CUPOM_FINALIZADORA
+  colCodOperadorCf: string;
+  colNumCupomFiscalCf: string;
+  colNumPdvCf: string;
+  colCodLojaCf: string;
+  colDtaVendaCf: string;
+  colCodTipoCf: string;
+  // Colunas TAB_OPERADORES
+  colCodOperador: string;
+  colDesOperador: string;
+}
+
 export class SalesService {
-  private static adjustTimezone(dateTimeStr: string): string {
-    if (!dateTimeStr) return dateTimeStr;
-    const date = new Date(dateTimeStr);
-    date.setHours(date.getHours() + 3);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    const seconds = String(date.getSeconds()).padStart(2, "0");
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  /**
+   * Busca os mapeamentos de colunas do banco de dados
+   * Usa MappingService para buscar valores configurados, com fallback para Intersolid
+   */
+  private static async getMappings(): Promise<SalesMappings> {
+    const schema = await MappingService.getSchema();
+
+    // Buscar nomes reais das tabelas
+    const tabProdutoPdv = await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV');
+    const tabProduto = await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO');
+    const tabCupomFinalizadora = await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA', 'TAB_CUPOM_FINALIZADORA');
+    const tabOperadores = await MappingService.getRealTableName('TAB_OPERADORES', 'TAB_OPERADORES');
+
+    // Buscar colunas TAB_PRODUTO_PDV
+    const colNumCupomFiscal = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_cupom', 'NUM_CUPOM_FISCAL');
+    const colNumSeqItem = 'NUM_SEQ_ITEM'; // Não mapeado na tela
+    const colCodProdutoPdv = 'COD_PRODUTO'; // FK para TAB_PRODUTO
+    const colValTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total', 'VAL_TOTAL_PRODUTO');
+    const colQtdTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade', 'QTD_TOTAL_PRODUTO');
+    const colValCustoRep = 'VAL_CUSTO_REP'; // Não mapeado na tela
+    const colDtaSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda', 'DTA_SAIDA');
+    const colTimHora = 'TIM_HORA'; // Não mapeado na tela
+    const colNumPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_pdv', 'NUM_PDV');
+    const colCodLojaPdv = 'COD_LOJA'; // Não mapeado na tela
+    const colFlgOferta = 'FLG_OFERTA'; // Não mapeado na tela
+
+    // Buscar colunas TAB_PRODUTO
+    const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
+    const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+
+    // Buscar colunas TAB_CUPOM_FINALIZADORA
+    const colCodOperadorCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_operador', 'COD_OPERADOR');
+    const colNumCupomFiscalCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'numero_cupom', 'NUM_CUPOM_FISCAL');
+    const colNumPdvCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'numero_pdv', 'NUM_PDV');
+    const colCodLojaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_loja', 'COD_LOJA');
+    const colDtaVendaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'data_venda', 'DTA_VENDA');
+    const colCodTipoCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_tipo', 'COD_TIPO');
+
+    // Buscar colunas TAB_OPERADORES
+    const colCodOperador = await MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_operador', 'COD_OPERADOR');
+    const colDesOperador = await MappingService.getColumnFromTable('TAB_OPERADORES', 'nome_operador', 'DES_OPERADOR');
+
+    return {
+      schema,
+      tabProdutoPdv,
+      tabProduto,
+      tabCupomFinalizadora,
+      tabOperadores,
+      colNumCupomFiscal,
+      colNumSeqItem,
+      colCodProdutoPdv,
+      colValTotalProduto,
+      colQtdTotalProduto,
+      colValCustoRep,
+      colDtaSaida,
+      colTimHora,
+      colNumPdv,
+      colCodLojaPdv,
+      colFlgOferta,
+      colDesProduto,
+      colCodProduto,
+      colCodOperadorCf,
+      colNumCupomFiscalCf,
+      colNumPdvCf,
+      colCodLojaCf,
+      colDtaVendaCf,
+      colCodTipoCf,
+      colCodOperador,
+      colDesOperador,
+    };
   }
 
+  /**
+   * Busca vendas do ERP - SEMPRE usa Oracle Intersolid
+   */
   static async fetchSalesFromERP(fromDate: string, toDate: string): Promise<Sale[]> {
-    // Verifica configuração para usar Oracle ou Zanthus (default: oracle)
-    const salesSource = await ConfigurationService.get('sales_source', 'oracle');
+    console.log('📊 [SALES] Buscando vendas do Oracle Intersolid');
 
-    if (salesSource === 'oracle') {
-      console.log('📊 [SALES] Usando Oracle como fonte de vendas');
-      // Converter fromDate de YYYYMMDD para YYYY-MM-DD se necessário
-      const fromDateFormatted = fromDate.length === 8
-        ? `${fromDate.slice(0, 4)}-${fromDate.slice(4, 6)}-${fromDate.slice(6, 8)}`
-        : fromDate;
-      const toDateFormatted = toDate.length === 8
-        ? `${toDate.slice(0, 4)}-${toDate.slice(4, 6)}-${toDate.slice(6, 8)}`
-        : toDate;
-      return this.fetchSalesFromOracle(fromDateFormatted, toDateFormatted);
-    }
+    // Converter fromDate de YYYYMMDD para YYYY-MM-DD se necessário
+    const fromDateFormatted = fromDate.length === 8
+      ? `${fromDate.slice(0, 4)}-${fromDate.slice(4, 6)}-${fromDate.slice(6, 8)}`
+      : fromDate;
+    const toDateFormatted = toDate.length === 8
+      ? `${toDate.slice(0, 4)}-${toDate.slice(4, 6)}-${toDate.slice(6, 8)}`
+      : toDate;
 
-    console.log('📊 [SALES] Usando Zanthus como fonte de vendas');
-    return this.fetchSalesFromZanthus(fromDate, toDate);
-  }
-
-  private static async fetchSalesFromIntersolid(fromDate: string, toDate: string): Promise<Sale[]> {
-    // Busca configurações do banco de dados (fallback para .env)
-    const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
-    const port = await ConfigurationService.get('intersolid_port', null);
-    const salesEndpoint = await ConfigurationService.get('intersolid_sales_endpoint', '/v1/vendas');
-
-    // Monta a URL completa
-    const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
-    const erpApiUrl = baseUrl
-      ? `${baseUrl}${salesEndpoint}`
-      : process.env.ERP_SALES_API_URL || 'http://mock-erp-sales-api.com';
-
-    console.log('Fetching sales from Intersolid ERP API:', erpApiUrl);
-    const params = {
-      dta_de: fromDate,
-      dta_ate: toDate
-    };
-
-    // Busca credenciais se configuradas
-    const username = await ConfigurationService.get('intersolid_username', null);
-    const password = await ConfigurationService.get('intersolid_password', null);
-
-    const config: any = { params };
-    if (username && password) {
-      config.auth = { username, password };
-    }
-
-    const response = await axios.get(erpApiUrl, config);
-    return response.data;
-  }
-
-  private static async fetchSalesFromZanthus(fromDate: string, toDate: string): Promise<Sale[]> {
-    // Busca configurações do banco de dados (fallback para .env)
-    const apiUrl = await ConfigurationService.get('zanthus_api_url', null);
-    const port = await ConfigurationService.get('zanthus_port', null);
-    const salesEndpoint = await ConfigurationService.get('zanthus_sales_endpoint', '/manager/restful/integracao/cadastro_sincrono.php5');
-
-    // Monta a URL completa
-    const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
-    const zanthusApiUrl = baseUrl
-      ? `${baseUrl}${salesEndpoint}`
-      : process.env.API_ZANTHUS_URL;
-
-    if (!zanthusApiUrl) {
-      throw new Error('Zanthus API URL not configured. Please configure it in the settings.');
-    }
-
-    console.log('Fetching sales from Zanthus ERP API:', zanthusApiUrl);
-
-    // Format dates for SQL query (YYYY-MM-DD)
-    const formattedFromDate = this.formatDateForSQL(fromDate);
-    const formattedToDate = this.formatDateForSQL(toDate);
-
-    // Build SQL query - campos baseados no retorno real da API com JOIN para pegar descrição do produto
-    const sql = `
-      SELECT
-        z.M00AC as codCaixa,
-        z.M00ZA as codLoja,
-        z.M43AH as codProduto,
-        LPAD(z.M43AH, 13, '0') as codBarraPrincipal,
-        z.M00AF as dtaSaida,
-        z.M00AD as numCupomFiscal,
-        z.M43DQ as valVenda,
-        z.M43AO as qtdTotalProduto,
-        z.M43AP as valTotalProduto,
-        z.M43AQ as descontoAplicado,
-        TO_CHAR(TO_TIMESTAMP(TO_CHAR(z.M00AF,'YYYY-MM-DD') || ' ' || LPAD(z.M43AS,4,'0'), 'YYYY-MM-DD HH24MI'), 'YYYY-MM-DD HH24:MI:SS') AS dataHoraVenda,
-        z.M43BV as motivoCancelamento,
-        z.M43BW as funcionarioCancelamento,
-        z.M43CF as tipoCancelamento,
-        p.DESCRICAO_PRODUTO as desProduto
-      FROM ZAN_M43 z
-      LEFT JOIN TAB_PRODUTO p ON p.COD_PRODUTO LIKE '%' || z.M43AH
-      WHERE TRUNC(z.M00AF) BETWEEN TO_DATE('${formattedFromDate}','YYYY-MM-DD') AND TO_DATE('${formattedToDate}','YYYY-MM-DD')
-    `.replace(/\s+/g, ' ').trim();
-
-    // Build JSON structure
-    const jsonData = {
-      ZMI: {
-        DATABASES: {
-          DATABASE: {
-            "@attributes": {
-              NAME: "MANAGER",
-              AUTOCOMMIT_VALUE: "1000",
-              AUTOCOMMIT_ENABLED: "1",
-              HALTONERROR: "1"
-            },
-            COMMANDS: {
-              SELECT: {
-                MERCADORIAS: {
-                  MERCADORIA: {
-                    SQL: sql
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    };
-
-    // Create form-urlencoded body
-    const formData = new URLSearchParams();
-    formData.append('str_json', JSON.stringify(jsonData));
-
-    console.log('Zanthus URL:', zanthusApiUrl);
-    console.log('Zanthus JSON Data:', JSON.stringify(jsonData, null, 2));
-
-    const response = await axios.post(zanthusApiUrl, formData, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      timeout: 600000 // 10 minutes timeout (600,000 milliseconds)
-    });
-
-    // Process Zanthus response and convert to Sale format
-    return this.processZanthusResponse(response.data);
-  }
-
-  private static processZanthusResponse(data: any): Sale[] {
-    const sales: Sale[] = [];
-
-    try {
-      // Navigate through the response structure
-      const queryContent = data?.QUERY?.CONTENT;
-
-      if (!queryContent || !Array.isArray(queryContent)) {
-        console.warn('No sales data found in Zanthus response');
-        return sales;
-      }
-
-      for (const item of queryContent) {
-        // Skip empty objects or summary
-        if (!item || Object.keys(item).length === 0) continue;
-
-        const sale: Sale = {
-          codLoja: parseInt(item.CODLOJA || 0),
-          desProduto: String(item.DESPRODUTO || ''),
-          codProduto: String(item.CODPRODUTO || ''),
-          codBarraPrincipal: String(item.CODBARRAPRINCIPAL || ''),
-          dtaSaida: this.formatDateFromZanthus(item.DTASAIDA || ''),
-          numCupomFiscal: parseInt(item.NUMCUPOMFISCAL || 0),
-          codCaixa: parseInt(item.CODCAIXA || 0),
-          valVenda: parseFloat(item.VALVENDA || 0),
-          qtdTotalProduto: parseFloat(item.QTDTOTALPRODUTO || 0),
-          valTotalProduto: parseFloat(item.VALTOTALPRODUTO || 0),
-          totalCusto: 0, // TOTALCUSTO não está presente no retorno atual do Zanthus
-          descontoAplicado: item.DESCONTOAPLICADO ? parseFloat(item.DESCONTOAPLICADO) : undefined,
-          dataHoraVenda: item.DATAHORAVENDA, // Usa direto do ERP, sem conversão de timezone
-          motivoCancelamento: item.MOTIVOCANCELAMENTO,
-          funcionarioCancelamento: item.FUNCIONARIOCANCELAMENTO,
-          tipoCancelamento: item.TIPOCANCELAMENTO
-        };
-
-        sales.push(sale);
-      }
-
-      console.log(`Processed ${sales.length} sales from Zanthus response`);
-    } catch (error) {
-      console.error('Error processing Zanthus response:', error);
-      throw new Error('Failed to process Zanthus sales data');
-    }
-
-    return sales;
-  }
-
-  private static formatDateForSQL(date: string): string {
-    // If date is already in YYYY-MM-DD format, return as is
-    if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return date;
-    }
-
-    // If date is in YYYYMMDD format, convert to YYYY-MM-DD
-    if (date.match(/^\d{8}$/)) {
-      return `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`;
-    }
-
-    // Default return
-    return date;
-  }
-
-  private static formatDateFromZanthus(dateValue: any): string {
-    if (!dateValue) return '';
-
-    // If it's already a string in format YYYYMMDD
-    if (typeof dateValue === 'string' && dateValue.match(/^\d{8}$/)) {
-      return dateValue;
-    }
-
-    // If it's a date string with time (YYYY-MM-DD HH:MM:SS or similar)
-    if (typeof dateValue === 'string' && dateValue.includes('-')) {
-      return dateValue.split(' ')[0].replace(/-/g, '');
-    }
-
-    // If it's a Date object
-    if (dateValue instanceof Date) {
-      const year = dateValue.getFullYear();
-      const month = String(dateValue.getMonth() + 1).padStart(2, '0');
-      const day = String(dateValue.getDate()).padStart(2, '0');
-      return `${year}${month}${day}`;
-    }
-
-    return String(dateValue);
+    return this.fetchSalesFromOracle(fromDateFormatted, toDateFormatted);
   }
 
   static formatDateToERP(date: string): string {
@@ -270,7 +157,7 @@ export class SalesService {
 
   /**
    * Busca vendas diretamente do Oracle Intersolid
-   * Retorna no mesmo formato da interface Sale para compatibilidade
+   * Usa mapeamentos dinâmicos da tela de Configuração de Tabelas
    * @param fromDate Data inicial no formato YYYY-MM-DD
    * @param toDate Data final no formato YYYY-MM-DD
    * @param codLoja Código da loja (opcional)
@@ -279,48 +166,52 @@ export class SalesService {
     try {
       console.log(`📊 [ORACLE] Buscando vendas de ${fromDate} a ${toDate}...`);
 
+      // Buscar mapeamentos dinâmicos
+      const m = await this.getMappings();
+      console.log(`📊 [ORACLE] Usando schema: ${m.schema}, tabelas: ${m.tabProdutoPdv}, ${m.tabProduto}, ${m.tabCupomFinalizadora}, ${m.tabOperadores}`);
+
       // Converter datas para formato Oracle (DD/MM/YYYY)
       const dataInicio = this.formatDateToOracle(fromDate);
       const dataFim = this.formatDateToOracle(toDate);
 
       let sql = `
         SELECT
-          pv.NUM_CUPOM_FISCAL,
-          pv.NUM_SEQ_ITEM,
-          pv.COD_PRODUTO,
-          p.DES_PRODUTO,
-          pv.COD_PRODUTO as COD_BARRA_PRINCIPAL,
-          pv.VAL_TOTAL_PRODUTO,
-          pv.QTD_TOTAL_PRODUTO,
-          pv.VAL_CUSTO_REP,
-          pv.DTA_SAIDA,
-          pv.TIM_HORA,
-          pv.NUM_PDV,
-          pv.COD_LOJA,
-          pv.FLG_OFERTA,
-          cf.COD_OPERADOR,
-          o.DES_OPERADOR
-        FROM INTERSOLID.TAB_PRODUTO_PDV pv
-        JOIN INTERSOLID.TAB_PRODUTO p ON p.COD_PRODUTO = pv.COD_PRODUTO
-        LEFT JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf
-          ON cf.NUM_CUPOM_FISCAL = pv.NUM_CUPOM_FISCAL
-          AND cf.NUM_PDV = pv.NUM_PDV
-          AND cf.COD_LOJA = pv.COD_LOJA
-          AND TRUNC(cf.DTA_VENDA) = TRUNC(pv.DTA_SAIDA)
-          AND cf.COD_TIPO = 1110
-        LEFT JOIN INTERSOLID.TAB_OPERADORES o ON o.COD_OPERADOR = cf.COD_OPERADOR
-        WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND pv.NUM_CUPOM_FISCAL > 0
+          pv.${m.colNumCupomFiscal} as NUM_CUPOM_FISCAL,
+          pv.${m.colNumSeqItem} as NUM_SEQ_ITEM,
+          pv.${m.colCodProdutoPdv} as COD_PRODUTO,
+          p.${m.colDesProduto} as DES_PRODUTO,
+          pv.${m.colCodProdutoPdv} as COD_BARRA_PRINCIPAL,
+          pv.${m.colValTotalProduto} as VAL_TOTAL_PRODUTO,
+          pv.${m.colQtdTotalProduto} as QTD_TOTAL_PRODUTO,
+          pv.${m.colValCustoRep} as VAL_CUSTO_REP,
+          pv.${m.colDtaSaida} as DTA_SAIDA,
+          pv.${m.colTimHora} as TIM_HORA,
+          pv.${m.colNumPdv} as NUM_PDV,
+          pv.${m.colCodLojaPdv} as COD_LOJA,
+          pv.${m.colFlgOferta} as FLG_OFERTA,
+          cf.${m.colCodOperadorCf} as COD_OPERADOR,
+          o.${m.colDesOperador} as DES_OPERADOR
+        FROM ${m.schema}.${m.tabProdutoPdv} pv
+        JOIN ${m.schema}.${m.tabProduto} p ON p.${m.colCodProduto} = pv.${m.colCodProdutoPdv}
+        LEFT JOIN ${m.schema}.${m.tabCupomFinalizadora} cf
+          ON cf.${m.colNumCupomFiscalCf} = pv.${m.colNumCupomFiscal}
+          AND cf.${m.colNumPdvCf} = pv.${m.colNumPdv}
+          AND cf.${m.colCodLojaCf} = pv.${m.colCodLojaPdv}
+          AND TRUNC(cf.${m.colDtaVendaCf}) = TRUNC(pv.${m.colDtaSaida})
+          AND cf.${m.colCodTipoCf} = 1110
+        LEFT JOIN ${m.schema}.${m.tabOperadores} o ON o.${m.colCodOperador} = cf.${m.colCodOperadorCf}
+        WHERE pv.${m.colDtaSaida} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND pv.${m.colNumCupomFiscal} > 0
       `;
 
       const params: any = { dataInicio, dataFim };
 
       if (codLoja) {
-        sql += ` AND pv.COD_LOJA = :codLoja`;
+        sql += ` AND pv.${m.colCodLojaPdv} = :codLoja`;
         params.codLoja = codLoja;
       }
 
-      sql += ` ORDER BY pv.TIM_HORA DESC`;
+      sql += ` ORDER BY pv.${m.colTimHora} DESC`;
 
       const result = await OracleService.query<any>(sql, params);
 
@@ -386,45 +277,48 @@ export class SalesService {
     try {
       console.log(`📊 [ORACLE] Buscando vendas dos últimos ${minutosAtras} minutos...`);
 
+      // Buscar mapeamentos dinâmicos
+      const m = await this.getMappings();
+
       let sql = `
         SELECT
-          pv.NUM_CUPOM_FISCAL,
-          pv.NUM_SEQ_ITEM,
-          pv.COD_PRODUTO,
-          p.DES_PRODUTO,
-          pv.COD_PRODUTO as COD_BARRA_PRINCIPAL,
-          pv.VAL_TOTAL_PRODUTO,
-          pv.QTD_TOTAL_PRODUTO,
-          pv.VAL_CUSTO_REP,
-          pv.DTA_SAIDA,
-          pv.TIM_HORA,
-          pv.NUM_PDV,
-          pv.COD_LOJA,
-          pv.FLG_OFERTA,
-          cf.COD_OPERADOR,
-          o.DES_OPERADOR
-        FROM INTERSOLID.TAB_PRODUTO_PDV pv
-        JOIN INTERSOLID.TAB_PRODUTO p ON p.COD_PRODUTO = pv.COD_PRODUTO
-        LEFT JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf
-          ON cf.NUM_CUPOM_FISCAL = pv.NUM_CUPOM_FISCAL
-          AND cf.NUM_PDV = pv.NUM_PDV
-          AND cf.COD_LOJA = pv.COD_LOJA
-          AND TRUNC(cf.DTA_VENDA) = TRUNC(pv.DTA_SAIDA)
-          AND cf.COD_TIPO = 1110
-        LEFT JOIN INTERSOLID.TAB_OPERADORES o ON o.COD_OPERADOR = cf.COD_OPERADOR
-        WHERE TRUNC(pv.DTA_SAIDA) = TRUNC(SYSDATE)
-          AND pv.TIM_HORA >= SYSDATE - INTERVAL '${minutosAtras}' MINUTE
-          AND pv.NUM_CUPOM_FISCAL > 0
+          pv.${m.colNumCupomFiscal} as NUM_CUPOM_FISCAL,
+          pv.${m.colNumSeqItem} as NUM_SEQ_ITEM,
+          pv.${m.colCodProdutoPdv} as COD_PRODUTO,
+          p.${m.colDesProduto} as DES_PRODUTO,
+          pv.${m.colCodProdutoPdv} as COD_BARRA_PRINCIPAL,
+          pv.${m.colValTotalProduto} as VAL_TOTAL_PRODUTO,
+          pv.${m.colQtdTotalProduto} as QTD_TOTAL_PRODUTO,
+          pv.${m.colValCustoRep} as VAL_CUSTO_REP,
+          pv.${m.colDtaSaida} as DTA_SAIDA,
+          pv.${m.colTimHora} as TIM_HORA,
+          pv.${m.colNumPdv} as NUM_PDV,
+          pv.${m.colCodLojaPdv} as COD_LOJA,
+          pv.${m.colFlgOferta} as FLG_OFERTA,
+          cf.${m.colCodOperadorCf} as COD_OPERADOR,
+          o.${m.colDesOperador} as DES_OPERADOR
+        FROM ${m.schema}.${m.tabProdutoPdv} pv
+        JOIN ${m.schema}.${m.tabProduto} p ON p.${m.colCodProduto} = pv.${m.colCodProdutoPdv}
+        LEFT JOIN ${m.schema}.${m.tabCupomFinalizadora} cf
+          ON cf.${m.colNumCupomFiscalCf} = pv.${m.colNumCupomFiscal}
+          AND cf.${m.colNumPdvCf} = pv.${m.colNumPdv}
+          AND cf.${m.colCodLojaCf} = pv.${m.colCodLojaPdv}
+          AND TRUNC(cf.${m.colDtaVendaCf}) = TRUNC(pv.${m.colDtaSaida})
+          AND cf.${m.colCodTipoCf} = 1110
+        LEFT JOIN ${m.schema}.${m.tabOperadores} o ON o.${m.colCodOperador} = cf.${m.colCodOperadorCf}
+        WHERE TRUNC(pv.${m.colDtaSaida}) = TRUNC(SYSDATE)
+          AND pv.${m.colTimHora} >= SYSDATE - INTERVAL '${minutosAtras}' MINUTE
+          AND pv.${m.colNumCupomFiscal} > 0
       `;
 
       const params: any = {};
 
       if (codLoja) {
-        sql += ` AND pv.COD_LOJA = :codLoja`;
+        sql += ` AND pv.${m.colCodLojaPdv} = :codLoja`;
         params.codLoja = codLoja;
       }
 
-      sql += ` ORDER BY pv.TIM_HORA DESC`;
+      sql += ` ORDER BY pv.${m.colTimHora} DESC`;
 
       const result = await OracleService.query<any>(sql, params);
 

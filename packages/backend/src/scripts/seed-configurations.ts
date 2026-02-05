@@ -125,29 +125,7 @@ async function seedConfigurations() {
         description: 'IP Tailscale da máquina do cliente (onde roda o ERP)'
       },
 
-      // APIs PRÉ-CONFIGURADAS (apenas Zanthus, Intersolid e Evolution)
-      // Zanthus ERP
-      {
-        key: 'zanthus_api_url',
-        value: 'http://10.6.1.101',
-        description: 'URL da API Zanthus'
-      },
-      {
-        key: 'zanthus_port',
-        value: '',
-        description: 'Porta da API Zanthus (opcional)'
-      },
-      {
-        key: 'zanthus_products_endpoint',
-        value: '/manager/restful/integracao/cadastro_sincrono.php5',
-        description: 'Endpoint de produtos Zanthus'
-      },
-      {
-        key: 'zanthus_sales_endpoint',
-        value: '/manager/restful/integracao/cadastro_sincrono.php5',
-        description: 'Endpoint de vendas Zanthus'
-      },
-
+      // APIs PRÉ-CONFIGURADAS (Intersolid e Evolution)
       // Intersolid ERP
       {
         key: 'intersolid_api_url',

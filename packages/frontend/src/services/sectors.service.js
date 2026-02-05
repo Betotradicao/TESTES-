@@ -1,7 +1,11 @@
 import api from '../utils/api';
 
-export async function fetchSectors(onlyActive = false) {
-  const url = onlyActive ? '/sectors?active=true' : '/sectors';
+export async function fetchSectors(codLoja = null, onlyActive = false) {
+  const params = new URLSearchParams();
+  if (onlyActive) params.append('active', 'true');
+  if (codLoja !== null && codLoja !== undefined) params.append('cod_loja', codLoja);
+  const queryString = params.toString();
+  const url = queryString ? `/sectors?${queryString}` : '/sectors';
   const response = await api.get(url);
   return response.data;
 }

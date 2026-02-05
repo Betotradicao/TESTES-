@@ -59,12 +59,6 @@ export const MENU_SUBMENUS = {
 // Estrutura completa do menu
 export const MENU_STRUCTURE = [
   {
-    id: MENU_MODULES.DASHBOARD,
-    title: 'Boas Vindas',
-    icon: 'dashboard',
-    submenus: []
-  },
-  {
     id: MENU_MODULES.BIPAGENS,
     title: 'Prevenção de Bipagens',
     icon: 'tag',

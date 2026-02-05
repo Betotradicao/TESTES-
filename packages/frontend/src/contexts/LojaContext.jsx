@@ -83,9 +83,15 @@ export const LojaProvider = ({ children }) => {
     return `LOJA ${loja.COD_LOJA}`;
   };
 
+  // Retorna a loja atual completa (ou null se TODAS)
+  const lojaAtual = lojaSelecionada !== null
+    ? lojas.find(l => l.COD_LOJA === lojaSelecionada) || null
+    : null;
+
   const value = {
     lojas,
     lojaSelecionada,
+    lojaAtual,
     loading,
     selecionarLoja,
     getLojaLabel,
