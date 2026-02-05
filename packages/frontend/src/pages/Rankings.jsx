@@ -217,8 +217,8 @@ export default function Rankings() {
   // Carregar setores
   const loadSectors = async () => {
     try {
-      const data = await fetchSectors(1, 100);
-      setSectors(data.data || []);
+      const data = await fetchSectors(null, false);
+      setSectors(data || []);
     } catch (error) {
       console.error('Erro ao carregar setores:', error);
     }
@@ -436,6 +436,33 @@ export default function Rankings() {
   const totalCancelamentos = cancelledBips.length;
   const totalValorCancelado = cancelledBips.reduce((sum, bip) => sum + (bip.bip_price_cents || 0), 0);
   const totalBipagensPendentes = pendingBipages.length;
+
+  // Função para trocar o tipo de cancelamento
+  const handleChangeMotivo = async (bip, novoMotivo) => {
+    if (bip.motivo_cancelamento === novoMotivo) return;
+
+    try {
+      const response = await api.put(`/bips/${bip.id}/motivo`, {
+        motivo_cancelamento: novoMotivo
+      });
+
+      if (response.data.success) {
+        // Remover o item do modal atual (pois mudou de tipo)
+        setDetailsModal(prev => ({
+          ...prev,
+          bipages: prev.bipages.filter(b => b.id !== bip.id)
+        }));
+
+        // Recarregar os dados para atualizar os cards
+        await fetchCancelledBipages();
+
+        alert(`✅ Tipo alterado para: ${MOTIVOS_LABELS[novoMotivo]}`);
+      }
+    } catch (error) {
+      console.error('Erro ao alterar tipo:', error);
+      alert('❌ Erro ao alterar tipo: ' + (error.response?.data?.error || error.message));
+    }
+  };
 
   // Funções para abrir modal de detalhes
   const openMotivoDetails = (motivo) => {
@@ -1302,6 +1329,7 @@ export default function Rankings() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Preço</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Peso</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Setor</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Identificação</th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Foto</th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Vídeo</th>
@@ -1337,6 +1365,20 @@ export default function Rankings() {
                           <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
                             {bip.equipment?.sector?.name || '-'}
                           </span>
+                        </td>
+                        {/* Coluna TIPO - Dropdown para trocar */}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <select
+                            value={bip.motivo_cancelamento || ''}
+                            onChange={(e) => handleChangeMotivo(bip, e.target.value)}
+                            className="text-xs border border-gray-300 rounded-md px-2 py-1 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white cursor-pointer"
+                          >
+                            {Object.entries(MOTIVOS_LABELS).map(([value, label]) => (
+                              <option key={value} value={value}>
+                                {MOTIVOS_ICONS[value]} {label}
+                              </option>
+                            ))}
+                          </select>
                         </td>
                         {/* Coluna IDENTIFICAÇÃO */}
                         <td className="px-4 py-3 whitespace-nowrap text-center">

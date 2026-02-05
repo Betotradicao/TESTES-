@@ -54,7 +54,7 @@ export default function ResultadosDoDia() {
   // Função para buscar setores
   const loadSectors = async () => {
     try {
-      const data = await fetchSectors(false);
+      const data = await fetchSectors(null, false);
       setSectors(data || []);
     } catch (err) {
       console.error('Erro ao buscar setores:', err);
@@ -296,7 +296,7 @@ export default function ResultadosDoDia() {
             {/* Desktop */}
             <div className="hidden md:grid grid-cols-3 gap-4">
               <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Total</h3>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">💰 Total</h3>
                 <p className="text-2xl font-bold text-gray-900">
                   {formatCurrency(metrics.total_value_cents)}
                   <span className="text-xs font-normal text-red-600 ml-2">
@@ -305,7 +305,8 @@ export default function ResultadosDoDia() {
                 </p>
               </div>
               <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Total verificado</h3>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">✅ Total verificado</h3>
+                <p className="text-xs text-gray-400 mb-1">BIPADOS</p>
                 <p className="text-2xl font-bold text-green-600">
                   {formatCurrency(metrics.total_verified_cents)}
                   <span className="text-xs font-normal text-red-600 ml-2">
@@ -314,7 +315,8 @@ export default function ResultadosDoDia() {
                 </p>
               </div>
               <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Total não verificado</h3>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">⚠️ Total não verificado</h3>
+                <p className="text-xs text-gray-400 mb-1">NÃO BIPADOS</p>
                 <p className="text-2xl font-bold text-yellow-600">
                   {formatCurrency(metrics.total_not_verified_cents)}
                   <span className="text-xs font-normal text-red-600 ml-2">
@@ -328,7 +330,7 @@ export default function ResultadosDoDia() {
             <div className="md:hidden overflow-x-auto">
               <div className="flex space-x-4 pb-2">
                 <div className="bg-white p-4 rounded-lg shadow min-w-[140px] flex-shrink-0">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">Total</h3>
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">💰 Total</h3>
                   <p className="text-2xl font-bold text-gray-900">
                     {formatCurrency(metrics.total_value_cents)}
                     <span className="text-xs font-normal text-red-600 ml-2">
@@ -336,8 +338,9 @@ export default function ResultadosDoDia() {
                     </span>
                   </p>
                 </div>
-                <div className="bg-white p-4 rounded-lg shadow min-w-[140px] flex-shrink-0">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">Total verificado</h3>
+                <div className="bg-white p-4 rounded-lg shadow min-w-[160px] flex-shrink-0">
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">✅ Total verificado</h3>
+                  <p className="text-xs text-gray-400 mb-1">BIPADOS</p>
                   <p className="text-2xl font-bold text-green-600">
                     {formatCurrency(metrics.total_verified_cents)}
                     <span className="text-xs font-normal text-red-600 ml-2">
@@ -345,8 +348,9 @@ export default function ResultadosDoDia() {
                     </span>
                   </p>
                 </div>
-                <div className="bg-white p-4 rounded-lg shadow min-w-[140px] flex-shrink-0">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">Total não verificado</h3>
+                <div className="bg-white p-4 rounded-lg shadow min-w-[160px] flex-shrink-0">
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">⚠️ Total não verificado</h3>
+                  <p className="text-xs text-gray-400 mb-1">NÃO BIPADOS</p>
                   <p className="text-2xl font-bold text-yellow-600">
                     {formatCurrency(metrics.total_not_verified_cents)}
                     <span className="text-xs font-normal text-red-600 ml-2">
@@ -363,19 +367,21 @@ export default function ResultadosDoDia() {
             {/* Desktop */}
             <div className="hidden md:grid grid-cols-4 gap-4">
               <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Total de vendas</h3>
+                <h3 className="text-sm font-medium text-gray-500 mb-2">🛒 Total de vendas</h3>
                 <p className="text-2xl font-bold text-gray-900">{summary.total_sells}</p>
               </div>
               <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Verificadas</h3>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">✅ Verificadas</h3>
+                <p className="text-xs text-gray-400 mb-1">BIPADOS E FINALIZADOS NO PDV</p>
                 <p className="text-2xl font-bold text-green-600">{summary.verified_count}</p>
               </div>
               <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Não verificadas</h3>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">❌ Não verificadas</h3>
+                <p className="text-xs text-gray-400 mb-1">FINALIZADOS NO PDV E NÃO BIPADOS</p>
                 <p className="text-2xl font-bold text-red-600">{summary.not_verified_count}</p>
               </div>
               <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Canceladas</h3>
+                <h3 className="text-sm font-medium text-gray-500 mb-2">🚫 Canceladas</h3>
                 <p className="text-2xl font-bold text-gray-600">{summary.cancelled_count || 0}</p>
               </div>
             </div>
@@ -384,19 +390,21 @@ export default function ResultadosDoDia() {
             <div className="md:hidden overflow-x-auto">
               <div className="flex space-x-4 pb-2">
                 <div className="bg-white p-4 rounded-lg shadow min-w-[140px] flex-shrink-0">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">Total de vendas</h3>
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">🛒 Total de vendas</h3>
                   <p className="text-2xl font-bold text-gray-900">{summary.total_sells}</p>
                 </div>
-                <div className="bg-white p-4 rounded-lg shadow min-w-[140px] flex-shrink-0">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">Verificadas</h3>
+                <div className="bg-white p-4 rounded-lg shadow min-w-[200px] flex-shrink-0">
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">✅ Verificadas</h3>
+                  <p className="text-xs text-gray-400 mb-1">BIPADOS E FINALIZADOS NO PDV</p>
                   <p className="text-2xl font-bold text-green-600">{summary.verified_count}</p>
                 </div>
-                <div className="bg-white p-4 rounded-lg shadow min-w-[140px] flex-shrink-0">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">Não verificadas</h3>
+                <div className="bg-white p-4 rounded-lg shadow min-w-[220px] flex-shrink-0">
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">❌ Não verificadas</h3>
+                  <p className="text-xs text-gray-400 mb-1">FINALIZADOS NO PDV E NÃO BIPADOS</p>
                   <p className="text-2xl font-bold text-red-600">{summary.not_verified_count}</p>
                 </div>
                 <div className="bg-white p-4 rounded-lg shadow min-w-[140px] flex-shrink-0">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">Canceladas</h3>
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">🚫 Canceladas</h3>
                   <p className="text-2xl font-bold text-gray-600">{summary.cancelled_count || 0}</p>
                 </div>
               </div>

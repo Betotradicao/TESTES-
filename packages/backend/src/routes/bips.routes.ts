@@ -282,6 +282,42 @@ router.put('/:id/cancel', authenticateToken, BipsController.cancelBip);
  */
 router.put('/:id/reactivate', authenticateToken, BipsController.reactivateBip);
 
+/**
+ * @swagger
+ * /api/bips/{id}/motivo:
+ *   put:
+ *     summary: Atualizar motivo de cancelamento de uma bipagem cancelada
+ *     tags: [Bips]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Bip ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               motivo_cancelamento:
+ *                 type: string
+ *               employee_responsavel_id:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Motivo atualizado com sucesso
+ *       404:
+ *         description: Bip not found
+ *       400:
+ *         description: Invalid request
+ */
+router.put('/:id/motivo', authenticateToken, BipsController.updateMotivoCancelamento);
+
 // Configurar multer para upload de vídeos
 const videoUpload = uploadService.getVideoMulterConfig();
 

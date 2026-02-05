@@ -307,8 +307,8 @@ export class DailyVerificationCommand {
           INSERT INTO sells (activated_product_id, product_id, product_description, sell_date, sell_value_cents, product_weight, bip_id, num_cupom_fiscal, point_of_sale_code, operator_code, operator_name, status, discount_cents)
           VALUES ${values}
           ON CONFLICT (product_id, product_weight, num_cupom_fiscal) DO UPDATE SET
-            operator_code = EXCLUDED.operator_code,
-            operator_name = EXCLUDED.operator_name,
+            operator_code = COALESCE(EXCLUDED.operator_code, sells.operator_code),
+            operator_name = COALESCE(EXCLUDED.operator_name, sells.operator_name),
             point_of_sale_code = COALESCE(EXCLUDED.point_of_sale_code, sells.point_of_sale_code),
             bip_id = COALESCE(EXCLUDED.bip_id, sells.bip_id),
             status = CASE WHEN EXCLUDED.bip_id IS NOT NULL THEN 'verified' ELSE sells.status END

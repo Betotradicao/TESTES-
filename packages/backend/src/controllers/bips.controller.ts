@@ -706,6 +706,66 @@ export class BipsController {
   }
 
   /**
+   * Atualizar motivo de cancelamento de uma bipagem já cancelada
+   */
+  static async updateMotivoCancelamento(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const { motivo_cancelamento, employee_responsavel_id } = req.body;
+
+      // Validar motivo de cancelamento
+      if (!motivo_cancelamento) {
+        return res.status(400).json({ error: 'Motivo de cancelamento é obrigatório' });
+      }
+
+      if (!Object.values(MotivoCancelamento).includes(motivo_cancelamento)) {
+        return res.status(400).json({
+          error: 'Motivo de cancelamento inválido',
+          motivos_validos: Object.values(MotivoCancelamento)
+        });
+      }
+
+      const bipRepository = AppDataSource.getRepository(Bip);
+      const bip = await bipRepository.findOne({ where: { id: parseInt(id) } });
+
+      if (!bip) {
+        return res.status(404).json({ error: 'Bipagem não encontrada' });
+      }
+
+      if (bip.status !== BipStatus.CANCELLED) {
+        return res.status(400).json({ error: 'Somente bipagens canceladas podem ter o motivo atualizado' });
+      }
+
+      // Validar se funcionário responsável é obrigatório para erros de operador/balconista
+      const motivosQueRequeremFuncionario = [
+        MotivoCancelamento.ERRO_OPERADOR,
+        MotivoCancelamento.ERRO_BALCONISTA
+      ];
+
+      if (motivosQueRequeremFuncionario.includes(motivo_cancelamento) && !employee_responsavel_id) {
+        return res.status(400).json({
+          error: 'Funcionário responsável é obrigatório para este motivo de cancelamento'
+        });
+      }
+
+      // Atualizar o motivo de cancelamento
+      bip.motivo_cancelamento = motivo_cancelamento;
+      bip.employee_responsavel_id = employee_responsavel_id || null;
+      const updatedBip = await bipRepository.save(bip);
+
+      console.log(`✅ Motivo de cancelamento atualizado para bipagem ${id}: ${motivo_cancelamento}`);
+
+      res.json({
+        success: true,
+        bip: updatedBip
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar motivo de cancelamento:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+
+  /**
    * Enviar PDF de bipagens pendentes (teste manual)
    */
   static async sendPendingBipsReport(req: AuthRequest, res: Response) {

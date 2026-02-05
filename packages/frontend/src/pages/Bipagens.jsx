@@ -186,7 +186,7 @@ export default function Bipagens() {
   // Função para carregar setores
   const loadSectors = async () => {
     try {
-      const data = await fetchSectors(false); // Todos os setores
+      const data = await fetchSectors(lojaSelecionada, false); // Setores da loja selecionada
       setSectors(data);
     } catch (err) {
       console.error('Erro ao carregar setores:', err);
@@ -750,7 +750,7 @@ export default function Bipagens() {
             {/* Scanners dentro do card laranja */}
             {equipments.length > 0 && (
               <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/30 scrollbar-track-white/10">
-                {equipments.filter(eq => eq.active).map((equipment) => {
+                {equipments.filter(eq => eq.active && (!filters.sector_id || eq.sector?.id === parseInt(filters.sector_id))).map((equipment) => {
                   const loggedEmployee = activeSessions.find(s => s.equipment.id === equipment.id)?.employee;
 
                   return (
