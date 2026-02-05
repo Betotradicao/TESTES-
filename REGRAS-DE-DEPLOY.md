@@ -777,5 +777,143 @@ df -h
 
 ---
 
-**Última atualização:** 02/02/2026 - Adicionado regra de limpeza de cache Docker após deploy
+## 🏪 REGRA #5: VERIFICAR MULTI-LOJA ANTES DO DEPLOY!
+
+### ⚠️ PROBLEMA: Deploy funciona mas sistema não separa dados por loja
+
+Quando o suporte multi-loja não está configurado corretamente, o sistema pode:
+- Misturar dados entre lojas diferentes
+- Não mostrar filtro de loja corretamente
+- Perder bipagens/vendas por falta de associação com cod_loja
+
+### 📋 CHECKLIST MULTI-LOJA (ANTES DO DEPLOY)
+
+#### 1. Verificar colunas cod_loja no PostgreSQL
+
+```bash
+# Conectar no banco do cliente
+ssh root@46.202.150.64 "docker exec prevencao-tradicao-postgres psql -U postgres -d postgres_tradicao -c \"
+SELECT table_name, column_name
+FROM information_schema.columns
+WHERE column_name = 'cod_loja'
+ORDER BY table_name;
+\""
+```
+
+**Tabelas que DEVEM ter cod_loja:**
+| Tabela | Obrigatório |
+|--------|-------------|
+| `bips` | ✅ Sim |
+| `sells` | ✅ Sim |
+| `sectors` | ✅ Sim |
+| `hort_frut_boxes` | ✅ Sim |
+| `products` | ⚠️ Opcional (filtro por loja) |
+
+#### 2. Se faltar coluna cod_loja, adicionar:
+
+```bash
+# Adicionar cod_loja em bips (se não existir)
+ssh root@46.202.150.64 "docker exec prevencao-tradicao-postgres psql -U postgres -d postgres_tradicao -c \"
+ALTER TABLE bips ADD COLUMN IF NOT EXISTS cod_loja INTEGER;
+\""
+
+# Adicionar cod_loja em sells (se não existir)
+ssh root@46.202.150.64 "docker exec prevencao-tradicao-postgres psql -U postgres -d postgres_tradicao -c \"
+ALTER TABLE sells ADD COLUMN IF NOT EXISTS cod_loja INTEGER;
+\""
+
+# Adicionar cod_loja em sectors (se não existir)
+ssh root@46.202.150.64 "docker exec prevencao-tradicao-postgres psql -U postgres -d postgres_tradicao -c \"
+ALTER TABLE sectors ADD COLUMN IF NOT EXISTS cod_loja INTEGER;
+\""
+
+# Adicionar cod_loja em hort_frut_boxes (se não existir)
+ssh root@46.202.150.64 "docker exec prevencao-tradicao-postgres psql -U postgres -d postgres_tradicao -c \"
+ALTER TABLE hort_frut_boxes ADD COLUMN IF NOT EXISTS cod_loja INTEGER;
+\""
+```
+
+#### 3. Verificar configuração de lojas no sistema
+
+```bash
+# Ver lojas cadastradas (companies)
+ssh root@46.202.150.64 "docker exec prevencao-tradicao-postgres psql -U postgres -d postgres_tradicao -c \"
+SELECT id, name, cod_loja, apelido FROM companies ORDER BY cod_loja;
+\""
+```
+
+**Esperado:** Cada loja deve ter um `cod_loja` único e um `apelido` para identificação
+
+#### 4. Verificar se dados antigos têm cod_loja
+
+```bash
+# Verificar bipagens sem cod_loja
+ssh root@46.202.150.64 "docker exec prevencao-tradicao-postgres psql -U postgres -d postgres_tradicao -c \"
+SELECT COUNT(*) as sem_loja FROM bips WHERE cod_loja IS NULL;
+\""
+
+# Verificar vendas sem cod_loja
+ssh root@46.202.150.64 "docker exec prevencao-tradicao-postgres psql -U postgres -d postgres_tradicao -c \"
+SELECT COUNT(*) as sem_loja FROM sells WHERE cod_loja IS NULL;
+\""
+```
+
+**Se houver registros sem cod_loja**, atualizar com a loja padrão:
+
+```bash
+# Atualizar bipagens antigas para loja padrão (ex: cod_loja = 1)
+ssh root@46.202.150.64 "docker exec prevencao-tradicao-postgres psql -U postgres -d postgres_tradicao -c \"
+UPDATE bips SET cod_loja = 1 WHERE cod_loja IS NULL;
+\""
+
+# Atualizar vendas antigas para loja padrão
+ssh root@46.202.150.64 "docker exec prevencao-tradicao-postgres psql -U postgres -d postgres_tradicao -c \"
+UPDATE sells SET cod_loja = 1 WHERE cod_loja IS NULL;
+\""
+```
+
+### ✅ PROCESSO COMPLETO DE DEPLOY COM VERIFICAÇÃO MULTI-LOJA
+
+```bash
+# 1. Conectar na VPS
+ssh root@46.202.150.64
+
+# 2. VERIFICAR MULTI-LOJA PRIMEIRO
+docker exec prevencao-tradicao-postgres psql -U postgres -d postgres_tradicao -c "
+SELECT table_name FROM information_schema.columns
+WHERE column_name = 'cod_loja' AND table_name IN ('bips', 'sells', 'sectors', 'hort_frut_boxes')
+ORDER BY table_name;
+"
+
+# 3. Se OK, prosseguir com deploy
+cd /root/prevencao-radar-repo && git pull origin TESTE
+
+# 4. Build e deploy
+cd /root/clientes/tradicao
+docker compose build --no-cache frontend backend
+docker compose up -d --no-deps frontend backend
+
+# 5. Limpar cache
+docker builder prune -f && docker image prune -f
+
+# 6. Verificar logs
+docker logs prevencao-tradicao-backend --tail 30
+```
+
+### 🎓 Lição Aprendida
+
+**Problema:** Sistema deployado mas dados apareciam misturados entre lojas.
+
+**Causa:** Tabelas não tinham coluna `cod_loja` ou dados antigos estavam sem associação de loja.
+
+**Solução:** Sempre verificar estrutura multi-loja ANTES do deploy e corrigir se necessário.
+
+**Prevenção:**
+- Executar checklist multi-loja antes de cada deploy
+- Verificar se migrations de multi-loja rodaram corretamente
+- Confirmar que dados antigos foram migrados com cod_loja
+
+---
+
+**Última atualização:** 05/02/2026 - Adicionado regra de verificação multi-loja antes do deploy
 **Criado por:** Claude (aprendendo com cada erro 🎓)
