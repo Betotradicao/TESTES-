@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getCronStatus, getBarcodeStatus, testZanthusConnection, restartCronService, getWebhookLogs } from '../controllers/system-status.controller';
+import { getCronStatus, getBarcodeStatus, restartCronService, getWebhookLogs } from '../controllers/system-status.controller';
 
 const router: Router = Router();
 
@@ -87,34 +87,6 @@ router.post('/cron/restart', restartCronService);
  *                   example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
  */
 router.get('/barcode/status', getBarcodeStatus);
-
-/**
- * @swagger
- * /api/zanthus/test:
- *   get:
- *     summary: Testa conectividade com a API Zanthus
- *     description: Faz uma query de teste para verificar se a API Zanthus está respondendo
- *     tags: [System Status]
- *     responses:
- *       200:
- *         description: Teste de conexão bem sucedido
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   enum: [ok, error]
- *                   example: ok
- *                 responseTime:
- *                   type: number
- *                   example: 245
- *                 statusCode:
- *                   type: number
- *                   example: 200
- */
-router.get('/zanthus/test', testZanthusConnection);
 
 /**
  * @swagger

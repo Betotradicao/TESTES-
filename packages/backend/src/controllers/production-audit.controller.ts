@@ -5,7 +5,6 @@ import { ProductionAudit } from '../entities/ProductionAudit';
 import { ProductionAuditItem } from '../entities/ProductionAuditItem';
 import { Product } from '../entities/Product';
 import { Not, IsNull } from 'typeorm';
-import axios from 'axios';
 import { ConfigurationService } from '../services/configuration.service';
 import { CacheService } from '../services/cache.service';
 import { ProductionPDFService } from '../services/production-pdf.service';
@@ -821,30 +820,36 @@ export class ProductionAuditController {
         return res.status(400).json({ error: 'Audit has no items' });
       }
 
-      // Buscar dados do ERP para enriquecer os itens com última venda
+      // Buscar dados do Oracle para enriquecer os itens com última venda
       let erpProductsMap = new Map<string, any>();
       try {
-        const apiUrl = await ConfigurationService.get('intersolid_api_url', null);
-        const port = await ConfigurationService.get('intersolid_port', null);
-        const productsEndpoint = await ConfigurationService.get('intersolid_products_endpoint', '/v1/produtos');
-        const baseUrl = port ? `${apiUrl}:${port}` : apiUrl;
-        const erpApiUrl = baseUrl ? `${baseUrl}${productsEndpoint}` : null;
+        const codLoja = audit.cod_loja || 1;
+        const productCodes = audit.items.map(item => item.product_code).filter(Boolean);
 
-        if (erpApiUrl) {
-          const erpProducts = await CacheService.executeWithCache(
-            'erp-bakery-products',
-            async () => {
-              const response = await axios.get(erpApiUrl);
-              return response.data;
-            }
-          );
-          erpProductsMap = new Map(erpProducts.map((p: any) => [p.codigo, p]));
+        if (productCodes.length > 0) {
+          const placeholders = productCodes.map((_, i) => `:cod${i}`).join(',');
+          const binds: any = { loja: codLoja };
+          productCodes.forEach((code, i) => {
+            binds[`cod${i}`] = code;
+          });
+
+          const query = `
+            SELECT
+              TO_CHAR(p.COD_PRODUTO) as COD_PRODUTO,
+              TO_CHAR(pl.DTA_ULT_MOV_VENDA, 'YYYY-MM-DD') as DTA_ULT_MOV_VENDA
+            FROM INTERSOLID.TAB_PRODUTO p
+            LEFT JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO AND pl.COD_LOJA = :loja
+            WHERE TO_CHAR(p.COD_PRODUTO) IN (${placeholders})
+          `;
+
+          const results = await OracleService.executeQuery<any>(query, binds);
+          erpProductsMap = new Map(results.map((p: any) => [p.COD_PRODUTO, { dtaUltMovVenda: p.DTA_ULT_MOV_VENDA }]));
         }
       } catch (erpError) {
-        console.warn('⚠️ Não foi possível buscar dados do ERP para enriquecer PDF:', erpError);
+        console.warn('⚠️ Não foi possível buscar dados do Oracle para enriquecer PDF:', erpError);
       }
 
-      // Enriquecer itens com dados do ERP (última venda)
+      // Enriquecer itens com dados do Oracle (última venda)
       const enrichedItems = audit.items.map(item => {
         const erpProduct = erpProductsMap.get(item.product_code);
         return {

@@ -9,6 +9,9 @@ const companiesController = new CompaniesController();
 router.get('/my-company', authenticateToken, companiesController.getMyCompany.bind(companiesController));
 router.put('/my-company', authenticateToken, isAdminOrMaster, companiesController.updateMyCompany.bind(companiesController));
 
+// Lista de lojas para dropdown (apenas lojas com cod_loja definido)
+router.get('/stores/list', authenticateToken, companiesController.listStores.bind(companiesController));
+
 // Rotas apenas para master (Beto)
 router.get('/', authenticateToken, isMaster, companiesController.index.bind(companiesController));
 router.get('/:id', authenticateToken, isMaster, companiesController.show.bind(companiesController));

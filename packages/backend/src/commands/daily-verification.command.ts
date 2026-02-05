@@ -272,7 +272,18 @@ export class DailyVerificationCommand {
     }
 
     if (sellsToInsert.length > 0) {
-      const values = sellsToInsert.map(record =>
+      // Deduplicar por (product_id, product_weight, num_cupom_fiscal) para evitar erro de ON CONFLICT
+      const uniqueSells = new Map<string, typeof sellsToInsert[0]>();
+      for (const record of sellsToInsert) {
+        const key = `${record.product_id}_${record.product_weight}_${record.num_cupom_fiscal}`;
+        // Mantém o primeiro registro (ou o que tiver bip_id)
+        if (!uniqueSells.has(key) || (record.bip_id && !uniqueSells.get(key)?.bip_id)) {
+          uniqueSells.set(key, record);
+        }
+      }
+      const dedupedSells = Array.from(uniqueSells.values());
+
+      const values = dedupedSells.map(record =>
         `(${record.activated_product_id || 'NULL'}, '${record.product_id}', '${record.product_description.replace(/'/g, "''")}', '${record.sell_date}', ${record.sell_value_cents}, ${record.product_weight}, ${record.bip_id || 'NULL'}, '${record.num_cupom_fiscal}', ${record.point_of_sale_code || 'NULL'}, ${record.operator_code || 'NULL'}, ${record.operator_name ? `'${record.operator_name.replace(/'/g, "''")}'` : 'NULL'}, '${record.status}', ${record.discount_cents})`
       ).join(',');
 

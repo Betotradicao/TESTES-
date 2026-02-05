@@ -49,8 +49,11 @@ export default function EquipmentsList({ equipments, activeSessions = [], onEdit
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Computador
             </th>
+            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Loja
+            </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Descrição
+              Apelido
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Setor
@@ -91,8 +94,19 @@ export default function EquipmentsList({ equipments, activeSessions = [], onEdit
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
                 {equipment.machine_id}
               </td>
+              <td className="px-6 py-4 whitespace-nowrap text-center">
+                {equipment.cod_loja ? (
+                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                    Loja {equipment.cod_loja}
+                  </span>
+                ) : (
+                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-600">
+                    Todas
+                  </span>
+                )}
+              </td>
               <td className="px-6 py-4 text-sm text-gray-900">
-                {equipment.description || '-'}
+                {equipment.loja_apelido || '-'}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 {equipment.sector ? (

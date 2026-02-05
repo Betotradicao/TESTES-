@@ -75,7 +75,12 @@ export const LojaProvider = ({ children }) => {
   const getLojaLabel = () => {
     if (lojaSelecionada === null) return 'TODAS';
     const loja = lojas.find(l => l.COD_LOJA === lojaSelecionada);
-    return loja ? `LOJA ${loja.COD_LOJA}` : 'TODAS';
+    if (!loja) return 'TODAS';
+    // Incluir apelido se existir
+    if (loja.APELIDO) {
+      return `LOJA ${loja.COD_LOJA} - ${loja.APELIDO}`;
+    }
+    return `LOJA ${loja.COD_LOJA}`;
   };
 
   const value = {

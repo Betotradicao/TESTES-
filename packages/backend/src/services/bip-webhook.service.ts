@@ -7,12 +7,14 @@ export class BipWebhookService {
   /**
    * Busca produto no ERP usando PLU
    * Reutiliza lógica similar ao ProductsController
+   * @param codLoja - Código da loja (1, 2, 3, 4) ou null para usar padrão 1
    */
-  static async getProductFromERP(plu: string): Promise<ErpProduct | null> {
+  static async getProductFromERP(plu: string, codLoja?: number | null): Promise<ErpProduct | null> {
     try {
-      console.log(`🔍 Buscando produto no ERP com PLU: ${plu}`);
+      const loja = codLoja || 1;
+      console.log(`🔍 Buscando produto no ERP com PLU: ${plu} (Loja: ${loja})`);
 
-      const erpProduct = await this.fetchProductFromERP(plu);
+      const erpProduct = await this.fetchProductFromERP(plu, loja);
 
       if (!erpProduct) {
         console.log(`⚠️ Produto PLU ${plu} não encontrado no Oracle - bipagem será ignorada`);
@@ -31,9 +33,9 @@ export class BipWebhookService {
     }
   }
 
-  static async fetchProductFromERP(plu: string): Promise<ErpProduct | null> {
+  static async fetchProductFromERP(plu: string, codLoja: number = 1): Promise<ErpProduct | null> {
     // MIGRADO: Busca diretamente do Oracle ao invés da API Intersolid
-    console.log(`🔍 [ORACLE] Buscando produto PLU ${plu} diretamente do Oracle...`);
+    console.log(`🔍 [ORACLE] Buscando produto PLU ${plu} diretamente do Oracle (Loja ${codLoja})...`);
 
     try {
       // Converter PLU para número (remove zeros à esquerda)
@@ -41,8 +43,7 @@ export class BipWebhookService {
       const codProdutoNum = parseInt(plu, 10);
       console.log(`🔢 [ORACLE] PLU convertido: "${plu}" -> ${codProdutoNum}`);
 
-      // Query para buscar produto pelo código (PLU)
-      // COD_LOJA = 1 como padrão (pode ser configurável no futuro)
+      // Query para buscar produto pelo código (PLU) com COD_LOJA parametrizado
       const sql = `
         SELECT
           p.COD_PRODUTO,
@@ -52,14 +53,14 @@ export class BipWebhookService {
         FROM INTERSOLID.TAB_PRODUTO p
         INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
         WHERE p.COD_PRODUTO = :codProduto
-        AND pl.COD_LOJA = 1
+        AND pl.COD_LOJA = :codLoja
         AND ROWNUM = 1
       `;
 
-      const rows = await OracleService.query(sql, { codProduto: codProdutoNum });
+      const rows = await OracleService.query(sql, { codProduto: codProdutoNum, codLoja });
 
       if (rows.length === 0) {
-        console.log(`⚠️ [ORACLE] Produto PLU ${plu} não encontrado`);
+        console.log(`⚠️ [ORACLE] Produto PLU ${plu} não encontrado na loja ${codLoja}`);
         return null;
       }
 
@@ -85,12 +86,14 @@ export class BipWebhookService {
   /**
    * Processa dados da bipagem conforme N8N
    * Implementa todos os cálculos exatos das imagens
+   * @param codLoja - Código da loja do equipamento (null = Todas as Lojas)
    */
   static processBipData(
     formatResult: EanFormatResult,
     erpProduct: ErpProduct,
     eventDate?: string,
-    equipmentId?: number | null
+    equipmentId?: number | null,
+    codLoja?: number | null
   ): BipWebhookData {
     console.log(`📊 Processando dados da bipagem...`);
 
@@ -142,7 +145,8 @@ export class BipWebhookService {
       product_discount_price_cents_kg: discountPrice,
       event_date: finalEventDate,
       status: 'pending',
-      equipment_id: equipmentId || null
+      equipment_id: equipmentId || null,
+      cod_loja: codLoja || null
     };
   }
 
@@ -154,6 +158,9 @@ export class BipWebhookService {
       console.log(`💾 Salvando bipagem no banco...`);
       if (employeeId) {
         console.log(`👤 Associando bipagem ao colaborador: ${employeeId}`);
+      }
+      if (bipData.cod_loja) {
+        console.log(`🏪 Loja da bipagem: ${bipData.cod_loja}`);
       }
 
       const bipRepository = AppDataSource.getRepository(Bip);
@@ -168,11 +175,12 @@ export class BipWebhookService {
         event_date: bipData.event_date,
         status: BipStatus.PENDING,
         equipment_id: bipData.equipment_id ?? undefined,
-        employee_id: employeeId ?? undefined
+        employee_id: employeeId ?? undefined,
+        cod_loja: bipData.cod_loja ?? undefined
       });
       const savedBip = await bipRepository.save(bip);
 
-      console.log(`✅ Bipagem salva com sucesso: ID ${savedBip.id}`);
+      console.log(`✅ Bipagem salva com sucesso: ID ${savedBip.id} (Loja: ${bipData.cod_loja || 'Todas'})`);
       return savedBip;
     } catch (error) {
       console.error('❌ Erro ao salvar bipagem:', error);

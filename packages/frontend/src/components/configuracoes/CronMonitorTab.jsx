@@ -16,10 +16,6 @@ export default function CronMonitorTab() {
   const [logsFilter, setLogsFilter] = useState('all');
   const [logsLoading, setLogsLoading] = useState(false);
 
-  // Estado para fonte de vendas (Zanthus ou Oracle)
-  const [salesSource, setSalesSource] = useState('oracle'); // Default: oracle
-  const [salesSourceLoading, setSalesSourceLoading] = useState(false);
-
   const fetchStatus = async () => {
     try {
       setLoading(true);
@@ -57,34 +53,6 @@ export default function CronMonitorTab() {
     }
   };
 
-  // Buscar configuração de fonte de vendas
-  const fetchSalesSource = async () => {
-    try {
-      const response = await api.get('/configurations/sales_source');
-      if (response.data && response.data.value) {
-        setSalesSource(response.data.value);
-      }
-    } catch (error) {
-      // Se não existir, usa o default (oracle)
-      console.log('Configuração sales_source não encontrada, usando default: oracle');
-    }
-  };
-
-  // Salvar configuração de fonte de vendas
-  const handleSalesSourceChange = async (newSource) => {
-    try {
-      setSalesSourceLoading(true);
-      await api.put(`/configurations/sales_source`, { value: newSource });
-      setSalesSource(newSource);
-      console.log(`✅ Fonte de vendas alterada para: ${newSource}`);
-    } catch (error) {
-      console.error('Erro ao salvar configuração:', error);
-      alert('Erro ao salvar configuração de fonte de vendas');
-    } finally {
-      setSalesSourceLoading(false);
-    }
-  };
-
   const restartCron = async () => {
     if (!confirm('Deseja realmente reiniciar o serviço CRON? Isso pode interromper processos em andamento.')) {
       return;
@@ -110,7 +78,6 @@ export default function CronMonitorTab() {
   useEffect(() => {
     fetchStatus();
     fetchWebhookLogs();
-    fetchSalesSource();
 
     // Atualizar a cada 30 segundos
     const interval = setInterval(() => {
@@ -225,121 +192,6 @@ export default function CronMonitorTab() {
         </div>
       </div>
 
-      {/* Fonte de Vendas - Toggle Zanthus/Oracle */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-          <svg className="w-6 h-6 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-          </svg>
-          Fonte de Vendas (Bipagens)
-        </h3>
-
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-          <div className="flex-1">
-            <p className="text-sm text-gray-600 mb-2">
-              Escolha de onde buscar os dados de vendas para verificação de bipagens:
-            </p>
-            <div className="flex items-center gap-4">
-              {/* Opção Zanthus */}
-              <label
-                className={`flex items-center gap-2 px-4 py-3 rounded-lg cursor-pointer border-2 transition-all ${
-                  salesSource === 'zanthus'
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                } ${salesSourceLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <input
-                  type="radio"
-                  name="salesSource"
-                  value="zanthus"
-                  checked={salesSource === 'zanthus'}
-                  onChange={() => handleSalesSourceChange('zanthus')}
-                  disabled={salesSourceLoading}
-                  className="sr-only"
-                />
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                <div>
-                  <span className="font-medium">Zanthus</span>
-                  <span className="text-xs block text-gray-500">Frente de Caixa (API)</span>
-                </div>
-                {salesSource === 'zanthus' && (
-                  <svg className="w-5 h-5 text-blue-500 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </label>
-
-              {/* Opção Oracle/Intersolid */}
-              <label
-                className={`flex items-center gap-2 px-4 py-3 rounded-lg cursor-pointer border-2 transition-all ${
-                  salesSource === 'oracle'
-                    ? 'border-green-500 bg-green-50 text-green-700'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                } ${salesSourceLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <input
-                  type="radio"
-                  name="salesSource"
-                  value="oracle"
-                  checked={salesSource === 'oracle'}
-                  onChange={() => handleSalesSourceChange('oracle')}
-                  disabled={salesSourceLoading}
-                  className="sr-only"
-                />
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-                </svg>
-                <div>
-                  <span className="font-medium">Oracle/Intersolid</span>
-                  <span className="text-xs block text-gray-500">Banco de Dados (Direto)</span>
-                </div>
-                {salesSource === 'oracle' && (
-                  <svg className="w-5 h-5 text-green-500 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </label>
-            </div>
-          </div>
-
-          {salesSourceLoading && (
-            <div className="ml-4">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600"></div>
-            </div>
-          )}
-        </div>
-
-        <div className={`mt-3 p-3 rounded-lg text-sm ${
-          salesSource === 'oracle'
-            ? 'bg-green-50 text-green-700 border border-green-200'
-            : 'bg-blue-50 text-blue-700 border border-blue-200'
-        }`}>
-          {salesSource === 'oracle' ? (
-            <div className="flex items-start gap-2">
-              <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div>
-                <strong>Oracle/Intersolid selecionado:</strong> As vendas serão buscadas diretamente do banco de dados Oracle (TAB_PRODUTO_PDV),
-                com dados em tempo real incluindo número sequencial de item (NUM_SEQ_ITEM) para matching preciso.
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-start gap-2">
-              <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div>
-                <strong>Zanthus selecionado:</strong> As vendas serão buscadas da API do sistema de frente de caixa Zanthus,
-                método tradicional já testado e funcionando.
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Cron de Verificação */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
@@ -430,7 +282,7 @@ export default function CronMonitorTab() {
               <div className="p-4 bg-indigo-50 rounded-lg">
                 <div className="text-sm text-indigo-600 font-medium">Última Bipagem</div>
                 <div className="text-2xl font-bold text-indigo-900 mt-1">
-                  {barcodeStatus.lastBipTime ? new Date(barcodeStatus.lastBipTime).toLocaleTimeString() : 'N/A'}
+                  {barcodeStatus.lastBipTime ? new Date(barcodeStatus.lastBipTime).toISOString().substring(11, 19) : 'N/A'}
                 </div>
               </div>
 

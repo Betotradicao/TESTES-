@@ -123,39 +123,6 @@ router.post('/test-intersolid', (req, res) => configController.testIntersolidCon
 
 /**
  * @swagger
- * /api/config/test-zanthus:
- *   post:
- *     summary: Testa a conexão com API Zanthus
- *     description: Verifica se é possível conectar à API Zanthus e buscar produtos
- *     tags: [Config]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               apiUrl:
- *                 type: string
- *                 example: http://10.6.1.101
- *               port:
- *                 type: string
- *                 example: "3003"
- *               apiToken:
- *                 type: string
- *                 example: your-token-here
- *     responses:
- *       200:
- *         description: Conexão testada com sucesso
- *       400:
- *         description: Parâmetros inválidos
- *       500:
- *         description: Erro ao conectar à API
- */
-router.post('/test-zanthus', (req, res) => configController.testZanthusConnection(req, res));
-
-/**
- * @swagger
  * /api/config/configurations:
  *   get:
  *     summary: Busca todas as configurações salvas
@@ -184,8 +151,7 @@ router.get('/configurations', (req, res) => configController.getConfigurations(r
  *             type: object
  *             additionalProperties: true
  *             example:
- *               zanthus_api_url: http://10.6.1.101
- *               zanthus_api_token: abc123
+ *               intersolid_api_url: http://10.6.1.100
  *               database_host: localhost
  *               database_password: admin123
  *     responses:

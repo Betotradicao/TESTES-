@@ -46,6 +46,9 @@ export class Sell {
   @Column({ length: 20 })
   status: 'verified' | 'not_verified' | 'cancelled';
 
+  @Column({ name: 'cod_loja', type: 'int', nullable: true })
+  codLoja: number | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

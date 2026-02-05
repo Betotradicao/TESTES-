@@ -7,6 +7,8 @@
 
 import { OracleService } from './oracle.service';
 import { CacheService } from './cache.service';
+import { AppDataSource } from '../config/database';
+import { Company } from '../entities/Company';
 
 const CACHE_KEY = 'gestao-inteligente-indicadores';
 const CACHE_TTL_MINUTES = 5; // 5 minutos de cache
@@ -340,17 +342,28 @@ export class GestaoInteligenteService {
     console.log('📊 [GESTAO INTELIGENTE] Buscando vendas por setor...');
     const result = await OracleService.query<any>(sql, params);
 
-    // Calcular margem para cada setor
+    // Calcular total de vendas para % representatividade
+    const totalVendas = result.reduce((acc: number, row: any) => acc + (row.VENDA || 0), 0);
+
+    // Calcular métricas para cada setor
     const resultadoComMargem = result.map((row: any) => {
       const venda = row.VENDA || 0;
       const custo = row.CUSTO || 0;
-      const margem = venda > 0 ? ((venda - custo) / venda) * 100 : 0;
+      const lucro = venda - custo;
+      const markup = custo > 0 ? ((venda - custo) / custo) * 100 : 0;
+      const margemLiquida = venda > 0 ? ((venda - custo) / venda) * 100 : 0;
+      const percentualSetor = totalVendas > 0 ? (venda / totalVendas) * 100 : 0;
 
       return {
         codSecao: row.COD_SECAO,
         setor: row.SETOR,
         venda: parseFloat(venda.toFixed(2)),
-        margem: parseFloat(margem.toFixed(2)),
+        custo: parseFloat(custo.toFixed(2)),
+        lucro: parseFloat(lucro.toFixed(2)),
+        markup: parseFloat(markup.toFixed(2)),
+        margemLiquida: parseFloat(margemLiquida.toFixed(2)),
+        margem: parseFloat(margemLiquida.toFixed(2)), // mantém para compatibilidade
+        percentualSetor: parseFloat(percentualSetor.toFixed(2)),
         qtd: parseFloat((row.QTD || 0).toFixed(2))
       };
     });
@@ -397,16 +410,27 @@ export class GestaoInteligenteService {
     console.log('📊 [GESTAO INTELIGENTE] Buscando grupos da seção:', filters.codSecao);
     const result = await OracleService.query<any>(sql, params);
 
+    // Calcular total para % representatividade
+    const totalVendas = result.reduce((acc: number, row: any) => acc + (row.VENDA || 0), 0);
+
     return result.map((row: any) => {
       const venda = row.VENDA || 0;
       const custo = row.CUSTO || 0;
-      const margem = venda > 0 ? ((venda - custo) / venda) * 100 : 0;
+      const lucro = venda - custo;
+      const markup = custo > 0 ? ((venda - custo) / custo) * 100 : 0;
+      const margemLiquida = venda > 0 ? ((venda - custo) / venda) * 100 : 0;
+      const percentualSetor = totalVendas > 0 ? (venda / totalVendas) * 100 : 0;
 
       return {
         codGrupo: row.COD_GRUPO,
         grupo: row.GRUPO,
         venda: parseFloat(venda.toFixed(2)),
-        margem: parseFloat(margem.toFixed(2)),
+        custo: parseFloat(custo.toFixed(2)),
+        lucro: parseFloat(lucro.toFixed(2)),
+        markup: parseFloat(markup.toFixed(2)),
+        margemLiquida: parseFloat(margemLiquida.toFixed(2)),
+        margem: parseFloat(margemLiquida.toFixed(2)),
+        percentualSetor: parseFloat(percentualSetor.toFixed(2)),
         qtd: parseFloat((row.QTD || 0).toFixed(2))
       };
     });
@@ -541,7 +565,7 @@ export class GestaoInteligenteService {
   }
 
   /**
-   * Busca lojas disponíveis
+   * Busca lojas disponíveis (Oracle) com apelidos (PostgreSQL)
    */
   static async getLojas(): Promise<any[]> {
     try {
@@ -554,7 +578,32 @@ export class GestaoInteligenteService {
       console.log('📍 [GESTAO INTELIGENTE] Buscando lojas...');
       const result = await OracleService.query(sql);
       console.log('📍 [GESTAO INTELIGENTE] Lojas encontradas:', result?.length || 0);
-      return result;
+
+      // Buscar apelidos das companies no PostgreSQL
+      let apelidos: Map<number, string> = new Map();
+      try {
+        if (AppDataSource.isInitialized) {
+          const companyRepository = AppDataSource.getRepository(Company);
+          const companies = await companyRepository.find({
+            where: { active: true },
+            select: ['codLoja', 'apelido']
+          });
+          companies.forEach(c => {
+            if (c.codLoja && c.apelido) {
+              apelidos.set(c.codLoja, c.apelido);
+            }
+          });
+          console.log('📍 [GESTAO INTELIGENTE] Apelidos carregados:', apelidos.size);
+        }
+      } catch (err) {
+        console.warn('⚠️ [GESTAO INTELIGENTE] Não foi possível carregar apelidos:', err);
+      }
+
+      // Mesclar dados do Oracle com apelidos do PostgreSQL
+      return result.map((loja: any) => ({
+        ...loja,
+        APELIDO: apelidos.get(loja.COD_LOJA) || null
+      }));
     } catch (error) {
       console.error('❌ [GESTAO INTELIGENTE] Erro ao buscar lojas:', error);
       throw error;

@@ -41,7 +41,8 @@ export default function EmpresaConfigTab() {
     nomeFantasia: '',
     razaoSocial: '',
     cnpj: '',
-    identificador: '',
+    codLoja: '',
+    apelido: '',
     cep: '',
     rua: '',
     numero: '',
@@ -101,7 +102,8 @@ export default function EmpresaConfigTab() {
       nomeFantasia: company.nomeFantasia || '',
       razaoSocial: company.razaoSocial || '',
       cnpj: company.cnpj || '',
-      identificador: company.identificador || '',
+      codLoja: company.codLoja ?? '',
+      apelido: company.apelido || '',
       cep: company.cep || '',
       rua: company.rua || '',
       numero: company.numero || '',
@@ -122,6 +124,8 @@ export default function EmpresaConfigTab() {
     e.preventDefault();
     try {
       setError(null);
+      console.log('📤 Salvando empresa - editFormData:', editFormData);
+      console.log('📤 codLoja:', editFormData.codLoja, 'apelido:', editFormData.apelido);
 
       if (editingCompany.id === empresaPrincipal?.id) {
         // Atualizar empresa principal
@@ -164,7 +168,8 @@ export default function EmpresaConfigTab() {
         nomeFantasia: '',
         razaoSocial: '',
         cnpj: '',
-        identificador: '',
+        codLoja: '',
+        apelido: '',
         cep: '',
         rua: '',
         numero: '',
@@ -354,19 +359,37 @@ export default function EmpresaConfigTab() {
 
           {showNewStoreForm && (
             <form onSubmit={handleCreateStore} className="space-y-4 border-t pt-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Identificador da Loja
+                    Nº da Loja (ERP)
+                  </label>
+                  <select
+                    name="codLoja"
+                    value={newStoreData.codLoja}
+                    onChange={handleNewStoreChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Não definido</option>
+                    {[...Array(20)].map((_, i) => (
+                      <option key={i + 1} value={i + 1}>Loja {i + 1}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Código usado no sistema Intersolid</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Apelido / Localização
                   </label>
                   <input
                     type="text"
-                    name="identificador"
-                    value={newStoreData.identificador}
+                    name="apelido"
+                    value={newStoreData.apelido}
                     onChange={handleNewStoreChange}
-                    placeholder="Ex: Loja 1, Filial Centro"
+                    placeholder="Ex: Porteirão, Centro, Silveiras"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
+                  <p className="text-xs text-gray-500 mt-1">Aparece após o nome da loja</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -381,6 +404,9 @@ export default function EmpresaConfigTab() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Razão Social *
@@ -394,9 +420,6 @@ export default function EmpresaConfigTab() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     CNPJ *
@@ -422,6 +445,9 @@ export default function EmpresaConfigTab() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Email
@@ -551,6 +577,17 @@ export default function EmpresaConfigTab() {
 
         {empresaPrincipal ? (
           <div className="p-6">
+            {/* Badge de Loja se definida */}
+            {empresaPrincipal.codLoja && (
+              <div className="mb-4 flex items-center gap-2">
+                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                  Loja {empresaPrincipal.codLoja}
+                </span>
+                {empresaPrincipal.apelido && (
+                  <span className="text-gray-600">- {empresaPrincipal.apelido}</span>
+                )}
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div>
                 <p className="text-sm text-gray-500">Nome Fantasia</p>
@@ -617,7 +654,15 @@ export default function EmpresaConfigTab() {
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-3">
-                      <h3 className="text-lg font-semibold text-gray-900">{loja.nomeFantasia}</h3>
+                      {loja.codLoja && (
+                        <span className="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full text-sm font-medium">
+                          Loja {loja.codLoja}
+                        </span>
+                      )}
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {loja.nomeFantasia}
+                        {loja.apelido && <span className="text-gray-500 font-normal"> - {loja.apelido}</span>}
+                      </h3>
                       {loja.identificador && (
                         <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">
                           {loja.identificador}
@@ -692,6 +737,34 @@ export default function EmpresaConfigTab() {
               </button>
             </div>
             <div className="p-6 space-y-6">
+              {/* Configuração de Loja */}
+              {(viewingCompany.codLoja || viewingCompany.apelido) && (
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    Configuração de Loja
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Nº da Loja (ERP)</p>
+                      <p className="font-medium">
+                        {viewingCompany.codLoja ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                            Loja {viewingCompany.codLoja}
+                          </span>
+                        ) : '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Apelido / Localização</p>
+                      <p className="font-medium">{viewingCompany.apelido || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Dados Básicos */}
               <div>
                 <h4 className="text-lg font-semibold text-gray-800 mb-3">Dados Básicos</h4>
@@ -814,20 +887,47 @@ export default function EmpresaConfigTab() {
               </button>
             </div>
             <form onSubmit={handleSaveEdit} className="p-6 space-y-6">
+              {/* Configuração de Loja */}
+              <div>
+                <h4 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                  Configuração de Loja
+                </h4>
+                <div className="grid grid-cols-2 gap-4 bg-blue-50 p-4 rounded-lg">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nº da Loja (ERP)</label>
+                    <select
+                      value={editFormData.codLoja ?? ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, codLoja: e.target.value ? parseInt(e.target.value) : null })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Não definido</option>
+                      {[...Array(20)].map((_, i) => (
+                        <option key={i + 1} value={i + 1}>Loja {i + 1}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">Código usado no sistema Intersolid (COD_LOJA)</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Apelido / Localização</label>
+                    <input
+                      type="text"
+                      value={editFormData.apelido || ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, apelido: e.target.value })}
+                      placeholder="Ex: Porteirão, Centro, Silveiras"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Aparece após o nome: "Loja 1 - Nome - Apelido"</p>
+                  </div>
+                </div>
+              </div>
+
               {/* Dados Básicos */}
               <div>
                 <h4 className="text-lg font-semibold text-gray-800 mb-3">Dados Básicos</h4>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Identificador</label>
-                    <input
-                      type="text"
-                      value={editFormData.identificador || ''}
-                      onChange={(e) => setEditFormData({ ...editFormData, identificador: e.target.value })}
-                      placeholder="Ex: Loja 1"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Nome Fantasia *</label>
                     <input

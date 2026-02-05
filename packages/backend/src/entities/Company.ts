@@ -11,11 +11,17 @@ export class Company {
   @Column({ name: 'razao_social' })
   razaoSocial: string;
 
-  @Column({ unique: true })
+  @Column()
   cnpj: string;
 
   @Column({ nullable: true })
   identificador?: string;
+
+  @Column({ name: 'cod_loja', type: 'int', nullable: true })
+  codLoja: number | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  apelido: string | null;
 
   @Column({ name: 'responsavel_nome', nullable: true })
   responsavelNome?: string;

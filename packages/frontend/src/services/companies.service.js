@@ -29,3 +29,9 @@ export const deleteCompany = async (id) => {
   const response = await api.delete(`/companies/${id}`);
   return response.data;
 };
+
+// Listar lojas para dropdown (empresas com cod_loja definido)
+export const fetchStores = async () => {
+  const response = await api.get('/companies/stores/list');
+  return response.data;
+};

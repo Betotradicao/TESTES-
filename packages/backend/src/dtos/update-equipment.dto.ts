@@ -2,6 +2,7 @@ export interface UpdateEquipmentDto {
   sector_id?: number;
   color_hash?: string;
   description?: string;
+  cod_loja?: number | null;
 }
 
 export function validateUpdateEquipment(data: any): { valid: boolean; errors?: string[] } {
@@ -27,6 +28,13 @@ export function validateUpdateEquipment(data: any): { valid: boolean; errors?: s
   if (data.description !== undefined && data.description !== null) {
     if (typeof data.description !== 'string') {
       errors.push('description must be a string');
+    }
+  }
+
+  // Validar cod_loja se fornecido (null é permitido para "Todas as Lojas")
+  if (data.cod_loja !== undefined && data.cod_loja !== null) {
+    if (typeof data.cod_loja !== 'number' || data.cod_loja <= 0) {
+      errors.push('cod_loja must be a positive number or null');
     }
   }
 

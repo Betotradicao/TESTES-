@@ -1,15 +1,35 @@
 import { AppDataSource } from '../config/database';
 import { Equipment } from '../entities/Equipment';
+import { Company } from '../entities/Company';
 import { UpdateEquipmentDto } from '../dtos/update-equipment.dto';
 
 export class EquipmentsService {
   static async findAll() {
     const equipmentRepository = AppDataSource.getRepository(Equipment);
+    const companyRepository = AppDataSource.getRepository(Company);
 
-    return equipmentRepository.find({
+    const equipments = await equipmentRepository.find({
       relations: ['sector'],
       order: { scanner_machine_id: 'ASC' }
     });
+
+    // Buscar apelidos das lojas
+    const companies = await companyRepository.find({
+      where: { active: true },
+      select: ['codLoja', 'apelido']
+    });
+    const apelidosMap = new Map<number, string>();
+    companies.forEach(c => {
+      if (c.codLoja && c.apelido) {
+        apelidosMap.set(c.codLoja, c.apelido);
+      }
+    });
+
+    // Adicionar apelido aos equipamentos
+    return equipments.map(eq => ({
+      ...eq,
+      loja_apelido: eq.cod_loja ? (apelidosMap.get(eq.cod_loja) || null) : null
+    }));
   }
 
   static async findById(id: number) {
@@ -27,6 +47,10 @@ export class EquipmentsService {
   }
 
   static async update(id: number, data: UpdateEquipmentDto) {
+    console.log(`\n🔧 EQUIPMENTS SERVICE - update`);
+    console.log(`   ID: ${id}`);
+    console.log(`   Data recebida:`, JSON.stringify(data, null, 2));
+
     const equipmentRepository = AppDataSource.getRepository(Equipment);
 
     // Busca sem relações para evitar problemas com o TypeORM
@@ -35,6 +59,13 @@ export class EquipmentsService {
     if (!equipment) {
       throw new Error('Equipment not found');
     }
+
+    console.log(`   Equipamento antes:`, JSON.stringify({
+      sector_id: equipment.sector_id,
+      color_hash: equipment.color_hash,
+      description: equipment.description,
+      cod_loja: equipment.cod_loja
+    }, null, 2));
 
     if (data.sector_id !== undefined) {
       equipment.sector_id = data.sector_id;
@@ -48,7 +79,20 @@ export class EquipmentsService {
       equipment.description = data.description;
     }
 
+    if (data.cod_loja !== undefined) {
+      console.log(`   🏪 Atualizando cod_loja: ${equipment.cod_loja} -> ${data.cod_loja}`);
+      equipment.cod_loja = data.cod_loja;
+    }
+
+    console.log(`   Equipamento depois:`, JSON.stringify({
+      sector_id: equipment.sector_id,
+      color_hash: equipment.color_hash,
+      description: equipment.description,
+      cod_loja: equipment.cod_loja
+    }, null, 2));
+
     await equipmentRepository.save(equipment);
+    console.log(`   ✅ Equipamento salvo com sucesso`);
 
     // Recarrega com a relação atualizada
     return this.findById(id);
@@ -142,7 +186,8 @@ export class EquipmentsService {
         color_hash: randomColor,
         description: 'Scanner cadastrado automaticamente',
         sector_id: undefined,
-        active: true
+        active: true,
+        cod_loja: null // null = Todas as Lojas (configurar manualmente depois)
       });
 
       await equipmentRepository.save(equipment);

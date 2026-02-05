@@ -1,20 +1,25 @@
 import { useState, useEffect } from 'react';
 import ColorPicker from './ColorPicker';
 import { fetchSectors } from '../../services/sectors.service';
+import { fetchStores } from '../../services/companies.service';
 
 export default function EquipmentForm({ equipment, onSave, onCancel }) {
   const [formData, setFormData] = useState({
     sector_id: '',
     color_hash: '#3B82F6',
-    description: ''
+    description: '',
+    cod_loja: null
   });
   const [sectors, setSectors] = useState([]);
+  const [stores, setStores] = useState([]);
   const [errors, setErrors] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingSectors, setIsLoadingSectors] = useState(true);
+  const [isLoadingStores, setIsLoadingStores] = useState(true);
 
   useEffect(() => {
     loadSectors();
+    loadStores();
   }, []);
 
   useEffect(() => {
@@ -22,7 +27,8 @@ export default function EquipmentForm({ equipment, onSave, onCancel }) {
       setFormData({
         sector_id: equipment.sector_id ?? '',
         color_hash: equipment.color_hash || '#3B82F6',
-        description: equipment.description || ''
+        description: equipment.description || '',
+        cod_loja: equipment.cod_loja ?? null
       });
     }
   }, [equipment]);
@@ -37,6 +43,19 @@ export default function EquipmentForm({ equipment, onSave, onCancel }) {
       setErrors(['Erro ao carregar setores']);
     } finally {
       setIsLoadingSectors(false);
+    }
+  };
+
+  const loadStores = async () => {
+    try {
+      setIsLoadingStores(true);
+      const data = await fetchStores();
+      setStores(data || []);
+    } catch (error) {
+      console.error('Error loading stores:', error);
+      // Não mostra erro, apenas deixa o dropdown vazio
+    } finally {
+      setIsLoadingStores(false);
     }
   };
 
@@ -127,6 +146,32 @@ export default function EquipmentForm({ equipment, onSave, onCancel }) {
                   ))}
                 </select>
               )}
+            </div>
+
+            {/* Loja */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Loja
+              </label>
+              {isLoadingStores ? (
+                <p className="text-sm text-gray-500">Carregando lojas...</p>
+              ) : (
+                <select
+                  value={formData.cod_loja === null ? '' : formData.cod_loja}
+                  onChange={(e) => setFormData({ ...formData, cod_loja: e.target.value ? parseInt(e.target.value) : null })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="">Todas as Lojas</option>
+                  {stores.map(store => (
+                    <option key={store.cod_loja} value={store.cod_loja}>
+                      {store.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                Selecione a loja específica ou "Todas" para bipagens de qualquer loja
+              </p>
             </div>
 
             {/* Cor de Identificação */}

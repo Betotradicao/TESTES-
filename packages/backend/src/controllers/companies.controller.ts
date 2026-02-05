@@ -42,11 +42,40 @@ export class CompaniesController {
     }
   }
 
+  // Listar lojas para dropdown (apenas lojas com cod_loja definido)
+  async listStores(req: Request, res: Response) {
+    try {
+      const companies = await companyRepository.find({
+        where: { active: true },
+        order: { codLoja: 'ASC' },
+        select: ['id', 'codLoja', 'nomeFantasia', 'razaoSocial', 'apelido', 'identificador']
+      });
+
+      // Filtrar apenas empresas com cod_loja definido e formatar para dropdown
+      const stores = companies
+        .filter(c => c.codLoja !== null && c.codLoja !== undefined)
+        .map(c => ({
+          id: c.id,
+          cod_loja: c.codLoja,
+          nome_fantasia: c.nomeFantasia,
+          razao_social: c.razaoSocial,
+          apelido: c.apelido || c.identificador || null,
+          // Label formatado: "Loja 1 - Nome Fantasia - Apelido"
+          label: `Loja ${c.codLoja} - ${c.nomeFantasia}${c.apelido ? ' - ' + c.apelido : ''}`
+        }));
+
+      return res.json(stores);
+    } catch (error) {
+      console.error('Error listing stores:', error);
+      return res.status(500).json({ error: 'Failed to list stores' });
+    }
+  }
+
   // Criar nova empresa (apenas master)
   async create(req: Request, res: Response) {
     try {
       const {
-        nomeFantasia, razaoSocial, cnpj, identificador,
+        nomeFantasia, razaoSocial, cnpj, identificador, codLoja, apelido,
         cep, rua, numero, complemento, bairro, cidade, estado,
         telefone, email,
         responsavelNome, responsavelEmail, responsavelTelefone,
@@ -58,10 +87,13 @@ export class CompaniesController {
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
-      // Verificar se CNPJ já existe
-      const existingCompany = await companyRepository.findOne({ where: { cnpj } });
-      if (existingCompany) {
-        return res.status(400).json({ error: 'CNPJ already registered' });
+      // CNPJ duplicado permitido - filiais podem ter mesmo CNPJ da matriz
+
+      // Tratar codLoja - converter para número ou null
+      let parsedCodLoja: number | null = null;
+      if (codLoja !== null && codLoja !== '' && codLoja !== undefined) {
+        const parsed = parseInt(String(codLoja), 10);
+        parsedCodLoja = isNaN(parsed) ? null : parsed;
       }
 
       // Criar empresa com todos os campos
@@ -70,6 +102,8 @@ export class CompaniesController {
         razaoSocial,
         cnpj,
         identificador: identificador || null,
+        codLoja: parsedCodLoja,
+        apelido: apelido && apelido.trim() !== '' ? apelido.trim() : null,
         cep: cep || null,
         rua: rua || null,
         numero: numero || null,
@@ -118,7 +152,7 @@ export class CompaniesController {
     try {
       const { id } = req.params;
       const {
-        nomeFantasia, razaoSocial, cnpj, identificador, active,
+        nomeFantasia, razaoSocial, cnpj, identificador, codLoja, apelido, active,
         cep, rua, numero, complemento, bairro, cidade, estado,
         telefone, email,
         responsavelNome, responsavelEmail, responsavelTelefone
@@ -129,19 +163,29 @@ export class CompaniesController {
         return res.status(404).json({ error: 'Company not found' });
       }
 
-      // Verificar se CNPJ já existe (se estiver sendo alterado)
-      if (cnpj && cnpj !== company.cnpj) {
-        const existingCompany = await companyRepository.findOne({ where: { cnpj } });
-        if (existingCompany && existingCompany.id !== company.id) {
-          return res.status(400).json({ error: 'CNPJ already registered' });
-        }
-      }
+      // CNPJ duplicado permitido - filiais podem ter mesmo CNPJ da matriz
 
       // Atualizar dados básicos
       if (nomeFantasia !== undefined) company.nomeFantasia = nomeFantasia;
       if (razaoSocial !== undefined) company.razaoSocial = razaoSocial;
       if (cnpj !== undefined) company.cnpj = cnpj;
-      if (identificador !== undefined) company.identificador = identificador;
+      if (identificador !== undefined) company.identificador = identificador || null;
+
+      // Tratar codLoja - converter para número ou null
+      if (codLoja !== undefined) {
+        if (codLoja === null || codLoja === '' || codLoja === 'null') {
+          company.codLoja = null;
+        } else {
+          const parsed = parseInt(String(codLoja), 10);
+          company.codLoja = isNaN(parsed) ? null : parsed;
+        }
+      }
+
+      // Tratar apelido - string vazia vira null
+      if (apelido !== undefined) {
+        company.apelido = apelido && apelido.trim() !== '' ? apelido.trim() : null;
+      }
+
       if (typeof active === 'boolean') company.active = active;
       if (telefone !== undefined) company.telefone = telefone;
       if (email !== undefined) company.email = email;
@@ -263,12 +307,16 @@ export class CompaniesController {
   async updateMyCompany(req: Request, res: Response) {
     try {
       const userId = (req as any).userId;
+      console.log('\n📥 updateMyCompany - Body recebido:', JSON.stringify(req.body, null, 2));
+
       const {
-        nomeFantasia, razaoSocial, cnpj, identificador,
+        nomeFantasia, razaoSocial, cnpj, identificador, codLoja, apelido,
         cep, rua, numero, complemento, bairro, cidade, estado,
         telefone, email,
         responsavelNome, responsavelEmail, responsavelTelefone
       } = req.body;
+
+      console.log('📥 updateMyCompany - codLoja:', codLoja, 'apelido:', apelido);
 
       const user = await userRepository.findOne({
         where: { id: userId },
@@ -299,21 +347,35 @@ export class CompaniesController {
         return res.status(403).json({ error: 'Only company admin can update company info' });
       }
 
-      // Verificar se CNPJ já existe (se estiver sendo alterado)
-      if (cnpj && cnpj !== company.cnpj) {
-        const existingCompany = await companyRepository.findOne({ where: { cnpj } });
-        if (existingCompany && existingCompany.id !== company.id) {
-          return res.status(400).json({ error: 'CNPJ already registered' });
-        }
-      }
+      // CNPJ duplicado permitido - filiais podem ter mesmo CNPJ da matriz
+
+      console.log('📥 updateMyCompany - Empresa ANTES:', { codLoja: company.codLoja, apelido: company.apelido });
 
       // Atualizar dados básicos
       if (nomeFantasia !== undefined) company.nomeFantasia = nomeFantasia;
       if (razaoSocial !== undefined) company.razaoSocial = razaoSocial;
       if (cnpj !== undefined) company.cnpj = cnpj;
-      if (identificador !== undefined) company.identificador = identificador;
+      if (identificador !== undefined) company.identificador = identificador || null;
+
+      // Tratar codLoja - converter para número ou null
+      if (codLoja !== undefined) {
+        if (codLoja === null || codLoja === '' || codLoja === 'null') {
+          company.codLoja = null;
+        } else {
+          const parsed = parseInt(String(codLoja), 10);
+          company.codLoja = isNaN(parsed) ? null : parsed;
+        }
+      }
+
+      // Tratar apelido - string vazia vira null
+      if (apelido !== undefined) {
+        company.apelido = apelido && apelido.trim() !== '' ? apelido.trim() : null;
+      }
+
       if (telefone !== undefined) company.telefone = telefone;
       if (email !== undefined) company.email = email;
+
+      console.log('📥 updateMyCompany - Empresa DEPOIS:', { codLoja: company.codLoja, apelido: company.apelido });
 
       // Atualizar endereço
       if (cep !== undefined) company.cep = cep;

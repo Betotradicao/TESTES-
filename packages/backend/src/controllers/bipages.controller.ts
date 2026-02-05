@@ -207,32 +207,9 @@ export class BipagesController {
         return;
       }
 
-      // FASE 3: Busca do produto no ERP
-      console.log('\n=== FASE 3: BUSCANDO PRODUTO NO ERP ===');
-      const erpProduct = await BipWebhookService.getProductFromERP(formatResult.produto_id!);
-
-      if (!erpProduct) {
-        console.log(`❌ Produto não encontrado no ERP: PLU ${formatResult.produto_id}`);
-        await saveWebhookLog({
-          status: WebhookLogStatus.REJECTED,
-          reason: WebhookLogReason.PRODUCT_NOT_FOUND,
-          raw_payload: JSON.stringify(payload),
-          ean: formatResult.ean,
-          plu: formatResult.produto_id,
-          scanner_id: payload.scanner_id,
-          machine_id: payload.machine_id,
-          error_message: `Produto PLU ${formatResult.produto_id} não encontrado no Oracle`
-        });
-        res.status(200).json({
-          success: false,
-          error: 'Produto não encontrado no ERP',
-          plu: formatResult.produto_id
-        });
-        return;
-      }
-
-      // FASE 3.5: Registrar/buscar equipamento e verificar se está ativo
+      // FASE 3.5: Registrar/buscar equipamento e verificar se está ativo (ANTES de buscar produto)
       let equipmentId: number | null = null;
+      let equipmentCodLoja: number | null = null;
       if (payload.scanner_id && payload.machine_id) {
         console.log('\n=== FASE 3.5: REGISTRANDO EQUIPAMENTO ===');
         const equipment = await EquipmentsService.findOrCreateByScannerId(
@@ -241,7 +218,8 @@ export class BipagesController {
           payload.device_path
         );
         equipmentId = equipment.id;
-        console.log(`✅ Equipamento registrado: ID ${equipmentId}`);
+        equipmentCodLoja = equipment.cod_loja;
+        console.log(`✅ Equipamento registrado: ID ${equipmentId}, Loja: ${equipmentCodLoja || 'Todas'}`);
 
         // Verificar se equipamento está ativo
         if (!equipment.active) {
@@ -252,10 +230,10 @@ export class BipagesController {
             raw_payload: JSON.stringify(payload),
             ean: formatResult.ean,
             plu: formatResult.produto_id,
-            product_description: erpProduct.descricao,
             scanner_id: payload.scanner_id,
             machine_id: payload.machine_id,
             equipment_id: equipment.id,
+            cod_loja: equipmentCodLoja || undefined,
             error_message: 'Equipamento desabilitado'
           });
           res.status(200).json({
@@ -269,13 +247,40 @@ export class BipagesController {
         }
       }
 
+      // FASE 3: Busca do produto no ERP (usando cod_loja do equipamento)
+      console.log('\n=== FASE 3: BUSCANDO PRODUTO NO ERP ===');
+      const erpProduct = await BipWebhookService.getProductFromERP(formatResult.produto_id!, equipmentCodLoja);
+
+      if (!erpProduct) {
+        console.log(`❌ Produto não encontrado no ERP: PLU ${formatResult.produto_id}`);
+        await saveWebhookLog({
+          status: WebhookLogStatus.REJECTED,
+          reason: WebhookLogReason.PRODUCT_NOT_FOUND,
+          raw_payload: JSON.stringify(payload),
+          ean: formatResult.ean,
+          plu: formatResult.produto_id,
+          scanner_id: payload.scanner_id,
+          machine_id: payload.machine_id,
+          equipment_id: equipmentId || undefined,
+          cod_loja: equipmentCodLoja || undefined,
+          error_message: `Produto PLU ${formatResult.produto_id} não encontrado no Oracle`
+        });
+        res.status(200).json({
+          success: false,
+          error: 'Produto não encontrado no ERP',
+          plu: formatResult.produto_id
+        });
+        return;
+      }
+
       // FASE 4: Processamento e salvamento da bipagem
       console.log('\n=== FASE 4: PROCESSANDO E SALVANDO BIPAGEM ===');
       const bipData = BipWebhookService.processBipData(
         formatResult,
         erpProduct,
         payload.event_date,
-        equipmentId
+        equipmentId,
+        equipmentCodLoja
       );
 
       // Buscar colaborador logado no equipamento (se existir)
@@ -305,6 +310,7 @@ export class BipagesController {
         scanner_id: payload.scanner_id,
         machine_id: payload.machine_id,
         equipment_id: equipmentId || undefined,
+        cod_loja: equipmentCodLoja || undefined,
         bip_id: savedBip.id
       });
 

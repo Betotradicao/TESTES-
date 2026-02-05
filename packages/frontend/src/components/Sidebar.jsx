@@ -455,7 +455,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
                     }}
                     className={`w-full px-3 py-2 text-left text-sm hover:bg-orange-50 ${lojaSelecionada === loja.COD_LOJA ? 'bg-orange-100 text-orange-700 font-medium' : 'text-gray-700'}`}
                   >
-                    LOJA {loja.COD_LOJA} - {loja.DES_LOJA}
+                    LOJA {loja.COD_LOJA} - {loja.DES_LOJA}{loja.APELIDO ? ` - ${loja.APELIDO}` : ''}
                   </button>
                 ))}
               </div>
