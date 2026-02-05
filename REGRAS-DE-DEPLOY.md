@@ -915,5 +915,210 @@ docker logs prevencao-tradicao-backend --tail 30
 
 ---
 
-**Última atualização:** 05/02/2026 - Adicionado regra de verificação multi-loja antes do deploy
+## 🗂️ REGRA #6: VERIFICAR MAPEAMENTO DINÂMICO (NÃO HARDCODE!)
+
+### ⚠️ PROBLEMA: Código hardcoded impede uso com outros ERPs
+
+Se o código usa tabelas/schema hardcoded como `INTERSOLID.TAB_PRODUTO`, o sistema só funciona com esse ERP específico. Para suportar múltiplos ERPs, **TODO código deve usar o MappingService**.
+
+### 📋 CHECKLIST ANTES DO DEPLOY (Código Dinâmico)
+
+#### 1. Verificar se há referências hardcoded no código novo
+
+```bash
+# Buscar por INTERSOLID hardcoded no código
+grep -r "INTERSOLID\." packages/backend/src --include="*.ts"
+
+# Se encontrar algo, o código precisa ser migrado para MappingService!
+```
+
+**Resultado esperado:** `0 matches` (nenhum hardcode)
+
+#### 2. Padrão CORRETO (usar MappingService)
+
+```typescript
+// ❌ ERRADO - Hardcoded (não faz deploy assim!)
+const sql = `SELECT * FROM INTERSOLID.TAB_PRODUTO WHERE ...`;
+
+// ✅ CORRETO - Dinâmico via MappingService
+import { MappingService } from '../services/mapping.service';
+
+const schema = await MappingService.getSchema();
+const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+const sql = `SELECT * FROM ${tabProduto} WHERE ...`;
+```
+
+#### 3. Se adicionar nova funcionalidade que usa tabelas Oracle:
+
+**ANTES de fazer commit/deploy:**
+
+1. Verificar se usa `MappingService.getSchema()` para o schema
+2. Verificar se usa `MappingService.getRealTableName()` para as tabelas
+3. O segundo parâmetro é o fallback (valor padrão se não houver mapeamento)
+
+### 📊 Tabelas disponíveis no MappingService
+
+| ID da Tabela | Descrição | Usado em |
+|--------------|-----------|----------|
+| `TAB_PRODUTO` | Produtos | Todos os módulos |
+| `TAB_PRODUTO_LOJA` | Preços por loja | Bipagens, Produtos |
+| `TAB_PRODUTO_PDV` | Vendas PDV | Frente de Caixa |
+| `TAB_OPERADORES` | Operadores | Frente de Caixa, PDV |
+| `TAB_FORNECEDOR` | Fornecedores | Compra/Venda, Pedidos |
+| `TAB_PEDIDO` | Pedidos | Pedidos de Compra |
+| `TAB_PEDIDO_PRODUTO` | Itens do Pedido | Ruptura Indústria |
+| `TAB_NF` | Notas Fiscais | Compra/Venda |
+| `TAB_NF_ITEM` | Itens da NF | Compra/Venda |
+
+---
+
+## 🔄 REGRA #7: ATUALIZAR TEMPLATE ERP AO ADICIONAR NOVAS TABELAS
+
+### ⚠️ PROBLEMA: Nova funcionalidade não funciona porque template ERP não tem as tabelas
+
+Quando você adiciona código que usa uma nova tabela Oracle (ex: `TAB_NF_ITEM`), o template do ERP no banco de dados também precisa ser atualizado, senão o MappingService não encontra o mapeamento.
+
+### 📋 CHECKLIST AO ADICIONAR NOVA TABELA/COLUNA
+
+#### 1. Verificar se a tabela já existe no template
+
+```bash
+# Conectar no banco e ver o template atual
+ssh root@46.202.150.64 "docker exec prevencao-tradicao-postgres psql -U postgres -d postgres_tradicao -c \"
+SELECT name,
+       jsonb_pretty(mappings::jsonb->'tabelas') as tabelas
+FROM erp_templates
+WHERE name ILIKE '%intersolid%' AND is_active = true;
+\""
+```
+
+#### 2. Se a tabela NÃO existe no template, adicionar:
+
+**Opção A: Via script (recomendado)**
+
+```bash
+# Usar o script update-template.js
+cd /root/prevencao-radar-repo/packages/backend
+node update-template.js producao
+```
+
+**Opção B: Manualmente no banco**
+
+```bash
+# Exemplo: Adicionar TAB_NF_ITEM ao template
+ssh root@46.202.150.64 "docker exec prevencao-tradicao-postgres psql -U postgres -d postgres_tradicao -c \"
+UPDATE erp_templates
+SET mappings = jsonb_set(
+  mappings::jsonb,
+  '{tabelas,TAB_NF_ITEM}',
+  '{\"nome_real\": \"TAB_NF_ITEM\", \"colunas\": {\"numero_nf\": \"NUM_NF\", \"serie_nf\": \"NUM_SERIE_NF\", \"codigo_item\": \"COD_ITEM\"}}'::jsonb
+)::text
+WHERE name ILIKE '%intersolid%';
+\""
+```
+
+#### 3. Atualizar também o frontend (ConfiguracoesTabelas.jsx)
+
+Se adicionou uma nova tabela, ela deve aparecer na tela de configuração:
+
+**Arquivo:** `packages/frontend/src/pages/ConfiguracoesTabelas.jsx`
+
+1. Adicionar a tabela no `TABLE_CATALOG`
+2. Adicionar os campos da tabela
+3. Atualizar o submódulo correspondente em `BUSINESS_MODULES`
+
+### 📝 Exemplo Completo: Adicionando TAB_NOVA_TABELA
+
+**Passo 1: Código backend (usar MappingService)**
+```typescript
+const schema = await MappingService.getSchema();
+const tabNova = `${schema}.${await MappingService.getRealTableName('TAB_NOVA_TABELA', 'TAB_NOVA_TABELA')}`;
+```
+
+**Passo 2: Frontend (ConfiguracoesTabelas.jsx)**
+```javascript
+// Em TABLE_CATALOG, adicionar:
+TAB_NOVA_TABELA: {
+  name: 'Nova Tabela',
+  description: 'Descrição da tabela',
+  fields: [
+    { id: 'campo1', name: 'Campo 1', defaultColumn: 'COL_CAMPO1' },
+    { id: 'campo2', name: 'Campo 2', defaultColumn: 'COL_CAMPO2' },
+  ]
+},
+
+// Em BUSINESS_MODULES, adicionar ao submódulo:
+{ id: 'meu_submodulo', name: 'Meu Submódulo', tables: ['TAB_NOVA_TABELA'] },
+```
+
+**Passo 3: Template ERP (banco de dados)**
+```bash
+# Atualizar template Intersolid
+node update-template.js producao
+```
+
+**Passo 4: Commit e deploy**
+```bash
+git add -A
+git commit -m "feat: Adiciona suporte a TAB_NOVA_TABELA"
+git push origin TESTE
+
+# Deploy
+ssh root@46.202.150.64 "cd /root/prevencao-radar-repo && git pull origin TESTE && cd /root/clientes/tradicao && docker compose build --no-cache frontend backend && docker compose up -d --no-deps frontend backend && docker builder prune -f && docker image prune -f"
+```
+
+### ✅ PROCESSO COMPLETO DE DEPLOY (COM VERIFICAÇÃO DE MAPEAMENTO)
+
+```bash
+# 1. ANTES DO COMMIT: Verificar se não há hardcode
+grep -r "INTERSOLID\." packages/backend/src --include="*.ts"
+# Esperado: 0 matches (exceto comentários)
+
+# 2. Fazer commit e push
+git add -A
+git commit -m "feat: Nova funcionalidade com MappingService"
+git push origin TESTE
+
+# 3. Conectar na VPS
+ssh root@46.202.150.64
+
+# 4. Atualizar template ERP (se adicionou novas tabelas)
+cd /root/prevencao-radar-repo
+git pull origin TESTE
+cd packages/backend
+node update-template.js producao
+
+# 5. Deploy normal
+cd /root/clientes/tradicao
+docker compose build --no-cache frontend backend
+docker compose up -d --no-deps frontend backend
+
+# 6. Limpar cache
+docker builder prune -f && docker image prune -f
+
+# 7. Verificar logs
+docker logs prevencao-tradicao-backend --tail 30
+```
+
+### 🎓 Lição Aprendida (05/02/2026)
+
+**Problema:** Sistema foi deployado com código usando MappingService, mas template ERP não tinha a nova tabela configurada.
+
+**Causa:** O código usava `MappingService.getRealTableName('TAB_NF_ITEM', 'TAB_NF_ITEM')`, mas o template Intersolid no banco não tinha `TAB_NF_ITEM` definido.
+
+**Resultado:** O sistema usava o fallback (segundo parâmetro), que funcionava para Intersolid mas não seria configurável para outros ERPs.
+
+**Solução:**
+1. Migração de ~479 referências hardcoded para MappingService
+2. Atualização do template Intersolid com todas as tabelas necessárias
+3. Atualização do frontend para exibir as novas tabelas na configuração
+
+**Prevenção futura:**
+- Sempre verificar se há hardcode ANTES do commit
+- Ao adicionar nova tabela, atualizar: código + frontend + template ERP
+- Usar o script `update-template.js` para manter templates sincronizados
+
+---
+
+**Última atualização:** 05/02/2026 - Adicionado regras de mapeamento dinâmico e atualização de templates ERP
 **Criado por:** Claude (aprendendo com cada erro 🎓)
