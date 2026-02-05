@@ -183,13 +183,17 @@ export class FrenteCaixaService {
    * NOTA: TAB_OPERADORES sempre usa COD_OPERADOR e DES_OPERADOR (não usar mapeamento de vendas)
    */
   static async getOperadores(codLoja?: number): Promise<Operador[]> {
+    // Busca schema e nomes reais das tabelas dinamicamente
+    const schema = await MappingService.getSchema();
+    const tabOperadores = `${schema}.${await MappingService.getRealTableName('TAB_OPERADORES', 'TAB_OPERADORES')}`;
+
     // TAB_OPERADORES tem colunas fixas: COD_OPERADOR, DES_OPERADOR, COD_LOJA
     // Não confundir com COD_VENDEDOR que é da TAB_PRODUTO_PDV
     let sql = `
       SELECT DISTINCT
         o.COD_OPERADOR as COD_OPERADOR,
         o.DES_OPERADOR as DES_OPERADOR
-      FROM INTERSOLID.TAB_OPERADORES o
+      FROM ${tabOperadores} o
       WHERE o.DES_OPERADOR IS NOT NULL
     `;
 
@@ -210,6 +214,14 @@ export class FrenteCaixaService {
    */
   static async getResumoOperadores(filters: FrenteCaixaFilters): Promise<OperadorResumo[]> {
     const { dataInicio, dataFim, codOperador, codLoja } = filters;
+
+    // Busca schema e nomes reais das tabelas dinamicamente
+    const schema = await MappingService.getSchema();
+    const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA', 'TAB_CUPOM_FINALIZADORA')}`;
+    const tabOperadores = `${schema}.${await MappingService.getRealTableName('TAB_OPERADORES', 'TAB_OPERADORES')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
+    const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO', 'TAB_PRODUTO_PDV_ESTORNO')}`;
+    const tabTesourariaHistorico = `${schema}.${await MappingService.getRealTableName('TAB_TESOURARIA_HISTORICO', 'TAB_TESOURARIA_HISTORICO')}`;
 
     // Busca mapeamentos dinâmicos
     const {
@@ -251,8 +263,8 @@ export class FrenteCaixaService {
         SUM(CASE WHEN cf.${codFinalizadoraCol} = 10 THEN cf.${valorLiquidoCol} ELSE 0 END) as VALE_TROCA,
         SUM(CASE WHEN cf.${codFinalizadoraCol} = 13 THEN cf.${valorLiquidoCol} ELSE 0 END) as VALE_DESCONTO,
         SUM(CASE WHEN cf.${codFinalizadoraCol} NOT IN (1, 4, 5, 6, 7, 8, 10, 13, 15) THEN cf.${valorLiquidoCol} ELSE 0 END) as OUTROS
-      FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
-      LEFT JOIN INTERSOLID.TAB_OPERADORES o ON cf.${codOperadorCol} = o.${codOperadorCol} AND cf.${codLojaCol} = o.${codLojaCol}
+      FROM ${tabCupomFinalizadora} cf
+      LEFT JOIN ${tabOperadores} o ON cf.${codOperadorCol} = o.${codOperadorCol} AND cf.${codLojaCol} = o.${codLojaCol}
       WHERE cf.${dataVendaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
         AND cf.${dataVendaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND cf.${codTipoCol} = 1110
@@ -286,8 +298,8 @@ export class FrenteCaixaService {
         COUNT(*) as TOTAL_ITENS
       FROM (
         SELECT DISTINCT p.${numeroCupomCol}, p.${codProdutoCol}, cf.${codOperadorCol} as COD_OPERADOR
-        FROM INTERSOLID.TAB_PRODUTO_PDV p
-        JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON p.${numeroCupomCol} = cf.${numeroCupomCol}
+        FROM ${tabProdutoPdv} p
+        JOIN ${tabCupomFinalizadora} cf ON p.${numeroCupomCol} = cf.${numeroCupomCol}
           AND p.${codLojaCol} = cf.${codLojaCol}
         WHERE p.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
           AND p.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
@@ -309,8 +321,8 @@ export class FrenteCaixaService {
         SUM(sub.VAL_DESCONTO) as TOTAL_DESCONTOS
       FROM (
         SELECT DISTINCT p.${numeroCupomCol}, p.${codProdutoCol}, p.${valorDescontoCol} as VAL_DESCONTO, cf.${codOperadorCol} as COD_OPERADOR
-        FROM INTERSOLID.TAB_PRODUTO_PDV p
-        JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON p.${numeroCupomCol} = cf.${numeroCupomCol}
+        FROM ${tabProdutoPdv} p
+        JOIN ${tabCupomFinalizadora} cf ON p.${numeroCupomCol} = cf.${numeroCupomCol}
           AND p.${codLojaCol} = cf.${codLojaCol}
         WHERE p.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
           AND p.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
@@ -336,17 +348,17 @@ export class FrenteCaixaService {
         SELECT
           e.${valorTotalCol} as VAL_TOTAL_PRODUTO,
           NVL(
-            (SELECT MAX(cf.${codOperadorCol}) FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+            (SELECT MAX(cf.${codOperadorCol}) FROM ${tabCupomFinalizadora} cf
              WHERE cf.${numeroCupomCol} = e.${numeroCupomCol}
              AND cf.${codLojaCol} = e.${codLojaCol}
              AND cf.${codPdvCol} = e.${codPdvCol}
              AND TRUNC(cf.${dataVendaCol}) = TRUNC(e.${dataSaidaCol})),
-            (SELECT MAX(cf2.${codOperadorCol}) FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf2
+            (SELECT MAX(cf2.${codOperadorCol}) FROM ${tabCupomFinalizadora} cf2
              WHERE cf2.${numeroCupomCol} = e.${numeroCupomCol}
              AND cf2.${codLojaCol} = e.${codLojaCol}
              AND cf2.${codPdvCol} = e.${codPdvCol})
           ) as COD_OPERADOR
-        FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
+        FROM ${tabProdutoPdvEstorno} e
         WHERE e.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
           AND e.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
@@ -378,26 +390,26 @@ export class FrenteCaixaService {
             (
               -- Primeira tentativa: operador que fez a venda mais próxima (por horário) no mesmo PDV no mesmo dia
               SELECT MIN(cf.${codOperadorCol}) KEEP (DENSE_RANK FIRST ORDER BY ABS(TO_NUMBER(TO_CHAR(cf.${dataVendaCol}, 'HH24MI')) - TO_NUMBER(NVL(e.${desHoraCol}, '0'))))
-              FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+              FROM ${tabCupomFinalizadora} cf
               WHERE cf.${codPdvCol} = e.${codPdvCol}
                 AND cf.${codLojaCol} = e.${codLojaCol}
                 AND TRUNC(cf.${dataVendaCol}) = TRUNC(e.${dataSaidaCol})
             ),
             (
               -- Fallback: quem estava na tesouraria (fechou caixa) nesse PDV no mesmo dia
-              SELECT MAX(th.${codOperadorCol}) FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th
+              SELECT MAX(th.${codOperadorCol}) FROM ${tabTesourariaHistorico} th
               WHERE th.${codPdvCol} = e.${codPdvCol}
                 AND th.${codLojaCol} = e.${codLojaCol}
                 AND TRUNC(th.DTA_MOVIMENTO) = TRUNC(e.${dataSaidaCol})
             )
           ) as COD_OPERADOR
-        FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
+        FROM ${tabProdutoPdvEstorno} e
         WHERE e.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
           AND e.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
           -- Somente estornos órfãos (sem match de cupom no mesmo PDV)
           AND NOT EXISTS (
-            SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+            SELECT 1 FROM ${tabCupomFinalizadora} cf
             WHERE cf.${numeroCupomCol} = e.${numeroCupomCol}
             AND cf.${codLojaCol} = e.${codLojaCol}
             AND cf.${codPdvCol} = e.${codPdvCol}
@@ -420,12 +432,12 @@ export class FrenteCaixaService {
         SUM(sub.VAL_QUEBRA) as VAL_QUEBRA
       FROM (
         SELECT th.${codOperadorCol} as COD_OPERADOR, th.${codLojaCol}, th.${codPdvCol}, th.${numTurnoCol}, th.${valSobraCol} as VAL_SOBRA, th.${valQuebraCol} as VAL_QUEBRA
-        FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th
+        FROM ${tabTesourariaHistorico} th
         WHERE th.DTA_MOVIMENTO >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
           AND th.DTA_MOVIMENTO <= TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND th.${numRegistroCol} = (
             SELECT MAX(th2.${numRegistroCol})
-            FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th2
+            FROM ${tabTesourariaHistorico} th2
             WHERE th2.${codOperadorCol} = th.${codOperadorCol}
               AND th2.${codLojaCol} = th.${codLojaCol}
               AND th2.${codPdvCol} = th.${codPdvCol}
@@ -481,6 +493,14 @@ export class FrenteCaixaService {
       throw new Error('codOperador é obrigatório para detalhe por dia');
     }
 
+    // Busca schema e nomes reais das tabelas dinamicamente
+    const schema = await MappingService.getSchema();
+    const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA', 'TAB_CUPOM_FINALIZADORA')}`;
+    const tabOperadores = `${schema}.${await MappingService.getRealTableName('TAB_OPERADORES', 'TAB_OPERADORES')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
+    const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO', 'TAB_PRODUTO_PDV_ESTORNO')}`;
+    const tabTesourariaHistorico = `${schema}.${await MappingService.getRealTableName('TAB_TESOURARIA_HISTORICO', 'TAB_TESOURARIA_HISTORICO')}`;
+
     // Busca mapeamentos dinâmicos
     const {
       codOperadorCol,
@@ -523,8 +543,8 @@ export class FrenteCaixaService {
         SUM(CASE WHEN cf.${codFinalizadoraCol} = 10 THEN cf.${valorLiquidoCol} ELSE 0 END) as VALE_TROCA,
         SUM(CASE WHEN cf.${codFinalizadoraCol} = 13 THEN cf.${valorLiquidoCol} ELSE 0 END) as VALE_DESCONTO,
         SUM(CASE WHEN cf.${codFinalizadoraCol} NOT IN (1, 4, 5, 6, 7, 8, 10, 13, 15) THEN cf.${valorLiquidoCol} ELSE 0 END) as OUTROS
-      FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
-      LEFT JOIN INTERSOLID.TAB_OPERADORES o ON cf.${codOperadorCol} = o.${codOperadorCol} AND cf.${codLojaCol} = o.${codLojaCol}
+      FROM ${tabCupomFinalizadora} cf
+      LEFT JOIN ${tabOperadores} o ON cf.${codOperadorCol} = o.${codOperadorCol} AND cf.${codLojaCol} = o.${codLojaCol}
       WHERE cf.${dataVendaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
         AND cf.${dataVendaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND cf.${codTipoCol} = 1110
@@ -544,8 +564,8 @@ export class FrenteCaixaService {
       SELECT
         TO_CHAR(p.${dataSaidaCol}, 'DD/MM/YYYY') as DATA,
         COUNT(*) as TOTAL_ITENS
-      FROM INTERSOLID.TAB_PRODUTO_PDV p
-      JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON p.${numeroCupomCol} = cf.${numeroCupomCol}
+      FROM ${tabProdutoPdv} p
+      JOIN ${tabCupomFinalizadora} cf ON p.${numeroCupomCol} = cf.${numeroCupomCol}
         AND p.${codLojaCol} = cf.${codLojaCol}
       WHERE p.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
         AND p.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
@@ -563,8 +583,8 @@ export class FrenteCaixaService {
       SELECT
         TO_CHAR(p.${dataSaidaCol}, 'DD/MM/YYYY') as DATA,
         SUM(NVL(p.${valorDescontoCol}, 0)) as TOTAL_DESCONTOS
-      FROM INTERSOLID.TAB_PRODUTO_PDV p
-      JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf ON p.${numeroCupomCol} = cf.${numeroCupomCol}
+      FROM ${tabProdutoPdv} p
+      JOIN ${tabCupomFinalizadora} cf ON p.${numeroCupomCol} = cf.${numeroCupomCol}
         AND p.${codLojaCol} = cf.${codLojaCol}
       WHERE p.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
         AND p.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
@@ -584,13 +604,13 @@ export class FrenteCaixaService {
       SELECT
         TO_CHAR(e.${dataSaidaCol}, 'DD/MM/YYYY') as DATA,
         SUM(e.${valorTotalCol}) as TOTAL_CANCELAMENTOS
-      FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
+      FROM ${tabProdutoPdvEstorno} e
       WHERE e.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
         AND e.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
         ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
         AND (
           EXISTS (
-            SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+            SELECT 1 FROM ${tabCupomFinalizadora} cf
             WHERE cf.${numeroCupomCol} = e.${numeroCupomCol}
             AND cf.${codLojaCol} = e.${codLojaCol}
             AND cf.${codPdvCol} = e.${codPdvCol}
@@ -598,13 +618,13 @@ export class FrenteCaixaService {
             AND cf.${codOperadorCol} = :codOperador
           )
           OR EXISTS (
-            SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf2
+            SELECT 1 FROM ${tabCupomFinalizadora} cf2
             WHERE cf2.${numeroCupomCol} = e.${numeroCupomCol}
             AND cf2.${codLojaCol} = e.${codLojaCol}
             AND cf2.${codPdvCol} = e.${codPdvCol}
             AND cf2.${codOperadorCol} = :codOperador
             AND NOT EXISTS (
-              SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf3
+              SELECT 1 FROM ${tabCupomFinalizadora} cf3
               WHERE cf3.${numeroCupomCol} = e.${numeroCupomCol}
               AND cf3.${codLojaCol} = e.${codLojaCol}
               AND cf3.${codPdvCol} = e.${codPdvCol}
@@ -623,13 +643,13 @@ export class FrenteCaixaService {
       SELECT
         TO_CHAR(e.${dataSaidaCol}, 'DD/MM/YYYY') as DATA,
         SUM(e.${valorTotalCol}) as TOTAL_ESTORNOS_ORFAOS
-      FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
+      FROM ${tabProdutoPdvEstorno} e
       WHERE e.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
         AND e.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
         ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
         -- Somente estornos órfãos (sem match de cupom no mesmo PDV)
         AND NOT EXISTS (
-          SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+          SELECT 1 FROM ${tabCupomFinalizadora} cf
           WHERE cf.${numeroCupomCol} = e.${numeroCupomCol}
           AND cf.${codLojaCol} = e.${codLojaCol}
           AND cf.${codPdvCol} = e.${codPdvCol}
@@ -638,14 +658,14 @@ export class FrenteCaixaService {
         AND :codOperador = NVL(
           (
             SELECT MIN(cf2.${codOperadorCol}) KEEP (DENSE_RANK FIRST ORDER BY ABS(TO_NUMBER(TO_CHAR(cf2.${dataVendaCol}, 'HH24MI')) - TO_NUMBER(NVL(e.${desHoraCol}, '0'))))
-            FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf2
+            FROM ${tabCupomFinalizadora} cf2
             WHERE cf2.${codPdvCol} = e.${codPdvCol}
               AND cf2.${codLojaCol} = e.${codLojaCol}
               AND TRUNC(cf2.${dataVendaCol}) = TRUNC(e.${dataSaidaCol})
           ),
           (
             -- Fallback: quem estava na tesouraria (fechou caixa) nesse PDV no mesmo dia
-            SELECT MAX(th.${codOperadorCol}) FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th
+            SELECT MAX(th.${codOperadorCol}) FROM ${tabTesourariaHistorico} th
             WHERE th.${codPdvCol} = e.${codPdvCol}
               AND th.${codLojaCol} = e.${codLojaCol}
               AND TRUNC(th.DTA_MOVIMENTO) = TRUNC(e.${dataSaidaCol})
@@ -664,13 +684,13 @@ export class FrenteCaixaService {
         SUM(sub.VAL_QUEBRA) as VAL_QUEBRA
       FROM (
         SELECT TO_CHAR(th.DTA_MOVIMENTO, 'DD/MM/YYYY') as DATA, th.${codLojaCol}, th.${codPdvCol}, th.${numTurnoCol}, th.${valSobraCol} as VAL_SOBRA, th.${valQuebraCol} as VAL_QUEBRA
-        FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th
+        FROM ${tabTesourariaHistorico} th
         WHERE th.DTA_MOVIMENTO >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
           AND th.DTA_MOVIMENTO <= TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND th.${codOperadorCol} = :codOperador
           AND th.${numRegistroCol} = (
             SELECT MAX(th2.${numRegistroCol})
-            FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th2
+            FROM ${tabTesourariaHistorico} th2
             WHERE th2.${codOperadorCol} = th.${codOperadorCol}
               AND th2.${codLojaCol} = th.${codLojaCol}
               AND th2.${codPdvCol} = th.${codPdvCol}
@@ -721,6 +741,13 @@ export class FrenteCaixaService {
   static async getTotais(filters: FrenteCaixaFilters): Promise<any> {
     const { dataInicio, dataFim, codLoja } = filters;
 
+    // Busca schema e nomes reais das tabelas dinamicamente
+    const schema = await MappingService.getSchema();
+    const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA', 'TAB_CUPOM_FINALIZADORA')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
+    const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO', 'TAB_PRODUTO_PDV_ESTORNO')}`;
+    const tabTesourariaHistorico = `${schema}.${await MappingService.getRealTableName('TAB_TESOURARIA_HISTORICO', 'TAB_TESOURARIA_HISTORICO')}`;
+
     // Busca mapeamentos dinâmicos
     const {
       valorLiquidoCol,
@@ -758,7 +785,7 @@ export class FrenteCaixaService {
         SUM(CASE WHEN cf.${codFinalizadoraCol} = 10 THEN cf.${valorLiquidoCol} ELSE 0 END) as VALE_TROCA,
         SUM(CASE WHEN cf.${codFinalizadoraCol} = 13 THEN cf.${valorLiquidoCol} ELSE 0 END) as VALE_DESCONTO,
         SUM(CASE WHEN cf.${codFinalizadoraCol} NOT IN (1, 4, 5, 6, 7, 8, 10, 13, 15) THEN cf.${valorLiquidoCol} ELSE 0 END) as OUTROS
-      FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+      FROM ${tabCupomFinalizadora} cf
       WHERE cf.${dataVendaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
         AND cf.${dataVendaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND cf.${codTipoCol} = 1110
@@ -770,7 +797,7 @@ export class FrenteCaixaService {
     // Buscar totais de descontos
     const sqlDescontos = `
       SELECT SUM(${valorDescontoCol}) as TOTAL_DESCONTOS
-      FROM INTERSOLID.TAB_PRODUTO_PDV
+      FROM ${tabProdutoPdv}
       WHERE ${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
         AND ${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND ${valorDescontoCol} > 0
@@ -782,12 +809,12 @@ export class FrenteCaixaService {
     // Cancelamentos com associação = estornos onde existe cupom no mesmo PDV
     const sqlCancelamentos = `
       SELECT SUM(${valorTotalCol}) as CANCELAMENTOS
-      FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
+      FROM ${tabProdutoPdvEstorno} e
       WHERE e.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
         AND e.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
         ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
         AND EXISTS (
-          SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+          SELECT 1 FROM ${tabCupomFinalizadora} cf
           WHERE cf.${numeroCupomCol} = e.${numeroCupomCol}
           AND cf.${codLojaCol} = e.${codLojaCol}
           AND cf.${codPdvCol} = e.${codPdvCol}
@@ -798,12 +825,12 @@ export class FrenteCaixaService {
     // Estornos órfãos = estornos onde NÃO existe cupom no mesmo PDV
     const sqlEstornosOrfaos = `
       SELECT SUM(${valorTotalCol}) as ESTORNOS_ORFAOS
-      FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
+      FROM ${tabProdutoPdvEstorno} e
       WHERE e.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
         AND e.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
         ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
         AND NOT EXISTS (
-          SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+          SELECT 1 FROM ${tabCupomFinalizadora} cf
           WHERE cf.${numeroCupomCol} = e.${numeroCupomCol}
           AND cf.${codLojaCol} = e.${codLojaCol}
           AND cf.${codPdvCol} = e.${codPdvCol}
@@ -818,13 +845,13 @@ export class FrenteCaixaService {
         SUM(sub.VAL_QUEBRA) as TOTAL_QUEBRA
       FROM (
         SELECT th.${codOperadorCol}, th.${codLojaCol}, th.${codPdvCol}, th.${numTurnoCol}, th.DTA_MOVIMENTO, th.${valSobraCol} as VAL_SOBRA, th.${valQuebraCol} as VAL_QUEBRA
-        FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th
+        FROM ${tabTesourariaHistorico} th
         WHERE th.DTA_MOVIMENTO >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
           AND th.DTA_MOVIMENTO <= TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${codLoja ? `AND th.${codLojaCol} = :codLoja` : ''}
           AND th.${numRegistroCol} = (
             SELECT MAX(th2.${numRegistroCol})
-            FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th2
+            FROM ${tabTesourariaHistorico} th2
             WHERE th2.${codOperadorCol} = th.${codOperadorCol}
               AND th2.${codLojaCol} = th.${codLojaCol}
               AND th2.${codPdvCol} = th.${codPdvCol}
@@ -862,6 +889,12 @@ export class FrenteCaixaService {
    * Busca cupons de um operador em uma data específica
    */
   static async getCuponsPorDia(codOperador: number, data: string, codLoja?: number): Promise<any[]> {
+    // Busca schema e nomes reais das tabelas dinamicamente
+    const schema = await MappingService.getSchema();
+    const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA', 'TAB_CUPOM_FINALIZADORA')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
+    const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO', 'TAB_PRODUTO_PDV_ESTORNO')}`;
+
     // Busca mapeamentos dinâmicos
     const {
       numeroCupomCol,
@@ -894,7 +927,7 @@ export class FrenteCaixaService {
         NVL(info.QTD_ITENS_CANCELADOS, 0) + NVL(estornos.QTD_ESTORNOS, 0) as QTD_ITENS_CANCELADOS,
         NVL(info.QTD_ITENS_TOTAL, 0) as QTD_ITENS_TOTAL,
         CASE WHEN NVL(info.QTD_ITENS_CANCELADOS, 0) + NVL(estornos.QTD_ESTORNOS, 0) = NVL(info.QTD_ITENS_TOTAL, 0) AND NVL(info.QTD_ITENS_TOTAL, 0) > 0 THEN 'S' ELSE 'N' END as FLG_CANCELADO
-      FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+      FROM ${tabCupomFinalizadora} cf
       LEFT JOIN (
         SELECT
           pv.${numeroCupomCol} as NUM_CUPOM_FISCAL,
@@ -904,7 +937,7 @@ export class FrenteCaixaService {
           SUM(CASE WHEN pv.${statusCupomCol} = 'S' OR NVL(pv.${valorDescontoCol}, 0) >= NVL(pv.${valorTotalCol}, 0) THEN NVL(pv.${valorTotalCol}, 0) ELSE 0 END) as TOTAL_CANCELADO,
           SUM(CASE WHEN pv.${statusCupomCol} = 'S' OR NVL(pv.${valorDescontoCol}, 0) >= NVL(pv.${valorTotalCol}, 0) THEN 1 ELSE 0 END) as QTD_ITENS_CANCELADOS,
           COUNT(*) as QTD_ITENS_TOTAL
-        FROM INTERSOLID.TAB_PRODUTO_PDV pv
+        FROM ${tabProdutoPdv} pv
         WHERE TO_CHAR(pv.${dataSaidaCol}, 'DD/MM/YYYY') = :data
         GROUP BY pv.${numeroCupomCol}, pv.${codLojaCol}
       ) info ON cf.${numeroCupomCol} = info.NUM_CUPOM_FISCAL AND cf.${codLojaCol} = info.COD_LOJA
@@ -914,7 +947,7 @@ export class FrenteCaixaService {
           e.${codLojaCol} as COD_LOJA,
           SUM(e.${valorTotalCol}) as TOTAL_ESTORNOS,
           COUNT(*) as QTD_ESTORNOS
-        FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
+        FROM ${tabProdutoPdvEstorno} e
         WHERE TO_CHAR(e.${dataSaidaCol}, 'DD/MM/YYYY') = :data
         GROUP BY e.${numeroCupomCol}, e.${codLojaCol}
       ) estornos ON cf.${numeroCupomCol} = estornos.NUM_CUPOM_FISCAL AND cf.${codLojaCol} = estornos.COD_LOJA
@@ -945,6 +978,12 @@ export class FrenteCaixaService {
    * @param data - Data opcional para filtrar itens apenas dessa data
    */
   static async getItensPorCupom(numCupom: number, codLoja: number, data?: string): Promise<any[]> {
+    // Busca schema e nomes reais das tabelas dinamicamente
+    const schema = await MappingService.getSchema();
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
+    const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO', 'TAB_PRODUTO_PDV_ESTORNO')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+
     // Busca mapeamentos dinâmicos
     const {
       codProdutoCol,
@@ -983,8 +1022,8 @@ export class FrenteCaixaService {
              ELSE 'N'
         END as FLG_ESTORNADO,
         'N' as ITEM_ESTORNO
-      FROM INTERSOLID.TAB_PRODUTO_PDV pv
-      LEFT JOIN INTERSOLID.TAB_PRODUTO p ON pv.${codProdutoCol} = p.${codProdutoCol}
+      FROM ${tabProdutoPdv} pv
+      LEFT JOIN ${tabProduto} p ON pv.${codProdutoCol} = p.${codProdutoCol}
       WHERE pv.${numeroCupomCol} = :numCupom
         AND pv.${codLojaCol} = :codLoja
     `;
@@ -1008,8 +1047,8 @@ export class FrenteCaixaService {
         0 as VAL_DESCONTO,
         'S' as FLG_ESTORNADO,
         'S' as ITEM_ESTORNO
-      FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
-      LEFT JOIN INTERSOLID.TAB_PRODUTO p ON e.${codProdutoCol} = p.${codProdutoCol}
+      FROM ${tabProdutoPdvEstorno} e
+      LEFT JOIN ${tabProduto} p ON e.${codProdutoCol} = p.${codProdutoCol}
       WHERE e.${numeroCupomCol} = :numCupom
         AND e.${codLojaCol} = :codLoja
     `;
@@ -1052,6 +1091,13 @@ export class FrenteCaixaService {
     data: string,
     codLoja?: number
   ): Promise<any[]> {
+    // Busca schema e nomes reais das tabelas dinamicamente
+    const schema = await MappingService.getSchema();
+    const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA', 'TAB_CUPOM_FINALIZADORA')}`;
+    const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO', 'TAB_PRODUTO_PDV_ESTORNO')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+    const tabTesourariaHistorico = `${schema}.${await MappingService.getRealTableName('TAB_TESOURARIA_HISTORICO', 'TAB_TESOURARIA_HISTORICO')}`;
+
     // Busca mapeamentos dinâmicos
     const {
       numeroCupomCol,
@@ -1098,26 +1144,26 @@ export class FrenteCaixaService {
             (
               -- Primeira tentativa: operador que fez a venda mais próxima (por horário) no mesmo PDV no mesmo dia
               SELECT MIN(cf.${codOperadorCol}) KEEP (DENSE_RANK FIRST ORDER BY ABS(TO_NUMBER(TO_CHAR(cf.${dataVendaCol}, 'HH24MI')) - TO_NUMBER(NVL(e.${desHoraCol}, '0'))))
-              FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+              FROM ${tabCupomFinalizadora} cf
               WHERE cf.${codPdvCol} = e.${codPdvCol}
                 AND cf.${codLojaCol} = e.${codLojaCol}
                 AND TRUNC(cf.${dataVendaCol}) = TRUNC(e.${dataSaidaCol})
             ),
             (
               -- Fallback: quem estava na tesouraria (fechou caixa) nesse PDV no mesmo dia
-              SELECT MAX(th.${codOperadorCol}) FROM INTERSOLID.TAB_TESOURARIA_HISTORICO th
+              SELECT MAX(th.${codOperadorCol}) FROM ${tabTesourariaHistorico} th
               WHERE th.${codPdvCol} = e.${codPdvCol}
                 AND th.${codLojaCol} = e.${codLojaCol}
                 AND TRUNC(th.DTA_MOVIMENTO) = TRUNC(e.${dataSaidaCol})
             )
           ) as COD_OPERADOR_ATRIBUIDO
-        FROM INTERSOLID.TAB_PRODUTO_PDV_ESTORNO e
-        LEFT JOIN INTERSOLID.TAB_PRODUTO p ON e.${codProdutoCol} = p.${codProdutoCol}
+        FROM ${tabProdutoPdvEstorno} e
+        LEFT JOIN ${tabProduto} p ON e.${codProdutoCol} = p.${codProdutoCol}
         WHERE TO_CHAR(e.${dataSaidaCol}, 'DD/MM/YYYY') = :data
           ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
           -- Somente estornos órfãos (sem match de cupom no mesmo PDV)
           AND NOT EXISTS (
-            SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+            SELECT 1 FROM ${tabCupomFinalizadora} cf
             WHERE cf.${numeroCupomCol} = e.${numeroCupomCol}
               AND cf.${codLojaCol} = e.${codLojaCol}
               AND cf.${codPdvCol} = e.${codPdvCol}

@@ -299,6 +299,13 @@ export class LossController {
 
       console.log(`📋 [MAPEAMENTO ESTOQUE] Usando colunas: ${estCodProdutoCol}, ${estQuantidadeCol}, ${estTipoMovCol}, ${estDataMovCol}, ${estMotivoCol}`);
 
+      // Buscar schema e nomes de tabelas dinâmicos
+      const schema = await MappingService.getSchema();
+      const tabAjusteEstoque = `${schema}.${await MappingService.getRealTableName('TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ESTOQUE')}`;
+      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+      const tabTipoAjuste = `${schema}.${await MappingService.getRealTableName('TAB_TIPO_AJUSTE', 'TAB_TIPO_AJUSTE')}`;
+      const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+
       // Query para buscar itens de ajuste com detalhes
       let whereClause = `
         WHERE ae.COD_LOJA = :loja
@@ -347,10 +354,10 @@ export class LossController {
           ae.${estMotivoCol} as OBSERVACAO,
           s.COD_SECAO,
           s.DES_SECAO as SECAO
-        FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
-        JOIN INTERSOLID.TAB_PRODUTO p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
-        LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
-        LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+        FROM ${tabAjusteEstoque} ae
+        JOIN ${tabProduto} p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
+        LEFT JOIN ${tabTipoAjuste} ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
+        LEFT JOIN ${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
         ${whereClause}
         ORDER BY ae.${estDataMovCol} DESC, ABS(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0)) DESC
       `;
@@ -363,8 +370,8 @@ export class LossController {
           ta.DES_AJUSTE as MOTIVO,
           COUNT(*) as TOTAL_ITENS,
           SUM(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0)) as VALOR_TOTAL
-        FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
-        LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
+        FROM ${tabAjusteEstoque} ae
+        LEFT JOIN ${tabTipoAjuste} ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
         WHERE ae.COD_LOJA = :loja
         AND ae.${estDataMovCol} >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
         AND ae.${estDataMovCol} < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
@@ -388,8 +395,8 @@ export class LossController {
           ta.DES_AJUSTE as MOTIVO,
           COUNT(*) as TOTAL_ITENS,
           SUM(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0)) as VALOR_TOTAL
-        FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
-        LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
+        FROM ${tabAjusteEstoque} ae
+        LEFT JOIN ${tabTipoAjuste} ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
         WHERE ae.COD_LOJA = :loja
         AND ae.${estDataMovCol} >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
         AND ae.${estDataMovCol} < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
@@ -478,9 +485,13 @@ export class LossController {
    */
   static async getTiposAjusteOracle(req: AuthRequest, res: Response) {
     try {
+      // Buscar schema e nome da tabela dinâmicos
+      const schema = await MappingService.getSchema();
+      const tabTipoAjuste = `${schema}.${await MappingService.getRealTableName('TAB_TIPO_AJUSTE', 'TAB_TIPO_AJUSTE')}`;
+
       const query = `
         SELECT COD_AJUSTE, DES_AJUSTE
-        FROM INTERSOLID.TAB_TIPO_AJUSTE
+        FROM ${tabTipoAjuste}
         ORDER BY DES_AJUSTE
       `;
 
@@ -534,6 +545,12 @@ export class LossController {
       // Filtro de período (dias)
       const filtroPeriodo = diasFiltro > 0 ? `AND ae.${estDataMovCol} >= SYSDATE - :dias` : '';
 
+      // Buscar schema e nomes de tabelas dinâmicos
+      const schema = await MappingService.getSchema();
+      const tabAjusteEstoque = `${schema}.${await MappingService.getRealTableName('TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ESTOQUE')}`;
+      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')}`;
+      const tabTipoAjuste = `${schema}.${await MappingService.getRealTableName('TAB_TIPO_AJUSTE', 'TAB_TIPO_AJUSTE')}`;
+
       // Query para buscar trocas agrupadas por fornecedor
       // Usando mesma lógica do sistema legado: SOMA dos valores direto, não multiplicado por quantidade
       const fornecedoresQuery = `
@@ -546,9 +563,9 @@ export class LossController {
           SUM(ABS(NVL(ae.${estQuantidadeCol}, 0))) as QTD_TOTAL,
           SUM(NVL(ae.VAL_CUSTO_REP, 0)) as TOTAL_CUSTO,
           SUM(NVL(ae.VAL_VENDA, 0)) as TOTAL_VENDA
-        FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON ae.COD_FORNECEDOR = f.${fornCodigoCol}
-        LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
+        FROM ${tabAjusteEstoque} ae
+        LEFT JOIN ${tabFornecedor} f ON ae.COD_FORNECEDOR = f.${fornCodigoCol}
+        LEFT JOIN ${tabTipoAjuste} ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
         WHERE ae.COD_LOJA = :loja
         AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO = 'N')
         AND ${tipoAjusteFiltro}
@@ -665,6 +682,11 @@ export class LossController {
         });
       }
 
+      // Buscar schema e nomes de tabelas dinâmicos
+      const schema = await MappingService.getSchema();
+      const tabAjusteEstoque = `${schema}.${await MappingService.getRealTableName('TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ESTOQUE')}`;
+      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+
       // Query para perdas do mês anterior (quantidade negativa = perda)
       // Retorna tanto COD_PRODUTO quanto COD_BARRA_PRINCIPAL para poder fazer match
       // Inclui tanto VALOR_PERDA (R$) quanto QTD_PERDA (kg)
@@ -674,8 +696,8 @@ export class LossController {
           p.${prodEanCol} as CODIGO_BARRAS,
           SUM(ABS(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0))) as VALOR_PERDA,
           SUM(ABS(NVL(ae.${estQuantidadeCol}, 0))) as QTD_PERDA
-        FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
-        JOIN INTERSOLID.TAB_PRODUTO p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
+        FROM ${tabAjusteEstoque} ae
+        JOIN ${tabProduto} p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
         WHERE ae.COD_LOJA = :loja
         AND ae.${estDataMovCol} >= TO_DATE(:dtAntIni, 'YYYY-MM-DD')
         AND ae.${estDataMovCol} <= TO_DATE(:dtAntFim, 'YYYY-MM-DD')
@@ -692,8 +714,8 @@ export class LossController {
           p.${prodEanCol} as CODIGO_BARRAS,
           SUM(ABS(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0))) as VALOR_PERDA,
           SUM(ABS(NVL(ae.${estQuantidadeCol}, 0))) as QTD_PERDA
-        FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
-        JOIN INTERSOLID.TAB_PRODUTO p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
+        FROM ${tabAjusteEstoque} ae
+        JOIN ${tabProduto} p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
         WHERE ae.COD_LOJA = :loja
         AND ae.${estDataMovCol} >= TO_DATE(:dtAtualIni, 'YYYY-MM-DD')
         AND ae.${estDataMovCol} <= TO_DATE(:dtAtualFim, 'YYYY-MM-DD')
@@ -858,6 +880,13 @@ export class LossController {
       // Filtro de período (dias)
       const filtroPeriodo = diasFiltro > 0 ? `AND ae.${estDataMovCol} >= SYSDATE - :dias` : '';
 
+      // Buscar schema e nomes de tabelas dinâmicos
+      const schema = await MappingService.getSchema();
+      const tabAjusteEstoque = `${schema}.${await MappingService.getRealTableName('TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ESTOQUE')}`;
+      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+      const tabTipoAjuste = `${schema}.${await MappingService.getRealTableName('TAB_TIPO_AJUSTE', 'TAB_TIPO_AJUSTE')}`;
+      const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+
       // Query para buscar itens do fornecedor
       const itensQuery = `
         SELECT
@@ -871,10 +900,10 @@ export class LossController {
           NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0) as VALOR_TOTAL,
           TO_CHAR(ae.${estDataMovCol}, 'YYYY-MM-DD') as DATA_AJUSTE,
           ae.USUARIO
-        FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
-        JOIN INTERSOLID.TAB_PRODUTO p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
-        LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
-        LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+        FROM ${tabAjusteEstoque} ae
+        JOIN ${tabProduto} p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
+        LEFT JOIN ${tabTipoAjuste} ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
+        LEFT JOIN ${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
         WHERE ae.COD_LOJA = :loja
         AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO = 'N')
         AND ${tipoAjusteFiltro}

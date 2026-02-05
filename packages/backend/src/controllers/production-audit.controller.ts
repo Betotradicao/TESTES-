@@ -142,6 +142,12 @@ export class ProductionAuditController {
             params[`p${i}`] = code;
           });
 
+          // Obter schema e tabelas dinamicamente
+          const schema = await MappingService.getSchema();
+          const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+          const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
+          const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+
           const result = await OracleService.query<any>(`
             SELECT
               p.COD_PRODUTO,
@@ -161,9 +167,9 @@ export class ProductionAuditController {
                 WHEN 3 THEN 'PRODUCAO'
                 ELSE 'OUTROS'
               END as TIPO_EVENTO
-            FROM INTERSOLID.TAB_PRODUTO p
-            INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
-            LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+            FROM ${tabProduto} p
+            INNER JOIN ${tabProdutoLoja} pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+            LEFT JOIN ${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
             WHERE pl.COD_LOJA = 1
             AND p.COD_PRODUTO IN (${placeholders})
             ORDER BY p.DES_PRODUTO
@@ -230,9 +236,13 @@ export class ProductionAuditController {
       const sections = await CacheService.executeWithCache(
         'oracle-production-sections',
         async () => {
+          // Obter schema e tabela dinamicamente
+          const schema = await MappingService.getSchema();
+          const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+
           const result = await OracleService.query<{ DES_SECAO: string }>(`
             SELECT COD_SECAO, DES_SECAO
-            FROM INTERSOLID.TAB_SECAO
+            FROM ${tabSecao}
             ORDER BY DES_SECAO
           `);
           return result.map(r => r.DES_SECAO);
@@ -261,14 +271,19 @@ export class ProductionAuditController {
       const grupos = await CacheService.executeWithCache(
         cacheKey,
         async () => {
+          // Obter schema e tabelas dinamicamente
+          const schema = await MappingService.getSchema();
+          const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO')}`;
+          const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+
           let query = `
             SELECT DISTINCT g.COD_GRUPO, g.DES_GRUPO
-            FROM INTERSOLID.TAB_GRUPO g
+            FROM ${tabGrupo} g
           `;
 
           if (section) {
             query += `
-              INNER JOIN INTERSOLID.TAB_SECAO s ON g.COD_SECAO = s.COD_SECAO
+              INNER JOIN ${tabSecao} s ON g.COD_SECAO = s.COD_SECAO
               WHERE UPPER(s.DES_SECAO) = :sectionUpper
               AND NVL(g.FLG_INATIVO, 'N') = 'N'
             `;
@@ -306,9 +321,13 @@ export class ProductionAuditController {
       const subgrupos = await CacheService.executeWithCache(
         cacheKey,
         async () => {
+          // Obter schema e tabela dinamicamente
+          const schema = await MappingService.getSchema();
+          const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO')}`;
+
           let query = `
             SELECT DISTINCT sg.COD_SUB_GRUPO, sg.DES_SUB_GRUPO, sg.COD_GRUPO
-            FROM INTERSOLID.TAB_SUBGRUPO sg
+            FROM ${tabSubgrupo} sg
           `;
 
           if (codGrupo) {
@@ -372,6 +391,14 @@ export class ProductionAuditController {
       const oracleProducts = await CacheService.executeWithCache(
         `oracle-products-section-${String(section).toUpperCase()}`,
         async () => {
+          // Obter schema e tabelas dinamicamente
+          const schema = await MappingService.getSchema();
+          const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+          const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
+          const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+          const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO')}`;
+          const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO')}`;
+
           const result = await OracleService.query<any>(`
             SELECT
               p.COD_PRODUTO,
@@ -396,11 +423,11 @@ export class ProductionAuditController {
               pl.COD_INFO_RECEITA,
               p.COD_GRUPO,
               p.COD_SUB_GRUPO,
-              (SELECT MAX(g.DES_GRUPO) FROM INTERSOLID.TAB_GRUPO g WHERE g.COD_GRUPO = p.COD_GRUPO AND g.COD_SECAO = p.COD_SECAO) as DES_GRUPO,
-              (SELECT MAX(sg.DES_SUB_GRUPO) FROM INTERSOLID.TAB_SUBGRUPO sg WHERE sg.COD_SUB_GRUPO = p.COD_SUB_GRUPO AND sg.COD_GRUPO = p.COD_GRUPO AND sg.COD_SECAO = p.COD_SECAO) as DES_SUB_GRUPO
-            FROM INTERSOLID.TAB_PRODUTO p
-            INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
-            LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+              (SELECT MAX(g.DES_GRUPO) FROM ${tabGrupo} g WHERE g.COD_GRUPO = p.COD_GRUPO AND g.COD_SECAO = p.COD_SECAO) as DES_GRUPO,
+              (SELECT MAX(sg.DES_SUB_GRUPO) FROM ${tabSubgrupo} sg WHERE sg.COD_SUB_GRUPO = p.COD_SUB_GRUPO AND sg.COD_GRUPO = p.COD_GRUPO AND sg.COD_SECAO = p.COD_SECAO) as DES_SUB_GRUPO
+            FROM ${tabProduto} p
+            INNER JOIN ${tabProdutoLoja} pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+            LEFT JOIN ${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
             WHERE pl.COD_LOJA = 1
             AND UPPER(s.DES_SECAO) = :sectionUpper
             AND NVL(pl.INATIVO, 'N') = 'N'
@@ -833,12 +860,17 @@ export class ProductionAuditController {
             binds[`cod${i}`] = code;
           });
 
+          // Obter schema e tabelas dinamicamente
+          const schema = await MappingService.getSchema();
+          const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+          const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
+
           const query = `
             SELECT
               TO_CHAR(p.COD_PRODUTO) as COD_PRODUTO,
               TO_CHAR(pl.DTA_ULT_MOV_VENDA, 'YYYY-MM-DD') as DTA_ULT_MOV_VENDA
-            FROM INTERSOLID.TAB_PRODUTO p
-            LEFT JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO AND pl.COD_LOJA = :loja
+            FROM ${tabProduto} p
+            LEFT JOIN ${tabProdutoLoja} pl ON p.COD_PRODUTO = pl.COD_PRODUTO AND pl.COD_LOJA = :loja
             WHERE TO_CHAR(p.COD_PRODUTO) IN (${placeholders})
           `;
 
@@ -873,7 +905,11 @@ export class ProductionAuditController {
         const dataMesAtualInicio = formatDate(primeiroDiaMesAtual);
         const dataMesAtualFim = formatDate(hoje);
 
-        // Busca mapeamentos dinâmicos
+        // Busca mapeamentos dinâmicos (schema e tabelas)
+        const schema = await MappingService.getSchema();
+        const tabAjusteEstoque = `${schema}.${await MappingService.getRealTableName('TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ESTOQUE')}`;
+        const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+
         const estCodProdutoCol = await MappingService.getColumn('estoque', 'cod_produto', 'COD_PRODUTO');
         const estQuantidadeCol = await MappingService.getColumn('estoque', 'quantidade', 'QTD_AJUSTE');
         const estDataMovCol = await MappingService.getColumn('estoque', 'data_movimento', 'DTA_AJUSTE');
@@ -885,8 +921,8 @@ export class ProductionAuditController {
             TO_CHAR(p.${prodCodigoCol}) as COD_PRODUTO,
             SUM(ABS(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0))) as VALOR_PERDA,
             SUM(ABS(NVL(ae.${estQuantidadeCol}, 0))) as QTD_PERDA
-          FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
-          JOIN INTERSOLID.TAB_PRODUTO p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
+          FROM ${tabAjusteEstoque} ae
+          JOIN ${tabProduto} p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
           WHERE ae.COD_LOJA = :loja
           AND ae.${estDataMovCol} >= TO_DATE(:dtIni, 'YYYY-MM-DD')
           AND ae.${estDataMovCol} <= TO_DATE(:dtFim, 'YYYY-MM-DD')
@@ -900,8 +936,8 @@ export class ProductionAuditController {
             TO_CHAR(p.${prodCodigoCol}) as COD_PRODUTO,
             SUM(ABS(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0))) as VALOR_PERDA,
             SUM(ABS(NVL(ae.${estQuantidadeCol}, 0))) as QTD_PERDA
-          FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
-          JOIN INTERSOLID.TAB_PRODUTO p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
+          FROM ${tabAjusteEstoque} ae
+          JOIN ${tabProduto} p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
           WHERE ae.COD_LOJA = :loja
           AND ae.${estDataMovCol} >= TO_DATE(:dtIni, 'YYYY-MM-DD')
           AND ae.${estDataMovCol} <= TO_DATE(:dtFim, 'YYYY-MM-DD')
@@ -1056,6 +1092,10 @@ export class ProductionAuditController {
     try {
       const { codReceita } = req.params;
 
+      // Obter schema e tabela dinamicamente
+      const schema = await MappingService.getSchema();
+      const tabInfoReceita = `${schema}.${await MappingService.getRealTableName('TAB_INFO_RECEITA', 'TAB_INFO_RECEITA')}`;
+
       const result = await OracleService.query<any>(`
         SELECT
           COD_INFO_RECEITA,
@@ -1064,7 +1104,7 @@ export class ProductionAuditController {
           USUARIO,
           TO_CHAR(DTA_CADASTRO, 'DD/MM/YYYY') as DTA_CADASTRO,
           TO_CHAR(DTA_ALTERACAO, 'DD/MM/YYYY') as DTA_ALTERACAO
-        FROM INTERSOLID.TAB_INFO_RECEITA
+        FROM ${tabInfoReceita}
         WHERE COD_INFO_RECEITA = :codReceita
       `, { codReceita: parseInt(codReceita) });
 
@@ -1095,6 +1135,10 @@ export class ProductionAuditController {
     try {
       const { codNutricional } = req.params;
 
+      // Obter schema e tabela dinamicamente
+      const schema = await MappingService.getSchema();
+      const tabInfoNutricional = `${schema}.${await MappingService.getRealTableName('TAB_INFO_NUTRICIONAL', 'TAB_INFO_NUTRICIONAL')}`;
+
       const result = await OracleService.query<any>(`
         SELECT
           COD_INFO_NUTRICIONAL,
@@ -1115,7 +1159,7 @@ export class ProductionAuditController {
           USUARIO,
           TO_CHAR(DTA_CADASTRO, 'DD/MM/YYYY') as DTA_CADASTRO,
           TO_CHAR(DTA_ALTERACAO, 'DD/MM/YYYY') as DTA_ALTERACAO
-        FROM INTERSOLID.TAB_INFO_NUTRICIONAL
+        FROM ${tabInfoNutricional}
         WHERE COD_INFO_NUTRICIONAL = :codNutricional
       `, { codNutricional: parseInt(codNutricional) });
 

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { WhatsAppService } from '../services/whatsapp.service';
+import { MappingService } from '../services/mapping.service';
 
 const router: Router = Router();
 
@@ -245,6 +246,13 @@ router.post('/send-losses-now', async (req, res) => {
     // Query para buscar todas as quebras do dia anterior do Oracle
     const codigoLoja = 1; // TODO: Pegar da configuração se necessário
 
+    // Obter nomes das tabelas dinamicamente via MappingService
+    const schema = await MappingService.getSchema();
+    const tabAjusteEstoque = `${schema}.${await MappingService.getRealTableName('TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ESTOQUE')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+    const tabTipoAjuste = `${schema}.${await MappingService.getRealTableName('TAB_TIPO_AJUSTE', 'TAB_TIPO_AJUSTE')}`;
+    const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+
     const itensQuery = `
       SELECT
         ae.COD_PRODUTO,
@@ -256,10 +264,10 @@ router.post('/send-losses-now', async (req, res) => {
         NVL(ae.QTD_AJUSTE, 0) * NVL(ae.VAL_CUSTO_REP, 0) as VALOR_TOTAL,
         s.COD_SECAO,
         s.DES_SECAO as SECAO
-      FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
-      JOIN INTERSOLID.TAB_PRODUTO p ON ae.COD_PRODUTO = p.COD_PRODUTO
-      LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.COD_AJUSTE = ta.COD_AJUSTE
-      LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+      FROM ${tabAjusteEstoque} ae
+      JOIN ${tabProduto} p ON ae.COD_PRODUTO = p.COD_PRODUTO
+      LEFT JOIN ${tabTipoAjuste} ta ON ae.COD_AJUSTE = ta.COD_AJUSTE
+      LEFT JOIN ${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
       WHERE ae.COD_LOJA = :loja
       AND ae.DTA_AJUSTE >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
       AND ae.DTA_AJUSTE < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1

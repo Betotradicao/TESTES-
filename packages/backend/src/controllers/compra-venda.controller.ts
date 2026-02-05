@@ -6,6 +6,7 @@
 import { Request, Response } from 'express';
 import { CompraVendaService, CompraVendaFilters } from '../services/compra-venda.service';
 import { OracleService } from '../services/oracle.service';
+import { MappingService } from '../services/mapping.service';
 
 export class CompraVendaController {
   /**
@@ -33,11 +34,22 @@ export class CompraVendaController {
       const codProduto = req.query.codProduto as string;
       const busca = req.query.busca as string;
 
+      // Obtém schema e nomes de tabelas dinâmicos
+      const schema = await MappingService.getSchema();
+      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+      const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+      const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO')}`;
+      const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO')}`;
+      const tabNf = `${schema}.${await MappingService.getRealTableName('TAB_NF', 'TAB_NF')}`;
+      const tabNfItem = `${schema}.${await MappingService.getRealTableName('TAB_NF_ITEM', 'TAB_NF_ITEM')}`;
+      const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
+      const tabProdutoDecomposicao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_DECOMPOSICAO', 'TAB_PRODUTO_DECOMPOSICAO')}`;
+
       // Se passou busca por nome de produto
       if (busca) {
         const produtos = await OracleService.query(`
           SELECT COD_PRODUTO, DES_PRODUTO, COD_SECAO, COD_GRUPO
-          FROM INTERSOLID.TAB_PRODUTO
+          FROM ${tabProduto}
           WHERE UPPER(DES_PRODUTO) LIKE UPPER(:busca)
           AND ROWNUM <= 20
         `, { busca: `%${busca}%` });
@@ -51,10 +63,10 @@ export class CompraVendaController {
         const tabelas = await OracleService.query(`
           SELECT TABLE_NAME, NUM_ROWS
           FROM ALL_TABLES
-          WHERE OWNER = 'INTERSOLID'
+          WHERE OWNER = :schema
           AND UPPER(TABLE_NAME) LIKE UPPER(:buscaTabela)
           ORDER BY TABLE_NAME
-        `, { buscaTabela: `%${buscaTabela}%` });
+        `, { schema, buscaTabela: `%${buscaTabela}%` });
 
         return res.json({
           buscaTabela,
@@ -67,18 +79,18 @@ export class CompraVendaController {
       if (codProduto) {
         const produto = await OracleService.query(`
           SELECT p.*, s.DES_SECAO, g.DES_GRUPO, sg.DES_SUB_GRUPO
-          FROM INTERSOLID.TAB_PRODUTO p
-          LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
-          LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
-          LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
+          FROM ${tabProduto} p
+          LEFT JOIN ${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
+          LEFT JOIN ${tabGrupo} g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
+          LEFT JOIN ${tabSubgrupo} sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
           WHERE p.COD_PRODUTO = :codProduto
         `, { codProduto });
 
         // Compras no período (01/01/2025 a 25/01/2025)
         const compras = await OracleService.query(`
           SELECT nf.NUM_NF, nf.DTA_ENTRADA, ni.QTD_TOTAL, ni.VAL_TOTAL, ni.CFOP, nf.COD_LOJA
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
             AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
             AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE ni.COD_ITEM = :codProduto
@@ -92,7 +104,7 @@ export class CompraVendaController {
         // Vendas no período
         const vendas = await OracleService.query(`
           SELECT COUNT(*) as QTD_CUPONS, SUM(QTD_TOTAL_PRODUTO) as QTD_TOTAL, SUM(VAL_TOTAL_PRODUTO) as VALOR_TOTAL
-          FROM INTERSOLID.TAB_PRODUTO_PDV
+          FROM ${tabProdutoPdv}
           WHERE COD_PRODUTO = :codProduto
           AND DTA_SAIDA BETWEEN TO_DATE('01/01/2025', 'DD/MM/YYYY') AND TO_DATE('25/01/2025', 'DD/MM/YYYY')
         `, { codProduto });
@@ -100,16 +112,16 @@ export class CompraVendaController {
         // É filho de decomposição?
         const ehFilhoDecomp = await OracleService.query(`
           SELECT d.COD_PRODUTO as COD_MATRIZ, p.DES_PRODUTO as MATRIZ, d.QTD_DECOMP as PERCENTUAL
-          FROM INTERSOLID.TAB_PRODUTO_DECOMPOSICAO d
-          JOIN INTERSOLID.TAB_PRODUTO p ON d.COD_PRODUTO = p.COD_PRODUTO
+          FROM ${tabProdutoDecomposicao} d
+          JOIN ${tabProduto} p ON d.COD_PRODUTO = p.COD_PRODUTO
           WHERE d.COD_PRODUTO_DECOM = :codProduto
         `, { codProduto });
 
         // É matriz de decomposição?
         const ehMatrizDecomp = await OracleService.query(`
           SELECT d.COD_PRODUTO_DECOM as COD_FILHO, p.DES_PRODUTO as FILHO, d.QTD_DECOMP as PERCENTUAL
-          FROM INTERSOLID.TAB_PRODUTO_DECOMPOSICAO d
-          JOIN INTERSOLID.TAB_PRODUTO p ON d.COD_PRODUTO_DECOM = p.COD_PRODUTO
+          FROM ${tabProdutoDecomposicao} d
+          JOIN ${tabProduto} p ON d.COD_PRODUTO_DECOM = p.COD_PRODUTO
           WHERE d.COD_PRODUTO = :codProduto
         `, { codProduto });
 
@@ -145,16 +157,16 @@ export class CompraVendaController {
       const estrutura = await OracleService.query(`
         SELECT COLUMN_NAME, DATA_TYPE, DATA_LENGTH
         FROM ALL_TAB_COLUMNS
-        WHERE TABLE_NAME = :tableName AND OWNER = 'INTERSOLID'
+        WHERE TABLE_NAME = :tableName AND OWNER = :schema
         ORDER BY COLUMN_ID
-      `, { tableName });
+      `, { tableName, schema });
 
       const exemplos = await OracleService.query(`
-        SELECT * FROM INTERSOLID.${tableName} WHERE ROWNUM <= 5
+        SELECT * FROM ${schema}.${tableName} WHERE ROWNUM <= 5
       `);
 
       const count = await OracleService.query(`
-        SELECT COUNT(*) as TOTAL FROM INTERSOLID.${tableName}
+        SELECT COUNT(*) as TOTAL FROM ${schema}.${tableName}
       `);
 
       return res.json({
@@ -334,15 +346,18 @@ export class CompraVendaController {
     try {
       const { tabela, busca } = req.query;
 
+      // Obtém schema dinâmico
+      const schema = await MappingService.getSchema();
+
       // Se passar tabela, mostra colunas dela
       if (tabela) {
         const colunas = await OracleService.query(`
           SELECT COLUMN_NAME, DATA_TYPE, DATA_LENGTH
           FROM ALL_TAB_COLUMNS
           WHERE TABLE_NAME = :tabela
-          AND OWNER = 'INTERSOLID'
+          AND OWNER = :schema
           ORDER BY COLUMN_ID
-        `, { tabela: (tabela as string).toUpperCase() });
+        `, { tabela: (tabela as string).toUpperCase(), schema });
 
         return res.json({ tabela, colunas });
       }
@@ -352,10 +367,10 @@ export class CompraVendaController {
         const tabelas = await OracleService.query(`
           SELECT TABLE_NAME
           FROM ALL_TABLES
-          WHERE OWNER = 'INTERSOLID'
+          WHERE OWNER = :schema
           AND UPPER(TABLE_NAME) LIKE '%' || UPPER(:busca) || '%'
           ORDER BY TABLE_NAME
-        `, { busca });
+        `, { busca, schema });
 
         return res.json({ busca, tabelas });
       }
@@ -364,9 +379,9 @@ export class CompraVendaController {
       const tabelas = await OracleService.query(`
         SELECT TABLE_NAME
         FROM ALL_TABLES
-        WHERE OWNER = 'INTERSOLID'
+        WHERE OWNER = :schema
         ORDER BY TABLE_NAME
-      `);
+      `, { schema });
 
       return res.json({ tabelas: tabelas.slice(0, 100) });
     } catch (error: any) {

@@ -33,6 +33,13 @@ export class PedidosCompraController {
       const limitNum = parseInt(limit as string, 10);
       const offset = (pageNum - 1) * limitNum;
 
+      // Busca schema e nomes de tabelas dinâmicos
+      const schema = await MappingService.getSchema();
+      const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO', 'TAB_PEDIDO')}`;
+      const tabPedidoProduto = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO', 'TAB_PEDIDO_PRODUTO')}`;
+      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')}`;
+      const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA', 'TAB_FORNECEDOR_NOTA')}`;
+
       // Busca mapeamentos dinâmicos para campos de notas fiscais
       const numeroNfCol = await MappingService.getColumn('notas_fiscais', 'numero_nf', 'NUM_NF_FORN');
       const dataEntradaCol = await MappingService.getColumn('notas_fiscais', 'data_entrada', 'DTA_ENTRADA');
@@ -89,19 +96,19 @@ export class PedidosCompraController {
       if (parciaisFinalizadas === 'true') {
         // Pedidos cancelados que tiveram pelo menos um item recebido
         conditions.push('p.TIPO_RECEBIMENTO = 3');
-        conditions.push('EXISTS (SELECT 1 FROM INTERSOLID.TAB_PEDIDO_PRODUTO pp2 WHERE pp2.NUM_PEDIDO = p.NUM_PEDIDO AND NVL(pp2.QTD_RECEBIDA, 0) > 0)');
+        conditions.push(`EXISTS (SELECT 1 FROM ${tabPedidoProduto} pp2 WHERE pp2.NUM_PEDIDO = p.NUM_PEDIDO AND NVL(pp2.QTD_RECEBIDA, 0) > 0)`);
       }
 
       if (canceladasTotais === 'true') {
         // Pedidos cancelados que tiveram itens não recebidos
         conditions.push('p.TIPO_RECEBIMENTO = 3');
-        conditions.push('EXISTS (SELECT 1 FROM INTERSOLID.TAB_PEDIDO_PRODUTO pp2 WHERE pp2.NUM_PEDIDO = p.NUM_PEDIDO AND NVL(pp2.QTD_RECEBIDA, 0) < pp2.QTD_PEDIDO)');
+        conditions.push(`EXISTS (SELECT 1 FROM ${tabPedidoProduto} pp2 WHERE pp2.NUM_PEDIDO = p.NUM_PEDIDO AND NVL(pp2.QTD_RECEBIDA, 0) < pp2.QTD_PEDIDO)`);
       }
 
       if (semNenhumaEntrada === 'true') {
         // Pedidos cancelados TOTALMENTE - nenhum item foi recebido
         conditions.push('p.TIPO_RECEBIMENTO = 3');
-        conditions.push('NOT EXISTS (SELECT 1 FROM INTERSOLID.TAB_PEDIDO_PRODUTO pp2 WHERE pp2.NUM_PEDIDO = p.NUM_PEDIDO AND NVL(pp2.QTD_RECEBIDA, 0) > 0)');
+        conditions.push(`NOT EXISTS (SELECT 1 FROM ${tabPedidoProduto} pp2 WHERE pp2.NUM_PEDIDO = p.NUM_PEDIDO AND NVL(pp2.QTD_RECEBIDA, 0) > 0)`);
       }
 
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -124,8 +131,8 @@ export class PedidosCompraController {
       // Query para contar total
       const countQuery = `
         SELECT COUNT(*) as TOTAL
-        FROM INTERSOLID.TAB_PEDIDO p
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.${fornCodigoCol} = p.COD_PARCEIRO
+        FROM ${tabPedido} p
+        LEFT JOIN ${tabFornecedor} f ON f.${fornCodigoCol} = p.COD_PARCEIRO
         ${whereClause}
       `;
 
@@ -162,15 +169,15 @@ export class PedidosCompraController {
             TRUNC(SYSDATE) - TRUNC(p.DTA_ENTREGA) as DIAS_ATRASO,
             NVL(nfc.QTD_NF_A_CONFIRMAR, 0) as QTD_NF_A_CONFIRMAR,
             ROW_NUMBER() OVER (${orderByClause}) as RN
-          FROM INTERSOLID.TAB_PEDIDO p
-          LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.${fornCodigoCol} = p.COD_PARCEIRO
+          FROM ${tabPedido} p
+          LEFT JOIN ${tabFornecedor} f ON f.${fornCodigoCol} = p.COD_PARCEIRO
           LEFT JOIN (
             SELECT
               fn.${codFornecedorCol} as COD_FORNECEDOR,
               ROUND(AVG(TRUNC(fn.${dataEntradaCol}) - TRUNC(ped.DTA_EMISSAO)), 1) as PRAZO_MEDIO_REAL,
               COUNT(DISTINCT fn.${numeroNfCol}) as QTD_NFS_PRAZO
-            FROM INTERSOLID.TAB_FORNECEDOR_NOTA fn
-            JOIN INTERSOLID.TAB_PEDIDO ped ON ped.NUM_PEDIDO = fn.NUM_PEDIDO AND ped.TIPO_PARCEIRO = 1
+            FROM ${tabFornecedorNota} fn
+            JOIN ${tabPedido} ped ON ped.NUM_PEDIDO = fn.NUM_PEDIDO AND ped.TIPO_PARCEIRO = 1
             WHERE fn.${dataEntradaCol} >= SYSDATE - 90
             AND fn.NUM_PEDIDO IS NOT NULL
             AND fn.NUM_PEDIDO > 0
@@ -181,7 +188,7 @@ export class PedidosCompraController {
             SELECT
               nf.${codFornecedorCol} as COD_FORNECEDOR,
               COUNT(*) as QTD_NF_A_CONFIRMAR
-            FROM INTERSOLID.TAB_FORNECEDOR_NOTA nf
+            FROM ${tabFornecedorNota} nf
             WHERE nf.${dataEntradaCol} IS NULL
             AND NVL(nf.FLG_CANCELADO, 'N') = 'N'
             GROUP BY nf.${codFornecedorCol}
@@ -211,7 +218,7 @@ export class PedidosCompraController {
           SUM(CASE WHEN TIPO_RECEBIMENTO = 2 THEN 1 ELSE 0 END) as RECEBIDOS_INTEGRAL,
           SUM(CASE WHEN TIPO_RECEBIMENTO = 3 THEN 1 ELSE 0 END) as CANCELADOS,
           SUM(CASE WHEN TIPO_RECEBIMENTO < 2 AND TRUNC(DTA_ENTREGA) < TRUNC(SYSDATE) THEN 1 ELSE 0 END) as ATRASADOS
-        FROM INTERSOLID.TAB_PEDIDO
+        FROM ${tabPedido}
         WHERE TIPO_PARCEIRO = 1
         ${statsDateFilter}
       `;
@@ -232,8 +239,8 @@ export class PedidosCompraController {
       // Query para contar pedidos cancelados que tiveram itens recebidos (parciais finalizadas)
       const parciaisFinalizadasQuery = `
         SELECT COUNT(DISTINCT p.NUM_PEDIDO) as PARCIAIS_FINALIZADAS
-        FROM INTERSOLID.TAB_PEDIDO p
-        INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
+        FROM ${tabPedido} p
+        INNER JOIN ${tabPedidoProduto} pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
         WHERE p.TIPO_PARCEIRO = 1
         AND p.TIPO_RECEBIMENTO = 3
         AND NVL(pp.QTD_RECEBIDA, 0) > 0
@@ -247,8 +254,8 @@ export class PedidosCompraController {
           COUNT(DISTINCT p.NUM_PEDIDO) as NOTAS_CANCELADAS,
           SUM(pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0)) as QTD_CANCELADA,
           SUM((pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0)) * pp.VAL_TABELA) as VALOR_CANCELADO
-        FROM INTERSOLID.TAB_PEDIDO p
-        INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
+        FROM ${tabPedido} p
+        INNER JOIN ${tabPedidoProduto} pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
         WHERE p.TIPO_PARCEIRO = 1
         AND p.TIPO_RECEBIMENTO = 3
         AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO
@@ -260,11 +267,11 @@ export class PedidosCompraController {
         SELECT
           COUNT(*) as CANCELADOS_TOTALMENTE,
           SUM(p.VAL_PEDIDO) as VALOR_TOTAL
-        FROM INTERSOLID.TAB_PEDIDO p
+        FROM ${tabPedido} p
         WHERE p.TIPO_PARCEIRO = 1
         AND p.TIPO_RECEBIMENTO = 3
         AND NOT EXISTS (
-          SELECT 1 FROM INTERSOLID.TAB_PEDIDO_PRODUTO pp
+          SELECT 1 FROM ${tabPedidoProduto} pp
           WHERE pp.NUM_PEDIDO = p.NUM_PEDIDO
           AND NVL(pp.QTD_RECEBIDA, 0) > 0
         )
@@ -291,7 +298,7 @@ export class PedidosCompraController {
         SELECT
           COUNT(*) as TOTAL_NFS,
           SUM(fn.${valorTotalCol}) as VALOR_TOTAL
-        FROM INTERSOLID.TAB_FORNECEDOR_NOTA fn
+        FROM ${tabFornecedorNota} fn
         WHERE ${nfDateFilter}
         AND (fn.NUM_PEDIDO IS NULL OR fn.NUM_PEDIDO = 0)
         AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
@@ -359,6 +366,11 @@ export class PedidosCompraController {
     try {
       const { numPedido } = req.params;
 
+      // Busca schema e nomes de tabelas dinâmicos
+      const schema = await MappingService.getSchema();
+      const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO', 'TAB_PEDIDO')}`;
+      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')}`;
+
       // Busca mapeamentos dinâmicos para campos de fornecedores
       const fornCodigoCol = await MappingService.getColumn('fornecedores', 'codigo', 'COD_FORNECEDOR');
       const fornRazaoSocialCol = await MappingService.getColumn('fornecedores', 'razao_social', 'DES_FORNECEDOR');
@@ -389,8 +401,8 @@ export class PedidosCompraController {
           f.DES_BAIRRO,
           f.DES_CIDADE,
           f.DES_UF
-        FROM INTERSOLID.TAB_PEDIDO p
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.${fornCodigoCol} = p.COD_PARCEIRO
+        FROM ${tabPedido} p
+        LEFT JOIN ${tabFornecedor} f ON f.${fornCodigoCol} = p.COD_PARCEIRO
         WHERE p.NUM_PEDIDO = :numPedido
       `;
 
@@ -412,9 +424,13 @@ export class PedidosCompraController {
    */
   static async listarCompradores(req: AuthRequest, res: Response) {
     try {
+      // Busca schema e nomes de tabelas dinâmicos
+      const schema = await MappingService.getSchema();
+      const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO', 'TAB_PEDIDO')}`;
+
       const query = `
         SELECT DISTINCT USUARIO
-        FROM INTERSOLID.TAB_PEDIDO
+        FROM ${tabPedido}
         WHERE TIPO_PARCEIRO = 1
         AND USUARIO IS NOT NULL
         ORDER BY USUARIO
@@ -449,6 +465,12 @@ export class PedidosCompraController {
       const pageNum = parseInt(page as string, 10);
       const limitNum = parseInt(limit as string, 10);
       const offset = (pageNum - 1) * limitNum;
+
+      // Busca schema e nomes de tabelas dinâmicos
+      const schema = await MappingService.getSchema();
+      const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA', 'TAB_FORNECEDOR_NOTA')}`;
+      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')}`;
+      const tabClassificacao = `${schema}.${await MappingService.getRealTableName('TAB_CLASSIFICACAO', 'TAB_CLASSIFICACAO')}`;
 
       // Busca mapeamentos dinâmicos para campos de notas fiscais
       const numeroNfCol = await MappingService.getColumn('notas_fiscais', 'numero_nf', 'NUM_NF_FORN');
@@ -527,8 +549,8 @@ export class PedidosCompraController {
       // Query para contar total
       const countQuery = `
         SELECT COUNT(*) as TOTAL
-        FROM INTERSOLID.TAB_FORNECEDOR_NOTA fn
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.${fornCodigoCol} = fn.${codFornecedorCol}
+        FROM ${tabFornecedorNota} fn
+        LEFT JOIN ${tabFornecedor} f ON f.${fornCodigoCol} = fn.${codFornecedorCol}
         ${whereClause}
       `;
 
@@ -554,9 +576,9 @@ export class PedidosCompraController {
             f.COD_CLASSIF,
             c.DES_CLASSIF as DES_CLASSIFICACAO,
             ROW_NUMBER() OVER (ORDER BY fn.${dataEntradaCol} DESC, fn.${numeroNfCol} DESC) as RN
-          FROM INTERSOLID.TAB_FORNECEDOR_NOTA fn
-          LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.${fornCodigoCol} = fn.${codFornecedorCol}
-          LEFT JOIN INTERSOLID.TAB_CLASSIFICACAO c ON c.COD_CLASSIF = f.COD_CLASSIF
+          FROM ${tabFornecedorNota} fn
+          LEFT JOIN ${tabFornecedor} f ON f.${fornCodigoCol} = fn.${codFornecedorCol}
+          LEFT JOIN ${tabClassificacao} c ON c.COD_CLASSIF = f.COD_CLASSIF
           ${whereClause}
         ) WHERE RN > :offset AND RN <= :maxRow
       `;
@@ -590,6 +612,12 @@ export class PedidosCompraController {
     try {
       const { numNf, codFornecedor, codLoja } = req.params;
 
+      // Busca schema e nomes de tabelas dinâmicos
+      const schema = await MappingService.getSchema();
+      const tabFornecedorProduto = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_PRODUTO', 'TAB_FORNECEDOR_PRODUTO')}`;
+      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+      const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
+
       const query = `
         SELECT
           fp.NUM_ITEM,
@@ -602,9 +630,9 @@ export class PedidosCompraController {
           pr.DES_PRODUTO,
           pr.DES_REDUZIDA,
           NVL(TRIM(pl.DES_RANK_PRODLOJA), 'X') as CURVA
-        FROM INTERSOLID.TAB_FORNECEDOR_PRODUTO fp
-        LEFT JOIN INTERSOLID.TAB_PRODUTO pr ON pr.COD_PRODUTO = fp.COD_PRODUTO
-        LEFT JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON pl.COD_PRODUTO = fp.COD_PRODUTO AND pl.COD_LOJA = :codLoja
+        FROM ${tabFornecedorProduto} fp
+        LEFT JOIN ${tabProduto} pr ON pr.COD_PRODUTO = fp.COD_PRODUTO
+        LEFT JOIN ${tabProdutoLoja} pl ON pl.COD_PRODUTO = fp.COD_PRODUTO AND pl.COD_LOJA = :codLoja
         WHERE fp.NUM_NF_FORN = :numNf
         AND fp.COD_FORNECEDOR = :codFornecedor
         ORDER BY fp.NUM_ITEM
@@ -635,6 +663,13 @@ export class PedidosCompraController {
       const { numPedido } = req.params;
       const { filtroItens } = req.query;
 
+      // Busca schema e nomes de tabelas dinâmicos
+      const schema = await MappingService.getSchema();
+      const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO', 'TAB_PEDIDO')}`;
+      const tabPedidoProduto = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO', 'TAB_PEDIDO_PRODUTO')}`;
+      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+      const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
+
       let filtroCondition = '';
       if (filtroItens === 'apenasRecebidos') {
         // Parciais Finalizadas: mostrar apenas itens OK (recebeu tudo que foi pedido)
@@ -646,7 +681,7 @@ export class PedidosCompraController {
       // Nota: filtroItens === 'semNenhumaEntrada' retorna todos os itens (sem filtro adicional)
 
       // Buscar COD_LOJA do pedido para obter a CURVA correta
-      const pedidoQuery = `SELECT COD_LOJA FROM INTERSOLID.TAB_PEDIDO WHERE NUM_PEDIDO = :numPedido`;
+      const pedidoQuery = `SELECT COD_LOJA FROM ${tabPedido} WHERE NUM_PEDIDO = :numPedido`;
       const pedidoResult = await OracleService.query<{ COD_LOJA: number }>(pedidoQuery, { numPedido: parseInt(numPedido, 10) });
       const codLoja = pedidoResult[0]?.COD_LOJA || 1;
 
@@ -665,9 +700,9 @@ export class PedidosCompraController {
           pr.DES_PRODUTO,
           pr.DES_REDUZIDA,
           NVL(TRIM(pl.DES_RANK_PRODLOJA), 'X') as CURVA
-        FROM INTERSOLID.TAB_PEDIDO_PRODUTO pp
-        LEFT JOIN INTERSOLID.TAB_PRODUTO pr ON pr.COD_PRODUTO = pp.COD_PRODUTO
-        LEFT JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON pl.COD_PRODUTO = pp.COD_PRODUTO AND pl.COD_LOJA = :codLoja
+        FROM ${tabPedidoProduto} pp
+        LEFT JOIN ${tabProduto} pr ON pr.COD_PRODUTO = pp.COD_PRODUTO
+        LEFT JOIN ${tabProdutoLoja} pl ON pl.COD_PRODUTO = pp.COD_PRODUTO AND pl.COD_LOJA = :codLoja
         WHERE pp.NUM_PEDIDO = :numPedido
         ${filtroCondition}
         ORDER BY pp.NUM_ITEM
@@ -687,6 +722,12 @@ export class PedidosCompraController {
    */
   static async listarClassificacoes(_req: AuthRequest, res: Response) {
     try {
+      // Busca schema e nomes de tabelas dinâmicos
+      const schema = await MappingService.getSchema();
+      const tabClassificacao = `${schema}.${await MappingService.getRealTableName('TAB_CLASSIFICACAO', 'TAB_CLASSIFICACAO')}`;
+      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')}`;
+      const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA', 'TAB_FORNECEDOR_NOTA')}`;
+
       // Busca mapeamentos dinâmicos para campos de notas fiscais
       const numeroNfCol = await MappingService.getColumn('notas_fiscais', 'numero_nf', 'NUM_NF_FORN');
       const dataEntradaCol = await MappingService.getColumn('notas_fiscais', 'data_entrada', 'DTA_ENTRADA');
@@ -702,15 +743,15 @@ export class PedidosCompraController {
           c.COD_CLASSIF as COD_CLASSIFICACAO,
           c.DES_CLASSIF as DES_CLASSIFICACAO,
           COUNT(fn.${numeroNfCol}) as QTD_NFS
-        FROM INTERSOLID.TAB_CLASSIFICACAO c
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.COD_CLASSIF = c.COD_CLASSIF
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR_NOTA fn ON fn.${codFornecedorCol} = f.${fornCodigoCol}
+        FROM ${tabClassificacao} c
+        LEFT JOIN ${tabFornecedor} f ON f.COD_CLASSIF = c.COD_CLASSIF
+        LEFT JOIN ${tabFornecedorNota} fn ON fn.${codFornecedorCol} = f.${fornCodigoCol}
           AND fn.${dataEntradaCol} >= SYSDATE - 30
           AND (fn.NUM_PEDIDO IS NULL OR fn.NUM_PEDIDO = 0)
           AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
           AND fn.${valorTotalCol} > 0
         WHERE EXISTS (
-          SELECT 1 FROM INTERSOLID.TAB_FORNECEDOR f2
+          SELECT 1 FROM ${tabFornecedor} f2
           WHERE f2.COD_CLASSIF = c.COD_CLASSIF
         )
         GROUP BY c.COD_CLASSIF, c.DES_CLASSIF
@@ -720,8 +761,8 @@ export class PedidosCompraController {
       // Query para contar NFs sem cadastro (fornecedores sem classificação)
       const semCadastroQuery = `
         SELECT COUNT(*) as QTD_NFS
-        FROM INTERSOLID.TAB_FORNECEDOR_NOTA fn
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.${fornCodigoCol} = fn.${codFornecedorCol}
+        FROM ${tabFornecedorNota} fn
+        LEFT JOIN ${tabFornecedor} f ON f.${fornCodigoCol} = fn.${codFornecedorCol}
         WHERE fn.${dataEntradaCol} >= SYSDATE - 30
         AND (fn.NUM_PEDIDO IS NULL OR fn.NUM_PEDIDO = 0)
         AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
@@ -754,6 +795,11 @@ export class PedidosCompraController {
    */
   static async listarContatosNfSemPedido(_req: AuthRequest, res: Response) {
     try {
+      // Busca schema e nomes de tabelas dinâmicos
+      const schema = await MappingService.getSchema();
+      const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA', 'TAB_FORNECEDOR_NOTA')}`;
+      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')}`;
+
       // Busca mapeamentos dinâmicos para campos de notas fiscais
       const numeroNfCol = await MappingService.getColumn('notas_fiscais', 'numero_nf', 'NUM_NF_FORN');
       const dataEntradaCol = await MappingService.getColumn('notas_fiscais', 'data_entrada', 'DTA_ENTRADA');
@@ -769,8 +815,8 @@ export class PedidosCompraController {
           NVL(TRIM(f.DES_CONTATO), 'SEM CONTATO') as CONTATO,
           COUNT(fn.${numeroNfCol}) as QTD_NFS,
           SUM(fn.${valorTotalCol}) as VALOR_TOTAL
-        FROM INTERSOLID.TAB_FORNECEDOR_NOTA fn
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.${fornCodigoCol} = fn.${codFornecedorCol}
+        FROM ${tabFornecedorNota} fn
+        LEFT JOIN ${tabFornecedor} f ON f.${fornCodigoCol} = fn.${codFornecedorCol}
         WHERE fn.${dataEntradaCol} >= SYSDATE - 30
         AND (fn.NUM_PEDIDO IS NULL OR fn.NUM_PEDIDO = 0)
         AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
@@ -802,6 +848,12 @@ export class PedidosCompraController {
   static async listarNfComBloqueio(req: AuthRequest, res: Response) {
     try {
       const { dataInicio, dataFim, fornecedor, tipoBloqueio } = req.query;
+
+      // Busca schema e nomes de tabelas dinâmicos
+      const schema = await MappingService.getSchema();
+      const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA', 'TAB_FORNECEDOR_NOTA')}`;
+      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')}`;
+      const tabComprador = `${schema}.${await MappingService.getRealTableName('TAB_COMPRADOR', 'TAB_COMPRADOR')}`;
 
       // Condição base: NF com bloqueio pendente = tem flag de bloqueio ativo E não tem autorizador/liberador
       // Uma NF só aparece se tiver pelo menos um bloqueio PENDENTE de liberação
@@ -847,7 +899,7 @@ export class PedidosCompraController {
           COUNT(CASE WHEN n.FLG_BLOQUEADO_CUSTO = 'S' AND n.USU_LIBER_CUSTO IS NULL THEN 1 END) as TOTAL_BLOQ_CUSTO,
           COUNT(*) as TOTAL_COM_BLOQUEIO,
           NVL(SUM(n.VAL_TOTAL_NF), 0) as VALOR_TOTAL_BLOQUEADO
-        FROM INTERSOLID.TAB_FORNECEDOR_NOTA n
+        FROM ${tabFornecedorNota} n
         WHERE (
           (n.FLG_BLOQUEADO_1F = 'S' AND n.USU_AUTORIZ_1F IS NULL) OR
           (n.FLG_BLOQUEADO_2F = 'S' AND n.USU_AUTORIZ_2F IS NULL) OR
@@ -878,9 +930,9 @@ export class PedidosCompraController {
             c.DES_COMPRADOR as COMPRADOR,
             n.OBS_LIBERACAO_PEDIDO as OBS_LIBERACAO,
             n.NUM_PEDIDO
-          FROM INTERSOLID.TAB_FORNECEDOR_NOTA n
-          JOIN INTERSOLID.TAB_FORNECEDOR f ON n.COD_FORNECEDOR = f.COD_FORNECEDOR
-          LEFT JOIN INTERSOLID.TAB_COMPRADOR c ON n.COD_COMPRADOR = c.COD_COMPRADOR
+          FROM ${tabFornecedorNota} n
+          JOIN ${tabFornecedor} f ON n.COD_FORNECEDOR = f.COD_FORNECEDOR
+          LEFT JOIN ${tabComprador} c ON n.COD_COMPRADOR = c.COD_COMPRADOR
           ${whereClause}
           ORDER BY n.DTA_ENTRADA DESC
         ) WHERE ROWNUM <= 100
@@ -955,6 +1007,12 @@ export class PedidosCompraController {
     try {
       const { numNf, codFornecedor, codLoja } = req.params;
 
+      // Busca schema e nomes de tabelas dinâmicos
+      const schema = await MappingService.getSchema();
+      const tabFornecedorProduto = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_PRODUTO', 'TAB_FORNECEDOR_PRODUTO')}`;
+      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+      const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
+
       // Usa TAB_FORNECEDOR_PRODUTO que contém os itens das NFs de entrada
       const query = `
         SELECT * FROM (
@@ -969,9 +1027,9 @@ export class PedidosCompraController {
             fp.VAL_VENDA_VAREJO as VAL_VENDA,
             (fp.QTD_ENTRADA * fp.VAL_TABELA) as VAL_TOTAL,
             NVL(TRIM(pl.DES_RANK_PRODLOJA), 'X') as CURVA
-          FROM INTERSOLID.TAB_FORNECEDOR_PRODUTO fp
-          LEFT JOIN INTERSOLID.TAB_PRODUTO pr ON pr.COD_PRODUTO = fp.COD_PRODUTO
-          LEFT JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON pl.COD_PRODUTO = fp.COD_PRODUTO AND pl.COD_LOJA = :codLoja
+          FROM ${tabFornecedorProduto} fp
+          LEFT JOIN ${tabProduto} pr ON pr.COD_PRODUTO = fp.COD_PRODUTO
+          LEFT JOIN ${tabProdutoLoja} pl ON pl.COD_PRODUTO = fp.COD_PRODUTO AND pl.COD_LOJA = :codLoja
           WHERE fp.NUM_NF_FORN = :numNf
             AND fp.COD_FORNECEDOR = :codFornecedor
           ORDER BY fp.NUM_ITEM

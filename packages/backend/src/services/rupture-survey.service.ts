@@ -7,6 +7,7 @@ import Papa from 'papaparse';
 import PDFDocument from 'pdfkit';
 import { WhatsAppService } from './whatsapp.service';
 import { OracleService } from './oracle.service';
+import { MappingService } from './mapping.service';
 
 // Interface para dados de pedido do Oracle
 interface PedidoInfo {
@@ -23,6 +24,10 @@ export class RuptureSurveyService {
    */
   static async getPedidoInfoFromOracle(codigoProduto: string): Promise<PedidoInfo | null> {
     try {
+      const schema = await MappingService.getSchema();
+      const tabPedidoProduto = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO', 'TAB_PEDIDO_PRODUTO')}`;
+      const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO', 'TAB_PEDIDO')}`;
+
       const result = await OracleService.query<any>(`
         SELECT
           p.NUM_PEDIDO,
@@ -30,8 +35,8 @@ export class RuptureSurveyService {
           p.TIPO_RECEBIMENTO,
           p.TIPO_PED_FINALIZADO,
           p.FLG_CANCELADO
-        FROM INTERSOLID.TAB_PEDIDO_PRODUTO pp
-        JOIN INTERSOLID.TAB_PEDIDO p ON p.NUM_PEDIDO = pp.NUM_PEDIDO
+        FROM ${tabPedidoProduto} pp
+        JOIN ${tabPedido} p ON p.NUM_PEDIDO = pp.NUM_PEDIDO
         WHERE pp.COD_PRODUTO = :codigoProduto
         AND p.TIPO_PARCEIRO = 1
         AND (p.FLG_CANCELADO IS NULL OR p.FLG_CANCELADO = 'N')
@@ -102,6 +107,10 @@ export class RuptureSurveyService {
       // Busca APENAS pedidos EM ABERTO (não finalizados, não cancelados)
       // TIPO_PED_FINALIZADO = -1 significa "Em Aberto"
       // TIPO_RECEBIMENTO < 2 significa "Pendente (0) ou Parcial (1)", não "Recebido (2)"
+      const schema = await MappingService.getSchema();
+      const tabPedidoProduto = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO', 'TAB_PEDIDO_PRODUTO')}`;
+      const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO', 'TAB_PEDIDO')}`;
+
       const result = await OracleService.query<any>(`
         SELECT
           pp.COD_PRODUTO,
@@ -109,8 +118,8 @@ export class RuptureSurveyService {
           p.DTA_ENTREGA,
           p.TIPO_RECEBIMENTO,
           p.TIPO_PED_FINALIZADO
-        FROM INTERSOLID.TAB_PEDIDO_PRODUTO pp
-        JOIN INTERSOLID.TAB_PEDIDO p ON p.NUM_PEDIDO = pp.NUM_PEDIDO
+        FROM ${tabPedidoProduto} pp
+        JOIN ${tabPedido} p ON p.NUM_PEDIDO = pp.NUM_PEDIDO
         WHERE pp.COD_PRODUTO IN (${placeholders})
         AND p.TIPO_PARCEIRO = 1
         AND (p.FLG_CANCELADO IS NULL OR p.FLG_CANCELADO = 'N')

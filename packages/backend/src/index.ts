@@ -53,6 +53,7 @@ import databaseConnectionsRouter from './routes/database-connections.routes';
 import erpTemplatesRouter from './routes/erp-templates.routes';
 import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
+import { MappingService } from './services/mapping.service';
 import { EmailMonitorService } from './services/email-monitor.service';
 import { seedMasterUser } from './database/seeds/masterUser.seed';
 import seedConfigurations from './scripts/seed-configurations';
@@ -381,6 +382,13 @@ const startServer = async () => {
         // Buscar todas as quebras do dia anterior do Oracle
         const codigoLoja = 1; // TODO: Pegar da configuração se necessário
 
+        // Buscar schema e nomes reais das tabelas via MappingService
+        const schema = await MappingService.getSchema();
+        const tabAjusteEstoque = `${schema}.${await MappingService.getRealTableName('TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ESTOQUE')}`;
+        const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+        const tabTipoAjuste = `${schema}.${await MappingService.getRealTableName('TAB_TIPO_AJUSTE', 'TAB_TIPO_AJUSTE')}`;
+        const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+
         const itensQuery = `
           SELECT
             ae.COD_PRODUTO,
@@ -392,10 +400,10 @@ const startServer = async () => {
             NVL(ae.QTD_AJUSTE, 0) * NVL(ae.VAL_CUSTO_REP, 0) as VALOR_TOTAL,
             s.COD_SECAO,
             s.DES_SECAO as SECAO
-          FROM INTERSOLID.TAB_AJUSTE_ESTOQUE ae
-          JOIN INTERSOLID.TAB_PRODUTO p ON ae.COD_PRODUTO = p.COD_PRODUTO
-          LEFT JOIN INTERSOLID.TAB_TIPO_AJUSTE ta ON ae.COD_AJUSTE = ta.COD_AJUSTE
-          LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+          FROM ${tabAjusteEstoque} ae
+          JOIN ${tabProduto} p ON ae.COD_PRODUTO = p.COD_PRODUTO
+          LEFT JOIN ${tabTipoAjuste} ta ON ae.COD_AJUSTE = ta.COD_AJUSTE
+          LEFT JOIN ${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
           WHERE ae.COD_LOJA = :loja
           AND ae.DTA_AJUSTE >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
           AND ae.DTA_AJUSTE < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1

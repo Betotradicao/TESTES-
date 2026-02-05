@@ -8,6 +8,7 @@ import PDFDocument from 'pdfkit';
 import { WhatsAppService } from './whatsapp.service';
 import { ConfigurationService } from './configuration.service';
 import { OracleService } from './oracle.service';
+import { MappingService } from './mapping.service';
 
 export class LabelAuditService {
   /**
@@ -821,6 +822,12 @@ export class LabelAuditService {
       console.log('📊 [ETIQUETAS] Buscando descontos PDV do Oracle...');
       console.log(`📅 Período recebido: ${dataInicio} a ${dataFim}`);
 
+      // Obter schema e nomes de tabelas dinamicamente via MappingService
+      const schema = await MappingService.getSchema();
+      const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
+      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+      const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+
       // Converter formato YYYY-MM-DD para DD/MM/YYYY (formato Oracle)
       const formatDateForOracle = (dateStr: string): string => {
         if (!dateStr) return dateStr;
@@ -840,7 +847,7 @@ export class LabelAuditService {
       // Query para total de descontos (IGUAL ao Frente de Caixa - getTotais)
       const sqlTotal = `
         SELECT SUM(VAL_DESCONTO) as TOTAL_DESCONTOS
-        FROM INTERSOLID.TAB_PRODUTO_PDV
+        FROM ${tabProdutoPdv}
         WHERE DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
           AND DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND VAL_DESCONTO > 0
@@ -857,9 +864,9 @@ export class LabelAuditService {
         SELECT
           NVL(s.DES_SECAO, 'SEM SEÇÃO') as SECAO,
           SUM(pp.VAL_DESCONTO) as VALOR_DESCONTO
-        FROM INTERSOLID.TAB_PRODUTO_PDV pp
-        LEFT JOIN INTERSOLID.TAB_PRODUTO p ON pp.COD_PRODUTO = p.COD_PRODUTO
-        LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
+        FROM ${tabProdutoPdv} pp
+        LEFT JOIN ${tabProduto} p ON pp.COD_PRODUTO = p.COD_PRODUTO
+        LEFT JOIN ${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
         WHERE pp.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
           AND pp.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND pp.VAL_DESCONTO > 0

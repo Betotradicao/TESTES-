@@ -9,6 +9,7 @@ import { OracleService } from './oracle.service';
 import { CacheService } from './cache.service';
 import { AppDataSource } from '../config/database';
 import { Company } from '../entities/Company';
+import { MappingService } from './mapping.service';
 
 const CACHE_KEY = 'gestao-inteligente-indicadores';
 const CACHE_TTL_MINUTES = 5; // 5 minutos de cache
@@ -125,6 +126,13 @@ export class GestaoInteligenteService {
     custoOferta: number;
     qtdSkus: number;
   }> {
+    // Obter schema e nomes reais das tabelas via MappingService
+    const schema = await MappingService.getSchema();
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
+    const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA', 'TAB_CUPOM_FINALIZADORA')}`;
+    const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA', 'TAB_FORNECEDOR_NOTA')}`;
+    const tabFornecedorProduto = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_PRODUTO', 'TAB_FORNECEDOR_PRODUTO')}`;
+
     let vendasQuery = `
       SELECT
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDAS,
@@ -134,7 +142,7 @@ export class GestaoInteligenteService {
         NVL(SUM(CASE WHEN pv.FLG_OFERTA = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA,
         NVL(SUM(CASE WHEN pv.FLG_OFERTA = 'S' THEN pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO ELSE 0 END), 0) as CUSTO_OFERTA,
         COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS
-      FROM INTERSOLID.TAB_PRODUTO_PDV pv
+      FROM ${tabProdutoPdv} pv
       WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
     `;
     const vendasParams: any = { dataInicio, dataFim };
@@ -145,7 +153,7 @@ export class GestaoInteligenteService {
 
     let cuponsQuery = `
       SELECT COUNT(DISTINCT cf.NUM_CUPOM_FISCAL) as QTD_CUPONS
-      FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+      FROM ${tabCupomFinalizadora} cf
       WHERE cf.DTA_VENDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND cf.COD_TIPO = 1110
     `;
@@ -157,8 +165,8 @@ export class GestaoInteligenteService {
 
     let comprasQuery = `
       SELECT NVL(SUM(ni.QTD_ENTRADA * ni.VAL_TABELA), 0) as COMPRAS
-      FROM INTERSOLID.TAB_FORNECEDOR_NOTA n
-      JOIN INTERSOLID.TAB_FORNECEDOR_PRODUTO ni ON ni.NUM_NF_FORN = n.NUM_NF_FORN
+      FROM ${tabFornecedorNota} n
+      JOIN ${tabFornecedorProduto} ni ON ni.NUM_NF_FORN = n.NUM_NF_FORN
         AND ni.COD_FORNECEDOR = n.COD_FORNECEDOR
       WHERE TRUNC(n.DTA_ENTRADA) BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND NVL(n.FLG_CANCELADO, 'N') = 'N'
@@ -314,6 +322,12 @@ export class GestaoInteligenteService {
     const dataInicio = this.formatDateToOracle(filters.dataInicio);
     const dataFim = this.formatDateToOracle(filters.dataFim);
 
+    // Obter schema e nomes reais das tabelas via MappingService
+    const schema = await MappingService.getSchema();
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+    const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+
     let sql = `
       SELECT
         s.COD_SECAO,
@@ -321,9 +335,9 @@ export class GestaoInteligenteService {
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD
-      FROM INTERSOLID.TAB_PRODUTO_PDV pv
-      JOIN INTERSOLID.TAB_PRODUTO p ON p.COD_PRODUTO = pv.COD_PRODUTO
-      JOIN INTERSOLID.TAB_SECAO s ON s.COD_SECAO = p.COD_SECAO
+      FROM ${tabProdutoPdv} pv
+      JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.COD_PRODUTO
+      JOIN ${tabSecao} s ON s.COD_SECAO = p.COD_SECAO
       WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
     `;
 
@@ -379,6 +393,12 @@ export class GestaoInteligenteService {
     const dataInicio = this.formatDateToOracle(filters.dataInicio);
     const dataFim = this.formatDateToOracle(filters.dataFim);
 
+    // Obter schema e nomes reais das tabelas via MappingService
+    const schema = await MappingService.getSchema();
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+    const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO')}`;
+
     // Buscar grupos que pertencem diretamente à seção (via TAB_GRUPO.COD_SECAO)
     // E que tiveram vendas no período
     let sql = `
@@ -388,9 +408,9 @@ export class GestaoInteligenteService {
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD
-      FROM INTERSOLID.TAB_PRODUTO_PDV pv
-      JOIN INTERSOLID.TAB_PRODUTO p ON p.COD_PRODUTO = pv.COD_PRODUTO
-      JOIN INTERSOLID.TAB_GRUPO g ON g.COD_GRUPO = p.COD_GRUPO AND g.COD_SECAO = :codSecao
+      FROM ${tabProdutoPdv} pv
+      JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.COD_PRODUTO
+      JOIN ${tabGrupo} g ON g.COD_GRUPO = p.COD_GRUPO AND g.COD_SECAO = :codSecao
       WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND p.COD_SECAO = :codSecao
     `;
@@ -443,6 +463,12 @@ export class GestaoInteligenteService {
     const dataInicio = this.formatDateToOracle(filters.dataInicio);
     const dataFim = this.formatDateToOracle(filters.dataFim);
 
+    // Obter schema e nomes reais das tabelas via MappingService
+    const schema = await MappingService.getSchema();
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+    const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO')}`;
+
     // Buscar subgrupos através dos produtos que pertencem ao grupo
     // IMPORTANTE: Colunas são COD_SUB_GRUPO e DES_SUB_GRUPO (com underscore)
     // TAB_SUBGRUPO tem chave composta: COD_SECAO, COD_GRUPO, COD_SUB_GRUPO
@@ -453,9 +479,9 @@ export class GestaoInteligenteService {
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD
-      FROM INTERSOLID.TAB_PRODUTO_PDV pv
-      JOIN INTERSOLID.TAB_PRODUTO p ON p.COD_PRODUTO = pv.COD_PRODUTO
-      JOIN INTERSOLID.TAB_SUBGRUPO sg ON sg.COD_SECAO = p.COD_SECAO
+      FROM ${tabProdutoPdv} pv
+      JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.COD_PRODUTO
+      JOIN ${tabSubgrupo} sg ON sg.COD_SECAO = p.COD_SECAO
         AND sg.COD_GRUPO = p.COD_GRUPO
         AND sg.COD_SUB_GRUPO = p.COD_SUB_GRUPO
       WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
@@ -505,6 +531,11 @@ export class GestaoInteligenteService {
     const dataInicio = this.formatDateToOracle(filters.dataInicio);
     const dataFim = this.formatDateToOracle(filters.dataFim);
 
+    // Obter schema e nomes reais das tabelas via MappingService
+    const schema = await MappingService.getSchema();
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+
     // Buscar produtos que pertencem ao subgrupo, grupo e seção corretos
     // IMPORTANTE: Coluna é COD_SUB_GRUPO (com underscore)
     let sql = `
@@ -514,8 +545,8 @@ export class GestaoInteligenteService {
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD
-      FROM INTERSOLID.TAB_PRODUTO_PDV pv
-      JOIN INTERSOLID.TAB_PRODUTO p ON p.COD_PRODUTO = pv.COD_PRODUTO
+      FROM ${tabProdutoPdv} pv
+      JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.COD_PRODUTO
         AND p.COD_SUB_GRUPO = :codSubgrupo
     `;
 
@@ -569,9 +600,13 @@ export class GestaoInteligenteService {
    */
   static async getLojas(): Promise<any[]> {
     try {
+      // Obter schema e nome real da tabela via MappingService
+      const schema = await MappingService.getSchema();
+      const tabLoja = `${schema}.${await MappingService.getRealTableName('TAB_LOJA', 'TAB_LOJA')}`;
+
       const sql = `
         SELECT COD_LOJA, DES_LOJA
-        FROM INTERSOLID.TAB_LOJA
+        FROM ${tabLoja}
         ORDER BY COD_LOJA
       `;
 
