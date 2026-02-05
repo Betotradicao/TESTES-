@@ -2,6 +2,7 @@ import { AppDataSource } from '../config/database';
 import { Bip, BipStatus } from '../entities/Bip';
 import { EanFormatResult, ErpProduct, BipWebhookData } from '../types/webhook.types';
 import { OracleService } from './oracle.service';
+import { MappingService } from './mapping.service';
 
 export class BipWebhookService {
   /**
@@ -43,6 +44,11 @@ export class BipWebhookService {
       const codProdutoNum = parseInt(plu, 10);
       console.log(`🔢 [ORACLE] PLU convertido: "${plu}" -> ${codProdutoNum}`);
 
+      // Obter nomes de tabelas do MappingService
+      const schema = await MappingService.getSchema();
+      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+      const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
+
       // Query para buscar produto pelo código (PLU) com COD_LOJA parametrizado
       const sql = `
         SELECT
@@ -50,8 +56,8 @@ export class BipWebhookService {
           p.DES_PRODUTO,
           NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
           NVL(pl.VAL_OFERTA, 0) as VAL_OFERTA
-        FROM INTERSOLID.TAB_PRODUTO p
-        INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+        FROM ${tabProduto} p
+        INNER JOIN ${tabProdutoLoja} pl ON p.COD_PRODUTO = pl.COD_PRODUTO
         WHERE p.COD_PRODUTO = :codProduto
         AND pl.COD_LOJA = :codLoja
         AND ROWNUM = 1
