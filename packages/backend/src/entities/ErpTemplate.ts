@@ -24,8 +24,8 @@ export class ErpTemplate {
   @Column({ type: 'text' })
   mappings: string; // JSON com todos os mapeamentos de tabelas/colunas
 
-  @Column({ nullable: true })
-  logo_url: string; // URL da imagem/logotipo do ERP
+  @Column({ type: 'text', nullable: true })
+  logo_url: string; // URL ou base64 da imagem/logotipo do ERP
 
   @Column({ default: true })
   is_active: boolean;

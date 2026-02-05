@@ -123,7 +123,7 @@ export class ErpTemplatesController {
   async update(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { name, description, database_type, mappings, is_active } = req.body;
+      const { name, description, database_type, mappings, is_active, logo_url } = req.body;
 
       const template = await templateRepository.findOne({
         where: { id: parseInt(id) }
@@ -142,6 +142,7 @@ export class ErpTemplatesController {
       if (database_type) template.database_type = database_type;
       if (mappings) template.mappings = typeof mappings === 'string' ? mappings : JSON.stringify(mappings);
       if (is_active !== undefined) template.is_active = is_active;
+      if (logo_url !== undefined) template.logo_url = logo_url;
 
       const saved = await templateRepository.save(template);
 

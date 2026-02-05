@@ -69,15 +69,30 @@ const TABLE_CATALOG = {
       { id: 'nome_operador', name: 'Nome Operador', defaultTable: 'TAB_OPERADORES', defaultColumn: 'DES_OPERADOR' },
     ]
   },
-  TAB_ESTOQUE: {
-    name: 'Movimentações de Estoque',
-    description: 'Entradas, saídas e ajustes',
+  TAB_AJUSTE_ESTOQUE: {
+    name: 'Ajustes de Estoque',
+    description: 'Ajustes e movimentações de estoque',
     fields: [
+      { id: 'codigo_ajuste_estoque', name: 'Código Ajuste', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'COD_AJUSTE_ESTOQUE' },
       { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'COD_PRODUTO' },
+      { id: 'codigo_loja', name: 'Código Loja', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'COD_LOJA' },
+      { id: 'tipo_ajuste', name: 'Tipo Ajuste', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'COD_AJUSTE' },
       { id: 'quantidade', name: 'Quantidade', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'QTD_AJUSTE' },
-      { id: 'tipo_movimento', name: 'Tipo Movimento', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'COD_AJUSTE' },
-      { id: 'data_movimento', name: 'Data Movimento', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'DTA_AJUSTE' },
+      { id: 'data_ajuste', name: 'Data Ajuste', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'DTA_AJUSTE' },
+      { id: 'usuario', name: 'Usuário', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'USUARIO' },
       { id: 'motivo', name: 'Motivo', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'MOTIVO' },
+    ]
+  },
+  TAB_AJUSTE_ITENS: {
+    name: 'Itens de Ajuste (Produção)',
+    description: 'Itens detalhados dos ajustes de produção',
+    fields: [
+      { id: 'codigo_ajuste_pai', name: 'Código Ajuste Pai', defaultTable: 'TAB_AJUSTE_HIST_EST_ITENS', defaultColumn: 'COD_CHAVE_AJUSTE_PAI' },
+      { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_AJUSTE_HIST_EST_ITENS', defaultColumn: 'COD_PRODUTO' },
+      { id: 'codigo_loja', name: 'Código Loja', defaultTable: 'TAB_AJUSTE_HIST_EST_ITENS', defaultColumn: 'COD_LOJA' },
+      { id: 'quantidade', name: 'Quantidade', defaultTable: 'TAB_AJUSTE_HIST_EST_ITENS', defaultColumn: 'QTD_AJUSTE' },
+      { id: 'valor_venda', name: 'Valor Venda', defaultTable: 'TAB_AJUSTE_HIST_EST_ITENS', defaultColumn: 'VAL_VENDA' },
+      { id: 'valor_custo', name: 'Valor Custo', defaultTable: 'TAB_AJUSTE_HIST_EST_ITENS', defaultColumn: 'VAL_CUSTO_REP' },
     ]
   },
   TAB_FORNECEDOR: {
@@ -107,60 +122,18 @@ const TABLE_CATALOG = {
     name: 'Pedidos',
     description: 'Pedidos de compra',
     fields: [
-      { id: 'numero_pedido', name: 'Número Pedido', defaultTable: 'TAB_PEDIDO_COMPRA', defaultColumn: 'NUM_PEDIDO' },
-      { id: 'codigo_fornecedor', name: 'Código Fornecedor', defaultTable: 'TAB_PEDIDO_COMPRA', defaultColumn: 'COD_FORNECEDOR' },
-      { id: 'data_pedido', name: 'Data Pedido', defaultTable: 'TAB_PEDIDO_COMPRA', defaultColumn: 'DTA_PEDIDO' },
-      { id: 'status', name: 'Status', defaultTable: 'TAB_PEDIDO_COMPRA', defaultColumn: 'FLG_STATUS' },
-      { id: 'valor_total', name: 'Valor Total', defaultTable: 'TAB_PEDIDO_COMPRA', defaultColumn: 'VAL_TOTAL' },
+      { id: 'numero_pedido', name: 'Número Pedido', defaultTable: 'TAB_PEDIDO', defaultColumn: 'NUM_PEDIDO' },
+      { id: 'codigo_fornecedor', name: 'Código Fornecedor', defaultTable: 'TAB_PEDIDO', defaultColumn: 'COD_PARCEIRO' },
+      { id: 'data_emissao', name: 'Data Emissão', defaultTable: 'TAB_PEDIDO', defaultColumn: 'DTA_EMISSAO' },
+      { id: 'data_entrega', name: 'Data Entrega', defaultTable: 'TAB_PEDIDO', defaultColumn: 'DTA_ENTREGA' },
+      { id: 'tipo_recebimento', name: 'Tipo Recebimento', defaultTable: 'TAB_PEDIDO', defaultColumn: 'TIPO_RECEBIMENTO' },
+      { id: 'valor_pedido', name: 'Valor Pedido', defaultTable: 'TAB_PEDIDO', defaultColumn: 'VAL_PEDIDO' },
     ]
   },
-  TAB_RUPTURA: {
-    name: 'Rupturas',
-    description: 'Registro de rupturas',
-    fields: [
-      { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_RUPTURA', defaultColumn: 'COD_PRODUTO' },
-      { id: 'data_ruptura', name: 'Data Ruptura', defaultTable: 'TAB_RUPTURA', defaultColumn: 'DTA_RUPTURA' },
-      { id: 'motivo', name: 'Motivo', defaultTable: 'TAB_RUPTURA', defaultColumn: 'DES_MOTIVO' },
-    ]
-  },
-  TAB_QUEBRA: {
-    name: 'Quebras',
-    description: 'Registro de quebras/perdas',
-    fields: [
-      { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_QUEBRA', defaultColumn: 'COD_PRODUTO' },
-      { id: 'quantidade', name: 'Quantidade', defaultTable: 'TAB_QUEBRA', defaultColumn: 'QTD_QUEBRA' },
-      { id: 'data_quebra', name: 'Data Quebra', defaultTable: 'TAB_QUEBRA', defaultColumn: 'DTA_QUEBRA' },
-      { id: 'motivo', name: 'Motivo', defaultTable: 'TAB_QUEBRA', defaultColumn: 'DES_MOTIVO' },
-      { id: 'valor', name: 'Valor', defaultTable: 'TAB_QUEBRA', defaultColumn: 'VAL_QUEBRA' },
-    ]
-  },
-  TAB_ETIQUETA: {
-    name: 'Etiquetas',
-    description: 'Impressão de etiquetas',
-    fields: [
-      { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_ETIQUETA', defaultColumn: 'COD_PRODUTO' },
-      { id: 'quantidade', name: 'Quantidade', defaultTable: 'TAB_ETIQUETA', defaultColumn: 'QTD_ETIQUETA' },
-      { id: 'data_impressao', name: 'Data Impressão', defaultTable: 'TAB_ETIQUETA', defaultColumn: 'DTA_IMPRESSAO' },
-    ]
-  },
-  TAB_PRODUCAO: {
-    name: 'Produção',
-    description: 'Controle de produção',
-    fields: [
-      { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_PRODUCAO', defaultColumn: 'COD_PRODUTO' },
-      { id: 'quantidade_produzida', name: 'Quantidade Produzida', defaultTable: 'TAB_PRODUCAO', defaultColumn: 'QTD_PRODUZIDA' },
-      { id: 'data_producao', name: 'Data Produção', defaultTable: 'TAB_PRODUCAO', defaultColumn: 'DTA_PRODUCAO' },
-    ]
-  },
-  TAB_HORTFRUTI: {
-    name: 'Hort Fruti',
-    description: 'Controle de hortifruti',
-    fields: [
-      { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_HORTFRUTI', defaultColumn: 'COD_PRODUTO' },
-      { id: 'quantidade_pesada', name: 'Quantidade Pesada', defaultTable: 'TAB_HORTFRUTI', defaultColumn: 'QTD_PESADA' },
-      { id: 'data_pesagem', name: 'Data Pesagem', defaultTable: 'TAB_HORTFRUTI', defaultColumn: 'DTA_PESAGEM' },
-    ]
-  },
+  // NOTA: TAB_RUPTURA, TAB_QUEBRA, TAB_ETIQUETA são tabelas INTERNAS (PostgreSQL)
+  // Não precisam de mapeamento do ERP - são gerenciadas pelo sistema
+  // NOTA: TAB_PRODUCAO e TAB_HORTFRUTI - podem existir no ERP ou ser internas
+  // Por enquanto removidas até confirmar estrutura correta
   TAB_CUPOM_FINALIZADORA: {
     name: 'Finalizadoras de Cupom',
     description: 'Formas de pagamento dos cupons',
@@ -190,11 +163,11 @@ const BUSINESS_MODULES = [
       { id: 'bipagens', name: 'Prevenção de Bipagens', icon: '📡', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_OPERADORES', 'TAB_CUPOM_FINALIZADORA'] },
       { id: 'pdv', name: 'Prevenção PDV', icon: '💳', tables: ['TAB_PRODUTO_PDV', 'TAB_OPERADORES'] },
       { id: 'facial', name: 'Prevenção Facial', icon: '👤', tables: ['TAB_OPERADORES'] },
-      { id: 'rupturas', name: 'Prevenção Rupturas', icon: '🔍', tables: ['TAB_PRODUTO', 'TAB_RUPTURA'] },
-      { id: 'etiquetas', name: 'Prevenção Etiquetas', icon: '🏷️', tables: ['TAB_PRODUTO', 'TAB_ETIQUETA'] },
-      { id: 'quebras', name: 'Prevenção Quebras', icon: '💔', tables: ['TAB_PRODUTO', 'TAB_QUEBRA'] },
-      { id: 'producao', name: 'Produção', icon: '🏭', tables: ['TAB_PRODUTO', 'TAB_PRODUCAO'] },
-      { id: 'hortfruti', name: 'Hort Fruti', icon: '🥬', tables: ['TAB_PRODUTO', 'TAB_HORTFRUTI'] },
+      { id: 'rupturas', name: 'Prevenção Rupturas', icon: '🔍', tables: ['TAB_PRODUTO'] },
+      { id: 'etiquetas', name: 'Prevenção Etiquetas', icon: '🏷️', tables: ['TAB_PRODUTO'] },
+      { id: 'quebras', name: 'Prevenção Quebras', icon: '💔', tables: ['TAB_PRODUTO'] },
+      { id: 'producao', name: 'Produção', icon: '🏭', tables: ['TAB_PRODUTO'] },
+      { id: 'hortfruti', name: 'Hort Fruti', icon: '🥬', tables: ['TAB_PRODUTO'] },
     ]
   },
   {
@@ -204,10 +177,10 @@ const BUSINESS_MODULES = [
     color: 'from-blue-500 to-indigo-600',
     submodules: [
       { id: 'gestao_inteligente', name: 'Gestão Inteligente', icon: '🧠', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV'] },
-      { id: 'estoque_margem', name: 'Estoque e Margem', icon: '📦', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_ESTOQUE'] },
+      { id: 'estoque_margem', name: 'Estoque e Margem', icon: '📦', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ITENS'] },
       { id: 'compra_venda', name: 'Compra e Venda', icon: '🛒', tables: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_NOTA_FISCAL'] },
       { id: 'pedidos', name: 'Pedidos', icon: '📋', tables: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_PEDIDO'] },
-      { id: 'ruptura_industria', name: 'Ruptura Indústria', icon: '🏭', tables: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_RUPTURA'] },
+      { id: 'ruptura_industria', name: 'Ruptura Indústria', icon: '🏭', tables: ['TAB_PRODUTO', 'TAB_FORNECEDOR'] },
     ]
   }
 ];
@@ -264,6 +237,7 @@ export default function ConfiguracoesTabelas() {
   const [testResults, setTestResults] = useState({});
   const [testingMapping, setTestingMapping] = useState(null);
   const [testingAll, setTestingAll] = useState(false);
+  const [autoTestPending, setAutoTestPending] = useState(false);
 
   // Estado para rastrear submódulos salvos
   const [savedSubmodules, setSavedSubmodules] = useState(getAllSubmodules());
@@ -276,6 +250,7 @@ export default function ConfiguracoesTabelas() {
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [applyingTemplate, setApplyingTemplate] = useState(null); // Template sendo aplicado (para travar tipo de banco)
 
   // Verificar se é Master
   useEffect(() => {
@@ -289,6 +264,20 @@ export default function ConfiguracoesTabelas() {
     loadConnections();
     loadErpTemplates();
   }, []);
+
+  // Auto-teste após aplicar template (executar testes quando autoTestPending for true)
+  useEffect(() => {
+    if (autoTestPending && selectedConnection && activeTab === 'mapeamento') {
+      setAutoTestPending(false);
+      // Executar teste de todos os mapeamentos do submódulo atual
+      setTimeout(() => {
+        const testAllBtn = document.querySelector('[data-testid="test-all-btn"]');
+        if (testAllBtn) {
+          testAllBtn.click();
+        }
+      }, 300);
+    }
+  }, [autoTestPending, selectedConnection, activeTab]);
 
   // Função para carregar templates de ERP
   const loadErpTemplates = async () => {
@@ -325,11 +314,28 @@ export default function ConfiguracoesTabelas() {
     }
   };
 
-  // Pré-preencher com valores Intersolid (sem salvar)
-  const handlePreFillIntersolid = () => {
-    setTableMappings(getInitialMappings());
-    setTestResults({});
-    alert('✅ Campos preenchidos com valores padrão Intersolid!\n\nRevise e salve cada submódulo.');
+  // Função para upload de logo do template ERP
+  const handleUploadLogo = async (templateId, file) => {
+    try {
+      // Converter para base64 para salvar no banco
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64 = e.target.result;
+        try {
+          await api.put(`/erp-templates/${templateId}`, { logo_url: base64 });
+          // Atualizar lista de templates
+          setErpTemplates(prev => prev.map(t =>
+            t.id === templateId ? { ...t, logo_url: base64 } : t
+          ));
+        } catch (err) {
+          console.error('Erro ao salvar logo:', err);
+          alert('Erro ao salvar a logo do ERP');
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Erro ao processar imagem:', error);
+    }
   };
 
   // Função para mudar conexão selecionada e carregar mapeamentos
@@ -657,14 +663,32 @@ export default function ConfiguracoesTabelas() {
         delete payload.password;
       }
 
+      let savedConnectionId = null;
+      const wasFromTemplate = !!applyingTemplate;
+
       if (editingConnection) {
         await api.put(`/database-connections/${editingConnection.id}`, payload);
+        savedConnectionId = editingConnection.id;
       } else {
-        await api.post('/database-connections', payload);
+        const response = await api.post('/database-connections', payload);
+        savedConnectionId = response.data?.id;
       }
-      loadConnections();
+
+      await loadConnections();
       setShowConnectionModal(false);
       setEditingConnection(null);
+      setApplyingTemplate(null);
+
+      // Se veio de um template e o teste de conexão passou, ir para Mapeamento e testar automaticamente
+      if (wasFromTemplate && testPassed && savedConnectionId) {
+        setSelectedConnection(savedConnectionId);
+        setActiveTab('mapeamento');
+        // Aguardar um pouco para o estado atualizar e depois executar os testes
+        setTimeout(() => {
+          // Trigger auto-test (será executado pelo useEffect abaixo)
+          setAutoTestPending(true);
+        }, 500);
+      }
     } catch (error) {
       console.error('Erro ao salvar conexão:', error);
       alert('Erro ao salvar conexão: ' + (error.response?.data?.message || error.message));
@@ -699,14 +723,6 @@ export default function ConfiguracoesTabelas() {
             <p className="text-sm text-gray-500 mt-1">
               Conecte os campos do sistema às colunas do seu banco de dados
             </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handlePreFillIntersolid}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              🔶 Preencher Intersolid
-            </button>
           </div>
         </div>
 
@@ -852,6 +868,7 @@ export default function ConfiguracoesTabelas() {
                   </p>
                 </div>
                 <button
+                  data-testid="test-all-btn"
                   onClick={handleTestAllMappings}
                   disabled={testingAll}
                   className="flex items-center gap-2 px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium whitespace-nowrap"
@@ -1151,25 +1168,56 @@ export default function ConfiguracoesTabelas() {
           {erpTemplates.map(template => {
             const dbType = DATABASE_TYPES.find(t => t.id === template.database_type);
             return (
-              <div key={template.id} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-lg transition-all">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={`w-12 h-12 ${dbType?.color || 'bg-gray-500'} rounded-xl flex items-center justify-center text-white text-xl`}>
-                    {dbType?.icon || '🗄️'}
-                  </div>
+              <div key={template.id} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg transition-all">
+                <div className="flex items-center gap-4 mb-4">
+                  {/* Área para Logo do ERP - Clicável para upload */}
+                  <label className={`w-16 h-16 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 cursor-pointer transition-all group relative ${template.logo_url ? 'bg-white' : 'bg-gray-100 border-2 border-dashed border-gray-300 hover:bg-gray-200 hover:border-orange-400'}`}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleUploadLogo(template.id, file);
+                      }}
+                    />
+                    {template.logo_url ? (
+                      <>
+                        <img src={template.logo_url} alt={template.name} className="w-full h-full object-contain" />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                          <span className="text-white text-xs">Trocar</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <span className="text-2xl">📷</span>
+                        <span className="text-[10px] text-gray-400">Adicionar</span>
+                      </div>
+                    )}
+                  </label>
+                  {/* Nome e descrição */}
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-gray-900 truncate">{template.name}</h3>
-                    <p className="text-xs text-gray-500 truncate">{template.description || 'Template de mapeamento'}</p>
+                    <h3 className="font-bold text-gray-900 truncate text-lg">{template.name}</h3>
+                    <p className="text-sm text-gray-500 truncate">{template.description || 'Template de mapeamento'}</p>
+                  </div>
+                  {/* Ícone do tipo de banco (Oracle, etc) */}
+                  <div className={`w-10 h-10 ${dbType?.color || 'bg-gray-500'} rounded-lg flex items-center justify-center text-white text-lg flex-shrink-0`}>
+                    {dbType?.icon || '🗄️'}
                   </div>
                 </div>
                 <button
-                  className="w-full py-2 bg-orange-100 text-orange-700 rounded-lg font-medium hover:bg-orange-200 transition-colors text-sm"
+                  className="w-full py-2.5 bg-orange-100 text-orange-700 rounded-lg font-medium hover:bg-orange-200 transition-colors"
                   onClick={() => {
-                    // Aplicar template
+                    // Salvar template sendo aplicado (para travar tipo de banco)
+                    setApplyingTemplate(template);
+                    // Aplicar mapeamentos do template
                     if (template.mappings?.tabelas) {
                       setTableMappings(template.mappings.tabelas);
                     }
-                    setActiveTab('mapeamento');
-                    alert('Template aplicado! Configure a conexão e salve os mapeamentos.');
+                    // Ir para aba Conexões e abrir modal
+                    setActiveTab('conexoes');
+                    setEditingConnection(null); // Nova conexão
+                    setShowConnectionModal(true);
                   }}
                 >
                   Usar este Template
@@ -1184,6 +1232,9 @@ export default function ConfiguracoesTabelas() {
 
   // Modal de Conexão (simplificado)
   const ConnectionModal = () => {
+    // Tipo de banco travado quando vem de template
+    const lockedDbType = applyingTemplate?.database_type || null;
+
     const [formData, setFormData] = useState(() => {
       if (editingConnection) {
         return {
@@ -1200,12 +1251,14 @@ export default function ConfiguracoesTabelas() {
           active: editingConnection.active !== false
         };
       }
+      // Se tem template sendo aplicado, usa o tipo dele
+      const dbType = applyingTemplate?.database_type || 'oracle';
       return {
-        name: '',
-        type: 'oracle',
+        name: applyingTemplate ? `${applyingTemplate.name}` : '',
+        type: dbType,
         host: '',
         host_vps: '172.20.0.1',
-        port: '1521',
+        port: '',
         service: '',
         database: '',
         schema: '',
@@ -1262,7 +1315,7 @@ export default function ConfiguracoesTabelas() {
                 {editingConnection ? 'Editar Conexão' : 'Nova Conexão'}
               </h3>
               <button
-                onClick={() => setShowConnectionModal(false)}
+                onClick={() => { setShowConnectionModal(false); setApplyingTemplate(null); }}
                 className="p-2 hover:bg-white/20 rounded-lg transition-colors"
               >
                 ✕
@@ -1283,35 +1336,75 @@ export default function ConfiguracoesTabelas() {
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Banco *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tipo de Banco *
+                {lockedDbType && <span className="text-orange-500 text-xs ml-2">(definido pelo template)</span>}
+              </label>
               <div className="grid grid-cols-4 gap-2">
-                {DATABASE_TYPES.map(db => (
-                  <button
-                    key={db.id}
-                    type="button"
-                    onClick={() => handleChange('type', db.id)}
-                    className={`flex flex-col items-center p-3 rounded-lg border-2 transition-all ${
-                      formData.type === db.id ? 'border-orange-500 bg-orange-50' : 'border-gray-200'
-                    }`}
-                  >
-                    <span className="text-2xl mb-1">{db.icon}</span>
-                    <span className="text-xs font-medium">{db.name}</span>
-                  </button>
-                ))}
+                {DATABASE_TYPES.map(db => {
+                  const isLocked = lockedDbType && db.id !== lockedDbType;
+                  const isSelected = formData.type === db.id;
+                  return (
+                    <button
+                      key={db.id}
+                      type="button"
+                      disabled={isLocked}
+                      onClick={() => !isLocked && handleChange('type', db.id)}
+                      className={`flex flex-col items-center p-3 rounded-lg border-2 transition-all relative ${
+                        isSelected ? 'border-orange-500 bg-orange-50' :
+                        isLocked ? 'border-gray-200 bg-gray-100 opacity-50 cursor-not-allowed' : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      {isLocked && (
+                        <span className="absolute top-1 right-1 text-gray-400 text-xs">🔒</span>
+                      )}
+                      <span className="text-2xl mb-1">{db.icon}</span>
+                      <span className="text-xs font-medium">{db.name}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Host *</label>
-                <input
-                  type="text"
-                  value={formData.host}
-                  onChange={(e) => handleChange('host', e.target.value)}
-                  placeholder="10.6.1.100"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                />
+            {/* Hosts - Local e Nuvem */}
+            <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <h4 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                <span>🌐</span> Configuração de Rede
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Host Local *
+                    <span className="text-xs text-gray-500 ml-1">(rede interna)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.host}
+                    onChange={(e) => handleChange('host', e.target.value)}
+                    placeholder="10.6.1.100"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Host Nuvem (VPS) *
+                    <span className="text-xs text-gray-500 ml-1">(Docker gateway)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.host_vps}
+                    onChange={(e) => handleChange('host_vps', e.target.value)}
+                    placeholder="172.20.0.1"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
               </div>
+              <p className="text-xs text-blue-600 mt-2">
+                O sistema usa o Host Local em desenvolvimento e o Host Nuvem quando rodando na VPS via Docker.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Porta *</label>
                 <input
@@ -1388,7 +1481,7 @@ export default function ConfiguracoesTabelas() {
 
           <div className="p-6 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
             <button
-              onClick={() => setShowConnectionModal(false)}
+              onClick={() => { setShowConnectionModal(false); setApplyingTemplate(null); }}
               className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
             >
               Cancelar

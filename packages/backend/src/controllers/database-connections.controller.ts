@@ -829,27 +829,27 @@ export class DatabaseConnectionsController {
                 rupturas: {
                   nome: 'Prevenção Rupturas',
                   icone: '🔍',
-                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_RUPTURA']
+                  tabelas_usadas: ['TAB_PRODUTO'] // TAB_RUPTURA é interna (PostgreSQL)
                 },
                 etiquetas: {
                   nome: 'Prevenção Etiquetas',
                   icone: '🏷️',
-                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_ETIQUETA']
+                  tabelas_usadas: ['TAB_PRODUTO'] // TAB_ETIQUETA é interna (PostgreSQL)
                 },
                 quebras: {
                   nome: 'Prevenção Quebras',
                   icone: '💔',
-                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_QUEBRA']
+                  tabelas_usadas: ['TAB_PRODUTO'] // TAB_QUEBRA é interna (PostgreSQL)
                 },
                 producao: {
                   nome: 'Produção',
                   icone: '🏭',
-                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_PRODUCAO']
+                  tabelas_usadas: ['TAB_PRODUTO'] // TAB_PRODUCAO - verificar se existe no ERP
                 },
                 hortfruti: {
                   nome: 'Hort Fruti',
                   icone: '🥬',
-                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_HORTFRUTI']
+                  tabelas_usadas: ['TAB_PRODUTO'] // TAB_HORTFRUTI é interna (PostgreSQL)
                 }
               }
             },
@@ -865,7 +865,7 @@ export class DatabaseConnectionsController {
                 estoque_margem: {
                   nome: 'Estoque e Margem',
                   icone: '📦',
-                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_ESTOQUE']
+                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ITENS']
                 },
                 compra_venda: {
                   nome: 'Compra e Venda',
@@ -880,7 +880,7 @@ export class DatabaseConnectionsController {
                 ruptura_industria: {
                   nome: 'Ruptura Indústria',
                   icone: '🏭',
-                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_RUPTURA']
+                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_FORNECEDOR'] // TAB_RUPTURA é interna
                 }
               }
             }
