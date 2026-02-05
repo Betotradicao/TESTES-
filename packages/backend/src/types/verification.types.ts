@@ -8,6 +8,9 @@ export interface SaleData {
   dataHoraVenda?: string;
   numCupomFiscal?: number;
   descontoAplicado?: number;
+  codCaixa?: number;
+  codOperador?: number;
+  desOperador?: string;
 }
 
 export interface VerificationResult {

@@ -214,7 +214,7 @@ export class BipsController {
 
       const sells = await sellRepository
         .createQueryBuilder('sell')
-        .select(['sell.sellDate', 'sell.numCupomFiscal', 'sell.pointOfSaleCode', 'sell.bipId'])
+        .select(['sell.sellDate', 'sell.numCupomFiscal', 'sell.pointOfSaleCode', 'sell.operatorCode', 'sell.operatorName', 'sell.bipId'])
         .where('sell.bipId IN (:...bipIds)', { bipIds: bipIds.length > 0 ? bipIds : [-1] })
         .getMany();
 
@@ -235,7 +235,9 @@ export class BipsController {
         sells.map(sell => [sell.bipId, {
           sell_date: formatDateWithoutTimezone(sell.sellDate),
           sell_num_cupom_fiscal: sell.numCupomFiscal,
-          sell_point_of_sale_code: sell.pointOfSaleCode
+          sell_point_of_sale_code: sell.pointOfSaleCode,
+          sell_operator_code: sell.operatorCode,
+          sell_operator_name: sell.operatorName
         }])
       );
 
@@ -268,6 +270,8 @@ export class BipsController {
           sell_date: sellData?.sell_date || null,
           sell_num_cupom_fiscal: sellData?.sell_num_cupom_fiscal || null,
           sell_point_of_sale_code: sellData?.sell_point_of_sale_code || null,
+          sell_operator_code: sellData?.sell_operator_code || null,
+          sell_operator_name: sellData?.sell_operator_name || null,
           suspect_identification: suspectIdentification || null
         };
       });

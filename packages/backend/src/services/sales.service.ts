@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { ConfigurationService } from './configuration.service';
+import { OracleService } from './oracle.service';
 
 export interface Sale {
   codLoja: number;
@@ -18,6 +19,10 @@ export interface Sale {
   motivoCancelamento?: string;
   funcionarioCancelamento?: string;
   tipoCancelamento?: string;
+  // Campos de operador (Oracle)
+  codOperador?: number;
+  desOperador?: string;
+  numSeqItem?: number;
 }
 
 export class SalesService {
@@ -35,7 +40,22 @@ export class SalesService {
   }
 
   static async fetchSalesFromERP(fromDate: string, toDate: string): Promise<Sale[]> {
-    // Vendas SEMPRE vem da API Zanthus
+    // Verifica configuração para usar Oracle ou Zanthus (default: oracle)
+    const salesSource = await ConfigurationService.get('sales_source', 'oracle');
+
+    if (salesSource === 'oracle') {
+      console.log('📊 [SALES] Usando Oracle como fonte de vendas');
+      // Converter fromDate de YYYYMMDD para YYYY-MM-DD se necessário
+      const fromDateFormatted = fromDate.length === 8
+        ? `${fromDate.slice(0, 4)}-${fromDate.slice(4, 6)}-${fromDate.slice(6, 8)}`
+        : fromDate;
+      const toDateFormatted = toDate.length === 8
+        ? `${toDate.slice(0, 4)}-${toDate.slice(4, 6)}-${toDate.slice(6, 8)}`
+        : toDate;
+      return this.fetchSalesFromOracle(fromDateFormatted, toDateFormatted);
+    }
+
+    console.log('📊 [SALES] Usando Zanthus como fonte de vendas');
     return this.fetchSalesFromZanthus(fromDate, toDate);
   }
 
@@ -246,6 +266,219 @@ export class SalesService {
 
   static formatDateToERP(date: string): string {
     return date.replace(/-/g, '');
+  }
+
+  /**
+   * Busca vendas diretamente do Oracle Intersolid
+   * Retorna no mesmo formato da interface Sale para compatibilidade
+   * @param fromDate Data inicial no formato YYYY-MM-DD
+   * @param toDate Data final no formato YYYY-MM-DD
+   * @param codLoja Código da loja (opcional)
+   */
+  static async fetchSalesFromOracle(fromDate: string, toDate: string, codLoja?: number): Promise<Sale[]> {
+    try {
+      console.log(`📊 [ORACLE] Buscando vendas de ${fromDate} a ${toDate}...`);
+
+      // Converter datas para formato Oracle (DD/MM/YYYY)
+      const dataInicio = this.formatDateToOracle(fromDate);
+      const dataFim = this.formatDateToOracle(toDate);
+
+      let sql = `
+        SELECT
+          pv.NUM_CUPOM_FISCAL,
+          pv.NUM_SEQ_ITEM,
+          pv.COD_PRODUTO,
+          p.DES_PRODUTO,
+          pv.COD_PRODUTO as COD_BARRA_PRINCIPAL,
+          pv.VAL_TOTAL_PRODUTO,
+          pv.QTD_TOTAL_PRODUTO,
+          pv.VAL_CUSTO_REP,
+          pv.DTA_SAIDA,
+          pv.TIM_HORA,
+          pv.NUM_PDV,
+          pv.COD_LOJA,
+          pv.FLG_OFERTA,
+          cf.COD_OPERADOR,
+          o.DES_OPERADOR
+        FROM INTERSOLID.TAB_PRODUTO_PDV pv
+        JOIN INTERSOLID.TAB_PRODUTO p ON p.COD_PRODUTO = pv.COD_PRODUTO
+        LEFT JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+          ON cf.NUM_CUPOM_FISCAL = pv.NUM_CUPOM_FISCAL
+          AND cf.NUM_PDV = pv.NUM_PDV
+          AND cf.COD_LOJA = pv.COD_LOJA
+          AND TRUNC(cf.DTA_VENDA) = TRUNC(pv.DTA_SAIDA)
+          AND cf.COD_TIPO = 1110
+        LEFT JOIN INTERSOLID.TAB_OPERADORES o ON o.COD_OPERADOR = cf.COD_OPERADOR
+        WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND pv.NUM_CUPOM_FISCAL > 0
+      `;
+
+      const params: any = { dataInicio, dataFim };
+
+      if (codLoja) {
+        sql += ` AND pv.COD_LOJA = :codLoja`;
+        params.codLoja = codLoja;
+      }
+
+      sql += ` ORDER BY pv.TIM_HORA DESC`;
+
+      const result = await OracleService.query<any>(sql, params);
+
+      // Converter para formato Sale
+      const sales: Sale[] = result.map((row: any) => {
+        // Formatar data/hora
+        let dataHoraVenda = '';
+        if (row.TIM_HORA) {
+          const hora = new Date(row.TIM_HORA);
+          dataHoraVenda = hora.toISOString().replace('T', ' ').substring(0, 19);
+        }
+
+        // Formatar data saída para YYYYMMDD
+        let dtaSaida = '';
+        if (row.DTA_SAIDA) {
+          const data = new Date(row.DTA_SAIDA);
+          dtaSaida = `${data.getFullYear()}${String(data.getMonth() + 1).padStart(2, '0')}${String(data.getDate()).padStart(2, '0')}`;
+        }
+
+        return {
+          codLoja: row.COD_LOJA || 1,
+          desProduto: row.DES_PRODUTO || '',
+          codProduto: String(row.COD_PRODUTO || ''),
+          codBarraPrincipal: String(row.COD_BARRA_PRINCIPAL || row.COD_PRODUTO || '').padStart(13, '0'),
+          dtaSaida,
+          numCupomFiscal: row.NUM_CUPOM_FISCAL || 0,
+          codCaixa: row.NUM_PDV || 0,
+          valVenda: row.VAL_TOTAL_PRODUTO || 0,
+          qtdTotalProduto: row.QTD_TOTAL_PRODUTO || 0,
+          valTotalProduto: row.VAL_TOTAL_PRODUTO || 0,
+          totalCusto: row.VAL_CUSTO_REP || 0,
+          descontoAplicado: undefined,
+          dataHoraVenda,
+          // Campos extras do Oracle
+          numSeqItem: row.NUM_SEQ_ITEM,
+          codOperador: row.COD_OPERADOR,
+          desOperador: row.DES_OPERADOR
+        } as Sale;
+      });
+
+      console.log(`✅ [ORACLE] ${sales.length} vendas encontradas`);
+
+      // Log para debug: verificar se operador está vindo
+      const salesWithOperator = sales.filter(s => s.codOperador || s.desOperador);
+      console.log(`👤 [ORACLE] ${salesWithOperator.length} vendas com operador de ${sales.length} total`);
+      if (salesWithOperator.length > 0) {
+        const sample = salesWithOperator[0];
+        console.log(`   Exemplo: Operador ${sample.codOperador} - ${sample.desOperador}`);
+      }
+
+      return sales;
+    } catch (error) {
+      console.error('❌ [ORACLE] Erro ao buscar vendas:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Busca vendas recentes do Oracle (últimos X minutos)
+   * Ideal para matching de bipagens em tempo real
+   */
+  static async fetchRecentSalesFromOracle(minutosAtras: number = 5, codLoja?: number): Promise<Sale[]> {
+    try {
+      console.log(`📊 [ORACLE] Buscando vendas dos últimos ${minutosAtras} minutos...`);
+
+      let sql = `
+        SELECT
+          pv.NUM_CUPOM_FISCAL,
+          pv.NUM_SEQ_ITEM,
+          pv.COD_PRODUTO,
+          p.DES_PRODUTO,
+          pv.COD_PRODUTO as COD_BARRA_PRINCIPAL,
+          pv.VAL_TOTAL_PRODUTO,
+          pv.QTD_TOTAL_PRODUTO,
+          pv.VAL_CUSTO_REP,
+          pv.DTA_SAIDA,
+          pv.TIM_HORA,
+          pv.NUM_PDV,
+          pv.COD_LOJA,
+          pv.FLG_OFERTA,
+          cf.COD_OPERADOR,
+          o.DES_OPERADOR
+        FROM INTERSOLID.TAB_PRODUTO_PDV pv
+        JOIN INTERSOLID.TAB_PRODUTO p ON p.COD_PRODUTO = pv.COD_PRODUTO
+        LEFT JOIN INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+          ON cf.NUM_CUPOM_FISCAL = pv.NUM_CUPOM_FISCAL
+          AND cf.NUM_PDV = pv.NUM_PDV
+          AND cf.COD_LOJA = pv.COD_LOJA
+          AND TRUNC(cf.DTA_VENDA) = TRUNC(pv.DTA_SAIDA)
+          AND cf.COD_TIPO = 1110
+        LEFT JOIN INTERSOLID.TAB_OPERADORES o ON o.COD_OPERADOR = cf.COD_OPERADOR
+        WHERE TRUNC(pv.DTA_SAIDA) = TRUNC(SYSDATE)
+          AND pv.TIM_HORA >= SYSDATE - INTERVAL '${minutosAtras}' MINUTE
+          AND pv.NUM_CUPOM_FISCAL > 0
+      `;
+
+      const params: any = {};
+
+      if (codLoja) {
+        sql += ` AND pv.COD_LOJA = :codLoja`;
+        params.codLoja = codLoja;
+      }
+
+      sql += ` ORDER BY pv.TIM_HORA DESC`;
+
+      const result = await OracleService.query<any>(sql, params);
+
+      // Converter para formato Sale
+      const sales: Sale[] = result.map((row: any) => {
+        let dataHoraVenda = '';
+        if (row.TIM_HORA) {
+          const hora = new Date(row.TIM_HORA);
+          dataHoraVenda = hora.toISOString().replace('T', ' ').substring(0, 19);
+        }
+
+        let dtaSaida = '';
+        if (row.DTA_SAIDA) {
+          const data = new Date(row.DTA_SAIDA);
+          dtaSaida = `${data.getFullYear()}${String(data.getMonth() + 1).padStart(2, '0')}${String(data.getDate()).padStart(2, '0')}`;
+        }
+
+        return {
+          codLoja: row.COD_LOJA || 1,
+          desProduto: row.DES_PRODUTO || '',
+          codProduto: String(row.COD_PRODUTO || ''),
+          codBarraPrincipal: String(row.COD_BARRA_PRINCIPAL || row.COD_PRODUTO || '').padStart(13, '0'),
+          dtaSaida,
+          numCupomFiscal: row.NUM_CUPOM_FISCAL || 0,
+          codCaixa: row.NUM_PDV || 0,
+          valVenda: row.VAL_TOTAL_PRODUTO || 0,
+          qtdTotalProduto: row.QTD_TOTAL_PRODUTO || 0,
+          valTotalProduto: row.VAL_TOTAL_PRODUTO || 0,
+          totalCusto: row.VAL_CUSTO_REP || 0,
+          descontoAplicado: undefined,
+          dataHoraVenda,
+          numSeqItem: row.NUM_SEQ_ITEM,
+          codOperador: row.COD_OPERADOR,
+          desOperador: row.DES_OPERADOR
+        } as Sale;
+      });
+
+      console.log(`✅ [ORACLE] ${sales.length} vendas recentes encontradas`);
+      return sales;
+    } catch (error) {
+      console.error('❌ [ORACLE] Erro ao buscar vendas recentes:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Converte data de YYYY-MM-DD para DD/MM/YYYY (formato Oracle)
+   */
+  private static formatDateToOracle(date: string): string {
+    if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = date.split('-');
+      return `${day}/${month}/${year}`;
+    }
+    return date;
   }
 
   static validateDateFormat(date: string): boolean {

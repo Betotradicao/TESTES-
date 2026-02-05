@@ -34,6 +34,12 @@ export class Sell {
   @Column({ name: 'point_of_sale_code', type: 'integer', nullable: true })
   pointOfSaleCode: number | null;
 
+  @Column({ name: 'operator_code', type: 'integer', nullable: true })
+  operatorCode: number | null;
+
+  @Column({ name: 'operator_name', type: 'varchar', length: 100, nullable: true })
+  operatorName: string | null;
+
   @Column({ name: 'discount_cents', type: 'integer', default: 0 })
   discountCents: number;
 

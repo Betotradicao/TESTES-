@@ -262,6 +262,8 @@ export class DailyVerificationCommand {
         bip_id: matchedBip ? matchedBip.id : null,
         num_cupom_fiscal: sale.numCupomFiscal,
         point_of_sale_code: sale.codCaixa || null,
+        operator_code: sale.codOperador || null,
+        operator_name: sale.desOperador || null,
         status: status,
         discount_cents: sale.descontoAplicado ? Math.round(sale.descontoAplicado * 100) : 0
       };
@@ -271,13 +273,15 @@ export class DailyVerificationCommand {
 
     if (sellsToInsert.length > 0) {
       const values = sellsToInsert.map(record =>
-        `(${record.activated_product_id || 'NULL'}, '${record.product_id}', '${record.product_description.replace(/'/g, "''")}', '${record.sell_date}', ${record.sell_value_cents}, ${record.product_weight}, ${record.bip_id || 'NULL'}, '${record.num_cupom_fiscal}', ${record.point_of_sale_code || 'NULL'}, '${record.status}', ${record.discount_cents})`
+        `(${record.activated_product_id || 'NULL'}, '${record.product_id}', '${record.product_description.replace(/'/g, "''")}', '${record.sell_date}', ${record.sell_value_cents}, ${record.product_weight}, ${record.bip_id || 'NULL'}, '${record.num_cupom_fiscal}', ${record.point_of_sale_code || 'NULL'}, ${record.operator_code || 'NULL'}, ${record.operator_name ? `'${record.operator_name.replace(/'/g, "''")}'` : 'NULL'}, '${record.status}', ${record.discount_cents})`
       ).join(',');
 
       await AppDataSource.query(`
-          INSERT INTO sells (activated_product_id, product_id, product_description, sell_date, sell_value_cents, product_weight, bip_id, num_cupom_fiscal, point_of_sale_code, status, discount_cents)
+          INSERT INTO sells (activated_product_id, product_id, product_description, sell_date, sell_value_cents, product_weight, bip_id, num_cupom_fiscal, point_of_sale_code, operator_code, operator_name, status, discount_cents)
           VALUES ${values}
-          ON CONFLICT (product_id, product_weight, num_cupom_fiscal) DO NOTHING
+          ON CONFLICT (product_id, product_weight, num_cupom_fiscal) DO UPDATE SET
+            operator_code = EXCLUDED.operator_code,
+            operator_name = EXCLUDED.operator_name
         `);
     }
 

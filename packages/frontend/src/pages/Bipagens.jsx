@@ -1082,9 +1082,11 @@ export default function Bipagens() {
                             {formatSellDateTime(bip.sell_date)}
                           </div>
                         )}
-                        {bip.sell_point_of_sale_code && (
+                        {(bip.sell_point_of_sale_code || bip.sell_operator_name) && (
                           <div className="text-xs text-gray-500 mt-1">
-                            PDV: {bip.sell_point_of_sale_code}
+                            {bip.sell_point_of_sale_code && `PDV: ${bip.sell_point_of_sale_code}`}
+                            {bip.sell_point_of_sale_code && bip.sell_operator_name && ' | '}
+                            {bip.sell_operator_name && `Op: ${bip.sell_operator_name}`}
                           </div>
                         )}
                       </td>
@@ -1187,9 +1189,11 @@ export default function Bipagens() {
                         {formatSellDateTime(bip.sell_date)}
                       </div>
                     )}
-                    {bip.sell_point_of_sale_code && (
+                    {(bip.sell_point_of_sale_code || bip.sell_operator_name) && (
                       <div className="text-xs text-gray-400 mt-0.5">
-                        PDV: {bip.sell_point_of_sale_code}
+                        {bip.sell_point_of_sale_code && `PDV: ${bip.sell_point_of_sale_code}`}
+                        {bip.sell_point_of_sale_code && bip.sell_operator_name && ' | '}
+                        {bip.sell_operator_name && `Op: ${bip.sell_operator_name}`}
                       </div>
                     )}
                   </div>
