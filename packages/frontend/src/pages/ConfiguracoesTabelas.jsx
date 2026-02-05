@@ -45,6 +45,9 @@ const TABLE_CATALOG = {
       { id: 'estoque_atual', name: 'Estoque Atual', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'QTD_EST_ATUAL' },
       { id: 'margem', name: 'Margem', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'VAL_MARGEM' },
       { id: 'curva', name: 'Curva ABC', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'DES_RANK_PRODLOJA' },
+      { id: 'fora_linha', name: 'Fora de Linha', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'FORA_LINHA' },
+      { id: 'codigo_loja', name: 'Código Loja', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'COD_LOJA' },
+      { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'COD_PRODUTO' },
     ]
   },
   TAB_PRODUTO_PDV: {
@@ -127,7 +130,44 @@ const TABLE_CATALOG = {
       { id: 'data_emissao', name: 'Data Emissão', defaultTable: 'TAB_PEDIDO', defaultColumn: 'DTA_EMISSAO' },
       { id: 'data_entrega', name: 'Data Entrega', defaultTable: 'TAB_PEDIDO', defaultColumn: 'DTA_ENTREGA' },
       { id: 'tipo_recebimento', name: 'Tipo Recebimento', defaultTable: 'TAB_PEDIDO', defaultColumn: 'TIPO_RECEBIMENTO' },
+      { id: 'tipo_parceiro', name: 'Tipo Parceiro', defaultTable: 'TAB_PEDIDO', defaultColumn: 'TIPO_PARCEIRO' },
       { id: 'valor_pedido', name: 'Valor Pedido', defaultTable: 'TAB_PEDIDO', defaultColumn: 'VAL_PEDIDO' },
+    ]
+  },
+  TAB_PEDIDO_PRODUTO: {
+    name: 'Itens do Pedido',
+    description: 'Produtos de cada pedido de compra',
+    fields: [
+      { id: 'numero_pedido', name: 'Número Pedido', defaultTable: 'TAB_PEDIDO_PRODUTO', defaultColumn: 'NUM_PEDIDO' },
+      { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_PEDIDO_PRODUTO', defaultColumn: 'COD_PRODUTO' },
+      { id: 'quantidade_pedida', name: 'Qtd Pedida', defaultTable: 'TAB_PEDIDO_PRODUTO', defaultColumn: 'QTD_PEDIDO' },
+      { id: 'quantidade_recebida', name: 'Qtd Recebida', defaultTable: 'TAB_PEDIDO_PRODUTO', defaultColumn: 'QTD_RECEBIDA' },
+      { id: 'quantidade_embalagem', name: 'Qtd Embalagem', defaultTable: 'TAB_PEDIDO_PRODUTO', defaultColumn: 'QTD_EMBALAGEM' },
+      { id: 'valor_tabela', name: 'Valor Tabela', defaultTable: 'TAB_PEDIDO_PRODUTO', defaultColumn: 'VAL_TABELA' },
+    ]
+  },
+  TAB_NF: {
+    name: 'Notas Fiscais Entrada',
+    description: 'NFs de entrada de mercadoria',
+    fields: [
+      { id: 'numero_nf', name: 'Número NF', defaultTable: 'TAB_NF', defaultColumn: 'NUM_NF' },
+      { id: 'serie_nf', name: 'Série NF', defaultTable: 'TAB_NF', defaultColumn: 'NUM_SERIE_NF' },
+      { id: 'data_entrada', name: 'Data Entrada', defaultTable: 'TAB_NF', defaultColumn: 'DTA_ENTRADA' },
+      { id: 'codigo_parceiro', name: 'Código Parceiro', defaultTable: 'TAB_NF', defaultColumn: 'COD_PARCEIRO' },
+      { id: 'tipo_operacao', name: 'Tipo Operação', defaultTable: 'TAB_NF', defaultColumn: 'TIPO_OPERACAO' },
+    ]
+  },
+  TAB_NF_ITEM: {
+    name: 'Itens da NF',
+    description: 'Produtos de cada nota fiscal de entrada',
+    fields: [
+      { id: 'numero_nf', name: 'Número NF', defaultTable: 'TAB_NF_ITEM', defaultColumn: 'NUM_NF' },
+      { id: 'serie_nf', name: 'Série NF', defaultTable: 'TAB_NF_ITEM', defaultColumn: 'NUM_SERIE_NF' },
+      { id: 'codigo_parceiro', name: 'Código Parceiro', defaultTable: 'TAB_NF_ITEM', defaultColumn: 'COD_PARCEIRO' },
+      { id: 'codigo_item', name: 'Código Item', defaultTable: 'TAB_NF_ITEM', defaultColumn: 'COD_ITEM' },
+      { id: 'quantidade_entrada', name: 'Qtd Entrada', defaultTable: 'TAB_NF_ITEM', defaultColumn: 'QTD_ENTRADA' },
+      { id: 'valor_custo', name: 'Valor Custo', defaultTable: 'TAB_NF_ITEM', defaultColumn: 'VAL_CUSTO_SCRED' },
+      { id: 'valor_total', name: 'Valor Total', defaultTable: 'TAB_NF_ITEM', defaultColumn: 'VAL_TOTAL' },
     ]
   },
   // NOTA: TAB_RUPTURA, TAB_QUEBRA, TAB_ETIQUETA são tabelas INTERNAS (PostgreSQL)
@@ -180,7 +220,7 @@ const BUSINESS_MODULES = [
       { id: 'estoque_margem', name: 'Estoque e Margem', icon: '📦', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ITENS'] },
       { id: 'compra_venda', name: 'Compra e Venda', icon: '🛒', tables: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_NOTA_FISCAL'] },
       { id: 'pedidos', name: 'Pedidos', icon: '📋', tables: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_PEDIDO'] },
-      { id: 'ruptura_industria', name: 'Ruptura Indústria', icon: '🏭', tables: ['TAB_PRODUTO', 'TAB_FORNECEDOR'] },
+      { id: 'ruptura_industria', name: 'Ruptura Indústria', icon: '🏭', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO', 'TAB_NF', 'TAB_NF_ITEM'] },
     ]
   }
 ];

@@ -1,6 +1,23 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { OracleService } from '../services/oracle.service';
+import { MappingService } from '../services/mapping.service';
+
+/**
+ * Helper para obter nomes de tabelas do MappingService com fallback para Intersolid
+ */
+async function getTableNames() {
+  const schema = await MappingService.getSchema();
+  return {
+    pedido: `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO', 'TAB_PEDIDO')}`,
+    pedidoProduto: `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO', 'TAB_PEDIDO_PRODUTO')}`,
+    fornecedor: `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')}`,
+    produto: `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`,
+    produtoLoja: `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`,
+    nf: `${schema}.${await MappingService.getRealTableName('TAB_NF', 'TAB_NF')}`,
+    nfItem: `${schema}.${await MappingService.getRealTableName('TAB_NF_ITEM', 'TAB_NF_ITEM')}`
+  };
+}
 
 /**
  * Controller para Ruptura Indústria
@@ -17,6 +34,9 @@ export class RupturaIndustriaController {
   static async rankingFornecedores(req: AuthRequest, res: Response) {
     try {
       const { limit = '50', dataInicio, dataFim } = req.query;
+
+      // Obter nomes de tabelas dinâmicos do MappingService
+      const tables = await getTableNames();
 
       // Parâmetros - filtro de data vai dentro dos CASE para PERIODO, não no WHERE
       const params: any = { limitNum: parseInt(limit as string, 10) };
@@ -91,9 +111,9 @@ export class RupturaIndustriaController {
             MAX(CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO * NVL(pp.QTD_EMBALAGEM, 1) THEN p.DTA_EMISSAO END) as ULTIMA_RUPTURA,
             -- Produtos distintos afetados (último ano)
             COUNT(DISTINCT CASE WHEN p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.COD_PRODUTO END) as QTD_PRODUTOS_AFETADOS
-          FROM INTERSOLID.TAB_PEDIDO p
-          INNER JOIN INTERSOLID.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = p.COD_PARCEIRO
-          INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
+          FROM ${tables.pedido} p
+          INNER JOIN ${tables.fornecedor} f ON f.COD_FORNECEDOR = p.COD_PARCEIRO
+          INNER JOIN ${tables.pedidoProduto} pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
           WHERE p.TIPO_PARCEIRO = 1
           AND p.TIPO_RECEBIMENTO = 3
           AND p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12)
@@ -116,8 +136,8 @@ export class RupturaIndustriaController {
           SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO * NVL(pp.QTD_EMBALAGEM, 1) THEN (pp.QTD_PEDIDO * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.QTD_RECEBIDA, 0)) * (pp.VAL_TABELA / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as VALOR_NAO_FATURADO,
           SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.QTD_RECEBIDA, 0) > pp.QTD_PEDIDO * NVL(pp.QTD_EMBALAGEM, 1) THEN (NVL(pp.QTD_RECEBIDA, 0) - pp.QTD_PEDIDO * NVL(pp.QTD_EMBALAGEM, 1)) * (pp.VAL_TABELA / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as VALOR_EXCESSO,
           COUNT(DISTINCT CASE WHEN ${periodoDateCondition} AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.COD_PRODUTO END) as TOTAL_PRODUTOS_AFETADOS
-        FROM INTERSOLID.TAB_PEDIDO p
-        INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
+        FROM ${tables.pedido} p
+        INNER JOIN ${tables.pedidoProduto} pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
         WHERE p.TIPO_PARCEIRO = 1
         AND p.TIPO_RECEBIMENTO = 3
         AND p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12)
@@ -155,6 +175,9 @@ export class RupturaIndustriaController {
       const { dataInicio, dataFim } = req.query;
       console.log('codFornecedor:', codFornecedor, 'tipo:', typeof codFornecedor);
       console.log('dataInicio:', dataInicio, 'dataFim:', dataFim);
+
+      // Obter nomes de tabelas dinâmicos do MappingService
+      const tables = await getTableNames();
 
       const codFornecedorNum = parseInt(codFornecedor, 10);
       console.log('codFornecedorNum:', codFornecedorNum);
@@ -220,8 +243,8 @@ export class RupturaIndustriaController {
             SUM(CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO * NVL(pp.QTD_EMBALAGEM, 1) THEN (pp.QTD_PEDIDO * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.QTD_RECEBIDA, 0)) * (pp.VAL_TABELA / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as VALOR_NAO_FATURADO,
             -- Flag: tem outros fornecedores que vendem esse produto?
             (SELECT COUNT(DISTINCT p2.COD_PARCEIRO)
-             FROM INTERSOLID.TAB_PEDIDO p2
-             INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp2 ON pp2.NUM_PEDIDO = p2.NUM_PEDIDO
+             FROM ${tables.pedido} p2
+             INNER JOIN ${tables.pedidoProduto} pp2 ON pp2.NUM_PEDIDO = p2.NUM_PEDIDO
              WHERE p2.TIPO_PARCEIRO = 1
              AND p2.TIPO_RECEBIMENTO = 3
              AND pp2.COD_PRODUTO = pp.COD_PRODUTO
@@ -229,10 +252,10 @@ export class RupturaIndustriaController {
              AND p2.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE), -12)
              AND NVL(pp2.QTD_RECEBIDA, 0) > 0
             ) as QTD_OUTROS_FORNECEDORES
-          FROM INTERSOLID.TAB_PEDIDO p
-          INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
-          LEFT JOIN INTERSOLID.TAB_PRODUTO pr ON pr.COD_PRODUTO = pp.COD_PRODUTO
-          LEFT JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON pl.COD_PRODUTO = pp.COD_PRODUTO AND pl.COD_LOJA = 1
+          FROM ${tables.pedido} p
+          INNER JOIN ${tables.pedidoProduto} pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
+          LEFT JOIN ${tables.produto} pr ON pr.COD_PRODUTO = pp.COD_PRODUTO
+          LEFT JOIN ${tables.produtoLoja} pl ON pl.COD_PRODUTO = pp.COD_PRODUTO AND pl.COD_LOJA = 1
           WHERE p.TIPO_PARCEIRO = 1
           AND p.TIPO_RECEBIMENTO = 3
           AND p.COD_PARCEIRO = :codFornecedor
@@ -258,7 +281,7 @@ export class RupturaIndustriaController {
       // Buscar dados do fornecedor
       const fornecedorQuery = `
         SELECT COD_FORNECEDOR, DES_FORNECEDOR, NUM_CGC
-        FROM INTERSOLID.TAB_FORNECEDOR
+        FROM ${tables.fornecedor}
         WHERE COD_FORNECEDOR = :codFornecedor
       `;
 
@@ -285,6 +308,9 @@ export class RupturaIndustriaController {
     try {
       const { codProduto } = req.params;
       const { codFornecedor, dataInicio, dataFim } = req.query;
+
+      // Obter nomes de tabelas dinâmicos do MappingService
+      const tables = await getTableNames();
 
       const conditions: string[] = [
         'p.TIPO_PARCEIRO = 1',
@@ -323,9 +349,9 @@ export class RupturaIndustriaController {
           pp.QTD_PEDIDO * pp.VAL_TABELA as VALOR_ITEM,
           f.DES_FORNECEDOR,
           p.USUARIO
-        FROM INTERSOLID.TAB_PEDIDO p
-        INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
-        INNER JOIN INTERSOLID.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = p.COD_PARCEIRO
+        FROM ${tables.pedido} p
+        INNER JOIN ${tables.pedidoProduto} pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
+        INNER JOIN ${tables.fornecedor} f ON f.COD_FORNECEDOR = p.COD_PARCEIRO
         ${whereClause}
         ORDER BY p.DTA_EMISSAO DESC
       `;
@@ -338,7 +364,7 @@ export class RupturaIndustriaController {
           COD_PRODUTO,
           DES_PRODUTO,
           DES_REDUZIDA
-        FROM INTERSOLID.TAB_PRODUTO
+        FROM ${tables.produto}
         WHERE COD_PRODUTO = :codProduto
       `;
 
@@ -361,6 +387,9 @@ export class RupturaIndustriaController {
   static async topProdutosCancelados(req: AuthRequest, res: Response) {
     try {
       const { dataInicio, dataFim, limit = '20' } = req.query;
+
+      // Obter nomes de tabelas dinâmicos do MappingService
+      const tables = await getTableNames();
 
       const conditions: string[] = [
         'p.TIPO_PARCEIRO = 1',
@@ -391,9 +420,9 @@ export class RupturaIndustriaController {
             SUM(pp.QTD_PEDIDO) as QTD_TOTAL_CANCELADA,
             SUM(pp.QTD_PEDIDO * pp.VAL_TABELA) as VALOR_TOTAL_CANCELADO,
             MAX(p.DTA_EMISSAO) as ULTIMO_CANCELAMENTO
-          FROM INTERSOLID.TAB_PEDIDO p
-          INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
-          LEFT JOIN INTERSOLID.TAB_PRODUTO pr ON pr.COD_PRODUTO = pp.COD_PRODUTO
+          FROM ${tables.pedido} p
+          INNER JOIN ${tables.pedidoProduto} pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
+          LEFT JOIN ${tables.produto} pr ON pr.COD_PRODUTO = pp.COD_PRODUTO
           ${whereClause}
           GROUP BY pp.COD_PRODUTO, pr.DES_PRODUTO, pr.DES_REDUZIDA
           ORDER BY COUNT(DISTINCT p.NUM_PEDIDO) DESC
@@ -419,13 +448,16 @@ export class RupturaIndustriaController {
     try {
       const { meses = '12' } = req.query;
 
+      // Obter nomes de tabelas dinâmicos do MappingService
+      const tables = await getTableNames();
+
       const query = `
         SELECT
           TO_CHAR(p.DTA_EMISSAO, 'YYYY-MM') as MES,
           COUNT(DISTINCT p.NUM_PEDIDO) as QTD_PEDIDOS,
           COUNT(DISTINCT p.COD_PARCEIRO) as QTD_FORNECEDORES,
           SUM(p.VAL_PEDIDO) as VALOR_TOTAL
-        FROM INTERSOLID.TAB_PEDIDO p
+        FROM ${tables.pedido} p
         WHERE p.TIPO_PARCEIRO = 1
         AND p.TIPO_RECEBIMENTO = 3
         AND p.DTA_EMISSAO >= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -:meses)
@@ -453,6 +485,9 @@ export class RupturaIndustriaController {
       const { codProduto } = req.params;
       const { codFornecedorAtual } = req.query;
 
+      // Obter nomes de tabelas dinâmicos do MappingService
+      const tables = await getTableNames();
+
       const codProdutoNum = parseInt(codProduto, 10);
       const codFornecedorAtualNum = codFornecedorAtual ? parseInt(codFornecedorAtual as string, 10) : null;
 
@@ -471,11 +506,11 @@ export class RupturaIndustriaController {
             NVL(ni.VAL_CUSTO_SCRED, 0) as CUSTO_REP,
             ni.VAL_TOTAL as TOTAL,
             nf.NUM_NF as NF
-          FROM INTERSOLID.TAB_NF nf
-          INNER JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+          FROM ${tables.nf} nf
+          INNER JOIN ${tables.nfItem} ni ON nf.NUM_NF = ni.NUM_NF
             AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
             AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON nf.COD_PARCEIRO = f.COD_FORNECEDOR
+          LEFT JOIN ${tables.fornecedor} f ON nf.COD_PARCEIRO = f.COD_FORNECEDOR
           WHERE ni.COD_ITEM = :codProduto
           AND nf.TIPO_OPERACAO = 0
           ORDER BY nf.DTA_ENTRADA DESC
@@ -487,7 +522,7 @@ export class RupturaIndustriaController {
       // Dados do produto
       const produtoQuery = `
         SELECT COD_PRODUTO, DES_PRODUTO
-        FROM INTERSOLID.TAB_PRODUTO
+        FROM ${tables.produto}
         WHERE COD_PRODUTO = :codProduto
       `;
       const produtoResult = await OracleService.query(produtoQuery, { codProduto: codProdutoNum });
@@ -517,6 +552,9 @@ export class RupturaIndustriaController {
     try {
       const { codProduto } = req.params;
       const { codFornecedor } = req.query;
+
+      // Obter nomes de tabelas dinâmicos do MappingService
+      const tables = await getTableNames();
 
       const codProdutoNum = parseInt(codProduto, 10);
       const codFornecedorNum = codFornecedor ? parseInt(codFornecedor as string, 10) : null;
@@ -557,8 +595,8 @@ export class RupturaIndustriaController {
               WHEN NVL(pp.QTD_RECEBIDA, 0) > pp.QTD_PEDIDO * NVL(pp.QTD_EMBALAGEM, 1) THEN 'EXCESSO'
               ELSE 'OK'
             END as STATUS
-          FROM INTERSOLID.TAB_PEDIDO p
-          INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
+          FROM ${tables.pedido} p
+          INNER JOIN ${tables.pedidoProduto} pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
           WHERE p.TIPO_PARCEIRO = 1
           AND p.TIPO_RECEBIMENTO = 3
           AND pp.COD_PRODUTO = :codProduto
@@ -575,7 +613,7 @@ export class RupturaIndustriaController {
       // Dados do produto
       const produtoQuery = `
         SELECT COD_PRODUTO, DES_PRODUTO
-        FROM INTERSOLID.TAB_PRODUTO
+        FROM ${tables.produto}
         WHERE COD_PRODUTO = :codProduto
       `;
       const produtoResult = await OracleService.query(produtoQuery, { codProduto: codProdutoNum });
@@ -584,7 +622,7 @@ export class RupturaIndustriaController {
       // Dados do fornecedor
       const fornecedorQuery = `
         SELECT COD_FORNECEDOR, DES_FORNECEDOR
-        FROM INTERSOLID.TAB_FORNECEDOR
+        FROM ${tables.fornecedor}
         WHERE COD_FORNECEDOR = :codFornecedor
       `;
       const fornecedorResult = await OracleService.query(fornecedorQuery, { codFornecedor: codFornecedorNum });
@@ -623,6 +661,9 @@ export class RupturaIndustriaController {
       const { numPedido } = req.params;
       const { codProduto, codFornecedor } = req.query;
 
+      // Obter nomes de tabelas dinâmicos do MappingService
+      const tables = await getTableNames();
+
       const numPedidoNum = parseInt(numPedido, 10);
       const codProdutoNum = codProduto ? parseInt(codProduto as string, 10) : null;
       const codFornecedorNum = codFornecedor ? parseInt(codFornecedor as string, 10) : null;
@@ -640,10 +681,10 @@ export class RupturaIndustriaController {
           pp.VAL_TABELA,
           pr.DES_PRODUTO,
           f.DES_FORNECEDOR
-        FROM INTERSOLID.TAB_PEDIDO p
-        INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
-        LEFT JOIN INTERSOLID.TAB_PRODUTO pr ON pr.COD_PRODUTO = pp.COD_PRODUTO
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = p.COD_PARCEIRO
+        FROM ${tables.pedido} p
+        INNER JOIN ${tables.pedidoProduto} pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
+        LEFT JOIN ${tables.produto} pr ON pr.COD_PRODUTO = pp.COD_PRODUTO
+        LEFT JOIN ${tables.fornecedor} f ON f.COD_FORNECEDOR = p.COD_PARCEIRO
         WHERE p.NUM_PEDIDO = :numPedido
         ${codProdutoNum ? 'AND pp.COD_PRODUTO = :codProduto' : ''}
       `;
@@ -675,12 +716,12 @@ export class RupturaIndustriaController {
             f.DES_FORNECEDOR,
             pr.DES_PRODUTO,
             TRUNC(nf.DTA_ENTRADA) - TRUNC(:dtaEmissao) as DIAS_APOS_PEDIDO
-          FROM INTERSOLID.TAB_NF nf
-          INNER JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+          FROM ${tables.nf} nf
+          INNER JOIN ${tables.nfItem} ni ON nf.NUM_NF = ni.NUM_NF
             AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
             AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON nf.COD_PARCEIRO = f.COD_FORNECEDOR
-          LEFT JOIN INTERSOLID.TAB_PRODUTO pr ON pr.COD_PRODUTO = ni.COD_ITEM
+          LEFT JOIN ${tables.fornecedor} f ON nf.COD_PARCEIRO = f.COD_FORNECEDOR
+          LEFT JOIN ${tables.produto} pr ON pr.COD_PRODUTO = ni.COD_ITEM
           WHERE nf.TIPO_OPERACAO = 0
           AND nf.COD_PARCEIRO = :codFornecedor
           AND ni.COD_ITEM = :codProduto
@@ -714,6 +755,9 @@ export class RupturaIndustriaController {
   static async rankingProdutosFornecedores(req: AuthRequest, res: Response) {
     try {
       const { dataInicio, dataFim, limit = '50' } = req.query;
+
+      // Obter nomes de tabelas dinâmicos do MappingService
+      const tables = await getTableNames();
 
       // Condição de data
       let dateCondition = '1=1';
@@ -759,10 +803,10 @@ export class RupturaIndustriaController {
               THEN ROUND(SUM(CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.QTD_PEDIDO * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) * 100 / SUM(pp.QTD_PEDIDO * NVL(pp.QTD_EMBALAGEM, 1)), 1)
               ELSE 0
             END as PERCENTUAL_RUPTURA
-          FROM INTERSOLID.TAB_PEDIDO p
-          INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
-          LEFT JOIN INTERSOLID.TAB_PRODUTO pr ON pr.COD_PRODUTO = pp.COD_PRODUTO
-          LEFT JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON pl.COD_PRODUTO = pp.COD_PRODUTO AND pl.COD_LOJA = 1
+          FROM ${tables.pedido} p
+          INNER JOIN ${tables.pedidoProduto} pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
+          LEFT JOIN ${tables.produto} pr ON pr.COD_PRODUTO = pp.COD_PRODUTO
+          LEFT JOIN ${tables.produtoLoja} pl ON pl.COD_PRODUTO = pp.COD_PRODUTO AND pl.COD_LOJA = 1
           WHERE p.TIPO_PARCEIRO = 1
           AND p.TIPO_RECEBIMENTO = 3
           AND ${dateCondition}
@@ -812,9 +856,9 @@ export class RupturaIndustriaController {
                 THEN ROUND(SUM(CASE WHEN NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.QTD_PEDIDO * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.QTD_RECEBIDA, 0) ELSE 0 END) * 100 / SUM(pp.QTD_PEDIDO * NVL(pp.QTD_EMBALAGEM, 1)), 1)
                 ELSE 0
               END as PERCENTUAL
-            FROM INTERSOLID.TAB_PEDIDO p
-            INNER JOIN INTERSOLID.TAB_PEDIDO_PRODUTO pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
-            INNER JOIN INTERSOLID.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = p.COD_PARCEIRO
+            FROM ${tables.pedido} p
+            INNER JOIN ${tables.pedidoProduto} pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
+            INNER JOIN ${tables.fornecedor} f ON f.COD_FORNECEDOR = p.COD_PARCEIRO
             WHERE p.TIPO_PARCEIRO = 1
             AND p.TIPO_RECEBIMENTO = 3
             AND pp.COD_PRODUTO = :codProduto
