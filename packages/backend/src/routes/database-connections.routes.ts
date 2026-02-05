@@ -21,7 +21,13 @@ router.post('/test-new', authenticateToken, controller.testNewConnection.bind(co
 // Rota para testar mapeamento de tabela/coluna
 router.post('/test-mapping', authenticateToken, controller.testMapping.bind(controller));
 
-// Rota para salvar mapeamentos
+// Rota para salvar mapeamentos (formato v1 - por módulo)
 router.post('/save-mappings', authenticateToken, controller.saveMappings.bind(controller));
+
+// Rota para salvar mapeamento de tabela (formato v2 - por tabela)
+router.post('/save-table-mapping', authenticateToken, controller.saveTableMapping.bind(controller));
+
+// Rota para buscar mapeamentos de uma conexão
+router.get('/:id/mappings', authenticateToken, controller.getMappings.bind(controller));
 
 export default router;

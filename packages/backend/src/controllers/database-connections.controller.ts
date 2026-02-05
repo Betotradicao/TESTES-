@@ -694,7 +694,7 @@ export class DatabaseConnectionsController {
 
   /**
    * POST /api/database-connections/save-mappings
-   * Salva os mapeamentos de tabela/coluna no banco
+   * Salva os mapeamentos de tabela/coluna no banco (formato v1)
    */
   async saveMappings(req: Request, res: Response) {
     try {
@@ -753,6 +753,222 @@ export class DatabaseConnectionsController {
       return res.status(500).json({
         success: false,
         message: `Erro ao salvar mapeamentos: ${error.message}`
+      });
+    }
+  }
+
+  /**
+   * POST /api/database-connections/save-table-mapping
+   * Salva o mapeamento de uma tabela específica (formato v2)
+   * Compartilha automaticamente com outros módulos que usam a mesma tabela
+   */
+  async saveTableMapping(req: Request, res: Response) {
+    try {
+      const { connectionId, tableId, realTableName, columns, tabelas_campo }: {
+        connectionId: number;
+        tableId: string;           // Ex: "TAB_PRODUTO"
+        realTableName: string;     // Nome real no banco: "TAB_PRODUTO"
+        columns: Record<string, string>; // Ex: { "codigo_produto": "COD_PRODUTO" }
+        tabelas_campo?: Record<string, string>; // Tabela específica por campo: { "preco_venda": "TAB_PRODUTO_LOJA" }
+      } = req.body;
+
+      if (!connectionId || !tableId || !realTableName || !columns) {
+        return res.status(400).json({
+          success: false,
+          message: 'Campos obrigatórios: connectionId, tableId, realTableName, columns'
+        });
+      }
+
+      // Buscar a conexão
+      const dbConnection = await connectionRepository.findOne({
+        where: { id: parseInt(String(connectionId)) }
+      });
+
+      if (!dbConnection) {
+        return res.status(404).json({
+          success: false,
+          message: 'Conexão não encontrada'
+        });
+      }
+
+      // Carregar mapeamentos existentes
+      let existingMappings: any = {};
+      if (dbConnection.mappings) {
+        try {
+          existingMappings = JSON.parse(dbConnection.mappings as string);
+        } catch {
+          existingMappings = {};
+        }
+      }
+
+      // Migrar para formato v2 com estrutura hierárquica (módulos → submódulos)
+      if (existingMappings.version !== 2) {
+        existingMappings = {
+          version: 2,
+          tabelas: existingMappings.tabelas || {},
+          modulos: existingMappings.modulos || {
+            prevencao: {
+              nome: 'Prevenção no Radar',
+              icone: '🛡️',
+              submodulos: {
+                bipagens: {
+                  nome: 'Prevenção de Bipagens',
+                  icone: '📡',
+                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_PRODUTO_PDV', 'TAB_OPERADORES']
+                },
+                pdv: {
+                  nome: 'Prevenção PDV',
+                  icone: '💳',
+                  tabelas_usadas: ['TAB_PRODUTO_PDV', 'TAB_OPERADORES']
+                },
+                facial: {
+                  nome: 'Prevenção Facial',
+                  icone: '👤',
+                  tabelas_usadas: ['TAB_OPERADORES']
+                },
+                rupturas: {
+                  nome: 'Prevenção Rupturas',
+                  icone: '🔍',
+                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_RUPTURA']
+                },
+                etiquetas: {
+                  nome: 'Prevenção Etiquetas',
+                  icone: '🏷️',
+                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_ETIQUETA']
+                },
+                quebras: {
+                  nome: 'Prevenção Quebras',
+                  icone: '💔',
+                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_QUEBRA']
+                },
+                producao: {
+                  nome: 'Produção',
+                  icone: '🏭',
+                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_PRODUCAO']
+                },
+                hortfruti: {
+                  nome: 'Hort Fruti',
+                  icone: '🥬',
+                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_HORTFRUTI']
+                }
+              }
+            },
+            gestao: {
+              nome: 'Gestão no Radar',
+              icone: '📊',
+              submodulos: {
+                gestao_inteligente: {
+                  nome: 'Gestão Inteligente',
+                  icone: '🧠',
+                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_PRODUTO_PDV']
+                },
+                estoque_margem: {
+                  nome: 'Estoque e Margem',
+                  icone: '📦',
+                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_ESTOQUE']
+                },
+                compra_venda: {
+                  nome: 'Compra e Venda',
+                  icone: '🛒',
+                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_NOTA_FISCAL']
+                },
+                pedidos: {
+                  nome: 'Pedidos',
+                  icone: '📋',
+                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_PEDIDO']
+                },
+                ruptura_industria: {
+                  nome: 'Ruptura Indústria',
+                  icone: '🏭',
+                  tabelas_usadas: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_RUPTURA']
+                }
+              }
+            }
+          }
+        };
+      }
+
+      // Atualizar ou criar mapeamento da tabela
+      existingMappings.tabelas[tableId] = {
+        nome_real: realTableName,
+        colunas: columns,
+        tabelas_campo: tabelas_campo || {} // Tabela específica por campo (quando diferente da tabela principal)
+      };
+
+      // Salvar
+      dbConnection.mappings = JSON.stringify(existingMappings);
+      await connectionRepository.save(dbConnection);
+
+      // Identificar quais submódulos usam essa tabela
+      const sharingModules: string[] = [];
+      for (const [moduleId, moduleConfig] of Object.entries(existingMappings.modulos)) {
+        const mod = moduleConfig as any;
+        // Verificar submódulos
+        if (mod.submodulos) {
+          for (const [subId, subConfig] of Object.entries(mod.submodulos)) {
+            const sub = subConfig as any;
+            if (sub.tabelas_usadas?.includes(tableId)) {
+              sharingModules.push(`${mod.nome} › ${sub.nome}`);
+            }
+          }
+        }
+        // Compatibilidade com formato antigo (sem submódulos)
+        else if (mod.tabelas_usadas?.includes(tableId)) {
+          sharingModules.push(mod.nome || moduleId);
+        }
+      }
+
+      console.log(`✅ Table mapping saved: ${tableId} -> ${realTableName} (shared with: ${sharingModules.join(', ')})`);
+
+      return res.json({
+        success: true,
+        message: 'Mapeamento de tabela salvo com sucesso!',
+        sharingModules
+      });
+
+    } catch (error: any) {
+      console.error('Error saving table mapping:', error.message);
+      return res.status(500).json({
+        success: false,
+        message: `Erro ao salvar mapeamento de tabela: ${error.message}`
+      });
+    }
+  }
+
+  /**
+   * GET /api/database-connections/:id/mappings
+   * Retorna os mapeamentos de uma conexão específica
+   */
+  async getMappings(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      const connection = await connectionRepository.findOne({
+        where: { id: parseInt(id) }
+      });
+
+      if (!connection) {
+        return res.status(404).json({ error: 'Connection not found' });
+      }
+
+      let mappings = {};
+      if (connection.mappings) {
+        try {
+          mappings = JSON.parse(connection.mappings as string);
+        } catch {
+          mappings = {};
+        }
+      }
+
+      return res.json({
+        success: true,
+        mappings
+      });
+    } catch (error: any) {
+      console.error('Error getting mappings:', error.message);
+      return res.status(500).json({
+        success: false,
+        message: `Erro ao buscar mapeamentos: ${error.message}`
       });
     }
   }
