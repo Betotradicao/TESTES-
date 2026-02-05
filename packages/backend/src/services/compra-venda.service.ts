@@ -22,6 +22,7 @@
  */
 
 import { OracleService } from './oracle.service';
+import { MappingService } from './mapping.service';
 
 // Interfaces
 export interface SecaoData {
@@ -89,9 +90,12 @@ export class CompraVendaService {
    * Busca as seções disponíveis
    */
   static async getSecoes(): Promise<SecaoData[]> {
+    const schema = await MappingService.getSchema();
+    const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+
     const sql = `
       SELECT COD_SECAO, DES_SECAO, VAL_META
-      FROM INTERSOLID.TAB_SECAO
+      FROM ${tabSecao}
       WHERE FLG_INATIVO IS NULL OR FLG_INATIVO = 'N'
       ORDER BY DES_SECAO
     `;
@@ -103,9 +107,12 @@ export class CompraVendaService {
    * Busca os grupos disponíveis
    */
   static async getGrupos(codSecao?: number): Promise<any[]> {
+    const schema = await MappingService.getSchema();
+    const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO')}`;
+
     let sql = `
       SELECT DISTINCT COD_GRUPO, DES_GRUPO
-      FROM INTERSOLID.TAB_GRUPO
+      FROM ${tabGrupo}
       WHERE 1=1
     `;
 
@@ -126,10 +133,13 @@ export class CompraVendaService {
    * TAB_SUBGRUPO tem COD_SECAO e COD_GRUPO - filtra diretamente
    */
   static async getSubGrupos(codSecao?: number, codGrupo?: number): Promise<any[]> {
+    const schema = await MappingService.getSchema();
+    const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO')}`;
+
     // Filtra diretamente na TAB_SUBGRUPO por COD_SECAO e COD_GRUPO
     let sql = `
       SELECT DISTINCT COD_SUB_GRUPO, DES_SUB_GRUPO
-      FROM INTERSOLID.TAB_SUBGRUPO
+      FROM ${tabSubgrupo}
       WHERE 1=1
     `;
 
@@ -162,9 +172,12 @@ export class CompraVendaService {
    * Busca os compradores disponíveis
    */
   static async getCompradores(): Promise<any[]> {
+    const schema = await MappingService.getSchema();
+    const tabComprador = `${schema}.${await MappingService.getRealTableName('TAB_COMPRADOR', 'TAB_COMPRADOR')}`;
+
     const sql = `
       SELECT COD_COMPRADOR, DES_COMPRADOR
-      FROM INTERSOLID.TAB_COMPRADOR
+      FROM ${tabComprador}
       ORDER BY DES_COMPRADOR
     `;
 
@@ -175,10 +188,13 @@ export class CompraVendaService {
    * Busca as lojas disponíveis
    */
   static async getLojas(): Promise<any[]> {
+    const schema = await MappingService.getSchema();
+    const tabLoja = `${schema}.${await MappingService.getRealTableName('TAB_LOJA', 'TAB_LOJA')}`;
+
     // TAB_LOJA usa FLG_DESATIVADA (não FLG_INATIVO)
     const sql = `
       SELECT COD_LOJA, DES_LOJA
-      FROM INTERSOLID.TAB_LOJA
+      FROM ${tabLoja}
       WHERE FLG_DESATIVADA IS NULL OR FLG_DESATIVADA = 'N'
       ORDER BY DES_LOJA
     `;
@@ -189,7 +205,7 @@ export class CompraVendaService {
   /**
    * Monta os filtros de produto para as subqueries
    */
-  private static buildProdutoFilters(filters: CompraVendaFilters, params: any): string {
+  private static buildProdutoFilters(filters: CompraVendaFilters, params: any, tabProdutoComprador?: string): string {
     const { codSecao, codGrupo, codSubGrupo, codComprador, produtosBonificados } = filters;
     let filterSql = '';
 
@@ -212,9 +228,9 @@ export class CompraVendaService {
     }
 
     // Filtro de Comprador (via TAB_PRODUTO_COMPRADOR)
-    if (codComprador) {
+    if (codComprador && tabProdutoComprador) {
       filterSql += ` AND EXISTS (
-        SELECT 1 FROM INTERSOLID.TAB_PRODUTO_COMPRADOR pc
+        SELECT 1 FROM ${tabProdutoComprador} pc
         WHERE pc.COD_PRODUTO = p.COD_PRODUTO
         AND pc.COD_COMPRADOR = :codComprador
       )`;
@@ -338,6 +354,19 @@ export class CompraVendaService {
       tipoEmprestimoDecomposicao = true
     } = filters;
 
+    // Obter schema e nomes das tabelas dinamicamente
+    const schema = await MappingService.getSchema();
+    const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+    const tabNf = `${schema}.${await MappingService.getRealTableName('TAB_NF', 'TAB_NF')}`;
+    const tabNfItem = `${schema}.${await MappingService.getRealTableName('TAB_NF_ITEM', 'TAB_NF_ITEM')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
+    const tabSecaoMetaLoja = `${schema}.${await MappingService.getRealTableName('TAB_SECAO_META_LOJA', 'TAB_SECAO_META_LOJA')}`;
+    const tabProdutoDecomposicao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_DECOMPOSICAO', 'TAB_PRODUTO_DECOMPOSICAO')}`;
+    const tabProdutoProducao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PRODUCAO', 'TAB_PRODUTO_PRODUCAO')}`;
+    const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
+    const tabProdutoComprador = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_COMPRADOR', 'TAB_PRODUTO_COMPRADOR')}`;
+
     const params: any = {
       dataInicio,
       dataFim
@@ -346,7 +375,7 @@ export class CompraVendaService {
     // Construir filtros
     const tipoNfFilter = this.buildTipoNfFilter(tipoNotaFiscal);
     const tipoVendaFilter = this.buildTipoVendaFilter(tipoVenda);
-    const produtoFilters = this.buildProdutoFilters(filters, params);
+    const produtoFilters = this.buildProdutoFilters(filters, params, tabProdutoComprador);
 
     // Flag para calcular empréstimos (só quando filtro "Filhos" está ativo)
     const calcularEmprestimos = decomposicao === 'filhos';
@@ -407,7 +436,7 @@ export class CompraVendaService {
         ${calcDecomposicao ? 'NVL(emp_filho.VALOR_EMPRESTADO, 0)' : '0'}
         + ${calcProducao ? 'NVL(emp_final.VALOR_EMPRESTADO, 0)' : '0'}
         + ${calcAssociacao ? 'NVL(emp_assoc_filho.VALOR_EMPRESTADO, 0)' : '0'} as EMPRESTADO
-      FROM INTERSOLID.TAB_SECAO sec
+      FROM ${tabSecao} sec
       -- Subquery de Compras
       LEFT JOIN (
         SELECT
@@ -415,11 +444,11 @@ export class CompraVendaService {
           nf.COD_LOJA,
           SUM(ni.QTD_TOTAL) as QTD_COMPRA,
           SUM(ni.VAL_TOTAL) as VALOR_COMPRAS
-        FROM INTERSOLID.TAB_NF nf
-        JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+        FROM ${tabNf} nf
+        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
           AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
           AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN INTERSOLID.TAB_PRODUTO p ON ni.COD_ITEM = p.COD_PRODUTO
+        JOIN ${tabProduto} p ON ni.COD_ITEM = p.COD_PRODUTO
         WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND nf.TIPO_OPERACAO = 0
         ${tipoNfFilter}
@@ -437,8 +466,8 @@ export class CompraVendaService {
           SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO) as CUSTO_VENDA,
           SUM(NVL(pv.VAL_IMPOSTO_DEBITO, 0)) as TOTAL_IMPOSTO,
           SUM(NVL(pv.VAL_IMPOSTO_CREDITO, 0)) as TOTAL_IMPOSTO_CREDITO
-        FROM INTERSOLID.TAB_PRODUTO_PDV pv
-        JOIN INTERSOLID.TAB_PRODUTO p ON pv.COD_PRODUTO = p.COD_PRODUTO
+        FROM ${tabProdutoPdv} pv
+        JOIN ${tabProduto} p ON pv.COD_PRODUTO = p.COD_PRODUTO
         WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         ${tipoVendaFilter}
         ${lojaFilterVendas}
@@ -446,7 +475,7 @@ export class CompraVendaService {
         GROUP BY p.COD_SECAO, pv.COD_LOJA
       ) v ON sec.COD_SECAO = v.COD_SECAO AND (c.COD_LOJA = v.COD_LOJA OR c.COD_LOJA IS NULL OR v.COD_LOJA IS NULL)
       -- Metas
-      LEFT JOIN INTERSOLID.TAB_SECAO_META_LOJA m ON sec.COD_SECAO = m.COD_SECAO AND m.COD_LOJA = NVL(c.COD_LOJA, v.COD_LOJA)
+      LEFT JOIN ${tabSecaoMetaLoja} m ON sec.COD_SECAO = m.COD_SECAO AND m.COD_LOJA = NVL(c.COD_LOJA, v.COD_LOJA)
       ${calcDecomposicao ? `
       -- EMPRESTEI (DECOMPOSIÇÃO): Produtos PAI/MATRIZ que emprestam custo para filhos
       -- Ex: CARNE MATRIZ → CARNE DE PRIMEIRA, CARNE DE SEGUNDA
@@ -455,18 +484,18 @@ export class CompraVendaService {
           p.COD_SECAO,
           nf.COD_LOJA,
           SUM(ni.VAL_TOTAL) as VALOR_EMPRESTEI
-        FROM INTERSOLID.TAB_NF nf
-        JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+        FROM ${tabNf} nf
+        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
           AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
           AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN INTERSOLID.TAB_PRODUTO p ON ni.COD_ITEM = p.COD_PRODUTO
+        JOIN ${tabProduto} p ON ni.COD_ITEM = p.COD_PRODUTO
         WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND nf.TIPO_OPERACAO = 0
         ${tipoNfFilter}
         ${lojaFilterCompras}
         -- Somente produtos PAI (que têm decomposição cadastrada)
         AND EXISTS (
-          SELECT 1 FROM INTERSOLID.TAB_PRODUTO_DECOMPOSICAO d
+          SELECT 1 FROM ${tabProdutoDecomposicao} d
           WHERE d.COD_PRODUTO = p.COD_PRODUTO
         )
         GROUP BY p.COD_SECAO, nf.COD_LOJA
@@ -478,13 +507,13 @@ export class CompraVendaService {
           p_filho.COD_SECAO,
           nf.COD_LOJA,
           SUM(ni.VAL_TOTAL * d.QTD_DECOMP / 100) as VALOR_EMPRESTADO
-        FROM INTERSOLID.TAB_NF nf
-        JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+        FROM ${tabNf} nf
+        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
           AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
           AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN INTERSOLID.TAB_PRODUTO p_pai ON ni.COD_ITEM = p_pai.COD_PRODUTO
-        JOIN INTERSOLID.TAB_PRODUTO_DECOMPOSICAO d ON p_pai.COD_PRODUTO = d.COD_PRODUTO
-        JOIN INTERSOLID.TAB_PRODUTO p_filho ON d.COD_PRODUTO_DECOM = p_filho.COD_PRODUTO
+        JOIN ${tabProduto} p_pai ON ni.COD_ITEM = p_pai.COD_PRODUTO
+        JOIN ${tabProdutoDecomposicao} d ON p_pai.COD_PRODUTO = d.COD_PRODUTO
+        JOIN ${tabProduto} p_filho ON d.COD_PRODUTO_DECOM = p_filho.COD_PRODUTO
         WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND nf.TIPO_OPERACAO = 0
         ${tipoNfFilter}
@@ -503,13 +532,13 @@ export class CompraVendaService {
             vendas.QTD_VENDIDA * pp.QTD_PRODUCAO *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTEI
-        FROM INTERSOLID.TAB_PRODUTO_PRODUCAO pp
-        JOIN INTERSOLID.TAB_PRODUTO p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
+        FROM ${tabProdutoProducao} pp
+        JOIN ${tabProduto} p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
         -- Compras do insumo para calcular custo unitário
         JOIN (
           SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND nf.TIPO_OPERACAO = 0
           ${tipoNfFilter}
@@ -519,7 +548,7 @@ export class CompraVendaService {
         -- Vendas dos produtos finais que usam este insumo
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -537,12 +566,12 @@ export class CompraVendaService {
             vendas.QTD_VENDIDA * pp.QTD_PRODUCAO *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTADO
-        FROM INTERSOLID.TAB_PRODUTO_PRODUCAO pp
-        JOIN INTERSOLID.TAB_PRODUTO p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
+        FROM ${tabProdutoProducao} pp
+        JOIN ${tabProduto} p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
         -- Vendas do produto final
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -551,8 +580,8 @@ export class CompraVendaService {
         -- Compras dos insumos para calcular custo unitário
         LEFT JOIN (
           SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND nf.TIPO_OPERACAO = 0
           ${tipoNfFilter}
@@ -574,14 +603,14 @@ export class CompraVendaService {
             vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTEI
-        FROM INTERSOLID.TAB_PRODUTO_LOJA pl
-        JOIN INTERSOLID.TAB_PRODUTO p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
-        JOIN INTERSOLID.TAB_PRODUTO p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
+        FROM ${tabProdutoLoja} pl
+        JOIN ${tabProduto} p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        JOIN ${tabProduto} p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
         -- Compras do produto BASE para calcular custo unitário
         JOIN (
           SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND nf.TIPO_OPERACAO = 0
           ${tipoNfFilter}
@@ -591,7 +620,7 @@ export class CompraVendaService {
         -- Vendas dos produtos que têm associação
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -610,12 +639,12 @@ export class CompraVendaService {
             vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTADO
-        FROM INTERSOLID.TAB_PRODUTO_LOJA pl
-        JOIN INTERSOLID.TAB_PRODUTO p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        FROM ${tabProdutoLoja} pl
+        JOIN ${tabProduto} p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
         -- Vendas do produto
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -624,8 +653,8 @@ export class CompraVendaService {
         -- Compras do produto BASE para calcular custo unitário
         LEFT JOIN (
           SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND nf.TIPO_OPERACAO = 0
           ${tipoNfFilter}
@@ -741,6 +770,18 @@ export class CompraVendaService {
       tipoEmprestimoDecomposicao = true
     } = filters;
 
+    // Obter schema e nomes das tabelas dinamicamente
+    const schema = await MappingService.getSchema();
+    const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO')}`;
+    const tabNf = `${schema}.${await MappingService.getRealTableName('TAB_NF', 'TAB_NF')}`;
+    const tabNfItem = `${schema}.${await MappingService.getRealTableName('TAB_NF_ITEM', 'TAB_NF_ITEM')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
+    const tabProdutoDecomposicao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_DECOMPOSICAO', 'TAB_PRODUTO_DECOMPOSICAO')}`;
+    const tabProdutoProducao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PRODUCAO', 'TAB_PRODUTO_PRODUCAO')}`;
+    const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
+    const tabProdutoComprador = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_COMPRADOR', 'TAB_PRODUTO_COMPRADOR')}`;
+
     const params: any = {
       dataInicio,
       dataFim,
@@ -749,7 +790,7 @@ export class CompraVendaService {
 
     const tipoNfFilter = this.buildTipoNfFilter(tipoNotaFiscal);
     const tipoVendaFilter = this.buildTipoVendaFilter(tipoVenda);
-    const produtoFilters = this.buildProdutoFilters(filters, params);
+    const produtoFilters = this.buildProdutoFilters(filters, params, tabProdutoComprador);
 
     // Flag para calcular empréstimos (só quando filtro "Filhos" está ativo)
     const calcularEmprestimos = decomposicao === 'filhos';
@@ -805,18 +846,18 @@ export class CompraVendaService {
         ${calcDecomposicao ? 'NVL(emp_filho.VALOR_EMPRESTADO, 0)' : '0'}
         + ${calcProducao ? 'NVL(emp_final.VALOR_EMPRESTADO, 0)' : '0'}
         + ${calcAssociacao ? 'NVL(emp_assoc_filho.VALOR_EMPRESTADO, 0)' : '0'} as EMPRESTADO
-      FROM INTERSOLID.TAB_GRUPO g
+      FROM ${tabGrupo} g
       LEFT JOIN (
         SELECT
           p.COD_GRUPO,
           nf.COD_LOJA,
           SUM(ni.QTD_TOTAL) as QTD_COMPRA,
           SUM(ni.VAL_TOTAL) as VALOR_COMPRAS
-        FROM INTERSOLID.TAB_NF nf
-        JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+        FROM ${tabNf} nf
+        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
           AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
           AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN INTERSOLID.TAB_PRODUTO p ON ni.COD_ITEM = p.COD_PRODUTO
+        JOIN ${tabProduto} p ON ni.COD_ITEM = p.COD_PRODUTO
         WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND nf.TIPO_OPERACAO = 0
         AND p.COD_SECAO = :codSecao
@@ -834,8 +875,8 @@ export class CompraVendaService {
           SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO) as CUSTO_VENDA,
           SUM(NVL(pv.VAL_IMPOSTO_DEBITO, 0)) as TOTAL_IMPOSTO,
           SUM(NVL(pv.VAL_IMPOSTO_CREDITO, 0)) as TOTAL_IMPOSTO_CREDITO
-        FROM INTERSOLID.TAB_PRODUTO_PDV pv
-        JOIN INTERSOLID.TAB_PRODUTO p ON pv.COD_PRODUTO = p.COD_PRODUTO
+        FROM ${tabProdutoPdv} pv
+        JOIN ${tabProduto} p ON pv.COD_PRODUTO = p.COD_PRODUTO
         WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND p.COD_SECAO = :codSecao
         ${tipoVendaFilter}
@@ -850,18 +891,18 @@ export class CompraVendaService {
           p.COD_GRUPO,
           nf.COD_LOJA,
           SUM(ni.VAL_TOTAL) as VALOR_EMPRESTEI
-        FROM INTERSOLID.TAB_NF nf
-        JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+        FROM ${tabNf} nf
+        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
           AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
           AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN INTERSOLID.TAB_PRODUTO p ON ni.COD_ITEM = p.COD_PRODUTO
+        JOIN ${tabProduto} p ON ni.COD_ITEM = p.COD_PRODUTO
         WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND nf.TIPO_OPERACAO = 0
         AND p.COD_SECAO = :codSecao
         ${tipoNfFilter}
         ${lojaFilterCompras}
         AND EXISTS (
-          SELECT 1 FROM INTERSOLID.TAB_PRODUTO_DECOMPOSICAO d
+          SELECT 1 FROM ${tabProdutoDecomposicao} d
           WHERE d.COD_PRODUTO = p.COD_PRODUTO
         )
         GROUP BY p.COD_GRUPO, nf.COD_LOJA
@@ -873,13 +914,13 @@ export class CompraVendaService {
           p_filho.COD_GRUPO,
           nf.COD_LOJA,
           SUM(ni.VAL_TOTAL * d.QTD_DECOMP / 100) as VALOR_EMPRESTADO
-        FROM INTERSOLID.TAB_NF nf
-        JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+        FROM ${tabNf} nf
+        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
           AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
           AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN INTERSOLID.TAB_PRODUTO p_pai ON ni.COD_ITEM = p_pai.COD_PRODUTO
-        JOIN INTERSOLID.TAB_PRODUTO_DECOMPOSICAO d ON p_pai.COD_PRODUTO = d.COD_PRODUTO
-        JOIN INTERSOLID.TAB_PRODUTO p_filho ON d.COD_PRODUTO_DECOM = p_filho.COD_PRODUTO
+        JOIN ${tabProduto} p_pai ON ni.COD_ITEM = p_pai.COD_PRODUTO
+        JOIN ${tabProdutoDecomposicao} d ON p_pai.COD_PRODUTO = d.COD_PRODUTO
+        JOIN ${tabProduto} p_filho ON d.COD_PRODUTO_DECOM = p_filho.COD_PRODUTO
         WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND nf.TIPO_OPERACAO = 0
         AND p_filho.COD_SECAO = :codSecao
@@ -899,12 +940,12 @@ export class CompraVendaService {
             vendas.QTD_VENDIDA * pp.QTD_PRODUCAO *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTEI
-        FROM INTERSOLID.TAB_PRODUTO_PRODUCAO pp
-        JOIN INTERSOLID.TAB_PRODUTO p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
+        FROM ${tabProdutoProducao} pp
+        JOIN ${tabProduto} p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
         JOIN (
           SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND nf.TIPO_OPERACAO = 0
           ${tipoNfFilter}
@@ -913,7 +954,7 @@ export class CompraVendaService {
         ) compras ON pp.COD_PRODUTO_PRODUCAO = compras.COD_ITEM
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -932,11 +973,11 @@ export class CompraVendaService {
             vendas.QTD_VENDIDA * pp.QTD_PRODUCAO *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTADO
-        FROM INTERSOLID.TAB_PRODUTO_PRODUCAO pp
-        JOIN INTERSOLID.TAB_PRODUTO p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
+        FROM ${tabProdutoProducao} pp
+        JOIN ${tabProduto} p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -944,8 +985,8 @@ export class CompraVendaService {
         ) vendas ON pp.COD_PRODUTO = vendas.COD_PRODUTO
         LEFT JOIN (
           SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND nf.TIPO_OPERACAO = 0
           ${tipoNfFilter}
@@ -966,13 +1007,13 @@ export class CompraVendaService {
             vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTEI
-        FROM INTERSOLID.TAB_PRODUTO_LOJA pl
-        JOIN INTERSOLID.TAB_PRODUTO p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
-        JOIN INTERSOLID.TAB_PRODUTO p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
+        FROM ${tabProdutoLoja} pl
+        JOIN ${tabProduto} p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        JOIN ${tabProduto} p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
         JOIN (
           SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND nf.TIPO_OPERACAO = 0
           ${tipoNfFilter}
@@ -981,7 +1022,7 @@ export class CompraVendaService {
         ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -999,11 +1040,11 @@ export class CompraVendaService {
             vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTADO
-        FROM INTERSOLID.TAB_PRODUTO_LOJA pl
-        JOIN INTERSOLID.TAB_PRODUTO p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        FROM ${tabProdutoLoja} pl
+        JOIN ${tabProduto} p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -1011,8 +1052,8 @@ export class CompraVendaService {
         ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO
         LEFT JOIN (
           SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND nf.TIPO_OPERACAO = 0
           ${tipoNfFilter}
@@ -1059,6 +1100,18 @@ export class CompraVendaService {
       tipoEmprestimoDecomposicao = true
     } = filters;
 
+    // Obter schema e nomes das tabelas dinamicamente
+    const schema = await MappingService.getSchema();
+    const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO')}`;
+    const tabNf = `${schema}.${await MappingService.getRealTableName('TAB_NF', 'TAB_NF')}`;
+    const tabNfItem = `${schema}.${await MappingService.getRealTableName('TAB_NF_ITEM', 'TAB_NF_ITEM')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
+    const tabProdutoDecomposicao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_DECOMPOSICAO', 'TAB_PRODUTO_DECOMPOSICAO')}`;
+    const tabProdutoProducao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PRODUCAO', 'TAB_PRODUTO_PRODUCAO')}`;
+    const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
+    const tabProdutoComprador = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_COMPRADOR', 'TAB_PRODUTO_COMPRADOR')}`;
+
     const params: any = {
       dataInicio,
       dataFim,
@@ -1068,7 +1121,7 @@ export class CompraVendaService {
 
     const tipoNfFilter = this.buildTipoNfFilter(tipoNotaFiscal);
     const tipoVendaFilter = this.buildTipoVendaFilter(tipoVenda);
-    const produtoFilters = this.buildProdutoFilters(filters, params);
+    const produtoFilters = this.buildProdutoFilters(filters, params, tabProdutoComprador);
 
     // Flag para calcular empréstimos (só quando filtro "Filhos" está ativo)
     const calcularEmprestimos = decomposicao === 'filhos';
@@ -1124,18 +1177,18 @@ export class CompraVendaService {
         ${calcDecomposicao ? 'NVL(emp_filho.VALOR_EMPRESTADO, 0)' : '0'}
         + ${calcProducao ? 'NVL(emp_final.VALOR_EMPRESTADO, 0)' : '0'}
         + ${calcAssociacao ? 'NVL(emp_assoc_filho.VALOR_EMPRESTADO, 0)' : '0'} as EMPRESTADO
-      FROM INTERSOLID.TAB_SUBGRUPO sg
+      FROM ${tabSubgrupo} sg
       LEFT JOIN (
         SELECT
           p.COD_SUB_GRUPO,
           nf.COD_LOJA,
           SUM(ni.QTD_TOTAL) as QTD_COMPRA,
           SUM(ni.VAL_TOTAL) as VALOR_COMPRAS
-        FROM INTERSOLID.TAB_NF nf
-        JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+        FROM ${tabNf} nf
+        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
           AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
           AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN INTERSOLID.TAB_PRODUTO p ON ni.COD_ITEM = p.COD_PRODUTO
+        JOIN ${tabProduto} p ON ni.COD_ITEM = p.COD_PRODUTO
         WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND nf.TIPO_OPERACAO = 0
         AND p.COD_SECAO = :codSecao
@@ -1154,8 +1207,8 @@ export class CompraVendaService {
           SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO) as CUSTO_VENDA,
           SUM(NVL(pv.VAL_IMPOSTO_DEBITO, 0)) as TOTAL_IMPOSTO,
           SUM(NVL(pv.VAL_IMPOSTO_CREDITO, 0)) as TOTAL_IMPOSTO_CREDITO
-        FROM INTERSOLID.TAB_PRODUTO_PDV pv
-        JOIN INTERSOLID.TAB_PRODUTO p ON pv.COD_PRODUTO = p.COD_PRODUTO
+        FROM ${tabProdutoPdv} pv
+        JOIN ${tabProduto} p ON pv.COD_PRODUTO = p.COD_PRODUTO
         WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND p.COD_SECAO = :codSecao
         AND p.COD_GRUPO = :codGrupo
@@ -1171,11 +1224,11 @@ export class CompraVendaService {
           p.COD_SUB_GRUPO,
           nf.COD_LOJA,
           SUM(ni.VAL_TOTAL) as VALOR_EMPRESTEI
-        FROM INTERSOLID.TAB_NF nf
-        JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+        FROM ${tabNf} nf
+        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
           AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
           AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN INTERSOLID.TAB_PRODUTO p ON ni.COD_ITEM = p.COD_PRODUTO
+        JOIN ${tabProduto} p ON ni.COD_ITEM = p.COD_PRODUTO
         WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND nf.TIPO_OPERACAO = 0
         AND p.COD_SECAO = :codSecao
@@ -1183,7 +1236,7 @@ export class CompraVendaService {
         ${tipoNfFilter}
         ${lojaFilterCompras}
         AND EXISTS (
-          SELECT 1 FROM INTERSOLID.TAB_PRODUTO_DECOMPOSICAO d
+          SELECT 1 FROM ${tabProdutoDecomposicao} d
           WHERE d.COD_PRODUTO = p.COD_PRODUTO
         )
         GROUP BY p.COD_SUB_GRUPO, nf.COD_LOJA
@@ -1195,13 +1248,13 @@ export class CompraVendaService {
           p_filho.COD_SUB_GRUPO,
           nf.COD_LOJA,
           SUM(ni.VAL_TOTAL * d.QTD_DECOMP / 100) as VALOR_EMPRESTADO
-        FROM INTERSOLID.TAB_NF nf
-        JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+        FROM ${tabNf} nf
+        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
           AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
           AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN INTERSOLID.TAB_PRODUTO p_pai ON ni.COD_ITEM = p_pai.COD_PRODUTO
-        JOIN INTERSOLID.TAB_PRODUTO_DECOMPOSICAO d ON p_pai.COD_PRODUTO = d.COD_PRODUTO
-        JOIN INTERSOLID.TAB_PRODUTO p_filho ON d.COD_PRODUTO_DECOM = p_filho.COD_PRODUTO
+        JOIN ${tabProduto} p_pai ON ni.COD_ITEM = p_pai.COD_PRODUTO
+        JOIN ${tabProdutoDecomposicao} d ON p_pai.COD_PRODUTO = d.COD_PRODUTO
+        JOIN ${tabProduto} p_filho ON d.COD_PRODUTO_DECOM = p_filho.COD_PRODUTO
         WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND nf.TIPO_OPERACAO = 0
         AND p_filho.COD_SECAO = :codSecao
@@ -1222,12 +1275,12 @@ export class CompraVendaService {
             vendas.QTD_VENDIDA * pp.QTD_PRODUCAO *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTEI
-        FROM INTERSOLID.TAB_PRODUTO_PRODUCAO pp
-        JOIN INTERSOLID.TAB_PRODUTO p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
+        FROM ${tabProdutoProducao} pp
+        JOIN ${tabProduto} p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
         JOIN (
           SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND nf.TIPO_OPERACAO = 0
           ${tipoNfFilter}
@@ -1236,7 +1289,7 @@ export class CompraVendaService {
         ) compras ON pp.COD_PRODUTO_PRODUCAO = compras.COD_ITEM
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -1255,11 +1308,11 @@ export class CompraVendaService {
             vendas.QTD_VENDIDA * pp.QTD_PRODUCAO *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTADO
-        FROM INTERSOLID.TAB_PRODUTO_PRODUCAO pp
-        JOIN INTERSOLID.TAB_PRODUTO p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
+        FROM ${tabProdutoProducao} pp
+        JOIN ${tabProduto} p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -1267,8 +1320,8 @@ export class CompraVendaService {
         ) vendas ON pp.COD_PRODUTO = vendas.COD_PRODUTO
         LEFT JOIN (
           SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND nf.TIPO_OPERACAO = 0
           ${tipoNfFilter}
@@ -1289,13 +1342,13 @@ export class CompraVendaService {
             vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTEI
-        FROM INTERSOLID.TAB_PRODUTO_LOJA pl
-        JOIN INTERSOLID.TAB_PRODUTO p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
-        JOIN INTERSOLID.TAB_PRODUTO p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
+        FROM ${tabProdutoLoja} pl
+        JOIN ${tabProduto} p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        JOIN ${tabProduto} p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
         JOIN (
           SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND nf.TIPO_OPERACAO = 0
           ${tipoNfFilter}
@@ -1304,7 +1357,7 @@ export class CompraVendaService {
         ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -1322,11 +1375,11 @@ export class CompraVendaService {
             vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTADO
-        FROM INTERSOLID.TAB_PRODUTO_LOJA pl
-        JOIN INTERSOLID.TAB_PRODUTO p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        FROM ${tabProdutoLoja} pl
+        JOIN ${tabProduto} p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -1334,8 +1387,8 @@ export class CompraVendaService {
         ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO
         LEFT JOIN (
           SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND nf.TIPO_OPERACAO = 0
           ${tipoNfFilter}
@@ -1383,6 +1436,17 @@ export class CompraVendaService {
       tipoEmprestimoDecomposicao = true
     } = filters;
 
+    // Obter schema e nomes das tabelas dinamicamente
+    const schema = await MappingService.getSchema();
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+    const tabNf = `${schema}.${await MappingService.getRealTableName('TAB_NF', 'TAB_NF')}`;
+    const tabNfItem = `${schema}.${await MappingService.getRealTableName('TAB_NF_ITEM', 'TAB_NF_ITEM')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
+    const tabProdutoDecomposicao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_DECOMPOSICAO', 'TAB_PRODUTO_DECOMPOSICAO')}`;
+    const tabProdutoProducao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PRODUCAO', 'TAB_PRODUTO_PRODUCAO')}`;
+    const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
+    const tabProdutoComprador = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_COMPRADOR', 'TAB_PRODUTO_COMPRADOR')}`;
+
     const params: any = {
       dataInicio,
       dataFim,
@@ -1393,7 +1457,7 @@ export class CompraVendaService {
 
     const tipoNfFilter = this.buildTipoNfFilter(tipoNotaFiscal);
     const tipoVendaFilter = this.buildTipoVendaFilter(tipoVenda);
-    const produtoFilters = this.buildProdutoFilters(filters, params);
+    const produtoFilters = this.buildProdutoFilters(filters, params, tabProdutoComprador);
 
     // Flag para calcular empréstimos (só quando filtro "Filhos" está ativo)
     const calcularEmprestimos = decomposicao === 'filhos';
@@ -1451,18 +1515,18 @@ export class CompraVendaService {
         + ${calcAssociacao ? 'NVL(emp_assoc_filho.VALOR_EMPRESTADO, 0)' : '0'} as EMPRESTADO,
         NVL(est.QTD_EST_ATUAL, 0) as ESTOQUE_ATUAL,
         NVL(est.QTD_COBERTURA, 0) as DIAS_COBERTURA
-      FROM INTERSOLID.TAB_PRODUTO p
+      FROM ${tabProduto} p
       LEFT JOIN (
         SELECT
           ni.COD_ITEM,
           nf.COD_LOJA,
           SUM(ni.QTD_TOTAL) as QTD_COMPRA,
           SUM(ni.VAL_TOTAL) as VALOR_COMPRAS
-        FROM INTERSOLID.TAB_NF nf
-        JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+        FROM ${tabNf} nf
+        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
           AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
           AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN INTERSOLID.TAB_PRODUTO prod ON ni.COD_ITEM = prod.COD_PRODUTO
+        JOIN ${tabProduto} prod ON ni.COD_ITEM = prod.COD_PRODUTO
         WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND nf.TIPO_OPERACAO = 0
         AND prod.COD_SECAO = :codSecao
@@ -1482,8 +1546,8 @@ export class CompraVendaService {
           SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO) as CUSTO_VENDA,
           SUM(NVL(pv.VAL_IMPOSTO_DEBITO, 0)) as TOTAL_IMPOSTO,
           SUM(NVL(pv.VAL_IMPOSTO_CREDITO, 0)) as TOTAL_IMPOSTO_CREDITO
-        FROM INTERSOLID.TAB_PRODUTO_PDV pv
-        JOIN INTERSOLID.TAB_PRODUTO prod ON pv.COD_PRODUTO = prod.COD_PRODUTO
+        FROM ${tabProdutoPdv} pv
+        JOIN ${tabProduto} prod ON pv.COD_PRODUTO = prod.COD_PRODUTO
         WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND prod.COD_SECAO = :codSecao
         AND prod.COD_GRUPO = :codGrupo
@@ -1500,8 +1564,8 @@ export class CompraVendaService {
           ni.COD_ITEM as COD_PRODUTO,
           nf.COD_LOJA,
           SUM(ni.VAL_TOTAL) as VALOR_EMPRESTEI
-        FROM INTERSOLID.TAB_NF nf
-        JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+        FROM ${tabNf} nf
+        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
           AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
           AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
         WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
@@ -1509,7 +1573,7 @@ export class CompraVendaService {
         ${tipoNfFilter}
         ${lojaFilterCompras}
         AND EXISTS (
-          SELECT 1 FROM INTERSOLID.TAB_PRODUTO_DECOMPOSICAO d
+          SELECT 1 FROM ${tabProdutoDecomposicao} d
           WHERE d.COD_PRODUTO = ni.COD_ITEM
         )
         GROUP BY ni.COD_ITEM, nf.COD_LOJA
@@ -1521,11 +1585,11 @@ export class CompraVendaService {
           d.COD_PRODUTO_DECOM as COD_PRODUTO,
           nf.COD_LOJA,
           SUM(ni.VAL_TOTAL * d.QTD_DECOMP / 100) as VALOR_EMPRESTADO
-        FROM INTERSOLID.TAB_NF nf
-        JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+        FROM ${tabNf} nf
+        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
           AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
           AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN INTERSOLID.TAB_PRODUTO_DECOMPOSICAO d ON ni.COD_ITEM = d.COD_PRODUTO
+        JOIN ${tabProdutoDecomposicao} d ON ni.COD_ITEM = d.COD_PRODUTO
         WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         AND nf.TIPO_OPERACAO = 0
         ${tipoNfFilter}
@@ -1544,11 +1608,11 @@ export class CompraVendaService {
             vendas.QTD_VENDIDA * pp.QTD_PRODUCAO *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTEI
-        FROM INTERSOLID.TAB_PRODUTO_PRODUCAO pp
+        FROM ${tabProdutoProducao} pp
         JOIN (
           SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND nf.TIPO_OPERACAO = 0
           ${tipoNfFilter}
@@ -1557,7 +1621,7 @@ export class CompraVendaService {
         ) compras ON pp.COD_PRODUTO_PRODUCAO = compras.COD_ITEM
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -1575,10 +1639,10 @@ export class CompraVendaService {
             vendas.QTD_VENDIDA * pp.QTD_PRODUCAO *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTADO
-        FROM INTERSOLID.TAB_PRODUTO_PRODUCAO pp
+        FROM ${tabProdutoProducao} pp
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -1586,8 +1650,8 @@ export class CompraVendaService {
         ) vendas ON pp.COD_PRODUTO = vendas.COD_PRODUTO
         LEFT JOIN (
           SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND nf.TIPO_OPERACAO = 0
           ${tipoNfFilter}
@@ -1607,12 +1671,12 @@ export class CompraVendaService {
             vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTEI
-        FROM INTERSOLID.TAB_PRODUTO_LOJA pl
-        JOIN INTERSOLID.TAB_PRODUTO p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        FROM ${tabProdutoLoja} pl
+        JOIN ${tabProduto} p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
         JOIN (
           SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND nf.TIPO_OPERACAO = 0
           ${tipoNfFilter}
@@ -1621,7 +1685,7 @@ export class CompraVendaService {
         ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -1639,11 +1703,11 @@ export class CompraVendaService {
             vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTADO
-        FROM INTERSOLID.TAB_PRODUTO_LOJA pl
-        JOIN INTERSOLID.TAB_PRODUTO p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        FROM ${tabProdutoLoja} pl
+        JOIN ${tabProduto} p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
         JOIN (
           SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -1651,8 +1715,8 @@ export class CompraVendaService {
         ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO
         LEFT JOIN (
           SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND nf.TIPO_OPERACAO = 0
           ${tipoNfFilter}
@@ -1664,7 +1728,7 @@ export class CompraVendaService {
       ) emp_assoc_filho ON p.COD_PRODUTO = emp_assoc_filho.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
       ` : ''}
       -- ESTOQUE: Busca estoque atual e dias de cobertura da TAB_PRODUTO_LOJA
-      LEFT JOIN INTERSOLID.TAB_PRODUTO_LOJA est ON p.COD_PRODUTO = est.COD_PRODUTO
+      LEFT JOIN ${tabProdutoLoja} est ON p.COD_PRODUTO = est.COD_PRODUTO
         AND est.COD_LOJA = NVL(c.COD_LOJA, v.COD_LOJA)
       WHERE p.COD_SECAO = :codSecao
       AND p.COD_GRUPO = :codGrupo
@@ -1717,6 +1781,19 @@ export class CompraVendaService {
     total: number;
   }> {
     const { dataInicio, dataFim, codLoja, tipoNotaFiscal, tipoVenda, nivel, tipo, codSecao, codGrupo, codSubGrupo, codProduto } = filters;
+
+    // Obter schema e nomes das tabelas dinamicamente
+    const schema = await MappingService.getSchema();
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+    const tabNf = `${schema}.${await MappingService.getRealTableName('TAB_NF', 'TAB_NF')}`;
+    const tabNfItem = `${schema}.${await MappingService.getRealTableName('TAB_NF_ITEM', 'TAB_NF_ITEM')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
+    const tabProdutoDecomposicao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_DECOMPOSICAO', 'TAB_PRODUTO_DECOMPOSICAO')}`;
+    const tabProdutoProducao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PRODUCAO', 'TAB_PRODUTO_PRODUCAO')}`;
+    const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
+    const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+    const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO')}`;
+    const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO')}`;
 
     const params: any = { dataInicio, dataFim };
     const tipoNfFilter = this.buildTipoNfFilter(tipoNotaFiscal);
@@ -1776,19 +1853,19 @@ export class CompraVendaService {
           sgp_filho.DES_SUB_GRUPO as SUBGRUPO_DESTINO,
           d.QTD_DECOMP as PERCENTUAL,
           NVL(compras.VAL_TOTAL, 0) * d.QTD_DECOMP / 100 as VALOR
-        FROM INTERSOLID.TAB_PRODUTO p_pai
-        JOIN INTERSOLID.TAB_PRODUTO_DECOMPOSICAO d ON p_pai.COD_PRODUTO = d.COD_PRODUTO
-        JOIN INTERSOLID.TAB_PRODUTO p_filho ON d.COD_PRODUTO_DECOM = p_filho.COD_PRODUTO
-        LEFT JOIN INTERSOLID.TAB_SECAO sec_pai ON p_pai.COD_SECAO = sec_pai.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_GRUPO grp_pai ON p_pai.COD_SECAO = grp_pai.COD_SECAO AND p_pai.COD_GRUPO = grp_pai.COD_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_pai ON p_pai.COD_SECAO = sgp_pai.COD_SECAO AND p_pai.COD_GRUPO = sgp_pai.COD_GRUPO AND p_pai.COD_SUB_GRUPO = sgp_pai.COD_SUB_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SECAO sec_filho ON p_filho.COD_SECAO = sec_filho.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_GRUPO grp_filho ON p_filho.COD_SECAO = grp_filho.COD_SECAO AND p_filho.COD_GRUPO = grp_filho.COD_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_filho ON p_filho.COD_SECAO = sgp_filho.COD_SECAO AND p_filho.COD_GRUPO = sgp_filho.COD_GRUPO AND p_filho.COD_SUB_GRUPO = sgp_filho.COD_SUB_GRUPO
+        FROM ${tabProduto} p_pai
+        JOIN ${tabProdutoDecomposicao} d ON p_pai.COD_PRODUTO = d.COD_PRODUTO
+        JOIN ${tabProduto} p_filho ON d.COD_PRODUTO_DECOM = p_filho.COD_PRODUTO
+        LEFT JOIN ${tabSecao} sec_pai ON p_pai.COD_SECAO = sec_pai.COD_SECAO
+        LEFT JOIN ${tabGrupo} grp_pai ON p_pai.COD_SECAO = grp_pai.COD_SECAO AND p_pai.COD_GRUPO = grp_pai.COD_GRUPO
+        LEFT JOIN ${tabSubgrupo} sgp_pai ON p_pai.COD_SECAO = sgp_pai.COD_SECAO AND p_pai.COD_GRUPO = sgp_pai.COD_GRUPO AND p_pai.COD_SUB_GRUPO = sgp_pai.COD_SUB_GRUPO
+        LEFT JOIN ${tabSecao} sec_filho ON p_filho.COD_SECAO = sec_filho.COD_SECAO
+        LEFT JOIN ${tabGrupo} grp_filho ON p_filho.COD_SECAO = grp_filho.COD_SECAO AND p_filho.COD_GRUPO = grp_filho.COD_GRUPO
+        LEFT JOIN ${tabSubgrupo} sgp_filho ON p_filho.COD_SECAO = sgp_filho.COD_SECAO AND p_filho.COD_GRUPO = sgp_filho.COD_GRUPO AND p_filho.COD_SUB_GRUPO = sgp_filho.COD_SUB_GRUPO
         LEFT JOIN (
           SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
             AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
             AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
@@ -1819,19 +1896,19 @@ export class CompraVendaService {
           sgp_pai.DES_SUB_GRUPO as SUBGRUPO_ORIGEM,
           d.QTD_DECOMP as PERCENTUAL,
           NVL(compras.VAL_TOTAL, 0) * d.QTD_DECOMP / 100 as VALOR
-        FROM INTERSOLID.TAB_PRODUTO p_filho
-        JOIN INTERSOLID.TAB_PRODUTO_DECOMPOSICAO d ON p_filho.COD_PRODUTO = d.COD_PRODUTO_DECOM
-        JOIN INTERSOLID.TAB_PRODUTO p_pai ON d.COD_PRODUTO = p_pai.COD_PRODUTO
-        LEFT JOIN INTERSOLID.TAB_SECAO sec_pai ON p_pai.COD_SECAO = sec_pai.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_GRUPO grp_pai ON p_pai.COD_SECAO = grp_pai.COD_SECAO AND p_pai.COD_GRUPO = grp_pai.COD_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_pai ON p_pai.COD_SECAO = sgp_pai.COD_SECAO AND p_pai.COD_GRUPO = sgp_pai.COD_GRUPO AND p_pai.COD_SUB_GRUPO = sgp_pai.COD_SUB_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SECAO sec_filho ON p_filho.COD_SECAO = sec_filho.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_GRUPO grp_filho ON p_filho.COD_SECAO = grp_filho.COD_SECAO AND p_filho.COD_GRUPO = grp_filho.COD_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_filho ON p_filho.COD_SECAO = sgp_filho.COD_SECAO AND p_filho.COD_GRUPO = sgp_filho.COD_GRUPO AND p_filho.COD_SUB_GRUPO = sgp_filho.COD_SUB_GRUPO
+        FROM ${tabProduto} p_filho
+        JOIN ${tabProdutoDecomposicao} d ON p_filho.COD_PRODUTO = d.COD_PRODUTO_DECOM
+        JOIN ${tabProduto} p_pai ON d.COD_PRODUTO = p_pai.COD_PRODUTO
+        LEFT JOIN ${tabSecao} sec_pai ON p_pai.COD_SECAO = sec_pai.COD_SECAO
+        LEFT JOIN ${tabGrupo} grp_pai ON p_pai.COD_SECAO = grp_pai.COD_SECAO AND p_pai.COD_GRUPO = grp_pai.COD_GRUPO
+        LEFT JOIN ${tabSubgrupo} sgp_pai ON p_pai.COD_SECAO = sgp_pai.COD_SECAO AND p_pai.COD_GRUPO = sgp_pai.COD_GRUPO AND p_pai.COD_SUB_GRUPO = sgp_pai.COD_SUB_GRUPO
+        LEFT JOIN ${tabSecao} sec_filho ON p_filho.COD_SECAO = sec_filho.COD_SECAO
+        LEFT JOIN ${tabGrupo} grp_filho ON p_filho.COD_SECAO = grp_filho.COD_SECAO AND p_filho.COD_GRUPO = grp_filho.COD_GRUPO
+        LEFT JOIN ${tabSubgrupo} sgp_filho ON p_filho.COD_SECAO = sgp_filho.COD_SECAO AND p_filho.COD_GRUPO = sgp_filho.COD_GRUPO AND p_filho.COD_SUB_GRUPO = sgp_filho.COD_SUB_GRUPO
         LEFT JOIN (
           SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
             AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
             AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
@@ -1865,19 +1942,19 @@ export class CompraVendaService {
           sgp_final.DES_SUB_GRUPO as SUBGRUPO_DESTINO,
           pp.QTD_PRODUCAO as QTD_RECEITA,
           NVL(vendas.QTD_VENDIDA, 0) * pp.QTD_PRODUCAO * (NVL(compras.VAL_TOTAL, 0) / NULLIF(compras.QTD_TOTAL, 0)) as VALOR
-        FROM INTERSOLID.TAB_PRODUTO_PRODUCAO pp
-        JOIN INTERSOLID.TAB_PRODUTO p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
-        JOIN INTERSOLID.TAB_PRODUTO p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
-        LEFT JOIN INTERSOLID.TAB_SECAO sec_insumo ON p_insumo.COD_SECAO = sec_insumo.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_GRUPO grp_insumo ON p_insumo.COD_SECAO = grp_insumo.COD_SECAO AND p_insumo.COD_GRUPO = grp_insumo.COD_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_insumo ON p_insumo.COD_SECAO = sgp_insumo.COD_SECAO AND p_insumo.COD_GRUPO = sgp_insumo.COD_GRUPO AND p_insumo.COD_SUB_GRUPO = sgp_insumo.COD_SUB_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SECAO sec_final ON p_final.COD_SECAO = sec_final.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_GRUPO grp_final ON p_final.COD_SECAO = grp_final.COD_SECAO AND p_final.COD_GRUPO = grp_final.COD_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_final ON p_final.COD_SECAO = sgp_final.COD_SECAO AND p_final.COD_GRUPO = sgp_final.COD_GRUPO AND p_final.COD_SUB_GRUPO = sgp_final.COD_SUB_GRUPO
+        FROM ${tabProdutoProducao} pp
+        JOIN ${tabProduto} p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
+        JOIN ${tabProduto} p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
+        LEFT JOIN ${tabSecao} sec_insumo ON p_insumo.COD_SECAO = sec_insumo.COD_SECAO
+        LEFT JOIN ${tabGrupo} grp_insumo ON p_insumo.COD_SECAO = grp_insumo.COD_SECAO AND p_insumo.COD_GRUPO = grp_insumo.COD_GRUPO
+        LEFT JOIN ${tabSubgrupo} sgp_insumo ON p_insumo.COD_SECAO = sgp_insumo.COD_SECAO AND p_insumo.COD_GRUPO = sgp_insumo.COD_GRUPO AND p_insumo.COD_SUB_GRUPO = sgp_insumo.COD_SUB_GRUPO
+        LEFT JOIN ${tabSecao} sec_final ON p_final.COD_SECAO = sec_final.COD_SECAO
+        LEFT JOIN ${tabGrupo} grp_final ON p_final.COD_SECAO = grp_final.COD_SECAO AND p_final.COD_GRUPO = grp_final.COD_GRUPO
+        LEFT JOIN ${tabSubgrupo} sgp_final ON p_final.COD_SECAO = sgp_final.COD_SECAO AND p_final.COD_GRUPO = sgp_final.COD_GRUPO AND p_final.COD_SUB_GRUPO = sgp_final.COD_SUB_GRUPO
         LEFT JOIN (
           SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
             AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
             AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
@@ -1888,7 +1965,7 @@ export class CompraVendaService {
         ) compras ON p_insumo.COD_PRODUTO = compras.COD_ITEM
         LEFT JOIN (
           SELECT pv.COD_PRODUTO, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -1916,19 +1993,19 @@ export class CompraVendaService {
           sgp_insumo.DES_SUB_GRUPO as SUBGRUPO_ORIGEM,
           pp.QTD_PRODUCAO as QTD_RECEITA,
           NVL(vendas.QTD_VENDIDA, 0) * pp.QTD_PRODUCAO * (NVL(compras.VAL_TOTAL, 0) / NULLIF(compras.QTD_TOTAL, 0)) as VALOR
-        FROM INTERSOLID.TAB_PRODUTO_PRODUCAO pp
-        JOIN INTERSOLID.TAB_PRODUTO p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
-        JOIN INTERSOLID.TAB_PRODUTO p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
-        LEFT JOIN INTERSOLID.TAB_SECAO sec_insumo ON p_insumo.COD_SECAO = sec_insumo.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_GRUPO grp_insumo ON p_insumo.COD_SECAO = grp_insumo.COD_SECAO AND p_insumo.COD_GRUPO = grp_insumo.COD_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_insumo ON p_insumo.COD_SECAO = sgp_insumo.COD_SECAO AND p_insumo.COD_GRUPO = sgp_insumo.COD_GRUPO AND p_insumo.COD_SUB_GRUPO = sgp_insumo.COD_SUB_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SECAO sec_final ON p_final.COD_SECAO = sec_final.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_GRUPO grp_final ON p_final.COD_SECAO = grp_final.COD_SECAO AND p_final.COD_GRUPO = grp_final.COD_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_final ON p_final.COD_SECAO = sgp_final.COD_SECAO AND p_final.COD_GRUPO = sgp_final.COD_GRUPO AND p_final.COD_SUB_GRUPO = sgp_final.COD_SUB_GRUPO
+        FROM ${tabProdutoProducao} pp
+        JOIN ${tabProduto} p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
+        JOIN ${tabProduto} p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
+        LEFT JOIN ${tabSecao} sec_insumo ON p_insumo.COD_SECAO = sec_insumo.COD_SECAO
+        LEFT JOIN ${tabGrupo} grp_insumo ON p_insumo.COD_SECAO = grp_insumo.COD_SECAO AND p_insumo.COD_GRUPO = grp_insumo.COD_GRUPO
+        LEFT JOIN ${tabSubgrupo} sgp_insumo ON p_insumo.COD_SECAO = sgp_insumo.COD_SECAO AND p_insumo.COD_GRUPO = sgp_insumo.COD_GRUPO AND p_insumo.COD_SUB_GRUPO = sgp_insumo.COD_SUB_GRUPO
+        LEFT JOIN ${tabSecao} sec_final ON p_final.COD_SECAO = sec_final.COD_SECAO
+        LEFT JOIN ${tabGrupo} grp_final ON p_final.COD_SECAO = grp_final.COD_SECAO AND p_final.COD_GRUPO = grp_final.COD_GRUPO
+        LEFT JOIN ${tabSubgrupo} sgp_final ON p_final.COD_SECAO = sgp_final.COD_SECAO AND p_final.COD_GRUPO = sgp_final.COD_GRUPO AND p_final.COD_SUB_GRUPO = sgp_final.COD_SUB_GRUPO
         LEFT JOIN (
           SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
             AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
             AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
@@ -1939,7 +2016,7 @@ export class CompraVendaService {
         ) compras ON p_insumo.COD_PRODUTO = compras.COD_ITEM
         LEFT JOIN (
           SELECT pv.COD_PRODUTO, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -1970,19 +2047,19 @@ export class CompraVendaService {
           sgp_assoc.DES_SUB_GRUPO as SUBGRUPO_DESTINO,
           NVL(p_assoc.QTD_EMBALAGEM_VENDA, 1) as QTD_ASSOC,
           NVL(vendas.QTD_VENDIDA, 0) * NVL(p_assoc.QTD_EMBALAGEM_VENDA, 1) * (NVL(compras.VAL_TOTAL, 0) / NULLIF(compras.QTD_TOTAL, 0)) as VALOR
-        FROM INTERSOLID.TAB_PRODUTO_LOJA pl
-        JOIN INTERSOLID.TAB_PRODUTO p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
-        JOIN INTERSOLID.TAB_PRODUTO p_assoc ON pl.COD_PRODUTO = p_assoc.COD_PRODUTO
-        LEFT JOIN INTERSOLID.TAB_SECAO sec_base ON p_base.COD_SECAO = sec_base.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_GRUPO grp_base ON p_base.COD_SECAO = grp_base.COD_SECAO AND p_base.COD_GRUPO = grp_base.COD_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_base ON p_base.COD_SECAO = sgp_base.COD_SECAO AND p_base.COD_GRUPO = sgp_base.COD_GRUPO AND p_base.COD_SUB_GRUPO = sgp_base.COD_SUB_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SECAO sec_assoc ON p_assoc.COD_SECAO = sec_assoc.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_GRUPO grp_assoc ON p_assoc.COD_SECAO = grp_assoc.COD_SECAO AND p_assoc.COD_GRUPO = grp_assoc.COD_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_assoc ON p_assoc.COD_SECAO = sgp_assoc.COD_SECAO AND p_assoc.COD_GRUPO = sgp_assoc.COD_GRUPO AND p_assoc.COD_SUB_GRUPO = sgp_assoc.COD_SUB_GRUPO
+        FROM ${tabProdutoLoja} pl
+        JOIN ${tabProduto} p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
+        JOIN ${tabProduto} p_assoc ON pl.COD_PRODUTO = p_assoc.COD_PRODUTO
+        LEFT JOIN ${tabSecao} sec_base ON p_base.COD_SECAO = sec_base.COD_SECAO
+        LEFT JOIN ${tabGrupo} grp_base ON p_base.COD_SECAO = grp_base.COD_SECAO AND p_base.COD_GRUPO = grp_base.COD_GRUPO
+        LEFT JOIN ${tabSubgrupo} sgp_base ON p_base.COD_SECAO = sgp_base.COD_SECAO AND p_base.COD_GRUPO = sgp_base.COD_GRUPO AND p_base.COD_SUB_GRUPO = sgp_base.COD_SUB_GRUPO
+        LEFT JOIN ${tabSecao} sec_assoc ON p_assoc.COD_SECAO = sec_assoc.COD_SECAO
+        LEFT JOIN ${tabGrupo} grp_assoc ON p_assoc.COD_SECAO = grp_assoc.COD_SECAO AND p_assoc.COD_GRUPO = grp_assoc.COD_GRUPO
+        LEFT JOIN ${tabSubgrupo} sgp_assoc ON p_assoc.COD_SECAO = sgp_assoc.COD_SECAO AND p_assoc.COD_GRUPO = sgp_assoc.COD_GRUPO AND p_assoc.COD_SUB_GRUPO = sgp_assoc.COD_SUB_GRUPO
         LEFT JOIN (
           SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
             AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
             AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
@@ -1993,7 +2070,7 @@ export class CompraVendaService {
         ) compras ON p_base.COD_PRODUTO = compras.COD_ITEM
         LEFT JOIN (
           SELECT pv.COD_PRODUTO, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
@@ -2022,19 +2099,19 @@ export class CompraVendaService {
           sgp_base.DES_SUB_GRUPO as SUBGRUPO_ORIGEM,
           NVL(p_assoc.QTD_EMBALAGEM_VENDA, 1) as QTD_ASSOC,
           NVL(vendas.QTD_VENDIDA, 0) * NVL(p_assoc.QTD_EMBALAGEM_VENDA, 1) * (NVL(compras.VAL_TOTAL, 0) / NULLIF(compras.QTD_TOTAL, 0)) as VALOR
-        FROM INTERSOLID.TAB_PRODUTO_LOJA pl
-        JOIN INTERSOLID.TAB_PRODUTO p_assoc ON pl.COD_PRODUTO = p_assoc.COD_PRODUTO
-        JOIN INTERSOLID.TAB_PRODUTO p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
-        LEFT JOIN INTERSOLID.TAB_SECAO sec_base ON p_base.COD_SECAO = sec_base.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_GRUPO grp_base ON p_base.COD_SECAO = grp_base.COD_SECAO AND p_base.COD_GRUPO = grp_base.COD_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_base ON p_base.COD_SECAO = sgp_base.COD_SECAO AND p_base.COD_GRUPO = sgp_base.COD_GRUPO AND p_base.COD_SUB_GRUPO = sgp_base.COD_SUB_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SECAO sec_assoc ON p_assoc.COD_SECAO = sec_assoc.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_GRUPO grp_assoc ON p_assoc.COD_SECAO = grp_assoc.COD_SECAO AND p_assoc.COD_GRUPO = grp_assoc.COD_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sgp_assoc ON p_assoc.COD_SECAO = sgp_assoc.COD_SECAO AND p_assoc.COD_GRUPO = sgp_assoc.COD_GRUPO AND p_assoc.COD_SUB_GRUPO = sgp_assoc.COD_SUB_GRUPO
+        FROM ${tabProdutoLoja} pl
+        JOIN ${tabProduto} p_assoc ON pl.COD_PRODUTO = p_assoc.COD_PRODUTO
+        JOIN ${tabProduto} p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
+        LEFT JOIN ${tabSecao} sec_base ON p_base.COD_SECAO = sec_base.COD_SECAO
+        LEFT JOIN ${tabGrupo} grp_base ON p_base.COD_SECAO = grp_base.COD_SECAO AND p_base.COD_GRUPO = grp_base.COD_GRUPO
+        LEFT JOIN ${tabSubgrupo} sgp_base ON p_base.COD_SECAO = sgp_base.COD_SECAO AND p_base.COD_GRUPO = sgp_base.COD_GRUPO AND p_base.COD_SUB_GRUPO = sgp_base.COD_SUB_GRUPO
+        LEFT JOIN ${tabSecao} sec_assoc ON p_assoc.COD_SECAO = sec_assoc.COD_SECAO
+        LEFT JOIN ${tabGrupo} grp_assoc ON p_assoc.COD_SECAO = grp_assoc.COD_SECAO AND p_assoc.COD_GRUPO = grp_assoc.COD_GRUPO
+        LEFT JOIN ${tabSubgrupo} sgp_assoc ON p_assoc.COD_SECAO = sgp_assoc.COD_SECAO AND p_assoc.COD_GRUPO = sgp_assoc.COD_GRUPO AND p_assoc.COD_SUB_GRUPO = sgp_assoc.COD_SUB_GRUPO
         LEFT JOIN (
           SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+          FROM ${tabNf} nf
+          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
             AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
             AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
           WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
@@ -2045,7 +2122,7 @@ export class CompraVendaService {
         ) compras ON p_base.COD_PRODUTO = compras.COD_ITEM
         LEFT JOIN (
           SELECT pv.COD_PRODUTO, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
-          FROM INTERSOLID.TAB_PRODUTO_PDV pv
+          FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}

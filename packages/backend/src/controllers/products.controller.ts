@@ -189,6 +189,17 @@ export class ProductsController {
       console.log(`📋 [MAPEAMENTO] Campo codigo usando coluna: ${codigoCol}`);
       console.log(`📋 [MAPEAMENTO] Campo embalagem usando coluna: ${embalagemCol}`);
 
+      // Obter schema e tabelas dinamicamente
+      const schema = await MappingService.getSchema();
+      const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
+        MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
+        MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
+        MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
+        MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO'),
+        MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO'),
+        MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')
+      ]);
+
       // Query completa para buscar produtos com todas as informações necessárias
       // Usa cache de 5 minutos para melhorar performance
       const cacheKey = `oracle-products-loja-${loja}`;
@@ -242,12 +253,12 @@ export class ProductsController {
               p.${embalagemCol} as DES_EMBALAGEM,
               NVL(p.${qtdEmbalagemCompraCol}, 1) as QTD_EMBALAGEM_COMPRA,
               CASE WHEN p.${pesavelCol} = 'S' THEN 'S' ELSE 'N' END as PESAVEL
-            FROM INTERSOLID.TAB_PRODUTO p
-            INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.${codigoCol} = pl.${codigoCol}
-            LEFT JOIN INTERSOLID.TAB_SECAO s ON p.${codSecaoCol} = s.${codSecaoCol}
-            LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.${codSecaoCol} = g.${codSecaoCol} AND p.${codGrupoCol} = g.${codGrupoCol}
-            LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.${codSecaoCol} = sg.${codSecaoCol} AND p.${codGrupoCol} = sg.${codGrupoCol} AND p.${codSubGrupoCol} = sg.${codSubGrupoCol}
-            LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON pl.${codFornUltCompraCol} = f.COD_FORNECEDOR
+            FROM ${schema}.${tabProduto} p
+            INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.${codigoCol} = pl.${codigoCol}
+            LEFT JOIN ${schema}.${tabSecao} s ON p.${codSecaoCol} = s.${codSecaoCol}
+            LEFT JOIN ${schema}.${tabGrupo} g ON p.${codSecaoCol} = g.${codSecaoCol} AND p.${codGrupoCol} = g.${codGrupoCol}
+            LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.${codSecaoCol} = sg.${codSecaoCol} AND p.${codGrupoCol} = sg.${codGrupoCol} AND p.${codSubGrupoCol} = sg.${codSubGrupoCol}
+            LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${codFornUltCompraCol} = f.COD_FORNECEDOR
             WHERE pl.COD_LOJA = :codLoja
             AND NVL(pl.${inativoCol}, 'N') = 'N'
             ORDER BY p.${descricaoCol}
@@ -349,6 +360,17 @@ export class ProductsController {
         // Buscar produto do Oracle
         console.log(`[ACTIVATE] Buscando produto ${id} do Oracle...`);
 
+        // Obter schema e tabelas dinamicamente
+        const schema = await MappingService.getSchema();
+        const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
+          MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
+          MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
+          MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
+          MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO'),
+          MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO'),
+          MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')
+        ]);
+
         const sql = `
           SELECT
             p.COD_PRODUTO,
@@ -364,12 +386,12 @@ export class ProductsController {
             pl.COD_FORN_ULT_COMPRA as COD_FORN,
             f.DES_FORNECEDOR as RAZAO_FORN,
             CASE WHEN p.FLG_ENVIA_BALANCA = 'S' THEN 'S' ELSE 'N' END as PESAVEL
-          FROM INTERSOLID.TAB_PRODUTO p
-          INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
-          LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
-          LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
-          LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
-          LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
+          FROM ${schema}.${tabProduto} p
+          INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+          LEFT JOIN ${schema}.${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
+          LEFT JOIN ${schema}.${tabGrupo} g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
+          LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
+          LEFT JOIN ${schema}.${tabFornecedor} f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
           WHERE p.COD_PRODUTO = :codProduto
           AND pl.COD_LOJA = :codLoja
           AND ROWNUM = 1
@@ -460,6 +482,17 @@ export class ProductsController {
         // Buscar produto do Oracle
         console.log(`[PESO_MEDIO] Buscando produto ${id} do Oracle...`);
 
+        // Obter schema e tabelas dinamicamente
+        const schema = await MappingService.getSchema();
+        const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
+          MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
+          MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
+          MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
+          MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO'),
+          MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO'),
+          MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')
+        ]);
+
         const sql = `
           SELECT
             p.COD_PRODUTO,
@@ -475,12 +508,12 @@ export class ProductsController {
             pl.COD_FORN_ULT_COMPRA as COD_FORN,
             f.DES_FORNECEDOR as RAZAO_FORN,
             CASE WHEN p.FLG_ENVIA_BALANCA = 'S' THEN 'S' ELSE 'N' END as PESAVEL
-          FROM INTERSOLID.TAB_PRODUTO p
-          INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
-          LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
-          LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
-          LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
-          LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
+          FROM ${schema}.${tabProduto} p
+          INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+          LEFT JOIN ${schema}.${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
+          LEFT JOIN ${schema}.${tabGrupo} g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
+          LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
+          LEFT JOIN ${schema}.${tabFornecedor} f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
           WHERE p.COD_PRODUTO = :codProduto
           AND pl.COD_LOJA = :codLoja
           AND ROWNUM = 1
@@ -614,6 +647,17 @@ export class ProductsController {
       let oracleProductsMap = new Map<string, any>();
 
       if (missingIds.length > 0) {
+        // Obter schema e tabelas dinamicamente
+        const schema = await MappingService.getSchema();
+        const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
+          MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
+          MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
+          MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
+          MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO'),
+          MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO'),
+          MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')
+        ]);
+
         // Dividir em batches de 500 para evitar limite do Oracle IN clause
         const ORACLE_BATCH_SIZE = 500;
         for (let i = 0; i < missingIds.length; i += ORACLE_BATCH_SIZE) {
@@ -639,12 +683,12 @@ export class ProductsController {
               pl.COD_FORN_ULT_COMPRA as COD_FORN,
               f.DES_FORNECEDOR as RAZAO_FORN,
               CASE WHEN p.FLG_ENVIA_BALANCA = 'S' THEN 'S' ELSE 'N' END as PESAVEL
-            FROM INTERSOLID.TAB_PRODUTO p
-            INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
-            LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
-            LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
-            LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
-            LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
+            FROM ${schema}.${tabProduto} p
+            INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+            LEFT JOIN ${schema}.${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
+            LEFT JOIN ${schema}.${tabGrupo} g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
+            LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
+            LEFT JOIN ${schema}.${tabFornecedor} f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
             WHERE p.COD_PRODUTO IN (${placeholders})
             AND pl.COD_LOJA = :codLoja
           `;
@@ -932,9 +976,13 @@ export class ProductsController {
     try {
       console.log('📦 [ORACLE] Buscando seções do Oracle...');
 
+      // Obter schema e tabela dinamicamente
+      const schema = await MappingService.getSchema();
+      const tabSecao = await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO');
+
       const sql = `
         SELECT DES_SECAO
-        FROM INTERSOLID.TAB_SECAO
+        FROM ${schema}.${tabSecao}
         WHERE DES_SECAO IS NOT NULL
         ORDER BY DES_SECAO
       `;
@@ -960,9 +1008,13 @@ export class ProductsController {
    */
   static async getSectionsOracle(req: AuthRequest, res: Response) {
     try {
+      // Obter schema e tabela dinamicamente
+      const schema = await MappingService.getSchema();
+      const tabSecao = await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO');
+
       const sql = `
         SELECT COD_SECAO, DES_SECAO
-        FROM INTERSOLID.TAB_SECAO
+        FROM ${schema}.${tabSecao}
         ORDER BY COD_SECAO
       `;
 
@@ -997,6 +1049,15 @@ export class ProductsController {
 
       console.log('📦 Buscando produtos por seção do Oracle:', { section, loja });
 
+      // Obter schema e tabelas dinamicamente
+      const schema = await MappingService.getSchema();
+      const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo] = await Promise.all([
+        MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
+        MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
+        MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
+        MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO')
+      ]);
+
       // Query para buscar produtos com informações completas
       // VAL_MARGEM_FIXA = margem de referência, VAL_MARGEM = margem atual
       const sql = `
@@ -1011,10 +1072,10 @@ export class ProductsController {
           NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
           NVL(pl.VAL_MARGEM, 0) as VAL_MARGEM,
           NVL(pl.VAL_MARGEM_FIXA, pl.VAL_MARGEM) as VAL_MARGEM_REF
-        FROM INTERSOLID.TAB_PRODUTO p
-        INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
-        LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
+        FROM ${schema}.${tabProduto} p
+        INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+        LEFT JOIN ${schema}.${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
+        LEFT JOIN ${schema}.${tabGrupo} g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
         WHERE pl.COD_LOJA = :codLoja
         AND UPPER(s.DES_SECAO) LIKE :sectionFilter
         AND NVL(pl.INATIVO, 'N') = 'N'
@@ -1072,6 +1133,16 @@ export class ProductsController {
 
       console.log('📦 [ORACLE] Buscando produtos por seção:', { section, loja });
 
+      // Obter schema e tabelas dinamicamente
+      const schema = await MappingService.getSchema();
+      const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo] = await Promise.all([
+        MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
+        MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
+        MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
+        MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO'),
+        MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO')
+      ]);
+
       const sql = `
         SELECT
           p.COD_PRODUTO,
@@ -1085,11 +1156,11 @@ export class ProductsController {
           NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
           NVL(pl.VAL_MARGEM, 0) as VAL_MARGEM,
           NVL(pl.VAL_MARGEM_FIXA, pl.VAL_MARGEM) as VAL_MARGEM_REF
-        FROM INTERSOLID.TAB_PRODUTO p
-        INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
-        LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
-        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
+        FROM ${schema}.${tabProduto} p
+        INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+        LEFT JOIN ${schema}.${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
+        LEFT JOIN ${schema}.${tabGrupo} g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
+        LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
         WHERE pl.COD_LOJA = :codLoja
         AND UPPER(s.DES_SECAO) LIKE :sectionFilter
         AND NVL(pl.INATIVO, 'N') = 'N'
@@ -1186,6 +1257,16 @@ export class ProductsController {
 
       const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
 
+      // Obter schema e tabelas dinamicamente
+      const schema = await MappingService.getSchema();
+      const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabFornecedor] = await Promise.all([
+        MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
+        MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
+        MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
+        MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO'),
+        MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')
+      ]);
+
       const sql = `
         SELECT
           p.COD_BARRA_PRINCIPAL as CODIGO_BARRAS,
@@ -1209,11 +1290,11 @@ export class ProductsController {
             WHEN pl.DTA_ULT_MOV_VENDA IS NULL THEN 9999
             ELSE TRUNC(SYSDATE - pl.DTA_ULT_MOV_VENDA)
           END as DIAS_SEM_VENDA
-        FROM INTERSOLID.TAB_PRODUTO p
-        INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.COD_PRODUTO = pl.COD_PRODUTO
-        LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
+        FROM ${schema}.${tabProduto} p
+        INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.COD_PRODUTO = pl.COD_PRODUTO
+        LEFT JOIN ${schema}.${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
+        LEFT JOIN ${schema}.${tabGrupo} g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
+        LEFT JOIN ${schema}.${tabFornecedor} f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
         ${whereClause}
         ORDER BY DIAS_SEM_VENDA DESC, pl.DES_RANK_PRODLOJA ASC
       `;
@@ -1325,6 +1406,17 @@ export class ProductsController {
 
       const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
 
+      // Obter schema e tabelas dinamicamente
+      const schema = await MappingService.getSchema();
+      const [tabProduto, tabProdutoLoja, tabProdutoHistorico, tabSecao, tabGrupo, tabFornecedor] = await Promise.all([
+        MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
+        MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
+        MappingService.getRealTableName('TAB_PRODUTO_HISTORICO', 'TAB_PRODUTO_HISTORICO'),
+        MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
+        MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO'),
+        MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')
+      ]);
+
       // Query usando TAB_PRODUTO_HISTORICO para pegar DTA_ULT_ALT_PRECO_VENDA
       // e VAL_VENDA_ANT (preço anterior) / VAL_VENDA_PDV (preço no PDV)
       const sql = `
@@ -1349,12 +1441,12 @@ export class ProductsController {
             THEN 'S'
             ELSE 'N'
           END as EM_OFERTA
-        FROM INTERSOLID.TAB_PRODUTO_HISTORICO h
-        JOIN INTERSOLID.TAB_PRODUTO p ON h.COD_PRODUTO = p.COD_PRODUTO
-        JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON h.COD_PRODUTO = pl.COD_PRODUTO AND h.COD_LOJA = pl.COD_LOJA
-        LEFT JOIN INTERSOLID.TAB_SECAO s ON p.COD_SECAO = s.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
+        FROM ${schema}.${tabProdutoHistorico} h
+        JOIN ${schema}.${tabProduto} p ON h.COD_PRODUTO = p.COD_PRODUTO
+        JOIN ${schema}.${tabProdutoLoja} pl ON h.COD_PRODUTO = pl.COD_PRODUTO AND h.COD_LOJA = pl.COD_LOJA
+        LEFT JOIN ${schema}.${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
+        LEFT JOIN ${schema}.${tabGrupo} g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
+        LEFT JOIN ${schema}.${tabFornecedor} f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
         ${whereClause}
         ORDER BY s.DES_SECAO ASC NULLS LAST, p.DES_PRODUTO ASC
       `;
@@ -1510,6 +1602,17 @@ export class ProductsController {
       console.log(`📋 [MAPEAMENTO] Campo codigo usando coluna: ${codigoCol}`);
       console.log(`📋 [MAPEAMENTO] Campo embalagem usando coluna: ${embalagemCol}`);
 
+      // Obter schema e tabelas dinamicamente
+      const schema = await MappingService.getSchema();
+      const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
+        MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
+        MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
+        MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
+        MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO'),
+        MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO'),
+        MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')
+      ]);
+
       // Query completa para buscar produtos com todas as informações necessárias
       const sql = `
         SELECT
@@ -1554,12 +1657,12 @@ export class ProductsController {
           NVL(p.${qtdEmbalagemVendaCol}, 1) as QTD_EMBALAGEM_VENDA,
           p.${embalagemCol} as DES_EMBALAGEM,
           NVL(p.${qtdEmbalagemCompraCol}, 1) as QTD_EMBALAGEM_COMPRA
-        FROM INTERSOLID.TAB_PRODUTO p
-        INNER JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON p.${codigoCol} = pl.${codigoCol}
-        LEFT JOIN INTERSOLID.TAB_SECAO s ON p.${codSecaoCol} = s.${codSecaoCol}
-        LEFT JOIN INTERSOLID.TAB_GRUPO g ON p.${codSecaoCol} = g.${codSecaoCol} AND p.${codGrupoCol} = g.${codGrupoCol}
-        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON p.${codSecaoCol} = sg.${codSecaoCol} AND p.${codGrupoCol} = sg.${codGrupoCol} AND p.${codSubGrupoCol} = sg.${codSubGrupoCol}
-        LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON pl.${codFornUltCompraCol} = f.COD_FORNECEDOR
+        FROM ${schema}.${tabProduto} p
+        INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.${codigoCol} = pl.${codigoCol}
+        LEFT JOIN ${schema}.${tabSecao} s ON p.${codSecaoCol} = s.${codSecaoCol}
+        LEFT JOIN ${schema}.${tabGrupo} g ON p.${codSecaoCol} = g.${codSecaoCol} AND p.${codGrupoCol} = g.${codGrupoCol}
+        LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.${codSecaoCol} = sg.${codSecaoCol} AND p.${codGrupoCol} = sg.${codGrupoCol} AND p.${codSubGrupoCol} = sg.${codSubGrupoCol}
+        LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${codFornUltCompraCol} = f.COD_FORNECEDOR
         WHERE pl.COD_LOJA = :codLoja
         AND NVL(pl.${inativoCol}, 'N') = 'N'
         ORDER BY p.${descricaoCol}
@@ -1649,6 +1752,15 @@ export class ProductsController {
 
       console.log(`📜 Buscando histórico de compras do produto ${id}...`);
 
+      // Obter schema e tabelas dinamicamente
+      const schema = await MappingService.getSchema();
+      const [tabProduto, tabNf, tabNfItem, tabFornecedor] = await Promise.all([
+        MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
+        MappingService.getRealTableName('TAB_NF', 'TAB_NF'),
+        MappingService.getRealTableName('TAB_NF_ITEM', 'TAB_NF_ITEM'),
+        MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')
+      ]);
+
       // Se foi passada descrição ou o ID não parece ser um código numérico válido,
       // tentar buscar o código do produto pelo nome ou EAN
       let codProdutoFinal = id;
@@ -1666,14 +1778,14 @@ export class ProductsController {
         if (isEAN) {
           // Buscar por código de barras (EAN)
           searchSql = `
-            SELECT COD_PRODUTO FROM INTERSOLID.TAB_PRODUTO
+            SELECT COD_PRODUTO FROM ${schema}.${tabProduto}
             WHERE COD_BARRAS = :ean AND ROWNUM = 1
           `;
           searchParams = { ean: id };
         } else if (descricao) {
           // Buscar por descrição - primeiro tentar exata, depois parcial
           searchSql = `
-            SELECT COD_PRODUTO FROM INTERSOLID.TAB_PRODUTO
+            SELECT COD_PRODUTO FROM ${schema}.${tabProduto}
             WHERE UPPER(DES_PRODUTO) LIKE UPPER(:descricao) AND ROWNUM = 1
           `;
           // Usar % para busca parcial se a descrição tiver mais de 10 caracteres
@@ -1682,7 +1794,7 @@ export class ProductsController {
         } else {
           // Tentar buscar por descrição usando o id como texto
           searchSql = `
-            SELECT COD_PRODUTO FROM INTERSOLID.TAB_PRODUTO
+            SELECT COD_PRODUTO FROM ${schema}.${tabProduto}
             WHERE UPPER(DES_PRODUTO) LIKE UPPER(:descricao) AND ROWNUM = 1
           `;
           searchParams = { descricao: `%${id}%` };
@@ -1715,11 +1827,11 @@ export class ProductsController {
             nf.NUM_NF as NUMERO_NF,
             nf.NUM_SERIE_NF as SERIE_NF,
             TRUNC(SYSDATE - nf.DTA_ENTRADA) as DIAS_DESDE_COMPRA
-          FROM INTERSOLID.TAB_NF nf
-          JOIN INTERSOLID.TAB_NF_ITEM ni ON nf.NUM_NF = ni.NUM_NF
+          FROM ${schema}.${tabNf} nf
+          JOIN ${schema}.${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
             AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
             AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          LEFT JOIN INTERSOLID.TAB_FORNECEDOR f ON nf.COD_PARCEIRO = f.COD_FORNECEDOR
+          LEFT JOIN ${schema}.${tabFornecedor} f ON nf.COD_PARCEIRO = f.COD_FORNECEDOR
           WHERE ni.COD_ITEM = :codProduto
             AND nf.TIPO_OPERACAO = 0
           ORDER BY nf.DTA_ENTRADA DESC
@@ -1773,10 +1885,18 @@ export class ProductsController {
 
       console.log(`📄 Buscando DANFE da NF ${numNf}...`);
 
+      // Obter schema e tabelas dinamicamente
+      const schema = await MappingService.getSchema();
+      const [tabNf, snfetne, snfetnef] = await Promise.all([
+        MappingService.getRealTableName('TAB_NF', 'TAB_NF'),
+        MappingService.getRealTableName('SNFETNE', 'SNFETNE'),
+        MappingService.getRealTableName('SNFETNEF', 'SNFETNEF')
+      ]);
+
       // 1. Buscar a chave de acesso da NF na TAB_NF
       const nfSql = `
         SELECT NUM_CHAVE_ACESSO, NUM_NF, NUM_SERIE_NF
-        FROM INTERSOLID.TAB_NF
+        FROM ${schema}.${tabNf}
         WHERE NUM_NF = :numNf
         AND ROWNUM = 1
       `;
@@ -1798,7 +1918,7 @@ export class ProductsController {
       // 2. Buscar o ID_NOTA na SNFETNE usando a chave
       const snfetneSql = `
         SELECT ID_NOTA
-        FROM INTERSOLID.SNFETNE
+        FROM ${schema}.${snfetne}
         WHERE NR_CHAVE = :chave
         AND ROWNUM = 1
       `;
@@ -1815,7 +1935,7 @@ export class ProductsController {
       // 3. Buscar o PDF (DANFE) na SNFETNEF
       const danfeSql = `
         SELECT DF_DANFE
-        FROM INTERSOLID.SNFETNEF
+        FROM ${schema}.${snfetnef}
         WHERE ID_NOTA = :idNota
         AND ROWNUM = 1
       `;
@@ -1865,6 +1985,17 @@ export class ProductsController {
       // COD_LOJA = 1 é a loja padrão
       console.log('🔥🔥🔥 [PECULIARIDADES] V3 NEW CODE - Timestamp:', new Date().toISOString());
       console.log('🔥 [PECULIARIDADES] Params: search=', search, 'secao=', secao, 'grupo=', grupo, 'subgrupo=', subgrupo);
+
+      // Obter schema e tabelas dinamicamente
+      const schema = await MappingService.getSchema();
+      const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo] = await Promise.all([
+        MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
+        MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
+        MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
+        MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO'),
+        MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO')
+      ]);
+
       let whereConditions: string[] = [`NVL(pl.INATIVO, 'N') = 'N'`];
       const oracleParams: Record<string, any> = {};
 
@@ -1893,11 +2024,11 @@ export class ProductsController {
       // Query para contar total - JOIN com TAB_PRODUTO_LOJA para filtrar ativos
       const countQuery = `
         SELECT COUNT(*) as TOTAL
-        FROM INTERSOLID.TAB_PRODUTO p
-        JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON pl.COD_PRODUTO = p.COD_PRODUTO AND pl.COD_LOJA = 1
-        LEFT JOIN INTERSOLID.TAB_SECAO s ON s.COD_SECAO = p.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_GRUPO g ON g.COD_GRUPO = p.COD_GRUPO AND g.COD_SECAO = p.COD_SECAO
-        LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON sg.COD_SUB_GRUPO = p.COD_SUB_GRUPO AND sg.COD_GRUPO = p.COD_GRUPO AND sg.COD_SECAO = p.COD_SECAO
+        FROM ${schema}.${tabProduto} p
+        JOIN ${schema}.${tabProdutoLoja} pl ON pl.COD_PRODUTO = p.COD_PRODUTO AND pl.COD_LOJA = 1
+        LEFT JOIN ${schema}.${tabSecao} s ON s.COD_SECAO = p.COD_SECAO
+        LEFT JOIN ${schema}.${tabGrupo} g ON g.COD_GRUPO = p.COD_GRUPO AND g.COD_SECAO = p.COD_SECAO
+        LEFT JOIN ${schema}.${tabSubGrupo} sg ON sg.COD_SUB_GRUPO = p.COD_SUB_GRUPO AND sg.COD_GRUPO = p.COD_GRUPO AND sg.COD_SECAO = p.COD_SECAO
         ${whereClause}
       `;
 
@@ -1912,11 +2043,11 @@ export class ProductsController {
             g.DES_GRUPO,
             sg.DES_SUB_GRUPO,
             ROW_NUMBER() OVER (ORDER BY p.DES_PRODUTO) as RN
-          FROM INTERSOLID.TAB_PRODUTO p
-          JOIN INTERSOLID.TAB_PRODUTO_LOJA pl ON pl.COD_PRODUTO = p.COD_PRODUTO AND pl.COD_LOJA = 1
-          LEFT JOIN INTERSOLID.TAB_SECAO s ON s.COD_SECAO = p.COD_SECAO
-          LEFT JOIN INTERSOLID.TAB_GRUPO g ON g.COD_GRUPO = p.COD_GRUPO AND g.COD_SECAO = p.COD_SECAO
-          LEFT JOIN INTERSOLID.TAB_SUBGRUPO sg ON sg.COD_SUB_GRUPO = p.COD_SUB_GRUPO AND sg.COD_GRUPO = p.COD_GRUPO AND sg.COD_SECAO = p.COD_SECAO
+          FROM ${schema}.${tabProduto} p
+          JOIN ${schema}.${tabProdutoLoja} pl ON pl.COD_PRODUTO = p.COD_PRODUTO AND pl.COD_LOJA = 1
+          LEFT JOIN ${schema}.${tabSecao} s ON s.COD_SECAO = p.COD_SECAO
+          LEFT JOIN ${schema}.${tabGrupo} g ON g.COD_GRUPO = p.COD_GRUPO AND g.COD_SECAO = p.COD_SECAO
+          LEFT JOIN ${schema}.${tabSubGrupo} sg ON sg.COD_SUB_GRUPO = p.COD_SUB_GRUPO AND sg.COD_GRUPO = p.COD_GRUPO AND sg.COD_SECAO = p.COD_SECAO
           ${whereClause}
         ) WHERE RN > :offset AND RN <= :maxRow
       `;
@@ -1928,7 +2059,7 @@ export class ProductsController {
       // Query para buscar seções (para o filtro)
       const secoesQuery = `
         SELECT DISTINCT s.DES_SECAO
-        FROM INTERSOLID.TAB_SECAO s
+        FROM ${schema}.${tabSecao} s
         WHERE s.DES_SECAO IS NOT NULL
         ORDER BY s.DES_SECAO
       `;
@@ -1936,8 +2067,8 @@ export class ProductsController {
       // Query para buscar grupos filtrados pela seção
       let gruposQuery = `
         SELECT DISTINCT g.DES_GRUPO
-        FROM INTERSOLID.TAB_GRUPO g
-        JOIN INTERSOLID.TAB_SECAO s ON s.COD_SECAO = g.COD_SECAO
+        FROM ${schema}.${tabGrupo} g
+        JOIN ${schema}.${tabSecao} s ON s.COD_SECAO = g.COD_SECAO
         WHERE g.DES_GRUPO IS NOT NULL
       `;
       const gruposParams: Record<string, any> = {};
@@ -1950,9 +2081,9 @@ export class ProductsController {
       // Query para buscar subgrupos filtrados
       let subgruposQuery = `
         SELECT DISTINCT sg.DES_SUB_GRUPO
-        FROM INTERSOLID.TAB_SUBGRUPO sg
-        JOIN INTERSOLID.TAB_GRUPO g ON g.COD_GRUPO = sg.COD_GRUPO AND g.COD_SECAO = sg.COD_SECAO
-        JOIN INTERSOLID.TAB_SECAO s ON s.COD_SECAO = sg.COD_SECAO
+        FROM ${schema}.${tabSubGrupo} sg
+        JOIN ${schema}.${tabGrupo} g ON g.COD_GRUPO = sg.COD_GRUPO AND g.COD_SECAO = sg.COD_SECAO
+        JOIN ${schema}.${tabSecao} s ON s.COD_SECAO = sg.COD_SECAO
         WHERE sg.DES_SUB_GRUPO IS NOT NULL
       `;
       const subgruposParams: Record<string, any> = {};
