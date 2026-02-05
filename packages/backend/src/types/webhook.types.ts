@@ -41,4 +41,5 @@ export interface BipWebhookData {
   event_date: Date;
   status: 'pending';
   equipment_id?: number | null;
+  cod_loja?: number | null;
 }

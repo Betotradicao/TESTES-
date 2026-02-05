@@ -97,6 +97,9 @@ export class Product {
   @Column({ type: 'integer', nullable: true })
   grupo_similar: number | null;
 
+  @Column({ type: 'int', nullable: true })
+  cod_loja: number | null;
+
   @CreateDateColumn()
   created_at: Date;
 

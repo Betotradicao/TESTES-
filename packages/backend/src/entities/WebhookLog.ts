@@ -58,6 +58,9 @@ export class WebhookLog {
   @Column({ type: 'int', nullable: true })
   bip_id: number;
 
+  @Column({ type: 'int', nullable: true })
+  cod_loja: number | null;
+
   @CreateDateColumn()
   created_at: Date;
 }

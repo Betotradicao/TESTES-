@@ -842,7 +842,7 @@ export class ProductionAuditController {
             WHERE TO_CHAR(p.COD_PRODUTO) IN (${placeholders})
           `;
 
-          const results = await OracleService.executeQuery<any>(query, binds);
+          const results = await OracleService.query<any>(query, binds);
           erpProductsMap = new Map(results.map((p: any) => [p.COD_PRODUTO, { dtaUltMovVenda: p.DTA_ULT_MOV_VENDA }]));
         }
       } catch (erpError) {
