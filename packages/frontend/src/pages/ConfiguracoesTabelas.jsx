@@ -353,6 +353,12 @@ export default function ConfiguracoesTabelas() {
         testSuccess: conn.status === 'active'
       }));
       setConnections(mapped);
+
+      // Auto-selecionar conexão se ainda não tem nenhuma selecionada
+      if (!selectedConnection && mapped.length > 0) {
+        const defaultConn = mapped.find(c => c.is_default) || mapped[0];
+        handleConnectionChange(String(defaultConn.id));
+      }
     } catch (error) {
       console.error('Erro ao carregar conexões:', error);
       setConnections([]);
@@ -1653,61 +1659,95 @@ export default function ConfiguracoesTabelas() {
           </button>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {connections.map(conn => {
             const dbType = DATABASE_TYPES.find(t => t.id === conn.type);
             return (
-              <div key={conn.id} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4">
-                    <div className={`w-12 h-12 ${dbType?.color || 'bg-gray-500'} rounded-xl flex items-center justify-center text-white text-2xl`}>
-                      {dbType?.icon || '🗄️'}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-gray-900">{conn.name}</h3>
-                        {conn.active ? (
-                          <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">Ativo</span>
-                        ) : (
-                          <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">Inativo</span>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {dbType?.name || conn.type} • {conn.host}:{conn.port} • {conn.database || conn.schema}
-                      </p>
-                    </div>
+              <div key={conn.id} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg transition-all">
+                {/* Cabeçalho: Logo + Nome + Badge */}
+                <div className="flex items-center gap-4 mb-4">
+                  <div className={`w-16 h-16 ${dbType?.color || 'bg-gray-500'} rounded-xl flex items-center justify-center text-white text-3xl flex-shrink-0`}>
+                    {dbType?.icon || '🗄️'}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleTestConnection(conn)}
-                      disabled={testingConnection === conn.id}
-                      className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
-                      title="Testar conexão"
-                    >
-                      {testingConnection === conn.id ? (
-                        <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                      ) : (
-                        '🔌'
-                      )}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEditingConnection(conn);
-                        setShowConnectionModal(true);
-                      }}
-                      className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                      title="Editar"
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      onClick={() => handleDeleteConnection(conn.id)}
-                      className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                      title="Excluir"
-                    >
-                      🗑️
-                    </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-gray-900 truncate text-lg">{conn.name}</h3>
+                    </div>
+                    <p className="text-sm text-gray-500 truncate">{dbType?.name || conn.type}</p>
                   </div>
+                  {conn.active ? (
+                    <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full flex-shrink-0">Ativo</span>
+                  ) : (
+                    <span className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-full flex-shrink-0">Inativo</span>
+                  )}
+                </div>
+
+                {/* Detalhes da conexão */}
+                <div className="bg-gray-50 rounded-lg p-3 mb-4 space-y-1.5 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Host:</span>
+                    <span className="font-mono text-gray-800">{conn.host}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Porta:</span>
+                    <span className="font-mono text-gray-800">{conn.port}</span>
+                  </div>
+                  {(conn.service || conn.database) && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">{conn.service ? 'Service:' : 'Database:'}</span>
+                      <span className="font-mono text-gray-800">{conn.service || conn.database}</span>
+                    </div>
+                  )}
+                  {conn.schema && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Schema:</span>
+                      <span className="font-mono text-gray-800">{conn.schema}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Usuário:</span>
+                    <span className="font-mono text-gray-800">{conn.username}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Senha:</span>
+                    <span className="font-mono text-gray-800">••••••••</span>
+                  </div>
+                </div>
+
+                {/* Botões de ação */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleTestConnection(conn)}
+                    disabled={testingConnection === conn.id}
+                    className="flex-1 py-2 bg-blue-50 text-blue-600 rounded-lg font-medium hover:bg-blue-100 transition-colors disabled:opacity-50 text-sm"
+                    title="Testar conexão"
+                  >
+                    {testingConnection === conn.id ? (
+                      <span className="flex items-center justify-center gap-1">
+                        <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                        Testando...
+                      </span>
+                    ) : (
+                      '🔌 Testar'
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingConnection(conn);
+                      setShowConnectionModal(true);
+                    }}
+                    className="flex-1 py-2 bg-orange-50 text-orange-600 rounded-lg font-medium hover:bg-orange-100 transition-colors text-sm"
+                    title="Editar"
+                  >
+                    ✏️ Editar
+                  </button>
+                  <button
+                    onClick={() => handleDeleteConnection(conn.id)}
+                    className="py-2 px-3 bg-gray-50 text-gray-400 rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors text-sm"
+                    title="Excluir"
+                  >
+                    🗑️
+                  </button>
                 </div>
               </div>
             );
