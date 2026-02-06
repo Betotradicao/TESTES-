@@ -807,19 +807,20 @@ export default function ConfiguracoesTabelas() {
 
   // Função para desinstalar túnel do cliente
   const [uninstalling, setUninstalling] = useState(false);
-  const handleUninstallTunnel = async () => {
-    if (!tunnelConfig.clientName) {
+  const handleUninstallTunnel = async (clientNameOverride) => {
+    const name = clientNameOverride || tunnelConfig.clientName;
+    if (!name) {
       alert('Digite o nome do cliente para gerar o desinstalador');
       return;
     }
-    if (!confirm(`Tem certeza que deseja excluir o túnel do cliente "${tunnelConfig.clientName}"?\n\nIsso vai:\n- Remover a chave SSH do servidor\n- Baixar um BAT que remove o túnel da máquina do cliente`)) {
+    if (!confirm(`Tem certeza que deseja excluir o túnel do cliente "${name}"?\n\nIsso vai:\n- Remover a chave SSH do servidor\n- Baixar um BAT que remove o túnel da máquina do cliente`)) {
       return;
     }
 
     setUninstalling(true);
     try {
       const response = await api.post('/tunnel-installer/uninstall', {
-        clientName: tunnelConfig.clientName
+        clientName: name
       }, { responseType: 'blob' });
 
       // Download do BAT de desinstalação
@@ -827,7 +828,7 @@ export default function ConfiguracoesTabelas() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `uninstall-tunnel-${tunnelConfig.clientName.toLowerCase().replace(/\s+/g, '-')}.bat`;
+      a.download = `uninstall-tunnel-${name.toLowerCase().replace(/\s+/g, '-')}.bat`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1018,14 +1019,24 @@ export default function ConfiguracoesTabelas() {
                     </div>
                   </div>
                 </div>
-                <div className={`text-sm font-bold px-3 py-1 rounded-full ${
-                  tunnel.status === 'online' ? 'bg-green-200 text-green-800' :
-                  tunnel.status === 'partial' ? 'bg-yellow-200 text-yellow-800' :
-                  'bg-red-200 text-red-800'
-                }`}>
-                  {tunnel.status === 'online' ? 'ONLINE' :
-                   tunnel.status === 'partial' ? 'PARCIAL' :
-                   'OFFLINE'}
+                <div className="flex items-center gap-3">
+                  <div className={`text-sm font-bold px-3 py-1 rounded-full ${
+                    tunnel.status === 'online' ? 'bg-green-200 text-green-800' :
+                    tunnel.status === 'partial' ? 'bg-yellow-200 text-yellow-800' :
+                    'bg-red-200 text-red-800'
+                  }`}>
+                    {tunnel.status === 'online' ? 'ONLINE' :
+                     tunnel.status === 'partial' ? 'PARCIAL' :
+                     'OFFLINE'}
+                  </div>
+                  <button
+                    onClick={() => handleUninstallTunnel(tunnel.clientName)}
+                    disabled={uninstalling}
+                    className="text-sm px-3 py-1 rounded-full bg-red-100 text-red-700 hover:bg-red-200 transition-colors font-medium"
+                    title="Excluir este túnel"
+                  >
+                    {uninstalling ? '...' : '🗑️ Excluir'}
+                  </button>
                 </div>
               </div>
             ))}
