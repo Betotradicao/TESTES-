@@ -139,7 +139,7 @@ export class TunnelInstallerController {
             message = `Porta ${port} não responde - túnel pode estar desconectado`;
           }
         } catch (err: any) {
-          message = `Erro ao testar porta ${port}: ${err.message}`;
+          message = `Erro ao testar porta $($port): ${err.message}`;
         }
 
         results.push({ name, port, status, message });
@@ -371,15 +371,15 @@ function Find-SSHPort {
             $wait = $result.AsyncWaitHandle.WaitOne(5000, $false)
             if ($wait -and $tcp.Connected) {
                 $tcp.Close()
-                Write-Log "Porta SSH $port: CONECTOU!"
+                Write-Log "Porta SSH $($port): CONECTOU!"
                 # Salvar porta que funcionou
                 $port | Out-File -FilePath $PORT_FILE -Encoding UTF8
                 return $port
             }
             $tcp.Close()
-            Write-Log "Porta SSH $port: sem resposta"
+            Write-Log "Porta SSH $($port): sem resposta"
         } catch {
-            Write-Log "Porta SSH $port: erro - $_"
+            Write-Log "Porta SSH $($port): erro - $_"
         }
     }
 
@@ -454,7 +454,8 @@ ${tunnels.map((_, i) => `                    if ($tunnel${i + 1} -ne $null -and 
 
 ${tunnels.map((t, i) => `
         # Verificar e iniciar Tunnel ${i + 1} (${t.name})
-        if (-not (Test-TunnelConnection $tunnel${i + 1}?.Id)) {
+        $tid${i + 1} = if ($tunnel${i + 1} -ne $null) { $tunnel${i + 1}.Id } else { $null }
+        if (-not (Test-TunnelConnection $tid${i + 1})) {
             if ($tunnel${i + 1} -ne $null) {
                 Write-Log "Tunnel ${t.name} caiu! Reconectando na porta SSH $ACTIVE_SSH_PORT..."
             }

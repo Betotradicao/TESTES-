@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Logo from './Logo';
 import { MENU_SUBMENUS } from '../constants/menuConstants';
 import { useLoja } from '../contexts/LojaContext';
+import { api } from '../utils/api';
 
 export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileMenuOpen }) {
   const [expandedSections, setExpandedSections] = useState({
@@ -16,9 +17,25 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     return saved === 'true';
   });
   const [lojaDropdownOpen, setLojaDropdownOpen] = useState(false);
+  const [dbConnected, setDbConnected] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { lojas, lojaSelecionada, selecionarLoja, getLojaLabel } = useLoja();
+
+  // Health check - verificar conexão com banco a cada 30s
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const res = await api.get('/health');
+        setDbConnected(res.data?.database?.connected === true);
+      } catch {
+        setDbConnected(false);
+      }
+    };
+    checkHealth();
+    const interval = setInterval(checkHealth, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Salvar estado do collapse no localStorage
   useEffect(() => {
@@ -726,6 +743,22 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             )}
           </>
         )}
+
+        {/* Indicador de conexão com o banco */}
+        <div className={`flex items-center justify-center gap-2 mt-2 py-1.5 rounded-md ${
+          dbConnected === null ? 'bg-gray-100' : dbConnected ? 'bg-green-50' : 'bg-red-50'
+        }`}>
+          <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+            dbConnected === null ? 'bg-gray-400 animate-pulse' : dbConnected ? 'bg-green-500' : 'bg-red-500'
+          }`} />
+          {!isCollapsed && (
+            <span className={`text-xs font-bold ${
+              dbConnected === null ? 'text-gray-500' : dbConnected ? 'text-green-700' : 'text-red-700'
+            }`}>
+              {dbConnected === null ? 'VERIFICANDO...' : dbConnected ? 'CONEXÃO = OK' : 'CONEXÃO = OFF'}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Close button for mobile */}
