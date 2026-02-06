@@ -3,6 +3,7 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import * as net from 'net';
 
 /**
  * Controller para gerar instaladores de túnel SSH seguros
@@ -88,6 +89,29 @@ export class TunnelInstallerController {
   }
 
   /**
+   * Testa conectividade TCP numa porta (cross-platform, sem dependência de powershell)
+   */
+  private testPort(port: number, timeout: number = 3000): Promise<boolean> {
+    return new Promise((resolve) => {
+      const socket = new net.Socket();
+      socket.setTimeout(timeout);
+      socket.on('connect', () => {
+        socket.destroy();
+        resolve(true);
+      });
+      socket.on('timeout', () => {
+        socket.destroy();
+        resolve(false);
+      });
+      socket.on('error', () => {
+        socket.destroy();
+        resolve(false);
+      });
+      socket.connect(port, 'localhost');
+    });
+  }
+
+  /**
    * POST /api/tunnel-installer/test
    * Testa se os túneis estão funcionando (verifica portas no localhost)
    */
@@ -101,19 +125,14 @@ export class TunnelInstallerController {
 
       const results = [];
       for (const tunnel of tunnels) {
-        const port = tunnel.remotePort;
+        const port = parseInt(tunnel.remotePort, 10);
         const name = tunnel.name || `Porta ${port}`;
         let status = 'offline';
         let message = '';
 
         try {
-          // Tenta conectar na porta do túnel no localhost (timeout 3s)
-          const result = execSync(
-            `powershell -Command "try { $tcp = New-Object System.Net.Sockets.TcpClient; $r = $tcp.BeginConnect('localhost', ${port}, $null, $null); $w = $r.AsyncWaitHandle.WaitOne(3000, $false); if ($w -and $tcp.Connected) { $tcp.Close(); Write-Output 'OK' } else { $tcp.Close(); Write-Output 'TIMEOUT' } } catch { Write-Output 'ERROR' }"`,
-            { encoding: 'utf8', timeout: 10000 }
-          ).trim();
-
-          if (result === 'OK') {
+          const isOpen = await this.testPort(port);
+          if (isOpen) {
             status = 'online';
             message = `Porta ${port} acessível - túnel ativo!`;
           } else {
