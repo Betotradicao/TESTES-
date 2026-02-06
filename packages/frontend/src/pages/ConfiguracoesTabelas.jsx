@@ -319,6 +319,13 @@ export default function ConfiguracoesTabelas() {
     }
   }, [autoTestPending, selectedConnection, activeTab]);
 
+  // Carregar status dos túneis quando abre a aba tunnel
+  useEffect(() => {
+    if (activeTab === 'tunnel') {
+      loadTunnelStatus();
+    }
+  }, [activeTab]);
+
   // Função para carregar templates de ERP
   const loadErpTemplates = async () => {
     try {
@@ -753,15 +760,29 @@ export default function ConfiguracoesTabelas() {
     vpsIp: '46.202.150.64',
     tunnels: [
       { name: 'Oracle', localIp: '', localPort: '1521', remotePort: '1521' },
-      { name: 'PostgreSQL', localIp: '', localPort: '5432', remotePort: '5432' },
-      { name: 'MySQL', localIp: '', localPort: '3306', remotePort: '3306' },
-      { name: 'SQL Server', localIp: '', localPort: '1433', remotePort: '1433' },
     ]
   });
   const [generatingScripts, setGeneratingScripts] = useState(false);
   const [generatedScripts, setGeneratedScripts] = useState(null);
   const [tunnelTestResult, setTunnelTestResult] = useState(null); // { status: 'online'|'partial'|'offline', results: [] }
   const [testingTunnel, setTestingTunnel] = useState(false);
+  const [installedTunnels, setInstalledTunnels] = useState(null); // { tunnels: [], hasTunnels: bool }
+  const [loadingTunnelStatus, setLoadingTunnelStatus] = useState(false);
+
+  // Carregar status dos túneis instalados ao abrir a aba
+  const loadTunnelStatus = async () => {
+    setLoadingTunnelStatus(true);
+    try {
+      const response = await api.get('/tunnel-installer/status');
+      if (response.data?.success) {
+        setInstalledTunnels(response.data);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar status dos túneis:', error);
+    } finally {
+      setLoadingTunnelStatus(false);
+    }
+  };
 
   // Função para testar conexão dos túneis
   const handleTestTunnel = async () => {
@@ -815,6 +836,7 @@ export default function ConfiguracoesTabelas() {
       alert('Chave SSH removida do servidor!\n\nExecute o BAT baixado na máquina do cliente para completar a desinstalação.');
       setTunnelTestResult(null);
       setGeneratedScripts(null);
+      loadTunnelStatus();
     } catch (error) {
       console.error('Erro ao desinstalar túnel:', error);
       alert('Erro ao desinstalar túnel: ' + (error.response?.data?.error || error.message));
@@ -852,6 +874,7 @@ export default function ConfiguracoesTabelas() {
 
       if (response.data.success) {
         setGeneratedScripts(response.data);
+        loadTunnelStatus();
       } else {
         alert('Erro ao gerar scripts: ' + (response.data.error || 'Erro desconhecido'));
       }
@@ -954,6 +977,76 @@ export default function ConfiguracoesTabelas() {
           </div>
         </div>
       </div>
+
+      {/* Túneis Instalados - Status */}
+      {loadingTunnelStatus && (
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center">
+          <p className="text-gray-500 text-sm">Carregando status dos túneis...</p>
+        </div>
+      )}
+
+      {installedTunnels?.hasTunnels && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 className="font-bold text-gray-900 text-lg mb-4 flex items-center gap-2">
+            <span>📡</span> Túneis Instalados
+          </h3>
+          <div className="space-y-3">
+            {installedTunnels.tunnels.map((tunnel, idx) => (
+              <div key={idx} className={`flex items-center justify-between p-4 rounded-lg border ${
+                tunnel.status === 'online' ? 'bg-green-50 border-green-300' :
+                tunnel.status === 'partial' ? 'bg-yellow-50 border-yellow-300' :
+                'bg-red-50 border-red-300'
+              }`}>
+                <div className="flex items-center gap-4">
+                  <div className={`w-4 h-4 rounded-full flex-shrink-0 ${
+                    tunnel.status === 'online' ? 'bg-green-500 animate-pulse' :
+                    tunnel.status === 'partial' ? 'bg-yellow-500' :
+                    'bg-red-500'
+                  }`} />
+                  <div>
+                    <p className="font-bold text-gray-900 text-base">
+                      {tunnel.clientName}
+                    </p>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {tunnel.ports.map((p, pi) => (
+                        <span key={pi} className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+                          p.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {p.active ? '🟢' : '🔴'} Porta {p.port}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className={`text-sm font-bold px-3 py-1 rounded-full ${
+                  tunnel.status === 'online' ? 'bg-green-200 text-green-800' :
+                  tunnel.status === 'partial' ? 'bg-yellow-200 text-yellow-800' :
+                  'bg-red-200 text-red-800'
+                }`}>
+                  {tunnel.status === 'online' ? 'ONLINE' :
+                   tunnel.status === 'partial' ? 'PARCIAL' :
+                   'OFFLINE'}
+                </div>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={loadTunnelStatus}
+            disabled={loadingTunnelStatus}
+            className="mt-3 text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+          >
+            {loadingTunnelStatus ? 'Atualizando...' : '🔄 Atualizar Status'}
+          </button>
+        </div>
+      )}
+
+      {installedTunnels && !installedTunnels.hasTunnels && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+          <p className="text-sm text-yellow-800 font-medium">
+            Nenhum túnel instalado ainda. Configure abaixo e gere o instalador para o cliente.
+          </p>
+        </div>
+      )}
 
       {/* Configuração */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">

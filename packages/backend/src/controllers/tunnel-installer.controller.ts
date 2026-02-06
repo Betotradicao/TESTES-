@@ -43,6 +43,74 @@ export class TunnelInstallerController {
   }
 
   /**
+   * GET /api/tunnel-installer/status
+   * Retorna status dos túneis instalados (chaves + portas ativas)
+   */
+  async getStatus(req: Request, res: Response) {
+    try {
+      // 1. Ler authorized_keys e encontrar entradas de túnel
+      let authorizedKeysPath: string;
+      if (process.platform === 'win32') {
+        authorizedKeysPath = path.join(os.homedir(), '.ssh', 'authorized_keys');
+      } else {
+        authorizedKeysPath = '/root/.ssh/authorized_keys';
+      }
+
+      const installedTunnels: any[] = [];
+
+      if (fs.existsSync(authorizedKeysPath)) {
+        const content = fs.readFileSync(authorizedKeysPath, 'utf8');
+        const lines = content.split('\n');
+
+        for (const line of lines) {
+          if (!line.includes('@tunnel')) continue;
+
+          // Extrair nome do cliente
+          const clientMatch = line.match(/(\w+)@tunnel/);
+          if (!clientMatch) continue;
+          const clientName = clientMatch[1];
+
+          // Extrair portas permitidas
+          const portMatches = [...line.matchAll(/permitopen="localhost:(\d+)"/g)];
+          const ports = portMatches.map(m => parseInt(m[1]));
+
+          installedTunnels.push({ clientName, ports });
+        }
+      }
+
+      // 2. Testar quais portas estão ativas
+      const results = [];
+      for (const tunnel of installedTunnels) {
+        const portResults = [];
+        for (const port of tunnel.ports) {
+          const isActive = await this.testPort(port, 2000);
+          portResults.push({ port, active: isActive });
+        }
+        const allActive = portResults.every(p => p.active);
+        const anyActive = portResults.some(p => p.active);
+        results.push({
+          clientName: tunnel.clientName,
+          ports: portResults,
+          status: allActive ? 'online' : anyActive ? 'partial' : 'offline'
+        });
+      }
+
+      return res.json({
+        success: true,
+        tunnels: results,
+        hasTunnels: results.length > 0
+      });
+    } catch (error: any) {
+      console.error('Erro ao verificar status dos túneis:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao verificar status',
+        message: error.message
+      });
+    }
+  }
+
+  /**
    * POST /api/tunnel-installer/generate
    * Gera scripts de instalação personalizados para o cliente
    */

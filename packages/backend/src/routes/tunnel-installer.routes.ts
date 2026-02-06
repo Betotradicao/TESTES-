@@ -8,6 +8,9 @@ const controller = new TunnelInstallerController();
 // Informações sobre o instalador (requer autenticação)
 router.get('/info', authenticateToken, controller.getInfo.bind(controller));
 
+// Status dos túneis instalados (requer autenticação)
+router.get('/status', authenticateToken, controller.getStatus.bind(controller));
+
 // Gerar scripts personalizados (requer autenticação)
 router.post('/generate', authenticateToken, controller.generateInstaller.bind(controller));
 
