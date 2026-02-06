@@ -83,7 +83,7 @@ export class TunnelInstallerController {
       for (const tunnel of installedTunnels) {
         const portResults = [];
         for (const port of tunnel.ports) {
-          const isActive = await this.testPort(port, 2000);
+          const isActive = await this.testPortWithFallback(port, 2000);
           portResults.push({ port, active: isActive });
         }
         const allActive = portResults.every(p => p.active);
@@ -159,7 +159,7 @@ export class TunnelInstallerController {
   /**
    * Testa conectividade TCP numa porta (cross-platform, sem dependência de powershell)
    */
-  private testPort(port: number, timeout: number = 3000): Promise<boolean> {
+  private testPort(port: number, timeout: number = 3000, host: string = 'localhost'): Promise<boolean> {
     return new Promise((resolve) => {
       const socket = new net.Socket();
       socket.setTimeout(timeout);
@@ -175,8 +175,36 @@ export class TunnelInstallerController {
         socket.destroy();
         resolve(false);
       });
-      socket.connect(port, 'localhost');
+      socket.connect(port, host);
     });
+  }
+
+  /**
+   * Detecta se está rodando dentro de um container Docker
+   */
+  private isInsideDocker(): boolean {
+    try {
+      return fs.existsSync('/.dockerenv');
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Testa porta tentando localhost e host.docker.internal (para Docker)
+   */
+  private async testPortWithFallback(port: number, timeout: number = 3000): Promise<boolean> {
+    // Tentar localhost primeiro
+    const localResult = await this.testPort(port, timeout, 'localhost');
+    if (localResult) return true;
+
+    // Se estiver em Docker, tentar host.docker.internal (acessa o host)
+    if (this.isInsideDocker()) {
+      const hostResult = await this.testPort(port, timeout, 'host.docker.internal');
+      if (hostResult) return true;
+    }
+
+    return false;
   }
 
   /**
@@ -199,7 +227,7 @@ export class TunnelInstallerController {
         let message = '';
 
         try {
-          const isOpen = await this.testPort(port);
+          const isOpen = await this.testPortWithFallback(port);
           if (isOpen) {
             status = 'online';
             message = `Porta ${port} acessível - túnel ativo!`;
