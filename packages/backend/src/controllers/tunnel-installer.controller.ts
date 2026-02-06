@@ -225,6 +225,118 @@ export class TunnelInstallerController {
   }
 
   /**
+   * POST /api/tunnel-installer/uninstall
+   * Remove chave SSH do authorized_keys e retorna BAT de desinstalação
+   */
+  async uninstallTunnel(req: Request, res: Response) {
+    try {
+      const { clientName } = req.body;
+
+      if (!clientName) {
+        return res.status(400).json({
+          success: false,
+          error: 'Nome do cliente é obrigatório'
+        });
+      }
+
+      const sanitized = clientName.replace(/[^a-zA-Z0-9]/g, '');
+
+      // 1. Remover chave do authorized_keys
+      let authorizedKeysPath: string;
+      if (process.platform === 'win32') {
+        authorizedKeysPath = path.join(os.homedir(), '.ssh', 'authorized_keys');
+      } else {
+        authorizedKeysPath = '/root/.ssh/authorized_keys';
+      }
+
+      let keyRemoved = false;
+      if (fs.existsSync(authorizedKeysPath)) {
+        const existing = fs.readFileSync(authorizedKeysPath, 'utf8');
+        const linesBefore = existing.split('\n');
+        const linesAfter = linesBefore.filter(line =>
+          !line.includes(`${sanitized}@tunnel`)
+        );
+        if (linesAfter.length < linesBefore.length) {
+          fs.writeFileSync(authorizedKeysPath, linesAfter.join('\n'));
+          keyRemoved = true;
+          console.log(`[Tunnel] Chave removida do authorized_keys para: ${clientName}`);
+        }
+      }
+
+      // 2. Gerar BAT de desinstalação com CRLF
+      const toCRLF = (s: string) => s.replace(/\r?\n/g, '\r\n');
+      const taskName = `SSH-Tunnel-${sanitized.toUpperCase()}`;
+
+      const uninstallBat = toCRLF(`@echo off
+chcp 65001 >nul 2>&1
+title Desinstalar Tunel SSH - ${clientName}
+echo.
+echo ============================================================
+echo    DESINSTALACAO DO TUNEL SSH - ${clientName}
+echo ============================================================
+echo.
+echo Este script vai remover completamente o servico de tunel SSH.
+echo.
+pause
+
+echo.
+echo [1/4] Parando processos SSH...
+taskkill /f /im ssh.exe 2>nul
+echo       Processos SSH encerrados.
+
+echo.
+echo [2/4] Removendo tarefa agendada...
+schtasks /delete /tn "${taskName}" /f 2>nul
+if %errorlevel% equ 0 (
+    echo       Tarefa "${taskName}" removida.
+) else (
+    echo       Tarefa nao encontrada (ja removida ou nome diferente).
+    REM Tentar variações comuns
+    schtasks /delete /tn "SSH-Tunnel-${sanitized}" /f 2>nul
+    schtasks /delete /tn "SSH-Tunnel-VPS46" /f 2>nul
+)
+
+echo.
+echo [3/4] Removendo arquivos do tunel...
+if exist "C:\\ProgramData\\SSHTunnels\\tunnel_key" del /f "C:\\ProgramData\\SSHTunnels\\tunnel_key" 2>nul
+if exist "C:\\ProgramData\\SSHTunnels\\tunnel-service.ps1" del /f "C:\\ProgramData\\SSHTunnels\\tunnel-service.ps1" 2>nul
+if exist "C:\\ProgramData\\SSHTunnels\\tunnel-service.log" del /f "C:\\ProgramData\\SSHTunnels\\tunnel-service.log" 2>nul
+if exist "C:\\ProgramData\\SSHTunnels\\start-tunnel-service.vbs" del /f "C:\\ProgramData\\SSHTunnels\\start-tunnel-service.vbs" 2>nul
+if exist "C:\\ProgramData\\SSHTunnels\\ssh-port.txt" del /f "C:\\ProgramData\\SSHTunnels\\ssh-port.txt" 2>nul
+echo       Arquivos removidos.
+
+echo.
+echo [4/4] Parando processos PowerShell de tunel...
+powershell -Command "Get-Process powershell -ErrorAction SilentlyContinue | ForEach-Object { try { $w = Get-CimInstance Win32_Process -Filter (\\"ProcessId=$($_.Id)\\"); if ($w.CommandLine -match 'tunnel-service') { Stop-Process -Id $_.Id -Force } } catch {} }"
+echo       Processos de servico encerrados.
+
+echo.
+echo ============================================================
+echo    DESINSTALACAO CONCLUIDA!
+echo ============================================================
+echo.
+echo O tunel SSH foi completamente removido desta maquina.
+echo A chave SSH tambem foi removida do servidor.
+echo.
+pause
+`);
+
+      // Enviar como download
+      const filename = `uninstall-tunnel-${clientName.toLowerCase().replace(/\s+/g, '-')}.bat`;
+      res.setHeader('Content-Type', 'application/x-bat');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(uninstallBat);
+    } catch (error: any) {
+      console.error('Erro ao desinstalar túnel:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao desinstalar túnel',
+        message: error.message
+      });
+    }
+  }
+
+  /**
    * Gera par de chaves SSH e adiciona pública ao authorized_keys da VPS
    * PRIVATE METHOD
    */

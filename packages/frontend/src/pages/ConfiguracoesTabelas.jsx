@@ -784,6 +784,45 @@ export default function ConfiguracoesTabelas() {
     }
   };
 
+  // Função para desinstalar túnel do cliente
+  const [uninstalling, setUninstalling] = useState(false);
+  const handleUninstallTunnel = async () => {
+    if (!tunnelConfig.clientName) {
+      alert('Digite o nome do cliente para gerar o desinstalador');
+      return;
+    }
+    if (!confirm(`Tem certeza que deseja excluir o túnel do cliente "${tunnelConfig.clientName}"?\n\nIsso vai:\n- Remover a chave SSH do servidor\n- Baixar um BAT que remove o túnel da máquina do cliente`)) {
+      return;
+    }
+
+    setUninstalling(true);
+    try {
+      const response = await api.post('/tunnel-installer/uninstall', {
+        clientName: tunnelConfig.clientName
+      }, { responseType: 'blob' });
+
+      // Download do BAT de desinstalação
+      const blob = new Blob([response.data], { type: 'application/x-bat' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `uninstall-tunnel-${tunnelConfig.clientName.toLowerCase().replace(/\s+/g, '-')}.bat`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      alert('Chave SSH removida do servidor!\n\nExecute o BAT baixado na máquina do cliente para completar a desinstalação.');
+      setTunnelTestResult(null);
+      setGeneratedScripts(null);
+    } catch (error) {
+      console.error('Erro ao desinstalar túnel:', error);
+      alert('Erro ao desinstalar túnel: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setUninstalling(false);
+    }
+  };
+
   // Função para gerar scripts de túnel
   const handleGenerateTunnelScripts = async () => {
     // Validar campos obrigatórios
@@ -1120,6 +1159,27 @@ export default function ConfiguracoesTabelas() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Excluir Túnel */}
+      <div className="bg-white rounded-xl border border-red-200 p-6">
+        <h3 className="font-bold text-gray-900 text-lg mb-4 flex items-center gap-2">
+          <span>🗑️</span> Excluir Túnel
+        </h3>
+        <p className="text-sm text-gray-600 mb-4">
+          Remove a chave SSH do servidor e baixa um BAT de desinstalação para executar na máquina do cliente.
+        </p>
+        <button
+          onClick={handleUninstallTunnel}
+          disabled={uninstalling || !tunnelConfig.clientName}
+          className={`w-full py-3 rounded-lg font-bold text-white transition-colors text-sm ${
+            uninstalling || !tunnelConfig.clientName
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-red-500 hover:bg-red-600'
+          }`}
+        >
+          {uninstalling ? '⏳ Removendo...' : '🗑️ Excluir Túnel e Baixar Desinstalador'}
+        </button>
       </div>
 
       {/* Instruções */}

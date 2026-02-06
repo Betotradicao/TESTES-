@@ -17,4 +17,7 @@ router.post('/test', authenticateToken, controller.testTunnels.bind(controller))
 // Download de script específico (requer autenticação)
 router.post('/download/:type', authenticateToken, controller.downloadScript.bind(controller));
 
+// Desinstalar túnel (remove chave + gera BAT de remoção)
+router.post('/uninstall', authenticateToken, controller.uninstallTunnel.bind(controller));
+
 export default router;
