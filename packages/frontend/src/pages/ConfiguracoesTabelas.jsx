@@ -1265,27 +1265,6 @@ export default function ConfiguracoesTabelas() {
         )}
       </div>
 
-      {/* Excluir Túnel */}
-      <div className="bg-white rounded-xl border border-red-200 p-6">
-        <h3 className="font-bold text-gray-900 text-lg mb-4 flex items-center gap-2">
-          <span>🗑️</span> Excluir Túnel
-        </h3>
-        <p className="text-sm text-gray-600 mb-4">
-          Remove a chave SSH do servidor e baixa um BAT de desinstalação para executar na máquina do cliente.
-        </p>
-        <button
-          onClick={handleUninstallTunnel}
-          disabled={uninstalling || !tunnelConfig.clientName}
-          className={`w-full py-3 rounded-lg font-bold text-white transition-colors text-sm ${
-            uninstalling || !tunnelConfig.clientName
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-red-500 hover:bg-red-600'
-          }`}
-        >
-          {uninstalling ? '⏳ Removendo...' : '🗑️ Excluir Túnel e Baixar Desinstalador'}
-        </button>
-      </div>
-
       {/* Instruções */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
         <h3 className="font-bold text-blue-800 text-lg mb-4 flex items-center gap-2">

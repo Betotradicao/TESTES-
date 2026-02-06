@@ -22,12 +22,19 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
   const location = useLocation();
   const { lojas, lojaSelecionada, selecionarLoja, getLojaLabel } = useLoja();
 
-  // Health check - verificar conexão com banco a cada 30s
+  // Health check - verificar conexão com banco (interno + externo) a cada 30s
   useEffect(() => {
     const checkHealth = async () => {
       try {
         const res = await api.get('/health');
-        setDbConnected(res.data?.database?.connected === true);
+        const pgOk = res.data?.database?.connected === true;
+        const ext = res.data?.externalDatabases;
+        // Se tem banco externo configurado, usa o status dele; senão usa o PostgreSQL
+        if (ext?.configured) {
+          setDbConnected(ext.allConnected === true);
+        } else {
+          setDbConnected(pgOk);
+        }
       } catch {
         setDbConnected(false);
       }

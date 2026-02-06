@@ -1,49 +1,53 @@
 import { Router } from 'express';
+import * as net from 'net';
 
 const router: Router = Router();
 
 /**
- * @swagger
- * /api/health:
- *   get:
- *     summary: Verifica o status da API
- *     description: Retorna o status de saúde da API e informações básicas do sistema
- *     tags: [Health]
- *     responses:
- *       200:
- *         description: API está funcionando corretamente
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: ok
- *                 message:
- *                   type: string
- *                   example: API is running
- *                 timestamp:
- *                   type: string
- *                   format: date-time
- *                   example: 2025-09-16T12:00:00.000Z
- *                 environment:
- *                   type: string
- *                   example: development
- *                 version:
- *                   type: string
- *                   example: 1.0.0
- *                 database:
- *                   type: object
- *                   properties:
- *                     connected:
- *                       type: boolean
- *                       example: true
+ * Teste TCP rápido de porta (timeout curto para não travar o health)
  */
+function testPort(host: string, port: number, timeout: number = 2000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    socket.setTimeout(timeout);
+    socket.on('connect', () => { socket.destroy(); resolve(true); });
+    socket.on('timeout', () => { socket.destroy(); resolve(false); });
+    socket.on('error', () => { socket.destroy(); resolve(false); });
+    socket.connect(port, host);
+  });
+}
+
 router.get('/health', async (req, res) => {
   try {
     const { AppDataSource } = require('../config/database');
     const isDatabaseConnected = AppDataSource.isInitialized;
+
+    // Verificar conexões externas cadastradas (Oracle, etc.)
+    let externalConnections: any[] = [];
+    try {
+      if (isDatabaseConnected) {
+        const { DatabaseConnection } = require('../entities/DatabaseConnection');
+        const repo = AppDataSource.getRepository(DatabaseConnection);
+        const connections = await repo.find();
+
+        const isVps = process.env.NODE_ENV === 'production';
+        for (const conn of connections) {
+          const hostToUse = isVps && conn.host_vps ? conn.host_vps : conn.host;
+          const reachable = await testPort(hostToUse, conn.port);
+          externalConnections.push({
+            name: conn.name,
+            type: conn.type,
+            host: hostToUse,
+            port: conn.port,
+            reachable
+          });
+        }
+      }
+    } catch (e) {
+      // Não impede o health de funcionar
+    }
+
+    const allExternalOk = externalConnections.length === 0 || externalConnections.every(c => c.reachable);
 
     res.json({
       status: 'ok',
@@ -53,6 +57,11 @@ router.get('/health', async (req, res) => {
       version: '1.0.0',
       database: {
         connected: isDatabaseConnected
+      },
+      externalDatabases: {
+        configured: externalConnections.length > 0,
+        allConnected: allExternalOk,
+        connections: externalConnections
       }
     });
   } catch (error) {
@@ -64,6 +73,11 @@ router.get('/health', async (req, res) => {
       version: '1.0.0',
       database: {
         connected: false
+      },
+      externalDatabases: {
+        configured: false,
+        allConnected: false,
+        connections: []
       }
     });
   }
