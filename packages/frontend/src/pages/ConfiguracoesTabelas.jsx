@@ -757,9 +757,9 @@ export default function ConfiguracoesTabelas() {
   // Estado para Instalador de Túnel
   const [tunnelConfig, setTunnelConfig] = useState({
     clientName: '',
-    vpsIp: '46.202.150.64',
+    vpsIp: '',
     tunnels: [
-      { name: 'Oracle', localIp: '', localPort: '1521', remotePort: '1521' },
+      { name: '', localIp: '', localPort: '', remotePort: '' },
     ]
   });
   const [generatingScripts, setGeneratingScripts] = useState(false);
@@ -1149,14 +1149,14 @@ export default function ConfiguracoesTabelas() {
                     type="text"
                     value={tunnel.localPort}
                     onChange={(e) => handleUpdateTunnel(index, 'localPort', e.target.value)}
-                    placeholder="Porta Local"
+                    placeholder="Ex: 1521"
                     className="px-3 py-2 border border-gray-300 rounded text-sm"
                   />
                   <input
                     type="text"
                     value={tunnel.remotePort}
                     onChange={(e) => handleUpdateTunnel(index, 'remotePort', e.target.value)}
-                    placeholder="Porta VPS"
+                    placeholder="Ex: 1521"
                     className="px-3 py-2 border border-gray-300 rounded text-sm"
                   />
                 </div>
