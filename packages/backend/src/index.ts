@@ -51,6 +51,7 @@ import rupturaIndustriaRouter from './routes/ruptura-industria.routes';
 import gestaoInteligenteRouter from './routes/gestao-inteligente.routes';
 import databaseConnectionsRouter from './routes/database-connections.routes';
 import erpTemplatesRouter from './routes/erp-templates.routes';
+import tunnelInstallerRouter from './routes/tunnel-installer.routes';
 import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
 import { MappingService } from './services/mapping.service';
@@ -133,6 +134,7 @@ app.use('/api/ruptura-industria', rupturaIndustriaRouter);
 app.use('/api/gestao-inteligente', gestaoInteligenteRouter);
 app.use('/api/database-connections', databaseConnectionsRouter);
 app.use('/api/erp-templates', erpTemplatesRouter);
+app.use('/api/tunnel-installer', tunnelInstallerRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {

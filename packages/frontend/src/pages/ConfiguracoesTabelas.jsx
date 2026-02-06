@@ -747,6 +747,408 @@ export default function ConfiguracoesTabelas() {
     }
   };
 
+  // Estado para Instalador de Túnel
+  const [tunnelConfig, setTunnelConfig] = useState({
+    clientName: '',
+    vpsIp: '46.202.150.64',
+    tunnels: [
+      { name: 'Oracle', localIp: '', localPort: '1521', remotePort: '1521' },
+      { name: 'PostgreSQL', localIp: '', localPort: '5432', remotePort: '5432' },
+      { name: 'MySQL', localIp: '', localPort: '3306', remotePort: '3306' },
+      { name: 'SQL Server', localIp: '', localPort: '1433', remotePort: '1433' },
+    ]
+  });
+  const [generatingScripts, setGeneratingScripts] = useState(false);
+  const [generatedScripts, setGeneratedScripts] = useState(null);
+  const [tunnelTestResult, setTunnelTestResult] = useState(null); // { status: 'online'|'partial'|'offline', results: [] }
+  const [testingTunnel, setTestingTunnel] = useState(false);
+
+  // Função para testar conexão dos túneis
+  const handleTestTunnel = async () => {
+    const activeTunnels = tunnelConfig.tunnels.filter(t => t.remotePort);
+    if (activeTunnels.length === 0) {
+      alert('Configure pelo menos um túnel com porta remota para testar');
+      return;
+    }
+
+    setTestingTunnel(true);
+    setTunnelTestResult(null);
+    try {
+      const response = await api.post('/tunnel-installer/test', { tunnels: activeTunnels });
+      setTunnelTestResult(response.data);
+    } catch (error) {
+      console.error('Erro ao testar túneis:', error);
+      setTunnelTestResult({ status: 'offline', results: [{ name: 'Erro', status: 'offline', message: 'Falha na comunicação com o backend' }] });
+    } finally {
+      setTestingTunnel(false);
+    }
+  };
+
+  // Função para gerar scripts de túnel
+  const handleGenerateTunnelScripts = async () => {
+    // Validar campos obrigatórios
+    if (!tunnelConfig.clientName) {
+      alert('Digite o nome do cliente');
+      return;
+    }
+    if (!tunnelConfig.vpsIp) {
+      alert('Digite o IP da VPS');
+      return;
+    }
+
+    // Filtrar túneis que têm IP local preenchido
+    const activeTunnels = tunnelConfig.tunnels.filter(t => t.localIp.trim());
+    if (activeTunnels.length === 0) {
+      alert('Configure pelo menos um túnel com IP local');
+      return;
+    }
+
+    setGeneratingScripts(true);
+    try {
+      const response = await api.post('/tunnel-installer/generate', {
+        clientName: tunnelConfig.clientName,
+        vpsIp: tunnelConfig.vpsIp,
+        tunnels: activeTunnels
+      });
+
+      if (response.data.success) {
+        setGeneratedScripts(response.data);
+      } else {
+        alert('Erro ao gerar scripts: ' + (response.data.error || 'Erro desconhecido'));
+      }
+    } catch (error) {
+      console.error('Erro ao gerar scripts:', error);
+      alert('Erro ao gerar scripts: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setGeneratingScripts(false);
+    }
+  };
+
+  // Função para download de script
+  const handleDownloadScript = async (type, filename) => {
+    try {
+      // Para o script de descoberta, não exigir túneis com IP preenchido
+      const isDiscover = type === 'discover';
+      const activeTunnels = isDiscover ? [] : tunnelConfig.tunnels.filter(t => t.localIp.trim());
+
+      if (!isDiscover && activeTunnels.length === 0) {
+        alert('Configure pelo menos um túnel com IP local antes de baixar');
+        return;
+      }
+
+      const response = await api.post(`/tunnel-installer/download/${type}`, {
+        clientName: tunnelConfig.clientName || 'Cliente',
+        vpsIp: tunnelConfig.vpsIp,
+        tunnels: activeTunnels
+      }, { responseType: 'blob' });
+
+      // Criar link de download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Erro ao baixar script:', error);
+      alert('Erro ao baixar script');
+    }
+  };
+
+  // Atualizar túnel
+  const handleUpdateTunnel = (index, field, value) => {
+    setTunnelConfig(prev => ({
+      ...prev,
+      tunnels: prev.tunnels.map((t, i) => i === index ? { ...t, [field]: value } : t)
+    }));
+    setGeneratedScripts(null); // Limpar scripts gerados ao alterar config
+  };
+
+  // Adicionar túnel
+  const handleAddTunnel = () => {
+    setTunnelConfig(prev => ({
+      ...prev,
+      tunnels: [...prev.tunnels, { name: '', localIp: '', localPort: '', remotePort: '' }]
+    }));
+  };
+
+  // Remover túnel
+  const handleRemoveTunnel = (index) => {
+    if (tunnelConfig.tunnels.length <= 1) {
+      alert('Deve haver pelo menos um túnel');
+      return;
+    }
+    setTunnelConfig(prev => ({
+      ...prev,
+      tunnels: prev.tunnels.filter((_, i) => i !== index)
+    }));
+  };
+
+  // Render da aba Instalador de Túnel
+  const renderTunnelTab = () => (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">Instalador de Túnel SSH</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Configure conexão segura entre a rede local do cliente e a VPS
+          </p>
+        </div>
+      </div>
+
+      {/* Aviso de Segurança */}
+      <div className="bg-green-50 border border-green-200 rounded-xl p-6">
+        <div className="flex items-start gap-4">
+          <div className="text-4xl">🔐</div>
+          <div>
+            <h3 className="font-bold text-green-800 text-lg mb-2">Conexão 100% Segura</h3>
+            <ul className="text-sm text-green-700 space-y-1">
+              <li>✅ <strong>Conexão SAINTE</strong> - Nenhuma porta aberta no firewall do cliente</li>
+              <li>✅ <strong>Acesso LIMITADO</strong> - VPS só acessa IPs/portas específicas configuradas</li>
+              <li>✅ <strong>Sem Shell Remoto</strong> - Impossível executar comandos no Windows do cliente</li>
+              <li>✅ <strong>Autenticação por Chave SSH</strong> - Sem senha, impossível brute force</li>
+              <li>✅ <strong>Reconexão Automática</strong> - Serviço monitora e reconecta se cair</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* Configuração */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 className="font-bold text-gray-900 text-lg mb-4 flex items-center gap-2">
+          <span>⚙️</span> Configuração do Túnel
+        </h3>
+
+        {/* Dados do Cliente */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Nome do Cliente *</label>
+            <input
+              type="text"
+              value={tunnelConfig.clientName}
+              onChange={(e) => {
+                setTunnelConfig(prev => ({ ...prev, clientName: e.target.value }));
+                setGeneratedScripts(null);
+              }}
+              placeholder="Ex: Tradicao, Piratininga..."
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">IP da VPS *</label>
+            <input
+              type="text"
+              value={tunnelConfig.vpsIp}
+              onChange={(e) => {
+                setTunnelConfig(prev => ({ ...prev, vpsIp: e.target.value }));
+                setGeneratedScripts(null);
+              }}
+              placeholder="46.202.150.64"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+            />
+          </div>
+        </div>
+
+        {/* Túneis */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <label className="block text-sm font-medium text-gray-700">Túneis a Configurar</label>
+            <button
+              onClick={handleAddTunnel}
+              className="text-sm text-orange-600 hover:text-orange-700 font-medium"
+            >
+              + Adicionar Túnel
+            </button>
+          </div>
+
+          {/* Cabeçalho das colunas */}
+          <div className="flex items-center gap-3 px-4 pb-2">
+            <div className="flex-1 grid grid-cols-4 gap-3">
+              <span className="text-xs font-medium text-gray-500">Serviço</span>
+              <span className="text-xs font-medium text-gray-500">IP na Rede do Cliente</span>
+              <span className="text-xs font-medium text-gray-500">Porta Local</span>
+              <span className="text-xs font-medium text-gray-500">Porta na VPS</span>
+            </div>
+            <div className="w-10"></div>
+          </div>
+
+          <div className="space-y-3">
+            {tunnelConfig.tunnels.map((tunnel, index) => (
+              <div key={index} className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                <div className="flex-1 grid grid-cols-4 gap-3">
+                  <input
+                    type="text"
+                    value={tunnel.name}
+                    onChange={(e) => handleUpdateTunnel(index, 'name', e.target.value)}
+                    placeholder="Nome (ex: Oracle)"
+                    className="px-3 py-2 border border-gray-300 rounded text-sm"
+                  />
+                  <div className="flex gap-1">
+                    <input
+                      type="text"
+                      value={tunnel.localIp}
+                      onChange={(e) => handleUpdateTunnel(index, 'localIp', e.target.value)}
+                      placeholder="IP do serviço"
+                      className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded text-sm"
+                    />
+                    <button
+                      onClick={() => handleUpdateTunnel(index, 'localIp', 'localhost')}
+                      className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors whitespace-nowrap"
+                      title="Usar localhost (serviço na mesma máquina)"
+                    >
+                      local
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={tunnel.localPort}
+                    onChange={(e) => handleUpdateTunnel(index, 'localPort', e.target.value)}
+                    placeholder="Porta Local"
+                    className="px-3 py-2 border border-gray-300 rounded text-sm"
+                  />
+                  <input
+                    type="text"
+                    value={tunnel.remotePort}
+                    onChange={(e) => handleUpdateTunnel(index, 'remotePort', e.target.value)}
+                    placeholder="Porta VPS"
+                    className="px-3 py-2 border border-gray-300 rounded text-sm"
+                  />
+                </div>
+                <button
+                  onClick={() => handleRemoveTunnel(index)}
+                  className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                  title="Remover"
+                >
+                  🗑️
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 p-3 bg-blue-50 rounded-lg">
+            <p className="text-xs text-blue-700">
+              <strong>Dica:</strong> Se o serviço roda na mesma máquina onde o túnel será instalado, use "localhost" no IP Local.
+              Se está em outra máquina da rede, peça o IP ao TI do cliente.
+            </p>
+          </div>
+        </div>
+
+        {/* Botão Gerar */}
+        <button
+          onClick={handleGenerateTunnelScripts}
+          disabled={generatingScripts}
+          className="w-full py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 font-medium transition-colors"
+        >
+          {generatingScripts ? '⏳ Gerando Scripts...' : '🔧 Gerar Scripts de Instalação'}
+        </button>
+      </div>
+
+      {/* Scripts Gerados */}
+      {generatedScripts && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 className="font-bold text-gray-900 text-lg mb-4 flex items-center gap-2">
+            <span>📥</span> Downloads
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Windows - BAT */}
+            <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-3xl">🪟</span>
+                <div>
+                  <h4 className="font-bold text-gray-900">Instalador Windows</h4>
+                  <p className="text-xs text-gray-500">Arquivo único - instala tudo automaticamente</p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleDownloadScript('bat', `install-tunnel-${tunnelConfig.clientName.toLowerCase()}.bat`)}
+                className="w-full py-2 bg-blue-500 text-white rounded font-medium hover:bg-blue-600 transition-colors text-sm"
+              >
+                📥 Baixar install-tunnel.bat
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Testar Conexão */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 className="font-bold text-gray-900 text-lg mb-4 flex items-center gap-2">
+          <span>🔌</span> Testar Conexão do Túnel
+        </h3>
+        <p className="text-sm text-gray-600 mb-4">
+          Após o cliente executar o instalador, clique abaixo para verificar se o túnel está ativo.
+          O sistema tenta conectar nas portas configuradas para verificar se estão acessíveis.
+        </p>
+        <button
+          onClick={handleTestTunnel}
+          disabled={testingTunnel}
+          className={`w-full py-3 rounded-lg font-bold text-white transition-colors text-sm ${
+            testingTunnel ? 'bg-gray-400 cursor-not-allowed' :
+            tunnelTestResult?.status === 'online' ? 'bg-green-500 hover:bg-green-600' :
+            tunnelTestResult?.status === 'partial' ? 'bg-yellow-500 hover:bg-yellow-600' :
+            tunnelTestResult?.status === 'offline' ? 'bg-red-500 hover:bg-red-600' :
+            'bg-indigo-500 hover:bg-indigo-600'
+          }`}
+        >
+          {testingTunnel ? '⏳ Testando conexão...' :
+           tunnelTestResult?.status === 'online' ? '✅ TÚNEL ATIVO - Clique para testar novamente' :
+           tunnelTestResult?.status === 'partial' ? '⚠️ PARCIALMENTE ATIVO - Clique para testar novamente' :
+           tunnelTestResult?.status === 'offline' ? '❌ TÚNEL OFFLINE - Clique para testar novamente' :
+           '🔍 Testar Conexão do Túnel'}
+        </button>
+
+        {tunnelTestResult && (
+          <div className="mt-4 space-y-2">
+            {tunnelTestResult.results?.map((r, i) => (
+              <div key={i} className={`flex items-center gap-3 p-3 rounded-lg ${
+                r.status === 'online' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+              }`}>
+                <span className="text-2xl">{r.status === 'online' ? '🟢' : '🔴'}</span>
+                <div>
+                  <p className={`font-bold text-sm ${r.status === 'online' ? 'text-green-800' : 'text-red-800'}`}>
+                    {r.name} (porta {r.port})
+                  </p>
+                  <p className={`text-xs ${r.status === 'online' ? 'text-green-600' : 'text-red-600'}`}>
+                    {r.message}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Instruções */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+        <h3 className="font-bold text-blue-800 text-lg mb-4 flex items-center gap-2">
+          <span>📋</span> Instruções de Instalação
+        </h3>
+        <ol className="text-sm text-blue-700 space-y-3">
+          <li className="flex gap-2">
+            <span className="font-bold">1.</span>
+            <span><strong>Preencher dados:</strong> Informe o nome do cliente, os IPs e portas dos bancos de dados (peça ao TI do cliente)</span>
+          </li>
+          <li className="flex gap-2">
+            <span className="font-bold">2.</span>
+            <span>Clique em <strong>"Gerar Scripts de Instalação"</strong> e depois <strong>"Baixar install-tunnel.bat"</strong></span>
+          </li>
+          <li className="flex gap-2">
+            <span className="font-bold">3.</span>
+            <span>Envie o arquivo para o TI do cliente executar <strong>como Administrador</strong> numa máquina Windows da rede</span>
+          </li>
+          <li className="flex gap-2">
+            <span className="font-bold text-green-700">4.</span>
+            <span><strong className="text-green-700">Testar:</strong> Após execução, use o botão <strong>"Testar Conexão do Túnel"</strong> acima para verificar se ficou verde</span>
+          </li>
+        </ol>
+      </div>
+    </div>
+  );
+
   // Render da aba Mapeamento (HIERÁRQUICO)
   const renderMappingTab = () => {
     const mainModule = BUSINESS_MODULES.find(m => m.id === selectedMainModule);
@@ -1600,10 +2002,20 @@ export default function ConfiguracoesTabelas() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 mb-6 border-b border-gray-200">
+          <div className="flex gap-2 mb-6 border-b border-gray-200 overflow-x-auto">
+            <button
+              onClick={() => setActiveTab('tunnel')}
+              className={`px-6 py-3 font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
+                activeTab === 'tunnel'
+                  ? 'text-orange-600 border-orange-500'
+                  : 'text-gray-500 border-transparent hover:text-gray-700'
+              }`}
+            >
+              🔐 Instalador de Túnel
+            </button>
             <button
               onClick={() => setActiveTab('erp')}
-              className={`px-6 py-3 font-medium transition-colors border-b-2 -mb-px ${
+              className={`px-6 py-3 font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
                 activeTab === 'erp'
                   ? 'text-orange-600 border-orange-500'
                   : 'text-gray-500 border-transparent hover:text-gray-700'
@@ -1613,7 +2025,7 @@ export default function ConfiguracoesTabelas() {
             </button>
             <button
               onClick={() => setActiveTab('conexoes')}
-              className={`px-6 py-3 font-medium transition-colors border-b-2 -mb-px ${
+              className={`px-6 py-3 font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
                 activeTab === 'conexoes'
                   ? 'text-orange-600 border-orange-500'
                   : 'text-gray-500 border-transparent hover:text-gray-700'
@@ -1623,7 +2035,7 @@ export default function ConfiguracoesTabelas() {
             </button>
             <button
               onClick={() => setActiveTab('mapeamento')}
-              className={`px-6 py-3 font-medium transition-colors border-b-2 -mb-px ${
+              className={`px-6 py-3 font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
                 activeTab === 'mapeamento'
                   ? 'text-orange-600 border-orange-500'
                   : 'text-gray-500 border-transparent hover:text-gray-700'
@@ -1634,6 +2046,7 @@ export default function ConfiguracoesTabelas() {
           </div>
 
           {/* Conteúdo das Tabs */}
+          {activeTab === 'tunnel' && renderTunnelTab()}
           {activeTab === 'erp' && renderErpTab()}
           {activeTab === 'conexoes' && renderConnectionsTab()}
           {activeTab === 'mapeamento' && renderMappingTab()}
