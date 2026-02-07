@@ -49,17 +49,25 @@ export class BipWebhookService {
       const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
       const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
 
+      // Resolver colunas via MappingService
+      const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+      const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
+      const colValVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda', 'VAL_VENDA');
+      const colValOferta = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_oferta', 'VAL_OFERTA');
+      const colCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
+      const colCodProdutoLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
+
       // Query para buscar produto pelo código (PLU) com COD_LOJA parametrizado
       const sql = `
         SELECT
-          p.COD_PRODUTO,
-          p.DES_PRODUTO,
-          NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
-          NVL(pl.VAL_OFERTA, 0) as VAL_OFERTA
+          p.${colCodProduto},
+          p.${colDesProduto},
+          NVL(pl.${colValVenda}, 0) as VAL_VENDA,
+          NVL(pl.${colValOferta}, 0) as VAL_OFERTA
         FROM ${tabProduto} p
-        INNER JOIN ${tabProdutoLoja} pl ON p.COD_PRODUTO = pl.COD_PRODUTO
-        WHERE p.COD_PRODUTO = :codProduto
-        AND pl.COD_LOJA = :codLoja
+        INNER JOIN ${tabProdutoLoja} pl ON p.${colCodProduto} = pl.${colCodProdutoLoja}
+        WHERE p.${colCodProduto} = :codProduto
+        AND pl.${colCodLoja} = :codLoja
         AND ROWNUM = 1
       `;
 

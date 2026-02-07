@@ -79,6 +79,11 @@ const TABLE_CATALOG = {
       { id: 'quantidade', name: 'Quantidade', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'QTD_TOTAL_PRODUTO' },
       { id: 'des_hora', name: 'Hora', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'DES_HORA' },
       { id: 'codigo_loja', name: 'Código Loja', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'COD_LOJA' },
+      { id: 'sequencia_item', name: 'Sequência do Item', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'NUM_SEQ_ITEM' },
+      { id: 'codigo_produto', name: 'Código Produto (FK)', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'COD_PRODUTO' },
+      { id: 'valor_custo_reposicao', name: 'Valor Custo Reposição', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'VAL_CUSTO_REP' },
+      { id: 'hora_venda', name: 'Hora da Venda', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'TIM_HORA' },
+      { id: 'flag_oferta', name: 'Flag Oferta', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'FLG_OFERTA' },
     ]
   },
   TAB_OPERADORES: {
@@ -136,6 +141,8 @@ const TABLE_CATALOG = {
       { id: 'codigo_fornecedor', name: 'Código Fornecedor', defaultTable: 'TAB_FORNECEDOR_NOTA', defaultColumn: 'COD_FORNECEDOR' },
       { id: 'valor_total', name: 'Valor Total', defaultTable: 'TAB_FORNECEDOR_NOTA', defaultColumn: 'VAL_TOTAL_NF' },
       { id: 'chave_acesso', name: 'Chave de Acesso', defaultTable: 'TAB_FORNECEDOR_NOTA', defaultColumn: 'NUM_CHAVE_ACESSO' },
+      { id: 'flag_cancelado', name: 'Flag Cancelado', defaultTable: 'TAB_FORNECEDOR_NOTA', defaultColumn: 'FLG_CANCELADO' },
+      { id: 'codigo_loja', name: 'Código Loja', defaultTable: 'TAB_FORNECEDOR_NOTA', defaultColumn: 'COD_LOJA' },
     ]
   },
   TAB_PEDIDO: {
@@ -149,6 +156,9 @@ const TABLE_CATALOG = {
       { id: 'tipo_recebimento', name: 'Tipo Recebimento', defaultTable: 'TAB_PEDIDO', defaultColumn: 'TIPO_RECEBIMENTO' },
       { id: 'tipo_parceiro', name: 'Tipo Parceiro', defaultTable: 'TAB_PEDIDO', defaultColumn: 'TIPO_PARCEIRO' },
       { id: 'valor_pedido', name: 'Valor Pedido', defaultTable: 'TAB_PEDIDO', defaultColumn: 'VAL_PEDIDO' },
+      { id: 'tipo_finalizado', name: 'Tipo Pedido Finalizado', defaultTable: 'TAB_PEDIDO', defaultColumn: 'TIPO_PED_FINALIZADO' },
+      { id: 'flag_cancelado', name: 'Flag Cancelado', defaultTable: 'TAB_PEDIDO', defaultColumn: 'FLG_CANCELADO' },
+      { id: 'codigo_loja', name: 'Código Loja', defaultTable: 'TAB_PEDIDO', defaultColumn: 'COD_LOJA' },
     ]
   },
   TAB_PEDIDO_PRODUTO: {
@@ -191,6 +201,65 @@ const TABLE_CATALOG = {
   // Não precisam de mapeamento do ERP - são gerenciadas pelo sistema
   // NOTA: TAB_PRODUCAO e TAB_HORTFRUTI - podem existir no ERP ou ser internas
   // Por enquanto removidas até confirmar estrutura correta
+  TAB_SECAO: {
+    name: 'Seções',
+    description: 'Seções de produtos',
+    fields: [
+      { id: 'codigo_secao', name: 'Código Seção', defaultTable: 'TAB_SECAO', defaultColumn: 'COD_SECAO' },
+      { id: 'descricao_secao', name: 'Descrição Seção', defaultTable: 'TAB_SECAO', defaultColumn: 'DES_SECAO' },
+      { id: 'meta', name: 'Meta de Venda', defaultTable: 'TAB_SECAO', defaultColumn: 'VAL_META' },
+    ]
+  },
+  TAB_GRUPO: {
+    name: 'Grupos',
+    description: 'Grupos de produtos',
+    fields: [
+      { id: 'codigo_grupo', name: 'Código Grupo', defaultTable: 'TAB_GRUPO', defaultColumn: 'COD_GRUPO' },
+      { id: 'descricao_grupo', name: 'Descrição Grupo', defaultTable: 'TAB_GRUPO', defaultColumn: 'DES_GRUPO' },
+    ]
+  },
+  TAB_SUBGRUPO: {
+    name: 'Subgrupos',
+    description: 'Subgrupos de produtos',
+    fields: [
+      { id: 'codigo_subgrupo', name: 'Código Subgrupo', defaultTable: 'TAB_SUBGRUPO', defaultColumn: 'COD_SUB_GRUPO' },
+      { id: 'descricao_subgrupo', name: 'Descrição Subgrupo', defaultTable: 'TAB_SUBGRUPO', defaultColumn: 'DES_SUB_GRUPO' },
+    ]
+  },
+  TAB_COMPRADOR: {
+    name: 'Compradores',
+    description: 'Compradores da empresa',
+    fields: [
+      { id: 'codigo_comprador', name: 'Código Comprador', defaultTable: 'TAB_COMPRADOR', defaultColumn: 'COD_COMPRADOR' },
+      { id: 'descricao_comprador', name: 'Nome Comprador', defaultTable: 'TAB_COMPRADOR', defaultColumn: 'DES_COMPRADOR' },
+    ]
+  },
+  TAB_LOJA: {
+    name: 'Lojas',
+    description: 'Lojas da empresa',
+    fields: [
+      { id: 'codigo_loja', name: 'Código Loja', defaultTable: 'TAB_LOJA', defaultColumn: 'COD_LOJA' },
+      { id: 'descricao_loja', name: 'Nome Loja', defaultTable: 'TAB_LOJA', defaultColumn: 'DES_LOJA' },
+      { id: 'flag_desativada', name: 'Flag Desativada', defaultTable: 'TAB_LOJA', defaultColumn: 'FLG_DESATIVADA' },
+    ]
+  },
+  TAB_TESOURARIA_HISTORICO: {
+    name: 'Tesouraria',
+    description: 'Histórico de movimentações de tesouraria',
+    fields: [
+      { id: 'data_movimento', name: 'Data Movimento', defaultTable: 'TAB_TESOURARIA_HISTORICO', defaultColumn: 'DTA_MOVIMENTO' },
+    ]
+  },
+  TAB_PRODUTO_PDV_ESTORNO: {
+    name: 'Estornos PDV',
+    description: 'Estornos de itens vendidos',
+    fields: [
+      { id: 'numero_cupom', name: 'Nº Cupom Fiscal', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'NUM_CUPOM_FISCAL' },
+      { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'COD_PRODUTO' },
+      { id: 'valor_total', name: 'Valor Total', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'VAL_TOTAL_PRODUTO' },
+      { id: 'quantidade', name: 'Quantidade', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'QTD_TOTAL_PRODUTO' },
+    ]
+  },
   TAB_CUPOM_FINALIZADORA: {
     name: 'Finalizadoras de Cupom',
     description: 'Formas de pagamento dos cupons',
@@ -222,7 +291,7 @@ const BUSINESS_MODULES = [
     color: 'from-orange-500 to-red-500',
     submodules: [
       { id: 'bipagens', name: 'Prevenção de Bipagens', icon: '📡', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_OPERADORES', 'TAB_CUPOM_FINALIZADORA'] },
-      { id: 'pdv', name: 'Prevenção PDV', icon: '💳', tables: ['TAB_PRODUTO_PDV', 'TAB_OPERADORES'] },
+      { id: 'pdv', name: 'Prevenção PDV', icon: '💳', tables: ['TAB_PRODUTO_PDV', 'TAB_OPERADORES', 'TAB_CUPOM_FINALIZADORA', 'TAB_TESOURARIA_HISTORICO', 'TAB_PRODUTO_PDV_ESTORNO'] },
       { id: 'facial', name: 'Prevenção Facial', icon: '👤', tables: ['TAB_OPERADORES'] },
       { id: 'rupturas', name: 'Prevenção Rupturas', icon: '🔍', tables: ['TAB_PRODUTO'] },
       { id: 'etiquetas', name: 'Prevenção Etiquetas', icon: '🏷️', tables: ['TAB_PRODUTO'] },
@@ -237,10 +306,10 @@ const BUSINESS_MODULES = [
     icon: '📊',
     color: 'from-blue-500 to-indigo-600',
     submodules: [
-      { id: 'gestao_inteligente', name: 'Gestão Inteligente', icon: '🧠', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV'] },
+      { id: 'gestao_inteligente', name: 'Gestão Inteligente', icon: '🧠', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_CUPOM_FINALIZADORA', 'TAB_NOTA_FISCAL'] },
       { id: 'estoque_margem', name: 'Estoque e Margem', icon: '📦', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ITENS'] },
-      { id: 'compra_venda', name: 'Compra e Venda', icon: '🛒', tables: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_NOTA_FISCAL'] },
-      { id: 'pedidos', name: 'Pedidos', icon: '📋', tables: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_PEDIDO'] },
+      { id: 'compra_venda', name: 'Compra e Venda', icon: '🛒', tables: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_NOTA_FISCAL', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO', 'TAB_COMPRADOR', 'TAB_LOJA', 'TAB_NF', 'TAB_NF_ITEM'] },
+      { id: 'pedidos', name: 'Pedidos', icon: '📋', tables: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO', 'TAB_NOTA_FISCAL', 'TAB_COMPRADOR'] },
       { id: 'ruptura_industria', name: 'Ruptura Indústria', icon: '🏭', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO', 'TAB_NF', 'TAB_NF_ITEM'] },
     ]
   }

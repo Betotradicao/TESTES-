@@ -117,7 +117,9 @@ export class FrenteCaixaService {
       numRegistroCol,
       // Campos de produto
       codProdutoCol,
-      desProdutoCol
+      desProdutoCol,
+      // Campos de tesouraria (TAB_TESOURARIA_HISTORICO)
+      dtaMovimentoCol
     ] = await Promise.all([
       // Campos de TAB_PRODUTO_PDV (cupom/venda)
       MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_cupom', 'NUM_CUPOM_FISCAL'),
@@ -145,7 +147,9 @@ export class FrenteCaixaService {
       MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'num_registro', 'NUM_REGISTRO'),
       // Campos de TAB_PRODUTO
       MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO')
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO'),
+      // Campos de TAB_TESOURARIA_HISTORICO
+      MappingService.getColumnFromTable('TAB_TESOURARIA_HISTORICO', 'data_movimento', 'DTA_MOVIMENTO')
     ]);
     return {
       // Campos de cupom/venda
@@ -174,7 +178,9 @@ export class FrenteCaixaService {
       numRegistroCol,
       // Campos de produto
       codProdutoCol,
-      desProdutoCol
+      desProdutoCol,
+      // Campos de tesouraria (TAB_TESOURARIA_HISTORICO)
+      dtaMovimentoCol
     };
   }
 
@@ -243,7 +249,8 @@ export class FrenteCaixaService {
       valSobraCol,
       valQuebraCol,
       numTurnoCol,
-      numRegistroCol
+      numRegistroCol,
+      dtaMovimentoCol
     } = await this.getVendasMappings();
 
     // Query principal - vendas por operador
@@ -400,7 +407,7 @@ export class FrenteCaixaService {
               SELECT MAX(th.${codOperadorCol}) FROM ${tabTesourariaHistorico} th
               WHERE th.${codPdvCol} = e.${codPdvCol}
                 AND th.${codLojaCol} = e.${codLojaCol}
-                AND TRUNC(th.DTA_MOVIMENTO) = TRUNC(e.${dataSaidaCol})
+                AND TRUNC(th.${dtaMovimentoCol}) = TRUNC(e.${dataSaidaCol})
             )
           ) as COD_OPERADOR
         FROM ${tabProdutoPdvEstorno} e
@@ -433,8 +440,8 @@ export class FrenteCaixaService {
       FROM (
         SELECT th.${codOperadorCol} as COD_OPERADOR, th.${codLojaCol}, th.${codPdvCol}, th.${numTurnoCol}, th.${valSobraCol} as VAL_SOBRA, th.${valQuebraCol} as VAL_QUEBRA
         FROM ${tabTesourariaHistorico} th
-        WHERE th.DTA_MOVIMENTO >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-          AND th.DTA_MOVIMENTO <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        WHERE th.${dtaMovimentoCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+          AND th.${dtaMovimentoCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND th.${numRegistroCol} = (
             SELECT MAX(th2.${numRegistroCol})
             FROM ${tabTesourariaHistorico} th2
@@ -442,7 +449,7 @@ export class FrenteCaixaService {
               AND th2.${codLojaCol} = th.${codLojaCol}
               AND th2.${codPdvCol} = th.${codPdvCol}
               AND th2.${numTurnoCol} = th.${numTurnoCol}
-              AND th2.DTA_MOVIMENTO = th.DTA_MOVIMENTO
+              AND th2.${dtaMovimentoCol} = th.${dtaMovimentoCol}
           )
     `;
     if (codOperador) sqlTesouraria += ` AND th.${codOperadorCol} = :codOperador`;
@@ -521,7 +528,8 @@ export class FrenteCaixaService {
       valSobraCol,
       valQuebraCol,
       numTurnoCol,
-      numRegistroCol
+      numRegistroCol,
+      dtaMovimentoCol
     } = await this.getVendasMappings();
 
     // Query principal - vendas por dia
@@ -668,7 +676,7 @@ export class FrenteCaixaService {
             SELECT MAX(th.${codOperadorCol}) FROM ${tabTesourariaHistorico} th
             WHERE th.${codPdvCol} = e.${codPdvCol}
               AND th.${codLojaCol} = e.${codLojaCol}
-              AND TRUNC(th.DTA_MOVIMENTO) = TRUNC(e.${dataSaidaCol})
+              AND TRUNC(th.${dtaMovimentoCol}) = TRUNC(e.${dataSaidaCol})
           )
         )
       GROUP BY TO_CHAR(e.${dataSaidaCol}, 'DD/MM/YYYY')`;
@@ -683,10 +691,10 @@ export class FrenteCaixaService {
         SUM(sub.VAL_SOBRA) as VAL_SOBRA,
         SUM(sub.VAL_QUEBRA) as VAL_QUEBRA
       FROM (
-        SELECT TO_CHAR(th.DTA_MOVIMENTO, 'DD/MM/YYYY') as DATA, th.${codLojaCol}, th.${codPdvCol}, th.${numTurnoCol}, th.${valSobraCol} as VAL_SOBRA, th.${valQuebraCol} as VAL_QUEBRA
+        SELECT TO_CHAR(th.${dtaMovimentoCol}, 'DD/MM/YYYY') as DATA, th.${codLojaCol}, th.${codPdvCol}, th.${numTurnoCol}, th.${valSobraCol} as VAL_SOBRA, th.${valQuebraCol} as VAL_QUEBRA
         FROM ${tabTesourariaHistorico} th
-        WHERE th.DTA_MOVIMENTO >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-          AND th.DTA_MOVIMENTO <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        WHERE th.${dtaMovimentoCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+          AND th.${dtaMovimentoCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND th.${codOperadorCol} = :codOperador
           AND th.${numRegistroCol} = (
             SELECT MAX(th2.${numRegistroCol})
@@ -695,7 +703,7 @@ export class FrenteCaixaService {
               AND th2.${codLojaCol} = th.${codLojaCol}
               AND th2.${codPdvCol} = th.${codPdvCol}
               AND th2.${numTurnoCol} = th.${numTurnoCol}
-              AND th2.DTA_MOVIMENTO = th.DTA_MOVIMENTO
+              AND th2.${dtaMovimentoCol} = th.${dtaMovimentoCol}
           )
     `;
     if (codLoja) sqlTesouraria += ` AND th.${codLojaCol} = :codLoja`;
@@ -764,7 +772,8 @@ export class FrenteCaixaService {
       valSobraCol,
       valQuebraCol,
       numTurnoCol,
-      numRegistroCol
+      numRegistroCol,
+      dtaMovimentoCol
     } = await this.getVendasMappings();
 
     const params: any = { dataInicio, dataFim };
@@ -844,10 +853,10 @@ export class FrenteCaixaService {
         SUM(sub.VAL_SOBRA) as TOTAL_SOBRA,
         SUM(sub.VAL_QUEBRA) as TOTAL_QUEBRA
       FROM (
-        SELECT th.${codOperadorCol}, th.${codLojaCol}, th.${codPdvCol}, th.${numTurnoCol}, th.DTA_MOVIMENTO, th.${valSobraCol} as VAL_SOBRA, th.${valQuebraCol} as VAL_QUEBRA
+        SELECT th.${codOperadorCol}, th.${codLojaCol}, th.${codPdvCol}, th.${numTurnoCol}, th.${dtaMovimentoCol}, th.${valSobraCol} as VAL_SOBRA, th.${valQuebraCol} as VAL_QUEBRA
         FROM ${tabTesourariaHistorico} th
-        WHERE th.DTA_MOVIMENTO >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-          AND th.DTA_MOVIMENTO <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        WHERE th.${dtaMovimentoCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+          AND th.${dtaMovimentoCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${codLoja ? `AND th.${codLojaCol} = :codLoja` : ''}
           AND th.${numRegistroCol} = (
             SELECT MAX(th2.${numRegistroCol})
@@ -856,7 +865,7 @@ export class FrenteCaixaService {
               AND th2.${codLojaCol} = th.${codLojaCol}
               AND th2.${codPdvCol} = th.${codPdvCol}
               AND th2.${numTurnoCol} = th.${numTurnoCol}
-              AND th2.DTA_MOVIMENTO = th.DTA_MOVIMENTO
+              AND th2.${dtaMovimentoCol} = th.${dtaMovimentoCol}
           )
       ) sub
     `;
@@ -1110,7 +1119,8 @@ export class FrenteCaixaService {
       dataSaidaCol,
       codLojaCol,
       codOperadorCol,
-      dataVendaCol
+      dataVendaCol,
+      dtaMovimentoCol
     } = await this.getVendasMappings();
 
     const params: any = {
@@ -1154,7 +1164,7 @@ export class FrenteCaixaService {
               SELECT MAX(th.${codOperadorCol}) FROM ${tabTesourariaHistorico} th
               WHERE th.${codPdvCol} = e.${codPdvCol}
                 AND th.${codLojaCol} = e.${codLojaCol}
-                AND TRUNC(th.DTA_MOVIMENTO) = TRUNC(e.${dataSaidaCol})
+                AND TRUNC(th.${dtaMovimentoCol}) = TRUNC(e.${dataSaidaCol})
             )
           ) as COD_OPERADOR_ATRIBUIDO
         FROM ${tabProdutoPdvEstorno} e

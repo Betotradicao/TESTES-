@@ -130,50 +130,70 @@ export class GestaoInteligenteService {
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
     const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA', 'TAB_CUPOM_FINALIZADORA')}`;
-    const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA', 'TAB_FORNECEDOR_NOTA')}`;
+    const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_NOTA_FISCAL', 'TAB_FORNECEDOR_NOTA')}`;
     const tabFornecedorProduto = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_PRODUTO', 'TAB_FORNECEDOR_PRODUTO')}`;
+
+    // Resolver colunas via MappingService
+    const colValTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total', 'VAL_TOTAL_PRODUTO');
+    const colValCustoRep = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao', 'VAL_CUSTO_REP');
+    const colQtdTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade', 'QTD_TOTAL_PRODUTO');
+    const colFlgOferta = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'flag_oferta', 'FLG_OFERTA');
+    const colCodProdutoPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto', 'COD_PRODUTO');
+    const colDtaSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda', 'DTA_SAIDA');
+    const colCodLojaPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_loja', 'COD_LOJA');
+    const colNumCupomCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'numero_cupom', 'NUM_CUPOM_FISCAL');
+    const colDtaVendaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'data_venda', 'DTA_VENDA');
+    const colCodTipoCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_tipo', 'COD_TIPO');
+    const colCodLojaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_loja', 'COD_LOJA');
+    const colDtaEntradaNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada', 'DTA_ENTRADA');
+    const colFlgCanceladoNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado', 'FLG_CANCELADO');
+    const colCodLojaNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_loja', 'COD_LOJA');
+    const colCodFornecedorNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor', 'COD_FORNECEDOR');
+    const colNumNfForn = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf', 'NUM_NF_FORN');
+    const colQtdEntradaNi = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'quantidade_entrada', 'QTD_ENTRADA');
+    const colValTabelaNi = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'valor_tabela', 'VAL_TABELA');
 
     let vendasQuery = `
       SELECT
-        NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDAS,
-        NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO_VENDAS,
+        NVL(SUM(pv.${colValTotalProduto}), 0) as VENDAS,
+        NVL(SUM(pv.${colValCustoRep} * pv.${colQtdTotalProduto}), 0) as CUSTO_VENDAS,
         NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
-        NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD_ITENS,
-        NVL(SUM(CASE WHEN pv.FLG_OFERTA = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA,
-        NVL(SUM(CASE WHEN pv.FLG_OFERTA = 'S' THEN pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO ELSE 0 END), 0) as CUSTO_OFERTA,
-        COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS
+        NVL(SUM(pv.${colQtdTotalProduto}), 0) as QTD_ITENS,
+        NVL(SUM(CASE WHEN pv.${colFlgOferta} = 'S' THEN pv.${colValTotalProduto} ELSE 0 END), 0) as VENDAS_OFERTA,
+        NVL(SUM(CASE WHEN pv.${colFlgOferta} = 'S' THEN pv.${colValCustoRep} * pv.${colQtdTotalProduto} ELSE 0 END), 0) as CUSTO_OFERTA,
+        COUNT(DISTINCT pv.${colCodProdutoPdv}) as QTD_SKUS
       FROM ${tabProdutoPdv} pv
-      WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+      WHERE pv.${colDtaSaida} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
     `;
     const vendasParams: any = { dataInicio, dataFim };
     if (codLoja) {
-      vendasQuery += ` AND pv.COD_LOJA = :codLoja`;
+      vendasQuery += ` AND pv.${colCodLojaPdv} = :codLoja`;
       vendasParams.codLoja = codLoja;
     }
 
     let cuponsQuery = `
-      SELECT COUNT(DISTINCT cf.NUM_CUPOM_FISCAL) as QTD_CUPONS
+      SELECT COUNT(DISTINCT cf.${colNumCupomCf}) as QTD_CUPONS
       FROM ${tabCupomFinalizadora} cf
-      WHERE cf.DTA_VENDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND cf.COD_TIPO = 1110
+      WHERE cf.${colDtaVendaCf} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND cf.${colCodTipoCf} = 1110
     `;
     const cuponsParams: any = { dataInicio, dataFim };
     if (codLoja) {
-      cuponsQuery += ` AND cf.COD_LOJA = :codLoja`;
+      cuponsQuery += ` AND cf.${colCodLojaCf} = :codLoja`;
       cuponsParams.codLoja = codLoja;
     }
 
     let comprasQuery = `
-      SELECT NVL(SUM(ni.QTD_ENTRADA * ni.VAL_TABELA), 0) as COMPRAS
+      SELECT NVL(SUM(ni.${colQtdEntradaNi} * ni.${colValTabelaNi}), 0) as COMPRAS
       FROM ${tabFornecedorNota} n
-      JOIN ${tabFornecedorProduto} ni ON ni.NUM_NF_FORN = n.NUM_NF_FORN
-        AND ni.COD_FORNECEDOR = n.COD_FORNECEDOR
-      WHERE TRUNC(n.DTA_ENTRADA) BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND NVL(n.FLG_CANCELADO, 'N') = 'N'
+      JOIN ${tabFornecedorProduto} ni ON ni.${colNumNfForn} = n.${colNumNfForn}
+        AND ni.${colCodFornecedorNf} = n.${colCodFornecedorNf}
+      WHERE TRUNC(n.${colDtaEntradaNf}) BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND NVL(n.${colFlgCanceladoNf}, 'N') = 'N'
     `;
     const comprasParams: any = { dataInicio, dataFim };
     if (codLoja) {
-      comprasQuery += ` AND n.COD_LOJA = :codLoja`;
+      comprasQuery += ` AND n.${colCodLojaNf} = :codLoja`;
       comprasParams.codLoja = codLoja;
     }
 

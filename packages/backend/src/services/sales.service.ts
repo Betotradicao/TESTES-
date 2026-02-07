@@ -75,18 +75,18 @@ export class SalesService {
     const tabCupomFinalizadora = await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA', 'TAB_CUPOM_FINALIZADORA');
     const tabOperadores = await MappingService.getRealTableName('TAB_OPERADORES', 'TAB_OPERADORES');
 
-    // Buscar colunas TAB_PRODUTO_PDV
+    // Buscar colunas TAB_PRODUTO_PDV (todas via MappingService)
     const colNumCupomFiscal = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_cupom', 'NUM_CUPOM_FISCAL');
-    const colNumSeqItem = 'NUM_SEQ_ITEM'; // Não mapeado na tela
-    const colCodProdutoPdv = 'COD_PRODUTO'; // FK para TAB_PRODUTO
+    const colNumSeqItem = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'sequencia_item', 'NUM_SEQ_ITEM');
+    const colCodProdutoPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto', 'COD_PRODUTO');
     const colValTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total', 'VAL_TOTAL_PRODUTO');
     const colQtdTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade', 'QTD_TOTAL_PRODUTO');
-    const colValCustoRep = 'VAL_CUSTO_REP'; // Não mapeado na tela
+    const colValCustoRep = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao', 'VAL_CUSTO_REP');
     const colDtaSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda', 'DTA_SAIDA');
-    const colTimHora = 'TIM_HORA'; // Não mapeado na tela
+    const colTimHora = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'hora_venda', 'TIM_HORA');
     const colNumPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_pdv', 'NUM_PDV');
-    const colCodLojaPdv = 'COD_LOJA'; // Não mapeado na tela
-    const colFlgOferta = 'FLG_OFERTA'; // Não mapeado na tela
+    const colCodLojaPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_loja', 'COD_LOJA');
+    const colFlgOferta = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'flag_oferta', 'FLG_OFERTA');
 
     // Buscar colunas TAB_PRODUTO
     const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');

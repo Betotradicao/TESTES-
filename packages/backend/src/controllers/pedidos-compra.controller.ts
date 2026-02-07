@@ -45,30 +45,47 @@ export class PedidosCompraController {
       const dataEntradaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada', 'DTA_ENTRADA');
       const codFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor', 'COD_FORNECEDOR');
       const valorTotalCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'valor_total', 'VAL_TOTAL_NF');
+      const nfFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado', 'FLG_CANCELADO');
 
       // Busca mapeamentos dinâmicos para campos de fornecedores
       const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
       const fornRazaoSocialCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR');
-      const fornFantasiaCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'nome_fantasia', 'DES_FANTASIA');
       const fornCnpjCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cnpj', 'NUM_CGC');
       const fornTelefoneCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'telefone', 'NUM_FONE');
 
+      // Busca mapeamentos dinâmicos para campos de pedidos
+      const pedNumPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'numero_pedido', 'NUM_PEDIDO');
+      const pedCodParceiroCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_fornecedor', 'COD_PARCEIRO');
+      const pedDtaEmissaoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_emissao', 'DTA_EMISSAO');
+      const pedDtaEntregaCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_entrega', 'DTA_ENTREGA');
+      const pedTipoRecebimentoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_recebimento', 'TIPO_RECEBIMENTO');
+      const pedTipoParceiroCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro', 'TIPO_PARCEIRO');
+      const pedValPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'valor_pedido', 'VAL_PEDIDO');
+      const pedFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'flag_cancelado', 'FLG_CANCELADO');
+      const pedCodLojaCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_loja', 'COD_LOJA');
+
+      // Busca mapeamentos dinâmicos para campos de pedido_produto
+      const ppNumPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'numero_pedido', 'NUM_PEDIDO');
+      const ppQtdPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_pedida', 'QTD_PEDIDO');
+      const ppQtdRecebidaCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_recebida', 'QTD_RECEBIDA');
+      const ppValTabelaCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'valor_tabela', 'VAL_TABELA');
+
       // Construir condições WHERE
-      const conditions: string[] = ['p.TIPO_PARCEIRO = 1']; // Apenas pedidos de compra (fornecedor)
+      const conditions: string[] = [`p.${pedTipoParceiroCol} = 1`]; // Apenas pedidos de compra (fornecedor)
       const params: any = {};
 
       if (tipoRecebimento !== undefined && tipoRecebimento !== '') {
-        conditions.push('p.TIPO_RECEBIMENTO = :tipoRecebimento');
+        conditions.push(`p.${pedTipoRecebimentoCol} = :tipoRecebimento`);
         params.tipoRecebimento = parseInt(tipoRecebimento as string, 10);
       }
 
       if (dataInicio) {
-        conditions.push('TRUNC(p.DTA_EMISSAO) >= TO_DATE(:dataInicio, \'YYYY-MM-DD\')');
+        conditions.push(`TRUNC(p.${pedDtaEmissaoCol}) >= TO_DATE(:dataInicio, 'YYYY-MM-DD')`);
         params.dataInicio = dataInicio;
       }
 
       if (dataFim) {
-        conditions.push('TRUNC(p.DTA_EMISSAO) <= TO_DATE(:dataFim, \'YYYY-MM-DD\')');
+        conditions.push(`TRUNC(p.${pedDtaEmissaoCol}) <= TO_DATE(:dataFim, 'YYYY-MM-DD')`);
         params.dataFim = dataFim;
       }
 
@@ -78,7 +95,7 @@ export class PedidosCompraController {
       }
 
       if (numPedido) {
-        conditions.push('p.NUM_PEDIDO = :numPedido');
+        conditions.push(`p.${pedNumPedidoCol} = :numPedido`);
         params.numPedido = parseInt(numPedido as string, 10);
       }
 
@@ -89,50 +106,50 @@ export class PedidosCompraController {
 
       if (apenasAtrasados === 'true') {
         // Pedidos atrasados: pendentes ou parciais com data de entrega no passado
-        conditions.push('p.TIPO_RECEBIMENTO < 2');
-        conditions.push('TRUNC(p.DTA_ENTREGA) < TRUNC(SYSDATE)');
+        conditions.push(`p.${pedTipoRecebimentoCol} < 2`);
+        conditions.push(`TRUNC(p.${pedDtaEntregaCol}) < TRUNC(SYSDATE)`);
       }
 
       if (parciaisFinalizadas === 'true') {
         // Pedidos cancelados que tiveram pelo menos um item recebido
-        conditions.push('p.TIPO_RECEBIMENTO = 3');
-        conditions.push(`EXISTS (SELECT 1 FROM ${tabPedidoProduto} pp2 WHERE pp2.NUM_PEDIDO = p.NUM_PEDIDO AND NVL(pp2.QTD_RECEBIDA, 0) > 0)`);
+        conditions.push(`p.${pedTipoRecebimentoCol} = 3`);
+        conditions.push(`EXISTS (SELECT 1 FROM ${tabPedidoProduto} pp2 WHERE pp2.${ppNumPedidoCol} = p.${pedNumPedidoCol} AND NVL(pp2.${ppQtdRecebidaCol}, 0) > 0)`);
       }
 
       if (canceladasTotais === 'true') {
         // Pedidos cancelados que tiveram itens não recebidos
-        conditions.push('p.TIPO_RECEBIMENTO = 3');
-        conditions.push(`EXISTS (SELECT 1 FROM ${tabPedidoProduto} pp2 WHERE pp2.NUM_PEDIDO = p.NUM_PEDIDO AND NVL(pp2.QTD_RECEBIDA, 0) < pp2.QTD_PEDIDO)`);
+        conditions.push(`p.${pedTipoRecebimentoCol} = 3`);
+        conditions.push(`EXISTS (SELECT 1 FROM ${tabPedidoProduto} pp2 WHERE pp2.${ppNumPedidoCol} = p.${pedNumPedidoCol} AND NVL(pp2.${ppQtdRecebidaCol}, 0) < pp2.${ppQtdPedidoCol})`);
       }
 
       if (semNenhumaEntrada === 'true') {
         // Pedidos cancelados TOTALMENTE - nenhum item foi recebido
-        conditions.push('p.TIPO_RECEBIMENTO = 3');
-        conditions.push(`NOT EXISTS (SELECT 1 FROM ${tabPedidoProduto} pp2 WHERE pp2.NUM_PEDIDO = p.NUM_PEDIDO AND NVL(pp2.QTD_RECEBIDA, 0) > 0)`);
+        conditions.push(`p.${pedTipoRecebimentoCol} = 3`);
+        conditions.push(`NOT EXISTS (SELECT 1 FROM ${tabPedidoProduto} pp2 WHERE pp2.${ppNumPedidoCol} = p.${pedNumPedidoCol} AND NVL(pp2.${ppQtdRecebidaCol}, 0) > 0)`);
       }
 
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
       // Definir ordenação baseada no filtro ativo
-      let orderByClause = 'ORDER BY p.NUM_PEDIDO DESC';
+      let orderByClause = `ORDER BY p.${pedNumPedidoCol} DESC`;
       if (apenasAtrasados === 'true') {
         // Atrasados: menos atrasados primeiro, mais atrasados no final
-        orderByClause = 'ORDER BY (TRUNC(SYSDATE) - TRUNC(p.DTA_ENTREGA)) ASC, p.NUM_PEDIDO DESC';
+        orderByClause = `ORDER BY (TRUNC(SYSDATE) - TRUNC(p.${pedDtaEntregaCol})) ASC, p.${pedNumPedidoCol} DESC`;
       } else if (semNenhumaEntrada === 'true') {
         // Cancelados INTEGRAL: mais recentes primeiro (pela data de cancelamento)
-        orderByClause = 'ORDER BY NVL(p.DTA_PEDIDO_CANCELADO, p.DTA_ALTERACAO) DESC, p.NUM_PEDIDO DESC';
+        orderByClause = `ORDER BY NVL(p.DTA_PEDIDO_CANCELADO, p.DTA_ALTERACAO) DESC, p.${pedNumPedidoCol} DESC`;
       } else if (tipoRecebimento === '0' || tipoRecebimento === '1') {
         // Pendentes e Parciais em Aberto: menos atrasados primeiro, mais atrasados no final
         // Pedidos sem atraso (DIAS_ATRASO <= 0) ficam no topo ordenados por NUM_PEDIDO DESC
         // Pedidos com atraso ficam depois, ordenados por dias de atraso ASC (menos atrasados primeiro)
-        orderByClause = 'ORDER BY CASE WHEN TRUNC(SYSDATE) - TRUNC(p.DTA_ENTREGA) > 0 THEN 1 ELSE 0 END ASC, CASE WHEN TRUNC(SYSDATE) - TRUNC(p.DTA_ENTREGA) > 0 THEN TRUNC(SYSDATE) - TRUNC(p.DTA_ENTREGA) ELSE 0 END ASC, p.NUM_PEDIDO DESC';
+        orderByClause = `ORDER BY CASE WHEN TRUNC(SYSDATE) - TRUNC(p.${pedDtaEntregaCol}) > 0 THEN 1 ELSE 0 END ASC, CASE WHEN TRUNC(SYSDATE) - TRUNC(p.${pedDtaEntregaCol}) > 0 THEN TRUNC(SYSDATE) - TRUNC(p.${pedDtaEntregaCol}) ELSE 0 END ASC, p.${pedNumPedidoCol} DESC`;
       }
 
       // Query para contar total
       const countQuery = `
         SELECT COUNT(*) as TOTAL
         FROM ${tabPedido} p
-        LEFT JOIN ${tabFornecedor} f ON f.${fornCodigoCol} = p.COD_PARCEIRO
+        LEFT JOIN ${tabFornecedor} f ON f.${fornCodigoCol} = p.${pedCodParceiroCol}
         ${whereClause}
       `;
 
@@ -140,14 +157,14 @@ export class PedidosCompraController {
       const dataQuery = `
         SELECT * FROM (
           SELECT
-            p.NUM_PEDIDO,
-            p.COD_LOJA,
-            p.COD_PARCEIRO,
-            p.DTA_EMISSAO,
-            p.DTA_ENTREGA,
-            p.VAL_PEDIDO,
-            p.TIPO_RECEBIMENTO,
-            p.FLG_CANCELADO,
+            p.${pedNumPedidoCol} as NUM_PEDIDO,
+            p.${pedCodLojaCol} as COD_LOJA,
+            p.${pedCodParceiroCol} as COD_PARCEIRO,
+            p.${pedDtaEmissaoCol} as DTA_EMISSAO,
+            p.${pedDtaEntregaCol} as DTA_ENTREGA,
+            p.${pedValPedidoCol} as VAL_PEDIDO,
+            p.${pedTipoRecebimentoCol} as TIPO_RECEBIMENTO,
+            p.${pedFlgCanceladoCol} as FLG_CANCELADO,
             p.FLG_FATURADO,
             p.DES_CANCELAMENTO,
             p.DTA_PEDIDO_CANCELADO,
@@ -166,33 +183,33 @@ export class PedidosCompraController {
             f.NUM_MED_CPGTO as COND_PAGAMENTO,
             pm.PRAZO_MEDIO_REAL,
             pm.QTD_NFS_PRAZO,
-            TRUNC(SYSDATE) - TRUNC(p.DTA_ENTREGA) as DIAS_ATRASO,
+            TRUNC(SYSDATE) - TRUNC(p.${pedDtaEntregaCol}) as DIAS_ATRASO,
             NVL(nfc.QTD_NF_A_CONFIRMAR, 0) as QTD_NF_A_CONFIRMAR,
             ROW_NUMBER() OVER (${orderByClause}) as RN
           FROM ${tabPedido} p
-          LEFT JOIN ${tabFornecedor} f ON f.${fornCodigoCol} = p.COD_PARCEIRO
+          LEFT JOIN ${tabFornecedor} f ON f.${fornCodigoCol} = p.${pedCodParceiroCol}
           LEFT JOIN (
             SELECT
               fn.${codFornecedorCol} as COD_FORNECEDOR,
-              ROUND(AVG(TRUNC(fn.${dataEntradaCol}) - TRUNC(ped.DTA_EMISSAO)), 1) as PRAZO_MEDIO_REAL,
+              ROUND(AVG(TRUNC(fn.${dataEntradaCol}) - TRUNC(ped.${pedDtaEmissaoCol})), 1) as PRAZO_MEDIO_REAL,
               COUNT(DISTINCT fn.${numeroNfCol}) as QTD_NFS_PRAZO
             FROM ${tabFornecedorNota} fn
-            JOIN ${tabPedido} ped ON ped.NUM_PEDIDO = fn.NUM_PEDIDO AND ped.TIPO_PARCEIRO = 1
+            JOIN ${tabPedido} ped ON ped.${pedNumPedidoCol} = fn.NUM_PEDIDO AND ped.${pedTipoParceiroCol} = 1
             WHERE fn.${dataEntradaCol} >= SYSDATE - 90
             AND fn.NUM_PEDIDO IS NOT NULL
             AND fn.NUM_PEDIDO > 0
-            AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
+            AND NVL(fn.${nfFlgCanceladoCol}, 'N') = 'N'
             GROUP BY fn.${codFornecedorCol}
-          ) pm ON pm.COD_FORNECEDOR = p.COD_PARCEIRO
+          ) pm ON pm.COD_FORNECEDOR = p.${pedCodParceiroCol}
           LEFT JOIN (
             SELECT
               nf.${codFornecedorCol} as COD_FORNECEDOR,
               COUNT(*) as QTD_NF_A_CONFIRMAR
             FROM ${tabFornecedorNota} nf
             WHERE nf.${dataEntradaCol} IS NULL
-            AND NVL(nf.FLG_CANCELADO, 'N') = 'N'
+            AND NVL(nf.${nfFlgCanceladoCol}, 'N') = 'N'
             GROUP BY nf.${codFornecedorCol}
-          ) nfc ON nfc.COD_FORNECEDOR = p.COD_PARCEIRO
+          ) nfc ON nfc.COD_FORNECEDOR = p.${pedCodParceiroCol}
           ${whereClause}
         ) WHERE RN > :offset AND RN <= :maxRow
       `;
@@ -201,11 +218,11 @@ export class PedidosCompraController {
       const statsDateConditions: string[] = [];
       const statsParams: any = {};
       if (dataInicio) {
-        statsDateConditions.push('TRUNC(DTA_EMISSAO) >= TO_DATE(:statsDataInicio, \'YYYY-MM-DD\')');
+        statsDateConditions.push(`TRUNC(${pedDtaEmissaoCol}) >= TO_DATE(:statsDataInicio, 'YYYY-MM-DD')`);
         statsParams.statsDataInicio = dataInicio;
       }
       if (dataFim) {
-        statsDateConditions.push('TRUNC(DTA_EMISSAO) <= TO_DATE(:statsDataFim, \'YYYY-MM-DD\')');
+        statsDateConditions.push(`TRUNC(${pedDtaEmissaoCol}) <= TO_DATE(:statsDataFim, 'YYYY-MM-DD')`);
         statsParams.statsDataFim = dataFim;
       }
       const statsDateFilter = statsDateConditions.length > 0 ? ' AND ' + statsDateConditions.join(' AND ') : '';
@@ -213,13 +230,13 @@ export class PedidosCompraController {
       // Query para estatísticas básicas (com filtro de data opcional)
       const statsQuery = `
         SELECT
-          SUM(CASE WHEN TIPO_RECEBIMENTO = 0 THEN 1 ELSE 0 END) as PENDENTES,
-          SUM(CASE WHEN TIPO_RECEBIMENTO = 1 THEN 1 ELSE 0 END) as PARCIAIS_ABERTO,
-          SUM(CASE WHEN TIPO_RECEBIMENTO = 2 THEN 1 ELSE 0 END) as RECEBIDOS_INTEGRAL,
-          SUM(CASE WHEN TIPO_RECEBIMENTO = 3 THEN 1 ELSE 0 END) as CANCELADOS,
-          SUM(CASE WHEN TIPO_RECEBIMENTO < 2 AND TRUNC(DTA_ENTREGA) < TRUNC(SYSDATE) THEN 1 ELSE 0 END) as ATRASADOS
+          SUM(CASE WHEN ${pedTipoRecebimentoCol} = 0 THEN 1 ELSE 0 END) as PENDENTES,
+          SUM(CASE WHEN ${pedTipoRecebimentoCol} = 1 THEN 1 ELSE 0 END) as PARCIAIS_ABERTO,
+          SUM(CASE WHEN ${pedTipoRecebimentoCol} = 2 THEN 1 ELSE 0 END) as RECEBIDOS_INTEGRAL,
+          SUM(CASE WHEN ${pedTipoRecebimentoCol} = 3 THEN 1 ELSE 0 END) as CANCELADOS,
+          SUM(CASE WHEN ${pedTipoRecebimentoCol} < 2 AND TRUNC(${pedDtaEntregaCol}) < TRUNC(SYSDATE) THEN 1 ELSE 0 END) as ATRASADOS
         FROM ${tabPedido}
-        WHERE TIPO_PARCEIRO = 1
+        WHERE ${pedTipoParceiroCol} = 1
         ${statsDateFilter}
       `;
 
@@ -227,23 +244,23 @@ export class PedidosCompraController {
       const joinDateConditions: string[] = [];
       const joinParams: any = {};
       if (dataInicio) {
-        joinDateConditions.push('TRUNC(p.DTA_EMISSAO) >= TO_DATE(:joinDataInicio, \'YYYY-MM-DD\')');
+        joinDateConditions.push(`TRUNC(p.${pedDtaEmissaoCol}) >= TO_DATE(:joinDataInicio, 'YYYY-MM-DD')`);
         joinParams.joinDataInicio = dataInicio;
       }
       if (dataFim) {
-        joinDateConditions.push('TRUNC(p.DTA_EMISSAO) <= TO_DATE(:joinDataFim, \'YYYY-MM-DD\')');
+        joinDateConditions.push(`TRUNC(p.${pedDtaEmissaoCol}) <= TO_DATE(:joinDataFim, 'YYYY-MM-DD')`);
         joinParams.joinDataFim = dataFim;
       }
       const joinDateFilter = joinDateConditions.length > 0 ? ' AND ' + joinDateConditions.join(' AND ') : '';
 
       // Query para contar pedidos cancelados que tiveram itens recebidos (parciais finalizadas)
       const parciaisFinalizadasQuery = `
-        SELECT COUNT(DISTINCT p.NUM_PEDIDO) as PARCIAIS_FINALIZADAS
+        SELECT COUNT(DISTINCT p.${pedNumPedidoCol}) as PARCIAIS_FINALIZADAS
         FROM ${tabPedido} p
-        INNER JOIN ${tabPedidoProduto} pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
-        WHERE p.TIPO_PARCEIRO = 1
-        AND p.TIPO_RECEBIMENTO = 3
-        AND NVL(pp.QTD_RECEBIDA, 0) > 0
+        INNER JOIN ${tabPedidoProduto} pp ON pp.${ppNumPedidoCol} = p.${pedNumPedidoCol}
+        WHERE p.${pedTipoParceiroCol} = 1
+        AND p.${pedTipoRecebimentoCol} = 3
+        AND NVL(pp.${ppQtdRecebidaCol}, 0) > 0
         ${joinDateFilter}
       `;
 
@@ -251,14 +268,14 @@ export class PedidosCompraController {
       // Conta notas distintas, não itens
       const canceladasTotaisQuery = `
         SELECT
-          COUNT(DISTINCT p.NUM_PEDIDO) as NOTAS_CANCELADAS,
-          SUM(pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0)) as QTD_CANCELADA,
-          SUM((pp.QTD_PEDIDO - NVL(pp.QTD_RECEBIDA, 0)) * pp.VAL_TABELA) as VALOR_CANCELADO
+          COUNT(DISTINCT p.${pedNumPedidoCol}) as NOTAS_CANCELADAS,
+          SUM(pp.${ppQtdPedidoCol} - NVL(pp.${ppQtdRecebidaCol}, 0)) as QTD_CANCELADA,
+          SUM((pp.${ppQtdPedidoCol} - NVL(pp.${ppQtdRecebidaCol}, 0)) * pp.${ppValTabelaCol}) as VALOR_CANCELADO
         FROM ${tabPedido} p
-        INNER JOIN ${tabPedidoProduto} pp ON pp.NUM_PEDIDO = p.NUM_PEDIDO
-        WHERE p.TIPO_PARCEIRO = 1
-        AND p.TIPO_RECEBIMENTO = 3
-        AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO
+        INNER JOIN ${tabPedidoProduto} pp ON pp.${ppNumPedidoCol} = p.${pedNumPedidoCol}
+        WHERE p.${pedTipoParceiroCol} = 1
+        AND p.${pedTipoRecebimentoCol} = 3
+        AND NVL(pp.${ppQtdRecebidaCol}, 0) < pp.${ppQtdPedidoCol}
         ${joinDateFilter}
       `;
 
@@ -266,14 +283,14 @@ export class PedidosCompraController {
       const canceladosTotalmenteQuery = `
         SELECT
           COUNT(*) as CANCELADOS_TOTALMENTE,
-          SUM(p.VAL_PEDIDO) as VALOR_TOTAL
+          SUM(p.${pedValPedidoCol}) as VALOR_TOTAL
         FROM ${tabPedido} p
-        WHERE p.TIPO_PARCEIRO = 1
-        AND p.TIPO_RECEBIMENTO = 3
+        WHERE p.${pedTipoParceiroCol} = 1
+        AND p.${pedTipoRecebimentoCol} = 3
         AND NOT EXISTS (
           SELECT 1 FROM ${tabPedidoProduto} pp
-          WHERE pp.NUM_PEDIDO = p.NUM_PEDIDO
-          AND NVL(pp.QTD_RECEBIDA, 0) > 0
+          WHERE pp.${ppNumPedidoCol} = p.${pedNumPedidoCol}
+          AND NVL(pp.${ppQtdRecebidaCol}, 0) > 0
         )
         ${statsDateFilter}
       `;
@@ -301,7 +318,7 @@ export class PedidosCompraController {
         FROM ${tabFornecedorNota} fn
         WHERE ${nfDateFilter}
         AND (fn.NUM_PEDIDO IS NULL OR fn.NUM_PEDIDO = 0)
-        AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
+        AND NVL(fn.${nfFlgCanceladoCol}, 'N') = 'N'
         AND fn.${valorTotalCol} > 0
       `;
 
@@ -376,16 +393,26 @@ export class PedidosCompraController {
       const fornRazaoSocialCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR');
       const fornCnpjCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cnpj', 'NUM_CGC');
 
+      // Busca mapeamentos dinâmicos para campos de pedidos
+      const pedNumPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'numero_pedido', 'NUM_PEDIDO');
+      const pedCodParceiroCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_fornecedor', 'COD_PARCEIRO');
+      const pedDtaEmissaoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_emissao', 'DTA_EMISSAO');
+      const pedDtaEntregaCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_entrega', 'DTA_ENTREGA');
+      const pedTipoRecebimentoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_recebimento', 'TIPO_RECEBIMENTO');
+      const pedValPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'valor_pedido', 'VAL_PEDIDO');
+      const pedFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'flag_cancelado', 'FLG_CANCELADO');
+      const pedCodLojaCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_loja', 'COD_LOJA');
+
       const query = `
         SELECT
-          p.NUM_PEDIDO,
-          p.COD_LOJA,
-          p.COD_PARCEIRO,
-          p.DTA_EMISSAO,
-          p.DTA_ENTREGA,
-          p.VAL_PEDIDO,
-          p.TIPO_RECEBIMENTO,
-          p.FLG_CANCELADO,
+          p.${pedNumPedidoCol} as NUM_PEDIDO,
+          p.${pedCodLojaCol} as COD_LOJA,
+          p.${pedCodParceiroCol} as COD_PARCEIRO,
+          p.${pedDtaEmissaoCol} as DTA_EMISSAO,
+          p.${pedDtaEntregaCol} as DTA_ENTREGA,
+          p.${pedValPedidoCol} as VAL_PEDIDO,
+          p.${pedTipoRecebimentoCol} as TIPO_RECEBIMENTO,
+          p.${pedFlgCanceladoCol} as FLG_CANCELADO,
           p.FLG_FATURADO,
           p.DES_CANCELAMENTO,
           p.DTA_PEDIDO_CANCELADO,
@@ -402,8 +429,8 @@ export class PedidosCompraController {
           f.DES_CIDADE,
           f.DES_UF
         FROM ${tabPedido} p
-        LEFT JOIN ${tabFornecedor} f ON f.${fornCodigoCol} = p.COD_PARCEIRO
-        WHERE p.NUM_PEDIDO = :numPedido
+        LEFT JOIN ${tabFornecedor} f ON f.${fornCodigoCol} = p.${pedCodParceiroCol}
+        WHERE p.${pedNumPedidoCol} = :numPedido
       `;
 
       const result = await OracleService.query(query, { numPedido: parseInt(numPedido, 10) });
@@ -428,10 +455,13 @@ export class PedidosCompraController {
       const schema = await MappingService.getSchema();
       const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO', 'TAB_PEDIDO')}`;
 
+      // Busca mapeamentos dinâmicos para campos de pedidos
+      const pedTipoParceiroCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro', 'TIPO_PARCEIRO');
+
       const query = `
         SELECT DISTINCT USUARIO
         FROM ${tabPedido}
-        WHERE TIPO_PARCEIRO = 1
+        WHERE ${pedTipoParceiroCol} = 1
         AND USUARIO IS NOT NULL
         ORDER BY USUARIO
       `;
@@ -479,6 +509,8 @@ export class PedidosCompraController {
       const codFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor', 'COD_FORNECEDOR');
       const valorTotalCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'valor_total', 'VAL_TOTAL_NF');
       const chaveAcessoCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'chave_acesso', 'NUM_CHAVE_ACESSO');
+      const nfFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado', 'FLG_CANCELADO');
+      const nfCodLojaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_loja', 'COD_LOJA');
 
       // Busca mapeamentos dinâmicos para campos de fornecedores
       const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
@@ -492,7 +524,7 @@ export class PedidosCompraController {
       // Construir condições WHERE
       const conditions: string[] = [
         '(fn.NUM_PEDIDO IS NULL OR fn.NUM_PEDIDO = 0)',
-        'NVL(fn.FLG_CANCELADO, \'N\') = \'N\'',
+        `NVL(fn.${nfFlgCanceladoCol}, 'N') = 'N'`,
         `fn.${valorTotalCol} > 0`
       ];
       const params: any = {};
@@ -560,7 +592,7 @@ export class PedidosCompraController {
           SELECT
             fn.${numeroNfCol} as NUM_NF,
             fn.${serieCol} as NUM_SERIE_NF,
-            fn.COD_LOJA,
+            fn.${nfCodLojaCol} as COD_LOJA,
             fn.${codFornecedorCol} as COD_FORNECEDOR,
             fn.DTA_EMISSAO,
             fn.${dataEntradaCol} as DTA_ENTRADA,
@@ -618,6 +650,20 @@ export class PedidosCompraController {
       const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
       const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
 
+      // Busca mapeamentos dinâmicos para campos de produtos
+      const prCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+      const prDesProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
+      const prDesReduzidaCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_reduzida', 'DES_REDUZIDA');
+
+      // Busca mapeamentos dinâmicos para campos de produto_loja
+      const plCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
+      const plCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
+      const plCurvaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA');
+
+      // Busca mapeamentos dinâmicos para campos de nota fiscal
+      const nfNumeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf', 'NUM_NF_FORN');
+      const nfCodFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor', 'COD_FORNECEDOR');
+
       const query = `
         SELECT
           fp.NUM_ITEM,
@@ -627,14 +673,14 @@ export class PedidosCompraController {
           fp.VAL_VENDA_VAREJO as VAL_VENDA,
           (fp.QTD_ENTRADA * fp.VAL_TABELA) as VAL_TOTAL,
           fp.DES_UNIDADE,
-          pr.DES_PRODUTO,
-          pr.DES_REDUZIDA,
-          NVL(TRIM(pl.DES_RANK_PRODLOJA), 'X') as CURVA
+          pr.${prDesProdutoCol} as DES_PRODUTO,
+          pr.${prDesReduzidaCol} as DES_REDUZIDA,
+          NVL(TRIM(pl.${plCurvaCol}), 'X') as CURVA
         FROM ${tabFornecedorProduto} fp
-        LEFT JOIN ${tabProduto} pr ON pr.COD_PRODUTO = fp.COD_PRODUTO
-        LEFT JOIN ${tabProdutoLoja} pl ON pl.COD_PRODUTO = fp.COD_PRODUTO AND pl.COD_LOJA = :codLoja
-        WHERE fp.NUM_NF_FORN = :numNf
-        AND fp.COD_FORNECEDOR = :codFornecedor
+        LEFT JOIN ${tabProduto} pr ON pr.${prCodProdutoCol} = fp.COD_PRODUTO
+        LEFT JOIN ${tabProdutoLoja} pl ON pl.${plCodProdutoCol} = fp.COD_PRODUTO AND pl.${plCodLojaCol} = :codLoja
+        WHERE fp.${nfNumeroNfCol} = :numNf
+        AND fp.${nfCodFornecedorCol} = :codFornecedor
         ORDER BY fp.NUM_ITEM
       `;
 
@@ -670,40 +716,61 @@ export class PedidosCompraController {
       const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
       const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
 
+      // Busca mapeamentos dinâmicos para campos de pedidos
+      const pedNumPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'numero_pedido', 'NUM_PEDIDO');
+      const pedCodLojaCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_loja', 'COD_LOJA');
+
+      // Busca mapeamentos dinâmicos para campos de pedido_produto
+      const ppNumPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'numero_pedido', 'NUM_PEDIDO');
+      const ppCodProdutoCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+      const ppQtdPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_pedida', 'QTD_PEDIDO');
+      const ppQtdRecebidaCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_recebida', 'QTD_RECEBIDA');
+      const ppValTabelaCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'valor_tabela', 'VAL_TABELA');
+
+      // Busca mapeamentos dinâmicos para campos de produtos
+      const prCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+      const prDesProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
+      const prDesReduzidaCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_reduzida', 'DES_REDUZIDA');
+
+      // Busca mapeamentos dinâmicos para campos de produto_loja
+      const plCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
+      const plCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
+      const plCurvaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA');
+
       let filtroCondition = '';
       if (filtroItens === 'apenasRecebidos') {
         // Parciais Finalizadas: mostrar apenas itens OK (recebeu tudo que foi pedido)
-        filtroCondition = 'AND NVL(pp.QTD_RECEBIDA, 0) >= pp.QTD_PEDIDO';
+        filtroCondition = `AND NVL(pp.${ppQtdRecebidaCol}, 0) >= pp.${ppQtdPedidoCol}`;
       } else if (filtroItens === 'apenasRuptura') {
         // Canceladas Totais: mostrar apenas itens cancelados (não recebeu ou recebeu menos)
-        filtroCondition = 'AND NVL(pp.QTD_RECEBIDA, 0) < pp.QTD_PEDIDO';
+        filtroCondition = `AND NVL(pp.${ppQtdRecebidaCol}, 0) < pp.${ppQtdPedidoCol}`;
       }
       // Nota: filtroItens === 'semNenhumaEntrada' retorna todos os itens (sem filtro adicional)
 
       // Buscar COD_LOJA do pedido para obter a CURVA correta
-      const pedidoQuery = `SELECT COD_LOJA FROM ${tabPedido} WHERE NUM_PEDIDO = :numPedido`;
+      const pedidoQuery = `SELECT ${pedCodLojaCol} as COD_LOJA FROM ${tabPedido} WHERE ${pedNumPedidoCol} = :numPedido`;
       const pedidoResult = await OracleService.query<{ COD_LOJA: number }>(pedidoQuery, { numPedido: parseInt(numPedido, 10) });
       const codLoja = pedidoResult[0]?.COD_LOJA || 1;
 
       const query = `
         SELECT
           pp.NUM_ITEM,
-          pp.COD_PRODUTO,
-          pp.QTD_PEDIDO,
-          pp.QTD_RECEBIDA,
+          pp.${ppCodProdutoCol} as COD_PRODUTO,
+          pp.${ppQtdPedidoCol} as QTD_PEDIDO,
+          pp.${ppQtdRecebidaCol} as QTD_RECEBIDA,
           pp.DES_UNIDADE,
-          pp.VAL_TABELA,
+          pp.${ppValTabelaCol} as VAL_TABELA,
           pp.VAL_CUSTO_REP,
           pp.VAL_DESCONTO_ITEM,
           pp.BONIFICACAO,
           pp.DTA_VALIDADE,
-          pr.DES_PRODUTO,
-          pr.DES_REDUZIDA,
-          NVL(TRIM(pl.DES_RANK_PRODLOJA), 'X') as CURVA
+          pr.${prDesProdutoCol} as DES_PRODUTO,
+          pr.${prDesReduzidaCol} as DES_REDUZIDA,
+          NVL(TRIM(pl.${plCurvaCol}), 'X') as CURVA
         FROM ${tabPedidoProduto} pp
-        LEFT JOIN ${tabProduto} pr ON pr.COD_PRODUTO = pp.COD_PRODUTO
-        LEFT JOIN ${tabProdutoLoja} pl ON pl.COD_PRODUTO = pp.COD_PRODUTO AND pl.COD_LOJA = :codLoja
-        WHERE pp.NUM_PEDIDO = :numPedido
+        LEFT JOIN ${tabProduto} pr ON pr.${prCodProdutoCol} = pp.${ppCodProdutoCol}
+        LEFT JOIN ${tabProdutoLoja} pl ON pl.${plCodProdutoCol} = pp.${ppCodProdutoCol} AND pl.${plCodLojaCol} = :codLoja
+        WHERE pp.${ppNumPedidoCol} = :numPedido
         ${filtroCondition}
         ORDER BY pp.NUM_ITEM
       `;
@@ -733,6 +800,7 @@ export class PedidosCompraController {
       const dataEntradaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada', 'DTA_ENTRADA');
       const codFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor', 'COD_FORNECEDOR');
       const valorTotalCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'valor_total', 'VAL_TOTAL_NF');
+      const nfFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado', 'FLG_CANCELADO');
 
       // Busca mapeamentos dinâmicos para campos de fornecedores
       const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
@@ -748,7 +816,7 @@ export class PedidosCompraController {
         LEFT JOIN ${tabFornecedorNota} fn ON fn.${codFornecedorCol} = f.${fornCodigoCol}
           AND fn.${dataEntradaCol} >= SYSDATE - 30
           AND (fn.NUM_PEDIDO IS NULL OR fn.NUM_PEDIDO = 0)
-          AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
+          AND NVL(fn.${nfFlgCanceladoCol}, 'N') = 'N'
           AND fn.${valorTotalCol} > 0
         WHERE EXISTS (
           SELECT 1 FROM ${tabFornecedor} f2
@@ -765,7 +833,7 @@ export class PedidosCompraController {
         LEFT JOIN ${tabFornecedor} f ON f.${fornCodigoCol} = fn.${codFornecedorCol}
         WHERE fn.${dataEntradaCol} >= SYSDATE - 30
         AND (fn.NUM_PEDIDO IS NULL OR fn.NUM_PEDIDO = 0)
-        AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
+        AND NVL(fn.${nfFlgCanceladoCol}, 'N') = 'N'
         AND fn.${valorTotalCol} > 0
         AND f.COD_CLASSIF IS NULL
       `;
@@ -805,6 +873,7 @@ export class PedidosCompraController {
       const dataEntradaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada', 'DTA_ENTRADA');
       const codFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor', 'COD_FORNECEDOR');
       const valorTotalCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'valor_total', 'VAL_TOTAL_NF');
+      const nfFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado', 'FLG_CANCELADO');
 
       // Busca mapeamentos dinâmicos para campos de fornecedores
       const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
@@ -819,7 +888,7 @@ export class PedidosCompraController {
         LEFT JOIN ${tabFornecedor} f ON f.${fornCodigoCol} = fn.${codFornecedorCol}
         WHERE fn.${dataEntradaCol} >= SYSDATE - 30
         AND (fn.NUM_PEDIDO IS NULL OR fn.NUM_PEDIDO = 0)
-        AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
+        AND NVL(fn.${nfFlgCanceladoCol}, 'N') = 'N'
         AND fn.${valorTotalCol} > 0
         GROUP BY NVL(TRIM(f.DES_CONTATO), 'SEM CONTATO')
         HAVING COUNT(fn.${numeroNfCol}) > 0
@@ -855,6 +924,19 @@ export class PedidosCompraController {
       const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')}`;
       const tabComprador = `${schema}.${await MappingService.getRealTableName('TAB_COMPRADOR', 'TAB_COMPRADOR')}`;
 
+      // Busca mapeamentos dinâmicos para campos de notas fiscais
+      const nfNumeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf', 'NUM_NF_FORN');
+      const nfSerieCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'serie', 'NUM_SERIE_NF');
+      const nfDataEntradaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada', 'DTA_ENTRADA');
+      const nfCodFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor', 'COD_FORNECEDOR');
+      const nfValorTotalCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'valor_total', 'VAL_TOTAL_NF');
+      const nfCodLojaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_loja', 'COD_LOJA');
+
+      // Busca mapeamentos dinâmicos para campos de fornecedores
+      const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
+      const fornRazaoSocialCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR');
+      const fornCnpjCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cnpj', 'NUM_CGC');
+
       // Condição base: NF com bloqueio pendente = tem flag de bloqueio ativo E não tem autorizador/liberador
       // Uma NF só aparece se tiver pelo menos um bloqueio PENDENTE de liberação
       const bloqueiosPendentes = `(
@@ -867,17 +949,17 @@ export class PedidosCompraController {
       const params: any = {};
 
       if (dataInicio) {
-        conditions.push("TRUNC(n.DTA_ENTRADA) >= TO_DATE(:dataInicio, 'YYYY-MM-DD')");
+        conditions.push(`TRUNC(n.${nfDataEntradaCol}) >= TO_DATE(:dataInicio, 'YYYY-MM-DD')`);
         params.dataInicio = dataInicio;
       }
 
       if (dataFim) {
-        conditions.push("TRUNC(n.DTA_ENTRADA) <= TO_DATE(:dataFim, 'YYYY-MM-DD')");
+        conditions.push(`TRUNC(n.${nfDataEntradaCol}) <= TO_DATE(:dataFim, 'YYYY-MM-DD')`);
         params.dataFim = dataFim;
       }
 
       if (fornecedor) {
-        conditions.push('UPPER(f.DES_FORNECEDOR) LIKE UPPER(:fornecedor)');
+        conditions.push(`UPPER(f.${fornRazaoSocialCol}) LIKE UPPER(:fornecedor)`);
         params.fornecedor = `%${fornecedor}%`;
       }
 
@@ -898,7 +980,7 @@ export class PedidosCompraController {
           COUNT(CASE WHEN n.FLG_BLOQUEADO_2F = 'S' AND n.USU_AUTORIZ_2F IS NULL THEN 1 END) as TOTAL_BLOQ_2F,
           COUNT(CASE WHEN n.FLG_BLOQUEADO_CUSTO = 'S' AND n.USU_LIBER_CUSTO IS NULL THEN 1 END) as TOTAL_BLOQ_CUSTO,
           COUNT(*) as TOTAL_COM_BLOQUEIO,
-          NVL(SUM(n.VAL_TOTAL_NF), 0) as VALOR_TOTAL_BLOQUEADO
+          NVL(SUM(n.${nfValorTotalCol}), 0) as VALOR_TOTAL_BLOQUEADO
         FROM ${tabFornecedorNota} n
         WHERE (
           (n.FLG_BLOQUEADO_1F = 'S' AND n.USU_AUTORIZ_1F IS NULL) OR
@@ -911,15 +993,15 @@ export class PedidosCompraController {
       const dataQuery = `
         SELECT * FROM (
           SELECT
-            n.COD_LOJA as LOJA,
-            n.COD_FORNECEDOR,
-            f.NUM_CGC as CNPJ,
-            f.DES_FORNECEDOR,
-            n.NUM_NF_FORN as NUMERO_NF,
+            n.${nfCodLojaCol} as LOJA,
+            n.${nfCodFornecedorCol} as COD_FORNECEDOR,
+            f.${fornCnpjCol} as CNPJ,
+            f.${fornRazaoSocialCol} as DES_FORNECEDOR,
+            n.${nfNumeroNfCol} as NUMERO_NF,
             n.NUM_ROMANEIO as ROMANEIO,
-            n.NUM_SERIE_NF as SERIE,
-            n.VAL_TOTAL_NF,
-            TO_CHAR(n.DTA_ENTRADA, 'DD/MM/YYYY') as DTA_ENTRADA,
+            n.${nfSerieCol} as SERIE,
+            n.${nfValorTotalCol} as VAL_TOTAL_NF,
+            TO_CHAR(n.${nfDataEntradaCol}, 'DD/MM/YYYY') as DTA_ENTRADA,
             n.USUARIO as USUARIO_ENTRADA,
             n.FLG_BLOQUEADO_1F as BLOQ_1F,
             n.USU_AUTORIZ_1F as AUTORIZADOR_1F,
@@ -931,10 +1013,10 @@ export class PedidosCompraController {
             n.OBS_LIBERACAO_PEDIDO as OBS_LIBERACAO,
             n.NUM_PEDIDO
           FROM ${tabFornecedorNota} n
-          JOIN ${tabFornecedor} f ON n.COD_FORNECEDOR = f.COD_FORNECEDOR
+          JOIN ${tabFornecedor} f ON n.${nfCodFornecedorCol} = f.${fornCodigoCol}
           LEFT JOIN ${tabComprador} c ON n.COD_COMPRADOR = c.COD_COMPRADOR
           ${whereClause}
-          ORDER BY n.DTA_ENTRADA DESC
+          ORDER BY n.${nfDataEntradaCol} DESC
         ) WHERE ROWNUM <= 100
       `;
 
@@ -1013,6 +1095,19 @@ export class PedidosCompraController {
       const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
       const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
 
+      // Busca mapeamentos dinâmicos para campos de produtos
+      const prCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+      const prDesProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
+
+      // Busca mapeamentos dinâmicos para campos de produto_loja
+      const plCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
+      const plCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
+      const plCurvaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA');
+
+      // Busca mapeamentos dinâmicos para campos de nota fiscal
+      const nfNumeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf', 'NUM_NF_FORN');
+      const nfCodFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor', 'COD_FORNECEDOR');
+
       // Usa TAB_FORNECEDOR_PRODUTO que contém os itens das NFs de entrada
       const query = `
         SELECT * FROM (
@@ -1020,18 +1115,18 @@ export class PedidosCompraController {
             fp.NUM_ITEM as ITEM,
             fp.COD_PRODUTO,
             fp.COD_PRODUTO as REFERENCIA,
-            pr.DES_PRODUTO as DESCRICAO,
+            pr.${prDesProdutoCol} as DESCRICAO,
             fp.DES_UNIDADE as UNIDADE,
             fp.QTD_ENTRADA,
             fp.VAL_TABELA as VAL_CUSTO,
             fp.VAL_VENDA_VAREJO as VAL_VENDA,
             (fp.QTD_ENTRADA * fp.VAL_TABELA) as VAL_TOTAL,
-            NVL(TRIM(pl.DES_RANK_PRODLOJA), 'X') as CURVA
+            NVL(TRIM(pl.${plCurvaCol}), 'X') as CURVA
           FROM ${tabFornecedorProduto} fp
-          LEFT JOIN ${tabProduto} pr ON pr.COD_PRODUTO = fp.COD_PRODUTO
-          LEFT JOIN ${tabProdutoLoja} pl ON pl.COD_PRODUTO = fp.COD_PRODUTO AND pl.COD_LOJA = :codLoja
-          WHERE fp.NUM_NF_FORN = :numNf
-            AND fp.COD_FORNECEDOR = :codFornecedor
+          LEFT JOIN ${tabProduto} pr ON pr.${prCodProdutoCol} = fp.COD_PRODUTO
+          LEFT JOIN ${tabProdutoLoja} pl ON pl.${plCodProdutoCol} = fp.COD_PRODUTO AND pl.${plCodLojaCol} = :codLoja
+          WHERE fp.${nfNumeroNfCol} = :numNf
+            AND fp.${nfCodFornecedorCol} = :codFornecedor
           ORDER BY fp.NUM_ITEM
         ) WHERE ROWNUM <= 500
       `;

@@ -28,20 +28,31 @@ export class RuptureSurveyService {
       const tabPedidoProduto = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO', 'TAB_PEDIDO_PRODUTO')}`;
       const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO', 'TAB_PEDIDO')}`;
 
+      // Resolver colunas via MappingService
+      const colNumPedido = await MappingService.getColumnFromTable('TAB_PEDIDO', 'numero_pedido', 'NUM_PEDIDO');
+      const colDtaEntrega = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_entrega', 'DTA_ENTREGA');
+      const colTipoReceb = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_recebimento', 'TIPO_RECEBIMENTO');
+      const colTipoFinaliz = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_finalizado', 'TIPO_PED_FINALIZADO');
+      const colFlgCancel = await MappingService.getColumnFromTable('TAB_PEDIDO', 'flag_cancelado', 'FLG_CANCELADO');
+      const colTipoParceiro = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro', 'TIPO_PARCEIRO');
+      const colDtaEmissao = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_emissao', 'DTA_EMISSAO');
+      const colCodProdutoPp = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+      const colNumPedidoPp = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'numero_pedido', 'NUM_PEDIDO');
+
       const result = await OracleService.query<any>(`
         SELECT
-          p.NUM_PEDIDO,
-          p.DTA_ENTREGA,
-          p.TIPO_RECEBIMENTO,
-          p.TIPO_PED_FINALIZADO,
-          p.FLG_CANCELADO
+          p.${colNumPedido},
+          p.${colDtaEntrega},
+          p.${colTipoReceb},
+          p.${colTipoFinaliz},
+          p.${colFlgCancel}
         FROM ${tabPedidoProduto} pp
-        JOIN ${tabPedido} p ON p.NUM_PEDIDO = pp.NUM_PEDIDO
-        WHERE pp.COD_PRODUTO = :codigoProduto
-        AND p.TIPO_PARCEIRO = 1
-        AND (p.FLG_CANCELADO IS NULL OR p.FLG_CANCELADO = 'N')
-        AND p.TIPO_PED_FINALIZADO != 2
-        ORDER BY p.DTA_EMISSAO DESC
+        JOIN ${tabPedido} p ON p.${colNumPedido} = pp.${colNumPedidoPp}
+        WHERE pp.${colCodProdutoPp} = :codigoProduto
+        AND p.${colTipoParceiro} = 1
+        AND (p.${colFlgCancel} IS NULL OR p.${colFlgCancel} = 'N')
+        AND p.${colTipoFinaliz} != 2
+        ORDER BY p.${colDtaEmissao} DESC
       `, { codigoProduto });
 
       if (result.length === 0) {
@@ -111,21 +122,32 @@ export class RuptureSurveyService {
       const tabPedidoProduto = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO', 'TAB_PEDIDO_PRODUTO')}`;
       const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO', 'TAB_PEDIDO')}`;
 
+      // Resolver colunas via MappingService
+      const colCodProdutoPp = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+      const colNumPedidoPp = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'numero_pedido', 'NUM_PEDIDO');
+      const colNumPedido = await MappingService.getColumnFromTable('TAB_PEDIDO', 'numero_pedido', 'NUM_PEDIDO');
+      const colDtaEntrega = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_entrega', 'DTA_ENTREGA');
+      const colTipoReceb = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_recebimento', 'TIPO_RECEBIMENTO');
+      const colTipoFinaliz = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_finalizado', 'TIPO_PED_FINALIZADO');
+      const colFlgCancel = await MappingService.getColumnFromTable('TAB_PEDIDO', 'flag_cancelado', 'FLG_CANCELADO');
+      const colTipoParceiro = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro', 'TIPO_PARCEIRO');
+      const colDtaEmissao = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_emissao', 'DTA_EMISSAO');
+
       const result = await OracleService.query<any>(`
         SELECT
-          pp.COD_PRODUTO,
-          p.NUM_PEDIDO,
-          p.DTA_ENTREGA,
-          p.TIPO_RECEBIMENTO,
-          p.TIPO_PED_FINALIZADO
+          pp.${colCodProdutoPp},
+          p.${colNumPedido},
+          p.${colDtaEntrega},
+          p.${colTipoReceb},
+          p.${colTipoFinaliz}
         FROM ${tabPedidoProduto} pp
-        JOIN ${tabPedido} p ON p.NUM_PEDIDO = pp.NUM_PEDIDO
-        WHERE pp.COD_PRODUTO IN (${placeholders})
-        AND p.TIPO_PARCEIRO = 1
-        AND (p.FLG_CANCELADO IS NULL OR p.FLG_CANCELADO = 'N')
-        AND p.TIPO_PED_FINALIZADO = -1
-        AND p.TIPO_RECEBIMENTO < 2
-        ORDER BY pp.COD_PRODUTO, p.DTA_EMISSAO DESC
+        JOIN ${tabPedido} p ON p.${colNumPedido} = pp.${colNumPedidoPp}
+        WHERE pp.${colCodProdutoPp} IN (${placeholders})
+        AND p.${colTipoParceiro} = 1
+        AND (p.${colFlgCancel} IS NULL OR p.${colFlgCancel} = 'N')
+        AND p.${colTipoFinaliz} = -1
+        AND p.${colTipoReceb} < 2
+        ORDER BY pp.${colCodProdutoPp}, p.${colDtaEmissao} DESC
       `, params);
 
       // Agrupa por produto (pega o mais recente de cada)

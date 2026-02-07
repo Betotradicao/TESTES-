@@ -93,11 +93,16 @@ export class CompraVendaService {
     const schema = await MappingService.getSchema();
     const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
 
+    // Resolver colunas dinamicamente
+    const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
+    const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
+    const colValMeta = await MappingService.getColumnFromTable('TAB_SECAO', 'meta', 'VAL_META');
+
     const sql = `
-      SELECT COD_SECAO, DES_SECAO, VAL_META
+      SELECT ${colCodSecao} as COD_SECAO, ${colDesSecao} as DES_SECAO, ${colValMeta} as VAL_META
       FROM ${tabSecao}
       WHERE FLG_INATIVO IS NULL OR FLG_INATIVO = 'N'
-      ORDER BY DES_SECAO
+      ORDER BY ${colDesSecao}
     `;
 
     return OracleService.query<SecaoData>(sql);
@@ -110,8 +115,13 @@ export class CompraVendaService {
     const schema = await MappingService.getSchema();
     const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO')}`;
 
+    // Resolver colunas dinamicamente
+    const colCodGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo', 'COD_GRUPO');
+    const colDesGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo', 'DES_GRUPO');
+    const colCodSecaoGrupo = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
+
     let sql = `
-      SELECT DISTINCT COD_GRUPO, DES_GRUPO
+      SELECT DISTINCT ${colCodGrupo} as COD_GRUPO, ${colDesGrupo} as DES_GRUPO
       FROM ${tabGrupo}
       WHERE 1=1
     `;
@@ -119,11 +129,11 @@ export class CompraVendaService {
     const params: any = {};
 
     if (codSecao) {
-      sql += ` AND COD_SECAO = :codSecao`;
+      sql += ` AND ${colCodSecaoGrupo} = :codSecao`;
       params.codSecao = codSecao;
     }
 
-    sql += ` ORDER BY DES_GRUPO`;
+    sql += ` ORDER BY ${colDesGrupo}`;
 
     return OracleService.query(sql, params);
   }
@@ -136,9 +146,15 @@ export class CompraVendaService {
     const schema = await MappingService.getSchema();
     const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO')}`;
 
+    // Resolver colunas dinamicamente
+    const colCodSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo', 'COD_SUB_GRUPO');
+    const colDesSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo', 'DES_SUB_GRUPO');
+    const colCodSecaoSG = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
+    const colCodGrupoSG = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo', 'COD_GRUPO');
+
     // Filtra diretamente na TAB_SUBGRUPO por COD_SECAO e COD_GRUPO
     let sql = `
-      SELECT DISTINCT COD_SUB_GRUPO, DES_SUB_GRUPO
+      SELECT DISTINCT ${colCodSubGrupo} as COD_SUB_GRUPO, ${colDesSubGrupo} as DES_SUB_GRUPO
       FROM ${tabSubgrupo}
       WHERE 1=1
     `;
@@ -147,16 +163,16 @@ export class CompraVendaService {
 
     // Filtrar por seção E grupo (chave composta)
     if (codSecao) {
-      sql += ` AND COD_SECAO = :codSecao`;
+      sql += ` AND ${colCodSecaoSG} = :codSecao`;
       params.codSecao = codSecao;
     }
 
     if (codGrupo) {
-      sql += ` AND COD_GRUPO = :codGrupo`;
+      sql += ` AND ${colCodGrupoSG} = :codGrupo`;
       params.codGrupo = codGrupo;
     }
 
-    sql += ` ORDER BY DES_SUB_GRUPO`;
+    sql += ` ORDER BY ${colDesSubGrupo}`;
 
     console.log('📦 getSubGrupos - codSecao:', codSecao, 'codGrupo:', codGrupo);
     console.log('📦 getSubGrupos SQL:', sql);
@@ -175,10 +191,14 @@ export class CompraVendaService {
     const schema = await MappingService.getSchema();
     const tabComprador = `${schema}.${await MappingService.getRealTableName('TAB_COMPRADOR', 'TAB_COMPRADOR')}`;
 
+    // Resolver colunas dinamicamente
+    const colCodComprador = await MappingService.getColumnFromTable('TAB_COMPRADOR', 'codigo_comprador', 'COD_COMPRADOR');
+    const colDesComprador = await MappingService.getColumnFromTable('TAB_COMPRADOR', 'descricao_comprador', 'DES_COMPRADOR');
+
     const sql = `
-      SELECT COD_COMPRADOR, DES_COMPRADOR
+      SELECT ${colCodComprador} as COD_COMPRADOR, ${colDesComprador} as DES_COMPRADOR
       FROM ${tabComprador}
-      ORDER BY DES_COMPRADOR
+      ORDER BY ${colDesComprador}
     `;
 
     return OracleService.query(sql);
@@ -191,12 +211,17 @@ export class CompraVendaService {
     const schema = await MappingService.getSchema();
     const tabLoja = `${schema}.${await MappingService.getRealTableName('TAB_LOJA', 'TAB_LOJA')}`;
 
+    // Resolver colunas dinamicamente
+    const colCodLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'codigo_loja', 'COD_LOJA');
+    const colDesLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'descricao_loja', 'DES_LOJA');
+    const colFlgDesativada = await MappingService.getColumnFromTable('TAB_LOJA', 'flag_desativada', 'FLG_DESATIVADA');
+
     // TAB_LOJA usa FLG_DESATIVADA (não FLG_INATIVO)
     const sql = `
-      SELECT COD_LOJA, DES_LOJA
+      SELECT ${colCodLoja} as COD_LOJA, ${colDesLoja} as DES_LOJA
       FROM ${tabLoja}
-      WHERE FLG_DESATIVADA IS NULL OR FLG_DESATIVADA = 'N'
-      ORDER BY DES_LOJA
+      WHERE ${colFlgDesativada} IS NULL OR ${colFlgDesativada} = 'N'
+      ORDER BY ${colDesLoja}
     `;
 
     return OracleService.query(sql);
@@ -205,25 +230,32 @@ export class CompraVendaService {
   /**
    * Monta os filtros de produto para as subqueries
    */
-  private static buildProdutoFilters(filters: CompraVendaFilters, params: any, tabProdutoComprador?: string): string {
+  private static async buildProdutoFilters(filters: CompraVendaFilters, params: any, tabProdutoComprador?: string): Promise<string> {
     const { codSecao, codGrupo, codSubGrupo, codComprador, produtosBonificados } = filters;
     let filterSql = '';
 
+    // Resolver colunas dinamicamente
+    const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao', 'COD_SECAO');
+    const colCodGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo', 'COD_GRUPO');
+    const colCodSubGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo', 'COD_SUB_GRUPO');
+    const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+    const colCodCompradorPC = await MappingService.getColumnFromTable('TAB_COMPRADOR', 'codigo_comprador', 'COD_COMPRADOR');
+
     // Filtro de Seção
     if (codSecao) {
-      filterSql += ` AND p.COD_SECAO = :codSecao`;
+      filterSql += ` AND p.${colCodSecaoProd} = :codSecao`;
       params.codSecao = codSecao;
     }
 
     // Filtro de Grupo
     if (codGrupo) {
-      filterSql += ` AND p.COD_GRUPO = :codGrupo`;
+      filterSql += ` AND p.${colCodGrupoProd} = :codGrupo`;
       params.codGrupo = codGrupo;
     }
 
     // Filtro de SubGrupo
     if (codSubGrupo) {
-      filterSql += ` AND p.COD_SUB_GRUPO = :codSubGrupo`;
+      filterSql += ` AND p.${colCodSubGrupoProd} = :codSubGrupo`;
       params.codSubGrupo = codSubGrupo;
     }
 
@@ -231,8 +263,8 @@ export class CompraVendaService {
     if (codComprador && tabProdutoComprador) {
       filterSql += ` AND EXISTS (
         SELECT 1 FROM ${tabProdutoComprador} pc
-        WHERE pc.COD_PRODUTO = p.COD_PRODUTO
-        AND pc.COD_COMPRADOR = :codComprador
+        WHERE pc.${colCodProduto} = p.${colCodProduto}
+        AND pc.${colCodCompradorPC} = :codComprador
       )`;
       params.codComprador = codComprador;
     }
@@ -367,6 +399,29 @@ export class CompraVendaService {
     const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
     const tabProdutoComprador = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_COMPRADOR', 'TAB_PRODUTO_COMPRADOR')}`;
 
+    // Resolver colunas dinamicamente
+    const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
+    const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
+    const colValMeta = await MappingService.getColumnFromTable('TAB_SECAO', 'meta', 'VAL_META');
+    const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+    const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
+    const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao', 'COD_SECAO');
+    const colCodGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo', 'COD_GRUPO');
+    const colCodSubGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo', 'COD_SUB_GRUPO');
+    const colNumNf = await MappingService.getColumnFromTable('TAB_NF', 'numero_nf', 'NUM_NF');
+    const colSerieNf = await MappingService.getColumnFromTable('TAB_NF', 'serie_nf', 'NUM_SERIE_NF');
+    const colDtaEntrada = await MappingService.getColumnFromTable('TAB_NF', 'data_entrada', 'DTA_ENTRADA');
+    const colCodParceiro = await MappingService.getColumnFromTable('TAB_NF', 'codigo_parceiro', 'COD_PARCEIRO');
+    const colTipoOperacao = await MappingService.getColumnFromTable('TAB_NF', 'tipo_operacao', 'TIPO_OPERACAO');
+    const colNumNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_nf', 'NUM_NF');
+    const colSerieNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'serie_nf', 'NUM_SERIE_NF');
+    const colCodParceiroItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_parceiro', 'COD_PARCEIRO');
+    const colCodItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_item', 'COD_ITEM');
+    const colQtdEntrada = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'quantidade_entrada', 'QTD_ENTRADA');
+    const colValCustoItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_custo', 'VAL_CUSTO_SCRED');
+    const colValTotalItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total', 'VAL_TOTAL');
+    const colCodLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'codigo_loja', 'COD_LOJA');
+
     const params: any = {
       dataInicio,
       dataFim
@@ -375,7 +430,7 @@ export class CompraVendaService {
     // Construir filtros
     const tipoNfFilter = this.buildTipoNfFilter(tipoNotaFiscal);
     const tipoVendaFilter = this.buildTipoVendaFilter(tipoVenda);
-    const produtoFilters = this.buildProdutoFilters(filters, params, tabProdutoComprador);
+    const produtoFilters = await this.buildProdutoFilters(filters, params, tabProdutoComprador);
 
     // Flag para calcular empréstimos (só quando filtro "Filhos" está ativo)
     const calcularEmprestimos = decomposicao === 'filhos';
@@ -388,23 +443,23 @@ export class CompraVendaService {
     let lojaFilterCompras = '';
     let lojaFilterVendas = '';
     if (codLoja) {
-      lojaFilterCompras = ` AND nf.COD_LOJA = :codLoja`;
-      lojaFilterVendas = ` AND pv.COD_LOJA = :codLoja`;
+      lojaFilterCompras = ` AND nf.${colCodLoja} = :codLoja`;
+      lojaFilterVendas = ` AND pv.${colCodLoja} = :codLoja`;
       params.codLoja = codLoja;
     }
 
     // Query principal que combina Compras e Vendas
     const sql = `
       SELECT
-        sec.COD_SECAO,
-        sec.DES_SECAO as SECAO,
+        sec.${colCodSecao} as COD_SECAO,
+        sec.${colDesSecao} as SECAO,
         NVL(c.COD_LOJA, v.COD_LOJA) as LOJA,
         NVL(c.QTD_COMPRA, 0) as QTD_COMPRA,
         NVL(v.QTD_VENDA, 0) as QTD_VENDA,
         NVL(c.VALOR_COMPRAS, 0) as COMPRAS,
         NVL(v.CUSTO_VENDA, 0) as CUSTO_VENDA,
         NVL(v.VALOR_VENDAS, 0) as VENDAS,
-        NVL(m.PER_META_VENDA, sec.VAL_META) as MARGEM_PCT,
+        NVL(m.PER_META_VENDA, sec.${colValMeta}) as MARGEM_PCT,
         CASE WHEN NVL(v.VALOR_VENDAS, 0) > 0
              THEN ROUND(((NVL(v.VALOR_VENDAS, 0) - NVL(v.CUSTO_VENDA, 0)) / NVL(v.VALOR_VENDAS, 0)) * 100, 2)
              ELSE 0
@@ -440,156 +495,156 @@ export class CompraVendaService {
       -- Subquery de Compras
       LEFT JOIN (
         SELECT
-          p.COD_SECAO,
-          nf.COD_LOJA,
+          p.${colCodSecaoProd} as COD_SECAO,
+          nf.${colCodLoja} as COD_LOJA,
           SUM(ni.QTD_TOTAL) as QTD_COMPRA,
-          SUM(ni.VAL_TOTAL) as VALOR_COMPRAS
+          SUM(ni.${colValTotalItem}) as VALOR_COMPRAS
         FROM ${tabNf} nf
-        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-          AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-          AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN ${tabProduto} p ON ni.COD_ITEM = p.COD_PRODUTO
-        WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND nf.TIPO_OPERACAO = 0
+        JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+          AND nf.${colSerieNf} = ni.${colSerieNfItem}
+          AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+        JOIN ${tabProduto} p ON ni.${colCodItem} = p.${colCodProduto}
+        WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND nf.${colTipoOperacao} = 0
         ${tipoNfFilter}
         ${lojaFilterCompras}
         ${produtoFilters}
-        GROUP BY p.COD_SECAO, nf.COD_LOJA
-      ) c ON sec.COD_SECAO = c.COD_SECAO
+        GROUP BY p.${colCodSecaoProd}, nf.${colCodLoja}
+      ) c ON sec.${colCodSecao} = c.COD_SECAO
       -- Subquery de Vendas
       LEFT JOIN (
         SELECT
-          p.COD_SECAO,
-          pv.COD_LOJA,
+          p.${colCodSecaoProd} as COD_SECAO,
+          pv.${colCodLoja} as COD_LOJA,
           SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDA,
           SUM(pv.VAL_TOTAL_PRODUTO) as VALOR_VENDAS,
           SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO) as CUSTO_VENDA,
           SUM(NVL(pv.VAL_IMPOSTO_DEBITO, 0)) as TOTAL_IMPOSTO,
           SUM(NVL(pv.VAL_IMPOSTO_CREDITO, 0)) as TOTAL_IMPOSTO_CREDITO
         FROM ${tabProdutoPdv} pv
-        JOIN ${tabProduto} p ON pv.COD_PRODUTO = p.COD_PRODUTO
+        JOIN ${tabProduto} p ON pv.${colCodProduto} = p.${colCodProduto}
         WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
         ${tipoVendaFilter}
         ${lojaFilterVendas}
         ${produtoFilters}
-        GROUP BY p.COD_SECAO, pv.COD_LOJA
-      ) v ON sec.COD_SECAO = v.COD_SECAO AND (c.COD_LOJA = v.COD_LOJA OR c.COD_LOJA IS NULL OR v.COD_LOJA IS NULL)
+        GROUP BY p.${colCodSecaoProd}, pv.${colCodLoja}
+      ) v ON sec.${colCodSecao} = v.COD_SECAO AND (c.COD_LOJA = v.COD_LOJA OR c.COD_LOJA IS NULL OR v.COD_LOJA IS NULL)
       -- Metas
-      LEFT JOIN ${tabSecaoMetaLoja} m ON sec.COD_SECAO = m.COD_SECAO AND m.COD_LOJA = NVL(c.COD_LOJA, v.COD_LOJA)
+      LEFT JOIN ${tabSecaoMetaLoja} m ON sec.${colCodSecao} = m.${colCodSecao} AND m.${colCodLoja} = NVL(c.COD_LOJA, v.COD_LOJA)
       ${calcDecomposicao ? `
       -- EMPRESTEI (DECOMPOSIÇÃO): Produtos PAI/MATRIZ que emprestam custo para filhos
       -- Ex: CARNE MATRIZ → CARNE DE PRIMEIRA, CARNE DE SEGUNDA
       LEFT JOIN (
         SELECT
-          p.COD_SECAO,
-          nf.COD_LOJA,
-          SUM(ni.VAL_TOTAL) as VALOR_EMPRESTEI
+          p.${colCodSecaoProd} as COD_SECAO,
+          nf.${colCodLoja} as COD_LOJA,
+          SUM(ni.${colValTotalItem}) as VALOR_EMPRESTEI
         FROM ${tabNf} nf
-        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-          AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-          AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN ${tabProduto} p ON ni.COD_ITEM = p.COD_PRODUTO
-        WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND nf.TIPO_OPERACAO = 0
+        JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+          AND nf.${colSerieNf} = ni.${colSerieNfItem}
+          AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+        JOIN ${tabProduto} p ON ni.${colCodItem} = p.${colCodProduto}
+        WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND nf.${colTipoOperacao} = 0
         ${tipoNfFilter}
         ${lojaFilterCompras}
         -- Somente produtos PAI (que têm decomposição cadastrada)
         AND EXISTS (
           SELECT 1 FROM ${tabProdutoDecomposicao} d
-          WHERE d.COD_PRODUTO = p.COD_PRODUTO
+          WHERE d.${colCodProduto} = p.${colCodProduto}
         )
-        GROUP BY p.COD_SECAO, nf.COD_LOJA
-      ) emp_pai ON sec.COD_SECAO = emp_pai.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_pai.COD_LOJA OR emp_pai.COD_LOJA IS NULL)
+        GROUP BY p.${colCodSecaoProd}, nf.${colCodLoja}
+      ) emp_pai ON sec.${colCodSecao} = emp_pai.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_pai.COD_LOJA OR emp_pai.COD_LOJA IS NULL)
       -- EMPRESTADO (DECOMPOSIÇÃO): Valor que FILHOS receberam do PAI
       -- Usa QTD_DECOMP como percentual (soma 100% para cada matriz)
       LEFT JOIN (
         SELECT
-          p_filho.COD_SECAO,
-          nf.COD_LOJA,
-          SUM(ni.VAL_TOTAL * d.QTD_DECOMP / 100) as VALOR_EMPRESTADO
+          p_filho.${colCodSecaoProd} as COD_SECAO,
+          nf.${colCodLoja} as COD_LOJA,
+          SUM(ni.${colValTotalItem} * d.QTD_DECOMP / 100) as VALOR_EMPRESTADO
         FROM ${tabNf} nf
-        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-          AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-          AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN ${tabProduto} p_pai ON ni.COD_ITEM = p_pai.COD_PRODUTO
-        JOIN ${tabProdutoDecomposicao} d ON p_pai.COD_PRODUTO = d.COD_PRODUTO
-        JOIN ${tabProduto} p_filho ON d.COD_PRODUTO_DECOM = p_filho.COD_PRODUTO
-        WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND nf.TIPO_OPERACAO = 0
+        JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+          AND nf.${colSerieNf} = ni.${colSerieNfItem}
+          AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+        JOIN ${tabProduto} p_pai ON ni.${colCodItem} = p_pai.${colCodProduto}
+        JOIN ${tabProdutoDecomposicao} d ON p_pai.${colCodProduto} = d.${colCodProduto}
+        JOIN ${tabProduto} p_filho ON d.COD_PRODUTO_DECOM = p_filho.${colCodProduto}
+        WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND nf.${colTipoOperacao} = 0
         ${tipoNfFilter}
         ${lojaFilterCompras}
-        GROUP BY p_filho.COD_SECAO, nf.COD_LOJA
-      ) emp_filho ON sec.COD_SECAO = emp_filho.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_filho.COD_LOJA OR emp_filho.COD_LOJA IS NULL)
+        GROUP BY p_filho.${colCodSecaoProd}, nf.${colCodLoja}
+      ) emp_filho ON sec.${colCodSecao} = emp_filho.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_filho.COD_LOJA OR emp_filho.COD_LOJA IS NULL)
       ` : ''}
       ${calcProducao ? `
       -- EMPRESTEI (PRODUÇÃO): Insumos emprestam baseado nas VENDAS dos produtos finais
       -- Fórmula: Σ(QTD_VENDIDA × QTD_NA_RECEITA × CUSTO_UNITÁRIO_INSUMO)
       LEFT JOIN (
         SELECT
-          p_insumo.COD_SECAO,
+          p_insumo.${colCodSecaoProd} as COD_SECAO,
           compras.COD_LOJA,
           SUM(
             vendas.QTD_VENDIDA * pp.QTD_PRODUCAO *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTEI
         FROM ${tabProdutoProducao} pp
-        JOIN ${tabProduto} p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
+        JOIN ${tabProduto} p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.${colCodProduto}
         -- Compras do insumo para calcular custo unitário
         JOIN (
-          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, nf.${colCodLoja} as COD_LOJA, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem} AND nf.${colSerieNf} = ni.${colSerieNfItem} AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+          GROUP BY ni.${colCodItem}, nf.${colCodLoja}
         ) compras ON pp.COD_PRODUTO_PRODUCAO = compras.COD_ITEM
         -- Vendas dos produtos finais que usam este insumo
         JOIN (
-          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          SELECT pv.${colCodProduto} as COD_PRODUTO, pv.${colCodLoja} as COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
-          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
+          GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
         ) vendas ON pp.COD_PRODUTO = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
-        GROUP BY p_insumo.COD_SECAO, compras.COD_LOJA
-      ) emp_insumo ON sec.COD_SECAO = emp_insumo.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_insumo.COD_LOJA OR emp_insumo.COD_LOJA IS NULL)
+        GROUP BY p_insumo.${colCodSecaoProd}, compras.COD_LOJA
+      ) emp_insumo ON sec.${colCodSecao} = emp_insumo.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_insumo.COD_LOJA OR emp_insumo.COD_LOJA IS NULL)
       -- EMPRESTADO (PRODUÇÃO): Produtos FINAIS recebem baseado nas suas VENDAS × receita × custo unitário
       -- Fórmula: QTD_VENDIDA × Σ(QTD_NA_RECEITA × CUSTO_UNITÁRIO_INSUMO)
       LEFT JOIN (
         SELECT
-          p_final.COD_SECAO,
+          p_final.${colCodSecaoProd} as COD_SECAO,
           vendas.COD_LOJA,
           SUM(
             vendas.QTD_VENDIDA * pp.QTD_PRODUCAO *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTADO
         FROM ${tabProdutoProducao} pp
-        JOIN ${tabProduto} p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
+        JOIN ${tabProduto} p_final ON pp.COD_PRODUTO = p_final.${colCodProduto}
         -- Vendas do produto final
         JOIN (
-          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          SELECT pv.${colCodProduto} as COD_PRODUTO, pv.${colCodLoja} as COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
-          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
+          GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
         ) vendas ON pp.COD_PRODUTO = vendas.COD_PRODUTO
         -- Compras dos insumos para calcular custo unitário
         LEFT JOIN (
-          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, nf.${colCodLoja} as COD_LOJA, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem} AND nf.${colSerieNf} = ni.${colSerieNfItem} AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+          GROUP BY ni.${colCodItem}, nf.${colCodLoja}
         ) compras ON pp.COD_PRODUTO_PRODUCAO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
-        GROUP BY p_final.COD_SECAO, vendas.COD_LOJA
-      ) emp_final ON sec.COD_SECAO = emp_final.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
+        GROUP BY p_final.${colCodSecaoProd}, vendas.COD_LOJA
+      ) emp_final ON sec.${colCodSecao} = emp_final.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
       ` : ''}
       ${calcAssociacao ? `
       -- EMPRESTEI (ASSOCIAÇÃO): Produto BASE empresta para produtos VENDIDOS (que têm COD_ASSOCIADO)
@@ -597,73 +652,73 @@ export class CompraVendaService {
       -- Fórmula: Σ(QTD_VENDIDA × QTD_EMBALAGEM_VENDA × CUSTO_UNITÁRIO_BASE)
       LEFT JOIN (
         SELECT
-          p_base.COD_SECAO,
+          p_base.${colCodSecaoProd} as COD_SECAO,
           compras.COD_LOJA,
           SUM(
             vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTEI
         FROM ${tabProdutoLoja} pl
-        JOIN ${tabProduto} p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
-        JOIN ${tabProduto} p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
+        JOIN ${tabProduto} p_venda ON pl.${colCodProduto} = p_venda.${colCodProduto}
+        JOIN ${tabProduto} p_base ON pl.COD_ASSOCIADO = p_base.${colCodProduto}
         -- Compras do produto BASE para calcular custo unitário
         JOIN (
-          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, nf.${colCodLoja} as COD_LOJA, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem} AND nf.${colSerieNf} = ni.${colSerieNfItem} AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+          GROUP BY ni.${colCodItem}, nf.${colCodLoja}
         ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM
         -- Vendas dos produtos que têm associação
         JOIN (
-          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          SELECT pv.${colCodProduto} as COD_PRODUTO, pv.${colCodLoja} as COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
-          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
-        ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
+          GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
+        ) vendas ON pl.${colCodProduto} = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
         WHERE pl.COD_ASSOCIADO IS NOT NULL
-        GROUP BY p_base.COD_SECAO, compras.COD_LOJA
-      ) emp_assoc_pai ON sec.COD_SECAO = emp_assoc_pai.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
+        GROUP BY p_base.${colCodSecaoProd}, compras.COD_LOJA
+      ) emp_assoc_pai ON sec.${colCodSecao} = emp_assoc_pai.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
       -- EMPRESTADO (ASSOCIAÇÃO): Produtos VENDIDOS recebem custo do produto BASE
       -- Fórmula: QTD_VENDIDA × QTD_EMBALAGEM_VENDA × CUSTO_UNITÁRIO_BASE
       LEFT JOIN (
         SELECT
-          p_venda.COD_SECAO,
+          p_venda.${colCodSecaoProd} as COD_SECAO,
           vendas.COD_LOJA,
           SUM(
             vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTADO
         FROM ${tabProdutoLoja} pl
-        JOIN ${tabProduto} p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        JOIN ${tabProduto} p_venda ON pl.${colCodProduto} = p_venda.${colCodProduto}
         -- Vendas do produto
         JOIN (
-          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          SELECT pv.${colCodProduto} as COD_PRODUTO, pv.${colCodLoja} as COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
-          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
-        ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO
+          GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
+        ) vendas ON pl.${colCodProduto} = vendas.COD_PRODUTO
         -- Compras do produto BASE para calcular custo unitário
         LEFT JOIN (
-          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, nf.${colCodLoja} as COD_LOJA, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem} AND nf.${colSerieNf} = ni.${colSerieNfItem} AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+          GROUP BY ni.${colCodItem}, nf.${colCodLoja}
         ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
         WHERE pl.COD_ASSOCIADO IS NOT NULL
-        GROUP BY p_venda.COD_SECAO, vendas.COD_LOJA
-      ) emp_assoc_filho ON sec.COD_SECAO = emp_assoc_filho.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
+        GROUP BY p_venda.${colCodSecaoProd}, vendas.COD_LOJA
+      ) emp_assoc_filho ON sec.${colCodSecao} = emp_assoc_filho.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
       ` : ''}
       WHERE (sec.FLG_INATIVO IS NULL OR sec.FLG_INATIVO = 'N')
       AND (c.COD_SECAO IS NOT NULL OR v.COD_SECAO IS NOT NULL)
@@ -782,6 +837,25 @@ export class CompraVendaService {
     const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
     const tabProdutoComprador = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_COMPRADOR', 'TAB_PRODUTO_COMPRADOR')}`;
 
+    // Resolver colunas dinamicamente
+    const colCodGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo', 'COD_GRUPO');
+    const colDesGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo', 'DES_GRUPO');
+    const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
+    const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+    const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao', 'COD_SECAO');
+    const colCodGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo', 'COD_GRUPO');
+    const colNumNf = await MappingService.getColumnFromTable('TAB_NF', 'numero_nf', 'NUM_NF');
+    const colSerieNf = await MappingService.getColumnFromTable('TAB_NF', 'serie_nf', 'NUM_SERIE_NF');
+    const colDtaEntrada = await MappingService.getColumnFromTable('TAB_NF', 'data_entrada', 'DTA_ENTRADA');
+    const colCodParceiro = await MappingService.getColumnFromTable('TAB_NF', 'codigo_parceiro', 'COD_PARCEIRO');
+    const colTipoOperacao = await MappingService.getColumnFromTable('TAB_NF', 'tipo_operacao', 'TIPO_OPERACAO');
+    const colNumNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_nf', 'NUM_NF');
+    const colSerieNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'serie_nf', 'NUM_SERIE_NF');
+    const colCodParceiroItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_parceiro', 'COD_PARCEIRO');
+    const colCodItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_item', 'COD_ITEM');
+    const colValTotalItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total', 'VAL_TOTAL');
+    const colCodLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'codigo_loja', 'COD_LOJA');
+
     const params: any = {
       dataInicio,
       dataFim,
@@ -790,7 +864,7 @@ export class CompraVendaService {
 
     const tipoNfFilter = this.buildTipoNfFilter(tipoNotaFiscal);
     const tipoVendaFilter = this.buildTipoVendaFilter(tipoVenda);
-    const produtoFilters = this.buildProdutoFilters(filters, params, tabProdutoComprador);
+    const produtoFilters = await this.buildProdutoFilters(filters, params, tabProdutoComprador);
 
     // Flag para calcular empréstimos (só quando filtro "Filhos" está ativo)
     const calcularEmprestimos = decomposicao === 'filhos';
@@ -802,15 +876,15 @@ export class CompraVendaService {
     let lojaFilterCompras = '';
     let lojaFilterVendas = '';
     if (codLoja) {
-      lojaFilterCompras = ` AND nf.COD_LOJA = :codLoja`;
-      lojaFilterVendas = ` AND pv.COD_LOJA = :codLoja`;
+      lojaFilterCompras = ` AND nf.${colCodLoja} = :codLoja`;
+      lojaFilterVendas = ` AND pv.${colCodLoja} = :codLoja`;
       params.codLoja = codLoja;
     }
 
     const sql = `
       SELECT
-        g.COD_GRUPO,
-        g.DES_GRUPO as GRUPO,
+        g.${colCodGrupo} as COD_GRUPO,
+        g.${colDesGrupo} as GRUPO,
         NVL(c.COD_LOJA, v.COD_LOJA) as LOJA,
         NVL(c.QTD_COMPRA, 0) as QTD_COMPRA,
         NVL(v.QTD_VENDA, 0) as QTD_VENDA,
@@ -849,222 +923,222 @@ export class CompraVendaService {
       FROM ${tabGrupo} g
       LEFT JOIN (
         SELECT
-          p.COD_GRUPO,
-          nf.COD_LOJA,
+          p.${colCodGrupoProd} as COD_GRUPO,
+          nf.${colCodLoja} as COD_LOJA,
           SUM(ni.QTD_TOTAL) as QTD_COMPRA,
-          SUM(ni.VAL_TOTAL) as VALOR_COMPRAS
+          SUM(ni.${colValTotalItem}) as VALOR_COMPRAS
         FROM ${tabNf} nf
-        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-          AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-          AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN ${tabProduto} p ON ni.COD_ITEM = p.COD_PRODUTO
-        WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND nf.TIPO_OPERACAO = 0
-        AND p.COD_SECAO = :codSecao
+        JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+          AND nf.${colSerieNf} = ni.${colSerieNfItem}
+          AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+        JOIN ${tabProduto} p ON ni.${colCodItem} = p.${colCodProduto}
+        WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND nf.${colTipoOperacao} = 0
+        AND p.${colCodSecaoProd} = :codSecao
         ${tipoNfFilter}
         ${lojaFilterCompras}
         ${produtoFilters}
-        GROUP BY p.COD_GRUPO, nf.COD_LOJA
-      ) c ON g.COD_GRUPO = c.COD_GRUPO
+        GROUP BY p.${colCodGrupoProd}, nf.${colCodLoja}
+      ) c ON g.${colCodGrupo} = c.COD_GRUPO
       LEFT JOIN (
         SELECT
-          p.COD_GRUPO,
-          pv.COD_LOJA,
+          p.${colCodGrupoProd} as COD_GRUPO,
+          pv.${colCodLoja} as COD_LOJA,
           SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDA,
           SUM(pv.VAL_TOTAL_PRODUTO) as VALOR_VENDAS,
           SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO) as CUSTO_VENDA,
           SUM(NVL(pv.VAL_IMPOSTO_DEBITO, 0)) as TOTAL_IMPOSTO,
           SUM(NVL(pv.VAL_IMPOSTO_CREDITO, 0)) as TOTAL_IMPOSTO_CREDITO
         FROM ${tabProdutoPdv} pv
-        JOIN ${tabProduto} p ON pv.COD_PRODUTO = p.COD_PRODUTO
+        JOIN ${tabProduto} p ON pv.${colCodProduto} = p.${colCodProduto}
         WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND p.COD_SECAO = :codSecao
+        AND p.${colCodSecaoProd} = :codSecao
         ${tipoVendaFilter}
         ${lojaFilterVendas}
         ${produtoFilters}
-        GROUP BY p.COD_GRUPO, pv.COD_LOJA
-      ) v ON g.COD_GRUPO = v.COD_GRUPO AND (c.COD_LOJA = v.COD_LOJA OR c.COD_LOJA IS NULL OR v.COD_LOJA IS NULL)
+        GROUP BY p.${colCodGrupoProd}, pv.${colCodLoja}
+      ) v ON g.${colCodGrupo} = v.COD_GRUPO AND (c.COD_LOJA = v.COD_LOJA OR c.COD_LOJA IS NULL OR v.COD_LOJA IS NULL)
       ${calcDecomposicao ? `
       -- EMPRESTEI (DECOMPOSIÇÃO): Produtos PAI/MATRIZ deste grupo que emprestam para filhos
       LEFT JOIN (
         SELECT
-          p.COD_GRUPO,
-          nf.COD_LOJA,
-          SUM(ni.VAL_TOTAL) as VALOR_EMPRESTEI
+          p.${colCodGrupoProd} as COD_GRUPO,
+          nf.${colCodLoja} as COD_LOJA,
+          SUM(ni.${colValTotalItem}) as VALOR_EMPRESTEI
         FROM ${tabNf} nf
-        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-          AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-          AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN ${tabProduto} p ON ni.COD_ITEM = p.COD_PRODUTO
-        WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND nf.TIPO_OPERACAO = 0
-        AND p.COD_SECAO = :codSecao
+        JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+          AND nf.${colSerieNf} = ni.${colSerieNfItem}
+          AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+        JOIN ${tabProduto} p ON ni.${colCodItem} = p.${colCodProduto}
+        WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND nf.${colTipoOperacao} = 0
+        AND p.${colCodSecaoProd} = :codSecao
         ${tipoNfFilter}
         ${lojaFilterCompras}
         AND EXISTS (
           SELECT 1 FROM ${tabProdutoDecomposicao} d
-          WHERE d.COD_PRODUTO = p.COD_PRODUTO
+          WHERE d.${colCodProduto} = p.${colCodProduto}
         )
-        GROUP BY p.COD_GRUPO, nf.COD_LOJA
-      ) emp_pai ON g.COD_GRUPO = emp_pai.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_pai.COD_LOJA OR emp_pai.COD_LOJA IS NULL)
+        GROUP BY p.${colCodGrupoProd}, nf.${colCodLoja}
+      ) emp_pai ON g.${colCodGrupo} = emp_pai.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_pai.COD_LOJA OR emp_pai.COD_LOJA IS NULL)
       -- EMPRESTADO (DECOMPOSIÇÃO): Valor que FILHOS deste grupo receberam do PAI
       -- Usa QTD_DECOMP como percentual (soma 100% para cada matriz)
       LEFT JOIN (
         SELECT
-          p_filho.COD_GRUPO,
-          nf.COD_LOJA,
-          SUM(ni.VAL_TOTAL * d.QTD_DECOMP / 100) as VALOR_EMPRESTADO
+          p_filho.${colCodGrupoProd} as COD_GRUPO,
+          nf.${colCodLoja} as COD_LOJA,
+          SUM(ni.${colValTotalItem} * d.QTD_DECOMP / 100) as VALOR_EMPRESTADO
         FROM ${tabNf} nf
-        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-          AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-          AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN ${tabProduto} p_pai ON ni.COD_ITEM = p_pai.COD_PRODUTO
-        JOIN ${tabProdutoDecomposicao} d ON p_pai.COD_PRODUTO = d.COD_PRODUTO
-        JOIN ${tabProduto} p_filho ON d.COD_PRODUTO_DECOM = p_filho.COD_PRODUTO
-        WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND nf.TIPO_OPERACAO = 0
-        AND p_filho.COD_SECAO = :codSecao
+        JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+          AND nf.${colSerieNf} = ni.${colSerieNfItem}
+          AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+        JOIN ${tabProduto} p_pai ON ni.${colCodItem} = p_pai.${colCodProduto}
+        JOIN ${tabProdutoDecomposicao} d ON p_pai.${colCodProduto} = d.${colCodProduto}
+        JOIN ${tabProduto} p_filho ON d.COD_PRODUTO_DECOM = p_filho.${colCodProduto}
+        WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND nf.${colTipoOperacao} = 0
+        AND p_filho.${colCodSecaoProd} = :codSecao
         ${tipoNfFilter}
         ${lojaFilterCompras}
-        GROUP BY p_filho.COD_GRUPO, nf.COD_LOJA
-      ) emp_filho ON g.COD_GRUPO = emp_filho.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_filho.COD_LOJA OR emp_filho.COD_LOJA IS NULL)
+        GROUP BY p_filho.${colCodGrupoProd}, nf.${colCodLoja}
+      ) emp_filho ON g.${colCodGrupo} = emp_filho.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_filho.COD_LOJA OR emp_filho.COD_LOJA IS NULL)
       ` : ''}
       ${calcProducao ? `
       -- EMPRESTEI (PRODUÇÃO): Insumos emprestam baseado nas VENDAS dos produtos finais
       -- Fórmula: Σ(QTD_VENDIDA × QTD_NA_RECEITA × CUSTO_UNITÁRIO_INSUMO)
       LEFT JOIN (
         SELECT
-          p_insumo.COD_GRUPO,
+          p_insumo.${colCodGrupoProd} as COD_GRUPO,
           compras.COD_LOJA,
           SUM(
             vendas.QTD_VENDIDA * pp.QTD_PRODUCAO *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTEI
         FROM ${tabProdutoProducao} pp
-        JOIN ${tabProduto} p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
+        JOIN ${tabProduto} p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.${colCodProduto}
         JOIN (
-          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, nf.${colCodLoja} as COD_LOJA, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem} AND nf.${colSerieNf} = ni.${colSerieNfItem} AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+          GROUP BY ni.${colCodItem}, nf.${colCodLoja}
         ) compras ON pp.COD_PRODUTO_PRODUCAO = compras.COD_ITEM
         JOIN (
-          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          SELECT pv.${colCodProduto} as COD_PRODUTO, pv.${colCodLoja} as COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
-          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
+          GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
         ) vendas ON pp.COD_PRODUTO = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
-        WHERE p_insumo.COD_SECAO = :codSecao
-        GROUP BY p_insumo.COD_GRUPO, compras.COD_LOJA
-      ) emp_insumo ON g.COD_GRUPO = emp_insumo.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_insumo.COD_LOJA OR emp_insumo.COD_LOJA IS NULL)
+        WHERE p_insumo.${colCodSecaoProd} = :codSecao
+        GROUP BY p_insumo.${colCodGrupoProd}, compras.COD_LOJA
+      ) emp_insumo ON g.${colCodGrupo} = emp_insumo.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_insumo.COD_LOJA OR emp_insumo.COD_LOJA IS NULL)
       -- EMPRESTADO (PRODUÇÃO): Produtos FINAIS recebem baseado nas suas VENDAS × receita × custo unitário
       -- Fórmula: QTD_VENDIDA × Σ(QTD_NA_RECEITA × CUSTO_UNITÁRIO_INSUMO)
       LEFT JOIN (
         SELECT
-          p_final.COD_GRUPO,
+          p_final.${colCodGrupoProd} as COD_GRUPO,
           vendas.COD_LOJA,
           SUM(
             vendas.QTD_VENDIDA * pp.QTD_PRODUCAO *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTADO
         FROM ${tabProdutoProducao} pp
-        JOIN ${tabProduto} p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
+        JOIN ${tabProduto} p_final ON pp.COD_PRODUTO = p_final.${colCodProduto}
         JOIN (
-          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          SELECT pv.${colCodProduto} as COD_PRODUTO, pv.${colCodLoja} as COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
-          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
+          GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
         ) vendas ON pp.COD_PRODUTO = vendas.COD_PRODUTO
         LEFT JOIN (
-          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, nf.${colCodLoja} as COD_LOJA, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem} AND nf.${colSerieNf} = ni.${colSerieNfItem} AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+          GROUP BY ni.${colCodItem}, nf.${colCodLoja}
         ) compras ON pp.COD_PRODUTO_PRODUCAO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
-        WHERE p_final.COD_SECAO = :codSecao
-        GROUP BY p_final.COD_GRUPO, vendas.COD_LOJA
-      ) emp_final ON g.COD_GRUPO = emp_final.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
+        WHERE p_final.${colCodSecaoProd} = :codSecao
+        GROUP BY p_final.${colCodGrupoProd}, vendas.COD_LOJA
+      ) emp_final ON g.${colCodGrupo} = emp_final.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
       ` : ''}
       ${calcAssociacao ? `
       -- EMPRESTEI (ASSOCIAÇÃO): Produto BASE empresta para produtos VENDIDOS
       LEFT JOIN (
         SELECT
-          p_base.COD_GRUPO,
+          p_base.${colCodGrupoProd} as COD_GRUPO,
           compras.COD_LOJA,
           SUM(
             vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTEI
         FROM ${tabProdutoLoja} pl
-        JOIN ${tabProduto} p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
-        JOIN ${tabProduto} p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
+        JOIN ${tabProduto} p_venda ON pl.${colCodProduto} = p_venda.${colCodProduto}
+        JOIN ${tabProduto} p_base ON pl.COD_ASSOCIADO = p_base.${colCodProduto}
         JOIN (
-          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, nf.${colCodLoja} as COD_LOJA, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem} AND nf.${colSerieNf} = ni.${colSerieNfItem} AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+          GROUP BY ni.${colCodItem}, nf.${colCodLoja}
         ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM
         JOIN (
-          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          SELECT pv.${colCodProduto} as COD_PRODUTO, pv.${colCodLoja} as COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
-          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
-        ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
-        WHERE pl.COD_ASSOCIADO IS NOT NULL AND p_base.COD_SECAO = :codSecao
-        GROUP BY p_base.COD_GRUPO, compras.COD_LOJA
-      ) emp_assoc_pai ON g.COD_GRUPO = emp_assoc_pai.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
+          GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
+        ) vendas ON pl.${colCodProduto} = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
+        WHERE pl.COD_ASSOCIADO IS NOT NULL AND p_base.${colCodSecaoProd} = :codSecao
+        GROUP BY p_base.${colCodGrupoProd}, compras.COD_LOJA
+      ) emp_assoc_pai ON g.${colCodGrupo} = emp_assoc_pai.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
       -- EMPRESTADO (ASSOCIAÇÃO): Produtos VENDIDOS recebem custo do BASE
       LEFT JOIN (
         SELECT
-          p_venda.COD_GRUPO,
+          p_venda.${colCodGrupoProd} as COD_GRUPO,
           vendas.COD_LOJA,
           SUM(
             vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTADO
         FROM ${tabProdutoLoja} pl
-        JOIN ${tabProduto} p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        JOIN ${tabProduto} p_venda ON pl.${colCodProduto} = p_venda.${colCodProduto}
         JOIN (
-          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          SELECT pv.${colCodProduto} as COD_PRODUTO, pv.${colCodLoja} as COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
-          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
-        ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO
+          GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
+        ) vendas ON pl.${colCodProduto} = vendas.COD_PRODUTO
         LEFT JOIN (
-          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, nf.${colCodLoja} as COD_LOJA, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem} AND nf.${colSerieNf} = ni.${colSerieNfItem} AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+          GROUP BY ni.${colCodItem}, nf.${colCodLoja}
         ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
-        WHERE pl.COD_ASSOCIADO IS NOT NULL AND p_venda.COD_SECAO = :codSecao
-        GROUP BY p_venda.COD_GRUPO, vendas.COD_LOJA
-      ) emp_assoc_filho ON g.COD_GRUPO = emp_assoc_filho.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
+        WHERE pl.COD_ASSOCIADO IS NOT NULL AND p_venda.${colCodSecaoProd} = :codSecao
+        GROUP BY p_venda.${colCodGrupoProd}, vendas.COD_LOJA
+      ) emp_assoc_filho ON g.${colCodGrupo} = emp_assoc_filho.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
       ` : ''}
-      WHERE g.COD_SECAO = :codSecao
+      WHERE g.${colCodSecao} = :codSecao
       AND (c.COD_GRUPO IS NOT NULL OR v.COD_GRUPO IS NOT NULL)
       ORDER BY VENDAS DESC NULLS LAST
     `;
@@ -1112,6 +1186,27 @@ export class CompraVendaService {
     const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
     const tabProdutoComprador = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_COMPRADOR', 'TAB_PRODUTO_COMPRADOR')}`;
 
+    // Resolver colunas dinamicamente
+    const colCodSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo', 'COD_SUB_GRUPO');
+    const colDesSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo', 'DES_SUB_GRUPO');
+    const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
+    const colCodGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo', 'COD_GRUPO');
+    const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+    const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao', 'COD_SECAO');
+    const colCodGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo', 'COD_GRUPO');
+    const colCodSubGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo', 'COD_SUB_GRUPO');
+    const colNumNf = await MappingService.getColumnFromTable('TAB_NF', 'numero_nf', 'NUM_NF');
+    const colSerieNf = await MappingService.getColumnFromTable('TAB_NF', 'serie_nf', 'NUM_SERIE_NF');
+    const colDtaEntrada = await MappingService.getColumnFromTable('TAB_NF', 'data_entrada', 'DTA_ENTRADA');
+    const colCodParceiro = await MappingService.getColumnFromTable('TAB_NF', 'codigo_parceiro', 'COD_PARCEIRO');
+    const colTipoOperacao = await MappingService.getColumnFromTable('TAB_NF', 'tipo_operacao', 'TIPO_OPERACAO');
+    const colNumNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_nf', 'NUM_NF');
+    const colSerieNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'serie_nf', 'NUM_SERIE_NF');
+    const colCodParceiroItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_parceiro', 'COD_PARCEIRO');
+    const colCodItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_item', 'COD_ITEM');
+    const colValTotalItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total', 'VAL_TOTAL');
+    const colCodLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'codigo_loja', 'COD_LOJA');
+
     const params: any = {
       dataInicio,
       dataFim,
@@ -1121,7 +1216,7 @@ export class CompraVendaService {
 
     const tipoNfFilter = this.buildTipoNfFilter(tipoNotaFiscal);
     const tipoVendaFilter = this.buildTipoVendaFilter(tipoVenda);
-    const produtoFilters = this.buildProdutoFilters(filters, params, tabProdutoComprador);
+    const produtoFilters = await this.buildProdutoFilters(filters, params, tabProdutoComprador);
 
     // Flag para calcular empréstimos (só quando filtro "Filhos" está ativo)
     const calcularEmprestimos = decomposicao === 'filhos';
@@ -1133,15 +1228,15 @@ export class CompraVendaService {
     let lojaFilterCompras = '';
     let lojaFilterVendas = '';
     if (codLoja) {
-      lojaFilterCompras = ` AND nf.COD_LOJA = :codLoja`;
-      lojaFilterVendas = ` AND pv.COD_LOJA = :codLoja`;
+      lojaFilterCompras = ` AND nf.${colCodLoja} = :codLoja`;
+      lojaFilterVendas = ` AND pv.${colCodLoja} = :codLoja`;
       params.codLoja = codLoja;
     }
 
     const sql = `
       SELECT
-        sg.COD_SUB_GRUPO,
-        sg.DES_SUB_GRUPO as SUBGRUPO,
+        sg.${colCodSubGrupo} as COD_SUB_GRUPO,
+        sg.${colDesSubGrupo} as SUBGRUPO,
         NVL(c.COD_LOJA, v.COD_LOJA) as LOJA,
         NVL(c.QTD_COMPRA, 0) as QTD_COMPRA,
         NVL(v.QTD_VENDA, 0) as QTD_VENDA,
@@ -1180,227 +1275,218 @@ export class CompraVendaService {
       FROM ${tabSubgrupo} sg
       LEFT JOIN (
         SELECT
-          p.COD_SUB_GRUPO,
-          nf.COD_LOJA,
+          p.${colCodSubGrupoProd} as COD_SUB_GRUPO,
+          nf.${colCodLoja} as COD_LOJA,
           SUM(ni.QTD_TOTAL) as QTD_COMPRA,
-          SUM(ni.VAL_TOTAL) as VALOR_COMPRAS
+          SUM(ni.${colValTotalItem}) as VALOR_COMPRAS
         FROM ${tabNf} nf
-        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-          AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-          AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN ${tabProduto} p ON ni.COD_ITEM = p.COD_PRODUTO
-        WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND nf.TIPO_OPERACAO = 0
-        AND p.COD_SECAO = :codSecao
-        AND p.COD_GRUPO = :codGrupo
+        JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+          AND nf.${colSerieNf} = ni.${colSerieNfItem}
+          AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+        JOIN ${tabProduto} p ON ni.${colCodItem} = p.${colCodProduto}
+        WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND nf.${colTipoOperacao} = 0
+        AND p.${colCodSecaoProd} = :codSecao
+        AND p.${colCodGrupoProd} = :codGrupo
         ${tipoNfFilter}
         ${lojaFilterCompras}
         ${produtoFilters}
-        GROUP BY p.COD_SUB_GRUPO, nf.COD_LOJA
-      ) c ON sg.COD_SUB_GRUPO = c.COD_SUB_GRUPO
+        GROUP BY p.${colCodSubGrupoProd}, nf.${colCodLoja}
+      ) c ON sg.${colCodSubGrupo} = c.COD_SUB_GRUPO
       LEFT JOIN (
         SELECT
-          p.COD_SUB_GRUPO,
-          pv.COD_LOJA,
+          p.${colCodSubGrupoProd} as COD_SUB_GRUPO,
+          pv.${colCodLoja} as COD_LOJA,
           SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDA,
           SUM(pv.VAL_TOTAL_PRODUTO) as VALOR_VENDAS,
           SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO) as CUSTO_VENDA,
           SUM(NVL(pv.VAL_IMPOSTO_DEBITO, 0)) as TOTAL_IMPOSTO,
           SUM(NVL(pv.VAL_IMPOSTO_CREDITO, 0)) as TOTAL_IMPOSTO_CREDITO
         FROM ${tabProdutoPdv} pv
-        JOIN ${tabProduto} p ON pv.COD_PRODUTO = p.COD_PRODUTO
+        JOIN ${tabProduto} p ON pv.${colCodProduto} = p.${colCodProduto}
         WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND p.COD_SECAO = :codSecao
-        AND p.COD_GRUPO = :codGrupo
+        AND p.${colCodSecaoProd} = :codSecao
+        AND p.${colCodGrupoProd} = :codGrupo
         ${tipoVendaFilter}
         ${lojaFilterVendas}
         ${produtoFilters}
-        GROUP BY p.COD_SUB_GRUPO, pv.COD_LOJA
-      ) v ON sg.COD_SUB_GRUPO = v.COD_SUB_GRUPO AND (c.COD_LOJA = v.COD_LOJA OR c.COD_LOJA IS NULL OR v.COD_LOJA IS NULL)
+        GROUP BY p.${colCodSubGrupoProd}, pv.${colCodLoja}
+      ) v ON sg.${colCodSubGrupo} = v.COD_SUB_GRUPO AND (c.COD_LOJA = v.COD_LOJA OR c.COD_LOJA IS NULL OR v.COD_LOJA IS NULL)
       ${calcDecomposicao ? `
-      -- EMPRESTEI (DECOMPOSIÇÃO): Produtos PAI/MATRIZ deste subgrupo que emprestam para filhos
       LEFT JOIN (
         SELECT
-          p.COD_SUB_GRUPO,
-          nf.COD_LOJA,
-          SUM(ni.VAL_TOTAL) as VALOR_EMPRESTEI
+          p.${colCodSubGrupoProd} as COD_SUB_GRUPO,
+          nf.${colCodLoja} as COD_LOJA,
+          SUM(ni.${colValTotalItem}) as VALOR_EMPRESTEI
         FROM ${tabNf} nf
-        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-          AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-          AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN ${tabProduto} p ON ni.COD_ITEM = p.COD_PRODUTO
-        WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND nf.TIPO_OPERACAO = 0
-        AND p.COD_SECAO = :codSecao
-        AND p.COD_GRUPO = :codGrupo
+        JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+          AND nf.${colSerieNf} = ni.${colSerieNfItem}
+          AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+        JOIN ${tabProduto} p ON ni.${colCodItem} = p.${colCodProduto}
+        WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND nf.${colTipoOperacao} = 0
+        AND p.${colCodSecaoProd} = :codSecao
+        AND p.${colCodGrupoProd} = :codGrupo
         ${tipoNfFilter}
         ${lojaFilterCompras}
         AND EXISTS (
           SELECT 1 FROM ${tabProdutoDecomposicao} d
-          WHERE d.COD_PRODUTO = p.COD_PRODUTO
+          WHERE d.${colCodProduto} = p.${colCodProduto}
         )
-        GROUP BY p.COD_SUB_GRUPO, nf.COD_LOJA
-      ) emp_pai ON sg.COD_SUB_GRUPO = emp_pai.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_pai.COD_LOJA OR emp_pai.COD_LOJA IS NULL)
-      -- EMPRESTADO (DECOMPOSIÇÃO): Valor que FILHOS deste subgrupo receberam do PAI
-      -- Usa QTD_DECOMP como percentual (soma 100% para cada matriz)
+        GROUP BY p.${colCodSubGrupoProd}, nf.${colCodLoja}
+      ) emp_pai ON sg.${colCodSubGrupo} = emp_pai.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_pai.COD_LOJA OR emp_pai.COD_LOJA IS NULL)
       LEFT JOIN (
         SELECT
-          p_filho.COD_SUB_GRUPO,
-          nf.COD_LOJA,
-          SUM(ni.VAL_TOTAL * d.QTD_DECOMP / 100) as VALOR_EMPRESTADO
+          p_filho.${colCodSubGrupoProd} as COD_SUB_GRUPO,
+          nf.${colCodLoja} as COD_LOJA,
+          SUM(ni.${colValTotalItem} * d.QTD_DECOMP / 100) as VALOR_EMPRESTADO
         FROM ${tabNf} nf
-        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-          AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-          AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN ${tabProduto} p_pai ON ni.COD_ITEM = p_pai.COD_PRODUTO
-        JOIN ${tabProdutoDecomposicao} d ON p_pai.COD_PRODUTO = d.COD_PRODUTO
-        JOIN ${tabProduto} p_filho ON d.COD_PRODUTO_DECOM = p_filho.COD_PRODUTO
-        WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND nf.TIPO_OPERACAO = 0
-        AND p_filho.COD_SECAO = :codSecao
-        AND p_filho.COD_GRUPO = :codGrupo
+        JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+          AND nf.${colSerieNf} = ni.${colSerieNfItem}
+          AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+        JOIN ${tabProduto} p_pai ON ni.${colCodItem} = p_pai.${colCodProduto}
+        JOIN ${tabProdutoDecomposicao} d ON p_pai.${colCodProduto} = d.${colCodProduto}
+        JOIN ${tabProduto} p_filho ON d.COD_PRODUTO_DECOM = p_filho.${colCodProduto}
+        WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND nf.${colTipoOperacao} = 0
+        AND p_filho.${colCodSecaoProd} = :codSecao
+        AND p_filho.${colCodGrupoProd} = :codGrupo
         ${tipoNfFilter}
         ${lojaFilterCompras}
-        GROUP BY p_filho.COD_SUB_GRUPO, nf.COD_LOJA
-      ) emp_filho ON sg.COD_SUB_GRUPO = emp_filho.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_filho.COD_LOJA OR emp_filho.COD_LOJA IS NULL)
+        GROUP BY p_filho.${colCodSubGrupoProd}, nf.${colCodLoja}
+      ) emp_filho ON sg.${colCodSubGrupo} = emp_filho.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_filho.COD_LOJA OR emp_filho.COD_LOJA IS NULL)
       ` : ''}
       ${calcProducao ? `
-      -- EMPRESTEI (PRODUÇÃO): Insumos emprestam baseado nas VENDAS dos produtos finais
-      -- Fórmula: Σ(QTD_VENDIDA × QTD_NA_RECEITA × CUSTO_UNITÁRIO_INSUMO)
       LEFT JOIN (
         SELECT
-          p_insumo.COD_SUB_GRUPO,
+          p_insumo.${colCodSubGrupoProd} as COD_SUB_GRUPO,
           compras.COD_LOJA,
           SUM(
             vendas.QTD_VENDIDA * pp.QTD_PRODUCAO *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTEI
         FROM ${tabProdutoProducao} pp
-        JOIN ${tabProduto} p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
+        JOIN ${tabProduto} p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.${colCodProduto}
         JOIN (
-          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, nf.${colCodLoja} as COD_LOJA, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem} AND nf.${colSerieNf} = ni.${colSerieNfItem} AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+          GROUP BY ni.${colCodItem}, nf.${colCodLoja}
         ) compras ON pp.COD_PRODUTO_PRODUCAO = compras.COD_ITEM
         JOIN (
-          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          SELECT pv.${colCodProduto} as COD_PRODUTO, pv.${colCodLoja} as COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
-          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
+          GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
         ) vendas ON pp.COD_PRODUTO = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
-        WHERE p_insumo.COD_SECAO = :codSecao AND p_insumo.COD_GRUPO = :codGrupo
-        GROUP BY p_insumo.COD_SUB_GRUPO, compras.COD_LOJA
-      ) emp_insumo ON sg.COD_SUB_GRUPO = emp_insumo.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_insumo.COD_LOJA OR emp_insumo.COD_LOJA IS NULL)
-      -- EMPRESTADO (PRODUÇÃO): Produtos FINAIS recebem baseado nas suas VENDAS × receita × custo unitário
-      -- Fórmula: QTD_VENDIDA × Σ(QTD_NA_RECEITA × CUSTO_UNITÁRIO_INSUMO)
+        WHERE p_insumo.${colCodSecaoProd} = :codSecao AND p_insumo.${colCodGrupoProd} = :codGrupo
+        GROUP BY p_insumo.${colCodSubGrupoProd}, compras.COD_LOJA
+      ) emp_insumo ON sg.${colCodSubGrupo} = emp_insumo.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_insumo.COD_LOJA OR emp_insumo.COD_LOJA IS NULL)
       LEFT JOIN (
         SELECT
-          p_final.COD_SUB_GRUPO,
+          p_final.${colCodSubGrupoProd} as COD_SUB_GRUPO,
           vendas.COD_LOJA,
           SUM(
             vendas.QTD_VENDIDA * pp.QTD_PRODUCAO *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTADO
         FROM ${tabProdutoProducao} pp
-        JOIN ${tabProduto} p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
+        JOIN ${tabProduto} p_final ON pp.COD_PRODUTO = p_final.${colCodProduto}
         JOIN (
-          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          SELECT pv.${colCodProduto} as COD_PRODUTO, pv.${colCodLoja} as COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
-          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
+          GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
         ) vendas ON pp.COD_PRODUTO = vendas.COD_PRODUTO
         LEFT JOIN (
-          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, nf.${colCodLoja} as COD_LOJA, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem} AND nf.${colSerieNf} = ni.${colSerieNfItem} AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+          GROUP BY ni.${colCodItem}, nf.${colCodLoja}
         ) compras ON pp.COD_PRODUTO_PRODUCAO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
-        WHERE p_final.COD_SECAO = :codSecao AND p_final.COD_GRUPO = :codGrupo
-        GROUP BY p_final.COD_SUB_GRUPO, vendas.COD_LOJA
-      ) emp_final ON sg.COD_SUB_GRUPO = emp_final.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
+        WHERE p_final.${colCodSecaoProd} = :codSecao AND p_final.${colCodGrupoProd} = :codGrupo
+        GROUP BY p_final.${colCodSubGrupoProd}, vendas.COD_LOJA
+      ) emp_final ON sg.${colCodSubGrupo} = emp_final.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
       ` : ''}
       ${calcAssociacao ? `
-      -- EMPRESTEI (ASSOCIAÇÃO): Produto BASE empresta para produtos VENDIDOS
       LEFT JOIN (
         SELECT
-          p_base.COD_SUB_GRUPO,
+          p_base.${colCodSubGrupoProd} as COD_SUB_GRUPO,
           compras.COD_LOJA,
           SUM(
             vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTEI
         FROM ${tabProdutoLoja} pl
-        JOIN ${tabProduto} p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
-        JOIN ${tabProduto} p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
+        JOIN ${tabProduto} p_venda ON pl.${colCodProduto} = p_venda.${colCodProduto}
+        JOIN ${tabProduto} p_base ON pl.COD_ASSOCIADO = p_base.${colCodProduto}
         JOIN (
-          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, nf.${colCodLoja} as COD_LOJA, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem} AND nf.${colSerieNf} = ni.${colSerieNfItem} AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+          GROUP BY ni.${colCodItem}, nf.${colCodLoja}
         ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM
         JOIN (
-          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          SELECT pv.${colCodProduto} as COD_PRODUTO, pv.${colCodLoja} as COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
-          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
-        ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
-        WHERE pl.COD_ASSOCIADO IS NOT NULL AND p_base.COD_SECAO = :codSecao AND p_base.COD_GRUPO = :codGrupo
-        GROUP BY p_base.COD_SUB_GRUPO, compras.COD_LOJA
-      ) emp_assoc_pai ON sg.COD_SUB_GRUPO = emp_assoc_pai.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
-      -- EMPRESTADO (ASSOCIAÇÃO): Produtos VENDIDOS recebem custo do BASE
+          GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
+        ) vendas ON pl.${colCodProduto} = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
+        WHERE pl.COD_ASSOCIADO IS NOT NULL AND p_base.${colCodSecaoProd} = :codSecao AND p_base.${colCodGrupoProd} = :codGrupo
+        GROUP BY p_base.${colCodSubGrupoProd}, compras.COD_LOJA
+      ) emp_assoc_pai ON sg.${colCodSubGrupo} = emp_assoc_pai.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
       LEFT JOIN (
         SELECT
-          p_venda.COD_SUB_GRUPO,
+          p_venda.${colCodSubGrupoProd} as COD_SUB_GRUPO,
           vendas.COD_LOJA,
           SUM(
             vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTADO
         FROM ${tabProdutoLoja} pl
-        JOIN ${tabProduto} p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        JOIN ${tabProduto} p_venda ON pl.${colCodProduto} = p_venda.${colCodProduto}
         JOIN (
-          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          SELECT pv.${colCodProduto} as COD_PRODUTO, pv.${colCodLoja} as COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
-          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
-        ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO
+          GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
+        ) vendas ON pl.${colCodProduto} = vendas.COD_PRODUTO
         LEFT JOIN (
-          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, nf.${colCodLoja} as COD_LOJA, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem} AND nf.${colSerieNf} = ni.${colSerieNfItem} AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+          GROUP BY ni.${colCodItem}, nf.${colCodLoja}
         ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
-        WHERE pl.COD_ASSOCIADO IS NOT NULL AND p_venda.COD_SECAO = :codSecao AND p_venda.COD_GRUPO = :codGrupo
-        GROUP BY p_venda.COD_SUB_GRUPO, vendas.COD_LOJA
-      ) emp_assoc_filho ON sg.COD_SUB_GRUPO = emp_assoc_filho.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
+        WHERE pl.COD_ASSOCIADO IS NOT NULL AND p_venda.${colCodSecaoProd} = :codSecao AND p_venda.${colCodGrupoProd} = :codGrupo
+        GROUP BY p_venda.${colCodSubGrupoProd}, vendas.COD_LOJA
+      ) emp_assoc_filho ON sg.${colCodSubGrupo} = emp_assoc_filho.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
       ` : ''}
-      WHERE sg.COD_SECAO = :codSecao
-      AND sg.COD_GRUPO = :codGrupo
+      WHERE sg.${colCodSecao} = :codSecao
+      AND sg.${colCodGrupo} = :codGrupo
       AND (c.COD_SUB_GRUPO IS NOT NULL OR v.COD_SUB_GRUPO IS NOT NULL)
       ORDER BY VENDAS DESC NULLS LAST
     `;
@@ -1447,6 +1533,24 @@ export class CompraVendaService {
     const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
     const tabProdutoComprador = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_COMPRADOR', 'TAB_PRODUTO_COMPRADOR')}`;
 
+    // Resolver colunas dinamicamente
+    const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+    const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
+    const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao', 'COD_SECAO');
+    const colCodGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo', 'COD_GRUPO');
+    const colCodSubGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo', 'COD_SUB_GRUPO');
+    const colNumNf = await MappingService.getColumnFromTable('TAB_NF', 'numero_nf', 'NUM_NF');
+    const colSerieNf = await MappingService.getColumnFromTable('TAB_NF', 'serie_nf', 'NUM_SERIE_NF');
+    const colDtaEntrada = await MappingService.getColumnFromTable('TAB_NF', 'data_entrada', 'DTA_ENTRADA');
+    const colCodParceiro = await MappingService.getColumnFromTable('TAB_NF', 'codigo_parceiro', 'COD_PARCEIRO');
+    const colTipoOperacao = await MappingService.getColumnFromTable('TAB_NF', 'tipo_operacao', 'TIPO_OPERACAO');
+    const colNumNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_nf', 'NUM_NF');
+    const colSerieNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'serie_nf', 'NUM_SERIE_NF');
+    const colCodParceiroItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_parceiro', 'COD_PARCEIRO');
+    const colCodItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_item', 'COD_ITEM');
+    const colValTotalItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total', 'VAL_TOTAL');
+    const colCodLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'codigo_loja', 'COD_LOJA');
+
     const params: any = {
       dataInicio,
       dataFim,
@@ -1457,7 +1561,7 @@ export class CompraVendaService {
 
     const tipoNfFilter = this.buildTipoNfFilter(tipoNotaFiscal);
     const tipoVendaFilter = this.buildTipoVendaFilter(tipoVenda);
-    const produtoFilters = this.buildProdutoFilters(filters, params, tabProdutoComprador);
+    const produtoFilters = await this.buildProdutoFilters(filters, params, tabProdutoComprador);
 
     // Flag para calcular empréstimos (só quando filtro "Filhos" está ativo)
     const calcularEmprestimos = decomposicao === 'filhos';
@@ -1469,15 +1573,15 @@ export class CompraVendaService {
     let lojaFilterCompras = '';
     let lojaFilterVendas = '';
     if (codLoja) {
-      lojaFilterCompras = ` AND nf.COD_LOJA = :codLoja`;
-      lojaFilterVendas = ` AND pv.COD_LOJA = :codLoja`;
+      lojaFilterCompras = ` AND nf.${colCodLoja} = :codLoja`;
+      lojaFilterVendas = ` AND pv.${colCodLoja} = :codLoja`;
       params.codLoja = codLoja;
     }
 
     const sql = `
       SELECT
-        p.COD_PRODUTO,
-        p.DES_PRODUTO as PRODUTO,
+        p.${colCodProduto} as COD_PRODUTO,
+        p.${colDesProduto} as PRODUTO,
         NVL(c.COD_LOJA, v.COD_LOJA) as LOJA,
         NVL(c.QTD_COMPRA, 0) as QTD_COMPRA,
         NVL(v.QTD_VENDA, 0) as QTD_VENDA,
@@ -1518,88 +1622,83 @@ export class CompraVendaService {
       FROM ${tabProduto} p
       LEFT JOIN (
         SELECT
-          ni.COD_ITEM,
-          nf.COD_LOJA,
+          ni.${colCodItem} as COD_ITEM,
+          nf.${colCodLoja} as COD_LOJA,
           SUM(ni.QTD_TOTAL) as QTD_COMPRA,
-          SUM(ni.VAL_TOTAL) as VALOR_COMPRAS
+          SUM(ni.${colValTotalItem}) as VALOR_COMPRAS
         FROM ${tabNf} nf
-        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-          AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-          AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN ${tabProduto} prod ON ni.COD_ITEM = prod.COD_PRODUTO
-        WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND nf.TIPO_OPERACAO = 0
-        AND prod.COD_SECAO = :codSecao
-        AND prod.COD_GRUPO = :codGrupo
-        AND prod.COD_SUB_GRUPO = :codSubGrupo
+        JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+          AND nf.${colSerieNf} = ni.${colSerieNfItem}
+          AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+        JOIN ${tabProduto} prod ON ni.${colCodItem} = prod.${colCodProduto}
+        WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND nf.${colTipoOperacao} = 0
+        AND prod.${colCodSecaoProd} = :codSecao
+        AND prod.${colCodGrupoProd} = :codGrupo
+        AND prod.${colCodSubGrupoProd} = :codSubGrupo
         ${tipoNfFilter}
         ${lojaFilterCompras}
         ${produtoFilters.replace(/p\./g, 'prod.')}
-        GROUP BY ni.COD_ITEM, nf.COD_LOJA
-      ) c ON p.COD_PRODUTO = c.COD_ITEM
+        GROUP BY ni.${colCodItem}, nf.${colCodLoja}
+      ) c ON p.${colCodProduto} = c.COD_ITEM
       LEFT JOIN (
         SELECT
-          pv.COD_PRODUTO,
-          pv.COD_LOJA,
+          pv.${colCodProduto} as COD_PRODUTO,
+          pv.${colCodLoja} as COD_LOJA,
           SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDA,
           SUM(pv.VAL_TOTAL_PRODUTO) as VALOR_VENDAS,
           SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO) as CUSTO_VENDA,
           SUM(NVL(pv.VAL_IMPOSTO_DEBITO, 0)) as TOTAL_IMPOSTO,
           SUM(NVL(pv.VAL_IMPOSTO_CREDITO, 0)) as TOTAL_IMPOSTO_CREDITO
         FROM ${tabProdutoPdv} pv
-        JOIN ${tabProduto} prod ON pv.COD_PRODUTO = prod.COD_PRODUTO
+        JOIN ${tabProduto} prod ON pv.${colCodProduto} = prod.${colCodProduto}
         WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND prod.COD_SECAO = :codSecao
-        AND prod.COD_GRUPO = :codGrupo
-        AND prod.COD_SUB_GRUPO = :codSubGrupo
+        AND prod.${colCodSecaoProd} = :codSecao
+        AND prod.${colCodGrupoProd} = :codGrupo
+        AND prod.${colCodSubGrupoProd} = :codSubGrupo
         ${tipoVendaFilter}
         ${lojaFilterVendas}
         ${produtoFilters.replace(/p\./g, 'prod.')}
-        GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
-      ) v ON p.COD_PRODUTO = v.COD_PRODUTO AND (c.COD_LOJA = v.COD_LOJA OR c.COD_LOJA IS NULL OR v.COD_LOJA IS NULL)
+        GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
+      ) v ON p.${colCodProduto} = v.COD_PRODUTO AND (c.COD_LOJA = v.COD_LOJA OR c.COD_LOJA IS NULL OR v.COD_LOJA IS NULL)
       ${calcDecomposicao ? `
-      -- EMPRESTEI (DECOMPOSIÇÃO): Se este produto é PAI de decomposição, mostra quanto emprestou
       LEFT JOIN (
         SELECT
-          ni.COD_ITEM as COD_PRODUTO,
-          nf.COD_LOJA,
-          SUM(ni.VAL_TOTAL) as VALOR_EMPRESTEI
+          ni.${colCodItem} as COD_PRODUTO,
+          nf.${colCodLoja} as COD_LOJA,
+          SUM(ni.${colValTotalItem}) as VALOR_EMPRESTEI
         FROM ${tabNf} nf
-        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-          AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-          AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND nf.TIPO_OPERACAO = 0
+        JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+          AND nf.${colSerieNf} = ni.${colSerieNfItem}
+          AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+        WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND nf.${colTipoOperacao} = 0
         ${tipoNfFilter}
         ${lojaFilterCompras}
         AND EXISTS (
           SELECT 1 FROM ${tabProdutoDecomposicao} d
-          WHERE d.COD_PRODUTO = ni.COD_ITEM
+          WHERE d.${colCodProduto} = ni.${colCodItem}
         )
-        GROUP BY ni.COD_ITEM, nf.COD_LOJA
-      ) emp_pai ON p.COD_PRODUTO = emp_pai.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_pai.COD_LOJA OR emp_pai.COD_LOJA IS NULL)
-      -- EMPRESTADO (DECOMPOSIÇÃO): Se este produto é FILHO de decomposição, mostra quanto recebeu
-      -- Usa QTD_DECOMP como percentual (soma 100% para cada matriz)
+        GROUP BY ni.${colCodItem}, nf.${colCodLoja}
+      ) emp_pai ON p.${colCodProduto} = emp_pai.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_pai.COD_LOJA OR emp_pai.COD_LOJA IS NULL)
       LEFT JOIN (
         SELECT
           d.COD_PRODUTO_DECOM as COD_PRODUTO,
-          nf.COD_LOJA,
-          SUM(ni.VAL_TOTAL * d.QTD_DECOMP / 100) as VALOR_EMPRESTADO
+          nf.${colCodLoja} as COD_LOJA,
+          SUM(ni.${colValTotalItem} * d.QTD_DECOMP / 100) as VALOR_EMPRESTADO
         FROM ${tabNf} nf
-        JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-          AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-          AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-        JOIN ${tabProdutoDecomposicao} d ON ni.COD_ITEM = d.COD_PRODUTO
-        WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND nf.TIPO_OPERACAO = 0
+        JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+          AND nf.${colSerieNf} = ni.${colSerieNfItem}
+          AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+        JOIN ${tabProdutoDecomposicao} d ON ni.${colCodItem} = d.${colCodProduto}
+        WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND nf.${colTipoOperacao} = 0
         ${tipoNfFilter}
         ${lojaFilterCompras}
-        GROUP BY d.COD_PRODUTO_DECOM, nf.COD_LOJA
-      ) emp_filho ON p.COD_PRODUTO = emp_filho.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_filho.COD_LOJA OR emp_filho.COD_LOJA IS NULL)
+        GROUP BY d.COD_PRODUTO_DECOM, nf.${colCodLoja}
+      ) emp_filho ON p.${colCodProduto} = emp_filho.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_filho.COD_LOJA OR emp_filho.COD_LOJA IS NULL)
       ` : ''}
       ${calcProducao ? `
-      -- EMPRESTEI (PRODUÇÃO): Insumo empresta baseado nas VENDAS dos produtos finais
-      -- Fórmula: Σ(QTD_VENDIDA × QTD_NA_RECEITA × CUSTO_UNITÁRIO_INSUMO)
       LEFT JOIN (
         SELECT
           pp.COD_PRODUTO_PRODUCAO as COD_PRODUTO,
@@ -1610,27 +1709,25 @@ export class CompraVendaService {
           ) as VALOR_EMPRESTEI
         FROM ${tabProdutoProducao} pp
         JOIN (
-          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, nf.${colCodLoja} as COD_LOJA, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem} AND nf.${colSerieNf} = ni.${colSerieNfItem} AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+          GROUP BY ni.${colCodItem}, nf.${colCodLoja}
         ) compras ON pp.COD_PRODUTO_PRODUCAO = compras.COD_ITEM
         JOIN (
-          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          SELECT pv.${colCodProduto} as COD_PRODUTO, pv.${colCodLoja} as COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
-          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
+          GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
         ) vendas ON pp.COD_PRODUTO = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
         GROUP BY pp.COD_PRODUTO_PRODUCAO, compras.COD_LOJA
-      ) emp_insumo ON p.COD_PRODUTO = emp_insumo.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_insumo.COD_LOJA OR emp_insumo.COD_LOJA IS NULL)
-      -- EMPRESTADO (PRODUÇÃO): Produto FINAL recebe baseado nas suas VENDAS × receita × custo unitário
-      -- Fórmula: QTD_VENDIDA × Σ(QTD_NA_RECEITA × CUSTO_UNITÁRIO_INSUMO)
+      ) emp_insumo ON p.${colCodProduto} = emp_insumo.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_insumo.COD_LOJA OR emp_insumo.COD_LOJA IS NULL)
       LEFT JOIN (
         SELECT
           pp.COD_PRODUTO,
@@ -1641,28 +1738,27 @@ export class CompraVendaService {
           ) as VALOR_EMPRESTADO
         FROM ${tabProdutoProducao} pp
         JOIN (
-          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          SELECT pv.${colCodProduto} as COD_PRODUTO, pv.${colCodLoja} as COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
-          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
+          GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
         ) vendas ON pp.COD_PRODUTO = vendas.COD_PRODUTO
         LEFT JOIN (
-          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, nf.${colCodLoja} as COD_LOJA, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem} AND nf.${colSerieNf} = ni.${colSerieNfItem} AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+          GROUP BY ni.${colCodItem}, nf.${colCodLoja}
         ) compras ON pp.COD_PRODUTO_PRODUCAO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
         GROUP BY pp.COD_PRODUTO, vendas.COD_LOJA
-      ) emp_final ON p.COD_PRODUTO = emp_final.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
+      ) emp_final ON p.${colCodProduto} = emp_final.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
       ` : ''}
       ${calcAssociacao ? `
-      -- EMPRESTEI (ASSOCIAÇÃO): Produto BASE empresta para produtos VENDIDOS
       LEFT JOIN (
         SELECT
           pl.COD_ASSOCIADO as COD_PRODUTO,
@@ -1672,72 +1768,71 @@ export class CompraVendaService {
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTEI
         FROM ${tabProdutoLoja} pl
-        JOIN ${tabProduto} p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        JOIN ${tabProduto} p_venda ON pl.${colCodProduto} = p_venda.${colCodProduto}
         JOIN (
-          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, nf.${colCodLoja} as COD_LOJA, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem} AND nf.${colSerieNf} = ni.${colSerieNfItem} AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+          GROUP BY ni.${colCodItem}, nf.${colCodLoja}
         ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM
         JOIN (
-          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          SELECT pv.${colCodProduto} as COD_PRODUTO, pv.${colCodLoja} as COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
-          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
-        ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
+          GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
+        ) vendas ON pl.${colCodProduto} = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
         WHERE pl.COD_ASSOCIADO IS NOT NULL
         GROUP BY pl.COD_ASSOCIADO, compras.COD_LOJA
-      ) emp_assoc_pai ON p.COD_PRODUTO = emp_assoc_pai.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
-      -- EMPRESTADO (ASSOCIAÇÃO): Produtos VENDIDOS recebem custo do BASE
+      ) emp_assoc_pai ON p.${colCodProduto} = emp_assoc_pai.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
       LEFT JOIN (
         SELECT
-          pl.COD_PRODUTO,
+          pl.${colCodProduto} as COD_PRODUTO,
           vendas.COD_LOJA,
           SUM(
             vendas.QTD_VENDIDA * NVL(p_venda.QTD_EMBALAGEM_VENDA, 1) *
             (compras.VAL_TOTAL / NULLIF(compras.QTD_TOTAL, 0))
           ) as VALOR_EMPRESTADO
         FROM ${tabProdutoLoja} pl
-        JOIN ${tabProduto} p_venda ON pl.COD_PRODUTO = p_venda.COD_PRODUTO
+        JOIN ${tabProduto} p_venda ON pl.${colCodProduto} = p_venda.${colCodProduto}
         JOIN (
-          SELECT pv.COD_PRODUTO, pv.COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
+          SELECT pv.${colCodProduto} as COD_PRODUTO, pv.${colCodLoja} as COD_LOJA, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
           WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${tipoVendaFilter}
           ${lojaFilterVendas}
-          GROUP BY pv.COD_PRODUTO, pv.COD_LOJA
-        ) vendas ON pl.COD_PRODUTO = vendas.COD_PRODUTO
+          GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
+        ) vendas ON pl.${colCodProduto} = vendas.COD_PRODUTO
         LEFT JOIN (
-          SELECT ni.COD_ITEM, nf.COD_LOJA, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, nf.${colCodLoja} as COD_LOJA, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem} AND nf.${colSerieNf} = ni.${colSerieNfItem} AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM, nf.COD_LOJA
+          GROUP BY ni.${colCodItem}, nf.${colCodLoja}
         ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
         WHERE pl.COD_ASSOCIADO IS NOT NULL
-        GROUP BY pl.COD_PRODUTO, vendas.COD_LOJA
-      ) emp_assoc_filho ON p.COD_PRODUTO = emp_assoc_filho.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
+        GROUP BY pl.${colCodProduto}, vendas.COD_LOJA
+      ) emp_assoc_filho ON p.${colCodProduto} = emp_assoc_filho.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
       ` : ''}
       -- ESTOQUE: Busca estoque atual e dias de cobertura da TAB_PRODUTO_LOJA
-      LEFT JOIN ${tabProdutoLoja} est ON p.COD_PRODUTO = est.COD_PRODUTO
-        AND est.COD_LOJA = NVL(c.COD_LOJA, v.COD_LOJA)
-      WHERE p.COD_SECAO = :codSecao
-      AND p.COD_GRUPO = :codGrupo
-      AND p.COD_SUB_GRUPO = :codSubGrupo
+      LEFT JOIN ${tabProdutoLoja} est ON p.${colCodProduto} = est.${colCodProduto}
+        AND est.${colCodLoja} = NVL(c.COD_LOJA, v.COD_LOJA)
+      WHERE p.${colCodSecaoProd} = :codSecao
+      AND p.${colCodGrupoProd} = :codGrupo
+      AND p.${colCodSubGrupoProd} = :codSubGrupo
       AND (c.COD_ITEM IS NOT NULL OR v.COD_PRODUTO IS NOT NULL
            ${calcDecomposicao ? 'OR emp_pai.COD_PRODUTO IS NOT NULL OR emp_filho.COD_PRODUTO IS NOT NULL' : ''}
            ${calcProducao ? 'OR emp_insumo.COD_PRODUTO IS NOT NULL OR emp_final.COD_PRODUTO IS NOT NULL' : ''}
            ${calcAssociacao ? 'OR emp_assoc_pai.COD_PRODUTO IS NOT NULL OR emp_assoc_filho.COD_PRODUTO IS NOT NULL' : ''})
-      ORDER BY p.DES_PRODUTO ASC
+      ORDER BY p.${colDesProduto} ASC
     `;
 
     const rows = await OracleService.query<any>(sql, params);
@@ -1795,6 +1890,34 @@ export class CompraVendaService {
     const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO')}`;
     const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO')}`;
 
+    // Resolver nomes das colunas dinamicamente
+    const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+    const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
+    const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao', 'COD_SECAO');
+    const colCodGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo', 'COD_GRUPO');
+    const colCodSubGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo', 'COD_SUB_GRUPO');
+    const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
+    const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
+    const colCodGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo', 'COD_GRUPO');
+    const colDesGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo', 'DES_GRUPO');
+    const colCodGrupoGrp = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_secao', 'COD_SECAO');
+    const colCodSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo', 'COD_SUB_GRUPO');
+    const colDesSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo', 'DES_SUB_GRUPO');
+    const colCodSecaoSG = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_secao', 'COD_SECAO');
+    const colCodGrupoSG = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_grupo', 'COD_GRUPO');
+    const colNumNf = await MappingService.getColumnFromTable('TAB_NF', 'numero_nf', 'NUM_NF');
+    const colSerieNf = await MappingService.getColumnFromTable('TAB_NF', 'serie_nf', 'NUM_SERIE_NF');
+    const colDtaEntrada = await MappingService.getColumnFromTable('TAB_NF', 'data_entrada', 'DTA_ENTRADA');
+    const colCodParceiro = await MappingService.getColumnFromTable('TAB_NF', 'codigo_parceiro', 'COD_PARCEIRO');
+    const colTipoOperacao = await MappingService.getColumnFromTable('TAB_NF', 'tipo_operacao', 'TIPO_OPERACAO');
+    const colCodLojaNf = await MappingService.getColumnFromTable('TAB_NF', 'codigo_loja', 'COD_LOJA');
+    const colNumNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_nf', 'NUM_NF');
+    const colSerieNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'serie_nf', 'NUM_SERIE_NF');
+    const colCodParceiroItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_parceiro', 'COD_PARCEIRO');
+    const colCodItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_item', 'COD_ITEM');
+    const colValTotalItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total', 'VAL_TOTAL');
+    const colCodProdutoPL = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
+
     const params: any = { dataInicio, dataFim };
     const tipoNfFilter = this.buildTipoNfFilter(tipoNotaFiscal);
     const tipoVendaFilter = this.buildTipoVendaFilter(tipoVenda);
@@ -1802,7 +1925,7 @@ export class CompraVendaService {
     let lojaFilterCompras = '';
     let lojaFilterVendas = '';
     if (codLoja) {
-      lojaFilterCompras = ` AND nf.COD_LOJA = :codLoja`;
+      lojaFilterCompras = ` AND nf.${colCodLojaNf} = :codLoja`;
       lojaFilterVendas = ` AND pv.COD_LOJA = :codLoja`;
       params.codLoja = codLoja;
     }
@@ -1810,19 +1933,19 @@ export class CompraVendaService {
     // Filtro de nível
     let nivelFilter = '';
     if (codSecao) {
-      nivelFilter += ` AND p.COD_SECAO = :codSecao`;
+      nivelFilter += ` AND p.${colCodSecaoProd} = :codSecao`;
       params.codSecao = codSecao;
     }
     if (codGrupo) {
-      nivelFilter += ` AND p.COD_GRUPO = :codGrupo`;
+      nivelFilter += ` AND p.${colCodGrupoProd} = :codGrupo`;
       params.codGrupo = codGrupo;
     }
     if (codSubGrupo) {
-      nivelFilter += ` AND p.COD_SUB_GRUPO = :codSubGrupo`;
+      nivelFilter += ` AND p.${colCodSubGrupoProd} = :codSubGrupo`;
       params.codSubGrupo = codSubGrupo;
     }
     if (codProduto) {
-      nivelFilter += ` AND p.COD_PRODUTO = :codProduto`;
+      nivelFilter += ` AND p.${colCodProduto} = :codProduto`;
       params.codProduto = codProduto;
     }
 
@@ -1841,39 +1964,39 @@ export class CompraVendaService {
       // EMPRESTEI: Produtos MATRIZ que emprestam para FILHOS
       const sqlDecomp = `
         SELECT
-          p_pai.COD_PRODUTO as COD_ORIGEM,
-          p_pai.DES_PRODUTO as PRODUTO_ORIGEM,
-          sec_pai.DES_SECAO as SECAO_ORIGEM,
-          grp_pai.DES_GRUPO as GRUPO_ORIGEM,
-          sgp_pai.DES_SUB_GRUPO as SUBGRUPO_ORIGEM,
-          p_filho.COD_PRODUTO as COD_DESTINO,
-          p_filho.DES_PRODUTO as PRODUTO_DESTINO,
-          sec_filho.DES_SECAO as SECAO_DESTINO,
-          grp_filho.DES_GRUPO as GRUPO_DESTINO,
-          sgp_filho.DES_SUB_GRUPO as SUBGRUPO_DESTINO,
+          p_pai.${colCodProduto} as COD_ORIGEM,
+          p_pai.${colDesProduto} as PRODUTO_ORIGEM,
+          sec_pai.${colDesSecao} as SECAO_ORIGEM,
+          grp_pai.${colDesGrupo} as GRUPO_ORIGEM,
+          sgp_pai.${colDesSubGrupo} as SUBGRUPO_ORIGEM,
+          p_filho.${colCodProduto} as COD_DESTINO,
+          p_filho.${colDesProduto} as PRODUTO_DESTINO,
+          sec_filho.${colDesSecao} as SECAO_DESTINO,
+          grp_filho.${colDesGrupo} as GRUPO_DESTINO,
+          sgp_filho.${colDesSubGrupo} as SUBGRUPO_DESTINO,
           d.QTD_DECOMP as PERCENTUAL,
           NVL(compras.VAL_TOTAL, 0) * d.QTD_DECOMP / 100 as VALOR
         FROM ${tabProduto} p_pai
-        JOIN ${tabProdutoDecomposicao} d ON p_pai.COD_PRODUTO = d.COD_PRODUTO
-        JOIN ${tabProduto} p_filho ON d.COD_PRODUTO_DECOM = p_filho.COD_PRODUTO
-        LEFT JOIN ${tabSecao} sec_pai ON p_pai.COD_SECAO = sec_pai.COD_SECAO
-        LEFT JOIN ${tabGrupo} grp_pai ON p_pai.COD_SECAO = grp_pai.COD_SECAO AND p_pai.COD_GRUPO = grp_pai.COD_GRUPO
-        LEFT JOIN ${tabSubgrupo} sgp_pai ON p_pai.COD_SECAO = sgp_pai.COD_SECAO AND p_pai.COD_GRUPO = sgp_pai.COD_GRUPO AND p_pai.COD_SUB_GRUPO = sgp_pai.COD_SUB_GRUPO
-        LEFT JOIN ${tabSecao} sec_filho ON p_filho.COD_SECAO = sec_filho.COD_SECAO
-        LEFT JOIN ${tabGrupo} grp_filho ON p_filho.COD_SECAO = grp_filho.COD_SECAO AND p_filho.COD_GRUPO = grp_filho.COD_GRUPO
-        LEFT JOIN ${tabSubgrupo} sgp_filho ON p_filho.COD_SECAO = sgp_filho.COD_SECAO AND p_filho.COD_GRUPO = sgp_filho.COD_GRUPO AND p_filho.COD_SUB_GRUPO = sgp_filho.COD_SUB_GRUPO
+        JOIN ${tabProdutoDecomposicao} d ON p_pai.${colCodProduto} = d.COD_PRODUTO
+        JOIN ${tabProduto} p_filho ON d.COD_PRODUTO_DECOM = p_filho.${colCodProduto}
+        LEFT JOIN ${tabSecao} sec_pai ON p_pai.${colCodSecaoProd} = sec_pai.${colCodSecao}
+        LEFT JOIN ${tabGrupo} grp_pai ON p_pai.${colCodSecaoProd} = grp_pai.${colCodGrupoGrp} AND p_pai.${colCodGrupoProd} = grp_pai.${colCodGrupo}
+        LEFT JOIN ${tabSubgrupo} sgp_pai ON p_pai.${colCodSecaoProd} = sgp_pai.${colCodSecaoSG} AND p_pai.${colCodGrupoProd} = sgp_pai.${colCodGrupoSG} AND p_pai.${colCodSubGrupoProd} = sgp_pai.${colCodSubGrupo}
+        LEFT JOIN ${tabSecao} sec_filho ON p_filho.${colCodSecaoProd} = sec_filho.${colCodSecao}
+        LEFT JOIN ${tabGrupo} grp_filho ON p_filho.${colCodSecaoProd} = grp_filho.${colCodGrupoGrp} AND p_filho.${colCodGrupoProd} = grp_filho.${colCodGrupo}
+        LEFT JOIN ${tabSubgrupo} sgp_filho ON p_filho.${colCodSecaoProd} = sgp_filho.${colCodSecaoSG} AND p_filho.${colCodGrupoProd} = sgp_filho.${colCodGrupoSG} AND p_filho.${colCodSubGrupoProd} = sgp_filho.${colCodSubGrupo}
         LEFT JOIN (
-          SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, SUM(ni.${colValTotalItem}) as VAL_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-            AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-            AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+            AND nf.${colSerieNf} = ni.${colSerieNfItem}
+            AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM
-        ) compras ON p_pai.COD_PRODUTO = compras.COD_ITEM
+          GROUP BY ni.${colCodItem}
+        ) compras ON p_pai.${colCodProduto} = compras.COD_ITEM
         WHERE 1=1 ${nivelFilter.replace(/p\./g, 'p_pai.')}
         AND compras.VAL_TOTAL > 0
         ORDER BY VALOR DESC NULLS LAST
@@ -1884,39 +2007,39 @@ export class CompraVendaService {
       // EMPRESTADO: Produtos FILHO que recebem de MATRIZ
       const sqlDecomp = `
         SELECT
-          p_filho.COD_PRODUTO as COD_DESTINO,
-          p_filho.DES_PRODUTO as PRODUTO_DESTINO,
-          sec_filho.DES_SECAO as SECAO_DESTINO,
-          grp_filho.DES_GRUPO as GRUPO_DESTINO,
-          sgp_filho.DES_SUB_GRUPO as SUBGRUPO_DESTINO,
-          p_pai.COD_PRODUTO as COD_ORIGEM,
-          p_pai.DES_PRODUTO as PRODUTO_ORIGEM,
-          sec_pai.DES_SECAO as SECAO_ORIGEM,
-          grp_pai.DES_GRUPO as GRUPO_ORIGEM,
-          sgp_pai.DES_SUB_GRUPO as SUBGRUPO_ORIGEM,
+          p_filho.${colCodProduto} as COD_DESTINO,
+          p_filho.${colDesProduto} as PRODUTO_DESTINO,
+          sec_filho.${colDesSecao} as SECAO_DESTINO,
+          grp_filho.${colDesGrupo} as GRUPO_DESTINO,
+          sgp_filho.${colDesSubGrupo} as SUBGRUPO_DESTINO,
+          p_pai.${colCodProduto} as COD_ORIGEM,
+          p_pai.${colDesProduto} as PRODUTO_ORIGEM,
+          sec_pai.${colDesSecao} as SECAO_ORIGEM,
+          grp_pai.${colDesGrupo} as GRUPO_ORIGEM,
+          sgp_pai.${colDesSubGrupo} as SUBGRUPO_ORIGEM,
           d.QTD_DECOMP as PERCENTUAL,
           NVL(compras.VAL_TOTAL, 0) * d.QTD_DECOMP / 100 as VALOR
         FROM ${tabProduto} p_filho
-        JOIN ${tabProdutoDecomposicao} d ON p_filho.COD_PRODUTO = d.COD_PRODUTO_DECOM
-        JOIN ${tabProduto} p_pai ON d.COD_PRODUTO = p_pai.COD_PRODUTO
-        LEFT JOIN ${tabSecao} sec_pai ON p_pai.COD_SECAO = sec_pai.COD_SECAO
-        LEFT JOIN ${tabGrupo} grp_pai ON p_pai.COD_SECAO = grp_pai.COD_SECAO AND p_pai.COD_GRUPO = grp_pai.COD_GRUPO
-        LEFT JOIN ${tabSubgrupo} sgp_pai ON p_pai.COD_SECAO = sgp_pai.COD_SECAO AND p_pai.COD_GRUPO = sgp_pai.COD_GRUPO AND p_pai.COD_SUB_GRUPO = sgp_pai.COD_SUB_GRUPO
-        LEFT JOIN ${tabSecao} sec_filho ON p_filho.COD_SECAO = sec_filho.COD_SECAO
-        LEFT JOIN ${tabGrupo} grp_filho ON p_filho.COD_SECAO = grp_filho.COD_SECAO AND p_filho.COD_GRUPO = grp_filho.COD_GRUPO
-        LEFT JOIN ${tabSubgrupo} sgp_filho ON p_filho.COD_SECAO = sgp_filho.COD_SECAO AND p_filho.COD_GRUPO = sgp_filho.COD_GRUPO AND p_filho.COD_SUB_GRUPO = sgp_filho.COD_SUB_GRUPO
+        JOIN ${tabProdutoDecomposicao} d ON p_filho.${colCodProduto} = d.COD_PRODUTO_DECOM
+        JOIN ${tabProduto} p_pai ON d.COD_PRODUTO = p_pai.${colCodProduto}
+        LEFT JOIN ${tabSecao} sec_pai ON p_pai.${colCodSecaoProd} = sec_pai.${colCodSecao}
+        LEFT JOIN ${tabGrupo} grp_pai ON p_pai.${colCodSecaoProd} = grp_pai.${colCodGrupoGrp} AND p_pai.${colCodGrupoProd} = grp_pai.${colCodGrupo}
+        LEFT JOIN ${tabSubgrupo} sgp_pai ON p_pai.${colCodSecaoProd} = sgp_pai.${colCodSecaoSG} AND p_pai.${colCodGrupoProd} = sgp_pai.${colCodGrupoSG} AND p_pai.${colCodSubGrupoProd} = sgp_pai.${colCodSubGrupo}
+        LEFT JOIN ${tabSecao} sec_filho ON p_filho.${colCodSecaoProd} = sec_filho.${colCodSecao}
+        LEFT JOIN ${tabGrupo} grp_filho ON p_filho.${colCodSecaoProd} = grp_filho.${colCodGrupoGrp} AND p_filho.${colCodGrupoProd} = grp_filho.${colCodGrupo}
+        LEFT JOIN ${tabSubgrupo} sgp_filho ON p_filho.${colCodSecaoProd} = sgp_filho.${colCodSecaoSG} AND p_filho.${colCodGrupoProd} = sgp_filho.${colCodGrupoSG} AND p_filho.${colCodSubGrupoProd} = sgp_filho.${colCodSubGrupo}
         LEFT JOIN (
-          SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, SUM(ni.${colValTotalItem}) as VAL_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-            AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-            AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+            AND nf.${colSerieNf} = ni.${colSerieNfItem}
+            AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM
-        ) compras ON p_pai.COD_PRODUTO = compras.COD_ITEM
+          GROUP BY ni.${colCodItem}
+        ) compras ON p_pai.${colCodProduto} = compras.COD_ITEM
         WHERE 1=1 ${nivelFilter.replace(/p\./g, 'p_filho.')}
         AND compras.VAL_TOTAL > 0
         ORDER BY VALOR DESC NULLS LAST
@@ -1930,39 +2053,39 @@ export class CompraVendaService {
       // EMPRESTEI: Insumos que emprestam para produtos finais (baseado em VENDAS)
       const sqlProd = `
         SELECT
-          p_insumo.COD_PRODUTO as COD_ORIGEM,
-          p_insumo.DES_PRODUTO as PRODUTO_ORIGEM,
-          sec_insumo.DES_SECAO as SECAO_ORIGEM,
-          grp_insumo.DES_GRUPO as GRUPO_ORIGEM,
-          sgp_insumo.DES_SUB_GRUPO as SUBGRUPO_ORIGEM,
-          p_final.COD_PRODUTO as COD_DESTINO,
-          p_final.DES_PRODUTO as PRODUTO_DESTINO,
-          sec_final.DES_SECAO as SECAO_DESTINO,
-          grp_final.DES_GRUPO as GRUPO_DESTINO,
-          sgp_final.DES_SUB_GRUPO as SUBGRUPO_DESTINO,
+          p_insumo.${colCodProduto} as COD_ORIGEM,
+          p_insumo.${colDesProduto} as PRODUTO_ORIGEM,
+          sec_insumo.${colDesSecao} as SECAO_ORIGEM,
+          grp_insumo.${colDesGrupo} as GRUPO_ORIGEM,
+          sgp_insumo.${colDesSubGrupo} as SUBGRUPO_ORIGEM,
+          p_final.${colCodProduto} as COD_DESTINO,
+          p_final.${colDesProduto} as PRODUTO_DESTINO,
+          sec_final.${colDesSecao} as SECAO_DESTINO,
+          grp_final.${colDesGrupo} as GRUPO_DESTINO,
+          sgp_final.${colDesSubGrupo} as SUBGRUPO_DESTINO,
           pp.QTD_PRODUCAO as QTD_RECEITA,
           NVL(vendas.QTD_VENDIDA, 0) * pp.QTD_PRODUCAO * (NVL(compras.VAL_TOTAL, 0) / NULLIF(compras.QTD_TOTAL, 0)) as VALOR
         FROM ${tabProdutoProducao} pp
-        JOIN ${tabProduto} p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
-        JOIN ${tabProduto} p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
-        LEFT JOIN ${tabSecao} sec_insumo ON p_insumo.COD_SECAO = sec_insumo.COD_SECAO
-        LEFT JOIN ${tabGrupo} grp_insumo ON p_insumo.COD_SECAO = grp_insumo.COD_SECAO AND p_insumo.COD_GRUPO = grp_insumo.COD_GRUPO
-        LEFT JOIN ${tabSubgrupo} sgp_insumo ON p_insumo.COD_SECAO = sgp_insumo.COD_SECAO AND p_insumo.COD_GRUPO = sgp_insumo.COD_GRUPO AND p_insumo.COD_SUB_GRUPO = sgp_insumo.COD_SUB_GRUPO
-        LEFT JOIN ${tabSecao} sec_final ON p_final.COD_SECAO = sec_final.COD_SECAO
-        LEFT JOIN ${tabGrupo} grp_final ON p_final.COD_SECAO = grp_final.COD_SECAO AND p_final.COD_GRUPO = grp_final.COD_GRUPO
-        LEFT JOIN ${tabSubgrupo} sgp_final ON p_final.COD_SECAO = sgp_final.COD_SECAO AND p_final.COD_GRUPO = sgp_final.COD_GRUPO AND p_final.COD_SUB_GRUPO = sgp_final.COD_SUB_GRUPO
+        JOIN ${tabProduto} p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.${colCodProduto}
+        JOIN ${tabProduto} p_final ON pp.COD_PRODUTO = p_final.${colCodProduto}
+        LEFT JOIN ${tabSecao} sec_insumo ON p_insumo.${colCodSecaoProd} = sec_insumo.${colCodSecao}
+        LEFT JOIN ${tabGrupo} grp_insumo ON p_insumo.${colCodSecaoProd} = grp_insumo.${colCodGrupoGrp} AND p_insumo.${colCodGrupoProd} = grp_insumo.${colCodGrupo}
+        LEFT JOIN ${tabSubgrupo} sgp_insumo ON p_insumo.${colCodSecaoProd} = sgp_insumo.${colCodSecaoSG} AND p_insumo.${colCodGrupoProd} = sgp_insumo.${colCodGrupoSG} AND p_insumo.${colCodSubGrupoProd} = sgp_insumo.${colCodSubGrupo}
+        LEFT JOIN ${tabSecao} sec_final ON p_final.${colCodSecaoProd} = sec_final.${colCodSecao}
+        LEFT JOIN ${tabGrupo} grp_final ON p_final.${colCodSecaoProd} = grp_final.${colCodGrupoGrp} AND p_final.${colCodGrupoProd} = grp_final.${colCodGrupo}
+        LEFT JOIN ${tabSubgrupo} sgp_final ON p_final.${colCodSecaoProd} = sgp_final.${colCodSecaoSG} AND p_final.${colCodGrupoProd} = sgp_final.${colCodGrupoSG} AND p_final.${colCodSubGrupoProd} = sgp_final.${colCodSubGrupo}
         LEFT JOIN (
-          SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-            AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-            AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+            AND nf.${colSerieNf} = ni.${colSerieNfItem}
+            AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM
-        ) compras ON p_insumo.COD_PRODUTO = compras.COD_ITEM
+          GROUP BY ni.${colCodItem}
+        ) compras ON p_insumo.${colCodProduto} = compras.COD_ITEM
         LEFT JOIN (
           SELECT pv.COD_PRODUTO, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
@@ -1970,7 +2093,7 @@ export class CompraVendaService {
           ${tipoVendaFilter}
           ${lojaFilterVendas}
           GROUP BY pv.COD_PRODUTO
-        ) vendas ON p_final.COD_PRODUTO = vendas.COD_PRODUTO
+        ) vendas ON p_final.${colCodProduto} = vendas.COD_PRODUTO
         WHERE 1=1 ${nivelFilter.replace(/p\./g, 'p_insumo.')}
         AND vendas.QTD_VENDIDA > 0
         ORDER BY VALOR DESC NULLS LAST
@@ -1981,39 +2104,39 @@ export class CompraVendaService {
       // EMPRESTADO: Produtos finais que recebem de insumos
       const sqlProd = `
         SELECT
-          p_final.COD_PRODUTO as COD_DESTINO,
-          p_final.DES_PRODUTO as PRODUTO_DESTINO,
-          sec_final.DES_SECAO as SECAO_DESTINO,
-          grp_final.DES_GRUPO as GRUPO_DESTINO,
-          sgp_final.DES_SUB_GRUPO as SUBGRUPO_DESTINO,
-          p_insumo.COD_PRODUTO as COD_ORIGEM,
-          p_insumo.DES_PRODUTO as PRODUTO_ORIGEM,
-          sec_insumo.DES_SECAO as SECAO_ORIGEM,
-          grp_insumo.DES_GRUPO as GRUPO_ORIGEM,
-          sgp_insumo.DES_SUB_GRUPO as SUBGRUPO_ORIGEM,
+          p_final.${colCodProduto} as COD_DESTINO,
+          p_final.${colDesProduto} as PRODUTO_DESTINO,
+          sec_final.${colDesSecao} as SECAO_DESTINO,
+          grp_final.${colDesGrupo} as GRUPO_DESTINO,
+          sgp_final.${colDesSubGrupo} as SUBGRUPO_DESTINO,
+          p_insumo.${colCodProduto} as COD_ORIGEM,
+          p_insumo.${colDesProduto} as PRODUTO_ORIGEM,
+          sec_insumo.${colDesSecao} as SECAO_ORIGEM,
+          grp_insumo.${colDesGrupo} as GRUPO_ORIGEM,
+          sgp_insumo.${colDesSubGrupo} as SUBGRUPO_ORIGEM,
           pp.QTD_PRODUCAO as QTD_RECEITA,
           NVL(vendas.QTD_VENDIDA, 0) * pp.QTD_PRODUCAO * (NVL(compras.VAL_TOTAL, 0) / NULLIF(compras.QTD_TOTAL, 0)) as VALOR
         FROM ${tabProdutoProducao} pp
-        JOIN ${tabProduto} p_final ON pp.COD_PRODUTO = p_final.COD_PRODUTO
-        JOIN ${tabProduto} p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.COD_PRODUTO
-        LEFT JOIN ${tabSecao} sec_insumo ON p_insumo.COD_SECAO = sec_insumo.COD_SECAO
-        LEFT JOIN ${tabGrupo} grp_insumo ON p_insumo.COD_SECAO = grp_insumo.COD_SECAO AND p_insumo.COD_GRUPO = grp_insumo.COD_GRUPO
-        LEFT JOIN ${tabSubgrupo} sgp_insumo ON p_insumo.COD_SECAO = sgp_insumo.COD_SECAO AND p_insumo.COD_GRUPO = sgp_insumo.COD_GRUPO AND p_insumo.COD_SUB_GRUPO = sgp_insumo.COD_SUB_GRUPO
-        LEFT JOIN ${tabSecao} sec_final ON p_final.COD_SECAO = sec_final.COD_SECAO
-        LEFT JOIN ${tabGrupo} grp_final ON p_final.COD_SECAO = grp_final.COD_SECAO AND p_final.COD_GRUPO = grp_final.COD_GRUPO
-        LEFT JOIN ${tabSubgrupo} sgp_final ON p_final.COD_SECAO = sgp_final.COD_SECAO AND p_final.COD_GRUPO = sgp_final.COD_GRUPO AND p_final.COD_SUB_GRUPO = sgp_final.COD_SUB_GRUPO
+        JOIN ${tabProduto} p_final ON pp.COD_PRODUTO = p_final.${colCodProduto}
+        JOIN ${tabProduto} p_insumo ON pp.COD_PRODUTO_PRODUCAO = p_insumo.${colCodProduto}
+        LEFT JOIN ${tabSecao} sec_insumo ON p_insumo.${colCodSecaoProd} = sec_insumo.${colCodSecao}
+        LEFT JOIN ${tabGrupo} grp_insumo ON p_insumo.${colCodSecaoProd} = grp_insumo.${colCodGrupoGrp} AND p_insumo.${colCodGrupoProd} = grp_insumo.${colCodGrupo}
+        LEFT JOIN ${tabSubgrupo} sgp_insumo ON p_insumo.${colCodSecaoProd} = sgp_insumo.${colCodSecaoSG} AND p_insumo.${colCodGrupoProd} = sgp_insumo.${colCodGrupoSG} AND p_insumo.${colCodSubGrupoProd} = sgp_insumo.${colCodSubGrupo}
+        LEFT JOIN ${tabSecao} sec_final ON p_final.${colCodSecaoProd} = sec_final.${colCodSecao}
+        LEFT JOIN ${tabGrupo} grp_final ON p_final.${colCodSecaoProd} = grp_final.${colCodGrupoGrp} AND p_final.${colCodGrupoProd} = grp_final.${colCodGrupo}
+        LEFT JOIN ${tabSubgrupo} sgp_final ON p_final.${colCodSecaoProd} = sgp_final.${colCodSecaoSG} AND p_final.${colCodGrupoProd} = sgp_final.${colCodGrupoSG} AND p_final.${colCodSubGrupoProd} = sgp_final.${colCodSubGrupo}
         LEFT JOIN (
-          SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-            AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-            AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+            AND nf.${colSerieNf} = ni.${colSerieNfItem}
+            AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM
-        ) compras ON p_insumo.COD_PRODUTO = compras.COD_ITEM
+          GROUP BY ni.${colCodItem}
+        ) compras ON p_insumo.${colCodProduto} = compras.COD_ITEM
         LEFT JOIN (
           SELECT pv.COD_PRODUTO, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
@@ -2021,7 +2144,7 @@ export class CompraVendaService {
           ${tipoVendaFilter}
           ${lojaFilterVendas}
           GROUP BY pv.COD_PRODUTO
-        ) vendas ON p_final.COD_PRODUTO = vendas.COD_PRODUTO
+        ) vendas ON p_final.${colCodProduto} = vendas.COD_PRODUTO
         WHERE 1=1 ${nivelFilter.replace(/p\./g, 'p_final.')}
         AND vendas.QTD_VENDIDA > 0
         ORDER BY VALOR DESC NULLS LAST
@@ -2035,39 +2158,39 @@ export class CompraVendaService {
       // EMPRESTEI: Produtos BASE que emprestam para ASSOCIADOS
       const sqlAssoc = `
         SELECT
-          p_base.COD_PRODUTO as COD_ORIGEM,
-          p_base.DES_PRODUTO as PRODUTO_ORIGEM,
-          sec_base.DES_SECAO as SECAO_ORIGEM,
-          grp_base.DES_GRUPO as GRUPO_ORIGEM,
-          sgp_base.DES_SUB_GRUPO as SUBGRUPO_ORIGEM,
-          p_assoc.COD_PRODUTO as COD_DESTINO,
-          p_assoc.DES_PRODUTO as PRODUTO_DESTINO,
-          sec_assoc.DES_SECAO as SECAO_DESTINO,
-          grp_assoc.DES_GRUPO as GRUPO_DESTINO,
-          sgp_assoc.DES_SUB_GRUPO as SUBGRUPO_DESTINO,
+          p_base.${colCodProduto} as COD_ORIGEM,
+          p_base.${colDesProduto} as PRODUTO_ORIGEM,
+          sec_base.${colDesSecao} as SECAO_ORIGEM,
+          grp_base.${colDesGrupo} as GRUPO_ORIGEM,
+          sgp_base.${colDesSubGrupo} as SUBGRUPO_ORIGEM,
+          p_assoc.${colCodProduto} as COD_DESTINO,
+          p_assoc.${colDesProduto} as PRODUTO_DESTINO,
+          sec_assoc.${colDesSecao} as SECAO_DESTINO,
+          grp_assoc.${colDesGrupo} as GRUPO_DESTINO,
+          sgp_assoc.${colDesSubGrupo} as SUBGRUPO_DESTINO,
           NVL(p_assoc.QTD_EMBALAGEM_VENDA, 1) as QTD_ASSOC,
           NVL(vendas.QTD_VENDIDA, 0) * NVL(p_assoc.QTD_EMBALAGEM_VENDA, 1) * (NVL(compras.VAL_TOTAL, 0) / NULLIF(compras.QTD_TOTAL, 0)) as VALOR
         FROM ${tabProdutoLoja} pl
-        JOIN ${tabProduto} p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
-        JOIN ${tabProduto} p_assoc ON pl.COD_PRODUTO = p_assoc.COD_PRODUTO
-        LEFT JOIN ${tabSecao} sec_base ON p_base.COD_SECAO = sec_base.COD_SECAO
-        LEFT JOIN ${tabGrupo} grp_base ON p_base.COD_SECAO = grp_base.COD_SECAO AND p_base.COD_GRUPO = grp_base.COD_GRUPO
-        LEFT JOIN ${tabSubgrupo} sgp_base ON p_base.COD_SECAO = sgp_base.COD_SECAO AND p_base.COD_GRUPO = sgp_base.COD_GRUPO AND p_base.COD_SUB_GRUPO = sgp_base.COD_SUB_GRUPO
-        LEFT JOIN ${tabSecao} sec_assoc ON p_assoc.COD_SECAO = sec_assoc.COD_SECAO
-        LEFT JOIN ${tabGrupo} grp_assoc ON p_assoc.COD_SECAO = grp_assoc.COD_SECAO AND p_assoc.COD_GRUPO = grp_assoc.COD_GRUPO
-        LEFT JOIN ${tabSubgrupo} sgp_assoc ON p_assoc.COD_SECAO = sgp_assoc.COD_SECAO AND p_assoc.COD_GRUPO = sgp_assoc.COD_GRUPO AND p_assoc.COD_SUB_GRUPO = sgp_assoc.COD_SUB_GRUPO
+        JOIN ${tabProduto} p_base ON pl.COD_ASSOCIADO = p_base.${colCodProduto}
+        JOIN ${tabProduto} p_assoc ON pl.${colCodProdutoPL} = p_assoc.${colCodProduto}
+        LEFT JOIN ${tabSecao} sec_base ON p_base.${colCodSecaoProd} = sec_base.${colCodSecao}
+        LEFT JOIN ${tabGrupo} grp_base ON p_base.${colCodSecaoProd} = grp_base.${colCodGrupoGrp} AND p_base.${colCodGrupoProd} = grp_base.${colCodGrupo}
+        LEFT JOIN ${tabSubgrupo} sgp_base ON p_base.${colCodSecaoProd} = sgp_base.${colCodSecaoSG} AND p_base.${colCodGrupoProd} = sgp_base.${colCodGrupoSG} AND p_base.${colCodSubGrupoProd} = sgp_base.${colCodSubGrupo}
+        LEFT JOIN ${tabSecao} sec_assoc ON p_assoc.${colCodSecaoProd} = sec_assoc.${colCodSecao}
+        LEFT JOIN ${tabGrupo} grp_assoc ON p_assoc.${colCodSecaoProd} = grp_assoc.${colCodGrupoGrp} AND p_assoc.${colCodGrupoProd} = grp_assoc.${colCodGrupo}
+        LEFT JOIN ${tabSubgrupo} sgp_assoc ON p_assoc.${colCodSecaoProd} = sgp_assoc.${colCodSecaoSG} AND p_assoc.${colCodGrupoProd} = sgp_assoc.${colCodGrupoSG} AND p_assoc.${colCodSubGrupoProd} = sgp_assoc.${colCodSubGrupo}
         LEFT JOIN (
-          SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-            AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-            AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+            AND nf.${colSerieNf} = ni.${colSerieNfItem}
+            AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM
-        ) compras ON p_base.COD_PRODUTO = compras.COD_ITEM
+          GROUP BY ni.${colCodItem}
+        ) compras ON p_base.${colCodProduto} = compras.COD_ITEM
         LEFT JOIN (
           SELECT pv.COD_PRODUTO, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
@@ -2075,7 +2198,7 @@ export class CompraVendaService {
           ${tipoVendaFilter}
           ${lojaFilterVendas}
           GROUP BY pv.COD_PRODUTO
-        ) vendas ON p_assoc.COD_PRODUTO = vendas.COD_PRODUTO
+        ) vendas ON p_assoc.${colCodProduto} = vendas.COD_PRODUTO
         WHERE pl.COD_ASSOCIADO IS NOT NULL
         ${nivelFilter.replace(/p\./g, 'p_base.')}
         AND vendas.QTD_VENDIDA > 0
@@ -2087,39 +2210,39 @@ export class CompraVendaService {
       // EMPRESTADO: Produtos ASSOCIADOS que recebem de BASE
       const sqlAssoc = `
         SELECT
-          p_assoc.COD_PRODUTO as COD_DESTINO,
-          p_assoc.DES_PRODUTO as PRODUTO_DESTINO,
-          sec_assoc.DES_SECAO as SECAO_DESTINO,
-          grp_assoc.DES_GRUPO as GRUPO_DESTINO,
-          sgp_assoc.DES_SUB_GRUPO as SUBGRUPO_DESTINO,
-          p_base.COD_PRODUTO as COD_ORIGEM,
-          p_base.DES_PRODUTO as PRODUTO_ORIGEM,
-          sec_base.DES_SECAO as SECAO_ORIGEM,
-          grp_base.DES_GRUPO as GRUPO_ORIGEM,
-          sgp_base.DES_SUB_GRUPO as SUBGRUPO_ORIGEM,
+          p_assoc.${colCodProduto} as COD_DESTINO,
+          p_assoc.${colDesProduto} as PRODUTO_DESTINO,
+          sec_assoc.${colDesSecao} as SECAO_DESTINO,
+          grp_assoc.${colDesGrupo} as GRUPO_DESTINO,
+          sgp_assoc.${colDesSubGrupo} as SUBGRUPO_DESTINO,
+          p_base.${colCodProduto} as COD_ORIGEM,
+          p_base.${colDesProduto} as PRODUTO_ORIGEM,
+          sec_base.${colDesSecao} as SECAO_ORIGEM,
+          grp_base.${colDesGrupo} as GRUPO_ORIGEM,
+          sgp_base.${colDesSubGrupo} as SUBGRUPO_ORIGEM,
           NVL(p_assoc.QTD_EMBALAGEM_VENDA, 1) as QTD_ASSOC,
           NVL(vendas.QTD_VENDIDA, 0) * NVL(p_assoc.QTD_EMBALAGEM_VENDA, 1) * (NVL(compras.VAL_TOTAL, 0) / NULLIF(compras.QTD_TOTAL, 0)) as VALOR
         FROM ${tabProdutoLoja} pl
-        JOIN ${tabProduto} p_assoc ON pl.COD_PRODUTO = p_assoc.COD_PRODUTO
-        JOIN ${tabProduto} p_base ON pl.COD_ASSOCIADO = p_base.COD_PRODUTO
-        LEFT JOIN ${tabSecao} sec_base ON p_base.COD_SECAO = sec_base.COD_SECAO
-        LEFT JOIN ${tabGrupo} grp_base ON p_base.COD_SECAO = grp_base.COD_SECAO AND p_base.COD_GRUPO = grp_base.COD_GRUPO
-        LEFT JOIN ${tabSubgrupo} sgp_base ON p_base.COD_SECAO = sgp_base.COD_SECAO AND p_base.COD_GRUPO = sgp_base.COD_GRUPO AND p_base.COD_SUB_GRUPO = sgp_base.COD_SUB_GRUPO
-        LEFT JOIN ${tabSecao} sec_assoc ON p_assoc.COD_SECAO = sec_assoc.COD_SECAO
-        LEFT JOIN ${tabGrupo} grp_assoc ON p_assoc.COD_SECAO = grp_assoc.COD_SECAO AND p_assoc.COD_GRUPO = grp_assoc.COD_GRUPO
-        LEFT JOIN ${tabSubgrupo} sgp_assoc ON p_assoc.COD_SECAO = sgp_assoc.COD_SECAO AND p_assoc.COD_GRUPO = sgp_assoc.COD_GRUPO AND p_assoc.COD_SUB_GRUPO = sgp_assoc.COD_SUB_GRUPO
+        JOIN ${tabProduto} p_assoc ON pl.${colCodProdutoPL} = p_assoc.${colCodProduto}
+        JOIN ${tabProduto} p_base ON pl.COD_ASSOCIADO = p_base.${colCodProduto}
+        LEFT JOIN ${tabSecao} sec_base ON p_base.${colCodSecaoProd} = sec_base.${colCodSecao}
+        LEFT JOIN ${tabGrupo} grp_base ON p_base.${colCodSecaoProd} = grp_base.${colCodGrupoGrp} AND p_base.${colCodGrupoProd} = grp_base.${colCodGrupo}
+        LEFT JOIN ${tabSubgrupo} sgp_base ON p_base.${colCodSecaoProd} = sgp_base.${colCodSecaoSG} AND p_base.${colCodGrupoProd} = sgp_base.${colCodGrupoSG} AND p_base.${colCodSubGrupoProd} = sgp_base.${colCodSubGrupo}
+        LEFT JOIN ${tabSecao} sec_assoc ON p_assoc.${colCodSecaoProd} = sec_assoc.${colCodSecao}
+        LEFT JOIN ${tabGrupo} grp_assoc ON p_assoc.${colCodSecaoProd} = grp_assoc.${colCodGrupoGrp} AND p_assoc.${colCodGrupoProd} = grp_assoc.${colCodGrupo}
+        LEFT JOIN ${tabSubgrupo} sgp_assoc ON p_assoc.${colCodSecaoProd} = sgp_assoc.${colCodSecaoSG} AND p_assoc.${colCodGrupoProd} = sgp_assoc.${colCodGrupoSG} AND p_assoc.${colCodSubGrupoProd} = sgp_assoc.${colCodSubGrupo}
         LEFT JOIN (
-          SELECT ni.COD_ITEM, SUM(ni.VAL_TOTAL) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
+          SELECT ni.${colCodItem} as COD_ITEM, SUM(ni.${colValTotalItem}) as VAL_TOTAL, SUM(ni.QTD_TOTAL) as QTD_TOTAL
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-            AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-            AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE nf.DTA_ENTRADA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+            AND nf.${colSerieNf} = ni.${colSerieNfItem}
+            AND nf.${colCodParceiro} = ni.${colCodParceiroItem}
+          WHERE nf.${colDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
           ${tipoNfFilter}
           ${lojaFilterCompras}
-          GROUP BY ni.COD_ITEM
-        ) compras ON p_base.COD_PRODUTO = compras.COD_ITEM
+          GROUP BY ni.${colCodItem}
+        ) compras ON p_base.${colCodProduto} = compras.COD_ITEM
         LEFT JOIN (
           SELECT pv.COD_PRODUTO, SUM(pv.QTD_TOTAL_PRODUTO) as QTD_VENDIDA
           FROM ${tabProdutoPdv} pv
@@ -2127,7 +2250,7 @@ export class CompraVendaService {
           ${tipoVendaFilter}
           ${lojaFilterVendas}
           GROUP BY pv.COD_PRODUTO
-        ) vendas ON p_assoc.COD_PRODUTO = vendas.COD_PRODUTO
+        ) vendas ON p_assoc.${colCodProduto} = vendas.COD_PRODUTO
         WHERE pl.COD_ASSOCIADO IS NOT NULL
         ${nivelFilter.replace(/p\./g, 'p_assoc.')}
         AND vendas.QTD_VENDIDA > 0

@@ -45,12 +45,57 @@ export class CompraVendaController {
       const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
       const tabProdutoDecomposicao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_DECOMPOSICAO', 'TAB_PRODUTO_DECOMPOSICAO')}`;
 
+      // Resolver colunas via MappingService
+      const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+      const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
+      const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao', 'COD_SECAO');
+      const colCodGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo', 'COD_GRUPO');
+      const colCodSubGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo', 'COD_SUB_GRUPO');
+
+      const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
+      const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
+      const colCodGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo', 'COD_GRUPO');
+      const colDesGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo', 'DES_GRUPO');
+      const colCodSecaoGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_secao', 'COD_SECAO');
+      const colCodSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo', 'COD_SUB_GRUPO');
+      const colDesSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo', 'DES_SUB_GRUPO');
+      const colCodSecaoSub = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_secao', 'COD_SECAO');
+      const colCodGrupoSub = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_grupo', 'COD_GRUPO');
+
+      // Colunas NF
+      const colNumNf = await MappingService.getColumnFromTable('TAB_NF', 'numero_nf', 'NUM_NF');
+      const colDtaEntrada = await MappingService.getColumnFromTable('TAB_NF', 'data_entrada', 'DTA_ENTRADA');
+      const colNumSerieNf = await MappingService.getColumnFromTable('TAB_NF', 'numero_serie', 'NUM_SERIE_NF');
+      const colCodParceiroNf = await MappingService.getColumnFromTable('TAB_NF', 'codigo_fornecedor', 'COD_PARCEIRO');
+      const colCodLojaNf = await MappingService.getColumnFromTable('TAB_NF', 'codigo_loja', 'COD_LOJA');
+      const colTipoOperacao = await MappingService.getColumnFromTable('TAB_NF', 'tipo_operacao', 'TIPO_OPERACAO');
+
+      // Colunas NF Item
+      const colNumNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_nf', 'NUM_NF');
+      const colNumSerieNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_serie', 'NUM_SERIE_NF');
+      const colCodParceiroItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_fornecedor', 'COD_PARCEIRO');
+      const colCodItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_produto', 'COD_ITEM');
+      const colQtdTotal = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'quantidade', 'QTD_TOTAL');
+      const colValTotal = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total', 'VAL_TOTAL');
+      const colCfop = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'cfop', 'CFOP');
+
+      // Colunas PDV
+      const colCodProdutoPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto', 'COD_PRODUTO');
+      const colQtdTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade', 'QTD_TOTAL_PRODUTO');
+      const colValTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total', 'VAL_TOTAL_PRODUTO');
+      const colDtaSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_saida', 'DTA_SAIDA');
+
+      // Colunas Decomposição
+      const colCodProdutoDecomp = await MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'codigo_produto', 'COD_PRODUTO');
+      const colCodProdutoDecom = await MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'codigo_produto_decom', 'COD_PRODUTO_DECOM');
+      const colQtdDecomp = await MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'quantidade_decomp', 'QTD_DECOMP');
+
       // Se passou busca por nome de produto
       if (busca) {
         const produtos = await OracleService.query(`
-          SELECT COD_PRODUTO, DES_PRODUTO, COD_SECAO, COD_GRUPO
+          SELECT ${colCodProduto}, ${colDesProduto}, ${colCodSecaoProd}, ${colCodGrupoProd}
           FROM ${tabProduto}
-          WHERE UPPER(DES_PRODUTO) LIKE UPPER(:busca)
+          WHERE UPPER(${colDesProduto}) LIKE UPPER(:busca)
           AND ROWNUM <= 20
         `, { busca: `%${busca}%` });
 
@@ -78,51 +123,51 @@ export class CompraVendaController {
       // Se passou código do produto, busca todas as relações
       if (codProduto) {
         const produto = await OracleService.query(`
-          SELECT p.*, s.DES_SECAO, g.DES_GRUPO, sg.DES_SUB_GRUPO
+          SELECT p.*, s.${colDesSecao} as DES_SECAO, g.${colDesGrupo} as DES_GRUPO, sg.${colDesSubGrupo} as DES_SUB_GRUPO
           FROM ${tabProduto} p
-          LEFT JOIN ${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
-          LEFT JOIN ${tabGrupo} g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
-          LEFT JOIN ${tabSubgrupo} sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
-          WHERE p.COD_PRODUTO = :codProduto
+          LEFT JOIN ${tabSecao} s ON p.${colCodSecaoProd} = s.${colCodSecao}
+          LEFT JOIN ${tabGrupo} g ON p.${colCodSecaoProd} = g.${colCodSecaoGrupo} AND p.${colCodGrupoProd} = g.${colCodGrupo}
+          LEFT JOIN ${tabSubgrupo} sg ON p.${colCodSecaoProd} = sg.${colCodSecaoSub} AND p.${colCodGrupoProd} = sg.${colCodGrupoSub} AND p.${colCodSubGrupoProd} = sg.${colCodSubGrupo}
+          WHERE p.${colCodProduto} = :codProduto
         `, { codProduto });
 
         // Compras no período (01/01/2025 a 25/01/2025)
         const compras = await OracleService.query(`
-          SELECT nf.NUM_NF, nf.DTA_ENTRADA, ni.QTD_TOTAL, ni.VAL_TOTAL, ni.CFOP, nf.COD_LOJA
+          SELECT nf.${colNumNf}, nf.${colDtaEntrada}, ni.${colQtdTotal}, ni.${colValTotal}, ni.${colCfop}, nf.${colCodLojaNf}
           FROM ${tabNf} nf
-          JOIN ${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-            AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-            AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          WHERE ni.COD_ITEM = :codProduto
-          AND nf.DTA_ENTRADA BETWEEN TO_DATE('01/01/2025', 'DD/MM/YYYY') AND TO_DATE('25/01/2025', 'DD/MM/YYYY')
-          AND nf.TIPO_OPERACAO = 0
-          ORDER BY nf.DTA_ENTRADA
+          JOIN ${tabNfItem} ni ON nf.${colNumNf} = ni.${colNumNfItem}
+            AND nf.${colNumSerieNf} = ni.${colNumSerieNfItem}
+            AND nf.${colCodParceiroNf} = ni.${colCodParceiroItem}
+          WHERE ni.${colCodItem} = :codProduto
+          AND nf.${colDtaEntrada} BETWEEN TO_DATE('01/01/2025', 'DD/MM/YYYY') AND TO_DATE('25/01/2025', 'DD/MM/YYYY')
+          AND nf.${colTipoOperacao} = 0
+          ORDER BY nf.${colDtaEntrada}
         `, { codProduto });
 
-        const totalCompras = compras.reduce((sum: number, c: any) => sum + (c.VAL_TOTAL || 0), 0);
+        const totalCompras = compras.reduce((sum: number, c: any) => sum + (c.VAL_TOTAL || c[colValTotal] || 0), 0);
 
         // Vendas no período
         const vendas = await OracleService.query(`
-          SELECT COUNT(*) as QTD_CUPONS, SUM(QTD_TOTAL_PRODUTO) as QTD_TOTAL, SUM(VAL_TOTAL_PRODUTO) as VALOR_TOTAL
+          SELECT COUNT(*) as QTD_CUPONS, SUM(${colQtdTotalProduto}) as QTD_TOTAL, SUM(${colValTotalProduto}) as VALOR_TOTAL
           FROM ${tabProdutoPdv}
-          WHERE COD_PRODUTO = :codProduto
-          AND DTA_SAIDA BETWEEN TO_DATE('01/01/2025', 'DD/MM/YYYY') AND TO_DATE('25/01/2025', 'DD/MM/YYYY')
+          WHERE ${colCodProdutoPdv} = :codProduto
+          AND ${colDtaSaida} BETWEEN TO_DATE('01/01/2025', 'DD/MM/YYYY') AND TO_DATE('25/01/2025', 'DD/MM/YYYY')
         `, { codProduto });
 
         // É filho de decomposição?
         const ehFilhoDecomp = await OracleService.query(`
-          SELECT d.COD_PRODUTO as COD_MATRIZ, p.DES_PRODUTO as MATRIZ, d.QTD_DECOMP as PERCENTUAL
+          SELECT d.${colCodProdutoDecomp} as COD_MATRIZ, p.${colDesProduto} as MATRIZ, d.${colQtdDecomp} as PERCENTUAL
           FROM ${tabProdutoDecomposicao} d
-          JOIN ${tabProduto} p ON d.COD_PRODUTO = p.COD_PRODUTO
-          WHERE d.COD_PRODUTO_DECOM = :codProduto
+          JOIN ${tabProduto} p ON d.${colCodProdutoDecomp} = p.${colCodProduto}
+          WHERE d.${colCodProdutoDecom} = :codProduto
         `, { codProduto });
 
         // É matriz de decomposição?
         const ehMatrizDecomp = await OracleService.query(`
-          SELECT d.COD_PRODUTO_DECOM as COD_FILHO, p.DES_PRODUTO as FILHO, d.QTD_DECOMP as PERCENTUAL
+          SELECT d.${colCodProdutoDecom} as COD_FILHO, p.${colDesProduto} as FILHO, d.${colQtdDecomp} as PERCENTUAL
           FROM ${tabProdutoDecomposicao} d
-          JOIN ${tabProduto} p ON d.COD_PRODUTO_DECOM = p.COD_PRODUTO
-          WHERE d.COD_PRODUTO = :codProduto
+          JOIN ${tabProduto} p ON d.${colCodProdutoDecom} = p.${colCodProduto}
+          WHERE d.${colCodProdutoDecomp} = :codProduto
         `, { codProduto });
 
         // Resumo
