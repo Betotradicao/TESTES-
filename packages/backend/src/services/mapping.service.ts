@@ -83,6 +83,13 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
 export class MappingService {
 
   /**
+   * Modo estrito: quando true, IGNORA fallbacks e exige que o mapeamento exista.
+   * Se o mapeamento não for encontrado, lança erro claro.
+   * Isso garante que o sistema roda 100% pela configuração, sem valores hardcoded.
+   */
+  static STRICT_MODE = true;
+
+  /**
    * Busca os mapeamentos da conexão padrão (ou primeira ativa)
    * e faz cache em memória por 5 minutos
    */
@@ -192,7 +199,16 @@ export class MappingService {
    */
   static async getColumn(module: string, field: string, fallback: string): Promise<string> {
     const mapping = await this.getField(module, field);
-    return mapping?.column || fallback;
+    if (mapping?.column) {
+      return mapping.column;
+    }
+
+    // Modo estrito: não usa fallback, exige mapeamento
+    if (this.STRICT_MODE) {
+      throw new Error(`[MappingService] Coluna não mapeada: ${module}.${field}. Configure em Configurações > Mapeamento.`);
+    }
+
+    return fallback;
   }
 
   /**
@@ -206,7 +222,15 @@ export class MappingService {
    */
   static async getTable(module: string, field: string, fallback: string): Promise<string> {
     const mapping = await this.getField(module, field);
-    return mapping?.table || fallback;
+    if (mapping?.table) {
+      return mapping.table;
+    }
+
+    if (this.STRICT_MODE) {
+      throw new Error(`[MappingService] Tabela não mapeada: ${module}.${field}. Configure em Configurações > Mapeamento.`);
+    }
+
+    return fallback;
   }
 
   /**
@@ -232,6 +256,11 @@ export class MappingService {
     fallbackColumn: string
   ): Promise<FieldMapping> {
     const mapping = await this.getField(module, field);
+
+    if (!mapping && this.STRICT_MODE) {
+      throw new Error(`[MappingService] Campo não mapeado: ${module}.${field}. Configure em Configurações > Mapeamento.`);
+    }
+
     return {
       table: mapping?.table || fallbackTable,
       column: mapping?.column || fallbackColumn
@@ -265,10 +294,17 @@ export class MappingService {
         });
       }
 
-      return connection?.schema || 'INTERSOLID';
+      if (!connection?.schema) {
+        throw new Error('[MappingService] Schema não configurado. Configure em Configurações > Conexões.');
+      }
+
+      return connection.schema;
     } catch (error) {
+      if (error instanceof Error && error.message.includes('Schema não configurado')) {
+        throw error;
+      }
       console.error('[MappingService] Erro ao buscar schema:', error);
-      return 'INTERSOLID';
+      throw new Error('[MappingService] Erro ao buscar schema do banco. Verifique a conexão configurada.');
     }
   }
 
@@ -330,7 +366,11 @@ export class MappingService {
       }
     }
 
-    // Fallback para formato v1 ou hardcode
+    // Modo estrito: ignora fallback, exige mapeamento
+    if (this.STRICT_MODE) {
+      throw new Error(`[MappingService] Coluna não mapeada: ${tableId}.${fieldName}. Configure em Configurações > Mapeamento.`);
+    }
+
     return fallback || fieldName.toUpperCase();
   }
 
@@ -352,6 +392,11 @@ export class MappingService {
       if (tableMapping?.nome_real) {
         return tableMapping.nome_real;
       }
+    }
+
+    // Modo estrito: ignora fallback, exige mapeamento
+    if (this.STRICT_MODE) {
+      throw new Error(`[MappingService] Tabela não mapeada: ${tableId}. Configure em Configurações > Mapeamento.`);
     }
 
     return fallback || tableId;
@@ -388,6 +433,10 @@ export class MappingService {
           column: tableMapping.colunas?.[fieldName] || fallbackColumn
         };
       }
+    }
+
+    if (this.STRICT_MODE) {
+      throw new Error(`[MappingService] Tabela/coluna não mapeada: ${tableId}.${fieldName}. Configure em Configurações > Mapeamento.`);
     }
 
     return {
