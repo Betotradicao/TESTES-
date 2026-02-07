@@ -57,44 +57,44 @@ export class ProductsController {
       // Campos de fornecedor
       desFornecedorCol
     ] = await Promise.all([
-      // Campos de TAB_PRODUTO
-      MappingService.getColumn('produtos', 'codigo', 'COD_PRODUTO'),
-      MappingService.getColumn('produtos', 'ean', 'COD_BARRA_PRINCIPAL'),
-      MappingService.getColumn('produtos', 'descricao', 'DES_PRODUTO'),
-      MappingService.getColumn('produtos', 'descricao_reduzida', 'DES_REDUZIDA'),
-      MappingService.getColumn('produtos', 'embalagem', 'DES_EMBALAGEM'),
-      MappingService.getColumn('produtos', 'qtd_embalagem_venda', 'QTD_EMBALAGEM_VENDA'),
-      MappingService.getColumn('produtos', 'qtd_embalagem_compra', 'QTD_EMBALAGEM_COMPRA'),
-      MappingService.getColumn('produtos', 'pesavel', 'FLG_ENVIA_BALANCA'),
-      MappingService.getColumn('produtos', 'tipo_especie', 'TIPO_ESPECIE'),
-      MappingService.getColumn('produtos', 'tipo_evento', 'TIPO_EVENTO'),
-      MappingService.getColumn('produtos', 'data_cadastro', 'DTA_CADASTRO'),
-      MappingService.getColumn('produtos', 'cod_secao', 'COD_SECAO'),
-      MappingService.getColumn('produtos', 'cod_grupo', 'COD_GRUPO'),
-      MappingService.getColumn('produtos', 'cod_subgrupo', 'COD_SUB_GRUPO'),
-      // Campos de TAB_PRODUTO_LOJA
-      MappingService.getColumn('produtos', 'custo_reposicao', 'VAL_CUSTO_REP'),
-      MappingService.getColumn('produtos', 'valor_venda', 'VAL_VENDA'),
-      MappingService.getColumn('produtos', 'valor_oferta', 'VAL_OFERTA'),
-      MappingService.getColumn('produtos', 'estoque_atual', 'QTD_EST_ATUAL'),
-      MappingService.getColumn('produtos', 'margem', 'VAL_MARGEM'),
-      MappingService.getColumn('produtos', 'margem_fixa', 'VAL_MARGEM_FIXA'),
-      MappingService.getColumn('produtos', 'venda_media', 'VAL_VENDA_MEDIA'),
-      MappingService.getColumn('produtos', 'cobertura', 'QTD_COBERTURA'),
-      MappingService.getColumn('produtos', 'pedido_compra', 'QTD_PEDIDO_COMPRA'),
-      MappingService.getColumn('produtos', 'data_ultima_compra', 'DTA_ULT_COMPRA'),
-      MappingService.getColumn('produtos', 'qtd_ultima_compra', 'QTD_ULT_COMPRA'),
-      MappingService.getColumn('produtos', 'estoque_minimo', 'QTD_EST_MINIMO'),
-      MappingService.getColumn('produtos', 'data_ultima_venda', 'DTA_ULT_MOV_VENDA'),
-      MappingService.getColumn('produtos', 'curva', 'DES_RANK_PRODLOJA'),
-      MappingService.getColumn('produtos', 'cod_fornecedor_ultima_compra', 'COD_FORN_ULT_COMPRA'),
-      MappingService.getColumn('produtos', 'inativo', 'INATIVO'),
-      // Campos de seção/grupo/subgrupo
-      MappingService.getColumn('produtos', 'des_secao', 'DES_SECAO'),
-      MappingService.getColumn('produtos', 'des_grupo', 'DES_GRUPO'),
-      MappingService.getColumn('produtos', 'des_subgrupo', 'DES_SUB_GRUPO'),
-      // Campos de fornecedor
-      MappingService.getColumn('fornecedores', 'razao_social', 'DES_FORNECEDOR')
+      // Campos de TAB_PRODUTO (V2 - lê do mapeamento configurado)
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras', 'COD_BARRA_PRINCIPAL'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_reduzida', 'DES_REDUZIDA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'embalagem', 'DES_EMBALAGEM'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'qtd_embalagem_venda', 'QTD_EMBALAGEM_VENDA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'qtd_embalagem_compra', 'QTD_EMBALAGEM_COMPRA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'pesavel', 'FLG_ENVIA_BALANCA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'tipo_especie', 'TIPO_ESPECIE'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'tipo_evento', 'TIPO_EVENTO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'data_cadastro', 'DTA_CADASTRO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao', 'COD_SECAO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo', 'COD_GRUPO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo', 'COD_SUB_GRUPO'),
+      // Campos de TAB_PRODUTO_LOJA (V2)
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo', 'VAL_CUSTO_REP'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda', 'VAL_VENDA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_oferta', 'VAL_OFERTA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual', 'QTD_EST_ATUAL'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem', 'VAL_MARGEM'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem_fixa', 'VAL_MARGEM_FIXA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'venda_media', 'VAL_VENDA_MEDIA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cobertura', 'QTD_COBERTURA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pedido_compra', 'QTD_PEDIDO_COMPRA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'data_ultima_compra', 'DTA_ULT_COMPRA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'qtd_ultima_compra', 'QTD_ULT_COMPRA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_minimo', 'QTD_EST_MINIMO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'data_ultima_venda', 'DTA_ULT_MOV_VENDA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra', 'COD_FORN_ULT_COMPRA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'inativo', 'INATIVO'),
+      // Campos de seção/grupo/subgrupo (V2)
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_secao', 'DES_SECAO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_grupo', 'DES_GRUPO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_subgrupo', 'DES_SUB_GRUPO'),
+      // Campos de fornecedor (V2)
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR')
     ]);
     return {
       // Campos de TAB_PRODUTO

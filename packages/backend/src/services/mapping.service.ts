@@ -87,7 +87,7 @@ export class MappingService {
    * Se o mapeamento não for encontrado, lança erro claro.
    * Isso garante que o sistema roda 100% pela configuração, sem valores hardcoded.
    */
-  static STRICT_MODE = true;
+  static STRICT_MODE = false; // Ligar após migrar todos os callers V1 para V2
 
   /**
    * Busca os mapeamentos da conexão padrão (ou primeira ativa)
