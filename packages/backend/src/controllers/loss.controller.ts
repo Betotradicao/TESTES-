@@ -38,6 +38,62 @@ export class LossController {
   }
 
   /**
+   * Helper para resolver mapeamentos de colunas Oracle usados nos métodos de perda/troca.
+   * Centraliza todas as chamadas ao MappingService para evitar duplicação.
+   */
+  private static async getLossMappings() {
+    // --- TAB_AJUSTE_ESTOQUE ---
+    const estCodProdutoCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_produto', 'COD_PRODUTO');
+    const estQuantidadeCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'quantidade', 'QTD_AJUSTE');
+    const estTipoMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'tipo_ajuste', 'COD_AJUSTE');
+    const estDataMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'data_ajuste', 'DTA_AJUSTE');
+    const estMotivoCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'motivo', 'MOTIVO');
+    const estCodLojaCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_loja', 'COD_LOJA');
+    const estValCustoRepCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'valor_custo', 'VAL_CUSTO_REP');
+
+    // --- TAB_PRODUTO ---
+    const prodCodigoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+    const prodDescricaoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_produto', 'DES_PRODUTO');
+    const prodEanCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barra', 'COD_BARRA_PRINCIPAL');
+    const prodCodSecaoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao', 'COD_SECAO');
+
+    // --- TAB_SECAO ---
+    const secCodSecaoCol = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
+    const secDesSecaoCol = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
+
+    // --- TAB_FORNECEDOR ---
+    const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
+    const fornRazaoSocialCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'descricao_fornecedor', 'DES_FORNECEDOR');
+    const fornFantasiaCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'nome_fantasia', 'DES_FANTASIA');
+
+    // --- TAB_TIPO_AJUSTE (não está no TABLE_CATALOG - colunas mantidas hardcoded) ---
+    // COD_AJUSTE, DES_AJUSTE: sem mapeamento dinâmico disponível
+
+    return {
+      // TAB_AJUSTE_ESTOQUE
+      estCodProdutoCol,
+      estQuantidadeCol,
+      estTipoMovCol,
+      estDataMovCol,
+      estMotivoCol,
+      estCodLojaCol,
+      estValCustoRepCol,
+      // TAB_PRODUTO
+      prodCodigoCol,
+      prodDescricaoCol,
+      prodEanCol,
+      prodCodSecaoCol,
+      // TAB_SECAO
+      secCodSecaoCol,
+      secDesSecaoCol,
+      // TAB_FORNECEDOR
+      fornCodigoCol,
+      fornRazaoSocialCol,
+      fornFantasiaCol,
+    };
+  }
+
+  /**
    * Upload e importação de arquivo de perdas
    */
   static async upload(req: AuthRequest, res: Response) {
@@ -285,19 +341,10 @@ export class LossController {
 
       console.log('📊 Buscando ajustes do Oracle:', { data_inicio, data_fim, codigoLoja, motivo, tipoFiltro });
 
-      // Busca mapeamentos dinâmicos para campos de estoque
-      const estCodProdutoCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_produto', 'COD_PRODUTO');
-      const estQuantidadeCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'quantidade', 'QTD_AJUSTE');
-      const estTipoMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'tipo_ajuste', 'COD_AJUSTE');
-      const estDataMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'data_ajuste', 'DTA_AJUSTE');
-      const estMotivoCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'motivo', 'MOTIVO');
+      // Busca mapeamentos dinâmicos via helper centralizado
+      const m = await LossController.getLossMappings();
 
-      // Busca mapeamentos dinâmicos para campos de produtos
-      const prodCodigoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
-      const prodDescricaoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
-      const prodEanCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras', 'COD_BARRA_PRINCIPAL');
-
-      console.log(`📋 [MAPEAMENTO ESTOQUE] Usando colunas: ${estCodProdutoCol}, ${estQuantidadeCol}, ${estTipoMovCol}, ${estDataMovCol}, ${estMotivoCol}`);
+      console.log(`📋 [MAPEAMENTO ESTOQUE] Usando colunas: ${m.estCodProdutoCol}, ${m.estQuantidadeCol}, ${m.estTipoMovCol}, ${m.estDataMovCol}, ${m.estMotivoCol}`);
 
       // Buscar schema e nomes de tabelas dinâmicos
       const schema = await MappingService.getSchema();
@@ -308,22 +355,23 @@ export class LossController {
 
       // Query para buscar itens de ajuste com detalhes
       let whereClause = `
-        WHERE ae.COD_LOJA = :loja
-        AND ae.${estDataMovCol} >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
-        AND ae.${estDataMovCol} < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
+        WHERE ae.${m.estCodLojaCol} = :loja
+        AND ae.${m.estDataMovCol} >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
+        AND ae.${m.estDataMovCol} < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
         AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO != 'S')
       `;
 
       // Filtro por motivo específico
+      // ta.DES_AJUSTE: coluna de TAB_TIPO_AJUSTE - sem mapeamento no TABLE_CATALOG
       if (motivo && motivo !== 'todos') {
         whereClause += ` AND ta.DES_AJUSTE = :motivo`;
       }
 
       // Filtro por tipo (perdas = quantidade negativa, entradas = quantidade positiva)
       if (tipoFiltro === 'perdas') {
-        whereClause += ` AND ae.${estQuantidadeCol} < 0`;
+        whereClause += ` AND ae.${m.estQuantidadeCol} < 0`;
       } else if (tipoFiltro === 'entradas') {
-        whereClause += ` AND ae.${estQuantidadeCol} > 0`;
+        whereClause += ` AND ae.${m.estQuantidadeCol} > 0`;
       }
 
       const params: any = {
@@ -337,48 +385,52 @@ export class LossController {
       }
 
       // Query principal - itens de ajuste (usando NVL para tratar NULLs)
+      // Colunas hardcoded: COD_AJUSTE_ESTOQUE, FLG_CANCELADO, USUARIO (TAB_AJUSTE_ESTOQUE sem mapeamento no TABLE_CATALOG)
+      // Colunas hardcoded: DES_AJUSTE, COD_AJUSTE (TAB_TIPO_AJUSTE sem mapeamento no TABLE_CATALOG)
       const itensQuery = `
         SELECT
           ae.COD_AJUSTE_ESTOQUE,
-          ae.COD_LOJA,
-          ae.${estTipoMovCol} as COD_AJUSTE,
+          ae.${m.estCodLojaCol} as COD_LOJA,
+          ae.${m.estTipoMovCol} as COD_AJUSTE,
           ta.DES_AJUSTE as MOTIVO,
-          ae.${estCodProdutoCol} as COD_PRODUTO,
-          p.${prodDescricaoCol} as DESCRICAO,
-          p.${prodEanCol} as CODIGO_BARRAS,
-          NVL(ae.${estQuantidadeCol}, 0) as QUANTIDADE,
-          NVL(ae.VAL_CUSTO_REP, 0) as CUSTO_REPOSICAO,
-          NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0) as VALOR_TOTAL,
-          TO_CHAR(ae.${estDataMovCol}, 'YYYY-MM-DD') as DATA_AJUSTE,
+          ae.${m.estCodProdutoCol} as COD_PRODUTO,
+          p.${m.prodDescricaoCol} as DESCRICAO,
+          p.${m.prodEanCol} as CODIGO_BARRAS,
+          NVL(ae.${m.estQuantidadeCol}, 0) as QUANTIDADE,
+          NVL(ae.${m.estValCustoRepCol}, 0) as CUSTO_REPOSICAO,
+          NVL(ae.${m.estQuantidadeCol}, 0) * NVL(ae.${m.estValCustoRepCol}, 0) as VALOR_TOTAL,
+          TO_CHAR(ae.${m.estDataMovCol}, 'YYYY-MM-DD') as DATA_AJUSTE,
           ae.USUARIO,
-          ae.${estMotivoCol} as OBSERVACAO,
-          s.COD_SECAO,
-          s.DES_SECAO as SECAO
+          ae.${m.estMotivoCol} as OBSERVACAO,
+          s.${m.secCodSecaoCol},
+          s.${m.secDesSecaoCol} as SECAO
         FROM ${tabAjusteEstoque} ae
-        JOIN ${tabProduto} p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
-        LEFT JOIN ${tabTipoAjuste} ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
-        LEFT JOIN ${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
+        JOIN ${tabProduto} p ON ae.${m.estCodProdutoCol} = p.${m.prodCodigoCol}
+        LEFT JOIN ${tabTipoAjuste} ta ON ae.${m.estTipoMovCol} = ta.COD_AJUSTE
+        LEFT JOIN ${tabSecao} s ON p.${m.prodCodSecaoCol} = s.${m.secCodSecaoCol}
         ${whereClause}
-        ORDER BY ae.${estDataMovCol} DESC, ABS(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0)) DESC
+        ORDER BY ae.${m.estDataMovCol} DESC, ABS(NVL(ae.${m.estQuantidadeCol}, 0) * NVL(ae.${m.estValCustoRepCol}, 0)) DESC
       `;
 
       const itens = await OracleService.query(itensQuery, params);
 
       // Query para resumo por motivo (perdas) - usando NVL para tratar NULLs
+      // Colunas hardcoded: DES_AJUSTE, COD_AJUSTE (TAB_TIPO_AJUSTE sem mapeamento no TABLE_CATALOG)
+      // Colunas hardcoded: FLG_CANCELADO (TAB_AJUSTE_ESTOQUE sem mapeamento no TABLE_CATALOG)
       const motivosQuery = `
         SELECT
           ta.DES_AJUSTE as MOTIVO,
           COUNT(*) as TOTAL_ITENS,
-          SUM(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0)) as VALOR_TOTAL
+          SUM(NVL(ae.${m.estQuantidadeCol}, 0) * NVL(ae.${m.estValCustoRepCol}, 0)) as VALOR_TOTAL
         FROM ${tabAjusteEstoque} ae
-        LEFT JOIN ${tabTipoAjuste} ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
-        WHERE ae.COD_LOJA = :loja
-        AND ae.${estDataMovCol} >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
-        AND ae.${estDataMovCol} < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
+        LEFT JOIN ${tabTipoAjuste} ta ON ae.${m.estTipoMovCol} = ta.COD_AJUSTE
+        WHERE ae.${m.estCodLojaCol} = :loja
+        AND ae.${m.estDataMovCol} >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
+        AND ae.${m.estDataMovCol} < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
         AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO != 'S')
-        AND ae.${estQuantidadeCol} < 0
+        AND ae.${m.estQuantidadeCol} < 0
         GROUP BY ta.DES_AJUSTE
-        ORDER BY SUM(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0)) ASC
+        ORDER BY SUM(NVL(ae.${m.estQuantidadeCol}, 0) * NVL(ae.${m.estValCustoRepCol}, 0)) ASC
       `;
 
       const motivosParams = {
@@ -390,20 +442,22 @@ export class LossController {
       const motivosResult = await OracleService.query(motivosQuery, motivosParams);
 
       // Query para resumo por motivo (entradas) - usando NVL para tratar NULLs
+      // Colunas hardcoded: DES_AJUSTE, COD_AJUSTE (TAB_TIPO_AJUSTE sem mapeamento no TABLE_CATALOG)
+      // Colunas hardcoded: FLG_CANCELADO (TAB_AJUSTE_ESTOQUE sem mapeamento no TABLE_CATALOG)
       const entradasQuery = `
         SELECT
           ta.DES_AJUSTE as MOTIVO,
           COUNT(*) as TOTAL_ITENS,
-          SUM(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0)) as VALOR_TOTAL
+          SUM(NVL(ae.${m.estQuantidadeCol}, 0) * NVL(ae.${m.estValCustoRepCol}, 0)) as VALOR_TOTAL
         FROM ${tabAjusteEstoque} ae
-        LEFT JOIN ${tabTipoAjuste} ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
-        WHERE ae.COD_LOJA = :loja
-        AND ae.${estDataMovCol} >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
-        AND ae.${estDataMovCol} < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
+        LEFT JOIN ${tabTipoAjuste} ta ON ae.${m.estTipoMovCol} = ta.COD_AJUSTE
+        WHERE ae.${m.estCodLojaCol} = :loja
+        AND ae.${m.estDataMovCol} >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
+        AND ae.${m.estDataMovCol} < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
         AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO != 'S')
-        AND ae.${estQuantidadeCol} > 0
+        AND ae.${m.estQuantidadeCol} > 0
         GROUP BY ta.DES_AJUSTE
-        ORDER BY SUM(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0)) DESC
+        ORDER BY SUM(NVL(ae.${m.estQuantidadeCol}, 0) * NVL(ae.${m.estValCustoRepCol}, 0)) DESC
       `;
 
       const entradasResult = await OracleService.query(entradasQuery, motivosParams);
@@ -489,6 +543,7 @@ export class LossController {
       const schema = await MappingService.getSchema();
       const tabTipoAjuste = `${schema}.${await MappingService.getRealTableName('TAB_TIPO_AJUSTE', 'TAB_TIPO_AJUSTE')}`;
 
+      // COD_AJUSTE, DES_AJUSTE: colunas de TAB_TIPO_AJUSTE - sem mapeamento no TABLE_CATALOG
       const query = `
         SELECT COD_AJUSTE, DES_AJUSTE
         FROM ${tabTipoAjuste}
@@ -525,17 +580,11 @@ export class LossController {
 
       console.log('📦 Buscando trocas por fornecedor:', { codigoLoja, tipoTroca, diasFiltro });
 
-      // Busca mapeamentos dinâmicos para campos de estoque
-      const estQuantidadeCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'quantidade', 'QTD_AJUSTE');
-      const estTipoMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'tipo_ajuste', 'COD_AJUSTE');
-      const estDataMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'data_ajuste', 'DTA_AJUSTE');
-
-      // Busca mapeamentos dinâmicos para campos de fornecedores
-      const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
-      const fornRazaoSocialCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR');
-      const fornFantasiaCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'nome_fantasia', 'DES_FANTASIA');
+      // Busca mapeamentos dinâmicos via helper centralizado
+      const m = await LossController.getLossMappings();
 
       // Filtro por tipo de ajuste baseado na descrição
+      // ta.DES_AJUSTE: coluna de TAB_TIPO_AJUSTE - sem mapeamento no TABLE_CATALOG
       // Saídas: produto sai da loja para troca com fornecedor (tipo principal apenas)
       // Entradas: produto volta do fornecedor para a loja
       const tipoAjusteFiltro = tipoTroca === 'entradas'
@@ -543,7 +592,7 @@ export class LossController {
         : "ta.DES_AJUSTE = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR'";
 
       // Filtro de período (dias)
-      const filtroPeriodo = diasFiltro > 0 ? `AND ae.${estDataMovCol} >= SYSDATE - :dias` : '';
+      const filtroPeriodo = diasFiltro > 0 ? `AND ae.${m.estDataMovCol} >= SYSDATE - :dias` : '';
 
       // Buscar schema e nomes de tabelas dinâmicos
       const schema = await MappingService.getSchema();
@@ -553,25 +602,27 @@ export class LossController {
 
       // Query para buscar trocas agrupadas por fornecedor
       // Usando mesma lógica do sistema legado: SOMA dos valores direto, não multiplicado por quantidade
+      // Colunas hardcoded: COD_FORNECEDOR, FLG_CANCELADO, VAL_VENDA (TAB_AJUSTE_ESTOQUE sem mapeamento no TABLE_CATALOG)
+      // Colunas hardcoded: DES_AJUSTE, COD_AJUSTE (TAB_TIPO_AJUSTE sem mapeamento no TABLE_CATALOG)
       const fornecedoresQuery = `
         SELECT
-          NVL(f.${fornCodigoCol}, 0) as COD_FORNECEDOR,
-          NVL(f.${fornRazaoSocialCol}, 'SEM FORNECEDOR') as FORNECEDOR,
-          NVL(f.${fornFantasiaCol}, f.${fornRazaoSocialCol}) as FANTASIA,
-          COUNT(DISTINCT ae.COD_PRODUTO) as QTD_PRODUTOS,
+          NVL(f.${m.fornCodigoCol}, 0) as COD_FORNECEDOR,
+          NVL(f.${m.fornRazaoSocialCol}, 'SEM FORNECEDOR') as FORNECEDOR,
+          NVL(f.${m.fornFantasiaCol}, f.${m.fornRazaoSocialCol}) as FANTASIA,
+          COUNT(DISTINCT ae.${m.estCodProdutoCol}) as QTD_PRODUTOS,
           COUNT(*) as QTD_ITENS,
-          SUM(ABS(NVL(ae.${estQuantidadeCol}, 0))) as QTD_TOTAL,
-          SUM(NVL(ae.VAL_CUSTO_REP, 0)) as TOTAL_CUSTO,
+          SUM(ABS(NVL(ae.${m.estQuantidadeCol}, 0))) as QTD_TOTAL,
+          SUM(NVL(ae.${m.estValCustoRepCol}, 0)) as TOTAL_CUSTO,
           SUM(NVL(ae.VAL_VENDA, 0)) as TOTAL_VENDA
         FROM ${tabAjusteEstoque} ae
-        LEFT JOIN ${tabFornecedor} f ON ae.COD_FORNECEDOR = f.${fornCodigoCol}
-        LEFT JOIN ${tabTipoAjuste} ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
-        WHERE ae.COD_LOJA = :loja
+        LEFT JOIN ${tabFornecedor} f ON ae.COD_FORNECEDOR = f.${m.fornCodigoCol}
+        LEFT JOIN ${tabTipoAjuste} ta ON ae.${m.estTipoMovCol} = ta.COD_AJUSTE
+        WHERE ae.${m.estCodLojaCol} = :loja
         AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO = 'N')
         AND ${tipoAjusteFiltro}
         ${filtroPeriodo}
-        GROUP BY f.${fornCodigoCol}, f.${fornRazaoSocialCol}, f.${fornFantasiaCol}
-        ORDER BY SUM(NVL(ae.VAL_CUSTO_REP, 0)) DESC
+        GROUP BY f.${m.fornCodigoCol}, f.${m.fornRazaoSocialCol}, f.${m.fornFantasiaCol}
+        ORDER BY SUM(NVL(ae.${m.estValCustoRepCol}, 0)) DESC
       `;
 
       const params: any = {
@@ -648,14 +699,8 @@ export class LossController {
         mesAtual: `${dataMesAtualInicio} até ${dataMesAtualFim}`,
       });
 
-      // Busca mapeamentos dinâmicos para campos de estoque
-      const estCodProdutoCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_produto', 'COD_PRODUTO');
-      const estQuantidadeCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'quantidade', 'QTD_AJUSTE');
-      const estDataMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'data_ajuste', 'DTA_AJUSTE');
-
-      // Busca mapeamentos dinâmicos para campos de produtos
-      const prodCodigoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
-      const prodEanCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras', 'COD_BARRA_PRINCIPAL');
+      // Busca mapeamentos dinâmicos via helper centralizado
+      const m = await LossController.getLossMappings();
 
       // Filtro de códigos específicos (opcional)
       let filtroCodigosSQL = '';
@@ -675,7 +720,7 @@ export class LossController {
 
       if (codigos) {
         const listaCodigos = (codigos as string).split(',').map(c => c.trim());
-        filtroCodigosSQL = ` AND p.${prodEanCol} IN (${listaCodigos.map((_, i) => `:cod${i}`).join(',')})`;
+        filtroCodigosSQL = ` AND p.${m.prodEanCol} IN (${listaCodigos.map((_, i) => `:cod${i}`).join(',')})`;
         listaCodigos.forEach((cod, i) => {
           paramsMesAnterior[`cod${i}`] = cod;
           paramsMesAtual[`cod${i}`] = cod;
@@ -690,39 +735,41 @@ export class LossController {
       // Query para perdas do mês anterior (quantidade negativa = perda)
       // Retorna tanto COD_PRODUTO quanto COD_BARRA_PRINCIPAL para poder fazer match
       // Inclui tanto VALOR_PERDA (R$) quanto QTD_PERDA (kg)
+      // Colunas hardcoded: FLG_CANCELADO (TAB_AJUSTE_ESTOQUE sem mapeamento no TABLE_CATALOG)
       const queryMesAnterior = `
         SELECT
-          TO_CHAR(p.${prodCodigoCol}) as COD_PRODUTO,
-          p.${prodEanCol} as CODIGO_BARRAS,
-          SUM(ABS(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0))) as VALOR_PERDA,
-          SUM(ABS(NVL(ae.${estQuantidadeCol}, 0))) as QTD_PERDA
+          TO_CHAR(p.${m.prodCodigoCol}) as COD_PRODUTO,
+          p.${m.prodEanCol} as CODIGO_BARRAS,
+          SUM(ABS(NVL(ae.${m.estQuantidadeCol}, 0) * NVL(ae.${m.estValCustoRepCol}, 0))) as VALOR_PERDA,
+          SUM(ABS(NVL(ae.${m.estQuantidadeCol}, 0))) as QTD_PERDA
         FROM ${tabAjusteEstoque} ae
-        JOIN ${tabProduto} p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
-        WHERE ae.COD_LOJA = :loja
-        AND ae.${estDataMovCol} >= TO_DATE(:dtAntIni, 'YYYY-MM-DD')
-        AND ae.${estDataMovCol} <= TO_DATE(:dtAntFim, 'YYYY-MM-DD')
+        JOIN ${tabProduto} p ON ae.${m.estCodProdutoCol} = p.${m.prodCodigoCol}
+        WHERE ae.${m.estCodLojaCol} = :loja
+        AND ae.${m.estDataMovCol} >= TO_DATE(:dtAntIni, 'YYYY-MM-DD')
+        AND ae.${m.estDataMovCol} <= TO_DATE(:dtAntFim, 'YYYY-MM-DD')
         AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO != 'S')
-        AND ae.${estQuantidadeCol} < 0
+        AND ae.${m.estQuantidadeCol} < 0
         ${filtroCodigosSQL}
-        GROUP BY p.${prodCodigoCol}, p.${prodEanCol}
+        GROUP BY p.${m.prodCodigoCol}, p.${m.prodEanCol}
       `;
 
       // Query para perdas do mês atual
+      // Colunas hardcoded: FLG_CANCELADO (TAB_AJUSTE_ESTOQUE sem mapeamento no TABLE_CATALOG)
       const queryMesAtual = `
         SELECT
-          TO_CHAR(p.${prodCodigoCol}) as COD_PRODUTO,
-          p.${prodEanCol} as CODIGO_BARRAS,
-          SUM(ABS(NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0))) as VALOR_PERDA,
-          SUM(ABS(NVL(ae.${estQuantidadeCol}, 0))) as QTD_PERDA
+          TO_CHAR(p.${m.prodCodigoCol}) as COD_PRODUTO,
+          p.${m.prodEanCol} as CODIGO_BARRAS,
+          SUM(ABS(NVL(ae.${m.estQuantidadeCol}, 0) * NVL(ae.${m.estValCustoRepCol}, 0))) as VALOR_PERDA,
+          SUM(ABS(NVL(ae.${m.estQuantidadeCol}, 0))) as QTD_PERDA
         FROM ${tabAjusteEstoque} ae
-        JOIN ${tabProduto} p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
-        WHERE ae.COD_LOJA = :loja
-        AND ae.${estDataMovCol} >= TO_DATE(:dtAtualIni, 'YYYY-MM-DD')
-        AND ae.${estDataMovCol} <= TO_DATE(:dtAtualFim, 'YYYY-MM-DD')
+        JOIN ${tabProduto} p ON ae.${m.estCodProdutoCol} = p.${m.prodCodigoCol}
+        WHERE ae.${m.estCodLojaCol} = :loja
+        AND ae.${m.estDataMovCol} >= TO_DATE(:dtAtualIni, 'YYYY-MM-DD')
+        AND ae.${m.estDataMovCol} <= TO_DATE(:dtAtualFim, 'YYYY-MM-DD')
         AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO != 'S')
-        AND ae.${estQuantidadeCol} < 0
+        AND ae.${m.estQuantidadeCol} < 0
         ${filtroCodigosSQL}
-        GROUP BY p.${prodCodigoCol}, p.${prodEanCol}
+        GROUP BY p.${m.prodCodigoCol}, p.${m.prodEanCol}
       `;
 
       // Executar queries em paralelo (com params separados para cada query)
@@ -859,18 +906,11 @@ export class LossController {
 
       console.log('📦 Buscando itens de troca do fornecedor:', { codigoLoja, codForn, tipoTroca, diasFiltro });
 
-      // Busca mapeamentos dinâmicos para campos de estoque
-      const estCodProdutoCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_produto', 'COD_PRODUTO');
-      const estQuantidadeCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'quantidade', 'QTD_AJUSTE');
-      const estTipoMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'tipo_ajuste', 'COD_AJUSTE');
-      const estDataMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'data_ajuste', 'DTA_AJUSTE');
-
-      // Busca mapeamentos dinâmicos para campos de produtos
-      const prodCodigoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
-      const prodDescricaoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
-      const prodEanCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras', 'COD_BARRA_PRINCIPAL');
+      // Busca mapeamentos dinâmicos via helper centralizado
+      const m = await LossController.getLossMappings();
 
       // Filtro por tipo de ajuste baseado na descrição (tipo principal apenas)
+      // ta.DES_AJUSTE: coluna de TAB_TIPO_AJUSTE - sem mapeamento no TABLE_CATALOG
       // Saídas: produto sai da loja para troca com fornecedor
       // Entradas: produto volta do fornecedor para a loja
       const tipoAjusteFiltro = tipoTroca === 'entradas'
@@ -878,7 +918,7 @@ export class LossController {
         : "ta.DES_AJUSTE = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR'";
 
       // Filtro de período (dias)
-      const filtroPeriodo = diasFiltro > 0 ? `AND ae.${estDataMovCol} >= SYSDATE - :dias` : '';
+      const filtroPeriodo = diasFiltro > 0 ? `AND ae.${m.estDataMovCol} >= SYSDATE - :dias` : '';
 
       // Buscar schema e nomes de tabelas dinâmicos
       const schema = await MappingService.getSchema();
@@ -888,28 +928,30 @@ export class LossController {
       const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
 
       // Query para buscar itens do fornecedor
+      // Colunas hardcoded: FLG_CANCELADO, COD_FORNECEDOR, USUARIO (TAB_AJUSTE_ESTOQUE sem mapeamento no TABLE_CATALOG)
+      // Colunas hardcoded: DES_AJUSTE, COD_AJUSTE (TAB_TIPO_AJUSTE sem mapeamento no TABLE_CATALOG)
       const itensQuery = `
         SELECT
-          ae.${estCodProdutoCol} as COD_PRODUTO,
-          p.${prodDescricaoCol} as DESCRICAO,
-          p.${prodEanCol} as CODIGO_BARRAS,
+          ae.${m.estCodProdutoCol} as COD_PRODUTO,
+          p.${m.prodDescricaoCol} as DESCRICAO,
+          p.${m.prodEanCol} as CODIGO_BARRAS,
           ta.DES_AJUSTE as TIPO_AJUSTE,
-          s.DES_SECAO as SECAO,
-          NVL(ae.${estQuantidadeCol}, 0) as QUANTIDADE,
-          NVL(ae.VAL_CUSTO_REP, 0) as CUSTO_REPOSICAO,
-          NVL(ae.${estQuantidadeCol}, 0) * NVL(ae.VAL_CUSTO_REP, 0) as VALOR_TOTAL,
-          TO_CHAR(ae.${estDataMovCol}, 'YYYY-MM-DD') as DATA_AJUSTE,
+          s.${m.secDesSecaoCol} as SECAO,
+          NVL(ae.${m.estQuantidadeCol}, 0) as QUANTIDADE,
+          NVL(ae.${m.estValCustoRepCol}, 0) as CUSTO_REPOSICAO,
+          NVL(ae.${m.estQuantidadeCol}, 0) * NVL(ae.${m.estValCustoRepCol}, 0) as VALOR_TOTAL,
+          TO_CHAR(ae.${m.estDataMovCol}, 'YYYY-MM-DD') as DATA_AJUSTE,
           ae.USUARIO
         FROM ${tabAjusteEstoque} ae
-        JOIN ${tabProduto} p ON ae.${estCodProdutoCol} = p.${prodCodigoCol}
-        LEFT JOIN ${tabTipoAjuste} ta ON ae.${estTipoMovCol} = ta.COD_AJUSTE
-        LEFT JOIN ${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
-        WHERE ae.COD_LOJA = :loja
+        JOIN ${tabProduto} p ON ae.${m.estCodProdutoCol} = p.${m.prodCodigoCol}
+        LEFT JOIN ${tabTipoAjuste} ta ON ae.${m.estTipoMovCol} = ta.COD_AJUSTE
+        LEFT JOIN ${tabSecao} s ON p.${m.prodCodSecaoCol} = s.${m.secCodSecaoCol}
+        WHERE ae.${m.estCodLojaCol} = :loja
         AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO = 'N')
         AND ${tipoAjusteFiltro}
         ${filtroPeriodo}
         AND NVL(ae.COD_FORNECEDOR, 0) = :cod_fornecedor
-        ORDER BY ae.${estDataMovCol} DESC, ABS(NVL(ae.VAL_CUSTO_REP, 0)) DESC
+        ORDER BY ae.${m.estDataMovCol} DESC, ABS(NVL(ae.${m.estValCustoRepCol}, 0)) DESC
       `;
 
       const params: any = {

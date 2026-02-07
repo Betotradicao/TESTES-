@@ -226,9 +226,14 @@ export class SellsSyncService {
         });
       }
 
-      const sellDate = sale.dataHoraVenda
-        ? sale.dataHoraVenda
-        : `${date} 00:00:00`;
+      // Usar data do sync + hora da venda (TIM_HORA do Oracle só tem hora, a data vem errada como 1899)
+      let sellDate = `${date} 00:00:00`;
+      if (sale.dataHoraVenda) {
+        const timePart = sale.dataHoraVenda.substring(11, 19); // Extrai HH:MM:SS
+        if (timePart && timePart !== '00:00:00') {
+          sellDate = `${date} ${timePart}`;
+        }
+      }
 
       const sellRecord = {
         activated_product_id: activatedProductId,
@@ -268,6 +273,7 @@ export class SellsSyncService {
           INSERT INTO sells (activated_product_id, product_id, product_description, sell_date, sell_value_cents, product_weight, bip_id, num_cupom_fiscal, point_of_sale_code, operator_code, operator_name, status, discount_cents)
           VALUES ${values}
           ON CONFLICT (product_id, product_weight, num_cupom_fiscal) DO UPDATE SET
+            sell_date = EXCLUDED.sell_date,
             operator_code = COALESCE(EXCLUDED.operator_code, sells.operator_code),
             operator_name = COALESCE(EXCLUDED.operator_name, sells.operator_name),
             point_of_sale_code = COALESCE(EXCLUDED.point_of_sale_code, sells.point_of_sale_code),

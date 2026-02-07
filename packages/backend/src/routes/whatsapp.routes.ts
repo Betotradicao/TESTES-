@@ -253,26 +253,38 @@ router.post('/send-losses-now', async (req, res) => {
     const tabTipoAjuste = `${schema}.${await MappingService.getRealTableName('TAB_TIPO_AJUSTE', 'TAB_TIPO_AJUSTE')}`;
     const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
 
+    // Resolver colunas via MappingService
+    const colCodProdutoAe = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_produto', 'COD_PRODUTO');
+    const colQtdAjuste = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'quantidade', 'QTD_AJUSTE');
+    const colTipoAjuste = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'tipo_ajuste', 'COD_AJUSTE');
+    const colDtaAjuste = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'data_ajuste', 'DTA_AJUSTE');
+    const colCodLojaAe = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_loja', 'COD_LOJA');
+    const colCodProdutoP = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+    const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_produto', 'DES_PRODUTO');
+    const colCodSecaoP = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao', 'COD_SECAO');
+    const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
+    const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
+
     const itensQuery = `
       SELECT
-        ae.COD_PRODUTO,
-        p.DES_PRODUTO as DESCRICAO,
+        ae.${colCodProdutoAe},
+        p.${colDesProduto} as DESCRICAO,
         p.COD_BARRA_PRINCIPAL as CODIGO_BARRAS,
         ta.DES_AJUSTE as MOTIVO,
-        NVL(ae.QTD_AJUSTE, 0) as QUANTIDADE,
+        NVL(ae.${colQtdAjuste}, 0) as QUANTIDADE,
         NVL(ae.VAL_CUSTO_REP, 0) as CUSTO_REPOSICAO,
-        NVL(ae.QTD_AJUSTE, 0) * NVL(ae.VAL_CUSTO_REP, 0) as VALOR_TOTAL,
-        s.COD_SECAO,
-        s.DES_SECAO as SECAO
+        NVL(ae.${colQtdAjuste}, 0) * NVL(ae.VAL_CUSTO_REP, 0) as VALOR_TOTAL,
+        s.${colCodSecao},
+        s.${colDesSecao} as SECAO
       FROM ${tabAjusteEstoque} ae
-      JOIN ${tabProduto} p ON ae.COD_PRODUTO = p.COD_PRODUTO
-      LEFT JOIN ${tabTipoAjuste} ta ON ae.COD_AJUSTE = ta.COD_AJUSTE
-      LEFT JOIN ${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
-      WHERE ae.COD_LOJA = :loja
-      AND ae.DTA_AJUSTE >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
-      AND ae.DTA_AJUSTE < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
+      JOIN ${tabProduto} p ON ae.${colCodProdutoAe} = p.${colCodProdutoP}
+      LEFT JOIN ${tabTipoAjuste} ta ON ae.${colTipoAjuste} = ta.COD_AJUSTE
+      LEFT JOIN ${tabSecao} s ON p.${colCodSecaoP} = s.${colCodSecao}
+      WHERE ae.${colCodLojaAe} = :loja
+      AND ae.${colDtaAjuste} >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
+      AND ae.${colDtaAjuste} < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
       AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO != 'S')
-      ORDER BY ta.DES_AJUSTE ASC, p.DES_PRODUTO ASC
+      ORDER BY ta.DES_AJUSTE ASC, p.${colDesProduto} ASC
     `;
 
     const params = {

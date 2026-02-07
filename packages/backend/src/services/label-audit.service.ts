@@ -844,13 +844,22 @@ export class LabelAuditService {
 
       const params = { dataInicio: dataInicioOracle, dataFim: dataFimOracle };
 
+      // Resolver colunas via MappingService
+      const colValDesconto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_desconto', 'VAL_DESCONTO');
+      const colDtaVendaPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda', 'DTA_SAIDA');
+      const colCodProdutoPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto', 'COD_PRODUTO');
+      const colCodProdutoP = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+      const colCodSecaoP = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao', 'COD_SECAO');
+      const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
+      const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
+
       // Query para total de descontos (IGUAL ao Frente de Caixa - getTotais)
       const sqlTotal = `
-        SELECT SUM(VAL_DESCONTO) as TOTAL_DESCONTOS
+        SELECT SUM(${colValDesconto}) as TOTAL_DESCONTOS
         FROM ${tabProdutoPdv}
-        WHERE DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-          AND DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND VAL_DESCONTO > 0
+        WHERE ${colDtaVendaPdv} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+          AND ${colDtaVendaPdv} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND ${colValDesconto} > 0
       `;
 
       console.log('🔍 [ETIQUETAS] Executando query de descontos totais...');
@@ -862,15 +871,15 @@ export class LabelAuditService {
       // TAB_PRODUTO_PDV tem COD_PRODUTO, e TAB_PRODUTO tem COD_SECAO
       const sqlPorSecao = `
         SELECT
-          NVL(s.DES_SECAO, 'SEM SEÇÃO') as SECAO,
-          SUM(pp.VAL_DESCONTO) as VALOR_DESCONTO
+          NVL(s.${colDesSecao}, 'SEM SEÇÃO') as SECAO,
+          SUM(pp.${colValDesconto}) as VALOR_DESCONTO
         FROM ${tabProdutoPdv} pp
-        LEFT JOIN ${tabProduto} p ON pp.COD_PRODUTO = p.COD_PRODUTO
-        LEFT JOIN ${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
-        WHERE pp.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-          AND pp.DTA_SAIDA <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-          AND pp.VAL_DESCONTO > 0
-        GROUP BY s.DES_SECAO
+        LEFT JOIN ${tabProduto} p ON pp.${colCodProdutoPdv} = p.${colCodProdutoP}
+        LEFT JOIN ${tabSecao} s ON p.${colCodSecaoP} = s.${colCodSecao}
+        WHERE pp.${colDtaVendaPdv} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+          AND pp.${colDtaVendaPdv} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND pp.${colValDesconto} > 0
+        GROUP BY s.${colDesSecao}
         ORDER BY VALOR_DESCONTO DESC
       `;
 

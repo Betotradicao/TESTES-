@@ -13,6 +13,130 @@ import * as path from 'path';
 
 export class ProductsController {
   /**
+   * Helper para buscar mapeamentos básicos de produto (lookup por ID)
+   * Usado em activateProduct, updatePesoMedio, bulkActivateProducts
+   */
+  private static async getBasicProductMappings() {
+    const [
+      codigoCol,
+      eanCol,
+      descricaoCol,
+      descReduzidaCol,
+      codSecaoCol,
+      desSecaoCol,
+      codGrupoCol,
+      desGrupoCol,
+      codSubGrupoCol,
+      desSubGrupoCol,
+      codFornUltCompraCol,
+      codFornecedorCol,
+      desFornecedorCol,
+      pesavelCol,
+      codLojaCol,
+      inativoCol
+    ] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras', 'COD_BARRA_PRINCIPAL'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_reduzida', 'DES_REDUZIDA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao', 'COD_SECAO'),
+      MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo', 'COD_GRUPO'),
+      MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo', 'DES_GRUPO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo', 'COD_SUB_GRUPO'),
+      MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo', 'DES_SUB_GRUPO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra', 'COD_FORN_ULT_COMPRA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'pesavel', 'FLG_ENVIA_BALANCA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'inativo', 'INATIVO')
+    ]);
+    return {
+      codigoCol, eanCol, descricaoCol, descReduzidaCol,
+      codSecaoCol, desSecaoCol, codGrupoCol, desGrupoCol,
+      codSubGrupoCol, desSubGrupoCol,
+      codFornUltCompraCol, codFornecedorCol, desFornecedorCol,
+      pesavelCol, codLojaCol, inativoCol
+    };
+  }
+
+  /**
+   * Helper para buscar mapeamentos de seção/grupo/subgrupo
+   * Usado em getSections, getSectionsOracle, getProductsBySectionOracle, etc.
+   */
+  private static async getSectionMappings() {
+    const [
+      codSecaoCol,
+      desSecaoCol,
+      codGrupoCol,
+      desGrupoCol,
+      codSubGrupoCol,
+      desSubGrupoCol
+    ] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO'),
+      MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO'),
+      MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo', 'COD_GRUPO'),
+      MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo', 'DES_GRUPO'),
+      MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo', 'COD_SUB_GRUPO'),
+      MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo', 'DES_SUB_GRUPO')
+    ]);
+    return { codSecaoCol, desSecaoCol, codGrupoCol, desGrupoCol, codSubGrupoCol, desSubGrupoCol };
+  }
+
+  /**
+   * Helper para buscar mapeamentos de TAB_PRODUTO_LOJA usados em buscas de estoque/margem/ruptura
+   */
+  private static async getProdutoLojaMappings() {
+    const [
+      plCodigoCol,
+      custoRepCol,
+      valorVendaCol,
+      valorOfertaCol,
+      estoqueAtualCol,
+      margemCol,
+      margemFixaCol,
+      vendaMediaCol,
+      coberturaCol,
+      pedidoCompraCol,
+      dataUltCompraCol,
+      qtdUltCompraCol,
+      estoqueMinCol,
+      dataUltVendaCol,
+      curvaCol,
+      codFornUltCompraCol,
+      codLojaCol,
+      inativoCol
+    ] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo', 'VAL_CUSTO_REP'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda', 'VAL_VENDA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_oferta', 'VAL_OFERTA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual', 'QTD_EST_ATUAL'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem', 'VAL_MARGEM'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem_fixa', 'VAL_MARGEM_FIXA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'venda_media', 'VAL_VENDA_MEDIA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cobertura', 'QTD_COBERTURA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pedido_compra', 'QTD_PEDIDO_COMPRA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'data_ultima_compra', 'DTA_ULT_COMPRA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'qtd_ultima_compra', 'QTD_ULT_COMPRA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_minimo', 'QTD_EST_MINIMO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'data_ultima_venda', 'DTA_ULT_MOV_VENDA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra', 'COD_FORN_ULT_COMPRA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'inativo', 'INATIVO')
+    ]);
+    return {
+      plCodigoCol, custoRepCol, valorVendaCol, valorOfertaCol,
+      estoqueAtualCol, margemCol, margemFixaCol, vendaMediaCol,
+      coberturaCol, pedidoCompraCol, dataUltCompraCol, qtdUltCompraCol,
+      estoqueMinCol, dataUltVendaCol, curvaCol, codFornUltCompraCol,
+      codLojaCol, inativoCol
+    };
+  }
+
+  /**
    * Helper para buscar todos os mapeamentos de produtos
    * Inclui campos de TAB_PRODUTO e TAB_PRODUTO_LOJA
    */
@@ -55,7 +179,10 @@ export class ProductsController {
       desGrupoCol,
       desSubGrupoCol,
       // Campos de fornecedor
-      desFornecedorCol
+      codFornecedorCol,
+      desFornecedorCol,
+      // Campo de loja
+      codLojaCol
     ] = await Promise.all([
       // Campos de TAB_PRODUTO (V2 - lê do mapeamento configurado)
       MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO'),
@@ -94,7 +221,10 @@ export class ProductsController {
       MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_grupo', 'DES_GRUPO'),
       MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_subgrupo', 'DES_SUB_GRUPO'),
       // Campos de fornecedor (V2)
-      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR')
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR'),
+      // Campo de loja (V2)
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA')
     ]);
     return {
       // Campos de TAB_PRODUTO
@@ -134,7 +264,10 @@ export class ProductsController {
       desGrupoCol,
       desSubGrupoCol,
       // Campos de fornecedor
-      desFornecedorCol
+      codFornecedorCol,
+      desFornecedorCol,
+      // Campo de loja
+      codLojaCol
     };
   }
   /**
@@ -183,7 +316,9 @@ export class ProductsController {
         desSecaoCol,
         desGrupoCol,
         desSubGrupoCol,
-        desFornecedorCol
+        codFornecedorCol,
+        desFornecedorCol,
+        codLojaCol
       } = await ProductsController.getProdutosMappings();
 
       console.log(`📋 [MAPEAMENTO] Campo codigo usando coluna: ${codigoCol}`);
@@ -258,8 +393,8 @@ export class ProductsController {
             LEFT JOIN ${schema}.${tabSecao} s ON p.${codSecaoCol} = s.${codSecaoCol}
             LEFT JOIN ${schema}.${tabGrupo} g ON p.${codSecaoCol} = g.${codSecaoCol} AND p.${codGrupoCol} = g.${codGrupoCol}
             LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.${codSecaoCol} = sg.${codSecaoCol} AND p.${codGrupoCol} = sg.${codGrupoCol} AND p.${codSubGrupoCol} = sg.${codSubGrupoCol}
-            LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${codFornUltCompraCol} = f.COD_FORNECEDOR
-            WHERE pl.COD_LOJA = :codLoja
+            LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${codFornUltCompraCol} = f.${codFornecedorCol}
+            WHERE pl.${codLojaCol} = :codLoja
             AND NVL(pl.${inativoCol}, 'N') = 'N'
             ORDER BY p.${descricaoCol}
           `;
@@ -360,6 +495,9 @@ export class ProductsController {
         // Buscar produto do Oracle
         console.log(`[ACTIVATE] Buscando produto ${id} do Oracle...`);
 
+        // Obter mapeamentos dinâmicos
+        const m = await ProductsController.getBasicProductMappings();
+
         // Obter schema e tabelas dinamicamente
         const schema = await MappingService.getSchema();
         const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
@@ -373,27 +511,27 @@ export class ProductsController {
 
         const sql = `
           SELECT
-            p.COD_PRODUTO,
-            p.COD_BARRA_PRINCIPAL as EAN,
-            p.DES_PRODUTO,
-            p.DES_REDUZIDA,
-            p.COD_SECAO,
-            s.DES_SECAO,
-            p.COD_GRUPO,
-            g.DES_GRUPO,
-            p.COD_SUB_GRUPO,
-            sg.DES_SUB_GRUPO,
-            pl.COD_FORN_ULT_COMPRA as COD_FORN,
-            f.DES_FORNECEDOR as RAZAO_FORN,
-            CASE WHEN p.FLG_ENVIA_BALANCA = 'S' THEN 'S' ELSE 'N' END as PESAVEL
+            p.${m.codigoCol} as COD_PRODUTO,
+            p.${m.eanCol} as EAN,
+            p.${m.descricaoCol} as DES_PRODUTO,
+            p.${m.descReduzidaCol} as DES_REDUZIDA,
+            p.${m.codSecaoCol} as COD_SECAO,
+            s.${m.desSecaoCol} as DES_SECAO,
+            p.${m.codGrupoCol} as COD_GRUPO,
+            g.${m.desGrupoCol} as DES_GRUPO,
+            p.${m.codSubGrupoCol} as COD_SUB_GRUPO,
+            sg.${m.desSubGrupoCol} as DES_SUB_GRUPO,
+            pl.${m.codFornUltCompraCol} as COD_FORN,
+            f.${m.desFornecedorCol} as RAZAO_FORN,
+            CASE WHEN p.${m.pesavelCol} = 'S' THEN 'S' ELSE 'N' END as PESAVEL
           FROM ${schema}.${tabProduto} p
-          INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.COD_PRODUTO = pl.COD_PRODUTO
-          LEFT JOIN ${schema}.${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
-          LEFT JOIN ${schema}.${tabGrupo} g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
-          LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
-          LEFT JOIN ${schema}.${tabFornecedor} f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
-          WHERE p.COD_PRODUTO = :codProduto
-          AND pl.COD_LOJA = :codLoja
+          INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.${m.codigoCol} = pl.${m.codigoCol}
+          LEFT JOIN ${schema}.${tabSecao} s ON p.${m.codSecaoCol} = s.${m.codSecaoCol}
+          LEFT JOIN ${schema}.${tabGrupo} g ON p.${m.codSecaoCol} = g.${m.codSecaoCol} AND p.${m.codGrupoCol} = g.${m.codGrupoCol}
+          LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.${m.codSecaoCol} = sg.${m.codSecaoCol} AND p.${m.codGrupoCol} = sg.${m.codGrupoCol} AND p.${m.codSubGrupoCol} = sg.${m.codSubGrupoCol}
+          LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${m.codFornUltCompraCol} = f.${m.codFornecedorCol}
+          WHERE p.${m.codigoCol} = :codProduto
+          AND pl.${m.codLojaCol} = :codLoja
           AND ROWNUM = 1
         `;
 
@@ -482,6 +620,9 @@ export class ProductsController {
         // Buscar produto do Oracle
         console.log(`[PESO_MEDIO] Buscando produto ${id} do Oracle...`);
 
+        // Obter mapeamentos dinâmicos
+        const m = await ProductsController.getBasicProductMappings();
+
         // Obter schema e tabelas dinamicamente
         const schema = await MappingService.getSchema();
         const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
@@ -495,27 +636,27 @@ export class ProductsController {
 
         const sql = `
           SELECT
-            p.COD_PRODUTO,
-            p.COD_BARRA_PRINCIPAL as EAN,
-            p.DES_PRODUTO,
-            p.DES_REDUZIDA,
-            p.COD_SECAO,
-            s.DES_SECAO,
-            p.COD_GRUPO,
-            g.DES_GRUPO,
-            p.COD_SUB_GRUPO,
-            sg.DES_SUB_GRUPO,
-            pl.COD_FORN_ULT_COMPRA as COD_FORN,
-            f.DES_FORNECEDOR as RAZAO_FORN,
-            CASE WHEN p.FLG_ENVIA_BALANCA = 'S' THEN 'S' ELSE 'N' END as PESAVEL
+            p.${m.codigoCol} as COD_PRODUTO,
+            p.${m.eanCol} as EAN,
+            p.${m.descricaoCol} as DES_PRODUTO,
+            p.${m.descReduzidaCol} as DES_REDUZIDA,
+            p.${m.codSecaoCol} as COD_SECAO,
+            s.${m.desSecaoCol} as DES_SECAO,
+            p.${m.codGrupoCol} as COD_GRUPO,
+            g.${m.desGrupoCol} as DES_GRUPO,
+            p.${m.codSubGrupoCol} as COD_SUB_GRUPO,
+            sg.${m.desSubGrupoCol} as DES_SUB_GRUPO,
+            pl.${m.codFornUltCompraCol} as COD_FORN,
+            f.${m.desFornecedorCol} as RAZAO_FORN,
+            CASE WHEN p.${m.pesavelCol} = 'S' THEN 'S' ELSE 'N' END as PESAVEL
           FROM ${schema}.${tabProduto} p
-          INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.COD_PRODUTO = pl.COD_PRODUTO
-          LEFT JOIN ${schema}.${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
-          LEFT JOIN ${schema}.${tabGrupo} g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
-          LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
-          LEFT JOIN ${schema}.${tabFornecedor} f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
-          WHERE p.COD_PRODUTO = :codProduto
-          AND pl.COD_LOJA = :codLoja
+          INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.${m.codigoCol} = pl.${m.codigoCol}
+          LEFT JOIN ${schema}.${tabSecao} s ON p.${m.codSecaoCol} = s.${m.codSecaoCol}
+          LEFT JOIN ${schema}.${tabGrupo} g ON p.${m.codSecaoCol} = g.${m.codSecaoCol} AND p.${m.codGrupoCol} = g.${m.codGrupoCol}
+          LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.${m.codSecaoCol} = sg.${m.codSecaoCol} AND p.${m.codGrupoCol} = sg.${m.codGrupoCol} AND p.${m.codSubGrupoCol} = sg.${m.codSubGrupoCol}
+          LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${m.codFornUltCompraCol} = f.${m.codFornecedorCol}
+          WHERE p.${m.codigoCol} = :codProduto
+          AND pl.${m.codLojaCol} = :codLoja
           AND ROWNUM = 1
         `;
 
@@ -647,6 +788,9 @@ export class ProductsController {
       let oracleProductsMap = new Map<string, any>();
 
       if (missingIds.length > 0) {
+        // Obter mapeamentos dinâmicos
+        const m = await ProductsController.getBasicProductMappings();
+
         // Obter schema e tabelas dinamicamente
         const schema = await MappingService.getSchema();
         const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
@@ -670,27 +814,27 @@ export class ProductsController {
 
           const sql = `
             SELECT
-              p.COD_PRODUTO,
-              p.COD_BARRA_PRINCIPAL as EAN,
-              p.DES_PRODUTO,
-              p.DES_REDUZIDA,
-              p.COD_SECAO,
-              s.DES_SECAO,
-              p.COD_GRUPO,
-              g.DES_GRUPO,
-              p.COD_SUB_GRUPO,
-              sg.DES_SUB_GRUPO,
-              pl.COD_FORN_ULT_COMPRA as COD_FORN,
-              f.DES_FORNECEDOR as RAZAO_FORN,
-              CASE WHEN p.FLG_ENVIA_BALANCA = 'S' THEN 'S' ELSE 'N' END as PESAVEL
+              p.${m.codigoCol} as COD_PRODUTO,
+              p.${m.eanCol} as EAN,
+              p.${m.descricaoCol} as DES_PRODUTO,
+              p.${m.descReduzidaCol} as DES_REDUZIDA,
+              p.${m.codSecaoCol} as COD_SECAO,
+              s.${m.desSecaoCol} as DES_SECAO,
+              p.${m.codGrupoCol} as COD_GRUPO,
+              g.${m.desGrupoCol} as DES_GRUPO,
+              p.${m.codSubGrupoCol} as COD_SUB_GRUPO,
+              sg.${m.desSubGrupoCol} as DES_SUB_GRUPO,
+              pl.${m.codFornUltCompraCol} as COD_FORN,
+              f.${m.desFornecedorCol} as RAZAO_FORN,
+              CASE WHEN p.${m.pesavelCol} = 'S' THEN 'S' ELSE 'N' END as PESAVEL
             FROM ${schema}.${tabProduto} p
-            INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.COD_PRODUTO = pl.COD_PRODUTO
-            LEFT JOIN ${schema}.${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
-            LEFT JOIN ${schema}.${tabGrupo} g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
-            LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
-            LEFT JOIN ${schema}.${tabFornecedor} f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
-            WHERE p.COD_PRODUTO IN (${placeholders})
-            AND pl.COD_LOJA = :codLoja
+            INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.${m.codigoCol} = pl.${m.codigoCol}
+            LEFT JOIN ${schema}.${tabSecao} s ON p.${m.codSecaoCol} = s.${m.codSecaoCol}
+            LEFT JOIN ${schema}.${tabGrupo} g ON p.${m.codSecaoCol} = g.${m.codSecaoCol} AND p.${m.codGrupoCol} = g.${m.codGrupoCol}
+            LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.${m.codSecaoCol} = sg.${m.codSecaoCol} AND p.${m.codGrupoCol} = sg.${m.codGrupoCol} AND p.${m.codSubGrupoCol} = sg.${m.codSubGrupoCol}
+            LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${m.codFornUltCompraCol} = f.${m.codFornecedorCol}
+            WHERE p.${m.codigoCol} IN (${placeholders})
+            AND pl.${m.codLojaCol} = :codLoja
           `;
 
           const rows = await OracleService.query(sql, params);
@@ -976,15 +1120,18 @@ export class ProductsController {
     try {
       console.log('📦 [ORACLE] Buscando seções do Oracle...');
 
+      // Obter mapeamentos dinâmicos
+      const desSecaoCol = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
+
       // Obter schema e tabela dinamicamente
       const schema = await MappingService.getSchema();
       const tabSecao = await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO');
 
       const sql = `
-        SELECT DES_SECAO
+        SELECT ${desSecaoCol} as DES_SECAO
         FROM ${schema}.${tabSecao}
-        WHERE DES_SECAO IS NOT NULL
-        ORDER BY DES_SECAO
+        WHERE ${desSecaoCol} IS NOT NULL
+        ORDER BY ${desSecaoCol}
       `;
 
       const rows = await OracleService.query(sql);
@@ -1008,14 +1155,18 @@ export class ProductsController {
    */
   static async getSectionsOracle(req: AuthRequest, res: Response) {
     try {
+      // Obter mapeamentos dinâmicos
+      const codSecaoCol = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
+      const desSecaoCol = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
+
       // Obter schema e tabela dinamicamente
       const schema = await MappingService.getSchema();
       const tabSecao = await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO');
 
       const sql = `
-        SELECT COD_SECAO, DES_SECAO
+        SELECT ${codSecaoCol} as COD_SECAO, ${desSecaoCol} as DES_SECAO
         FROM ${schema}.${tabSecao}
-        ORDER BY COD_SECAO
+        ORDER BY ${codSecaoCol}
       `;
 
       const rows = await OracleService.query(sql);
@@ -1049,6 +1200,10 @@ export class ProductsController {
 
       console.log('📦 Buscando produtos por seção do Oracle:', { section, loja });
 
+      // Obter mapeamentos dinâmicos
+      const bm = await ProductsController.getBasicProductMappings();
+      const plm = await ProductsController.getProdutoLojaMappings();
+
       // Obter schema e tabelas dinamicamente
       const schema = await MappingService.getSchema();
       const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo] = await Promise.all([
@@ -1062,24 +1217,24 @@ export class ProductsController {
       // VAL_MARGEM_FIXA = margem de referência, VAL_MARGEM = margem atual
       const sql = `
         SELECT
-          p.COD_PRODUTO,
-          p.COD_BARRA_PRINCIPAL,
-          p.DES_PRODUTO,
-          s.DES_SECAO,
-          g.DES_GRUPO,
-          TRIM(pl.DES_RANK_PRODLOJA) as CURVA,
-          NVL(pl.VAL_CUSTO_REP, 0) as VAL_CUSTO_REP,
-          NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
-          NVL(pl.VAL_MARGEM, 0) as VAL_MARGEM,
-          NVL(pl.VAL_MARGEM_FIXA, pl.VAL_MARGEM) as VAL_MARGEM_REF
+          p.${bm.codigoCol} as COD_PRODUTO,
+          p.${bm.eanCol} as COD_BARRA_PRINCIPAL,
+          p.${bm.descricaoCol} as DES_PRODUTO,
+          s.${bm.desSecaoCol} as DES_SECAO,
+          g.${bm.desGrupoCol} as DES_GRUPO,
+          TRIM(pl.${plm.curvaCol}) as CURVA,
+          NVL(pl.${plm.custoRepCol}, 0) as VAL_CUSTO_REP,
+          NVL(pl.${plm.valorVendaCol}, 0) as VAL_VENDA,
+          NVL(pl.${plm.margemCol}, 0) as VAL_MARGEM,
+          NVL(pl.${plm.margemFixaCol}, pl.${plm.margemCol}) as VAL_MARGEM_REF
         FROM ${schema}.${tabProduto} p
-        INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.COD_PRODUTO = pl.COD_PRODUTO
-        LEFT JOIN ${schema}.${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
-        LEFT JOIN ${schema}.${tabGrupo} g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
-        WHERE pl.COD_LOJA = :codLoja
-        AND UPPER(s.DES_SECAO) LIKE :sectionFilter
-        AND NVL(pl.INATIVO, 'N') = 'N'
-        ORDER BY p.DES_PRODUTO
+        INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.${bm.codigoCol} = pl.${plm.plCodigoCol}
+        LEFT JOIN ${schema}.${tabSecao} s ON p.${bm.codSecaoCol} = s.${bm.codSecaoCol}
+        LEFT JOIN ${schema}.${tabGrupo} g ON p.${bm.codSecaoCol} = g.${bm.codSecaoCol} AND p.${bm.codGrupoCol} = g.${bm.codGrupoCol}
+        WHERE pl.${plm.codLojaCol} = :codLoja
+        AND UPPER(s.${bm.desSecaoCol}) LIKE :sectionFilter
+        AND NVL(pl.${plm.inativoCol}, 'N') = 'N'
+        ORDER BY p.${bm.descricaoCol}
       `;
 
       const params = {
@@ -1133,6 +1288,10 @@ export class ProductsController {
 
       console.log('📦 [ORACLE] Buscando produtos por seção:', { section, loja });
 
+      // Obter mapeamentos dinâmicos
+      const bm = await ProductsController.getBasicProductMappings();
+      const plm = await ProductsController.getProdutoLojaMappings();
+
       // Obter schema e tabelas dinamicamente
       const schema = await MappingService.getSchema();
       const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo] = await Promise.all([
@@ -1145,26 +1304,26 @@ export class ProductsController {
 
       const sql = `
         SELECT
-          p.COD_PRODUTO,
-          p.COD_BARRA_PRINCIPAL as EAN,
-          p.DES_PRODUTO,
-          s.DES_SECAO,
-          g.DES_GRUPO,
-          sg.DES_SUB_GRUPO,
-          TRIM(pl.DES_RANK_PRODLOJA) as CURVA,
-          NVL(pl.VAL_CUSTO_REP, 0) as VAL_CUSTO_REP,
-          NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
-          NVL(pl.VAL_MARGEM, 0) as VAL_MARGEM,
-          NVL(pl.VAL_MARGEM_FIXA, pl.VAL_MARGEM) as VAL_MARGEM_REF
+          p.${bm.codigoCol} as COD_PRODUTO,
+          p.${bm.eanCol} as EAN,
+          p.${bm.descricaoCol} as DES_PRODUTO,
+          s.${bm.desSecaoCol} as DES_SECAO,
+          g.${bm.desGrupoCol} as DES_GRUPO,
+          sg.${bm.desSubGrupoCol} as DES_SUB_GRUPO,
+          TRIM(pl.${plm.curvaCol}) as CURVA,
+          NVL(pl.${plm.custoRepCol}, 0) as VAL_CUSTO_REP,
+          NVL(pl.${plm.valorVendaCol}, 0) as VAL_VENDA,
+          NVL(pl.${plm.margemCol}, 0) as VAL_MARGEM,
+          NVL(pl.${plm.margemFixaCol}, pl.${plm.margemCol}) as VAL_MARGEM_REF
         FROM ${schema}.${tabProduto} p
-        INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.COD_PRODUTO = pl.COD_PRODUTO
-        LEFT JOIN ${schema}.${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
-        LEFT JOIN ${schema}.${tabGrupo} g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
-        LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.COD_SECAO = sg.COD_SECAO AND p.COD_GRUPO = sg.COD_GRUPO AND p.COD_SUB_GRUPO = sg.COD_SUB_GRUPO
-        WHERE pl.COD_LOJA = :codLoja
-        AND UPPER(s.DES_SECAO) LIKE :sectionFilter
-        AND NVL(pl.INATIVO, 'N') = 'N'
-        ORDER BY p.DES_PRODUTO
+        INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.${bm.codigoCol} = pl.${plm.plCodigoCol}
+        LEFT JOIN ${schema}.${tabSecao} s ON p.${bm.codSecaoCol} = s.${bm.codSecaoCol}
+        LEFT JOIN ${schema}.${tabGrupo} g ON p.${bm.codSecaoCol} = g.${bm.codSecaoCol} AND p.${bm.codGrupoCol} = g.${bm.codGrupoCol}
+        LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.${bm.codSecaoCol} = sg.${bm.codSecaoCol} AND p.${bm.codGrupoCol} = sg.${bm.codGrupoCol} AND p.${bm.codSubGrupoCol} = sg.${bm.codSubGrupoCol}
+        WHERE pl.${plm.codLojaCol} = :codLoja
+        AND UPPER(s.${bm.desSecaoCol}) LIKE :sectionFilter
+        AND NVL(pl.${plm.inativoCol}, 'N') = 'N'
+        ORDER BY p.${bm.descricaoCol}
       `;
 
       const params = {
@@ -1214,20 +1373,24 @@ export class ProductsController {
       // Importar OracleService
       const { OracleService } = await import('../services/oracle.service');
 
+      // Obter mapeamentos dinâmicos
+      const bm = await ProductsController.getBasicProductMappings();
+      const plm = await ProductsController.getProdutoLojaMappings();
+
       // Montar query Oracle
       let whereConditions: string[] = [];
       const params: any = {};
 
       // Filtro de loja (default = 1)
       const loja = codLoja ? parseInt(codLoja as string) : 1;
-      whereConditions.push('pl.COD_LOJA = :codLoja');
+      whereConditions.push(`pl.${plm.codLojaCol} = :codLoja`);
       params.codLoja = loja;
 
       // Filtro de dias sem venda
       if (diasSemVenda) {
         const dias = parseInt(diasSemVenda as string);
         if (!isNaN(dias) && dias > 0) {
-          whereConditions.push(`(pl.DTA_ULT_MOV_VENDA IS NULL OR pl.DTA_ULT_MOV_VENDA <= SYSDATE - :diasSemVenda)`);
+          whereConditions.push(`(pl.${plm.dataUltVendaCol} IS NULL OR pl.${plm.dataUltVendaCol} <= SYSDATE - :diasSemVenda)`);
           params.diasSemVenda = dias;
         }
       }
@@ -1235,7 +1398,7 @@ export class ProductsController {
       // Filtro de curvas
       if (curvas && curvas !== 'TODOS') {
         const curvasArray = (curvas as string).split(',').map(c => c.trim().toUpperCase());
-        whereConditions.push(`pl.DES_RANK_PRODLOJA IN (${curvasArray.map((_, i) => `:curva${i}`).join(', ')})`);
+        whereConditions.push(`pl.${plm.curvaCol} IN (${curvasArray.map((_, i) => `:curva${i}`).join(', ')})`);
         curvasArray.forEach((curva, i) => {
           params[`curva${i}`] = curva;
         });
@@ -1244,7 +1407,7 @@ export class ProductsController {
       // Filtro de seções
       if (secoes) {
         const secoesArray = (secoes as string).split(',').map(s => s.trim().toUpperCase());
-        const secaoConditions = secoesArray.map((_, i) => `UPPER(s.DES_SECAO) LIKE :secao${i}`);
+        const secaoConditions = secoesArray.map((_, i) => `UPPER(s.${bm.desSecaoCol}) LIKE :secao${i}`);
         whereConditions.push(`(${secaoConditions.join(' OR ')})`);
         secoesArray.forEach((secao, i) => {
           params[`secao${i}`] = `%${secao}%`;
@@ -1252,8 +1415,8 @@ export class ProductsController {
       }
 
       // Filtrar apenas produtos ativos
-      whereConditions.push(`NVL(pl.INATIVO, 'N') = 'N'`);
-      whereConditions.push(`p.COD_PRODUTO IS NOT NULL`);
+      whereConditions.push(`NVL(pl.${plm.inativoCol}, 'N') = 'N'`);
+      whereConditions.push(`p.${bm.codigoCol} IS NOT NULL`);
 
       const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
 
@@ -1269,34 +1432,34 @@ export class ProductsController {
 
       const sql = `
         SELECT
-          p.COD_BARRA_PRINCIPAL as CODIGO_BARRAS,
-          p.COD_PRODUTO as ERP_PRODUCT_ID,
-          p.DES_PRODUTO as DESCRICAO,
-          TRIM(pl.DES_RANK_PRODLOJA) as CURVA,
-          NVL(pl.QTD_EST_ATUAL, 0) as ESTOQUE_ATUAL,
-          NVL(pl.QTD_COBERTURA, 0) as COBERTURA_DIAS,
-          g.DES_GRUPO as GRUPO,
-          s.DES_SECAO as SECAO,
-          pl.COD_FORN_ULT_COMPRA as COD_FORNECEDOR,
-          f.DES_FORNECEDOR as FORNECEDOR,
-          NVL(pl.VAL_MARGEM, 0) as MARGEM_LUCRO,
+          p.${bm.eanCol} as CODIGO_BARRAS,
+          p.${bm.codigoCol} as ERP_PRODUCT_ID,
+          p.${bm.descricaoCol} as DESCRICAO,
+          TRIM(pl.${plm.curvaCol}) as CURVA,
+          NVL(pl.${plm.estoqueAtualCol}, 0) as ESTOQUE_ATUAL,
+          NVL(pl.${plm.coberturaCol}, 0) as COBERTURA_DIAS,
+          g.${bm.desGrupoCol} as GRUPO,
+          s.${bm.desSecaoCol} as SECAO,
+          pl.${plm.codFornUltCompraCol} as COD_FORNECEDOR,
+          f.${bm.desFornecedorCol} as FORNECEDOR,
+          NVL(pl.${plm.margemCol}, 0) as MARGEM_LUCRO,
           1 as QTD_EMBALAGEM,
-          NVL(pl.VAL_VENDA, 0) as VALOR_VENDA,
-          NVL(pl.VAL_CUSTO_REP, 0) as CUSTO_COM_IMPOSTO,
-          NVL(pl.VAL_VENDA_MEDIA, 0) as VENDA_MEDIA_DIA,
-          CASE WHEN NVL(pl.QTD_PEDIDO_COMPRA, 0) > 0 THEN 'Sim' ELSE 'Nao' END as TEM_PEDIDO,
-          pl.DTA_ULT_MOV_VENDA as DTA_ULT_VENDA,
+          NVL(pl.${plm.valorVendaCol}, 0) as VALOR_VENDA,
+          NVL(pl.${plm.custoRepCol}, 0) as CUSTO_COM_IMPOSTO,
+          NVL(pl.${plm.vendaMediaCol}, 0) as VENDA_MEDIA_DIA,
+          CASE WHEN NVL(pl.${plm.pedidoCompraCol}, 0) > 0 THEN 'Sim' ELSE 'Nao' END as TEM_PEDIDO,
+          pl.${plm.dataUltVendaCol} as DTA_ULT_VENDA,
           CASE
-            WHEN pl.DTA_ULT_MOV_VENDA IS NULL THEN 9999
-            ELSE TRUNC(SYSDATE - pl.DTA_ULT_MOV_VENDA)
+            WHEN pl.${plm.dataUltVendaCol} IS NULL THEN 9999
+            ELSE TRUNC(SYSDATE - pl.${plm.dataUltVendaCol})
           END as DIAS_SEM_VENDA
         FROM ${schema}.${tabProduto} p
-        INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.COD_PRODUTO = pl.COD_PRODUTO
-        LEFT JOIN ${schema}.${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
-        LEFT JOIN ${schema}.${tabGrupo} g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
-        LEFT JOIN ${schema}.${tabFornecedor} f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
+        INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.${bm.codigoCol} = pl.${plm.plCodigoCol}
+        LEFT JOIN ${schema}.${tabSecao} s ON p.${bm.codSecaoCol} = s.${bm.codSecaoCol}
+        LEFT JOIN ${schema}.${tabGrupo} g ON p.${bm.codSecaoCol} = g.${bm.codSecaoCol} AND p.${bm.codGrupoCol} = g.${bm.codGrupoCol}
+        LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${plm.codFornUltCompraCol} = f.${bm.codFornecedorCol}
         ${whereClause}
-        ORDER BY DIAS_SEM_VENDA DESC, pl.DES_RANK_PRODLOJA ASC
+        ORDER BY DIAS_SEM_VENDA DESC, pl.${plm.curvaCol} ASC
       `;
 
       console.log('📊 Buscando produtos para ruptura do Oracle...');
@@ -1365,6 +1528,22 @@ export class ProductsController {
       // Loja padrão = 1
       const loja = codLoja || 1;
 
+      // Obter mapeamentos dinâmicos
+      const bm = await ProductsController.getBasicProductMappings();
+      const plm = await ProductsController.getProdutoLojaMappings();
+
+      // Mapeamentos de TAB_PRODUTO_HISTORICO - colunas específicas dessa tabela
+      // (não existem no TABLE_CATALOG padrão, mantém hardcoded com comentário)
+      const hCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_HISTORICO', 'codigo_produto', 'COD_PRODUTO');
+      const hCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_HISTORICO', 'codigo_loja', 'COD_LOJA');
+      // Colunas específicas de TAB_PRODUTO_HISTORICO - hardcoded (sem mapeamento no TABLE_CATALOG)
+      const hDtaUltAltPrecoVenda = 'DTA_ULT_ALT_PRECO_VENDA';
+      const hValVendaAnt = 'VAL_VENDA_ANT';
+      const hValVendaPdv = 'VAL_VENDA_PDV';
+      const hDtaCargaPdv = 'DTA_CARGA_PDV';
+      // Coluna DTA_VALIDA_OFERTA em TAB_PRODUTO_LOJA - hardcoded (sem mapeamento no TABLE_CATALOG)
+      const plDtaValidaOferta = 'DTA_VALIDA_OFERTA';
+
       // Construir WHERE dinâmico
       const whereConditions: string[] = [];
       const params: any = {
@@ -1376,24 +1555,24 @@ export class ProductsController {
       // Filtro de data de alteração de preço de VENDA usando TAB_PRODUTO_HISTORICO
       // DTA_ULT_ALT_PRECO_VENDA é a coluna correta para capturar alterações de preço de venda
       whereConditions.push(`(
-        h.DTA_ULT_ALT_PRECO_VENDA >= TO_DATE(:dataInicio, 'YYYY-MM-DD')
-        AND h.DTA_ULT_ALT_PRECO_VENDA < TO_DATE(:dataFim, 'YYYY-MM-DD') + 1
+        h.${hDtaUltAltPrecoVenda} >= TO_DATE(:dataInicio, 'YYYY-MM-DD')
+        AND h.${hDtaUltAltPrecoVenda} < TO_DATE(:dataFim, 'YYYY-MM-DD') + 1
       )`);
 
       // Filtro de loja
-      whereConditions.push(`h.COD_LOJA = :codLoja`);
+      whereConditions.push(`h.${hCodLojaCol} = :codLoja`);
 
       // Filtro de tipo de oferta
       if (tipoOferta === 'com_oferta') {
-        whereConditions.push(`pl.VAL_OFERTA IS NOT NULL AND pl.VAL_OFERTA > 0 AND TRUNC(SYSDATE) <= NVL(pl.DTA_VALIDA_OFERTA, TRUNC(SYSDATE))`);
+        whereConditions.push(`pl.${plm.valorOfertaCol} IS NOT NULL AND pl.${plm.valorOfertaCol} > 0 AND TRUNC(SYSDATE) <= NVL(pl.${plDtaValidaOferta}, TRUNC(SYSDATE))`);
       } else if (tipoOferta === 'sem_oferta') {
-        whereConditions.push(`(pl.VAL_OFERTA IS NULL OR pl.VAL_OFERTA = 0 OR TRUNC(SYSDATE) > NVL(pl.DTA_VALIDA_OFERTA, TRUNC(SYSDATE) - 1))`);
+        whereConditions.push(`(pl.${plm.valorOfertaCol} IS NULL OR pl.${plm.valorOfertaCol} = 0 OR TRUNC(SYSDATE) > NVL(pl.${plDtaValidaOferta}, TRUNC(SYSDATE) - 1))`);
       }
 
       // Filtro de seções (opcional)
       if (secoes && typeof secoes === 'string') {
         const secoesArray = secoes.split(',').map(s => s.trim().toUpperCase());
-        const secaoConditions = secoesArray.map((_, i) => `UPPER(s.DES_SECAO) LIKE :secao${i}`);
+        const secaoConditions = secoesArray.map((_, i) => `UPPER(s.${bm.desSecaoCol}) LIKE :secao${i}`);
         whereConditions.push(`(${secaoConditions.join(' OR ')})`);
         secoesArray.forEach((secao, i) => {
           params[`secao${i}`] = `%${secao}%`;
@@ -1401,8 +1580,8 @@ export class ProductsController {
       }
 
       // Filtrar apenas produtos com preço válido
-      whereConditions.push(`p.COD_PRODUTO IS NOT NULL`);
-      whereConditions.push(`pl.VAL_VENDA IS NOT NULL`);
+      whereConditions.push(`p.${bm.codigoCol} IS NOT NULL`);
+      whereConditions.push(`pl.${plm.valorVendaCol} IS NOT NULL`);
 
       const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
 
@@ -1421,34 +1600,34 @@ export class ProductsController {
       // e VAL_VENDA_ANT (preço anterior) / VAL_VENDA_PDV (preço no PDV)
       const sql = `
         SELECT
-          p.COD_BARRA_PRINCIPAL as CODIGO_BARRAS,
-          p.COD_PRODUTO as ERP_PRODUCT_ID,
-          p.DES_PRODUTO as DESCRICAO,
-          s.DES_SECAO as SECAO,
-          g.DES_GRUPO as GRUPO,
-          NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
-          NVL(h.VAL_VENDA_ANT, 0) as VAL_VENDA_ANTERIOR,
-          NVL(h.VAL_VENDA_PDV, 0) as VAL_VENDA_PDV,
-          NVL(pl.VAL_OFERTA, 0) as VAL_OFERTA,
-          pl.DTA_VALIDA_OFERTA,
-          h.DTA_ULT_ALT_PRECO_VENDA as DTA_ALTERACAO,
-          h.DTA_CARGA_PDV,
-          NVL(pl.VAL_MARGEM, 0) as VAL_MARGEM,
-          f.DES_FORNECEDOR as FORNECEDOR,
+          p.${bm.eanCol} as CODIGO_BARRAS,
+          p.${bm.codigoCol} as ERP_PRODUCT_ID,
+          p.${bm.descricaoCol} as DESCRICAO,
+          s.${bm.desSecaoCol} as SECAO,
+          g.${bm.desGrupoCol} as GRUPO,
+          NVL(pl.${plm.valorVendaCol}, 0) as VAL_VENDA,
+          NVL(h.${hValVendaAnt}, 0) as VAL_VENDA_ANTERIOR,
+          NVL(h.${hValVendaPdv}, 0) as VAL_VENDA_PDV,
+          NVL(pl.${plm.valorOfertaCol}, 0) as VAL_OFERTA,
+          pl.${plDtaValidaOferta} as DTA_VALIDA_OFERTA,
+          h.${hDtaUltAltPrecoVenda} as DTA_ALTERACAO,
+          h.${hDtaCargaPdv} as DTA_CARGA_PDV,
+          NVL(pl.${plm.margemCol}, 0) as VAL_MARGEM,
+          f.${bm.desFornecedorCol} as FORNECEDOR,
           CASE
-            WHEN pl.VAL_OFERTA IS NOT NULL AND pl.VAL_OFERTA > 0
-                 AND TRUNC(SYSDATE) <= NVL(pl.DTA_VALIDA_OFERTA, TRUNC(SYSDATE))
+            WHEN pl.${plm.valorOfertaCol} IS NOT NULL AND pl.${plm.valorOfertaCol} > 0
+                 AND TRUNC(SYSDATE) <= NVL(pl.${plDtaValidaOferta}, TRUNC(SYSDATE))
             THEN 'S'
             ELSE 'N'
           END as EM_OFERTA
         FROM ${schema}.${tabProdutoHistorico} h
-        JOIN ${schema}.${tabProduto} p ON h.COD_PRODUTO = p.COD_PRODUTO
-        JOIN ${schema}.${tabProdutoLoja} pl ON h.COD_PRODUTO = pl.COD_PRODUTO AND h.COD_LOJA = pl.COD_LOJA
-        LEFT JOIN ${schema}.${tabSecao} s ON p.COD_SECAO = s.COD_SECAO
-        LEFT JOIN ${schema}.${tabGrupo} g ON p.COD_SECAO = g.COD_SECAO AND p.COD_GRUPO = g.COD_GRUPO
-        LEFT JOIN ${schema}.${tabFornecedor} f ON pl.COD_FORN_ULT_COMPRA = f.COD_FORNECEDOR
+        JOIN ${schema}.${tabProduto} p ON h.${hCodProdutoCol} = p.${bm.codigoCol}
+        JOIN ${schema}.${tabProdutoLoja} pl ON h.${hCodProdutoCol} = pl.${plm.plCodigoCol} AND h.${hCodLojaCol} = pl.${plm.codLojaCol}
+        LEFT JOIN ${schema}.${tabSecao} s ON p.${bm.codSecaoCol} = s.${bm.codSecaoCol}
+        LEFT JOIN ${schema}.${tabGrupo} g ON p.${bm.codSecaoCol} = g.${bm.codSecaoCol} AND p.${bm.codGrupoCol} = g.${bm.codGrupoCol}
+        LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${plm.codFornUltCompraCol} = f.${bm.codFornecedorCol}
         ${whereClause}
-        ORDER BY s.DES_SECAO ASC NULLS LAST, p.DES_PRODUTO ASC
+        ORDER BY s.${bm.desSecaoCol} ASC NULLS LAST, p.${bm.descricaoCol} ASC
       `;
 
       console.log('📊 Buscando produtos para auditoria de etiquetas do Oracle...');
@@ -1596,7 +1775,9 @@ export class ProductsController {
         desSecaoCol,
         desGrupoCol,
         desSubGrupoCol,
-        desFornecedorCol
+        codFornecedorCol,
+        desFornecedorCol,
+        codLojaCol
       } = await ProductsController.getProdutosMappings();
 
       console.log(`📋 [MAPEAMENTO] Campo codigo usando coluna: ${codigoCol}`);
@@ -1662,8 +1843,8 @@ export class ProductsController {
         LEFT JOIN ${schema}.${tabSecao} s ON p.${codSecaoCol} = s.${codSecaoCol}
         LEFT JOIN ${schema}.${tabGrupo} g ON p.${codSecaoCol} = g.${codSecaoCol} AND p.${codGrupoCol} = g.${codGrupoCol}
         LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.${codSecaoCol} = sg.${codSecaoCol} AND p.${codGrupoCol} = sg.${codGrupoCol} AND p.${codSubGrupoCol} = sg.${codSubGrupoCol}
-        LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${codFornUltCompraCol} = f.COD_FORNECEDOR
-        WHERE pl.COD_LOJA = :codLoja
+        LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${codFornUltCompraCol} = f.${codFornecedorCol}
+        WHERE pl.${codLojaCol} = :codLoja
         AND NVL(pl.${inativoCol}, 'N') = 'N'
         ORDER BY p.${descricaoCol}
       `;
@@ -1752,6 +1933,28 @@ export class ProductsController {
 
       console.log(`📜 Buscando histórico de compras do produto ${id}...`);
 
+      // Obter mapeamentos dinâmicos
+      const pCodigoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+      const pEanCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras', 'COD_BARRA_PRINCIPAL');
+      const pDescricaoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
+      const fCodFornecedorCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
+      const fDesFornecedorCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR');
+      // Colunas de TAB_NF e TAB_NF_ITEM - hardcoded (sem mapeamento no TABLE_CATALOG)
+      const nfDtaEntrada = 'DTA_ENTRADA';
+      const nfNumNf = 'NUM_NF';
+      const nfNumSerieNf = 'NUM_SERIE_NF';
+      const nfCodParceiro = 'COD_PARCEIRO';
+      const nfTipoOperacao = 'TIPO_OPERACAO';
+      const niValCustoScred = 'VAL_CUSTO_SCRED';
+      const niQtdEntrada = 'QTD_ENTRADA';
+      const niValTotal = 'VAL_TOTAL';
+      const niCodItem = 'COD_ITEM';
+      const niCodParceiro = 'COD_PARCEIRO';
+      // Coluna DES_FANTASIA de TAB_FORNECEDOR - hardcoded (sem mapeamento no TABLE_CATALOG)
+      const fDesFantasia = 'DES_FANTASIA';
+      // Coluna COD_BARRAS de TAB_PRODUTO - hardcoded (diferente de COD_BARRA_PRINCIPAL)
+      const pCodBarras = 'COD_BARRAS';
+
       // Obter schema e tabelas dinamicamente
       const schema = await MappingService.getSchema();
       const [tabProduto, tabNf, tabNfItem, tabFornecedor] = await Promise.all([
@@ -1778,15 +1981,15 @@ export class ProductsController {
         if (isEAN) {
           // Buscar por código de barras (EAN)
           searchSql = `
-            SELECT COD_PRODUTO FROM ${schema}.${tabProduto}
-            WHERE COD_BARRAS = :ean AND ROWNUM = 1
+            SELECT ${pCodigoCol} as COD_PRODUTO FROM ${schema}.${tabProduto}
+            WHERE ${pCodBarras} = :ean AND ROWNUM = 1
           `;
           searchParams = { ean: id };
         } else if (descricao) {
           // Buscar por descrição - primeiro tentar exata, depois parcial
           searchSql = `
-            SELECT COD_PRODUTO FROM ${schema}.${tabProduto}
-            WHERE UPPER(DES_PRODUTO) LIKE UPPER(:descricao) AND ROWNUM = 1
+            SELECT ${pCodigoCol} as COD_PRODUTO FROM ${schema}.${tabProduto}
+            WHERE UPPER(${pDescricaoCol}) LIKE UPPER(:descricao) AND ROWNUM = 1
           `;
           // Usar % para busca parcial se a descrição tiver mais de 10 caracteres
           const descricaoStr = descricao as string;
@@ -1794,8 +1997,8 @@ export class ProductsController {
         } else {
           // Tentar buscar por descrição usando o id como texto
           searchSql = `
-            SELECT COD_PRODUTO FROM ${schema}.${tabProduto}
-            WHERE UPPER(DES_PRODUTO) LIKE UPPER(:descricao) AND ROWNUM = 1
+            SELECT ${pCodigoCol} as COD_PRODUTO FROM ${schema}.${tabProduto}
+            WHERE UPPER(${pDescricaoCol}) LIKE UPPER(:descricao) AND ROWNUM = 1
           `;
           searchParams = { descricao: `%${id}%` };
         }
@@ -1817,24 +2020,24 @@ export class ProductsController {
       const sql = `
         SELECT * FROM (
           SELECT
-            TO_CHAR(nf.DTA_ENTRADA, 'DD/MM/YYYY') as DATA_COMPRA,
-            nf.DTA_ENTRADA,
-            f.DES_FORNECEDOR as FORNECEDOR,
-            f.DES_FANTASIA as FANTASIA_FORN,
-            NVL(ni.VAL_CUSTO_SCRED, 0) as CUSTO_UNITARIO,
-            ni.QTD_ENTRADA as QUANTIDADE,
-            ni.VAL_TOTAL as VALOR_TOTAL,
-            nf.NUM_NF as NUMERO_NF,
-            nf.NUM_SERIE_NF as SERIE_NF,
-            TRUNC(SYSDATE - nf.DTA_ENTRADA) as DIAS_DESDE_COMPRA
+            TO_CHAR(nf.${nfDtaEntrada}, 'DD/MM/YYYY') as DATA_COMPRA,
+            nf.${nfDtaEntrada},
+            f.${fDesFornecedorCol} as FORNECEDOR,
+            f.${fDesFantasia} as FANTASIA_FORN,
+            NVL(ni.${niValCustoScred}, 0) as CUSTO_UNITARIO,
+            ni.${niQtdEntrada} as QUANTIDADE,
+            ni.${niValTotal} as VALOR_TOTAL,
+            nf.${nfNumNf} as NUMERO_NF,
+            nf.${nfNumSerieNf} as SERIE_NF,
+            TRUNC(SYSDATE - nf.${nfDtaEntrada}) as DIAS_DESDE_COMPRA
           FROM ${schema}.${tabNf} nf
-          JOIN ${schema}.${tabNfItem} ni ON nf.NUM_NF = ni.NUM_NF
-            AND nf.NUM_SERIE_NF = ni.NUM_SERIE_NF
-            AND nf.COD_PARCEIRO = ni.COD_PARCEIRO
-          LEFT JOIN ${schema}.${tabFornecedor} f ON nf.COD_PARCEIRO = f.COD_FORNECEDOR
-          WHERE ni.COD_ITEM = :codProduto
-            AND nf.TIPO_OPERACAO = 0
-          ORDER BY nf.DTA_ENTRADA DESC
+          JOIN ${schema}.${tabNfItem} ni ON nf.${nfNumNf} = ni.${nfNumNf}
+            AND nf.${nfNumSerieNf} = ni.${nfNumSerieNf}
+            AND nf.${nfCodParceiro} = ni.${niCodParceiro}
+          LEFT JOIN ${schema}.${tabFornecedor} f ON nf.${nfCodParceiro} = f.${fCodFornecedorCol}
+          WHERE ni.${niCodItem} = :codProduto
+            AND nf.${nfTipoOperacao} = 0
+          ORDER BY nf.${nfDtaEntrada} DESC
         ) WHERE ROWNUM <= :maxResults
       `;
 
@@ -1893,11 +2096,19 @@ export class ProductsController {
         MappingService.getRealTableName('SNFETNEF', 'SNFETNEF')
       ]);
 
+      // Colunas de TAB_NF, SNFETNE, SNFETNEF - hardcoded (sem mapeamento no TABLE_CATALOG)
+      const nfNumChaveAcesso = 'NUM_CHAVE_ACESSO';
+      const nfNumNf = 'NUM_NF';
+      const nfNumSerieNf = 'NUM_SERIE_NF';
+      const sneIdNota = 'ID_NOTA';
+      const sneNrChave = 'NR_CHAVE';
+      const snfDfDanfe = 'DF_DANFE';
+
       // 1. Buscar a chave de acesso da NF na TAB_NF
       const nfSql = `
-        SELECT NUM_CHAVE_ACESSO, NUM_NF, NUM_SERIE_NF
+        SELECT ${nfNumChaveAcesso} as NUM_CHAVE_ACESSO, ${nfNumNf} as NUM_NF, ${nfNumSerieNf} as NUM_SERIE_NF
         FROM ${schema}.${tabNf}
-        WHERE NUM_NF = :numNf
+        WHERE ${nfNumNf} = :numNf
         AND ROWNUM = 1
       `;
 
@@ -1917,9 +2128,9 @@ export class ProductsController {
 
       // 2. Buscar o ID_NOTA na SNFETNE usando a chave
       const snfetneSql = `
-        SELECT ID_NOTA
+        SELECT ${sneIdNota} as ID_NOTA
         FROM ${schema}.${snfetne}
-        WHERE NR_CHAVE = :chave
+        WHERE ${sneNrChave} = :chave
         AND ROWNUM = 1
       `;
 
@@ -1934,9 +2145,9 @@ export class ProductsController {
 
       // 3. Buscar o PDF (DANFE) na SNFETNEF
       const danfeSql = `
-        SELECT DF_DANFE
+        SELECT ${snfDfDanfe} as DF_DANFE
         FROM ${schema}.${snfetnef}
-        WHERE ID_NOTA = :idNota
+        WHERE ${sneIdNota} = :idNota
         AND ROWNUM = 1
       `;
 
@@ -1986,6 +2197,10 @@ export class ProductsController {
       console.log('🔥🔥🔥 [PECULIARIDADES] V3 NEW CODE - Timestamp:', new Date().toISOString());
       console.log('🔥 [PECULIARIDADES] Params: search=', search, 'secao=', secao, 'grupo=', grupo, 'subgrupo=', subgrupo);
 
+      // Obter mapeamentos dinâmicos
+      const bm = await ProductsController.getBasicProductMappings();
+      const sm = await ProductsController.getSectionMappings();
+
       // Obter schema e tabelas dinamicamente
       const schema = await MappingService.getSchema();
       const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo] = await Promise.all([
@@ -1996,26 +2211,26 @@ export class ProductsController {
         MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO')
       ]);
 
-      let whereConditions: string[] = [`NVL(pl.INATIVO, 'N') = 'N'`];
+      let whereConditions: string[] = [`NVL(pl.${bm.inativoCol}, 'N') = 'N'`];
       const oracleParams: Record<string, any> = {};
 
       if (search) {
-        whereConditions.push(`(UPPER(p.DES_PRODUTO) LIKE UPPER(:search) OR p.COD_PRODUTO LIKE :search OR p.COD_BARRA_PRINCIPAL LIKE :search)`);
+        whereConditions.push(`(UPPER(p.${bm.descricaoCol}) LIKE UPPER(:search) OR p.${bm.codigoCol} LIKE :search OR p.${bm.eanCol} LIKE :search)`);
         oracleParams.search = `%${search}%`;
       }
 
       if (secao) {
-        whereConditions.push(`s.DES_SECAO = :secao`);
+        whereConditions.push(`s.${sm.desSecaoCol} = :secao`);
         oracleParams.secao = secao;
       }
 
       if (grupo) {
-        whereConditions.push(`g.DES_GRUPO = :grupo`);
+        whereConditions.push(`g.${sm.desGrupoCol} = :grupo`);
         oracleParams.grupo = grupo;
       }
 
       if (subgrupo) {
-        whereConditions.push(`sg.DES_SUB_GRUPO = :subgrupo`);
+        whereConditions.push(`sg.${sm.desSubGrupoCol} = :subgrupo`);
         oracleParams.subgrupo = subgrupo;
       }
 
@@ -2025,10 +2240,10 @@ export class ProductsController {
       const countQuery = `
         SELECT COUNT(*) as TOTAL
         FROM ${schema}.${tabProduto} p
-        JOIN ${schema}.${tabProdutoLoja} pl ON pl.COD_PRODUTO = p.COD_PRODUTO AND pl.COD_LOJA = 1
-        LEFT JOIN ${schema}.${tabSecao} s ON s.COD_SECAO = p.COD_SECAO
-        LEFT JOIN ${schema}.${tabGrupo} g ON g.COD_GRUPO = p.COD_GRUPO AND g.COD_SECAO = p.COD_SECAO
-        LEFT JOIN ${schema}.${tabSubGrupo} sg ON sg.COD_SUB_GRUPO = p.COD_SUB_GRUPO AND sg.COD_GRUPO = p.COD_GRUPO AND sg.COD_SECAO = p.COD_SECAO
+        JOIN ${schema}.${tabProdutoLoja} pl ON pl.${bm.codigoCol} = p.${bm.codigoCol} AND pl.${bm.codLojaCol} = 1
+        LEFT JOIN ${schema}.${tabSecao} s ON s.${sm.codSecaoCol} = p.${bm.codSecaoCol}
+        LEFT JOIN ${schema}.${tabGrupo} g ON g.${sm.codGrupoCol} = p.${bm.codGrupoCol} AND g.${sm.codSecaoCol} = p.${bm.codSecaoCol}
+        LEFT JOIN ${schema}.${tabSubGrupo} sg ON sg.${sm.codSubGrupoCol} = p.${bm.codSubGrupoCol} AND sg.${sm.codGrupoCol} = p.${bm.codGrupoCol} AND sg.${sm.codSecaoCol} = p.${bm.codSecaoCol}
         ${whereClause}
       `;
 
@@ -2036,18 +2251,18 @@ export class ProductsController {
       const productsQuery = `
         SELECT * FROM (
           SELECT
-            p.COD_PRODUTO,
-            p.COD_BARRA_PRINCIPAL,
-            p.DES_PRODUTO,
-            s.DES_SECAO,
-            g.DES_GRUPO,
-            sg.DES_SUB_GRUPO,
-            ROW_NUMBER() OVER (ORDER BY p.DES_PRODUTO) as RN
+            p.${bm.codigoCol} as COD_PRODUTO,
+            p.${bm.eanCol} as COD_BARRA_PRINCIPAL,
+            p.${bm.descricaoCol} as DES_PRODUTO,
+            s.${sm.desSecaoCol} as DES_SECAO,
+            g.${sm.desGrupoCol} as DES_GRUPO,
+            sg.${sm.desSubGrupoCol} as DES_SUB_GRUPO,
+            ROW_NUMBER() OVER (ORDER BY p.${bm.descricaoCol}) as RN
           FROM ${schema}.${tabProduto} p
-          JOIN ${schema}.${tabProdutoLoja} pl ON pl.COD_PRODUTO = p.COD_PRODUTO AND pl.COD_LOJA = 1
-          LEFT JOIN ${schema}.${tabSecao} s ON s.COD_SECAO = p.COD_SECAO
-          LEFT JOIN ${schema}.${tabGrupo} g ON g.COD_GRUPO = p.COD_GRUPO AND g.COD_SECAO = p.COD_SECAO
-          LEFT JOIN ${schema}.${tabSubGrupo} sg ON sg.COD_SUB_GRUPO = p.COD_SUB_GRUPO AND sg.COD_GRUPO = p.COD_GRUPO AND sg.COD_SECAO = p.COD_SECAO
+          JOIN ${schema}.${tabProdutoLoja} pl ON pl.${bm.codigoCol} = p.${bm.codigoCol} AND pl.${bm.codLojaCol} = 1
+          LEFT JOIN ${schema}.${tabSecao} s ON s.${sm.codSecaoCol} = p.${bm.codSecaoCol}
+          LEFT JOIN ${schema}.${tabGrupo} g ON g.${sm.codGrupoCol} = p.${bm.codGrupoCol} AND g.${sm.codSecaoCol} = p.${bm.codSecaoCol}
+          LEFT JOIN ${schema}.${tabSubGrupo} sg ON sg.${sm.codSubGrupoCol} = p.${bm.codSubGrupoCol} AND sg.${sm.codGrupoCol} = p.${bm.codGrupoCol} AND sg.${sm.codSecaoCol} = p.${bm.codSecaoCol}
           ${whereClause}
         ) WHERE RN > :offset AND RN <= :maxRow
       `;
@@ -2058,44 +2273,44 @@ export class ProductsController {
 
       // Query para buscar seções (para o filtro)
       const secoesQuery = `
-        SELECT DISTINCT s.DES_SECAO
+        SELECT DISTINCT s.${sm.desSecaoCol} as DES_SECAO
         FROM ${schema}.${tabSecao} s
-        WHERE s.DES_SECAO IS NOT NULL
-        ORDER BY s.DES_SECAO
+        WHERE s.${sm.desSecaoCol} IS NOT NULL
+        ORDER BY s.${sm.desSecaoCol}
       `;
 
       // Query para buscar grupos filtrados pela seção
       let gruposQuery = `
-        SELECT DISTINCT g.DES_GRUPO
+        SELECT DISTINCT g.${sm.desGrupoCol} as DES_GRUPO
         FROM ${schema}.${tabGrupo} g
-        JOIN ${schema}.${tabSecao} s ON s.COD_SECAO = g.COD_SECAO
-        WHERE g.DES_GRUPO IS NOT NULL
+        JOIN ${schema}.${tabSecao} s ON s.${sm.codSecaoCol} = g.${sm.codSecaoCol}
+        WHERE g.${sm.desGrupoCol} IS NOT NULL
       `;
       const gruposParams: Record<string, any> = {};
       if (secao) {
-        gruposQuery += ` AND s.DES_SECAO = :secaoGrupo`;
+        gruposQuery += ` AND s.${sm.desSecaoCol} = :secaoGrupo`;
         gruposParams.secaoGrupo = secao;
       }
-      gruposQuery += ` ORDER BY g.DES_GRUPO`;
+      gruposQuery += ` ORDER BY g.${sm.desGrupoCol}`;
 
       // Query para buscar subgrupos filtrados
       let subgruposQuery = `
-        SELECT DISTINCT sg.DES_SUB_GRUPO
+        SELECT DISTINCT sg.${sm.desSubGrupoCol} as DES_SUB_GRUPO
         FROM ${schema}.${tabSubGrupo} sg
-        JOIN ${schema}.${tabGrupo} g ON g.COD_GRUPO = sg.COD_GRUPO AND g.COD_SECAO = sg.COD_SECAO
-        JOIN ${schema}.${tabSecao} s ON s.COD_SECAO = sg.COD_SECAO
-        WHERE sg.DES_SUB_GRUPO IS NOT NULL
+        JOIN ${schema}.${tabGrupo} g ON g.${sm.codGrupoCol} = sg.${sm.codGrupoCol} AND g.${sm.codSecaoCol} = sg.${sm.codSecaoCol}
+        JOIN ${schema}.${tabSecao} s ON s.${sm.codSecaoCol} = sg.${sm.codSecaoCol}
+        WHERE sg.${sm.desSubGrupoCol} IS NOT NULL
       `;
       const subgruposParams: Record<string, any> = {};
       if (secao) {
-        subgruposQuery += ` AND s.DES_SECAO = :secaoSub`;
+        subgruposQuery += ` AND s.${sm.desSecaoCol} = :secaoSub`;
         subgruposParams.secaoSub = secao;
       }
       if (grupo) {
-        subgruposQuery += ` AND g.DES_GRUPO = :grupoSub`;
+        subgruposQuery += ` AND g.${sm.desGrupoCol} = :grupoSub`;
         subgruposParams.grupoSub = grupo;
       }
-      subgruposQuery += ` ORDER BY sg.DES_SUB_GRUPO`;
+      subgruposQuery += ` ORDER BY sg.${sm.desSubGrupoCol}`;
 
       // Executar queries Oracle
       const [countResult, productsResult, gruposResult, subgruposResult] = await Promise.all([
