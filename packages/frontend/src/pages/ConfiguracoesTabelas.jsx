@@ -77,6 +77,8 @@ const TABLE_CATALOG = {
       { id: 'cupom_cancelado', name: 'Cupom Cancelado', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'FLG_CUPOM_CANCELADO' },
       { id: 'valor_desconto', name: 'Valor Desconto', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'VAL_DESCONTO' },
       { id: 'quantidade', name: 'Quantidade', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'QTD_TOTAL_PRODUTO' },
+      { id: 'des_hora', name: 'Hora', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'DES_HORA' },
+      { id: 'codigo_loja', name: 'Código Loja', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'COD_LOJA' },
     ]
   },
   TAB_OPERADORES: {
@@ -201,6 +203,10 @@ const TABLE_CATALOG = {
       { id: 'codigo_tipo', name: 'Código Tipo', defaultTable: 'TAB_CUPOM_FINALIZADORA', defaultColumn: 'COD_TIPO' },
       { id: 'numero_pdv', name: 'Número PDV', defaultTable: 'TAB_CUPOM_FINALIZADORA', defaultColumn: 'NUM_PDV' },
       { id: 'codigo_loja', name: 'Código Loja', defaultTable: 'TAB_CUPOM_FINALIZADORA', defaultColumn: 'COD_LOJA' },
+      { id: 'val_sobra', name: 'Valor Sobra', defaultTable: 'TAB_CUPOM_FINALIZADORA', defaultColumn: 'VAL_SOBRA' },
+      { id: 'val_quebra', name: 'Valor Quebra', defaultTable: 'TAB_CUPOM_FINALIZADORA', defaultColumn: 'VAL_QUEBRA' },
+      { id: 'num_turno', name: 'Número Turno', defaultTable: 'TAB_CUPOM_FINALIZADORA', defaultColumn: 'NUM_TURNO' },
+      { id: 'num_registro', name: 'Número Registro', defaultTable: 'TAB_CUPOM_FINALIZADORA', defaultColumn: 'NUM_REGISTRO' },
     ]
   },
 };

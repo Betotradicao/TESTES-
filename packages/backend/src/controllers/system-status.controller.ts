@@ -1,10 +1,6 @@
 import { Request, Response } from 'express';
 import { Pool } from 'pg';
-import axios from 'axios';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { SellsSyncService } from '../services/sells-sync.service';
 
 const pool = new Pool({
   host: process.env.DB_HOST || 'postgres',
@@ -129,29 +125,29 @@ export async function getBarcodeStatus(req: Request, res: Response) {
 }
 
 /**
- * Reinicia o container do CRON
+ * Força sincronização de vendas manualmente
  */
-export async function restartCronService(_req: Request, res: Response) {
+export async function forceSyncSells(_req: Request, res: Response) {
   try {
-    console.log('🔄 Reiniciando serviço CRON...');
+    console.log('🔄 Forçando sincronização de vendas...');
 
-    // Executar comando Docker para reiniciar o container CRON
-    const { stdout } = await execAsync(
-      'docker restart prevencao-cron-prod'
-    );
+    // Disparar sync em background (não bloqueia a resposta)
+    SellsSyncService.syncToday().catch(err => {
+      console.error('❌ Erro no sync forçado:', err);
+    });
 
-    console.log('✅ CRON reiniciado com sucesso');
+    const lastStats = SellsSyncService.getLastStats();
 
     res.json({
       success: true,
-      message: 'Serviço CRON reiniciado com sucesso',
-      output: stdout,
+      message: 'Sincronização iniciada',
+      lastStats,
     });
   } catch (error: any) {
-    console.error('❌ Erro ao reiniciar CRON:', error);
+    console.error('❌ Erro ao forçar sync:', error);
     res.status(500).json({
       success: false,
-      error: 'Erro ao reiniciar serviço CRON',
+      error: 'Erro ao forçar sincronização',
       details: error.message,
     });
   }

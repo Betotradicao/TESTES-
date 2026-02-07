@@ -286,16 +286,16 @@ export class LossController {
       console.log('📊 Buscando ajustes do Oracle:', { data_inicio, data_fim, codigoLoja, motivo, tipoFiltro });
 
       // Busca mapeamentos dinâmicos para campos de estoque
-      const estCodProdutoCol = await MappingService.getColumn('estoque', 'cod_produto', 'COD_PRODUTO');
-      const estQuantidadeCol = await MappingService.getColumn('estoque', 'quantidade', 'QTD_AJUSTE');
-      const estTipoMovCol = await MappingService.getColumn('estoque', 'tipo_movimento', 'COD_AJUSTE');
-      const estDataMovCol = await MappingService.getColumn('estoque', 'data_movimento', 'DTA_AJUSTE');
-      const estMotivoCol = await MappingService.getColumn('estoque', 'motivo', 'MOTIVO');
+      const estCodProdutoCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_produto', 'COD_PRODUTO');
+      const estQuantidadeCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'quantidade', 'QTD_AJUSTE');
+      const estTipoMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'tipo_ajuste', 'COD_AJUSTE');
+      const estDataMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'data_ajuste', 'DTA_AJUSTE');
+      const estMotivoCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'motivo', 'MOTIVO');
 
       // Busca mapeamentos dinâmicos para campos de produtos
-      const prodCodigoCol = await MappingService.getColumn('produtos', 'codigo', 'COD_PRODUTO');
-      const prodDescricaoCol = await MappingService.getColumn('produtos', 'descricao', 'DES_PRODUTO');
-      const prodEanCol = await MappingService.getColumn('produtos', 'ean', 'COD_BARRA_PRINCIPAL');
+      const prodCodigoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+      const prodDescricaoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
+      const prodEanCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras', 'COD_BARRA_PRINCIPAL');
 
       console.log(`📋 [MAPEAMENTO ESTOQUE] Usando colunas: ${estCodProdutoCol}, ${estQuantidadeCol}, ${estTipoMovCol}, ${estDataMovCol}, ${estMotivoCol}`);
 
@@ -526,14 +526,14 @@ export class LossController {
       console.log('📦 Buscando trocas por fornecedor:', { codigoLoja, tipoTroca, diasFiltro });
 
       // Busca mapeamentos dinâmicos para campos de estoque
-      const estQuantidadeCol = await MappingService.getColumn('estoque', 'quantidade', 'QTD_AJUSTE');
-      const estTipoMovCol = await MappingService.getColumn('estoque', 'tipo_movimento', 'COD_AJUSTE');
-      const estDataMovCol = await MappingService.getColumn('estoque', 'data_movimento', 'DTA_AJUSTE');
+      const estQuantidadeCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'quantidade', 'QTD_AJUSTE');
+      const estTipoMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'tipo_ajuste', 'COD_AJUSTE');
+      const estDataMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'data_ajuste', 'DTA_AJUSTE');
 
       // Busca mapeamentos dinâmicos para campos de fornecedores
-      const fornCodigoCol = await MappingService.getColumn('fornecedores', 'codigo', 'COD_FORNECEDOR');
-      const fornRazaoSocialCol = await MappingService.getColumn('fornecedores', 'razao_social', 'DES_FORNECEDOR');
-      const fornFantasiaCol = await MappingService.getColumn('fornecedores', 'fantasia', 'DES_FANTASIA');
+      const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
+      const fornRazaoSocialCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR');
+      const fornFantasiaCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'nome_fantasia', 'DES_FANTASIA');
 
       // Filtro por tipo de ajuste baseado na descrição
       // Saídas: produto sai da loja para troca com fornecedor (tipo principal apenas)
@@ -649,13 +649,13 @@ export class LossController {
       });
 
       // Busca mapeamentos dinâmicos para campos de estoque
-      const estCodProdutoCol = await MappingService.getColumn('estoque', 'cod_produto', 'COD_PRODUTO');
-      const estQuantidadeCol = await MappingService.getColumn('estoque', 'quantidade', 'QTD_AJUSTE');
-      const estDataMovCol = await MappingService.getColumn('estoque', 'data_movimento', 'DTA_AJUSTE');
+      const estCodProdutoCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_produto', 'COD_PRODUTO');
+      const estQuantidadeCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'quantidade', 'QTD_AJUSTE');
+      const estDataMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'data_ajuste', 'DTA_AJUSTE');
 
       // Busca mapeamentos dinâmicos para campos de produtos
-      const prodCodigoCol = await MappingService.getColumn('produtos', 'codigo', 'COD_PRODUTO');
-      const prodEanCol = await MappingService.getColumn('produtos', 'ean', 'COD_BARRA_PRINCIPAL');
+      const prodCodigoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+      const prodEanCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras', 'COD_BARRA_PRINCIPAL');
 
       // Filtro de códigos específicos (opcional)
       let filtroCodigosSQL = '';
@@ -860,15 +860,15 @@ export class LossController {
       console.log('📦 Buscando itens de troca do fornecedor:', { codigoLoja, codForn, tipoTroca, diasFiltro });
 
       // Busca mapeamentos dinâmicos para campos de estoque
-      const estCodProdutoCol = await MappingService.getColumn('estoque', 'cod_produto', 'COD_PRODUTO');
-      const estQuantidadeCol = await MappingService.getColumn('estoque', 'quantidade', 'QTD_AJUSTE');
-      const estTipoMovCol = await MappingService.getColumn('estoque', 'tipo_movimento', 'COD_AJUSTE');
-      const estDataMovCol = await MappingService.getColumn('estoque', 'data_movimento', 'DTA_AJUSTE');
+      const estCodProdutoCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_produto', 'COD_PRODUTO');
+      const estQuantidadeCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'quantidade', 'QTD_AJUSTE');
+      const estTipoMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'tipo_ajuste', 'COD_AJUSTE');
+      const estDataMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'data_ajuste', 'DTA_AJUSTE');
 
       // Busca mapeamentos dinâmicos para campos de produtos
-      const prodCodigoCol = await MappingService.getColumn('produtos', 'codigo', 'COD_PRODUTO');
-      const prodDescricaoCol = await MappingService.getColumn('produtos', 'descricao', 'DES_PRODUTO');
-      const prodEanCol = await MappingService.getColumn('produtos', 'ean', 'COD_BARRA_PRINCIPAL');
+      const prodCodigoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+      const prodDescricaoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
+      const prodEanCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras', 'COD_BARRA_PRINCIPAL');
 
       // Filtro por tipo de ajuste baseado na descrição (tipo principal apenas)
       // Saídas: produto sai da loja para troca com fornecedor

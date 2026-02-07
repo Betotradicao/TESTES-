@@ -119,33 +119,33 @@ export class FrenteCaixaService {
       codProdutoCol,
       desProdutoCol
     ] = await Promise.all([
-      // Campos de cupom/venda
-      MappingService.getColumn('vendas', 'numero_cupom', 'NUM_CUPOM_FISCAL'),
-      MappingService.getColumn('vendas', 'data_venda', 'DTA_VENDA'),
-      MappingService.getColumn('vendas', 'valor_total', 'VAL_TOTAL_PRODUTO'),
-      MappingService.getColumn('vendas', 'cod_operador', 'COD_OPERADOR'),
-      MappingService.getColumn('vendas', 'nome_operador', 'DES_OPERADOR'),
-      MappingService.getColumn('vendas', 'cod_pdv', 'NUM_PDV'),
-      MappingService.getColumn('vendas', 'status_cupom', 'FLG_CUPOM_CANCELADO'),
-      // Campos de finalizadora
-      MappingService.getColumn('vendas', 'valor_liquido', 'VAL_LIQUIDO'),
-      MappingService.getColumn('vendas', 'cod_finalizadora', 'COD_FINALIZADORA'),
-      MappingService.getColumn('vendas', 'cod_tipo', 'COD_TIPO'),
-      // Campos de produto PDV
-      MappingService.getColumn('vendas', 'data_saida', 'DTA_SAIDA'),
-      MappingService.getColumn('vendas', 'valor_desconto', 'VAL_DESCONTO'),
-      MappingService.getColumn('vendas', 'qtd_total_produto', 'QTD_TOTAL_PRODUTO'),
-      MappingService.getColumn('vendas', 'cod_loja', 'COD_LOJA'),
-      // Campos de estorno
-      MappingService.getColumn('vendas', 'des_hora', 'DES_HORA'),
-      // Campos de tesouraria
-      MappingService.getColumn('vendas', 'val_sobra', 'VAL_SOBRA'),
-      MappingService.getColumn('vendas', 'val_quebra', 'VAL_QUEBRA'),
-      MappingService.getColumn('vendas', 'num_turno', 'NUM_TURNO'),
-      MappingService.getColumn('vendas', 'num_registro', 'NUM_REGISTRO'),
-      // Campos de produto
-      MappingService.getColumn('produtos', 'codigo', 'COD_PRODUTO'),
-      MappingService.getColumn('produtos', 'descricao', 'DES_PRODUTO')
+      // Campos de TAB_PRODUTO_PDV (cupom/venda)
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_cupom', 'NUM_CUPOM_FISCAL'),
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'data_venda', 'DTA_VENDA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total', 'VAL_TOTAL_PRODUTO'),
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_operador', 'COD_OPERADOR'),
+      MappingService.getColumnFromTable('TAB_OPERADORES', 'nome_operador', 'DES_OPERADOR'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_pdv', 'NUM_PDV'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'cupom_cancelado', 'FLG_CUPOM_CANCELADO'),
+      // Campos de TAB_CUPOM_FINALIZADORA
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'valor_liquido', 'VAL_LIQUIDO'),
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_finalizadora', 'COD_FINALIZADORA'),
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_tipo', 'COD_TIPO'),
+      // Campos de TAB_PRODUTO_PDV
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda', 'DTA_SAIDA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_desconto', 'VAL_DESCONTO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade', 'QTD_TOTAL_PRODUTO'),
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_loja', 'COD_LOJA'),
+      // Campos de estorno (TAB_PRODUTO_PDV)
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'des_hora', 'DES_HORA'),
+      // Campos de tesouraria (TAB_CUPOM_FINALIZADORA)
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'val_sobra', 'VAL_SOBRA'),
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'val_quebra', 'VAL_QUEBRA'),
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'num_turno', 'NUM_TURNO'),
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'num_registro', 'NUM_REGISTRO'),
+      // Campos de TAB_PRODUTO
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO')
     ]);
     return {
       // Campos de cupom/venda

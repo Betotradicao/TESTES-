@@ -105,7 +105,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - backend-uploads:/app/uploads
-      - /var/run/docker.sock:/var/run/docker.sock  # Permitir reiniciar CRON
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       postgres:
         condition: service_healthy
@@ -135,50 +135,6 @@ services:
       - "traefik.http.routers.prevencao-frontend.entrypoints=websecure"
       - "traefik.http.routers.prevencao-frontend.tls.certresolver=letsencryptresolver"
       - "traefik.http.services.prevencao-frontend.loadbalancer.server.port=80"
-
-  # ==========================================
-  # CRON - VERIFICAÇÃO AUTOMÁTICA
-  # ==========================================
-  cron:
-    build:
-      context: ../packages/backend
-      dockerfile: Dockerfile.cron
-    container_name: prevencao-cron-prod
-    restart: always
-    environment:
-      # Database
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME}
-
-      # MinIO (conexão interna entre containers)
-      MINIO_ENDPOINT: minio
-      MINIO_PORT: 9000
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
-      MINIO_USE_SSL: "false"
-      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME}
-
-      # MinIO Public URLs
-      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT}
-      MINIO_PUBLIC_PORT: ${MINIO_PUBLIC_PORT}
-      MINIO_PUBLIC_USE_SSL: ${MINIO_PUBLIC_USE_SSL}
-
-      # App
-      NODE_ENV: ${NODE_ENV}
-    volumes:
-      # IMPORTANTE: Compartilhar volume de uploads com o backend
-      # para que as imagens do email-monitor (DVR) sejam acessíveis pela API
-      - backend-uploads:/app/uploads
-    networks:
-      - prevencao-network
-    depends_on:
-      postgres:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
 
 # ==========================================
 # VOLUMES PERSISTENTES

@@ -910,11 +910,11 @@ export class ProductionAuditController {
         const tabAjusteEstoque = `${schema}.${await MappingService.getRealTableName('TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ESTOQUE')}`;
         const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
 
-        const estCodProdutoCol = await MappingService.getColumn('estoque', 'cod_produto', 'COD_PRODUTO');
-        const estQuantidadeCol = await MappingService.getColumn('estoque', 'quantidade', 'QTD_AJUSTE');
-        const estDataMovCol = await MappingService.getColumn('estoque', 'data_movimento', 'DTA_AJUSTE');
-        const prodCodigoCol = await MappingService.getColumn('produtos', 'codigo', 'COD_PRODUTO');
-        const prodEanCol = await MappingService.getColumn('produtos', 'ean', 'COD_BARRA_PRINCIPAL');
+        const estCodProdutoCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_produto', 'COD_PRODUTO');
+        const estQuantidadeCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'quantidade', 'QTD_AJUSTE');
+        const estDataMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'data_ajuste', 'DTA_AJUSTE');
+        const prodCodigoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+        const prodEanCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras', 'COD_BARRA_PRINCIPAL');
 
         const queryMesAnterior = `
           SELECT

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getCronStatus, getBarcodeStatus, restartCronService, getWebhookLogs } from '../controllers/system-status.controller';
+import { getCronStatus, getBarcodeStatus, forceSyncSells, getWebhookLogs } from '../controllers/system-status.controller';
 
 const router: Router = Router();
 
@@ -50,7 +50,7 @@ router.get('/cron/status', getCronStatus);
  *       200:
  *         description: CRON reiniciado com sucesso
  */
-router.post('/cron/restart', restartCronService);
+router.post('/cron/force-sync', forceSyncSells);
 
 /**
  * @swagger

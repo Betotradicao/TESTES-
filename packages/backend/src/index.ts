@@ -56,6 +56,7 @@ import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
 import { MappingService } from './services/mapping.service';
 import { EmailMonitorService } from './services/email-monitor.service';
+import { SellsSyncService } from './services/sells-sync.service';
 import { seedMasterUser } from './database/seeds/masterUser.seed';
 import seedConfigurations from './scripts/seed-configurations';
 import * as cron from 'node-cron';
@@ -509,6 +510,19 @@ const startServer = async () => {
   });
 
   console.log('📊 Losses report cron job started (checks every minute, respects Brazil timezone)');
+
+  // ==========================================
+  // CRON: Sincronização de Vendas (Sells Sync)
+  // Cruza vendas do Oracle com bipagens a cada 1 minuto
+  // ==========================================
+  cron.schedule('* * * * *', async () => {
+    try {
+      await SellsSyncService.syncToday();
+    } catch (error) {
+      console.error('❌ Sells sync cron error:', error);
+    }
+  });
+  console.log('🔄 Sells sync cron job started (every 1 minute)');
 };
 
 startServer();

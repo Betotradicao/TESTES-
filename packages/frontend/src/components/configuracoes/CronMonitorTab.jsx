@@ -53,23 +53,19 @@ export default function CronMonitorTab() {
     }
   };
 
-  const restartCron = async () => {
-    if (!confirm('Deseja realmente reiniciar o serviço CRON? Isso pode interromper processos em andamento.')) {
-      return;
-    }
-
+  const forceSyncSells = async () => {
     try {
       setRestarting(true);
-      await api.post('/cron/restart');
-      alert('✅ Serviço CRON reiniciado com sucesso!');
+      await api.post('/cron/force-sync');
+      alert('✅ Sincronização forçada iniciada!');
 
-      // Aguardar 3 segundos e atualizar status
+      // Aguardar 5 segundos e atualizar status
       setTimeout(() => {
         fetchStatus();
-      }, 3000);
+      }, 5000);
     } catch (error) {
-      console.error('Erro ao reiniciar CRON:', error);
-      alert('❌ Erro ao reiniciar serviço CRON: ' + (error.response?.data?.error || error.message));
+      console.error('Erro ao forçar sync:', error);
+      alert('❌ Erro ao forçar sincronização: ' + (error.response?.data?.error || error.message));
     } finally {
       setRestarting(false);
     }
@@ -180,14 +176,14 @@ export default function CronMonitorTab() {
             Atualizar
           </button>
           <button
-            onClick={restartCron}
+            onClick={forceSyncSells}
             disabled={restarting}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center"
           >
             <svg className={`w-4 h-4 mr-2 ${restarting ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            {restarting ? 'Reiniciando...' : 'Reiniciar CRON'}
+            {restarting ? 'Sincronizando...' : 'Forçar Sync'}
           </button>
         </div>
       </div>
@@ -198,7 +194,7 @@ export default function CronMonitorTab() {
           <svg className="w-6 h-6 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          Cron de Verificação (2 em 2 minutos)
+          Cron de Verificação (1 em 1 minuto)
         </h3>
 
         {cronStatus ? (
