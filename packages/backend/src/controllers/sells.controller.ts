@@ -150,11 +150,11 @@ export class SellsController {
         status_description: sell.statusDescription,
         created_at: sell.createdAt,
         updated_at: sell.updatedAt,
-        activated_product: {
+        activated_product: sell.activatedProduct ? {
           id: sell.activatedProduct.id,
           erp_product_id: sell.activatedProduct.erp_product_id,
           description: sell.activatedProduct.description
-        },
+        } : null,
         equipment: sell.bip?.equipment ? {
           id: sell.bip.equipment.id,
           scanner_machine_id: sell.bip.equipment.scanner_machine_id,
