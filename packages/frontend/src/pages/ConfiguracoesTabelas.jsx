@@ -248,6 +248,14 @@ const TABLE_CATALOG = {
     description: 'Histórico de movimentações de tesouraria',
     fields: [
       { id: 'data_movimento', name: 'Data Movimento', defaultTable: 'TAB_TESOURARIA_HISTORICO', defaultColumn: 'DTA_MOVIMENTO' },
+      { id: 'val_sobra', name: 'Valor Sobra', defaultTable: 'TAB_TESOURARIA_HISTORICO', defaultColumn: 'VAL_SOBRA' },
+      { id: 'val_quebra', name: 'Valor Quebra', defaultTable: 'TAB_TESOURARIA_HISTORICO', defaultColumn: 'VAL_QUEBRA' },
+      { id: 'num_registro', name: 'Número Registro', defaultTable: 'TAB_TESOURARIA_HISTORICO', defaultColumn: 'NUM_REGISTRO' },
+      { id: 'codigo_operador', name: 'Código Operador', defaultTable: 'TAB_TESOURARIA_HISTORICO', defaultColumn: 'COD_OPERADOR' },
+      { id: 'codigo_loja', name: 'Código Loja', defaultTable: 'TAB_TESOURARIA_HISTORICO', defaultColumn: 'COD_LOJA' },
+      { id: 'numero_pdv', name: 'Número PDV', defaultTable: 'TAB_TESOURARIA_HISTORICO', defaultColumn: 'NUM_PDV' },
+      { id: 'num_turno', name: 'Número Turno', defaultTable: 'TAB_TESOURARIA_HISTORICO', defaultColumn: 'NUM_TURNO' },
+      { id: 'valor_total', name: 'Valor Total', defaultTable: 'TAB_TESOURARIA_HISTORICO', defaultColumn: 'VAL_TOTAL' },
     ]
   },
   TAB_PRODUTO_PDV_ESTORNO: {
@@ -258,6 +266,59 @@ const TABLE_CATALOG = {
       { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'COD_PRODUTO' },
       { id: 'valor_total', name: 'Valor Total', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'VAL_TOTAL_PRODUTO' },
       { id: 'quantidade', name: 'Quantidade', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'QTD_TOTAL_PRODUTO' },
+    ]
+  },
+  TAB_INFO_NUTRICIONAL: {
+    name: 'Info Nutricional',
+    description: 'Informações nutricionais dos produtos',
+    fields: [
+      { id: 'codigo_nutricional', name: 'Código Nutricional', defaultTable: 'TAB_INFO_NUTRICIONAL', defaultColumn: 'COD_INFO_NUTRICIONAL' },
+      { id: 'descricao_nutricional', name: 'Descrição', defaultTable: 'TAB_INFO_NUTRICIONAL', defaultColumn: 'DES_INFO_NUTRICIONAL' },
+      { id: 'porcao', name: 'Porção', defaultTable: 'TAB_INFO_NUTRICIONAL', defaultColumn: 'PORCAO' },
+      { id: 'unidade_porcao', name: 'Unidade Porção', defaultTable: 'TAB_INFO_NUTRICIONAL', defaultColumn: 'UNIDADE_PORCAO' },
+      { id: 'valor_calorico', name: 'Valor Calórico', defaultTable: 'TAB_INFO_NUTRICIONAL', defaultColumn: 'VALOR_CALORICO' },
+      { id: 'carboidrato', name: 'Carboidrato', defaultTable: 'TAB_INFO_NUTRICIONAL', defaultColumn: 'CARBOIDRATO' },
+      { id: 'proteina', name: 'Proteína', defaultTable: 'TAB_INFO_NUTRICIONAL', defaultColumn: 'PROTEINA' },
+      { id: 'gordura_total', name: 'Gordura Total', defaultTable: 'TAB_INFO_NUTRICIONAL', defaultColumn: 'GORDURA_TOTAL' },
+      { id: 'gordura_saturada', name: 'Gordura Saturada', defaultTable: 'TAB_INFO_NUTRICIONAL', defaultColumn: 'GORDURA_SATURADA' },
+      { id: 'gordura_trans', name: 'Gordura Trans', defaultTable: 'TAB_INFO_NUTRICIONAL', defaultColumn: 'GORDURA_TRANS' },
+      { id: 'colesterol', name: 'Colesterol', defaultTable: 'TAB_INFO_NUTRICIONAL', defaultColumn: 'COLESTEROL' },
+      { id: 'fibra_alimentar', name: 'Fibra Alimentar', defaultTable: 'TAB_INFO_NUTRICIONAL', defaultColumn: 'FIBRA_ALIMENTAR' },
+      { id: 'calcio', name: 'Cálcio', defaultTable: 'TAB_INFO_NUTRICIONAL', defaultColumn: 'CALCIO' },
+      { id: 'ferro', name: 'Ferro', defaultTable: 'TAB_INFO_NUTRICIONAL', defaultColumn: 'FERRO' },
+      { id: 'sodio', name: 'Sódio', defaultTable: 'TAB_INFO_NUTRICIONAL', defaultColumn: 'SODIO' },
+      { id: 'data_cadastro', name: 'Data Cadastro', defaultTable: 'TAB_INFO_NUTRICIONAL', defaultColumn: 'DTA_CADASTRO' },
+      { id: 'data_alteracao', name: 'Data Alteração', defaultTable: 'TAB_INFO_NUTRICIONAL', defaultColumn: 'DTA_ALTERACAO' },
+      { id: 'usuario', name: 'Usuário', defaultTable: 'TAB_INFO_NUTRICIONAL', defaultColumn: 'USUARIO' },
+    ]
+  },
+  TAB_INFO_RECEITA: {
+    name: 'Receitas',
+    description: 'Receitas de produção',
+    fields: [
+      { id: 'codigo_receita', name: 'Código Receita', defaultTable: 'TAB_INFO_RECEITA', defaultColumn: 'COD_INFO_RECEITA' },
+      { id: 'descricao_receita', name: 'Descrição Receita', defaultTable: 'TAB_INFO_RECEITA', defaultColumn: 'DES_INFO_RECEITA' },
+      { id: 'detalhamento', name: 'Detalhamento', defaultTable: 'TAB_INFO_RECEITA', defaultColumn: 'DETALHAMENTO' },
+      { id: 'data_cadastro', name: 'Data Cadastro', defaultTable: 'TAB_INFO_RECEITA', defaultColumn: 'DTA_CADASTRO' },
+      { id: 'data_alteracao', name: 'Data Alteração', defaultTable: 'TAB_INFO_RECEITA', defaultColumn: 'DTA_ALTERACAO' },
+      { id: 'usuario', name: 'Usuário', defaultTable: 'TAB_INFO_RECEITA', defaultColumn: 'USUARIO' },
+    ]
+  },
+  TAB_PRODUTO_DECOMPOSICAO: {
+    name: 'Decomposição de Produto',
+    description: 'Composição/decomposição de produtos (boi casado, kits)',
+    fields: [
+      { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_PRODUTO_DECOMPOSICAO', defaultColumn: 'COD_PRODUTO' },
+      { id: 'codigo_produto_decom', name: 'Código Produto Decomp.', defaultTable: 'TAB_PRODUTO_DECOMPOSICAO', defaultColumn: 'COD_PRODUTO_DECOM' },
+      { id: 'quantidade_decomp', name: 'Quantidade Decomp.', defaultTable: 'TAB_PRODUTO_DECOMPOSICAO', defaultColumn: 'QTD_DECOMP' },
+    ]
+  },
+  TAB_PRODUTO_HISTORICO: {
+    name: 'Histórico de Produto',
+    description: 'Histórico de preços e custos do produto',
+    fields: [
+      { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_PRODUTO_HISTORICO', defaultColumn: 'COD_PRODUTO' },
+      { id: 'codigo_loja', name: 'Código Loja', defaultTable: 'TAB_PRODUTO_HISTORICO', defaultColumn: 'COD_LOJA' },
     ]
   },
   TAB_CUPOM_FINALIZADORA: {
@@ -272,10 +333,7 @@ const TABLE_CATALOG = {
       { id: 'codigo_tipo', name: 'Código Tipo', defaultTable: 'TAB_CUPOM_FINALIZADORA', defaultColumn: 'COD_TIPO' },
       { id: 'numero_pdv', name: 'Número PDV', defaultTable: 'TAB_CUPOM_FINALIZADORA', defaultColumn: 'NUM_PDV' },
       { id: 'codigo_loja', name: 'Código Loja', defaultTable: 'TAB_CUPOM_FINALIZADORA', defaultColumn: 'COD_LOJA' },
-      { id: 'val_sobra', name: 'Valor Sobra', defaultTable: 'TAB_CUPOM_FINALIZADORA', defaultColumn: 'VAL_SOBRA' },
-      { id: 'val_quebra', name: 'Valor Quebra', defaultTable: 'TAB_CUPOM_FINALIZADORA', defaultColumn: 'VAL_QUEBRA' },
       { id: 'num_turno', name: 'Número Turno', defaultTable: 'TAB_CUPOM_FINALIZADORA', defaultColumn: 'NUM_TURNO' },
-      { id: 'num_registro', name: 'Número Registro', defaultTable: 'TAB_CUPOM_FINALIZADORA', defaultColumn: 'NUM_REGISTRO' },
     ]
   },
 };
@@ -291,13 +349,13 @@ const BUSINESS_MODULES = [
     color: 'from-orange-500 to-red-500',
     submodules: [
       { id: 'bipagens', name: 'Prevenção de Bipagens', icon: '📡', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_OPERADORES', 'TAB_CUPOM_FINALIZADORA'] },
-      { id: 'pdv', name: 'Prevenção PDV', icon: '💳', tables: ['TAB_PRODUTO_PDV', 'TAB_OPERADORES', 'TAB_CUPOM_FINALIZADORA', 'TAB_TESOURARIA_HISTORICO', 'TAB_PRODUTO_PDV_ESTORNO'] },
+      { id: 'pdv', name: 'Prevenção PDV', icon: '💳', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_PDV', 'TAB_OPERADORES', 'TAB_CUPOM_FINALIZADORA', 'TAB_TESOURARIA_HISTORICO', 'TAB_PRODUTO_PDV_ESTORNO'] },
       { id: 'facial', name: 'Prevenção Facial', icon: '👤', tables: ['TAB_OPERADORES'] },
-      { id: 'rupturas', name: 'Prevenção Rupturas', icon: '🔍', tables: ['TAB_PRODUTO'] },
-      { id: 'etiquetas', name: 'Prevenção Etiquetas', icon: '🏷️', tables: ['TAB_PRODUTO'] },
-      { id: 'quebras', name: 'Prevenção Quebras', icon: '💔', tables: ['TAB_PRODUTO'] },
-      { id: 'producao', name: 'Produção', icon: '🏭', tables: ['TAB_PRODUTO'] },
-      { id: 'hortfruti', name: 'Hort Fruti', icon: '🥬', tables: ['TAB_PRODUTO'] },
+      { id: 'rupturas', name: 'Prevenção Rupturas', icon: '🔍', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO', 'TAB_NF', 'TAB_NF_ITEM'] },
+      { id: 'etiquetas', name: 'Prevenção Etiquetas', icon: '🏷️', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_SECAO'] },
+      { id: 'quebras', name: 'Prevenção Quebras', icon: '💔', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ITENS', 'TAB_SECAO', 'TAB_FORNECEDOR'] },
+      { id: 'producao', name: 'Produção', icon: '🏭', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_DECOMPOSICAO', 'TAB_INFO_NUTRICIONAL', 'TAB_INFO_RECEITA', 'TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ITENS', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO'] },
+      { id: 'hortfruti', name: 'Hort Fruti', icon: '🥬', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA'] },
     ]
   },
   {
@@ -306,9 +364,9 @@ const BUSINESS_MODULES = [
     icon: '📊',
     color: 'from-blue-500 to-indigo-600',
     submodules: [
-      { id: 'gestao_inteligente', name: 'Gestão Inteligente', icon: '🧠', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_CUPOM_FINALIZADORA', 'TAB_NOTA_FISCAL'] },
-      { id: 'estoque_margem', name: 'Estoque e Margem', icon: '📦', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ITENS'] },
-      { id: 'compra_venda', name: 'Compra e Venda', icon: '🛒', tables: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_NOTA_FISCAL', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO', 'TAB_COMPRADOR', 'TAB_LOJA', 'TAB_NF', 'TAB_NF_ITEM'] },
+      { id: 'gestao_inteligente', name: 'Gestão Inteligente', icon: '🧠', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_PRODUTO_HISTORICO', 'TAB_CUPOM_FINALIZADORA', 'TAB_NOTA_FISCAL'] },
+      { id: 'estoque_margem', name: 'Estoque e Margem', icon: '📦', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ITENS', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO'] },
+      { id: 'compra_venda', name: 'Compra e Venda', icon: '🛒', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_PRODUTO_DECOMPOSICAO', 'TAB_FORNECEDOR', 'TAB_NOTA_FISCAL', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO', 'TAB_COMPRADOR', 'TAB_LOJA', 'TAB_NF', 'TAB_NF_ITEM'] },
       { id: 'pedidos', name: 'Pedidos', icon: '📋', tables: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO', 'TAB_NOTA_FISCAL', 'TAB_COMPRADOR'] },
       { id: 'ruptura_industria', name: 'Ruptura Indústria', icon: '🏭', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO', 'TAB_NF', 'TAB_NF_ITEM'] },
     ]
@@ -738,19 +796,34 @@ export default function ConfiguracoesTabelas() {
     }
   };
 
-  // Salvar template ERP
+  // Salvar template ERP (cria novo ou atualiza existente com mesmo nome)
   const handleSaveErpTemplate = async (templateName) => {
     try {
       const selectedConn = connections.find(c => c.id == selectedConnection);
-      const response = await api.post('/erp-templates', {
-        name: templateName,
-        description: `Template para ERP ${templateName}`,
-        database_type: selectedConn?.type || 'oracle',
-        mappings: { version: 2, tabelas: tableMappings }
-      });
+      const mappingsData = { version: 2, tabelas: tableMappings };
+
+      // Verificar se já existe um template com esse nome
+      const existing = erpTemplates.find(t => t.name === templateName);
+
+      let response;
+      if (existing) {
+        // Atualizar template existente
+        response = await api.put(`/erp-templates/${existing.id}`, {
+          mappings: mappingsData,
+          database_type: selectedConn?.type || 'oracle',
+        });
+      } else {
+        // Criar novo template
+        response = await api.post('/erp-templates', {
+          name: templateName,
+          description: `Template para ERP ${templateName}`,
+          database_type: selectedConn?.type || 'oracle',
+          mappings: mappingsData
+        });
+      }
 
       if (response.data.success) {
-        alert('Template ERP salvo com sucesso!');
+        alert(existing ? 'Template ERP atualizado com sucesso!' : 'Template ERP salvo com sucesso!');
         loadErpTemplates();
         setShowSaveTemplateModal(false);
       } else {
@@ -759,6 +832,18 @@ export default function ConfiguracoesTabelas() {
     } catch (error) {
       console.error('Erro ao salvar template ERP:', error);
       alert('Erro ao salvar template: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  // Excluir template ERP
+  const handleDeleteErpTemplate = async (template) => {
+    if (!confirm(`Tem certeza que deseja excluir o template "${template.name}"?`)) return;
+    try {
+      await api.delete(`/erp-templates/${template.id}`);
+      loadErpTemplates();
+    } catch (error) {
+      console.error('Erro ao excluir template ERP:', error);
+      alert('Erro ao excluir template: ' + (error.response?.data?.error || error.message));
     }
   };
 
@@ -1920,23 +2005,29 @@ export default function ConfiguracoesTabelas() {
                     {dbType?.icon || '🗄️'}
                   </div>
                 </div>
-                <button
-                  className="w-full py-2.5 bg-orange-100 text-orange-700 rounded-lg font-medium hover:bg-orange-200 transition-colors"
-                  onClick={() => {
-                    // Salvar template sendo aplicado (para travar tipo de banco)
-                    setApplyingTemplate(template);
-                    // Aplicar mapeamentos do template
-                    if (template.mappings?.tabelas) {
-                      setTableMappings(template.mappings.tabelas);
-                    }
-                    // Ir para aba Conexões e abrir modal
-                    setActiveTab('conexoes');
-                    setEditingConnection(null); // Nova conexão
-                    setShowConnectionModal(true);
-                  }}
-                >
-                  Usar este Template
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    className="flex-1 py-2.5 bg-orange-100 text-orange-700 rounded-lg font-medium hover:bg-orange-200 transition-colors"
+                    onClick={() => {
+                      setApplyingTemplate(template);
+                      if (template.mappings?.tabelas) {
+                        setTableMappings(template.mappings.tabelas);
+                      }
+                      setActiveTab('conexoes');
+                      setEditingConnection(null);
+                      setShowConnectionModal(true);
+                    }}
+                  >
+                    Usar este Template
+                  </button>
+                  <button
+                    className="px-3 py-2.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                    title="Excluir template"
+                    onClick={() => handleDeleteErpTemplate(template)}
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
             );
           })}

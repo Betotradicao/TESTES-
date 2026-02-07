@@ -77,15 +77,25 @@ export class ErpTemplatesController {
         });
       }
 
-      // Verificar se já existe um template com esse nome
+      // Verificar se já existe um template com esse nome (ativo ou inativo)
       const existing = await templateRepository.findOne({
         where: { name }
       });
 
       if (existing) {
-        return res.status(400).json({
-          success: false,
-          error: `Já existe um template com o nome "${name}"`
+        // Atualizar template existente (reativa se estava inativo)
+        existing.is_active = true;
+        if (description) existing.description = description;
+        if (database_type) existing.database_type = database_type;
+        existing.mappings = typeof mappings === 'string' ? mappings : JSON.stringify(mappings);
+        const saved = await templateRepository.save(existing);
+
+        console.log(`✅ ERP Template updated: ${saved.name} (${saved.database_type})`);
+
+        return res.status(200).json({
+          success: true,
+          message: 'Template atualizado com sucesso!',
+          data: saved
         });
       }
 
@@ -182,11 +192,10 @@ export class ErpTemplatesController {
         });
       }
 
-      // Soft delete - apenas marca como inativo
-      template.is_active = false;
-      await templateRepository.save(template);
+      // Hard delete - remove do banco
+      await templateRepository.remove(template);
 
-      console.log(`✅ ERP Template deleted (soft): ${template.name}`);
+      console.log(`✅ ERP Template deleted: ${template.name}`);
 
       return res.json({
         success: true,
