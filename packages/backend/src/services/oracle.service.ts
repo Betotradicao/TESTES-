@@ -72,13 +72,20 @@ export class OracleService {
               ? oracleConnection.host_vps
               : oracleConnection.host;
 
+            // Na VPS, usa a porta do túnel SSH (TUNNEL_ORACLE_PORT) ao invés da porta local do Oracle
+            let portToUse = oracleConnection.port;
+            if (isVps && process.env.TUNNEL_ORACLE_PORT) {
+              portToUse = parseInt(process.env.TUNNEL_ORACLE_PORT);
+              console.log(`🔗 VPS: Usando porta do túnel SSH: ${portToUse} (ao invés de ${oracleConnection.port})`);
+            }
+
             this.oracleConfig = {
               user: oracleConnection.username,
               password: oracleConnection.password,
-              connectString: `${hostToUse}:${oracleConnection.port}/${oracleConnection.service || 'orcl'}`
+              connectString: `${hostToUse}:${portToUse}/${oracleConnection.service || 'orcl'}`
             };
             console.log(`📦 Oracle config loaded from database_connections: ${oracleConnection.name}`);
-            console.log(`   Ambiente: ${isVps ? 'VPS/Docker' : 'Local'} → Host: ${hostToUse}:${oracleConnection.port}/${oracleConnection.service}`);
+            console.log(`   Ambiente: ${isVps ? 'VPS/Docker' : 'Local'} → Host: ${hostToUse}:${portToUse}/${oracleConnection.service}`);
             this.configLoaded = true;
             return;
           } else {

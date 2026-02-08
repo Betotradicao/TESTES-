@@ -928,7 +928,7 @@ export default function ConfiguracoesTabelas() {
         name: connectionData.name,
         type: connectionData.type,
         host: connectionData.host,
-        host_vps: connectionData.host_vps || '172.20.0.1',
+        host_vps: connectionData.host_vps || 'host.docker.internal',
         port: connectionData.port,
         service: connectionData.service || connectionData.database,
         database: connectionData.database,
@@ -2125,7 +2125,7 @@ export default function ConfiguracoesTabelas() {
           name: editingConnection.name || '',
           type: editingConnection.type || 'oracle',
           host: editingConnection.host || '',
-          host_vps: editingConnection.host_vps || '172.20.0.1',
+          host_vps: editingConnection.host_vps || 'host.docker.internal',
           port: editingConnection.port?.toString() || '1521',
           service: editingConnection.service || '',
           database: editingConnection.database || editingConnection.service || '',
@@ -2141,7 +2141,7 @@ export default function ConfiguracoesTabelas() {
         name: applyingTemplate ? `${applyingTemplate.name}` : '',
         type: dbType,
         host: '',
-        host_vps: '172.20.0.1',
+        host_vps: 'host.docker.internal',
         port: '',
         service: '',
         database: '',
@@ -2278,7 +2278,7 @@ export default function ConfiguracoesTabelas() {
                     type="text"
                     value={formData.host_vps}
                     onChange={(e) => handleChange('host_vps', e.target.value)}
-                    placeholder="172.20.0.1"
+                    placeholder="host.docker.internal"
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
                   />
                 </div>

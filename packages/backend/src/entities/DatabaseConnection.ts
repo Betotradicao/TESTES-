@@ -30,8 +30,8 @@ export class DatabaseConnection {
   @Column()
   host: string; // Host IP Rede Local
 
-  @Column({ nullable: true, default: '172.20.0.1' })
-  host_vps: string; // Host IP VPS (gateway Docker) - padrão 172.20.0.1
+  @Column({ nullable: true, default: 'host.docker.internal' })
+  host_vps: string; // Host IP VPS (Docker → host) - padrão host.docker.internal
 
   @Column()
   port: number;
