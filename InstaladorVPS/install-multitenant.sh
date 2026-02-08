@@ -256,12 +256,12 @@ echo "✅ Repositório atualizado"
 
 echo "🔧 Corrigindo Dockerfiles..."
 
-# Corrigir Backend Dockerfile
+# Corrigir Backend Dockerfile (node:18-slim com Oracle Instant Client)
 cat > "$REPO_DIR/packages/backend/Dockerfile" << 'BACKEND_DOCKERFILE'
 # ===================================
 # STAGE 1: Build
 # ===================================
-FROM node:18-alpine AS builder
+FROM node:18-slim AS builder
 
 WORKDIR /app
 
@@ -285,12 +285,32 @@ RUN npm install -g typescript && \
 # ===================================
 # STAGE 2: Production
 # ===================================
-FROM node:18-alpine
-
-# Instalar openssh (necessário para ssh-keygen na geração de chaves do túnel)
-RUN apk add --no-cache openssh
+FROM node:18-slim
 
 WORKDIR /app
+
+# Instalar dependências do sistema para Oracle Instant Client
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libaio1 \
+    curl \
+    unzip \
+    ca-certificates \
+    openssh-client \
+    && rm -rf /var/lib/apt/lists/* \
+    # Criar diretório para Oracle Instant Client
+    && mkdir -p /opt/oracle \
+    && cd /opt/oracle \
+    # Download Oracle Instant Client Basic Light (menor tamanho)
+    && curl -o instantclient.zip https://download.oracle.com/otn_software/linux/instantclient/2340000/instantclient-basiclite-linux.x64-23.4.0.24.05.zip \
+    && unzip instantclient.zip \
+    && rm instantclient.zip \
+    # Configurar library path
+    && echo /opt/oracle/instantclient_23_4 > /etc/ld.so.conf.d/oracle-instantclient.conf \
+    && ldconfig
+
+# Configurar variáveis de ambiente para Oracle
+ENV LD_LIBRARY_PATH=/opt/oracle/instantclient_23_4:$LD_LIBRARY_PATH
+ENV ORACLE_HOME=/opt/oracle/instantclient_23_4
 
 # Instalar apenas dependências de produção
 COPY package*.json ./
