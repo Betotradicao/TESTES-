@@ -805,11 +805,29 @@ export default function ConfiguracoesTabelas() {
         });
       }
 
-      // Marcar submódulo como salvo
+      // Verificar se todas as colunas estão preenchidas
       const subKey = `${selectedMainModule}.${selectedSubmodule}`;
-      setSavedSubmodules(prev => ({ ...prev, [subKey]: true }));
+      let allColumnsFilled = true;
+      for (const tableId of submodule.tables) {
+        const tableConfig = TABLE_CATALOG[tableId];
+        if (!tableConfig) continue;
+        const mapping = tableMappings[tableId];
+        for (const field of tableConfig.fields) {
+          if (!mapping?.colunas?.[field.id] || String(mapping.colunas[field.id]).trim() === '') {
+            allColumnsFilled = false;
+            break;
+          }
+        }
+        if (!allColumnsFilled) break;
+      }
 
-      alert(`✅ Mapeamentos de "${submodule.name}" salvos com sucesso!`);
+      setSavedSubmodules(prev => ({ ...prev, [subKey]: allColumnsFilled }));
+
+      if (allColumnsFilled) {
+        alert(`✅ Mapeamentos de "${submodule.name}" salvos com sucesso!`);
+      } else {
+        alert(`⚠️ Mapeamentos salvos, mas há colunas em branco! O submódulo ficará como PENDENTE até todas serem preenchidas.`);
+      }
     } catch (error) {
       console.error('Erro ao salvar mapeamentos:', error);
       alert('❌ Erro ao salvar mapeamentos: ' + (error.response?.data?.message || error.message));

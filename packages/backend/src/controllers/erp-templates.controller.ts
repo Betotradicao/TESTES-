@@ -1,6 +1,7 @@
 import { Request, Response, RequestHandler } from 'express';
 import { AppDataSource } from '../config/database';
 import { ErpTemplate } from '../entities/ErpTemplate';
+import { MappingService } from '../services/mapping.service';
 import { minioService } from '../services/minio.service';
 import multer from 'multer';
 
@@ -91,6 +92,7 @@ export class ErpTemplatesController {
         const saved = await templateRepository.save(existing);
 
         console.log(`✅ ERP Template updated: ${saved.name} (${saved.database_type})`);
+        MappingService.clearCache();
 
         return res.status(200).json({
           success: true,
@@ -110,6 +112,7 @@ export class ErpTemplatesController {
       const saved = await templateRepository.save(template);
 
       console.log(`✅ ERP Template created: ${saved.name} (${saved.database_type})`);
+      MappingService.clearCache();
 
       return res.status(201).json({
         success: true,
@@ -157,6 +160,7 @@ export class ErpTemplatesController {
       const saved = await templateRepository.save(template);
 
       console.log(`✅ ERP Template updated: ${saved.name}`);
+      MappingService.clearCache();
 
       return res.json({
         success: true,

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AppDataSource } from '../config/database';
 import { DatabaseConnection, DatabaseType, ConnectionStatus } from '../entities/DatabaseConnection';
+import { MappingService } from '../services/mapping.service';
 import oracledb from 'oracledb';
 
 const connectionRepository = AppDataSource.getRepository(DatabaseConnection);
@@ -888,10 +889,18 @@ export class DatabaseConnectionsController {
         };
       }
 
+      // Filtrar colunas vazias (não salvar mapeamentos em branco)
+      const filteredColumns: Record<string, string> = {};
+      for (const [key, value] of Object.entries(columns)) {
+        if (value && String(value).trim() !== '') {
+          filteredColumns[key] = String(value).trim();
+        }
+      }
+
       // Atualizar ou criar mapeamento da tabela
       existingMappings.tabelas[tableId] = {
         nome_real: realTableName,
-        colunas: columns,
+        colunas: filteredColumns,
         tabelas_campo: tabelas_campo || {} // Tabela específica por campo (quando diferente da tabela principal)
       };
 
@@ -919,6 +928,7 @@ export class DatabaseConnectionsController {
       }
 
       console.log(`✅ Table mapping saved: ${tableId} -> ${realTableName} (shared with: ${sharingModules.join(', ')})`);
+      MappingService.clearCache();
 
       return res.json({
         success: true,
