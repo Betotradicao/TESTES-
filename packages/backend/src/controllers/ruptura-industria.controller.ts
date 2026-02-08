@@ -4,90 +4,92 @@ import { OracleService } from '../services/oracle.service';
 import { MappingService } from '../services/mapping.service';
 
 /**
- * Helper para obter nomes de tabelas do MappingService com fallback para Intersolid
+ * Helper para obter nomes de tabelas do MappingService (100% dinâmico)
  */
 async function getTableNames() {
   const schema = await MappingService.getSchema();
   return {
-    pedido: `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO', 'TAB_PEDIDO')}`,
-    pedidoProduto: `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO', 'TAB_PEDIDO_PRODUTO')}`,
-    fornecedor: `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')}`,
-    produto: `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`,
-    produtoLoja: `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`,
-    nf: `${schema}.${await MappingService.getRealTableName('TAB_NF', 'TAB_NF')}`,
-    nfItem: `${schema}.${await MappingService.getRealTableName('TAB_NF_ITEM', 'TAB_NF_ITEM')}`
+    pedido: `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO')}`,
+    pedidoProduto: `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO')}`,
+    fornecedor: `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`,
+    produto: `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`,
+    produtoLoja: `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`,
+    nf: `${schema}.${await MappingService.getRealTableName('TAB_NF')}`,
+    nfItem: `${schema}.${await MappingService.getRealTableName('TAB_NF_ITEM')}`
   };
 }
 
 /**
- * Helper para obter nomes de colunas dinâmicos do MappingService com fallback
+ * Helper para obter nomes de colunas dinâmicos do MappingService (100% dinâmico, sem fallback)
  * Centraliza todas as resoluções de colunas usadas no controller de Ruptura Indústria
  */
 async function getRupturaMappings() {
   // --- TAB_PEDIDO columns ---
-  const pedNumPedido = await MappingService.getColumnFromTable('TAB_PEDIDO', 'numero_pedido', 'NUM_PEDIDO');
-  const pedDtaEmissao = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_emissao', 'DTA_EMISSAO');
-  const pedDtaEntrega = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_entrega', 'DTA_ENTREGA');
-  const pedCodParceiro = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_fornecedor', 'COD_PARCEIRO');
-  const pedTipoParceiro = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro', 'TIPO_PARCEIRO');
-  const pedTipoRecebimento = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_recebimento', 'TIPO_RECEBIMENTO');
-  const pedValPedido = await MappingService.getColumnFromTable('TAB_PEDIDO', 'valor_pedido', 'VAL_PEDIDO');
-  // Colunas sem mapeamento no catálogo - mantidas hardcoded
-  // DTA_PEDIDO_CANCELADO, DES_CANCELAMENTO, USUARIO não estão no TABLE_CATALOG
+  const pedNumPedido = await MappingService.getColumnFromTable('TAB_PEDIDO', 'numero_pedido');
+  const pedDtaEmissao = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_emissao');
+  const pedDtaEntrega = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_entrega');
+  const pedCodParceiro = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_fornecedor');
+  const pedTipoParceiro = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro');
+  const pedTipoRecebimento = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_recebimento');
+  const pedValPedido = await MappingService.getColumnFromTable('TAB_PEDIDO', 'valor_pedido');
+  const pedDtaCancelado = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_cancelamento');
+  const pedDesCancelamento = await MappingService.getColumnFromTable('TAB_PEDIDO', 'descricao_cancelamento');
+  const pedUsuario = await MappingService.getColumnFromTable('TAB_PEDIDO', 'usuario');
 
   // --- TAB_PEDIDO_PRODUTO columns ---
-  const ppNumPedido = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'numero_pedido', 'NUM_PEDIDO');
-  const ppCodProduto = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
-  const ppQtdPedido = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_pedida', 'QTD_PEDIDO');
-  const ppQtdRecebida = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_recebida', 'QTD_RECEBIDA');
-  const ppValTabela = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'valor_tabela', 'VAL_TABELA');
-  // QTD_EMBALAGEM não está no TABLE_CATALOG - mantida hardcoded
+  const ppNumPedido = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'numero_pedido');
+  const ppCodProduto = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'codigo_produto');
+  const ppQtdPedido = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_pedida');
+  const ppQtdRecebida = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_recebida');
+  const ppQtdEmbalagem = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_embalagem');
+  const ppValTabela = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'valor_tabela');
 
   // --- TAB_FORNECEDOR columns ---
-  const fornCodFornecedor = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
-  const fornDesFornecedor = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR');
-  const fornNumCgc = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cnpj', 'NUM_CGC');
+  const fornCodFornecedor = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
+  const fornDesFornecedor = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social');
+  const fornNumCgc = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cnpj');
 
   // --- TAB_PRODUTO columns ---
-  const prCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
-  const prDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_produto', 'DES_PRODUTO');
-  const prDesReduzida = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_reduzida', 'DES_REDUZIDA');
+  const prCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+  const prDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_produto');
+  const prDesReduzida = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_reduzida');
 
   // --- TAB_PRODUTO_LOJA columns ---
-  const plCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
-  const plCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
-  const plCurva = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA');
-  // FORA_LINHA não está no TABLE_CATALOG - mantida hardcoded
+  const plCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
+  const plCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
+  const plCurva = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva');
+  const plForaLinha = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'fora_linha');
 
   // --- TAB_NF columns ---
-  const nfNumNf = await MappingService.getColumnFromTable('TAB_NF', 'numero_nf', 'NUM_NF');
-  const nfNumSerieNf = await MappingService.getColumnFromTable('TAB_NF', 'numero_serie', 'NUM_SERIE_NF');
-  const nfDtaEntrada = await MappingService.getColumnFromTable('TAB_NF', 'data_entrada', 'DTA_ENTRADA');
-  const nfCodParceiro = await MappingService.getColumnFromTable('TAB_NF', 'codigo_fornecedor', 'COD_PARCEIRO');
-  const nfTipoOperacao = await MappingService.getColumnFromTable('TAB_NF', 'tipo_operacao', 'TIPO_OPERACAO');
+  const nfNumNf = await MappingService.getColumnFromTable('TAB_NF', 'numero_nf');
+  const nfNumSerieNf = await MappingService.getColumnFromTable('TAB_NF', 'serie_nf');
+  const nfDtaEntrada = await MappingService.getColumnFromTable('TAB_NF', 'data_entrada');
+  const nfCodParceiro = await MappingService.getColumnFromTable('TAB_NF', 'codigo_parceiro');
+  const nfTipoOperacao = await MappingService.getColumnFromTable('TAB_NF', 'tipo_operacao');
 
   // --- TAB_NF_ITEM columns ---
-  const niNumNf = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_nf', 'NUM_NF');
-  const niNumSerieNf = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_serie', 'NUM_SERIE_NF');
-  const niCodParceiro = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_fornecedor', 'COD_PARCEIRO');
-  const niCodItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_produto', 'COD_ITEM');
-  const niQtdEntrada = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'quantidade_entrada', 'QTD_ENTRADA');
-  const niValCustoScred = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_custo', 'VAL_CUSTO_SCRED');
-  const niValTotal = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total', 'VAL_TOTAL');
-  const niValUnitario = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_unitario', 'VAL_UNITARIO');
+  const niNumNf = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_nf');
+  const niNumSerieNf = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'serie_nf');
+  const niCodParceiro = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_parceiro');
+  const niCodItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_item');
+  const niQtdEntrada = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'quantidade_entrada');
+  const niValCustoScred = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_custo');
+  const niValTotal = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total');
+  const niValUnitario = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_unitario');
 
   return {
     // TAB_PEDIDO
     pedNumPedido, pedDtaEmissao, pedDtaEntrega, pedCodParceiro,
     pedTipoParceiro, pedTipoRecebimento, pedValPedido,
+    pedDtaCancelado, pedDesCancelamento, pedUsuario,
     // TAB_PEDIDO_PRODUTO
-    ppNumPedido, ppCodProduto, ppQtdPedido, ppQtdRecebida, ppValTabela,
+    ppNumPedido, ppCodProduto, ppQtdPedido, ppQtdRecebida, ppQtdEmbalagem, ppValTabela,
     // TAB_FORNECEDOR
     fornCodFornecedor, fornDesFornecedor, fornNumCgc,
     // TAB_PRODUTO
     prCodProduto, prDesProduto, prDesReduzida,
     // TAB_PRODUTO_LOJA
-    plCodProduto, plCodLoja, plCurva,
+    plCodProduto, plCodLoja, plCurva, plForaLinha,
     // TAB_NF
     nfNumNf, nfNumSerieNf, nfDtaEntrada, nfCodParceiro, nfTipoOperacao,
     // TAB_NF_ITEM
@@ -144,51 +146,51 @@ export class RupturaIndustriaController {
             -- PERIODO SELECIONADO - Total de itens (filtrado por data)
             COUNT(CASE WHEN ${periodoDateCondition} THEN 1 END) as PERIODO_TOTAL,
             -- PERIODO SELECIONADO - Itens com ruptura (filtrado por data)
-            COUNT(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 1 END) as PERIODO_RUPTURA,
+            COUNT(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 1 END) as PERIODO_RUPTURA,
             -- PERIODO SELECIONADO - Itens OK (filtrado por data)
-            COUNT(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) >= pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 1 END) as PERIODO_OK,
+            COUNT(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) >= pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 1 END) as PERIODO_OK,
             -- PERIODO SELECIONADO - Valor ruptura (filtrado por data)
-            SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as PERIODO_VALOR,
+            SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1)) ELSE 0 END) as PERIODO_VALOR,
             -- Ultimo Mes - Quantidade de pedidos
             COUNT(DISTINCT CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) THEN p.${cols.pedNumPedido} END) as MES_PEDIDOS,
             -- Ultimo Mes - Total de itens pedidos
             COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) THEN 1 END) as MES_TOTAL,
             -- Ultimo Mes - Itens com ruptura
-            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 1 END) as MES_RUPTURA,
+            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 1 END) as MES_RUPTURA,
             -- Ultimo Mes - Itens OK
-            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.${cols.ppQtdRecebida}, 0) >= pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 1 END) as MES_OK,
+            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.${cols.ppQtdRecebida}, 0) >= pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 1 END) as MES_OK,
             -- Ultimo Mes - Valor ruptura
-            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as MES_VALOR,
+            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1)) ELSE 0 END) as MES_VALOR,
             -- Ultimos 6 Meses - Quantidade de pedidos
             COUNT(DISTINCT CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) THEN p.${cols.pedNumPedido} END) as SEMESTRE_PEDIDOS,
             -- Ultimos 6 Meses - Total de itens
             COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) THEN 1 END) as SEMESTRE_TOTAL,
             -- Ultimos 6 Meses - Itens com ruptura
-            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 1 END) as SEMESTRE_RUPTURA,
+            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 1 END) as SEMESTRE_RUPTURA,
             -- Ultimos 6 Meses - Itens OK
-            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.${cols.ppQtdRecebida}, 0) >= pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 1 END) as SEMESTRE_OK,
+            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.${cols.ppQtdRecebida}, 0) >= pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 1 END) as SEMESTRE_OK,
             -- Ultimos 6 Meses - Valor ruptura
-            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as SEMESTRE_VALOR,
+            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1)) ELSE 0 END) as SEMESTRE_VALOR,
             -- Ultimo Ano - Quantidade de pedidos
             COUNT(DISTINCT CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) THEN p.${cols.pedNumPedido} END) as ANO_PEDIDOS,
             -- Ultimo Ano - Total de itens pedidos
             COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) THEN 1 END) as ANO_TOTAL,
             -- Ultimo Ano - Itens com ruptura (nao chegaram ou chegaram incompletos)
-            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 1 END) as ANO_RUPTURA,
+            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 1 END) as ANO_RUPTURA,
             -- Ultimo Ano - Itens OK (chegaram completos)
-            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) >= pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 1 END) as ANO_OK,
+            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) >= pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 1 END) as ANO_OK,
             -- Ultimo Ano - Valor ruptura
-            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as ANO_VALOR,
+            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1)) ELSE 0 END) as ANO_VALOR,
             -- Total geral de itens com ruptura (ultimo ano para ordenacao)
-            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 1 END) as QTD_ITENS_RUPTURA,
+            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 1 END) as QTD_ITENS_RUPTURA,
             -- Quantidade total faltante (ultimo ano)
-            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as QTD_FALTANTE,
+            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as QTD_FALTANTE,
             -- Valor total nao faturado (ultimo ano)
-            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as VALOR_NAO_FATURADO,
+            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1)) ELSE 0 END) as VALOR_NAO_FATURADO,
             -- Ultima ruptura
-            MAX(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN p.${cols.pedDtaEmissao} END) as ULTIMA_RUPTURA,
+            MAX(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN p.${cols.pedDtaEmissao} END) as ULTIMA_RUPTURA,
             -- Produtos distintos afetados (ultimo ano)
-            COUNT(DISTINCT CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.${cols.ppCodProduto} END) as QTD_PRODUTOS_AFETADOS
+            COUNT(DISTINCT CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN pp.${cols.ppCodProduto} END) as QTD_PRODUTOS_AFETADOS
           FROM ${tables.pedido} p
           INNER JOIN ${tables.fornecedor} f ON f.${cols.fornCodFornecedor} = p.${cols.pedCodParceiro}
           INNER JOIN ${tables.pedidoProduto} pp ON pp.${cols.ppNumPedido} = p.${cols.pedNumPedido}
@@ -196,8 +198,8 @@ export class RupturaIndustriaController {
           AND p.${cols.pedTipoRecebimento} = 3
           AND p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12)
           GROUP BY f.${cols.fornCodFornecedor}, f.${cols.fornDesFornecedor}, f.${cols.fornNumCgc}
-          HAVING COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 1 END) > 0
-          ORDER BY COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 1 END) DESC
+          HAVING COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 1 END) > 0
+          ORDER BY COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 1 END) DESC
         ) WHERE ROWNUM <= :limitNum
       `;
 
@@ -209,11 +211,11 @@ export class RupturaIndustriaController {
       // QTD_PEDIDO * QTD_EMBALAGEM converte caixas para unidades
       const statsQuery = `
         SELECT
-          COUNT(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 1 END) as TOTAL_ITENS_RUPTURA,
-          COUNT(DISTINCT CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN p.${cols.pedCodParceiro} END) as TOTAL_FORNECEDORES_AFETADOS,
-          SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as VALOR_NAO_FATURADO,
-          SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) > pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN (NVL(pp.${cols.ppQtdRecebida}, 0) - pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1)) * (pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as VALOR_EXCESSO,
-          COUNT(DISTINCT CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.${cols.ppCodProduto} END) as TOTAL_PRODUTOS_AFETADOS
+          COUNT(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 1 END) as TOTAL_ITENS_RUPTURA,
+          COUNT(DISTINCT CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN p.${cols.pedCodParceiro} END) as TOTAL_FORNECEDORES_AFETADOS,
+          SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1)) ELSE 0 END) as VALOR_NAO_FATURADO,
+          SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) > pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN (NVL(pp.${cols.ppQtdRecebida}, 0) - pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1)) * (pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1)) ELSE 0 END) as VALOR_EXCESSO,
+          COUNT(DISTINCT CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN pp.${cols.ppCodProduto} END) as TOTAL_PRODUTOS_AFETADOS
         FROM ${tables.pedido} p
         INNER JOIN ${tables.pedidoProduto} pp ON pp.${cols.ppNumPedido} = p.${cols.pedNumPedido}
         WHERE p.${cols.pedTipoParceiro} = 1
@@ -284,42 +286,42 @@ export class RupturaIndustriaController {
             -- Curva do produto (loja matriz = 1)
             NVL(TRIM(pl.${cols.plCurva}), 'X') as CURVA,
             -- Produto fora do mix (inativo)
-            NVL(pl.FORA_LINHA, 'N') as FORA_LINHA,
+            NVL(pl.${cols.plForaLinha}, 'N') as FORA_LINHA,
             -- ===== PERIODO SELECIONADO (TOTAL_) =====
             COUNT(DISTINCT CASE WHEN ${periodoDateCondition} THEN p.${cols.pedNumPedido} END) as TOTAL_PEDIDOS_FEITOS,
-            COUNT(DISTINCT CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN p.${cols.pedNumPedido} END) as TOTAL_PEDIDOS_CORTADOS,
-            SUM(CASE WHEN ${periodoDateCondition} THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) ELSE 0 END) as TOTAL_QTD_PEDIDA,
+            COUNT(DISTINCT CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN p.${cols.pedNumPedido} END) as TOTAL_PEDIDOS_CORTADOS,
+            SUM(CASE WHEN ${periodoDateCondition} THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) ELSE 0 END) as TOTAL_QTD_PEDIDA,
             SUM(CASE WHEN ${periodoDateCondition} THEN NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as TOTAL_QTD_ENTREGUE,
-            SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as TOTAL_QTD_CORTADA,
-            SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as TOTAL_VALOR,
+            SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as TOTAL_QTD_CORTADA,
+            SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1)) ELSE 0 END) as TOTAL_VALOR,
             -- ===== ULTIMO ANO =====
             COUNT(DISTINCT CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) THEN p.${cols.pedNumPedido} END) as ANO_PEDIDOS_FEITOS,
-            COUNT(DISTINCT CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN p.${cols.pedNumPedido} END) as ANO_PEDIDOS_CORTADOS,
-            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) ELSE 0 END) as ANO_QTD_PEDIDA,
+            COUNT(DISTINCT CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN p.${cols.pedNumPedido} END) as ANO_PEDIDOS_CORTADOS,
+            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) ELSE 0 END) as ANO_QTD_PEDIDA,
             SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) THEN NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as ANO_QTD_ENTREGUE,
-            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as ANO_QTD_CORTADA,
-            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as ANO_VALOR,
+            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as ANO_QTD_CORTADA,
+            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1)) ELSE 0 END) as ANO_VALOR,
             -- ===== ULTIMOS 6 MESES =====
             COUNT(DISTINCT CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) THEN p.${cols.pedNumPedido} END) as SEMESTRE_PEDIDOS_FEITOS,
-            COUNT(DISTINCT CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN p.${cols.pedNumPedido} END) as SEMESTRE_PEDIDOS_CORTADOS,
-            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) ELSE 0 END) as SEMESTRE_QTD_PEDIDA,
+            COUNT(DISTINCT CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN p.${cols.pedNumPedido} END) as SEMESTRE_PEDIDOS_CORTADOS,
+            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) ELSE 0 END) as SEMESTRE_QTD_PEDIDA,
             SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) THEN NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as SEMESTRE_QTD_ENTREGUE,
-            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as SEMESTRE_QTD_CORTADA,
-            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as SEMESTRE_VALOR,
+            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as SEMESTRE_QTD_CORTADA,
+            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1)) ELSE 0 END) as SEMESTRE_VALOR,
             -- ===== ULTIMO MES =====
             COUNT(DISTINCT CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) THEN p.${cols.pedNumPedido} END) as MES_PEDIDOS_FEITOS,
-            COUNT(DISTINCT CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN p.${cols.pedNumPedido} END) as MES_PEDIDOS_CORTADOS,
-            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) ELSE 0 END) as MES_QTD_PEDIDA,
+            COUNT(DISTINCT CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN p.${cols.pedNumPedido} END) as MES_PEDIDOS_CORTADOS,
+            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) ELSE 0 END) as MES_QTD_PEDIDA,
             SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) THEN NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as MES_QTD_ENTREGUE,
-            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as MES_QTD_CORTADA,
-            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as MES_VALOR,
+            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as MES_QTD_CORTADA,
+            SUM(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1)) ELSE 0 END) as MES_VALOR,
             -- Legado (manter compatibilidade)
-            COUNT(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 1 END) as TOTAL_RUPTURA,
-            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 1 END) as ANO_RUPTURA,
-            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 1 END) as SEMESTRE_RUPTURA,
-            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 1 END) as MES_RUPTURA,
-            SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as QTD_FALTANTE,
-            SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as VALOR_NAO_FATURADO,
+            COUNT(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 1 END) as TOTAL_RUPTURA,
+            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -12) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 1 END) as ANO_RUPTURA,
+            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -6) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 1 END) as SEMESTRE_RUPTURA,
+            COUNT(CASE WHEN p.${cols.pedDtaEmissao} >= ADD_MONTHS(TRUNC(SYSDATE), -1) AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 1 END) as MES_RUPTURA,
+            SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as QTD_FALTANTE,
+            SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1)) ELSE 0 END) as VALOR_NAO_FATURADO,
             -- Flag: tem outros fornecedores que vendem esse produto?
             (SELECT COUNT(DISTINCT p2.${cols.pedCodParceiro})
              FROM ${tables.pedido} p2
@@ -338,18 +340,18 @@ export class RupturaIndustriaController {
           WHERE p.${cols.pedTipoParceiro} = 1
           AND p.${cols.pedTipoRecebimento} = 3
           AND p.${cols.pedCodParceiro} = :codFornecedor
-          GROUP BY pp.${cols.ppCodProduto}, pr.${cols.prDesProduto}, NVL(TRIM(pl.${cols.plCurva}), 'X'), NVL(pl.FORA_LINHA, 'N')
-          HAVING COUNT(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 1 END) > 0
+          GROUP BY pp.${cols.ppCodProduto}, pr.${cols.prDesProduto}, NVL(TRIM(pl.${cols.plCurva}), 'X'), NVL(pl.${cols.plForaLinha}, 'N')
+          HAVING COUNT(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 1 END) > 0
           ORDER BY
             -- Ordenar por % de ruptura no periodo selecionado (maior para menor)
             CASE
-              WHEN SUM(CASE WHEN ${periodoDateCondition} THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) ELSE 0 END) > 0
-              THEN SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END)
-                   / SUM(CASE WHEN ${periodoDateCondition} THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) ELSE 0 END)
+              WHEN SUM(CASE WHEN ${periodoDateCondition} THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) ELSE 0 END) > 0
+              THEN SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END)
+                   / SUM(CASE WHEN ${periodoDateCondition} THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) ELSE 0 END)
               ELSE 0
             END DESC,
             -- Desempate: maior quantidade cortada no periodo
-            SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) DESC
+            SUM(CASE WHEN ${periodoDateCondition} AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) DESC
         ) WHERE ROWNUM <= 100
       `;
 
@@ -417,19 +419,18 @@ export class RupturaIndustriaController {
       const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
       // Historico detalhado de cada cancelamento
-      // DTA_PEDIDO_CANCELADO, DES_CANCELAMENTO, USUARIO - hardcoded (nao estao no TABLE_CATALOG)
       const query = `
         SELECT
           p.${cols.pedNumPedido},
           p.${cols.pedDtaEmissao},
           p.${cols.pedDtaEntrega},
-          p.DTA_PEDIDO_CANCELADO,
-          p.DES_CANCELAMENTO,
+          p.${cols.pedDtaCancelado},
+          p.${cols.pedDesCancelamento},
           pp.${cols.ppQtdPedido},
           pp.${cols.ppValTabela},
           pp.${cols.ppQtdPedido} * pp.${cols.ppValTabela} as VALOR_ITEM,
           f.${cols.fornDesFornecedor},
-          p.USUARIO
+          p.${cols.pedUsuario}
         FROM ${tables.pedido} p
         INNER JOIN ${tables.pedidoProduto} pp ON pp.${cols.ppNumPedido} = p.${cols.pedNumPedido}
         INNER JOIN ${tables.fornecedor} f ON f.${cols.fornCodFornecedor} = p.${cols.pedCodParceiro}
@@ -646,39 +647,38 @@ export class RupturaIndustriaController {
 
       // Query para buscar todos os pedidos do produto com o fornecedor
       // QTD_PEDIDO * QTD_EMBALAGEM converte caixas para unidades
-      // QTD_EMBALAGEM - hardcoded (nao esta no TABLE_CATALOG)
       const query = `
         SELECT * FROM (
           SELECT
             p.${cols.pedNumPedido},
             p.${cols.pedDtaEmissao} as DATA,
             TRUNC(SYSDATE) - TRUNC(p.${cols.pedDtaEmissao}) as DIAS,
-            pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) as QTD_PEDIDA,
+            pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) as QTD_PEDIDA,
             NVL(pp.${cols.ppQtdRecebida}, 0) as QTD_ENTREGUE,
             CASE
-              WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1)
-              THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)
+              WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1)
+              THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)
               ELSE 0
             END as QTD_CORTADA,
             CASE
-              WHEN NVL(pp.${cols.ppQtdRecebida}, 0) > pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1)
-              THEN NVL(pp.${cols.ppQtdRecebida}, 0) - pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1)
+              WHEN NVL(pp.${cols.ppQtdRecebida}, 0) > pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1)
+              THEN NVL(pp.${cols.ppQtdRecebida}, 0) - pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1)
               ELSE 0
             END as QTD_EXTRA,
-            pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1) as PRECO_UNIT,
+            pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1) as PRECO_UNIT,
             CASE
-              WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1)
-              THEN (pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1))
+              WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1)
+              THEN (pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1))
               ELSE 0
             END as VALOR_CORTADO,
             CASE
-              WHEN NVL(pp.${cols.ppQtdRecebida}, 0) > pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1)
-              THEN (NVL(pp.${cols.ppQtdRecebida}, 0) - pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1)) * (pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1))
+              WHEN NVL(pp.${cols.ppQtdRecebida}, 0) > pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1)
+              THEN (NVL(pp.${cols.ppQtdRecebida}, 0) - pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1)) * (pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1))
               ELSE 0
             END as VALOR_EXCESSO,
             CASE
-              WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 'RUPTURA'
-              WHEN NVL(pp.${cols.ppQtdRecebida}, 0) > pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN 'EXCESSO'
+              WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 'RUPTURA'
+              WHEN NVL(pp.${cols.ppQtdRecebida}, 0) > pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN 'EXCESSO'
               ELSE 'OK'
             END as STATUS
           FROM ${tables.pedido} p
@@ -862,8 +862,6 @@ export class RupturaIndustriaController {
       // QTD_PEDIDO * QTD_EMBALAGEM converte caixas para unidades
       // Corte Total: QTD_RECEBIDA = 0 (nada foi entregue)
       // Corte Parcial: QTD_RECEBIDA > 0 mas < QTD_PEDIDO*QTD_EMBALAGEM (entrega parcial)
-      // QTD_EMBALAGEM - hardcoded (nao esta no TABLE_CATALOG)
-      // FORA_LINHA - hardcoded (nao esta no TABLE_CATALOG)
       const produtosQuery = `
         SELECT * FROM (
           SELECT
@@ -872,25 +870,25 @@ export class RupturaIndustriaController {
             -- Curva do produto (loja matriz = 1)
             NVL(TRIM(pl.${cols.plCurva}), 'X') as CURVA,
             -- Produto fora do mix (inativo)
-            NVL(pl.FORA_LINHA, 'N') as FORA_LINHA,
+            NVL(pl.${cols.plForaLinha}, 'N') as FORA_LINHA,
             -- Totais gerais do produto
             COUNT(DISTINCT p.${cols.pedNumPedido}) as TOTAL_PEDIDOS,
-            COUNT(DISTINCT CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN p.${cols.pedNumPedido} END) as TOTAL_PEDIDOS_CORTADOS,
+            COUNT(DISTINCT CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN p.${cols.pedNumPedido} END) as TOTAL_PEDIDOS_CORTADOS,
             -- Corte Total: pedidos onde QTD_RECEBIDA = 0
             COUNT(DISTINCT CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) = 0 AND pp.${cols.ppQtdPedido} > 0 THEN p.${cols.pedNumPedido} END) as CORTE_TOTAL,
             -- Corte Parcial: pedidos onde 0 < QTD_RECEBIDA < QTD_PEDIDO*QTD_EMBALAGEM
-            COUNT(DISTINCT CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) > 0 AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN p.${cols.pedNumPedido} END) as CORTE_PARCIAL,
-            SUM(pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1)) as TOTAL_QTD_PEDIDA,
+            COUNT(DISTINCT CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) > 0 AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN p.${cols.pedNumPedido} END) as CORTE_PARCIAL,
+            SUM(pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1)) as TOTAL_QTD_PEDIDA,
             SUM(NVL(pp.${cols.ppQtdRecebida}, 0)) as TOTAL_QTD_ENTREGUE,
-            SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as TOTAL_QTD_CORTADA,
-            SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as TOTAL_VALOR_CORTADO,
-            SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) > pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN (NVL(pp.${cols.ppQtdRecebida}, 0) - pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1)) * (pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as TOTAL_VALOR_EXCESSO,
-            SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) > pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN NVL(pp.${cols.ppQtdRecebida}, 0) - pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) ELSE 0 END) as TOTAL_QTD_EXCESSO,
+            SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as TOTAL_QTD_CORTADA,
+            SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1)) ELSE 0 END) as TOTAL_VALOR_CORTADO,
+            SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) > pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN (NVL(pp.${cols.ppQtdRecebida}, 0) - pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1)) * (pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1)) ELSE 0 END) as TOTAL_VALOR_EXCESSO,
+            SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) > pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN NVL(pp.${cols.ppQtdRecebida}, 0) - pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) ELSE 0 END) as TOTAL_QTD_EXCESSO,
             COUNT(DISTINCT p.${cols.pedCodParceiro}) as QTD_FORNECEDORES,
             -- % de ruptura (baseado em quantidade)
             CASE
-              WHEN SUM(pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1)) > 0
-              THEN ROUND(SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) * 100 / SUM(pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1)), 1)
+              WHEN SUM(pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1)) > 0
+              THEN ROUND(SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) * 100 / SUM(pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1)), 1)
               ELSE 0
             END as PERCENTUAL_RUPTURA
           FROM ${tables.pedido} p
@@ -900,15 +898,15 @@ export class RupturaIndustriaController {
           WHERE p.${cols.pedTipoParceiro} = 1
           AND p.${cols.pedTipoRecebimento} = 3
           AND ${dateCondition}
-          GROUP BY pp.${cols.ppCodProduto}, pr.${cols.prDesProduto}, NVL(TRIM(pl.${cols.plCurva}), 'X'), NVL(pl.FORA_LINHA, 'N')
-          HAVING SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) > 0
+          GROUP BY pp.${cols.ppCodProduto}, pr.${cols.prDesProduto}, NVL(TRIM(pl.${cols.plCurva}), 'X'), NVL(pl.${cols.plForaLinha}, 'N')
+          HAVING SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) > 0
           ORDER BY
             CASE
-              WHEN SUM(pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1)) > 0
-              THEN SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) / SUM(pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1))
+              WHEN SUM(pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1)) > 0
+              THEN SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) / SUM(pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1))
               ELSE 0
             END DESC,
-            SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) DESC
+            SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) DESC
         ) WHERE ROWNUM <= :limitNum
       `;
 
@@ -920,31 +918,30 @@ export class RupturaIndustriaController {
       for (const produto of produtos) {
         // Query para buscar dados por fornecedor deste produto
         // QTD_PEDIDO * QTD_EMBALAGEM converte caixas para unidades
-        // QTD_EMBALAGEM - hardcoded (nao esta no TABLE_CATALOG)
         const fornecedoresQuery = `
           SELECT * FROM (
             SELECT
               f.${cols.fornCodFornecedor},
               f.${cols.fornDesFornecedor},
               COUNT(DISTINCT p.${cols.pedNumPedido}) as TOTAL_PEDIDOS,
-              COUNT(DISTINCT CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN p.${cols.pedNumPedido} END) as CORTADOS,
+              COUNT(DISTINCT CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN p.${cols.pedNumPedido} END) as CORTADOS,
               -- Corte Total: pedidos onde QTD_RECEBIDA = 0
               COUNT(DISTINCT CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) = 0 AND pp.${cols.ppQtdPedido} > 0 THEN p.${cols.pedNumPedido} END) as CORTE_TOTAL,
               -- Corte Parcial: pedidos onde 0 < QTD_RECEBIDA < QTD_PEDIDO*QTD_EMBALAGEM
-              COUNT(DISTINCT CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) > 0 AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN p.${cols.pedNumPedido} END) as CORTE_PARCIAL,
-              SUM(pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1)) as QTD_PEDIDA,
+              COUNT(DISTINCT CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) > 0 AND NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN p.${cols.pedNumPedido} END) as CORTE_PARCIAL,
+              SUM(pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1)) as QTD_PEDIDA,
               SUM(NVL(pp.${cols.ppQtdRecebida}, 0)) as QTD_ENTREGUE,
               -- QTD Cortada (quando entregou menos que pedido)
-              SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as QTD_CORTADA,
+              SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) as QTD_CORTADA,
               -- QTD Excesso (quando entregou mais que pedido)
-              SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) > pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN NVL(pp.${cols.ppQtdRecebida}, 0) - pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) ELSE 0 END) as QTD_EXCESSO,
+              SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) > pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN NVL(pp.${cols.ppQtdRecebida}, 0) - pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) ELSE 0 END) as QTD_EXCESSO,
               -- Valor Cortado (quantidade cortada * preco unitario)
-              SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as VALOR_CORTADO,
+              SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN (pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0)) * (pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1)) ELSE 0 END) as VALOR_CORTADO,
               -- Valor Excesso (quantidade excesso * preco unitario)
-              SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) > pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN (NVL(pp.${cols.ppQtdRecebida}, 0) - pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1)) * (pp.${cols.ppValTabela} / NVL(pp.QTD_EMBALAGEM, 1)) ELSE 0 END) as VALOR_EXCESSO,
+              SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) > pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN (NVL(pp.${cols.ppQtdRecebida}, 0) - pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1)) * (pp.${cols.ppValTabela} / NVL(pp.${cols.ppQtdEmbalagem}, 1)) ELSE 0 END) as VALOR_EXCESSO,
               CASE
-                WHEN SUM(pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1)) > 0
-                THEN ROUND(SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) * 100 / SUM(pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1)), 1)
+                WHEN SUM(pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1)) > 0
+                THEN ROUND(SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) * 100 / SUM(pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1)), 1)
                 ELSE 0
               END as PERCENTUAL
             FROM ${tables.pedido} p
@@ -957,8 +954,8 @@ export class RupturaIndustriaController {
             GROUP BY f.${cols.fornCodFornecedor}, f.${cols.fornDesFornecedor}
             ORDER BY
               CASE
-                WHEN SUM(pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1)) > 0
-                THEN SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) / SUM(pp.${cols.ppQtdPedido} * NVL(pp.QTD_EMBALAGEM, 1))
+                WHEN SUM(pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1)) > 0
+                THEN SUM(CASE WHEN NVL(pp.${cols.ppQtdRecebida}, 0) < pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) THEN pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1) - NVL(pp.${cols.ppQtdRecebida}, 0) ELSE 0 END) / SUM(pp.${cols.ppQtdPedido} * NVL(pp.${cols.ppQtdEmbalagem}, 1))
                 ELSE 0
               END DESC
           ) WHERE ROWNUM <= 10

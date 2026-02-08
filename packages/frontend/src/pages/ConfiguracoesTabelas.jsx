@@ -106,6 +106,17 @@ const TABLE_CATALOG = {
       { id: 'data_ajuste', name: 'Data Ajuste', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'DTA_AJUSTE' },
       { id: 'usuario', name: 'Usuário', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'USUARIO' },
       { id: 'motivo', name: 'Motivo', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'MOTIVO' },
+      { id: 'flag_cancelado', name: 'Flag Cancelado', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'FLG_CANCELADO' },
+      { id: 'valor_venda', name: 'Valor Venda', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'VAL_VENDA' },
+      { id: 'codigo_fornecedor', name: 'Código Fornecedor', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'COD_FORNECEDOR' },
+    ]
+  },
+  TAB_TIPO_AJUSTE: {
+    name: 'Tipos de Ajuste',
+    description: 'Tipos/motivos de ajuste de estoque',
+    fields: [
+      { id: 'codigo_ajuste', name: 'Código Ajuste', defaultTable: 'TAB_TIPO_AJUSTE', defaultColumn: 'COD_AJUSTE' },
+      { id: 'descricao_ajuste', name: 'Descrição Ajuste', defaultTable: 'TAB_TIPO_AJUSTE', defaultColumn: 'DES_AJUSTE' },
     ]
   },
   TAB_AJUSTE_ITENS: {
@@ -159,6 +170,9 @@ const TABLE_CATALOG = {
       { id: 'tipo_finalizado', name: 'Tipo Pedido Finalizado', defaultTable: 'TAB_PEDIDO', defaultColumn: 'TIPO_PED_FINALIZADO' },
       { id: 'flag_cancelado', name: 'Flag Cancelado', defaultTable: 'TAB_PEDIDO', defaultColumn: 'FLG_CANCELADO' },
       { id: 'codigo_loja', name: 'Código Loja', defaultTable: 'TAB_PEDIDO', defaultColumn: 'COD_LOJA' },
+      { id: 'data_cancelamento', name: 'Data Cancelamento', defaultTable: 'TAB_PEDIDO', defaultColumn: 'DTA_PEDIDO_CANCELADO' },
+      { id: 'descricao_cancelamento', name: 'Descrição Cancelamento', defaultTable: 'TAB_PEDIDO', defaultColumn: 'DES_CANCELAMENTO' },
+      { id: 'usuario', name: 'Usuário', defaultTable: 'TAB_PEDIDO', defaultColumn: 'USUARIO' },
     ]
   },
   TAB_PEDIDO_PRODUTO: {
@@ -353,7 +367,7 @@ const BUSINESS_MODULES = [
       { id: 'facial', name: 'Prevenção Facial', icon: '👤', tables: ['TAB_OPERADORES'] },
       { id: 'rupturas', name: 'Prevenção Rupturas', icon: '🔍', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO', 'TAB_NF', 'TAB_NF_ITEM'] },
       { id: 'etiquetas', name: 'Prevenção Etiquetas', icon: '🏷️', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_SECAO'] },
-      { id: 'quebras', name: 'Prevenção Quebras', icon: '💔', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ITENS', 'TAB_SECAO', 'TAB_FORNECEDOR'] },
+      { id: 'quebras', name: 'Prevenção Quebras', icon: '💔', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ITENS', 'TAB_TIPO_AJUSTE', 'TAB_SECAO', 'TAB_FORNECEDOR'] },
       { id: 'producao', name: 'Produção', icon: '🏭', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_DECOMPOSICAO', 'TAB_INFO_NUTRICIONAL', 'TAB_INFO_RECEITA', 'TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ITENS', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO'] },
       { id: 'hortfruti', name: 'Hort Fruti', icon: '🥬', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA'] },
     ]
