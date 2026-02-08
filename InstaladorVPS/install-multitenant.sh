@@ -260,8 +260,8 @@ RUN npm install -g typescript && \
 # ===================================
 FROM node:18-alpine
 
-# Instalar openssh-keygen (necessário para gerar chaves do túnel SSH)
-RUN apk add --no-cache openssh-keygen
+# Instalar openssh (necessário para ssh-keygen na geração de chaves do túnel)
+RUN apk add --no-cache openssh
 
 WORKDIR /app
 
