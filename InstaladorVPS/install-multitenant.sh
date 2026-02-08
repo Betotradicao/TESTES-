@@ -1028,6 +1028,8 @@ CREATE TABLE IF NOT EXISTS suspect_identifications (
 CREATE INDEX IF NOT EXISTS idx_suspect_identifications_bip_id ON suspect_identifications(bip_id);
 -- Adicionar coluna updated_at se não existir (para instalações anteriores)
 ALTER TABLE suspect_identifications ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+-- Adicionar coluna mappings em database_connections (não coberta por migration em builds anteriores)
+ALTER TABLE database_connections ADD COLUMN IF NOT EXISTS mappings text;
 EOSQL
 
 echo "✅ Tabelas adicionais criadas"
