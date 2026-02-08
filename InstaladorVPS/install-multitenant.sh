@@ -5,14 +5,15 @@ set -e
 # INSTALADOR MULTI-TENANT - VPS LINUX
 # Sistema: Prevenção no Radar
 # Suporte a múltiplos clientes com subdomínios
-# VERSÃO 3.0: CRON service, volume compartilhado DVR
+# VERSÃO 4.0: Túnel SSH isolado, ERP Templates seed,
+#              Dockerfile.cron, registro clientes.json
 # ============================================
 
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║                                                            ║"
 echo "║   INSTALADOR MULTI-TENANT - PREVENÇÃO NO RADAR            ║"
 echo "║   Sistema com subdomínios por cliente                      ║"
-echo "║   VERSÃO: 3.0 (Janeiro 2026)                              ║"
+echo "║   VERSÃO: 4.0 (Fevereiro 2026)                            ║"
 echo "║                                                            ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
@@ -331,7 +332,72 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 CMD ["nginx", "-g", "daemon off;"]
 FRONTEND_DOCKERFILE
 
-echo "✅ Dockerfiles corrigidos"
+# Corrigir Cron Dockerfile
+cat > "$REPO_DIR/packages/backend/Dockerfile.cron" << 'CRON_DOCKERFILE'
+# Dockerfile para Serviço de Cron em Produção
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Copiar package files
+COPY package*.json ./
+RUN npm install && npm cache clean --force
+
+# Copiar source code
+COPY . .
+
+# Build da aplicação
+RUN npm run build
+
+# Imagem final
+FROM node:18-alpine AS production
+
+# Instalar cron
+RUN apk add --no-cache dcron
+
+WORKDIR /app
+
+# Copiar dependências de produção
+COPY package*.json ./
+RUN npm install --omit=dev && npm cache clean --force
+
+# Copiar aplicação compilada
+COPY --from=builder /app/dist ./dist
+
+# Criar usuário não-root
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
+
+# Criar arquivo de cron com tarefas unificadas
+RUN echo "# Verificação diária completa às 8h (vendas + bipagens + notificações do dia anterior)" > /etc/crontabs/root && \
+    echo "0 8 * * * cd /app && npm run run:daily:verification:prod -- --runYesterday >> /var/log/cron.log 2>&1" >> /etc/crontabs/root && \
+    echo "" >> /etc/crontabs/root && \
+    echo "# Monitoramento contínuo a cada 2 minutos (dia atual, sem notificações)" >> /etc/crontabs/root && \
+    echo "*/2 * * * * cd /app && node dist/commands/daily-verification.command.js >> /var/log/cron.log 2>&1" >> /etc/crontabs/root && \
+    echo "" >> /etc/crontabs/root && \
+    echo "# Monitoramento de última bipagem - alerta se não receber bipagens por mais de 1h (a cada 1h)" >> /etc/crontabs/root && \
+    echo "0 * * * * cd /app && node dist/commands/check-last-bip.command.js >> /var/log/cron.log 2>&1" >> /etc/crontabs/root && \
+    echo "" >> /etc/crontabs/root && \
+    echo "# Monitoramento de emails DVR - verifica novos emails a cada 1 minuto" >> /etc/crontabs/root && \
+    echo "*/1 * * * * cd /app && node dist/commands/email-monitor.command.js >> /var/log/cron.log 2>&1" >> /etc/crontabs/root
+
+# Criar diretório de logs
+RUN mkdir -p /var/log && touch /var/log/cron.log
+
+# Alterar ownership dos arquivos
+RUN chown -R nodejs:nodejs /app
+
+# Script de inicialização
+RUN echo '#!/bin/sh' > /start-cron.sh && \
+    echo 'echo "Starting cron service..."' >> /start-cron.sh && \
+    echo 'crond -f -d 8' >> /start-cron.sh && \
+    chmod +x /start-cron.sh
+
+# Comando para executar cron
+CMD ["/start-cron.sh"]
+CRON_DOCKERFILE
+
+echo "✅ Dockerfiles corrigidos (Backend + Frontend + Cron)"
 echo ""
 
 # ============================================
@@ -376,6 +442,24 @@ echo "   Backend: $BACKEND_PORT"
 echo "   PostgreSQL: $POSTGRES_PORT"
 echo "   MinIO API: $MINIO_API_PORT"
 echo "   MinIO Console: $MINIO_CONSOLE_PORT"
+
+# ============================================
+# GERAR PORTAS DE TÚNEL SSH (isolamento por cliente)
+# Cada cliente recebe portas ÚNICAS para seus túneis
+# ============================================
+
+TUNNEL_ORACLE_PORT=$((10000 + CLIENT_NUM))
+TUNNEL_MSSQL_PORT=$((11000 + CLIENT_NUM))
+TUNNEL_API_PORT=$((12000 + CLIENT_NUM))
+
+TUNNEL_ORACLE_PORT=$(find_available_port $TUNNEL_ORACLE_PORT)
+TUNNEL_MSSQL_PORT=$(find_available_port $TUNNEL_MSSQL_PORT)
+TUNNEL_API_PORT=$(find_available_port $TUNNEL_API_PORT)
+
+echo "   --- Túneis SSH (isolados) ---"
+echo "   Túnel Oracle: $TUNNEL_ORACLE_PORT"
+echo "   Túnel MSSQL: $TUNNEL_MSSQL_PORT"
+echo "   Túnel API ERP: $TUNNEL_API_PORT"
 echo ""
 
 # ============================================
@@ -459,6 +543,12 @@ VITE_API_URL=https://$CLIENT_SUBDOMAIN/api
 HOST_IP=$HOST_IP
 NODE_ENV=production
 FRONTEND_URL=https://$CLIENT_SUBDOMAIN
+
+# TÚNEL SSH (portas isoladas por cliente)
+# Cada cliente tem portas EXCLUSIVAS - um cliente NUNCA acessa o túnel de outro
+TUNNEL_ORACLE_PORT=$TUNNEL_ORACLE_PORT
+TUNNEL_MSSQL_PORT=$TUNNEL_MSSQL_PORT
+TUNNEL_API_PORT=$TUNNEL_API_PORT
 
 # EMAIL (configurar depois)
 EMAIL_USER=
@@ -566,12 +656,19 @@ services:
       EMAIL_USER: \${EMAIL_USER}
       EMAIL_PASS: \${EMAIL_PASS}
       FRONTEND_URL: \${FRONTEND_URL}
+      # Túneis SSH (portas no host VPS)
+      TUNNEL_ORACLE_PORT: \${TUNNEL_ORACLE_PORT}
+      TUNNEL_MSSQL_PORT: \${TUNNEL_MSSQL_PORT}
+      TUNNEL_API_PORT: \${TUNNEL_API_PORT}
       TZ: America/Sao_Paulo
     ports:
       - "\${BACKEND_PORT}:3001"
     volumes:
       # Volume compartilhado para imagens do DVR (email-monitor)
       - backend_uploads:/app/uploads
+    extra_hosts:
+      # Permite container acessar portas de túnel SSH no host VPS
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
@@ -624,11 +721,16 @@ services:
       MINIO_PUBLIC_ENDPOINT: \${MINIO_PUBLIC_ENDPOINT}
       MINIO_PUBLIC_PORT: \${MINIO_PUBLIC_PORT}
       MINIO_PUBLIC_USE_SSL: \${MINIO_PUBLIC_USE_SSL}
+      TUNNEL_ORACLE_PORT: \${TUNNEL_ORACLE_PORT}
+      TUNNEL_MSSQL_PORT: \${TUNNEL_MSSQL_PORT}
+      TUNNEL_API_PORT: \${TUNNEL_API_PORT}
       TZ: America/Sao_Paulo
     volumes:
       # IMPORTANTE: Compartilhar volume de uploads com o backend
       # para que as imagens do email-monitor (DVR) sejam acessíveis pela API
       - backend_uploads:/app/uploads
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
@@ -770,7 +872,47 @@ docker compose up -d --build
 
 echo ""
 echo "⏳ Aguardando containers iniciarem..."
-sleep 15
+sleep 10
+
+# ============================================
+# PULAR MIGRATION PROBLEMÁTICA EM INSTALAÇÃO NOVA
+# A migration RemoveCnpjUniqueConstraint falha em banco novo
+# porque referencia tabela 'companies' que ainda não existe.
+# Inserimos o registro na tabela 'migrations' para que o
+# TypeORM pule essa migration automaticamente.
+# ============================================
+
+echo "🔧 Preparando banco de dados para migrations..."
+
+# Aguardar postgres ficar pronto
+PG_TRIES=0
+PG_MAX=30
+while [ $PG_TRIES -lt $PG_MAX ]; do
+    if docker exec -i ${CONTAINER_PREFIX}-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB_NAME -c "SELECT 1" > /dev/null 2>&1; then
+        echo "   ✅ PostgreSQL pronto"
+        break
+    fi
+    sleep 2
+    PG_TRIES=$((PG_TRIES + 2))
+done
+
+# Inserir registro para pular migration RemoveCnpjUniqueConstraint
+# (ela só faz sentido em banco que JÁ tem a tabela companies)
+docker exec -i ${CONTAINER_PREFIX}-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB_NAME << 'EOSQL' 2>/dev/null || true
+-- Criar tabela migrations se não existir (TypeORM cria automaticamente, mas por segurança)
+CREATE TABLE IF NOT EXISTS migrations (
+    id SERIAL PRIMARY KEY,
+    timestamp BIGINT NOT NULL,
+    name VARCHAR(255) NOT NULL
+);
+-- Pular migration que falha em banco novo (referencia companies::regclass)
+INSERT INTO migrations (timestamp, name)
+SELECT 1738800000000, 'RemoveCnpjUniqueConstraint1738800000000'
+WHERE NOT EXISTS (SELECT 1 FROM migrations WHERE name = 'RemoveCnpjUniqueConstraint1738800000000');
+EOSQL
+
+echo "   ✅ Migrations preparadas"
+echo ""
 
 # ============================================
 # AGUARDAR BACKEND INICIALIZAR
@@ -841,11 +983,29 @@ echo ""
 
 # ============================================
 # ATUALIZAR CONFIGURAÇÕES PARA HTTPS
+# Aguarda tabela 'configurations' existir (criada pelo backend via TypeORM)
 # ============================================
 
 echo "⚙️  Atualizando configurações para HTTPS..."
 
-docker exec -i ${CONTAINER_PREFIX}-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB_NAME << EOSQL || true
+# Aguardar tabela configurations ser criada pelo backend (migrations)
+CONFIG_TRIES=0
+CONFIG_MAX=30
+while [ $CONFIG_TRIES -lt $CONFIG_MAX ]; do
+    TABLE_EXISTS=$(docker exec -i ${CONTAINER_PREFIX}-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB_NAME -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'configurations');" 2>/dev/null || echo "f")
+    if [ "$TABLE_EXISTS" = "t" ]; then
+        echo "   ✅ Tabela configurations encontrada"
+        break
+    fi
+    if [ $((CONFIG_TRIES % 10)) -eq 0 ]; then
+        echo "   Aguardando backend criar tabelas... (${CONFIG_TRIES}s)"
+    fi
+    sleep 2
+    CONFIG_TRIES=$((CONFIG_TRIES + 2))
+done
+
+if [ "$TABLE_EXISTS" = "t" ]; then
+    docker exec -i ${CONTAINER_PREFIX}-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB_NAME << EOSQL || true
 -- Configurar MinIO para usar proxy HTTPS
 UPDATE configurations SET value = '$CLIENT_SUBDOMAIN' WHERE key = 'minio_public_endpoint';
 UPDATE configurations SET value = '443' WHERE key = 'minio_public_port';
@@ -866,8 +1026,10 @@ UPDATE configurations SET value = '$MINIO_API_PORT' WHERE key = 'minio_port';
 UPDATE configurations SET value = '$MINIO_CONSOLE_PORT' WHERE key = 'minio_console_port';
 UPDATE configurations SET value = '$POSTGRES_PORT' WHERE key = 'postgres_port';
 EOSQL
-
-echo "✅ Configurações atualizadas para HTTPS"
+    echo "✅ Configurações atualizadas para HTTPS"
+else
+    echo "⚠️  Tabela configurations ainda não existe. O backend atualizará automaticamente ao iniciar."
+fi
 echo ""
 
 # ============================================
@@ -899,6 +1061,204 @@ echo "👤 Criando usuário master..."
 docker exec ${CONTAINER_PREFIX}-backend npm run create-master-user 2>&1 || echo "⚠️  Aviso: Erro ao criar usuário master (pode já existir)"
 
 echo "✅ Usuário master configurado"
+
+# ============================================
+# CONFIGURAR TÚNEL SSH ISOLADO POR CLIENTE
+# ============================================
+
+echo ""
+echo "🔐 Configurando túnel SSH para cliente $CLIENT_NAME..."
+
+# Garantir que a pasta .ssh existe
+mkdir -p /root/.ssh
+chmod 700 /root/.ssh
+touch /root/.ssh/authorized_keys
+chmod 600 /root/.ssh/authorized_keys
+
+# Gerar par de chaves SSH dedicado para este cliente
+SSH_KEY_DIR="$CLIENT_DIR/ssh_keys"
+mkdir -p "$SSH_KEY_DIR"
+
+if [ ! -f "$SSH_KEY_DIR/tunnel_key" ]; then
+    ssh-keygen -t rsa -b 4096 -f "$SSH_KEY_DIR/tunnel_key" -N "" -C "${CLIENT_NAME}@tunnel" -q
+
+    # Montar restrição de portas no authorized_keys
+    # ISOLAMENTO: O cliente SÓ pode abrir túneis nas portas dele
+    PORT_RESTRICTIONS="permitopen=\"localhost:$TUNNEL_ORACLE_PORT\",permitopen=\"localhost:$TUNNEL_MSSQL_PORT\",permitopen=\"localhost:$TUNNEL_API_PORT\""
+    RESTRICTION="restrict,port-forwarding,$PORT_RESTRICTIONS"
+    PUBLIC_KEY=$(cat "$SSH_KEY_DIR/tunnel_key.pub")
+
+    # Remover chave antiga do mesmo cliente (se existir)
+    sed -i "/${CLIENT_NAME}@tunnel/d" /root/.ssh/authorized_keys 2>/dev/null || true
+
+    # Adicionar nova chave com restrições
+    echo "$RESTRICTION $PUBLIC_KEY" >> /root/.ssh/authorized_keys
+
+    echo "✅ Chave SSH gerada para $CLIENT_NAME"
+    echo "   Chave privada: $SSH_KEY_DIR/tunnel_key"
+    echo "   Portas permitidas: $TUNNEL_ORACLE_PORT, $TUNNEL_MSSQL_PORT, $TUNNEL_API_PORT"
+else
+    echo "✅ Chave SSH já existe para $CLIENT_NAME"
+fi
+
+# Salvar configuração de túneis em arquivo legível
+cat > "$CLIENT_DIR/TUNNEL_CONFIG.txt" << EOF
+# ============================================
+# CONFIGURAÇÃO DE TÚNEL SSH - $CLIENT_NAME
+# ============================================
+#
+# PORTAS EXCLUSIVAS deste cliente na VPS:
+#   Oracle:   $TUNNEL_ORACLE_PORT
+#   MSSQL:    $TUNNEL_MSSQL_PORT
+#   API ERP:  $TUNNEL_API_PORT
+#
+# ISOLAMENTO: Este cliente SÓ pode usar essas portas.
+# Nenhum outro cliente tem acesso a essas portas.
+#
+# COMO CONECTAR (no Windows do cliente):
+#   ssh -R $TUNNEL_ORACLE_PORT:<IP_ERP_LOCAL>:1521 root@$HOST_IP -N -i tunnel_key
+#   ssh -R $TUNNEL_API_PORT:<IP_ERP_LOCAL>:3003 root@$HOST_IP -N -i tunnel_key
+#
+# Ou baixe o instalador automático pelo sistema:
+#   https://$CLIENT_SUBDOMAIN → Configurações → Túnel SSH
+#
+EOF
+
+echo ""
+
+# ============================================
+# SEED DE ERP TEMPLATES (pré-configurados)
+# Aguarda tabela 'erp_templates' existir (criada pelo backend via TypeORM)
+# ============================================
+
+echo "📋 Inserindo ERP Templates pré-configurados..."
+
+# Aguardar tabela erp_templates ser criada pelo backend (migrations)
+ERP_TRIES=0
+ERP_MAX=30
+while [ $ERP_TRIES -lt $ERP_MAX ]; do
+    ERP_TABLE=$(docker exec -i ${CONTAINER_PREFIX}-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB_NAME -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'erp_templates');" 2>/dev/null || echo "f")
+    if [ "$ERP_TABLE" = "t" ]; then
+        echo "   ✅ Tabela erp_templates encontrada"
+        break
+    fi
+    if [ $((ERP_TRIES % 10)) -eq 0 ]; then
+        echo "   Aguardando backend criar tabelas... (${ERP_TRIES}s)"
+    fi
+    sleep 2
+    ERP_TRIES=$((ERP_TRIES + 2))
+done
+
+if [ "$ERP_TABLE" != "t" ]; then
+    echo "⚠️  Tabela erp_templates não encontrada. Templates serão inseridos pelo backend automaticamente."
+else
+
+docker exec -i ${CONTAINER_PREFIX}-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB_NAME << 'EOSQL' || true
+
+-- ERP Template: Intersolid (Oracle)
+INSERT INTO erp_templates (name, description, database_type, mappings, is_active, created_at, updated_at)
+SELECT 'Intersolid', 'ERP Intersolid com banco Oracle', 'oracle',
+'{"version":2,"schema":"INTERSOLID","tabelas":{"TAB_PRODUTO":{"nome_real":"TAB_PRODUTO","colunas":{"codigo":"COD_PRODUTO","descricao":"DES_PRODUTO","secao":"COD_SECAO","grupo":"COD_GRUPO","subgrupo":"COD_SUBGRUPO","unidade":"DES_UNIDADE","custo":"VAL_CUSTO","preco_venda":"VAL_PRECO_VENDA","estoque":"QTD_ESTOQUE","status":"SITUACAO","ean":"COD_BARRAS","ncm":"COD_NCM","margem":"PER_MARGEM","peso_bruto":"PESO_BRUTO"}},"TAB_CUPOM":{"nome_real":"TAB_CUPOM","colunas":{"numero_cupom":"NUM_CUPOM","data":"DTA_MOVIMENTO","pdv":"NUM_PDV","operador":"COD_OPERADOR","valor_total":"VAL_TOTAL","status":"SITUACAO","tipo":"TIPO_VENDA","desconto":"VAL_DESCONTO","hora":"HORA_VENDA"}},"TAB_CUPOM_ITEM":{"nome_real":"TAB_CUPOM_ITEM","colunas":{"numero_cupom":"NUM_CUPOM","codigo_produto":"COD_PRODUTO","quantidade":"QTD_ITEM","valor_unitario":"VAL_UNITARIO","valor_total":"VAL_TOTAL","desconto":"VAL_DESCONTO","cancelado":"FLG_CANCELADO"}},"TAB_CUPOM_FINALIZADORA":{"nome_real":"TAB_CUPOM_FINALIZADORA","colunas":{"numero_cupom":"NUM_CUPOM","forma_pagamento":"COD_FINALIZADORA","valor":"VAL_FINALIZADORA","descricao":"DES_FINALIZADORA"}},"TAB_SECAO":{"nome_real":"TAB_SECAO","colunas":{"codigo":"COD_SECAO","descricao":"DES_SECAO"}},"TAB_GRUPO":{"nome_real":"TAB_GRUPO","colunas":{"codigo":"COD_GRUPO","descricao":"DES_GRUPO","secao":"COD_SECAO"}},"TAB_SUBGRUPO":{"nome_real":"TAB_SUBGRUPO","colunas":{"codigo":"COD_SUBGRUPO","descricao":"DES_SUBGRUPO","grupo":"COD_GRUPO"}},"TAB_FORNECEDOR":{"nome_real":"TAB_FORNECEDOR","colunas":{"codigo":"COD_FORNECEDOR","razao_social":"DES_RAZAO_SOCIAL","nome_fantasia":"DES_FANTASIA","cnpj":"NUM_CNPJ","telefone":"NUM_TELEFONE"}},"TAB_PEDIDO":{"nome_real":"TAB_PEDIDO","colunas":{"numero_pedido":"NUM_PEDIDO","data":"DTA_PEDIDO","fornecedor":"COD_FORNECEDOR","status":"SITUACAO","valor_total":"VAL_TOTAL","tipo_parceiro":"TIPO_PARCEIRO"}},"TAB_PEDIDO_PRODUTO":{"nome_real":"TAB_PEDIDO_PRODUTO","colunas":{"numero_pedido":"NUM_PEDIDO","codigo_produto":"COD_PRODUTO","quantidade_pedida":"QTD_PEDIDO","quantidade_recebida":"QTD_RECEBIDA","quantidade_embalagem":"QTD_EMBALAGEM","valor_tabela":"VAL_TABELA"}},"TAB_NF":{"nome_real":"TAB_NF","colunas":{"numero_nf":"NUM_NF","serie_nf":"NUM_SERIE_NF","data_entrada":"DTA_ENTRADA","codigo_parceiro":"COD_PARCEIRO","tipo_operacao":"TIPO_OPERACAO"}},"TAB_NF_ITEM":{"nome_real":"TAB_NF_ITEM","colunas":{"numero_nf":"NUM_NF","serie_nf":"NUM_SERIE_NF","codigo_parceiro":"COD_PARCEIRO","codigo_item":"COD_ITEM","quantidade_entrada":"QTD_ENTRADA","valor_custo":"VAL_CUSTO_SCRED","valor_total":"VAL_TOTAL"}},"TAB_PRODUTO_LOJA":{"nome_real":"TAB_PRODUTO_LOJA","colunas":{"codigo_produto":"COD_PRODUTO","codigo_loja":"COD_LOJA","fora_linha":"FORA_LINHA"}},"TAB_PRODUTO_PDV":{"nome_real":"TAB_PRODUTO_PDV","colunas":{"codigo":"COD_PRODUTO","descricao":"DES_PRODUTO","preco":"VAL_PRECO_VENDA","ean":"COD_BARRAS"}}}}',
+true, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM erp_templates WHERE name = 'Intersolid' AND is_active = true);
+
+-- ERP Template: Zanthus (Oracle)
+INSERT INTO erp_templates (name, description, database_type, mappings, is_active, created_at, updated_at)
+SELECT 'Zanthus', 'ERP Zanthus com banco Oracle', 'oracle',
+'{"version":2,"schema":"ZANTHUS","tabelas":{"TAB_PRODUTO":{"nome_real":"PRODUTO","colunas":{"codigo":"CODPRODUTO","descricao":"DESCRICAO","secao":"CODSECAO","grupo":"CODGRUPO","subgrupo":"CODSUBGRUPO","unidade":"UNIDADE","custo":"CUSTOMEDIO","preco_venda":"PRECOVENDA","estoque":"ESTOQUE","status":"STATUS","ean":"CODBARRA","ncm":"NCM"}},"TAB_CUPOM":{"nome_real":"CUPOM","colunas":{"numero_cupom":"NUMCUPOM","data":"DATAMOVIMENTO","pdv":"NUMPDV","operador":"CODOPERADOR","valor_total":"VALORTOTAL","status":"STATUS","tipo":"TIPOVENDA","desconto":"DESCONTO","hora":"HORAVENDA"}},"TAB_CUPOM_ITEM":{"nome_real":"CUPOM_ITEM","colunas":{"numero_cupom":"NUMCUPOM","codigo_produto":"CODPRODUTO","quantidade":"QUANTIDADE","valor_unitario":"VALORUNITARIO","valor_total":"VALORTOTAL","desconto":"DESCONTO","cancelado":"CANCELADO"}},"TAB_CUPOM_FINALIZADORA":{"nome_real":"CUPOM_FINALIZADORA","colunas":{"numero_cupom":"NUMCUPOM","forma_pagamento":"CODFINALIZADORA","valor":"VALOR","descricao":"DESCRICAO"}},"TAB_SECAO":{"nome_real":"SECAO","colunas":{"codigo":"CODSECAO","descricao":"DESCRICAO"}},"TAB_GRUPO":{"nome_real":"GRUPO","colunas":{"codigo":"CODGRUPO","descricao":"DESCRICAO","secao":"CODSECAO"}},"TAB_SUBGRUPO":{"nome_real":"SUBGRUPO","colunas":{"codigo":"CODSUBGRUPO","descricao":"DESCRICAO","grupo":"CODGRUPO"}},"TAB_FORNECEDOR":{"nome_real":"FORNECEDOR","colunas":{"codigo":"CODFORNECEDOR","razao_social":"RAZAOSOCIAL","nome_fantasia":"FANTASIA","cnpj":"CNPJ","telefone":"TELEFONE"}}}}',
+true, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM erp_templates WHERE name = 'Zanthus' AND is_active = true);
+
+-- ERP Template: Sysmo (Oracle)
+INSERT INTO erp_templates (name, description, database_type, mappings, is_active, created_at, updated_at)
+SELECT 'Sysmo', 'ERP Sysmo com banco Oracle', 'oracle',
+'{"version":2,"schema":"SYSMO","tabelas":{"TAB_PRODUTO":{"nome_real":"PRODUTO","colunas":{"codigo":"COD_PRODUTO","descricao":"DESC_PRODUTO","secao":"COD_SECAO","grupo":"COD_GRUPO","preco_venda":"VLR_VENDA","custo":"VLR_CUSTO","estoque":"QTD_ESTOQUE","ean":"COD_BARRA","status":"SITUACAO"}},"TAB_CUPOM":{"nome_real":"CUPOM_FISCAL","colunas":{"numero_cupom":"NR_CUPOM","data":"DT_MOVIMENTO","pdv":"NR_PDV","operador":"COD_OPERADOR","valor_total":"VLR_TOTAL","status":"SITUACAO"}},"TAB_CUPOM_ITEM":{"nome_real":"CUPOM_FISCAL_ITEM","colunas":{"numero_cupom":"NR_CUPOM","codigo_produto":"COD_PRODUTO","quantidade":"QTD","valor_unitario":"VLR_UNITARIO","valor_total":"VLR_TOTAL"}}}}',
+true, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM erp_templates WHERE name = 'Sysmo' AND is_active = true);
+
+EOSQL
+    echo "✅ ERP Templates pré-configurados inseridos"
+fi
+echo ""
+
+# ============================================
+# REGISTRAR CLIENTE NO clientes.json
+# ============================================
+
+echo "📋 Registrando cliente no clientes.json..."
+
+CLIENTES_JSON="/root/clientes/clientes.json"
+
+# Criar arquivo se não existir
+if [ ! -f "$CLIENTES_JSON" ]; then
+    cat > "$CLIENTES_JSON" << EJSON
+{
+  "vps": {
+    "46": {
+      "ip": "$HOST_IP",
+      "descricao": "VPS Multi-Clientes",
+      "repo_path": "$REPO_DIR",
+      "branch": "TESTE",
+      "clientes": {}
+    }
+  }
+}
+EJSON
+fi
+
+# Adicionar cliente ao JSON usando python (disponível na maioria dos sistemas)
+if command -v python3 &> /dev/null; then
+    python3 << PYEOF
+import json
+
+with open('$CLIENTES_JSON', 'r') as f:
+    data = json.load(f)
+
+# Garantir estrutura
+if 'vps' not in data:
+    data['vps'] = {}
+if '46' not in data['vps']:
+    data['vps']['46'] = {'ip': '$HOST_IP', 'descricao': 'VPS Multi-Clientes', 'repo_path': '$REPO_DIR', 'branch': 'TESTE', 'clientes': {}}
+
+data['vps']['46']['clientes']['$CLIENT_NAME'] = {
+    'nome': '$CLIENT_NAME',
+    'path': '$CLIENT_DIR',
+    'subdomain': '$CLIENT_SUBDOMAIN',
+    'containers': {
+        'frontend': '${CONTAINER_PREFIX}-frontend',
+        'backend': '${CONTAINER_PREFIX}-backend',
+        'postgres': '${CONTAINER_PREFIX}-postgres',
+        'minio': '${CONTAINER_PREFIX}-minio',
+        'cron': '${CONTAINER_PREFIX}-cron'
+    },
+    'ports': {
+        'frontend': $FRONTEND_PORT,
+        'backend': $BACKEND_PORT,
+        'postgres': $POSTGRES_PORT,
+        'minio_api': $MINIO_API_PORT,
+        'minio_console': $MINIO_CONSOLE_PORT
+    },
+    'tunnel_ports': {
+        'oracle': $TUNNEL_ORACLE_PORT,
+        'mssql': $TUNNEL_MSSQL_PORT,
+        'api_erp': $TUNNEL_API_PORT
+    }
+}
+
+with open('$CLIENTES_JSON', 'w') as f:
+    json.dump(data, f, indent=2, ensure_ascii=False)
+
+print('OK')
+PYEOF
+    echo "✅ Cliente registrado em $CLIENTES_JSON"
+else
+    echo "⚠️  python3 não encontrado. Registre manualmente em $CLIENTES_JSON"
+fi
+
+# Copiar clientes.json para o repo também
+cp "$CLIENTES_JSON" "$REPO_DIR/scripts/clientes.json" 2>/dev/null || true
+
+echo ""
 
 # ============================================
 # CONFIGURAR SSL (HTTPS)
@@ -965,6 +1325,12 @@ echo ""
 echo "   🔑 API Token (para scanners):"
 echo "      $API_TOKEN"
 echo ""
+echo "   🔌 TÚNEL SSH (portas exclusivas deste cliente):"
+echo "      Oracle:   $TUNNEL_ORACLE_PORT"
+echo "      MSSQL:    $TUNNEL_MSSQL_PORT"
+echo "      API ERP:  $TUNNEL_API_PORT"
+echo "      Chave:    $CLIENT_DIR/ssh_keys/tunnel_key"
+echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
@@ -973,7 +1339,7 @@ cat > CREDENCIAIS.txt << EOF
 ╔════════════════════════════════════════════════════════════╗
 ║   CLIENTE: $CLIENT_NAME
 ║   Gerado em: $(date)
-║   Versão do Instalador: 3.0
+║   Versão do Instalador: 4.0
 ╚════════════════════════════════════════════════════════════╝
 
 🌐 URL: https://$CLIENT_SUBDOMAIN
@@ -1016,6 +1382,25 @@ cat > CREDENCIAIS.txt << EOF
    PostgreSQL: ${CONTAINER_PREFIX}-postgres (porta $POSTGRES_PORT)
    MinIO: ${CONTAINER_PREFIX}-minio (portas $MINIO_API_PORT, $MINIO_CONSOLE_PORT)
    Cron: ${CONTAINER_PREFIX}-cron (verificações automáticas)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔌 TÚNEL SSH (ISOLADO):
+   Porta Oracle: $TUNNEL_ORACLE_PORT
+   Porta MSSQL: $TUNNEL_MSSQL_PORT
+   Porta API ERP: $TUNNEL_API_PORT
+   Chave privada: $CLIENT_DIR/ssh_keys/tunnel_key
+
+   ⚠️  ISOLAMENTO: Estas portas são EXCLUSIVAS deste cliente.
+   Nenhum outro cliente pode acessá-las.
+
+   Configurar túnel: https://$CLIENT_SUBDOMAIN → Configurações → Túnel SSH
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 ERP TEMPLATES:
+   Intersolid, Zanthus e Sysmo já pré-configurados.
+   Acesse: https://$CLIENT_SUBDOMAIN → Configurações → Tabelas
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

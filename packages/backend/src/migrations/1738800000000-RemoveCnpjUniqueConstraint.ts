@@ -2,6 +2,19 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class RemoveCnpjUniqueConstraint1738800000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Verificar se a tabela companies existe antes de tentar alterar
+    const tableExists = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_name = 'companies'
+      )
+    `);
+
+    if (!tableExists[0]?.exists) {
+      console.log('Tabela companies não existe ainda, pulando migration RemoveCnpjUniqueConstraint');
+      return;
+    }
+
     // Remove a constraint UNIQUE do campo CNPJ para permitir filiais com mesmo CNPJ
     // Primeiro, precisamos descobrir o nome da constraint
     const constraints = await queryRunner.query(`
