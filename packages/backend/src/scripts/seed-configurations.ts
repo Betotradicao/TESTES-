@@ -125,11 +125,11 @@ async function seedConfigurations() {
         description: 'IP Tailscale da máquina do cliente (onde roda o ERP)'
       },
 
-      // APIs PRÉ-CONFIGURADAS (Intersolid e Evolution)
+      // APIs - Configurar por cliente
       // Intersolid ERP
       {
         key: 'intersolid_api_url',
-        value: 'http://10.6.1.102',
+        value: '',
         description: 'URL da API Intersolid'
       },
       {
@@ -158,7 +158,7 @@ async function seedConfigurations() {
         description: 'Endpoint de vendas Intersolid'
       },
 
-      // Evolution API (WhatsApp) - PRÉ-CONFIGURADO
+      // Evolution API (WhatsApp) - pré-configurado
       {
         key: 'evolution_api_url',
         value: 'http://31.97.82.235:8090',
@@ -166,29 +166,29 @@ async function seedConfigurations() {
       },
       {
         key: 'evolution_api_token',
-        value: 'F0A82E6394D6-4D5A-845A-FC0413873588',
+        value: 'b82538417a3f581c1568a048d99c15dd:6c717d74fc7da06f30b785402b3839887258502dcd85800dd9824555d8baa517ce89bcff667ae0da56613c77d0e09bdd',
         description: 'Token de autenticação Evolution API'
       },
       {
         key: 'evolution_instance',
         value: '',
-        description: 'Nome da instância Evolution API'
+        description: 'Nome da instância Evolution API (configurar por cliente)'
       },
       {
         key: 'evolution_whatsapp_group_id',
         value: '',
-        description: 'ID do grupo WhatsApp para notificações'
+        description: 'ID do grupo WhatsApp para notificações (configurar por cliente)'
       },
 
-      // Email - Recuperação de Senha
+      // Email - Recuperação de Senha (pré-configurado)
       {
         key: 'email_user',
-        value: '',
+        value: 'betotradicao76@gmail.com',
         description: 'Email para envio (Gmail)'
       },
       {
         key: 'email_pass',
-        value: '',
+        value: 'fqojjjhztvganfya',
         description: 'Senha de app do Gmail'
       },
 
