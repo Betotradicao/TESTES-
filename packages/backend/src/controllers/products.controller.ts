@@ -50,7 +50,7 @@ export class ProductsController {
       MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social'),
       MappingService.getColumnFromTable('TAB_PRODUTO', 'pesavel'),
       MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'inativo')
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'inativo')
     ]);
     return {
       codigoCol, eanCol, descricaoCol, descReduzidaCol,
@@ -125,7 +125,7 @@ export class ProductsController {
       MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva'),
       MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra'),
       MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'inativo')
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'inativo')
     ]);
     return {
       plCodigoCol, custoRepCol, valorVendaCol, valorOfertaCol,
