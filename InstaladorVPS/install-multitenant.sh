@@ -1092,29 +1092,45 @@ echo "👤 Criando usuário master..."
 
 docker exec ${CONTAINER_PREFIX}-backend npm run create-master-user 2>&1 || echo "⚠️  Aviso: Erro ao criar usuário master (pode já existir)"
 
+# Garantir que a senha do master está correta (evita problemas de escaping do shell)
+echo "🔐 Verificando senha do usuário master..."
+docker exec ${CONTAINER_PREFIX}-backend node -e "
+const bcrypt = require('bcrypt');
+const { Client } = require('pg');
+const client = new Client({
+  host: '${CONTAINER_PREFIX}-postgres',
+  port: 5432,
+  user: '${POSTGRES_USER}',
+  password: '${POSTGRES_PASSWORD}',
+  database: '${POSTGRES_DB_NAME}'
+});
+(async () => {
+  try {
+    await client.connect();
+    const hash = await bcrypt.hash('Beto3107@@##', 10);
+    await client.query(\"UPDATE users SET password = '\" + hash + \"' WHERE username = 'Roberto'\");
+    const r = await client.query(\"SELECT username, length(password) as l FROM users WHERE username = 'Roberto'\");
+    if (r.rows[0] && r.rows[0].l === 60) {
+      console.log('OK - Senha do master verificada (' + r.rows[0].l + ' chars)');
+    } else {
+      console.log('WARN - Senha pode estar incorreta');
+    }
+    await client.end();
+  } catch(e) {
+    console.log('WARN - Erro ao verificar senha:', e.message);
+  }
+})();
+" 2>&1 || echo "⚠️  Aviso: Não foi possível verificar senha do master"
+
 echo "✅ Usuário master configurado"
 
 # ============================================
-# CRIAR EMPRESA PADRÃO E VINCULAR AO MASTER
+# EMPRESA SERA CRIADA VIA FIRST-SETUP
 # ============================================
-
+# A empresa e criada pelo usuario no primeiro acesso via /first-setup
+# Nao criar empresa padrao aqui para evitar duplicacao
 echo ""
-echo "🏢 Criando empresa padrão..."
-
-# Capitalizar nome do cliente para nome da empresa
-CLIENT_DISPLAY_NAME="$(echo "$CLIENT_NAME" | sed 's/./\U&/')"
-
-docker exec -i ${CONTAINER_PREFIX}-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB_NAME << EOSQL || true
--- Criar empresa padrão (se não existir)
-INSERT INTO companies (id, nome_fantasia, razao_social, cnpj, cod_loja, apelido, active, created_at, updated_at)
-SELECT gen_random_uuid(), '${CLIENT_DISPLAY_NAME}', '${CLIENT_DISPLAY_NAME}', '00000000000000', '1', '${CLIENT_DISPLAY_NAME}', true, NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM companies LIMIT 1);
-
--- Vincular todos os usuários sem empresa à primeira empresa
-UPDATE users SET company_id = (SELECT id FROM companies LIMIT 1) WHERE company_id IS NULL;
-EOSQL
-
-echo "✅ Empresa '${CLIENT_DISPLAY_NAME}' criada e vinculada"
+echo "ℹ️  Empresa sera configurada no primeiro acesso via /first-setup"
 
 # ============================================
 # CONFIGURAR TÚNEL SSH ISOLADO POR CLIENTE
