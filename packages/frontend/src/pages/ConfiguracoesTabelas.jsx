@@ -31,7 +31,6 @@ const TABLE_CATALOG = {
       { id: 'tipo_especie', name: 'Tipo Espécie', defaultTable: 'TAB_PRODUTO', defaultColumn: 'TIPO_ESPECIE' },
       { id: 'tipo_evento', name: 'Tipo Evento', defaultTable: 'TAB_PRODUTO', defaultColumn: 'TIPO_EVENTO' },
       { id: 'data_cadastro', name: 'Data Cadastro', defaultTable: 'TAB_PRODUTO', defaultColumn: 'DTA_CADASTRO' },
-      { id: 'inativo', name: 'Inativo', defaultTable: 'TAB_PRODUTO', defaultColumn: 'INATIVO' },
       { id: 'codigo_secao', name: 'Código Seção', defaultTable: 'TAB_PRODUTO', defaultColumn: 'COD_SECAO' },
       { id: 'descricao_secao', name: 'Descrição Seção', defaultTable: 'TAB_SECAO', defaultColumn: 'DES_SECAO' },
       { id: 'codigo_grupo', name: 'Código Grupo', defaultTable: 'TAB_PRODUTO', defaultColumn: 'COD_GRUPO' },
