@@ -31,9 +31,9 @@ export default function APIsTab() {
     },
     evolution: {
       apiUrl: 'http://31.97.82.235:8090',
-      apiToken: 'E73D57BB-5AEF-4560-87E6-966C933CE1DA',
-      instance: 'FACIAL_TRADICAO_L1',
-      whatsappGroupId: '120363422563235781@g.us'
+      apiToken: '',
+      instance: '',
+      whatsappGroupId: ''
     },
     database: {
       host: 'localhost',
@@ -93,9 +93,9 @@ export default function APIsTab() {
           },
           evolution: {
             apiUrl: configs.evolution_api_url || 'http://31.97.82.235:8090',
-            apiToken: configs.evolution_api_token || 'E73D57BB-5AEF-4560-87E6-966C933CE1DA',
-            instance: configs.evolution_instance || 'FACIAL_TRADICAO_L1',
-            whatsappGroupId: configs.evolution_whatsapp_group_id || '120363422563235781@g.us'
+            apiToken: configs.evolution_api_token || '',
+            instance: configs.evolution_instance || '',
+            whatsappGroupId: configs.evolution_whatsapp_group_id || ''
           },
           database: {
             host: configs.postgres_host || 'localhost',
