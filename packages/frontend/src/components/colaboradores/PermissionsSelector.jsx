@@ -170,6 +170,11 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
 
   // Mapear emojis para cada módulo
   const moduleEmojis = {
+    'gestao-inteligente': '🧠',
+    'estoque-margem': '📦',
+    'compra-venda': '📈',
+    'pedidos': '📋',
+    'ruptura-industria': '🏭',
     'bipagens': '🏷️',
     'pdv': '🛒',
     'facial': '👤',
@@ -178,8 +183,104 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
     'perdas': '📊',
     'producao': '🥖',
     'hortfrut': '🥬',
-    'estoque-margem': '📦',
-    'compra-venda': '📈'
+  };
+
+  // Separar módulos por seção
+  const gestaoModules = MENU_STRUCTURE.filter(m => m.section === 'gestao' && m.submenus.length > 0);
+  const prevencaoModules = MENU_STRUCTURE.filter(m => m.section === 'prevencao' && m.submenus.length > 0);
+
+  const renderModuleCard = (module) => {
+    const moduleEmoji = moduleEmojis[module.id] || '📦';
+    const hasAccess = hasAnyAccess(module.id);
+    const isFullAccess = hasFullAccess(module.id);
+    const isPartial = hasPartialAccess(module.id);
+
+    return (
+      <div
+        key={module.id}
+        className={`border-2 rounded-xl overflow-hidden transition-all duration-200 ${
+          hasAccess
+            ? 'border-orange-400 shadow-md'
+            : 'border-gray-200 hover:border-gray-300'
+        }`}
+      >
+        {/* CABEÇALHO DO MÓDULO - Destaque visual */}
+        <div className={`p-4 ${
+          hasAccess
+            ? 'bg-gradient-to-r from-orange-200 to-amber-100 border-b-2 border-orange-300'
+            : 'bg-gray-100 border-b border-gray-200'
+        }`}>
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              ref={(el) => moduleCheckboxRefs.current[module.id] = el}
+              id={`module-${module.id}`}
+              checked={hasAccess}
+              onChange={() => toggleModuleFullAccess(module.id, module)}
+              className="w-6 h-6 text-orange-500 border-2 border-gray-400 rounded focus:ring-2 focus:ring-orange-500 cursor-pointer"
+            />
+            <label
+              htmlFor={`module-${module.id}`}
+              className="ml-3 flex items-center gap-3 cursor-pointer select-none flex-1"
+            >
+              <span className="text-3xl">{moduleEmoji}</span>
+              <div className="flex-1">
+                <div className="text-base font-bold text-gray-900 uppercase tracking-wide">{module.title}</div>
+                <div className="text-xs text-gray-500 mt-0.5">{module.submenus.length} sub-menu(s)</div>
+                {isFullAccess && (
+                  <div className="inline-flex items-center gap-1 text-xs text-green-800 font-bold mt-1 bg-green-200 px-2 py-0.5 rounded-full">
+                    Acesso Total ao Módulo
+                  </div>
+                )}
+                {isPartial && (
+                  <div className="inline-flex items-center gap-1 text-xs text-orange-800 font-bold mt-1 bg-orange-200 px-2 py-0.5 rounded-full">
+                    Acesso Parcial
+                  </div>
+                )}
+              </div>
+            </label>
+          </div>
+        </div>
+
+        {/* SUB-MENUS do módulo */}
+        {module.submenus.length > 0 && (
+          <div className="p-4 bg-white">
+            <div className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7"/>
+              </svg>
+              <span>Sub-menus deste módulo:</span>
+            </div>
+            <div className="space-y-2 pl-3 border-l-2 border-orange-300 ml-1">
+              {module.submenus.map(submenu => (
+                <div
+                  key={submenu.id}
+                  className={`flex items-center p-2.5 rounded-lg transition-colors ${
+                    isSubmenuSelected(module.id, submenu.id)
+                      ? 'bg-orange-50 border border-orange-200'
+                      : 'bg-gray-50 hover:bg-gray-100 border border-transparent'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    id={`submenu-${module.id}-${submenu.id}`}
+                    checked={isSubmenuSelected(module.id, submenu.id)}
+                    onChange={() => toggleSubmenu(module.id, submenu.id, module)}
+                    className="w-4 h-4 text-orange-500 border-2 border-gray-300 rounded focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                  />
+                  <label
+                    htmlFor={`submenu-${module.id}-${submenu.id}`}
+                    className="ml-3 text-sm text-gray-700 cursor-pointer select-none flex-1 font-medium"
+                  >
+                    {submenu.title}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -195,93 +296,33 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
         </p>
       </div>
 
-      {MENU_STRUCTURE.filter(module => module.submenus.length > 0).map(module => {
-        const moduleEmoji = moduleEmojis[module.id] || '📦';
-        const hasAccess = hasAnyAccess(module.id);
-        const isFullAccess = hasFullAccess(module.id);
-        const isPartial = hasPartialAccess(module.id);
-
-        return (
-          <div
-            key={module.id}
-            className={`border-2 rounded-xl p-4 transition-all duration-200 ${
-              hasAccess
-                ? 'border-orange-300 bg-gradient-to-r from-orange-50 to-amber-50 shadow-sm'
-                : 'border-gray-200 bg-white hover:bg-gray-50'
-            }`}
-          >
-            {/* Header do Módulo */}
-            <div className="flex items-center mb-3">
-              <input
-                type="checkbox"
-                ref={(el) => moduleCheckboxRefs.current[module.id] = el}
-                id={`module-${module.id}`}
-                checked={hasAccess}
-                onChange={() => toggleModuleFullAccess(module.id, module)}
-                className="w-5 h-5 text-orange-500 border-2 border-gray-300 rounded focus:ring-2 focus:ring-orange-500 cursor-pointer"
-              />
-              <label
-                htmlFor={`module-${module.id}`}
-                className="ml-3 flex items-center gap-2 text-sm font-semibold cursor-pointer select-none flex-1"
-              >
-                <span className="text-2xl">{moduleEmoji}</span>
-                <div className="flex-1">
-                  <div className="text-gray-900">{module.title}</div>
-                  {isFullAccess && (
-                    <div className="flex items-center gap-1 text-xs text-green-700 font-medium mt-0.5">
-                      <span>✅</span>
-                      <span>Acesso Total ao Módulo</span>
-                    </div>
-                  )}
-                  {isPartial && (
-                    <div className="flex items-center gap-1 text-xs text-orange-700 font-medium mt-0.5">
-                      <span>⚡</span>
-                      <span>Acesso Parcial</span>
-                    </div>
-                  )}
-                </div>
-              </label>
+      {/* Seção GESTÃO NO RADAR */}
+      {gestaoModules.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 mt-2 mb-3">
+            <div className="w-6 h-6 bg-blue-600 rounded-md flex items-center justify-center">
+              <span className="text-white text-xs font-bold">G</span>
             </div>
-
-            {/* Sub-menus */}
-            {module.submenus.length > 0 && (
-              <div className="ml-9 space-y-2 mt-3 pl-4 border-l-2 border-orange-200">
-                <div className="flex items-center gap-1 text-xs font-semibold text-gray-600 mb-2">
-                  <span>📑</span>
-                  <span>Funcionalidades disponíveis:</span>
-                </div>
-                {module.submenus.map(submenu => (
-                  <div
-                    key={submenu.id}
-                    className={`flex items-center p-2 rounded-lg transition-colors ${
-                      isSubmenuSelected(module.id, submenu.id)
-                        ? 'bg-orange-100'
-                        : 'bg-white hover:bg-gray-50'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      id={`submenu-${module.id}-${submenu.id}`}
-                      checked={isSubmenuSelected(module.id, submenu.id)}
-                      onChange={() => toggleSubmenu(module.id, submenu.id, module)}
-                      className="w-4 h-4 text-orange-500 border-2 border-gray-300 rounded focus:ring-2 focus:ring-orange-500 cursor-pointer"
-                    />
-                    <label
-                      htmlFor={`submenu-${module.id}-${submenu.id}`}
-                      className="ml-3 text-sm text-gray-700 cursor-pointer select-none flex-1 font-medium"
-                    >
-                      {submenu.title}
-                    </label>
-                    {isSubmenuSelected(module.id, submenu.id) && (
-                      <span className="text-sm">✓</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            <h4 className="text-sm font-bold text-blue-800 uppercase tracking-wide">Gestão no Radar</h4>
+            <div className="flex-1 border-t border-blue-200"></div>
           </div>
-        );
-      })}
+          {gestaoModules.map(module => renderModuleCard(module))}
+        </>
+      )}
+
+      {/* Seção PREVENÇÃO NO RADAR */}
+      {prevencaoModules.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 mt-6 mb-3">
+            <div className="w-6 h-6 bg-orange-500 rounded-md flex items-center justify-center">
+              <span className="text-white text-xs font-bold">P</span>
+            </div>
+            <h4 className="text-sm font-bold text-orange-800 uppercase tracking-wide">Prevenção no Radar</h4>
+            <div className="flex-1 border-t border-orange-200"></div>
+          </div>
+          {prevencaoModules.map(module => renderModuleCard(module))}
+        </>
+      )}
 
       {/* Resumo modernizado */}
       <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl">

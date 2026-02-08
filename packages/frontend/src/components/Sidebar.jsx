@@ -172,6 +172,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       items: [
         {
           id: 'gestao-inteligente',
+          moduleId: 'gestao-inteligente',
           title: 'Gestão Inteligente',
           path: '/gestao-inteligente',
           icon: (
@@ -182,6 +183,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         },
         {
           id: 'gestao-estoque-margem',
+          moduleId: 'estoque-margem',
           title: 'Gestão Estoque e Margem',
           path: '/estoque-saude',
           icon: (
@@ -192,6 +194,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         },
         {
           id: 'gestao-compra-venda',
+          moduleId: 'compra-venda',
           title: 'Compra x Venda',
           path: '/compra-venda-analise',
           icon: (
@@ -202,6 +205,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         },
         {
           id: 'pedidos-lista',
+          moduleId: 'pedidos',
           title: 'Pedidos',
           path: '/prevencao-pedidos',
           icon: (
@@ -212,6 +216,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         },
         {
           id: 'ruptura-industria',
+          moduleId: 'ruptura-industria',
           title: 'Ruptura INDUSTRIA',
           path: '/ruptura-industria',
           icon: (
@@ -244,6 +249,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       items: [
         {
           id: 'dashboard',
+          moduleId: 'dashboard',
           title: 'Dashboard',
           path: '/dashboard',
           icon: (
@@ -254,6 +260,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         },
         {
           id: 'bipagens',
+          moduleId: 'bipagens',
           title: 'Prevenção de Bipagens',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -262,13 +269,14 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'bipagens', title: 'Bipagens', path: '/bipagens' },
-            { id: 'resultados-do-dia', title: 'Resultados do Dia', path: '/resultados-do-dia' },
-            { id: 'rankings', title: 'Rankings', path: '/rankings' }
+            { id: 'bipagens', submenuId: 'bipagens-ao-vivo', title: 'Bipagens', path: '/bipagens' },
+            { id: 'resultados-do-dia', submenuId: 'bipagens-resultados', title: 'Resultados do Dia', path: '/resultados-do-dia' },
+            { id: 'rankings', submenuId: 'bipagens-rankings', title: 'Rankings', path: '/rankings' }
           ]
         },
         {
           id: 'pdv',
+          moduleId: 'pdv',
           title: 'Prevenção PDV',
           path: '/frente-caixa',
           icon: (
@@ -279,6 +287,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         },
         {
           id: 'facial',
+          moduleId: 'facial',
           title: 'Prevenção Facial',
           path: '/reconhecimento-facial',
           icon: (
@@ -289,6 +298,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         },
         {
           id: 'ruptura',
+          moduleId: 'ruptura',
           title: 'Prevenção Rupturas',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -297,12 +307,13 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'ruptura-lancador', title: 'Lançar Auditoria', path: '/ruptura-lancador' },
-            { id: 'ruptura-auditorias', title: 'Resultados Auditorias', path: '/ruptura-auditorias' }
+            { id: 'ruptura-lancador', submenuId: 'ruptura-lancador', title: 'Lançar Auditoria', path: '/ruptura-lancador' },
+            { id: 'ruptura-auditorias', submenuId: 'ruptura-auditorias', title: 'Resultados Auditorias', path: '/ruptura-auditorias' }
           ]
         },
         {
           id: 'etiquetas',
+          moduleId: 'etiquetas',
           title: 'Prevenção Etiquetas',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -311,12 +322,13 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'etiquetas-lancador', title: 'Lançar Auditoria', path: '/etiquetas/lancar' },
-            { id: 'etiquetas-resultados', title: 'Resultados Auditorias', path: '/etiquetas/resultados' }
+            { id: 'etiquetas-lancador', submenuId: 'etiquetas-lancar', title: 'Lançar Auditoria', path: '/etiquetas/lancar' },
+            { id: 'etiquetas-resultados', submenuId: 'etiquetas-resultados', title: 'Resultados Auditorias', path: '/etiquetas/resultados' }
           ]
         },
         {
           id: 'perdas',
+          moduleId: 'perdas',
           title: 'Prevenção Quebras',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -325,12 +337,13 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'perdas-lancador', title: 'Lançar Quebras', path: '/perdas-lancador' },
-            { id: 'perdas-resultados', title: 'Resultados Quebras', path: '/perdas-resultados' }
+            { id: 'perdas-lancador', submenuId: 'perdas-lancador', title: 'Lançar Quebras', path: '/perdas-lancador' },
+            { id: 'perdas-resultados', submenuId: 'perdas-resultados', title: 'Resultados Quebras', path: '/perdas-resultados' }
           ]
         },
         {
           id: 'producao',
+          moduleId: 'producao',
           title: 'Prevenção Produção',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -339,13 +352,14 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'producao-lancador', title: 'Lançar Produção', path: '/producao-lancador' },
-            { id: 'producao-sugestao', title: 'Sugestão de Produção', path: '/producao-sugestao' },
-            { id: 'producao-resultados', title: 'Resultados', path: '/producao/resultados' }
+            { id: 'producao-lancador', submenuId: 'producao-lancador', title: 'Lançar Produção', path: '/producao-lancador' },
+            { id: 'producao-sugestao', submenuId: 'producao-sugestao', title: 'Sugestão de Produção', path: '/producao-sugestao' },
+            { id: 'producao-resultados', submenuId: 'producao-resultados', title: 'Resultados', path: '/producao/resultados' }
           ]
         },
         {
           id: 'hortfruti',
+          moduleId: 'hortfrut',
           title: 'Prevenção HortFruti',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -354,8 +368,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'hortfrut-lancador', title: 'Lançar HortFruti', path: '/hortfrut-lancador' },
-            { id: 'hortfrut-resultados', title: 'Resultados', path: '/hortfrut-resultados' }
+            { id: 'hortfrut-lancador', submenuId: 'hortfrut-lancador', title: 'Lançar HortFruti', path: '/hortfrut-lancador' },
+            { id: 'hortfrut-resultados', submenuId: 'hortfrut-resultados', title: 'Resultados', path: '/hortfrut-resultados' }
           ]
         }
       ]
@@ -504,21 +518,26 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             return false;
           }
 
-          // Verificar permissão no módulo (para employees)
-          if (user?.type === 'employee' && item.moduleId) {
-            return hasPermission(item.moduleId);
-          }
-
           return true;
         }).map((item) => {
           const moduleActive = item.moduleId ? isModuleActive(item.moduleId) : true;
 
-          // Filtrar sub-menus baseado em permissões
+          // Filtrar items baseado em permissões de módulo do colaborador
           const filteredItems = item.items ? item.items.filter(subitem => {
-            if (user?.type === 'employee' && item.moduleId && subitem.id) {
-              return hasPermission(item.moduleId, subitem.id);
+            // Verificar permissão do módulo para employees
+            if (user?.type === 'employee' && subitem.moduleId) {
+              return hasPermission(subitem.moduleId);
             }
             return true;
+          }).map(subitem => {
+            // Se tem subItems, filtrar baseado em permissões de submenu
+            if (subitem.subItems && user?.type === 'employee' && subitem.moduleId) {
+              const filteredSubItems = subitem.subItems.filter(subSubItem => {
+                return hasPermission(subitem.moduleId, subSubItem.submenuId || subSubItem.id);
+              });
+              return { ...subitem, subItems: filteredSubItems };
+            }
+            return subitem;
           }) : item.items;
 
           return <div key={item.id} className={isCollapsed ? 'mb-1' : 'mb-2'}>
