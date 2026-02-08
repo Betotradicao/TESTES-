@@ -262,7 +262,7 @@ export class DatabaseConnectionsController {
    */
   async testNewConnection(req: Request, res: Response) {
     try {
-      const { type, host, port, service, database, username, password, schema } = req.body;
+      const { type, host, host_vps, port, service, database, username, password, schema } = req.body;
 
       if (!type || !host || !port || !username || !password) {
         return res.status(400).json({
@@ -276,6 +276,7 @@ export class DatabaseConnectionsController {
       const tempConnection = {
         type,
         host,
+        host_vps: host_vps || 'host.docker.internal',
         port: parseInt(port),
         service,
         database,
@@ -994,9 +995,14 @@ export class DatabaseConnectionsController {
       const isVps = process.env.NODE_ENV === 'production' || process.env.DOCKER_CONTAINER === 'true';
       // Usa host_vps quando na VPS, senão usa host local
       const hostToUse = isVps && conn.host_vps ? conn.host_vps : conn.host;
-      const connectString = `${hostToUse}:${conn.port}/${conn.service || 'orcl'}`;
+      // Na VPS, usa a porta do túnel SSH ao invés da porta local do Oracle
+      let portToUse = conn.port;
+      if (isVps && process.env.TUNNEL_ORACLE_PORT) {
+        portToUse = parseInt(process.env.TUNNEL_ORACLE_PORT);
+      }
+      const connectString = `${hostToUse}:${portToUse}/${conn.service || 'orcl'}`;
 
-      console.log(`🔌 Connecting to Oracle: ${connectString} (ambiente: ${isVps ? 'VPS' : 'Local'})`);
+      console.log(`🔌 Connecting to Oracle: ${connectString} (ambiente: ${isVps ? 'VPS' : 'Local'}, porta original: ${conn.port})`);
 
       // Inicializa Thick Mode se necessário
       try {

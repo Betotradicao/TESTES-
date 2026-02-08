@@ -2164,6 +2164,7 @@ export default function ConfiguracoesTabelas() {
         const response = await api.post('/database-connections/test-new', {
           type: formData.type,
           host: formData.host,
+          host_vps: formData.host_vps,
           port: formData.port,
           service: formData.service || formData.database,
           database: formData.database,
