@@ -18,6 +18,34 @@ import * as net from 'net';
 export class TunnelInstallerController {
 
   /**
+   * GET /api/tunnel-installer/defaults
+   * Retorna configurações padrão do túnel (portas e IP da VPS)
+   * para pré-preencher o formulário de configuração
+   */
+  async getDefaults(req: Request, res: Response) {
+    try {
+      const tunnelOraclePort = process.env.TUNNEL_ORACLE_PORT || '';
+      const tunnelMssqlPort = process.env.TUNNEL_MSSQL_PORT || '';
+      const tunnelApiPort = process.env.TUNNEL_API_PORT || '';
+      const hostIp = process.env.HOST_IP || '';
+
+      return res.json({
+        success: true,
+        defaults: {
+          vpsIp: hostIp,
+          tunnelPorts: {
+            oracle: tunnelOraclePort,
+            mssql: tunnelMssqlPort,
+            apiErp: tunnelApiPort
+          }
+        }
+      });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
    * GET /api/tunnel-installer/info
    * Retorna informações sobre o instalador de túnel
    */

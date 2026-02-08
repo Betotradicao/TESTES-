@@ -489,10 +489,11 @@ export default function ConfiguracoesTabelas() {
     }
   }, [autoTestPending, selectedConnection, activeTab]);
 
-  // Carregar status dos túneis quando abre a aba tunnel
+  // Carregar status dos túneis e defaults quando abre a aba tunnel
   useEffect(() => {
     if (activeTab === 'tunnel') {
       loadTunnelStatus();
+      loadTunnelDefaults();
     }
   }, [activeTab]);
 
@@ -1013,6 +1014,32 @@ export default function ConfiguracoesTabelas() {
       console.error('Erro ao carregar status dos túneis:', error);
     } finally {
       setLoadingTunnelStatus(false);
+    }
+  };
+
+  // Carregar defaults (portas de túnel e IP da VPS) para pré-preencher
+  const loadTunnelDefaults = async () => {
+    try {
+      const response = await api.get('/tunnel-installer/defaults');
+      if (response.data?.success) {
+        const { vpsIp, tunnelPorts } = response.data.defaults;
+        setTunnelConfig(prev => {
+          // Só preencher se estiver vazio (não sobrescrever dados do usuário)
+          const newConfig = { ...prev };
+          if (!prev.vpsIp && vpsIp) {
+            newConfig.vpsIp = vpsIp;
+          }
+          // Pré-preencher túnel Oracle se o primeiro túnel estiver vazio
+          if (prev.tunnels.length === 1 && !prev.tunnels[0].name && tunnelPorts.oracle) {
+            newConfig.tunnels = [
+              { name: 'ORACLE', localIp: '', localPort: '1521', remotePort: tunnelPorts.oracle }
+            ];
+          }
+          return newConfig;
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar defaults do túnel:', error);
     }
   };
 

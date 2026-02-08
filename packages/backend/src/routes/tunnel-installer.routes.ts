@@ -5,6 +5,9 @@ import { authenticateToken } from '../middleware/auth';
 const router: IRouter = Router();
 const controller = new TunnelInstallerController();
 
+// Defaults (portas de túnel e IP da VPS) para pré-preencher formulário
+router.get('/defaults', authenticateToken, controller.getDefaults.bind(controller));
+
 // Informações sobre o instalador (requer autenticação)
 router.get('/info', authenticateToken, controller.getInfo.bind(controller));
 
