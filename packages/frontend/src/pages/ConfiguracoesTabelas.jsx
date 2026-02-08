@@ -594,14 +594,25 @@ export default function ConfiguracoesTabelas() {
 
         setTableMappings(mergedMappings);
 
-        // Marcar submódulos como salvos baseado nas tabelas preenchidas
+        // Marcar submódulos como salvos somente se TODAS as colunas estão preenchidas
         const newSaved = { ...getAllSubmodules() };
         BUSINESS_MODULES.forEach(mod => {
           mod.submodules.forEach(sub => {
-            const allTablesHaveData = sub.tables.every(tableId =>
-              savedMappings[tableId]?.nome_real
-            );
-            newSaved[`${mod.id}.${sub.id}`] = allTablesHaveData;
+            let allFilled = true;
+            for (const tableId of sub.tables) {
+              const tableConfig = TABLE_CATALOG[tableId];
+              if (!tableConfig) continue;
+              const tblMapping = mergedMappings[tableId] || savedMappings[tableId];
+              if (!tblMapping?.nome_real) { allFilled = false; break; }
+              for (const field of tableConfig.fields) {
+                if (!tblMapping?.colunas?.[field.id] || String(tblMapping.colunas[field.id]).trim() === '') {
+                  allFilled = false;
+                  break;
+                }
+              }
+              if (!allFilled) break;
+            }
+            newSaved[`${mod.id}.${sub.id}`] = allFilled;
           });
         });
         setSavedSubmodules(newSaved);
