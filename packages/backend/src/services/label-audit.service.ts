@@ -824,9 +824,9 @@ export class LabelAuditService {
 
       // Obter schema e nomes de tabelas dinamicamente via MappingService
       const schema = await MappingService.getSchema();
-      const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
-      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
-      const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+      const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+      const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO')}`;
 
       // Converter formato YYYY-MM-DD para DD/MM/YYYY (formato Oracle)
       const formatDateForOracle = (dateStr: string): string => {
@@ -845,13 +845,13 @@ export class LabelAuditService {
       const params = { dataInicio: dataInicioOracle, dataFim: dataFimOracle };
 
       // Resolver colunas via MappingService
-      const colValDesconto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_desconto', 'VAL_DESCONTO');
-      const colDtaVendaPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda', 'DTA_SAIDA');
-      const colCodProdutoPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto', 'COD_PRODUTO');
-      const colCodProdutoP = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
-      const colCodSecaoP = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao', 'COD_SECAO');
-      const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
-      const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
+      const colValDesconto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_desconto');
+      const colDtaVendaPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda');
+      const colCodProdutoPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto');
+      const colCodProdutoP = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const colCodSecaoP = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
+      const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
+      const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
 
       // Query para total de descontos (IGUAL ao Frente de Caixa - getTotais)
       const sqlTotal = `

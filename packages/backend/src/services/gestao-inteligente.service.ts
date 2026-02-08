@@ -128,30 +128,30 @@ export class GestaoInteligenteService {
   }> {
     // Obter schema e nomes reais das tabelas via MappingService
     const schema = await MappingService.getSchema();
-    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
-    const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA', 'TAB_CUPOM_FINALIZADORA')}`;
-    const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_NOTA_FISCAL', 'TAB_FORNECEDOR_NOTA')}`;
-    const tabFornecedorProduto = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_PRODUTO', 'TAB_FORNECEDOR_PRODUTO')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA')}`;
+    const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_NOTA_FISCAL')}`;
+    const tabFornecedorProduto = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_PRODUTO')}`;
 
     // Resolver colunas via MappingService
-    const colValTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total', 'VAL_TOTAL_PRODUTO');
-    const colValCustoRep = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao', 'VAL_CUSTO_REP');
-    const colQtdTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade', 'QTD_TOTAL_PRODUTO');
-    const colFlgOferta = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'flag_oferta', 'FLG_OFERTA');
-    const colCodProdutoPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto', 'COD_PRODUTO');
-    const colDtaSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda', 'DTA_SAIDA');
-    const colCodLojaPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_loja', 'COD_LOJA');
-    const colNumCupomCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'numero_cupom', 'NUM_CUPOM_FISCAL');
-    const colDtaVendaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'data_venda', 'DTA_VENDA');
-    const colCodTipoCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_tipo', 'COD_TIPO');
-    const colCodLojaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_loja', 'COD_LOJA');
-    const colDtaEntradaNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada', 'DTA_ENTRADA');
-    const colFlgCanceladoNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado', 'FLG_CANCELADO');
-    const colCodLojaNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_loja', 'COD_LOJA');
-    const colCodFornecedorNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor', 'COD_FORNECEDOR');
-    const colNumNfForn = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf', 'NUM_NF_FORN');
-    const colQtdEntradaNi = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'quantidade_entrada', 'QTD_ENTRADA');
-    const colValTabelaNi = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'valor_tabela', 'VAL_TABELA');
+    const colValTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total');
+    const colValCustoRep = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao');
+    const colQtdTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade');
+    const colFlgOferta = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'flag_oferta');
+    const colCodProdutoPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto');
+    const colDtaSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda');
+    const colCodLojaPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_loja');
+    const colNumCupomCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'numero_cupom');
+    const colDtaVendaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'data_venda');
+    const colCodTipoCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_tipo');
+    const colCodLojaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_loja');
+    const colDtaEntradaNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada');
+    const colFlgCanceladoNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado');
+    const colCodLojaNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_loja');
+    const colCodFornecedorNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor');
+    const colNumNfForn = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf');
+    const colQtdEntradaNi = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'quantidade_entrada');
+    const colValTabelaNi = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'valor_tabela');
 
     let vendasQuery = `
       SELECT
@@ -344,9 +344,9 @@ export class GestaoInteligenteService {
 
     // Obter schema e nomes reais das tabelas via MappingService
     const schema = await MappingService.getSchema();
-    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
-    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
-    const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO')}`;
 
     let sql = `
       SELECT
@@ -415,9 +415,9 @@ export class GestaoInteligenteService {
 
     // Obter schema e nomes reais das tabelas via MappingService
     const schema = await MappingService.getSchema();
-    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
-    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
-    const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO')}`;
 
     // Buscar grupos que pertencem diretamente à seção (via TAB_GRUPO.COD_SECAO)
     // E que tiveram vendas no período
@@ -485,9 +485,9 @@ export class GestaoInteligenteService {
 
     // Obter schema e nomes reais das tabelas via MappingService
     const schema = await MappingService.getSchema();
-    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
-    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
-    const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO')}`;
 
     // Buscar subgrupos através dos produtos que pertencem ao grupo
     // IMPORTANTE: Colunas são COD_SUB_GRUPO e DES_SUB_GRUPO (com underscore)
@@ -553,8 +553,8 @@ export class GestaoInteligenteService {
 
     // Obter schema e nomes reais das tabelas via MappingService
     const schema = await MappingService.getSchema();
-    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
-    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
 
     // Buscar produtos que pertencem ao subgrupo, grupo e seção corretos
     // IMPORTANTE: Coluna é COD_SUB_GRUPO (com underscore)
@@ -622,7 +622,7 @@ export class GestaoInteligenteService {
     try {
       // Obter schema e nome real da tabela via MappingService
       const schema = await MappingService.getSchema();
-      const tabLoja = `${schema}.${await MappingService.getRealTableName('TAB_LOJA', 'TAB_LOJA')}`;
+      const tabLoja = `${schema}.${await MappingService.getRealTableName('TAB_LOJA')}`;
 
       const sql = `
         SELECT COD_LOJA, DES_LOJA

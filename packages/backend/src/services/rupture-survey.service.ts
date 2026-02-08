@@ -25,19 +25,19 @@ export class RuptureSurveyService {
   static async getPedidoInfoFromOracle(codigoProduto: string): Promise<PedidoInfo | null> {
     try {
       const schema = await MappingService.getSchema();
-      const tabPedidoProduto = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO', 'TAB_PEDIDO_PRODUTO')}`;
-      const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO', 'TAB_PEDIDO')}`;
+      const tabPedidoProduto = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO')}`;
+      const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO')}`;
 
       // Resolver colunas via MappingService
-      const colNumPedido = await MappingService.getColumnFromTable('TAB_PEDIDO', 'numero_pedido', 'NUM_PEDIDO');
-      const colDtaEntrega = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_entrega', 'DTA_ENTREGA');
-      const colTipoReceb = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_recebimento', 'TIPO_RECEBIMENTO');
-      const colTipoFinaliz = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_finalizado', 'TIPO_PED_FINALIZADO');
-      const colFlgCancel = await MappingService.getColumnFromTable('TAB_PEDIDO', 'flag_cancelado', 'FLG_CANCELADO');
-      const colTipoParceiro = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro', 'TIPO_PARCEIRO');
-      const colDtaEmissao = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_emissao', 'DTA_EMISSAO');
-      const colCodProdutoPp = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
-      const colNumPedidoPp = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'numero_pedido', 'NUM_PEDIDO');
+      const colNumPedido = await MappingService.getColumnFromTable('TAB_PEDIDO', 'numero_pedido');
+      const colDtaEntrega = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_entrega');
+      const colTipoReceb = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_recebimento');
+      const colTipoFinaliz = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_finalizado');
+      const colFlgCancel = await MappingService.getColumnFromTable('TAB_PEDIDO', 'flag_cancelado');
+      const colTipoParceiro = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro');
+      const colDtaEmissao = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_emissao');
+      const colCodProdutoPp = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'codigo_produto');
+      const colNumPedidoPp = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'numero_pedido');
 
       const result = await OracleService.query<any>(`
         SELECT
@@ -119,19 +119,19 @@ export class RuptureSurveyService {
       // TIPO_PED_FINALIZADO = -1 significa "Em Aberto"
       // TIPO_RECEBIMENTO < 2 significa "Pendente (0) ou Parcial (1)", não "Recebido (2)"
       const schema = await MappingService.getSchema();
-      const tabPedidoProduto = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO', 'TAB_PEDIDO_PRODUTO')}`;
-      const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO', 'TAB_PEDIDO')}`;
+      const tabPedidoProduto = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO')}`;
+      const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO')}`;
 
       // Resolver colunas via MappingService
-      const colCodProdutoPp = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
-      const colNumPedidoPp = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'numero_pedido', 'NUM_PEDIDO');
-      const colNumPedido = await MappingService.getColumnFromTable('TAB_PEDIDO', 'numero_pedido', 'NUM_PEDIDO');
-      const colDtaEntrega = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_entrega', 'DTA_ENTREGA');
-      const colTipoReceb = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_recebimento', 'TIPO_RECEBIMENTO');
-      const colTipoFinaliz = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_finalizado', 'TIPO_PED_FINALIZADO');
-      const colFlgCancel = await MappingService.getColumnFromTable('TAB_PEDIDO', 'flag_cancelado', 'FLG_CANCELADO');
-      const colTipoParceiro = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro', 'TIPO_PARCEIRO');
-      const colDtaEmissao = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_emissao', 'DTA_EMISSAO');
+      const colCodProdutoPp = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'codigo_produto');
+      const colNumPedidoPp = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'numero_pedido');
+      const colNumPedido = await MappingService.getColumnFromTable('TAB_PEDIDO', 'numero_pedido');
+      const colDtaEntrega = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_entrega');
+      const colTipoReceb = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_recebimento');
+      const colTipoFinaliz = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_finalizado');
+      const colFlgCancel = await MappingService.getColumnFromTable('TAB_PEDIDO', 'flag_cancelado');
+      const colTipoParceiro = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro');
+      const colDtaEmissao = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_emissao');
 
       const result = await OracleService.query<any>(`
         SELECT

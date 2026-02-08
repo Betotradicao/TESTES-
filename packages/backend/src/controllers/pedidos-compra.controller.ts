@@ -35,40 +35,40 @@ export class PedidosCompraController {
 
       // Busca schema e nomes de tabelas dinâmicos
       const schema = await MappingService.getSchema();
-      const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO', 'TAB_PEDIDO')}`;
-      const tabPedidoProduto = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO', 'TAB_PEDIDO_PRODUTO')}`;
-      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')}`;
-      const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA', 'TAB_FORNECEDOR_NOTA')}`;
+      const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO')}`;
+      const tabPedidoProduto = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO')}`;
+      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
+      const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA')}`;
 
       // Busca mapeamentos dinâmicos para campos de notas fiscais
-      const numeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf', 'NUM_NF_FORN');
-      const dataEntradaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada', 'DTA_ENTRADA');
-      const codFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor', 'COD_FORNECEDOR');
-      const valorTotalCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'valor_total', 'VAL_TOTAL_NF');
-      const nfFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado', 'FLG_CANCELADO');
+      const numeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf');
+      const dataEntradaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada');
+      const codFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor');
+      const valorTotalCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'valor_total');
+      const nfFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado');
 
       // Busca mapeamentos dinâmicos para campos de fornecedores
-      const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
-      const fornRazaoSocialCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR');
-      const fornCnpjCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cnpj', 'NUM_CGC');
-      const fornTelefoneCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'telefone', 'NUM_FONE');
+      const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
+      const fornRazaoSocialCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social');
+      const fornCnpjCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cnpj');
+      const fornTelefoneCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'telefone');
 
       // Busca mapeamentos dinâmicos para campos de pedidos
-      const pedNumPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'numero_pedido', 'NUM_PEDIDO');
-      const pedCodParceiroCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_fornecedor', 'COD_PARCEIRO');
-      const pedDtaEmissaoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_emissao', 'DTA_EMISSAO');
-      const pedDtaEntregaCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_entrega', 'DTA_ENTREGA');
-      const pedTipoRecebimentoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_recebimento', 'TIPO_RECEBIMENTO');
-      const pedTipoParceiroCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro', 'TIPO_PARCEIRO');
-      const pedValPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'valor_pedido', 'VAL_PEDIDO');
-      const pedFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'flag_cancelado', 'FLG_CANCELADO');
-      const pedCodLojaCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_loja', 'COD_LOJA');
+      const pedNumPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'numero_pedido');
+      const pedCodParceiroCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_fornecedor');
+      const pedDtaEmissaoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_emissao');
+      const pedDtaEntregaCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_entrega');
+      const pedTipoRecebimentoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_recebimento');
+      const pedTipoParceiroCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro');
+      const pedValPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'valor_pedido');
+      const pedFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'flag_cancelado');
+      const pedCodLojaCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_loja');
 
       // Busca mapeamentos dinâmicos para campos de pedido_produto
-      const ppNumPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'numero_pedido', 'NUM_PEDIDO');
-      const ppQtdPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_pedida', 'QTD_PEDIDO');
-      const ppQtdRecebidaCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_recebida', 'QTD_RECEBIDA');
-      const ppValTabelaCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'valor_tabela', 'VAL_TABELA');
+      const ppNumPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'numero_pedido');
+      const ppQtdPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_pedida');
+      const ppQtdRecebidaCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_recebida');
+      const ppValTabelaCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'valor_tabela');
 
       // Construir condições WHERE
       const conditions: string[] = [`p.${pedTipoParceiroCol} = 1`]; // Apenas pedidos de compra (fornecedor)
@@ -385,23 +385,23 @@ export class PedidosCompraController {
 
       // Busca schema e nomes de tabelas dinâmicos
       const schema = await MappingService.getSchema();
-      const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO', 'TAB_PEDIDO')}`;
-      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')}`;
+      const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO')}`;
+      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
 
       // Busca mapeamentos dinâmicos para campos de fornecedores
-      const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
-      const fornRazaoSocialCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR');
-      const fornCnpjCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cnpj', 'NUM_CGC');
+      const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
+      const fornRazaoSocialCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social');
+      const fornCnpjCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cnpj');
 
       // Busca mapeamentos dinâmicos para campos de pedidos
-      const pedNumPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'numero_pedido', 'NUM_PEDIDO');
-      const pedCodParceiroCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_fornecedor', 'COD_PARCEIRO');
-      const pedDtaEmissaoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_emissao', 'DTA_EMISSAO');
-      const pedDtaEntregaCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_entrega', 'DTA_ENTREGA');
-      const pedTipoRecebimentoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_recebimento', 'TIPO_RECEBIMENTO');
-      const pedValPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'valor_pedido', 'VAL_PEDIDO');
-      const pedFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'flag_cancelado', 'FLG_CANCELADO');
-      const pedCodLojaCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_loja', 'COD_LOJA');
+      const pedNumPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'numero_pedido');
+      const pedCodParceiroCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_fornecedor');
+      const pedDtaEmissaoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_emissao');
+      const pedDtaEntregaCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_entrega');
+      const pedTipoRecebimentoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_recebimento');
+      const pedValPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'valor_pedido');
+      const pedFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'flag_cancelado');
+      const pedCodLojaCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_loja');
 
       const query = `
         SELECT
@@ -453,10 +453,10 @@ export class PedidosCompraController {
     try {
       // Busca schema e nomes de tabelas dinâmicos
       const schema = await MappingService.getSchema();
-      const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO', 'TAB_PEDIDO')}`;
+      const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO')}`;
 
       // Busca mapeamentos dinâmicos para campos de pedidos
-      const pedTipoParceiroCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro', 'TIPO_PARCEIRO');
+      const pedTipoParceiroCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro');
 
       const query = `
         SELECT DISTINCT USUARIO
@@ -498,25 +498,25 @@ export class PedidosCompraController {
 
       // Busca schema e nomes de tabelas dinâmicos
       const schema = await MappingService.getSchema();
-      const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA', 'TAB_FORNECEDOR_NOTA')}`;
-      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')}`;
-      const tabClassificacao = `${schema}.${await MappingService.getRealTableName('TAB_CLASSIFICACAO', 'TAB_CLASSIFICACAO')}`;
+      const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA')}`;
+      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
+      const tabClassificacao = `${schema}.${await MappingService.getRealTableName('TAB_CLASSIFICACAO')}`;
 
       // Busca mapeamentos dinâmicos para campos de notas fiscais
-      const numeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf', 'NUM_NF_FORN');
-      const serieCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'serie', 'NUM_SERIE_NF');
-      const dataEntradaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada', 'DTA_ENTRADA');
-      const codFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor', 'COD_FORNECEDOR');
-      const valorTotalCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'valor_total', 'VAL_TOTAL_NF');
-      const chaveAcessoCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'chave_acesso', 'NUM_CHAVE_ACESSO');
-      const nfFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado', 'FLG_CANCELADO');
-      const nfCodLojaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_loja', 'COD_LOJA');
+      const numeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf');
+      const serieCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'serie');
+      const dataEntradaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada');
+      const codFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor');
+      const valorTotalCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'valor_total');
+      const chaveAcessoCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'chave_acesso');
+      const nfFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado');
+      const nfCodLojaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_loja');
 
       // Busca mapeamentos dinâmicos para campos de fornecedores
-      const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
-      const fornFantasiaCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'nome_fantasia', 'DES_FANTASIA');
-      const fornCnpjCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cnpj', 'NUM_CGC');
-      const fornTelefoneCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'telefone', 'NUM_FONE');
+      const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
+      const fornFantasiaCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'nome_fantasia');
+      const fornCnpjCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cnpj');
+      const fornTelefoneCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'telefone');
 
       console.log(`📋 [MAPEAMENTO NF] Usando colunas: ${numeroNfCol}, ${serieCol}, ${dataEntradaCol}, ${codFornecedorCol}, ${valorTotalCol}, ${chaveAcessoCol}`);
       console.log(`📋 [MAPEAMENTO FORN] Usando colunas: ${fornCodigoCol}, ${fornFantasiaCol}, ${fornCnpjCol}, ${fornTelefoneCol}`);
@@ -646,23 +646,23 @@ export class PedidosCompraController {
 
       // Busca schema e nomes de tabelas dinâmicos
       const schema = await MappingService.getSchema();
-      const tabFornecedorProduto = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_PRODUTO', 'TAB_FORNECEDOR_PRODUTO')}`;
-      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
-      const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
+      const tabFornecedorProduto = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_PRODUTO')}`;
+      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+      const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
 
       // Busca mapeamentos dinâmicos para campos de produtos
-      const prCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
-      const prDesProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
-      const prDesReduzidaCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_reduzida', 'DES_REDUZIDA');
+      const prCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const prDesProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+      const prDesReduzidaCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_reduzida');
 
       // Busca mapeamentos dinâmicos para campos de produto_loja
-      const plCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
-      const plCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
-      const plCurvaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA');
+      const plCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
+      const plCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
+      const plCurvaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva');
 
       // Busca mapeamentos dinâmicos para campos de nota fiscal
-      const nfNumeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf', 'NUM_NF_FORN');
-      const nfCodFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor', 'COD_FORNECEDOR');
+      const nfNumeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf');
+      const nfCodFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor');
 
       const query = `
         SELECT
@@ -711,31 +711,31 @@ export class PedidosCompraController {
 
       // Busca schema e nomes de tabelas dinâmicos
       const schema = await MappingService.getSchema();
-      const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO', 'TAB_PEDIDO')}`;
-      const tabPedidoProduto = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO', 'TAB_PEDIDO_PRODUTO')}`;
-      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
-      const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
+      const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO')}`;
+      const tabPedidoProduto = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO')}`;
+      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+      const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
 
       // Busca mapeamentos dinâmicos para campos de pedidos
-      const pedNumPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'numero_pedido', 'NUM_PEDIDO');
-      const pedCodLojaCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_loja', 'COD_LOJA');
+      const pedNumPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'numero_pedido');
+      const pedCodLojaCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_loja');
 
       // Busca mapeamentos dinâmicos para campos de pedido_produto
-      const ppNumPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'numero_pedido', 'NUM_PEDIDO');
-      const ppCodProdutoCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
-      const ppQtdPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_pedida', 'QTD_PEDIDO');
-      const ppQtdRecebidaCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_recebida', 'QTD_RECEBIDA');
-      const ppValTabelaCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'valor_tabela', 'VAL_TABELA');
+      const ppNumPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'numero_pedido');
+      const ppCodProdutoCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'codigo_produto');
+      const ppQtdPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_pedida');
+      const ppQtdRecebidaCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_recebida');
+      const ppValTabelaCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'valor_tabela');
 
       // Busca mapeamentos dinâmicos para campos de produtos
-      const prCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
-      const prDesProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
-      const prDesReduzidaCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_reduzida', 'DES_REDUZIDA');
+      const prCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const prDesProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+      const prDesReduzidaCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_reduzida');
 
       // Busca mapeamentos dinâmicos para campos de produto_loja
-      const plCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
-      const plCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
-      const plCurvaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA');
+      const plCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
+      const plCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
+      const plCurvaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva');
 
       let filtroCondition = '';
       if (filtroItens === 'apenasRecebidos') {
@@ -791,19 +791,19 @@ export class PedidosCompraController {
     try {
       // Busca schema e nomes de tabelas dinâmicos
       const schema = await MappingService.getSchema();
-      const tabClassificacao = `${schema}.${await MappingService.getRealTableName('TAB_CLASSIFICACAO', 'TAB_CLASSIFICACAO')}`;
-      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')}`;
-      const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA', 'TAB_FORNECEDOR_NOTA')}`;
+      const tabClassificacao = `${schema}.${await MappingService.getRealTableName('TAB_CLASSIFICACAO')}`;
+      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
+      const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA')}`;
 
       // Busca mapeamentos dinâmicos para campos de notas fiscais
-      const numeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf', 'NUM_NF_FORN');
-      const dataEntradaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada', 'DTA_ENTRADA');
-      const codFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor', 'COD_FORNECEDOR');
-      const valorTotalCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'valor_total', 'VAL_TOTAL_NF');
-      const nfFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado', 'FLG_CANCELADO');
+      const numeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf');
+      const dataEntradaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada');
+      const codFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor');
+      const valorTotalCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'valor_total');
+      const nfFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado');
 
       // Busca mapeamentos dinâmicos para campos de fornecedores
-      const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
+      const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
 
       // Query para buscar classificações com contagem de NFs sem pedido (últimos 30 dias)
       const query = `
@@ -865,18 +865,18 @@ export class PedidosCompraController {
     try {
       // Busca schema e nomes de tabelas dinâmicos
       const schema = await MappingService.getSchema();
-      const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA', 'TAB_FORNECEDOR_NOTA')}`;
-      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')}`;
+      const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA')}`;
+      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
 
       // Busca mapeamentos dinâmicos para campos de notas fiscais
-      const numeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf', 'NUM_NF_FORN');
-      const dataEntradaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada', 'DTA_ENTRADA');
-      const codFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor', 'COD_FORNECEDOR');
-      const valorTotalCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'valor_total', 'VAL_TOTAL_NF');
-      const nfFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado', 'FLG_CANCELADO');
+      const numeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf');
+      const dataEntradaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada');
+      const codFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor');
+      const valorTotalCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'valor_total');
+      const nfFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado');
 
       // Busca mapeamentos dinâmicos para campos de fornecedores
-      const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
+      const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
 
       // Query para buscar contatos com totais de NFs sem pedido (últimos 30 dias)
       const query = `
@@ -920,22 +920,22 @@ export class PedidosCompraController {
 
       // Busca schema e nomes de tabelas dinâmicos
       const schema = await MappingService.getSchema();
-      const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA', 'TAB_FORNECEDOR_NOTA')}`;
-      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')}`;
-      const tabComprador = `${schema}.${await MappingService.getRealTableName('TAB_COMPRADOR', 'TAB_COMPRADOR')}`;
+      const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA')}`;
+      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
+      const tabComprador = `${schema}.${await MappingService.getRealTableName('TAB_COMPRADOR')}`;
 
       // Busca mapeamentos dinâmicos para campos de notas fiscais
-      const nfNumeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf', 'NUM_NF_FORN');
-      const nfSerieCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'serie', 'NUM_SERIE_NF');
-      const nfDataEntradaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada', 'DTA_ENTRADA');
-      const nfCodFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor', 'COD_FORNECEDOR');
-      const nfValorTotalCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'valor_total', 'VAL_TOTAL_NF');
-      const nfCodLojaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_loja', 'COD_LOJA');
+      const nfNumeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf');
+      const nfSerieCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'serie');
+      const nfDataEntradaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada');
+      const nfCodFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor');
+      const nfValorTotalCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'valor_total');
+      const nfCodLojaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_loja');
 
       // Busca mapeamentos dinâmicos para campos de fornecedores
-      const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
-      const fornRazaoSocialCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR');
-      const fornCnpjCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cnpj', 'NUM_CGC');
+      const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
+      const fornRazaoSocialCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social');
+      const fornCnpjCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cnpj');
 
       // Condição base: NF com bloqueio pendente = tem flag de bloqueio ativo E não tem autorizador/liberador
       // Uma NF só aparece se tiver pelo menos um bloqueio PENDENTE de liberação
@@ -1091,22 +1091,22 @@ export class PedidosCompraController {
 
       // Busca schema e nomes de tabelas dinâmicos
       const schema = await MappingService.getSchema();
-      const tabFornecedorProduto = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_PRODUTO', 'TAB_FORNECEDOR_PRODUTO')}`;
-      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
-      const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
+      const tabFornecedorProduto = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_PRODUTO')}`;
+      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+      const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
 
       // Busca mapeamentos dinâmicos para campos de produtos
-      const prCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
-      const prDesProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
+      const prCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const prDesProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
 
       // Busca mapeamentos dinâmicos para campos de produto_loja
-      const plCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
-      const plCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
-      const plCurvaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA');
+      const plCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
+      const plCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
+      const plCurvaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva');
 
       // Busca mapeamentos dinâmicos para campos de nota fiscal
-      const nfNumeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf', 'NUM_NF_FORN');
-      const nfCodFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor', 'COD_FORNECEDOR');
+      const nfNumeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf');
+      const nfCodFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor');
 
       // Usa TAB_FORNECEDOR_PRODUTO que contém os itens das NFs de entrada
       const query = `

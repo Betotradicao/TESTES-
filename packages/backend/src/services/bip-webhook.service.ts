@@ -46,16 +46,16 @@ export class BipWebhookService {
 
       // Obter nomes de tabelas do MappingService
       const schema = await MappingService.getSchema();
-      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
-      const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
+      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+      const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
 
       // Resolver colunas via MappingService
-      const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
-      const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
-      const colValVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda', 'VAL_VENDA');
-      const colValOferta = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_oferta', 'VAL_OFERTA');
-      const colCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
-      const colCodProdutoLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
+      const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+      const colValVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda');
+      const colValOferta = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_oferta');
+      const colCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
+      const colCodProdutoLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
 
       // Query para buscar produto pelo código (PLU) com COD_LOJA parametrizado
       const sql = `

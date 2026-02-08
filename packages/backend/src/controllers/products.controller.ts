@@ -35,22 +35,22 @@ export class ProductsController {
       codLojaCol,
       inativoCol
     ] = await Promise.all([
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras', 'COD_BARRA_PRINCIPAL'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_reduzida', 'DES_REDUZIDA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao', 'COD_SECAO'),
-      MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo', 'COD_GRUPO'),
-      MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo', 'DES_GRUPO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo', 'COD_SUB_GRUPO'),
-      MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo', 'DES_SUB_GRUPO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra', 'COD_FORN_ULT_COMPRA'),
-      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR'),
-      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'pesavel', 'FLG_ENVIA_BALANCA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'inativo', 'INATIVO')
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_reduzida'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao'),
+      MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo'),
+      MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo'),
+      MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'pesavel'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'inativo')
     ]);
     return {
       codigoCol, eanCol, descricaoCol, descReduzidaCol,
@@ -74,12 +74,12 @@ export class ProductsController {
       codSubGrupoCol,
       desSubGrupoCol
     ] = await Promise.all([
-      MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO'),
-      MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO'),
-      MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo', 'COD_GRUPO'),
-      MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo', 'DES_GRUPO'),
-      MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo', 'COD_SUB_GRUPO'),
-      MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo', 'DES_SUB_GRUPO')
+      MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao'),
+      MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao'),
+      MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo'),
+      MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo'),
+      MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo'),
+      MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo')
     ]);
     return { codSecaoCol, desSecaoCol, codGrupoCol, desGrupoCol, codSubGrupoCol, desSubGrupoCol };
   }
@@ -108,24 +108,24 @@ export class ProductsController {
       codLojaCol,
       inativoCol
     ] = await Promise.all([
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo', 'VAL_CUSTO_REP'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda', 'VAL_VENDA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_oferta', 'VAL_OFERTA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual', 'QTD_EST_ATUAL'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem', 'VAL_MARGEM'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem_fixa', 'VAL_MARGEM_FIXA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'venda_media', 'VAL_VENDA_MEDIA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cobertura', 'QTD_COBERTURA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pedido_compra', 'QTD_PEDIDO_COMPRA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'data_ultima_compra', 'DTA_ULT_COMPRA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'qtd_ultima_compra', 'QTD_ULT_COMPRA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_minimo', 'QTD_EST_MINIMO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'data_ultima_venda', 'DTA_ULT_MOV_VENDA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra', 'COD_FORN_ULT_COMPRA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'inativo', 'INATIVO')
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_oferta'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem_fixa'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'venda_media'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cobertura'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pedido_compra'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'data_ultima_compra'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'qtd_ultima_compra'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_minimo'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'data_ultima_venda'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'inativo')
     ]);
     return {
       plCodigoCol, custoRepCol, valorVendaCol, valorOfertaCol,
@@ -185,46 +185,46 @@ export class ProductsController {
       codLojaCol
     ] = await Promise.all([
       // Campos de TAB_PRODUTO (V2 - lê do mapeamento configurado)
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras', 'COD_BARRA_PRINCIPAL'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_reduzida', 'DES_REDUZIDA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'embalagem', 'DES_EMBALAGEM'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'qtd_embalagem_venda', 'QTD_EMBALAGEM_VENDA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'qtd_embalagem_compra', 'QTD_EMBALAGEM_COMPRA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'pesavel', 'FLG_ENVIA_BALANCA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'tipo_especie', 'TIPO_ESPECIE'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'tipo_evento', 'TIPO_EVENTO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'data_cadastro', 'DTA_CADASTRO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao', 'COD_SECAO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo', 'COD_GRUPO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo', 'COD_SUB_GRUPO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_reduzida'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'embalagem'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'qtd_embalagem_venda'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'qtd_embalagem_compra'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'pesavel'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'tipo_especie'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'tipo_evento'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'data_cadastro'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo'),
       // Campos de TAB_PRODUTO_LOJA (V2)
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo', 'VAL_CUSTO_REP'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda', 'VAL_VENDA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_oferta', 'VAL_OFERTA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual', 'QTD_EST_ATUAL'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem', 'VAL_MARGEM'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem_fixa', 'VAL_MARGEM_FIXA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'venda_media', 'VAL_VENDA_MEDIA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cobertura', 'QTD_COBERTURA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pedido_compra', 'QTD_PEDIDO_COMPRA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'data_ultima_compra', 'DTA_ULT_COMPRA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'qtd_ultima_compra', 'QTD_ULT_COMPRA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_minimo', 'QTD_EST_MINIMO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'data_ultima_venda', 'DTA_ULT_MOV_VENDA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra', 'COD_FORN_ULT_COMPRA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'inativo', 'INATIVO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_oferta'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem_fixa'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'venda_media'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cobertura'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pedido_compra'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'data_ultima_compra'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'qtd_ultima_compra'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_minimo'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'data_ultima_venda'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'inativo'),
       // Campos de seção/grupo/subgrupo (V2)
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_secao', 'DES_SECAO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_grupo', 'DES_GRUPO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_subgrupo', 'DES_SUB_GRUPO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_secao'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_grupo'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_subgrupo'),
       // Campos de fornecedor (V2)
-      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR'),
-      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social'),
       // Campo de loja (V2)
-      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA')
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja')
     ]);
     return {
       // Campos de TAB_PRODUTO
@@ -327,12 +327,12 @@ export class ProductsController {
       // Obter schema e tabelas dinamicamente
       const schema = await MappingService.getSchema();
       const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
-        MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
-        MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
-        MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
-        MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO'),
-        MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO'),
-        MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')
+        MappingService.getRealTableName('TAB_PRODUTO'),
+        MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
+        MappingService.getRealTableName('TAB_SECAO'),
+        MappingService.getRealTableName('TAB_GRUPO'),
+        MappingService.getRealTableName('TAB_SUBGRUPO'),
+        MappingService.getRealTableName('TAB_FORNECEDOR')
       ]);
 
       // Query completa para buscar produtos com todas as informações necessárias
@@ -501,12 +501,12 @@ export class ProductsController {
         // Obter schema e tabelas dinamicamente
         const schema = await MappingService.getSchema();
         const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
-          MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
-          MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
-          MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
-          MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO'),
-          MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO'),
-          MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')
+          MappingService.getRealTableName('TAB_PRODUTO'),
+          MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
+          MappingService.getRealTableName('TAB_SECAO'),
+          MappingService.getRealTableName('TAB_GRUPO'),
+          MappingService.getRealTableName('TAB_SUBGRUPO'),
+          MappingService.getRealTableName('TAB_FORNECEDOR')
         ]);
 
         const sql = `
@@ -626,12 +626,12 @@ export class ProductsController {
         // Obter schema e tabelas dinamicamente
         const schema = await MappingService.getSchema();
         const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
-          MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
-          MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
-          MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
-          MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO'),
-          MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO'),
-          MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')
+          MappingService.getRealTableName('TAB_PRODUTO'),
+          MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
+          MappingService.getRealTableName('TAB_SECAO'),
+          MappingService.getRealTableName('TAB_GRUPO'),
+          MappingService.getRealTableName('TAB_SUBGRUPO'),
+          MappingService.getRealTableName('TAB_FORNECEDOR')
         ]);
 
         const sql = `
@@ -794,12 +794,12 @@ export class ProductsController {
         // Obter schema e tabelas dinamicamente
         const schema = await MappingService.getSchema();
         const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
-          MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
-          MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
-          MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
-          MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO'),
-          MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO'),
-          MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')
+          MappingService.getRealTableName('TAB_PRODUTO'),
+          MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
+          MappingService.getRealTableName('TAB_SECAO'),
+          MappingService.getRealTableName('TAB_GRUPO'),
+          MappingService.getRealTableName('TAB_SUBGRUPO'),
+          MappingService.getRealTableName('TAB_FORNECEDOR')
         ]);
 
         // Dividir em batches de 500 para evitar limite do Oracle IN clause
@@ -1121,11 +1121,11 @@ export class ProductsController {
       console.log('📦 [ORACLE] Buscando seções do Oracle...');
 
       // Obter mapeamentos dinâmicos
-      const desSecaoCol = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
+      const desSecaoCol = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
 
       // Obter schema e tabela dinamicamente
       const schema = await MappingService.getSchema();
-      const tabSecao = await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO');
+      const tabSecao = await MappingService.getRealTableName('TAB_SECAO');
 
       const sql = `
         SELECT ${desSecaoCol} as DES_SECAO
@@ -1156,12 +1156,12 @@ export class ProductsController {
   static async getSectionsOracle(req: AuthRequest, res: Response) {
     try {
       // Obter mapeamentos dinâmicos
-      const codSecaoCol = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
-      const desSecaoCol = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
+      const codSecaoCol = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
+      const desSecaoCol = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
 
       // Obter schema e tabela dinamicamente
       const schema = await MappingService.getSchema();
-      const tabSecao = await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO');
+      const tabSecao = await MappingService.getRealTableName('TAB_SECAO');
 
       const sql = `
         SELECT ${codSecaoCol} as COD_SECAO, ${desSecaoCol} as DES_SECAO
@@ -1207,10 +1207,10 @@ export class ProductsController {
       // Obter schema e tabelas dinamicamente
       const schema = await MappingService.getSchema();
       const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo] = await Promise.all([
-        MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
-        MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
-        MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
-        MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO')
+        MappingService.getRealTableName('TAB_PRODUTO'),
+        MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
+        MappingService.getRealTableName('TAB_SECAO'),
+        MappingService.getRealTableName('TAB_GRUPO')
       ]);
 
       // Query para buscar produtos com informações completas
@@ -1295,11 +1295,11 @@ export class ProductsController {
       // Obter schema e tabelas dinamicamente
       const schema = await MappingService.getSchema();
       const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo] = await Promise.all([
-        MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
-        MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
-        MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
-        MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO'),
-        MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO')
+        MappingService.getRealTableName('TAB_PRODUTO'),
+        MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
+        MappingService.getRealTableName('TAB_SECAO'),
+        MappingService.getRealTableName('TAB_GRUPO'),
+        MappingService.getRealTableName('TAB_SUBGRUPO')
       ]);
 
       const sql = `
@@ -1423,11 +1423,11 @@ export class ProductsController {
       // Obter schema e tabelas dinamicamente
       const schema = await MappingService.getSchema();
       const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabFornecedor] = await Promise.all([
-        MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
-        MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
-        MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
-        MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO'),
-        MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')
+        MappingService.getRealTableName('TAB_PRODUTO'),
+        MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
+        MappingService.getRealTableName('TAB_SECAO'),
+        MappingService.getRealTableName('TAB_GRUPO'),
+        MappingService.getRealTableName('TAB_FORNECEDOR')
       ]);
 
       const sql = `
@@ -1534,8 +1534,8 @@ export class ProductsController {
 
       // Mapeamentos de TAB_PRODUTO_HISTORICO - colunas específicas dessa tabela
       // (não existem no TABLE_CATALOG padrão, mantém hardcoded com comentário)
-      const hCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_HISTORICO', 'codigo_produto', 'COD_PRODUTO');
-      const hCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_HISTORICO', 'codigo_loja', 'COD_LOJA');
+      const hCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_HISTORICO', 'codigo_produto');
+      const hCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_HISTORICO', 'codigo_loja');
       // Colunas específicas de TAB_PRODUTO_HISTORICO - hardcoded (sem mapeamento no TABLE_CATALOG)
       const hDtaUltAltPrecoVenda = 'DTA_ULT_ALT_PRECO_VENDA';
       const hValVendaAnt = 'VAL_VENDA_ANT';
@@ -1588,12 +1588,12 @@ export class ProductsController {
       // Obter schema e tabelas dinamicamente
       const schema = await MappingService.getSchema();
       const [tabProduto, tabProdutoLoja, tabProdutoHistorico, tabSecao, tabGrupo, tabFornecedor] = await Promise.all([
-        MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
-        MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
-        MappingService.getRealTableName('TAB_PRODUTO_HISTORICO', 'TAB_PRODUTO_HISTORICO'),
-        MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
-        MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO'),
-        MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')
+        MappingService.getRealTableName('TAB_PRODUTO'),
+        MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
+        MappingService.getRealTableName('TAB_PRODUTO_HISTORICO'),
+        MappingService.getRealTableName('TAB_SECAO'),
+        MappingService.getRealTableName('TAB_GRUPO'),
+        MappingService.getRealTableName('TAB_FORNECEDOR')
       ]);
 
       // Query usando TAB_PRODUTO_HISTORICO para pegar DTA_ULT_ALT_PRECO_VENDA
@@ -1786,12 +1786,12 @@ export class ProductsController {
       // Obter schema e tabelas dinamicamente
       const schema = await MappingService.getSchema();
       const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
-        MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
-        MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
-        MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
-        MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO'),
-        MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO'),
-        MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')
+        MappingService.getRealTableName('TAB_PRODUTO'),
+        MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
+        MappingService.getRealTableName('TAB_SECAO'),
+        MappingService.getRealTableName('TAB_GRUPO'),
+        MappingService.getRealTableName('TAB_SUBGRUPO'),
+        MappingService.getRealTableName('TAB_FORNECEDOR')
       ]);
 
       // Query completa para buscar produtos com todas as informações necessárias
@@ -1934,11 +1934,11 @@ export class ProductsController {
       console.log(`📜 Buscando histórico de compras do produto ${id}...`);
 
       // Obter mapeamentos dinâmicos
-      const pCodigoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
-      const pEanCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras', 'COD_BARRA_PRINCIPAL');
-      const pDescricaoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
-      const fCodFornecedorCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
-      const fDesFornecedorCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR');
+      const pCodigoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const pEanCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras');
+      const pDescricaoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+      const fCodFornecedorCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
+      const fDesFornecedorCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social');
       // Colunas de TAB_NF e TAB_NF_ITEM - hardcoded (sem mapeamento no TABLE_CATALOG)
       const nfDtaEntrada = 'DTA_ENTRADA';
       const nfNumNf = 'NUM_NF';
@@ -1958,10 +1958,10 @@ export class ProductsController {
       // Obter schema e tabelas dinamicamente
       const schema = await MappingService.getSchema();
       const [tabProduto, tabNf, tabNfItem, tabFornecedor] = await Promise.all([
-        MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
-        MappingService.getRealTableName('TAB_NF', 'TAB_NF'),
-        MappingService.getRealTableName('TAB_NF_ITEM', 'TAB_NF_ITEM'),
-        MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR')
+        MappingService.getRealTableName('TAB_PRODUTO'),
+        MappingService.getRealTableName('TAB_NF'),
+        MappingService.getRealTableName('TAB_NF_ITEM'),
+        MappingService.getRealTableName('TAB_FORNECEDOR')
       ]);
 
       // Se foi passada descrição ou o ID não parece ser um código numérico válido,
@@ -2091,9 +2091,9 @@ export class ProductsController {
       // Obter schema e tabelas dinamicamente
       const schema = await MappingService.getSchema();
       const [tabNf, snfetne, snfetnef] = await Promise.all([
-        MappingService.getRealTableName('TAB_NF', 'TAB_NF'),
-        MappingService.getRealTableName('SNFETNE', 'SNFETNE'),
-        MappingService.getRealTableName('SNFETNEF', 'SNFETNEF')
+        MappingService.getRealTableName('TAB_NF'),
+        MappingService.getRealTableName('SNFETNE'),
+        MappingService.getRealTableName('SNFETNEF')
       ]);
 
       // Colunas de TAB_NF, SNFETNE, SNFETNEF - hardcoded (sem mapeamento no TABLE_CATALOG)
@@ -2204,11 +2204,11 @@ export class ProductsController {
       // Obter schema e tabelas dinamicamente
       const schema = await MappingService.getSchema();
       const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo] = await Promise.all([
-        MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO'),
-        MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA'),
-        MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO'),
-        MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO'),
-        MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO')
+        MappingService.getRealTableName('TAB_PRODUTO'),
+        MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
+        MappingService.getRealTableName('TAB_SECAO'),
+        MappingService.getRealTableName('TAB_GRUPO'),
+        MappingService.getRealTableName('TAB_SUBGRUPO')
       ]);
 
       let whereConditions: string[] = [`NVL(pl.${bm.inativoCol}, 'N') = 'N'`];

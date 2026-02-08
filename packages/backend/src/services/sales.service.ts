@@ -70,39 +70,39 @@ export class SalesService {
     const schema = await MappingService.getSchema();
 
     // Buscar nomes reais das tabelas
-    const tabProdutoPdv = await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV');
-    const tabProduto = await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO');
-    const tabCupomFinalizadora = await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA', 'TAB_CUPOM_FINALIZADORA');
-    const tabOperadores = await MappingService.getRealTableName('TAB_OPERADORES', 'TAB_OPERADORES');
+    const tabProdutoPdv = await MappingService.getRealTableName('TAB_PRODUTO_PDV');
+    const tabProduto = await MappingService.getRealTableName('TAB_PRODUTO');
+    const tabCupomFinalizadora = await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA');
+    const tabOperadores = await MappingService.getRealTableName('TAB_OPERADORES');
 
     // Buscar colunas TAB_PRODUTO_PDV (todas via MappingService)
-    const colNumCupomFiscal = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_cupom', 'NUM_CUPOM_FISCAL');
-    const colNumSeqItem = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'sequencia_item', 'NUM_SEQ_ITEM');
-    const colCodProdutoPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto', 'COD_PRODUTO');
-    const colValTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total', 'VAL_TOTAL_PRODUTO');
-    const colQtdTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade', 'QTD_TOTAL_PRODUTO');
-    const colValCustoRep = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao', 'VAL_CUSTO_REP');
-    const colDtaSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda', 'DTA_SAIDA');
-    const colTimHora = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'hora_venda', 'TIM_HORA');
-    const colNumPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_pdv', 'NUM_PDV');
-    const colCodLojaPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_loja', 'COD_LOJA');
-    const colFlgOferta = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'flag_oferta', 'FLG_OFERTA');
+    const colNumCupomFiscal = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_cupom');
+    const colNumSeqItem = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'sequencia_item');
+    const colCodProdutoPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto');
+    const colValTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total');
+    const colQtdTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade');
+    const colValCustoRep = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao');
+    const colDtaSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda');
+    const colTimHora = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'hora_venda');
+    const colNumPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_pdv');
+    const colCodLojaPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_loja');
+    const colFlgOferta = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'flag_oferta');
 
     // Buscar colunas TAB_PRODUTO
-    const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
-    const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+    const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+    const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
 
     // Buscar colunas TAB_CUPOM_FINALIZADORA
-    const colCodOperadorCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_operador', 'COD_OPERADOR');
-    const colNumCupomFiscalCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'numero_cupom', 'NUM_CUPOM_FISCAL');
-    const colNumPdvCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'numero_pdv', 'NUM_PDV');
-    const colCodLojaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_loja', 'COD_LOJA');
-    const colDtaVendaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'data_venda', 'DTA_VENDA');
-    const colCodTipoCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_tipo', 'COD_TIPO');
+    const colCodOperadorCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_operador');
+    const colNumCupomFiscalCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'numero_cupom');
+    const colNumPdvCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'numero_pdv');
+    const colCodLojaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_loja');
+    const colDtaVendaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'data_venda');
+    const colCodTipoCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_tipo');
 
     // Buscar colunas TAB_OPERADORES
-    const colCodOperador = await MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_operador', 'COD_OPERADOR');
-    const colDesOperador = await MappingService.getColumnFromTable('TAB_OPERADORES', 'nome_operador', 'DES_OPERADOR');
+    const colCodOperador = await MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_operador');
+    const colDesOperador = await MappingService.getColumnFromTable('TAB_OPERADORES', 'nome_operador');
 
     return {
       schema,

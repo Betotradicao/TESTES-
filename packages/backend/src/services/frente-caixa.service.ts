@@ -122,34 +122,34 @@ export class FrenteCaixaService {
       dtaMovimentoCol
     ] = await Promise.all([
       // Campos de TAB_PRODUTO_PDV (cupom/venda)
-      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_cupom', 'NUM_CUPOM_FISCAL'),
-      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'data_venda', 'DTA_VENDA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total', 'VAL_TOTAL_PRODUTO'),
-      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_operador', 'COD_OPERADOR'),
-      MappingService.getColumnFromTable('TAB_OPERADORES', 'nome_operador', 'DES_OPERADOR'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_pdv', 'NUM_PDV'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'cupom_cancelado', 'FLG_CUPOM_CANCELADO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_cupom'),
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'data_venda'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total'),
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_operador'),
+      MappingService.getColumnFromTable('TAB_OPERADORES', 'nome_operador'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_pdv'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'cupom_cancelado'),
       // Campos de TAB_CUPOM_FINALIZADORA
-      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'valor_liquido', 'VAL_LIQUIDO'),
-      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_finalizadora', 'COD_FINALIZADORA'),
-      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_tipo', 'COD_TIPO'),
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'valor_liquido'),
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_finalizadora'),
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_tipo'),
       // Campos de TAB_PRODUTO_PDV
-      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda', 'DTA_SAIDA'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_desconto', 'VAL_DESCONTO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade', 'QTD_TOTAL_PRODUTO'),
-      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_loja', 'COD_LOJA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_desconto'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade'),
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_loja'),
       // Campos de estorno (TAB_PRODUTO_PDV)
-      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'des_hora', 'DES_HORA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'des_hora'),
       // Campos de tesouraria (TAB_CUPOM_FINALIZADORA)
-      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'val_sobra', 'VAL_SOBRA'),
-      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'val_quebra', 'VAL_QUEBRA'),
-      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'num_turno', 'NUM_TURNO'),
-      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'num_registro', 'NUM_REGISTRO'),
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'val_sobra'),
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'val_quebra'),
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'num_turno'),
+      MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'num_registro'),
       // Campos de TAB_PRODUTO
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO'),
-      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao'),
       // Campos de TAB_TESOURARIA_HISTORICO
-      MappingService.getColumnFromTable('TAB_TESOURARIA_HISTORICO', 'data_movimento', 'DTA_MOVIMENTO')
+      MappingService.getColumnFromTable('TAB_TESOURARIA_HISTORICO', 'data_movimento')
     ]);
     return {
       // Campos de cupom/venda
@@ -191,7 +191,7 @@ export class FrenteCaixaService {
   static async getOperadores(codLoja?: number): Promise<Operador[]> {
     // Busca schema e nomes reais das tabelas dinamicamente
     const schema = await MappingService.getSchema();
-    const tabOperadores = `${schema}.${await MappingService.getRealTableName('TAB_OPERADORES', 'TAB_OPERADORES')}`;
+    const tabOperadores = `${schema}.${await MappingService.getRealTableName('TAB_OPERADORES')}`;
 
     // TAB_OPERADORES tem colunas fixas: COD_OPERADOR, DES_OPERADOR, COD_LOJA
     // Não confundir com COD_VENDEDOR que é da TAB_PRODUTO_PDV
@@ -223,11 +223,11 @@ export class FrenteCaixaService {
 
     // Busca schema e nomes reais das tabelas dinamicamente
     const schema = await MappingService.getSchema();
-    const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA', 'TAB_CUPOM_FINALIZADORA')}`;
-    const tabOperadores = `${schema}.${await MappingService.getRealTableName('TAB_OPERADORES', 'TAB_OPERADORES')}`;
-    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
-    const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO', 'TAB_PRODUTO_PDV_ESTORNO')}`;
-    const tabTesourariaHistorico = `${schema}.${await MappingService.getRealTableName('TAB_TESOURARIA_HISTORICO', 'TAB_TESOURARIA_HISTORICO')}`;
+    const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA')}`;
+    const tabOperadores = `${schema}.${await MappingService.getRealTableName('TAB_OPERADORES')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO')}`;
+    const tabTesourariaHistorico = `${schema}.${await MappingService.getRealTableName('TAB_TESOURARIA_HISTORICO')}`;
 
     // Busca mapeamentos dinâmicos
     const {
@@ -502,11 +502,11 @@ export class FrenteCaixaService {
 
     // Busca schema e nomes reais das tabelas dinamicamente
     const schema = await MappingService.getSchema();
-    const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA', 'TAB_CUPOM_FINALIZADORA')}`;
-    const tabOperadores = `${schema}.${await MappingService.getRealTableName('TAB_OPERADORES', 'TAB_OPERADORES')}`;
-    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
-    const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO', 'TAB_PRODUTO_PDV_ESTORNO')}`;
-    const tabTesourariaHistorico = `${schema}.${await MappingService.getRealTableName('TAB_TESOURARIA_HISTORICO', 'TAB_TESOURARIA_HISTORICO')}`;
+    const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA')}`;
+    const tabOperadores = `${schema}.${await MappingService.getRealTableName('TAB_OPERADORES')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO')}`;
+    const tabTesourariaHistorico = `${schema}.${await MappingService.getRealTableName('TAB_TESOURARIA_HISTORICO')}`;
 
     // Busca mapeamentos dinâmicos
     const {
@@ -751,10 +751,10 @@ export class FrenteCaixaService {
 
     // Busca schema e nomes reais das tabelas dinamicamente
     const schema = await MappingService.getSchema();
-    const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA', 'TAB_CUPOM_FINALIZADORA')}`;
-    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
-    const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO', 'TAB_PRODUTO_PDV_ESTORNO')}`;
-    const tabTesourariaHistorico = `${schema}.${await MappingService.getRealTableName('TAB_TESOURARIA_HISTORICO', 'TAB_TESOURARIA_HISTORICO')}`;
+    const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO')}`;
+    const tabTesourariaHistorico = `${schema}.${await MappingService.getRealTableName('TAB_TESOURARIA_HISTORICO')}`;
 
     // Busca mapeamentos dinâmicos
     const {
@@ -900,9 +900,9 @@ export class FrenteCaixaService {
   static async getCuponsPorDia(codOperador: number, data: string, codLoja?: number): Promise<any[]> {
     // Busca schema e nomes reais das tabelas dinamicamente
     const schema = await MappingService.getSchema();
-    const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA', 'TAB_CUPOM_FINALIZADORA')}`;
-    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
-    const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO', 'TAB_PRODUTO_PDV_ESTORNO')}`;
+    const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO')}`;
 
     // Busca mapeamentos dinâmicos
     const {
@@ -989,9 +989,9 @@ export class FrenteCaixaService {
   static async getItensPorCupom(numCupom: number, codLoja: number, data?: string): Promise<any[]> {
     // Busca schema e nomes reais das tabelas dinamicamente
     const schema = await MappingService.getSchema();
-    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV')}`;
-    const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO', 'TAB_PRODUTO_PDV_ESTORNO')}`;
-    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
 
     // Busca mapeamentos dinâmicos
     const {
@@ -1102,10 +1102,10 @@ export class FrenteCaixaService {
   ): Promise<any[]> {
     // Busca schema e nomes reais das tabelas dinamicamente
     const schema = await MappingService.getSchema();
-    const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA', 'TAB_CUPOM_FINALIZADORA')}`;
-    const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO', 'TAB_PRODUTO_PDV_ESTORNO')}`;
-    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
-    const tabTesourariaHistorico = `${schema}.${await MappingService.getRealTableName('TAB_TESOURARIA_HISTORICO', 'TAB_TESOURARIA_HISTORICO')}`;
+    const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA')}`;
+    const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    const tabTesourariaHistorico = `${schema}.${await MappingService.getRealTableName('TAB_TESOURARIA_HISTORICO')}`;
 
     // Busca mapeamentos dinâmicos
     const {
