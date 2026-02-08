@@ -22,18 +22,18 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
   const location = useLocation();
   const { lojas, lojaSelecionada, selecionarLoja, getLojaLabel } = useLoja();
 
-  // Health check - verificar conexão com banco (interno + externo) a cada 30s
+  // Health check - verificar conexão com banco externo (ERP) a cada 30s
   useEffect(() => {
     const checkHealth = async () => {
       try {
         const res = await api.get('/health');
-        const pgOk = res.data?.database?.connected === true;
         const ext = res.data?.externalDatabases;
-        // Se tem banco externo configurado, usa o status dele; senão usa o PostgreSQL
+        // Só mostra "CONEXÃO = OK" se tem banco externo configurado E conectado
         if (ext?.configured) {
           setDbConnected(ext.allConnected === true);
         } else {
-          setDbConnected(pgOk);
+          // Sem banco externo configurado = sem conexão ERP
+          setDbConnected(null);
         }
       } catch {
         setDbConnected(false);
@@ -770,18 +770,18 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           </>
         )}
 
-        {/* Indicador de conexão com o banco */}
+        {/* Indicador de conexão com o banco ERP */}
         <div className={`flex items-center justify-center gap-2 mt-2 py-1.5 rounded-md ${
           dbConnected === null ? 'bg-gray-100' : dbConnected ? 'bg-green-50' : 'bg-red-50'
         }`}>
           <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-            dbConnected === null ? 'bg-gray-400 animate-pulse' : dbConnected ? 'bg-green-500' : 'bg-red-500'
+            dbConnected === null ? 'bg-gray-400' : dbConnected ? 'bg-green-500' : 'bg-red-500'
           }`} />
           {!isCollapsed && (
             <span className={`text-xs font-bold ${
-              dbConnected === null ? 'text-gray-500' : dbConnected ? 'text-green-700' : 'text-red-700'
+              dbConnected === null ? 'text-gray-400' : dbConnected ? 'text-green-700' : 'text-red-700'
             }`}>
-              {dbConnected === null ? 'VERIFICANDO...' : dbConnected ? 'CONEXÃO = OK' : 'CONEXÃO = OFF'}
+              {dbConnected === null ? 'SEM CONEXÃO ERP' : dbConnected ? 'CONEXÃO = OK' : 'CONEXÃO = OFF'}
             </span>
           )}
         </div>

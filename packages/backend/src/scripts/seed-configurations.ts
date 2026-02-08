@@ -171,24 +171,24 @@ async function seedConfigurations() {
       },
       {
         key: 'evolution_instance',
-        value: 'DVR FACIAL',
+        value: '',
         description: 'Nome da instância Evolution API'
       },
       {
         key: 'evolution_whatsapp_group_id',
-        value: '120363421239599536@g.us',
+        value: '',
         description: 'ID do grupo WhatsApp para notificações'
       },
 
-      // Email - Recuperação de Senha - PRÉ-CONFIGURADO
+      // Email - Recuperação de Senha
       {
         key: 'email_user',
-        value: 'betotradicao76@gmail.com',
+        value: '',
         description: 'Email para envio (Gmail)'
       },
       {
         key: 'email_pass',
-        value: 'fqojjjhztvganfya',
+        value: '',
         description: 'Senha de app do Gmail'
       },
 
@@ -224,20 +224,20 @@ async function seedConfigurations() {
         description: 'Auto-iniciar monitor de email'
       },
 
-      // Monitor de Email (Novo sistema) - PRÉ-CONFIGURADO
+      // Monitor de Email (Novo sistema)
       {
         key: 'email_monitor_email',
-        value: 'betotradicao76@gmail.com',
+        value: '',
         description: 'Email Gmail para monitorar'
       },
       {
         key: 'email_monitor_app_password',
-        value: 'ygrowrdaloqfgtcc',
+        value: '',
         description: 'Senha de app do Gmail para IMAP (Monitor DVR)'
       },
       {
         key: 'email_monitor_subject_filter',
-        value: 'ALERTA DVR',
+        value: 'ALERTA',
         description: 'Filtro de assunto dos emails'
       },
       {
@@ -247,12 +247,12 @@ async function seedConfigurations() {
       },
       {
         key: 'email_monitor_whatsapp_group',
-        value: '120363421239599536@g.us',
+        value: '',
         description: 'ID do grupo WhatsApp para notificações do Monitor'
       },
       {
         key: 'email_monitor_whatsapp_group_name',
-        value: 'Prevenção Facial',
+        value: '',
         description: 'Nome do grupo WhatsApp para notificações do Monitor DVR'
       },
       {
@@ -264,52 +264,52 @@ async function seedConfigurations() {
       // WhatsApp - Grupos por Módulo
       {
         key: 'whatsapp_group_bipagens',
-        value: '120363421239599536@g.us',
+        value: '',
         description: 'ID do grupo WhatsApp para relatórios de Prevenção de Bipagens'
       },
       {
         key: 'whatsapp_group_bipagens_name',
-        value: 'DVR FACIAL',
+        value: '',
         description: 'Nome do grupo WhatsApp para relatórios de Prevenção de Bipagens'
       },
       {
         key: 'whatsapp_group_etiquetas',
-        value: '120363421239599536@g.us',
+        value: '',
         description: 'ID do grupo WhatsApp para relatórios de Prevenção de Etiquetas'
       },
       {
         key: 'whatsapp_group_etiquetas_name',
-        value: 'DVR FACIAL',
+        value: '',
         description: 'Nome do grupo WhatsApp para relatórios de Prevenção de Etiquetas'
       },
       {
         key: 'whatsapp_group_rupturas',
-        value: '120363421239599536@g.us',
+        value: '',
         description: 'ID do grupo WhatsApp para relatórios de Prevenção de Rupturas'
       },
       {
         key: 'whatsapp_group_rupturas_name',
-        value: 'DVR FACIAL',
+        value: '',
         description: 'Nome do grupo WhatsApp para relatórios de Prevenção de Rupturas'
       },
       {
         key: 'whatsapp_group_quebras',
-        value: '120363421239599536@g.us',
+        value: '',
         description: 'ID do grupo WhatsApp para relatórios de Prevenção de Quebras'
       },
       {
         key: 'whatsapp_group_quebras_name',
-        value: 'DVR FACIAL',
+        value: '',
         description: 'Nome do grupo WhatsApp para relatórios de Prevenção de Quebras'
       },
       {
         key: 'whatsapp_group_producao',
-        value: '120363421239599536@g.us',
+        value: '',
         description: 'ID do grupo WhatsApp para relatórios de Prevenção de Produção'
       },
       {
         key: 'whatsapp_group_producao_name',
-        value: 'DVR FACIAL',
+        value: '',
         description: 'Nome do grupo WhatsApp para relatórios de Prevenção de Produção'
       },
       {
