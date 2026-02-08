@@ -134,7 +134,7 @@ export class SetupController {
         return res.status(400).json({ error: 'CNPJ já cadastrado' });
       }
 
-      // Criar empresa
+      // Criar empresa (cod_loja = '1' como loja principal)
       const company = companyRepository.create({
         nomeFantasia,
         razaoSocial,
@@ -151,7 +151,9 @@ export class SetupController {
         estado,
         telefone,
         email,
-        active: true
+        active: true,
+        codLoja: 1,
+        apelido: nomeFantasia
       });
 
       await companyRepository.save(company);

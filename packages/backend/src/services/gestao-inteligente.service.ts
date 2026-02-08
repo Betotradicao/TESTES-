@@ -619,8 +619,8 @@ export class GestaoInteligenteService {
    * Busca lojas disponíveis (Oracle) com apelidos (PostgreSQL)
    */
   static async getLojas(): Promise<any[]> {
+    // Primeiro tentar buscar do Oracle (ERP externo)
     try {
-      // Obter schema e nome real da tabela via MappingService
       const schema = await MappingService.getSchema();
       const tabLoja = `${schema}.${await MappingService.getRealTableName('TAB_LOJA')}`;
 
@@ -630,39 +630,64 @@ export class GestaoInteligenteService {
         ORDER BY COD_LOJA
       `;
 
-      console.log('📍 [GESTAO INTELIGENTE] Buscando lojas...');
+      console.log('📍 [GESTAO INTELIGENTE] Buscando lojas do Oracle...');
       const result = await OracleService.query(sql);
-      console.log('📍 [GESTAO INTELIGENTE] Lojas encontradas:', result?.length || 0);
+      console.log('📍 [GESTAO INTELIGENTE] Lojas Oracle encontradas:', result?.length || 0);
 
-      // Buscar apelidos das companies no PostgreSQL
-      let apelidos: Map<number, string> = new Map();
-      try {
-        if (AppDataSource.isInitialized) {
-          const companyRepository = AppDataSource.getRepository(Company);
-          const companies = await companyRepository.find({
-            where: { active: true },
-            select: ['codLoja', 'apelido']
-          });
-          companies.forEach(c => {
-            if (c.codLoja && c.apelido) {
-              apelidos.set(c.codLoja, c.apelido);
-            }
-          });
-          console.log('📍 [GESTAO INTELIGENTE] Apelidos carregados:', apelidos.size);
+      if (result && result.length > 0) {
+        // Buscar apelidos das companies no PostgreSQL
+        let apelidos: Map<number, string> = new Map();
+        try {
+          if (AppDataSource.isInitialized) {
+            const companyRepository = AppDataSource.getRepository(Company);
+            const companies = await companyRepository.find({
+              where: { active: true },
+              select: ['codLoja', 'apelido']
+            });
+            companies.forEach(c => {
+              if (c.codLoja && c.apelido) {
+                apelidos.set(c.codLoja, c.apelido);
+              }
+            });
+          }
+        } catch (err) {
+          console.warn('⚠️ [GESTAO INTELIGENTE] Não foi possível carregar apelidos:', err);
         }
-      } catch (err) {
-        console.warn('⚠️ [GESTAO INTELIGENTE] Não foi possível carregar apelidos:', err);
-      }
 
-      // Mesclar dados do Oracle com apelidos do PostgreSQL
-      return result.map((loja: any) => ({
-        ...loja,
-        APELIDO: apelidos.get(loja.COD_LOJA) || null
-      }));
+        return result.map((loja: any) => ({
+          ...loja,
+          APELIDO: apelidos.get(loja.COD_LOJA) || null
+        }));
+      }
     } catch (error) {
-      console.error('❌ [GESTAO INTELIGENTE] Erro ao buscar lojas:', error);
-      throw error;
+      console.log('📍 [GESTAO INTELIGENTE] Oracle não disponível, usando lojas do PostgreSQL');
     }
+
+    // Fallback: buscar lojas da tabela companies no PostgreSQL
+    try {
+      if (AppDataSource.isInitialized) {
+        const companyRepository = AppDataSource.getRepository(Company);
+        const companies = await companyRepository.find({
+          where: { active: true },
+          order: { codLoja: 'ASC' }
+        });
+
+        const lojas = companies
+          .filter(c => c.codLoja)
+          .map(c => ({
+            COD_LOJA: c.codLoja,
+            DES_LOJA: c.nomeFantasia || c.razaoSocial || `Loja ${c.codLoja}`,
+            APELIDO: c.apelido || null
+          }));
+
+        console.log('📍 [GESTAO INTELIGENTE] Lojas PostgreSQL encontradas:', lojas.length);
+        return lojas;
+      }
+    } catch (err) {
+      console.error('❌ [GESTAO INTELIGENTE] Erro ao buscar lojas do PostgreSQL:', err);
+    }
+
+    return [];
   }
 
   /**

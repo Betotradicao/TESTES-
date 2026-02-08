@@ -1063,6 +1063,28 @@ docker exec ${CONTAINER_PREFIX}-backend npm run create-master-user 2>&1 || echo 
 echo "✅ Usuário master configurado"
 
 # ============================================
+# CRIAR EMPRESA PADRÃO E VINCULAR AO MASTER
+# ============================================
+
+echo ""
+echo "🏢 Criando empresa padrão..."
+
+# Capitalizar nome do cliente para nome da empresa
+CLIENT_DISPLAY_NAME="$(echo "$CLIENT_NAME" | sed 's/./\U&/')"
+
+docker exec -i ${CONTAINER_PREFIX}-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB_NAME << EOSQL || true
+-- Criar empresa padrão (se não existir)
+INSERT INTO companies (id, nome_fantasia, razao_social, cnpj, cod_loja, apelido, active, created_at, updated_at)
+SELECT gen_random_uuid(), '${CLIENT_DISPLAY_NAME}', '${CLIENT_DISPLAY_NAME}', '00000000000000', '1', '${CLIENT_DISPLAY_NAME}', true, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM companies LIMIT 1);
+
+-- Vincular todos os usuários sem empresa à primeira empresa
+UPDATE users SET company_id = (SELECT id FROM companies LIMIT 1) WHERE company_id IS NULL;
+EOSQL
+
+echo "✅ Empresa '${CLIENT_DISPLAY_NAME}' criada e vinculada"
+
+# ============================================
 # CONFIGURAR TÚNEL SSH ISOLADO POR CLIENTE
 # ============================================
 
@@ -1155,26 +1177,12 @@ else
 
 docker exec -i ${CONTAINER_PREFIX}-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB_NAME << 'EOSQL' || true
 
--- ERP Template: Intersolid (Oracle)
+-- ERP Template: Intersolid (Oracle) - único template pré-configurado
 INSERT INTO erp_templates (name, description, database_type, mappings, is_active, created_at, updated_at)
 SELECT 'Intersolid', 'ERP Intersolid com banco Oracle', 'oracle',
 '{"version":2,"schema":"INTERSOLID","tabelas":{"TAB_PRODUTO":{"nome_real":"TAB_PRODUTO","colunas":{"codigo":"COD_PRODUTO","descricao":"DES_PRODUTO","secao":"COD_SECAO","grupo":"COD_GRUPO","subgrupo":"COD_SUBGRUPO","unidade":"DES_UNIDADE","custo":"VAL_CUSTO","preco_venda":"VAL_PRECO_VENDA","estoque":"QTD_ESTOQUE","status":"SITUACAO","ean":"COD_BARRAS","ncm":"COD_NCM","margem":"PER_MARGEM","peso_bruto":"PESO_BRUTO"}},"TAB_CUPOM":{"nome_real":"TAB_CUPOM","colunas":{"numero_cupom":"NUM_CUPOM","data":"DTA_MOVIMENTO","pdv":"NUM_PDV","operador":"COD_OPERADOR","valor_total":"VAL_TOTAL","status":"SITUACAO","tipo":"TIPO_VENDA","desconto":"VAL_DESCONTO","hora":"HORA_VENDA"}},"TAB_CUPOM_ITEM":{"nome_real":"TAB_CUPOM_ITEM","colunas":{"numero_cupom":"NUM_CUPOM","codigo_produto":"COD_PRODUTO","quantidade":"QTD_ITEM","valor_unitario":"VAL_UNITARIO","valor_total":"VAL_TOTAL","desconto":"VAL_DESCONTO","cancelado":"FLG_CANCELADO"}},"TAB_CUPOM_FINALIZADORA":{"nome_real":"TAB_CUPOM_FINALIZADORA","colunas":{"numero_cupom":"NUM_CUPOM","forma_pagamento":"COD_FINALIZADORA","valor":"VAL_FINALIZADORA","descricao":"DES_FINALIZADORA"}},"TAB_SECAO":{"nome_real":"TAB_SECAO","colunas":{"codigo":"COD_SECAO","descricao":"DES_SECAO"}},"TAB_GRUPO":{"nome_real":"TAB_GRUPO","colunas":{"codigo":"COD_GRUPO","descricao":"DES_GRUPO","secao":"COD_SECAO"}},"TAB_SUBGRUPO":{"nome_real":"TAB_SUBGRUPO","colunas":{"codigo":"COD_SUBGRUPO","descricao":"DES_SUBGRUPO","grupo":"COD_GRUPO"}},"TAB_FORNECEDOR":{"nome_real":"TAB_FORNECEDOR","colunas":{"codigo":"COD_FORNECEDOR","razao_social":"DES_RAZAO_SOCIAL","nome_fantasia":"DES_FANTASIA","cnpj":"NUM_CNPJ","telefone":"NUM_TELEFONE"}},"TAB_PEDIDO":{"nome_real":"TAB_PEDIDO","colunas":{"numero_pedido":"NUM_PEDIDO","data":"DTA_PEDIDO","fornecedor":"COD_FORNECEDOR","status":"SITUACAO","valor_total":"VAL_TOTAL","tipo_parceiro":"TIPO_PARCEIRO"}},"TAB_PEDIDO_PRODUTO":{"nome_real":"TAB_PEDIDO_PRODUTO","colunas":{"numero_pedido":"NUM_PEDIDO","codigo_produto":"COD_PRODUTO","quantidade_pedida":"QTD_PEDIDO","quantidade_recebida":"QTD_RECEBIDA","quantidade_embalagem":"QTD_EMBALAGEM","valor_tabela":"VAL_TABELA"}},"TAB_NF":{"nome_real":"TAB_NF","colunas":{"numero_nf":"NUM_NF","serie_nf":"NUM_SERIE_NF","data_entrada":"DTA_ENTRADA","codigo_parceiro":"COD_PARCEIRO","tipo_operacao":"TIPO_OPERACAO"}},"TAB_NF_ITEM":{"nome_real":"TAB_NF_ITEM","colunas":{"numero_nf":"NUM_NF","serie_nf":"NUM_SERIE_NF","codigo_parceiro":"COD_PARCEIRO","codigo_item":"COD_ITEM","quantidade_entrada":"QTD_ENTRADA","valor_custo":"VAL_CUSTO_SCRED","valor_total":"VAL_TOTAL"}},"TAB_PRODUTO_LOJA":{"nome_real":"TAB_PRODUTO_LOJA","colunas":{"codigo_produto":"COD_PRODUTO","codigo_loja":"COD_LOJA","fora_linha":"FORA_LINHA"}},"TAB_PRODUTO_PDV":{"nome_real":"TAB_PRODUTO_PDV","colunas":{"codigo":"COD_PRODUTO","descricao":"DES_PRODUTO","preco":"VAL_PRECO_VENDA","ean":"COD_BARRAS"}}}}',
 true, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM erp_templates WHERE name = 'Intersolid' AND is_active = true);
-
--- ERP Template: Zanthus (Oracle)
-INSERT INTO erp_templates (name, description, database_type, mappings, is_active, created_at, updated_at)
-SELECT 'Zanthus', 'ERP Zanthus com banco Oracle', 'oracle',
-'{"version":2,"schema":"ZANTHUS","tabelas":{"TAB_PRODUTO":{"nome_real":"PRODUTO","colunas":{"codigo":"CODPRODUTO","descricao":"DESCRICAO","secao":"CODSECAO","grupo":"CODGRUPO","subgrupo":"CODSUBGRUPO","unidade":"UNIDADE","custo":"CUSTOMEDIO","preco_venda":"PRECOVENDA","estoque":"ESTOQUE","status":"STATUS","ean":"CODBARRA","ncm":"NCM"}},"TAB_CUPOM":{"nome_real":"CUPOM","colunas":{"numero_cupom":"NUMCUPOM","data":"DATAMOVIMENTO","pdv":"NUMPDV","operador":"CODOPERADOR","valor_total":"VALORTOTAL","status":"STATUS","tipo":"TIPOVENDA","desconto":"DESCONTO","hora":"HORAVENDA"}},"TAB_CUPOM_ITEM":{"nome_real":"CUPOM_ITEM","colunas":{"numero_cupom":"NUMCUPOM","codigo_produto":"CODPRODUTO","quantidade":"QUANTIDADE","valor_unitario":"VALORUNITARIO","valor_total":"VALORTOTAL","desconto":"DESCONTO","cancelado":"CANCELADO"}},"TAB_CUPOM_FINALIZADORA":{"nome_real":"CUPOM_FINALIZADORA","colunas":{"numero_cupom":"NUMCUPOM","forma_pagamento":"CODFINALIZADORA","valor":"VALOR","descricao":"DESCRICAO"}},"TAB_SECAO":{"nome_real":"SECAO","colunas":{"codigo":"CODSECAO","descricao":"DESCRICAO"}},"TAB_GRUPO":{"nome_real":"GRUPO","colunas":{"codigo":"CODGRUPO","descricao":"DESCRICAO","secao":"CODSECAO"}},"TAB_SUBGRUPO":{"nome_real":"SUBGRUPO","colunas":{"codigo":"CODSUBGRUPO","descricao":"DESCRICAO","grupo":"CODGRUPO"}},"TAB_FORNECEDOR":{"nome_real":"FORNECEDOR","colunas":{"codigo":"CODFORNECEDOR","razao_social":"RAZAOSOCIAL","nome_fantasia":"FANTASIA","cnpj":"CNPJ","telefone":"TELEFONE"}}}}',
-true, NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM erp_templates WHERE name = 'Zanthus' AND is_active = true);
-
--- ERP Template: Sysmo (Oracle)
-INSERT INTO erp_templates (name, description, database_type, mappings, is_active, created_at, updated_at)
-SELECT 'Sysmo', 'ERP Sysmo com banco Oracle', 'oracle',
-'{"version":2,"schema":"SYSMO","tabelas":{"TAB_PRODUTO":{"nome_real":"PRODUTO","colunas":{"codigo":"COD_PRODUTO","descricao":"DESC_PRODUTO","secao":"COD_SECAO","grupo":"COD_GRUPO","preco_venda":"VLR_VENDA","custo":"VLR_CUSTO","estoque":"QTD_ESTOQUE","ean":"COD_BARRA","status":"SITUACAO"}},"TAB_CUPOM":{"nome_real":"CUPOM_FISCAL","colunas":{"numero_cupom":"NR_CUPOM","data":"DT_MOVIMENTO","pdv":"NR_PDV","operador":"COD_OPERADOR","valor_total":"VLR_TOTAL","status":"SITUACAO"}},"TAB_CUPOM_ITEM":{"nome_real":"CUPOM_FISCAL_ITEM","colunas":{"numero_cupom":"NR_CUPOM","codigo_produto":"COD_PRODUTO","quantidade":"QTD","valor_unitario":"VLR_UNITARIO","valor_total":"VLR_TOTAL"}}}}',
-true, NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM erp_templates WHERE name = 'Sysmo' AND is_active = true);
 
 EOSQL
     echo "✅ ERP Templates pré-configurados inseridos"
@@ -1399,7 +1407,7 @@ cat > CREDENCIAIS.txt << EOF
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📋 ERP TEMPLATES:
-   Intersolid, Zanthus e Sysmo já pré-configurados.
+   Intersolid já pré-configurado.
    Acesse: https://$CLIENT_SUBDOMAIN → Configurações → Tabelas
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
