@@ -20,40 +20,61 @@ import * as fs from 'fs';
  */
 async function getProductionAuditMappings() {
   // --- TAB_PRODUTO ---
-  const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
-  const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_produto', 'DES_PRODUTO');
-  const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao', 'COD_SECAO');
-  const colCodGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo', 'COD_GRUPO');
-  const colCodSubGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo', 'COD_SUB_GRUPO');
+  const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+  const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_produto');
+  const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
+  const colCodGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo');
+  const colCodSubGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo');
+  const colPesavel = await MappingService.getColumnFromTable('TAB_PRODUTO', 'pesavel');
+  const colTipoEvento = await MappingService.getColumnFromTable('TAB_PRODUTO', 'tipo_evento');
+  const colCodInfoNutricional = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_info_nutricional');
 
   // --- TAB_SECAO ---
-  const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
-  const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
+  const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
+  const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
 
   // --- TAB_GRUPO ---
-  const colCodGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo', 'COD_GRUPO');
-  const colDesGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo', 'DES_GRUPO');
+  const colCodGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo');
+  const colDesGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo');
+  const colGrpCodSecao = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_secao');
+  const colGrpFlgInativo = await MappingService.getColumnFromTable('TAB_GRUPO', 'flag_inativo');
 
   // --- TAB_SUBGRUPO ---
-  const colCodSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo', 'COD_SUB_GRUPO');
-  const colDesSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo', 'DES_SUB_GRUPO');
+  const colCodSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo');
+  const colDesSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo');
+  const colSgCodGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_grupo');
+  const colSgCodSecao = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_secao');
+  const colSgFlgInativo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'flag_inativo');
+
+  // --- TAB_PRODUTO_LOJA ---
+  const plCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
+  const plCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
+  const plPrecoCusto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo');
+  const plPrecoVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda');
+  const plMargemFixa = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem_fixa');
+  const plMargem = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem');
+  const plEstoqueAtual = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual');
+  const plVendaMedia = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'venda_media');
+  const plDataUltimaVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'data_ultima_venda');
+  const plCurva = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva');
+  const plForaLinha = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'fora_linha');
+  const plInativo = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'inativo');
+  const plCodInfoReceita = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_info_receita');
 
   return {
     // TAB_PRODUTO
-    colCodProduto,
-    colDesProduto,
-    colCodSecaoProd,
-    colCodGrupoProd,
-    colCodSubGrupoProd,
+    colCodProduto, colDesProduto, colCodSecaoProd, colCodGrupoProd, colCodSubGrupoProd,
+    colPesavel, colTipoEvento, colCodInfoNutricional,
     // TAB_SECAO
-    colCodSecao,
-    colDesSecao,
+    colCodSecao, colDesSecao,
     // TAB_GRUPO
-    colCodGrupo,
-    colDesGrupo,
+    colCodGrupo, colDesGrupo, colGrpCodSecao, colGrpFlgInativo,
     // TAB_SUBGRUPO
-    colCodSubGrupo,
-    colDesSubGrupo,
+    colCodSubGrupo, colDesSubGrupo, colSgCodGrupo, colSgCodSecao, colSgFlgInativo,
+    // TAB_PRODUTO_LOJA
+    plCodProduto, plCodLoja, plPrecoCusto, plPrecoVenda, plMargemFixa, plMargem,
+    plEstoqueAtual, plVendaMedia, plDataUltimaVenda, plCurva, plForaLinha,
+    plInativo, plCodInfoReceita,
   };
 }
 
@@ -188,32 +209,26 @@ export class ProductionAuditController {
 
           // Obter schema e tabelas dinamicamente
           const schema = await MappingService.getSchema();
-          const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
-          const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
-          const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+          const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+          const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
+          const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO')}`;
 
           // Resolver colunas via MappingService
           const m = await getProductionAuditMappings();
-          // Colunas TAB_PRODUTO_LOJA (sem entrada no TABLE_CATALOG, hardcoded com comentário)
-          const plCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
-          const plCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
-          // Colunas TAB_PRODUTO_LOJA sem mapeamento no catálogo - hardcoded
-          // VAL_CUSTO_REP, VAL_VENDA, VAL_MARGEM_FIXA, VAL_MARGEM, QTD_EST_ATUAL, VAL_VENDA_MEDIA, DTA_ULT_MOV_VENDA
-          // Coluna TAB_PRODUTO sem mapeamento no catálogo: FLG_ENVIA_BALANCA, TIPO_EVENTO
 
           const result = await OracleService.query<any>(`
             SELECT
               p.${m.colCodProduto},
               p.${m.colDesProduto},
               s.${m.colDesSecao},
-              NVL(pl.VAL_CUSTO_REP, 0) as VAL_CUSTO_REP,
-              NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
-              NVL(pl.VAL_MARGEM_FIXA, pl.VAL_MARGEM) as VAL_MARGEM_REF,
-              NVL(pl.QTD_EST_ATUAL, 0) as QTD_ESTOQUE,
-              NVL(pl.VAL_VENDA_MEDIA, 0) as VAL_VENDA_MEDIA,
-              p.FLG_ENVIA_BALANCA as FLG_BALANCA,
-              TO_CHAR(pl.DTA_ULT_MOV_VENDA, 'YYYY-MM-DD') as DTA_ULT_MOV_VENDA,
-              CASE p.TIPO_EVENTO
+              NVL(pl.${m.plPrecoCusto}, 0) as VAL_CUSTO_REP,
+              NVL(pl.${m.plPrecoVenda}, 0) as VAL_VENDA,
+              NVL(pl.${m.plMargemFixa}, pl.${m.plMargem}) as VAL_MARGEM_REF,
+              NVL(pl.${m.plEstoqueAtual}, 0) as QTD_ESTOQUE,
+              NVL(pl.${m.plVendaMedia}, 0) as VAL_VENDA_MEDIA,
+              p.${m.colPesavel} as FLG_BALANCA,
+              TO_CHAR(pl.${m.plDataUltimaVenda}, 'YYYY-MM-DD') as DTA_ULT_MOV_VENDA,
+              CASE p.${m.colTipoEvento}
                 WHEN 0 THEN 'DIRETA'
                 WHEN 1 THEN 'DECOMPOSICAO'
                 WHEN 2 THEN 'COMPOSICAO'
@@ -221,9 +236,9 @@ export class ProductionAuditController {
                 ELSE 'OUTROS'
               END as TIPO_EVENTO
             FROM ${tabProduto} p
-            INNER JOIN ${tabProdutoLoja} pl ON p.${m.colCodProduto} = pl.${plCodProduto}
+            INNER JOIN ${tabProdutoLoja} pl ON p.${m.colCodProduto} = pl.${m.plCodProduto}
             LEFT JOIN ${tabSecao} s ON p.${m.colCodSecaoProd} = s.${m.colCodSecao}
-            WHERE pl.${plCodLoja} = 1
+            WHERE pl.${m.plCodLoja} = 1
             AND p.${m.colCodProduto} IN (${placeholders})
             ORDER BY p.${m.colDesProduto}
           `, params);
@@ -291,11 +306,11 @@ export class ProductionAuditController {
         async () => {
           // Obter schema e tabela dinamicamente
           const schema = await MappingService.getSchema();
-          const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+          const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO')}`;
 
           // Resolver colunas via MappingService
-          const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
-          const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
+          const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
+          const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
 
           const result = await OracleService.query<{ DES_SECAO: string }>(`
             SELECT ${colCodSecao}, ${colDesSecao}
@@ -330,15 +345,16 @@ export class ProductionAuditController {
         async () => {
           // Obter schema e tabelas dinamicamente
           const schema = await MappingService.getSchema();
-          const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO')}`;
-          const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
+          const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO')}`;
+          const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO')}`;
 
           // Resolver colunas via MappingService
-          const colCodGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo', 'COD_GRUPO');
-          const colDesGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo', 'DES_GRUPO');
-          const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
-          const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
-          // COD_SECAO em TAB_GRUPO e FLG_INATIVO em TAB_GRUPO - sem entrada no TABLE_CATALOG, hardcoded
+          const colCodGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo');
+          const colDesGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo');
+          const colGrpCodSecao = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_secao');
+          const colGrpFlgInativo = await MappingService.getColumnFromTable('TAB_GRUPO', 'flag_inativo');
+          const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
+          const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
 
           let query = `
             SELECT DISTINCT g.${colCodGrupo}, g.${colDesGrupo}
@@ -347,12 +363,12 @@ export class ProductionAuditController {
 
           if (section) {
             query += `
-              INNER JOIN ${tabSecao} s ON g.COD_SECAO = s.${colCodSecao}
+              INNER JOIN ${tabSecao} s ON g.${colGrpCodSecao} = s.${colCodSecao}
               WHERE UPPER(s.${colDesSecao}) = :sectionUpper
-              AND NVL(g.FLG_INATIVO, 'N') = 'N'
+              AND NVL(g.${colGrpFlgInativo}, 'N') = 'N'
             `;
           } else {
-            query += `WHERE NVL(g.FLG_INATIVO, 'N') = 'N'`;
+            query += `WHERE NVL(g.${colGrpFlgInativo}, 'N') = 'N'`;
           }
 
           query += ` ORDER BY g.${colDesGrupo}`;
@@ -387,22 +403,23 @@ export class ProductionAuditController {
         async () => {
           // Obter schema e tabela dinamicamente
           const schema = await MappingService.getSchema();
-          const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO')}`;
+          const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO')}`;
 
           // Resolver colunas via MappingService
-          const colCodSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo', 'COD_SUB_GRUPO');
-          const colDesSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo', 'DES_SUB_GRUPO');
-          // COD_GRUPO e FLG_INATIVO em TAB_SUBGRUPO - sem entrada no TABLE_CATALOG, hardcoded
+          const colCodSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo');
+          const colDesSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo');
+          const colSgCodGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_grupo');
+          const colSgFlgInativo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'flag_inativo');
 
           let query = `
-            SELECT DISTINCT sg.${colCodSubGrupo}, sg.${colDesSubGrupo}, sg.COD_GRUPO
+            SELECT DISTINCT sg.${colCodSubGrupo}, sg.${colDesSubGrupo}, sg.${colSgCodGrupo}
             FROM ${tabSubgrupo} sg
           `;
 
           if (codGrupo) {
-            query += ` WHERE sg.COD_GRUPO = :codGrupo AND NVL(sg.FLG_INATIVO, 'N') = 'N'`;
+            query += ` WHERE sg.${colSgCodGrupo} = :codGrupo AND NVL(sg.${colSgFlgInativo}, 'N') = 'N'`;
           } else {
-            query += ` WHERE NVL(sg.FLG_INATIVO, 'N') = 'N'`;
+            query += ` WHERE NVL(sg.${colSgFlgInativo}, 'N') = 'N'`;
           }
 
           query += ` ORDER BY sg.${colDesSubGrupo}`;
@@ -462,55 +479,48 @@ export class ProductionAuditController {
         async () => {
           // Obter schema e tabelas dinamicamente
           const schema = await MappingService.getSchema();
-          const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
-          const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
-          const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO')}`;
-          const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO')}`;
-          const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO')}`;
+          const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+          const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
+          const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO')}`;
+          const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO')}`;
+          const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO')}`;
 
           // Resolver colunas via MappingService
           const m = await getProductionAuditMappings();
-          // Colunas TAB_PRODUTO_LOJA
-          const plCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
-          const plCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
-          // Colunas TAB_PRODUTO_LOJA sem mapeamento no catálogo - hardcoded:
-          // VAL_CUSTO_REP, VAL_VENDA, VAL_MARGEM, QTD_EST_ATUAL, VAL_VENDA_MEDIA, DTA_ULT_MOV_VENDA,
-          // DES_RANK_PRODLOJA, COD_INFO_RECEITA, INATIVO, FORA_LINHA
-          // Colunas TAB_PRODUTO sem mapeamento no catálogo: FLG_ENVIA_BALANCA, TIPO_EVENTO, COD_INFO_NUTRICIONAL
 
           const result = await OracleService.query<any>(`
             SELECT
               p.${m.colCodProduto},
               p.${m.colDesProduto},
               s.${m.colDesSecao},
-              NVL(pl.VAL_CUSTO_REP, 0) as VAL_CUSTO_REP,
-              NVL(pl.VAL_VENDA, 0) as VAL_VENDA,
-              NVL(pl.VAL_MARGEM, 0) as VAL_MARGEM_REF,
-              NVL(pl.QTD_EST_ATUAL, 0) as QTD_ESTOQUE,
-              NVL(pl.VAL_VENDA_MEDIA, 0) as VAL_VENDA_MEDIA,
-              p.FLG_ENVIA_BALANCA as FLG_BALANCA,
-              TO_CHAR(pl.DTA_ULT_MOV_VENDA, 'YYYYMMDD') as DTA_ULT_MOV_VENDA,
-              CASE p.TIPO_EVENTO
+              NVL(pl.${m.plPrecoCusto}, 0) as VAL_CUSTO_REP,
+              NVL(pl.${m.plPrecoVenda}, 0) as VAL_VENDA,
+              NVL(pl.${m.plMargem}, 0) as VAL_MARGEM_REF,
+              NVL(pl.${m.plEstoqueAtual}, 0) as QTD_ESTOQUE,
+              NVL(pl.${m.plVendaMedia}, 0) as VAL_VENDA_MEDIA,
+              p.${m.colPesavel} as FLG_BALANCA,
+              TO_CHAR(pl.${m.plDataUltimaVenda}, 'YYYYMMDD') as DTA_ULT_MOV_VENDA,
+              CASE p.${m.colTipoEvento}
                 WHEN 0 THEN 'DIRETA'
                 WHEN 1 THEN 'DECOMPOSICAO'
                 WHEN 2 THEN 'COMPOSICAO'
                 WHEN 3 THEN 'PRODUCAO'
                 ELSE 'OUTROS'
               END as TIPO_EVENTO,
-              NVL(TRIM(pl.DES_RANK_PRODLOJA), 'X') as CURVA,
-              p.COD_INFO_NUTRICIONAL,
-              pl.COD_INFO_RECEITA,
+              NVL(TRIM(pl.${m.plCurva}), 'X') as CURVA,
+              p.${m.colCodInfoNutricional} as COD_INFO_NUTRICIONAL,
+              pl.${m.plCodInfoReceita} as COD_INFO_RECEITA,
               p.${m.colCodGrupoProd},
               p.${m.colCodSubGrupoProd},
-              (SELECT MAX(g.${m.colDesGrupo}) FROM ${tabGrupo} g WHERE g.${m.colCodGrupo} = p.${m.colCodGrupoProd} AND g.COD_SECAO = p.${m.colCodSecaoProd}) as DES_GRUPO,
-              (SELECT MAX(sg.${m.colDesSubGrupo}) FROM ${tabSubgrupo} sg WHERE sg.${m.colCodSubGrupo} = p.${m.colCodSubGrupoProd} AND sg.COD_GRUPO = p.${m.colCodGrupoProd} AND sg.COD_SECAO = p.${m.colCodSecaoProd}) as DES_SUB_GRUPO
+              (SELECT MAX(g.${m.colDesGrupo}) FROM ${tabGrupo} g WHERE g.${m.colCodGrupo} = p.${m.colCodGrupoProd} AND g.${m.colGrpCodSecao} = p.${m.colCodSecaoProd}) as DES_GRUPO,
+              (SELECT MAX(sg.${m.colDesSubGrupo}) FROM ${tabSubgrupo} sg WHERE sg.${m.colCodSubGrupo} = p.${m.colCodSubGrupoProd} AND sg.${m.colSgCodGrupo} = p.${m.colCodGrupoProd} AND sg.${m.colSgCodSecao} = p.${m.colCodSecaoProd}) as DES_SUB_GRUPO
             FROM ${tabProduto} p
-            INNER JOIN ${tabProdutoLoja} pl ON p.${m.colCodProduto} = pl.${plCodProduto}
+            INNER JOIN ${tabProdutoLoja} pl ON p.${m.colCodProduto} = pl.${m.plCodProduto}
             LEFT JOIN ${tabSecao} s ON p.${m.colCodSecaoProd} = s.${m.colCodSecao}
-            WHERE pl.${plCodLoja} = 1
+            WHERE pl.${m.plCodLoja} = 1
             AND UPPER(s.${m.colDesSecao}) = :sectionUpper
-            AND NVL(pl.INATIVO, 'N') = 'N'
-            AND NVL(pl.FORA_LINHA, 'N') = 'N'
+            AND NVL(pl.${m.plInativo}, 'N') = 'N'
+            AND NVL(pl.${m.plForaLinha}, 'N') = 'N'
             ORDER BY p.${m.colDesProduto}
           `, { sectionUpper: String(section).toUpperCase() });
           return result;
@@ -941,19 +951,19 @@ export class ProductionAuditController {
 
           // Obter schema e tabelas dinamicamente
           const schema = await MappingService.getSchema();
-          const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
-          const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA')}`;
+          const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+          const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
 
           // Resolver colunas via MappingService
-          const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
-          const plCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
-          const plCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
-          // DTA_ULT_MOV_VENDA em TAB_PRODUTO_LOJA - sem entrada no TABLE_CATALOG, hardcoded
+          const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+          const plCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
+          const plCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
+          const plDataUltimaVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'data_ultima_venda');
 
           const query = `
             SELECT
               TO_CHAR(p.${colCodProduto}) as COD_PRODUTO,
-              TO_CHAR(pl.DTA_ULT_MOV_VENDA, 'YYYY-MM-DD') as DTA_ULT_MOV_VENDA
+              TO_CHAR(pl.${plDataUltimaVenda}, 'YYYY-MM-DD') as DTA_ULT_MOV_VENDA
             FROM ${tabProduto} p
             LEFT JOIN ${tabProdutoLoja} pl ON p.${colCodProduto} = pl.${plCodProduto} AND pl.${plCodLoja} = :loja
             WHERE TO_CHAR(p.${colCodProduto}) IN (${placeholders})
@@ -992,16 +1002,16 @@ export class ProductionAuditController {
 
         // Busca mapeamentos dinâmicos (schema e tabelas)
         const schema = await MappingService.getSchema();
-        const tabAjusteEstoque = `${schema}.${await MappingService.getRealTableName('TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ESTOQUE')}`;
-        const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO')}`;
+        const tabAjusteEstoque = `${schema}.${await MappingService.getRealTableName('TAB_AJUSTE_ESTOQUE')}`;
+        const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
 
-        const estCodProdutoCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_produto', 'COD_PRODUTO');
-        const estQuantidadeCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'quantidade', 'QTD_AJUSTE');
-        const estDataMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'data_ajuste', 'DTA_AJUSTE');
-        const estCodLojaCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_loja', 'COD_LOJA');
-        const estValCustoRepCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'valor_custo_reposicao', 'VAL_CUSTO_REP');
-        const estFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'flag_cancelado', 'FLG_CANCELADO');
-        const prodCodigoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+        const estCodProdutoCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_produto');
+        const estQuantidadeCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'quantidade');
+        const estDataMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'data_ajuste');
+        const estCodLojaCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_loja');
+        const estValCustoRepCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'valor_custo_reposicao');
+        const estFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'flag_cancelado');
+        const prodCodigoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
 
         const queryMesAnterior = `
           SELECT
@@ -1181,15 +1191,15 @@ export class ProductionAuditController {
 
       // Obter schema e tabela dinamicamente
       const schema = await MappingService.getSchema();
-      const tabInfoReceita = `${schema}.${await MappingService.getRealTableName('TAB_INFO_RECEITA', 'TAB_INFO_RECEITA')}`;
+      const tabInfoReceita = `${schema}.${await MappingService.getRealTableName('TAB_INFO_RECEITA')}`;
 
-      // Colunas TAB_INFO_RECEITA - sem entrada no TABLE_CATALOG, resolução com fallback hardcoded
-      const colCodInfoReceita = await MappingService.getColumnFromTable('TAB_INFO_RECEITA', 'codigo_receita', 'COD_INFO_RECEITA');
-      const colDesInfoReceita = await MappingService.getColumnFromTable('TAB_INFO_RECEITA', 'descricao_receita', 'DES_INFO_RECEITA');
-      const colDetalhamento = await MappingService.getColumnFromTable('TAB_INFO_RECEITA', 'detalhamento', 'DETALHAMENTO');
-      const colUsuarioReceita = await MappingService.getColumnFromTable('TAB_INFO_RECEITA', 'usuario', 'USUARIO');
-      const colDtaCadastroReceita = await MappingService.getColumnFromTable('TAB_INFO_RECEITA', 'data_cadastro', 'DTA_CADASTRO');
-      const colDtaAlteracaoReceita = await MappingService.getColumnFromTable('TAB_INFO_RECEITA', 'data_alteracao', 'DTA_ALTERACAO');
+      // Colunas TAB_INFO_RECEITA via MappingService
+      const colCodInfoReceita = await MappingService.getColumnFromTable('TAB_INFO_RECEITA', 'codigo_receita');
+      const colDesInfoReceita = await MappingService.getColumnFromTable('TAB_INFO_RECEITA', 'descricao_receita');
+      const colDetalhamento = await MappingService.getColumnFromTable('TAB_INFO_RECEITA', 'detalhamento');
+      const colUsuarioReceita = await MappingService.getColumnFromTable('TAB_INFO_RECEITA', 'usuario');
+      const colDtaCadastroReceita = await MappingService.getColumnFromTable('TAB_INFO_RECEITA', 'data_cadastro');
+      const colDtaAlteracaoReceita = await MappingService.getColumnFromTable('TAB_INFO_RECEITA', 'data_alteracao');
 
       const result = await OracleService.query<any>(`
         SELECT
@@ -1232,27 +1242,27 @@ export class ProductionAuditController {
 
       // Obter schema e tabela dinamicamente
       const schema = await MappingService.getSchema();
-      const tabInfoNutricional = `${schema}.${await MappingService.getRealTableName('TAB_INFO_NUTRICIONAL', 'TAB_INFO_NUTRICIONAL')}`;
+      const tabInfoNutricional = `${schema}.${await MappingService.getRealTableName('TAB_INFO_NUTRICIONAL')}`;
 
-      // Colunas TAB_INFO_NUTRICIONAL - sem entrada no TABLE_CATALOG, resolução com fallback hardcoded
-      const colCodInfoNutri = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'codigo_nutricional', 'COD_INFO_NUTRICIONAL');
-      const colDesInfoNutri = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'descricao_nutricional', 'DES_INFO_NUTRICIONAL');
-      const colPorcao = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'porcao', 'PORCAO');
-      const colUnidadePorcao = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'unidade_porcao', 'UNIDADE_PORCAO');
-      const colValorCalorico = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'valor_calorico', 'VALOR_CALORICO');
-      const colCarboidrato = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'carboidrato', 'CARBOIDRATO');
-      const colProteina = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'proteina', 'PROTEINA');
-      const colGorduraTotal = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'gordura_total', 'GORDURA_TOTAL');
-      const colGorduraSaturada = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'gordura_saturada', 'GORDURA_SATURADA');
-      const colGorduraTrans = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'gordura_trans', 'GORDURA_TRANS');
-      const colColesterol = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'colesterol', 'COLESTEROL');
-      const colFibraAlimentar = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'fibra_alimentar', 'FIBRA_ALIMENTAR');
-      const colCalcio = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'calcio', 'CALCIO');
-      const colFerro = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'ferro', 'FERRO');
-      const colSodio = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'sodio', 'SODIO');
-      const colUsuarioNutri = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'usuario', 'USUARIO');
-      const colDtaCadastroNutri = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'data_cadastro', 'DTA_CADASTRO');
-      const colDtaAlteracaoNutri = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'data_alteracao', 'DTA_ALTERACAO');
+      // Colunas TAB_INFO_NUTRICIONAL via MappingService
+      const colCodInfoNutri = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'codigo_nutricional');
+      const colDesInfoNutri = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'descricao_nutricional');
+      const colPorcao = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'porcao');
+      const colUnidadePorcao = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'unidade_porcao');
+      const colValorCalorico = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'valor_calorico');
+      const colCarboidrato = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'carboidrato');
+      const colProteina = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'proteina');
+      const colGorduraTotal = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'gordura_total');
+      const colGorduraSaturada = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'gordura_saturada');
+      const colGorduraTrans = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'gordura_trans');
+      const colColesterol = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'colesterol');
+      const colFibraAlimentar = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'fibra_alimentar');
+      const colCalcio = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'calcio');
+      const colFerro = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'ferro');
+      const colSodio = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'sodio');
+      const colUsuarioNutri = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'usuario');
+      const colDtaCadastroNutri = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'data_cadastro');
+      const colDtaAlteracaoNutri = await MappingService.getColumnFromTable('TAB_INFO_NUTRICIONAL', 'data_alteracao');
 
       const result = await OracleService.query<any>(`
         SELECT

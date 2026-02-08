@@ -39,6 +39,7 @@ const TABLE_CATALOG = {
       { id: 'codigo_subgrupo', name: 'Código Subgrupo', defaultTable: 'TAB_PRODUTO', defaultColumn: 'COD_SUB_GRUPO' },
       { id: 'descricao_subgrupo', name: 'Descrição Subgrupo', defaultTable: 'TAB_SUBGRUPO', defaultColumn: 'DES_SUB_GRUPO' },
       { id: 'codigo_fornecedor', name: 'Código Fornecedor', defaultTable: 'TAB_PRODUTO', defaultColumn: 'COD_FORNECEDOR' },
+      { id: 'codigo_info_nutricional', name: 'Cód Info Nutricional', defaultTable: 'TAB_PRODUTO', defaultColumn: 'COD_INFO_NUTRICIONAL' },
     ]
   },
   TAB_PRODUTO_LOJA: {
@@ -63,6 +64,8 @@ const TABLE_CATALOG = {
       { id: 'fora_linha', name: 'Fora de Linha', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'FORA_LINHA' },
       { id: 'codigo_loja', name: 'Código Loja', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'COD_LOJA' },
       { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'COD_PRODUTO' },
+      { id: 'inativo', name: 'Inativo', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'INATIVO' },
+      { id: 'codigo_info_receita', name: 'Cód Info Receita', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'COD_INFO_RECEITA' },
     ]
   },
   TAB_PRODUTO_PDV: {
@@ -230,6 +233,8 @@ const TABLE_CATALOG = {
     fields: [
       { id: 'codigo_grupo', name: 'Código Grupo', defaultTable: 'TAB_GRUPO', defaultColumn: 'COD_GRUPO' },
       { id: 'descricao_grupo', name: 'Descrição Grupo', defaultTable: 'TAB_GRUPO', defaultColumn: 'DES_GRUPO' },
+      { id: 'codigo_secao', name: 'Código Seção', defaultTable: 'TAB_GRUPO', defaultColumn: 'COD_SECAO' },
+      { id: 'flag_inativo', name: 'Flag Inativo', defaultTable: 'TAB_GRUPO', defaultColumn: 'FLG_INATIVO' },
     ]
   },
   TAB_SUBGRUPO: {
@@ -238,6 +243,9 @@ const TABLE_CATALOG = {
     fields: [
       { id: 'codigo_subgrupo', name: 'Código Subgrupo', defaultTable: 'TAB_SUBGRUPO', defaultColumn: 'COD_SUB_GRUPO' },
       { id: 'descricao_subgrupo', name: 'Descrição Subgrupo', defaultTable: 'TAB_SUBGRUPO', defaultColumn: 'DES_SUB_GRUPO' },
+      { id: 'codigo_grupo', name: 'Código Grupo', defaultTable: 'TAB_SUBGRUPO', defaultColumn: 'COD_GRUPO' },
+      { id: 'codigo_secao', name: 'Código Seção', defaultTable: 'TAB_SUBGRUPO', defaultColumn: 'COD_SECAO' },
+      { id: 'flag_inativo', name: 'Flag Inativo', defaultTable: 'TAB_SUBGRUPO', defaultColumn: 'FLG_INATIVO' },
     ]
   },
   TAB_COMPRADOR: {
