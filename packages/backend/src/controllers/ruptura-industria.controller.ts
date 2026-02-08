@@ -51,7 +51,7 @@ async function getRupturaMappings() {
 
   // --- TAB_PRODUTO columns ---
   const prCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
-  const prDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_produto');
+  const prDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
   const prDesReduzida = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_reduzida');
 
   // --- TAB_PRODUTO_LOJA columns ---

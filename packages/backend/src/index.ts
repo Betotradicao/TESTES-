@@ -399,7 +399,7 @@ const startServer = async () => {
         const colDtaAjuste = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'data_ajuste');
         const colCodLojaAe = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_loja');
         const colCodProdutoP = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
-        const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_produto');
+        const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
         const colCodSecaoP = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
         const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
         const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');

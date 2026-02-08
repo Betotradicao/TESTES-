@@ -58,7 +58,7 @@ export class LossController {
 
     // --- TAB_PRODUTO ---
     const prodCodigoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
-    const prodDescricaoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_produto');
+    const prodDescricaoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
     const prodEanCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barra');
     const prodCodSecaoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
 

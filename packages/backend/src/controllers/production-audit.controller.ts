@@ -21,7 +21,7 @@ import * as fs from 'fs';
 async function getProductionAuditMappings() {
   // --- TAB_PRODUTO ---
   const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
-  const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_produto');
+  const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
   const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
   const colCodGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo');
   const colCodSubGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo');
