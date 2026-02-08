@@ -669,6 +669,8 @@ services:
     volumes:
       # Volume compartilhado para imagens do DVR (email-monitor)
       - backend_uploads:/app/uploads
+      # Montar .ssh do host para o backend gerenciar chaves de túnel
+      - /root/.ssh:/root/.ssh
     extra_hosts:
       # Permite container acessar portas de túnel SSH no host VPS
       - "host.docker.internal:host-gateway"
