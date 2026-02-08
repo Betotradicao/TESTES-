@@ -248,17 +248,6 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       expandable: true,
       items: [
         {
-          id: 'dashboard',
-          moduleId: 'dashboard',
-          title: 'Dashboard',
-          path: '/dashboard',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
-            </svg>
-          )
-        },
-        {
           id: 'bipagens',
           moduleId: 'bipagens',
           title: 'Prevenção de Bipagens',
@@ -598,12 +587,14 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             {/* Submenu Items - Só mostra se não colapsado */}
             {!isCollapsed && item.expandable && expandedSections[item.id] && (
               <div className="pl-14 pr-6 pb-2">
-                {filteredItems.map((subItem, index) => (
+                {filteredItems.map((subItem, index) => {
+                  const subModuleActive = subItem.moduleId ? isModuleActive(subItem.moduleId) : moduleActive;
+                  return (
                   <div key={index}>
                     <button
                       onClick={() => {
                         // Se o módulo estiver desativado, não permite navegação
-                        if (!moduleActive) {
+                        if (!subModuleActive) {
                           return;
                         }
 
@@ -616,16 +607,16 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
                         }
                       }}
                       className={`flex items-center justify-between w-full text-left py-2 text-sm transition-colors ${
-                        !moduleActive
+                        !subModuleActive
                           ? 'text-gray-400 cursor-not-allowed opacity-60'
                           : subItem.path && location.pathname === subItem.path
                           ? 'text-orange-500 font-medium'
                           : 'text-gray-600 hover:text-orange-500'
                       }`}
-                      disabled={!moduleActive}
+                      disabled={!subModuleActive}
                     >
                       <div className="flex items-center space-x-3">
-                        <span className={moduleActive ? 'text-gray-400' : 'text-gray-300'}>{subItem.icon}</span>
+                        <span className={subModuleActive ? 'text-gray-400' : 'text-gray-300'}>{subItem.icon}</span>
                         <span>{subItem.title}</span>
                       </div>
                       {subItem.expandable && subItem.subItems && (
@@ -669,7 +660,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

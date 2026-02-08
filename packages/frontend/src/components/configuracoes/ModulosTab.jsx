@@ -2,17 +2,21 @@ import { useState, useEffect } from 'react';
 
 export default function ModulosTab() {
   const defaultModules = [
-    { id: 'dashboard', name: 'Boas Vindas', icon: '📊', active: true },
+    // Gestão no Radar
+    { id: 'gestao-inteligente', name: 'Gestão Inteligente', icon: '📊', active: true },
+    { id: 'estoque-margem', name: 'Gestão Estoque e Margem', icon: '📦', active: true },
+    { id: 'compra-venda', name: 'Compra x Venda', icon: '📈', active: true },
+    { id: 'pedidos', name: 'Pedidos', icon: '📋', active: true },
+    { id: 'ruptura-industria', name: 'Ruptura Indústria', icon: '🏭', active: true },
+    // Prevenção no Radar
     { id: 'bipagens', name: 'Prevenção de Bipagens', icon: '🔍', active: true },
     { id: 'pdv', name: 'Prevenção de PDV', icon: '💳', active: true },
     { id: 'facial', name: 'Prevenção Facial', icon: '👤', active: true },
     { id: 'ruptura', name: 'Prevenção Rupturas', icon: '📋', active: true },
     { id: 'etiquetas', name: 'Prevenção Etiquetas', icon: '🔖', active: true },
-    { id: 'perdas', name: 'Prevenção Quebras', icon: '📊', active: true },
+    { id: 'perdas', name: 'Prevenção Quebras', icon: '📉', active: true },
     { id: 'producao', name: 'Prevenção Produção', icon: '🥖', active: true },
     { id: 'hortfrut', name: 'Prevenção HortFruti', icon: '🥬', active: true },
-    { id: 'estoque-margem', name: 'Prevenção Estoque e Margem', icon: '📦', active: true },
-    { id: 'compra-venda', name: 'Compra x Venda', icon: '📈', active: true }
   ];
 
   const [modules, setModules] = useState(defaultModules);

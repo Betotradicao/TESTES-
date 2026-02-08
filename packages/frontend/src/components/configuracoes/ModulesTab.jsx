@@ -1,12 +1,38 @@
 import { useState, useEffect } from 'react';
 
 const AVAILABLE_MODULES = [
+  // Gestão no Radar
   {
-    id: 'dashboard',
-    name: 'Boas Vindas',
-    description: 'Painel principal do sistema',
+    id: 'gestao-inteligente',
+    name: 'Gestão Inteligente',
+    description: 'Painel de gestão inteligente com indicadores do negócio',
     icon: '📊'
   },
+  {
+    id: 'estoque-margem',
+    name: 'Gestão Estoque e Margem',
+    description: 'Lançador e resultados de auditoria de estoque e margem',
+    icon: '📦'
+  },
+  {
+    id: 'compra-venda',
+    name: 'Compra x Venda',
+    description: 'Análise comparativa de compras vs vendas',
+    icon: '📈'
+  },
+  {
+    id: 'pedidos',
+    name: 'Pedidos',
+    description: 'Lista e acompanhamento de pedidos de compra',
+    icon: '📋'
+  },
+  {
+    id: 'ruptura-industria',
+    name: 'Ruptura Indústria',
+    description: 'Análise de itens cortados em pedidos por fornecedor',
+    icon: '🏭'
+  },
+  // Prevenção no Radar
   {
     id: 'bipagens',
     name: 'Prevenção de Bipagens',
@@ -42,6 +68,18 @@ const AVAILABLE_MODULES = [
     name: 'Prevenção Quebras',
     description: 'Lançador de itens e resultados de quebras',
     icon: '📉'
+  },
+  {
+    id: 'producao',
+    name: 'Prevenção Produção',
+    description: 'Lançar produção, sugestão padaria e resultados',
+    icon: '🥖'
+  },
+  {
+    id: 'hortfrut',
+    name: 'Prevenção HortFruti',
+    description: 'Lançador e resultados de conferência HortFruti',
+    icon: '🥬'
   }
 ];
 
