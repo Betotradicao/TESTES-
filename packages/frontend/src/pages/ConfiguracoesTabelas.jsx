@@ -3,6 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // Tipos de banco de dados suportados
 const DATABASE_TYPES = [
@@ -460,6 +462,7 @@ export default function ConfiguracoesTabelas() {
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [applyingTemplate, setApplyingTemplate] = useState(null); // Template sendo aplicado (para travar tipo de banco)
+  const [showPdfModal, setShowPdfModal] = useState(false);
 
   // Verificar se é Master
   useEffect(() => {
@@ -1550,6 +1553,110 @@ export default function ConfiguracoesTabelas() {
     </div>
   );
 
+  // Gerar PDF do mapeamento
+  const gerarPdfMapeamento = (modo) => {
+    const doc = new jsPDF('landscape');
+    const mainModule = BUSINESS_MODULES.find(m => m.id === selectedMainModule);
+    const connName = connections.find(c => c.id == selectedConnection)?.name || 'Sem conexão';
+    const dataAtual = new Date().toLocaleDateString('pt-BR');
+
+    let submodulesParaExportar = [];
+
+    if (modo === 'current') {
+      const sub = mainModule?.submodules.find(s => s.id === selectedSubmodule);
+      if (sub) submodulesParaExportar = [{ module: mainModule, submodule: sub }];
+    } else {
+      BUSINESS_MODULES.forEach(mod => {
+        mod.submodules.forEach(sub => {
+          submodulesParaExportar.push({ module: mod, submodule: sub });
+        });
+      });
+    }
+
+    if (submodulesParaExportar.length === 0) return;
+
+    let isFirstPage = true;
+
+    submodulesParaExportar.forEach(({ module, submodule }) => {
+      if (!isFirstPage) doc.addPage();
+      isFirstPage = false;
+
+      // Header do módulo
+      doc.setFontSize(16);
+      doc.setTextColor(234, 88, 12); // orange
+      doc.text(`${module.name} - ${submodule.name}`, 14, 18);
+
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Conexão: ${connName}  |  Data: ${dataAtual}`, 14, 25);
+
+      let startY = 32;
+
+      submodule.tables.forEach(tableId => {
+        const tableInfo = TABLE_CATALOG[tableId];
+        if (!tableInfo) return;
+
+        const mapping = tableMappings[tableId];
+
+        // Nome da tabela
+        doc.setFontSize(11);
+        doc.setTextColor(30, 30, 30);
+        doc.text(`${tableInfo.name} (${tableInfo.description})`, 14, startY);
+        startY += 3;
+
+        const tableData = tableInfo.fields.map(field => {
+          const tabela = mapping?.tabelas_campo?.[field.id] || field.defaultTable;
+          const coluna = mapping?.colunas?.[field.id] || field.defaultColumn;
+          const testKey = `${tableId}_${field.id}`;
+          const result = testResults[testKey];
+          let status = '—';
+          if (result?.success) {
+            status = `OK (${result.count} reg.)`;
+          } else if (result?.success === false) {
+            status = `Erro`;
+          }
+          return [field.name, tabela, coluna, status];
+        });
+
+        const tableResult = autoTable(doc, {
+          startY: startY,
+          head: [['Campo', 'Tabela', 'Coluna', 'Status']],
+          body: tableData,
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fillColor: [234, 88, 12], textColor: 255 },
+          columnStyles: {
+            0: { cellWidth: 60 },
+            1: { cellWidth: 60 },
+            2: { cellWidth: 70 },
+            3: { cellWidth: 40 },
+          },
+          margin: { left: 14 },
+          didDrawPage: () => {
+            doc.setFontSize(7);
+            doc.setTextColor(150, 150, 150);
+            doc.text('Prevenção no Radar - Mapeamento de Tabelas', 14, doc.internal.pageSize.height - 8);
+            doc.text(`Página ${doc.internal.getNumberOfPages()}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 8);
+          }
+        });
+
+        startY = (doc.lastAutoTable?.finalY || tableResult?.finalY || startY) + 10;
+
+        // Se vai estourar a página, cria nova
+        if (startY > doc.internal.pageSize.height - 40) {
+          doc.addPage();
+          startY = 20;
+        }
+      });
+    });
+
+    const nomeArquivo = modo === 'current'
+      ? `mapeamento-${selectedSubmodule}-${dataAtual.replace(/\//g, '-')}.pdf`
+      : `mapeamento-completo-${dataAtual.replace(/\//g, '-')}.pdf`;
+
+    doc.save(nomeArquivo);
+    setShowPdfModal(false);
+  };
+
   // Render da aba Mapeamento (HIERÁRQUICO)
   const renderMappingTab = () => {
     const mainModule = BUSINESS_MODULES.find(m => m.id === selectedMainModule);
@@ -1567,6 +1674,15 @@ export default function ConfiguracoesTabelas() {
               Conecte os campos do sistema às colunas do seu banco de dados
             </p>
           </div>
+          <button
+            onClick={() => setShowPdfModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            Gerar PDF
+          </button>
         </div>
 
         {/* Seletor de Módulo Principal */}
@@ -2504,6 +2620,67 @@ export default function ConfiguracoesTabelas() {
           onClose={() => setShowSaveTemplateModal(false)}
           onSave={handleSaveErpTemplate}
         />
+      )}
+
+      {/* Modal de PDF */}
+      {showPdfModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="bg-gradient-to-r from-red-600 to-red-700 p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                  <div>
+                    <h3 className="text-xl font-bold">Gerar PDF</h3>
+                    <p className="text-red-200 text-sm">Exportar mapeamento de tabelas</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowPdfModal(false)} className="p-2 hover:bg-white/20 rounded-lg">✕</button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-3">
+              <p className="text-sm text-gray-600 mb-4">O que deseja exportar?</p>
+
+              <button
+                onClick={() => gerarPdfMapeamento('current')}
+                className="w-full flex items-center gap-4 p-4 border-2 border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all text-left"
+              >
+                <span className="text-3xl">{BUSINESS_MODULES.find(m => m.id === selectedMainModule)?.submodules.find(s => s.id === selectedSubmodule)?.icon || '📄'}</span>
+                <div>
+                  <div className="font-bold text-gray-900">Somente aba selecionada</div>
+                  <div className="text-sm text-gray-500">
+                    {BUSINESS_MODULES.find(m => m.id === selectedMainModule)?.submodules.find(s => s.id === selectedSubmodule)?.name || 'Aba atual'}
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => gerarPdfMapeamento('all')}
+                className="w-full flex items-center gap-4 p-4 border-2 border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all text-left"
+              >
+                <span className="text-3xl">📚</span>
+                <div>
+                  <div className="font-bold text-gray-900">Todos os módulos</div>
+                  <div className="text-sm text-gray-500">
+                    {BUSINESS_MODULES.reduce((acc, m) => acc + m.submodules.length, 0)} submódulos (Prevenção + Gestão)
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <div className="p-4 bg-gray-50 border-t border-gray-200">
+              <button
+                onClick={() => setShowPdfModal(false)}
+                className="w-full px-4 py-2 text-gray-600 hover:text-gray-800 text-sm"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
