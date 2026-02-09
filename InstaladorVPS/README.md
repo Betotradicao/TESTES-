@@ -1,10 +1,18 @@
 # Instalador Multi-Tenant VPS - Prevencao no Radar
 
-**Versao:** 4.0 (Fevereiro 2026)
+**Versao:** 4.1 (Fevereiro 2026)
 **Branch:** TESTE
 **Repositorio:** https://github.com/Betotradicao/TESTES-
 
 Instalador automatizado para servidores Linux (VPS). Cria ambientes isolados por cliente com subdominios, banco de dados dedicado, storage S3 e tuneis SSH seguros.
+
+### Novidades v4.1
+- Oracle auto-reload: conexao Oracle recarrega automaticamente ao salvar/testar pelo frontend (sem reiniciar backend)
+- Botao "Salvar Tudo": preenche e salva TODOS os mapeamentos de todos os modulos com um clique
+- Chave SSH publica exposta no frontend (aba Tunel) com botao "Copiar"
+- Keepalive agressivo nos tuneis SSH (ServerAliveInterval=15, TCPKeepAlive=yes)
+- Aba Feriados em Configuracoes (feriados nacionais pre-preenchidos por loja)
+- Auto-instalador remoto via curl|bash (sem precisar acessar a VPS manualmente)
 
 ---
 
@@ -63,35 +71,34 @@ O Nginx roteia tudo pela porta 80/443 usando subdominios (o usuario final nao pr
 
 ## INSTALACAO - PASSO A PASSO
 
-### 1. Primeiro acesso a VPS (apenas uma vez)
+### 1. Instalar via auto-instalador remoto (RECOMENDADO)
+
+Rode este comando em qualquer VPS Linux. Ele instala tudo automaticamente (Docker, Nginx, Certbot, clona repo, cria cliente):
 
 ```bash
-ssh root@IP_DA_VPS
-```
-
-### 2. Clonar repositorio (apenas primeira vez)
-
-```bash
-cd /root
-git clone -b TESTE https://github.com/Betotradicao/TESTES-.git prevencao-radar-repo
-```
-
-### 3. Instalar um novo cliente
-
-```bash
-cd /root/prevencao-radar-repo/InstaladorVPS
-bash install-multitenant.sh
+curl -sSL https://raw.githubusercontent.com/Betotradicao/TESTES-/TESTE/InstaladorVPS/install-multitenant.sh | bash
 ```
 
 O instalador vai perguntar interativamente:
-
-1. **Nome do cliente** - apenas letras minusculas e numeros (ex: `nunes`, `mercado01`, `loja123`)
+1. **Nome do cliente** - apenas letras minusculas e numeros (ex: `nunes`, `mercado01`, `piratininga`)
 2. **Confirmacao** das configuracoes geradas (s/n)
+
+### 2. Instalar manualmente (alternativa)
+
+Se preferir clonar o repositorio primeiro:
+
+```bash
+ssh root@IP_DA_VPS
+cd /root
+git clone -b TESTE https://github.com/Betotradicao/TESTES-.git prevencao-radar-repo
+cd prevencao-radar-repo/InstaladorVPS
+bash install-multitenant.sh
+```
 
 **Alternativa:** Passar o nome direto como parametro (pula a confirmacao):
 
 ```bash
-bash install-multitenant.sh nunes
+bash install-multitenant.sh piratininga
 ```
 
 ### 4. Configurar DNS no Registro.br
@@ -233,7 +240,19 @@ MSSQL (192.168.x.x:1433)    <--SSH Tunnel--> Backend Container
 API ERP (192.168.x.x:3003)  <--SSH Tunnel--> Backend Container
 ```
 
-### Configurar tunel no Windows do cliente
+### Configurar tunel pelo frontend (RECOMENDADO)
+
+1. Acesse `Configuracoes > Instalador de Tunel`
+2. Preencha os campos (IP local do Oracle, portas, etc)
+3. Clique em **"Gerar Scripts"**
+4. Baixe o `.bat` gerado e execute no PC do cliente
+5. O .bat instala um servico Windows que reconecta automaticamente
+
+O frontend exibe:
+- **Status dos tuneis** (online/offline) em tempo real
+- **Chave SSH publica** com botao "Copiar" para cada tunel instalado
+
+### Configurar tunel manualmente (alternativa)
 
 1. Copiar a chave privada `tunnel_key` para o PC do cliente
 2. Criar um arquivo `.bat` com o comando:
@@ -244,30 +263,75 @@ ssh -R PORTA_ORACLE:IP_ORACLE_LOCAL:1521 root@IP_VPS -N -i tunnel_key
 
 As portas e instrucoes completas estao no arquivo `TUNNEL_CONFIG.txt` do cliente.
 
+### Keepalive e reconexao automatica
+
+Os tuneis sao configurados com keepalive agressivo para manter a conexao estavel:
+
+| Parametro | Valor | Funcao |
+|-----------|-------|--------|
+| `ServerAliveInterval` | 15s | Envia ping a cada 15 segundos |
+| `ServerAliveCountMax` | 2 | Desconecta apos 2 falhas (30s sem resposta) |
+| `TCPKeepAlive` | yes | Keepalive TCP nativo |
+| `ConnectTimeout` | 10s | Timeout de conexao |
+| `ExitOnForwardFailure` | yes | Encerra se tunel falhar (permite reconexao pelo servico) |
+
+O servico Windows (`PrevencaoTunel-[nome]`) verifica a cada 15 segundos e reconecta automaticamente.
+
 ### Seguranca dos tuneis
 
 - Cada cliente tem **chave SSH propria** (RSA 4096-bit)
 - `authorized_keys` restringe cada chave a **apenas 3 portas** do cliente
 - Um cliente **nao consegue** acessar as portas de outro cliente
 - A chave so permite port-forwarding (sem shell, sem comandos)
+- Flag `-N` impede execucao de comandos remotos
 
 ---
 
-## TEMPLATE ERP PRE-CONFIGURADO
+## MAPEAMENTO DE TABELAS E TEMPLATE ERP
 
-O instalador insere automaticamente o template **Intersolid (Oracle)** com mapeamentos de 8 tabelas:
+### Estrutura hierarquica
 
-| Tabela Oracle | Campos Mapeados |
-|---------------|----------------|
-| TAB_PRODUTO | codigo, descricao, secao, grupo, subgrupo, unidade, custo, preco_venda, estoque, status, ean, ncm, margem, peso_bruto |
-| TAB_CUPOM | numero_cupom, data, pdv, operador, valor_total, status, tipo, desconto, hora |
-| TAB_CUPOM_ITEM | numero_cupom, codigo_produto, quantidade, valor_unitario, valor_total, desconto, cancelado |
-| TAB_CUPOM_FINALIZADORA | numero_cupom, forma_pagamento, valor, descricao |
-| TAB_SECAO | codigo, descricao |
-| TAB_GRUPO | codigo, descricao, secao |
-| TAB_SUBGRUPO | codigo, descricao, grupo |
+O mapeamento de tabelas e organizado em modulos e submodulos:
+
+```
+Prevencao no Radar (8 submodulos)
+├── Prevencao de Bipagens (TAB_PRODUTO, TAB_PRODUTO_LOJA, TAB_PRODUTO_PDV, TAB_OPERADORES, TAB_CUPOM_FINALIZADORA)
+├── Prevencao PDV (TAB_PRODUTO, TAB_PRODUTO_PDV, TAB_OPERADORES, TAB_CUPOM_FINALIZADORA, TAB_TESOURARIA, TAB_ESTORNO)
+├── Prevencao Facial (TAB_OPERADORES)
+├── Prevencao Rupturas (10 tabelas)
+├── Prevencao Etiquetas (TAB_PRODUTO, TAB_PRODUTO_LOJA, TAB_SECAO)
+├── Prevencao Quebras (7 tabelas com ajuste estoque)
+├── Producao (9 tabelas com decomposicao/receitas)
+└── Hort Fruti (TAB_PRODUTO, TAB_PRODUTO_LOJA)
+
+Gestao no Radar (5 submodulos)
+├── Gestao Inteligente (6 tabelas)
+├── Estoque e Margem (7 tabelas)
+├── Compra e Venda (13 tabelas)
+├── Pedidos (6 tabelas)
+└── Ruptura Industria (7 tabelas)
+```
+
+### Botao "Salvar Tudo"
+
+Em `Configuracoes > Tabelas`, o botao **"Salvar Tudo"** (icone de raio verde) salva TODOS os mapeamentos de TODOS os modulos/submodulos de uma vez com os valores padrao ERP (Intersolid). Isso evita ter que salvar submódulo por submódulo manualmente.
+
+### Template ERP pre-configurado
+
+O instalador insere automaticamente o template **Intersolid (Oracle)** com mapeamentos de 25+ tabelas pre-preenchidas com valores padrao.
 
 O template pode ser clonado e customizado por cliente em: `Configuracoes > Tabelas`
+
+Apos salvar todos os submodulos, o botao **"Salvar Padrao ERP"** permite criar um template reutilizavel para futuros clientes.
+
+### Oracle auto-reload
+
+Quando uma conexao Oracle e salva, atualizada ou testada com sucesso pelo frontend, o backend **recarrega automaticamente** a configuracao Oracle sem necessidade de reiniciar o container. Isso inclui:
+
+- Fechar o pool de conexoes antigo
+- Recarregar configuracao da tabela `database_connections`
+- Recriar o pool com a nova configuracao
+- Limpar cache do `MappingService`
 
 ---
 
