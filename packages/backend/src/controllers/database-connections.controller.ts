@@ -17,13 +17,7 @@ export class DatabaseConnectionsController {
         order: { created_at: 'DESC' }
       });
 
-      // Não retornar senha real
-      const sanitized = connections.map(conn => ({
-        ...conn,
-        password: '***'
-      }));
-
-      return res.json(sanitized);
+      return res.json(connections);
     } catch (error) {
       console.error('Error fetching database connections:', error);
       return res.status(500).json({ error: 'Failed to fetch database connections' });
@@ -46,11 +40,7 @@ export class DatabaseConnectionsController {
         return res.status(404).json({ error: 'Connection not found' });
       }
 
-      // Não retornar senha real
-      return res.json({
-        ...connection,
-        password: '***'
-      });
+      return res.json(connection);
     } catch (error) {
       console.error('Error fetching database connection:', error);
       return res.status(500).json({ error: 'Failed to fetch database connection' });
@@ -101,10 +91,7 @@ export class DatabaseConnectionsController {
 
       console.log(`✅ Database connection created: ${saved.name} (${saved.type})`);
 
-      return res.status(201).json({
-        ...saved,
-        password: '***'
-      });
+      return res.status(201).json(saved);
     } catch (error) {
       console.error('Error creating database connection:', error);
       return res.status(500).json({ error: 'Failed to create database connection' });
@@ -161,10 +148,7 @@ export class DatabaseConnectionsController {
 
       console.log(`✅ Database connection updated: ${saved.name}`);
 
-      return res.json({
-        ...saved,
-        password: '***'
-      });
+      return res.json(saved);
     } catch (error) {
       console.error('Error updating database connection:', error);
       return res.status(500).json({ error: 'Failed to update database connection' });

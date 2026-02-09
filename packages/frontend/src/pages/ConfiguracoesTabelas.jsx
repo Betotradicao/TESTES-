@@ -1962,7 +1962,7 @@ export default function ConfiguracoesTabelas() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Senha:</span>
-                    <span className="font-mono text-gray-800">••••••••</span>
+                    <span className="font-mono text-gray-800">{conn.password || '••••••••'}</span>
                   </div>
                 </div>
 
@@ -2130,7 +2130,7 @@ export default function ConfiguracoesTabelas() {
           database: editingConnection.database || editingConnection.service || '',
           schema: editingConnection.schema || '',
           username: editingConnection.username || '',
-          password: '',
+          password: editingConnection.password || '',
           active: editingConnection.active !== false
         };
       }
@@ -2150,7 +2150,7 @@ export default function ConfiguracoesTabelas() {
         active: true
       };
     });
-    const [showPassword, setShowPassword] = useState(false);
+    const [showPassword, setShowPassword] = useState(true);
     const [testingModal, setTestingModal] = useState(false);
     const [modalTestResult, setModalTestResult] = useState(null);
     const [savingModal, setSavingModal] = useState(false);
@@ -2337,7 +2337,7 @@ export default function ConfiguracoesTabelas() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Senha *</label>
                 <div className="relative">
                   <input
-                    type={showPassword ? 'text' : 'password'}
+                    type="text"
                     value={formData.password}
                     onChange={(e) => handleChange('password', e.target.value)}
                     placeholder="••••••••"
