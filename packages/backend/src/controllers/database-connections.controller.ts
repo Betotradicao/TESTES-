@@ -59,17 +59,18 @@ export class DatabaseConnectionsController {
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
-      // Se é default, remove default de outras conexões
-      if (is_default) {
-        await connectionRepository.update({}, { is_default: false });
-      }
-
       // Se é a primeira conexão, automaticamente vira default
       const existingCount = await connectionRepository.count();
       const shouldBeDefault = is_default || existingCount === 0;
 
-      if (shouldBeDefault && !is_default) {
-        await connectionRepository.update({}, { is_default: false });
+      // Se é default, remove default de outras conexões
+      if (shouldBeDefault) {
+        await connectionRepository
+          .createQueryBuilder()
+          .update(DatabaseConnection)
+          .set({ is_default: false })
+          .where("is_default = :val", { val: true })
+          .execute();
       }
 
       // Mapear status do frontend para o enum
@@ -125,7 +126,12 @@ export class DatabaseConnectionsController {
 
       // Se está mudando para default, remove default de outras
       if (is_default && !connection.is_default) {
-        await connectionRepository.update({}, { is_default: false });
+        await connectionRepository
+          .createQueryBuilder()
+          .update(DatabaseConnection)
+          .set({ is_default: false })
+          .where("is_default = :val", { val: true })
+          .execute();
       }
 
       // Atualizar campos (password só se fornecida nova)
