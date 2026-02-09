@@ -720,8 +720,8 @@ services:
     volumes:
       # Volume compartilhado para imagens do DVR (email-monitor)
       - backend_uploads:/app/uploads
-      # Montar .ssh do host para o backend gerenciar chaves de túnel
-      - /root/.ssh:/root/.ssh
+      # Montar SSH isolado por cliente (cada cliente tem suas próprias chaves)
+      - ${CLIENT_DIR}/ssh_keys:/root/.ssh
     extra_hosts:
       # Permite container acessar portas de túnel SSH no host VPS
       - "host.docker.internal:host-gateway"
@@ -1162,6 +1162,7 @@ chmod 600 /root/.ssh/authorized_keys
 # Gerar par de chaves SSH dedicado para este cliente
 SSH_KEY_DIR="$CLIENT_DIR/ssh_keys"
 mkdir -p "$SSH_KEY_DIR"
+chmod 700 "$SSH_KEY_DIR"
 
 if [ ! -f "$SSH_KEY_DIR/tunnel_key" ]; then
     ssh-keygen -t rsa -b 4096 -f "$SSH_KEY_DIR/tunnel_key" -N "" -C "${CLIENT_NAME}@tunnel" -q
