@@ -217,11 +217,17 @@ export class SalesService {
 
       // Converter para formato Sale
       const sales: Sale[] = result.map((row: any) => {
-        // Formatar data/hora
+        // Formatar data/hora (usar getters locais para preservar timezone do Oracle/BRT)
         let dataHoraVenda = '';
         if (row.TIM_HORA) {
           const hora = new Date(row.TIM_HORA);
-          dataHoraVenda = hora.toISOString().replace('T', ' ').substring(0, 19);
+          const hh = String(hora.getHours()).padStart(2, '0');
+          const mi = String(hora.getMinutes()).padStart(2, '0');
+          const ss = String(hora.getSeconds()).padStart(2, '0');
+          const yy = hora.getFullYear();
+          const mm = String(hora.getMonth() + 1).padStart(2, '0');
+          const dd = String(hora.getDate()).padStart(2, '0');
+          dataHoraVenda = `${yy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
         }
 
         // Formatar data saída para YYYYMMDD
