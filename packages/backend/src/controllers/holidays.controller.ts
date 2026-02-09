@@ -36,10 +36,24 @@ function formatMMDD(date: Date): string {
   return `${mm}-${dd}`;
 }
 
-function getFeriadosNacionais(year: number): Array<{ name: string; date: string }> {
+// Feriados nacionais fixos (mesma data todo ano)
+const FERIADOS_FIXOS = [
+  { name: 'Confraternização Universal', date: '01-01' },
+  { name: 'Tiradentes', date: '04-21' },
+  { name: 'Dia do Trabalho', date: '05-01' },
+  { name: 'Independência do Brasil', date: '09-07' },
+  { name: 'Nossa Senhora Aparecida', date: '10-12' },
+  { name: 'Finados', date: '11-02' },
+  { name: 'Proclamação da República', date: '11-15' },
+  { name: 'Natal', date: '12-25' },
+];
+
+// Nomes dos feriados móveis (mudam de data a cada ano)
+const NOMES_MOVEIS = ['Carnaval', 'Sexta-feira Santa', 'Corpus Christi'];
+
+function getFeriadosMoveis(year: number): Array<{ name: string; date: string }> {
   const pascoa = calcularPascoa(year);
 
-  // Feriados móveis baseados na Páscoa
   const carnaval = new Date(pascoa);
   carnaval.setDate(carnaval.getDate() - 47);
 
@@ -50,31 +64,40 @@ function getFeriadosNacionais(year: number): Array<{ name: string; date: string 
   corpusChristi.setDate(corpusChristi.getDate() + 60);
 
   return [
-    { name: 'Confraternização Universal', date: '01-01' },
     { name: 'Carnaval', date: formatMMDD(carnaval) },
     { name: 'Sexta-feira Santa', date: formatMMDD(sextaSanta) },
-    { name: 'Tiradentes', date: '04-21' },
-    { name: 'Dia do Trabalho', date: '05-01' },
     { name: 'Corpus Christi', date: formatMMDD(corpusChristi) },
-    { name: 'Independência do Brasil', date: '09-07' },
-    { name: 'Nossa Senhora Aparecida', date: '10-12' },
-    { name: 'Finados', date: '11-02' },
-    { name: 'Proclamação da República', date: '11-15' },
-    { name: 'Natal', date: '12-25' },
   ];
 }
 
-async function seedNationalHolidays(codLoja: number, year: number): Promise<Holiday[]> {
-  const feriados = getFeriadosNacionais(year);
+// Atualiza feriados móveis para o ano atual (muda a data MM-DD)
+async function atualizarFeriadosMoveis(codLoja: number): Promise<void> {
+  const currentYear = new Date().getFullYear();
+  const moveis = getFeriadosMoveis(currentYear);
+
+  for (const movel of moveis) {
+    const existing = await holidayRepository.findOne({
+      where: { name: movel.name, cod_loja: codLoja, type: 'national' },
+    });
+
+    if (existing && existing.date !== movel.date) {
+      existing.date = movel.date;
+      existing.year = currentYear;
+      await holidayRepository.save(existing);
+    }
+  }
+}
+
+async function seedNationalHolidays(codLoja: number): Promise<Holiday[]> {
+  const currentYear = new Date().getFullYear();
+  const todosNacionais = [...FERIADOS_FIXOS, ...getFeriadosMoveis(currentYear)];
   const created: Holiday[] = [];
 
-  for (const feriado of feriados) {
-    // Verificar se já existe
+  for (const feriado of todosNacionais) {
+    // Verificar se já existe por nome + loja + tipo national
     const existing = await holidayRepository.findOne({
       where: {
         name: feriado.name,
-        date: feriado.date,
-        year: year,
         cod_loja: codLoja,
         type: 'national',
       },
@@ -84,13 +107,17 @@ async function seedNationalHolidays(codLoja: number, year: number): Promise<Holi
       const holiday = holidayRepository.create({
         name: feriado.name,
         date: feriado.date,
-        year: year,
+        year: null,
         type: 'national',
         cod_loja: codLoja,
         active: true,
       });
       const saved = await holidayRepository.save(holiday);
       created.push(saved);
+    } else if (existing.date !== feriado.date) {
+      // Atualizar data de feriado móvel
+      existing.date = feriado.date;
+      await holidayRepository.save(existing);
     }
   }
 
@@ -98,15 +125,17 @@ async function seedNationalHolidays(codLoja: number, year: number): Promise<Holi
 }
 
 export class HolidaysController {
-  // GET /holidays?cod_loja=1&year=2026
+  // GET /holidays?cod_loja=1
   static async getAll(req: any, res: Response) {
     try {
       const codLoja = req.query.cod_loja ? parseInt(req.query.cod_loja as string) : undefined;
-      const year = req.query.year ? parseInt(req.query.year as string) : new Date().getFullYear();
+      const currentYear = new Date().getFullYear();
 
-      const whereClause: any = { year };
+      const whereClause: any = {};
       if (codLoja !== undefined) {
         whereClause.cod_loja = codLoja;
+        // Atualizar feriados móveis para o ano atual
+        await atualizarFeriadosMoveis(codLoja);
       }
 
       const holidays = await holidayRepository.find({
@@ -114,7 +143,13 @@ export class HolidaysController {
         order: { date: 'ASC' },
       });
 
-      res.json(holidays);
+      // Adicionar ano atual para exibição no frontend
+      const holidaysComAno = holidays.map(h => ({
+        ...h,
+        year: currentYear,
+      }));
+
+      res.json(holidaysComAno);
     } catch (error: any) {
       console.error('Erro ao buscar feriados:', error);
       res.status(500).json({ error: 'Erro ao buscar feriados' });
@@ -124,16 +159,16 @@ export class HolidaysController {
   // POST /holidays - Criar feriado regional
   static async create(req: any, res: Response) {
     try {
-      const { name, date, year, cod_loja } = req.body;
+      const { name, date, cod_loja } = req.body;
 
-      if (!name || !date || !year || cod_loja === undefined) {
-        return res.status(400).json({ error: 'Campos obrigatórios: name, date, year, cod_loja' });
+      if (!name || !date || cod_loja === undefined) {
+        return res.status(400).json({ error: 'Campos obrigatórios: name, date, cod_loja' });
       }
 
       const holiday = holidayRepository.create({
         name,
         date,
-        year,
+        year: null,
         type: 'regional',
         cod_loja,
         active: true,
@@ -195,17 +230,22 @@ export class HolidaysController {
   static async seedNational(req: any, res: Response) {
     try {
       const codLoja = parseInt(req.params.codLoja);
-      const year = req.query.year ? parseInt(req.query.year as string) : new Date().getFullYear();
 
-      const created = await seedNationalHolidays(codLoja, year);
+      await seedNationalHolidays(codLoja);
 
-      // Retornar todos os feriados da loja/ano
+      // Retornar todos os feriados da loja
+      const currentYear = new Date().getFullYear();
       const holidays = await holidayRepository.find({
-        where: { cod_loja: codLoja, year },
+        where: { cod_loja: codLoja },
         order: { date: 'ASC' },
       });
 
-      res.json(holidays);
+      const holidaysComAno = holidays.map(h => ({
+        ...h,
+        year: currentYear,
+      }));
+
+      res.json(holidaysComAno);
     } catch (error: any) {
       console.error('Erro ao popular feriados nacionais:', error);
       res.status(500).json({ error: 'Erro ao popular feriados nacionais' });

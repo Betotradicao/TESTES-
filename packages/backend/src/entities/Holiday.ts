@@ -9,10 +9,10 @@ export class Holiday {
   name: string;
 
   @Column({ type: 'varchar', length: 5 })
-  date: string; // MM-DD format
+  date: string; // MM-DD format (recorrente, sem ano)
 
-  @Column({ type: 'int' })
-  year: number;
+  @Column({ type: 'int', nullable: true })
+  year: number | null; // Legado - não usado mais para filtro
 
   @Column({ type: 'varchar', length: 20, default: 'national' })
   type: string; // 'national' | 'regional'

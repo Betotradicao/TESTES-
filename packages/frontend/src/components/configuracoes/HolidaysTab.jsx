@@ -24,15 +24,16 @@ export default function HolidaysTab() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingHoliday, setEditingHoliday] = useState(null);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedLoja, setSelectedLoja] = useState(lojaSelecionada || 1);
-  const [form, setForm] = useState({ name: '', date: '' });
+  const [form, setForm] = useState({ name: '', day: '', month: '' });
+
+  const currentYear = new Date().getFullYear();
 
   useEffect(() => {
     if (selectedLoja) {
       loadHolidays();
     }
-  }, [selectedLoja, selectedYear]);
+  }, [selectedLoja]);
 
   // Atualizar loja selecionada quando o contexto muda
   useEffect(() => {
@@ -44,11 +45,11 @@ export default function HolidaysTab() {
   const loadHolidays = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/holidays?cod_loja=${selectedLoja}&year=${selectedYear}`);
+      const response = await api.get(`/holidays?cod_loja=${selectedLoja}`);
 
       if (response.data.length === 0) {
         // Seed feriados nacionais se não existem
-        const seedResponse = await api.post(`/holidays/seed/${selectedLoja}?year=${selectedYear}`);
+        const seedResponse = await api.post(`/holidays/seed/${selectedLoja}`);
         setHolidays(seedResponse.data || []);
       } else {
         setHolidays(response.data);
@@ -64,29 +65,34 @@ export default function HolidaysTab() {
   const handleOpenModal = (holiday = null) => {
     if (holiday) {
       setEditingHoliday(holiday);
-      // Converter MM-DD para YYYY-MM-DD para o input date
       const [mm, dd] = holiday.date.split('-');
       setForm({
         name: holiday.name,
-        date: `${selectedYear}-${mm}-${dd}`,
+        day: dd,
+        month: mm,
       });
     } else {
       setEditingHoliday(null);
-      setForm({ name: '', date: '' });
+      setForm({ name: '', day: '', month: '' });
     }
     setShowModal(true);
   };
 
   const handleSave = async () => {
-    if (!form.name.trim() || !form.date) {
-      toast.error('Preencha nome e data');
+    if (!form.name.trim() || !form.day || !form.month) {
+      toast.error('Preencha nome, dia e mês');
+      return;
+    }
+
+    const day = parseInt(form.day);
+    const month = parseInt(form.month);
+    if (day < 1 || day > 31 || month < 1 || month > 12) {
+      toast.error('Data inválida');
       return;
     }
 
     try {
-      // Extrair MM-DD da data
-      const dateParts = form.date.split('-'); // YYYY-MM-DD
-      const mmdd = `${dateParts[1]}-${dateParts[2]}`;
+      const mmdd = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
       if (editingHoliday) {
         await api.put(`/holidays/${editingHoliday.id}`, {
@@ -98,7 +104,6 @@ export default function HolidaysTab() {
         await api.post('/holidays', {
           name: form.name.trim(),
           date: mmdd,
-          year: selectedYear,
           cod_loja: selectedLoja,
         });
         toast.success('Feriado criado');
@@ -130,12 +135,18 @@ export default function HolidaysTab() {
     }
   };
 
-  const currentYear = new Date().getFullYear();
-  const yearOptions = [currentYear - 1, currentYear, currentYear + 1];
-
   // Contadores
   const nacionais = holidays.filter(h => h.type === 'national').length;
   const regionais = holidays.filter(h => h.type === 'regional').length;
+
+  const meses = [
+    { value: '01', label: 'Janeiro' }, { value: '02', label: 'Fevereiro' },
+    { value: '03', label: 'Março' }, { value: '04', label: 'Abril' },
+    { value: '05', label: 'Maio' }, { value: '06', label: 'Junho' },
+    { value: '07', label: 'Julho' }, { value: '08', label: 'Agosto' },
+    { value: '09', label: 'Setembro' }, { value: '10', label: 'Outubro' },
+    { value: '11', label: 'Novembro' }, { value: '12', label: 'Dezembro' },
+  ];
 
   return (
     <div className="space-y-6">
@@ -160,7 +171,7 @@ export default function HolidaysTab() {
         </button>
       </div>
 
-      {/* Filtros: Loja + Ano */}
+      {/* Filtros: Loja */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex flex-wrap gap-4 items-end">
           {/* Seletor de Loja */}
@@ -183,27 +194,13 @@ export default function HolidaysTab() {
             </select>
           </div>
 
-          {/* Seletor de Ano */}
-          <div className="w-32">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Ano</label>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-            >
-              {yearOptions.map(y => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
-          </div>
-
           {/* Badges de contagem */}
           <div className="flex gap-2">
             <span className="inline-flex items-center gap-1 px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium">
-              🇧🇷 {nacionais} nacionais
+              {nacionais} nacionais
             </span>
             <span className="inline-flex items-center gap-1 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium">
-              📍 {regionais} regionais
+              {regionais} regionais
             </span>
           </div>
         </div>
@@ -219,7 +216,7 @@ export default function HolidaysTab() {
         ) : holidays.length === 0 ? (
           <div className="p-12 text-center">
             <div className="text-5xl mb-3">📅</div>
-            <p className="text-gray-500">Nenhum feriado cadastrado para {selectedYear}</p>
+            <p className="text-gray-500">Nenhum feriado cadastrado</p>
           </div>
         ) : (
           <table className="w-full">
@@ -234,11 +231,11 @@ export default function HolidaysTab() {
             </thead>
             <tbody>
               {holidays.map((holiday) => {
-                const diaSemana = getDiaSemana(holiday.date, holiday.year);
+                const diaSemana = getDiaSemana(holiday.date, currentYear);
                 const isFimDeSemana = diaSemana === 'Sábado' || diaSemana === 'Domingo';
                 const isPassado = (() => {
                   const [mm, dd] = holiday.date.split('-').map(Number);
-                  const holidayDate = new Date(holiday.year, mm - 1, dd);
+                  const holidayDate = new Date(currentYear, mm - 1, dd);
                   const today = new Date();
                   today.setHours(0, 0, 0, 0);
                   return holidayDate < today;
@@ -251,7 +248,7 @@ export default function HolidaysTab() {
                   >
                     <td className="py-3 px-4">
                       <span className="font-mono text-base font-semibold text-gray-900">
-                        {formatDate(holiday.date)}/{holiday.year}
+                        {formatDate(holiday.date)}/{currentYear}
                       </span>
                     </td>
                     <td className="py-3 px-4">
@@ -265,11 +262,11 @@ export default function HolidaysTab() {
                     <td className="py-3 px-4 text-center">
                       {holiday.type === 'national' ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                          🇧🇷 Nacional
+                          Nacional
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
-                          📍 Regional
+                          Regional
                         </span>
                       )}
                     </td>
@@ -320,7 +317,7 @@ export default function HolidaysTab() {
                       {editingHoliday ? 'Editar Feriado' : 'Novo Feriado Regional'}
                     </h3>
                     <p className="text-orange-200 text-sm">
-                      Loja {selectedLoja} - {selectedYear}
+                      Loja {selectedLoja} - Recorrente todo ano
                     </p>
                   </div>
                 </div>
@@ -341,23 +338,43 @@ export default function HolidaysTab() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Data *</label>
-                <input
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-base"
-                />
-                {form.date && (
-                  <p className="mt-1 text-sm text-gray-500">
-                    {(() => {
-                      const d = new Date(form.date + 'T12:00:00');
-                      return DIAS_SEMANA[d.getDay()];
-                    })()}
-                  </p>
-                )}
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Dia *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={form.day}
+                    onChange={(e) => setForm({ ...form, day: e.target.value })}
+                    placeholder="27"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-base"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mês *</label>
+                  <select
+                    value={form.month}
+                    onChange={(e) => setForm({ ...form, month: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-base"
+                  >
+                    <option value="">Selecione</option>
+                    {meses.map(m => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
+
+              {form.day && form.month && (
+                <p className="text-sm text-gray-500">
+                  Cai em{' '}
+                  <strong>
+                    {getDiaSemana(`${form.month.padStart(2, '0')}-${form.day.padStart(2, '0')}`, currentYear)}
+                  </strong>{' '}
+                  em {currentYear}
+                </p>
+              )}
             </div>
 
             <div className="p-6 bg-gray-50 border-t border-gray-200 flex items-center justify-end gap-3">
@@ -369,7 +386,7 @@ export default function HolidaysTab() {
               </button>
               <button
                 onClick={handleSave}
-                disabled={!form.name.trim() || !form.date}
+                disabled={!form.name.trim() || !form.day || !form.month}
                 className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 font-medium"
               >
                 {editingHoliday ? 'Salvar' : 'Criar Feriado'}
