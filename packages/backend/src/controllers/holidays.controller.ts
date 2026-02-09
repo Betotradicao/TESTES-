@@ -48,14 +48,11 @@ const FERIADOS_FIXOS = [
   { name: 'Natal', date: '12-25' },
 ];
 
-// Nomes dos feriados móveis (mudam de data a cada ano)
-const NOMES_MOVEIS = ['Carnaval', 'Sexta-feira Santa', 'Corpus Christi'];
+// Nomes dos feriados móveis obrigatórios (mudam de data a cada ano)
+const NOMES_MOVEIS = ['Sexta-feira Santa', 'Corpus Christi'];
 
 function getFeriadosMoveis(year: number): Array<{ name: string; date: string }> {
   const pascoa = calcularPascoa(year);
-
-  const carnaval = new Date(pascoa);
-  carnaval.setDate(carnaval.getDate() - 47);
 
   const sextaSanta = new Date(pascoa);
   sextaSanta.setDate(sextaSanta.getDate() - 2);
@@ -64,7 +61,6 @@ function getFeriadosMoveis(year: number): Array<{ name: string; date: string }> 
   corpusChristi.setDate(corpusChristi.getDate() + 60);
 
   return [
-    { name: 'Carnaval', date: formatMMDD(carnaval) },
     { name: 'Sexta-feira Santa', date: formatMMDD(sextaSanta) },
     { name: 'Corpus Christi', date: formatMMDD(corpusChristi) },
   ];
