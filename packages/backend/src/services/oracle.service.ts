@@ -350,6 +350,51 @@ export class OracleService {
   }
 
   /**
+   * Recarrega a configuração Oracle (chamado quando conexão é salva/atualizada pelo frontend)
+   * Fecha o pool existente, reseta flags, e reinicializa com nova config
+   */
+  static async reloadConfig(): Promise<{ success: boolean; message: string }> {
+    try {
+      console.log('🔄 Oracle: Recarregando configuração...');
+
+      // 1. Fecha o pool existente
+      if (this.pool) {
+        try {
+          await this.pool.close(0);
+          console.log('🔄 Oracle: Pool antigo fechado');
+        } catch (closeErr: any) {
+          console.warn('⚠️ Oracle: Erro ao fechar pool antigo:', closeErr.message);
+        }
+        this.pool = null;
+      }
+
+      // 2. Reseta flags para forçar reload da config
+      this.configLoaded = false;
+      this.oracleConfig = { ...DEFAULT_ORACLE_CONFIG };
+
+      // 3. Recarrega config do banco
+      await this.loadConfig();
+
+      if (!this.configLoaded) {
+        return { success: false, message: 'Configuração Oracle não encontrada no banco' };
+      }
+
+      // 4. Recria o pool com a nova config
+      await this.initialize();
+
+      if (this.pool) {
+        console.log('✅ Oracle: Configuração recarregada com sucesso!');
+        return { success: true, message: 'Configuração Oracle recarregada com sucesso!' };
+      } else {
+        return { success: false, message: 'Pool Oracle não foi criado (verifique a conexão/túnel)' };
+      }
+    } catch (error: any) {
+      console.error('❌ Oracle: Erro ao recarregar configuração:', error.message);
+      return { success: false, message: `Erro ao recarregar: ${error.message}` };
+    }
+  }
+
+  /**
    * Fecha o pool de conexões
    */
   static async close(): Promise<void> {

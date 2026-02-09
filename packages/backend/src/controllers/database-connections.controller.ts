@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AppDataSource } from '../config/database';
 import { DatabaseConnection, DatabaseType, ConnectionStatus } from '../entities/DatabaseConnection';
 import { MappingService } from '../services/mapping.service';
+import { OracleService } from '../services/oracle.service';
 import oracledb from 'oracledb';
 
 const connectionRepository = AppDataSource.getRepository(DatabaseConnection);
@@ -100,6 +101,14 @@ export class DatabaseConnectionsController {
 
       console.log(`✅ Database connection created: ${saved.name} (${saved.type})`);
 
+      // Auto-reload Oracle se a conexão criada é Oracle e está ativa
+      if (saved.type === DatabaseType.ORACLE && saved.status === ConnectionStatus.ACTIVE) {
+        OracleService.reloadConfig().then(r => {
+          console.log(`🔄 Oracle auto-reload após criar conexão: ${r.message}`);
+        }).catch(e => console.error('Oracle reload error:', e));
+      }
+      MappingService.clearCache();
+
       return res.status(201).json(saved);
     } catch (error) {
       console.error('Error creating database connection:', error);
@@ -161,6 +170,14 @@ export class DatabaseConnectionsController {
       const saved = await connectionRepository.save(connection);
 
       console.log(`✅ Database connection updated: ${saved.name}`);
+
+      // Auto-reload Oracle se a conexão atualizada é Oracle e está ativa
+      if (saved.type === DatabaseType.ORACLE && saved.status === ConnectionStatus.ACTIVE) {
+        OracleService.reloadConfig().then(r => {
+          console.log(`🔄 Oracle auto-reload após atualizar conexão: ${r.message}`);
+        }).catch(e => console.error('Oracle reload error:', e));
+      }
+      MappingService.clearCache();
 
       return res.json(saved);
     } catch (error) {
@@ -243,6 +260,14 @@ export class DatabaseConnectionsController {
         connection.last_error = testResult.message;
       }
       await connectionRepository.save(connection);
+
+      // Auto-reload Oracle quando teste passa com sucesso
+      if (testResult.success && connection.type === DatabaseType.ORACLE) {
+        OracleService.reloadConfig().then(r => {
+          console.log(`🔄 Oracle auto-reload após teste OK: ${r.message}`);
+        }).catch(e => console.error('Oracle reload error:', e));
+        MappingService.clearCache();
+      }
 
       return res.json(testResult);
     } catch (error: any) {

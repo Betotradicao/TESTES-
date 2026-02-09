@@ -889,6 +889,64 @@ export default function ConfiguracoesTabelas() {
     }
   };
 
+  // Salvar TODOS os mapeamentos de uma vez (todos módulos, todos submódulos)
+  const [savingAll, setSavingAll] = useState(false);
+  const handleSaveAllMappings = async () => {
+    if (!selectedConnection) {
+      alert('Selecione uma conexão primeiro!');
+      return;
+    }
+
+    if (!confirm('Isso vai salvar TODOS os mapeamentos de TODOS os módulos com os valores atuais (padrão Intersolid).\n\nDeseja continuar?')) {
+      return;
+    }
+
+    setSavingAll(true);
+    try {
+      // Coletar todas as tabelas únicas de todos os submódulos
+      const allTables = new Set();
+      BUSINESS_MODULES.forEach(mod => {
+        mod.submodules.forEach(sub => {
+          sub.tables.forEach(t => allTables.add(t));
+        });
+      });
+
+      // Salvar cada tabela uma vez
+      let savedCount = 0;
+      const totalTables = allTables.size;
+
+      for (const tableId of allTables) {
+        const mapping = tableMappings[tableId];
+        if (!mapping) continue;
+
+        await api.post('/database-connections/save-table-mapping', {
+          connectionId: selectedConnection,
+          tableId,
+          realTableName: mapping.nome_real || tableId,
+          columns: mapping.colunas || {},
+          tabelas_campo: mapping.tabelas_campo || {}
+        });
+        savedCount++;
+      }
+
+      // Marcar TODOS os submódulos como salvos
+      const allSaved = {};
+      BUSINESS_MODULES.forEach(mod => {
+        mod.submodules.forEach(sub => {
+          allSaved[`${mod.id}.${sub.id}`] = true;
+        });
+      });
+      setSavedSubmodules(allSaved);
+
+      alert(`✅ ${savedCount} tabelas salvas com sucesso!\nTodos os módulos e submódulos foram marcados como SALVOS.`);
+    } catch (error) {
+      console.error('Erro ao salvar todos os mapeamentos:', error);
+      alert('❌ Erro ao salvar: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setSavingAll(false);
+    }
+  };
+
   // Excluir template ERP
   const handleDeleteErpTemplate = async (template) => {
     if (!confirm(`Tem certeza que deseja excluir o template "${template.name}"?`)) return;
@@ -1743,6 +1801,37 @@ export default function ConfiguracoesTabelas() {
               </button>
             );
           })}
+
+          {/* Botão Salvar Tudo de Uma Vez */}
+          <button
+            onClick={handleSaveAllMappings}
+            disabled={savingAll || !selectedConnection}
+            className={`flex items-center gap-3 px-5 py-4 rounded-xl border-2 transition-all ${
+              savingAll
+                ? 'border-green-400 bg-green-50 text-green-600 cursor-wait'
+                : !selectedConnection
+                  ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'border-green-500 bg-green-50 text-green-700 hover:bg-green-100 hover:shadow-md'
+            }`}
+          >
+            {savingAll ? (
+              <>
+                <div className="animate-spin w-8 h-8 border-3 border-green-500 border-t-transparent rounded-full"></div>
+                <div className="text-left">
+                  <div className="font-bold">Salvando...</div>
+                  <div className="text-xs opacity-75">Aguarde</div>
+                </div>
+              </>
+            ) : (
+              <>
+                <span className="text-3xl">⚡</span>
+                <div className="text-left">
+                  <div className="font-bold">Salvar Tudo</div>
+                  <div className="text-xs opacity-75">Todos os módulos</div>
+                </div>
+              </>
+            )}
+          </button>
 
           {/* Botão Salvar Padrão ERP */}
           <button
