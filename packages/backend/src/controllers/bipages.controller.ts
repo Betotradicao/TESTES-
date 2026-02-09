@@ -33,8 +33,16 @@ export class BipagesController {
 
       const payload: WebhookPayload = req.body;
 
+      // FASE 0: Rejeitar silenciosamente input de teclado (sem dígitos = não é barcode)
+      const rawDigits = String(payload.raw || '').replace(/\D+/g, '');
+      if (rawDigits.length === 0) {
+        console.log(`⌨️ Input ignorado (sem dígitos, provável teclado): "${String(payload.raw || '').substring(0, 30)}"`);
+        res.status(200).json({ success: false, error: 'IGNORED_KEYBOARD_INPUT' });
+        return;
+      }
+
       // FASE 0.5: Detectar código de colaborador (3122) ANTES de formatar EAN
-      const rawCode = String(payload.raw || '').replace(/\D+/g, '');
+      const rawCode = rawDigits;
       if (rawCode.startsWith('3122')) {
         console.log('\n=== FASE 0.5: CÓDIGO DE COLABORADOR DETECTADO ===');
         console.log(`🔐 Código de colaborador: ${rawCode}`);
