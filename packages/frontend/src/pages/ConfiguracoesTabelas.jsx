@@ -1254,7 +1254,8 @@ export default function ConfiguracoesTabelas() {
           </h3>
           <div className="space-y-3">
             {installedTunnels.tunnels.map((tunnel, idx) => (
-              <div key={idx} className={`flex items-center justify-between p-4 rounded-lg border ${
+              <div key={idx}>
+              <div className={`flex items-center justify-between p-4 rounded-lg border ${
                 tunnel.status === 'online' ? 'bg-green-50 border-green-300' :
                 tunnel.status === 'partial' ? 'bg-yellow-50 border-yellow-300' :
                 'bg-red-50 border-red-300'
@@ -1320,6 +1321,7 @@ export default function ConfiguracoesTabelas() {
                   </p>
                 </div>
               )}
+            </div>
             ))}
           </div>
           <button
