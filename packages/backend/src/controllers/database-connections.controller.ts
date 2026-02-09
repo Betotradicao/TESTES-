@@ -64,6 +64,14 @@ export class DatabaseConnectionsController {
         await connectionRepository.update({}, { is_default: false });
       }
 
+      // Se é a primeira conexão, automaticamente vira default
+      const existingCount = await connectionRepository.count();
+      const shouldBeDefault = is_default || existingCount === 0;
+
+      if (shouldBeDefault && !is_default) {
+        await connectionRepository.update({}, { is_default: false });
+      }
+
       // Mapear status do frontend para o enum
       let connectionStatus = ConnectionStatus.INACTIVE;
       if (status === 'active') {
@@ -83,7 +91,7 @@ export class DatabaseConnectionsController {
         username,
         password,
         schema,
-        is_default: is_default || false,
+        is_default: shouldBeDefault,
         status: connectionStatus
       });
 

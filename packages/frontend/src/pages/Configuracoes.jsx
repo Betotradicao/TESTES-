@@ -10,6 +10,7 @@ import EmployeesTab from '../components/configuracoes/EmployeesTab';
 import PreventionTab from '../components/configuracoes/PreventionTab';
 import HortFrutBoxesTab from '../components/configuracoes/HortFrutBoxesTab';
 import SuppliersTab from '../components/configuracoes/SuppliersTab';
+import HolidaysTab from '../components/configuracoes/HolidaysTab';
 
 export default function Configuracoes() {
   const { user, logout } = useAuth();
@@ -21,7 +22,7 @@ export default function Configuracoes() {
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && (tabFromUrl === 'empresa' || tabFromUrl === 'ativar-produtos' || tabFromUrl === 'sectors' || tabFromUrl === 'employees' || tabFromUrl === 'prevention' || tabFromUrl === 'hortfrut-boxes' || tabFromUrl === 'suppliers')) {
+    if (tabFromUrl && (tabFromUrl === 'empresa' || tabFromUrl === 'ativar-produtos' || tabFromUrl === 'sectors' || tabFromUrl === 'employees' || tabFromUrl === 'prevention' || tabFromUrl === 'hortfrut-boxes' || tabFromUrl === 'suppliers' || tabFromUrl === 'holidays')) {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -89,6 +90,7 @@ export default function Configuracoes() {
             {activeTab === 'prevention' && <PreventionTab />}
             {activeTab === 'hortfrut-boxes' && <HortFrutBoxesTab />}
             {activeTab === 'suppliers' && <SuppliersTab />}
+            {activeTab === 'holidays' && <HolidaysTab />}
           </div>
         </div>
       </div>

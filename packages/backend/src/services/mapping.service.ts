@@ -294,6 +294,14 @@ export class MappingService {
         });
       }
 
+      // Se não achou por default/active, pegar a primeira conexão que tiver schema
+      if (!connection) {
+        connection = await connectionRepo.findOne({
+          where: {},
+          order: { id: 'ASC' }
+        });
+      }
+
       if (!connection?.schema) {
         throw new Error('[MappingService] Schema não configurado. Configure em Configurações > Conexões.');
       }
