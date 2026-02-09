@@ -1,241 +1,241 @@
-# 🚨 REGRAS CRÍTICAS QUE O CLAUDE DEVE SEMPRE SEGUIR
+# REGRAS CRITICAS - INSTALADOR VPS MULTI-TENANT
 
-## ⚠️ REGRA #1: SSH - SEMPRE usar a chave correta
+## REGRA #1: Arquitetura Multi-Tenant
 
-**SEMPRE use este formato exato:**
-```bash
-ssh -i ~/.ssh/vps_prevencao root@IP_DA_VPS "comando"
+**VPS Atual:** `46.202.150.64` (alias SSH: `vps2-hostinger`)
+**Branch:** `TESTE`
+**Repo compartilhado:** `/root/prevencao-radar-repo`
+
+**Estrutura de diretórios na VPS:**
+```
+/root/
+├── prevencao-radar-repo/          # Repositório Git compartilhado (fonte do código)
+├── clientes/
+│   ├── clientes.json              # Registro de todos os clientes instalados
+│   ├── tradicao/
+│   │   ├── docker-compose.yml     # Docker-compose específico do cliente
+│   │   ├── .env                   # Variáveis de ambiente do cliente
+│   │   └── ssh_keys/              # Chaves SSH ISOLADAS deste cliente
+│   │       └── authorized_keys    # Só contém túneis DESTE cliente
+│   └── piratininga/
+│       ├── docker-compose.yml
+│       ├── .env
+│       └── ssh_keys/
+│           └── authorized_keys
+└── .ssh/
+    └── authorized_keys            # Authorized_keys do HOST (sshd lê daqui)
 ```
 
-**NUNCA use:**
-- `ssh root@IP` (sem a chave)
-- `ssh -o StrictHostKeyChecking=no` (a menos que seja a primeira vez)
-
-**IPs das VPS:**
-- VPS 145 (TESTE): `145.223.92.152` - Diretório: `/root/prevencao-radar-install`
-- VPS 31 (PRODUÇÃO): `31.97.82.235` - Diretório: `/root/NOVO-PREVEN-O`
+**Padrão de nomes:**
+- Containers: `prevencao-<cliente>-<servico>` (ex: `prevencao-tradicao-backend`)
+- Banco: `postgres_<cliente>` (ex: `postgres_tradicao`)
+- Network: `<cliente>_network`
 
 ---
 
-## ⚠️ REGRA #2: DEPLOY - NUNCA recriar containers de banco de dados
+## REGRA #2: SSH - Acesso à VPS
 
-**COMANDO CORRETO para deploy:**
-
-### Frontend + Backend:
+**SEMPRE usar o alias configurado:**
 ```bash
-cd /root/TESTES/InstaladorVPS  # ou /root/NOVO-PREVEN-O/InstaladorVPS
-git pull origin TESTE           # ou origin main
-docker compose -f docker-compose-producao.yml build --no-cache frontend backend
-docker compose -f docker-compose-producao.yml up -d --no-deps frontend backend
+ssh vps2-hostinger "comando"
 ```
 
-### APENAS Backend (com migrations):
-```bash
-cd /root/TESTES/InstaladorVPS
-git pull origin TESTE
-docker compose -f docker-compose-producao.yml build --no-cache backend
-docker compose -f docker-compose-producao.yml up -d --no-deps backend
-```
-
-### APENAS Frontend:
-```bash
-cd /root/TESTES/InstaladorVPS
-git pull origin TESTE
-docker compose -f docker-compose-producao.yml build --no-cache frontend
-docker compose -f docker-compose-producao.yml up -d --no-deps frontend
-```
-
-**FLAGS OBRIGATÓRIAS:**
-- `--no-cache`: Força rebuild sem cache (pega código novo)
-- `--no-deps`: NÃO reinicia containers dependentes (postgres, minio)
-
-**❌ NUNCA FAÇA:**
-```bash
-docker compose up -d --build              # RECRIA TUDO = PERDE DADOS
-docker compose down && docker compose up  # REMOVE E RECRIA = PERDE DADOS
-docker compose build                      # GERA NOVAS SENHAS ALEATÓRIAS
-```
+**NUNCA usar IP direto sem chave.**
 
 ---
 
-## ⚠️ REGRA #3: Erro "password authentication failed"
-
-Se aparecer `password authentication failed for user "postgres"`:
-
-**SOLUÇÃO RÁPIDA:**
-```bash
-# 1. Ver senha que o backend está usando:
-docker exec prevencao-backend-prod env | grep DB_PASSWORD
-
-# 2. Alterar senha do postgres para a mesma do backend:
-docker exec -e PGPASSWORD=postgres prevencao-postgres-prod psql -U postgres -c "ALTER USER postgres WITH PASSWORD 'SENHA_DO_BACKEND_AQUI';"
-
-# 3. Reiniciar backend:
-docker restart prevencao-backend-prod
-
-# 4. Verificar conexão:
-docker logs prevencao-backend-prod --tail 20 | grep "Database connected"
-```
-
----
-
-## ⚠️ REGRA #4: Sempre verificar ANTES de fazer deploy
-
-**CHECKLIST OBRIGATÓRIO:**
-1. [ ] Identifiquei o que mudou? (frontend, backend, ou ambos?)
-2. [ ] Estou usando `--no-deps`?
-3. [ ] Estou usando `--no-cache`?
-4. [ ] Especifiquei QUAL container atualizar (frontend, backend, ou ambos)?
-5. [ ] NÃO estou usando `docker compose down`?
-6. [ ] Não vou recriar o postgres?
-
-**Se responder NÃO em qualquer item, PARE e revise!**
-
----
-
-## ⚠️ REGRA #5: Comandos úteis de verificação
-
-```bash
-# Ver containers rodando
-docker ps --filter name=prevencao
-
-# Ver logs do backend
-docker logs prevencao-backend-prod --tail 50
-
-# Ver logs do frontend
-docker logs prevencao-frontend-prod --tail 50
-
-# Verificar se banco conectou
-docker logs prevencao-backend-prod | grep "Database connected"
-
-# Verificar quantas tabelas tem no banco
-docker exec prevencao-postgres-prod psql -U postgres -d prevencao_db -c '\dt' | wc -l
-
-# Verificar migrations rodaram
-docker logs prevencao-backend-prod | grep "migration ran"
-```
-
----
-
-## ⚠️ REGRA #6: Estrutura de diretórios
-
-**VPS 145 (TESTE):**
-```
-/root/TESTES/
-├── InstaladorVPS/
-│   ├── docker-compose-producao.yml  ← USAR ESTE
-│   └── .env
-├── packages/
-│   ├── backend/
-│   └── frontend/
-└── docker-compose.yml               ← NÃO USAR EM PRODUÇÃO
-```
-
-**VPS 31 (PRODUÇÃO):**
-```
-/root/NOVO-PREVEN-O/
-├── InstaladorVPS/
-│   ├── docker-compose-producao.yml  ← USAR ESTE
-│   └── .env
-├── packages/
-│   ├── backend/
-│   └── frontend/
-└── docker-compose.yml               ← NÃO USAR EM PRODUÇÃO
-```
-
----
-
-## ⚠️ REGRA #7: SEMPRE fazer git pull ANTES do docker build
+## REGRA #3: Deploy de atualizações em cliente existente
 
 **ORDEM CORRETA:**
 ```bash
-cd /root/TESTES
-git pull origin TESTE          # 1. PRIMEIRO: Puxar código novo
-cd InstaladorVPS              # 2. Entrar no diretório correto
-docker compose -f ...build    # 3. DEPOIS: Buildar imagens
-docker compose -f ...up       # 4. FINALMENTE: Subir containers
+# 1. Pull no repo compartilhado
+ssh vps2-hostinger "cd /root/prevencao-radar-repo && git pull origin TESTE"
+
+# 2. Rebuild APENAS backend e/ou frontend do cliente (NUNCA postgres/minio)
+ssh vps2-hostinger "cd /root/clientes/<CLIENTE> && docker compose up -d --build backend"
+ssh vps2-hostinger "cd /root/clientes/<CLIENTE> && docker compose up -d --build frontend"
 ```
 
-**❌ ERRADO:**
+**NUNCA FACA:**
 ```bash
-cd InstaladorVPS
-docker compose build  # Vai buildar código ANTIGO!
-git pull             # Tarde demais
+docker compose down -v        # DESTROI DADOS (volumes)
+docker compose up -d --build  # SEM especificar serviço = RECRIA TUDO
+```
+
+**FLAGS IMPORTANTES:**
+- `--build`: Reconstroi a imagem com código novo
+- `--no-deps`: Opcional, evita reiniciar dependências
+- NUNCA `down -v` em produção (apaga banco)
+
+---
+
+## REGRA #4: Volumes do Backend (Docker-Compose)
+
+Cada backend de cliente DEVE ter estes volumes:
+
+```yaml
+volumes:
+  - backend_uploads:/app/uploads
+  # SSH isolado por cliente (cada cliente tem suas próprias chaves de túnel)
+  - ${CLIENT_DIR}/ssh_keys:/root/.ssh
+  # SSH do HOST para registrar chaves no sshd (túneis funcionarem)
+  - /root/.ssh:/root/host_ssh
+```
+
+**Por que 2 volumes SSH?**
+- `ssh_keys:/root/.ssh` = Cópia ISOLADA do cliente (frontend só vê seus túneis)
+- `/root/.ssh:/root/host_ssh` = Acesso ao authorized_keys do HOST (sshd precisa)
+
+**Quando o backend cria/exclui um túnel via frontend, ele escreve em AMBOS:**
+1. `/root/.ssh/authorized_keys` (container isolado - para listar no frontend)
+2. `/root/host_ssh/authorized_keys` (host real - para o sshd autenticar)
+
+---
+
+## REGRA #5: Túneis SSH - Como Funcionam
+
+**Fluxo de criação de túnel:**
+1. Usuário configura túnel no frontend (nome, IP local, porta local, porta remota)
+2. Backend gera par de chaves RSA 4096-bit
+3. Chave pública é adicionada ao `authorized_keys` do container E do host
+4. Chave privada é embutida no instalador .BAT baixado
+5. Cliente executa .BAT no Windows da rede local
+6. Serviço PowerShell conecta via SSH reverso à VPS
+7. Porta remota na VPS encaminha tráfego para a rede local do cliente
+
+**Isolamento por cliente:**
+- Cada cliente SÓ vê seus próprios túneis no frontend
+- O host tem TODOS os túneis de TODOS os clientes no seu authorized_keys
+- Chaves usam restrição `restrict,port-forwarding,permitopen="localhost:PORTA"`
+
+**Arquivo responsável:** `packages/backend/src/controllers/tunnel-installer.controller.ts`
+
+---
+
+## REGRA #6: Auto Instalador
+
+**Comando para instalar novo cliente:**
+```bash
+bash <(curl -s https://raw.githubusercontent.com/Betotradicao/TESTES-/TESTE/InstaladorVPS/install-multitenant.sh)
+```
+
+**O instalador faz:**
+1. Pede nome do cliente e domínio
+2. Calcula portas automaticamente baseado em clientes existentes
+3. Clona/atualiza repo compartilhado
+4. Cria diretório do cliente com docker-compose.yml e .env
+5. Cria diretório ssh_keys isolado com chmod 700
+6. Build e start dos containers (postgres, minio, backend, frontend, cron)
+7. Aguarda PostgreSQL ficar saudável
+8. Cria tabelas adicionais (configurations, database_connections + coluna mappings)
+9. Configura Nginx reverse proxy com SSL (Certbot)
+10. Registra cliente no clientes.json
+11. Mostra URLs de acesso e credenciais
+
+**Arquivo:** `InstaladorVPS/install-multitenant.sh`
+**Compatibilidade:** Envolto em `main()` para funcionar com `curl | bash`
+
+---
+
+## REGRA #7: Dockerfile do Backend
+
+O Dockerfile do backend DEVE usar `node:18-slim` (NAO Alpine) com Oracle Instant Client:
+
+```dockerfile
+FROM node:18-slim
+# Instalar Oracle Instant Client 23.4 (necessário para Thick mode)
+RUN apt-get update && apt-get install -y libaio1 curl unzip ca-certificates openssh-client \
+    && curl -o instantclient.zip https://download.oracle.com/otn_software/linux/instantclient/2340000/instantclient-basiclite-linux.x64-23.4.0.24.05.zip \
+    && unzip instantclient.zip && rm instantclient.zip \
+    && ldconfig
+```
+
+**Por que Thick mode?** Servidores Oracle mais antigos (ex: Intersolid) precisam do Oracle Instant Client nativo. Thin mode (JavaScript puro) falha com `NJS-138`.
+
+**O instalador gera o Dockerfile automaticamente** - se mudar no repo, mudar também no instalador.
+
+---
+
+## REGRA #8: Seeds e Configurações Iniciais
+
+O backend executa `seed-configurations.ts` no primeiro startup, populando a tabela `configurations`:
+
+**Configurações pré-carregadas:**
+- Evolution API: `evolution_server_url`, `evolution_api_key`
+- Gmail Monitor DVR: `email_monitor_*` (email, password, host, etc.)
+- App password Gmail atual: `hhyvmqlzzsidwrum`
+
+**Arquivo:** `packages/backend/src/scripts/seed-configurations.ts`
+**Comportamento:** Só insere se a chave NAO existir (não sobrescreve configurações existentes)
+
+---
+
+## REGRA #9: Banco de Dados Oracle dos Clientes (Intersolid)
+
+**Dados de conexão (rede Tradicao/Piratininga):**
+- Host: `10.6.1.100` (rede interna, via túnel)
+- Porta: `1521`
+- Service: `orcl.intersoul`
+- Usuário: `POWERBI`
+- Senha: `OdRz6J4LY6Y6`
+- Schema: `INTERSOLID` (igual para todos os clientes Intersolid)
+
+**Senha é sempre visível no frontend** (sem mascaramento com ***).
+
+---
+
+## REGRA #10: Excluir um cliente
+
+```bash
+# 1. Parar e remover containers + volumes
+cd /root/clientes/<CLIENTE> && docker compose down -v
+
+# 2. Remover diretório do cliente
+rm -rf /root/clientes/<CLIENTE>
+
+# 3. Limpar authorized_keys do host
+sed -i '/<CLIENTE>/Id' /root/.ssh/authorized_keys
+
+# 4. Remover do clientes.json
+python3 -c '
+import json
+with open("/root/clientes/clientes.json") as f:
+    data = json.load(f)
+if "<CLIENTE>" in data.get("vps",{}).get("46",{}).get("clientes",{}):
+    del data["vps"]["46"]["clientes"]["<CLIENTE>"]
+with open("/root/clientes/clientes.json","w") as f:
+    json.dump(data, f, indent=2)
+'
 ```
 
 ---
 
-## ⚠️ REGRA #8: Nomes dos containers
+## REGRA #11: Comandos úteis de verificação
 
-**Produção:**
-- Backend: `prevencao-backend-prod`
-- Frontend: `prevencao-frontend-prod`
-- Postgres: `prevencao-postgres-prod`
-- MinIO: `prevencao-minio-prod`
-- Cron: `prevencao-cron-prod`
-
-**Desenvolvimento (local):**
-- Backend: `prevencao-backend`
-- Frontend: `prevencao-frontend`
-- Postgres: `prevencao-postgres`
-- MinIO: `prevencao-minio`
-
----
-
-## ⚠️ REGRA #9: Branches corretos
-
-- **VPS 145 (TESTE)**: Branch `TESTE`
-- **VPS 31 (PRODUÇÃO)**: Branch `main`
-
-**SEMPRE fazer pull do branch correto:**
 ```bash
-# VPS 145
-git pull origin TESTE
+# Ver todos os containers de um cliente
+docker ps --filter name=prevencao-<CLIENTE>
 
-# VPS 31
-git pull origin main
+# Logs do backend
+docker logs prevencao-<CLIENTE>-backend --tail 50
+
+# Verificar se banco conectou
+docker logs prevencao-<CLIENTE>-backend | grep "Database connected"
+
+# Ver authorized_keys do host (todos os túneis)
+cat /root/.ssh/authorized_keys | grep @tunnel
+
+# Ver authorized_keys isolado de um cliente
+cat /root/clientes/<CLIENTE>/ssh_keys/authorized_keys
+
+# Verificar se túnel está ativo (testar porta)
+ss -tlnp | grep <PORTA_TUNEL>
+
+# Ver todos os clientes instalados
+cat /root/clientes/clientes.json | python3 -m json.tool
 ```
 
 ---
 
-## ⚠️ REGRA #10: Se der MUITO errado e precisar começar do zero
-
-**ÚLTIMO RECURSO (perde TODOS os dados):**
-```bash
-cd /root/TESTES/InstaladorVPS
-docker compose -f docker-compose-producao.yml down -v  # Remove volumes também
-bash INSTALAR-AUTO.sh  # Reinstala tudo do zero
-
-# Avisar usuário que precisa:
-# - Refazer First Setup
-# - Reconfigurar APIs (Zanthus, WhatsApp, Evolution)
-# - Reativar produtos
-# - Refazer todas as configurações
-```
-
----
-
-## 📌 RESUMO SUPER RÁPIDO
-
-**Para deploy normal:**
-```bash
-ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "cd /root/TESTES && git pull origin TESTE && cd InstaladorVPS && docker compose -f docker-compose-producao.yml build --no-cache frontend backend && docker compose -f docker-compose-producao.yml up -d --no-deps frontend backend"
-```
-
-**Se der erro de senha do postgres:**
-```bash
-# Pegar senha do backend
-SENHA=$(ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "docker exec prevencao-backend-prod env | grep DB_PASSWORD | cut -d'=' -f2")
-
-# Alterar senha do postgres
-ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "docker exec -e PGPASSWORD=postgres prevencao-postgres-prod psql -U postgres -c \"ALTER USER postgres WITH PASSWORD '$SENHA';\""
-
-# Reiniciar backend
-ssh -i ~/.ssh/vps_prevencao root@145.223.92.152 "docker restart prevencao-backend-prod"
-```
-
----
-
-**Criado em:** 10/01/2026
-**Objetivo:** Evitar que Claude cometa os mesmos erros repetidamente
-**Status:** REGRAS ATIVAS E OBRIGATÓRIAS
+**Atualizado em:** 09/02/2026
+**Status:** REGRAS ATIVAS - ARQUITETURA MULTI-TENANT
