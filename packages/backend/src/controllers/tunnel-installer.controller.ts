@@ -219,6 +219,19 @@ export class TunnelInstallerController {
   }
 
   /**
+   * Retorna o caminho do authorized_keys do HOST (montado via volume /root/.ssh:/root/host_ssh)
+   * Necessário porque o sshd do HOST lê do /root/.ssh do HOST, não do container
+   */
+  private getHostAuthorizedKeysPath(): string | null {
+    const hostPath = '/root/host_ssh/authorized_keys';
+    // Só retorna se estiver em Docker e o volume do host estiver montado
+    if (this.isInsideDocker() && fs.existsSync('/root/host_ssh')) {
+      return hostPath;
+    }
+    return null;
+  }
+
+  /**
    * Testa porta tentando localhost e host.docker.internal (para Docker)
    */
   private async testPortWithFallback(port: number, timeout: number = 3000): Promise<boolean> {
@@ -387,6 +400,24 @@ export class TunnelInstallerController {
         }
       }
 
+      // TAMBÉM remover do authorized_keys do HOST
+      const hostKeysPath = this.getHostAuthorizedKeysPath();
+      if (hostKeysPath && fs.existsSync(hostKeysPath)) {
+        try {
+          const hostExisting = fs.readFileSync(hostKeysPath, 'utf8');
+          const hostLinesBefore = hostExisting.split('\n');
+          const hostLinesAfter = hostLinesBefore.filter(line =>
+            !line.includes(`${sanitized}@tunnel`)
+          );
+          if (hostLinesAfter.length < hostLinesBefore.length) {
+            fs.writeFileSync(hostKeysPath, hostLinesAfter.join('\n'));
+            console.log(`[Tunnel] Chave TAMBÉM removida do HOST authorized_keys para: ${clientName}`);
+          }
+        } catch (err: any) {
+          console.error(`[Tunnel] AVISO: Falha ao remover do HOST authorized_keys: ${err.message}`);
+        }
+      }
+
       // 2. Gerar BAT de desinstalação com CRLF
       const toCRLF = (s: string) => s.replace(/\r?\n/g, '\r\n');
       const taskName = `SSH-Tunnel-${sanitized.toUpperCase()}`;
@@ -520,6 +551,30 @@ pause
 
     console.log(`[Tunnel] Chave SSH gerada e instalada para cliente: ${clientName}`);
     console.log(`[Tunnel] authorized_keys atualizado: ${authorizedKeysPath}`);
+
+    // TAMBÉM escrever no authorized_keys do HOST (sshd do host precisa da chave)
+    const hostKeysPath = this.getHostAuthorizedKeysPath();
+    if (hostKeysPath) {
+      try {
+        const hostDir = path.dirname(hostKeysPath);
+        if (!fs.existsSync(hostDir)) {
+          fs.mkdirSync(hostDir, { recursive: true, mode: 0o700 });
+        }
+        // Remover chaves antigas do mesmo cliente no host
+        if (fs.existsSync(hostKeysPath)) {
+          const hostExisting = fs.readFileSync(hostKeysPath, 'utf8');
+          const hostLines = hostExisting.split('\n').filter(line =>
+            !line.includes(`${sanitized}@tunnel`)
+          );
+          fs.writeFileSync(hostKeysPath, hostLines.join('\n'));
+        }
+        // Adicionar nova chave no host
+        fs.appendFileSync(hostKeysPath, '\n' + authorizedKeysLine + '\n');
+        console.log(`[Tunnel] Chave TAMBÉM adicionada ao HOST: ${hostKeysPath}`);
+      } catch (err: any) {
+        console.error(`[Tunnel] AVISO: Falha ao escrever no HOST authorized_keys: ${err.message}`);
+      }
+    }
 
     return { privateKey, publicKey };
   }

@@ -722,6 +722,8 @@ services:
       - backend_uploads:/app/uploads
       # Montar SSH isolado por cliente (cada cliente tem suas próprias chaves)
       - ${CLIENT_DIR}/ssh_keys:/root/.ssh
+      # Montar SSH do HOST para que o backend possa registrar chaves no sshd do host
+      - /root/.ssh:/root/host_ssh
     extra_hosts:
       # Permite container acessar portas de túnel SSH no host VPS
       - "host.docker.internal:host-gateway"
