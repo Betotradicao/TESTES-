@@ -45,6 +45,7 @@ const FERIADOS_FIXOS = [
   { name: 'Nossa Senhora Aparecida', date: '10-12' },
   { name: 'Finados', date: '11-02' },
   { name: 'Proclamação da República', date: '11-15' },
+  { name: 'Consciência Negra', date: '11-20' },
   { name: 'Natal', date: '12-25' },
 ];
 
