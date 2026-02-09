@@ -685,7 +685,7 @@ function Start-Tunnel {
     # -i especifica a chave privada dedicada
     # -o BatchMode=yes impede prompts interativos
     # -o ExitOnForwardFailure=yes encerra se tunel falhar (permite reconexao)
-    $sshArgs = "-i $SSH_KEY -p $SSHPort -R \${RemotePort}:\${LocalIP}:\${LocalPort} root@\${VPS_IP} -N -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=no -o BatchMode=yes -o ExitOnForwardFailure=yes"
+    $sshArgs = "-i $SSH_KEY -p $SSHPort -R \${RemotePort}:\${LocalIP}:\${LocalPort} root@\${VPS_IP} -N -o ServerAliveInterval=15 -o ServerAliveCountMax=2 -o StrictHostKeyChecking=no -o BatchMode=yes -o ExitOnForwardFailure=yes -o TCPKeepAlive=yes -o ConnectTimeout=10"
 
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = "ssh"
@@ -716,7 +716,7 @@ ${tunnels.map(t => `Write-Log "${t.name}: ${t.localIp}:${t.localPort} -> VPS:${t
 Write-Log "=========================================="
 
 ${tunnelInits}
-$checkInterval = 30  # Verificar a cada 30 segundos
+$checkInterval = 15  # Verificar a cada 15 segundos
 $portCheckInterval = 0  # Forcar verificacao de porta na primeira iteracao
 
 while ($true) {

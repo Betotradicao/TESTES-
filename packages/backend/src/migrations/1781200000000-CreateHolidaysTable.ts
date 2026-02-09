@@ -9,7 +9,7 @@ export class CreateHolidaysTable1781200000000 implements MigrationInterface {
                 "id" SERIAL PRIMARY KEY,
                 "name" varchar(255) NOT NULL,
                 "date" varchar(5) NOT NULL,
-                "year" int NOT NULL,
+                "year" int,
                 "type" varchar(20) NOT NULL DEFAULT 'national',
                 "cod_loja" int,
                 "active" boolean DEFAULT true,
@@ -23,17 +23,12 @@ export class CreateHolidaysTable1781200000000 implements MigrationInterface {
         `);
 
         await queryRunner.query(`
-            CREATE INDEX IF NOT EXISTS "idx_holidays_year" ON "holidays" ("year")
-        `);
-
-        await queryRunner.query(`
-            CREATE UNIQUE INDEX IF NOT EXISTS "idx_holidays_unique" ON "holidays" ("date", "year", "cod_loja", "type", "name")
+            CREATE UNIQUE INDEX IF NOT EXISTS "idx_holidays_unique" ON "holidays" ("name", "cod_loja", "type")
         `);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`DROP INDEX IF EXISTS "idx_holidays_unique"`);
-        await queryRunner.query(`DROP INDEX IF EXISTS "idx_holidays_year"`);
         await queryRunner.query(`DROP INDEX IF EXISTS "idx_holidays_cod_loja"`);
         await queryRunner.query(`DROP TABLE IF EXISTS "holidays"`);
     }

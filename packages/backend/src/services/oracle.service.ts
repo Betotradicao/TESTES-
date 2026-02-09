@@ -52,7 +52,6 @@ export class OracleService {
 
       // 2. Tenta carregar da tabela database_connections (Configurações de Tabelas - visual)
       try {
-        console.log('🔍 Checking database_connections table... AppDataSource.isInitialized:', AppDataSource.isInitialized);
         if (AppDataSource.isInitialized) {
           const connectionRepository = AppDataSource.getRepository(DatabaseConnection);
 
@@ -61,8 +60,6 @@ export class OracleService {
             where: { type: DatabaseType.ORACLE, status: ConnectionStatus.ACTIVE },
             order: { is_default: 'DESC', created_at: 'ASC' }
           });
-
-          console.log('🔍 Oracle connection found in database_connections:', oracleConnection ? oracleConnection.name : 'NONE');
 
           if (oracleConnection) {
             // Detecta se está em ambiente VPS/Docker (NODE_ENV=production ou rodando em container)
@@ -92,7 +89,9 @@ export class OracleService {
             console.log('⚠️ No active Oracle connection found in database_connections table');
           }
         } else {
-          console.log('⚠️ AppDataSource not initialized yet, skipping database_connections');
+          // AppDataSource não está pronto - NÃO marca configLoaded, vai tentar de novo
+          console.log('⚠️ AppDataSource not initialized yet, will retry Oracle config later');
+          return; // Sai sem marcar configLoaded - próxima chamada tenta novamente
         }
       } catch (dbConnError: any) {
         console.log('⚠️ Could not load from database_connections, trying legacy config:', dbConnError.message);
@@ -116,12 +115,12 @@ export class OracleService {
         return;
       }
 
-      // 4. Usa valores padrão (fallback)
+      // 4. Usa valores padrão (fallback) - só em dev local
       console.log('📦 Oracle config using default values (local network)');
       this.configLoaded = true;
     } catch (error: any) {
-      console.error('⚠️ Error loading Oracle config, using defaults:', error.message);
-      this.configLoaded = true;
+      // Erro geral - NÃO marca configLoaded para permitir retry
+      console.error('⚠️ Error loading Oracle config, will retry:', error.message);
     }
   }
 
@@ -170,19 +169,24 @@ export class OracleService {
       oracledb.autoCommit = false; // Segurança: não permite commit
 
       // Cria pool de conexões com a configuração carregada
+      // Timeouts agressivos para não travar quando túnel SSH cair
       this.pool = await oracledb.createPool({
         ...this.oracleConfig,
-        poolMin: 1,
+        poolMin: 0,
         poolMax: 5,
         poolIncrement: 1,
-        poolTimeout: 60
+        poolTimeout: 30,
+        queueTimeout: 10000,     // 10s max esperando conexão do pool
+        expireTime: 30,          // Verifica conexões mortas a cada 30s
       });
 
       console.log('✅ Oracle connection pool initialized');
     } catch (error) {
       console.error('❌ Failed to initialize Oracle pool:', error);
-      // Não lança erro para não impedir o sistema de iniciar
-      // O Oracle pode não estar acessível dependendo da rede
+      // Reset config para tentar recarregar na próxima tentativa
+      // (pode ter falhado por race condition com AppDataSource ou túnel fora)
+      this.configLoaded = false;
+      this.pool = null;
     }
   }
 
@@ -237,6 +241,7 @@ export class OracleService {
     try {
       connection = await this.getConnection();
 
+      connection.callTimeout = 30000; // 30s max por query (evita travar quando túnel cai)
       const result = await connection.execute(sql, params, {
         outFormat: oracledb.OUT_FORMAT_OBJECT,
         maxRows: 10000 // Limite de segurança
@@ -276,6 +281,7 @@ export class OracleService {
       connection = await this.getConnection();
 
       // Configura para receber LOBs como Buffer
+      connection.callTimeout = 30000; // 30s max por query
       const result = await connection.execute(sql, params, {
         outFormat: oracledb.OUT_FORMAT_OBJECT,
         fetchInfo: {
