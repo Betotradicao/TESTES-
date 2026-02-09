@@ -1,60 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import api from '../../services/api';
 
 export default function BarcodeInstallerTab() {
-  const [domain, setDomain] = useState('');
-  const [token, setToken] = useState('');
-  const [machineName, setMachineName] = useState('CAIXA_01');
   const [loading, setLoading] = useState(false);
-  const [loadingDefaults, setLoadingDefaults] = useState(true);
 
-  // Pré-preencher domínio da URL atual e token do backend
-  useEffect(() => {
-    // Domínio: pegar da URL atual (sem porta)
-    const currentHost = window.location.hostname;
-    if (currentHost && currentHost !== 'localhost' && currentHost !== '127.0.0.1') {
-      setDomain(currentHost);
-    }
-
-    // Buscar defaults do backend
-    const fetchDefaults = async () => {
-      try {
-        const res = await api.get('/barcode-installer/defaults');
-        if (res.data?.defaults) {
-          if (res.data.defaults.apiToken) {
-            setToken(res.data.defaults.apiToken);
-          }
-        }
-      } catch (err) {
-        console.error('Erro ao buscar defaults:', err);
-      } finally {
-        setLoadingDefaults(false);
-      }
-    };
-    fetchDefaults();
-  }, []);
-
-  const handleGenerate = async () => {
-    if (!domain.trim()) {
-      alert('Preencha o domínio do servidor!');
-      return;
-    }
-    if (!token.trim()) {
-      alert('Preencha o token de autenticação (API_TOKEN)!');
-      return;
-    }
-    if (!machineName.trim()) {
-      alert('Preencha o nome da máquina!');
-      return;
-    }
-
+  const handleDownload = async () => {
     setLoading(true);
     try {
-      const res = await api.post('/barcode-installer/generate', {
-        domain: domain.trim(),
-        token: token.trim(),
-        machineName: machineName.trim()
-      }, {
+      const res = await api.get('/barcode-installer/download', {
         responseType: 'blob'
       });
 
@@ -62,14 +15,14 @@ export default function BarcodeInstallerTab() {
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `ScannerService-${machineName.replace(/[^a-zA-Z0-9_-]/g, '')}.zip`);
+      link.setAttribute('download', 'ScannerService-Instalador.zip');
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Erro ao gerar instalador:', err);
-      alert('Erro ao gerar instalador: ' + (err.response?.data?.message || err.message));
+      console.error('Erro ao baixar instalador:', err);
+      alert('Erro ao baixar instalador: ' + (err.response?.data?.message || err.message));
     } finally {
       setLoading(false);
     }
@@ -87,7 +40,7 @@ export default function BarcodeInstallerTab() {
           </div>
           <div>
             <h2 className="text-xl font-bold text-gray-900">Instalador Scanner Service</h2>
-            <p className="text-sm text-gray-500">Gera o pacote de instalacao do leitor de codigo de barras para as maquinas do cliente</p>
+            <p className="text-sm text-gray-500">Baixe o pacote de instalacao do leitor de codigo de barras para as maquinas do cliente</p>
           </div>
         </div>
       </div>
@@ -125,92 +78,36 @@ export default function BarcodeInstallerTab() {
         </div>
       </div>
 
-      {/* Formulário */}
+      {/* Botão de Download */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Configuracao do Instalador</h3>
-
-        {loadingDefaults ? (
-          <div className="text-center py-4 text-gray-500">Carregando configuracoes...</div>
-        ) : (
-          <div className="space-y-4">
-            {/* Domínio */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Dominio do Servidor
-              </label>
-              <input
-                type="text"
-                value={domain}
-                onChange={(e) => setDomain(e.target.value)}
-                placeholder="Ex: tradicao.prevencaonoradar.com.br"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Dominio HTTPS do cliente (sem http://). O webhook sera: https://DOMINIO/api/bipagens/webhook
-              </p>
-            </div>
-
-            {/* Token */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Token de Autenticacao (API_TOKEN)
-              </label>
-              <input
-                type="password"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="Token do .env do backend"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                O mesmo API_TOKEN configurado no .env do backend
-              </p>
-            </div>
-
-            {/* Nome da Máquina */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nome da Maquina / Caixa
-              </label>
-              <input
-                type="text"
-                value={machineName}
-                onChange={(e) => setMachineName(e.target.value)}
-                placeholder="Ex: CAIXA_01, CAIXA_02, BALCAO_01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Identificador unico desta maquina (ex: CAIXA_01, CAIXA_02, BALCAO_01)
-              </p>
-            </div>
-
-            {/* Botão Gerar */}
-            <div className="pt-2">
-              <button
-                onClick={handleGenerate}
-                disabled={loading || !domain || !token || !machineName}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-              >
-                {loading ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Gerando instalador...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    Gerar e Baixar Instalador (.zip)
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Baixar Instalador</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          Clique no botao abaixo para baixar o pacote ZIP com o instalador completo.
+          Apos baixar, extraia o ZIP na maquina do cliente e execute o <strong>NOVO-INSTALAR.bat</strong> como Administrador.
+          O instalador visual abrira para voce configurar IP, token e nome da maquina.
+        </p>
+        <button
+          onClick={handleDownload}
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+        >
+          {loading ? (
+            <>
+              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Baixando...
+            </>
+          ) : (
+            <>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Baixar Instalador (.zip)
+            </>
+          )}
+        </button>
       </div>
 
       {/* Instruções */}
@@ -227,19 +124,26 @@ export default function BarcodeInstallerTab() {
           <div className="flex items-start gap-3">
             <span className="flex-shrink-0 w-7 h-7 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-sm font-bold">2</span>
             <div>
-              <p className="font-medium text-gray-900">Preencha os campos acima e clique "Gerar e Baixar Instalador"</p>
-              <p className="text-sm text-gray-500">Um arquivo .zip sera baixado com tudo pronto.</p>
+              <p className="font-medium text-gray-900">Baixe o instalador clicando no botao verde acima</p>
+              <p className="text-sm text-gray-500">Um arquivo .zip sera baixado com todos os arquivos necessarios.</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
             <span className="flex-shrink-0 w-7 h-7 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-sm font-bold">3</span>
             <div>
-              <p className="font-medium text-gray-900">Extraia o ZIP e execute INSTALAR.bat como Administrador</p>
-              <p className="text-sm text-gray-500">Clique com botao direito no INSTALAR.bat e escolha "Executar como administrador".</p>
+              <p className="font-medium text-gray-900">Extraia o ZIP e execute NOVO-INSTALAR.bat como Administrador</p>
+              <p className="text-sm text-gray-500">Clique com botao direito no NOVO-INSTALAR.bat e escolha "Executar como administrador".</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
             <span className="flex-shrink-0 w-7 h-7 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-sm font-bold">4</span>
+            <div>
+              <p className="font-medium text-gray-900">O instalador visual abrira - preencha as configuracoes</p>
+              <p className="text-sm text-gray-500">Informe o IP/Dominio do servidor, token de autenticacao e nome da maquina na tela do instalador.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="flex-shrink-0 w-7 h-7 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-sm font-bold">5</span>
             <div>
               <p className="font-medium text-gray-900">Pronto! O scanner vai funcionar automaticamente</p>
               <p className="text-sm text-gray-500">Conecte o scanner USB e bipe um codigo. O servico inicia automaticamente com o Windows.</p>
@@ -253,7 +157,8 @@ export default function BarcodeInstallerTab() {
         <h4 className="font-semibold text-gray-700 mb-2">O que o instalador faz:</h4>
         <ul className="list-disc list-inside space-y-1">
           <li>Instala dependencias Python (keyboard, requests, pywin32, python-dotenv)</li>
-          <li>Configura o servico com o dominio, token e nome da maquina informados</li>
+          <li>Abre interface visual para configurar IP/Dominio, token e nome da maquina</li>
+          <li>Permite testar conexao com o servidor antes de instalar</li>
           <li>Registra inicio automatico via Task Scheduler do Windows</li>
           <li>Usa Raw Input API para identificar multiplos scanners USB simultaneamente</li>
           <li>Envia codigos escaneados via webhook HTTPS para a aplicacao</li>
@@ -261,7 +166,7 @@ export default function BarcodeInstallerTab() {
         <div className="mt-3 pt-3 border-t border-gray-200">
           <p><strong>Arquivos incluidos no ZIP:</strong></p>
           <p className="text-xs text-gray-500 mt-1">
-            INSTALAR.bat | INICIAR-SCANNER.bat | DESINSTALAR.bat | scanner_service.py | raw_input_handler.py | device_manager.py | requirements.txt | .env (pre-configurado)
+            NOVO-INSTALAR.bat | INICIAR-SCANNER.bat | DESINSTALAR.bat | novo_instalador_visual.py | scanner_service.py | raw_input_handler.py | device_manager.py | requirements.txt
           </p>
         </div>
       </div>
