@@ -11,6 +11,7 @@ import SecurityTab from '../components/configuracoes/SecurityTab';
 import EmailTab from '../components/configuracoes/EmailTab';
 import EmailMonitorTab from '../components/configuracoes/EmailMonitorTab';
 import CronMonitorTab from '../components/configuracoes/CronMonitorTab';
+import BarcodeInstallerTab from '../components/configuracoes/BarcodeInstallerTab';
 
 export default function ConfiguracoesRede() {
   const { user, logout } = useAuth();
@@ -31,7 +32,7 @@ export default function ConfiguracoesRede() {
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && (tabFromUrl === 'modulos' || tabFromUrl === 'empresa' || tabFromUrl === 'apis' || tabFromUrl === 'whatsapp-groups' || tabFromUrl === 'security' || tabFromUrl === 'email' || tabFromUrl === 'email-monitor' || tabFromUrl === 'cron-monitor')) {
+    if (tabFromUrl && (tabFromUrl === 'modulos' || tabFromUrl === 'empresa' || tabFromUrl === 'apis' || tabFromUrl === 'whatsapp-groups' || tabFromUrl === 'security' || tabFromUrl === 'email' || tabFromUrl === 'email-monitor' || tabFromUrl === 'cron-monitor' || tabFromUrl === 'barcode-installer')) {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -103,7 +104,8 @@ export default function ConfiguracoesRede() {
             {activeTab === 'security' && <SecurityTab />}
             {activeTab === 'email' && <EmailTab />}
             {activeTab === 'email-monitor' && <EmailMonitorTab />}
-                        {activeTab === 'cron-monitor' && <CronMonitorTab />}
+            {activeTab === 'cron-monitor' && <CronMonitorTab />}
+            {activeTab === 'barcode-installer' && <BarcodeInstallerTab />}
           </div>
         </div>
       </div>

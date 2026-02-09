@@ -8,7 +8,8 @@ export default function TabsNavigation({ activeTab, onChange, pageType = 'config
     { id: 'email', label: 'Email' },
     { id: 'cron-monitor', label: 'CRON Monitor' },
     { id: 'empresa', label: 'Empresa' },
-    { id: 'modulos', label: 'Módulos' }
+    { id: 'modulos', label: 'Módulos' },
+    { id: 'barcode-installer', label: 'Instalador Scanner' }
   ];
 
   // Abas para Configurações normais
