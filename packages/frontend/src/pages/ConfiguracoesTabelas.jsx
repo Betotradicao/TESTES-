@@ -1300,6 +1300,26 @@ export default function ConfiguracoesTabelas() {
                   </button>
                 </div>
               </div>
+              {/* Chave SSH Pública */}
+              {tunnel.publicKey && (
+                <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-gray-600">Chave SSH Publica</span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(tunnel.publicKey);
+                        alert('Chave copiada!');
+                      }}
+                      className="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 font-medium"
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 font-mono break-all leading-relaxed" style={{ maxHeight: '60px', overflow: 'auto' }}>
+                    {tunnel.publicKey}
+                  </p>
+                </div>
+              )}
             ))}
           </div>
           <button

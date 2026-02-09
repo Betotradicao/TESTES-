@@ -102,7 +102,11 @@ export class TunnelInstallerController {
           const portMatches = [...line.matchAll(/permitopen="localhost:(\d+)"/g)];
           const ports = portMatches.map(m => parseInt(m[1]));
 
-          installedTunnels.push({ clientName, ports });
+          // Extrair chave pública SSH
+          const keyMatch = line.match(/(ssh-rsa\s+\S+)/);
+          const publicKey = keyMatch ? keyMatch[1] : '';
+
+          installedTunnels.push({ clientName, ports, publicKey });
         }
       }
 
@@ -119,7 +123,8 @@ export class TunnelInstallerController {
         results.push({
           clientName: tunnel.clientName,
           ports: portResults,
-          status: allActive ? 'online' : anyActive ? 'partial' : 'offline'
+          status: allActive ? 'online' : anyActive ? 'partial' : 'offline',
+          publicKey: tunnel.publicKey || ''
         });
       }
 
