@@ -232,7 +232,7 @@ async function seedConfigurations() {
       },
       {
         key: 'email_monitor_app_password',
-        value: 'eqajtowxowtlzqw',
+        value: 'hhyvmqlzzsidwrum',
         description: 'Senha de app do Gmail para IMAP (Monitor DVR)'
       },
       {
