@@ -1,13 +1,61 @@
 import { useState, useEffect } from 'react';
 import api from '../../utils/api';
 
+// Modelos disponíveis
+const MODELS = [
+  { id: 'gpt-4o', name: 'GPT-4o', desc: 'Mais inteligente e abrangente (Recomendado)', badge: 'Recomendado' },
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', desc: 'Mais rapido e economico, menos detalhado', badge: 'Economico' },
+  { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', desc: 'Muito inteligente, respostas longas', badge: '' },
+  { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', desc: 'Mais barato, respostas basicas', badge: 'Basico' },
+];
+
+const DEFAULT_PROMPT = `Voce e o **Radar IA**, um consultor senior especialista em gestao de supermercados e varejo alimentar brasileiro, com mais de 20 anos de experiencia no setor.
+Voce trabalha dentro do sistema "Prevencao no Radar" e tem acesso direto aos dados reais do supermercado.
+
+## PERSONALIDADE E ESTILO
+- Voce e um consultor experiente, analitico e perspicaz — nao um assistente generico
+- Suas respostas devem ser RICAS, DETALHADAS e ESTRATEGICAS, como uma consultoria real
+- Sempre busque os dados via funcoes ANTES de responder — nunca invente numeros
+- Quando receber dados, faca uma ANALISE PROFUNDA: identifique padroes, anomalias, oportunidades e riscos
+- De RECOMENDACOES CONCRETAS e ACIONAVEIS
+- Use comparacoes inteligentes: mes atual vs anterior, setor vs setor, tendencias ao longo do ano
+
+## FORMATO DAS RESPOSTAS
+- USE EMOJIS para deixar a resposta visual e agradavel
+- Ao apresentar dados, use formato organizado com emoji + label + valor
+- Use **negrito** para dados importantes
+- Organize com secoes claras
+- Valores monetarios: R$ X.XXX,XX (formato brasileiro)
+- Percentuais: X,XX%
+- Sempre inclua resumo executivo no inicio e recomendacoes no final
+- Fale sempre em portugues brasileiro
+
+## BENCHMARKS DO MERCADO
+- Margem bruta media supermercados: 25-30%
+- Acougue: margem 28-35%
+- Padaria: margem 50-65%
+- Hortifruti: margem 35-50%
+- Mercearia: margem 18-25%
+- Frios/Laticinios: margem 20-28%
+- Bebidas: margem 15-22%
+- Limpeza/Higiene: margem 20-28%
+- Ticket medio bom: R$ 45-65
+
+## PROATIVIDADE
+- Se a margem esta abaixo do benchmark, ALERTE
+- Se vendas cairam vs mes anterior, investigue os motivos
+- Identifique sazonalidades e oportunidades`;
+
 export default function AITab() {
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('gpt-4o');
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [showPrompt, setShowPrompt] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [saved, setSaved] = useState(false);
-  const [testResult, setTestResult] = useState(null); // null | 'loading' | 'success' | 'error'
+  const [testResult, setTestResult] = useState(null);
   const [testMessage, setTestMessage] = useState('');
 
   useEffect(() => {
@@ -18,8 +66,10 @@ export default function AITab() {
     try {
       const response = await api.get('/config/configurations');
       if (response.data.success && response.data.data) {
-        const savedKey = response.data.data.openai_api_key || '';
-        setApiKey(savedKey);
+        const data = response.data.data;
+        setApiKey(data.openai_api_key || '');
+        setSelectedModel(data.openai_model || 'gpt-4o');
+        setCustomPrompt(data.openai_system_prompt || '');
       }
     } catch (error) {
       console.error('Erro ao carregar configuracao:', error);
@@ -32,9 +82,14 @@ export default function AITab() {
     setIsSaving(true);
     setSaved(false);
     try {
-      await api.post('/config/configurations', {
-        openai_api_key: apiKey
-      });
+      const payload = {
+        openai_api_key: apiKey,
+        openai_model: selectedModel,
+      };
+      if (customPrompt.trim()) {
+        payload.openai_system_prompt = customPrompt.trim();
+      }
+      await api.post('/config/configurations', payload);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
@@ -42,6 +97,16 @@ export default function AITab() {
       alert('Erro ao salvar configuracao: ' + (error.response?.data?.message || error.message));
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleResetPrompt = async () => {
+    if (!window.confirm('Restaurar o prompt padrao? Suas customizacoes serao perdidas.')) return;
+    setCustomPrompt('');
+    try {
+      await api.post('/config/configurations', { openai_system_prompt: '' });
+    } catch (e) {
+      // ignore
     }
   };
 
@@ -83,7 +148,7 @@ export default function AITab() {
 
   return (
     <div className="space-y-6">
-      {/* ChatGPT / OpenAI */}
+      {/* Header */}
       <div className="flex items-center gap-3 mb-4">
         <div className="bg-emerald-100 p-2.5 rounded-lg">
           <svg className="w-7 h-7 text-emerald-600" viewBox="0 0 24 24" fill="currentColor">
@@ -92,7 +157,7 @@ export default function AITab() {
         </div>
         <div>
           <h2 className="text-xl font-bold text-gray-900">ChatGPT / OpenAI</h2>
-          <p className="text-sm text-gray-500">Configure sua chave de API para usar inteligencia artificial no sistema</p>
+          <p className="text-sm text-gray-500">Configure a chave de API e o modelo da inteligencia artificial</p>
         </div>
       </div>
 
@@ -118,6 +183,54 @@ export default function AITab() {
           </button>
         </div>
         <p className="text-xs text-gray-400 mt-1">A chave e armazenada de forma criptografada no banco de dados</p>
+      </div>
+
+      {/* Seletor de Modelo */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Modelo da IA (Radar IA)
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {MODELS.map((model) => (
+            <button
+              key={model.id}
+              onClick={() => setSelectedModel(model.id)}
+              className={`relative text-left p-4 rounded-xl border-2 transition-all ${
+                selectedModel === model.id
+                  ? 'border-emerald-500 bg-emerald-50 shadow-sm'
+                  : 'border-gray-200 hover:border-gray-300 bg-white'
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="pr-6">
+                  <p className={`font-semibold text-sm ${selectedModel === model.id ? 'text-emerald-700' : 'text-gray-800'}`}>
+                    {model.name}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">{model.desc}</p>
+                </div>
+                {model.badge && (
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
+                    model.badge === 'Recomendado'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : model.badge === 'Economico'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {model.badge}
+                  </span>
+                )}
+              </div>
+              {selectedModel === model.id && (
+                <div className="absolute top-2 right-2">
+                  <svg className="w-5 h-5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              )}
+              <p className="text-[10px] text-gray-400 mt-1 font-mono">{model.id}</p>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Botões Salvar + Testar */}
@@ -147,7 +260,7 @@ export default function AITab() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
               </svg>
-              Salvar Chave
+              Salvar Configuracoes
             </>
           )}
         </button>
@@ -255,6 +368,64 @@ export default function AITab() {
         </div>
       </div>
 
+      {/* Script/Prompt da IA */}
+      <div className="pt-4 border-t border-gray-200">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700">Script do Consultor (System Prompt)</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Define como a IA se comporta, responde e analisa os dados</p>
+          </div>
+          <button
+            onClick={() => setShowPrompt(!showPrompt)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+          >
+            <svg className={`w-4 h-4 transition-transform ${showPrompt ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+            {showPrompt ? 'Ocultar' : 'Ver / Editar'}
+          </button>
+        </div>
+
+        {showPrompt && (
+          <div className="space-y-3">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <svg className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-xs text-amber-700">
+                  Este e o "cerebro" da IA. Ele define a personalidade, formato das respostas, benchmarks e estrategias de analise.
+                  A data atual e adicionada automaticamente pelo sistema. Edite com cuidado!
+                </p>
+              </div>
+            </div>
+
+            <textarea
+              value={customPrompt || DEFAULT_PROMPT}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              rows={20}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-mono leading-relaxed bg-gray-50"
+              placeholder="Digite o prompt customizado..."
+            />
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleResetPrompt}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Restaurar Padrao
+              </button>
+              <span className="text-xs text-gray-400">
+                {customPrompt ? '(Usando prompt customizado)' : '(Usando prompt padrao)'}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Info */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-start gap-3">
@@ -264,7 +435,8 @@ export default function AITab() {
           <div>
             <h3 className="font-semibold text-blue-800">Sobre a Inteligencia Artificial</h3>
             <p className="text-sm text-blue-700 mt-1">
-              A chave de API do ChatGPT e utilizada para funcionalidades inteligentes do sistema como analise de ofertas de fornecedores, extracao de dados de imagens e classificacao automatica de mensagens.
+              A chave de API do ChatGPT e utilizada pelo <strong>Radar IA</strong> (consultor flutuante), analise de ofertas de fornecedores, extracao de dados de imagens e classificacao automatica de mensagens.
+              O modelo selecionado afeta a qualidade e custo das respostas do Radar IA.
             </p>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Sidebar from './Sidebar';
+import ChatBubble from './chat/ChatBubble';
 
 export default function Layout({ children, title }) {
   const { user, logout } = useAuth();
@@ -45,6 +46,9 @@ export default function Layout({ children, title }) {
           {children}
         </main>
       </div>
+
+      {/* Consultor IA - Balão flutuante */}
+      <ChatBubble />
     </div>
   );
 }
