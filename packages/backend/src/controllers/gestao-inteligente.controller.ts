@@ -212,4 +212,74 @@ export class GestaoInteligenteController {
       res.status(500).json({ error: error.message || 'Erro interno do servidor' });
     }
   }
+
+  /**
+   * GET /api/gestao-inteligente/vendas-por-dia-semana
+   * Busca vendas agrupadas por dia da semana, mês a mês
+   * Query params: ano, codLoja (opcional)
+   */
+  /**
+   * GET /api/gestao-inteligente/vendas-analiticas-setor
+   * Vendas por setor com comparativos (atual, mês passado, ano passado, média linear)
+   */
+  static async getVendasAnaliticasPorSetor(req: AuthRequest, res: Response) {
+    try {
+      const { dataInicio, dataFim, codLoja } = req.query;
+
+      if (!dataInicio || !dataFim) {
+        return res.status(400).json({
+          error: 'Parâmetros dataInicio e dataFim são obrigatórios'
+        });
+      }
+
+      const filters = {
+        dataInicio: String(dataInicio),
+        dataFim: String(dataFim),
+        codLoja: codLoja ? parseInt(String(codLoja)) : undefined
+      };
+
+      const resultado = await GestaoInteligenteService.getVendasAnaliticasPorSetor(filters);
+      res.json(resultado);
+    } catch (error: any) {
+      console.error('Erro ao buscar vendas analíticas por setor:', error);
+      res.status(500).json({ error: error.message || 'Erro interno do servidor' });
+    }
+  }
+
+  static async getVendasPorSetorAnual(req: AuthRequest, res: Response) {
+    try {
+      const { ano, codLoja } = req.query;
+      if (!ano) {
+        return res.status(400).json({ error: 'Parâmetro ano é obrigatório' });
+      }
+      const anoNum = parseInt(String(ano));
+      const codLojaNum = codLoja ? parseInt(String(codLoja)) : undefined;
+      const resultado = await GestaoInteligenteService.getVendasPorSetorAnual(anoNum, codLojaNum);
+      res.json(resultado);
+    } catch (error: any) {
+      console.error('Erro ao buscar vendas por setor anual:', error);
+      res.status(500).json({ error: error.message || 'Erro interno do servidor' });
+    }
+  }
+
+  static async getVendasPorDiaSemana(req: AuthRequest, res: Response) {
+    try {
+      const { ano, codLoja } = req.query;
+
+      if (!ano) {
+        return res.status(400).json({
+          error: 'Parâmetro ano é obrigatório'
+        });
+      }
+
+      const anoNum = parseInt(String(ano));
+      const codLojaNum = codLoja ? parseInt(String(codLoja)) : undefined;
+
+      const resultado = await GestaoInteligenteService.getVendasPorDiaSemana(anoNum, codLojaNum);
+      res.json(resultado);
+    } catch (error: any) {
+      console.error('Erro ao buscar vendas por dia da semana:', error);
+      res.status(500).json({ error: error.message || 'Erro interno do servidor' });
+    }
+  }
 }

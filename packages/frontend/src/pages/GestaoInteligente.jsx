@@ -150,8 +150,7 @@ export default function GestaoInteligente() {
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState(getDefaultDates());
   const [clearingCache, setClearingCache] = useState(false);
-  const [cardExpandido, setCardExpandido] = useState(null); // 'vendas', 'margens', 'compras', 'financeiro'
-  const [analiseAtiva, setAnaliseAtiva] = useState(null); // 'vendas-setor', 'vendas-ano', 'vendas-dia-semana'
+  const [analiseAtiva, setAnaliseAtiva] = useState(null); // 'vendas-setor', 'vendas-ano', 'vendas-dia-semana', 'vendas-analiticas', 'vendas-setor-anual'
   const [dadosAnalise, setDadosAnalise] = useState([]);
   const [loadingAnalise, setLoadingAnalise] = useState(false);
   const { lojaSelecionada } = useLoja();
@@ -167,20 +166,64 @@ export default function GestaoInteligente() {
   const [loadingVendasAno, setLoadingVendasAno] = useState(false);
   const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear());
 
+  // Estado para vendas por dia da semana
+  const [vendasDiaSemana, setVendasDiaSemana] = useState([]);
+  const [loadingVendasDiaSemana, setLoadingVendasDiaSemana] = useState(false);
+  const [anoDiaSemana, setAnoDiaSemana] = useState(new Date().getFullYear());
+
+  // Estado para vendas analíticas por setor
+  const [vendasAnaliticas, setVendasAnaliticas] = useState([]);
+  const [loadingVendasAnaliticas, setLoadingVendasAnaliticas] = useState(false);
+
+  // Estado para vendas por setor anual
+  const [vendasSetorAnual, setVendasSetorAnual] = useState([]);
+  const [loadingVendasSetorAnual, setLoadingVendasSetorAnual] = useState(false);
+  const [anoSetorAnual, setAnoSetorAnual] = useState(new Date().getFullYear());
+  const [expandedSetoresAnual, setExpandedSetoresAnual] = useState({});
+
   // Estado para ordem dos cards (drag and drop)
   const defaultCardOrder = ['vendas', 'lucro', 'markdown', 'margemLimpa', 'ticketMedio', 'pctCompraVenda'];
-  const defaultCardOrder2 = ['pctVendasOferta', 'qtdSkus', 'qtdCupons', 'qtdItens', 'emBreve1', 'emBreve2'];
+  const defaultCardOrder2 = ['pctVendasOferta', 'qtdSkus', 'qtdCupons', 'qtdItens', 'vendasOfertaValor', 'emBreve2'];
+  const defaultCardOrder3 = ['custoVendas', 'markdownOferta', 'emBreve5', 'emBreve6', 'emBreve7', 'emBreve8'];
+
+  const migrateCardIds = (ids) => ids.map(id => {
+    if (id === 'emBreve1') return 'vendasOfertaValor';
+    if (id === 'emBreve3') return 'custoVendas';
+    if (id === 'emBreve4') return 'markdownOferta';
+    return id;
+  });
 
   const [cardOrder, setCardOrder] = useState(() => {
     const saved = localStorage.getItem('gestao_card_order');
-    return saved ? JSON.parse(saved) : defaultCardOrder;
+    return saved ? migrateCardIds(JSON.parse(saved)) : defaultCardOrder;
   });
   const [cardOrder2, setCardOrder2] = useState(() => {
     const saved = localStorage.getItem('gestao_card_order_2');
-    return saved ? JSON.parse(saved) : defaultCardOrder2;
+    return saved ? migrateCardIds(JSON.parse(saved)) : defaultCardOrder2;
+  });
+  const [cardOrder3, setCardOrder3] = useState(() => {
+    const saved = localStorage.getItem('gestao_card_order_3');
+    return saved ? migrateCardIds(JSON.parse(saved)) : defaultCardOrder3;
   });
   const [draggedCard, setDraggedCard] = useState(null);
   const [draggedRow, setDraggedRow] = useState(null);
+  const [cardExpandido, setCardExpandido] = useState('vendas'); // qual card de cima está expandido mostrando sub-cards
+
+  // Estado para ordem dos cards de análise (drag and drop)
+  const defaultAnaliseOrder = ['vendas-setor', 'vendas-ano', 'vendas-dia-semana', 'vendas-analiticas', 'vendas-setor-anual'];
+  const [analiseCardOrder, setAnaliseCardOrder] = useState(() => {
+    const saved = localStorage.getItem('gestao_analise_card_order');
+    return saved ? JSON.parse(saved) : defaultAnaliseOrder;
+  });
+  const [draggedAnaliseCard, setDraggedAnaliseCard] = useState(null);
+
+  // Estado para ordem das colunas da tabela (drag and drop)
+  const defaultColOrder = ['venda', 'repr', 'custo', 'lucro', 'markdown', 'ticketMedio', 'vendasOferta', 'qtd'];
+  const [colOrder, setColOrder] = useState(() => {
+    const saved = localStorage.getItem('gestao_col_order');
+    return saved ? JSON.parse(saved) : defaultColOrder;
+  });
+  const [draggedCol, setDraggedCol] = useState(null);
 
   // Salvar ordem no localStorage quando mudar
   useEffect(() => {
@@ -190,6 +233,177 @@ export default function GestaoInteligente() {
   useEffect(() => {
     localStorage.setItem('gestao_card_order_2', JSON.stringify(cardOrder2));
   }, [cardOrder2]);
+
+  useEffect(() => {
+    localStorage.setItem('gestao_card_order_3', JSON.stringify(cardOrder3));
+  }, [cardOrder3]);
+
+  useEffect(() => {
+    localStorage.setItem('gestao_col_order', JSON.stringify(colOrder));
+  }, [colOrder]);
+
+  useEffect(() => {
+    localStorage.setItem('gestao_analise_card_order', JSON.stringify(analiseCardOrder));
+  }, [analiseCardOrder]);
+
+  // Drag and drop de colunas
+  const handleColDragStart = (e, colId) => {
+    setDraggedCol(colId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.target.style.opacity = '0.5';
+  };
+  const handleColDragEnd = (e) => {
+    e.target.style.opacity = '1';
+    setDraggedCol(null);
+  };
+  const handleColDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+  const handleColDrop = (e, targetColId) => {
+    e.preventDefault();
+    if (!draggedCol || draggedCol === targetColId) return;
+    const newOrder = [...colOrder];
+    const fromIdx = newOrder.indexOf(draggedCol);
+    const toIdx = newOrder.indexOf(targetColId);
+    newOrder.splice(fromIdx, 1);
+    newOrder.splice(toIdx, 0, draggedCol);
+    setColOrder(newOrder);
+    setDraggedCol(null);
+  };
+
+  // Drag and drop dos cards de análise
+  const handleAnaliseCardDragStart = (e, cardId) => {
+    setDraggedAnaliseCard(cardId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.target.style.opacity = '0.5';
+  };
+  const handleAnaliseCardDragEnd = (e) => {
+    e.target.style.opacity = '1';
+    setDraggedAnaliseCard(null);
+  };
+  const handleAnaliseCardDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+  const handleAnaliseCardDrop = (e, targetId) => {
+    e.preventDefault();
+    if (!draggedAnaliseCard || draggedAnaliseCard === targetId) return;
+    const newOrder = [...analiseCardOrder];
+    const fromIdx = newOrder.indexOf(draggedAnaliseCard);
+    const toIdx = newOrder.indexOf(targetId);
+    newOrder.splice(fromIdx, 1);
+    newOrder.splice(toIdx, 0, draggedAnaliseCard);
+    setAnaliseCardOrder(newOrder);
+    setDraggedAnaliseCard(null);
+  };
+
+  // Config dos cards de análise (classes completas para Tailwind JIT)
+  const analiseCardConfig = {
+    'vendas-setor': { label: 'Vendas por Setor', desc: 'Hierarquia completa por setor', emoji: '🏪', onClick: () => fetchVendasPorSetor(),
+      active: 'bg-emerald-100 border-emerald-400 ring-2 ring-emerald-400', inactive: 'bg-emerald-50 border-emerald-200 hover:border-emerald-400',
+      icon: 'bg-emerald-200', title: 'text-emerald-800', sub: 'text-emerald-600' },
+    'vendas-ano': { label: 'Vendas por Ano', desc: 'Indicadores mensais consolidados', emoji: '📅', onClick: () => toggleVendasPorAno(),
+      active: 'bg-blue-100 border-blue-400 ring-2 ring-blue-400', inactive: 'bg-blue-50 border-blue-200 hover:border-blue-400',
+      icon: 'bg-blue-200', title: 'text-blue-800', sub: 'text-blue-600' },
+    'vendas-dia-semana': { label: 'Venda Média Dia da Semana', desc: 'Padroes semanais por mes', emoji: '📊', onClick: () => toggleVendasPorDiaSemana(),
+      active: 'bg-violet-100 border-violet-400 ring-2 ring-violet-400', inactive: 'bg-violet-50 border-violet-200 hover:border-violet-400',
+      icon: 'bg-violet-200', title: 'text-violet-800', sub: 'text-violet-600' },
+    'vendas-analiticas': { label: 'Vendas Analiticas', desc: 'Comparativos por setor', emoji: '📈', onClick: () => toggleVendasAnaliticas(),
+      active: 'bg-amber-100 border-amber-400 ring-2 ring-amber-400', inactive: 'bg-amber-50 border-amber-200 hover:border-amber-400',
+      icon: 'bg-amber-200', title: 'text-amber-800', sub: 'text-amber-600' },
+    'vendas-setor-anual': { label: 'Vendas por Setor Anual', desc: 'Evolucao anual por setor', emoji: '🗓', onClick: () => toggleVendasPorSetorAnual(),
+      active: 'bg-sky-100 border-sky-400 ring-2 ring-sky-400', inactive: 'bg-sky-50 border-sky-200 hover:border-sky-400',
+      icon: 'bg-sky-200', title: 'text-sky-800', sub: 'text-sky-600' },
+  };
+
+  // Definição das colunas da tabela de vendas por setor
+  const colDefs = {
+    venda: {
+      label: 'Venda',
+      headerClass: 'text-emerald-700',
+      renderSetor: (d) => ({ cls: 'font-semibold text-emerald-700', val: formatCurrency(d.venda) }),
+      renderGrupo: (d) => ({ cls: 'font-medium text-emerald-700', val: formatCurrency(d.venda) }),
+      renderSub: (d) => ({ cls: 'text-emerald-700', val: formatCurrency(d.venda) }),
+      renderItem: (d) => ({ cls: 'text-emerald-700', val: formatCurrency(d.venda) }),
+      renderTotal: (dados) => ({ cls: 'font-bold text-emerald-700', val: formatCurrency(dados.reduce((a, i) => a + i.venda, 0)) }),
+    },
+    repr: {
+      label: '% Repr.',
+      headerClass: 'text-blue-600',
+      renderSetor: (d) => ({ cls: 'font-semibold text-blue-600', val: formatPercent(d.percentualSetor) }),
+      renderGrupo: (d) => ({ cls: 'font-medium text-blue-600', val: formatPercent(d.percentualSetor) }),
+      renderSub: (d) => ({ cls: 'text-blue-600', val: formatPercent(d.percentualSetor) }),
+      renderItem: (d) => ({ cls: 'text-blue-600', val: formatPercent(d.percentualSetor) }),
+      renderTotal: () => ({ cls: 'font-bold text-blue-600', val: '100,00%' }),
+    },
+    custo: {
+      label: 'Custo',
+      headerClass: 'text-orange-600',
+      renderSetor: (d) => ({ cls: 'font-semibold text-orange-600', val: formatCurrency(d.custo) }),
+      renderGrupo: (d) => ({ cls: 'text-orange-600', val: formatCurrency(d.custo) }),
+      renderSub: (d) => ({ cls: 'text-orange-600', val: formatCurrency(d.custo) }),
+      renderItem: (d) => ({ cls: 'text-orange-600', val: formatCurrency(d.custo) }),
+      renderTotal: (dados) => ({ cls: 'font-bold text-orange-600', val: formatCurrency(dados.reduce((a, i) => a + (i.custo || 0), 0)) }),
+    },
+    lucro: {
+      label: 'Lucro',
+      headerClass: 'text-green-600',
+      renderSetor: (d) => ({ cls: `font-semibold ${d.lucro >= 0 ? 'text-green-600' : 'text-red-600'}`, val: formatCurrency(d.lucro) }),
+      renderGrupo: (d) => ({ cls: `font-medium ${d.lucro >= 0 ? 'text-green-600' : 'text-red-600'}`, val: formatCurrency(d.lucro) }),
+      renderSub: (d) => ({ cls: d.lucro >= 0 ? 'text-green-600' : 'text-red-600', val: formatCurrency(d.lucro) }),
+      renderItem: (d) => ({ cls: d.lucro >= 0 ? 'text-green-600' : 'text-red-600', val: formatCurrency(d.lucro) }),
+      renderTotal: (dados) => {
+        const tv = dados.reduce((a, i) => a + i.venda, 0);
+        const tc = dados.reduce((a, i) => a + (i.custo || 0), 0);
+        return { cls: `font-bold ${(tv - tc) >= 0 ? 'text-green-600' : 'text-red-600'}`, val: formatCurrency(tv - tc) };
+      },
+    },
+    markdown: {
+      label: 'Markdown %',
+      headerClass: 'text-purple-600',
+      renderSetor: (d) => ({ cls: 'font-semibold text-purple-600', val: formatPercent(d.margem) }),
+      renderGrupo: (d) => ({ cls: 'font-medium text-purple-600', val: formatPercent(d.margem) }),
+      renderSub: (d) => ({ cls: 'text-purple-600', val: formatPercent(d.margem) }),
+      renderItem: (d) => ({ cls: 'text-purple-600', val: formatPercent(d.margem) }),
+      renderTotal: (dados) => {
+        const tv = dados.reduce((a, i) => a + i.venda, 0);
+        const tc = dados.reduce((a, i) => a + (i.custo || 0), 0);
+        return { cls: 'font-bold text-purple-600', val: formatPercent(tv > 0 ? ((tv - tc) / tv) * 100 : 0) };
+      },
+    },
+    ticketMedio: {
+      label: 'Ticket Medio',
+      headerClass: 'text-teal-600',
+      renderSetor: (d) => ({ cls: 'font-semibold text-teal-600', val: formatCurrency(d.ticketMedio) }),
+      renderGrupo: (d) => ({ cls: 'text-teal-600', val: formatCurrency(d.ticketMedio) }),
+      renderSub: (d) => ({ cls: 'text-teal-600', val: formatCurrency(d.ticketMedio) }),
+      renderItem: (d) => ({ cls: 'text-teal-600', val: formatCurrency(d.ticketMedio) }),
+      renderTotal: (dados) => {
+        const totalVenda = dados.reduce((a, i) => a + i.venda, 0);
+        const totalCupons = dados.reduce((a, i) => a + (i.qtdCupons || 0), 0);
+        return { cls: 'font-bold text-teal-600', val: formatCurrency(totalCupons > 0 ? totalVenda / totalCupons : 0) };
+      },
+    },
+    vendasOferta: {
+      label: 'Vendas Oferta',
+      headerClass: 'text-rose-600',
+      renderSetor: (d) => ({ cls: 'font-semibold text-rose-600', val: formatCurrency(d.vendasOferta) }),
+      renderGrupo: (d) => ({ cls: 'text-rose-600', val: formatCurrency(d.vendasOferta) }),
+      renderSub: (d) => ({ cls: 'text-rose-600', val: formatCurrency(d.vendasOferta) }),
+      renderItem: (d) => ({ cls: 'text-rose-600', val: formatCurrency(d.vendasOferta) }),
+      renderTotal: (dados) => ({ cls: 'font-bold text-rose-600', val: formatCurrency(dados.reduce((a, i) => a + (i.vendasOferta || 0), 0)) }),
+    },
+    qtd: {
+      label: 'Qtd',
+      headerClass: 'text-cyan-700',
+      renderSetor: (d) => ({ cls: 'font-semibold text-cyan-700', val: formatNumber(d.qtd) }),
+      renderGrupo: (d) => ({ cls: 'text-cyan-700', val: formatNumber(d.qtd) }),
+      renderSub: (d) => ({ cls: 'text-cyan-700', val: formatNumber(d.qtd) }),
+      renderItem: (d) => ({ cls: 'text-cyan-700', val: formatNumber(d.qtd) }),
+      renderTotal: (dados) => ({ cls: 'font-bold text-cyan-700', val: formatNumber(dados.reduce((a, i) => a + i.qtd, 0)) }),
+    },
+  };
 
   // Funções de drag and drop
   const handleDragStart = (e, cardId, row) => {
@@ -214,14 +428,16 @@ export default function GestaoInteligente() {
     e.preventDefault();
     if (!draggedCard) return;
 
-    // Se for a mesma linha, trocar posições dentro da linha
-    if (draggedRow === targetRow) {
-      const orderArray = targetRow === 1 ? cardOrder : cardOrder2;
-      const setOrderArray = targetRow === 1 ? setCardOrder : setCardOrder2;
+    const getRowData = (row) => {
+      if (row === 1) return [cardOrder, setCardOrder];
+      if (row === 2) return [cardOrder2, setCardOrder2];
+      return [cardOrder3, setCardOrder3];
+    };
 
+    if (draggedRow === targetRow) {
+      const [orderArray, setOrderArray] = getRowData(targetRow);
       const draggedIndex = orderArray.indexOf(draggedCard);
       const targetIndex = orderArray.indexOf(targetCardId);
-
       if (draggedIndex !== targetIndex) {
         const newOrder = [...orderArray];
         newOrder.splice(draggedIndex, 1);
@@ -229,24 +445,14 @@ export default function GestaoInteligente() {
         setOrderArray(newOrder);
       }
     } else {
-      // Trocar entre linhas diferentes
-      const sourceArray = draggedRow === 1 ? cardOrder : cardOrder2;
-      const targetArray = targetRow === 1 ? cardOrder : cardOrder2;
-      const setSourceArray = draggedRow === 1 ? setCardOrder : setCardOrder2;
-      const setTargetArray = targetRow === 1 ? setCardOrder : setCardOrder2;
-
+      const [sourceArray, setSourceArray] = getRowData(draggedRow);
+      const [targetArray, setTargetArray] = getRowData(targetRow);
       const draggedIndex = sourceArray.indexOf(draggedCard);
       const targetIndex = targetArray.indexOf(targetCardId);
-
-      // Criar novas arrays com a troca
       const newSourceArray = [...sourceArray];
       const newTargetArray = [...targetArray];
-
-      // Remover do source e adicionar o target no lugar
       newSourceArray[draggedIndex] = targetCardId;
-      // Remover do target e adicionar o dragged no lugar
       newTargetArray[targetIndex] = draggedCard;
-
       setSourceArray(newSourceArray);
       setTargetArray(newTargetArray);
     }
@@ -534,9 +740,138 @@ export default function GestaoInteligente() {
     }
   };
 
+  // Buscar vendas por dia da semana
+  const fetchVendasPorDiaSemana = async (ano = anoDiaSemana) => {
+    setLoadingVendasDiaSemana(true);
+    setAnaliseAtiva('vendas-dia-semana');
+    setDadosAnalise([]);
+    setExpandedSecoes({});
+    setExpandedGrupos({});
+    setExpandedSubgrupos({});
+    setVendasAno([]);
+    setAnoAnteriorData(null);
+
+    try {
+      const params = { ano };
+      if (lojaSelecionada) {
+        params.codLoja = lojaSelecionada;
+      }
+      const response = await api.get('/gestao-inteligente/vendas-por-dia-semana', { params });
+      setVendasDiaSemana(response.data.meses || []);
+    } catch (err) {
+      console.error('Erro ao buscar vendas por dia da semana:', err);
+      setVendasDiaSemana([]);
+    } finally {
+      setLoadingVendasDiaSemana(false);
+    }
+  };
+
+  // Handler para mudança de ano (dia da semana)
+  const handleAnoDiaSemanaChange = (novoAno) => {
+    setAnoDiaSemana(novoAno);
+    if (analiseAtiva === 'vendas-dia-semana') {
+      fetchVendasPorDiaSemana(novoAno);
+    }
+  };
+
+  // Toggle vendas por dia da semana
+  const toggleVendasPorDiaSemana = () => {
+    if (analiseAtiva === 'vendas-dia-semana') {
+      setAnaliseAtiva(null);
+      setVendasDiaSemana([]);
+    } else {
+      fetchVendasPorDiaSemana(anoDiaSemana);
+    }
+  };
+
+  // Buscar vendas analíticas por setor
+  const fetchVendasAnaliticas = async () => {
+    setLoadingVendasAnaliticas(true);
+    setAnaliseAtiva('vendas-analiticas');
+    setDadosAnalise([]);
+    setExpandedSecoes({});
+    setExpandedGrupos({});
+    setExpandedSubgrupos({});
+    setVendasAno([]);
+    setAnoAnteriorData(null);
+    setVendasDiaSemana([]);
+
+    try {
+      const params = {
+        dataInicio: filters.dataInicio,
+        dataFim: filters.dataFim
+      };
+      if (lojaSelecionada) {
+        params.codLoja = lojaSelecionada;
+      }
+      const response = await api.get('/gestao-inteligente/vendas-analiticas-setor', { params });
+      setVendasAnaliticas(response.data);
+    } catch (err) {
+      console.error('Erro ao buscar vendas analíticas:', err);
+      setVendasAnaliticas([]);
+    } finally {
+      setLoadingVendasAnaliticas(false);
+    }
+  };
+
+  // Toggle vendas analíticas
+  const toggleVendasAnaliticas = () => {
+    if (analiseAtiva === 'vendas-analiticas') {
+      setAnaliseAtiva(null);
+      setVendasAnaliticas([]);
+    } else {
+      fetchVendasAnaliticas();
+    }
+  };
+
+  // Buscar vendas por setor anual
+  const fetchVendasPorSetorAnual = async (ano = anoSetorAnual) => {
+    setLoadingVendasSetorAnual(true);
+    setAnaliseAtiva('vendas-setor-anual');
+    setDadosAnalise([]);
+    setExpandedSecoes({});
+    setExpandedGrupos({});
+    setExpandedSubgrupos({});
+    setVendasAno([]);
+    setAnoAnteriorData(null);
+    setVendasDiaSemana([]);
+    setVendasAnaliticas([]);
+    setExpandedSetoresAnual({});
+    try {
+      const params = { ano };
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
+      const response = await api.get('/gestao-inteligente/vendas-por-setor-anual', { params });
+      setVendasSetorAnual(response.data.setores || []);
+    } catch (err) {
+      console.error('Erro ao buscar vendas por setor anual:', err);
+      setVendasSetorAnual([]);
+    } finally {
+      setLoadingVendasSetorAnual(false);
+    }
+  };
+
+  const handleAnoSetorAnualChange = (novoAno) => {
+    setAnoSetorAnual(novoAno);
+    if (analiseAtiva === 'vendas-setor-anual') fetchVendasPorSetorAnual(novoAno);
+  };
+
+  const toggleVendasPorSetorAnual = () => {
+    if (analiseAtiva === 'vendas-setor-anual') {
+      setAnaliseAtiva(null);
+      setVendasSetorAnual([]);
+    } else {
+      fetchVendasPorSetorAnual(anoSetorAnual);
+    }
+  };
+
   useEffect(() => {
     fetchIndicadores();
   }, [filters, lojaSelecionada]);
+
+  // Auto-carregar Venda por Ano ao abrir a página
+  useEffect(() => {
+    fetchVendasPorAno(anoSelecionado);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Re-executar análise ativa quando filtros mudarem
   useEffect(() => {
@@ -566,6 +901,14 @@ export default function GestaoInteligente() {
         }
       };
       fetchData();
+    }
+
+    if (analiseAtiva === 'vendas-analiticas') {
+      fetchVendasAnaliticas();
+    }
+
+    if (analiseAtiva === 'vendas-setor-anual') {
+      fetchVendasPorSetorAnual(anoSetorAnual);
     }
   }, [filters, lojaSelecionada, analiseAtiva]);
 
@@ -696,14 +1039,16 @@ export default function GestaoInteligente() {
       tipo: 'number',
       indicador: 'qtdItens'
     },
-    emBreve1: {
-      borderColor: 'border-lime-500',
-      bgColor: 'bg-lime-100',
-      icon: <span className="text-xl">🔍</span>,
-      label: 'Em breve',
-      title: '-',
-      getValue: () => '-',
-      emBreve: true
+    vendasOfertaValor: {
+      borderColor: 'border-rose-500',
+      bgColor: 'bg-rose-100',
+      iconColor: 'text-rose-600',
+      icon: <span className="text-xl">💰</span>,
+      label: 'Oferta R$',
+      title: 'VENDAS EM OFERTA',
+      getValue: () => formatCurrency(indicadores.vendasOferta?.atual),
+      tipo: 'currency',
+      indicador: 'vendasOferta'
     },
     emBreve2: {
       borderColor: 'border-fuchsia-500',
@@ -713,7 +1058,25 @@ export default function GestaoInteligente() {
       title: '-',
       getValue: () => '-',
       emBreve: true
-    }
+    },
+    custoVendas: {
+      borderColor: 'border-red-500', bgColor: 'bg-red-100', iconColor: 'text-red-600',
+      icon: <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>,
+      label: 'Custo', title: 'CUSTO DAS VENDAS',
+      getValue: () => formatCurrency(indicadores.custoVendas?.atual),
+      tipo: 'currency', indicador: 'custoVendas', invertido: true
+    },
+    markdownOferta: {
+      borderColor: 'border-pink-500', bgColor: 'bg-pink-100', iconColor: 'text-pink-600',
+      icon: <svg className="w-5 h-5 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>,
+      label: 'Oferta MKD', title: 'MARKDOWN EM OFERTA',
+      getValue: () => formatPercent(indicadores.markdownOferta?.atual),
+      tipo: 'percent', indicador: 'markdownOferta'
+    },
+    emBreve5: { borderColor: 'border-emerald-500', bgColor: 'bg-emerald-100', icon: <span className="text-xl">🔔</span>, label: 'Em breve', title: '-', getValue: () => '-', emBreve: true },
+    emBreve6: { borderColor: 'border-violet-500', bgColor: 'bg-violet-100', icon: <span className="text-xl">📌</span>, label: 'Em breve', title: '-', getValue: () => '-', emBreve: true },
+    emBreve7: { borderColor: 'border-amber-500', bgColor: 'bg-amber-100', icon: <span className="text-xl">🎯</span>, label: 'Em breve', title: '-', getValue: () => '-', emBreve: true },
+    emBreve8: { borderColor: 'border-teal-500', bgColor: 'bg-teal-100', icon: <span className="text-xl">⭐</span>, label: 'Em breve', title: '-', getValue: () => '-', emBreve: true }
   };
 
   // Função para renderizar um card
@@ -732,24 +1095,30 @@ export default function GestaoInteligente() {
           onDragEnd={handleDragEnd}
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, cardId, row)}
-          className={`bg-white rounded-xl shadow-lg p-4 border-t-4 ${config.borderColor} hover:shadow-xl transition-all cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-50 scale-95' : ''}`}
+          className={`bg-white rounded-xl shadow-lg p-4 border-t-4 ${config.borderColor} hover:shadow-xl transition-all cursor-grab active:cursor-grabbing h-full flex flex-col justify-between ${isDragging ? 'opacity-50 scale-95' : ''}`}
         >
-          <div className="flex items-center justify-between mb-3">
-            <div className={`w-10 h-10 ${config.bgColor} rounded-lg flex items-center justify-center`}>
-              {config.icon}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className={`w-10 h-10 ${config.bgColor} rounded-lg flex items-center justify-center`}>
+                {config.icon}
+              </div>
+              <span className="text-xs text-gray-400 uppercase font-semibold flex items-center gap-1">
+                <svg className="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                {config.label}
+              </span>
             </div>
-            <span className="text-xs text-gray-400 uppercase font-semibold flex items-center gap-1">
-              <svg className="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
-              {config.label}
-            </span>
+            <p className="text-2xl font-bold text-gray-400 mb-1">-</p>
+            <p className="text-xs text-gray-500 mb-3">EM BREVE</p>
           </div>
-          <p className="text-lg font-bold text-gray-400 mb-1">{config.title}</p>
-          <p className="text-xs text-gray-400">Indicador em desenvolvimento</p>
+          <div className="space-y-1 pt-2 border-t border-gray-100">
+            <p className="text-xs text-gray-300">Indicador em desenvolvimento</p>
+          </div>
         </div>
       );
     }
 
     const indicador = indicadores[config.indicador];
+    const isExpanded = cardExpandido === cardId;
 
     return (
       <div
@@ -759,7 +1128,8 @@ export default function GestaoInteligente() {
         onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
         onDrop={(e) => handleDrop(e, cardId, row)}
-        className={`bg-white rounded-xl shadow-lg p-4 border-t-4 ${config.borderColor} hover:shadow-xl transition-all cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-50 scale-95' : ''}`}
+        onClick={() => setCardExpandido(isExpanded ? null : cardId)}
+        className={`bg-white rounded-xl shadow-lg p-4 border-t-4 ${config.borderColor} hover:shadow-xl transition-all cursor-grab active:cursor-grabbing h-full ${isDragging ? 'opacity-50 scale-95' : ''} ${isExpanded ? 'ring-2 ring-orange-400 shadow-orange-200' : ''}`}
       >
         <div className="flex items-center justify-between mb-3">
           <div className={`w-10 h-10 ${config.bgColor} rounded-lg flex items-center justify-center`}>
@@ -861,105 +1231,199 @@ export default function GestaoInteligente() {
             {cardOrder2.map((cardId) => renderCard(cardId, 2))}
           </div>
 
-          {/* Linha de Cards de Categorias - Vendas, Margens, Compras, Financeiro */}
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Card VENDAS */}
-            <div
-              onClick={() => {
-                if (cardExpandido === 'vendas') {
-                  setCardExpandido(null);
-                  setAnaliseAtiva(null);
-                  setDadosAnalise([]);
-                } else {
-                  setCardExpandido('vendas');
-                }
-              }}
-              className={`bg-emerald-50 rounded-xl shadow-md p-4 border border-emerald-200 hover:shadow-lg transition-all cursor-pointer ${cardExpandido === 'vendas' ? 'ring-2 ring-emerald-400' : ''}`}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 bg-emerald-200 rounded-lg flex items-center justify-center">
-                  <span className="text-xl">💰</span>
-                </div>
-                <span className="text-xs text-emerald-600 uppercase font-semibold">Análise</span>
-              </div>
-              <p className="text-xl font-bold text-emerald-800 mb-1">Vendas</p>
-              <p className="text-xs text-emerald-600">Análise detalhada de vendas por período, produto e setor</p>
-            </div>
-
-            {/* Card MARGENS */}
-            <div
-              onClick={() => setCardExpandido(cardExpandido === 'margens' ? null : 'margens')}
-              className={`bg-violet-50 rounded-xl shadow-md p-4 border border-violet-200 hover:shadow-lg transition-all cursor-pointer ${cardExpandido === 'margens' ? 'ring-2 ring-violet-400' : ''}`}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 bg-violet-200 rounded-lg flex items-center justify-center">
-                  <span className="text-xl">📈</span>
-                </div>
-                <span className="text-xs text-violet-600 uppercase font-semibold">Análise</span>
-              </div>
-              <p className="text-xl font-bold text-violet-800 mb-1">Margens</p>
-              <p className="text-xs text-violet-600">Acompanhamento de margens por categoria e produto</p>
-            </div>
-
-            {/* Card COMPRAS */}
-            <div
-              onClick={() => setCardExpandido(cardExpandido === 'compras' ? null : 'compras')}
-              className={`bg-amber-50 rounded-xl shadow-md p-4 border border-amber-200 hover:shadow-lg transition-all cursor-pointer ${cardExpandido === 'compras' ? 'ring-2 ring-amber-400' : ''}`}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 bg-amber-200 rounded-lg flex items-center justify-center">
-                  <span className="text-xl">🛒</span>
-                </div>
-                <span className="text-xs text-amber-600 uppercase font-semibold">Análise</span>
-              </div>
-              <p className="text-xl font-bold text-amber-800 mb-1">Compras</p>
-              <p className="text-xs text-amber-600">Gestão de compras, pedidos e fornecedores</p>
-            </div>
-
-            {/* Card FINANCEIRO */}
-            <div
-              onClick={() => setCardExpandido(cardExpandido === 'financeiro' ? null : 'financeiro')}
-              className={`bg-sky-50 rounded-xl shadow-md p-4 border border-sky-200 hover:shadow-lg transition-all cursor-pointer ${cardExpandido === 'financeiro' ? 'ring-2 ring-sky-400' : ''}`}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 bg-sky-200 rounded-lg flex items-center justify-center">
-                  <span className="text-xl">🏦</span>
-                </div>
-                <span className="text-xs text-sky-600 uppercase font-semibold">Análise</span>
-              </div>
-              <p className="text-xl font-bold text-sky-800 mb-1">Financeiro</p>
-              <p className="text-xs text-sky-600">Controle financeiro, fluxo de caixa e DRE</p>
-            </div>
+          {/* Linha 3 - Cards Terciários (Drag and Drop) */}
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            {cardOrder3.map((cardId) => renderCard(cardId, 3))}
           </div>
 
-          {/* Área Expandida - Botões simples em linha */}
+          {/* Sub-cards: VENDAS expandido */}
           {cardExpandido === 'vendas' && (
-            <>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  onClick={fetchVendasPorSetor}
-                  className={`px-4 py-2 border rounded-lg text-sm font-medium transition-colors ${
-                    analiseAtiva === 'vendas-setor'
-                      ? 'bg-orange-500 text-white border-orange-500'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-orange-50 hover:border-orange-400'
-                  }`}
+          <>
+          {/* Linha de Cards de Análise - Drag and Drop */}
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {analiseCardOrder.map((cardId) => {
+              const cfg = analiseCardConfig[cardId];
+              if (!cfg) return null;
+              return (
+                <div
+                  key={cardId}
+                  draggable
+                  onDragStart={(e) => handleAnaliseCardDragStart(e, cardId)}
+                  onDragEnd={handleAnaliseCardDragEnd}
+                  onDragOver={handleAnaliseCardDragOver}
+                  onDrop={(e) => handleAnaliseCardDrop(e, cardId)}
+                  onClick={cfg.onClick}
+                  className={`rounded-xl shadow-md p-4 border hover:shadow-lg transition-all cursor-pointer select-none ${
+                    analiseAtiva === cardId ? cfg.active : cfg.inactive
+                  } ${draggedAnaliseCard === cardId ? 'opacity-50' : ''}`}
                 >
-                  {loadingAnalise && analiseAtiva === 'vendas-setor' ? 'Carregando...' : 'Venda Por Setor'}
-                </button>
-                <button
-                  onClick={toggleVendasPorAno}
-                  className={`px-4 py-2 border rounded-lg text-sm font-medium transition-colors ${
-                    analiseAtiva === 'vendas-ano'
-                      ? 'bg-orange-500 text-white border-orange-500'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-orange-50 hover:border-orange-400'
-                  }`}
-                >
-                  {loadingVendasAno && analiseAtiva === 'vendas-ano' ? 'Carregando...' : 'Venda por Ano'}
-                </button>
-                <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-orange-50 hover:border-orange-400 transition-colors">
-                  Venda Por Dia da Semana
-                </button>
-              </div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className={`w-9 h-9 ${cfg.icon} rounded-lg flex items-center justify-center`}>
+                      <span className="text-lg">{cfg.emoji}</span>
+                    </div>
+                  </div>
+                  <p className={`text-sm font-bold ${cfg.title}`}>{cfg.label}</p>
+                  <p className={`text-[10px] ${cfg.sub} mt-1`}>{cfg.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Conteúdo das Análises */}
+              {/* Tabela de Vendas por Dia da Semana - 3 sub-colunas por mês */}
+              {analiseAtiva === 'vendas-dia-semana' && (
+                <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+                  <div className="bg-orange-500 px-4 py-3 flex items-center justify-between">
+                    <h3 className="text-white font-semibold">Vendas por Dia da Semana</h3>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleAnoDiaSemanaChange(anoDiaSemana - 1)}
+                        className="w-8 h-8 flex items-center justify-center bg-white/20 hover:bg-white/30 rounded-lg text-white transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                      </button>
+                      <span className="text-white font-bold text-lg min-w-[60px] text-center">{anoDiaSemana}</span>
+                      <button
+                        onClick={() => handleAnoDiaSemanaChange(anoDiaSemana + 1)}
+                        disabled={anoDiaSemana >= new Date().getFullYear()}
+                        className={`w-8 h-8 flex items-center justify-center rounded-lg text-white transition-colors ${
+                          anoDiaSemana >= new Date().getFullYear()
+                            ? 'bg-white/10 cursor-not-allowed opacity-50'
+                            : 'bg-white/20 hover:bg-white/30'
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  {loadingVendasDiaSemana ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                    </div>
+                  ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        {/* Header: nome do mês spanning 3 colunas */}
+                        <tr className="bg-gray-100">
+                          <th rowSpan={2} className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase border-b border-r border-gray-200 sticky left-0 bg-gray-100 min-w-[110px] z-10">Dia da Semana</th>
+                          {mesesCompletos.map((mes) => {
+                            const mesData = vendasDiaSemana.find(m => m.mesNum === mes.num);
+                            const temDados = mesData && mesData.dias.some(d => d.totalVendas > 0);
+                            return (
+                              <th key={`ds-mh-${mes.num}`} colSpan={3} className={`px-1 py-2 text-center text-xs font-bold uppercase border-b border-r border-gray-300 ${
+                                temDados ? 'text-gray-700 bg-gray-100' : 'text-gray-400 bg-gray-50'
+                              }`}>
+                                {mes.nome}
+                              </th>
+                            );
+                          })}
+                          <th colSpan={3} className="px-1 py-2 text-center text-xs font-bold uppercase border-b border-gray-300 text-orange-800 bg-orange-100">TOTAL</th>
+                        </tr>
+                        {/* Sub-header: Dias | Vendas | Média */}
+                        <tr className="bg-gray-50">
+                          {mesesCompletos.map((mes) => (
+                            <Fragment key={`ds-sh-${mes.num}`}>
+                              <th className="px-2 py-1 text-center text-[10px] font-semibold text-gray-500 border-b border-gray-200 min-w-[40px]">Dias</th>
+                              <th className="px-2 py-1 text-center text-[10px] font-semibold text-gray-500 border-b border-gray-200 min-w-[110px]">Vendas</th>
+                              <th className="px-2 py-1 text-center text-[10px] font-semibold text-gray-500 border-b border-r border-gray-300 min-w-[100px]">Média</th>
+                            </Fragment>
+                          ))}
+                          <th className="px-2 py-1 text-center text-[10px] font-semibold text-orange-700 border-b border-gray-200 bg-orange-50 min-w-[40px]">Dias</th>
+                          <th className="px-2 py-1 text-center text-[10px] font-semibold text-orange-700 border-b border-gray-200 bg-orange-50 min-w-[110px]">Vendas</th>
+                          <th className="px-2 py-1 text-center text-[10px] font-semibold text-orange-700 border-b border-gray-200 bg-orange-50 min-w-[100px]">Média</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo', 'Feriado'].map((diaSemana, idx) => {
+                          const totalAnoDias = vendasDiaSemana.reduce((acc, mes) => {
+                            const d = mes.dias.find(dd => dd.diaSemana === diaSemana);
+                            return acc + (d?.totalDias || 0);
+                          }, 0);
+                          const totalAnoVendas = vendasDiaSemana.reduce((acc, mes) => {
+                            const d = mes.dias.find(dd => dd.diaSemana === diaSemana);
+                            return acc + (d?.totalVendas || 0);
+                          }, 0);
+                          const totalAnoMedia = totalAnoDias > 0 ? totalAnoVendas / totalAnoDias : 0;
+
+                          return (
+                            <tr key={diaSemana} className={`hover:bg-orange-50/50 border-b border-gray-100 ${diaSemana === 'Feriado' ? 'bg-red-50/50' : idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
+                              <td className={`px-3 py-2 text-xs font-bold sticky left-0 border-r border-gray-200 z-10 ${
+                                diaSemana === 'Feriado' ? 'text-red-700 bg-red-50' :
+                                diaSemana === 'Domingo' ? 'text-orange-700' :
+                                diaSemana === 'Sábado' ? 'text-blue-700' :
+                                'text-gray-800'
+                              } ${diaSemana !== 'Feriado' ? (idx % 2 === 0 ? 'bg-white' : 'bg-gray-50') : ''}`}>
+                                {diaSemana}
+                              </td>
+                              {mesesCompletos.map((mes) => {
+                                const mesData = vendasDiaSemana.find(m => m.mesNum === mes.num);
+                                const diaData = mesData ? mesData.dias.find(d => d.diaSemana === diaSemana) : null;
+                                const dias = diaData?.totalDias || 0;
+                                const vendas = diaData?.totalVendas || 0;
+                                const media = diaData?.mediaVendas || 0;
+
+                                return (
+                                  <Fragment key={`ds-${diaSemana}-${mes.num}`}>
+                                    <td className={`px-1 py-2 text-xs text-center ${dias > 0 ? 'text-gray-600' : 'text-gray-300'}`}>
+                                      {dias > 0 ? dias : '-'}
+                                    </td>
+                                    <td className={`px-1 py-2 text-xs text-center font-medium ${vendas > 0 ? (diaSemana === 'Feriado' ? 'text-red-600' : 'text-gray-800') : 'text-gray-300'}`}>
+                                      {vendas > 0 ? formatCurrency(vendas) : '-'}
+                                    </td>
+                                    <td className={`px-1 py-2 text-xs text-center border-r border-gray-200 ${media > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>
+                                      {media > 0 ? formatCurrency(media) : '-'}
+                                    </td>
+                                  </Fragment>
+                                );
+                              })}
+                              {/* TOTAL do ano */}
+                              <td className="px-1 py-2 text-xs text-center font-bold text-orange-800 bg-orange-50/70">{totalAnoDias > 0 ? totalAnoDias : '-'}</td>
+                              <td className="px-1 py-2 text-xs text-center font-bold text-orange-800 bg-orange-50/70">{totalAnoVendas > 0 ? formatCurrency(totalAnoVendas) : '-'}</td>
+                              <td className="px-1 py-2 text-xs text-center font-bold text-emerald-700 bg-orange-50/70">{totalAnoMedia > 0 ? formatCurrency(totalAnoMedia) : '-'}</td>
+                            </tr>
+                          );
+                        })}
+                        {/* Linha TOTAL (soma de todos os dias da semana por mês) */}
+                        <tr className="bg-orange-50 border-t-2 border-orange-300">
+                          <td className="px-3 py-2 text-xs font-bold text-orange-800 sticky left-0 bg-orange-50 border-r border-gray-200 z-10">TOTAL</td>
+                          {mesesCompletos.map((mes) => {
+                            const mesData = vendasDiaSemana.find(m => m.mesNum === mes.num);
+                            const totalDiasMes = mesData ? mesData.dias.reduce((acc, d) => acc + d.totalDias, 0) : 0;
+                            const totalVendasMes = mesData ? mesData.dias.reduce((acc, d) => acc + d.totalVendas, 0) : 0;
+                            const mediaMes = totalDiasMes > 0 ? totalVendasMes / totalDiasMes : 0;
+                            return (
+                              <Fragment key={`ds-total-${mes.num}`}>
+                                <td className="px-1 py-2 text-xs text-center font-bold text-orange-800">{totalDiasMes > 0 ? totalDiasMes : '-'}</td>
+                                <td className="px-1 py-2 text-xs text-center font-bold text-orange-800">{totalVendasMes > 0 ? formatCurrency(totalVendasMes) : '-'}</td>
+                                <td className="px-1 py-2 text-xs text-center font-bold text-emerald-700 border-r border-gray-300">{mediaMes > 0 ? formatCurrency(mediaMes) : '-'}</td>
+                              </Fragment>
+                            );
+                          })}
+                          {/* TOTAL geral do ano */}
+                          {(() => {
+                            const totalGeralDias = vendasDiaSemana.reduce((acc, mes) => acc + mes.dias.reduce((a, d) => a + d.totalDias, 0), 0);
+                            const totalGeralVendas = vendasDiaSemana.reduce((acc, mes) => acc + mes.dias.reduce((a, d) => a + d.totalVendas, 0), 0);
+                            const mediaGeral = totalGeralDias > 0 ? totalGeralVendas / totalGeralDias : 0;
+                            return (
+                              <>
+                                <td className="px-1 py-2 text-xs text-center font-bold text-orange-900 bg-orange-100">{totalGeralDias || '-'}</td>
+                                <td className="px-1 py-2 text-xs text-center font-bold text-orange-900 bg-orange-100">{totalGeralVendas > 0 ? formatCurrency(totalGeralVendas) : '-'}</td>
+                                <td className="px-1 py-2 text-xs text-center font-bold text-emerald-800 bg-orange-100">{mediaGeral > 0 ? formatCurrency(mediaGeral) : '-'}</td>
+                              </>
+                            );
+                          })()}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  )}
+                </div>
+              )}
 
               {/* Tabela de Vendas por Ano - Meses nas colunas, indicadores nas linhas */}
               {analiseAtiva === 'vendas-ano' && (
@@ -1352,6 +1816,139 @@ export default function GestaoInteligente() {
               )}
 
               {/* Tabela de Vendas por Setor - Hierárquica */}
+              {/* Tabela de Vendas Analíticas por Setor */}
+              {analiseAtiva === 'vendas-analiticas' && (
+                <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+                  <div className="bg-orange-500 px-4 py-3">
+                    <h3 className="text-white font-semibold">Vendas Analíticas - {formatPeriodo()}</h3>
+                  </div>
+                  {loadingVendasAnaliticas ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                    </div>
+                  ) : vendasAnaliticas.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="bg-gray-200">
+                            <th rowSpan={2} className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase border-b border-r border-gray-300 min-w-[170px] sticky left-0 bg-gray-200 z-10">Setor</th>
+                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-gray-700 uppercase border-b border-r border-gray-300 bg-orange-50">Vendas</th>
+                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-cyan-700 uppercase border-b border-r border-gray-300 bg-cyan-50">Lucro</th>
+                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-purple-700 uppercase border-b border-r border-gray-300 bg-purple-50">Markdown</th>
+                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-emerald-700 uppercase border-b border-gray-300 bg-emerald-50">Margem Limpa</th>
+                          </tr>
+                          <tr className="bg-gray-100">
+                            {/* Vendas sub-headers */}
+                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[120px]">Atual</th>
+                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-blue-600 uppercase border-b border-gray-200 min-w-[120px]">Méd.Linear</th>
+                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[120px]">Ano Ant.</th>
+                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-r border-gray-300 min-w-[120px]">Mês Ant.</th>
+                            {/* Lucro sub-headers */}
+                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[120px]">Atual</th>
+                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-blue-600 uppercase border-b border-gray-200 min-w-[120px]">Méd.Linear</th>
+                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[120px]">Ano Ant.</th>
+                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-r border-gray-300 min-w-[120px]">Mês Ant.</th>
+                            {/* Markdown sub-headers */}
+                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[90px]">Atual</th>
+                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-blue-600 uppercase border-b border-gray-200 min-w-[90px]">Méd.Linear</th>
+                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[90px]">Ano Ant.</th>
+                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-r border-gray-300 min-w-[90px]">Mês Ant.</th>
+                            {/* Margem Limpa sub-headers */}
+                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[90px]">Atual</th>
+                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-blue-600 uppercase border-b border-gray-200 min-w-[90px]">Méd.Linear</th>
+                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[90px]">Ano Ant.</th>
+                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[90px]">Mês Ant.</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {vendasAnaliticas.map((setor, index) => (
+                            <tr key={`analitica-${setor.codSecao || index}`} className={`hover:bg-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} border-b border-gray-100`}>
+                              <td className="px-4 py-2 text-sm font-semibold text-gray-800 sticky left-0 z-10" style={{ backgroundColor: index % 2 === 0 ? '#f9fafb' : '#fff' }}>{setor.setor}</td>
+                              {/* Vendas */}
+                              <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">{formatCurrency(setor.vendaAtual)}</td>
+                              <td className={`px-3 py-2 text-sm text-right font-semibold ${setor.vendaAtual >= setor.mediaLinear ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(setor.mediaLinear)}</td>
+                              <td className={`px-3 py-2 text-sm text-right font-semibold ${setor.vendaAtual >= setor.vendaAnoPassado ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(setor.vendaAnoPassado)}</td>
+                              <td className={`px-3 py-2 text-sm text-right font-semibold border-r border-gray-200 ${setor.vendaAtual >= setor.vendaMesPassado ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(setor.vendaMesPassado)}</td>
+                              {/* Lucro */}
+                              <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">{formatCurrency(setor.lucroAtual)}</td>
+                              <td className={`px-3 py-2 text-sm text-right font-semibold ${setor.lucroAtual >= setor.lucroMediaLinear ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(setor.lucroMediaLinear)}</td>
+                              <td className={`px-3 py-2 text-sm text-right font-semibold ${setor.lucroAtual >= setor.lucroAnoPassado ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(setor.lucroAnoPassado)}</td>
+                              <td className={`px-3 py-2 text-sm text-right font-semibold border-r border-gray-200 ${setor.lucroAtual >= setor.lucroMesPassado ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(setor.lucroMesPassado)}</td>
+                              {/* Markdown */}
+                              <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">{formatPercent(setor.markdownAtual)}</td>
+                              <td className={`px-3 py-2 text-sm text-right font-semibold ${setor.markdownAtual >= setor.markdownMediaLinear ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(setor.markdownMediaLinear)}</td>
+                              <td className={`px-3 py-2 text-sm text-right font-semibold ${setor.markdownAtual >= setor.markdownAnoPassado ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(setor.markdownAnoPassado)}</td>
+                              <td className={`px-3 py-2 text-sm text-right font-semibold border-r border-gray-200 ${setor.markdownAtual >= setor.markdownMesPassado ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(setor.markdownMesPassado)}</td>
+                              {/* Margem Limpa */}
+                              <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">{formatPercent(setor.margemLimpaAtual)}</td>
+                              <td className={`px-3 py-2 text-sm text-right font-semibold ${setor.margemLimpaAtual >= setor.margemLimpaMediaLinear ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(setor.margemLimpaMediaLinear)}</td>
+                              <td className={`px-3 py-2 text-sm text-right font-semibold ${setor.margemLimpaAtual >= setor.margemLimpaAnoPassado ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(setor.margemLimpaAnoPassado)}</td>
+                              <td className={`px-3 py-2 text-sm text-right font-semibold ${setor.margemLimpaAtual >= setor.margemLimpaMesPassado ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(setor.margemLimpaMesPassado)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-gray-200">
+                          <tr>
+                            <td className="px-4 py-2 text-sm font-bold text-gray-800 sticky left-0 bg-gray-200 z-10">TOTAL</td>
+                            {/* Totais Vendas */}
+                            {(() => {
+                              const tAtual = vendasAnaliticas.reduce((acc, s) => acc + s.vendaAtual, 0);
+                              const tML = vendasAnaliticas.reduce((acc, s) => acc + s.mediaLinear, 0);
+                              const tAP = vendasAnaliticas.reduce((acc, s) => acc + s.vendaAnoPassado, 0);
+                              const tMP = vendasAnaliticas.reduce((acc, s) => acc + s.vendaMesPassado, 0);
+                              return (<>
+                                <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">{formatCurrency(tAtual)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold ${tAtual >= tML ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(tML)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold ${tAtual >= tAP ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(tAP)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold border-r border-gray-300 ${tAtual >= tMP ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(tMP)}</td>
+                              </>);
+                            })()}
+                            {/* Totais Lucro */}
+                            {(() => {
+                              const tAtual = vendasAnaliticas.reduce((acc, s) => acc + (s.lucroAtual || 0), 0);
+                              const tML = vendasAnaliticas.reduce((acc, s) => acc + (s.lucroMediaLinear || 0), 0);
+                              const tAP = vendasAnaliticas.reduce((acc, s) => acc + (s.lucroAnoPassado || 0), 0);
+                              const tMP = vendasAnaliticas.reduce((acc, s) => acc + (s.lucroMesPassado || 0), 0);
+                              return (<>
+                                <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">{formatCurrency(tAtual)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold ${tAtual >= tML ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(tML)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold ${tAtual >= tAP ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(tAP)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold border-r border-gray-300 ${tAtual >= tMP ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(tMP)}</td>
+                              </>);
+                            })()}
+                            {/* Totais Markdown (média ponderada) */}
+                            {(() => {
+                              const calcMkd = (vendaKey, lucroKey) => {
+                                const v = vendasAnaliticas.reduce((acc, s) => acc + (s[vendaKey] || 0), 0);
+                                const c = vendasAnaliticas.reduce((acc, s) => acc + ((s[vendaKey] || 0) - (s[lucroKey] || 0)), 0);
+                                return v > 0 ? ((v - c) / v) * 100 : 0;
+                              };
+                              const mkdAtual = calcMkd('vendaAtual', 'lucroAtual');
+                              const mkdML = calcMkd('mediaLinear', 'lucroMediaLinear');
+                              const mkdAP = calcMkd('vendaAnoPassado', 'lucroAnoPassado');
+                              const mkdMP = calcMkd('vendaMesPassado', 'lucroMesPassado');
+                              return (<>
+                                <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">{formatPercent(mkdAtual)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold ${mkdAtual >= mkdML ? 'text-green-700' : 'text-red-700'}`}>{formatPercent(mkdML)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold ${mkdAtual >= mkdAP ? 'text-green-700' : 'text-red-700'}`}>{formatPercent(mkdAP)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold border-r border-gray-300 ${mkdAtual >= mkdMP ? 'text-green-700' : 'text-red-700'}`}>{formatPercent(mkdMP)}</td>
+                              </>);
+                            })()}
+                            {/* Totais Margem Limpa */}
+                            <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">-</td>
+                            <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">-</td>
+                            <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">-</td>
+                            <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">-</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">Nenhum dado encontrado para o período selecionado</div>
+                  )}
+                </div>
+              )}
+
               {analiseAtiva === 'vendas-setor' && dadosAnalise.length > 0 && (
                 <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
                   <div className="bg-orange-500 px-4 py-3">
@@ -1362,15 +1959,30 @@ export default function GestaoInteligente() {
                       <thead className="bg-gray-100">
                         <tr>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase border-b border-gray-200">Setor / Grupo / Subgrupo / Item</th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase border-b border-gray-200">Venda</th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase border-b border-gray-200">Margem %</th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase border-b border-gray-200">Qtd</th>
+                          {colOrder.map((colId) => {
+                            const col = colDefs[colId];
+                            if (!col) return null;
+                            return (
+                              <th
+                                key={colId}
+                                draggable
+                                onDragStart={(e) => handleColDragStart(e, colId)}
+                                onDragEnd={handleColDragEnd}
+                                onDragOver={handleColDragOver}
+                                onDrop={(e) => handleColDrop(e, colId)}
+                                className={`px-4 py-3 text-right text-xs font-semibold ${col.headerClass} uppercase border-b border-gray-200 cursor-grab active:cursor-grabbing select-none ${draggedCol === colId ? 'opacity-50 bg-blue-100' : 'hover:bg-gray-200'}`}
+                                title="Arraste para reordenar"
+                              >
+                                {col.label}
+                              </th>
+                            );
+                          })}
                         </tr>
                       </thead>
                       <tbody>
                         {dadosAnalise.map((secao, index) => (
                           <Fragment key={`secao-${secao.codSecao || index}`}>
-                            {/* Linha da Seção (Nível 1) - Fundo cinza claro */}
+                            {/* Linha da Seção (Nível 1) */}
                             <tr className={`hover:bg-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} border-b border-gray-100`}>
                               <td className="px-4 py-3 text-sm text-gray-800">
                                 <button
@@ -1383,15 +1995,12 @@ export default function GestaoInteligente() {
                                   {secao.setor}
                                 </button>
                               </td>
-                              <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">
-                                {formatCurrency(secao.venda)}
-                              </td>
-                              <td className={`px-4 py-3 text-sm text-right font-semibold ${secao.margem >= 30 ? 'text-green-600' : secao.margem >= 20 ? 'text-yellow-600' : 'text-red-600'}`}>
-                                {formatPercent(secao.margem)}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-right text-gray-600 font-semibold">
-                                {formatNumber(secao.qtd)}
-                              </td>
+                              {colOrder.map((colId) => {
+                                const col = colDefs[colId];
+                                if (!col) return null;
+                                const r = col.renderSetor(secao);
+                                return <td key={colId} className={`px-4 py-3 text-sm text-right ${r.cls}`}>{r.val}</td>;
+                              })}
                             </tr>
 
                             {/* Linhas dos Grupos (Nível 2) */}
@@ -1409,15 +2018,12 @@ export default function GestaoInteligente() {
                                       {grupo.grupo}
                                     </button>
                                   </td>
-                                  <td className="px-4 py-2 text-sm text-right font-medium text-gray-700">
-                                    {formatCurrency(grupo.venda)}
-                                  </td>
-                                  <td className={`px-4 py-2 text-sm text-right font-medium ${grupo.margem >= 30 ? 'text-green-600' : grupo.margem >= 20 ? 'text-yellow-600' : 'text-red-600'}`}>
-                                    {formatPercent(grupo.margem)}
-                                  </td>
-                                  <td className="px-4 py-2 text-sm text-right text-gray-600">
-                                    {formatNumber(grupo.qtd)}
-                                  </td>
+                                  {colOrder.map((colId) => {
+                                    const col = colDefs[colId];
+                                    if (!col) return null;
+                                    const r = col.renderGrupo(grupo);
+                                    return <td key={colId} className={`px-4 py-2 text-sm text-right ${r.cls}`}>{r.val}</td>;
+                                  })}
                                 </tr>
 
                                 {/* Linhas dos Subgrupos (Nível 3) */}
@@ -1435,15 +2041,12 @@ export default function GestaoInteligente() {
                                           {subgrupo.subgrupo}
                                         </button>
                                       </td>
-                                      <td className="px-4 py-2 text-sm text-right text-gray-600">
-                                        {formatCurrency(subgrupo.venda)}
-                                      </td>
-                                      <td className={`px-4 py-2 text-sm text-right ${subgrupo.margem >= 30 ? 'text-green-600' : subgrupo.margem >= 20 ? 'text-yellow-600' : 'text-red-600'}`}>
-                                        {formatPercent(subgrupo.margem)}
-                                      </td>
-                                      <td className="px-4 py-2 text-sm text-right text-gray-600">
-                                        {formatNumber(subgrupo.qtd)}
-                                      </td>
+                                      {colOrder.map((colId) => {
+                                        const col = colDefs[colId];
+                                        if (!col) return null;
+                                        const r = col.renderSub(subgrupo);
+                                        return <td key={colId} className={`px-4 py-2 text-sm text-right ${r.cls}`}>{r.val}</td>;
+                                      })}
                                     </tr>
 
                                     {/* Linhas dos Itens (Nível 4) */}
@@ -1455,15 +2058,12 @@ export default function GestaoInteligente() {
                                             {item.produto}
                                           </span>
                                         </td>
-                                        <td className="px-4 py-1.5 text-xs text-right text-gray-600">
-                                          {formatCurrency(item.venda)}
-                                        </td>
-                                        <td className={`px-4 py-1.5 text-xs text-right ${item.margem >= 30 ? 'text-green-600' : item.margem >= 20 ? 'text-yellow-600' : 'text-red-600'}`}>
-                                          {formatPercent(item.margem)}
-                                        </td>
-                                        <td className="px-4 py-1.5 text-xs text-right text-gray-500">
-                                          {formatNumber(item.qtd)}
-                                        </td>
+                                        {colOrder.map((colId) => {
+                                          const col = colDefs[colId];
+                                          if (!col) return null;
+                                          const r = col.renderItem(item);
+                                          return <td key={colId} className={`px-4 py-1.5 text-xs text-right ${r.cls}`}>{r.val}</td>;
+                                        })}
                                       </tr>
                                     ))}
                                   </Fragment>
@@ -1476,67 +2076,135 @@ export default function GestaoInteligente() {
                       <tfoot className="bg-gray-200">
                         <tr>
                           <td className="px-4 py-3 text-sm font-bold text-gray-800">TOTAL</td>
-                          <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
-                            {formatCurrency(dadosAnalise.reduce((acc, item) => acc + item.venda, 0))}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
-                            {formatPercent(
-                              dadosAnalise.reduce((acc, item) => acc + item.venda, 0) > 0
-                                ? ((dadosAnalise.reduce((acc, item) => acc + item.venda, 0) - dadosAnalise.reduce((acc, item) => acc + (item.venda * (1 - item.margem / 100)), 0)) / dadosAnalise.reduce((acc, item) => acc + item.venda, 0)) * 100
-                                : 0
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-right font-bold text-gray-600">
-                            {formatNumber(dadosAnalise.reduce((acc, item) => acc + item.qtd, 0))}
-                          </td>
+                          {colOrder.map((colId) => {
+                            const col = colDefs[colId];
+                            if (!col) return null;
+                            const r = col.renderTotal(dadosAnalise);
+                            return <td key={colId} className={`px-4 py-3 text-sm text-right ${r.cls}`}>{r.val}</td>;
+                          })}
                         </tr>
                       </tfoot>
                     </table>
                   </div>
                 </div>
               )}
-            </>
+
+              {/* ===== VENDAS POR SETOR ANUAL ===== */}
+              {analiseAtiva === 'vendas-setor-anual' && (
+                <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+                  <div className="bg-orange-500 px-4 py-3 flex items-center justify-between">
+                    <h3 className="text-white font-semibold">Vendas por Setor Anual</h3>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => handleAnoSetorAnualChange(anoSetorAnual - 1)} className="w-8 h-8 flex items-center justify-center bg-white/20 hover:bg-white/30 rounded-lg text-white transition-colors">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
+                      </button>
+                      <span className="text-white font-bold text-lg min-w-[60px] text-center">{anoSetorAnual}</span>
+                      <button onClick={() => handleAnoSetorAnualChange(anoSetorAnual + 1)} disabled={anoSetorAnual >= new Date().getFullYear()} className={`w-8 h-8 flex items-center justify-center rounded-lg text-white transition-colors ${anoSetorAnual >= new Date().getFullYear() ? 'bg-white/10 cursor-not-allowed opacity-50' : 'bg-white/20 hover:bg-white/30'}`}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                  {loadingVendasSetorAnual ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                    </div>
+                  ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase border-b border-gray-200 sticky left-0 bg-gray-100 min-w-[160px]">Setor</th>
+                          {mesesCompletos.map((mes) => (
+                            <th key={`sa-h-${mes.num}`} className="px-2 py-3 text-center text-xs font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[90px]">{mes.nome}</th>
+                          ))}
+                          <th className="px-3 py-3 text-center text-xs font-semibold text-orange-800 uppercase border-b border-gray-200 bg-orange-100 min-w-[100px]">{anoSetorAnual}</th>
+                          <th className="px-3 py-3 text-center text-xs font-semibold text-blue-800 uppercase border-b border-gray-200 bg-blue-100 min-w-[100px]">{anoSetorAnual - 1}</th>
+                          <th className="px-3 py-3 text-center text-xs font-semibold text-gray-800 uppercase border-b border-gray-200 bg-gray-300 min-w-[100px]">DIFERENÇA</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {vendasSetorAnual.map((s, idx) => {
+                          const isExp = expandedSetoresAnual[s.codSecao];
+                          const diff = s.total.venda - (s.anoAnterior?.venda || 0);
+                          return (
+                            <Fragment key={s.codSecao}>
+                              <tr className={`hover:bg-orange-50 cursor-pointer border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`} onClick={() => setExpandedSetoresAnual(prev => ({ ...prev, [s.codSecao]: !prev[s.codSecao] }))}>
+                                <td className={`px-3 py-2.5 text-sm font-semibold text-gray-800 sticky left-0 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                                  <span className={`inline-block mr-1 transition-transform ${isExp ? 'rotate-90' : ''}`}>▸</span>
+                                  {s.setor}
+                                </td>
+                                {mesesCompletos.map((mes) => {
+                                  const v = s.meses[mes.num]?.venda || 0;
+                                  return <td key={`sa-v-${s.codSecao}-${mes.num}`} className={`px-2 py-2.5 text-xs text-center font-medium ${v > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{v > 0 ? formatCurrency(v) : '-'}</td>;
+                                })}
+                                <td className="px-3 py-2.5 text-xs text-center font-bold text-orange-800 bg-orange-50">{formatCurrency(s.total.venda)}</td>
+                                <td className="px-3 py-2.5 text-xs text-center font-bold text-blue-800 bg-blue-50">{s.anoAnterior ? formatCurrency(s.anoAnterior.venda) : '-'}</td>
+                                <td className={`px-3 py-2.5 text-xs text-center font-bold bg-gray-200 ${diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {s.anoAnterior ? <>{diff >= 0 ? '+' : ''}{formatCurrency(diff)}</> : '-'}
+                                </td>
+                              </tr>
+                              {isExp && [
+                                { key: 'oferta', label: 'Vendas Oferta', field: 'vendasOferta', color: 'text-rose-600', fmt: formatCurrency },
+                                { key: 'lucro', label: 'Lucro', field: 'lucro', color: 'text-cyan-600', fmt: formatCurrency },
+                                { key: 'margem', label: 'Markdown', field: 'margem', color: 'text-purple-600', fmt: formatPercent },
+                                { key: 'pctOferta', label: 'Markdown em Oferta', field: 'pctOferta', color: 'text-pink-600', fmt: formatPercent },
+                                { key: 'ticket', label: 'Ticket Médio', field: 'ticketMedio', color: 'text-amber-600', fmt: formatCurrency },
+                                { key: 'skus', label: 'SKUs', field: 'skus', color: 'text-blue-600', fmt: (v) => v?.toLocaleString('pt-BR') || '0' },
+                                { key: 'cupons', label: 'Cupons', field: 'cupons', color: 'text-indigo-600', fmt: (v) => v?.toLocaleString('pt-BR') || '0' },
+                                { key: 'itens', label: 'Itens Vendidos', field: 'itensVendidos', color: 'text-teal-600', fmt: (v) => v?.toLocaleString('pt-BR') || '0' },
+                              ].map((sub) => (
+                                <tr key={`sa-sub-${s.codSecao}-${sub.key}`} className="bg-gray-50/50 border-b border-gray-50">
+                                  <td className="px-3 py-1.5 text-xs text-gray-500 sticky left-0 bg-gray-50/50 pl-8">{sub.label}</td>
+                                  {mesesCompletos.map((mes) => {
+                                    const d = s.meses[mes.num];
+                                    const v = d ? d[sub.field] : 0;
+                                    return <td key={`sa-${s.codSecao}-${sub.key}-${mes.num}`} className={`px-2 py-1.5 text-xs text-center ${v ? sub.color : 'text-gray-300'}`}>{v ? sub.fmt(v) : '-'}</td>;
+                                  })}
+                                  <td className={`px-3 py-1.5 text-xs text-center font-semibold ${sub.color} bg-orange-50`}>{sub.fmt(s.total[sub.field])}</td>
+                                  <td className={`px-3 py-1.5 text-xs text-center font-semibold ${sub.color} bg-blue-50`}>{s.anoAnterior ? sub.fmt(s.anoAnterior[sub.field]) : '-'}</td>
+                                  {(() => {
+                                    const curr = s.total[sub.field] || 0;
+                                    const prev = s.anoAnterior?.[sub.field] || 0;
+                                    const d2 = curr - prev;
+                                    if (sub.field === 'margem') {
+                                      return <td className={`px-3 py-1.5 text-xs text-center font-semibold bg-gray-200 ${d2 >= 0 ? 'text-green-600' : 'text-red-600'}`}>{s.anoAnterior ? <>{d2 >= 0 ? '+' : ''}{d2.toFixed(2).replace('.', ',')}%</> : '-'}</td>;
+                                    }
+                                    return <td className={`px-3 py-1.5 text-xs text-center font-semibold bg-gray-200 ${d2 >= 0 ? 'text-green-600' : 'text-red-600'}`}>{s.anoAnterior ? <>{d2 >= 0 ? '+' : ''}{sub.fmt(d2)}</> : '-'}</td>;
+                                  })()}
+                                </tr>
+                              ))}
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  )}
+                </div>
+              )}
+          </>
           )}
 
-          {cardExpandido === 'margens' && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors">
-                Margem por Categoria
-              </button>
-              <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors">
-                Margem por Produto
-              </button>
-              <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors">
-                Evolução de Margem
-              </button>
-            </div>
-          )}
-
-          {cardExpandido === 'compras' && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors">
-                Compras por Fornecedor
-              </button>
-              <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors">
-                Pedidos em Aberto
-              </button>
-              <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors">
-                Curva ABC Compras
-              </button>
-            </div>
-          )}
-
-          {cardExpandido === 'financeiro' && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors">
-                Fluxo de Caixa
-              </button>
-              <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors">
-                DRE
-              </button>
-              <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors">
-                Contas a Pagar
-              </button>
+          {/* Sub-cards: Outros cards expandidos (Em Breve) */}
+          {cardExpandido && cardExpandido !== 'vendas' && !cardsConfig[cardExpandido]?.emBreve && (
+            <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              {[
+                { emoji: '📊', bg: 'bg-rose-50', border: 'border-rose-200', iconBg: 'bg-rose-200', titleCls: 'text-rose-400', subCls: 'text-rose-300' },
+                { emoji: '📈', bg: 'bg-amber-50', border: 'border-amber-200', iconBg: 'bg-amber-200', titleCls: 'text-amber-400', subCls: 'text-amber-300' },
+                { emoji: '📉', bg: 'bg-teal-50', border: 'border-teal-200', iconBg: 'bg-teal-200', titleCls: 'text-teal-400', subCls: 'text-teal-300' },
+                { emoji: '🔍', bg: 'bg-indigo-50', border: 'border-indigo-200', iconBg: 'bg-indigo-200', titleCls: 'text-indigo-400', subCls: 'text-indigo-300' },
+                { emoji: '⚡', bg: 'bg-pink-50', border: 'border-pink-200', iconBg: 'bg-pink-200', titleCls: 'text-pink-400', subCls: 'text-pink-300' },
+              ].map((item, i) => (
+                <div key={i} className={`rounded-xl shadow-md p-4 border ${item.bg} ${item.border}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className={`w-9 h-9 ${item.iconBg} rounded-lg flex items-center justify-center`}>
+                      <span className="text-lg">{item.emoji}</span>
+                    </div>
+                  </div>
+                  <p className={`text-sm font-bold ${item.titleCls}`}>Em Breve</p>
+                  <p className={`text-[10px] ${item.subCls} mt-1`}>Funcionalidade em desenvolvimento</p>
+                </div>
+              ))}
             </div>
           )}
           </>
