@@ -321,6 +321,13 @@ async function seedConfigurations() {
         key: 'whatsapp_losses_schedule_time',
         value: '07:00',
         description: 'Horário de envio automático do relatório de quebras/ajustes (formato HH:MM)'
+      },
+
+      // Inteligência Artificial
+      {
+        key: 'openai_api_key',
+        value: process.env.OPENAI_API_KEY || '',
+        description: 'Chave de API do OpenAI (ChatGPT)'
       }
     ];
 

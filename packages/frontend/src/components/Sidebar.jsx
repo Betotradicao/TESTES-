@@ -364,6 +364,38 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       ]
     },
     {
+      id: 'oferta-radar',
+      title: 'OFERTA NO RADAR',
+      titleComponent: (
+        <span>
+          <span className="text-gray-700">OFERTA NO </span>
+          <span className="text-orange-500 font-bold">RADAR</span>
+        </span>
+      ),
+      icon: (
+        <div className="w-5 h-5 bg-orange-500 rounded-md flex items-center justify-center">
+          <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M12 2L2 12l10 10 10-10L12 2z"/>
+            <path d="M12 8l-4 4 4 4 4-4-4-4z"/>
+          </svg>
+        </div>
+      ),
+      expandable: true,
+      items: [
+        {
+          id: 'garimpa-fornecedores',
+          moduleId: 'garimpa-fornecedores',
+          title: 'Fornecedores e Concorrentes',
+          path: '/garimpa-fornecedores',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          )
+        }
+      ]
+    },
+    {
       id: 'configuracoes',
       title: 'Configurações',
       path: '/configuracoes',

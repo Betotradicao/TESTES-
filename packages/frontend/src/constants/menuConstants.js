@@ -16,6 +16,8 @@ export const MENU_MODULES = {
   PERDAS: 'perdas',
   PRODUCAO: 'producao',
   HORTFRUT: 'hortfrut',
+  // Garimpa Fácil
+  GARIMPA_FORNECEDORES: 'garimpa-fornecedores',
 };
 
 // IDs dos sub-menus
@@ -67,6 +69,9 @@ export const MENU_SUBMENUS = {
   // HortFrut
   HORTFRUT_LANCADOR: 'hortfrut-lancador',
   HORTFRUT_RESULTADOS: 'hortfrut-resultados',
+
+  // Garimpa Fácil
+  GARIMPA_FORNECEDORES_CONCORRENTES: 'garimpa-fornecedores-concorrentes',
 };
 
 // Estrutura completa do menu
@@ -284,6 +289,20 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.HORTFRUT_RESULTADOS,
         title: 'Resultado dos Lançamentos',
         path: '/hortfrut-resultados'
+      }
+    ]
+  },
+  // ========== GARIMPA FÁCIL ==========
+  {
+    id: MENU_MODULES.GARIMPA_FORNECEDORES,
+    title: 'Fornecedores e Concorrentes',
+    icon: 'search',
+    section: 'garimpa',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.GARIMPA_FORNECEDORES_CONCORRENTES,
+        title: 'Fornecedores e Concorrentes',
+        path: '/garimpa-fornecedores'
       }
     ]
   }

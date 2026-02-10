@@ -43,6 +43,7 @@ import FrenteCaixa from './pages/FrenteCaixa';
 import PrevencaoPedidos from './pages/PrevencaoPedidos';
 import RupturaIndustria from './pages/RupturaIndustria';
 import GestaoInteligente from './pages/GestaoInteligente';
+import GarimpaFornecedores from './pages/GarimpaFornecedores';
 
 function App() {
   return (
@@ -343,6 +344,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <GestaoInteligente />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/garimpa-fornecedores"
+              element={
+                <ProtectedRoute>
+                  <GarimpaFornecedores />
                 </ProtectedRoute>
               }
             />

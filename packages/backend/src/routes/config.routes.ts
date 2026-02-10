@@ -164,4 +164,7 @@ router.get('/configurations', (req, res) => configController.getConfigurations(r
  */
 router.post('/configurations', (req, res) => configController.saveConfigurations(req, res));
 
+// Teste de conexão OpenAI
+router.post('/test-openai', (req, res) => configController.testOpenAIConnection(req, res));
+
 export default router;

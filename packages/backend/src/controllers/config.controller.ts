@@ -132,7 +132,8 @@ export class ConfigController {
         'evolution_api_token',
         'database_password',
         'minio_access_key',
-        'minio_secret_key'
+        'minio_secret_key',
+        'openai_api_key'
       ];
 
       const configsToSave: Record<string, { value: string; encrypted?: boolean }> = {};
@@ -173,6 +174,48 @@ export class ConfigController {
       return res.status(500).json({
         success: false,
         message: `Erro ao salvar configurações: ${error.message}`
+      });
+    }
+  }
+
+  async testOpenAIConnection(req: Request, res: Response) {
+    const { apiKey } = req.body;
+
+    if (!apiKey || !apiKey.startsWith('sk-')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Chave de API inválida. Deve começar com "sk-"'
+      });
+    }
+
+    try {
+      // Faz uma chamada simples para listar modelos (barata e rápida)
+      const response = await fetch('https://api.openai.com/v1/models', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`
+        }
+      });
+
+      if (response.ok) {
+        const data: any = await response.json();
+        const modelCount = data.data?.length || 0;
+        return res.json({
+          success: true,
+          message: `Conexão com OpenAI estabelecida com sucesso! ${modelCount} modelos disponíveis.`
+        });
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMsg = (errorData as any)?.error?.message || `HTTP ${response.status}`;
+        return res.json({
+          success: false,
+          message: `Erro na API OpenAI: ${errorMsg}`
+        });
+      }
+    } catch (error: any) {
+      return res.status(500).json({
+        success: false,
+        message: `Erro ao conectar com OpenAI: ${error.message}`
       });
     }
   }
