@@ -32,6 +32,12 @@ const AVAILABLE_MODULES = [
     description: 'Análise de itens cortados em pedidos por fornecedor',
     icon: '🏭'
   },
+  {
+    id: 'calendario-atendimento',
+    name: 'Calendário de Atendimento',
+    description: 'Agenda de atendimento de fornecedores com pedidos e NFs',
+    icon: '📅'
+  },
   // Prevenção no Radar
   {
     id: 'bipagens',
@@ -80,6 +86,20 @@ const AVAILABLE_MODULES = [
     name: 'Prevenção HortFruti',
     description: 'Lançador e resultados de conferência HortFruti',
     icon: '🥬'
+  },
+  // Oferta no Radar
+  {
+    id: 'garimpa-fornecedores',
+    name: 'Garimpa Fornecedores',
+    description: 'Pesquisa e comparação de fornecedores e concorrentes',
+    icon: '🔎'
+  },
+  // IA no Radar
+  {
+    id: 'rota-crescimento',
+    name: 'Rota do Crescimento',
+    description: 'Dashboard de crescimento com inteligência artificial',
+    icon: '🚀'
   }
 ];
 

@@ -183,11 +183,16 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
     'perdas': '📊',
     'producao': '🥖',
     'hortfrut': '🥬',
+    'calendario-atendimento': '📅',
+    'garimpa-fornecedores': '🔎',
+    'rota-crescimento': '🚀',
   };
 
   // Separar módulos por seção
   const gestaoModules = MENU_STRUCTURE.filter(m => m.section === 'gestao' && m.submenus.length > 0);
   const prevencaoModules = MENU_STRUCTURE.filter(m => m.section === 'prevencao' && m.submenus.length > 0);
+  const garimpaModules = MENU_STRUCTURE.filter(m => m.section === 'garimpa' && m.submenus.length > 0);
+  const iaModules = MENU_STRUCTURE.filter(m => m.section === 'ia' && m.submenus.length > 0);
 
   const renderModuleCard = (module) => {
     const moduleEmoji = moduleEmojis[module.id] || '📦';
@@ -321,6 +326,34 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
             <div className="flex-1 border-t border-orange-200"></div>
           </div>
           {prevencaoModules.map(module => renderModuleCard(module))}
+        </>
+      )}
+
+      {/* Seção OFERTA NO RADAR */}
+      {garimpaModules.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 mt-6 mb-3">
+            <div className="w-6 h-6 bg-green-600 rounded-md flex items-center justify-center">
+              <span className="text-white text-xs font-bold">O</span>
+            </div>
+            <h4 className="text-sm font-bold text-green-800 uppercase tracking-wide">Oferta no Radar</h4>
+            <div className="flex-1 border-t border-green-200"></div>
+          </div>
+          {garimpaModules.map(module => renderModuleCard(module))}
+        </>
+      )}
+
+      {/* Seção IA NO RADAR */}
+      {iaModules.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 mt-6 mb-3">
+            <div className="w-6 h-6 bg-purple-600 rounded-md flex items-center justify-center">
+              <span className="text-white text-xs font-bold">IA</span>
+            </div>
+            <h4 className="text-sm font-bold text-purple-800 uppercase tracking-wide">IA no Radar</h4>
+            <div className="flex-1 border-t border-purple-200"></div>
+          </div>
+          {iaModules.map(module => renderModuleCard(module))}
         </>
       )}
 

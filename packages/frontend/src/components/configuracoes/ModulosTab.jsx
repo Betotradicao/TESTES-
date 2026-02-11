@@ -8,6 +8,7 @@ export default function ModulosTab() {
     { id: 'compra-venda', name: 'Compra x Venda', icon: '📈', active: true },
     { id: 'pedidos', name: 'Pedidos', icon: '📋', active: true },
     { id: 'ruptura-industria', name: 'Ruptura Indústria', icon: '🏭', active: true },
+    { id: 'calendario-atendimento', name: 'Calendário de Atendimento', icon: '📅', active: true },
     // Prevenção no Radar
     { id: 'bipagens', name: 'Prevenção de Bipagens', icon: '🔍', active: true },
     { id: 'pdv', name: 'Prevenção de PDV', icon: '💳', active: true },
@@ -17,6 +18,10 @@ export default function ModulosTab() {
     { id: 'perdas', name: 'Prevenção Quebras', icon: '📉', active: true },
     { id: 'producao', name: 'Prevenção Produção', icon: '🥖', active: true },
     { id: 'hortfrut', name: 'Prevenção HortFruti', icon: '🥬', active: true },
+    // Oferta no Radar
+    { id: 'garimpa-fornecedores', name: 'Garimpa Fornecedores', icon: '🔎', active: true },
+    // IA no Radar
+    { id: 'rota-crescimento', name: 'Rota do Crescimento', icon: '🚀', active: true },
   ];
 
   const [modules, setModules] = useState(defaultModules);

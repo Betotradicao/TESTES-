@@ -716,10 +716,9 @@ export default function CalendarioAtendimento() {
       nfsPorFornecedor[nf.COD_FORNECEDOR].push(nf);
     }
 
-    // Todos os fornecedores (agendados + com NFs + com pedidos)
+    // Apenas fornecedores agendados ou com pedidos (NFs sozinhas não entram)
     const allCods = new Set([
       ...Object.keys(agendadosHoje).map(Number),
-      ...Object.keys(nfsPorFornecedor).map(Number),
       ...Object.keys(pedidosDia).map(Number)
     ]);
 
