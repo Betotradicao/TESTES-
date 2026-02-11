@@ -44,6 +44,8 @@ import PrevencaoPedidos from './pages/PrevencaoPedidos';
 import RupturaIndustria from './pages/RupturaIndustria';
 import GestaoInteligente from './pages/GestaoInteligente';
 import GarimpaFornecedores from './pages/GarimpaFornecedores';
+import RotaCrescimento from './pages/RotaCrescimento';
+import CalendarioAtendimento from './pages/CalendarioAtendimento';
 
 function App() {
   return (
@@ -352,6 +354,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <GarimpaFornecedores />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/rota-crescimento"
+              element={
+                <ProtectedRoute>
+                  <RotaCrescimento />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/calendario-atendimento"
+              element={
+                <ProtectedRoute>
+                  <CalendarioAtendimento />
                 </ProtectedRoute>
               }
             />

@@ -7,6 +7,7 @@ export const MENU_MODULES = {
   COMPRA_VENDA: 'compra-venda',
   PEDIDOS: 'pedidos',
   RUPTURA_INDUSTRIA: 'ruptura-industria',
+  CALENDARIO_ATENDIMENTO: 'calendario-atendimento',
   // Prevenção no Radar
   BIPAGENS: 'bipagens',
   PDV: 'pdv',
@@ -18,6 +19,8 @@ export const MENU_MODULES = {
   HORTFRUT: 'hortfrut',
   // Garimpa Fácil
   GARIMPA_FORNECEDORES: 'garimpa-fornecedores',
+  // IA no Radar
+  ROTA_CRESCIMENTO: 'rota-crescimento',
 };
 
 // IDs dos sub-menus
@@ -37,6 +40,9 @@ export const MENU_SUBMENUS = {
 
   // Ruptura Indústria
   RUPTURA_INDUSTRIA_ANALISE: 'ruptura-industria-analise',
+
+  // Calendário de Atendimento
+  CALENDARIO_ATENDIMENTO_PAINEL: 'calendario-atendimento-painel',
 
   // Bipagens
   BIPAGENS_AO_VIVO: 'bipagens-ao-vivo',
@@ -72,6 +78,9 @@ export const MENU_SUBMENUS = {
 
   // Garimpa Fácil
   GARIMPA_FORNECEDORES_CONCORRENTES: 'garimpa-fornecedores-concorrentes',
+
+  // IA no Radar
+  ROTA_CRESCIMENTO_DASHBOARD: 'rota-crescimento-dashboard',
 };
 
 // Estrutura completa do menu
@@ -144,6 +153,19 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.RUPTURA_INDUSTRIA_ANALISE,
         title: 'Análise de Rupturas',
         path: '/ruptura-industria'
+      }
+    ]
+  },
+  {
+    id: MENU_MODULES.CALENDARIO_ATENDIMENTO,
+    title: 'Calendário de Atendimento',
+    icon: 'calendar',
+    section: 'gestao',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.CALENDARIO_ATENDIMENTO_PAINEL,
+        title: 'Calendário de Atendimento',
+        path: '/calendario-atendimento'
       }
     ]
   },
@@ -303,6 +325,20 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.GARIMPA_FORNECEDORES_CONCORRENTES,
         title: 'Fornecedores e Concorrentes',
         path: '/garimpa-fornecedores'
+      }
+    ]
+  },
+  // ========== IA NO RADAR ==========
+  {
+    id: MENU_MODULES.ROTA_CRESCIMENTO,
+    title: 'Rota do Crescimento',
+    icon: 'rocket',
+    section: 'ia',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.ROTA_CRESCIMENTO_DASHBOARD,
+        title: 'Dashboard de Crescimento',
+        path: '/rota-crescimento'
       }
     ]
   }

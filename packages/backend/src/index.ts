@@ -55,6 +55,7 @@ import tunnelInstallerRouter from './routes/tunnel-installer.routes';
 import barcodeInstallerRouter from './routes/barcode-installer.routes';
 import holidaysRouter from './routes/holidays.routes';
 import aiConsultantRouter from './routes/ai-consultant.routes';
+import calendarioAtendimentoRouter from './routes/calendario-atendimento.routes';
 import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
 import { MappingService } from './services/mapping.service';
@@ -142,6 +143,7 @@ app.use('/api/tunnel-installer', tunnelInstallerRouter);
 app.use('/api/barcode-installer', barcodeInstallerRouter);
 app.use('/api/holidays', holidaysRouter);
 app.use('/api/ai-consultant', aiConsultantRouter);
+app.use('/api/calendario-atendimento', calendarioAtendimentoRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {

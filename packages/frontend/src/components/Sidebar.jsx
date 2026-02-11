@@ -8,7 +8,8 @@ import { api } from '../utils/api';
 export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileMenuOpen }) {
   const [expandedSections, setExpandedSections] = useState({
     'gestao-radar': true,
-    'prevencao-radar': true
+    'prevencao-radar': true,
+    'ia-radar': true
   });
   const [expandedItems, setExpandedItems] = useState({});
   const [modulesConfig, setModulesConfig] = useState([]);
@@ -224,6 +225,17 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
             </svg>
           )
+        },
+        {
+          id: 'calendario-atendimento',
+          moduleId: 'calendario-atendimento',
+          title: 'Calendário de Atendimento',
+          path: '/calendario-atendimento',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+          )
         }
       ]
     },
@@ -390,6 +402,39 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          )
+        }
+      ]
+    },
+    {
+      id: 'ia-radar',
+      title: 'IA NO RADAR',
+      titleComponent: (
+        <span>
+          <span className="text-gray-700">IA NO </span>
+          <span className="text-orange-500 font-bold">RADAR</span>
+        </span>
+      ),
+      icon: (
+        <div className="w-5 h-5 bg-gradient-to-br from-orange-500 to-amber-500 rounded-md flex items-center justify-center">
+          <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+      ),
+      expandable: true,
+      items: [
+        {
+          id: 'rota-crescimento',
+          moduleId: 'rota-crescimento',
+          title: 'Rota do Crescimento',
+          path: '/rota-crescimento',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
             </svg>
           )
         }
