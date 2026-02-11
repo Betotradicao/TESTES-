@@ -46,6 +46,7 @@ import GestaoInteligente from './pages/GestaoInteligente';
 import GarimpaFornecedores from './pages/GarimpaFornecedores';
 import RotaCrescimento from './pages/RotaCrescimento';
 import CalendarioAtendimento from './pages/CalendarioAtendimento';
+import CotacaoPublica from './pages/CotacaoPublica';
 
 function App() {
   return (
@@ -59,6 +60,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/cotacao/:token" element={<CotacaoPublica />} />
 
             {/* Protected Routes */}
             <Route

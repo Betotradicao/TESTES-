@@ -21,6 +21,7 @@ export default defineConfig({
     allowedHosts: [
       '.ngrok-free.dev',
       '.ngrok.io',
+      '.nip.io',
       'prevencaonoradar.com.br',
       'www.prevencaonoradar.com.br',
       'localhost',

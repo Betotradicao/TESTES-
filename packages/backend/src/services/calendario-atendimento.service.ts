@@ -285,6 +285,7 @@ export class CalendarioAtendimentoService {
   static async pedidosDoDia(data: string, codLoja?: number): Promise<any[]> {
     const schema = await MappingService.getSchema();
     const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO')}`;
+    const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
 
     const params: any = { data };
 
@@ -292,9 +293,13 @@ export class CalendarioAtendimentoService {
       SELECT
         p.NUM_PEDIDO,
         p.COD_PARCEIRO as COD_FORNECEDOR,
+        NVL(f.DES_FANTASIA, f.DES_FORNECEDOR) as DES_FANTASIA,
+        f.NUM_CELULAR,
+        f.NUM_FONE,
         NVL(p.VAL_PEDIDO, 0) as VAL_TOTAL_PEDIDO,
         TO_CHAR(p.DTA_ENTREGA, 'DD/MM/YYYY') as DTA_ENTREGA
       FROM ${tabPedido} p
+      LEFT JOIN ${tabFornecedor} f ON f.COD_FORNECEDOR = p.COD_PARCEIRO
       WHERE p.TIPO_PARCEIRO = 1
       AND TRUNC(p.DTA_EMISSAO) = TO_DATE(:data, 'YYYY-MM-DD')
       AND (p.FLG_CANCELADO IS NULL OR p.FLG_CANCELADO = 'N')

@@ -56,6 +56,7 @@ import barcodeInstallerRouter from './routes/barcode-installer.routes';
 import holidaysRouter from './routes/holidays.routes';
 import aiConsultantRouter from './routes/ai-consultant.routes';
 import calendarioAtendimentoRouter from './routes/calendario-atendimento.routes';
+import { cotacaoRouter, cotacaoPublicRouter } from './routes/cotacao.routes';
 import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
 import { MappingService } from './services/mapping.service';
@@ -101,6 +102,7 @@ app.get('/api-docs/swagger.json', (req, res) => {
 // Rotas públicas (setup precisa estar disponível antes do login)
 app.use('/api/setup', setupRouter);
 app.use('/api/password-recovery', passwordRecoveryRouter);
+app.use('/api/public/cotacao', cotacaoPublicRouter);
 
 // Rotas protegidas
 app.use('/api', healthRouter);
@@ -144,6 +146,7 @@ app.use('/api/barcode-installer', barcodeInstallerRouter);
 app.use('/api/holidays', holidaysRouter);
 app.use('/api/ai-consultant', aiConsultantRouter);
 app.use('/api/calendario-atendimento', calendarioAtendimentoRouter);
+app.use('/api/cotacao', cotacaoRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {

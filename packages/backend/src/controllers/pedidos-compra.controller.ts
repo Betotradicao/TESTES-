@@ -736,6 +736,11 @@ export class PedidosCompraController {
       const plCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
       const plCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
       const plCurvaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva');
+      const plCoberturaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cobertura');
+      const plPrecoVendaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda');
+      const plMargemCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem');
+      const plEstoqueAtualCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual');
+      const ppQtdEmbalagemCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_embalagem');
 
       let filtroCondition = '';
       if (filtroItens === 'apenasRecebidos') {
@@ -766,13 +771,22 @@ export class PedidosCompraController {
           pp.DTA_VALIDADE,
           pr.${prDesProdutoCol} as DES_PRODUTO,
           pr.${prDesReduzidaCol} as DES_REDUZIDA,
-          NVL(TRIM(pl.${plCurvaCol}), 'X') as CURVA
+          NVL(TRIM(pl.${plCurvaCol}), 'X') as CURVA,
+          NVL(pl.${plCoberturaCol}, 0) as DIAS_COBERTURA,
+          NVL(pl.${plPrecoVendaCol}, 0) as PRECO_VENDA,
+          NVL(pl.${plMargemCol}, 0) as MARGEM_REF,
+          CASE WHEN NVL(pl.${plMargemCol}, 0) > 0 AND NVL(pl.${plPrecoVendaCol}, 0) > 0
+            THEN ROUND(NVL(pl.${plPrecoVendaCol}, 0) * (1 - NVL(pl.${plMargemCol}, 0) / 100), 2)
+            ELSE 0
+          END as CUSTO_IDEAL,
+          NVL(pl.${plEstoqueAtualCol}, 0) as ESTOQUE_ATUAL,
+          NVL(pp.${ppQtdEmbalagemCol}, 0) as QTD_EMBALAGEM
         FROM ${tabPedidoProduto} pp
         LEFT JOIN ${tabProduto} pr ON pr.${prCodProdutoCol} = pp.${ppCodProdutoCol}
         LEFT JOIN ${tabProdutoLoja} pl ON pl.${plCodProdutoCol} = pp.${ppCodProdutoCol} AND pl.${plCodLojaCol} = :codLoja
         WHERE pp.${ppNumPedidoCol} = :numPedido
         ${filtroCondition}
-        ORDER BY pp.NUM_ITEM
+        ORDER BY (NVL(pp.${ppQtdPedidoCol}, 0) * NVL(pp.${ppValTabelaCol}, 0)) DESC
       `;
 
       const itens = await OracleService.query(query, { numPedido: parseInt(numPedido, 10), codLoja });

@@ -121,6 +121,7 @@ const DIARIO_COLS = [
   { id: 'H_INICIO', label: 'H: INICIO', align: 'center' },
   { id: 'H_TERMINO', label: 'H: TERMINO', align: 'center' },
   { id: 'STATUS', label: 'STATUS', align: 'center' },
+  { id: 'COTACAO', label: 'COTAÇÃO', align: 'center' },
   { id: 'NUM_PEDIDO', label: 'Nº PEDIDO', align: 'center' },
   { id: 'VAL_PEDIDO', label: 'VALOR PEDIDO', align: 'right' },
   { id: 'DTA_ENTREGA', label: 'DATA ENTREGA', align: 'center' },
@@ -135,6 +136,27 @@ const DIARIO_COLS = [
 ];
 const DEFAULT_DIARIO_IDS = DIARIO_COLS.map(c => c.id);
 const DIARIO_COL_ORDER_KEY = 'cal-diario-col-order';
+
+// ====== COLUNAS DOS ITENS DO PEDIDO (expandido) ======
+const ITENS_PED_COLS = [
+  { id: 'COD_PRODUTO', label: 'COD', align: 'left', width: 'w-[75px]' },
+  { id: 'DES_PRODUTO', label: 'PRODUTO', align: 'left', width: 'min-w-[300px]' },
+  { id: 'CURVA', label: 'CURVA', align: 'center', width: 'w-[50px]' },
+  { id: 'QTD_PEDIDO', label: 'QTD PED', align: 'right', width: 'w-[65px]' },
+  { id: 'ESTOQUE_ATUAL', label: 'ESTOQUE', align: 'right', width: 'w-[70px]' },
+  { id: 'QTD_EMBALAGEM', label: 'QTD CX', align: 'center', width: 'w-[55px]' },
+  { id: 'DES_UNIDADE', label: 'UN', align: 'center', width: 'w-[40px]' },
+  { id: 'VAL_TABELA', label: 'VLR UNIT', align: 'right', width: 'w-[80px]' },
+  { id: 'VLR_TOTAL', label: 'VLR TOTAL', align: 'right', width: 'w-[95px]' },
+  { id: 'VAL_CUSTO_REP', label: 'CUSTO REP', align: 'right', width: 'w-[80px]' },
+  { id: 'DIAS_COBERTURA', label: 'DIAS COB.', align: 'right', width: 'w-[65px]' },
+  { id: 'CUSTO_IDEAL', label: 'CUSTO IDEAL', align: 'right', width: 'w-[85px]' },
+  { id: 'DIF_CUSTO', label: 'DIF R$', align: 'right', width: 'w-[75px]' },
+  { id: 'PRECO_FORN', label: 'PRECO FORN', align: 'right', width: 'w-[85px]' },
+  { id: 'ECONOMIA', label: 'ECONOMIA', align: 'right', width: 'w-[95px]' },
+];
+const DEFAULT_ITENS_PED_IDS = ITENS_PED_COLS.map(c => c.id);
+const ITENS_PED_COL_ORDER_KEY = 'cal-itens-ped-col-order';
 
 // Cores para prazos curtos (visita, entrega)
 const corPrazo = (val) => {
@@ -406,6 +428,104 @@ export default function CalendarioAtendimento() {
   const diarioDragRef = useRef({ dragIdx: null });
   const [diarioDragOverIdx, setDiarioDragOverIdx] = useState(null);
 
+  // ====== ESTADOS PARA EXPANDIR ITENS DO PEDIDO ======
+  const [expandedPedidoCal, setExpandedPedidoCal] = useState(null); // NUM_PEDIDO expandido
+  const [itensPedidoCal, setItensPedidoCal] = useState([]);
+  const [loadingItensCal, setLoadingItensCal] = useState(false);
+  const [itensPedColOrder, setItensPedColOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem(ITENS_PED_COL_ORDER_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const missing = DEFAULT_ITENS_PED_IDS.filter(id => !parsed.includes(id));
+        const valid = parsed.filter(id => DEFAULT_ITENS_PED_IDS.includes(id));
+        if (valid.length > 0) return [...valid, ...missing];
+      }
+    } catch (e) {}
+    return [...DEFAULT_ITENS_PED_IDS];
+  });
+  const itensPedDragRef = useRef({ dragIdx: null });
+  const [itensPedDragOverIdx, setItensPedDragOverIdx] = useState(null);
+
+  const itensPedColsOrdenadas = useMemo(() => {
+    return itensPedColOrder.map(id => ITENS_PED_COLS.find(c => c.id === id)).filter(Boolean);
+  }, [itensPedColOrder]);
+
+  const loadItensPedidoCal = async (numPedido) => {
+    if (expandedPedidoCal === numPedido) {
+      setExpandedPedidoCal(null);
+      setItensPedidoCal([]);
+      return;
+    }
+    setExpandedPedidoCal(numPedido);
+    setLoadingItensCal(true);
+    try {
+      const { data } = await api.get(`/pedidos-compra/${numPedido}/itens`);
+      setItensPedidoCal(data.itens || []);
+      // Verificar se há cotação para este pedido
+      verificarCotacao(numPedido);
+    } catch (err) {
+      console.error('Erro ao buscar itens do pedido:', err);
+      setItensPedidoCal([]);
+    } finally {
+      setLoadingItensCal(false);
+    }
+  };
+
+  // ====== COTAÇÃO DE FORNECEDOR ======
+  const [cotacaoStatus, setCotacaoStatus] = useState({}); // { [numPedido]: { token, status, itens } }
+  const [enviandoCotacao, setEnviandoCotacao] = useState(false);
+
+  const verificarCotacao = async (numPedido) => {
+    try {
+      const { data } = await api.get(`/cotacao/pedido/${numPedido}`);
+      if (data.existe) {
+        setCotacaoStatus(prev => ({ ...prev, [numPedido]: data }));
+      }
+      return data;
+    } catch (err) {
+      console.error('Erro ao verificar cotação:', err);
+      return null;
+    }
+  };
+
+  const enviarCotacao = async (numPedido, celularFornecedor) => {
+    setEnviandoCotacao(true);
+    try {
+      const { data } = await api.post('/cotacao/criar', { numPedido });
+      const token = data.token;
+      const baseUrl = window.location.origin;
+      // Converter IP para nip.io para WhatsApp reconhecer como link clicável
+      const clickableBase = baseUrl.replace(/\/\/(\d+\.\d+\.\d+\.\d+)/, (_, ip) => `//${ip}.nip.io`);
+      const link = `${clickableBase}/cotacao/${token}`;
+
+      setCotacaoStatus(prev => ({ ...prev, [numPedido]: { existe: true, token, status: data.status } }));
+
+      // Abrir WhatsApp direto na conversa do fornecedor
+      const msg = encodeURIComponent(
+        `Olá! Tudo bem? 😊\n\n` +
+        `Segue um pré-pedido *#${numPedido}* para preenchimento de:\n\n` +
+        `📋 *Custos*\n` +
+        `📅 *Prazo de pagamentos*\n\n` +
+        `Após preencher, clique em *Enviar* e aguarde o retorno com a confirmação do pedido. ✅\n\n` +
+        `💡 *Lembrando:* Em itens estratégicos de *Curva A e B*, pedimos uma atenção especial ao *Custo Ideal* — seria muito importante conseguir atingir esse custo para fortalecer nossa parceria comercial! 🤝\n\n` +
+        `👇 Clique no link abaixo e preencha:\n\n${link}`
+      );
+      const waBase = formatWhatsAppUrl(celularFornecedor);
+      if (waBase) {
+        window.open(`${waBase}&text=${msg}`, '_blank');
+      } else {
+        // Sem celular: abre seletor genérico
+        window.open(`https://web.whatsapp.com/send?text=${msg}`, '_blank');
+      }
+    } catch (err) {
+      console.error('Erro ao criar cotação:', err);
+      alert('Erro ao criar cotação: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setEnviandoCotacao(false);
+    }
+  };
+
   // Colunas na ordem definida pelo usuário
   const colunasOrdenadas = useMemo(() => {
     return columnOrder.map(id => FORNECEDOR_COLS.find(c => c.id === id)).filter(Boolean);
@@ -621,6 +741,18 @@ export default function CalendarioAtendimento() {
         pedMap[ped.COD_FORNECEDOR].push(ped);
       }
       setPedidosDia(pedMap);
+      // Buscar status de cotação para todos os pedidos do dia
+      const allPeds = pedRes.data || [];
+      const cotStatusMap = {};
+      await Promise.all(allPeds.map(async (ped) => {
+        try {
+          const { data: cotData } = await api.get(`/cotacao/pedido/${ped.NUM_PEDIDO}`);
+          if (cotData.existe) {
+            cotStatusMap[ped.NUM_PEDIDO] = cotData;
+          }
+        } catch (e) { /* ignore */ }
+      }));
+      setCotacaoStatus(prev => ({ ...prev, ...cotStatusMap }));
     } catch (err) {
       console.error('Erro ao carregar atendimento diário:', err);
     }
@@ -732,8 +864,8 @@ export default function CalendarioAtendimento() {
       const hasNF = nfs.length > 0;
       const hasPedido = peds.length > 0;
 
-      // Pegar nome fantasia - se não tem no Oracle, pular
-      const fantasia = det.DES_FANTASIA || (nfs[0]?.DES_FANTASIA) || null;
+      // Pegar nome fantasia - tentar fornecedorDetalhes, NFs, ou pedidos
+      const fantasia = det.DES_FANTASIA || (nfs[0]?.DES_FANTASIA) || (peds[0]?.DES_FANTASIA) || null;
       if (!fantasia) continue; // Ignora fornecedores sem nome
 
       // Próximo atendimento: busca até 60 dias à frente
@@ -752,6 +884,16 @@ export default function CalendarioAtendimento() {
       // Status baseado em PEDIDOS emitidos no dia
       let status = hasPedido ? 'Realizado' : 'Pendente';
 
+      // Status cotação: verificar se algum pedido do fornecedor tem cotação
+      let cotStatus = null; // null = sem cotação, 'pendente', 'respondida'
+      for (const p of peds) {
+        const cot = cotacaoStatus[p.NUM_PEDIDO];
+        if (cot?.existe) {
+          if (cot.status === 'respondida') { cotStatus = 'respondida'; break; }
+          if (cot.status === 'pendente') cotStatus = 'pendente';
+        }
+      }
+
       rows.push({
         cod,
         fantasia,
@@ -762,6 +904,7 @@ export default function CalendarioAtendimento() {
         horaInicio: ag.hora_inicio || null,
         horaTermino: ag.hora_termino || null,
         status,
+        cotStatus,
         isScheduled,
         hasNF,
         hasPedido,
@@ -772,7 +915,7 @@ export default function CalendarioAtendimento() {
         diasTotais: proximoAtend ? Math.round((proximoAtend.getTime() - dataSel.getTime()) / 86400000) : null,
         diaSemana: diaSemanaLabel,
         contato: det.DES_CONTATO || '',
-        celular: det.NUM_CELULAR || det.NUM_FONE || '',
+        celular: det.NUM_CELULAR || det.NUM_FONE || (peds[0]?.NUM_CELULAR) || (peds[0]?.NUM_FONE) || '',
         email: det.DES_EMAIL || '',
         nfs,
         valorTotal: nfs.reduce((s, n) => s + (n.VAL_TOTAL_NF || 0), 0)
@@ -792,7 +935,7 @@ export default function CalendarioAtendimento() {
     });
 
     return filtered;
-  }, [diaSelecionado, agendamentos, atendimentosDia, fornecedorDetalhes, pedidosDia, compradorFilterDiario]);
+  }, [diaSelecionado, agendamentos, atendimentosDia, fornecedorDetalhes, pedidosDia, compradorFilterDiario, cotacaoStatus]);
 
   // Ordenação do Diário
   const diarioSorted = useMemo(() => {
@@ -1497,8 +1640,14 @@ export default function CalendarioAtendimento() {
                               case 'H_INICIO': return horaInicio ? <span className="text-gray-700 font-medium">{horaInicio}</span> : <span className="text-gray-300">-</span>;
                               case 'H_TERMINO': return horaTermino ? <span className="text-gray-700 font-medium">{horaTermino}</span> : <span className="text-gray-300">-</span>;
                               case 'STATUS': return <span className={`font-semibold px-2.5 py-1 rounded-full ${statusCor}`}>{row.status}</span>;
+                              case 'COTACAO': {
+                                if (!row.hasPedido) return <span className="text-gray-300">-</span>;
+                                if (row.cotStatus === 'respondida') return <span className="font-semibold px-2 py-1 rounded-full bg-green-100 text-green-700 whitespace-nowrap">Respondida</span>;
+                                if (row.cotStatus === 'pendente') return <span className="font-semibold px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 whitespace-nowrap">Pendente</span>;
+                                return <span className="text-gray-400 text-xs">-</span>;
+                              }
                               case 'NUM_PEDIDO': return row.pedidosOracle.length > 0
-                                ? <div className="flex flex-col gap-0.5">{row.pedidosOracle.map(p => <span key={p.NUM_PEDIDO} className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">#{p.NUM_PEDIDO}</span>)}</div>
+                                ? <div className="flex flex-col gap-0.5">{row.pedidosOracle.map(p => <button key={p.NUM_PEDIDO} onClick={(e) => { e.stopPropagation(); loadItensPedidoCal(p.NUM_PEDIDO); }} className={`px-2 py-0.5 rounded-full font-semibold cursor-pointer transition-colors ${expandedPedidoCal === p.NUM_PEDIDO ? 'bg-orange-500 text-white ring-2 ring-orange-300' : 'bg-orange-100 text-orange-400 hover:bg-orange-200'}`}>#{p.NUM_PEDIDO}</button>)}</div>
                                 : <span className="text-gray-300">-</span>;
                               case 'VAL_PEDIDO': {
                                 const totalPed = row.pedidosOracle.reduce((s, p) => s + (p.VAL_TOTAL_PEDIDO || 0), 0);
@@ -1535,7 +1684,10 @@ export default function CalendarioAtendimento() {
                             }
                           };
 
+                          const hasExpandedPedido = row.pedidosOracle.some(p => p.NUM_PEDIDO === expandedPedidoCal);
+
                           return (
+                            <>
                             <tr key={row.cod} className={`${zebraBg} hover:bg-gray-100 border-b border-gray-100`}>
                               {diarioColunasOrdenadas.map(col => (
                                 <td key={col.id} className={`px-3 py-2.5 whitespace-nowrap ${col.align === 'center' ? 'text-center' : 'text-left'}`}>
@@ -1543,6 +1695,225 @@ export default function CalendarioAtendimento() {
                                 </td>
                               ))}
                             </tr>
+                            {/* ====== LINHA EXPANDIDA COM ITENS DO PEDIDO ====== */}
+                            {hasExpandedPedido && (
+                              <tr>
+                                <td colSpan={diarioColunasOrdenadas.length} className="p-0 bg-orange-50 border-b-2 border-orange-300">
+                                  <div className="p-3">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <span className="text-sm font-bold text-orange-800">Itens do Pedido #{expandedPedidoCal}</span>
+                                      {loadingItensCal && <span className="text-xs text-gray-500 animate-pulse">Carregando...</span>}
+                                      {!loadingItensCal && itensPedidoCal.length > 0 && <span className="text-xs text-gray-500">({itensPedidoCal.length} itens)</span>}
+                                      {!loadingItensCal && itensPedidoCal.length > 0 && (() => {
+                                        const cot = cotacaoStatus[expandedPedidoCal];
+                                        if (cot?.existe && cot.status === 'respondida') {
+                                          return (
+                                            <div className="flex items-center gap-2">
+                                              <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">Cotação Respondida</span>
+                                              <button
+                                                onClick={async () => {
+                                                  if (!confirm('Excluir cotação respondida? O fornecedor precisará preencher novamente.')) return;
+                                                  try {
+                                                    await api.delete(`/cotacao/pedido/${expandedPedidoCal}`);
+                                                    setCotacaoStatus(prev => { const n = { ...prev }; delete n[expandedPedidoCal]; return n; });
+                                                  } catch (e) { console.error(e); }
+                                                }}
+                                                className="px-2 py-0.5 rounded-lg text-xs font-bold bg-red-500 text-white hover:bg-red-600 transition-colors"
+                                              >Excluir Cotação</button>
+                                            </div>
+                                          );
+                                        }
+                                        if (cot?.existe && cot.status === 'pendente') {
+                                          const reenviarLink = () => {
+                                            const baseUrl = window.location.origin;
+                                            const clickableBase = baseUrl.replace(/\/\/(\d+\.\d+\.\d+\.\d+)/, (_, ip) => `//${ip}.nip.io`);
+                                            const link = `${clickableBase}/cotacao/${cot.token}`;
+                                            const msg = encodeURIComponent(
+                                              `Olá! Tudo bem? 😊\n\n` +
+                                              `Segue um pré-pedido *#${expandedPedidoCal}* para preenchimento de:\n\n` +
+                                              `📋 *Custos*\n` +
+                                              `📅 *Prazo de pagamentos*\n\n` +
+                                              `Após preencher, clique em *Enviar* e aguarde o retorno com a confirmação do pedido. ✅\n\n` +
+                                              `💡 *Lembrando:* Em itens estratégicos de *Curva A e B*, pedimos uma atenção especial ao *Custo Ideal* — seria muito importante conseguir atingir esse custo para fortalecer nossa parceria comercial! 🤝\n\n` +
+                                              `👇 Clique no link abaixo e preencha:\n\n${link}`
+                                            );
+                                            const waBase = formatWhatsAppUrl(row.celular);
+                                            if (waBase) {
+                                              window.open(`${waBase}&text=${msg}`, '_blank');
+                                            } else {
+                                              window.open(`https://web.whatsapp.com/send?text=${msg}`, '_blank');
+                                            }
+                                          };
+                                          return (
+                                            <div className="flex items-center gap-2">
+                                              <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700">Pendente</span>
+                                              <button onClick={reenviarLink} className="px-2 py-0.5 rounded-lg text-xs font-bold bg-green-500 text-white hover:bg-green-600 transition-colors">Reenviar WhatsApp</button>
+                                              <button
+                                                onClick={async () => {
+                                                  if (!confirm('Excluir cotação pendente?')) return;
+                                                  try {
+                                                    await api.delete(`/cotacao/pedido/${expandedPedidoCal}`);
+                                                    setCotacaoStatus(prev => { const n = { ...prev }; delete n[expandedPedidoCal]; return n; });
+                                                  } catch (e) { console.error(e); }
+                                                }}
+                                                className="px-2 py-0.5 rounded-lg text-xs font-bold bg-red-500 text-white hover:bg-red-600 transition-colors"
+                                              >Excluir</button>
+                                            </div>
+                                          );
+                                        }
+                                        return (
+                                          <button
+                                            onClick={() => enviarCotacao(expandedPedidoCal, row.celular)}
+                                            disabled={enviandoCotacao}
+                                            className="px-3 py-1 rounded-lg text-xs font-bold bg-green-500 text-white hover:bg-green-600 transition-colors disabled:opacity-50"
+                                          >
+                                            {enviandoCotacao ? 'Gerando...' : 'Enviar Cotação via WhatsApp'}
+                                          </button>
+                                        );
+                                      })()}
+                                    </div>
+                                    {!loadingItensCal && itensPedidoCal.length > 0 && (
+                                      <div className="overflow-x-auto rounded border border-orange-200">
+                                        <table className="w-full table-fixed text-sm">
+                                          <thead>
+                                            <tr className="bg-orange-100 text-orange-900">
+                                              {itensPedColsOrdenadas.map((col, cIdx) => (
+                                                <th
+                                                  key={col.id}
+                                                  className={`px-2 py-1.5 font-semibold text-xs uppercase ${col.width} ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'} cursor-grab select-none ${itensPedDragOverIdx === cIdx ? 'border-l-2 border-orange-500' : ''}`}
+                                                  draggable
+                                                  onDragStart={() => { itensPedDragRef.current.dragIdx = cIdx; }}
+                                                  onDragOver={(e) => { e.preventDefault(); setItensPedDragOverIdx(cIdx); }}
+                                                  onDragLeave={() => setItensPedDragOverIdx(null)}
+                                                  onDrop={() => {
+                                                    const from = itensPedDragRef.current.dragIdx;
+                                                    if (from !== null && from !== cIdx) {
+                                                      const newOrder = [...itensPedColOrder];
+                                                      const [moved] = newOrder.splice(from, 1);
+                                                      newOrder.splice(cIdx, 0, moved);
+                                                      setItensPedColOrder(newOrder);
+                                                      localStorage.setItem(ITENS_PED_COL_ORDER_KEY, JSON.stringify(newOrder));
+                                                    }
+                                                    itensPedDragRef.current.dragIdx = null;
+                                                    setItensPedDragOverIdx(null);
+                                                  }}
+                                                >{col.label}</th>
+                                              ))}
+                                              <th className="w-auto"></th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {itensPedidoCal.map((item, idx) => {
+                                              const curva = (item.CURVA || 'X').toUpperCase();
+                                              const curvaColor = curva === 'A' ? 'bg-green-100 text-green-800' : curva === 'B' ? 'bg-blue-100 text-blue-800' : curva === 'C' ? 'bg-yellow-100 text-yellow-800' : curva === 'D' ? 'bg-orange-100 text-orange-800' : curva === 'E' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600';
+                                              const diasCob = parseFloat(item.DIAS_COBERTURA) || 0;
+                                              const custoIdeal = parseFloat(item.CUSTO_IDEAL) || 0;
+                                              const custoRep = parseFloat(item.VAL_CUSTO_REP) || 0;
+                                              const difCusto = (custoIdeal > 0 && custoRep > 0) ? custoRep - custoIdeal : 0;
+                                              // Verde = custo real abaixo do ideal (bom), Vermelho = custo real acima do ideal (ruim)
+                                              const custoIdealColor = custoIdeal > 0 && custoRep > 0
+                                                ? (custoRep > custoIdeal ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold')
+                                                : custoIdeal > 0 ? 'text-gray-600' : 'text-gray-400';
+
+                                              const renderItemCell = (colId) => {
+                                                switch (colId) {
+                                                  case 'COD_PRODUTO': return <span className="font-mono">{item.COD_PRODUTO}</span>;
+                                                  case 'DES_PRODUTO': return <span title={item.DES_PRODUTO}>{item.DES_PRODUTO || '-'}</span>;
+                                                  case 'CURVA': return <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${curvaColor}`}>{curva}</span>;
+                                                  case 'QTD_PEDIDO': return <span>{(item.QTD_PEDIDO || 0).toFixed(2)}</span>;
+                                                  case 'ESTOQUE_ATUAL': { const est = parseFloat(item.ESTOQUE_ATUAL) || 0; return <span className={`font-medium ${est <= 0 ? 'text-red-600' : est <= 5 ? 'text-amber-600' : 'text-gray-700'}`}>{est > 0 ? est.toFixed(0) : '0'}</span>; }
+                                                  case 'QTD_EMBALAGEM': { const qtdEmb = parseFloat(item.QTD_EMBALAGEM) || 0; return <span className="font-medium text-gray-700">{qtdEmb > 0 ? qtdEmb.toFixed(0) : '-'}</span>; }
+                                                  case 'DES_UNIDADE': return <span>{item.DES_UNIDADE || '-'}</span>;
+                                                  case 'VAL_TABELA': return <span>{formatMoney(item.VAL_TABELA)}</span>;
+                                                  case 'VLR_TOTAL': return <span className="font-medium">{formatMoney((item.QTD_PEDIDO || 0) * (item.VAL_TABELA || 0))}</span>;
+                                                  case 'VAL_CUSTO_REP': return <span className="text-blue-600">{formatMoney(item.VAL_CUSTO_REP)}</span>;
+                                                  case 'DIAS_COBERTURA': return <span className={`font-medium ${diasCob <= 3 ? 'text-red-600' : diasCob <= 7 ? 'text-amber-600' : 'text-green-600'}`}>{diasCob > 0 ? `${diasCob}d` : '-'}</span>;
+                                                  case 'CUSTO_IDEAL': return <span className={custoIdealColor}>{custoIdeal > 0 ? formatMoney(custoIdeal) : '-'}</span>;
+                                                  case 'DIF_CUSTO': {
+                                                    if (difCusto === 0) return <span className="text-gray-400">-</span>;
+                                                    const difColor = difCusto > 0 ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold';
+                                                    return <span className={difColor}>{difCusto > 0 ? '+' : ''}{formatMoney(difCusto)}</span>;
+                                                  }
+                                                  case 'PRECO_FORN': {
+                                                    const cot = cotacaoStatus[expandedPedidoCal];
+                                                    if (!cot?.existe || cot.status !== 'respondida' || !cot.itens) return <span className="text-gray-400">-</span>;
+                                                    const cotItem = cot.itens.find(ci => String(ci.cod_produto) === String(item.COD_PRODUTO));
+                                                    if (!cotItem?.preco_fornecedor) return <span className="text-gray-400">-</span>;
+                                                    const pf = parseFloat(cotItem.preco_fornecedor);
+                                                    const vt = parseFloat(item.VAL_TABELA) || 0;
+                                                    const pfColor = vt > 0 && pf > vt ? 'text-red-600 font-semibold' : pf < vt ? 'text-green-600 font-semibold' : 'text-gray-700';
+                                                    return <span className={pfColor}>{formatMoney(pf)}</span>;
+                                                  }
+                                                  case 'ECONOMIA': {
+                                                    const cotE = cotacaoStatus[expandedPedidoCal];
+                                                    if (!cotE?.existe || cotE.status !== 'respondida' || !cotE.itens) return <span className="text-gray-400">-</span>;
+                                                    const cotItemE = cotE.itens.find(ci => String(ci.cod_produto) === String(item.COD_PRODUTO));
+                                                    if (!cotItemE?.preco_fornecedor) return <span className="text-gray-400">-</span>;
+                                                    const pfE = parseFloat(cotItemE.preco_fornecedor);
+                                                    const vtE = parseFloat(item.VAL_TABELA) || 0;
+                                                    const qtdE = parseFloat(item.QTD_PEDIDO) || 0;
+                                                    if (vtE <= 0 || pfE >= vtE) return <span className="text-gray-400">-</span>;
+                                                    const economia = (vtE - pfE) * qtdE;
+                                                    return <span className="text-green-600 font-bold">{formatMoney(economia)}</span>;
+                                                  }
+                                                  default: return '-';
+                                                }
+                                              };
+
+                                              return (
+                                                <tr key={idx} className="hover:bg-gray-50">
+                                                  {itensPedColsOrdenadas.map(col => (
+                                                    <td key={col.id} className={`px-2 py-1.5 ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}`}>
+                                                      {renderItemCell(col.id)}
+                                                    </td>
+                                                  ))}
+                                                  <td className="w-auto"></td>
+                                                </tr>
+                                              );
+                                            })}
+                                          </tbody>
+                                          <tfoot>
+                                            <tr className="bg-orange-100 font-bold text-orange-900">
+                                              <td className="px-2 py-1.5" colSpan={3}>TOTAL</td>
+                                              {itensPedColsOrdenadas.slice(3).map(col => {
+                                                let val = '';
+                                                if (col.id === 'VLR_TOTAL') {
+                                                  val = formatMoney(itensPedidoCal.reduce((s, it) => s + (it.QTD_PEDIDO || 0) * (it.VAL_TABELA || 0), 0));
+                                                } else if (col.id === 'ECONOMIA') {
+                                                  const cotT = cotacaoStatus[expandedPedidoCal];
+                                                  if (cotT?.existe && cotT.status === 'respondida' && cotT.itens) {
+                                                    const totalEconomia = itensPedidoCal.reduce((s, it) => {
+                                                      const ci = cotT.itens.find(c => String(c.cod_produto) === String(it.COD_PRODUTO));
+                                                      if (!ci?.preco_fornecedor) return s;
+                                                      const pf = parseFloat(ci.preco_fornecedor);
+                                                      const vt = parseFloat(it.VAL_TABELA) || 0;
+                                                      const qtd = parseFloat(it.QTD_PEDIDO) || 0;
+                                                      if (vt > 0 && pf < vt) return s + (vt - pf) * qtd;
+                                                      return s;
+                                                    }, 0);
+                                                    if (totalEconomia > 0) val = <span className="text-green-700 font-black">{formatMoney(totalEconomia)}</span>;
+                                                  }
+                                                }
+                                                return (
+                                                  <td key={col.id} className={`px-2 py-1.5 ${col.align === 'right' ? 'text-right' : 'text-center'}`}>
+                                                    {val}
+                                                  </td>
+                                                );
+                                              })}
+                                              <td className="w-auto"></td>
+                                            </tr>
+                                          </tfoot>
+                                        </table>
+                                      </div>
+                                    )}
+                                    {!loadingItensCal && itensPedidoCal.length === 0 && (
+                                      <div className="text-center text-gray-400 py-4 text-sm">Nenhum item encontrado</div>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                            </>
                           );
                         })}
                       </tbody>
