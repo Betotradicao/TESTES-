@@ -26,6 +26,18 @@ export class FornecedorAgendamento {
   @Column({ type: 'date', nullable: true })
   inicio_agendamento: Date | null;
 
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  comprador: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  tipo_atendimento: string | null;
+
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  hora_inicio: string | null;
+
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  hora_termino: string | null;
+
   @CreateDateColumn()
   created_at: Date;
 

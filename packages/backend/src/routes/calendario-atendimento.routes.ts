@@ -27,8 +27,19 @@ router.get('/classificacoes', CalendarioAtendimentoController.listarClassificaco
 // Mapa leve de nomes de fornecedores
 router.get('/fornecedores-nomes', CalendarioAtendimentoController.listarFornecedoresNomes);
 
+// Detalhes completos dos fornecedores (contato, email, prazo pgto)
+router.get('/fornecedores-detalhes', CalendarioAtendimentoController.listarFornecedoresDetalhes);
+
+// Pedidos emitidos em um dia específico
+router.get('/pedidos-dia', CalendarioAtendimentoController.pedidosDoDia);
+
 // Agendamentos de fornecedores (PostgreSQL)
 router.get('/agendamentos', CalendarioAtendimentoController.getAgendamentos);
 router.put('/agendamentos/:codFornecedor', CalendarioAtendimentoController.upsertAgendamento);
+
+// Opções de dropdown (comprador / tipo_atendimento)
+router.get('/opcoes-dropdown', CalendarioAtendimentoController.getOpcoesDropdown);
+router.post('/opcoes-dropdown', CalendarioAtendimentoController.addOpcaoDropdown);
+router.delete('/opcoes-dropdown/:id', CalendarioAtendimentoController.removeOpcaoDropdown);
 
 export default router;

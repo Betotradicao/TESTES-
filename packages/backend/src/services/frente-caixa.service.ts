@@ -294,10 +294,6 @@ export class FrenteCaixaService {
       ORDER BY TOTAL_VENDAS DESC
     `;
 
-    console.log('🔍 [Frente Caixa] Executando query de vendas...');
-    const vendas = await OracleService.query<any>(sqlVendas, params);
-    console.log(`✅ [Frente Caixa] Vendas: ${vendas.length} registros`);
-
     // Buscar itens vendidos usando subquery para evitar produto cartesiano
     let sqlItens = `
       SELECT
@@ -315,11 +311,6 @@ export class FrenteCaixaService {
     if (codOperador) sqlItens += ` AND cf.${codOperadorCol} = :codOperador`;
     if (codLoja) sqlItens += ` AND p.${codLojaCol} = :codLoja`;
     sqlItens += `) sub GROUP BY sub.COD_OPERADOR`;
-
-    console.log('🔍 [Frente Caixa] Executando query de itens...');
-    const itens = await OracleService.query<any>(sqlItens, params);
-    console.log(`✅ [Frente Caixa] Itens: ${itens.length} registros`);
-    const itensMap = new Map(itens.map(i => [i.COD_OPERADOR, i.TOTAL_ITENS]));
 
     // Buscar descontos usando subquery (exclui itens com 100% de desconto = bonificações)
     let sqlDescontos = `
@@ -340,13 +331,7 @@ export class FrenteCaixaService {
     if (codLoja) sqlDescontos += ` AND p.${codLojaCol} = :codLoja`;
     sqlDescontos += `) sub GROUP BY sub.COD_OPERADOR`;
 
-    console.log('🔍 [Frente Caixa] Executando query de descontos...');
-    const descontos = await OracleService.query<any>(sqlDescontos, params);
-    console.log(`✅ [Frente Caixa] Descontos: ${descontos.length} registros`);
-    const descontosMap = new Map(descontos.map(d => [d.COD_OPERADOR, d.TOTAL_DESCONTOS]));
-
     // Buscar cancelamentos - usa APENAS TAB_PRODUTO_PDV_ESTORNO (corresponde ao Z003)
-    // Busca operador pelo cupom original - primeiro tenta mesma data, senão usa última ocorrência do cupom
     let sqlCancelamentos = `
       SELECT
         sub.COD_OPERADOR,
@@ -374,15 +359,7 @@ export class FrenteCaixaService {
         ${codOperador ? 'AND sub.COD_OPERADOR = :codOperador' : ''}
       GROUP BY sub.COD_OPERADOR`;
 
-    console.log('🔍 [Frente Caixa] Executando query de cancelamentos...');
-    const cancelamentos = await OracleService.query<any>(sqlCancelamentos, params);
-    console.log(`✅ [Frente Caixa] Cancelamentos: ${cancelamentos.length} registros`);
-    const cancelamentosMap = new Map(cancelamentos.map(c => [c.COD_OPERADOR, c.TOTAL_CANCELAMENTOS]));
-
-    // Buscar estornos órfãos - estornos sem match de cupom, associados pelo operador que estava no PDV naquele horário
-    // A lógica é: encontrar quem fez a venda mais próxima (por horário) no mesmo PDV no mesmo dia
-    // DES_HORA está no formato HHMM (ex: 931 = 9:31, 1253 = 12:53), DTA_VENDA tem o horário completo
-    // FALLBACK: Se não houver vendas no PDV, busca quem fechou o caixa (tesouraria) naquele PDV no dia
+    // Buscar estornos órfãos
     let sqlEstornosOrfaos = `
       SELECT
         sub.COD_OPERADOR,
@@ -395,7 +372,6 @@ export class FrenteCaixaService {
           e.${desHoraCol},
           NVL(
             (
-              -- Primeira tentativa: operador que fez a venda mais próxima (por horário) no mesmo PDV no mesmo dia
               SELECT MIN(cf.${codOperadorCol}) KEEP (DENSE_RANK FIRST ORDER BY ABS(TO_NUMBER(TO_CHAR(cf.${dataVendaCol}, 'HH24MI')) - TO_NUMBER(NVL(e.${desHoraCol}, '0'))))
               FROM ${tabCupomFinalizadora} cf
               WHERE cf.${codPdvCol} = e.${codPdvCol}
@@ -403,7 +379,6 @@ export class FrenteCaixaService {
                 AND TRUNC(cf.${dataVendaCol}) = TRUNC(e.${dataSaidaCol})
             ),
             (
-              -- Fallback: quem estava na tesouraria (fechou caixa) nesse PDV no mesmo dia
               SELECT MAX(th.${codOperadorCol}) FROM ${tabTesourariaHistorico} th
               WHERE th.${codPdvCol} = e.${codPdvCol}
                 AND th.${codLojaCol} = e.${codLojaCol}
@@ -414,7 +389,6 @@ export class FrenteCaixaService {
         WHERE e.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
           AND e.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
           ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
-          -- Somente estornos órfãos (sem match de cupom no mesmo PDV)
           AND NOT EXISTS (
             SELECT 1 FROM ${tabCupomFinalizadora} cf
             WHERE cf.${numeroCupomCol} = e.${numeroCupomCol}
@@ -426,12 +400,7 @@ export class FrenteCaixaService {
         ${codOperador ? 'AND sub.COD_OPERADOR = :codOperador' : ''}
       GROUP BY sub.COD_OPERADOR`;
 
-    console.log('🔍 [Frente Caixa] Executando query de estornos órfãos...');
-    const estornosOrfaos = await OracleService.query<any>(sqlEstornosOrfaos, params);
-    console.log(`✅ [Frente Caixa] Estornos órfãos: ${estornosOrfaos.length} registros`);
-    const estornosOrfaosMap = new Map(estornosOrfaos.map(e => [e.COD_OPERADOR, e.TOTAL_ESTORNOS_ORFAOS]));
-
-    // Buscar sobra/quebra de caixa (pegando apenas o último registro de cada combinação)
+    // Buscar sobra/quebra de caixa
     let sqlTesouraria = `
       SELECT
         sub.COD_OPERADOR,
@@ -456,9 +425,34 @@ export class FrenteCaixaService {
     if (codLoja) sqlTesouraria += ` AND th.${codLojaCol} = :codLoja`;
     sqlTesouraria += `) sub GROUP BY sub.COD_OPERADOR`;
 
-    console.log('🔍 [Frente Caixa] Executando query de tesouraria...');
-    const tesouraria = await OracleService.query<any>(sqlTesouraria, params);
-    console.log(`✅ [Frente Caixa] Tesouraria: ${tesouraria.length} registros`);
+    // Executar em 2 lotes para não sobrecarregar o Oracle
+    // Lote 1: queries mais leves (vendas, itens, descontos)
+    // Lote 2: queries mais pesadas (cancelamentos, estornos órfãos, tesouraria)
+    console.log('🔍 [Frente Caixa] Executando queries em 2 lotes...');
+    const startTime = Date.now();
+
+    const [vendas, itens, descontos] = await Promise.all([
+      OracleService.query<any>(sqlVendas, params),
+      OracleService.query<any>(sqlItens, params),
+      OracleService.query<any>(sqlDescontos, params)
+    ]);
+    console.log(`  📊 Lote 1 OK (${((Date.now() - startTime) / 1000).toFixed(1)}s) - Vendas: ${vendas.length}, Itens: ${itens.length}, Descontos: ${descontos.length}`);
+
+    const startTime2 = Date.now();
+    const [cancelamentos, estornosOrfaos, tesouraria] = await Promise.all([
+      OracleService.query<any>(sqlCancelamentos, params),
+      OracleService.query<any>(sqlEstornosOrfaos, params),
+      OracleService.query<any>(sqlTesouraria, params)
+    ]);
+    console.log(`  📊 Lote 2 OK (${((Date.now() - startTime2) / 1000).toFixed(1)}s) - Cancel: ${cancelamentos.length}, Estornos: ${estornosOrfaos.length}, Tesouraria: ${tesouraria.length}`);
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`✅ [Frente Caixa] Total: ${elapsed}s`);
+
+    const itensMap = new Map(itens.map(i => [i.COD_OPERADOR, i.TOTAL_ITENS]));
+    const descontosMap = new Map(descontos.map(d => [d.COD_OPERADOR, d.TOTAL_DESCONTOS]));
+    const cancelamentosMap = new Map(cancelamentos.map(c => [c.COD_OPERADOR, c.TOTAL_CANCELAMENTOS]));
+    const estornosOrfaosMap = new Map(estornosOrfaos.map(e => [e.COD_OPERADOR, e.TOTAL_ESTORNOS_ORFAOS]));
     const tesourariaMap = new Map(tesouraria.map(t => [t.COD_OPERADOR, { sobra: t.VAL_SOBRA || 0, quebra: t.VAL_QUEBRA || 0 }]));
 
     // Combinar resultados

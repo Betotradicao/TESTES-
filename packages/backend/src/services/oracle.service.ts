@@ -241,7 +241,7 @@ export class OracleService {
     try {
       connection = await this.getConnection();
 
-      connection.callTimeout = 60000; // 60s max por query (analíticas com JOINs pesados)
+      connection.callTimeout = 120000; // 120s max por query (analíticas com JOINs pesados)
       const result = await connection.execute(sql, params, {
         outFormat: oracledb.OUT_FORMAT_OBJECT,
         maxRows: 10000 // Limite de segurança

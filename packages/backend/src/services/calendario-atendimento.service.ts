@@ -7,6 +7,7 @@ import { OracleService } from './oracle.service';
 import { MappingService } from './mapping.service';
 import { AppDataSource } from '../config/database';
 import { FornecedorAgendamento } from '../entities/FornecedorAgendamento';
+import { OpcaoDropdown } from '../entities/OpcaoDropdown';
 
 export interface FornecedorCadastro {
   COD_FORNECEDOR: number;
@@ -66,6 +67,7 @@ export class CalendarioAtendimentoService {
     codLoja?: number;
     pagina?: number;
     limite?: number;
+    statusNF?: string; // 'todos' | 'com_nf' | 'sem_nf'
   }): Promise<{ fornecedores: FornecedorCadastro[]; total: number }> {
     const schema = await MappingService.getSchema();
     const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
@@ -77,6 +79,13 @@ export class CalendarioAtendimentoService {
 
     const conditions: string[] = [];
     const params: any = {};
+
+    // Filtro por status de NFs nos últimos 12 meses
+    if (filtros.statusNF === 'com_nf') {
+      conditions.push(`EXISTS (SELECT 1 FROM ${tabFornecedorNota} fn_ativo WHERE fn_ativo.COD_FORNECEDOR = f.COD_FORNECEDOR AND fn_ativo.DTA_ENTRADA >= SYSDATE - 365)`);
+    } else if (filtros.statusNF === 'sem_nf') {
+      conditions.push(`NOT EXISTS (SELECT 1 FROM ${tabFornecedorNota} fn_ativo WHERE fn_ativo.COD_FORNECEDOR = f.COD_FORNECEDOR AND fn_ativo.DTA_ENTRADA >= SYSDATE - 365)`);
+    }
 
     if (filtros.busca) {
       conditions.push(`(UPPER(f.DES_FORNECEDOR) LIKE UPPER(:busca) OR UPPER(f.DES_FANTASIA) LIKE UPPER(:busca) OR f.NUM_CGC LIKE :busca)`);
@@ -271,6 +280,31 @@ export class CalendarioAtendimentoService {
   }
 
   /**
+   * Pedidos emitidos em um dia específico (TAB_FORNECEDOR_PEDIDO)
+   */
+  static async pedidosDoDia(data: string, codLoja?: number): Promise<any[]> {
+    const schema = await MappingService.getSchema();
+    const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO')}`;
+
+    const params: any = { data };
+
+    const query = `
+      SELECT
+        p.NUM_PEDIDO,
+        p.COD_PARCEIRO as COD_FORNECEDOR,
+        NVL(p.VAL_PEDIDO, 0) as VAL_TOTAL_PEDIDO,
+        TO_CHAR(p.DTA_ENTREGA, 'DD/MM/YYYY') as DTA_ENTREGA
+      FROM ${tabPedido} p
+      WHERE p.TIPO_PARCEIRO = 1
+      AND TRUNC(p.DTA_EMISSAO) = TO_DATE(:data, 'YYYY-MM-DD')
+      AND (p.FLG_CANCELADO IS NULL OR p.FLG_CANCELADO = 'N')
+      ORDER BY p.COD_PARCEIRO, p.NUM_PEDIDO
+    `;
+
+    return await OracleService.query(query, params);
+  }
+
+  /**
    * Lista classificações de fornecedores (para filtro)
    */
   static async listarClassificacoes(): Promise<{ COD_CLASSIF: number; DES_CLASSIF: string; QTD_FORNECEDORES: number }[]> {
@@ -316,6 +350,10 @@ export class CalendarioAtendimentoService {
     dia_semana_3?: string | null;
     dia_mes?: number | null;
     inicio_agendamento?: string | null;
+    comprador?: string | null;
+    tipo_atendimento?: string | null;
+    hora_inicio?: string | null;
+    hora_termino?: string | null;
   }): Promise<FornecedorAgendamento> {
     const repo = AppDataSource.getRepository(FornecedorAgendamento);
 
@@ -333,8 +371,96 @@ export class CalendarioAtendimentoService {
     if (dados.inicio_agendamento !== undefined) {
       agendamento.inicio_agendamento = dados.inicio_agendamento ? new Date(dados.inicio_agendamento) : null;
     }
+    if (dados.comprador !== undefined) agendamento.comprador = dados.comprador || null;
+    if (dados.tipo_atendimento !== undefined) agendamento.tipo_atendimento = dados.tipo_atendimento || null;
+    if (dados.hora_inicio !== undefined) agendamento.hora_inicio = dados.hora_inicio || null;
+    if (dados.hora_termino !== undefined) agendamento.hora_termino = dados.hora_termino || null;
 
     return await repo.save(agendamento);
+  }
+
+  /**
+   * Retorna opções de dropdown (comprador / tipo_atendimento)
+   */
+  static async getOpcoesDropdown(): Promise<{ compradores: { id: number; valor: string }[]; tipos_atendimento: { id: number; valor: string }[] }> {
+    const repo = AppDataSource.getRepository(OpcaoDropdown);
+    const rows = await repo.find({ order: { valor: 'ASC' } });
+    const compradores = rows.filter(r => r.tipo === 'comprador').map(r => ({ id: r.id, valor: r.valor }));
+    const tipos_atendimento = rows.filter(r => r.tipo === 'tipo_atendimento').map(r => ({ id: r.id, valor: r.valor }));
+    return { compradores, tipos_atendimento };
+  }
+
+  /**
+   * Adiciona uma opção de dropdown
+   */
+  static async addOpcaoDropdown(tipo: string, valor: string): Promise<OpcaoDropdown> {
+    const repo = AppDataSource.getRepository(OpcaoDropdown);
+    const existing = await repo.findOne({ where: { tipo, valor } });
+    if (existing) return existing;
+    const opcao = repo.create({ tipo, valor: valor.trim() });
+    return await repo.save(opcao);
+  }
+
+  /**
+   * Remove uma opção de dropdown
+   */
+  static async removeOpcaoDropdown(id: number): Promise<void> {
+    const repo = AppDataSource.getRepository(OpcaoDropdown);
+    await repo.delete(id);
+  }
+
+  /**
+   * Retorna mapa COD_FORNECEDOR → detalhes (contato, celular, email, prazo pgto)
+   */
+  static async listarFornecedoresDetalhes(): Promise<Record<number, any>> {
+    const schema = await MappingService.getSchema();
+    const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
+    const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA')}`;
+    const tabCondicaoFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_CONDICAO_FORNECEDOR')}`;
+    const tabClassificacao = `${schema}.${await MappingService.getRealTableName('TAB_CLASSIFICACAO')}`;
+
+    const query = `
+      SELECT
+        f.COD_FORNECEDOR,
+        NVL(f.DES_FANTASIA, f.DES_FORNECEDOR) as DES_FANTASIA,
+        f.DES_CONTATO,
+        f.NUM_CELULAR,
+        f.NUM_FONE,
+        f.DES_EMAIL,
+        NVL(f.NUM_MED_CPGTO, 0) as NUM_MED_CPGTO,
+        NVL(f.NUM_PRAZO, 0) as NUM_PRAZO,
+        NVL(f.VAL_DEBITO, 0) as VAL_DEBITO,
+        NVL(conds.CONDICOES_PGTO, '') as CONDICOES_PGTO,
+        NVL(c.DES_CLASSIF, 'SEM CLASSIFICAÇÃO') as DES_CLASSIFICACAO,
+        ult.ULTIMO_ATENDIMENTO,
+        ult.DIAS_DESDE_ULTIMO
+      FROM ${tabFornecedor} f
+      LEFT JOIN ${tabClassificacao} c ON c.COD_CLASSIF = f.COD_CLASSIF
+      LEFT JOIN (
+        SELECT
+          cf.COD_FORNECEDOR,
+          LISTAGG(cf.NUM_CONDICAO, '/') WITHIN GROUP (ORDER BY cf.NUM_CONDICAO) as CONDICOES_PGTO
+        FROM ${tabCondicaoFornecedor} cf
+        GROUP BY cf.COD_FORNECEDOR
+      ) conds ON conds.COD_FORNECEDOR = f.COD_FORNECEDOR
+      LEFT JOIN (
+        SELECT
+          fn.COD_FORNECEDOR,
+          MAX(fn.DTA_ENTRADA) as ULTIMO_ATENDIMENTO,
+          ROUND(SYSDATE - MAX(fn.DTA_ENTRADA)) as DIAS_DESDE_ULTIMO
+        FROM ${tabFornecedorNota} fn
+        WHERE NVL(fn.FLG_CANCELADO, 'N') = 'N'
+        GROUP BY fn.COD_FORNECEDOR
+      ) ult ON ult.COD_FORNECEDOR = f.COD_FORNECEDOR
+      WHERE EXISTS (SELECT 1 FROM ${tabFornecedorNota} fn2 WHERE fn2.COD_FORNECEDOR = f.COD_FORNECEDOR AND fn2.DTA_ENTRADA >= SYSDATE - 365)
+    `;
+
+    const rows = await OracleService.query(query, {});
+    const map: Record<number, any> = {};
+    for (const r of rows) {
+      map[r.COD_FORNECEDOR] = r;
+    }
+    return map;
   }
 
   /**
@@ -343,10 +469,12 @@ export class CalendarioAtendimentoService {
   static async listarFornecedoresNomes(): Promise<Record<number, string>> {
     const schema = await MappingService.getSchema();
     const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
+    const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA')}`;
 
     const query = `
-      SELECT COD_FORNECEDOR, NVL(DES_FANTASIA, DES_FORNECEDOR) as DES_FANTASIA
-      FROM ${tabFornecedor}
+      SELECT f.COD_FORNECEDOR, NVL(f.DES_FANTASIA, f.DES_FORNECEDOR) as DES_FANTASIA
+      FROM ${tabFornecedor} f
+      WHERE EXISTS (SELECT 1 FROM ${tabFornecedorNota} fn WHERE fn.COD_FORNECEDOR = f.COD_FORNECEDOR AND fn.DTA_ENTRADA >= SYSDATE - 365)
     `;
 
     const rows = await OracleService.query(query, {});

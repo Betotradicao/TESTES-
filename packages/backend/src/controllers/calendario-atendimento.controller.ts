@@ -15,7 +15,7 @@ export class CalendarioAtendimentoController {
    */
   static async listarFornecedores(req: AuthRequest, res: Response) {
     try {
-      const { busca, classificacao, codLoja, pagina, limite } = req.query;
+      const { busca, classificacao, codLoja, pagina, limite, statusNF } = req.query;
 
       const classificacoes = classificacao
         ? String(classificacao).split(',').map(Number).filter(n => !isNaN(n))
@@ -26,7 +26,8 @@ export class CalendarioAtendimentoController {
         classificacoes,
         codLoja: codLoja ? parseInt(codLoja as string) : undefined,
         pagina: pagina ? parseInt(pagina as string) : 1,
-        limite: limite ? parseInt(limite as string) : 50
+        limite: limite ? parseInt(limite as string) : 50,
+        statusNF: (statusNF as string) || 'todos'
       });
 
       res.json(resultado);
@@ -133,6 +134,83 @@ export class CalendarioAtendimentoController {
   }
 
   /**
+   * GET /api/calendario-atendimento/pedidos-dia
+   * Pedidos emitidos em um dia específico
+   */
+  static async pedidosDoDia(req: AuthRequest, res: Response) {
+    try {
+      const { data, codLoja } = req.query;
+
+      if (!data) {
+        return res.status(400).json({ error: 'Data é obrigatória (formato YYYY-MM-DD)' });
+      }
+
+      const resultado = await CalendarioAtendimentoService.pedidosDoDia(
+        data as string,
+        codLoja ? parseInt(codLoja as string) : undefined
+      );
+
+      res.json(resultado);
+    } catch (error: any) {
+      console.error('❌ [Calendário] Erro ao buscar pedidos do dia:', error.message);
+      res.status(500).json({ error: 'Erro ao buscar pedidos do dia' });
+    }
+  }
+
+  /**
+   * GET /api/calendario-atendimento/opcoes-dropdown
+   * Retorna opções de dropdown para comprador e tipo_atendimento
+   */
+  static async getOpcoesDropdown(req: AuthRequest, res: Response) {
+    try {
+      const opcoes = await CalendarioAtendimentoService.getOpcoesDropdown();
+      res.json(opcoes);
+    } catch (error: any) {
+      console.error('❌ [Calendário] Erro ao buscar opções:', error.message);
+      res.status(500).json({ error: 'Erro ao buscar opções de dropdown' });
+    }
+  }
+
+  /**
+   * POST /api/calendario-atendimento/opcoes-dropdown
+   * Adiciona uma opção de dropdown
+   */
+  static async addOpcaoDropdown(req: AuthRequest, res: Response) {
+    try {
+      const { tipo, valor } = req.body;
+      if (!tipo || !valor) {
+        return res.status(400).json({ error: 'Tipo e valor são obrigatórios' });
+      }
+      if (!['comprador', 'tipo_atendimento'].includes(tipo)) {
+        return res.status(400).json({ error: 'Tipo inválido' });
+      }
+      const opcao = await CalendarioAtendimentoService.addOpcaoDropdown(tipo, valor);
+      res.json(opcao);
+    } catch (error: any) {
+      console.error('❌ [Calendário] Erro ao adicionar opção:', error.message);
+      res.status(500).json({ error: 'Erro ao adicionar opção' });
+    }
+  }
+
+  /**
+   * DELETE /api/calendario-atendimento/opcoes-dropdown/:id
+   * Remove uma opção de dropdown
+   */
+  static async removeOpcaoDropdown(req: AuthRequest, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      await CalendarioAtendimentoService.removeOpcaoDropdown(id);
+      res.json({ ok: true });
+    } catch (error: any) {
+      console.error('❌ [Calendário] Erro ao remover opção:', error.message);
+      res.status(500).json({ error: 'Erro ao remover opção' });
+    }
+  }
+
+  /**
    * GET /api/calendario-atendimento/fornecedores-nomes
    * Mapa leve COD_FORNECEDOR → DES_FANTASIA
    */
@@ -143,6 +221,20 @@ export class CalendarioAtendimentoController {
     } catch (error: any) {
       console.error('❌ [Calendário] Erro ao listar nomes:', error.message);
       res.status(500).json({ error: 'Erro ao listar nomes de fornecedores' });
+    }
+  }
+
+  /**
+   * GET /api/calendario-atendimento/fornecedores-detalhes
+   * Mapa COD_FORNECEDOR → detalhes (contato, celular, email, prazo pgto, etc.)
+   */
+  static async listarFornecedoresDetalhes(req: AuthRequest, res: Response) {
+    try {
+      const detalhes = await CalendarioAtendimentoService.listarFornecedoresDetalhes();
+      res.json(detalhes);
+    } catch (error: any) {
+      console.error('❌ [Calendário] Erro ao listar detalhes:', error.message);
+      res.status(500).json({ error: 'Erro ao listar detalhes de fornecedores' });
     }
   }
 }
