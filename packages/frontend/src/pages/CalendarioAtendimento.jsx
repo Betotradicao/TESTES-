@@ -154,6 +154,7 @@ const ITENS_PED_COLS = [
   { id: 'DIF_CUSTO', label: 'DIF R$', align: 'right', width: 'w-[75px]' },
   { id: 'PRECO_FORN', label: 'PRECO FORN', align: 'right', width: 'w-[85px]' },
   { id: 'ECONOMIA', label: 'ECONOMIA', align: 'right', width: 'w-[95px]' },
+  { id: 'OBS_FORN', label: 'OBSERVAÇÃO', align: 'left', width: 'min-w-[200px]' },
 ];
 const DEFAULT_ITENS_PED_IDS = ITENS_PED_COLS.map(c => c.id);
 const ITENS_PED_COL_ORDER_KEY = 'cal-itens-ped-col-order';
@@ -1855,6 +1856,13 @@ export default function CalendarioAtendimento() {
                                                     if (vtE <= 0 || pfE >= vtE) return <span className="text-gray-400">-</span>;
                                                     const economia = (vtE - pfE) * qtdE;
                                                     return <span className="text-green-600 font-bold">{formatMoney(economia)}</span>;
+                                                  }
+                                                  case 'OBS_FORN': {
+                                                    const cotO = cotacaoStatus[expandedPedidoCal];
+                                                    if (!cotO?.existe || cotO.status !== 'respondida' || !cotO.itens) return <span className="text-gray-400">-</span>;
+                                                    const cotItemO = cotO.itens.find(ci => String(ci.cod_produto) === String(item.COD_PRODUTO));
+                                                    if (!cotItemO?.observacao) return <span className="text-gray-400">-</span>;
+                                                    return <span className="text-xs text-gray-700 italic" title={cotItemO.observacao}>{cotItemO.observacao}</span>;
                                                   }
                                                   default: return '-';
                                                 }
