@@ -131,6 +131,9 @@ export class EmployeesService {
       first_access: true,
       active: true,
       cod_loja: data.cod_loja || null,
+      is_conferente: (data as any).is_conferente || false,
+      is_cpd: (data as any).is_cpd || false,
+      is_financeiro: (data as any).is_financeiro || false,
     });
 
     const savedEmployee = await employeeRepository.save(employee);
@@ -183,6 +186,11 @@ export class EmployeesService {
     if (data.function_description) employee.function_description = data.function_description;
     if (data.username) employee.username = data.username;
     if (data.cod_loja !== undefined) employee.cod_loja = data.cod_loja;
+    // Flags de recebimento de NF
+    const anyData = data as any;
+    if (anyData.is_conferente !== undefined) employee.is_conferente = anyData.is_conferente;
+    if (anyData.is_cpd !== undefined) employee.is_cpd = anyData.is_cpd;
+    if (anyData.is_financeiro !== undefined) employee.is_financeiro = anyData.is_financeiro;
 
     const savedEmployee = await employeeRepository.save(employee);
 

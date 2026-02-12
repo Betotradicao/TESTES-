@@ -56,6 +56,7 @@ export class CotacaoController {
       const plCurvaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva');
       const plPrecoVendaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda');
       const plMargemCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem');
+      const prCodBarrasCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras');
 
       // Buscar info do pedido
       const pedidoQuery = `
@@ -79,7 +80,7 @@ export class CotacaoController {
         SELECT
           pp.${ppCodProdutoCol} as COD_PRODUTO,
           pr.${prDesProdutoCol} as DES_PRODUTO,
-          pr.COD_BARRA_PRINCIPAL as COD_BARRA,
+          pr.${prCodBarrasCol} as COD_BARRA,
           pp.DES_UNIDADE,
           NVL(pp.${ppQtdPedidoCol}, 0) as QTD_PEDIDO,
           NVL(pp.${ppQtdEmbalagemCol}, 0) as QTD_EMBALAGEM,

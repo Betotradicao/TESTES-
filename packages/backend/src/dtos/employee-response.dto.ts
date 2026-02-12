@@ -14,6 +14,9 @@ export class EmployeeResponseDto {
   barcode: string;
   active: boolean;
   cod_loja: number | null;
+  is_conferente: boolean;
+  is_cpd: boolean;
+  is_financeiro: boolean;
   created_at: Date;
   updated_at: Date;
 
@@ -28,6 +31,9 @@ export class EmployeeResponseDto {
     this.barcode = employee.barcode;
     this.active = employee.active;
     this.cod_loja = employee.cod_loja || null;
+    this.is_conferente = employee.is_conferente || false;
+    this.is_cpd = employee.is_cpd || false;
+    this.is_financeiro = employee.is_financeiro || false;
     this.created_at = employee.created_at;
     this.updated_at = employee.updated_at;
 

@@ -113,6 +113,7 @@ const TABLE_CATALOG = {
       { id: 'flag_cancelado', name: 'Flag Cancelado', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'FLG_CANCELADO' },
       { id: 'valor_venda', name: 'Valor Venda', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'VAL_VENDA' },
       { id: 'codigo_fornecedor', name: 'Código Fornecedor', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'COD_FORNECEDOR' },
+      { id: 'valor_custo_reposicao', name: 'Valor Custo Reposição', defaultTable: 'TAB_AJUSTE_ESTOQUE', defaultColumn: 'VAL_CUSTO_REP' },
     ]
   },
   TAB_TIPO_AJUSTE: {
@@ -359,6 +360,45 @@ const TABLE_CATALOG = {
       { id: 'num_turno', name: 'Número Turno', defaultTable: 'TAB_CUPOM_FINALIZADORA', defaultColumn: 'NUM_TURNO' },
     ]
   },
+  TAB_CLASSIFICACAO: {
+    name: 'Classificações de Fornecedor',
+    description: 'Classificações para categorizar fornecedores',
+    fields: [
+      { id: 'codigo_classificacao', name: 'Código Classificação', defaultTable: 'TAB_CLASSIFICACAO', defaultColumn: 'COD_CLASSIF' },
+      { id: 'descricao_classificacao', name: 'Descrição Classificação', defaultTable: 'TAB_CLASSIFICACAO', defaultColumn: 'DES_CLASSIF' },
+    ]
+  },
+  TAB_CONDICAO_FORNECEDOR: {
+    name: 'Condições Pgto Fornecedor',
+    description: 'Condições de pagamento vinculadas a fornecedores',
+    fields: [
+      { id: 'codigo_fornecedor', name: 'Código Fornecedor', defaultTable: 'TAB_CONDICAO_FORNECEDOR', defaultColumn: 'COD_FORNECEDOR' },
+      { id: 'numero_condicao', name: 'Número Condição', defaultTable: 'TAB_CONDICAO_FORNECEDOR', defaultColumn: 'NUM_CONDICAO' },
+      { id: 'codigo_condicao', name: 'Código Condição', defaultTable: 'TAB_CONDICAO_FORNECEDOR', defaultColumn: 'COD_CONDICAO' },
+    ]
+  },
+  TAB_CONDICAO: {
+    name: 'Condições de Pagamento',
+    description: 'Catálogo de condições de pagamento',
+    fields: [
+      { id: 'codigo_condicao', name: 'Código Condição', defaultTable: 'TAB_CONDICAO', defaultColumn: 'COD_CONDICAO' },
+      { id: 'descricao_condicao', name: 'Descrição Condição', defaultTable: 'TAB_CONDICAO', defaultColumn: 'DES_CONDICAO' },
+    ]
+  },
+  TAB_FORNECEDOR_PRODUTO: {
+    name: 'Itens NF Entrada',
+    description: 'Produtos de cada nota fiscal de entrada de fornecedor',
+    fields: [
+      { id: 'numero_item', name: 'Número Item', defaultTable: 'TAB_FORNECEDOR_PRODUTO', defaultColumn: 'NUM_ITEM' },
+      { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_FORNECEDOR_PRODUTO', defaultColumn: 'COD_PRODUTO' },
+      { id: 'codigo_fornecedor', name: 'Código Fornecedor', defaultTable: 'TAB_FORNECEDOR_PRODUTO', defaultColumn: 'COD_FORNECEDOR' },
+      { id: 'numero_nf', name: 'Número NF', defaultTable: 'TAB_FORNECEDOR_PRODUTO', defaultColumn: 'NUM_NF_FORN' },
+      { id: 'quantidade_entrada', name: 'Quantidade Entrada', defaultTable: 'TAB_FORNECEDOR_PRODUTO', defaultColumn: 'QTD_ENTRADA' },
+      { id: 'valor_tabela', name: 'Valor Tabela', defaultTable: 'TAB_FORNECEDOR_PRODUTO', defaultColumn: 'VAL_TABELA' },
+      { id: 'valor_venda_varejo', name: 'Valor Venda Varejo', defaultTable: 'TAB_FORNECEDOR_PRODUTO', defaultColumn: 'VAL_VENDA_VAREJO' },
+      { id: 'descricao_unidade', name: 'Descrição Unidade', defaultTable: 'TAB_FORNECEDOR_PRODUTO', defaultColumn: 'DES_UNIDADE' },
+    ]
+  },
 };
 
 // ====================================================================================
@@ -392,6 +432,26 @@ const BUSINESS_MODULES = [
       { id: 'compra_venda', name: 'Compra e Venda', icon: '🛒', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_PRODUTO_DECOMPOSICAO', 'TAB_FORNECEDOR', 'TAB_NOTA_FISCAL', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO', 'TAB_COMPRADOR', 'TAB_LOJA', 'TAB_NF', 'TAB_NF_ITEM'] },
       { id: 'pedidos', name: 'Pedidos', icon: '📋', tables: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO', 'TAB_NOTA_FISCAL', 'TAB_COMPRADOR'] },
       { id: 'ruptura_industria', name: 'Ruptura Indústria', icon: '🏭', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO', 'TAB_NF', 'TAB_NF_ITEM'] },
+      { id: 'calendario_atendimento', name: 'Calendário de Atendimento', icon: '📅', tables: ['TAB_FORNECEDOR', 'TAB_CLASSIFICACAO', 'TAB_NOTA_FISCAL', 'TAB_CONDICAO_FORNECEDOR', 'TAB_CONDICAO', 'TAB_PEDIDO'] },
+      { id: 'controle_recebimento', name: 'Controle de Recebimento', icon: '📦', tables: ['TAB_FORNECEDOR', 'TAB_NOTA_FISCAL'] },
+    ]
+  },
+  {
+    id: 'oferta',
+    name: 'Oferta no Radar',
+    icon: '💎',
+    color: 'from-emerald-500 to-teal-600',
+    submodules: [
+      { id: 'garimpa_fornecedores', name: 'Garimpa Fornecedores', icon: '🔍', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO'] },
+    ]
+  },
+  {
+    id: 'ia',
+    name: 'IA no Radar',
+    icon: '🤖',
+    color: 'from-purple-500 to-violet-600',
+    submodules: [
+      { id: 'rota_crescimento', name: 'Rota do Crescimento', icon: '📈', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_CUPOM_FINALIZADORA', 'TAB_NOTA_FISCAL', 'TAB_FORNECEDOR_PRODUTO'] },
     ]
   }
 ];

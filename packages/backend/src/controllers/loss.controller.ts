@@ -50,7 +50,7 @@ export class LossController {
     const estDataMovCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'data_ajuste');
     const estMotivoCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'motivo');
     const estCodLojaCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_loja');
-    const estValCustoRepCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'valor_custo');
+    const estValCustoRepCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'valor_custo_reposicao');
     const estFlgCanceladoCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'flag_cancelado');
     const estValVendaCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'valor_venda');
     const estCodFornecedorCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_fornecedor');
@@ -59,7 +59,7 @@ export class LossController {
     // --- TAB_PRODUTO ---
     const prodCodigoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
     const prodDescricaoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
-    const prodEanCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barra');
+    const prodEanCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras');
     const prodCodSecaoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
 
     // --- TAB_SECAO ---

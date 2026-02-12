@@ -88,9 +88,18 @@ const snapToNearestWeekday = (rawDate, targetDays) => {
 // Retorna Set de timestamps (ms) para busca rápida
 const gerarDatasAgendadas = (ag, rangeStart, rangeEnd) => {
   const datas = new Set();
-  if (!ag.inicio_agendamento) return datas;
 
-  const start = new Date(ag.inicio_agendamento + 'T00:00:00');
+  // Determinar data de início: inicio_agendamento OU construir a partir de dia_mes
+  let inicioStr = ag.inicio_agendamento;
+  if (!inicioStr && ag.dia_mes) {
+    // Usar dia_mes para construir um início de referência (janeiro do ano corrente)
+    const ano = rangeStart.getFullYear();
+    const diaMes = Math.min(ag.dia_mes, 28); // Evitar problemas com meses curtos
+    inicioStr = `${ano}-01-${String(diaMes).padStart(2, '0')}`;
+  }
+  if (!inicioStr) return datas;
+
+  const start = new Date(inicioStr + 'T00:00:00');
   const dias = [ag.dia_semana_1, ag.dia_semana_2, ag.dia_semana_3].filter(Boolean);
 
   // Intervalo em dias conforme frequência
@@ -153,8 +162,8 @@ const fornecedorNoDia = (ag, date, datasCache) => {
     case 'Quinzenal':
     case '21 Dias':
     case 'Mensal': {
-      // Se tem inicio_agendamento, usa lógica de intervalo + snap ao dia da semana
-      if (ag.inicio_agendamento) {
+      // Se tem inicio_agendamento OU dia_mes, usa lógica de intervalo + snap
+      if (ag.inicio_agendamento || ag.dia_mes) {
         if (datasCache) {
           const key = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
           return datasCache.has(key);
@@ -166,9 +175,9 @@ const fornecedorNoDia = (ag, date, datasCache) => {
         const key = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
         return datas.has(key);
       }
-      // Sem inicio_agendamento: fallback
+      // Sem inicio_agendamento e sem dia_mes: fallback antigo
       if (ag.freq_visita === 'Mensal') {
-        return ag.dia_mes ? ag.dia_mes === dom : false;
+        return false;
       }
       if (ag.freq_visita === 'Quinzenal') {
         if (!matchDia) return false;
@@ -807,7 +816,7 @@ export default function CalendarioAtendimento() {
     // Pre-gerar cache de datas agendadas para cada fornecedor (Quinzenal/21 Dias/Mensal)
     const cacheMap = {};
     for (const [codStr, ag] of Object.entries(agendamentos)) {
-      if (['Quinzenal', '21 Dias', 'Mensal'].includes(ag.freq_visita) && ag.inicio_agendamento) {
+      if (['Quinzenal', '21 Dias', 'Mensal'].includes(ag.freq_visita) && (ag.inicio_agendamento || ag.dia_mes)) {
         cacheMap[codStr] = gerarDatasAgendadas(ag, rangeStart, rangeEnd);
       }
     }
@@ -951,7 +960,7 @@ export default function CalendarioAtendimento() {
     const rangeEnd = new Date(dataSel.getFullYear(), dataSel.getMonth() + 2, 0);
     const cacheMap = {};
     for (const [codStr, ag] of Object.entries(agendamentos)) {
-      if (['Quinzenal', '21 Dias', 'Mensal'].includes(ag.freq_visita) && ag.inicio_agendamento) {
+      if (['Quinzenal', '21 Dias', 'Mensal'].includes(ag.freq_visita) && (ag.inicio_agendamento || ag.dia_mes)) {
         cacheMap[codStr] = gerarDatasAgendadas(ag, rangeStart, rangeEnd);
       }
     }
