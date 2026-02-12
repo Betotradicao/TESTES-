@@ -7,10 +7,10 @@ import { api } from '../utils/api';
 
 export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileMenuOpen }) {
   const [expandedSections, setExpandedSections] = useState({
-    'gestao-radar': true,
-    'prevencao-radar': true,
-    'financas-radar': true,
-    'ia-radar': true
+    'gestao-radar': false,
+    'prevencao-radar': false,
+    'financas-radar': false,
+    'ia-radar': false
   });
   const [expandedItems, setExpandedItems] = useState({});
   const [modulesConfig, setModulesConfig] = useState([]);
