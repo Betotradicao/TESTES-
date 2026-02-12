@@ -27,6 +27,7 @@ const AGENDAMENTO_FIELDS = new Set(['FREQ_VISITA', 'DIA_SEMANA_1', 'DIA_SEMANA_2
 
 // Mapeamento dia da semana JS (0=Dom) → nome em português usado no agendamento
 const DIA_SEMANA_MAP = { 0: 'Domingo', 1: 'Segunda', 2: 'Terca', 3: 'Quarta', 4: 'Quinta', 5: 'Sexta', 6: 'Sabado' };
+const DIA_SEMANA_MAP_REVERSE = { 'Domingo': 0, 'Segunda': 1, 'Terca': 2, 'Quarta': 3, 'Quinta': 4, 'Sexta': 5, 'Sabado': 6 };
 const DIA_SEMANA_LABEL = { 0: 'domingo', 1: 'segunda-feira', 2: 'terça-feira', 3: 'quarta-feira', 4: 'quinta-feira', 5: 'sexta-feira', 6: 'sábado' };
 
 // Formata número de telefone para link WhatsApp Web direto
@@ -38,8 +39,105 @@ const formatWhatsAppUrl = (phone) => {
   return `https://web.whatsapp.com/send?phone=${num}`;
 };
 
+// Ajusta uma data "bruta" para o dia da semana alvo mais próximo
+// Se empate, prefere o próximo (futuro)
+const snapToNearestWeekday = (rawDate, targetDays) => {
+  const currentDow = rawDate.getDay();
+  const currentDowName = DIA_SEMANA_MAP[currentDow];
+
+  // Se já está num dia alvo, retorna a mesma data
+  if (targetDays.some(d => d === 'Todos' || d === currentDowName)) {
+    return new Date(rawDate);
+  }
+
+  let bestDate = null;
+  let bestDist = Infinity;
+
+  for (const dayName of targetDays) {
+    if (dayName === 'Todos') return new Date(rawDate);
+    const targetDow = DIA_SEMANA_MAP_REVERSE[dayName];
+    if (targetDow === undefined) continue;
+
+    // Dias para frente até o dia alvo
+    let daysForward = (targetDow - currentDow + 7) % 7;
+    if (daysForward === 0) daysForward = 7;
+
+    // Dias para trás até o dia alvo
+    let daysBackward = (currentDow - targetDow + 7) % 7;
+    if (daysBackward === 0) daysBackward = 7;
+
+    // Prefere o mais próximo; se empate, prefere o futuro (forward)
+    if (daysForward < bestDist || (daysForward === bestDist && !bestDate)) {
+      bestDist = daysForward;
+      const d = new Date(rawDate);
+      d.setDate(d.getDate() + daysForward);
+      bestDate = d;
+    }
+    if (daysBackward < bestDist) {
+      bestDist = daysBackward;
+      const d = new Date(rawDate);
+      d.setDate(d.getDate() - daysBackward);
+      bestDate = d;
+    }
+  }
+
+  return bestDate || new Date(rawDate);
+};
+
+// Gera todas as datas agendadas a partir do inicio_agendamento + frequência + dia da semana
+// Retorna Set de timestamps (ms) para busca rápida
+const gerarDatasAgendadas = (ag, rangeStart, rangeEnd) => {
+  const datas = new Set();
+  if (!ag.inicio_agendamento) return datas;
+
+  const start = new Date(ag.inicio_agendamento + 'T00:00:00');
+  const dias = [ag.dia_semana_1, ag.dia_semana_2, ag.dia_semana_3].filter(Boolean);
+
+  // Intervalo em dias conforme frequência
+  let intervalo;
+  let usarMeses = false;
+  switch (ag.freq_visita) {
+    case 'Quinzenal': intervalo = 15; break;
+    case '21 Dias': intervalo = 21; break;
+    case 'Mensal': usarMeses = true; break;
+    default: return datas;
+  }
+
+  // Gerar datas brutas e ajustar para dia da semana mais próximo
+  for (let n = 0; n < 200; n++) {
+    let rawDate;
+    if (usarMeses) {
+      rawDate = new Date(start);
+      rawDate.setMonth(rawDate.getMonth() + n);
+    } else {
+      rawDate = new Date(start);
+      rawDate.setDate(rawDate.getDate() + n * intervalo);
+    }
+
+    // Se passou do range, para
+    if (rawDate.getTime() > rangeEnd.getTime() + 7 * 86400000) break;
+
+    // Ajusta para o dia da semana mais próximo
+    let snapped;
+    if (dias.length > 0 && !dias.includes('Todos')) {
+      snapped = snapToNearestWeekday(rawDate, dias);
+    } else {
+      snapped = new Date(rawDate);
+    }
+
+    // Só inclui se estiver dentro do range
+    if (snapped.getTime() >= rangeStart.getTime() - 7 * 86400000) {
+      // Normalizar para meia-noite
+      const key = new Date(snapped.getFullYear(), snapped.getMonth(), snapped.getDate()).getTime();
+      datas.add(key);
+    }
+  }
+
+  return datas;
+};
+
 // Determina se um fornecedor deve aparecer em um determinado dia
-const fornecedorNoDia = (ag, date) => {
+const fornecedorNoDia = (ag, date, datasCache) => {
   if (!ag || !ag.freq_visita) return false;
   const dow = date.getDay(); // 0=Dom
   const dom = date.getDate();
@@ -52,29 +150,34 @@ const fornecedorNoDia = (ag, date) => {
       return dow >= 1 && dow <= 6; // seg-sab
     case 'Semanal':
       return matchDia;
-    case 'Quinzenal': {
-      if (!matchDia) return false;
+    case 'Quinzenal':
+    case '21 Dias':
+    case 'Mensal': {
+      // Se tem inicio_agendamento, usa lógica de intervalo + snap ao dia da semana
       if (ag.inicio_agendamento) {
-        const start = new Date(ag.inicio_agendamento);
-        const diffMs = date.getTime() - start.getTime();
-        const diffWeeks = Math.floor(diffMs / (7 * 86400000));
-        return diffWeeks >= 0 && diffWeeks % 2 === 0;
+        if (datasCache) {
+          const key = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+          return datasCache.has(key);
+        }
+        // Fallback: gerar e verificar inline
+        const rangeStart = new Date(date.getFullYear(), date.getMonth(), 1);
+        const rangeEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+        const datas = gerarDatasAgendadas(ag, rangeStart, rangeEnd);
+        const key = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+        return datas.has(key);
       }
-      // Sem início: semanas pares do mês
-      const firstOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
-      const weekIdx = Math.floor((date.getDate() + firstOfMonth.getDay() - 1) / 7);
-      return weekIdx % 2 === 0;
-    }
-    case '21 Dias': {
-      if (ag.inicio_agendamento) {
-        const start = new Date(ag.inicio_agendamento);
-        const diffDays = Math.round((date.getTime() - start.getTime()) / 86400000);
-        return diffDays >= 0 && diffDays % 21 === 0;
+      // Sem inicio_agendamento: fallback
+      if (ag.freq_visita === 'Mensal') {
+        return ag.dia_mes ? ag.dia_mes === dom : false;
+      }
+      if (ag.freq_visita === 'Quinzenal') {
+        if (!matchDia) return false;
+        const firstOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+        const weekIdx = Math.floor((date.getDate() + firstOfMonth.getDay() - 1) / 7);
+        return weekIdx % 2 === 0;
       }
       return false;
     }
-    case 'Mensal':
-      return ag.dia_mes ? ag.dia_mes === dom : false;
     default:
       return false;
   }
@@ -698,6 +801,17 @@ export default function CalendarioAtendimento() {
   // Gerar calendário de visitas agendadas
   const calendarioVisitas = useMemo(() => {
     const ultimoDia = new Date(anoSelecionado, mesSelecionado, 0).getDate();
+    const rangeStart = new Date(anoSelecionado, mesSelecionado - 1, 1);
+    const rangeEnd = new Date(anoSelecionado, mesSelecionado - 1, ultimoDia);
+
+    // Pre-gerar cache de datas agendadas para cada fornecedor (Quinzenal/21 Dias/Mensal)
+    const cacheMap = {};
+    for (const [codStr, ag] of Object.entries(agendamentos)) {
+      if (['Quinzenal', '21 Dias', 'Mensal'].includes(ag.freq_visita) && ag.inicio_agendamento) {
+        cacheMap[codStr] = gerarDatasAgendadas(ag, rangeStart, rangeEnd);
+      }
+    }
+
     const dias = [];
     for (let d = 1; d <= ultimoDia; d++) {
       const date = new Date(anoSelecionado, mesSelecionado - 1, d);
@@ -707,7 +821,7 @@ export default function CalendarioAtendimento() {
         // Só mostra no calendário se tem ao menos um dia da semana preenchido
         const temDiaSemana = ag.dia_semana_1 || ag.dia_semana_2 || ag.dia_semana_3;
         if (!temDiaSemana) continue;
-        if (fornecedorNoDia(ag, date)) {
+        if (fornecedorNoDia(ag, date, cacheMap[codStr])) {
           const cod = parseInt(codStr);
           const nome = fornecedorNomes[cod];
           if (!nome) continue; // Ignora se não existe no Oracle
@@ -832,12 +946,22 @@ export default function CalendarioAtendimento() {
     const dow = dataSel.getDay();
     const diaSemanaLabel = DIA_SEMANA_LABEL[dow];
 
+    // Pre-gerar cache de datas para o mês corrente
+    const rangeStart = new Date(dataSel.getFullYear(), dataSel.getMonth(), 1);
+    const rangeEnd = new Date(dataSel.getFullYear(), dataSel.getMonth() + 2, 0);
+    const cacheMap = {};
+    for (const [codStr, ag] of Object.entries(agendamentos)) {
+      if (['Quinzenal', '21 Dias', 'Mensal'].includes(ag.freq_visita) && ag.inicio_agendamento) {
+        cacheMap[codStr] = gerarDatasAgendadas(ag, rangeStart, rangeEnd);
+      }
+    }
+
     // Fornecedores agendados para este dia (mesmo filtro da Visão Mensal)
     const agendadosHoje = {};
     for (const [codStr, ag] of Object.entries(agendamentos)) {
       const temDiaSemana = ag.dia_semana_1 || ag.dia_semana_2 || ag.dia_semana_3;
       if (!temDiaSemana) continue; // Só mostra se tem dia da semana configurado
-      if (fornecedorNoDia(ag, dataSel)) {
+      if (fornecedorNoDia(ag, dataSel, cacheMap[codStr])) {
         agendadosHoje[parseInt(codStr)] = ag;
       }
     }
@@ -875,7 +999,7 @@ export default function CalendarioAtendimento() {
         for (let i = 1; i <= 60; i++) {
           const futureDate = new Date(dataSel);
           futureDate.setDate(futureDate.getDate() + i);
-          if (fornecedorNoDia(ag, futureDate)) {
+          if (fornecedorNoDia(ag, futureDate, cacheMap[String(cod)])) {
             proximoAtend = futureDate;
             break;
           }
