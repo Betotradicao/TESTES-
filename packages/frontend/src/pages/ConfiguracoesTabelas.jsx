@@ -419,6 +419,7 @@ const BUSINESS_MODULES = [
       { id: 'quebras', name: 'Prevenção Quebras', icon: '💔', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ITENS', 'TAB_TIPO_AJUSTE', 'TAB_SECAO', 'TAB_FORNECEDOR'] },
       { id: 'producao', name: 'Produção', icon: '🏭', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_DECOMPOSICAO', 'TAB_INFO_NUTRICIONAL', 'TAB_INFO_RECEITA', 'TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ITENS', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO'] },
       { id: 'hortfruti', name: 'Hort Fruti', icon: '🥬', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA'] },
+      { id: 'prevencao_recebimento', name: 'Prevenção Recebimento', icon: '📋', tables: ['TAB_FORNECEDOR', 'TAB_NOTA_FISCAL', 'TAB_NF', 'TAB_NF_ITEM'] },
     ]
   },
   {

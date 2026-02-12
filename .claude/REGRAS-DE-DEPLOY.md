@@ -84,6 +84,24 @@ docker restart prevencao-<CLIENTE>-backend
 - [ ] NAO vai recriar postgres/minio?
 - [ ] Fez `git pull` ANTES do build?
 
+### Checklist de Mapeamento de Tabelas (OBRIGATORIO se mexeu em Oracle)
+
+Se a funcionalidade consulta Oracle, verificar ANTES do deploy:
+
+- [ ] Todos os campos Oracle usam `MappingService.getColumnFromTable()`?
+- [ ] Todas as tabelas Oracle usam `MappingService.getRealTableName()`?
+- [ ] O schema usa `MappingService.getSchema()`?
+- [ ] NAO tem nenhum `getColumnFromTable` com 3o parametro (fallback)?
+- [ ] NAO tem coluna Oracle hardcoded na query? (ex: `p.COD_PRODUTO` direto)
+- [ ] NAO tem schema Oracle hardcoded? (ex: `INTERSOLID.TAB_PRODUTO`)
+- [ ] Os campos novos existem no `TABLE_CATALOG` em `ConfiguracoesTabelas.jsx`?
+- [ ] O modulo/submodulo esta no `BUSINESS_MODULES` com as tabelas corretas?
+- [ ] Template INTERSOLID foi atualizado no banco? (`erp_templates`)
+- [ ] Conexao ativa foi atualizada no banco? (`database_connections`)
+- [ ] Na tela de Configuracoes de Tabelas, os novos campos aparecem em verde (preenchidos)?
+
+> Consulte `.claude/REGRAS-MAPEAMENTO-TABELAS.md` para detalhes completos.
+
 ## Limpeza de Cache (OBRIGATORIA)
 
 Docker acumula cache a cada build. Limpar sempre apos deploy:
@@ -106,4 +124,4 @@ Se espaco < 10GB, limpar ANTES do deploy.
 
 ---
 
-**Atualizado em:** 09/02/2026
+**Atualizado em:** 12/02/2026
