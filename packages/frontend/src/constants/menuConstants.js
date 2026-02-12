@@ -8,6 +8,7 @@ export const MENU_MODULES = {
   PEDIDOS: 'pedidos',
   RUPTURA_INDUSTRIA: 'ruptura-industria',
   CALENDARIO_ATENDIMENTO: 'calendario-atendimento',
+  CONTROLE_RECEBIMENTO: 'controle-recebimento',
   // Prevenção no Radar
   BIPAGENS: 'bipagens',
   PDV: 'pdv',
@@ -43,6 +44,10 @@ export const MENU_SUBMENUS = {
 
   // Calendário de Atendimento
   CALENDARIO_ATENDIMENTO_PAINEL: 'calendario-atendimento-painel',
+
+  // Controle de Recebimento
+  NF_A_CHEGAR: 'nf-a-chegar',
+  NF_RECEBIMENTO: 'nf-recebimento',
 
   // Bipagens
   BIPAGENS_AO_VIVO: 'bipagens-ao-vivo',
@@ -166,6 +171,24 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.CALENDARIO_ATENDIMENTO_PAINEL,
         title: 'Calendário de Atendimento',
         path: '/calendario-atendimento'
+      }
+    ]
+  },
+  {
+    id: MENU_MODULES.CONTROLE_RECEBIMENTO,
+    title: 'Controle de Recebimento',
+    icon: 'document',
+    section: 'gestao',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.NF_A_CHEGAR,
+        title: 'Notas a Chegar',
+        path: '/notas-a-chegar'
+      },
+      {
+        id: MENU_SUBMENUS.NF_RECEBIMENTO,
+        title: 'Notas Entregue',
+        path: '/nota-fiscal-recebimento'
       }
     ]
   },

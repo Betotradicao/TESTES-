@@ -13,7 +13,10 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
     function_description: '',
     username: '',
     password: '',
-    cod_loja: codLoja || null
+    cod_loja: codLoja || null,
+    is_conferente: false,
+    is_cpd: false,
+    is_financeiro: false
   });
   const [sectors, setSectors] = useState([]);
   const [errors, setErrors] = useState([]);
@@ -37,7 +40,10 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
         function_description: employee.function_description,
         username: employee.username,
         password: '', // Never pre-fill password
-        cod_loja: employee.cod_loja || codLoja || null
+        cod_loja: employee.cod_loja || codLoja || null,
+        is_conferente: employee.is_conferente || false,
+        is_cpd: employee.is_cpd || false,
+        is_financeiro: employee.is_financeiro || false
       });
       setAvatarPreview(employee.avatar);
 
@@ -587,6 +593,42 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
                 )}
               </div>
             )}
+
+            {/* Funções de Recebimento */}
+            <div className="border-t pt-4 mt-4">
+              <h4 className="text-sm font-semibold mb-3 text-gray-900">
+                Funções de Recebimento de NF
+              </h4>
+              <div className="flex flex-wrap gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_conferente}
+                    onChange={(e) => setFormData({ ...formData, is_conferente: e.target.checked })}
+                    className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                  />
+                  <span className="text-sm text-gray-700">Conferente</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_cpd}
+                    onChange={(e) => setFormData({ ...formData, is_cpd: e.target.checked })}
+                    className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                  />
+                  <span className="text-sm text-gray-700">CPD</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_financeiro}
+                    onChange={(e) => setFormData({ ...formData, is_financeiro: e.target.checked })}
+                    className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                  />
+                  <span className="text-sm text-gray-700">Financeiro</span>
+                </label>
+              </div>
+            </div>
 
             {/* Permissions Section */}
             <div className="border-t pt-6 mt-6">

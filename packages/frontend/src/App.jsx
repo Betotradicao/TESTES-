@@ -47,6 +47,8 @@ import GarimpaFornecedores from './pages/GarimpaFornecedores';
 import RotaCrescimento from './pages/RotaCrescimento';
 import CalendarioAtendimento from './pages/CalendarioAtendimento';
 import CotacaoPublica from './pages/CotacaoPublica';
+import NotaFiscalRecebimento from './pages/NotaFiscalRecebimento';
+import NotasAChegar from './pages/NotasAChegar';
 
 function App() {
   return (
@@ -372,6 +374,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <CalendarioAtendimento />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/nota-fiscal-recebimento"
+              element={
+                <ProtectedRoute>
+                  <NotaFiscalRecebimento />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/notas-a-chegar"
+              element={
+                <ProtectedRoute>
+                  <NotasAChegar />
                 </ProtectedRoute>
               }
             />

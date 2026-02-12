@@ -117,7 +117,7 @@ export default function PrevencaoPedidos() {
     { key: 'DES_CONTATO', label: 'CONTATO', sortable: false },
     { key: 'NUM_CELULAR', label: 'CELULAR', sortable: false },
     { key: 'DTA_EMISSAO', label: 'EMISSAO', sortable: true },
-    { key: 'DTA_ENTRADA', label: 'ENTRADA', sortable: true },
+    { key: 'DTA_ENTRADA', label: 'ENTRADA DE NOTA', sortable: true },
     { key: 'VAL_TOTAL_NF', label: 'VALOR (R$)', sortable: true },
     { key: 'DES_NATUREZA', label: 'NATUREZA', sortable: false }
   ]);
@@ -1191,7 +1191,24 @@ export default function PrevencaoPedidos() {
                           case 'DTA_EMISSAO':
                             return <td key={col.key} className="px-2 py-1.5 text-center text-xs">{formatDate(nf.DTA_EMISSAO)}</td>;
                           case 'DTA_ENTRADA':
-                            return <td key={col.key} className="px-2 py-1.5 text-center text-xs">{formatDate(nf.DTA_ENTRADA)}</td>;
+                            return (
+                              <td key={col.key} className="px-2 py-1.5 text-center">
+                                {nf.DTA_ENTRADA ? (
+                                  <div>
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-800 border border-green-300">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                      FINALIZADA
+                                    </span>
+                                    <div className="text-[9px] text-green-600 mt-0.5">{formatDate(nf.DTA_ENTRADA)}</div>
+                                  </div>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-yellow-100 text-yellow-800 border border-yellow-300">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
+                                    PENDENTE
+                                  </span>
+                                )}
+                              </td>
+                            );
                           case 'VAL_TOTAL_NF':
                             return <td key={col.key} className="px-2 py-1.5 text-right font-semibold text-green-600">{formatCurrency(nf.VAL_TOTAL_NF)}</td>;
                           case 'DES_NATUREZA':

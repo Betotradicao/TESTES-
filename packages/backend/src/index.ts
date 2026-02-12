@@ -57,6 +57,7 @@ import holidaysRouter from './routes/holidays.routes';
 import aiConsultantRouter from './routes/ai-consultant.routes';
 import calendarioAtendimentoRouter from './routes/calendario-atendimento.routes';
 import { cotacaoRouter, cotacaoPublicRouter } from './routes/cotacao.routes';
+import notaFiscalRecebimentoRouter from './routes/nota-fiscal-recebimento.routes';
 import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
 import { MappingService } from './services/mapping.service';
@@ -147,6 +148,7 @@ app.use('/api/holidays', holidaysRouter);
 app.use('/api/ai-consultant', aiConsultantRouter);
 app.use('/api/calendario-atendimento', calendarioAtendimentoRouter);
 app.use('/api/cotacao', cotacaoRouter);
+app.use('/api/nota-fiscal-recebimento', notaFiscalRecebimentoRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {

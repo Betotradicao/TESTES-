@@ -40,6 +40,15 @@ export class Employee {
   @Column({ type: 'int', nullable: true })
   cod_loja: number | null;
 
+  @Column({ type: 'boolean', default: false })
+  is_conferente: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  is_cpd: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  is_financeiro: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 
