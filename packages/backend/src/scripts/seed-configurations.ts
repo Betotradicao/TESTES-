@@ -360,6 +360,28 @@ async function seedConfigurations() {
         key: 'santander_environment',
         value: process.env.SANTANDER_ENVIRONMENT || 'production',
         description: 'Ambiente Santander: production ou sandbox'
+      },
+
+      // Banco 24horas - API TecBan (Portal EC)
+      {
+        key: 'banco24h_user_id',
+        value: process.env.BANCO24H_USER_ID || '',
+        description: 'UUID do usuário API no Portal EC Banco 24horas'
+      },
+      {
+        key: 'banco24h_cnpj_raiz',
+        value: process.env.BANCO24H_CNPJ_RAIZ || '',
+        description: 'CNPJ Raiz (8 dígitos) cadastrado no Banco 24horas'
+      },
+      {
+        key: 'banco24h_loja_code',
+        value: process.env.BANCO24H_LOJA_CODE || '',
+        description: 'Código da loja no Banco 24horas'
+      },
+      {
+        key: 'banco24h_environment',
+        value: process.env.BANCO24H_ENVIRONMENT || 'production',
+        description: 'Ambiente Banco 24horas: production ou sandbox'
       }
     ];
 

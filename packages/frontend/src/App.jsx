@@ -50,6 +50,7 @@ import CotacaoPublica from './pages/CotacaoPublica';
 import NotaFiscalRecebimento from './pages/NotaFiscalRecebimento';
 import NotasAChegar from './pages/NotasAChegar';
 import ExtratoSantander from './pages/ExtratoSantander';
+import ExtratoBanco24h from './pages/ExtratoBanco24h';
 
 function App() {
   return (
@@ -399,6 +400,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ExtratoSantander />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/extrato-banco24h"
+              element={
+                <ProtectedRoute>
+                  <ExtratoBanco24h />
                 </ProtectedRoute>
               }
             />

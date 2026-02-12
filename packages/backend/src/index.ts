@@ -59,6 +59,7 @@ import calendarioAtendimentoRouter from './routes/calendario-atendimento.routes'
 import { cotacaoRouter, cotacaoPublicRouter } from './routes/cotacao.routes';
 import notaFiscalRecebimentoRouter from './routes/nota-fiscal-recebimento.routes';
 import santanderRouter from './routes/santander.routes';
+import banco24horasRouter from './routes/banco24horas.routes';
 import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
 import { MappingService } from './services/mapping.service';
@@ -151,6 +152,7 @@ app.use('/api/calendario-atendimento', calendarioAtendimentoRouter);
 app.use('/api/cotacao', cotacaoRouter);
 app.use('/api/nota-fiscal-recebimento', notaFiscalRecebimentoRouter);
 app.use('/api/santander', santanderRouter);
+app.use('/api/banco24horas', banco24horasRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {
