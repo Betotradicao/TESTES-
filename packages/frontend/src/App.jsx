@@ -49,6 +49,7 @@ import CalendarioAtendimento from './pages/CalendarioAtendimento';
 import CotacaoPublica from './pages/CotacaoPublica';
 import NotaFiscalRecebimento from './pages/NotaFiscalRecebimento';
 import NotasAChegar from './pages/NotasAChegar';
+import ExtratoSantander from './pages/ExtratoSantander';
 
 function App() {
   return (
@@ -390,6 +391,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <NotasAChegar />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/extrato-santander"
+              element={
+                <ProtectedRoute>
+                  <ExtratoSantander />
                 </ProtectedRoute>
               }
             />

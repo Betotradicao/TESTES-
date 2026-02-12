@@ -9,6 +9,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
   const [expandedSections, setExpandedSections] = useState({
     'gestao-radar': true,
     'prevencao-radar': true,
+    'financas-radar': true,
     'ia-radar': true
   });
   const [expandedItems, setExpandedItems] = useState({});
@@ -117,7 +118,10 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/hortfrut-lancador': 'hortfruti',
       '/hortfrut-resultados': 'hortfruti',
       '/nota-fiscal-recebimento': 'controle-recebimento',
-      '/notas-a-chegar': 'controle-recebimento'
+      '/notas-a-chegar': 'controle-recebimento',
+      '/extrato-santander': 'bancos',
+      '/extrato-tribanco': 'bancos',
+      '/extrato-banco24h': 'bancos'
     };
 
     const submenuId = routeToSubmenu[currentPath];
@@ -421,6 +425,42 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
           )
+        }
+      ]
+    },
+    {
+      id: 'financas-radar',
+      title: 'FINANÇAS NO RADAR',
+      titleComponent: (
+        <span>
+          <span className="text-gray-700">FINANÇAS NO </span>
+          <span className="text-orange-500 font-bold">RADAR</span>
+        </span>
+      ),
+      icon: (
+        <div className="w-5 h-5 bg-orange-500 rounded-md flex items-center justify-center">
+          <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+          </svg>
+        </div>
+      ),
+      expandable: true,
+      items: [
+        {
+          id: 'bancos',
+          moduleId: 'bancos',
+          title: 'Bancos',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/>
+            </svg>
+          ),
+          expandable: true,
+          subItems: [
+            { id: 'extrato-santander', submenuId: 'extrato-santander', title: 'Santander', path: '/extrato-santander' },
+            { id: 'extrato-tribanco', submenuId: 'extrato-tribanco', title: 'Tribanco', path: '/extrato-tribanco' },
+            { id: 'extrato-banco24h', submenuId: 'extrato-banco24h', title: 'Banco 24horas', path: '/extrato-banco24h' }
+          ]
         }
       ]
     },

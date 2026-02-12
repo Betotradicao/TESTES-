@@ -58,6 +58,7 @@ import aiConsultantRouter from './routes/ai-consultant.routes';
 import calendarioAtendimentoRouter from './routes/calendario-atendimento.routes';
 import { cotacaoRouter, cotacaoPublicRouter } from './routes/cotacao.routes';
 import notaFiscalRecebimentoRouter from './routes/nota-fiscal-recebimento.routes';
+import santanderRouter from './routes/santander.routes';
 import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
 import { MappingService } from './services/mapping.service';
@@ -149,6 +150,7 @@ app.use('/api/ai-consultant', aiConsultantRouter);
 app.use('/api/calendario-atendimento', calendarioAtendimentoRouter);
 app.use('/api/cotacao', cotacaoRouter);
 app.use('/api/nota-fiscal-recebimento', notaFiscalRecebimentoRouter);
+app.use('/api/santander', santanderRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {
@@ -218,10 +220,14 @@ const startServer = async () => {
     console.log('Continuing without Oracle connection');
   }
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`🚀 Server is running on port ${PORT}`);
     console.log(`📚 Swagger docs available at http://localhost:${PORT}/api-docs`);
   });
+  // Timeout de 5 minutos para rotas pesadas (ex: extrato bancário de um ano)
+  server.timeout = 300000;
+  server.keepAliveTimeout = 300000;
+  server.headersTimeout = 310000;
 
   // Email Monitor Cron Job - runs every 30 seconds
   cron.schedule('*/30 * * * * *', async () => {

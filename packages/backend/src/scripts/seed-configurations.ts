@@ -328,6 +328,38 @@ async function seedConfigurations() {
         key: 'openai_api_key',
         value: process.env.OPENAI_API_KEY || '',
         description: 'Chave de API do OpenAI (ChatGPT)'
+      },
+
+      // Santander - API Bancária
+      {
+        key: 'santander_client_id',
+        value: process.env.SANTANDER_CLIENT_ID || '',
+        description: 'Client ID da aplicação Santander Open API'
+      },
+      {
+        key: 'santander_client_secret',
+        value: process.env.SANTANDER_CLIENT_SECRET || '',
+        description: 'Client Secret da aplicação Santander Open API'
+      },
+      {
+        key: 'santander_pfx_password',
+        value: process.env.SANTANDER_PFX_PASSWORD || '',
+        description: 'Senha do certificado PFX do Santander (mTLS)'
+      },
+      {
+        key: 'santander_branch_code',
+        value: process.env.SANTANDER_BRANCH_CODE || '',
+        description: 'Código da agência Santander (4 dígitos)'
+      },
+      {
+        key: 'santander_account_number',
+        value: process.env.SANTANDER_ACCOUNT_NUMBER || '',
+        description: 'Número da conta Santander (12 dígitos, com dígito)'
+      },
+      {
+        key: 'santander_environment',
+        value: process.env.SANTANDER_ENVIRONMENT || 'production',
+        description: 'Ambiente Santander: production ou sandbox'
       }
     ];
 

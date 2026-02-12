@@ -20,6 +20,8 @@ export const MENU_MODULES = {
   HORTFRUT: 'hortfrut',
   // Garimpa Fácil
   GARIMPA_FORNECEDORES: 'garimpa-fornecedores',
+  // Finanças no Radar
+  BANCOS: 'bancos',
   // IA no Radar
   ROTA_CRESCIMENTO: 'rota-crescimento',
 };
@@ -83,6 +85,11 @@ export const MENU_SUBMENUS = {
 
   // Garimpa Fácil
   GARIMPA_FORNECEDORES_CONCORRENTES: 'garimpa-fornecedores-concorrentes',
+
+  // Finanças no Radar
+  EXTRATO_SANTANDER: 'extrato-santander',
+  EXTRATO_TRIBANCO: 'extrato-tribanco',
+  EXTRATO_BANCO24H: 'extrato-banco24h',
 
   // IA no Radar
   ROTA_CRESCIMENTO_DASHBOARD: 'rota-crescimento-dashboard',
@@ -348,6 +355,30 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.GARIMPA_FORNECEDORES_CONCORRENTES,
         title: 'Fornecedores e Concorrentes',
         path: '/garimpa-fornecedores'
+      }
+    ]
+  },
+  // ========== FINANÇAS NO RADAR ==========
+  {
+    id: MENU_MODULES.BANCOS,
+    title: 'Bancos',
+    icon: 'bank',
+    section: 'financas',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.EXTRATO_SANTANDER,
+        title: 'Extrato Santander',
+        path: '/extrato-santander'
+      },
+      {
+        id: MENU_SUBMENUS.EXTRATO_TRIBANCO,
+        title: 'Extrato Tribanco',
+        path: '/extrato-tribanco'
+      },
+      {
+        id: MENU_SUBMENUS.EXTRATO_BANCO24H,
+        title: 'Extrato Banco 24horas',
+        path: '/extrato-banco24h'
       }
     ]
   },
