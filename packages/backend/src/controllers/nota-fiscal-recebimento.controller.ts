@@ -44,7 +44,7 @@ export class NotaFiscalRecebimentoController {
       if (fornecedor) {
         qb = qb.andWhere('nf.fornecedor = :fornecedor', { fornecedor });
       }
-      if (sem_assinatura === 'conferente') {
+      if (sem_assinatura === 'conferente' || sem_assinatura === 'finalizada_sem_conf') {
         qb = qb.andWhere('nf.conferente_nome IS NULL');
       } else if (sem_assinatura === 'cpd') {
         qb = qb.andWhere('nf.cpd_nome IS NULL');
@@ -371,7 +371,31 @@ export class NotaFiscalRecebimentoController {
       const semFinanceiro = await baseQb.clone().andWhere('nf.financeiro_nome IS NULL').getCount();
       const total = await baseQb.clone().getCount();
 
-      res.json({ semConferente, semCpd, semFinanceiro, total, ano: anoAtual });
+      // Notas finalizadas (entrada_efetivada) sem conferencia
+      // Para isso, precisamos verificar no Oracle quais notas têm entrada efetivada
+      let finalizadaSemConf = 0;
+      try {
+        const notasSemConf = await baseQb.clone().andWhere('nf.conferente_nome IS NULL').getMany();
+        if (notasSemConf.length > 0) {
+          const schema = await MappingService.getSchema();
+          const tabFornNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA')}`;
+          // Check which ones have DTA_ENTRADA (efetivada)
+          for (const nf of notasSemConf) {
+            if (!nf.num_nota) continue;
+            try {
+              const rows = await OracleService.query(
+                `SELECT COUNT(*) as CNT FROM ${tabFornNota} fn WHERE fn.NUM_NF_FORN = :numNota AND fn.DTA_ENTRADA IS NOT NULL AND ROWNUM <= 1`,
+                { numNota: nf.num_nota.toString() }
+              );
+              if (rows[0]?.CNT > 0) finalizadaSemConf++;
+            } catch {}
+          }
+        }
+      } catch (e) {
+        // Oracle not available - ignore
+      }
+
+      res.json({ semConferente, semCpd, semFinanceiro, finalizadaSemConf, total, ano: anoAtual });
     } catch (error: any) {
       console.error('Erro ao buscar resumo pendentes:', error);
       res.status(500).json({ error: 'Erro ao buscar resumo', details: error.message });

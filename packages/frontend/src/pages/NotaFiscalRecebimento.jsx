@@ -504,41 +504,38 @@ export default function NotaFiscalRecebimento() {
         </div>
 
         {/* Cards de Resumo - Pendentes do Ano */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
           {[
-            { id: 'conferente', label: 'Conferente', count: resumoPendentes.semConferente, color: 'blue', emoji: '✍️' },
-            { id: 'cpd', label: 'CPD', count: resumoPendentes.semCpd, color: 'purple', emoji: '🖥️' },
-            { id: 'financeiro', label: 'Financeiro', count: resumoPendentes.semFinanceiro, color: 'teal', emoji: '💰' },
+            { id: 'conferente', label: 'Conferente', subtitle: 'Sem Visto', count: resumoPendentes.semConferente, color: 'blue', emoji: '✍️' },
+            { id: 'cpd', label: 'CPD', subtitle: 'Sem Visto', count: resumoPendentes.semCpd, color: 'purple', emoji: '🖥️' },
+            { id: 'financeiro', label: 'Financeiro', subtitle: 'Sem Visto', count: resumoPendentes.semFinanceiro, color: 'teal', emoji: '💰' },
+            { id: 'finalizada_sem_conf', label: 'Sem Conferência', subtitle: 'Nota Finalizada', count: resumoPendentes.finalizadaSemConf || 0, color: 'red', emoji: '⚠️' },
           ].map(card => {
             const isActive = cardFilter === card.id;
             const colorMap = {
               blue: { bg: 'bg-blue-50', border: 'border-blue-500', text: 'text-blue-700', ring: 'ring-blue-500', activeBg: 'bg-blue-100' },
               purple: { bg: 'bg-purple-50', border: 'border-purple-500', text: 'text-purple-700', ring: 'ring-purple-500', activeBg: 'bg-purple-100' },
               teal: { bg: 'bg-teal-50', border: 'border-teal-500', text: 'text-teal-700', ring: 'ring-teal-500', activeBg: 'bg-teal-100' },
+              red: { bg: 'bg-red-50', border: 'border-red-500', text: 'text-red-700', ring: 'ring-red-500', activeBg: 'bg-red-100' },
             };
             const c = colorMap[card.color];
             return (
               <button
                 key={card.id}
-                onClick={() => {
-                  if (isActive) {
-                    setCardFilter(null);
-                  } else {
-                    setCardFilter(card.id);
-                  }
-                }}
+                onClick={() => setCardFilter(isActive ? null : card.id)}
                 className={`rounded-xl shadow-sm border-l-4 ${c.border} p-4 text-left transition-all hover:shadow-md ${
                   isActive ? `${c.activeBg} ring-2 ${c.ring}` : `${c.bg}`
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase">Sem Visto {card.label}</p>
+                    <p className="text-[10px] font-medium text-gray-500 uppercase">{card.subtitle}</p>
+                    <p className="text-xs font-bold text-gray-700">{card.label}</p>
                     <p className={`text-3xl font-bold ${c.text} mt-1`}>{card.count}</p>
                   </div>
                   <span className="text-3xl">{card.emoji}</span>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">Notas de {resumoPendentes.ano} sem assinatura</p>
+                <p className="text-[10px] text-gray-400 mt-1">Notas de {resumoPendentes.ano}</p>
               </button>
             );
           })}
@@ -547,7 +544,12 @@ export default function NotaFiscalRecebimento() {
         {cardFilter && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 mb-4 flex items-center justify-between">
             <span className="text-sm text-amber-800 font-medium">
-              Mostrando NFs de {resumoPendentes.ano} sem visto de <strong>{cardFilter === 'conferente' ? 'Conferente' : cardFilter === 'cpd' ? 'CPD' : 'Financeiro'}</strong>
+              Mostrando NFs de {resumoPendentes.ano}: <strong>{
+                cardFilter === 'conferente' ? 'Sem visto Conferente' :
+                cardFilter === 'cpd' ? 'Sem visto CPD' :
+                cardFilter === 'financeiro' ? 'Sem visto Financeiro' :
+                'Finalizadas sem Conferência'
+              }</strong>
             </span>
             <button onClick={() => setCardFilter(null)} className="text-amber-600 hover:text-amber-800 text-sm underline">Limpar filtro</button>
           </div>
