@@ -1370,7 +1370,12 @@ export default function CompraVendaAnalise() {
           </div>
 
           {/* Tabela de Resultados */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="bg-white rounded-lg shadow overflow-hidden relative">
+            {loading && data.length === 0 && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
+                <RadarLoading message="Buscando dados..." />
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-600">
@@ -1409,7 +1414,7 @@ export default function CompraVendaAnalise() {
                   {data.length === 0 ? (
                     <tr>
                       <td colSpan={columns.length} className="px-4 py-8 text-center text-gray-500">
-                        {loading ? <RadarLoading message="Buscando dados..." /> : 'Nenhum dado encontrado. Clique em Pesquisar para buscar os dados.'}
+                        {loading ? '' : 'Nenhum dado encontrado. Clique em Pesquisar para buscar os dados.'}
                       </td>
                     </tr>
                   ) : (

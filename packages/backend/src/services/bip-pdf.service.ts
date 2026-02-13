@@ -139,7 +139,7 @@ export class BipPDFService {
 
       // Rodapé
       doc.fontSize(8).fillColor('#888').text(
-        this.normalizeText('Relatório gerado automaticamente pelo sistema Prevenção no Radar'),
+        this.normalizeText('Relatório gerado automaticamente pelo sistema Radar 360'),
         50,
         770,
         { align: 'center' }

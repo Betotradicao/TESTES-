@@ -109,7 +109,7 @@ export class ProductionPDFService {
         const boxHeight = 35;
         doc.rect(0, 0, pageWidth, boxHeight).fillAndStroke('#EA580C', '#EA580C');
         doc.fontSize(14).font('Helvetica-Bold').fillColor('white');
-        doc.text('PREVENÇÃO NO RADAR', 0, 10, { align: 'center', width: pageWidth });
+        doc.text('RADAR 360', 0, 10, { align: 'center', width: pageWidth });
 
         // Título e informações
         doc.y = boxHeight + 8;

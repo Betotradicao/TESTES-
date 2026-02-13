@@ -247,7 +247,7 @@ export default function FirstSetup() {
               <Logo size="large" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900">
-              Bem-vindo ao Sistema Prevenção no Radar
+              Bem-vindo ao <span className="text-orange-500">Radar</span> <span className="text-gray-600 italic">360</span>
             </h1>
             <p className="mt-3 text-base text-gray-600">
               Configure sua empresa e crie o primeiro usuário administrador

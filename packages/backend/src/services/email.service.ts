@@ -77,7 +77,7 @@ class EmailService {
 
     try {
       const info = await this.transporter.sendMail({
-        from: `"Prevenção no Radar" <${process.env.EMAIL_USER}>`,
+        from: `"Radar 360" <${process.env.EMAIL_USER}>`,
         to: options.to,
         subject: options.subject,
         text: options.text || '',
@@ -140,12 +140,12 @@ class EmailService {
       <body>
         <div class="container">
           <div class="header">
-            <h1>Prevenção no Radar</h1>
+            <h1>Radar 360</h1>
           </div>
           <div class="content">
             <h2>Recuperação de Senha</h2>
             <p>Olá ${userName},</p>
-            <p>Você solicitou a recuperação de senha para sua conta no sistema Prevenção no Radar.</p>
+            <p>Você solicitou a recuperação de senha para sua conta no sistema Radar 360.</p>
             <p>Clique no botão abaixo para redefinir sua senha:</p>
             <p style="text-align: center;">
               <a href="${resetUrl}" class="button">Redefinir Senha</a>
@@ -158,7 +158,7 @@ class EmailService {
             <p>Se você não solicitou esta recuperação, ignore este email. Sua senha permanecerá inalterada.</p>
           </div>
           <div class="footer">
-            <p>© ${new Date().getFullYear()} Prevenção no Radar - Todos os direitos reservados</p>
+            <p>© ${new Date().getFullYear()} Radar 360 - Todos os direitos reservados</p>
           </div>
         </div>
       </body>
@@ -166,7 +166,7 @@ class EmailService {
     `;
 
     const text = `
-Recuperação de Senha - Prevenção no Radar
+Recuperação de Senha - Radar 360
 
 Olá ${userName},
 
@@ -180,12 +180,12 @@ Este link é válido por 1 hora.
 Se você não solicitou esta recuperação, ignore este email.
 
 ---
-© ${new Date().getFullYear()} Prevenção no Radar
+© ${new Date().getFullYear()} Radar 360
     `;
 
     return this.sendEmail({
       to: email,
-      subject: 'Recuperação de Senha - Prevenção no Radar',
+      subject: 'Recuperação de Senha - Radar 360',
       html,
       text
     });

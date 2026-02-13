@@ -145,7 +145,7 @@ function getSystemPrompt(): string {
 - Taxa de ruptura aceitável: <5% | Perda aceitável: <2% do faturamento
 
 ## CONTEXTO DO NEGÓCIO
-- Sistema "Prevenção no Radar" para supermercados brasileiros
+- Sistema "Radar 360" para supermercados brasileiros
 - Dados do ERP Oracle/Intersolid em tempo real
 - Foco: prevenção de perdas, gestão de margem, eficiência operacional
 - Setores: Açougue, Padaria, Hortifrúti, Mercearia, Frios, Bebidas, Limpeza, Higiene

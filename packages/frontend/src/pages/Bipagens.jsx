@@ -651,7 +651,7 @@ export default function Bipagens() {
         <button class="print-btn no-print" onclick="window.print()">🖨️ Imprimir PDF</button>
 
         <div class="header">
-          <h1>📊 PREVENÇÃO NO RADAR</h1>
+          <h1>📊 RADAR 360</h1>
           <p>${title}</p>
         </div>
 
@@ -687,7 +687,7 @@ export default function Bipagens() {
         </table>
 
         <div class="footer">
-          <p>Documento gerado em ${new Date().toLocaleString('pt-BR')} | Prevenção no Radar - Sistema de Prevenção de Perdas</p>
+          <p>Documento gerado em ${new Date().toLocaleString('pt-BR')} | Radar 360</p>
         </div>
       </body>
       </html>

@@ -408,7 +408,7 @@ const TABLE_CATALOG = {
 const BUSINESS_MODULES = [
   {
     id: 'prevencao',
-    name: 'Prevenção no Radar',
+    name: 'Radar 360',
     icon: '🛡️',
     color: 'from-orange-500 to-red-500',
     submodules: [
@@ -1776,7 +1776,7 @@ export default function ConfiguracoesTabelas() {
           didDrawPage: () => {
             doc.setFontSize(7);
             doc.setTextColor(150, 150, 150);
-            doc.text('Prevenção no Radar - Mapeamento de Tabelas', 14, doc.internal.pageSize.height - 8);
+            doc.text('Radar 360 - Mapeamento de Tabelas', 14, doc.internal.pageSize.height - 8);
             doc.text(`Página ${doc.internal.getNumberOfPages()}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 8);
           }
         });

@@ -36,14 +36,11 @@ export default function Logo({ size = "medium" }) {
 
       {/* Text */}
       <div className="flex flex-col leading-none text-center">
-        <span className={`${classes.text} font-medium text-gray-700 uppercase tracking-wide`}>
-          PREVENÇÃO
-        </span>
-        <span className={`text-xs text-gray-500 uppercase tracking-wide`} style={{marginTop: '-8px', marginBottom: '-8px'}}>
-          NO
-        </span>
         <span className={`${classes.text === 'text-sm' ? 'text-base' : classes.text === 'text-base' ? 'text-xl' : 'text-2xl'} font-bold text-orange-500 uppercase`} style={{letterSpacing: '0.25em'}}>
           RADAR
+        </span>
+        <span className={`${classes.text === 'text-sm' ? 'text-lg' : classes.text === 'text-base' ? 'text-2xl' : 'text-3xl'} font-bold italic text-gray-600 tracking-widest`} style={{marginTop: '-4px'}}>
+          360
         </span>
       </div>
     </div>

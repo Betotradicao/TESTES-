@@ -66,9 +66,9 @@ export class RupturePDFService {
 
         // Texto do logo em branco no box
         doc.fontSize(20).font('Helvetica-Bold').fillColor('white');
-        doc.text('PREVENÇÃO', 0, 12, { align: 'center', width: pageWidth });
+        doc.text('RADAR', 0, 12, { align: 'center', width: pageWidth });
         doc.fontSize(16).fillColor('white');
-        doc.text('NO RADAR', 0, 32, { align: 'center', width: pageWidth });
+        doc.text('360', 0, 32, { align: 'center', width: pageWidth });
 
         // Voltar para baixo do box
         doc.y = boxHeight + 20;

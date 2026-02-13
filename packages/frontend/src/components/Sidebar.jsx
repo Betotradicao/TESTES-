@@ -871,10 +871,10 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
                 )}
                 <div className="flex-1 min-w-0 text-center">
                   <p className="text-sm font-medium text-gray-900 truncate">
-                    {user?.name || 'Prevenção Radar'}
+                    {user?.name || 'Radar 360'}
                   </p>
                   <p className="text-xs text-gray-500 truncate">
-                    {user?.type === 'employee' ? user?.sector?.name || 'Colaborador' : 'Sistema de Segurança'}
+                    {user?.type === 'employee' ? user?.sector?.name || 'Colaborador' : 'Sistema de Gestão'}
                   </p>
                 </div>
               </button>

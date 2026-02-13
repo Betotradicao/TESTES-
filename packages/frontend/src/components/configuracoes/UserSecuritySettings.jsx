@@ -31,7 +31,7 @@ export default function UserSecuritySettings() {
     smtpPassword: '',
     smtpSecure: true,
     smtpFromEmail: '',
-    smtpFromName: 'Sistema Prevenção no Radar',
+    smtpFromName: 'Radar 360',
   });
   const [showSmtpPassword, setShowSmtpPassword] = useState(false);
 
@@ -69,7 +69,7 @@ export default function UserSecuritySettings() {
           smtpPassword: '', // Never load password
           smtpSecure: response.data.smtpSecure !== false,
           smtpFromEmail: response.data.smtpFromEmail || '',
-          smtpFromName: response.data.smtpFromName || 'Sistema Prevenção no Radar',
+          smtpFromName: response.data.smtpFromName || 'Radar 360',
         });
       }
     } catch (err) {
