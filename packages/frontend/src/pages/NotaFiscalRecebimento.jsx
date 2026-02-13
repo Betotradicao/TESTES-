@@ -56,6 +56,10 @@ export default function NotaFiscalRecebimento() {
   // Lote (batch) selection
   const [selectedNotas, setSelectedNotas] = useState(new Set());
 
+  // Resumo pendentes (ano vigente)
+  const [resumoPendentes, setResumoPendentes] = useState({ semConferente: 0, semCpd: 0, semFinanceiro: 0, total: 0, ano: new Date().getFullYear() });
+  const [cardFilter, setCardFilter] = useState(null); // null | 'conferente' | 'cpd' | 'financeiro'
+
   // Ordenação de colunas (click no header)
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
@@ -194,8 +198,16 @@ export default function NotaFiscalRecebimento() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (filters.data_de) params.append('data_de', filters.data_de);
-      if (filters.data_ate) params.append('data_ate', filters.data_ate);
+      if (cardFilter) {
+        // Quando card ativo: busca do ano vigente inteiro, sem considerar filtros de data
+        const anoAtual = new Date().getFullYear();
+        params.append('data_de', `${anoAtual}-01-01`);
+        params.append('data_ate', `${anoAtual}-12-31`);
+        params.append('sem_assinatura', cardFilter);
+      } else {
+        if (filters.data_de) params.append('data_de', filters.data_de);
+        if (filters.data_ate) params.append('data_ate', filters.data_ate);
+      }
       if (filters.fornecedor) params.append('fornecedor', filters.fornecedor);
       if (filters.conferente) params.append('conferente', filters.conferente);
       if (filters.cpd) params.append('cpd', filters.cpd);
@@ -210,7 +222,7 @@ export default function NotaFiscalRecebimento() {
     } finally {
       setLoading(false);
     }
-  }, [filters, lojaSelecionada]);
+  }, [filters, lojaSelecionada, cardFilter]);
 
   const fetchColaboradores = useCallback(async () => {
     try {
@@ -245,9 +257,20 @@ export default function NotaFiscalRecebimento() {
     }
   }, []);
 
+  const fetchResumoPendentes = useCallback(async () => {
+    try {
+      const params = lojaSelecionada ? `?cod_loja=${lojaSelecionada}` : '';
+      const res = await api.get(`/nota-fiscal-recebimento/resumo-pendentes${params}`);
+      setResumoPendentes(res.data || { semConferente: 0, semCpd: 0, semFinanceiro: 0, total: 0, ano: new Date().getFullYear() });
+    } catch (err) {
+      console.error('Erro ao buscar resumo pendentes:', err);
+    }
+  }, [lojaSelecionada]);
+
   useEffect(() => { fetchNotas(); }, [fetchNotas]);
   useEffect(() => { fetchColaboradores(); }, [fetchColaboradores]);
   useEffect(() => { fetchFornecedores(); }, [fetchFornecedores]);
+  useEffect(() => { fetchResumoPendentes(); }, [fetchResumoPendentes]);
 
   useEffect(() => {
     if (notas.length > 0) verificarEntradas(notas);
@@ -310,7 +333,7 @@ export default function NotaFiscalRecebimento() {
       setFormFornecedorSearch('');
       setFormCnpjSearch('');
       setNfOracleInfo(null);
-      fetchNotas();
+      fetchNotas(); fetchResumoPendentes();
     } catch (err) {
       console.error('Erro ao salvar nota:', err);
       alert(err.response?.data?.error || 'Erro ao salvar nota');
@@ -323,7 +346,7 @@ export default function NotaFiscalRecebimento() {
     if (!confirm('Deseja excluir esta nota fiscal?')) return;
     try {
       await api.delete(`/nota-fiscal-recebimento/${id}`);
-      fetchNotas();
+      fetchNotas(); fetchResumoPendentes();
     } catch (err) {
       console.error('Erro ao excluir nota:', err);
       alert(err.response?.data?.error || 'Erro ao excluir nota');
@@ -364,7 +387,7 @@ export default function NotaFiscalRecebimento() {
         });
         setShowAssinaturaModal(false);
         setSelectedNotas(new Set());
-        fetchNotas();
+        fetchNotas(); fetchResumoPendentes();
         if (res.data.assinadas > 0) {
           // Sucesso silencioso
         }
@@ -376,7 +399,7 @@ export default function NotaFiscalRecebimento() {
           password: assinaturaData.password
         });
         setShowAssinaturaModal(false);
-        fetchNotas();
+        fetchNotas(); fetchResumoPendentes();
       }
     } catch (err) {
       setAssinaturaError(err.response?.data?.error || 'Erro ao assinar');
@@ -461,6 +484,7 @@ export default function NotaFiscalRecebimento() {
                 num_nota: '',
                 fornecedor: '',
                 cod_fornecedor: null,
+                razao_social: '',
                 data_recebimento: new Date().toISOString().split('T')[0],
                 hora_recebimento: new Date().toTimeString().slice(0, 5),
                 valor_nota: ''
@@ -478,6 +502,56 @@ export default function NotaFiscalRecebimento() {
             Nova Nota Fiscal
           </button>
         </div>
+
+        {/* Cards de Resumo - Pendentes do Ano */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          {[
+            { id: 'conferente', label: 'Conferente', count: resumoPendentes.semConferente, color: 'blue', emoji: '✍️' },
+            { id: 'cpd', label: 'CPD', count: resumoPendentes.semCpd, color: 'purple', emoji: '🖥️' },
+            { id: 'financeiro', label: 'Financeiro', count: resumoPendentes.semFinanceiro, color: 'teal', emoji: '💰' },
+          ].map(card => {
+            const isActive = cardFilter === card.id;
+            const colorMap = {
+              blue: { bg: 'bg-blue-50', border: 'border-blue-500', text: 'text-blue-700', ring: 'ring-blue-500', activeBg: 'bg-blue-100' },
+              purple: { bg: 'bg-purple-50', border: 'border-purple-500', text: 'text-purple-700', ring: 'ring-purple-500', activeBg: 'bg-purple-100' },
+              teal: { bg: 'bg-teal-50', border: 'border-teal-500', text: 'text-teal-700', ring: 'ring-teal-500', activeBg: 'bg-teal-100' },
+            };
+            const c = colorMap[card.color];
+            return (
+              <button
+                key={card.id}
+                onClick={() => {
+                  if (isActive) {
+                    setCardFilter(null);
+                  } else {
+                    setCardFilter(card.id);
+                  }
+                }}
+                className={`rounded-xl shadow-sm border-l-4 ${c.border} p-4 text-left transition-all hover:shadow-md ${
+                  isActive ? `${c.activeBg} ring-2 ${c.ring}` : `${c.bg}`
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Sem Visto {card.label}</p>
+                    <p className={`text-3xl font-bold ${c.text} mt-1`}>{card.count}</p>
+                  </div>
+                  <span className="text-3xl">{card.emoji}</span>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1">Notas de {resumoPendentes.ano} sem assinatura</p>
+              </button>
+            );
+          })}
+        </div>
+
+        {cardFilter && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 mb-4 flex items-center justify-between">
+            <span className="text-sm text-amber-800 font-medium">
+              Mostrando NFs de {resumoPendentes.ano} sem visto de <strong>{cardFilter === 'conferente' ? 'Conferente' : cardFilter === 'cpd' ? 'CPD' : 'Financeiro'}</strong>
+            </span>
+            <button onClick={() => setCardFilter(null)} className="text-amber-600 hover:text-amber-800 text-sm underline">Limpar filtro</button>
+          </div>
+        )}
 
         {/* Filters */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">

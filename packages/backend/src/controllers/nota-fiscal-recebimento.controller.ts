@@ -18,7 +18,7 @@ export class NotaFiscalRecebimentoController {
    */
   static async listar(req: AuthRequest, res: Response) {
     try {
-      const { data_de, data_ate, cod_loja, conferente, cpd, financeiro, fornecedor } = req.query;
+      const { data_de, data_ate, cod_loja, conferente, cpd, financeiro, fornecedor, sem_assinatura } = req.query;
       const repo = AppDataSource.getRepository(NotaFiscalRecebimento);
 
       let qb = repo.createQueryBuilder('nf');
@@ -43,6 +43,13 @@ export class NotaFiscalRecebimentoController {
       }
       if (fornecedor) {
         qb = qb.andWhere('nf.fornecedor = :fornecedor', { fornecedor });
+      }
+      if (sem_assinatura === 'conferente') {
+        qb = qb.andWhere('nf.conferente_nome IS NULL');
+      } else if (sem_assinatura === 'cpd') {
+        qb = qb.andWhere('nf.cpd_nome IS NULL');
+      } else if (sem_assinatura === 'financeiro') {
+        qb = qb.andWhere('nf.financeiro_nome IS NULL');
       }
 
       qb = qb.orderBy('nf.data_recebimento', 'DESC').addOrderBy('nf.id', 'DESC');
@@ -338,6 +345,36 @@ export class NotaFiscalRecebimentoController {
     } catch (error: any) {
       console.error('Erro ao listar colaboradores:', error);
       res.status(500).json({ error: 'Erro ao listar colaboradores', details: error.message });
+    }
+  }
+
+  /**
+   * Resumo de NFs sem assinatura do ano vigente
+   * GET /api/nota-fiscal-recebimento/resumo-pendentes
+   */
+  static async resumoPendentes(req: AuthRequest, res: Response) {
+    try {
+      const { cod_loja } = req.query;
+      const repo = AppDataSource.getRepository(NotaFiscalRecebimento);
+      const anoAtual = new Date().getFullYear();
+      const dataInicio = `${anoAtual}-01-01`;
+
+      let baseQb = repo.createQueryBuilder('nf')
+        .where('nf.data_recebimento >= :dataInicio', { dataInicio });
+      if (cod_loja) {
+        baseQb = baseQb.andWhere('nf.cod_loja = :cod_loja', { cod_loja: parseInt(cod_loja as string) });
+      }
+
+      // Count NFs without each signature type
+      const semConferente = await baseQb.clone().andWhere('nf.conferente_nome IS NULL').getCount();
+      const semCpd = await baseQb.clone().andWhere('nf.cpd_nome IS NULL').getCount();
+      const semFinanceiro = await baseQb.clone().andWhere('nf.financeiro_nome IS NULL').getCount();
+      const total = await baseQb.clone().getCount();
+
+      res.json({ semConferente, semCpd, semFinanceiro, total, ano: anoAtual });
+    } catch (error: any) {
+      console.error('Erro ao buscar resumo pendentes:', error);
+      res.status(500).json({ error: 'Erro ao buscar resumo', details: error.message });
     }
   }
 
