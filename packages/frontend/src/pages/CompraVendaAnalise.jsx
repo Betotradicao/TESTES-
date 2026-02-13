@@ -10,26 +10,26 @@ import autoTable from 'jspdf-autotable';
 
 // Configuração inicial das colunas
 const INITIAL_COLUMNS = [
-  { id: 'LOJA', header: 'Loja', align: 'left' },
-  { id: 'VENDA_PCT', header: '% Setor', align: 'right' },
-  { id: 'SECAO', header: 'Seção', align: 'left', smallFont: true },
-  { id: 'COMPRAS', header: 'Compras', align: 'right' },
-  { id: 'MARK_DOWN_PCT', header: 'Mark Down (%)', align: 'right' },
-  { id: 'MG_LUCRO_PCT', header: 'Mg Lucro (%)', align: 'right' },
-  { id: 'QTD_COMPRA', header: 'Qtde Compra', align: 'right' },
-  { id: 'QTD_VENDA', header: 'Qtde Venda', align: 'right' },
-  { id: 'COMPRA_PCT', header: 'Compra (%)', align: 'right' },
-  { id: 'CUSTO_VENDA', header: 'Custo Venda', align: 'right' },
-  { id: 'VENDAS', header: 'Vendas', align: 'right' },
-  { id: 'META_PCT', header: 'Meta (%)', align: 'right' },
-  { id: 'PCT', header: 'Atingido (%)', align: 'right' },
-  { id: 'DIFERENCA_PCT', header: 'Dif. (%)', align: 'right' },
-  { id: 'DIFERENCA_RS', header: 'Diferença (R$)', align: 'right' },
-  { id: 'EMPRESTEI', header: 'Emprestei (R$)', align: 'right', highlight: true },
-  { id: 'EMPRESTADO', header: 'Emprestado (R$)', align: 'right', highlight: true },
-  { id: 'COMPRA_FINAL', header: 'Compra Final (R$)', align: 'right', highlightGreen: true },
-  { id: 'ESTOQUE_ATUAL', header: 'Estoque Atual', align: 'right' },
-  { id: 'DIAS_COBERTURA', header: 'Dias Cobertura', align: 'right' },
+  { id: 'LOJA', header: '🏪 Loja', align: 'left' },
+  { id: 'VENDA_PCT', header: '📊 % Setor', align: 'right' },
+  { id: 'SECAO', header: '📦 Seção', align: 'left', smallFont: true },
+  { id: 'COMPRAS', header: '🛒 Compras', align: 'right' },
+  { id: 'MARK_DOWN_PCT', header: '📉 Mark Down (%)', align: 'right' },
+  { id: 'MG_LUCRO_PCT', header: '💰 Mg Lucro (%)', align: 'right' },
+  { id: 'QTD_COMPRA', header: '📥 Qtde Compra', align: 'right' },
+  { id: 'QTD_VENDA', header: '📤 Qtde Venda', align: 'right' },
+  { id: 'COMPRA_PCT', header: '🔢 Compra (%)', align: 'right' },
+  { id: 'CUSTO_VENDA', header: '💵 Custo Venda', align: 'right' },
+  { id: 'VENDAS', header: '💲 Vendas', align: 'right' },
+  { id: 'META_PCT', header: '🎯 Meta (%)', align: 'right' },
+  { id: 'PCT', header: '✅ Atingido (%)', align: 'right' },
+  { id: 'DIFERENCA_PCT', header: '📐 Dif. (%)', align: 'right' },
+  { id: 'DIFERENCA_RS', header: '💱 Diferença (R$)', align: 'right' },
+  { id: 'EMPRESTEI', header: '🔄 Emprestei (R$)', align: 'right', highlight: true },
+  { id: 'EMPRESTADO', header: '🔃 Emprestado (R$)', align: 'right', highlight: true },
+  { id: 'COMPRA_FINAL', header: '🏁 Compra Final (R$)', align: 'right', highlightGreen: true },
+  { id: 'ESTOQUE_ATUAL', header: '📋 Estoque Atual', align: 'right' },
+  { id: 'DIAS_COBERTURA', header: '📅 Dias Cobertura', align: 'right' },
 ];
 
 export default function CompraVendaAnalise() {
@@ -83,8 +83,8 @@ export default function CompraVendaAnalise() {
   const [loadingFilters, setLoadingFilters] = useState(true);
   const [oracleStatus, setOracleStatus] = useState({ connected: false, message: '' });
 
-  // Filtros - Valores selecionados
-  const [filters, setFilters] = useState({
+  // Filtros - Valores selecionados (persistidos no localStorage)
+  const defaultFilters = {
     dataInicio: formatDateForInput(getFirstDayOfMonth()),
     dataFim: formatDateForInput(new Date()),
     codSecao: '',
@@ -116,7 +116,25 @@ export default function CompraVendaAnalise() {
     // Exibir
     exibirCn: false,
     exibirTransf: false,
+  };
+  const [filters, setFiltersState] = useState(() => {
+    try {
+      const saved = localStorage.getItem('compra_venda_filters');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...defaultFilters, ...parsed };
+      }
+    } catch {}
+    return defaultFilters;
   });
+  // Wrapper para salvar filtros no localStorage a cada alteração
+  const setFilters = (valueOrFn) => {
+    setFiltersState(prev => {
+      const newFilters = typeof valueOrFn === 'function' ? valueOrFn(prev) : valueOrFn;
+      localStorage.setItem('compra_venda_filters', JSON.stringify(newFilters));
+      return newFilters;
+    });
+  };
 
   // Funções auxiliares de data
   function getFirstDayOfMonth() {
@@ -339,31 +357,12 @@ export default function CompraVendaAnalise() {
   };
 
   const handleClear = () => {
-    setFilters({
+    const resetFilters = {
+      ...defaultFilters,
       dataInicio: formatDateForInput(getFirstDayOfMonth()),
       dataFim: formatDateForInput(new Date()),
-      codSecao: '',
-      codGrupo: '',
-      codSubGrupo: '',
-      codComprador: '',
-      codLoja: '',
-      tipoPdv: true,
-      tipoNfCliente: true,
-      tipoVendaBalcao: true,
-      tipoNfTransferencia: true,
-      tipoCompras: true,
-      tipoOutras: false,
-      tipoBonificacao: false,
-      produtosBonificados: 'sem',
-      detalhamentoAnalitico: false,
-      decomposicao: 'filhos',
-      tipoEmprestimoProducao: true,
-      tipoEmprestimoAssociacao: true,
-      tipoEmprestimoDecomposicao: true,
-      agrupamento: 'secao',
-      exibirCn: false,
-      exibirTransf: false,
-    });
+    };
+    setFilters(resetFilters);
     setData([]);
     setTotais(null);
     // Limpar drill-down
@@ -903,7 +902,7 @@ export default function CompraVendaAnalise() {
             {/* Linha 1: Dropdowns principais */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Loja</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">🏪 Loja</label>
                 <select
                   value={filters.codLoja}
                   onChange={(e) => setFilters({ ...filters, codLoja: e.target.value })}
@@ -918,7 +917,7 @@ export default function CompraVendaAnalise() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Seção</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">📦 Seção</label>
                 <select
                   value={filters.codSecao}
                   onChange={(e) => setFilters({ ...filters, codSecao: e.target.value })}
@@ -933,7 +932,7 @@ export default function CompraVendaAnalise() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Grupo</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">📁 Grupo</label>
                 <select
                   value={filters.codGrupo}
                   onChange={(e) => setFilters({ ...filters, codGrupo: e.target.value })}
@@ -948,7 +947,7 @@ export default function CompraVendaAnalise() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">SubGrupo</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">📂 SubGrupo</label>
                 <select
                   value={filters.codSubGrupo}
                   onChange={(e) => setFilters({ ...filters, codSubGrupo: e.target.value })}
@@ -963,7 +962,7 @@ export default function CompraVendaAnalise() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Comprador</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">👤 Comprador</label>
                 <select
                   value={filters.codComprador}
                   onChange={(e) => setFilters({ ...filters, codComprador: e.target.value })}
@@ -981,7 +980,7 @@ export default function CompraVendaAnalise() {
             {/* Linha 2: Datas e checkboxes */}
             <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Data Início</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">📅 Data Início</label>
                 <input
                   type="date"
                   value={filters.dataInicio}
@@ -991,7 +990,7 @@ export default function CompraVendaAnalise() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Data Fim</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">📅 Data Fim</label>
                 <input
                   type="date"
                   value={filters.dataFim}
@@ -1026,7 +1025,7 @@ export default function CompraVendaAnalise() {
             <div className="grid grid-cols-1 md:grid-cols-8 gap-1 mb-4">
               {/* Filtro Tipo Venda - Compacto */}
               <div className="border border-gray-200 rounded-md p-2">
-                <span className="block text-xs font-medium text-gray-700 mb-1">Tipo Venda</span>
+                <span className="block text-xs font-medium text-gray-700 mb-1">🛒 Tipo Venda</span>
                 <div className="space-y-0.5">
                   <label className="flex items-center gap-1 text-xs">
                     <input
@@ -1069,7 +1068,7 @@ export default function CompraVendaAnalise() {
 
               {/* Filtro Tipo NF - Compacto */}
               <div className="border border-gray-200 rounded-md p-2">
-                <span className="block text-xs font-medium text-gray-700 mb-1">Tipo Nota Fiscal</span>
+                <span className="block text-xs font-medium text-gray-700 mb-1">📄 Tipo Nota Fiscal</span>
                 <div className="space-y-0.5">
                   <label className="flex items-center gap-1 text-xs">
                     <input
@@ -1104,7 +1103,7 @@ export default function CompraVendaAnalise() {
               {/* Filtro Produtos Bonificados - Compacto */}
               {/* Controla automaticamente o checkbox de Bonificação no Tipo Nota Fiscal */}
               <div className="border border-gray-200 rounded-md p-2">
-                <span className="block text-xs font-medium text-gray-700 mb-1">Prod. Bonific.</span>
+                <span className="block text-xs font-medium text-gray-700 mb-1">🎁 Prod. Bonific.</span>
                 <div className="space-y-0.5">
                   <label className="flex items-center gap-1 text-xs">
                     <input
@@ -1144,7 +1143,7 @@ export default function CompraVendaAnalise() {
 
               {/* Filtro Decomposicao - Compacto */}
               <div className="border border-gray-200 rounded-md p-2">
-                <span className="block text-xs font-medium text-gray-700 mb-1">Decomposicao</span>
+                <span className="block text-xs font-medium text-gray-700 mb-1">🔀 Decomposição</span>
                 <div className="space-y-0.5">
                   <label className="flex items-center gap-1 text-xs">
                     <input
@@ -1208,7 +1207,7 @@ export default function CompraVendaAnalise() {
               {/* Card 1: Mark Down Atual */}
               <div className="border-2 border-blue-300 rounded-lg p-3 bg-blue-50">
                 <div className="text-center">
-                  <span className="block text-xs font-bold text-blue-800 uppercase">Mark Down</span>
+                  <span className="block text-xs font-bold text-blue-800 uppercase">📊 Mark Down</span>
                   <span className="block text-xs font-medium text-blue-700">Atual</span>
                   {totais ? (
                     <div className="mt-2">
@@ -1227,7 +1226,7 @@ export default function CompraVendaAnalise() {
               {/* Card 2: Excesso de Compras ou Perdas */}
               <div className="border-2 border-purple-300 rounded-lg p-3 bg-purple-50">
                 <div className="text-center">
-                  <span className="block text-xs font-bold text-purple-800 uppercase">Excesso de Compras</span>
+                  <span className="block text-xs font-bold text-purple-800 uppercase">⚠️ Excesso de Compras</span>
                   <span className="block text-xs font-medium text-purple-700">ou Perdas</span>
                   {totais ? (
                     <>
@@ -1251,7 +1250,7 @@ export default function CompraVendaAnalise() {
               {/* Card 3: Margem Compra e Venda */}
               <div className="border-2 border-orange-300 rounded-lg p-3 bg-orange-50">
                 <div className="text-center">
-                  <span className="block text-xs font-bold text-orange-800 uppercase">Margem</span>
+                  <span className="block text-xs font-bold text-orange-800 uppercase">💰 Margem</span>
                   <span className="block text-xs font-medium text-orange-700">Compra e Venda</span>
                   {totais ? (
                     <>
@@ -1282,7 +1281,7 @@ export default function CompraVendaAnalise() {
               {/* Card 4: Margem Limpo de Impostos */}
               <div className="border-2 border-green-300 rounded-lg p-3 bg-green-50">
                 <div className="text-center">
-                  <span className="block text-xs font-bold text-green-800 uppercase">Margem Compra e Venda</span>
+                  <span className="block text-xs font-bold text-green-800 uppercase">✨ Margem Compra e Venda</span>
                   <span className="block text-xs font-medium text-green-700">Limpo de Impostos</span>
                   {totais ? (
                     <>
@@ -1362,7 +1361,7 @@ export default function CompraVendaAnalise() {
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-orange-100">
+                <thead className="bg-gray-600">
                   <tr>
                     {columns.map((col) => (
                       <th
@@ -1373,19 +1372,19 @@ export default function CompraVendaAnalise() {
                         onDragOver={(e) => handleDragOver(e, col.id)}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, col.id)}
-                        className={`px-3 py-3 text-xs font-medium text-orange-800 uppercase tracking-wider cursor-move select-none transition-all whitespace-nowrap
+                        className={`px-3 py-3 text-xs font-medium text-white uppercase tracking-wider cursor-move select-none transition-all whitespace-nowrap
                           ${col.align === 'right' ? 'text-right' : 'text-left'}
-                          ${dragOverColumn === col.id ? 'bg-orange-200 border-l-2 border-orange-500' : ''}
+                          ${dragOverColumn === col.id ? 'bg-gray-500 border-l-2 border-orange-400' : ''}
                           ${draggedColumn === col.id ? 'opacity-50' : ''}
-                          ${col.highlight ? 'bg-orange-200 font-bold' : ''}
-                          ${col.highlightGreen ? 'bg-green-200 font-bold' : ''}
-                          hover:bg-orange-200
+                          ${col.highlight ? 'bg-orange-700 font-bold' : ''}
+                          ${col.highlightGreen ? 'bg-green-700 font-bold' : ''}
+                          hover:bg-gray-500
                         `}
                         style={col.minWidth ? { minWidth: col.minWidth } : undefined}
                         title="Arraste para reordenar"
                       >
                         <div className="flex items-center gap-1">
-                          <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                          <svg className="w-3 h-3 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"/>
                           </svg>
                           <span>{col.header}</span>
@@ -1554,7 +1553,7 @@ export default function CompraVendaAnalise() {
             {/* Rodapé com informações */}
             {data.length > 0 && (
               <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-500">
-                {data.length} registros encontrados | Fonte: Oracle Intersolid (somente leitura)
+                📋 {data.length} registros encontrados | 🗄️ Fonte: Oracle Intersolid (somente leitura)
               </div>
             )}
           </div>

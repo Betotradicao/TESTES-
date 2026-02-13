@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Logo from '../components/Logo';
+import RadarLoading from '../components/RadarLoading';
 import api from '../services/api';
 
 export default function ResetPassword() {
@@ -85,8 +86,7 @@ export default function ResetPassword() {
             <div className="flex justify-center mb-6">
               <Logo size="large" />
             </div>
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Validando link de recuperação...</p>
+            <RadarLoading message="Validando link de recuperação..." />
           </div>
         </div>
       </div>

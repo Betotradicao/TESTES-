@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
+import RadarLoading from '../components/RadarLoading';
 import { api } from '../utils/api';
 import { useLoja } from '../contexts/LojaContext';
 
@@ -179,8 +180,7 @@ export default function GestaoTrocas() {
         {/* Loading */}
         {loading && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6 text-center">
-            <div className={`animate-spin w-8 h-8 border-4 ${abaAtiva === 'saidas' ? 'border-orange-500' : 'border-green-500'} border-t-transparent rounded-full mx-auto mb-2`}></div>
-            <p className="text-gray-500">Carregando {abaAtiva === 'saidas' ? 'saídas' : 'entradas'}...</p>
+            <RadarLoading size="sm" message={`Carregando ${abaAtiva === 'saidas' ? 'saídas' : 'entradas'}...`} />
           </div>
         )}
 
@@ -355,8 +355,7 @@ export default function GestaoTrocas() {
                           <div className="bg-white border-t border-gray-200">
                             {isCarregando ? (
                               <div className="p-8 text-center">
-                                <div className={`animate-spin w-8 h-8 border-4 ${abaAtiva === 'saidas' ? 'border-orange-500' : 'border-green-500'} border-t-transparent rounded-full mx-auto mb-2`}></div>
-                                <p className="text-gray-500">Carregando itens...</p>
+                                <RadarLoading size="sm" message={`Carregando ${abaAtiva === 'saidas' ? 'saídas' : 'entradas'}...`} />
                               </div>
                             ) : itens.length === 0 ? (
                               <div className="p-4 text-center text-gray-500">

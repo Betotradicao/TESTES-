@@ -21,6 +21,16 @@ const ALL_COLUMNS = [
 const DEFAULT_COLUMN_ORDER = ALL_COLUMNS.map(c => c.id);
 const COLUMN_ORDER_KEY = 'nf-recebimento-column-order';
 
+// Cards de resumo (ordem padrão)
+const ALL_CARDS = [
+  { id: 'conferente', label: 'Conferente', subtitle: 'Sem Visto', color: 'blue', emoji: '✍️' },
+  { id: 'cpd', label: 'CPD', subtitle: 'Sem Visto', color: 'purple', emoji: '🖥️' },
+  { id: 'financeiro', label: 'Financeiro', subtitle: 'Sem Visto', color: 'teal', emoji: '💰' },
+  { id: 'finalizada_sem_conf', label: 'Sem Conferência', subtitle: 'Nota Finalizada', color: 'red', emoji: '⚠️' },
+];
+const DEFAULT_CARD_ORDER = ALL_CARDS.map(c => c.id);
+const CARD_ORDER_KEY = 'nf-recebimento-card-order';
+
 export default function NotaFiscalRecebimento() {
   const { lojaSelecionada } = useLoja();
   const [notas, setNotas] = useState([]);
@@ -147,6 +157,70 @@ export default function NotaFiscalRecebimento() {
     localStorage.setItem(COLUMN_ORDER_KEY, JSON.stringify(newOrder));
     dragColRef.current = null;
     dragOverColRef.current = null;
+  };
+
+  // Ordem dos cards de resumo (drag-and-drop persistente)
+  const [cardOrder, setCardOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem(CARD_ORDER_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const validIds = new Set(DEFAULT_CARD_ORDER);
+        if (parsed.length === validIds.size && parsed.every(id => validIds.has(id))) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return DEFAULT_CARD_ORDER;
+  });
+  const dragCardRef = useRef(null);
+  const dragOverCardRef = useRef(null);
+
+  const orderedCards = cardOrder.map(id => ALL_CARDS.find(c => c.id === id)).filter(Boolean);
+
+  const cardDragging = useRef(false);
+
+  const handleCardDragStart = (e, cardId) => {
+    dragCardRef.current = cardId;
+    cardDragging.current = true;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', cardId);
+    setTimeout(() => { e.target.style.opacity = '0.4'; }, 0);
+  };
+
+  const handleCardDragEnd = (e) => {
+    e.target.style.opacity = '1';
+    dragCardRef.current = null;
+    dragOverCardRef.current = null;
+    setTimeout(() => { cardDragging.current = false; }, 100);
+  };
+
+  const handleCardDragOver = (e, cardId) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    dragOverCardRef.current = cardId;
+  };
+
+  const handleCardDrop = (e, cardId) => {
+    e.preventDefault();
+    const from = dragCardRef.current;
+    const to = cardId;
+    if (!from || from === to) return;
+    const newOrder = [...cardOrder];
+    const fromIdx = newOrder.indexOf(from);
+    const toIdx = newOrder.indexOf(to);
+    newOrder.splice(fromIdx, 1);
+    newOrder.splice(toIdx, 0, from);
+    setCardOrder(newOrder);
+    localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(newOrder));
+    dragCardRef.current = null;
+    dragOverCardRef.current = null;
+  };
+
+  const handleCardClick = (cardId) => {
+    // Ignorar click se acabou de soltar um drag
+    if (cardDragging.current) return;
+    setCardFilter(prev => prev === cardId ? null : cardId);
   };
 
   const [formNota, setFormNota] = useState({
@@ -503,14 +577,16 @@ export default function NotaFiscalRecebimento() {
           </button>
         </div>
 
-        {/* Cards de Resumo - Pendentes do Ano */}
+        {/* Cards de Resumo - Pendentes do Ano (drag-and-drop para reordenar) */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-          {[
-            { id: 'conferente', label: 'Conferente', subtitle: 'Sem Visto', count: resumoPendentes.semConferente, color: 'blue', emoji: '✍️' },
-            { id: 'cpd', label: 'CPD', subtitle: 'Sem Visto', count: resumoPendentes.semCpd, color: 'purple', emoji: '🖥️' },
-            { id: 'financeiro', label: 'Financeiro', subtitle: 'Sem Visto', count: resumoPendentes.semFinanceiro, color: 'teal', emoji: '💰' },
-            { id: 'finalizada_sem_conf', label: 'Sem Conferência', subtitle: 'Nota Finalizada', count: resumoPendentes.finalizadaSemConf || 0, color: 'red', emoji: '⚠️' },
-          ].map(card => {
+          {orderedCards.map(card => {
+            const countMap = {
+              conferente: resumoPendentes.semConferente,
+              cpd: resumoPendentes.semCpd,
+              financeiro: resumoPendentes.semFinanceiro,
+              finalizada_sem_conf: resumoPendentes.finalizadaSemConf || 0,
+            };
+            const count = countMap[card.id];
             const isActive = cardFilter === card.id;
             const colorMap = {
               blue: { bg: 'bg-blue-50', border: 'border-blue-500', text: 'text-blue-700', ring: 'ring-blue-500', activeBg: 'bg-blue-100' },
@@ -520,10 +596,15 @@ export default function NotaFiscalRecebimento() {
             };
             const c = colorMap[card.color];
             return (
-              <button
+              <div
                 key={card.id}
-                onClick={() => setCardFilter(isActive ? null : card.id)}
-                className={`rounded-xl shadow-sm border-l-4 ${c.border} p-4 text-left transition-all hover:shadow-md ${
+                draggable
+                onDragStart={(e) => handleCardDragStart(e, card.id)}
+                onDragEnd={handleCardDragEnd}
+                onDragOver={(e) => handleCardDragOver(e, card.id)}
+                onDrop={(e) => handleCardDrop(e, card.id)}
+                onClick={() => handleCardClick(card.id)}
+                className={`rounded-xl shadow-sm border-l-4 ${c.border} p-4 text-left transition-all hover:shadow-md cursor-grab active:cursor-grabbing select-none ${
                   isActive ? `${c.activeBg} ring-2 ${c.ring}` : `${c.bg}`
                 }`}
               >
@@ -531,12 +612,12 @@ export default function NotaFiscalRecebimento() {
                   <div>
                     <p className="text-[10px] font-medium text-gray-500 uppercase">{card.subtitle}</p>
                     <p className="text-xs font-bold text-gray-700">{card.label}</p>
-                    <p className={`text-3xl font-bold ${c.text} mt-1`}>{card.count}</p>
+                    <p className={`text-3xl font-bold ${c.text} mt-1`}>{count}</p>
                   </div>
                   <span className="text-3xl">{card.emoji}</span>
                 </div>
                 <p className="text-[10px] text-gray-400 mt-1">Notas de {resumoPendentes.ano}</p>
-              </button>
+              </div>
             );
           })}
         </div>

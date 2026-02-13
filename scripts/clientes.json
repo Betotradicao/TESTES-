@@ -1,0 +1,46 @@
+{
+  "vps": {
+    "46": {
+      "ip": "46.202.150.64",
+      "descricao": "VPS Multi-Clientes",
+      "repo_path": "/root/prevencao-radar-repo",
+      "branch": "TESTE",
+      "clientes": {
+        "tradicao": {
+          "nome": "Tradição SJC",
+          "path": "/root/clientes/tradicao",
+          "subdomain": "tradicao.prevencaonoradar.com.br",
+          "containers": {
+            "frontend": "prevencao-tradicao-frontend",
+            "backend": "prevencao-tradicao-backend",
+            "postgres": "prevencao-tradicao-postgres",
+            "minio": "prevencao-tradicao-minio",
+            "cron": "prevencao-tradicao-cron"
+          },
+          "tunnel_ports": {
+            "oracle": null,
+            "mssql": null,
+            "api_erp": null
+          }
+        },
+        "vital": {
+          "nome": "Vital",
+          "path": "/root/clientes/vital",
+          "subdomain": "vital.prevencaonoradar.com.br",
+          "containers": {
+            "frontend": "prevencao-vital-frontend",
+            "backend": "prevencao-vital-backend",
+            "postgres": "prevencao-vital-postgres",
+            "minio": "prevencao-vital-minio",
+            "cron": "prevencao-vital-cron"
+          },
+          "tunnel_ports": {
+            "oracle": null,
+            "mssql": null,
+            "api_erp": null
+          }
+        }
+      }
+    }
+  }
+}

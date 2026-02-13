@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import RadarLoading from '../components/RadarLoading';
 import { api } from '../utils/api';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -2180,10 +2181,7 @@ export default function ConfiguracoesTabelas() {
       </div>
 
       {loadingConnections ? (
-        <div className="text-center py-12">
-          <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full mx-auto"></div>
-          <p className="text-gray-500 mt-2">Carregando conexões...</p>
-        </div>
+        <RadarLoading size="sm" message="Carregando conexões..." />
       ) : connections.length === 0 ? (
         <div className="bg-gray-50 rounded-xl p-12 text-center">
           <div className="text-6xl mb-4">🔌</div>
@@ -2310,10 +2308,7 @@ export default function ConfiguracoesTabelas() {
       </div>
 
       {loadingTemplates ? (
-        <div className="text-center py-12">
-          <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full mx-auto"></div>
-          <p className="text-gray-500 mt-2">Carregando templates...</p>
-        </div>
+        <RadarLoading size="sm" message="Carregando templates..." />
       ) : erpTemplates.length === 0 ? (
         <div className="bg-gray-50 rounded-xl p-12 text-center">
           <div className="text-6xl mb-4">🏢</div>

@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
+import RadarLoading from '../components/RadarLoading';
 import api from '../services/api';
 
 export default function MonitorarEmailDVR() {
@@ -227,9 +228,7 @@ export default function MonitorarEmailDVR() {
                   </div>
                 </>
               ) : (
-                <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                </div>
+                <RadarLoading size="sm" message="" />
               )}
             </div>
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLoja } from '../contexts/LojaContext';
 import Sidebar from '../components/Sidebar';
+import RadarLoading from '../components/RadarLoading';
 import { api } from '../utils/api';
 
 const TABS = [
@@ -1286,9 +1287,7 @@ export default function CalendarioAtendimento() {
 
               {/* Tabela de Fornecedores */}
               {loadingFornecedores ? (
-                <div className="flex justify-center py-12">
-                  <div className="animate-spin h-8 w-8 border-4 border-orange-500 border-t-transparent rounded-full"></div>
-                </div>
+                <RadarLoading size="sm" message="" />
               ) : fornecedoresOrdenados.length > 0 ? (
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                   <div className="overflow-x-auto overflow-y-auto max-h-[78vh]">
@@ -1537,9 +1536,7 @@ export default function CalendarioAtendimento() {
               })()}
 
               {loadingMensal ? (
-                <div className="flex justify-center py-12">
-                  <div className="animate-spin h-8 w-8 border-4 border-orange-500 border-t-transparent rounded-full"></div>
-                </div>
+                <RadarLoading size="sm" message="" />
               ) : (
                 <>
                   {/* Primeira metade: dias 1-15 */}
@@ -1711,9 +1708,7 @@ export default function CalendarioAtendimento() {
               </div>
 
               {loadingDiario ? (
-                <div className="flex justify-center py-12">
-                  <div className="animate-spin h-8 w-8 border-4 border-orange-500 border-t-transparent rounded-full"></div>
-                </div>
+                <RadarLoading size="sm" message="" />
               ) : diarioSorted.length > 0 ? (
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                   <div className="overflow-x-auto overflow-y-auto max-h-[78vh]">

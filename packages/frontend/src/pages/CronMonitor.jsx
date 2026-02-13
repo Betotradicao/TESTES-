@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
+import RadarLoading from '../components/RadarLoading';
 import axios from 'axios';
 
 export default function CronMonitor() {
@@ -118,10 +119,7 @@ export default function CronMonitor() {
             </div>
 
             {loading && !cronStatus && !barcodeStatus ? (
-              <div className="text-center py-12">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
-                <p className="mt-4 text-gray-600">Carregando status...</p>
-              </div>
+              <RadarLoading message="Carregando status..." />
             ) : (
               <div className="space-y-6">
                 {/* Cron de Verificação */}

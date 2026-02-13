@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
+import RadarLoading from '../components/RadarLoading';
 import api from '../services/api';
 import { useLoja } from '../contexts/LojaContext';
 
@@ -957,9 +958,7 @@ export default function PrevencaoPedidos() {
         {/* Tabela de Pedidos ou NFs sem Pedido */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-500"></div>
-            </div>
+            <RadarLoading size="sm" message="" />
           ) : error ? (
             <div className="text-center py-12 text-red-500">
               <p>{error}</p>

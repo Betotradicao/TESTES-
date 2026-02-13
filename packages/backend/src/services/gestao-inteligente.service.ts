@@ -120,6 +120,7 @@ export class GestaoInteligenteService {
     vendas: number;
     custoVendas: number;
     impostos: number;
+    impostoCredito: number;
     qtdItens: number;
     qtdCupons: number;
     compras: number;
@@ -159,6 +160,7 @@ export class GestaoInteligenteService {
         NVL(SUM(pv.${colValTotalProduto}), 0) as VENDAS,
         NVL(SUM(pv.${colValCustoRep} * pv.${colQtdTotalProduto}), 0) as CUSTO_VENDAS,
         NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
+        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
         NVL(SUM(pv.${colQtdTotalProduto}), 0) as QTD_ITENS,
         NVL(SUM(CASE WHEN pv.${colFlgOferta} = 'S' THEN pv.${colValTotalProduto} ELSE 0 END), 0) as VENDAS_OFERTA,
         NVL(SUM(CASE WHEN pv.${colFlgOferta} = 'S' THEN pv.${colValCustoRep} * pv.${colQtdTotalProduto} ELSE 0 END), 0) as CUSTO_OFERTA,
@@ -208,6 +210,7 @@ export class GestaoInteligenteService {
       vendas: vendasResult[0]?.VENDAS || 0,
       custoVendas: vendasResult[0]?.CUSTO_VENDAS || 0,
       impostos: vendasResult[0]?.IMPOSTOS || 0,
+      impostoCredito: vendasResult[0]?.IMPOSTO_CREDITO || 0,
       qtdItens: vendasResult[0]?.QTD_ITENS || 0,
       qtdCupons: cuponsResult[0]?.QTD_CUPONS || 0,
       compras: comprasResult[0]?.COMPRAS || 0,
@@ -224,6 +227,7 @@ export class GestaoInteligenteService {
     vendas: number;
     custoVendas: number;
     impostos: number;
+    impostoCredito?: number;
     qtdItens: number;
     qtdCupons: number;
     compras: number;
@@ -231,13 +235,13 @@ export class GestaoInteligenteService {
     custoOferta: number;
     qtdSkus?: number;
   }) {
-    const { vendas, custoVendas, impostos, qtdItens, qtdCupons, compras, vendasOferta, custoOferta, qtdSkus = 0 } = dados;
+    const { vendas, custoVendas, impostos, impostoCredito = 0, qtdItens, qtdCupons, compras, vendasOferta, custoOferta, qtdSkus = 0 } = dados;
 
     const lucro = vendas - custoVendas;
     const markdown = vendas > 0 ? ((vendas - custoVendas) / vendas) * 100 : 0;
-    const vendasLiquidas = vendas - impostos;
-    const lucroLiquido = vendasLiquidas - custoVendas;
-    const margemLimpa = vendasLiquidas > 0 ? (lucroLiquido / vendasLiquidas) * 100 : 0;
+    // MG LUCRO = ((VENDAS - CUSTO - IMPOSTO_DEBITO + IMPOSTO_CREDITO) / VENDAS) * 100
+    // Mesma fórmula usada na tela de Compra e Venda Análise
+    const margemLimpa = vendas > 0 ? ((vendas - custoVendas - impostos + impostoCredito) / vendas) * 100 : 0;
     const ticketMedio = qtdCupons > 0 ? vendas / qtdCupons : 0;
     const pctCompraVenda = vendas > 0 ? (compras / vendas) * 100 : 0;
     const pctVendasOferta = vendas > 0 ? (vendasOferta / vendas) * 100 : 0;
@@ -276,6 +280,7 @@ export class GestaoInteligenteService {
     vendas: number;
     custoVendas: number;
     impostos: number;
+    impostoCredito: number;
     qtdItens: number;
     qtdCupons: number;
     compras: number;
@@ -369,6 +374,7 @@ export class GestaoInteligenteService {
         NVL(SUM(pv.${colValTotalProduto}), 0) as VENDAS,
         NVL(SUM(pv.${colValCustoRep} * pv.${colQtdTotalProduto}), 0) as CUSTO,
         NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
+        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
         NVL(SUM(pv.${colQtdTotalProduto}), 0) as QTD_ITENS,
         NVL(SUM(CASE WHEN pv.${colFlgOferta} = 'S' THEN pv.${colValTotalProduto} ELSE 0 END), 0) as VENDAS_OFERTA,
         NVL(SUM(CASE WHEN pv.${colFlgOferta} = 'S' THEN pv.${colValCustoRep} * pv.${colQtdTotalProduto} ELSE 0 END), 0) as CUSTO_OFERTA,
@@ -424,9 +430,9 @@ export class GestaoInteligenteService {
     console.log(`   📊 [MEDIA LINEAR] ${vendasResult.length} dias vendas, ${cuponsResult.length} dias cupons, ${comprasResult.length} dias compras do ano ${anoAnterior}`);
 
     // 4. Somar dados por dia da semana (ano anterior)
-    const dayTypeTotals: Record<string, { vendas: number; custo: number; impostos: number; itens: number; cupons: number; compras: number; vendasOferta: number; custoOferta: number; skus: number }> = {};
+    const dayTypeTotals: Record<string, { vendas: number; custo: number; impostos: number; impostoCredito: number; itens: number; cupons: number; compras: number; vendasOferta: number; custoOferta: number; skus: number }> = {};
     for (const dia of [...diasDaSemana, 'Feriado']) {
-      dayTypeTotals[dia] = { vendas: 0, custo: 0, impostos: 0, itens: 0, cupons: 0, compras: 0, vendasOferta: 0, custoOferta: 0, skus: 0 };
+      dayTypeTotals[dia] = { vendas: 0, custo: 0, impostos: 0, impostoCredito: 0, itens: 0, cupons: 0, compras: 0, vendasOferta: 0, custoOferta: 0, skus: 0 };
     }
 
     // Processar vendas
@@ -439,6 +445,7 @@ export class GestaoInteligenteService {
       dayTypeTotals[dayType].vendas += row.VENDAS || 0;
       dayTypeTotals[dayType].custo += row.CUSTO || 0;
       dayTypeTotals[dayType].impostos += row.IMPOSTOS || 0;
+      dayTypeTotals[dayType].impostoCredito += row.IMPOSTO_CREDITO || 0;
       dayTypeTotals[dayType].itens += row.QTD_ITENS || 0;
       dayTypeTotals[dayType].vendasOferta += row.VENDAS_OFERTA || 0;
       dayTypeTotals[dayType].custoOferta += row.CUSTO_OFERTA || 0;
@@ -473,6 +480,7 @@ export class GestaoInteligenteService {
         vendas: totals.vendas / n,
         custo: totals.custo / n,
         impostos: totals.impostos / n,
+        impostoCredito: totals.impostoCredito / n,
         itens: totals.itens / n,
         cupons: totals.cupons / n,
         compras: totals.compras / n,
@@ -498,8 +506,10 @@ export class GestaoInteligenteService {
     }
 
     // 7. Multiplicar: contagem do período atual × média do ano anterior
-    let totalVendas = 0, totalCusto = 0, totalImpostos = 0, totalItens = 0;
-    let totalCupons = 0, totalCompras = 0, totalVendasOferta = 0, totalCustoOferta = 0, totalSkus = 0;
+    let totalVendas = 0, totalCusto = 0, totalImpostos = 0, totalImpostoCredito = 0, totalItens = 0;
+    let totalCupons = 0, totalCompras = 0, totalVendasOferta = 0, totalCustoOferta = 0;
+    let totalSkusPonderado = 0;
+    let totalDiasPeriodo = 0;
 
     for (const [dayType, count] of Object.entries(currentDayCounts)) {
       const avg = dayTypeAvg[dayType];
@@ -507,27 +517,35 @@ export class GestaoInteligenteService {
         totalVendas += count * avg.vendas;
         totalCusto += count * avg.custo;
         totalImpostos += count * avg.impostos;
+        totalImpostoCredito += count * avg.impostoCredito;
         totalItens += count * avg.itens;
         totalCupons += count * avg.cupons;
         totalCompras += count * avg.compras;
         totalVendasOferta += count * avg.vendasOferta;
         totalCustoOferta += count * avg.custoOferta;
-        totalSkus += count * avg.skus;
+        // SKUs: média ponderada por dia da semana (DISTINCT não pode ser somado dia a dia)
+        totalSkusPonderado += count * avg.skus;
+        totalDiasPeriodo += count;
       }
     }
 
-    console.log(`   ✅ [MEDIA LINEAR] Vendas previstas: R$ ${totalVendas.toFixed(2)} (${Object.entries(currentDayCounts).filter(([,c]) => c > 0).map(([k,v]) => `${k}:${v}`).join(', ')})`);
+    // SKUs: média ponderada = soma(dias_tipo × média_tipo) / total_dias
+    // Isso dá o valor médio de SKUs distintos por dia, ponderado pela composição do período
+    const mediaLinearSkus = totalDiasPeriodo > 0 ? Math.round(totalSkusPonderado / totalDiasPeriodo) : 0;
+
+    console.log(`   ✅ [MEDIA LINEAR] Vendas previstas: R$ ${totalVendas.toFixed(2)}, SKUs média ponderada: ${mediaLinearSkus} (${totalDiasPeriodo} dias) (${Object.entries(currentDayCounts).filter(([,c]) => c > 0).map(([k,v]) => `${k}:${v}`).join(', ')})`);
 
     return {
       vendas: totalVendas,
       custoVendas: totalCusto,
       impostos: totalImpostos,
+      impostoCredito: totalImpostoCredito,
       qtdItens: totalItens,
       qtdCupons: Math.round(totalCupons),
       compras: totalCompras,
       vendasOferta: totalVendasOferta,
       custoOferta: totalCustoOferta,
-      qtdSkus: Math.round(totalSkus)
+      qtdSkus: mediaLinearSkus
     };
   }
 

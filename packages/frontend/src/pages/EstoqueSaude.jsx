@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLoja } from '../contexts/LojaContext';
 import Sidebar from '../components/Sidebar';
@@ -54,17 +54,17 @@ const CARD_CONFIG = {
 };
 const DEFAULT_CARD_ORDER = ['zerado', 'negativo', 'sem_venda', 'pre_ruptura', 'margem_negativa', 'margem_baixa', 'margem_excessiva', 'estoque_excessivo', 'custo_zerado', 'preco_venda_zerado', 'curva_x', 'conc_barato'];
 
-// Seções fixas de cards
+// Seções fixas de cards (posição travada)
 const CARD_SECTIONS = [
   {
-    id: 'prevencao-estoque',
-    title: 'PREVENÇÃO ESTOQUE',
-    cards: ['zerado', 'negativo', 'pre_ruptura', 'sem_venda', 'curva_x', 'estoque_excessivo'],
+    id: 'gestao-estoque',
+    title: 'GESTÃO ESTOQUE',
+    cards: ['zerado', 'sem_venda', 'pre_ruptura', 'negativo', 'estoque_excessivo', 'curva_x'],
   },
   {
-    id: 'prevencao-margem',
-    title: 'PREVENÇÃO MARGEM',
-    cards: ['margem_negativa', 'margem_baixa', 'preco_venda_zerado', 'custo_zerado', 'conc_barato', 'margem_excessiva'],
+    id: 'gestao-margem',
+    title: 'GESTÃO MARGEM',
+    cards: ['margem_excessiva', 'custo_zerado', 'margem_negativa', 'preco_venda_zerado', 'margem_baixa', 'conc_barato'],
   },
 ];
 
@@ -144,9 +144,24 @@ export default function EstoqueSaude() {
   });
   const [draggedCard, setDraggedCard] = useState(null);
 
-  // Filtros - valores padrão: MERCADORIA e Direta
-  const [filterTipoEspecie, setFilterTipoEspecie] = useState('MERCADORIA');
-  const [filterTipoEvento, setFilterTipoEvento] = useState('Direta');
+  // Filtros - valores padrão: MERCADORIA e Direta (arrays para multi-select)
+  const [filterTipoEspecie, setFilterTipoEspecie] = useState(['MERCADORIA']);
+  const [filterTipoEvento, setFilterTipoEvento] = useState(['Direta']);
+  const [showEspecieDropdown, setShowEspecieDropdown] = useState(false);
+  const [showEventoDropdown, setShowEventoDropdown] = useState(false);
+  const especieRef = useRef(null);
+  const eventoRef = useRef(null);
+
+  // Fechar dropdowns ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (especieRef.current && !especieRef.current.contains(e.target)) setShowEspecieDropdown(false);
+      if (eventoRef.current && !eventoRef.current.contains(e.target)) setShowEventoDropdown(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const [filterSecao, setFilterSecao] = useState('');
   const [filterGrupo, setFilterGrupo] = useState('');
   const [filterSubGrupo, setFilterSubGrupo] = useState('');
@@ -163,7 +178,8 @@ export default function EstoqueSaude() {
   const [sortPontuacao, setSortPontuacao] = useState({ column: 'totalPontos', direction: 'desc' });
 
   // Definição das colunas da tabela de pontuação (para drag and drop)
-  const PONTUACAO_COLUMNS_DEFAULT = [
+  // Colunas base (info) compartilhadas entre as duas pontuações
+  const PONTUACAO_INFO_COLUMNS = [
     { id: 'codigo', label: 'Código', type: 'info' },
     { id: 'descricao', label: 'Descrição', type: 'info' },
     { id: 'curva', label: 'Curva', type: 'info' },
@@ -173,6 +189,36 @@ export default function EstoqueSaude() {
     { id: 'fornecedor', label: 'Fornecedor', type: 'info' },
     { id: 'historico', label: 'Hist.', type: 'action' },
     { id: 'qtdPedidoCompra', label: 'Pedido', type: 'info' },
+  ];
+
+  // Colunas de pontuação ESTOQUE
+  const PONTUACAO_ESTOQUE_COLUMNS_DEFAULT = [
+    ...PONTUACAO_INFO_COLUMNS,
+    { id: 'pontosZerado', label: '📭 Est. Zerado', type: 'pontos', bg: 'bg-red-600' },
+    { id: 'pontosNegativo', label: '⚠️ Est. Negativo', type: 'pontos', bg: 'bg-red-700' },
+    { id: 'pontosSemVenda', label: '⏸️ Sem Venda', type: 'pontos', bg: 'bg-orange-600' },
+    { id: 'pontosPreRuptura', label: '📉 Pré Ruptura', type: 'pontos', bg: 'bg-amber-600' },
+    { id: 'pontosEstoqueExcessivo', label: '📦 Est. Excessivo', type: 'pontos', bg: 'bg-amber-700' },
+    { id: 'totalPontosEstoque', label: 'TOTAL', type: 'total', bg: 'bg-gray-800' },
+    { id: 'nivelRisco', label: 'NÍVEL', type: 'risco', bg: 'bg-gray-700' },
+  ];
+
+  // Colunas de pontuação MARGEM
+  const PONTUACAO_MARGEM_COLUMNS_DEFAULT = [
+    ...PONTUACAO_INFO_COLUMNS,
+    { id: 'pontosMargemNegativa', label: '💸 Mg. Negativa', type: 'pontos', bg: 'bg-red-800' },
+    { id: 'pontosMargemBaixa', label: '💰 Mg. Baixa', type: 'pontos', bg: 'bg-yellow-600' },
+    { id: 'pontosCustoZerado', label: '🏷️ Custo Zero', type: 'pontos', bg: 'bg-purple-600' },
+    { id: 'pontosPrecoZerado', label: '💵 Preço Zero', type: 'pontos', bg: 'bg-pink-600' },
+    { id: 'pontosConcBarato', label: '🏪 Conc. Barato', type: 'pontos', bg: 'bg-blue-600' },
+    { id: 'pontosMargemExcessiva', label: '📈 Mg. Excessiva', type: 'pontos', bg: 'bg-emerald-600' },
+    { id: 'totalPontosMargem', label: 'TOTAL', type: 'total', bg: 'bg-gray-800' },
+    { id: 'nivelRisco', label: 'NÍVEL', type: 'risco', bg: 'bg-gray-700' },
+  ];
+
+  // Manter compatibilidade - PONTUACAO_COLUMNS_DEFAULT com todas (usado em fallback)
+  const PONTUACAO_COLUMNS_DEFAULT = [
+    ...PONTUACAO_INFO_COLUMNS,
     { id: 'pontosZerado', label: '📭 Est. Zerado', type: 'pontos', bg: 'bg-red-600' },
     { id: 'pontosNegativo', label: '⚠️ Est. Negativo', type: 'pontos', bg: 'bg-red-700' },
     { id: 'pontosSemVenda', label: '⏸️ Sem Venda', type: 'pontos', bg: 'bg-orange-600' },
@@ -187,27 +233,45 @@ export default function EstoqueSaude() {
     { id: 'nivelRisco', label: 'NÍVEL', type: 'risco', bg: 'bg-gray-700' },
   ];
 
-  // Estado para ordem das colunas de pontuação (persistido no localStorage)
-  const [pontuacaoColumns, setPontuacaoColumns] = useState(() => {
-    const saved = localStorage.getItem('estoque_saude_pontuacao_columns');
+  // Helper para restaurar colunas do localStorage
+  const loadPontuacaoCols = (key, defaults) => {
+    const saved = localStorage.getItem(key);
     if (saved) {
       try {
         const savedOrder = JSON.parse(saved);
-        // Reordenar baseado nos IDs salvos
-        const reordered = savedOrder.map(id => PONTUACAO_COLUMNS_DEFAULT.find(c => c.id === id)).filter(Boolean);
-        // Adicionar novas colunas que não existiam no localStorage
-        const newColumns = PONTUACAO_COLUMNS_DEFAULT.filter(col => !savedOrder.includes(col.id));
+        const reordered = savedOrder.map(id => defaults.find(c => c.id === id)).filter(Boolean);
+        const newColumns = defaults.filter(col => !savedOrder.includes(col.id));
         return [...reordered, ...newColumns];
       } catch (e) {}
     }
-    return PONTUACAO_COLUMNS_DEFAULT;
-  });
+    return defaults;
+  };
+
+  // Estados para colunas de cada pontuação (persistidas separadamente)
+  const [pontuacaoEstoqueColumns, setPontuacaoEstoqueColumns] = useState(() => loadPontuacaoCols('estoque_pontuacao_estoque_cols', PONTUACAO_ESTOQUE_COLUMNS_DEFAULT));
+  const [pontuacaoMargemColumns, setPontuacaoMargemColumns] = useState(() => loadPontuacaoCols('estoque_pontuacao_margem_cols', PONTUACAO_MARGEM_COLUMNS_DEFAULT));
+  // Manter compatibilidade com o state original
+  const [pontuacaoColumns, setPontuacaoColumns] = useState(() => loadPontuacaoCols('estoque_saude_pontuacao_columns', PONTUACAO_COLUMNS_DEFAULT));
+
+  // Colunas ativas dependem do viewMode
+  const activePontuacaoColumns = viewMode === 'pontuacaoEstoque' ? pontuacaoEstoqueColumns
+    : viewMode === 'pontuacaoMargem' ? pontuacaoMargemColumns
+    : pontuacaoColumns;
+
+  const setActivePontuacaoColumns = viewMode === 'pontuacaoEstoque' ? setPontuacaoEstoqueColumns
+    : viewMode === 'pontuacaoMargem' ? setPontuacaoMargemColumns
+    : setPontuacaoColumns;
 
   // Persistir ordem das colunas de pontuação
   useEffect(() => {
-    const columnIds = pontuacaoColumns.map(col => col.id);
-    localStorage.setItem('estoque_saude_pontuacao_columns', JSON.stringify(columnIds));
+    localStorage.setItem('estoque_saude_pontuacao_columns', JSON.stringify(pontuacaoColumns.map(c => c.id)));
   }, [pontuacaoColumns]);
+  useEffect(() => {
+    localStorage.setItem('estoque_pontuacao_estoque_cols', JSON.stringify(pontuacaoEstoqueColumns.map(c => c.id)));
+  }, [pontuacaoEstoqueColumns]);
+  useEffect(() => {
+    localStorage.setItem('estoque_pontuacao_margem_cols', JSON.stringify(pontuacaoMargemColumns.map(c => c.id)));
+  }, [pontuacaoMargemColumns]);
 
   // Drag and drop para colunas de pontuação
   const [draggedPontuacaoCol, setDraggedPontuacaoCol] = useState(null);
@@ -235,7 +299,7 @@ export default function EstoqueSaude() {
     e.preventDefault();
     if (!draggedPontuacaoCol || draggedPontuacaoCol === targetColumnId) return;
 
-    const newColumns = [...pontuacaoColumns];
+    const newColumns = [...activePontuacaoColumns];
     const draggedIndex = newColumns.findIndex(c => c.id === draggedPontuacaoCol);
     const targetIndex = newColumns.findIndex(c => c.id === targetColumnId);
 
@@ -244,7 +308,7 @@ export default function EstoqueSaude() {
     const [draggedItem] = newColumns.splice(draggedIndex, 1);
     newColumns.splice(targetIndex, 0, draggedItem);
 
-    setPontuacaoColumns(newColumns);
+    setActivePontuacaoColumns(newColumns);
     setDraggedPontuacaoCol(null);
     setDragOverPontuacaoCol(null);
   };
@@ -501,19 +565,25 @@ export default function EstoqueSaude() {
   const handleCardDragStart = (e, cardId) => {
     setDraggedCard(cardId);
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', cardId);
   };
-  const handleCardDragOver = (e, targetId) => {
+  const handleCardDragOver = (e) => {
     e.preventDefault();
-    if (draggedCard && draggedCard !== targetId) {
-      setCardOrder(prev => {
-        const newOrder = [...prev];
-        const fromIdx = newOrder.indexOf(draggedCard);
-        const toIdx = newOrder.indexOf(targetId);
-        newOrder.splice(fromIdx, 1);
-        newOrder.splice(toIdx, 0, draggedCard);
-        return newOrder;
-      });
-    }
+    e.dataTransfer.dropEffect = 'move';
+  };
+  const handleCardDrop = (e, targetId) => {
+    e.preventDefault();
+    const sourceId = e.dataTransfer.getData('text/plain');
+    if (!sourceId || sourceId === targetId) return;
+    setCardOrder(prev => {
+      const newOrder = [...prev];
+      const fromIdx = newOrder.indexOf(sourceId);
+      const toIdx = newOrder.indexOf(targetId);
+      newOrder.splice(fromIdx, 1);
+      newOrder.splice(toIdx, 0, sourceId);
+      return newOrder;
+    });
+    setDraggedCard(null);
   };
   const handleCardDragEnd = () => setDraggedCard(null);
 
@@ -725,14 +795,14 @@ export default function EstoqueSaude() {
   const filteredProducts = useMemo(() => {
     let filtered = products;
 
-    // Filtro de Tipo Espécie
-    if (filterTipoEspecie) {
-      filtered = filtered.filter(p => p.tipoEspecie === filterTipoEspecie);
+    // Filtro de Tipo Espécie (multi-select)
+    if (filterTipoEspecie.length > 0) {
+      filtered = filtered.filter(p => filterTipoEspecie.includes(p.tipoEspecie));
     }
 
-    // Filtro de Tipo Evento
-    if (filterTipoEvento) {
-      filtered = filtered.filter(p => p.tipoEvento === filterTipoEvento);
+    // Filtro de Tipo Evento (multi-select)
+    if (filterTipoEvento.length > 0) {
+      filtered = filtered.filter(p => filterTipoEvento.includes(p.tipoEvento));
     }
 
     // Filtro de Seção
@@ -912,8 +982,8 @@ export default function EstoqueSaude() {
   const stats = useMemo(() => {
     const filtered = products.filter(p => {
       let match = true;
-      if (filterTipoEspecie) match = match && p.tipoEspecie === filterTipoEspecie;
-      if (filterTipoEvento) match = match && p.tipoEvento === filterTipoEvento;
+      if (filterTipoEspecie.length > 0) match = match && filterTipoEspecie.includes(p.tipoEspecie);
+      if (filterTipoEvento.length > 0) match = match && filterTipoEvento.includes(p.tipoEvento);
       return match;
     });
 
@@ -1103,8 +1173,10 @@ export default function EstoqueSaude() {
         }
       }
 
-      // Total de pontos
-      const totalPontos = pontosZerado + pontosNegativo + pontosSemVenda + pontosPreRuptura + pontosMargemNegativa + pontosMargemBaixa + pontosCustoZerado + pontosPrecoZerado + pontosConcBarato + pontosMargemExcessiva + pontosEstoqueExcessivo;
+      // Totais separados por categoria
+      const totalPontosEstoque = pontosZerado + pontosNegativo + pontosSemVenda + pontosPreRuptura + pontosEstoqueExcessivo;
+      const totalPontosMargem = pontosMargemNegativa + pontosMargemBaixa + pontosCustoZerado + pontosPrecoZerado + pontosConcBarato + pontosMargemExcessiva;
+      const totalPontos = totalPontosEstoque + totalPontosMargem;
 
       return {
         ...p,
@@ -1119,7 +1191,9 @@ export default function EstoqueSaude() {
         pontosConcBarato,
         pontosMargemExcessiva,
         pontosEstoqueExcessivo,
-        totalPontos
+        totalPontos,
+        totalPontosEstoque,
+        totalPontosMargem
       };
     }).filter(p => p.totalPontos > 0); // Mostrar apenas produtos com pontuação > 0
 
@@ -1151,7 +1225,7 @@ export default function EstoqueSaude() {
     }));
   };
 
-  // Calcular contagens de risco
+  // Calcular contagens de risco (baseado no viewMode ativo)
   const riskCounts = useMemo(() => {
     const counts = {
       semRisco: 0,
@@ -1161,7 +1235,9 @@ export default function EstoqueSaude() {
     };
 
     produtosComPontuacao.forEach(p => {
-      const pontos = p.totalPontos || 0;
+      const pontos = viewMode === 'pontuacaoEstoque' ? (p.totalPontosEstoque || 0)
+        : viewMode === 'pontuacaoMargem' ? (p.totalPontosMargem || 0)
+        : (p.totalPontos || 0);
       if (pontos >= riskConfig.muitoCritico.min) {
         counts.muitoCritico++;
       } else if (pontos >= riskConfig.critico.min && pontos <= riskConfig.critico.max) {
@@ -1177,14 +1253,16 @@ export default function EstoqueSaude() {
     counts.semRisco = filteredProducts.length - produtosComPontuacao.length;
 
     return counts;
-  }, [produtosComPontuacao, filteredProducts, riskConfig]);
+  }, [produtosComPontuacao, filteredProducts, riskConfig, viewMode]);
 
-  // Filtrar produtos por nível de risco
+  // Filtrar produtos por nível de risco (baseado no viewMode ativo)
   const produtosFiltradosPorRisco = useMemo(() => {
     if (!activeRiskFilter) return produtosComPontuacao;
 
     return produtosComPontuacao.filter(p => {
-      const pontos = p.totalPontos || 0;
+      const pontos = viewMode === 'pontuacaoEstoque' ? (p.totalPontosEstoque || 0)
+        : viewMode === 'pontuacaoMargem' ? (p.totalPontosMargem || 0)
+        : (p.totalPontos || 0);
       switch (activeRiskFilter) {
         case 'muitoCritico':
           return pontos >= riskConfig.muitoCritico.min;
@@ -1198,7 +1276,7 @@ export default function EstoqueSaude() {
           return true;
       }
     });
-  }, [produtosComPontuacao, activeRiskFilter, riskConfig]);
+  }, [produtosComPontuacao, activeRiskFilter, riskConfig, viewMode]);
 
   // Resetar página de pontuação quando filtro de risco muda
   useEffect(() => {
@@ -1323,10 +1401,18 @@ export default function EstoqueSaude() {
         return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosMargemExcessiva > 0 ? 'text-emerald-600 bg-emerald-50' : 'text-gray-400'}`}>{product.pontosMargemExcessiva > 0 ? product.pontosMargemExcessiva : '-'}</td>;
       case 'pontosEstoqueExcessivo':
         return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosEstoqueExcessivo > 0 ? 'text-amber-600 bg-amber-50' : 'text-gray-400'}`}>{product.pontosEstoqueExcessivo > 0 ? product.pontosEstoqueExcessivo : '-'}</td>;
+      case 'pontosPreRuptura':
+        return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosPreRuptura > 0 ? 'text-amber-600 bg-amber-50' : 'text-gray-400'}`}>{product.pontosPreRuptura > 0 ? product.pontosPreRuptura : '-'}</td>;
       case 'totalPontos':
         return <td key={col.id} className="px-3 py-2 text-center text-sm font-bold text-white bg-gray-800">{product.totalPontos}</td>;
+      case 'totalPontosEstoque':
+        return <td key={col.id} className="px-3 py-2 text-center text-sm font-bold text-white bg-gray-800">{product.totalPontosEstoque || 0}</td>;
+      case 'totalPontosMargem':
+        return <td key={col.id} className="px-3 py-2 text-center text-sm font-bold text-white bg-gray-800">{product.totalPontosMargem || 0}</td>;
       case 'nivelRisco': {
-        const pontos = product.totalPontos || 0;
+        const pontos = viewMode === 'pontuacaoEstoque' ? (product.totalPontosEstoque || 0)
+          : viewMode === 'pontuacaoMargem' ? (product.totalPontosMargem || 0)
+          : (product.totalPontos || 0);
         let nivel = { label: 'SEM RISCO', color: 'bg-green-500 text-white' };
         if (pontos >= riskConfig.muitoCritico.min) {
           nivel = { label: 'MUITO CRÍTICO', color: 'bg-red-600 text-white' };
@@ -1445,7 +1531,7 @@ export default function EstoqueSaude() {
   // Função para exportar para PDF
   const exportToPDF = () => {
     // Verificar se está na aba de pontuação ou geral
-    if (viewMode === 'pontuacao') {
+    if (viewMode === 'pontuacaoEstoque' || viewMode === 'pontuacaoMargem') {
       // Exportar tabela de pontuação
       if (produtosPontuacaoList.length === 0) {
         alert('Nenhum produto com pontuação encontrado!');
@@ -1475,7 +1561,7 @@ export default function EstoqueSaude() {
       doc.text(subtitle, 14, 22);
 
       // Preparar colunas da pontuação
-      const headers = [pontuacaoColumns.map(col => col.label)];
+      const headers = [activePontuacaoColumns.map(col => col.label)];
 
       // Função para obter nível de risco
       const getNivelRisco = (pontos) => {
@@ -1487,7 +1573,7 @@ export default function EstoqueSaude() {
 
       // Preparar dados
       const data = produtosPontuacaoList.map(product =>
-        pontuacaoColumns.map(col => {
+        activePontuacaoColumns.map(col => {
           switch (col.id) {
             case 'codigo': return product.codigo || '-';
             case 'descricao': return product.descricao || '-';
@@ -1509,8 +1595,16 @@ export default function EstoqueSaude() {
             case 'pontosConcBarato': return product.pontosConcBarato > 0 ? product.pontosConcBarato.toString() : '-';
             case 'pontosMargemExcessiva': return product.pontosMargemExcessiva > 0 ? product.pontosMargemExcessiva.toString() : '-';
             case 'pontosEstoqueExcessivo': return product.pontosEstoqueExcessivo > 0 ? product.pontosEstoqueExcessivo.toString() : '-';
+            case 'pontosPreRuptura': return (product.pontosPreRuptura || 0) > 0 ? product.pontosPreRuptura.toString() : '-';
             case 'totalPontos': return product.totalPontos.toString();
-            case 'nivelRisco': return getNivelRisco(product.totalPontos || 0);
+            case 'totalPontosEstoque': return (product.totalPontosEstoque || 0).toString();
+            case 'totalPontosMargem': return (product.totalPontosMargem || 0).toString();
+            case 'nivelRisco': {
+              const pts = viewMode === 'pontuacaoEstoque' ? (product.totalPontosEstoque || 0)
+                : viewMode === 'pontuacaoMargem' ? (product.totalPontosMargem || 0)
+                : (product.totalPontos || 0);
+              return getNivelRisco(pts);
+            }
             default: return '-';
           }
         })
@@ -1920,7 +2014,7 @@ export default function EstoqueSaude() {
           <div className="hidden lg:block bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg p-6 mb-6 text-white">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl lg:text-3xl font-bold mb-2">📦 Prevenção de Estoque</h1>
+                <h1 className="text-2xl lg:text-3xl font-bold mb-2">📦 GESTÃO ESTOQUE E MARGEM</h1>
                 <p className="text-white/90">
                   Monitore a saúde do seu estoque e identifique produtos críticos
                 </p>
@@ -1984,36 +2078,82 @@ export default function EstoqueSaude() {
                 </select>
               </div>
 
-              <div>
+              <div className="relative" ref={especieRef}>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   📋 Tipo Espécie
                 </label>
-                <select
-                  value={filterTipoEspecie}
-                  onChange={(e) => setFilterTipoEspecie(e.target.value)}
-                  className="w-full px-3 py-2 uppercase border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                <button
+                  type="button"
+                  onClick={() => { setShowEspecieDropdown(!showEspecieDropdown); setShowEventoDropdown(false); }}
+                  className="w-full px-3 py-2 uppercase border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white text-left text-sm truncate"
                 >
-                  <option value="">Todos</option>
-                  {filterOptions.tipoEspecies.map(tipo => (
-                    <option key={tipo} value={tipo}>{tipo}</option>
-                  ))}
-                </select>
+                  {filterTipoEspecie.length === 0 ? 'TODOS' : filterTipoEspecie.join(', ')}
+                </button>
+                {showEspecieDropdown && (
+                  <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    <label className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 font-semibold text-sm">
+                      <input type="checkbox" checked={filterTipoEspecie.length === 0} onChange={() => setFilterTipoEspecie([])} className="accent-orange-500" />
+                      TODOS
+                    </label>
+                    {filterOptions.tipoEspecies.map(tipo => (
+                      <label key={tipo} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm uppercase">
+                        <input
+                          type="checkbox"
+                          checked={filterTipoEspecie.includes(tipo)}
+                          onChange={() => {
+                            setFilterTipoEspecie(prev => {
+                              if (prev.includes(tipo)) {
+                                return prev.filter(t => t !== tipo);
+                              }
+                              return [...prev, tipo];
+                            });
+                          }}
+                          className="accent-orange-500"
+                        />
+                        {tipo}
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <div>
+              <div className="relative" ref={eventoRef}>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   📄 Tipo Evento
                 </label>
-                <select
-                  value={filterTipoEvento}
-                  onChange={(e) => setFilterTipoEvento(e.target.value)}
-                  className="w-full px-3 py-2 uppercase border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                <button
+                  type="button"
+                  onClick={() => { setShowEventoDropdown(!showEventoDropdown); setShowEspecieDropdown(false); }}
+                  className="w-full px-3 py-2 uppercase border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white text-left text-sm truncate"
                 >
-                  <option value="">Todos</option>
-                  {filterOptions.tipoEventos.map(tipo => (
-                    <option key={tipo} value={tipo}>{tipo}</option>
-                  ))}
-                </select>
+                  {filterTipoEvento.length === 0 ? 'TODOS' : filterTipoEvento.join(', ')}
+                </button>
+                {showEventoDropdown && (
+                  <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    <label className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 font-semibold text-sm">
+                      <input type="checkbox" checked={filterTipoEvento.length === 0} onChange={() => setFilterTipoEvento([])} className="accent-orange-500" />
+                      TODOS
+                    </label>
+                    {filterOptions.tipoEventos.map(tipo => (
+                      <label key={tipo} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm uppercase">
+                        <input
+                          type="checkbox"
+                          checked={filterTipoEvento.includes(tipo)}
+                          onChange={() => {
+                            setFilterTipoEvento(prev => {
+                              if (prev.includes(tipo)) {
+                                return prev.filter(t => t !== tipo);
+                              }
+                              return [...prev, tipo];
+                            });
+                          }}
+                          className="accent-orange-500"
+                        />
+                        {tipo}
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -2035,21 +2175,34 @@ export default function EstoqueSaude() {
 
           </div>
 
-          {/* Cards de Resumo */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {cardOrder.map(cardId => {
-              const cfg = CARD_CONFIG[cardId];
-              if (!cfg) return null;
-              const isActive = activeCardFilter === cardId;
-              const isSemVenda = cardId === 'sem_venda';
-              const specialRanges = cfg.specialRanges ? SPECIAL_RANGES[cardId] : null;
-              return (
-                <div
-                  key={cardId}
-                  className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg border-l-4 ${cfg.borderColor} ${
-                    isActive ? 'ring-2 ring-orange-500 bg-orange-50' : ''
-                  }`}
-                >
+          {/* Cards de Resumo - Grid único 4 colunas com headers */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {/* Headers */}
+            <div className="col-span-2 flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-sm bg-gradient-to-r from-orange-500 to-amber-500">
+              <span className="text-xl">📦</span>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-white">GESTÃO ESTOQUE</h3>
+            </div>
+            <div className="col-span-2 flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-sm bg-gradient-to-r from-blue-600 to-indigo-500">
+              <span className="text-xl">💹</span>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-white">GESTÃO MARGEM</h3>
+            </div>
+            {/* Cards intercalados: 2 estoque + 2 margem por linha */}
+            {[0, 1, 2].map(row => {
+              const estoqueCards = CARD_SECTIONS[0].cards.slice(row * 2, row * 2 + 2);
+              const margemCards = CARD_SECTIONS[1].cards.slice(row * 2, row * 2 + 2);
+              return [...estoqueCards, ...margemCards].map(cardId => {
+                const cfg = CARD_CONFIG[cardId];
+                if (!cfg) return null;
+                const isActive = activeCardFilter === cardId;
+                const isSemVenda = cardId === 'sem_venda';
+                const specialRanges = cfg.specialRanges ? SPECIAL_RANGES[cardId] : null;
+                return (
+                  <div
+                    key={cardId}
+                    className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg border-l-4 ${cfg.borderColor} ${
+                      isActive ? 'ring-2 ring-orange-500 bg-orange-50' : ''
+                    }`}
+                  >
                   <button
                     onClick={() => setActiveCardFilter(isActive ? 'todos' : cardId)}
                     className="w-full text-left"
@@ -2140,8 +2293,9 @@ export default function EstoqueSaude() {
                       </button>
                     </div>
                   </div>
-                </div>
-              );
+                  </div>
+                );
+              });
             })}
           </div>
 
@@ -2158,14 +2312,24 @@ export default function EstoqueSaude() {
               GERAL
             </button>
             <button
-              onClick={() => setViewMode('pontuacao')}
-              className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-                viewMode === 'pontuacao'
-                  ? 'bg-orange-500 text-white shadow-lg'
+              onClick={() => { setViewMode('pontuacaoEstoque'); setActiveRiskFilter(null); setCurrentPagePontuacao(1); }}
+              className={`px-5 py-2 rounded-lg font-semibold transition-all ${
+                viewMode === 'pontuacaoEstoque'
+                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
-              PONTUAÇÃO
+              📦 PONTUAÇÃO ESTOQUE
+            </button>
+            <button
+              onClick={() => { setViewMode('pontuacaoMargem'); setActiveRiskFilter(null); setCurrentPagePontuacao(1); }}
+              className={`px-5 py-2 rounded-lg font-semibold transition-all ${
+                viewMode === 'pontuacaoMargem'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white shadow-lg'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              💹 PONTUAÇÃO MARGEM
             </button>
             <button
               onClick={() => setViewMode('pedido')}
@@ -2255,7 +2419,7 @@ export default function EstoqueSaude() {
               <div className="flex-1 bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
                 <div className="flex flex-col gap-3">
                   {/* Cards de Risco - só aparecem na aba de pontuação */}
-                  {viewMode === 'pontuacao' && (
+                  {(viewMode === 'pontuacaoEstoque' || viewMode === 'pontuacaoMargem') && (
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         onClick={() => { setActiveRiskFilter(activeRiskFilter === 'muitoCritico' ? null : 'muitoCritico'); }}
@@ -2329,7 +2493,7 @@ export default function EstoqueSaude() {
                       <div className="flex items-center gap-2">
                         <span className="text-blue-800 font-medium">📊 Total de produtos:</span>
                         <span className="bg-blue-200 text-blue-900 px-3 py-1 rounded-full text-sm font-bold">
-                          {viewMode === 'pontuacao'
+                          {(viewMode === 'pontuacaoEstoque' || viewMode === 'pontuacaoMargem')
                             ? (activeRiskFilter ? produtosFiltradosPorRisco.length : produtosComPontuacao.length)
                             : filteredProducts.length} produtos
                         </span>
@@ -2489,7 +2653,7 @@ export default function EstoqueSaude() {
             <div className="bg-white rounded-lg shadow overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
+                  <thead className={`bg-gradient-to-r ${viewMode === 'pontuacaoMargem' ? 'from-blue-600 to-indigo-500' : 'from-orange-500 to-red-500'} text-white`}>
                     <tr>
                       {/* Coluna de seleção para pedido */}
                       <th className="px-2 py-3 text-center w-12">
@@ -2509,7 +2673,7 @@ export default function EstoqueSaude() {
                           />
                         </div>
                       </th>
-                      {pontuacaoColumns.map((col) => (
+                      {activePontuacaoColumns.map((col) => (
                         <th
                           key={col.id}
                           draggable
@@ -2540,13 +2704,13 @@ export default function EstoqueSaude() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {loading ? (
                       <tr>
-                        <td colSpan={pontuacaoColumns.length + 1} className="px-4 py-8 text-center text-gray-500">
+                        <td colSpan={activePontuacaoColumns.length + 1} className="px-4 py-8 text-center text-gray-500">
                           🔄 Carregando produtos...
                         </td>
                       </tr>
                     ) : produtosPontuacaoList.length === 0 ? (
                       <tr>
-                        <td colSpan={pontuacaoColumns.length + 1} className="px-4 py-8 text-center text-gray-500">
+                        <td colSpan={activePontuacaoColumns.length + 1} className="px-4 py-8 text-center text-gray-500">
                           📊 {activeRiskFilter ? 'Nenhum produto neste nível de risco.' : 'Nenhum produto com pontuação. Configure os pontos em cada card.'}
                         </td>
                       </tr>
@@ -2562,7 +2726,7 @@ export default function EstoqueSaude() {
                               className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
                           </td>
-                          {pontuacaoColumns.map((col) => renderPontuacaoCell(product, col))}
+                          {activePontuacaoColumns.map((col) => renderPontuacaoCell(product, col))}
                         </tr>
                       ))
                     )}
@@ -2572,10 +2736,10 @@ export default function EstoqueSaude() {
                       <tr className="font-bold">
                         {/* Célula vazia para coluna de checkbox */}
                         <td className="px-2 py-3"></td>
-                        {pontuacaoColumns.map((col, idx) => {
+                        {activePontuacaoColumns.map((col, idx) => {
                           // Colunas de info: mostrar "TOTAL GERAL:" na última coluna de info
-                          const infoColumns = pontuacaoColumns.filter(c => c.type === 'info');
-                          const isLastInfo = col.type === 'info' && idx === pontuacaoColumns.indexOf(infoColumns[infoColumns.length - 1]);
+                          const infoColumns = activePontuacaoColumns.filter(c => c.type === 'info');
+                          const isLastInfo = col.type === 'info' && idx === activePontuacaoColumns.indexOf(infoColumns[infoColumns.length - 1]);
                           const isInfo = col.type === 'info' && !isLastInfo;
 
                           if (isInfo) return <td key={col.id} className="px-3 py-3"></td>;
@@ -2589,6 +2753,7 @@ export default function EstoqueSaude() {
                             pontosZerado: { value: dataList.reduce((sum, p) => sum + p.pontosZerado, 0), color: 'text-red-600' },
                             pontosNegativo: { value: dataList.reduce((sum, p) => sum + p.pontosNegativo, 0), color: 'text-red-700' },
                             pontosSemVenda: { value: dataList.reduce((sum, p) => sum + p.pontosSemVenda, 0), color: 'text-orange-600' },
+                            pontosPreRuptura: { value: dataList.reduce((sum, p) => sum + (p.pontosPreRuptura || 0), 0), color: 'text-amber-600' },
                             pontosMargemNegativa: { value: dataList.reduce((sum, p) => sum + p.pontosMargemNegativa, 0), color: 'text-red-800' },
                             pontosMargemBaixa: { value: dataList.reduce((sum, p) => sum + p.pontosMargemBaixa, 0), color: 'text-yellow-600' },
                             pontosCustoZerado: { value: dataList.reduce((sum, p) => sum + p.pontosCustoZerado, 0), color: 'text-purple-600' },
@@ -2597,6 +2762,8 @@ export default function EstoqueSaude() {
                             pontosMargemExcessiva: { value: dataList.reduce((sum, p) => sum + p.pontosMargemExcessiva, 0), color: 'text-emerald-600' },
                             pontosEstoqueExcessivo: { value: dataList.reduce((sum, p) => sum + p.pontosEstoqueExcessivo, 0), color: 'text-amber-600' },
                             totalPontos: { value: dataList.reduce((sum, p) => sum + p.totalPontos, 0), color: 'text-white', bg: 'bg-gray-800' },
+                            totalPontosEstoque: { value: dataList.reduce((sum, p) => sum + (p.totalPontosEstoque || 0), 0), color: 'text-white', bg: 'bg-gray-800' },
+                            totalPontosMargem: { value: dataList.reduce((sum, p) => sum + (p.totalPontosMargem || 0), 0), color: 'text-white', bg: 'bg-gray-800' },
                           };
 
                           const total = totals[col.id];

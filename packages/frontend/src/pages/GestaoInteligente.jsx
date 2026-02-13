@@ -1,5 +1,6 @@
 import { useState, useEffect, Fragment } from 'react';
 import Layout from '../components/Layout';
+import RadarLoading from '../components/RadarLoading';
 import api from '../services/api';
 import { useLoja } from '../contexts/LojaContext';
 
@@ -1204,12 +1205,8 @@ export default function GestaoInteligente() {
           </div>
         </div>
 
-        {/* Loading */}
-        {loading && (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
-          </div>
-        )}
+        {/* Loading - Radar girando */}
+        {loading && <RadarLoading message="Atualizando dados..." />}
 
         {/* Error */}
         {error && (
@@ -1301,9 +1298,7 @@ export default function GestaoInteligente() {
                     </div>
                   </div>
                   {loadingVendasDiaSemana ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-                    </div>
+                    <RadarLoading size="sm" message="" />
                   ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
@@ -1456,9 +1451,7 @@ export default function GestaoInteligente() {
                     </div>
                   </div>
                   {loadingVendasAno ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-                    </div>
+                    <RadarLoading size="sm" message="" />
                   ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full">
@@ -1823,9 +1816,7 @@ export default function GestaoInteligente() {
                     <h3 className="text-white font-semibold">Vendas Analíticas - {formatPeriodo()}</h3>
                   </div>
                   {loadingVendasAnaliticas ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-                    </div>
+                    <RadarLoading size="sm" message="" />
                   ) : vendasAnaliticas.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="w-full">
@@ -2105,9 +2096,7 @@ export default function GestaoInteligente() {
                     </div>
                   </div>
                   {loadingVendasSetorAnual ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-                    </div>
+                    <RadarLoading size="sm" message="" />
                   ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full">
