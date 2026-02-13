@@ -41,4 +41,7 @@ router.get('/drill-down/itens', CompraVendaController.getDrillDownItens);
 // Detalhamento de empréstimos (para tooltip)
 router.get('/detalhe-emprestimo', CompraVendaController.getDetalheEmprestimo);
 
+// Receita de produção de um produto
+router.get('/receita/:codProduto', CompraVendaController.getReceitaProduto);
+
 export default router;

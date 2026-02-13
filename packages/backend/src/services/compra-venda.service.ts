@@ -554,7 +554,7 @@ export class CompraVendaService {
           WHERE d.${colCodProduto} = p.${colCodProduto}
         )
         GROUP BY p.${colCodSecaoProd}, nf.${colCodLoja}
-      ) emp_pai ON sec.${colCodSecao} = emp_pai.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_pai.COD_LOJA OR emp_pai.COD_LOJA IS NULL)
+      ) emp_pai ON sec.${colCodSecao} = emp_pai.COD_SECAO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_pai.COD_LOJA)) = emp_pai.COD_LOJA OR emp_pai.COD_LOJA IS NULL)
       -- EMPRESTADO (DECOMPOSIÇÃO): Valor que FILHOS receberam do PAI
       -- Usa QTD_DECOMP como percentual (soma 100% para cada matriz)
       LEFT JOIN (
@@ -574,7 +574,7 @@ export class CompraVendaService {
         ${tipoNfFilter}
         ${lojaFilterCompras}
         GROUP BY p_filho.${colCodSecaoProd}, nf.${colCodLoja}
-      ) emp_filho ON sec.${colCodSecao} = emp_filho.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_filho.COD_LOJA OR emp_filho.COD_LOJA IS NULL)
+      ) emp_filho ON sec.${colCodSecao} = emp_filho.COD_SECAO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_filho.COD_LOJA)) = emp_filho.COD_LOJA OR emp_filho.COD_LOJA IS NULL)
       ` : ''}
       ${calcProducao ? `
       -- EMPRESTEI (PRODUÇÃO): Insumos emprestam baseado nas VENDAS dos produtos finais
@@ -610,7 +610,7 @@ export class CompraVendaService {
           GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
         ) vendas ON pp.COD_PRODUTO = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
         GROUP BY p_insumo.${colCodSecaoProd}, compras.COD_LOJA
-      ) emp_insumo ON sec.${colCodSecao} = emp_insumo.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_insumo.COD_LOJA OR emp_insumo.COD_LOJA IS NULL)
+      ) emp_insumo ON sec.${colCodSecao} = emp_insumo.COD_SECAO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_insumo.COD_LOJA)) = emp_insumo.COD_LOJA OR emp_insumo.COD_LOJA IS NULL)
       -- EMPRESTADO (PRODUÇÃO): Produtos FINAIS recebem baseado nas suas VENDAS × receita × custo unitário
       -- Fórmula: QTD_VENDIDA × Σ(QTD_NA_RECEITA × CUSTO_UNITÁRIO_INSUMO)
       LEFT JOIN (
@@ -644,7 +644,7 @@ export class CompraVendaService {
           GROUP BY ni.${colCodItem}, nf.${colCodLoja}
         ) compras ON pp.COD_PRODUTO_PRODUCAO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
         GROUP BY p_final.${colCodSecaoProd}, vendas.COD_LOJA
-      ) emp_final ON sec.${colCodSecao} = emp_final.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
+      ) emp_final ON sec.${colCodSecao} = emp_final.COD_SECAO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_final.COD_LOJA)) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
       ` : ''}
       ${calcAssociacao ? `
       -- EMPRESTEI (ASSOCIAÇÃO): Produto BASE empresta para produtos VENDIDOS (que têm COD_ASSOCIADO)
@@ -683,7 +683,7 @@ export class CompraVendaService {
         ) vendas ON pl.${colCodProduto} = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
         WHERE pl.COD_ASSOCIADO IS NOT NULL
         GROUP BY p_base.${colCodSecaoProd}, compras.COD_LOJA
-      ) emp_assoc_pai ON sec.${colCodSecao} = emp_assoc_pai.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
+      ) emp_assoc_pai ON sec.${colCodSecao} = emp_assoc_pai.COD_SECAO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_assoc_pai.COD_LOJA)) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
       -- EMPRESTADO (ASSOCIAÇÃO): Produtos VENDIDOS recebem custo do produto BASE
       -- Fórmula: QTD_VENDIDA × QTD_EMBALAGEM_VENDA × CUSTO_UNITÁRIO_BASE
       LEFT JOIN (
@@ -718,7 +718,7 @@ export class CompraVendaService {
         ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
         WHERE pl.COD_ASSOCIADO IS NOT NULL
         GROUP BY p_venda.${colCodSecaoProd}, vendas.COD_LOJA
-      ) emp_assoc_filho ON sec.${colCodSecao} = emp_assoc_filho.COD_SECAO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
+      ) emp_assoc_filho ON sec.${colCodSecao} = emp_assoc_filho.COD_SECAO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_assoc_filho.COD_LOJA)) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
       ` : ''}
       WHERE (sec.FLG_INATIVO IS NULL OR sec.FLG_INATIVO = 'N')
       AND (c.COD_SECAO IS NOT NULL OR v.COD_SECAO IS NOT NULL)
@@ -980,7 +980,7 @@ export class CompraVendaService {
           WHERE d.${colCodProduto} = p.${colCodProduto}
         )
         GROUP BY p.${colCodGrupoProd}, nf.${colCodLoja}
-      ) emp_pai ON g.${colCodGrupo} = emp_pai.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_pai.COD_LOJA OR emp_pai.COD_LOJA IS NULL)
+      ) emp_pai ON g.${colCodGrupo} = emp_pai.COD_GRUPO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_pai.COD_LOJA)) = emp_pai.COD_LOJA OR emp_pai.COD_LOJA IS NULL)
       -- EMPRESTADO (DECOMPOSIÇÃO): Valor que FILHOS deste grupo receberam do PAI
       -- Usa QTD_DECOMP como percentual (soma 100% para cada matriz)
       LEFT JOIN (
@@ -1001,7 +1001,7 @@ export class CompraVendaService {
         ${tipoNfFilter}
         ${lojaFilterCompras}
         GROUP BY p_filho.${colCodGrupoProd}, nf.${colCodLoja}
-      ) emp_filho ON g.${colCodGrupo} = emp_filho.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_filho.COD_LOJA OR emp_filho.COD_LOJA IS NULL)
+      ) emp_filho ON g.${colCodGrupo} = emp_filho.COD_GRUPO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_filho.COD_LOJA)) = emp_filho.COD_LOJA OR emp_filho.COD_LOJA IS NULL)
       ` : ''}
       ${calcProducao ? `
       -- EMPRESTEI (PRODUÇÃO): Insumos emprestam baseado nas VENDAS dos produtos finais
@@ -1036,7 +1036,7 @@ export class CompraVendaService {
         ) vendas ON pp.COD_PRODUTO = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
         WHERE p_insumo.${colCodSecaoProd} = :codSecao
         GROUP BY p_insumo.${colCodGrupoProd}, compras.COD_LOJA
-      ) emp_insumo ON g.${colCodGrupo} = emp_insumo.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_insumo.COD_LOJA OR emp_insumo.COD_LOJA IS NULL)
+      ) emp_insumo ON g.${colCodGrupo} = emp_insumo.COD_GRUPO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_insumo.COD_LOJA)) = emp_insumo.COD_LOJA OR emp_insumo.COD_LOJA IS NULL)
       -- EMPRESTADO (PRODUÇÃO): Produtos FINAIS recebem baseado nas suas VENDAS × receita × custo unitário
       -- Fórmula: QTD_VENDIDA × Σ(QTD_NA_RECEITA × CUSTO_UNITÁRIO_INSUMO)
       LEFT JOIN (
@@ -1069,7 +1069,7 @@ export class CompraVendaService {
         ) compras ON pp.COD_PRODUTO_PRODUCAO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
         WHERE p_final.${colCodSecaoProd} = :codSecao
         GROUP BY p_final.${colCodGrupoProd}, vendas.COD_LOJA
-      ) emp_final ON g.${colCodGrupo} = emp_final.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
+      ) emp_final ON g.${colCodGrupo} = emp_final.COD_GRUPO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_final.COD_LOJA)) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
       ` : ''}
       ${calcAssociacao ? `
       -- EMPRESTEI (ASSOCIAÇÃO): Produto BASE empresta para produtos VENDIDOS
@@ -1104,7 +1104,7 @@ export class CompraVendaService {
         ) vendas ON pl.${colCodProduto} = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
         WHERE pl.COD_ASSOCIADO IS NOT NULL AND p_base.${colCodSecaoProd} = :codSecao
         GROUP BY p_base.${colCodGrupoProd}, compras.COD_LOJA
-      ) emp_assoc_pai ON g.${colCodGrupo} = emp_assoc_pai.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
+      ) emp_assoc_pai ON g.${colCodGrupo} = emp_assoc_pai.COD_GRUPO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_assoc_pai.COD_LOJA)) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
       -- EMPRESTADO (ASSOCIAÇÃO): Produtos VENDIDOS recebem custo do BASE
       LEFT JOIN (
         SELECT
@@ -1136,7 +1136,7 @@ export class CompraVendaService {
         ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
         WHERE pl.COD_ASSOCIADO IS NOT NULL AND p_venda.${colCodSecaoProd} = :codSecao
         GROUP BY p_venda.${colCodGrupoProd}, vendas.COD_LOJA
-      ) emp_assoc_filho ON g.${colCodGrupo} = emp_assoc_filho.COD_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
+      ) emp_assoc_filho ON g.${colCodGrupo} = emp_assoc_filho.COD_GRUPO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_assoc_filho.COD_LOJA)) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
       ` : ''}
       WHERE g.${colCodSecao} = :codSecao
       AND (c.COD_GRUPO IS NOT NULL OR v.COD_GRUPO IS NOT NULL)
@@ -1334,7 +1334,7 @@ export class CompraVendaService {
           WHERE d.${colCodProduto} = p.${colCodProduto}
         )
         GROUP BY p.${colCodSubGrupoProd}, nf.${colCodLoja}
-      ) emp_pai ON sg.${colCodSubGrupo} = emp_pai.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_pai.COD_LOJA OR emp_pai.COD_LOJA IS NULL)
+      ) emp_pai ON sg.${colCodSubGrupo} = emp_pai.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_pai.COD_LOJA)) = emp_pai.COD_LOJA OR emp_pai.COD_LOJA IS NULL)
       LEFT JOIN (
         SELECT
           p_filho.${colCodSubGrupoProd} as COD_SUB_GRUPO,
@@ -1354,7 +1354,7 @@ export class CompraVendaService {
         ${tipoNfFilter}
         ${lojaFilterCompras}
         GROUP BY p_filho.${colCodSubGrupoProd}, nf.${colCodLoja}
-      ) emp_filho ON sg.${colCodSubGrupo} = emp_filho.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_filho.COD_LOJA OR emp_filho.COD_LOJA IS NULL)
+      ) emp_filho ON sg.${colCodSubGrupo} = emp_filho.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_filho.COD_LOJA)) = emp_filho.COD_LOJA OR emp_filho.COD_LOJA IS NULL)
       ` : ''}
       ${calcProducao ? `
       LEFT JOIN (
@@ -1387,7 +1387,7 @@ export class CompraVendaService {
         ) vendas ON pp.COD_PRODUTO = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
         WHERE p_insumo.${colCodSecaoProd} = :codSecao AND p_insumo.${colCodGrupoProd} = :codGrupo
         GROUP BY p_insumo.${colCodSubGrupoProd}, compras.COD_LOJA
-      ) emp_insumo ON sg.${colCodSubGrupo} = emp_insumo.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_insumo.COD_LOJA OR emp_insumo.COD_LOJA IS NULL)
+      ) emp_insumo ON sg.${colCodSubGrupo} = emp_insumo.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_insumo.COD_LOJA)) = emp_insumo.COD_LOJA OR emp_insumo.COD_LOJA IS NULL)
       LEFT JOIN (
         SELECT
           p_final.${colCodSubGrupoProd} as COD_SUB_GRUPO,
@@ -1418,7 +1418,7 @@ export class CompraVendaService {
         ) compras ON pp.COD_PRODUTO_PRODUCAO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
         WHERE p_final.${colCodSecaoProd} = :codSecao AND p_final.${colCodGrupoProd} = :codGrupo
         GROUP BY p_final.${colCodSubGrupoProd}, vendas.COD_LOJA
-      ) emp_final ON sg.${colCodSubGrupo} = emp_final.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
+      ) emp_final ON sg.${colCodSubGrupo} = emp_final.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_final.COD_LOJA)) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
       ` : ''}
       ${calcAssociacao ? `
       LEFT JOIN (
@@ -1452,7 +1452,7 @@ export class CompraVendaService {
         ) vendas ON pl.${colCodProduto} = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
         WHERE pl.COD_ASSOCIADO IS NOT NULL AND p_base.${colCodSecaoProd} = :codSecao AND p_base.${colCodGrupoProd} = :codGrupo
         GROUP BY p_base.${colCodSubGrupoProd}, compras.COD_LOJA
-      ) emp_assoc_pai ON sg.${colCodSubGrupo} = emp_assoc_pai.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
+      ) emp_assoc_pai ON sg.${colCodSubGrupo} = emp_assoc_pai.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_assoc_pai.COD_LOJA)) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
       LEFT JOIN (
         SELECT
           p_venda.${colCodSubGrupoProd} as COD_SUB_GRUPO,
@@ -1483,7 +1483,7 @@ export class CompraVendaService {
         ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
         WHERE pl.COD_ASSOCIADO IS NOT NULL AND p_venda.${colCodSecaoProd} = :codSecao AND p_venda.${colCodGrupoProd} = :codGrupo
         GROUP BY p_venda.${colCodSubGrupoProd}, vendas.COD_LOJA
-      ) emp_assoc_filho ON sg.${colCodSubGrupo} = emp_assoc_filho.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
+      ) emp_assoc_filho ON sg.${colCodSubGrupo} = emp_assoc_filho.COD_SUB_GRUPO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_assoc_filho.COD_LOJA)) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
       ` : ''}
       WHERE sg.${colCodSecao} = :codSecao
       AND sg.${colCodGrupo} = :codGrupo
@@ -1618,7 +1618,10 @@ export class CompraVendaService {
         + ${calcProducao ? 'NVL(emp_final.VALOR_EMPRESTADO, 0)' : '0'}
         + ${calcAssociacao ? 'NVL(emp_assoc_filho.VALOR_EMPRESTADO, 0)' : '0'} as EMPRESTADO,
         NVL(est.QTD_EST_ATUAL, 0) as ESTOQUE_ATUAL,
-        NVL(est.QTD_COBERTURA, 0) as DIAS_COBERTURA
+        NVL(est.QTD_COBERTURA, 0) as DIAS_COBERTURA,
+        CASE WHEN EXISTS (
+          SELECT 1 FROM ${tabProdutoProducao} pp_rec WHERE pp_rec.COD_PRODUTO = p.${colCodProduto}
+        ) THEN 1 ELSE 0 END as TEM_RECEITA
       FROM ${tabProduto} p
       LEFT JOIN (
         SELECT
@@ -1680,7 +1683,7 @@ export class CompraVendaService {
           WHERE d.${colCodProduto} = ni.${colCodItem}
         )
         GROUP BY ni.${colCodItem}, nf.${colCodLoja}
-      ) emp_pai ON p.${colCodProduto} = emp_pai.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_pai.COD_LOJA OR emp_pai.COD_LOJA IS NULL)
+      ) emp_pai ON p.${colCodProduto} = emp_pai.COD_PRODUTO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_pai.COD_LOJA)) = emp_pai.COD_LOJA OR emp_pai.COD_LOJA IS NULL)
       LEFT JOIN (
         SELECT
           d.COD_PRODUTO_DECOM as COD_PRODUTO,
@@ -1696,7 +1699,7 @@ export class CompraVendaService {
         ${tipoNfFilter}
         ${lojaFilterCompras}
         GROUP BY d.COD_PRODUTO_DECOM, nf.${colCodLoja}
-      ) emp_filho ON p.${colCodProduto} = emp_filho.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_filho.COD_LOJA OR emp_filho.COD_LOJA IS NULL)
+      ) emp_filho ON p.${colCodProduto} = emp_filho.COD_PRODUTO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_filho.COD_LOJA)) = emp_filho.COD_LOJA OR emp_filho.COD_LOJA IS NULL)
       ` : ''}
       ${calcProducao ? `
       LEFT JOIN (
@@ -1727,7 +1730,7 @@ export class CompraVendaService {
           GROUP BY pv.${colCodProduto}, pv.${colCodLoja}
         ) vendas ON pp.COD_PRODUTO = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
         GROUP BY pp.COD_PRODUTO_PRODUCAO, compras.COD_LOJA
-      ) emp_insumo ON p.${colCodProduto} = emp_insumo.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_insumo.COD_LOJA OR emp_insumo.COD_LOJA IS NULL)
+      ) emp_insumo ON p.${colCodProduto} = emp_insumo.COD_PRODUTO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_insumo.COD_LOJA)) = emp_insumo.COD_LOJA OR emp_insumo.COD_LOJA IS NULL)
       LEFT JOIN (
         SELECT
           pp.COD_PRODUTO,
@@ -1756,7 +1759,7 @@ export class CompraVendaService {
           GROUP BY ni.${colCodItem}, nf.${colCodLoja}
         ) compras ON pp.COD_PRODUTO_PRODUCAO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
         GROUP BY pp.COD_PRODUTO, vendas.COD_LOJA
-      ) emp_final ON p.${colCodProduto} = emp_final.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
+      ) emp_final ON p.${colCodProduto} = emp_final.COD_PRODUTO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_final.COD_LOJA)) = emp_final.COD_LOJA OR emp_final.COD_LOJA IS NULL)
       ` : ''}
       ${calcAssociacao ? `
       LEFT JOIN (
@@ -1789,7 +1792,7 @@ export class CompraVendaService {
         ) vendas ON pl.${colCodProduto} = vendas.COD_PRODUTO AND compras.COD_LOJA = vendas.COD_LOJA
         WHERE pl.COD_ASSOCIADO IS NOT NULL
         GROUP BY pl.COD_ASSOCIADO, compras.COD_LOJA
-      ) emp_assoc_pai ON p.${colCodProduto} = emp_assoc_pai.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
+      ) emp_assoc_pai ON p.${colCodProduto} = emp_assoc_pai.COD_PRODUTO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_assoc_pai.COD_LOJA)) = emp_assoc_pai.COD_LOJA OR emp_assoc_pai.COD_LOJA IS NULL)
       LEFT JOIN (
         SELECT
           pl.${colCodProduto} as COD_PRODUTO,
@@ -1820,7 +1823,7 @@ export class CompraVendaService {
         ) compras ON pl.COD_ASSOCIADO = compras.COD_ITEM AND vendas.COD_LOJA = compras.COD_LOJA
         WHERE pl.COD_ASSOCIADO IS NOT NULL
         GROUP BY pl.${colCodProduto}, vendas.COD_LOJA
-      ) emp_assoc_filho ON p.${colCodProduto} = emp_assoc_filho.COD_PRODUTO AND (NVL(c.COD_LOJA, v.COD_LOJA) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
+      ) emp_assoc_filho ON p.${colCodProduto} = emp_assoc_filho.COD_PRODUTO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_assoc_filho.COD_LOJA)) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
       ` : ''}
       -- ESTOQUE: Busca estoque atual e dias de cobertura da TAB_PRODUTO_LOJA
       LEFT JOIN ${tabProdutoLoja} est ON p.${colCodProduto} = est.${colCodProduto}
@@ -2262,5 +2265,48 @@ export class CompraVendaService {
 
     result.total = result.totalDecomposicao + result.totalProducao + result.totalAssociacao;
     return result;
+  }
+
+  /**
+   * Busca a receita de produção de um produto
+   * Retorna os insumos (ingredientes) com quantidades e participação
+   */
+  static async getReceitaProduto(codProduto: number): Promise<any> {
+    const schema = await MappingService.getSchema();
+    const tabProdutoProducao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PRODUCAO')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+    const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+
+    // Buscar info do produto final (a receita)
+    const produtoFinal = await OracleService.query<any>(`
+      SELECT p.${colCodProduto} as COD_PRODUTO, p.${colDesProduto} as PRODUTO
+      FROM ${tabProduto} p
+      WHERE p.${colCodProduto} = :codProduto
+    `, { codProduto });
+
+    // Buscar insumos da receita
+    const insumos = await OracleService.query<any>(`
+      SELECT
+        pp.COD_PRODUTO_PRODUCAO as COD_INSUMO,
+        p.${colDesProduto} as INSUMO,
+        pp.QTD_PRODUCAO as QTD_RECEITA
+      FROM ${tabProdutoProducao} pp
+      JOIN ${tabProduto} p ON pp.COD_PRODUTO_PRODUCAO = p.${colCodProduto}
+      WHERE pp.COD_PRODUTO = :codProduto
+      ORDER BY pp.QTD_PRODUCAO DESC
+    `, { codProduto });
+
+    // Calcular % participação
+    const totalQtd = insumos.reduce((sum: number, r: any) => sum + (r.QTD_RECEITA || 0), 0);
+
+    return {
+      produto: produtoFinal[0] || { COD_PRODUTO: codProduto, PRODUTO: 'N/A' },
+      insumos: insumos.map((r: any) => ({
+        ...r,
+        PARTICIPACAO: totalQtd > 0 ? Math.round((r.QTD_RECEITA / totalQtd) * 10000) / 100 : 0
+      })),
+      totalQtd
+    };
   }
 }

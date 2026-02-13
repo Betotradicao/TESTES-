@@ -4,6 +4,7 @@ import { useLoja } from '../contexts/LojaContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
+import RadarLoading from '../components/RadarLoading';
 
 // Configuração inicial das colunas - Visão GERAL (completa)
 const INITIAL_COLUMNS = [
@@ -1535,7 +1536,7 @@ export default function FrenteCaixa() {
         <div className="p-4 md:p-6">
           {data.length === 0 ? (
             <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-              {loading ? 'Carregando...' : 'Selecione os filtros e clique em Buscar para visualizar os dados.'}
+              {loading ? <RadarLoading message="Atualizando dados..." /> : 'Selecione os filtros e clique em Buscar para visualizar os dados.'}
             </div>
           ) : (
             <div className="bg-white rounded-lg shadow overflow-hidden">

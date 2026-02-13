@@ -5,6 +5,8 @@ import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
 import DetalheEmprestimoPopover from '../components/compra-venda/DetalheEmprestimoPopover';
+import ReceitaPopover from '../components/compra-venda/ReceitaPopover';
+import RadarLoading from '../components/RadarLoading';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -30,6 +32,7 @@ const INITIAL_COLUMNS = [
   { id: 'COMPRA_FINAL', header: '🏁 Compra Final (R$)', align: 'right', highlightGreen: true },
   { id: 'ESTOQUE_ATUAL', header: '📋 Estoque Atual', align: 'right' },
   { id: 'DIAS_COBERTURA', header: '📅 Dias Cobertura', align: 'right' },
+  { id: 'RECEITA', header: '🍳 Receita', align: 'center' },
 ];
 
 export default function CompraVendaAnalise() {
@@ -817,6 +820,15 @@ export default function CompraVendaAnalise() {
         // Dias de cobertura só faz sentido no nível de item (produto individual)
         if (context?.nivel !== 'item') return '-';
         return row.DIAS_COBERTURA != null ? row.DIAS_COBERTURA : '-';
+      case 'RECEITA':
+        // Receita só faz sentido no nível de item
+        if (context?.nivel !== 'item') return '';
+        if (row.TEM_RECEITA === 1) {
+          return (
+            <ReceitaPopover codProduto={row.COD_PRODUTO} nomeProduto={row.PRODUTO} />
+          );
+        }
+        return '';
       default:
         return '-';
     }
@@ -1397,7 +1409,7 @@ export default function CompraVendaAnalise() {
                   {data.length === 0 ? (
                     <tr>
                       <td colSpan={columns.length} className="px-4 py-8 text-center text-gray-500">
-                        {loading ? 'Carregando...' : 'Nenhum dado encontrado. Clique em Pesquisar para buscar os dados.'}
+                        {loading ? <RadarLoading message="Buscando dados..." /> : 'Nenhum dado encontrado. Clique em Pesquisar para buscar os dados.'}
                       </td>
                     </tr>
                   ) : (

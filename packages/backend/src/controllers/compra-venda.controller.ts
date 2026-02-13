@@ -722,4 +722,26 @@ export class CompraVendaController {
       });
     }
   }
+
+  /**
+   * Busca receita de produção de um produto
+   */
+  static async getReceitaProduto(req: Request, res: Response) {
+    try {
+      const codProduto = parseInt(req.params.codProduto);
+      if (!codProduto) {
+        return res.status(400).json({ success: false, error: 'codProduto é obrigatório' });
+      }
+
+      const data = await CompraVendaService.getReceitaProduto(codProduto);
+      return res.json({ success: true, data });
+    } catch (error: any) {
+      console.error('Erro ao buscar receita do produto:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao buscar receita do produto',
+        message: error.message
+      });
+    }
+  }
 }
