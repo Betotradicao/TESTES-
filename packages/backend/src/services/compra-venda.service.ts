@@ -191,14 +191,12 @@ export class CompraVendaService {
     const schema = await MappingService.getSchema();
     const tabComprador = `${schema}.${await MappingService.getRealTableName('TAB_COMPRADOR')}`;
 
-    // Resolver colunas dinamicamente
-    const colCodComprador = await MappingService.getColumnFromTable('TAB_COMPRADOR', 'codigo_comprador');
-    const colDesComprador = await MappingService.getColumnFromTable('TAB_COMPRADOR', 'descricao_comprador');
-
+    // TAB_COMPRADOR tem colunas fixas: COD_COMPRADOR, DES_COMPRADOR, FLG_INATIVO
     const sql = `
-      SELECT ${colCodComprador} as COD_COMPRADOR, ${colDesComprador} as DES_COMPRADOR
+      SELECT COD_COMPRADOR, DES_COMPRADOR
       FROM ${tabComprador}
-      ORDER BY ${colDesComprador}
+      WHERE NVL(FLG_INATIVO, 'N') = 'N'
+      ORDER BY DES_COMPRADOR
     `;
 
     return OracleService.query(sql);
@@ -239,7 +237,6 @@ export class CompraVendaService {
     const colCodGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo');
     const colCodSubGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo');
     const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
-    const colCodCompradorPC = await MappingService.getColumnFromTable('TAB_COMPRADOR', 'codigo_comprador');
 
     // Filtro de Seção
     if (codSecao) {
@@ -260,11 +257,12 @@ export class CompraVendaService {
     }
 
     // Filtro de Comprador (via TAB_PRODUTO_COMPRADOR)
+    // TAB_PRODUTO_COMPRADOR tem colunas fixas: COD_COMPRADOR, COD_PRODUTO, COD_LOJA
     if (codComprador && tabProdutoComprador) {
       filterSql += ` AND EXISTS (
         SELECT 1 FROM ${tabProdutoComprador} pc
-        WHERE pc.${colCodProduto} = p.${colCodProduto}
-        AND pc.${colCodCompradorPC} = :codComprador
+        WHERE pc.COD_PRODUTO = p.${colCodProduto}
+        AND pc.COD_COMPRADOR = :codComprador
       )`;
       params.codComprador = codComprador;
     }
