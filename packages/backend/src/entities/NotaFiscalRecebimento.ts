@@ -14,6 +14,9 @@ export class NotaFiscalRecebimento {
   @Column({ type: 'int', nullable: true })
   cod_fornecedor: number | null;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  razao_social: string | null;
+
   @Column({ type: 'date' })
   data_recebimento: Date;
 

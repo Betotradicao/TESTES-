@@ -18,7 +18,7 @@ export class NotaFiscalRecebimentoController {
    */
   static async listar(req: AuthRequest, res: Response) {
     try {
-      const { data_de, data_ate, cod_loja } = req.query;
+      const { data_de, data_ate, cod_loja, conferente, cpd, financeiro, fornecedor } = req.query;
       const repo = AppDataSource.getRepository(NotaFiscalRecebimento);
 
       let qb = repo.createQueryBuilder('nf');
@@ -31,6 +31,18 @@ export class NotaFiscalRecebimentoController {
       }
       if (cod_loja) {
         qb = qb.andWhere('nf.cod_loja = :cod_loja', { cod_loja: parseInt(cod_loja as string) });
+      }
+      if (conferente) {
+        qb = qb.andWhere('nf.conferente_nome = :conferente', { conferente });
+      }
+      if (cpd) {
+        qb = qb.andWhere('nf.cpd_nome = :cpd', { cpd });
+      }
+      if (financeiro) {
+        qb = qb.andWhere('nf.financeiro_nome = :financeiro', { financeiro });
+      }
+      if (fornecedor) {
+        qb = qb.andWhere('nf.fornecedor = :fornecedor', { fornecedor });
       }
 
       qb = qb.orderBy('nf.data_recebimento', 'DESC').addOrderBy('nf.id', 'DESC');
@@ -49,7 +61,7 @@ export class NotaFiscalRecebimentoController {
    */
   static async criar(req: AuthRequest, res: Response) {
     try {
-      const { num_nota, fornecedor, cod_fornecedor, data_recebimento, hora_recebimento, valor_nota, cod_loja } = req.body;
+      const { num_nota, fornecedor, cod_fornecedor, razao_social, data_recebimento, hora_recebimento, valor_nota, cod_loja } = req.body;
 
       if (!num_nota || !fornecedor || !data_recebimento || !hora_recebimento) {
         return res.status(400).json({ error: 'Campos obrigatórios: num_nota, fornecedor, data_recebimento, hora_recebimento' });
@@ -60,6 +72,7 @@ export class NotaFiscalRecebimentoController {
         num_nota,
         fornecedor,
         cod_fornecedor: cod_fornecedor || null,
+        razao_social: razao_social || null,
         data_recebimento,
         hora_recebimento,
         valor_nota: parseFloat(valor_nota) || 0,

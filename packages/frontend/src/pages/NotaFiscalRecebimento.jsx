@@ -1,7 +1,25 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Layout from '../components/Layout';
 import api from '../services/api';
 import { useLoja } from '../contexts/LojaContext';
+
+// Definição das colunas da tabela (ordem padrão)
+const ALL_COLUMNS = [
+  { id: 'lote', label: 'LOTE', align: 'center', width: 'w-[50px]', special: 'lote' },
+  { id: 'idx', label: '#', align: 'left' },
+  { id: 'num_nota', label: 'N° da Nota', align: 'left' },
+  { id: 'fornecedor', label: 'FORNECEDOR', align: 'left' },
+  { id: 'data_recebimento', label: 'Data Recebimento', align: 'center' },
+  { id: 'hora', label: 'Hora', align: 'center' },
+  { id: 'valor_nota', label: 'Valor da Nota', align: 'right' },
+  { id: 'entrada_nota', label: 'ENTRADA DE NOTA', align: 'center', minWidth: 'min-w-[130px]' },
+  { id: 'conferente', label: 'CONFERENTE', align: 'center', minWidth: 'min-w-[180px]', headerBg: 'bg-blue-600', cellBg: 'bg-blue-50', cellBgSigned: 'bg-blue-100/60', textColor: 'text-blue-700', textLight: 'text-blue-600', textLighter: 'text-blue-500' },
+  { id: 'cpd', label: 'Visto CPD', align: 'center', minWidth: 'min-w-[180px]', headerBg: 'bg-purple-600', cellBg: 'bg-purple-50', cellBgSigned: 'bg-purple-100/60', textColor: 'text-purple-700', textLight: 'text-purple-600', textLighter: 'text-purple-500' },
+  { id: 'financeiro', label: 'Visto FINANCEIRO', align: 'center', minWidth: 'min-w-[180px]', headerBg: 'bg-teal-600', cellBg: 'bg-teal-50', cellBgSigned: 'bg-teal-100/60', textColor: 'text-teal-700', textLight: 'text-teal-600', textLighter: 'text-teal-500' },
+  { id: 'acoes', label: 'Ações', align: 'center', width: 'w-[80px]' },
+];
+const DEFAULT_COLUMN_ORDER = ALL_COLUMNS.map(c => c.id);
+const COLUMN_ORDER_KEY = 'nf-recebimento-column-order';
 
 export default function NotaFiscalRecebimento() {
   const { lojaSelecionada } = useLoja();
@@ -38,10 +56,100 @@ export default function NotaFiscalRecebimento() {
   // Lote (batch) selection
   const [selectedNotas, setSelectedNotas] = useState(new Set());
 
+  // Ordenação de colunas (click no header)
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+
+  const handleSort = (colId) => {
+    setSortConfig(prev => {
+      if (prev.key === colId) {
+        if (prev.direction === 'asc') return { key: colId, direction: 'desc' };
+        return { key: null, direction: 'asc' }; // 3rd click = remove sort
+      }
+      return { key: colId, direction: 'asc' };
+    });
+  };
+
+  const sortedNotas = useMemo(() => {
+    if (!sortConfig.key || notas.length === 0) return notas;
+    const sorted = [...notas];
+    const dir = sortConfig.direction === 'asc' ? 1 : -1;
+    sorted.sort((a, b) => {
+      let va, vb;
+      switch (sortConfig.key) {
+        case 'idx': return 0; // idx is just row number
+        case 'num_nota': va = a.num_nota || ''; vb = b.num_nota || ''; break;
+        case 'fornecedor': va = a.fornecedor || ''; vb = b.fornecedor || ''; break;
+        case 'data_recebimento': va = a.data_recebimento || ''; vb = b.data_recebimento || ''; break;
+        case 'hora': va = a.hora_recebimento || ''; vb = b.hora_recebimento || ''; break;
+        case 'valor_nota': return dir * ((parseFloat(a.valor_nota) || 0) - (parseFloat(b.valor_nota) || 0));
+        case 'conferente': va = a.conferente_nome || ''; vb = b.conferente_nome || ''; break;
+        case 'cpd': va = a.cpd_nome || ''; vb = b.cpd_nome || ''; break;
+        case 'financeiro': va = a.financeiro_nome || ''; vb = b.financeiro_nome || ''; break;
+        default: return 0;
+      }
+      return dir * va.localeCompare(vb, 'pt-BR', { sensitivity: 'base' });
+    });
+    return sorted;
+  }, [notas, sortConfig]);
+
+  // Ordem das colunas (drag-and-drop persistente)
+  const [columnOrder, setColumnOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem(COLUMN_ORDER_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Validar que todos os IDs existem
+        const validIds = new Set(DEFAULT_COLUMN_ORDER);
+        if (parsed.length === validIds.size && parsed.every(id => validIds.has(id))) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return DEFAULT_COLUMN_ORDER;
+  });
+  const dragColRef = useRef(null);
+  const dragOverColRef = useRef(null);
+
+  const orderedColumns = columnOrder.map(id => ALL_COLUMNS.find(c => c.id === id)).filter(Boolean);
+
+  const handleColumnDragStart = (e, colId) => {
+    dragColRef.current = colId;
+    e.dataTransfer.effectAllowed = 'move';
+    e.target.style.opacity = '0.5';
+  };
+
+  const handleColumnDragEnd = (e) => {
+    e.target.style.opacity = '1';
+    dragColRef.current = null;
+    dragOverColRef.current = null;
+  };
+
+  const handleColumnDragOver = (e, colId) => {
+    e.preventDefault();
+    dragOverColRef.current = colId;
+  };
+
+  const handleColumnDrop = (e, colId) => {
+    e.preventDefault();
+    const from = dragColRef.current;
+    const to = colId;
+    if (!from || from === to) return;
+    const newOrder = [...columnOrder];
+    const fromIdx = newOrder.indexOf(from);
+    const toIdx = newOrder.indexOf(to);
+    newOrder.splice(fromIdx, 1);
+    newOrder.splice(toIdx, 0, from);
+    setColumnOrder(newOrder);
+    localStorage.setItem(COLUMN_ORDER_KEY, JSON.stringify(newOrder));
+    dragColRef.current = null;
+    dragOverColRef.current = null;
+  };
+
   const [formNota, setFormNota] = useState({
     num_nota: '',
     fornecedor: '',
     cod_fornecedor: null,
+    razao_social: '',
     data_recebimento: new Date().toISOString().split('T')[0],
     hora_recebimento: new Date().toTimeString().slice(0, 5),
     valor_nota: ''
@@ -66,6 +174,7 @@ export default function NotaFiscalRecebimento() {
           ...prev,
           fornecedor: fornecedorNome,
           cod_fornecedor: data.cod_fornecedor || null,
+          razao_social: data.fornecedor || '',
           valor_nota: data.valor_total ? data.valor_total.toString() : prev.valor_nota
         }));
         setFormFornecedorSearch(fornecedorNome);
@@ -193,6 +302,7 @@ export default function NotaFiscalRecebimento() {
         num_nota: '',
         fornecedor: '',
         cod_fornecedor: null,
+        razao_social: '',
         data_recebimento: new Date().toISOString().split('T')[0],
         hora_recebimento: new Date().toTimeString().slice(0, 5),
         valor_nota: ''
@@ -282,6 +392,7 @@ export default function NotaFiscalRecebimento() {
       num_nota: nota.num_nota,
       fornecedor: nota.fornecedor,
       cod_fornecedor: nota.cod_fornecedor,
+      razao_social: nota.razao_social || '',
       data_recebimento: nota.data_recebimento,
       hora_recebimento: nota.hora_recebimento,
       valor_nota: nota.valor_nota?.toString() || ''
@@ -516,36 +627,68 @@ export default function NotaFiscalRecebimento() {
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto overflow-y-auto max-h-[78vh]">
             <table className="w-full text-sm">
-              <thead className="bg-gradient-to-r from-orange-500 to-amber-500 sticky top-0 z-10">
+              <thead className="sticky top-0 z-10">
                 <tr>
-                  <th className="px-2 py-2.5 text-center font-medium text-white text-xs whitespace-nowrap w-[50px]">
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className="text-[10px]">LOTE</span>
-                      <input
-                        type="checkbox"
-                        checked={notas.length > 0 && selectedNotas.size === notas.length}
-                        onChange={toggleSelectAll}
-                        className="w-4 h-4 rounded border-white/50 text-orange-600 focus:ring-orange-500 cursor-pointer"
-                      />
-                    </div>
-                  </th>
-                  <th className="px-3 py-2.5 text-left font-medium text-white text-xs whitespace-nowrap">#</th>
-                  <th className="px-3 py-2.5 text-left font-medium text-white text-xs whitespace-nowrap">N° da Nota</th>
-                  <th className="px-3 py-2.5 text-left font-medium text-white text-xs whitespace-nowrap">FORNECEDOR</th>
-                  <th className="px-3 py-2.5 text-center font-medium text-white text-xs whitespace-nowrap">Data Recebimento</th>
-                  <th className="px-3 py-2.5 text-center font-medium text-white text-xs whitespace-nowrap">Hora</th>
-                  <th className="px-3 py-2.5 text-right font-medium text-white text-xs whitespace-nowrap">Valor da Nota</th>
-                  <th className="px-3 py-2.5 text-center font-medium text-white text-xs whitespace-nowrap min-w-[130px]">ENTRADA DE NOTA</th>
-                  <th className="px-3 py-2.5 text-center font-medium text-white text-xs whitespace-nowrap min-w-[180px]">CONFERENTE</th>
-                  <th className="px-3 py-2.5 text-center font-medium text-white text-xs whitespace-nowrap min-w-[180px]">Visto CPD</th>
-                  <th className="px-3 py-2.5 text-center font-medium text-white text-xs whitespace-nowrap min-w-[180px]">Visto FINANCEIRO</th>
-                  <th className="px-3 py-2.5 text-center font-medium text-white text-xs whitespace-nowrap w-[80px]">Ações</th>
+                  {orderedColumns.map(col => {
+                    const isSignature = ['conferente', 'cpd', 'financeiro'].includes(col.id);
+                    const headerClass = isSignature && col.headerBg
+                      ? `${col.headerBg} text-white`
+                      : 'bg-gradient-to-r from-orange-500 to-amber-500 text-white';
+                    const alignClass = col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left';
+                    if (col.id === 'lote') {
+                      return (
+                        <th
+                          key={col.id}
+                          draggable
+                          onDragStart={(e) => handleColumnDragStart(e, col.id)}
+                          onDragEnd={handleColumnDragEnd}
+                          onDragOver={(e) => handleColumnDragOver(e, col.id)}
+                          onDrop={(e) => handleColumnDrop(e, col.id)}
+                          className={`px-2 py-2.5 text-center font-medium text-xs whitespace-nowrap ${col.width || ''} ${headerClass} cursor-grab`}
+                        >
+                          <div className="flex flex-col items-center gap-0.5">
+                            <span className="text-[10px]">LOTE</span>
+                            <input
+                              type="checkbox"
+                              checked={notas.length > 0 && selectedNotas.size === notas.length}
+                              onChange={toggleSelectAll}
+                              className="w-4 h-4 rounded border-white/50 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                            />
+                          </div>
+                        </th>
+                      );
+                    }
+                    const sortable = !['lote', 'acoes', 'entrada_nota'].includes(col.id);
+                    const isSorted = sortConfig.key === col.id;
+                    return (
+                      <th
+                        key={col.id}
+                        draggable
+                        onDragStart={(e) => handleColumnDragStart(e, col.id)}
+                        onDragEnd={handleColumnDragEnd}
+                        onDragOver={(e) => handleColumnDragOver(e, col.id)}
+                        onDrop={(e) => handleColumnDrop(e, col.id)}
+                        onClick={sortable ? () => handleSort(col.id) : undefined}
+                        className={`px-3 py-2.5 ${alignClass} font-medium text-xs whitespace-nowrap ${col.width || ''} ${col.minWidth || ''} ${headerClass} cursor-grab ${sortable ? 'hover:brightness-110 select-none' : ''}`}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          {col.label}
+                          {sortable && isSorted && (
+                            <span className="text-white/90">{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                          )}
+                          {sortable && !isSorted && (
+                            <span className="text-white/40">⇅</span>
+                          )}
+                        </span>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={12} className="px-4 py-16 text-center text-gray-500">
+                    <td colSpan={orderedColumns.length} className="px-4 py-16 text-center text-gray-500">
                       <div className="flex items-center justify-center gap-2">
                         <svg className="animate-spin h-5 w-5 text-orange-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -557,151 +700,184 @@ export default function NotaFiscalRecebimento() {
                   </tr>
                 ) : notas.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="px-4 py-16 text-center text-gray-400">
+                    <td colSpan={orderedColumns.length} className="px-4 py-16 text-center text-gray-400">
                       Nenhuma nota fiscal registrada para o periodo selecionado
                     </td>
                   </tr>
                 ) : (
-                  notas.map((nota, idx) => {
+                  sortedNotas.map((nota, idx) => {
                     const temAssinatura = nota.conferente_nome || nota.cpd_nome || nota.financeiro_nome;
                     const todasAssinaturas = nota.conferente_nome && nota.cpd_nome && nota.financeiro_nome;
                     const isSelected = selectedNotas.has(nota.id);
-                    return (
-                    <tr key={nota.id} className={`${
-                      isSelected ? 'bg-blue-50' :
+                    const rowBg = isSelected ? 'bg-blue-50' :
                       todasAssinaturas ? (idx % 2 === 0 ? 'bg-green-50/40' : 'bg-green-50/20') :
                       !temAssinatura ? (idx % 2 === 0 ? 'bg-gray-100/80' : 'bg-gray-50/80') :
-                      (idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50')
-                    } hover:bg-orange-50/50 transition-colors`}>
-                      {/* LOTE checkbox */}
-                      <td className="px-2 py-2.5 text-center">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleSelectNota(nota.id)}
-                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                        />
-                      </td>
-                      <td className="px-3 py-2.5 text-gray-400 font-mono text-xs">{idx + 1}</td>
-                      <td className="px-3 py-2.5 font-semibold text-gray-900">{nota.num_nota}</td>
-                      <td className="px-3 py-2.5 text-gray-700 text-xs">{nota.fornecedor}</td>
-                      <td className="px-3 py-2.5 text-center text-gray-700 text-xs">
-                        {nota.data_recebimento ? new Date(nota.data_recebimento + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}
-                      </td>
-                      <td className="px-3 py-2.5 text-center text-gray-700 text-xs">{nota.hora_recebimento || '-'}</td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-gray-900 text-xs">{formatCurrency(nota.valor_nota)}</td>
-
-                      {/* ENTRADA DE NOTA */}
-                      <td className="px-3 py-2.5 text-center">
-                        {(() => {
-                          const entrada = getEntradaStatus(nota);
-                          if (!entrada) {
+                      (idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50');
+                    return (
+                    <tr key={nota.id} className={`${rowBg} hover:bg-orange-50/50 transition-colors`}>
+                      {orderedColumns.map(col => {
+                        switch (col.id) {
+                          case 'lote':
                             return (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-yellow-100 text-yellow-800 border border-yellow-300">
-                                <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
-                                PENDENTE
-                              </span>
+                              <td key={col.id} className="px-2 py-2.5 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleSelectNota(nota.id)}
+                                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                />
+                              </td>
                             );
-                          }
-                          if (entrada.efetivada) {
+                          case 'idx':
+                            return <td key={col.id} className="px-3 py-2.5 text-gray-400 font-mono text-xs">{idx + 1}</td>;
+                          case 'num_nota':
+                            return <td key={col.id} className="px-3 py-2.5 font-semibold text-gray-900">{nota.num_nota}</td>;
+                          case 'fornecedor':
                             return (
-                              <div>
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-green-100 text-green-800 border border-green-300">
-                                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                                  FINALIZADA
-                                </span>
-                                {entrada.data_entrada && (
-                                  <div className="text-[10px] text-green-600 mt-0.5">{formatDateTime(entrada.data_entrada)}</div>
+                              <td key={col.id} className="px-3 py-2.5 text-xs">
+                                <div className="font-semibold text-gray-900">{nota.fornecedor}</div>
+                                {nota.razao_social && nota.razao_social !== nota.fornecedor && (
+                                  <div className="text-[10px] text-gray-400 truncate max-w-[200px]" title={nota.razao_social}>{nota.razao_social}</div>
                                 )}
-                              </div>
+                              </td>
+                            );
+                          case 'data_recebimento':
+                            return (
+                              <td key={col.id} className="px-3 py-2.5 text-center text-gray-700 text-xs">
+                                {nota.data_recebimento ? new Date(nota.data_recebimento + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}
+                              </td>
+                            );
+                          case 'hora':
+                            return <td key={col.id} className="px-3 py-2.5 text-center text-gray-700 text-xs">{nota.hora_recebimento || '-'}</td>;
+                          case 'valor_nota':
+                            return <td key={col.id} className="px-3 py-2.5 text-right font-semibold text-gray-900 text-xs">{formatCurrency(nota.valor_nota)}</td>;
+                          case 'entrada_nota':
+                            return (
+                              <td key={col.id} className="px-3 py-2.5 text-center">
+                                {(() => {
+                                  const entrada = getEntradaStatus(nota);
+                                  if (!entrada) {
+                                    return (
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-yellow-100 text-yellow-800 border border-yellow-300">
+                                        <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                                        PENDENTE
+                                      </span>
+                                    );
+                                  }
+                                  if (entrada.efetivada) {
+                                    return (
+                                      <div>
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-green-100 text-green-800 border border-green-300">
+                                          <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                          FINALIZADA
+                                        </span>
+                                        {entrada.data_entrada && (
+                                          <div className="text-[10px] text-green-600 mt-0.5">{formatDateTime(entrada.data_entrada)}</div>
+                                        )}
+                                      </div>
+                                    );
+                                  }
+                                  return (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-yellow-100 text-yellow-800 border border-yellow-300">
+                                      <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                                      PENDENTE
+                                    </span>
+                                  );
+                                })()}
+                              </td>
+                            );
+                          case 'conferente': {
+                            const signed = !!nota.conferente_nome;
+                            return (
+                              <td key={col.id} className={`px-3 py-2.5 text-center ${signed ? col.cellBgSigned : col.cellBg}`}>
+                                {signed ? (
+                                  <div>
+                                    <span className={`${col.textColor} font-bold text-base`}>{nota.conferente_nome}</span>
+                                    <div className={`text-xs ${col.textLight} font-semibold`}>ASSINADO VIA SENHA PESSOAL</div>
+                                    <div className={`text-[11px] ${col.textLighter}`}>{formatDateTime(nota.conferente_assinado_em)}</div>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => handleAbrirAssinatura(nota.id, 'conferente')}
+                                    className="px-3 py-1 bg-blue-200 text-blue-700 rounded-md text-xs font-medium hover:bg-blue-300 transition-colors"
+                                  >
+                                    Assinar
+                                  </button>
+                                )}
+                              </td>
                             );
                           }
-                          return (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-yellow-100 text-yellow-800 border border-yellow-300">
-                              <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
-                              PENDENTE
-                            </span>
-                          );
-                        })()}
-                      </td>
-
-                      {/* CONFERENTE */}
-                      <td className={`px-3 py-2.5 text-center ${!nota.conferente_nome ? 'bg-gray-200' : ''}`}>
-                        {nota.conferente_nome ? (
-                          <div>
-                            <span className="text-green-700 font-bold text-base">{nota.conferente_nome}</span>
-                            <div className="text-xs text-green-600 font-semibold">ASSINADO VIA SENHA PESSOAL</div>
-                            <div className="text-[11px] text-green-500">{formatDateTime(nota.conferente_assinado_em)}</div>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => handleAbrirAssinatura(nota.id, 'conferente')}
-                            className="px-3 py-1 bg-gray-300 text-gray-600 rounded-md text-xs font-medium hover:bg-gray-400 hover:text-gray-800 transition-colors"
-                          >
-                            Assinar
-                          </button>
-                        )}
-                      </td>
-
-                      {/* CPD */}
-                      <td className={`px-3 py-2.5 text-center ${!nota.cpd_nome ? 'bg-gray-200' : ''}`}>
-                        {nota.cpd_nome ? (
-                          <div>
-                            <span className="text-green-700 font-bold text-base">{nota.cpd_nome}</span>
-                            <div className="text-xs text-green-600 font-semibold">ASSINADO VIA SENHA PESSOAL</div>
-                            <div className="text-[11px] text-green-500">{formatDateTime(nota.cpd_assinado_em)}</div>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => handleAbrirAssinatura(nota.id, 'cpd')}
-                            className="px-3 py-1 bg-gray-300 text-gray-600 rounded-md text-xs font-medium hover:bg-gray-400 hover:text-gray-800 transition-colors"
-                          >
-                            Assinar
-                          </button>
-                        )}
-                      </td>
-
-                      {/* FINANCEIRO */}
-                      <td className={`px-3 py-2.5 text-center ${!nota.financeiro_nome ? 'bg-gray-200' : ''}`}>
-                        {nota.financeiro_nome ? (
-                          <div>
-                            <span className="text-green-700 font-bold text-base">{nota.financeiro_nome}</span>
-                            <div className="text-xs text-green-600 font-semibold">ASSINADO VIA SENHA PESSOAL</div>
-                            <div className="text-[11px] text-green-500">{formatDateTime(nota.financeiro_assinado_em)}</div>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => handleAbrirAssinatura(nota.id, 'financeiro')}
-                            className="px-3 py-1 bg-gray-300 text-gray-600 rounded-md text-xs font-medium hover:bg-gray-400 hover:text-gray-800 transition-colors"
-                          >
-                            Assinar
-                          </button>
-                        )}
-                      </td>
-
-                      {/* Ações */}
-                      <td className="px-3 py-2.5 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => handleEditarNota(nota)}
-                            className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                            title="Editar"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleExcluirNota(nota.id)}
-                            className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                            title="Excluir"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      </td>
+                          case 'cpd': {
+                            const signed = !!nota.cpd_nome;
+                            return (
+                              <td key={col.id} className={`px-3 py-2.5 text-center ${signed ? col.cellBgSigned : col.cellBg}`}>
+                                {signed ? (
+                                  <div>
+                                    <span className={`${col.textColor} font-bold text-base`}>{nota.cpd_nome}</span>
+                                    <div className={`text-xs ${col.textLight} font-semibold`}>ASSINADO VIA SENHA PESSOAL</div>
+                                    <div className={`text-[11px] ${col.textLighter}`}>{formatDateTime(nota.cpd_assinado_em)}</div>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => handleAbrirAssinatura(nota.id, 'cpd')}
+                                    className="px-3 py-1 bg-purple-200 text-purple-700 rounded-md text-xs font-medium hover:bg-purple-300 transition-colors"
+                                  >
+                                    Assinar
+                                  </button>
+                                )}
+                              </td>
+                            );
+                          }
+                          case 'financeiro': {
+                            const signed = !!nota.financeiro_nome;
+                            return (
+                              <td key={col.id} className={`px-3 py-2.5 text-center ${signed ? col.cellBgSigned : col.cellBg}`}>
+                                {signed ? (
+                                  <div>
+                                    <span className={`${col.textColor} font-bold text-base`}>{nota.financeiro_nome}</span>
+                                    <div className={`text-xs ${col.textLight} font-semibold`}>ASSINADO VIA SENHA PESSOAL</div>
+                                    <div className={`text-[11px] ${col.textLighter}`}>{formatDateTime(nota.financeiro_assinado_em)}</div>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => handleAbrirAssinatura(nota.id, 'financeiro')}
+                                    className="px-3 py-1 bg-teal-200 text-teal-700 rounded-md text-xs font-medium hover:bg-teal-300 transition-colors"
+                                  >
+                                    Assinar
+                                  </button>
+                                )}
+                              </td>
+                            );
+                          }
+                          case 'acoes':
+                            return (
+                              <td key={col.id} className="px-3 py-2.5 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => handleEditarNota(nota)}
+                                    className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                                    title="Editar"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    onClick={() => handleExcluirNota(nota.id)}
+                                    className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                                    title="Excluir"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </td>
+                            );
+                          default:
+                            return <td key={col.id} className="px-3 py-2.5">-</td>;
+                        }
+                      })}
                     </tr>
                     );
                   })
