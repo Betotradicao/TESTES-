@@ -11,6 +11,8 @@ export default function ExtratoSantander() {
   const [error, setError] = useState(null);
   const [sortEntradas, setSortEntradas] = useState({ key: 'valor', direction: 'desc' });
   const [sortSaidas, setSortSaidas] = useState({ key: 'valor', direction: 'desc' });
+  const [vendas, setVendas] = useState(null);
+  const [loadingVendas, setLoadingVendas] = useState(true);
 
   // Filtros - data inicio = primeiro dia do mes, data fim = ontem
   const hoje = new Date();
@@ -59,8 +61,27 @@ export default function ExtratoSantander() {
     }
   }, [filters.initialDate, filters.finalDate]);
 
+  const fetchVendas = useCallback(async () => {
+    setLoadingVendas(true);
+    try {
+      const di = filters.initialDate.split('-').reverse().join('/');
+      const df = filters.finalDate.split('-').reverse().join('/');
+      const res = await api.get('/frente-caixa/totais', {
+        params: { dataInicio: di, dataFim: df }
+      });
+      if (res.data?.success) {
+        setVendas(res.data.totais);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar vendas:', err);
+      setVendas(null);
+    } finally {
+      setLoadingVendas(false);
+    }
+  }, [filters.initialDate, filters.finalDate]);
+
   useEffect(() => { fetchSaldo(); }, [fetchSaldo]);
-  useEffect(() => { fetchExtrato(); }, [fetchExtrato]);
+  useEffect(() => { fetchExtrato(); fetchVendas(); }, [fetchExtrato, fetchVendas]);
 
   // Separar entradas e saidas
   const entradas = useMemo(() => allItems.filter(i => i.creditDebitType === 'CREDITO'), [allItems]);
@@ -402,6 +423,86 @@ export default function ExtratoSantander() {
             <p className="text-red-500 text-xs mt-1">Verifique as configuracoes do Santander em Configuracoes do sistema.</p>
           </div>
         )}
+
+        {/* Card Vendas no Periodo */}
+        <div className="bg-white rounded-xl shadow-sm border border-orange-200 p-4 mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-orange-100 rounded-lg p-2">
+              <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+              </svg>
+            </div>
+            <h3 className="font-bold text-base text-gray-800">VENDAS NO PERIODO</h3>
+            <span className="text-xs text-gray-400">
+              {filters.initialDate.split('-').reverse().join('/')} a {filters.finalDate.split('-').reverse().join('/')}
+            </span>
+          </div>
+          {loadingVendas ? (
+            <div className="animate-pulse flex gap-4">
+              <div className="bg-gray-200 h-16 flex-1 rounded-lg"></div>
+              <div className="bg-gray-200 h-16 flex-1 rounded-lg"></div>
+              <div className="bg-gray-200 h-16 flex-1 rounded-lg"></div>
+              <div className="bg-gray-200 h-16 flex-1 rounded-lg"></div>
+            </div>
+          ) : vendas ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+              <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
+                <p className="text-xs text-gray-500 uppercase">Total Vendas</p>
+                <p className="text-lg font-black text-orange-600">{formatCurrency(vendas.TOTAL_VENDAS || 0)}</p>
+                <p className="text-xs text-gray-400">{vendas.TOTAL_CUPONS?.toLocaleString() || 0} cupons</p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-3 border border-green-100">
+                <p className="text-xs text-gray-500 uppercase">Dinheiro</p>
+                <p className="text-sm font-bold text-green-700">{formatCurrency(vendas.DINHEIRO || 0)}</p>
+                <p className="text-xs text-gray-400">
+                  {vendas.TOTAL_VENDAS ? ((vendas.DINHEIRO || 0) / vendas.TOTAL_VENDAS * 100).toFixed(1) : 0}%
+                </p>
+              </div>
+              <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
+                <p className="text-xs text-gray-500 uppercase">Debito</p>
+                <p className="text-sm font-bold text-blue-700">{formatCurrency(vendas.CARTAO_DEBITO || 0)}</p>
+                <p className="text-xs text-gray-400">
+                  {vendas.TOTAL_VENDAS ? ((vendas.CARTAO_DEBITO || 0) / vendas.TOTAL_VENDAS * 100).toFixed(1) : 0}%
+                </p>
+              </div>
+              <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
+                <p className="text-xs text-gray-500 uppercase">Credito</p>
+                <p className="text-sm font-bold text-purple-700">{formatCurrency(vendas.CARTAO_CREDITO || 0)}</p>
+                <p className="text-xs text-gray-400">
+                  {vendas.TOTAL_VENDAS ? ((vendas.CARTAO_CREDITO || 0) / vendas.TOTAL_VENDAS * 100).toFixed(1) : 0}%
+                </p>
+              </div>
+              <div className="bg-teal-50 rounded-lg p-3 border border-teal-100">
+                <p className="text-xs text-gray-500 uppercase">PIX</p>
+                <p className="text-sm font-bold text-teal-700">{formatCurrency(vendas.PIX || 0)}</p>
+                <p className="text-xs text-gray-400">
+                  {vendas.TOTAL_VENDAS ? ((vendas.PIX || 0) / vendas.TOTAL_VENDAS * 100).toFixed(1) : 0}%
+                </p>
+              </div>
+              <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-100">
+                <p className="text-xs text-gray-500 uppercase">Funcionario</p>
+                <p className="text-sm font-bold text-yellow-700">{formatCurrency(vendas.FUNCIONARIO || 0)}</p>
+                <p className="text-xs text-gray-400">
+                  {vendas.TOTAL_VENDAS ? ((vendas.FUNCIONARIO || 0) / vendas.TOTAL_VENDAS * 100).toFixed(1) : 0}%
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                <p className="text-xs text-gray-500 uppercase">Outros</p>
+                <p className="text-sm font-bold text-gray-700">
+                  {formatCurrency(
+                    (vendas.CARTAO_POS || 0) + (vendas.TRICARD_PARCELADO || 0) +
+                    (vendas.VALE_TROCA || 0) + (vendas.VALE_DESCONTO || 0) + (vendas.OUTROS || 0)
+                  )}
+                </p>
+                <p className="text-xs text-gray-400">{vendas.TOTAL_OPERADORES || 0} operadores</p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-4 text-gray-400 text-sm">
+              Dados de vendas indisponiveis (verifique conexao Oracle)
+            </div>
+          )}
+        </div>
 
         {/* DUAS COLUNAS: Entradas | Saidas */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

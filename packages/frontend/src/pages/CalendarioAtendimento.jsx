@@ -201,6 +201,7 @@ const FORNECEDOR_COLS = [
   { id: 'CELULAR', label: '📱 CELULAR', align: 'left' },
   { id: 'NUM_FREQ_VISITA', label: '🗓️ VISITA', align: 'center' },
   { id: 'NUM_PRAZO', label: '🚚 PRAZO ENT.', align: 'center' },
+  { id: 'DIAS_REPOSICAO', label: '📦 DIAS REPOSIÇÃO', align: 'center' },
   { id: 'PRAZO_MEDIO_REAL', label: '📊 PRAZO MÉD.', align: 'center' },
   { id: 'NUM_MED_CPGTO', label: '💰 COND PGTO', align: 'center' },
   { id: 'PED_MIN_VAL', label: '📦 PED. MÍN.', align: 'right' },
@@ -304,6 +305,7 @@ const getCellRaw = (colId, f) => {
     case 'CELULAR': return f.NUM_CELULAR || f.NUM_FONE || '';
     case 'NUM_FREQ_VISITA': return Number(f.NUM_FREQ_VISITA) || 0;
     case 'NUM_PRAZO': return Number(f.NUM_PRAZO) || 0;
+    case 'DIAS_REPOSICAO': return (Number(f.NUM_FREQ_VISITA) || 0) + (Number(f.NUM_PRAZO) || 0);
     case 'PRAZO_MEDIO_REAL': return Number(f.PRAZO_MEDIO_REAL) || 0;
     case 'NUM_MED_CPGTO': {
       if (f.CONDICOES_PGTO) {
@@ -384,6 +386,13 @@ const renderCell = (colId, f) => {
       return f.NUM_PRAZO
         ? <span className="text-green-600 font-semibold">{f.NUM_PRAZO}d</span>
         : <span className="text-gray-400">-</span>;
+    case 'DIAS_REPOSICAO': {
+      const visita = Number(f.NUM_FREQ_VISITA) || 0;
+      const prazo = Number(f.NUM_PRAZO) || 0;
+      const total = visita + prazo;
+      if (!total) return <span className="text-gray-400">-</span>;
+      return <span className={corPrazo(total)}>{total}d</span>;
+    }
     case 'PRAZO_MEDIO_REAL': {
       const pm = Number(f.PRAZO_MEDIO_REAL) || 0;
       const prazoCad = Number(f.NUM_PRAZO) || 0;

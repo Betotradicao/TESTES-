@@ -1810,6 +1810,8 @@ export class ProductsController {
           g.${desGrupoCol} as DES_GRUPO,
           sg.${desSubGrupoCol} as DES_SUBGRUPO,
           f.${desFornecedorCol} as FANTASIA_FORN,
+          NVL(f.NUM_FREQ_VISITA, 0) as NUM_FREQ_VISITA,
+          NVL(f.NUM_PRAZO, 0) as NUM_PRAZO,
           NVL(pl.${margemCol}, 0) as MARGEM_REF,
           NVL(pl.${margemCol}, 0) as VAL_MARGEM,
           NVL(pl.${vendaMediaCol}, 0) as VENDA_MEDIA,
@@ -1837,7 +1839,10 @@ export class ProductsController {
           p.${dataCadastroCol} as DTA_CADASTRO,
           NVL(p.${qtdEmbalagemVendaCol}, 1) as QTD_EMBALAGEM_VENDA,
           p.${embalagemCol} as DES_EMBALAGEM,
-          NVL(p.${qtdEmbalagemCompraCol}, 1) as QTD_EMBALAGEM_COMPRA
+          NVL(p.${qtdEmbalagemCompraCol}, 1) as QTD_EMBALAGEM_COMPRA,
+          NVL(pl.VAL_PESQUISA_MEDIA, 0) as VAL_PESQUISA_MEDIA,
+          NVL(pl.VAL_PESQUISA_OFERTA, 0) as VAL_PESQUISA_OFERTA,
+          pl.DES_PESQUISA_CONCORRENTE as DES_PESQUISA_CONCORRENTE
         FROM ${schema}.${tabProduto} p
         INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.${codigoCol} = pl.${codigoCol}
         LEFT JOIN ${schema}.${tabSecao} s ON p.${codSecaoCol} = s.${codSecaoCol}
@@ -1883,13 +1888,14 @@ export class ProductsController {
           desGrupo: row.DES_GRUPO || '',
           desSubGrupo: row.DES_SUBGRUPO || '',
           fantasiaForn: row.FANTASIA_FORN || '',
+          numFreqVisita: parseInt(row.NUM_FREQ_VISITA) || 0,
+          numPrazo: parseInt(row.NUM_PRAZO) || 0,
           margemRef: parseFloat(row.MARGEM_REF) || 0,
           vendaMedia: parseFloat(row.VENDA_MEDIA) || 0,
           diasCobertura: parseInt(row.DIAS_COBERTURA) || 0,
           dtaUltCompra: row.DTA_ULT_COMPRA || null,
           qtdUltCompra: parseFloat(row.QTD_ULT_COMPRA) || 0,
           qtdPedidoCompra: parseFloat(row.QTD_PEDIDO_COMPRA) || 0,
-          estoqueMinimo: parseFloat(row.QTD_EST_MINIMO) || 0,
           dtaUltMovVenda: row.DTA_ULT_MOV_VENDA || null,
           curva: row.CURVA || '',
           tipoEspecie: row.TIPO_ESPECIE || 'MERCADORIA',
@@ -1898,6 +1904,9 @@ export class ProductsController {
           qtdEmbalagem: parseFloat(row.QTD_EMBALAGEM_VENDA) || 1,
           desEmbalagem: row.DES_EMBALAGEM || '',
           qtdEmbalagemCompra: parseFloat(row.QTD_EMBALAGEM_COMPRA) || 1,
+          valPesquisaMedia: parseFloat(row.VAL_PESQUISA_MEDIA) || 0,
+          valPesquisaOferta: parseFloat(row.VAL_PESQUISA_OFERTA) || 0,
+          desPesquisaConcorrente: row.DES_PESQUISA_CONCORRENTE || '',
           // Campos do banco local
           active: dbProduct?.active || false,
           peso_medio_kg: dbProduct?.peso_medio_kg || null,

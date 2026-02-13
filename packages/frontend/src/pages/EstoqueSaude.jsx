@@ -29,11 +29,71 @@ const AVAILABLE_COLUMNS = [
   { id: 'dtaUltCompra', label: 'Últ. Compra', visible: true },
   { id: 'qtdUltCompra', label: 'Qtd Últ. Compra', visible: true },
   { id: 'qtdPedidoCompra', label: 'Pedido Compra', visible: true },
-  { id: 'estoqueMinimo', label: 'Estoque Mín', visible: true },
+  { id: 'estoqueMinCalc', label: 'Estoque Mín', visible: true },
   { id: 'tipoEspecie', label: 'Tipo Espécie', visible: false },
   { id: 'dtaCadastro', label: 'Data Cadastro', visible: false },
   { id: 'diasSemVenda', label: 'Dias s/ Venda', visible: true },
+  { id: 'valPesquisaMedia', label: 'Conc. Barato', visible: false },
+  { id: 'desPesquisaConcorrente', label: 'Concorrente', visible: false },
 ];
+
+// Configuração dos cards de resumo (data-driven)
+const CARD_CONFIG = {
+  zerado: { emoji: '🚫', label: 'Ruptura', textColor: 'text-red-600', borderColor: 'border-red-500', statKey: 'estoqueZerado' },
+  negativo: { emoji: '⚠️', label: 'Estoque Negativo', textColor: 'text-red-700', borderColor: 'border-orange-600', statKey: 'estoqueNegativo' },
+  sem_venda: { emoji: '⏸️', label: 'Sem Venda', textColor: 'text-orange-600', borderColor: 'border-orange-400', statKey: 'semVenda30Dias', special: true },
+  pre_ruptura: { emoji: '📉', label: 'Estoque Mínimo', subtitle: 'Pré Ruptura', textColor: 'text-amber-600', borderColor: 'border-amber-500', statKey: 'preRuptura' },
+  margem_negativa: { emoji: '💸', label: 'Margem Negativa', textColor: 'text-red-800', borderColor: 'border-rose-500', statKey: 'margemNegativa' },
+  margem_baixa: { emoji: '💰', label: 'Margem Abaixo Meta', textColor: 'text-yellow-600', borderColor: 'border-yellow-500', statKey: 'margemAbaixoMeta' },
+  custo_zerado: { emoji: '🏷️', label: 'Custo Zerado', textColor: 'text-purple-600', borderColor: 'border-purple-500', statKey: 'custoZerado' },
+  preco_venda_zerado: { emoji: '💵', label: 'Preço Venda Zerado', textColor: 'text-pink-600', borderColor: 'border-pink-500', statKey: 'precoVendaZerado' },
+  curva_x: { emoji: '❌', label: 'Curva X', textColor: 'text-gray-600', borderColor: 'border-gray-400', statKey: 'curvaX' },
+  conc_barato: { emoji: '🏪', label: 'Concorrente', subtitle: '+ Barato', textColor: 'text-blue-600', borderColor: 'border-blue-500', statKey: 'concBarato' },
+  margem_excessiva: { emoji: '📈', label: 'Margem Excessiva', textColor: 'text-emerald-600', borderColor: 'border-emerald-500', statKey: 'margemExcessiva', specialRanges: true },
+  estoque_excessivo: { emoji: '📦', label: 'Estoque Excessivo', textColor: 'text-amber-600', borderColor: 'border-amber-500', statKey: 'estoqueExcessivo', specialRanges: true },
+};
+const DEFAULT_CARD_ORDER = ['zerado', 'negativo', 'sem_venda', 'pre_ruptura', 'margem_negativa', 'margem_baixa', 'margem_excessiva', 'estoque_excessivo', 'custo_zerado', 'preco_venda_zerado', 'curva_x', 'conc_barato'];
+
+// Seções fixas de cards
+const CARD_SECTIONS = [
+  {
+    id: 'prevencao-estoque',
+    title: 'PREVENÇÃO ESTOQUE',
+    cards: ['zerado', 'negativo', 'pre_ruptura', 'sem_venda', 'curva_x', 'estoque_excessivo'],
+  },
+  {
+    id: 'prevencao-margem',
+    title: 'PREVENÇÃO MARGEM',
+    cards: ['margem_negativa', 'margem_baixa', 'preco_venda_zerado', 'custo_zerado', 'conc_barato', 'margem_excessiva'],
+  },
+];
+
+// Faixas de margem excessiva (acima da meta)
+const MARGEM_RANGES = [
+  { id: 'ate5', label: 'Até 5%', min: 0.01, max: 5, color: 'bg-emerald-50 hover:bg-emerald-100', textColor: 'text-emerald-700' },
+  { id: 'de5a10', label: '5-10%', min: 5.01, max: 10, color: 'bg-teal-50 hover:bg-teal-100', textColor: 'text-teal-700' },
+  { id: 'de10a15', label: '10-15%', min: 10.01, max: 15, color: 'bg-cyan-50 hover:bg-cyan-100', textColor: 'text-cyan-700' },
+  { id: 'de15a20', label: '15-20%', min: 15.01, max: 20, color: 'bg-blue-50 hover:bg-blue-100', textColor: 'text-blue-700' },
+  { id: 'de20a30', label: '20-30%', min: 20.01, max: 30, color: 'bg-indigo-50 hover:bg-indigo-100', textColor: 'text-indigo-700' },
+  { id: 'acima30', label: '>30%', min: 30.01, max: 99999, color: 'bg-violet-50 hover:bg-violet-100', textColor: 'text-violet-700' },
+];
+
+// Faixas de estoque excessivo (dias de cobertura = estoque / venda média)
+const ESTOQUE_EXCESSIVO_RANGES = [
+  { id: 'ate20', label: '≤20d', min: 0.01, max: 20, color: 'bg-green-50 hover:bg-green-100', textColor: 'text-green-700' },
+  { id: 'de21a30', label: '21-30d', min: 21, max: 30, color: 'bg-lime-50 hover:bg-lime-100', textColor: 'text-lime-700' },
+  { id: 'de31a60', label: '31-60d', min: 31, max: 60, color: 'bg-yellow-50 hover:bg-yellow-100', textColor: 'text-yellow-700' },
+  { id: 'de61a120', label: '61-120d', min: 61, max: 120, color: 'bg-orange-50 hover:bg-orange-100', textColor: 'text-orange-700' },
+  { id: 'de121a180', label: '121-180d', min: 121, max: 180, color: 'bg-red-50 hover:bg-red-100', textColor: 'text-red-600' },
+  { id: 'acima180', label: '>180d', min: 181, max: 99999, color: 'bg-red-100 hover:bg-red-200', textColor: 'text-red-700' },
+  { id: 'nunca', label: 'Nunca', min: -1, max: -1, color: 'bg-gray-100 hover:bg-gray-200', textColor: 'text-gray-700' },
+];
+
+// Mapa de faixas por card (para cards com specialRanges)
+const SPECIAL_RANGES = {
+  margem_excessiva: MARGEM_RANGES,
+  estoque_excessivo: ESTOQUE_EXCESSIVO_RANGES,
+};
 
 export default function EstoqueSaude() {
   const { user, logout } = useAuth();
@@ -43,12 +103,46 @@ export default function EstoqueSaude() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Configuração de colunas
+  // Configuração de colunas - merge inteligente com versão salva
   const [showColumnSelector, setShowColumnSelector] = useState(false);
   const [columns, setColumns] = useState(() => {
     const saved = localStorage.getItem('estoque_columns');
-    return saved ? JSON.parse(saved) : AVAILABLE_COLUMNS;
+    if (!saved) return AVAILABLE_COLUMNS;
+    try {
+      const savedCols = JSON.parse(saved);
+      const savedIds = new Set(savedCols.map(c => c.id));
+      const currentIds = new Set(AVAILABLE_COLUMNS.map(c => c.id));
+      // Se não mudou nada, usa o salvo direto
+      const hasNew = AVAILABLE_COLUMNS.some(c => !savedIds.has(c.id));
+      const hasRemoved = savedCols.some(c => !currentIds.has(c.id));
+      if (!hasNew && !hasRemoved) return savedCols;
+      // Merge: manter ordem e visibilidade do salvo, adicionar novas, remover obsoletas
+      const merged = savedCols.filter(c => currentIds.has(c.id)).map(c => {
+        const current = AVAILABLE_COLUMNS.find(a => a.id === c.id);
+        return { ...c, label: current.label }; // Atualiza label se mudou
+      });
+      // Adicionar colunas novas no final (visíveis por padrão)
+      AVAILABLE_COLUMNS.forEach(c => {
+        if (!savedIds.has(c.id)) merged.push({ ...c });
+      });
+      localStorage.setItem('estoque_columns', JSON.stringify(merged));
+      return merged;
+    } catch { return AVAILABLE_COLUMNS; }
   });
+
+  // Ordem dos cards (drag and drop) - salva no localStorage
+  const [cardOrder, setCardOrder] = useState(() => {
+    const saved = localStorage.getItem('estoque_card_order');
+    if (!saved) return DEFAULT_CARD_ORDER;
+    try {
+      const parsed = JSON.parse(saved);
+      const knownIds = new Set(DEFAULT_CARD_ORDER);
+      const result = parsed.filter(id => knownIds.has(id));
+      DEFAULT_CARD_ORDER.forEach(id => { if (!result.includes(id)) result.push(id); });
+      return result;
+    } catch { return DEFAULT_CARD_ORDER; }
+  });
+  const [draggedCard, setDraggedCard] = useState(null);
 
   // Filtros - valores padrão: MERCADORIA e Direta
   const [filterTipoEspecie, setFilterTipoEspecie] = useState('MERCADORIA');
@@ -86,6 +180,9 @@ export default function EstoqueSaude() {
     { id: 'pontosMargemBaixa', label: '💰 Mg. Baixa', type: 'pontos', bg: 'bg-yellow-600' },
     { id: 'pontosCustoZerado', label: '🏷️ Custo Zero', type: 'pontos', bg: 'bg-purple-600' },
     { id: 'pontosPrecoZerado', label: '💵 Preço Zero', type: 'pontos', bg: 'bg-pink-600' },
+    { id: 'pontosConcBarato', label: '🏪 Conc. Barato', type: 'pontos', bg: 'bg-blue-600' },
+    { id: 'pontosMargemExcessiva', label: '📈 Mg. Excessiva', type: 'pontos', bg: 'bg-emerald-600' },
+    { id: 'pontosEstoqueExcessivo', label: '📦 Est. Excessivo', type: 'pontos', bg: 'bg-amber-600' },
     { id: 'totalPontos', label: 'TOTAL', type: 'total', bg: 'bg-gray-800' },
     { id: 'nivelRisco', label: 'NÍVEL', type: 'risco', bg: 'bg-gray-700' },
   ];
@@ -332,9 +429,12 @@ export default function EstoqueSaude() {
   // Configuração de pontuação por curva para cada indicador
   // sem_venda tem estrutura diferente: { curva: { dias: X, pontos: Y } }
   const [pontuacaoConfig, setPontuacaoConfig] = useState(() => {
+    const PONTUACAO_VERSION = 4;
+    const curvaDefault = { A: 50, B: 35, C: 25, D: 15, E: 10, X: 5 };
     const defaults = {
-      zerado: { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 },
-      negativo: { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 },
+      _version: PONTUACAO_VERSION,
+      zerado: { ...curvaDefault },
+      negativo: { ...curvaDefault },
       sem_venda: {
         A: { dias: 3, pontos: 50 },
         B: { dias: 7, pontos: 40 },
@@ -343,19 +443,28 @@ export default function EstoqueSaude() {
         E: { dias: 45, pontos: 10 },
         X: { dias: 60, pontos: 5 }
       },
-      margem_negativa: { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 },
-      margem_baixa: { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 },
-      custo_zerado: { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 },
-      preco_venda_zerado: { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 },
-      curva_x: { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 },
+      pre_ruptura: { ...curvaDefault },
+      margem_negativa: { ...curvaDefault },
+      margem_baixa: { ...curvaDefault },
+      custo_zerado: { ...curvaDefault },
+      preco_venda_zerado: { ...curvaDefault },
+      curva_x: { ...curvaDefault },
+      conc_barato: { ...curvaDefault },
+      margem_excessiva: { ate5: 50, de5a10: 35, de10a15: 25, de15a20: 15, de20a30: 10, acima30: 5 },
+      estoque_excessivo: { ate20: 5, de21a30: 10, de31a60: 15, de61a120: 25, de121a180: 35, acima180: 50, nunca: 50 },
     };
     const saved = localStorage.getItem('estoque_saude_pontuacao');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
+        // Se versão antiga (sem _version ou < PONTUACAO_VERSION), usar novos defaults
+        if (!parsed._version || parsed._version < PONTUACAO_VERSION) {
+          return defaults;
+        }
         // Merge saved values with defaults to ensure all keys exist
-        const result = {};
+        const result = { _version: PONTUACAO_VERSION };
         for (const key of Object.keys(defaults)) {
+          if (key === '_version') continue;
           if (key === 'sem_venda') {
             // Estrutura especial para sem_venda
             result[key] = {};
@@ -382,6 +491,31 @@ export default function EstoqueSaude() {
   useEffect(() => {
     localStorage.setItem('estoque_saude_pontuacao', JSON.stringify(pontuacaoConfig));
   }, [pontuacaoConfig]);
+
+  // Salvar ordem dos cards no localStorage
+  useEffect(() => {
+    localStorage.setItem('estoque_card_order', JSON.stringify(cardOrder));
+  }, [cardOrder]);
+
+  // Drag and drop handlers para reordenar cards
+  const handleCardDragStart = (e, cardId) => {
+    setDraggedCard(cardId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  const handleCardDragOver = (e, targetId) => {
+    e.preventDefault();
+    if (draggedCard && draggedCard !== targetId) {
+      setCardOrder(prev => {
+        const newOrder = [...prev];
+        const fromIdx = newOrder.indexOf(draggedCard);
+        const toIdx = newOrder.indexOf(targetId);
+        newOrder.splice(fromIdx, 1);
+        newOrder.splice(toIdx, 0, draggedCard);
+        return newOrder;
+      });
+    }
+  };
+  const handleCardDragEnd = () => setDraggedCard(null);
 
   // Função para atualizar pontuação de uma curva específica
   const updatePontuacao = (indicador, curva, valor) => {
@@ -514,10 +648,15 @@ export default function EstoqueSaude() {
           margemCalculada = parseFloat((((p.valvenda - p.valCustoRep) / p.valvenda) * 100).toFixed(2));
         }
 
+        // Estoque Mínimo = (Dias Visita + Prazo Entrega) × Venda Média Diária
+        const diasReposicao = (Number(p.numFreqVisita) || 0) + (Number(p.numPrazo) || 0);
+        const estoqueMinCalc = diasReposicao > 0 ? Math.ceil(diasReposicao * (p.vendaMedia || 0)) : 0;
+
         return {
           ...p,
           diasSemVenda,
-          margemCalculada
+          margemCalculada,
+          estoqueMinCalc
         };
       });
 
@@ -629,6 +768,8 @@ export default function EstoqueSaude() {
         const diasLimite = pontuacaoConfig.sem_venda?.[curvaKey]?.dias || 30;
         return p.diasSemVenda > diasLimite;
       });
+    } else if (activeCardFilter === 'pre_ruptura') {
+      filtered = filtered.filter(p => p.estoqueMinCalc > 0 && p.estoque <= p.estoqueMinCalc);
     } else if (activeCardFilter === 'margem_negativa') {
       filtered = filtered.filter(p => p.margemCalculada < 0);
     } else if (activeCardFilter === 'margem_baixa') {
@@ -639,11 +780,52 @@ export default function EstoqueSaude() {
       filtered = filtered.filter(p => !p.valvenda || p.valvenda === 0);
     } else if (activeCardFilter === 'curva_x') {
       filtered = filtered.filter(p => p.curva === 'X' || !p.curva);
+    } else if (activeCardFilter === 'conc_barato') {
+      filtered = filtered.filter(p => p.valPesquisaMedia > 0 && p.valvenda > 0 && p.valPesquisaMedia < p.valvenda);
+    } else if (activeCardFilter === 'margem_excessiva') {
+      filtered = filtered.filter(p => p.margemRef > 0 && p.margemCalculada > p.margemRef);
+    } else if (activeCardFilter === 'estoque_excessivo') {
+      filtered = filtered.filter(p => {
+        if (!p.estoque || p.estoque <= 0) return false;
+        return true; // todos com estoque > 0 (detalhamento por faixa no activeCardCurva)
+      });
     }
 
-    // Filtro de curva específica dentro do card
+    // Filtro de curva específica dentro do card (ou faixa especial)
     if (activeCardCurva) {
-      if (activeCardCurva === 'X') {
+      if (activeCardFilter === 'margem_excessiva') {
+        const range = MARGEM_RANGES.find(r => r.id === activeCardCurva);
+        if (range) {
+          filtered = filtered.filter(p => {
+            const excesso = p.margemCalculada - p.margemRef;
+            return excesso >= range.min && excesso <= range.max;
+          });
+        }
+      } else if (activeCardFilter === 'estoque_excessivo') {
+        if (activeCardCurva === 'nunca') {
+          // Nunca vendido: sem registro de venda (diasSemVenda >= 999) e tem estoque
+          filtered = filtered.filter(p => p.estoque > 0 && p.diasSemVenda >= 999);
+        } else if (activeCardCurva === 'acima180') {
+          // >180d: inclui produtos com cobertura > 180 dias OU vendaMedia = 0 mas já vendeu antes
+          filtered = filtered.filter(p => {
+            if (!p.estoque || p.estoque <= 0 || p.diasSemVenda >= 999) return false;
+            const vm = p.vendaMedia || 0;
+            if (vm <= 0) return true; // vendaMedia=0 mas já vendeu → cobertura infinita
+            return (p.estoque / vm) >= 181;
+          });
+        } else {
+          const range = ESTOQUE_EXCESSIVO_RANGES.find(r => r.id === activeCardCurva);
+          if (range) {
+            filtered = filtered.filter(p => {
+              if (p.diasSemVenda >= 999) return false; // nunca vendido vai no "nunca"
+              const vm = p.vendaMedia || 0;
+              if (vm <= 0) return false; // vendaMedia=0 vai no ">180d"
+              const diasCobertura = p.estoque / vm;
+              return diasCobertura >= range.min && diasCobertura <= range.max;
+            });
+          }
+        }
+      } else if (activeCardCurva === 'X') {
         filtered = filtered.filter(p => p.curva === 'X' || !p.curva);
       } else {
         filtered = filtered.filter(p => p.curva === activeCardCurva);
@@ -775,15 +957,75 @@ export default function EstoqueSaude() {
     const produtosPrecoZerado = filtered.filter(p => !p.valvenda || p.valvenda === 0);
     const produtosCurvaX = filtered.filter(p => p.curva === 'X' || !p.curva);
 
+    // Estoque Mínimo Pré Ruptura: estoque atual <= estoque mínimo calculado
+    const produtosPreRuptura = filtered.filter(p => {
+      if (!p.estoqueMinCalc || p.estoqueMinCalc === 0) return false;
+      return p.estoque <= p.estoqueMinCalc;
+    });
+
+    // Concorrente + Barato: produtos onde concorrente vende mais barato
+    const produtosConcBarato = filtered.filter(p => {
+      return p.valPesquisaMedia > 0 && p.valvenda > 0 && p.valPesquisaMedia < p.valvenda;
+    });
+
+    // Margem Excessiva: margem calculada acima da meta
+    const produtosMargemExcessiva = filtered.filter(p => {
+      if (!p.margemRef || p.margemRef === 0) return false;
+      return p.margemCalculada > p.margemRef;
+    });
+    // Contar por faixa de excesso
+    const margemExcessivaPorFaixa = {};
+    MARGEM_RANGES.forEach(range => { margemExcessivaPorFaixa[range.id] = 0; });
+    produtosMargemExcessiva.forEach(p => {
+      const excesso = p.margemCalculada - p.margemRef;
+      for (const range of MARGEM_RANGES) {
+        if (excesso >= range.min && excesso <= range.max) {
+          margemExcessivaPorFaixa[range.id]++;
+          break;
+        }
+      }
+    });
+
+    // Estoque Excessivo: produtos com estoque > 0 classificados por dias de cobertura
+    const estoqueExcessivoPorFaixa = {};
+    ESTOQUE_EXCESSIVO_RANGES.forEach(range => { estoqueExcessivoPorFaixa[range.id] = 0; });
+    const produtosEstoqueExcessivo = filtered.filter(p => {
+      if (!p.estoque || p.estoque <= 0) return false;
+      // "Nunca Vendido" = sem data de última venda (diasSemVenda >= 999 = sem registro de venda)
+      if (p.diasSemVenda >= 999) {
+        estoqueExcessivoPorFaixa.nunca++;
+        return true;
+      }
+      const vm = p.vendaMedia || 0;
+      if (vm <= 0) {
+        // Tem histórico de venda mas média arredondou para 0 → cobertura infinita → >180d
+        estoqueExcessivoPorFaixa.acima180++;
+        return true;
+      }
+      const diasCobertura = p.estoque / vm;
+      for (const range of ESTOQUE_EXCESSIVO_RANGES) {
+        if (range.id === 'nunca') continue;
+        if (diasCobertura >= range.min && diasCobertura <= range.max) {
+          estoqueExcessivoPorFaixa[range.id]++;
+          return true;
+        }
+      }
+      return false;
+    });
+
     return {
       estoqueZerado: produtosZerado.length,
       estoqueNegativo: produtosNegativo.length,
       semVenda30Dias: totalSemVenda,
+      preRuptura: produtosPreRuptura.length,
       margemNegativa: produtosMargemNegativa.length,
       margemAbaixoMeta: produtosMargemBaixa.length,
       custoZerado: produtosCustoZerado.length,
       precoVendaZerado: produtosPrecoZerado.length,
       curvaX: produtosCurvaX.length,
+      concBarato: produtosConcBarato.length,
+      margemExcessiva: produtosMargemExcessiva.length,
+      estoqueExcessivo: produtosEstoqueExcessivo.length,
       total: filtered.length,
       valorTotalEstoque,
       // Contagem por curva para cada indicador
@@ -791,11 +1033,15 @@ export default function EstoqueSaude() {
         zerado: contarPorCurva(produtosZerado),
         negativo: contarPorCurva(produtosNegativo),
         sem_venda: semVendaPorCurva,
+        pre_ruptura: contarPorCurva(produtosPreRuptura),
         margem_negativa: contarPorCurva(produtosMargemNegativa),
         margem_baixa: contarPorCurva(produtosMargemBaixa),
         custo_zerado: contarPorCurva(produtosCustoZerado),
         preco_venda_zerado: contarPorCurva(produtosPrecoZerado),
         curva_x: contarPorCurva(produtosCurvaX),
+        conc_barato: contarPorCurva(produtosConcBarato),
+        margem_excessiva: margemExcessivaPorFaixa,
+        estoque_excessivo: estoqueExcessivoPorFaixa,
       }
     };
   }, [products, filterTipoEspecie, filterTipoEvento, pontuacaoConfig.sem_venda]);
@@ -814,23 +1060,65 @@ export default function EstoqueSaude() {
       const diasLimite = pontuacaoConfig.sem_venda?.[curvaKey]?.dias || 30;
       const pontosSemVenda = p.diasSemVenda > diasLimite ? (pontuacaoConfig.sem_venda?.[curvaKey]?.pontos || 0) : 0;
 
+      const pontosPreRuptura = (p.estoqueMinCalc > 0 && p.estoque > 0 && p.estoque < p.estoqueMinCalc) ? (pontuacaoConfig.pre_ruptura?.[curvaKey] || 0) : 0;
       const pontosMargemNegativa = p.margemCalculada < 0 ? (pontuacaoConfig.margem_negativa?.[curvaKey] || 0) : 0;
       const pontosMargemBaixa = (p.margemCalculada < p.margemRef && p.margemCalculada >= 0) ? (pontuacaoConfig.margem_baixa?.[curvaKey] || 0) : 0;
       const pontosCustoZerado = (!p.valCustoRep || p.valCustoRep === 0) ? (pontuacaoConfig.custo_zerado?.[curvaKey] || 0) : 0;
       const pontosPrecoZerado = (!p.valvenda || p.valvenda === 0) ? (pontuacaoConfig.preco_venda_zerado?.[curvaKey] || 0) : 0;
+      const pontosConcBarato = (p.valPesquisaMedia > 0 && p.valvenda > 0 && p.valPesquisaMedia < p.valvenda) ? (pontuacaoConfig.conc_barato?.[curvaKey] || 0) : 0;
 
-      // Total de pontos (sem curva_x)
-      const totalPontos = pontosZerado + pontosNegativo + pontosSemVenda + pontosMargemNegativa + pontosMargemBaixa + pontosCustoZerado + pontosPrecoZerado;
+      // Margem excessiva: pontos por faixa de excesso
+      let pontosMargemExcessiva = 0;
+      if (p.margemRef > 0 && p.margemCalculada > p.margemRef) {
+        const excesso = p.margemCalculada - p.margemRef;
+        for (const range of MARGEM_RANGES) {
+          if (excesso >= range.min && excesso <= range.max) {
+            pontosMargemExcessiva = pontuacaoConfig.margem_excessiva?.[range.id] || 0;
+            break;
+          }
+        }
+      }
+
+      // Estoque excessivo: pontos por faixa de dias de cobertura
+      let pontosEstoqueExcessivo = 0;
+      if (p.estoque > 0) {
+        if (p.diasSemVenda >= 999) {
+          // Nunca vendido
+          pontosEstoqueExcessivo = pontuacaoConfig.estoque_excessivo?.nunca || 0;
+        } else {
+          const vm = p.vendaMedia || 0;
+          if (vm <= 0) {
+            // Já vendeu mas média é 0 → cobertura infinita → >180d
+            pontosEstoqueExcessivo = pontuacaoConfig.estoque_excessivo?.acima180 || 0;
+          } else {
+            const diasCobertura = p.estoque / vm;
+            for (const range of ESTOQUE_EXCESSIVO_RANGES) {
+              if (range.id === 'nunca') continue;
+              if (diasCobertura >= range.min && diasCobertura <= range.max) {
+                pontosEstoqueExcessivo = pontuacaoConfig.estoque_excessivo?.[range.id] || 0;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      // Total de pontos
+      const totalPontos = pontosZerado + pontosNegativo + pontosSemVenda + pontosPreRuptura + pontosMargemNegativa + pontosMargemBaixa + pontosCustoZerado + pontosPrecoZerado + pontosConcBarato + pontosMargemExcessiva + pontosEstoqueExcessivo;
 
       return {
         ...p,
         pontosZerado,
         pontosNegativo,
         pontosSemVenda,
+        pontosPreRuptura,
         pontosMargemNegativa,
         pontosMargemBaixa,
         pontosCustoZerado,
         pontosPrecoZerado,
+        pontosConcBarato,
+        pontosMargemExcessiva,
+        pontosEstoqueExcessivo,
         totalPontos
       };
     }).filter(p => p.totalPontos > 0); // Mostrar apenas produtos com pontuação > 0
@@ -961,6 +1249,24 @@ export default function EstoqueSaude() {
             {product.diasSemVenda === 999 ? 'Nunca' : product.diasSemVenda === 0 ? 'Hoje' : `${product.diasSemVenda} d`}
           </td>
         );
+      case 'valPesquisaMedia': {
+        const val = product.valPesquisaMedia || 0;
+        const precoVenda = product.valvenda || 0;
+        const isCheaper = val > 0 && precoVenda > 0 && val < precoVenda;
+        const isMoreExpensive = val > 0 && precoVenda > 0 && val > precoVenda;
+        return (
+          <td key={col.id} className={`px-3 py-2 text-center text-sm font-medium ${isCheaper ? 'text-red-600' : isMoreExpensive ? 'text-green-600' : 'text-gray-500'}`}
+              title={product.desPesquisaConcorrente ? `Concorrente: ${product.desPesquisaConcorrente}` : ''}>
+            {val > 0 ? `R$ ${val.toFixed(2).replace('.', ',')}` : '-'}
+          </td>
+        );
+      }
+      case 'desPesquisaConcorrente':
+        return (
+          <td key={col.id} className="px-3 py-2 text-sm text-gray-700 min-w-[120px]" title={product.desPesquisaConcorrente}>
+            {product.desPesquisaConcorrente || '-'}
+          </td>
+        );
       case 'desSecao':
         return (
           <td key={col.id} className="px-3 py-2 text-sm text-gray-700 min-w-[150px]" title={product.desSecao}>
@@ -1011,6 +1317,12 @@ export default function EstoqueSaude() {
         return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosCustoZerado > 0 ? 'text-purple-600 bg-purple-50' : 'text-gray-400'}`}>{product.pontosCustoZerado > 0 ? product.pontosCustoZerado : '-'}</td>;
       case 'pontosPrecoZerado':
         return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosPrecoZerado > 0 ? 'text-pink-600 bg-pink-50' : 'text-gray-400'}`}>{product.pontosPrecoZerado > 0 ? product.pontosPrecoZerado : '-'}</td>;
+      case 'pontosConcBarato':
+        return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosConcBarato > 0 ? 'text-blue-600 bg-blue-50' : 'text-gray-400'}`}>{product.pontosConcBarato > 0 ? product.pontosConcBarato : '-'}</td>;
+      case 'pontosMargemExcessiva':
+        return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosMargemExcessiva > 0 ? 'text-emerald-600 bg-emerald-50' : 'text-gray-400'}`}>{product.pontosMargemExcessiva > 0 ? product.pontosMargemExcessiva : '-'}</td>;
+      case 'pontosEstoqueExcessivo':
+        return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosEstoqueExcessivo > 0 ? 'text-amber-600 bg-amber-50' : 'text-gray-400'}`}>{product.pontosEstoqueExcessivo > 0 ? product.pontosEstoqueExcessivo : '-'}</td>;
       case 'totalPontos':
         return <td key={col.id} className="px-3 py-2 text-center text-sm font-bold text-white bg-gray-800">{product.totalPontos}</td>;
       case 'nivelRisco': {
@@ -1053,10 +1365,24 @@ export default function EstoqueSaude() {
 
       // Estoque
       case 'estoque':
-      case 'estoqueMinimo':
       case 'estoqueMaximo':
         if (value == null) return '0,00';
         return value.toFixed(2).replace('.', ',');
+
+      case 'estoqueMinCalc': {
+        if (value == null || value === 0) return '-';
+        const diasRep = (product.numFreqVisita || 0) + (product.numPrazo || 0);
+        const vm = product.vendaMedia || 0;
+        const abaixo = product.estoque < value;
+        return (
+          <span
+            className={abaixo ? 'text-red-600 font-bold' : ''}
+            title={`Visita: ${product.numFreqVisita || 0}d + Prazo: ${product.numPrazo || 0}d = ${diasRep}d × Venda: ${vm.toFixed(2)} = ${value}`}
+          >
+            {value}
+          </span>
+        );
+      }
 
       // Porcentagens
       case 'margemCalculada':
@@ -1098,6 +1424,15 @@ export default function EstoqueSaude() {
       // Curva
       case 'curva':
         if (!value || value === '') return 'X';
+        return value;
+
+      // Concorrência
+      case 'valPesquisaMedia':
+        if (value == null || value === 0) return '-';
+        return `R$ ${value.toFixed(2).replace('.', ',')}`;
+
+      case 'desPesquisaConcorrente':
+        if (!value || value === '') return '-';
         return value;
 
       // Texto padrão
@@ -1171,6 +1506,9 @@ export default function EstoqueSaude() {
             case 'pontosMargemBaixa': return product.pontosMargemBaixa > 0 ? product.pontosMargemBaixa.toString() : '-';
             case 'pontosCustoZerado': return product.pontosCustoZerado > 0 ? product.pontosCustoZerado.toString() : '-';
             case 'pontosPrecoZerado': return product.pontosPrecoZerado > 0 ? product.pontosPrecoZerado.toString() : '-';
+            case 'pontosConcBarato': return product.pontosConcBarato > 0 ? product.pontosConcBarato.toString() : '-';
+            case 'pontosMargemExcessiva': return product.pontosMargemExcessiva > 0 ? product.pontosMargemExcessiva.toString() : '-';
+            case 'pontosEstoqueExcessivo': return product.pontosEstoqueExcessivo > 0 ? product.pontosEstoqueExcessivo.toString() : '-';
             case 'totalPontos': return product.totalPontos.toString();
             case 'nivelRisco': return getNivelRisco(product.totalPontos || 0);
             default: return '-';
@@ -1282,6 +1620,10 @@ export default function EstoqueSaude() {
             case 'qtdPedidoCompra':
               if (value == null) return '-';
               if (value === 0) return '0';
+              return value.toString();
+
+            case 'estoqueMinCalc':
+              if (value == null || value === 0) return '-';
               return value.toString();
 
             case 'diasCobertura':
@@ -1517,6 +1859,15 @@ export default function EstoqueSaude() {
       }`;
     }
 
+    if (columnId === 'estoqueMinCalc') {
+      const minCalc = product.estoqueMinCalc || 0;
+      return `${baseClass} text-right font-medium ${
+        minCalc > 0 && product.estoque < minCalc ? 'text-red-600' :
+        minCalc > 0 ? 'text-green-600' :
+        'text-gray-400'
+      }`;
+    }
+
     if (columnId === 'valCustoRep' || columnId === 'valvenda' || columnId === 'margemRef') {
       return `${baseClass} text-right text-gray-700`;
     }
@@ -1684,448 +2035,114 @@ export default function EstoqueSaude() {
 
           </div>
 
-          {/* Cards de Resumo - Clicáveis */}
+          {/* Cards de Resumo */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {/* Card Estoque Zerado */}
-            <div className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg ${
-                activeCardFilter === 'zerado' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
-              }`}
-            >
-              <button
-                onClick={() => {
-                  setActiveCardFilter(activeCardFilter === 'zerado' ? 'todos' : 'zerado');
-                }}
-                className="w-full text-left"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-2xl">📭</span>
-                  <span className="text-2xl font-bold text-red-600">{stats.estoqueZerado}</span>
-                </div>
-                <p className="text-sm font-medium text-gray-700">Estoque Zerado</p>
-              </button>
-              <div className="mt-2 pt-2 border-t border-gray-100">
-                <div className="flex gap-1 justify-between items-start">
-                  {['A', 'B', 'C', 'D', 'E', 'X'].map(curva => (
-                    <button
-                      key={curva}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (activeCardFilter !== 'zerado') {
-                          setActiveCardFilter('zerado');
-                        }
-                        setActiveCardCurva(activeCardCurva === curva ? '' : curva);
-                      }}
-                      className={`flex flex-col items-center px-1.5 py-1 rounded transition-all ${
-                        activeCardFilter === 'zerado' && activeCardCurva === curva
-                          ? 'ring-2 ring-orange-500 bg-orange-100'
-                          : ''
-                      } ${
-                        curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
-                        curva === 'B' ? 'bg-blue-50 hover:bg-blue-100' :
-                        curva === 'C' ? 'bg-yellow-50 hover:bg-yellow-100' :
-                        curva === 'D' ? 'bg-orange-50 hover:bg-orange-100' :
-                        curva === 'E' ? 'bg-red-50 hover:bg-red-100' :
-                        'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      title={`Filtrar curva ${curva}`}
-                    >
-                      <span className={`text-xs font-bold ${
-                        curva === 'A' ? 'text-green-700' :
-                        curva === 'B' ? 'text-blue-700' :
-                        curva === 'C' ? 'text-yellow-700' :
-                        curva === 'D' ? 'text-orange-700' :
-                        curva === 'E' ? 'text-red-700' :
-                        'text-gray-700'
-                      }`}>
-                        {curva}:{stats.curvasPorIndicador?.zerado?.[curva] || 0}
-                      </span>
-                      <span className="text-[10px] text-gray-500 mt-0.5">
-                        {pontuacaoConfig.zerado?.[curva] || 0}pts
-                      </span>
-                    </button>
-                  ))}
+            {cardOrder.map(cardId => {
+              const cfg = CARD_CONFIG[cardId];
+              if (!cfg) return null;
+              const isActive = activeCardFilter === cardId;
+              const isSemVenda = cardId === 'sem_venda';
+              const specialRanges = cfg.specialRanges ? SPECIAL_RANGES[cardId] : null;
+              return (
+                <div
+                  key={cardId}
+                  className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg border-l-4 ${cfg.borderColor} ${
+                    isActive ? 'ring-2 ring-orange-500 bg-orange-50' : ''
+                  }`}
+                >
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setConfigModalOpen(configModalOpen === 'zerado' ? null : 'zerado');
-                    }}
-                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center"
-                    title="Configurar pontuação"
+                    onClick={() => setActiveCardFilter(isActive ? 'todos' : cardId)}
+                    className="w-full text-left"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                    </svg>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-2xl">{cfg.emoji}</span>
+                      <span className={`text-2xl font-bold ${cfg.textColor}`}>{stats[cfg.statKey]}</span>
+                    </div>
+                    <p className="text-sm font-medium text-gray-700">{cfg.label}</p>
+                    {cfg.subtitle && <p className={`text-xs ${cfg.textColor} -mt-0.5`}>{cfg.subtitle}</p>}
                   </button>
+                  <div className="mt-2 pt-2 border-t border-gray-100">
+                    <div className="flex gap-1 justify-between items-start">
+                      {specialRanges ? (
+                        specialRanges.map(range => (
+                          <button
+                            key={range.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isActive) setActiveCardFilter(cardId);
+                              setActiveCardCurva(activeCardCurva === range.id ? '' : range.id);
+                            }}
+                            className={`flex-1 flex flex-col items-center px-1 py-2 rounded transition-all ${
+                              isActive && activeCardCurva === range.id ? 'ring-2 ring-orange-500 bg-orange-100' : range.color
+                            }`}
+                            title={`${range.label} = ${pontuacaoConfig[cardId]?.[range.id] || 0}pts`}
+                          >
+                            <span className={`text-sm font-bold ${range.textColor}`}>
+                              {stats.curvasPorIndicador?.[cardId]?.[range.id] || 0}
+                            </span>
+                            <span className="text-xs text-gray-500">{range.label}</span>
+                            <span className="text-xs text-gray-500">{pontuacaoConfig[cardId]?.[range.id] || 0}pts</span>
+                          </button>
+                        ))
+                      ) : (
+                        ['A', 'B', 'C', 'D', 'E', 'X'].map(curva => (
+                          <button
+                            key={curva}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isActive) setActiveCardFilter(cardId);
+                              setActiveCardCurva(activeCardCurva === curva ? '' : curva);
+                            }}
+                            className={`flex flex-col items-center px-3 py-2 rounded transition-all ${
+                              isActive && activeCardCurva === curva ? 'ring-2 ring-orange-500 bg-orange-100' : ''
+                            } ${
+                              curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
+                              curva === 'B' ? 'bg-blue-50 hover:bg-blue-100' :
+                              curva === 'C' ? 'bg-yellow-50 hover:bg-yellow-100' :
+                              curva === 'D' ? 'bg-orange-50 hover:bg-orange-100' :
+                              curva === 'E' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'
+                            }`}
+                            title={isSemVenda
+                              ? `Curva ${curva}: >${pontuacaoConfig.sem_venda?.[curva]?.dias || 0} dias = ${pontuacaoConfig.sem_venda?.[curva]?.pontos || 0}pts`
+                              : `Filtrar curva ${curva}`
+                            }
+                          >
+                            <span className={`text-sm font-bold ${
+                              curva === 'A' ? 'text-green-700' : curva === 'B' ? 'text-blue-700' :
+                              curva === 'C' ? 'text-yellow-700' : curva === 'D' ? 'text-orange-700' :
+                              curva === 'E' ? 'text-red-700' : 'text-gray-700'
+                            }`}>{curva}:{stats.curvasPorIndicador?.[cardId]?.[curva] || 0}</span>
+                            {isSemVenda ? (
+                              <>
+                                <span className="text-xs text-gray-500">{pontuacaoConfig.sem_venda?.[curva]?.dias || 0}d</span>
+                                <span className="text-xs text-gray-500">{pontuacaoConfig.sem_venda?.[curva]?.pontos || 0}pts</span>
+                              </>
+                            ) : (
+                              <span className="text-xs text-gray-500 mt-0.5">
+                                {pontuacaoConfig[cardId]?.[curva] || 0}pts
+                              </span>
+                            )}
+                          </button>
+                        ))
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfigModalOpen(configModalOpen === cardId ? null : cardId);
+                        }}
+                        className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center"
+                        title={isSemVenda ? 'Configurar dias e pontuação' : 'Configurar pontuação'}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Card Estoque Negativo */}
-            <div className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg ${
-                activeCardFilter === 'negativo' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
-              }`}
-            >
-              <button
-                onClick={() => setActiveCardFilter(activeCardFilter === 'negativo' ? 'todos' : 'negativo')}
-                className="w-full text-left"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-2xl">⚠️</span>
-                  <span className="text-2xl font-bold text-red-700">{stats.estoqueNegativo}</span>
-                </div>
-                <p className="text-sm font-medium text-gray-700">Estoque Negativo</p>
-              </button>
-              <div className="mt-2 pt-2 border-t border-gray-100">
-                <div className="flex gap-1 justify-between items-start">
-                  {['A', 'B', 'C', 'D', 'E', 'X'].map(curva => (
-                    <button
-                      key={curva}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (activeCardFilter !== 'negativo') setActiveCardFilter('negativo');
-                        setActiveCardCurva(activeCardCurva === curva ? '' : curva);
-                      }}
-                      className={`flex flex-col items-center px-1.5 py-1 rounded transition-all ${
-                        activeCardFilter === 'negativo' && activeCardCurva === curva ? 'ring-2 ring-orange-500 bg-orange-100' : ''
-                      } ${
-                        curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
-                        curva === 'B' ? 'bg-blue-50 hover:bg-blue-100' :
-                        curva === 'C' ? 'bg-yellow-50 hover:bg-yellow-100' :
-                        curva === 'D' ? 'bg-orange-50 hover:bg-orange-100' :
-                        curva === 'E' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      title={`Filtrar curva ${curva}`}
-                    >
-                      <span className={`text-xs font-bold ${
-                        curva === 'A' ? 'text-green-700' : curva === 'B' ? 'text-blue-700' :
-                        curva === 'C' ? 'text-yellow-700' : curva === 'D' ? 'text-orange-700' :
-                        curva === 'E' ? 'text-red-700' : 'text-gray-700'
-                      }`}>{curva}:{stats.curvasPorIndicador?.negativo?.[curva] || 0}</span>
-                      <span className="text-[10px] text-gray-500 mt-0.5">{pontuacaoConfig.negativo?.[curva] || 0}pts</span>
-                    </button>
-                  ))}
-                  <button onClick={(e) => { e.stopPropagation(); setConfigModalOpen(configModalOpen === 'negativo' ? null : 'negativo'); }}
-                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center" title="Configurar pontuação">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Card Sem Venda - dias configurável por curva */}
-            <div className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg ${
-                activeCardFilter === 'sem_venda' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
-              }`}
-            >
-              <button
-                onClick={() => setActiveCardFilter(activeCardFilter === 'sem_venda' ? 'todos' : 'sem_venda')}
-                className="w-full text-left"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-2xl">⏸️</span>
-                  <span className="text-2xl font-bold text-orange-600">{stats.semVenda30Dias}</span>
-                </div>
-                <p className="text-sm font-medium text-gray-700">Sem Venda</p>
-              </button>
-              <div className="mt-2 pt-2 border-t border-gray-100">
-                <div className="flex gap-1 justify-between items-start">
-                  {['A', 'B', 'C', 'D', 'E', 'X'].map(curva => (
-                    <button
-                      key={curva}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (activeCardFilter !== 'sem_venda') setActiveCardFilter('sem_venda');
-                        setActiveCardCurva(activeCardCurva === curva ? '' : curva);
-                      }}
-                      className={`flex flex-col items-center px-1 py-1 rounded transition-all ${
-                        activeCardFilter === 'sem_venda' && activeCardCurva === curva ? 'ring-2 ring-orange-500 bg-orange-100' : ''
-                      } ${
-                        curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
-                        curva === 'B' ? 'bg-blue-50 hover:bg-blue-100' :
-                        curva === 'C' ? 'bg-yellow-50 hover:bg-yellow-100' :
-                        curva === 'D' ? 'bg-orange-50 hover:bg-orange-100' :
-                        curva === 'E' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      title={`Curva ${curva}: >${pontuacaoConfig.sem_venda?.[curva]?.dias || 0} dias = ${pontuacaoConfig.sem_venda?.[curva]?.pontos || 0}pts`}
-                    >
-                      <span className={`text-[10px] font-bold ${
-                        curva === 'A' ? 'text-green-700' : curva === 'B' ? 'text-blue-700' :
-                        curva === 'C' ? 'text-yellow-700' : curva === 'D' ? 'text-orange-700' :
-                        curva === 'E' ? 'text-red-700' : 'text-gray-700'
-                      }`}>{curva}:{stats.curvasPorIndicador?.sem_venda?.[curva] || 0}</span>
-                      <span className="text-[9px] text-gray-500">{pontuacaoConfig.sem_venda?.[curva]?.dias || 0}d</span>
-                      <span className="text-[9px] text-gray-500">{pontuacaoConfig.sem_venda?.[curva]?.pontos || 0}pts</span>
-                    </button>
-                  ))}
-                  <button onClick={(e) => { e.stopPropagation(); setConfigModalOpen(configModalOpen === 'sem_venda' ? null : 'sem_venda'); }}
-                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center" title="Configurar dias e pontuação">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Card Margem Negativa */}
-            <div className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg ${
-                activeCardFilter === 'margem_negativa' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
-              }`}
-            >
-              <button
-                onClick={() => setActiveCardFilter(activeCardFilter === 'margem_negativa' ? 'todos' : 'margem_negativa')}
-                className="w-full text-left"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-2xl">💸</span>
-                  <span className="text-2xl font-bold text-red-800">{stats.margemNegativa}</span>
-                </div>
-                <p className="text-sm font-medium text-gray-700">Margem Negativa</p>
-              </button>
-              <div className="mt-2 pt-2 border-t border-gray-100">
-                <div className="flex gap-1 justify-between items-start">
-                  {['A', 'B', 'C', 'D', 'E', 'X'].map(curva => (
-                    <button
-                      key={curva}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (activeCardFilter !== 'margem_negativa') setActiveCardFilter('margem_negativa');
-                        setActiveCardCurva(activeCardCurva === curva ? '' : curva);
-                      }}
-                      className={`flex flex-col items-center px-1.5 py-1 rounded transition-all ${
-                        activeCardFilter === 'margem_negativa' && activeCardCurva === curva ? 'ring-2 ring-orange-500 bg-orange-100' : ''
-                      } ${
-                        curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
-                        curva === 'B' ? 'bg-blue-50 hover:bg-blue-100' :
-                        curva === 'C' ? 'bg-yellow-50 hover:bg-yellow-100' :
-                        curva === 'D' ? 'bg-orange-50 hover:bg-orange-100' :
-                        curva === 'E' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      title={`Filtrar curva ${curva}`}
-                    >
-                      <span className={`text-xs font-bold ${
-                        curva === 'A' ? 'text-green-700' : curva === 'B' ? 'text-blue-700' :
-                        curva === 'C' ? 'text-yellow-700' : curva === 'D' ? 'text-orange-700' :
-                        curva === 'E' ? 'text-red-700' : 'text-gray-700'
-                      }`}>{curva}:{stats.curvasPorIndicador?.margem_negativa?.[curva] || 0}</span>
-                      <span className="text-[10px] text-gray-500 mt-0.5">{pontuacaoConfig.margem_negativa?.[curva] || 0}pts</span>
-                    </button>
-                  ))}
-                  <button onClick={(e) => { e.stopPropagation(); setConfigModalOpen(configModalOpen === 'margem_negativa' ? null : 'margem_negativa'); }}
-                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center" title="Configurar pontuação">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Card Margem Abaixo Meta */}
-            <div className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg ${
-                activeCardFilter === 'margem_baixa' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
-              }`}
-            >
-              <button
-                onClick={() => setActiveCardFilter(activeCardFilter === 'margem_baixa' ? 'todos' : 'margem_baixa')}
-                className="w-full text-left"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-2xl">💰</span>
-                  <span className="text-2xl font-bold text-yellow-600">{stats.margemAbaixoMeta}</span>
-                </div>
-                <p className="text-sm font-medium text-gray-700">Margem Abaixo Meta</p>
-              </button>
-              <div className="mt-2 pt-2 border-t border-gray-100">
-                <div className="flex gap-1 justify-between items-start">
-                  {['A', 'B', 'C', 'D', 'E', 'X'].map(curva => (
-                    <button
-                      key={curva}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (activeCardFilter !== 'margem_baixa') setActiveCardFilter('margem_baixa');
-                        setActiveCardCurva(activeCardCurva === curva ? '' : curva);
-                      }}
-                      className={`flex flex-col items-center px-1.5 py-1 rounded transition-all ${
-                        activeCardFilter === 'margem_baixa' && activeCardCurva === curva ? 'ring-2 ring-orange-500 bg-orange-100' : ''
-                      } ${
-                        curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
-                        curva === 'B' ? 'bg-blue-50 hover:bg-blue-100' :
-                        curva === 'C' ? 'bg-yellow-50 hover:bg-yellow-100' :
-                        curva === 'D' ? 'bg-orange-50 hover:bg-orange-100' :
-                        curva === 'E' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      title={`Filtrar curva ${curva}`}
-                    >
-                      <span className={`text-xs font-bold ${
-                        curva === 'A' ? 'text-green-700' : curva === 'B' ? 'text-blue-700' :
-                        curva === 'C' ? 'text-yellow-700' : curva === 'D' ? 'text-orange-700' :
-                        curva === 'E' ? 'text-red-700' : 'text-gray-700'
-                      }`}>{curva}:{stats.curvasPorIndicador?.margem_baixa?.[curva] || 0}</span>
-                      <span className="text-[10px] text-gray-500 mt-0.5">{pontuacaoConfig.margem_baixa?.[curva] || 0}pts</span>
-                    </button>
-                  ))}
-                  <button onClick={(e) => { e.stopPropagation(); setConfigModalOpen(configModalOpen === 'margem_baixa' ? null : 'margem_baixa'); }}
-                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center" title="Configurar pontuação">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Card Custo Zerado */}
-            <div className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg ${
-                activeCardFilter === 'custo_zerado' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
-              }`}
-            >
-              <button
-                onClick={() => setActiveCardFilter(activeCardFilter === 'custo_zerado' ? 'todos' : 'custo_zerado')}
-                className="w-full text-left"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-2xl">🏷️</span>
-                  <span className="text-2xl font-bold text-purple-600">{stats.custoZerado}</span>
-                </div>
-                <p className="text-sm font-medium text-gray-700">Custo Zerado</p>
-              </button>
-              <div className="mt-2 pt-2 border-t border-gray-100">
-                <div className="flex gap-1 justify-between items-start">
-                  {['A', 'B', 'C', 'D', 'E', 'X'].map(curva => (
-                    <button
-                      key={curva}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (activeCardFilter !== 'custo_zerado') setActiveCardFilter('custo_zerado');
-                        setActiveCardCurva(activeCardCurva === curva ? '' : curva);
-                      }}
-                      className={`flex flex-col items-center px-1.5 py-1 rounded transition-all ${
-                        activeCardFilter === 'custo_zerado' && activeCardCurva === curva ? 'ring-2 ring-orange-500 bg-orange-100' : ''
-                      } ${
-                        curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
-                        curva === 'B' ? 'bg-blue-50 hover:bg-blue-100' :
-                        curva === 'C' ? 'bg-yellow-50 hover:bg-yellow-100' :
-                        curva === 'D' ? 'bg-orange-50 hover:bg-orange-100' :
-                        curva === 'E' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      title={`Filtrar curva ${curva}`}
-                    >
-                      <span className={`text-xs font-bold ${
-                        curva === 'A' ? 'text-green-700' : curva === 'B' ? 'text-blue-700' :
-                        curva === 'C' ? 'text-yellow-700' : curva === 'D' ? 'text-orange-700' :
-                        curva === 'E' ? 'text-red-700' : 'text-gray-700'
-                      }`}>{curva}:{stats.curvasPorIndicador?.custo_zerado?.[curva] || 0}</span>
-                      <span className="text-[10px] text-gray-500 mt-0.5">{pontuacaoConfig.custo_zerado?.[curva] || 0}pts</span>
-                    </button>
-                  ))}
-                  <button onClick={(e) => { e.stopPropagation(); setConfigModalOpen(configModalOpen === 'custo_zerado' ? null : 'custo_zerado'); }}
-                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center" title="Configurar pontuação">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Card Preço Venda Zerado */}
-            <div className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg ${
-                activeCardFilter === 'preco_venda_zerado' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
-              }`}
-            >
-              <button
-                onClick={() => setActiveCardFilter(activeCardFilter === 'preco_venda_zerado' ? 'todos' : 'preco_venda_zerado')}
-                className="w-full text-left"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-2xl">💵</span>
-                  <span className="text-2xl font-bold text-pink-600">{stats.precoVendaZerado}</span>
-                </div>
-                <p className="text-sm font-medium text-gray-700">Preço Venda Zerado</p>
-              </button>
-              <div className="mt-2 pt-2 border-t border-gray-100">
-                <div className="flex gap-1 justify-between items-start">
-                  {['A', 'B', 'C', 'D', 'E', 'X'].map(curva => (
-                    <button
-                      key={curva}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (activeCardFilter !== 'preco_venda_zerado') setActiveCardFilter('preco_venda_zerado');
-                        setActiveCardCurva(activeCardCurva === curva ? '' : curva);
-                      }}
-                      className={`flex flex-col items-center px-1.5 py-1 rounded transition-all ${
-                        activeCardFilter === 'preco_venda_zerado' && activeCardCurva === curva ? 'ring-2 ring-orange-500 bg-orange-100' : ''
-                      } ${
-                        curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
-                        curva === 'B' ? 'bg-blue-50 hover:bg-blue-100' :
-                        curva === 'C' ? 'bg-yellow-50 hover:bg-yellow-100' :
-                        curva === 'D' ? 'bg-orange-50 hover:bg-orange-100' :
-                        curva === 'E' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      title={`Filtrar curva ${curva}`}
-                    >
-                      <span className={`text-xs font-bold ${
-                        curva === 'A' ? 'text-green-700' : curva === 'B' ? 'text-blue-700' :
-                        curva === 'C' ? 'text-yellow-700' : curva === 'D' ? 'text-orange-700' :
-                        curva === 'E' ? 'text-red-700' : 'text-gray-700'
-                      }`}>{curva}:{stats.curvasPorIndicador?.preco_venda_zerado?.[curva] || 0}</span>
-                      <span className="text-[10px] text-gray-500 mt-0.5">{pontuacaoConfig.preco_venda_zerado?.[curva] || 0}pts</span>
-                    </button>
-                  ))}
-                  <button onClick={(e) => { e.stopPropagation(); setConfigModalOpen(configModalOpen === 'preco_venda_zerado' ? null : 'preco_venda_zerado'); }}
-                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center" title="Configurar pontuação">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Card Curva X */}
-            <div className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg ${
-                activeCardFilter === 'curva_x' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
-              }`}
-            >
-              <button
-                onClick={() => setActiveCardFilter(activeCardFilter === 'curva_x' ? 'todos' : 'curva_x')}
-                className="w-full text-left"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-2xl">❌</span>
-                  <span className="text-2xl font-bold text-gray-600">{stats.curvaX}</span>
-                </div>
-                <p className="text-sm font-medium text-gray-700">Curva X</p>
-              </button>
-              <div className="mt-2 pt-2 border-t border-gray-100">
-                <div className="flex gap-1 justify-between items-start">
-                  {['A', 'B', 'C', 'D', 'E', 'X'].map(curva => (
-                    <button
-                      key={curva}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (activeCardFilter !== 'curva_x') setActiveCardFilter('curva_x');
-                        setActiveCardCurva(activeCardCurva === curva ? '' : curva);
-                      }}
-                      className={`flex flex-col items-center px-1.5 py-1 rounded transition-all ${
-                        activeCardFilter === 'curva_x' && activeCardCurva === curva ? 'ring-2 ring-orange-500 bg-orange-100' : ''
-                      } ${
-                        curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
-                        curva === 'B' ? 'bg-blue-50 hover:bg-blue-100' :
-                        curva === 'C' ? 'bg-yellow-50 hover:bg-yellow-100' :
-                        curva === 'D' ? 'bg-orange-50 hover:bg-orange-100' :
-                        curva === 'E' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      title={`Filtrar curva ${curva}`}
-                    >
-                      <span className={`text-xs font-bold ${
-                        curva === 'A' ? 'text-green-700' : curva === 'B' ? 'text-blue-700' :
-                        curva === 'C' ? 'text-yellow-700' : curva === 'D' ? 'text-orange-700' :
-                        curva === 'E' ? 'text-red-700' : 'text-gray-700'
-                      }`}>{curva}:{stats.curvasPorIndicador?.curva_x?.[curva] || 0}</span>
-                      <span className="text-[10px] text-gray-500 mt-0.5">{pontuacaoConfig.curva_x?.[curva] || 0}pts</span>
-                    </button>
-                  ))}
-                  <button onClick={(e) => { e.stopPropagation(); setConfigModalOpen(configModalOpen === 'curva_x' ? null : 'curva_x'); }}
-                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center" title="Configurar pontuação">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-
+              );
+            })}
           </div>
 
           {/* Botões de Visualização: GERAL / PONTUAÇÃO + Cards de Risco */}
@@ -2192,14 +2209,9 @@ export default function EstoqueSaude() {
                   <div className="flex items-center gap-4">
                     <p className="text-sm text-orange-800">
                       <strong>Filtro ativo:</strong> {
-                        activeCardFilter === 'zerado' ? '📭 Estoque Zerado' :
-                        activeCardFilter === 'negativo' ? '⚠️ Estoque Negativo' :
-                        activeCardFilter === 'sem_venda' ? '⏸️ Sem Venda' :
-                        activeCardFilter === 'margem_negativa' ? '💸 Margem Negativa' :
-                        activeCardFilter === 'margem_baixa' ? '💰 Margem Abaixo da Meta' :
-                        activeCardFilter === 'custo_zerado' ? '🏷️ Custo Zerado' :
-                        activeCardFilter === 'preco_venda_zerado' ? '💵 Preço Venda Zerado' :
-                        '❌ Curva X (Sem Classificação)'
+                        CARD_CONFIG[activeCardFilter]
+                          ? `${CARD_CONFIG[activeCardFilter].emoji} ${CARD_CONFIG[activeCardFilter].label}${CARD_CONFIG[activeCardFilter].subtitle ? ' - ' + CARD_CONFIG[activeCardFilter].subtitle : ''}`
+                          : activeCardFilter
                       }
                     </p>
                     <span className="bg-orange-200 text-orange-900 px-3 py-1 rounded-full text-xs font-bold">
@@ -2362,7 +2374,7 @@ export default function EstoqueSaude() {
             <div className="bg-white rounded-lg shadow overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-orange-50">
                     <tr>
                       {visibleColumns.map(col => (
                         <th
@@ -2373,8 +2385,8 @@ export default function EstoqueSaude() {
                           onDragOver={(e) => handleHeaderDragOver(e, col.id)}
                           onDragLeave={handleHeaderDragLeave}
                           onDrop={(e) => handleHeaderDrop(e, col.id)}
-                          className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-move hover:bg-gray-100 select-none transition-all ${
-                            dragOverColumn === col.id ? 'bg-orange-100 border-l-2 border-orange-500' : ''
+                          className={`px-4 py-3 text-left text-xs font-medium text-orange-700 uppercase cursor-move hover:bg-orange-100 select-none transition-all ${
+                            dragOverColumn === col.id ? 'bg-orange-200 border-l-2 border-orange-500' : ''
                           }`}
                           onClick={() => handleSort(col.id)}
                         >
@@ -2581,6 +2593,9 @@ export default function EstoqueSaude() {
                             pontosMargemBaixa: { value: dataList.reduce((sum, p) => sum + p.pontosMargemBaixa, 0), color: 'text-yellow-600' },
                             pontosCustoZerado: { value: dataList.reduce((sum, p) => sum + p.pontosCustoZerado, 0), color: 'text-purple-600' },
                             pontosPrecoZerado: { value: dataList.reduce((sum, p) => sum + p.pontosPrecoZerado, 0), color: 'text-pink-600' },
+                            pontosConcBarato: { value: dataList.reduce((sum, p) => sum + p.pontosConcBarato, 0), color: 'text-blue-600' },
+                            pontosMargemExcessiva: { value: dataList.reduce((sum, p) => sum + p.pontosMargemExcessiva, 0), color: 'text-emerald-600' },
+                            pontosEstoqueExcessivo: { value: dataList.reduce((sum, p) => sum + p.pontosEstoqueExcessivo, 0), color: 'text-amber-600' },
                             totalPontos: { value: dataList.reduce((sum, p) => sum + p.totalPontos, 0), color: 'text-white', bg: 'bg-gray-800' },
                           };
 
@@ -2992,6 +3007,9 @@ export default function EstoqueSaude() {
                   {configModalOpen === 'custo_zerado' && '🏷️ Pontuação - Custo Zerado'}
                   {configModalOpen === 'preco_venda_zerado' && '💵 Pontuação - Preço Zerado'}
                   {configModalOpen === 'curva_x' && '❌ Pontuação - Curva X'}
+                  {configModalOpen === 'conc_barato' && '🏪 Pontuação - Concorrente + Barato'}
+                  {configModalOpen === 'pre_ruptura' && '📉 Pontuação - Estoque Mínimo'}
+                  {configModalOpen === 'margem_excessiva' && '📈 Pontuação - Margem Excessiva'}
                 </h2>
                 <button
                   onClick={() => setConfigModalOpen(null)}
@@ -3005,6 +3023,8 @@ export default function EstoqueSaude() {
               <p className="text-sm text-white/80 mt-1">
                 {configModalOpen === 'sem_venda'
                   ? 'Defina dias sem venda e pontos para cada curva'
+                  : configModalOpen === 'margem_excessiva'
+                  ? 'Defina a pontuação para cada faixa de margem acima da meta'
                   : 'Defina a pontuação para cada curva'}
               </p>
             </div>
@@ -3065,6 +3085,39 @@ export default function EstoqueSaude() {
                     ))}
                   </div>
                 </>
+              ) : SPECIAL_RANGES[configModalOpen] ? (
+                <>
+                  <p className="text-sm text-gray-600 mb-4">
+                    {configModalOpen === 'margem_excessiva'
+                      ? 'Informe quantos pontos cada produto recebe por faixa de margem acima da meta:'
+                      : 'Informe quantos pontos cada produto recebe por faixa de dias de cobertura de estoque:'}
+                  </p>
+                  <div className="space-y-3">
+                    {SPECIAL_RANGES[configModalOpen].map((range, idx) => (
+                      <div key={range.id} className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white ${
+                          range.color.split(' ')[0].replace('bg-', 'bg-').replace('-50', '-500').replace('-100', '-500')
+                        }`} style={{ backgroundColor: ['#10b981','#14b8a6','#06b6d4','#3b82f6','#6366f1','#8b5cf6','#22c55e','#84cc16','#eab308','#f97316','#ef4444','#dc2626','#6b7280'][idx] || '#6b7280' }}>
+                          <span className="text-xs text-white font-bold">{range.label}</span>
+                        </div>
+                        <label className="flex-1 text-sm font-medium text-gray-700">
+                          {range.label === 'Nunca' ? 'Nunca Vendido' : range.label}
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={pontuacaoConfig[configModalOpen]?.[range.id] || 0}
+                            onChange={(e) => updatePontuacao(configModalOpen, range.id, e.target.value)}
+                            className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-center"
+                          />
+                          <span className="text-sm text-gray-500">pontos</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
               ) : (
                 <>
                   <p className="text-sm text-gray-600 mb-4">
@@ -3108,7 +3161,6 @@ export default function EstoqueSaude() {
                   <button
                     onClick={() => {
                       if (configModalOpen === 'sem_venda') {
-                        // Zerar/resetar valores do sem_venda
                         setPontuacaoConfig(prev => ({
                           ...prev,
                           sem_venda: {
@@ -3120,8 +3172,14 @@ export default function EstoqueSaude() {
                             X: { dias: 60, pontos: 0 }
                           }
                         }));
+                      } else if (SPECIAL_RANGES[configModalOpen]) {
+                        const zeroed = {};
+                        SPECIAL_RANGES[configModalOpen].forEach(r => { zeroed[r.id] = 0; });
+                        setPontuacaoConfig(prev => ({
+                          ...prev,
+                          [configModalOpen]: zeroed
+                        }));
                       } else {
-                        // Zerar todas as pontuações deste indicador
                         setPontuacaoConfig(prev => ({
                           ...prev,
                           [configModalOpen]: { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 }
