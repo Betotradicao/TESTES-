@@ -160,6 +160,12 @@ export default function GestaoInteligente() {
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState(getDefaultDates());
   const [clearingCache, setClearingCache] = useState(false);
+  const [modoVisao, setModoVisao] = useState('ataque'); // 'ataque' | 'defesa'
+  const [defesaData, setDefesaData] = useState({
+    naoBipados: { valor: 0, pct: 0, total: 0 },
+    furtos: { valor: 0, qtd: 0 },
+    loadingDefesa: false
+  });
   const [analiseAtiva, setAnaliseAtiva] = useState('vendas-analiticas'); // 'vendas-setor', 'vendas-ano', 'vendas-dia-semana', 'vendas-analiticas', 'vendas-setor-anual'
   const [dadosAnalise, setDadosAnalise] = useState([]);
   const [loadingAnalise, setLoadingAnalise] = useState(false);
@@ -251,6 +257,29 @@ export default function GestaoInteligente() {
   const [draggedRow, setDraggedRow] = useState(null);
   const [cardExpandido, setCardExpandido] = useState('vendas'); // qual card de cima está expandido mostrando sub-cards
 
+  // Estado para ordem dos cards DEFESA (drag and drop)
+  const defaultDefesaOrder1 = ['naoBipados', 'furtos', 'cancelamentos', 'descontos', 'valeTroca', 'valeDesconto'];
+  const defaultDefesaOrder2 = ['sobraCaixa', 'faltaCaixa', 'rupturaTaxa', 'rupturaPerdaVenda', 'rupturaPerdaLucro', 'etiquetaTaxa'];
+  const defaultDefesaOrder3 = ['fluxoCaixa', 'defesa14', 'defesa15', 'defesa16', 'defesa17', 'defesa18'];
+  const migrateDefesaIds = (ids) => ids.map(id => {
+    if (id === 'defesa13') return 'fluxoCaixa';
+    return id;
+  });
+  const [defesaOrder1, setDefesaOrder1] = useState(() => {
+    const saved = localStorage.getItem('gestao_defesa_order_1');
+    return saved ? migrateDefesaIds(JSON.parse(saved)) : defaultDefesaOrder1;
+  });
+  const [defesaOrder2, setDefesaOrder2] = useState(() => {
+    const saved = localStorage.getItem('gestao_defesa_order_2');
+    return saved ? migrateDefesaIds(JSON.parse(saved)) : defaultDefesaOrder2;
+  });
+  const [defesaOrder3, setDefesaOrder3] = useState(() => {
+    const saved = localStorage.getItem('gestao_defesa_order_3');
+    return saved ? migrateDefesaIds(JSON.parse(saved)) : defaultDefesaOrder3;
+  });
+  const [draggedDefesaCard, setDraggedDefesaCard] = useState(null);
+  const [draggedDefesaRow, setDraggedDefesaRow] = useState(null);
+
   // Estado para ordem dos cards de análise (drag and drop)
   const defaultAnaliseOrder = ['vendas-analiticas', 'vendas-setor-anual', 'vendas-ano', 'vendas-setor', 'vendas-dia-semana', 'produto-anual'];
   const [analiseCardOrder, setAnaliseCardOrder] = useState(() => {
@@ -298,6 +327,17 @@ export default function GestaoInteligente() {
   useEffect(() => {
     localStorage.setItem('gestao_analise_card_order', JSON.stringify(analiseCardOrder));
   }, [analiseCardOrder]);
+
+  // Salvar ordem DEFESA no localStorage
+  useEffect(() => {
+    localStorage.setItem('gestao_defesa_order_1', JSON.stringify(defesaOrder1));
+  }, [defesaOrder1]);
+  useEffect(() => {
+    localStorage.setItem('gestao_defesa_order_2', JSON.stringify(defesaOrder2));
+  }, [defesaOrder2]);
+  useEffect(() => {
+    localStorage.setItem('gestao_defesa_order_3', JSON.stringify(defesaOrder3));
+  }, [defesaOrder3]);
 
   // Drag and drop de colunas
   const handleColDragStart = (e, colId) => {
@@ -572,6 +612,56 @@ export default function GestaoInteligente() {
     setDraggedRow(null);
   };
 
+  // Drag and drop DEFESA cards
+  const handleDefesaDragStart = (e, cardId, row) => {
+    setDraggedDefesaCard(cardId);
+    setDraggedDefesaRow(row);
+    e.dataTransfer.effectAllowed = 'move';
+    e.target.style.opacity = '0.5';
+  };
+  const handleDefesaDragEnd = (e) => {
+    e.target.style.opacity = '1';
+    setDraggedDefesaCard(null);
+    setDraggedDefesaRow(null);
+  };
+  const handleDefesaDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+  const handleDefesaDrop = (e, targetCardId, targetRow) => {
+    e.preventDefault();
+    if (!draggedDefesaCard) return;
+    const getRowData = (row) => {
+      if (row === 1) return [defesaOrder1, setDefesaOrder1];
+      if (row === 2) return [defesaOrder2, setDefesaOrder2];
+      return [defesaOrder3, setDefesaOrder3];
+    };
+    if (draggedDefesaRow === targetRow) {
+      const [orderArray, setOrderArray] = getRowData(targetRow);
+      const draggedIndex = orderArray.indexOf(draggedDefesaCard);
+      const targetIndex = orderArray.indexOf(targetCardId);
+      if (draggedIndex !== targetIndex) {
+        const newOrder = [...orderArray];
+        newOrder.splice(draggedIndex, 1);
+        newOrder.splice(targetIndex, 0, draggedDefesaCard);
+        setOrderArray(newOrder);
+      }
+    } else {
+      const [sourceArray, setSourceArray] = getRowData(draggedDefesaRow);
+      const [targetArray, setTargetArray] = getRowData(targetRow);
+      const draggedIndex = sourceArray.indexOf(draggedDefesaCard);
+      const targetIndex = targetArray.indexOf(targetCardId);
+      const newSourceArray = [...sourceArray];
+      const newTargetArray = [...targetArray];
+      newSourceArray[draggedIndex] = targetCardId;
+      newTargetArray[targetIndex] = draggedDefesaCard;
+      setSourceArray(newSourceArray);
+      setTargetArray(newTargetArray);
+    }
+    setDraggedDefesaCard(null);
+    setDraggedDefesaRow(null);
+  };
+
   // Lista de meses completa para exibição
   const mesesCompletos = [
     { num: 1, nome: 'JAN' },
@@ -660,6 +750,103 @@ export default function GestaoInteligente() {
       setProdutosRevenda(data);
     } catch (err) {
       console.error('Erro ao buscar produtos revenda:', err);
+    }
+  };
+
+  // Buscar dados DEFESA (não bipados + furtos + frente de caixa + ruptura + etiquetas)
+  const fetchDefesaData = async () => {
+    setDefesaData(prev => ({ ...prev, loadingDefesa: true }));
+    try {
+      const fmtDateBR = (d) => { const [y, m, dd] = d.split('-'); return `${dd}/${m}/${y}`; };
+      const codLoja = lojaSelecionada || '';
+
+      // Calcular períodos comparativos
+      const dtIni = new Date(filters.dataInicio + 'T00:00:00');
+      const dtFim = new Date(filters.dataFim + 'T00:00:00');
+      const mesPassIni = new Date(dtIni); mesPassIni.setMonth(mesPassIni.getMonth() - 1);
+      const mesPassFim = new Date(dtFim); mesPassFim.setMonth(mesPassFim.getMonth() - 1);
+      const anoPassIni = new Date(dtIni); anoPassIni.setFullYear(anoPassIni.getFullYear() - 1);
+      const anoPassFim = new Date(dtFim); anoPassFim.setFullYear(anoPassFim.getFullYear() - 1);
+      const fmtISO = (d) => d.toISOString().split('T')[0];
+      const fmtBR = (d) => { const s = fmtISO(d).split('-'); return `${s[2]}/${s[1]}/${s[0]}`; };
+
+      const mkFCParams = (ini, fim) => {
+        const p = new URLSearchParams(); p.append('dataInicio', ini); p.append('dataFim', fim);
+        if (codLoja) p.append('codLoja', codLoja); return p.toString();
+      };
+      const mkAuditParams = (ini, fim) => {
+        const p = new URLSearchParams({ data_inicio: ini, data_fim: fim, produto: '', fornecedor: '', auditor: '' });
+        if (codLoja) p.append('codLoja', codLoja); return p.toString();
+      };
+
+      const safe = (p) => p.catch((err) => { console.warn('Defesa API error:', err?.message); return { data: {} }; });
+
+      const [sellsRes, bipsRes, fcAt, fcMP, fcAP, rAt, rMP, rAP, eAt, eMP, eAP, bkAt, bkMP, bkAP] = await Promise.all([
+        safe(api.get('/sells', { params: { page: 1, limit: 1, date_from: filters.dataInicio, date_to: filters.dataFim } })),
+        safe(api.get('/bips', { params: { page: 1, limit: 1000, status: 'cancelled', date_from: filters.dataInicio, date_to: filters.dataFim } })),
+        safe(api.get(`/frente-caixa/totais?${mkFCParams(fmtDateBR(filters.dataInicio), fmtDateBR(filters.dataFim))}`)),
+        safe(api.get(`/frente-caixa/totais?${mkFCParams(fmtBR(mesPassIni), fmtBR(mesPassFim))}`)),
+        safe(api.get(`/frente-caixa/totais?${mkFCParams(fmtBR(anoPassIni), fmtBR(anoPassFim))}`)),
+        safe(api.get(`/rupture-surveys/agregado?${mkAuditParams(filters.dataInicio, filters.dataFim)}`)),
+        safe(api.get(`/rupture-surveys/agregado?${mkAuditParams(fmtISO(mesPassIni), fmtISO(mesPassFim))}`)),
+        safe(api.get(`/rupture-surveys/agregado?${mkAuditParams(fmtISO(anoPassIni), fmtISO(anoPassFim))}`)),
+        safe(api.get(`/label-audits/agregado?${mkAuditParams(filters.dataInicio, filters.dataFim)}`)),
+        safe(api.get(`/label-audits/agregado?${mkAuditParams(fmtISO(mesPassIni), fmtISO(mesPassFim))}`)),
+        safe(api.get(`/label-audits/agregado?${mkAuditParams(fmtISO(anoPassIni), fmtISO(anoPassFim))}`)),
+        safe(api.get('/santander/extrato-completo', { params: { initialDate: filters.dataInicio, finalDate: filters.dataFim }, timeout: 60000 })),
+        safe(api.get('/santander/extrato-completo', { params: { initialDate: fmtISO(mesPassIni), finalDate: fmtISO(mesPassFim) }, timeout: 60000 })),
+        safe(api.get('/santander/extrato-completo', { params: { initialDate: fmtISO(anoPassIni), finalDate: fmtISO(anoPassFim) }, timeout: 60000 })),
+      ]);
+
+      // Não bipados
+      const m = sellsRes.data.metrics || {};
+      const totalV = m.total_value_cents || 0; const notV = m.total_not_verified_cents || 0;
+
+      // Furtos
+      const furtos = (bipsRes.data.data || []).filter(b => b.motivo_cancelamento === 'furto');
+      const furtoVal = furtos.reduce((s, b) => s + (b.bip_price_cents || 0), 0);
+
+      // Parse frente caixa
+      const pFC = (r) => { const t = r.data?.success ? r.data.totais : (r.data?.totais || {}); const v = t.TOTAL_VENDAS || 0; return {
+        cancel: (t.CANCELAMENTOS || 0) + (t.ESTORNOS_ORFAOS || 0), pctC: v > 0 ? (((t.CANCELAMENTOS||0)+(t.ESTORNOS_ORFAOS||0))/v*100) : 0,
+        desc: t.TOTAL_DESCONTOS||0, pctD: v>0?((t.TOTAL_DESCONTOS||0)/v*100):0,
+        vt: t.VALE_TROCA||0, pctVT: v>0?((t.VALE_TROCA||0)/v*100):0,
+        vd: t.VALE_DESCONTO||0, sob: t.TOTAL_SOBRA||0, fal: t.TOTAL_QUEBRA||0
+      };};
+      const fc1=pFC(fcAt), fc2=pFC(fcMP), fc3=pFC(fcAP);
+
+      // Parse ruptura (usar campos direto de estatisticas)
+      const pR = (r) => { const s=r.data?.estatisticas||{};
+        return { taxa: Number(s.taxa_ruptura||0), pv: Number(s.perda_venda_periodo||0), pl: Number(s.perda_lucro_periodo||0) };};
+      const r1=pR(rAt), r2=pR(rMP), r3=pR(rAP);
+
+      // Parse etiqueta
+      const pE = (r) => ({ taxa: Number(r.data?.estatisticas?.taxa_ruptura||0) });
+      const e1=pE(eAt), e2=pE(eMP), e3=pE(eAP);
+
+      // Parse banco (extrato santander)
+      const pBK = (r) => { const t=r.data?.totais||{}; return (t.creditos||0) - (t.debitos||0); };
+      const bk1=pBK(bkAt), bk2=pBK(bkMP), bk3=pBK(bkAP);
+
+      setDefesaData({
+        naoBipados: { valor: notV/100, pct: totalV>0?(notV/totalV*100):0, total: totalV/100 },
+        furtos: { valor: furtoVal/100, qtd: furtos.length },
+        cancelamentos: { atual: fc1.cancel, mesPassado: fc2.cancel, anoPassado: fc3.cancel, pct: fc1.pctC },
+        descontos: { atual: fc1.desc, mesPassado: fc2.desc, anoPassado: fc3.desc, pct: fc1.pctD },
+        valeTroca: { atual: fc1.vt, mesPassado: fc2.vt, anoPassado: fc3.vt, pct: fc1.pctVT },
+        valeDesconto: { atual: fc1.vd, mesPassado: fc2.vd, anoPassado: fc3.vd },
+        sobraCaixa: { atual: fc1.sob, mesPassado: fc2.sob, anoPassado: fc3.sob },
+        faltaCaixa: { atual: fc1.fal, mesPassado: fc2.fal, anoPassado: fc3.fal },
+        rupturaTaxa: { atual: r1.taxa, mesPassado: r2.taxa, anoPassado: r3.taxa },
+        rupturaPerdaVenda: { atual: r1.pv, mesPassado: r2.pv, anoPassado: r3.pv },
+        rupturaPerdaLucro: { atual: r1.pl, mesPassado: r2.pl, anoPassado: r3.pl },
+        etiquetaTaxa: { atual: e1.taxa, mesPassado: e2.taxa, anoPassado: e3.taxa },
+        fluxoCaixa: { atual: bk1, mesPassado: bk2, anoPassado: bk3 },
+        loadingDefesa: false
+      });
+    } catch (err) {
+      console.error('Erro ao buscar dados defesa:', err);
+      setDefesaData(prev => ({ ...prev, loadingDefesa: false }));
     }
   };
 
@@ -1235,6 +1422,13 @@ export default function GestaoInteligente() {
     fetchProdutosRevenda();
   }, [filters, lojaSelecionada]);
 
+  // Carregar dados DEFESA quando ativar o modo
+  useEffect(() => {
+    if (modoVisao === 'defesa') {
+      fetchDefesaData();
+    }
+  }, [modoVisao, filters, lojaSelecionada]);
+
   // Auto-carregar Venda por Ano ao abrir a página
   useEffect(() => {
     fetchVendasPorAno(anoSelecionado);
@@ -1579,6 +1773,35 @@ export default function GestaoInteligente() {
               <span className="bg-white/20 text-white px-3 py-0.5 rounded-full text-xs font-medium ml-2">
                 {formatPeriodo()}
               </span>
+              {/* Botões ATAQUE / DEFESA */}
+              <div className="flex ml-4 rounded-lg overflow-hidden border border-white/30">
+                <button
+                  onClick={() => setModoVisao('ataque')}
+                  className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wide transition-all flex items-center gap-1.5 ${
+                    modoVisao === 'ataque'
+                      ? 'bg-white text-orange-600 shadow-inner'
+                      : 'bg-white/10 text-white hover:bg-white/20'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                  ATAQUE
+                </button>
+                <button
+                  onClick={() => setModoVisao('defesa')}
+                  className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wide transition-all flex items-center gap-1.5 ${
+                    modoVisao === 'defesa'
+                      ? 'bg-white text-blue-600 shadow-inner'
+                      : 'bg-white/10 text-white hover:bg-white/20'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  DEFESA
+                </button>
+              </div>
             </div>
 
             {/* Filtros */}
@@ -1628,7 +1851,7 @@ export default function GestaoInteligente() {
         )}
 
         {/* Cards de Indicadores */}
-        {!loading && !error && (
+        {!loading && !error && modoVisao === 'ataque' && (
           <>
           {/* Linha 1 - Cards Principais (Drag and Drop) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
@@ -3615,6 +3838,109 @@ export default function GestaoInteligente() {
                   )}
                 </div>
               )}
+          </>
+        )}
+
+        {/* ====== MODO DEFESA - Cards com dados reais (mesmo estilo ATAQUE) + Drag and Drop ====== */}
+        {!loading && !error && modoVisao === 'defesa' && (
+          <>
+            {defesaData.loadingDefesa && <RadarLoading message="Carregando dados de defesa..." />}
+            {!defesaData.loadingDefesa && (() => {
+              // Config dos cards DEFESA (lookup por key)
+              const defesaCardsConfig = {
+                naoBipados: { border: 'border-yellow-500', bg: 'bg-yellow-100', ic: 'text-yellow-600', lb: 'NAO BIPADOS', val: () => formatPercent(defesaData.naoBipados?.pct), title: 'NAO VERIFICADOS', tipo: 'percent', d: defesaData.naoBipados, svg: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z' },
+                furtos: { border: 'border-red-600', bg: 'bg-red-100', ic: 'text-red-600', lb: 'FURTOS', val: () => formatCurrency(defesaData.furtos?.valor), extra: () => <span className="text-2xl font-bold text-red-600">({defesaData.furtos?.qtd || 0})</span>, title: 'FURTOS IDENTIFICADOS', tipo: 'currency', d: defesaData.furtos, svg: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z' },
+                cancelamentos: { border: 'border-orange-500', bg: 'bg-orange-100', ic: 'text-orange-600', lb: 'CANCELAMENTOS', val: () => formatCurrency(defesaData.cancelamentos?.atual), extra: () => <span className="text-2xl font-bold text-orange-600">{formatPercent(defesaData.cancelamentos?.pct)}</span>, title: 'CANCELAMENTOS + ESTORNOS', tipo: 'currency', d: defesaData.cancelamentos, inv: true, svg: 'M6 18L18 6M6 6l12 12' },
+                descontos: { border: 'border-amber-500', bg: 'bg-amber-100', ic: 'text-amber-600', lb: 'DESCONTOS', val: () => formatCurrency(defesaData.descontos?.atual), extra: () => <span className="text-2xl font-bold text-amber-600">{formatPercent(defesaData.descontos?.pct)}</span>, title: 'DESCONTOS CONCEDIDOS', tipo: 'currency', d: defesaData.descontos, inv: true, svg: 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z' },
+                valeTroca: { border: 'border-blue-500', bg: 'bg-blue-100', ic: 'text-blue-600', lb: 'VALE TROCA', val: () => formatCurrency(defesaData.valeTroca?.atual), extra: () => <span className="text-2xl font-bold text-blue-600">{formatPercent(defesaData.valeTroca?.pct)}</span>, title: 'VALE TROCA NO PERIODO', tipo: 'currency', d: defesaData.valeTroca, inv: true, svg: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4' },
+                valeDesconto: { border: 'border-purple-500', bg: 'bg-purple-100', ic: 'text-purple-600', lb: 'VALE DESCONTO', val: () => formatCurrency(defesaData.valeDesconto?.atual), title: 'VALE DESCONTO NO PERIODO', tipo: 'currency', d: defesaData.valeDesconto, inv: true, svg: 'M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z' },
+                sobraCaixa: { border: 'border-green-500', bg: 'bg-green-100', ic: 'text-green-600', lb: 'SOBRA CAIXA', val: () => formatCurrency(defesaData.sobraCaixa?.atual), title: 'SOBRA DE CAIXA', tipo: 'currency', d: defesaData.sobraCaixa, svg: 'M5 10l7-7m0 0l7 7m-7-7v18' },
+                faltaCaixa: { border: 'border-red-500', bg: 'bg-red-100', ic: 'text-red-600', lb: 'FALTA CAIXA', val: () => formatCurrency(defesaData.faltaCaixa?.atual), title: 'FALTA DE CAIXA', tipo: 'currency', d: defesaData.faltaCaixa, inv: true, svg: 'M19 14l-7 7m0 0l-7-7m7 7V3' },
+                rupturaTaxa: { border: 'border-red-400', bg: 'bg-red-50', ic: 'text-red-500', lb: '% RUPTURA', val: () => formatPercent(defesaData.rupturaTaxa?.atual), title: 'TAXA DE RUPTURA IDENTIFICADA', tipo: 'percent', d: defesaData.rupturaTaxa, inv: true, svg: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7' },
+                rupturaPerdaVenda: { border: 'border-emerald-500', bg: 'bg-emerald-100', ic: 'text-emerald-600', lb: 'PERDA VENDA', val: () => formatCurrency(defesaData.rupturaPerdaVenda?.atual), title: 'PERDA DE VENDA IDENTIFICADA', tipo: 'currency', d: defesaData.rupturaPerdaVenda, inv: true, svg: 'M13 17h8m0 0V9m0 8l-8-8-4 4-6-6' },
+                rupturaPerdaLucro: { border: 'border-indigo-500', bg: 'bg-indigo-100', ic: 'text-indigo-600', lb: 'PERDA LUCRO', val: () => formatCurrency(defesaData.rupturaPerdaLucro?.atual), title: 'PERDA DE LUCRO IDENTIFICADA', tipo: 'currency', d: defesaData.rupturaPerdaLucro, inv: true, svg: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+                etiquetaTaxa: { border: 'border-sky-500', bg: 'bg-sky-100', ic: 'text-sky-600', lb: 'ETIQ. DESCONF.', val: () => formatPercent(defesaData.etiquetaTaxa?.atual), title: 'TAXA ETIQUETAS DESCONFORMES', tipo: 'percent', d: defesaData.etiquetaTaxa, inv: true, svg: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
+                fluxoCaixa: { border: 'border-teal-500', bg: 'bg-teal-100', ic: 'text-teal-600', lb: 'FLUXO DE CAIXA', val: () => formatCurrency(defesaData.fluxoCaixa?.atual), title: 'RESULTADO DO PERIODO', tipo: 'currency', d: defesaData.fluxoCaixa, svg: 'M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
+                defesa14: { emBreve: true }, defesa15: { emBreve: true },
+                defesa16: { emBreve: true }, defesa17: { emBreve: true }, defesa18: { emBreve: true },
+              };
+
+              const renderDefesaCard = (cardId, row) => {
+                const c = defesaCardsConfig[cardId];
+                if (!c) return null;
+                const isDragging = draggedDefesaCard === cardId;
+
+                if (c.emBreve) {
+                  return (
+                    <div key={cardId} draggable onDragStart={(e) => handleDefesaDragStart(e, cardId, row)} onDragEnd={handleDefesaDragEnd} onDragOver={handleDefesaDragOver} onDrop={(e) => handleDefesaDrop(e, cardId, row)}
+                      className={`bg-white rounded-xl shadow-lg p-4 border-t-4 border-gray-300 hover:shadow-xl transition-all cursor-grab active:cursor-grabbing h-full flex flex-col justify-between ${isDragging ? 'opacity-50 scale-95' : ''}`}>
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                          </div>
+                          <span className="text-xs text-gray-400 uppercase font-semibold flex items-center gap-1">
+                            <svg className="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                            EM BREVE
+                          </span>
+                        </div>
+                        <p className="text-2xl font-bold text-gray-400 mb-1">-</p>
+                        <p className="text-xs text-gray-500 mb-3">EM BREVE</p>
+                      </div>
+                      <div className="space-y-1 pt-2 border-t border-gray-100">
+                        <div className="flex justify-between items-center text-xs"><span className="text-gray-400">Mes Passado:</span><span className="text-gray-300">-</span></div>
+                        <div className="flex justify-between items-center text-xs"><span className="text-gray-400">Ano Passado:</span><span className="text-gray-300">-</span></div>
+                        <div className="flex justify-between items-center text-xs"><span className="text-gray-400">&nbsp;</span></div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={cardId} draggable onDragStart={(e) => handleDefesaDragStart(e, cardId, row)} onDragEnd={handleDefesaDragEnd} onDragOver={handleDefesaDragOver} onDrop={(e) => handleDefesaDrop(e, cardId, row)}
+                    className={`bg-white rounded-xl shadow-lg p-4 border-t-4 ${c.border} hover:shadow-xl transition-all cursor-grab active:cursor-grabbing h-full flex flex-col justify-between ${isDragging ? 'opacity-50 scale-95' : ''}`}>
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className={`w-10 h-10 ${c.bg} rounded-lg flex items-center justify-center`}>
+                          <svg className={`w-5 h-5 ${c.ic}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d={c.svg} /></svg>
+                        </div>
+                        <span className="text-xs text-gray-400 uppercase font-semibold flex items-center gap-1">
+                          <svg className={`w-4 h-4 ${c.ic}`} fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+                          {c.lb}
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-2 mb-1">
+                        <p className="text-2xl font-bold text-gray-800">{c.val()}</p>
+                        {c.extra && c.extra()}
+                      </div>
+                      <p className="text-xs text-gray-500 mb-3">{c.title}</p>
+                    </div>
+                    <div className="space-y-1 pt-2 border-t border-gray-100">
+                      <Comparativo label="Mes Passado" valor={c.d?.mesPassado} valorAtual={c.d?.atual} tipo={c.tipo} invertido={c.inv} />
+                      <Comparativo label="Ano Passado" valor={c.d?.anoPassado} valorAtual={c.d?.atual} tipo={c.tipo} invertido={c.inv} />
+                      <div className="flex justify-between items-center text-xs"><span className="text-gray-400">&nbsp;</span></div>
+                    </div>
+                  </div>
+                );
+              };
+
+              return (
+              <>
+              {/* Linha 1 - DEFESA (Drag and Drop) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                {defesaOrder1.map((cardId) => renderDefesaCard(cardId, 1))}
+              </div>
+              {/* Linha 2 - DEFESA (Drag and Drop) */}
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                {defesaOrder2.map((cardId) => renderDefesaCard(cardId, 2))}
+              </div>
+              {/* Linha 3 - DEFESA EM BREVE (Drag and Drop) */}
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                {defesaOrder3.map((cardId) => renderDefesaCard(cardId, 3))}
+              </div>
+              </>
+              );
+            })()}
           </>
         )}
 
