@@ -22,6 +22,7 @@ export const MENU_MODULES = {
   GARIMPA_FORNECEDORES: 'garimpa-fornecedores',
   // Finanças no Radar
   BANCOS: 'bancos',
+  ENTRADAS_SAIDAS: 'entradas-saidas',
   // IA no Radar
   ROTA_CRESCIMENTO: 'rota-crescimento',
 };
@@ -90,6 +91,7 @@ export const MENU_SUBMENUS = {
   EXTRATO_SANTANDER: 'extrato-santander',
   EXTRATO_TRIBANCO: 'extrato-tribanco',
   EXTRATO_BANCO24H: 'extrato-banco24h',
+  ENTRADAS_SAIDAS: 'entradas-saidas',
 
   // IA no Radar
   ROTA_CRESCIMENTO_DASHBOARD: 'rota-crescimento-dashboard',
@@ -359,6 +361,19 @@ export const MENU_STRUCTURE = [
     ]
   },
   // ========== FINANÇAS NO RADAR ==========
+  {
+    id: MENU_MODULES.ENTRADAS_SAIDAS,
+    title: 'Entradas e Saídas',
+    icon: 'dollar',
+    section: 'financas',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.ENTRADAS_SAIDAS,
+        title: 'Entradas e Saídas',
+        path: '/entradas-saidas'
+      }
+    ]
+  },
   {
     id: MENU_MODULES.BANCOS,
     title: 'Bancos',

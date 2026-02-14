@@ -51,6 +51,7 @@ import NotaFiscalRecebimento from './pages/NotaFiscalRecebimento';
 import NotasAChegar from './pages/NotasAChegar';
 import ExtratoSantander from './pages/ExtratoSantander';
 import ExtratoBanco24h from './pages/ExtratoBanco24h';
+import EntradasSaidas from './pages/EntradasSaidas';
 
 function App() {
   return (
@@ -408,6 +409,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ExtratoBanco24h />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/entradas-saidas"
+              element={
+                <ProtectedRoute>
+                  <EntradasSaidas />
                 </ProtectedRoute>
               }
             />
