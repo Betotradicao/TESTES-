@@ -192,6 +192,13 @@ export default function GestaoInteligente() {
   const [expandedAnaliticaGrupos, setExpandedAnaliticaGrupos] = useState({});
   const [expandedAnaliticaSubgrupos, setExpandedAnaliticaSubgrupos] = useState({});
 
+  // Estado para gráfico das Vendas Analíticas
+  const [showGraficoAnalitica, setShowGraficoAnalitica] = useState(true);
+  const [graficoAnaliticaMetrica, setGraficoAnaliticaMetrica] = useState('vendaAtual');
+  // Drill-down: { level: 'secoes'|'grupos'|'subgrupos'|'itens', data: [], breadcrumb: [{label, codSecao?, codGrupo?, codSubgrupo?}] }
+  const [graficoAnaliticaDrill, setGraficoAnaliticaDrill] = useState({ level: 'secoes', data: [], breadcrumb: [{ label: 'Seções' }] });
+  const [filtroSetoresAnalitica, setFiltroSetoresAnalitica] = useState(null); // null = todos, Set de indices filtrados
+
   // Estado para vendas por setor anual
   const [vendasSetorAnual, setVendasSetorAnual] = useState([]);
   const [loadingVendasSetorAnual, setLoadingVendasSetorAnual] = useState(false);
@@ -200,6 +207,16 @@ export default function GestaoInteligente() {
   const [selectedSetoresGrafico, setSelectedSetoresGrafico] = useState(null); // null = todos, Set de indices
   const [graficoMetrica, setGraficoMetrica] = useState('venda'); // campo ativo no gráfico
   const [expandedSetoresAnual, setExpandedSetoresAnual] = useState({});
+
+  // Estado para Analise Produtos Anual
+  const [produtoAnualSetores, setProdutoAnualSetores] = useState([]);
+  const [loadingProdutoAnual, setLoadingProdutoAnual] = useState(false);
+  const [anoProdutoAnual, setAnoProdutoAnual] = useState(new Date().getFullYear());
+  const [produtoAnualMetrica, setProdutoAnualMetrica] = useState('venda');
+  const [expandedProdAnualSecoes, setExpandedProdAnualSecoes] = useState({});
+  const [expandedProdAnualGrupos, setExpandedProdAnualGrupos] = useState({});
+  const [expandedProdAnualSubgrupos, setExpandedProdAnualSubgrupos] = useState({});
+  const [produtoSelecionadoGrafico, setProdutoSelecionadoGrafico] = useState(null); // { nome, meses, total }
 
   // Estado para ordem dos cards (drag and drop)
   const defaultCardOrder = ['vendas', 'lucro', 'markdown', 'margemLimpa', 'ticketMedio', 'pctCompraVenda'];
@@ -235,15 +252,26 @@ export default function GestaoInteligente() {
   const [cardExpandido, setCardExpandido] = useState('vendas'); // qual card de cima está expandido mostrando sub-cards
 
   // Estado para ordem dos cards de análise (drag and drop)
-  const defaultAnaliseOrder = ['vendas-setor', 'vendas-ano', 'vendas-dia-semana', 'vendas-analiticas', 'vendas-setor-anual'];
+  const defaultAnaliseOrder = ['vendas-analiticas', 'vendas-setor-anual', 'vendas-ano', 'vendas-setor', 'vendas-dia-semana', 'produto-anual'];
   const [analiseCardOrder, setAnaliseCardOrder] = useState(() => {
     const saved = localStorage.getItem('gestao_analise_card_order');
-    return saved ? JSON.parse(saved) : defaultAnaliseOrder;
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Adicionar cards novos que não existem no localStorage salvo
+      const missing = defaultAnaliseOrder.filter(id => !parsed.includes(id));
+      if (missing.length > 0) {
+        const merged = [...parsed, ...missing];
+        localStorage.setItem('gestao_analise_card_order', JSON.stringify(merged));
+        return merged;
+      }
+      return parsed;
+    }
+    return defaultAnaliseOrder;
   });
   const [draggedAnaliseCard, setDraggedAnaliseCard] = useState(null);
 
   // Estado para ordem das colunas da tabela (drag and drop)
-  const defaultColOrder = ['venda', 'repr', 'custo', 'lucro', 'markdown', 'ticketMedio', 'vendasOferta', 'qtd'];
+  const defaultColOrder = ['venda', 'repr', 'custo', 'lucro', 'markdown', 'margemLimpa', 'impostos', 'ticketMedio', 'vendasOferta', 'pctOferta', 'cupons', 'qtd', 'skus'];
   const [colOrder, setColOrder] = useState(() => {
     const saved = localStorage.getItem('gestao_col_order');
     return saved ? JSON.parse(saved) : defaultColOrder;
@@ -325,21 +353,24 @@ export default function GestaoInteligente() {
 
   // Config dos cards de análise (classes completas para Tailwind JIT)
   const analiseCardConfig = {
-    'vendas-setor': { label: 'Vendas por Setor', desc: 'Hierarquia completa por setor', emoji: '🏪', onClick: () => fetchVendasPorSetor(),
-      active: 'bg-emerald-100 border-emerald-400 ring-2 ring-emerald-400', inactive: 'bg-emerald-50 border-emerald-200 hover:border-emerald-400',
-      icon: 'bg-emerald-200', title: 'text-emerald-800', sub: 'text-emerald-600' },
-    'vendas-ano': { label: 'Vendas por Ano', desc: 'Indicadores mensais consolidados', emoji: '📅', onClick: () => toggleVendasPorAno(),
-      active: 'bg-blue-100 border-blue-400 ring-2 ring-blue-400', inactive: 'bg-blue-50 border-blue-200 hover:border-blue-400',
-      icon: 'bg-blue-200', title: 'text-blue-800', sub: 'text-blue-600' },
-    'vendas-dia-semana': { label: 'Venda Média Dia da Semana', desc: 'Padroes semanais por mes', emoji: '📊', onClick: () => toggleVendasPorDiaSemana(),
-      active: 'bg-violet-100 border-violet-400 ring-2 ring-violet-400', inactive: 'bg-violet-50 border-violet-200 hover:border-violet-400',
-      icon: 'bg-violet-200', title: 'text-violet-800', sub: 'text-violet-600' },
-    'vendas-analiticas': { label: 'Vendas Analiticas', desc: 'Comparativos por setor', emoji: '📈', onClick: () => toggleVendasAnaliticas(),
+    'vendas-analiticas': { label: 'Analise Comparativa', desc: 'Comparativos por setor', emoji: '📈', onClick: () => toggleVendasAnaliticas(),
       active: 'bg-amber-100 border-amber-400 ring-2 ring-amber-400', inactive: 'bg-amber-50 border-amber-200 hover:border-amber-400',
       icon: 'bg-amber-200', title: 'text-amber-800', sub: 'text-amber-600' },
-    'vendas-setor-anual': { label: 'Vendas por Setor Anual', desc: 'Evolucao anual por setor', emoji: '🗓', onClick: () => toggleVendasPorSetorAnual(),
+    'vendas-ano': { label: 'Analise por Ano', desc: 'Indicadores mensais consolidados', emoji: '📅', onClick: () => toggleVendasPorAno(),
+      active: 'bg-blue-100 border-blue-400 ring-2 ring-blue-400', inactive: 'bg-blue-50 border-blue-200 hover:border-blue-400',
+      icon: 'bg-blue-200', title: 'text-blue-800', sub: 'text-blue-600' },
+    'vendas-setor': { label: 'Analise por Setor Periodo Atual', desc: 'Hierarquia completa por setor', emoji: '🏪', onClick: () => fetchVendasPorSetor(),
+      active: 'bg-emerald-100 border-emerald-400 ring-2 ring-emerald-400', inactive: 'bg-emerald-50 border-emerald-200 hover:border-emerald-400',
+      icon: 'bg-emerald-200', title: 'text-emerald-800', sub: 'text-emerald-600' },
+    'vendas-dia-semana': { label: 'Analise Linear Dia da Semana', desc: 'Padroes semanais por mes', emoji: '📊', onClick: () => toggleVendasPorDiaSemana(),
+      active: 'bg-violet-100 border-violet-400 ring-2 ring-violet-400', inactive: 'bg-violet-50 border-violet-200 hover:border-violet-400',
+      icon: 'bg-violet-200', title: 'text-violet-800', sub: 'text-violet-600' },
+    'vendas-setor-anual': { label: 'Analise por Setor Anual', desc: 'Evolucao anual por setor', emoji: '🗓', onClick: () => toggleVendasPorSetorAnual(),
       active: 'bg-sky-100 border-sky-400 ring-2 ring-sky-400', inactive: 'bg-sky-50 border-sky-200 hover:border-sky-400',
       icon: 'bg-sky-200', title: 'text-sky-800', sub: 'text-sky-600' },
+    'produto-anual': { label: 'Analise Produtos Anual', desc: 'Evolucao mensal por produto', emoji: '📦', onClick: () => toggleProdutoAnual(),
+      active: 'bg-rose-100 border-rose-400 ring-2 ring-rose-400', inactive: 'bg-rose-50 border-rose-200 hover:border-rose-400',
+      icon: 'bg-rose-200', title: 'text-rose-800', sub: 'text-rose-600' },
   };
 
   // Definição das colunas da tabela de vendas por setor
@@ -427,6 +458,61 @@ export default function GestaoInteligente() {
       renderSub: (d) => ({ cls: 'text-cyan-700', val: formatNumber(d.qtd) }),
       renderItem: (d) => ({ cls: 'text-cyan-700', val: formatNumber(d.qtd) }),
       renderTotal: (dados) => ({ cls: 'font-bold text-cyan-700', val: formatNumber(dados.reduce((a, i) => a + i.qtd, 0)) }),
+    },
+    margemLimpa: {
+      label: 'MG Limpa %',
+      headerClass: 'text-emerald-600',
+      renderSetor: (d) => ({ cls: 'font-semibold text-emerald-600', val: formatPercent(d.margemLimpa) }),
+      renderGrupo: (d) => ({ cls: 'font-medium text-emerald-600', val: formatPercent(d.margemLimpa) }),
+      renderSub: (d) => ({ cls: 'text-emerald-600', val: formatPercent(d.margemLimpa) }),
+      renderItem: (d) => ({ cls: 'text-emerald-600', val: formatPercent(d.margemLimpa) }),
+      renderTotal: (dados) => {
+        const tv = dados.reduce((a, i) => a + i.venda, 0);
+        const tc = dados.reduce((a, i) => a + (i.custo || 0), 0);
+        const ti = dados.reduce((a, i) => a + (i.impostos || 0), 0);
+        const vl = tv - ti;
+        return { cls: 'font-bold text-emerald-600', val: formatPercent(vl > 0 ? ((vl - tc) / vl) * 100 : 0) };
+      },
+    },
+    impostos: {
+      label: 'Impostos',
+      headerClass: 'text-red-600',
+      renderSetor: (d) => ({ cls: 'font-semibold text-red-600', val: formatCurrency(d.impostos) }),
+      renderGrupo: (d) => ({ cls: 'text-red-600', val: formatCurrency(d.impostos) }),
+      renderSub: (d) => ({ cls: 'text-red-600', val: formatCurrency(d.impostos) }),
+      renderItem: (d) => ({ cls: 'text-red-600', val: formatCurrency(d.impostos) }),
+      renderTotal: (dados) => ({ cls: 'font-bold text-red-600', val: formatCurrency(dados.reduce((a, i) => a + (i.impostos || 0), 0)) }),
+    },
+    pctOferta: {
+      label: '% Oferta',
+      headerClass: 'text-amber-600',
+      renderSetor: (d) => ({ cls: 'font-semibold text-amber-600', val: formatPercent(d.pctOferta) }),
+      renderGrupo: (d) => ({ cls: 'font-medium text-amber-600', val: formatPercent(d.pctOferta) }),
+      renderSub: (d) => ({ cls: 'text-amber-600', val: formatPercent(d.pctOferta) }),
+      renderItem: (d) => ({ cls: 'text-amber-600', val: formatPercent(d.pctOferta) }),
+      renderTotal: (dados) => {
+        const tv = dados.reduce((a, i) => a + i.venda, 0);
+        const to = dados.reduce((a, i) => a + (i.vendasOferta || 0), 0);
+        return { cls: 'font-bold text-amber-600', val: formatPercent(tv > 0 ? (to / tv) * 100 : 0) };
+      },
+    },
+    cupons: {
+      label: 'Cupons',
+      headerClass: 'text-indigo-600',
+      renderSetor: (d) => ({ cls: 'font-semibold text-indigo-600', val: formatNumber(d.qtdCupons) }),
+      renderGrupo: (d) => ({ cls: 'text-indigo-600', val: formatNumber(d.qtdCupons) }),
+      renderSub: (d) => ({ cls: 'text-indigo-600', val: formatNumber(d.qtdCupons) }),
+      renderItem: (d) => ({ cls: 'text-indigo-600', val: formatNumber(d.qtdCupons) }),
+      renderTotal: (dados) => ({ cls: 'font-bold text-indigo-600', val: formatNumber(dados.reduce((a, i) => a + (i.qtdCupons || 0), 0)) }),
+    },
+    skus: {
+      label: 'SKUs',
+      headerClass: 'text-slate-600',
+      renderSetor: (d) => ({ cls: 'font-semibold text-slate-600', val: formatNumber(d.qtdSkus) }),
+      renderGrupo: (d) => ({ cls: 'text-slate-600', val: formatNumber(d.qtdSkus) }),
+      renderSub: (d) => ({ cls: 'text-slate-600', val: formatNumber(d.qtdSkus) }),
+      renderItem: (d) => ({ cls: 'text-slate-600', val: formatNumber(d.qtdSkus) }),
+      renderTotal: (dados) => ({ cls: 'font-bold text-slate-600', val: formatNumber(dados.reduce((a, i) => a + (i.qtdSkus || 0), 0)) }),
     },
   };
 
@@ -868,6 +954,7 @@ export default function GestaoInteligente() {
       }
       const response = await api.get('/gestao-inteligente/vendas-analiticas-setor', { params });
       setVendasAnaliticas(response.data);
+      setGraficoAnaliticaDrill({ level: 'secoes', data: response.data, breadcrumb: [{ label: 'Seções' }] });
     } catch (err) {
       console.error('Erro ao buscar vendas analíticas:', err);
       setVendasAnaliticas([]);
@@ -890,6 +977,10 @@ export default function GestaoInteligente() {
   const toggleAnaliticaSecao = async (codSecao) => {
     if (expandedAnaliticaSecoes[codSecao]) {
       setExpandedAnaliticaSecoes(prev => { const n = { ...prev }; delete n[codSecao]; return n; });
+      // Se o gráfico estava mostrando os grupos dessa seção, voltar pra seções
+      if (graficoAnaliticaDrill.level === 'grupos' && graficoAnaliticaDrill.breadcrumb[1]?.codSecao === codSecao) {
+        setGraficoAnaliticaDrill({ level: 'secoes', data: vendasAnaliticas, breadcrumb: [{ label: 'Seções' }] });
+      }
       return;
     }
     setExpandedAnaliticaSecoes(prev => ({ ...prev, [codSecao]: { data: [], loading: true } }));
@@ -898,6 +989,12 @@ export default function GestaoInteligente() {
       if (lojaSelecionada) params.codLoja = lojaSelecionada;
       const response = await api.get('/gestao-inteligente/grupos-analiticos', { params });
       setExpandedAnaliticaSecoes(prev => ({ ...prev, [codSecao]: { data: response.data, loading: false } }));
+      // Atualizar gráfico para mostrar grupos da seção expandida
+      const secaoInfo = vendasAnaliticas.find(s => s.codSecao === codSecao);
+      setGraficoAnaliticaDrill({
+        level: 'grupos', data: response.data,
+        breadcrumb: [{ label: 'Seções' }, { label: secaoInfo?.setor || `Seção ${codSecao}`, codSecao }]
+      });
     } catch (err) {
       console.error('Erro ao buscar grupos analíticos:', err);
       setExpandedAnaliticaSecoes(prev => ({ ...prev, [codSecao]: { data: [], loading: false } }));
@@ -909,6 +1006,15 @@ export default function GestaoInteligente() {
     const key = `${codSecao}_${codGrupo}`;
     if (expandedAnaliticaGrupos[key]) {
       setExpandedAnaliticaGrupos(prev => { const n = { ...prev }; delete n[key]; return n; });
+      // Se o gráfico estava mostrando subgrupos desse grupo, voltar pra grupos
+      const secExp = expandedAnaliticaSecoes[codSecao];
+      if (graficoAnaliticaDrill.level === 'subgrupos' && secExp?.data) {
+        const secaoInfo = vendasAnaliticas.find(s => s.codSecao === codSecao);
+        setGraficoAnaliticaDrill({
+          level: 'grupos', data: secExp.data,
+          breadcrumb: [{ label: 'Seções' }, { label: secaoInfo?.setor || `Seção ${codSecao}`, codSecao }]
+        });
+      }
       return;
     }
     setExpandedAnaliticaGrupos(prev => ({ ...prev, [key]: { data: [], loading: true } }));
@@ -917,6 +1023,17 @@ export default function GestaoInteligente() {
       if (lojaSelecionada) params.codLoja = lojaSelecionada;
       const response = await api.get('/gestao-inteligente/subgrupos-analiticos', { params });
       setExpandedAnaliticaGrupos(prev => ({ ...prev, [key]: { data: response.data, loading: false } }));
+      // Atualizar gráfico para mostrar subgrupos
+      const secaoInfo = vendasAnaliticas.find(s => s.codSecao === codSecao);
+      const grupoInfo = expandedAnaliticaSecoes[codSecao]?.data?.find(g => g.codGrupo === codGrupo);
+      setGraficoAnaliticaDrill({
+        level: 'subgrupos', data: response.data,
+        breadcrumb: [
+          { label: 'Seções' },
+          { label: secaoInfo?.setor || `Seção ${codSecao}`, codSecao },
+          { label: grupoInfo?.grupo || `Grupo ${codGrupo}`, codSecao, codGrupo }
+        ]
+      });
     } catch (err) {
       console.error('Erro ao buscar subgrupos analíticos:', err);
       setExpandedAnaliticaGrupos(prev => ({ ...prev, [key]: { data: [], loading: false } }));
@@ -928,6 +1045,21 @@ export default function GestaoInteligente() {
     const key = `${codSecao}_${codGrupo}_${codSubgrupo}`;
     if (expandedAnaliticaSubgrupos[key]) {
       setExpandedAnaliticaSubgrupos(prev => { const n = { ...prev }; delete n[key]; return n; });
+      // Voltar gráfico pra subgrupos se estava nos itens
+      const grpKey = `${codSecao}_${codGrupo}`;
+      const grpExp = expandedAnaliticaGrupos[grpKey];
+      if (graficoAnaliticaDrill.level === 'itens' && grpExp?.data) {
+        const secaoInfo = vendasAnaliticas.find(s => s.codSecao === codSecao);
+        const grupoInfo = expandedAnaliticaSecoes[codSecao]?.data?.find(g => g.codGrupo === codGrupo);
+        setGraficoAnaliticaDrill({
+          level: 'subgrupos', data: grpExp.data,
+          breadcrumb: [
+            { label: 'Seções' },
+            { label: secaoInfo?.setor || `Seção ${codSecao}`, codSecao },
+            { label: grupoInfo?.grupo || `Grupo ${codGrupo}`, codSecao, codGrupo }
+          ]
+        });
+      }
       return;
     }
     setExpandedAnaliticaSubgrupos(prev => ({ ...prev, [key]: { data: [], loading: true } }));
@@ -936,6 +1068,19 @@ export default function GestaoInteligente() {
       if (lojaSelecionada) params.codLoja = lojaSelecionada;
       const response = await api.get('/gestao-inteligente/itens-analiticos', { params });
       setExpandedAnaliticaSubgrupos(prev => ({ ...prev, [key]: { data: response.data, loading: false } }));
+      // Atualizar gráfico para mostrar itens
+      const secaoInfo = vendasAnaliticas.find(s => s.codSecao === codSecao);
+      const grupoInfo = expandedAnaliticaSecoes[codSecao]?.data?.find(g => g.codGrupo === codGrupo);
+      const subInfo = expandedAnaliticaGrupos[`${codSecao}_${codGrupo}`]?.data?.find(s => s.codSubgrupo === codSubgrupo);
+      setGraficoAnaliticaDrill({
+        level: 'itens', data: response.data,
+        breadcrumb: [
+          { label: 'Seções' },
+          { label: secaoInfo?.setor || `Seção ${codSecao}`, codSecao },
+          { label: grupoInfo?.grupo || `Grupo ${codGrupo}`, codSecao, codGrupo },
+          { label: subInfo?.subgrupo || `Subgrupo ${codSubgrupo}`, codSecao, codGrupo, codSubgrupo }
+        ]
+      });
     } catch (err) {
       console.error('Erro ao buscar itens analíticos:', err);
       setExpandedAnaliticaSubgrupos(prev => ({ ...prev, [key]: { data: [], loading: false } }));
@@ -980,6 +1125,109 @@ export default function GestaoInteligente() {
     } else {
       fetchVendasPorSetorAnual(anoSetorAnual);
     }
+  };
+
+  // ===== ANALISE PRODUTOS ANUAL =====
+  const fetchProdutoAnualSetores = async (ano = anoProdutoAnual) => {
+    setLoadingProdutoAnual(true);
+    setAnaliseAtiva('produto-anual');
+    setProdutoAnualSetores([]);
+    setExpandedProdAnualSecoes({});
+    setExpandedProdAnualGrupos({});
+    setExpandedProdAnualSubgrupos({});
+    setProdutoSelecionadoGrafico(null);
+    try {
+      const params = { ano };
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
+      const response = await api.get('/gestao-inteligente/produto-anual-setores', { params });
+      setProdutoAnualSetores(response.data || []);
+    } catch (err) {
+      console.error('Erro ao buscar produto anual setores:', err);
+      setProdutoAnualSetores([]);
+    } finally {
+      setLoadingProdutoAnual(false);
+    }
+  };
+
+  const toggleProdutoAnual = () => {
+    if (analiseAtiva === 'produto-anual') {
+      setAnaliseAtiva(null);
+      setProdutoAnualSetores([]);
+    } else {
+      fetchProdutoAnualSetores(anoProdutoAnual);
+    }
+  };
+
+  const handleAnoProdutoAnualChange = (novoAno) => {
+    setAnoProdutoAnual(novoAno);
+    if (analiseAtiva === 'produto-anual') fetchProdutoAnualSetores(novoAno);
+  };
+
+  const toggleProdAnualSecao = async (codSecao) => {
+    if (expandedProdAnualSecoes[codSecao]) {
+      const copy = { ...expandedProdAnualSecoes };
+      delete copy[codSecao];
+      setExpandedProdAnualSecoes(copy);
+      return;
+    }
+    setExpandedProdAnualSecoes(prev => ({ ...prev, [codSecao]: { loading: true, data: [] } }));
+    try {
+      const params = { ano: anoProdutoAnual, codSecao };
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
+      const res = await api.get('/gestao-inteligente/produto-anual-grupos', { params });
+      setExpandedProdAnualSecoes(prev => ({ ...prev, [codSecao]: { loading: false, data: res.data || [] } }));
+    } catch (err) {
+      console.error('Erro grupos produto anual:', err);
+      setExpandedProdAnualSecoes(prev => ({ ...prev, [codSecao]: { loading: false, data: [] } }));
+    }
+  };
+
+  const toggleProdAnualGrupo = async (codGrupo, codSecao) => {
+    const key = `${codSecao}_${codGrupo}`;
+    if (expandedProdAnualGrupos[key]) {
+      const copy = { ...expandedProdAnualGrupos };
+      delete copy[key];
+      setExpandedProdAnualGrupos(copy);
+      return;
+    }
+    setExpandedProdAnualGrupos(prev => ({ ...prev, [key]: { loading: true, data: [] } }));
+    try {
+      const params = { ano: anoProdutoAnual, codGrupo, codSecao };
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
+      const res = await api.get('/gestao-inteligente/produto-anual-subgrupos', { params });
+      setExpandedProdAnualGrupos(prev => ({ ...prev, [key]: { loading: false, data: res.data || [] } }));
+    } catch (err) {
+      console.error('Erro subgrupos produto anual:', err);
+      setExpandedProdAnualGrupos(prev => ({ ...prev, [key]: { loading: false, data: [] } }));
+    }
+  };
+
+  const toggleProdAnualSubgrupo = async (codSubgrupo, codGrupo, codSecao) => {
+    const key = `${codSecao}_${codGrupo}_${codSubgrupo}`;
+    if (expandedProdAnualSubgrupos[key]) {
+      const copy = { ...expandedProdAnualSubgrupos };
+      delete copy[key];
+      setExpandedProdAnualSubgrupos(copy);
+      return;
+    }
+    setExpandedProdAnualSubgrupos(prev => ({ ...prev, [key]: { loading: true, data: [] } }));
+    try {
+      const params = { ano: anoProdutoAnual, codSubgrupo, codGrupo, codSecao };
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
+      const res = await api.get('/gestao-inteligente/produto-anual-itens', { params });
+      setExpandedProdAnualSubgrupos(prev => ({ ...prev, [key]: { loading: false, data: res.data || [] } }));
+    } catch (err) {
+      console.error('Erro itens produto anual:', err);
+      setExpandedProdAnualSubgrupos(prev => ({ ...prev, [key]: { loading: false, data: [] } }));
+    }
+  };
+
+  // Helper para formatar células da tabela Produto Anual conforme métrica selecionada
+  const fmtProdAnualCell = (v) => {
+    if (!v && v !== 0) return '-';
+    if (['margem', 'margemLimpa', 'pctOferta'].includes(produtoAnualMetrica)) return formatPercent(v);
+    if (['cupons', 'skus', 'qtd'].includes(produtoAnualMetrica)) return formatNumber(v);
+    return formatCurrency(v);
   };
 
   useEffect(() => {
@@ -1028,6 +1276,10 @@ export default function GestaoInteligente() {
 
     if (analiseAtiva === 'vendas-setor-anual') {
       fetchVendasPorSetorAnual(anoSetorAnual);
+    }
+
+    if (analiseAtiva === 'produto-anual') {
+      fetchProdutoAnualSetores(anoProdutoAnual);
     }
   }, [filters, lojaSelecionada, analiseAtiva]);
 
@@ -1279,8 +1531,7 @@ export default function GestaoInteligente() {
         onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
         onDrop={(e) => handleDrop(e, cardId, row)}
-        onClick={() => setCardExpandido(isExpanded ? null : cardId)}
-        className={`bg-white rounded-xl shadow-lg p-4 border-t-4 ${config.borderColor} hover:shadow-xl transition-all cursor-grab active:cursor-grabbing h-full ${isDragging ? 'opacity-50 scale-95' : ''} ${isExpanded ? 'ring-2 ring-orange-400 shadow-orange-200' : ''}`}
+        className={`bg-white rounded-xl shadow-lg p-4 border-t-4 ${config.borderColor} hover:shadow-xl transition-all cursor-grab active:cursor-grabbing h-full ${isDragging ? 'opacity-50 scale-95' : ''}`}
       >
         <div className="flex items-center justify-between mb-3">
           <div className={`w-10 h-10 ${config.bgColor} rounded-lg flex items-center justify-center`}>
@@ -1312,7 +1563,18 @@ export default function GestaoInteligente() {
         <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg shadow-lg px-4 py-3 mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-2xl">📊</span>
+              <div className="relative w-8 h-8 flex-shrink-0">
+                <svg viewBox="0 0 24 24" className="absolute inset-0 w-full h-full" fill="none" stroke="white" strokeWidth="1.5">
+                  <circle cx="12" cy="12" r="10" opacity="0.5" />
+                  <circle cx="12" cy="12" r="6" opacity="0.3" />
+                  <circle cx="12" cy="12" r="2" fill="white" stroke="white" />
+                </svg>
+                <div className="absolute inset-0 animate-spin" style={{ animationDuration: '2s' }}>
+                  <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="white">
+                    <line x1="12" y1="12" x2="20" y2="8" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </div>
+              </div>
               <h1 className="text-lg font-bold text-white">Gestao Inteligente</h1>
               <span className="bg-white/20 text-white px-3 py-0.5 rounded-full text-xs font-medium ml-2">
                 {formatPeriodo()}
@@ -1383,11 +1645,8 @@ export default function GestaoInteligente() {
             {cardOrder3.map((cardId) => renderCard(cardId, 3))}
           </div>
 
-          {/* Sub-cards: VENDAS expandido */}
-          {cardExpandido === 'vendas' && (
-          <>
-          {/* Linha de Cards de Análise - Drag and Drop */}
-          <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          {/* Linha de Cards de Análise - Sempre visível */}
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {analiseCardOrder.map((cardId) => {
               const cfg = analiseCardConfig[cardId];
               if (!cfg) return null;
@@ -1421,7 +1680,7 @@ export default function GestaoInteligente() {
               {analiseAtiva === 'vendas-dia-semana' && (
                 <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
                   <div className="bg-orange-500 px-4 py-3 flex items-center justify-between">
-                    <h3 className="text-white font-semibold">Vendas por Dia da Semana</h3>
+                    <h3 className="text-white font-semibold">Analise Linear Dia da Semana</h3>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleAnoDiaSemanaChange(anoDiaSemana - 1)}
@@ -1570,11 +1829,11 @@ export default function GestaoInteligente() {
                 </div>
               )}
 
-              {/* Tabela de Vendas por Ano - Meses nas colunas, indicadores nas linhas */}
+              {/* Analise por Ano - Meses nas colunas, indicadores nas linhas */}
               {analiseAtiva === 'vendas-ano' && (
                 <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
                   <div className="bg-orange-500 px-4 py-3 flex items-center justify-between">
-                    <h3 className="text-white font-semibold">Vendas por Ano</h3>
+                    <h3 className="text-white font-semibold">Analise por Ano</h3>
                     <div className="flex items-center gap-3">
                       <button onClick={() => setShowGraficoAno(prev => !prev)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${showGraficoAno ? 'bg-white text-orange-600' : 'bg-white/20 hover:bg-white/30 text-white'}`}>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
@@ -1613,8 +1872,9 @@ export default function GestaoInteligente() {
                     const fmtAno = (v) => {
                       if (metAtual.isPct) return v > 0 ? `${v.toFixed(1)}%` : '';
                       if (metAtual.isQtd) return v > 0 ? v.toLocaleString('pt-BR') : '';
-                      return v > 0 ? `R$ ${(v / 1000).toFixed(0)}k` : '';
+                      return v > 0 ? `R$ ${Math.round(v).toLocaleString('pt-BR')}` : '';
                     };
+                    const totalAno = barData.reduce((a, b) => a + b, 0);
                     return (
                     <div className="p-4 bg-white border-b border-gray-200">
                       <div className="mb-3 flex flex-wrap items-center gap-1.5">
@@ -1638,11 +1898,11 @@ export default function GestaoInteligente() {
                               barPercentage: 0.7,
                               categoryPercentage: 0.8,
                               datalabels: {
-                                display: true,
+                                display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0,
                                 align: 'top',
                                 anchor: 'end',
                                 offset: 4,
-                                font: { size: 11, weight: 'bold' },
+                                font: { size: 13, weight: 'bold' },
                                 color: '#374151',
                                 formatter: fmtAno
                               }
@@ -1651,12 +1911,12 @@ export default function GestaoInteligente() {
                           options={{
                             responsive: true,
                             maintainAspectRatio: false,
-                            layout: { padding: { top: 25 } },
+                            layout: { padding: { top: 35 } },
                             interaction: { mode: 'index', intersect: false },
                             plugins: {
                               datalabels: { display: false },
                               legend: { display: false },
-                              title: { display: true, text: `${metAtual.label} - ${anoSelecionado}`, font: { size: 14, weight: 'bold' }, color: '#374151' },
+                              title: { display: true, text: `${metAtual.label} - ${anoSelecionado}  |  Total: ${fmtAno(totalAno)}`, font: { size: 14, weight: 'bold' }, color: '#374151' },
                               tooltip: {
                                 callbacks: {
                                   label: (ctx) => {
@@ -1668,8 +1928,8 @@ export default function GestaoInteligente() {
                               }
                             },
                             scales: {
-                              x: { grid: { display: false }, ticks: { font: { size: 11, weight: 'bold' } } },
-                              y: { ticks: { callback: (v) => fmtAno(v), font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.06)' } }
+                              x: { grid: { display: false }, ticks: { font: { size: 12, weight: 'bold' } } },
+                              y: { ticks: { callback: (v) => fmtAno(v), font: { size: 11 } }, grid: { color: 'rgba(0,0,0,0.06)' } }
                             }
                           }}
                         />
@@ -2149,13 +2409,311 @@ export default function GestaoInteligente() {
                 </div>
               )}
 
-              {/* Tabela de Vendas por Setor - Hierárquica */}
-              {/* Tabela de Vendas Analíticas por Setor */}
+              {/* Analise Comparativa por Setor */}
               {analiseAtiva === 'vendas-analiticas' && (
                 <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-                  <div className="bg-orange-500 px-4 py-3">
-                    <h3 className="text-white font-semibold">Vendas Analíticas - {formatPeriodo()}</h3>
+                  <div className="bg-orange-500 px-4 py-3 flex items-center justify-between">
+                    <h3 className="text-white font-semibold">Analise Comparativa - {formatPeriodo()}</h3>
+                    {vendasAnaliticas.length > 0 && (
+                      <button onClick={() => setShowGraficoAnalitica(prev => !prev)} className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                        {showGraficoAnalitica ? 'Ocultar Gráfico' : 'Gráfico'}
+                      </button>
+                    )}
                   </div>
+
+                  {/* Gráfico Vendas Analíticas com drill-down */}
+                  {showGraficoAnalitica && vendasAnaliticas.length > 0 && !loadingVendasAnaliticas && (() => {
+                    const drill = graficoAnaliticaDrill;
+                    const allData = drill.data || [];
+                    if (allData.length === 0) return null;
+
+                    // Filtro: no nível Seções, permite filtrar por setor selecionado
+                    const chartData = (drill.level === 'secoes' && filtroSetoresAnalitica !== null)
+                      ? allData.filter((_, i) => filtroSetoresAnalitica.has(i))
+                      : allData;
+                    if (chartData.length === 0) return null;
+
+                    const metricasAnalitica = {
+                      vendaAtual: { label: 'Vendas R$', fmt: '$' },
+                      reprAtual: { label: '% Repr.', fmt: '%' },
+                      lucroAtual: { label: 'Lucro R$', fmt: '$' },
+                      custoAtual: { label: 'Custo R$', fmt: '$' },
+                      markdownAtual: { label: 'Markdown %', fmt: '%' },
+                      margemLimpaAtual: { label: 'MG Limpa %', fmt: '%' },
+                      impostosAtual: { label: 'Impostos R$', fmt: '$' },
+                      vendasOfertaAtual: { label: 'Oferta R$', fmt: '$' },
+                      pctOfertaAtual: { label: '% Oferta', fmt: '%' },
+                      ticketMedioAtual: { label: 'Ticket Médio', fmt: '$' },
+                      cuponsAtual: { label: 'Cupons', fmt: '#' },
+                      qtdItensAtual: { label: 'Itens', fmt: '#' },
+                      skusAtual: { label: 'SKUs', fmt: '#' },
+                    };
+                    const metrica = graficoAnaliticaMetrica;
+                    const mInfo = metricasAnalitica[metrica] || metricasAnalitica.vendaAtual;
+                    const isPct = mInfo.fmt === '%';
+                    const isMoney = mInfo.fmt === '$';
+                    const getLabel = (d) => d.setor || d.grupo || d.subgrupo || d.produto || '?';
+                    const getComps = (key) => {
+                      if (key === 'vendaAtual') return { ml: 'mediaLinear', ap: 'vendaAnoPassado', mp: 'vendaMesPassado' };
+                      if (key === 'reprAtual') return { ml: 'reprMediaLinear', ap: 'reprAnoPassado', mp: 'reprMesPassado' };
+                      const base = key.replace('Atual', '');
+                      return { ml: base + 'MediaLinear', ap: base + 'AnoPassado', mp: base + 'MesPassado' };
+                    };
+                    const comps = getComps(metrica);
+                    const labels = chartData.map(d => getLabel(d));
+                    const valuesAtual = chartData.map(d => d[metrica] || 0);
+                    const valuesML = chartData.map(d => d[comps.ml] || 0);
+                    const valuesAP = chartData.map(d => d[comps.ap] || 0);
+                    const valuesMP = chartData.map(d => d[comps.mp] || 0);
+                    const colors = {
+                      atual: { bg: 'rgba(34,197,94,0.7)', border: 'rgb(34,197,94)' },
+                      ml: { bg: 'rgba(168,85,247,0.5)', border: 'rgb(168,85,247)' },
+                      ap: { bg: 'rgba(59,130,246,0.5)', border: 'rgb(59,130,246)' },
+                      mp: { bg: 'rgba(245,158,11,0.5)', border: 'rgb(245,158,11)' },
+                    };
+                    const datasets = [
+                      { label: 'Atual', data: valuesAtual, backgroundColor: colors.atual.bg, borderColor: colors.atual.border, borderWidth: 1 },
+                      { label: 'Méd. Linear', data: valuesML, backgroundColor: colors.ml.bg, borderColor: colors.ml.border, borderWidth: 1 },
+                      { label: 'Ano Anterior', data: valuesAP, backgroundColor: colors.ap.bg, borderColor: colors.ap.border, borderWidth: 1 },
+                      { label: 'Mês Anterior', data: valuesMP, backgroundColor: colors.mp.bg, borderColor: colors.mp.border, borderWidth: 1 },
+                    ];
+
+                    // Plugin: linha POR CATEGORIA conectando as 4 barras de cada grupo
+                    const intraGroupLinePlugin = {
+                      id: 'intraGroupLine',
+                      afterDatasetsDraw(chart) {
+                        const { ctx } = chart;
+                        const metas = [0, 1, 2, 3].map(di => chart.getDatasetMeta(di)).filter(m => m && !m.hidden);
+                        if (metas.length < 2) return;
+                        const count = metas[0].data.length;
+                        for (let i = 0; i < count; i++) {
+                          ctx.save();
+                          ctx.beginPath();
+                          ctx.strokeStyle = 'rgba(239,68,68,0.6)';
+                          ctx.lineWidth = 2;
+                          metas.forEach((meta, j) => {
+                            const bar = meta.data[i];
+                            if (!bar) return;
+                            if (j === 0) ctx.moveTo(bar.x, bar.y);
+                            else ctx.lineTo(bar.x, bar.y);
+                          });
+                          ctx.stroke();
+                          // Pontos
+                          metas.forEach(meta => {
+                            const bar = meta.data[i];
+                            if (!bar) return;
+                            ctx.beginPath();
+                            ctx.arc(bar.x, bar.y, 3, 0, Math.PI * 2);
+                            ctx.fillStyle = 'rgba(239,68,68,0.8)';
+                            ctx.fill();
+                          });
+                          ctx.restore();
+                        }
+                      }
+                    };
+
+                    const levelLabels = { secoes: 'Seções', grupos: 'Grupos', subgrupos: 'Subgrupos', itens: 'Itens' };
+
+                    // Breadcrumb click handler
+                    const handleBreadcrumbClick = (bcIdx) => {
+                      if (bcIdx === 0) {
+                        setGraficoAnaliticaDrill({ level: 'secoes', data: vendasAnaliticas, breadcrumb: [{ label: 'Seções' }] });
+                        setFiltroSetoresAnalitica(null);
+                      } else {
+                        const bc = drill.breadcrumb.slice(0, bcIdx + 1);
+                        const last = bc[bc.length - 1];
+                        if (bcIdx === 1 && last.codSecao) {
+                          const secExp = expandedAnaliticaSecoes[last.codSecao];
+                          if (secExp?.data) setGraficoAnaliticaDrill({ level: 'grupos', data: secExp.data, breadcrumb: bc });
+                        } else if (bcIdx === 2 && last.codGrupo) {
+                          const key = `${last.codSecao}_${last.codGrupo}`;
+                          const grpExp = expandedAnaliticaGrupos[key];
+                          if (grpExp?.data) setGraficoAnaliticaDrill({ level: 'subgrupos', data: grpExp.data, breadcrumb: bc });
+                        }
+                      }
+                    };
+
+                    const fmtVal = (v) => {
+                      if (isPct) return (v || 0).toFixed(1) + '%';
+                      if (isMoney) return 'R$ ' + Math.round(v || 0).toLocaleString('pt-BR');
+                      return Math.round(v || 0).toLocaleString('pt-BR');
+                    };
+
+                    const nItems = chartData.length;
+                    const chartHeight = nItems <= 3 ? 420 : nItems <= 8 ? 480 : 520;
+                    const totalAtual = valuesAtual.reduce((a, b) => a + b, 0);
+                    const totalML = valuesML.reduce((a, b) => a + b, 0);
+                    const totalAP = valuesAP.reduce((a, b) => a + b, 0);
+                    const totalMP = valuesMP.reduce((a, b) => a + b, 0);
+
+                    return (
+                      <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                        {/* Breadcrumb */}
+                        <div className="flex items-center gap-1 mb-2 text-sm">
+                          {drill.breadcrumb.map((bc, bi) => (
+                            <span key={bi} className="flex items-center gap-1">
+                              {bi > 0 && <span className="text-gray-400">›</span>}
+                              <button onClick={() => handleBreadcrumbClick(bi)}
+                                className={`px-2 py-0.5 rounded ${bi === drill.breadcrumb.length - 1 ? 'bg-orange-500 text-white font-semibold' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'} text-xs`}
+                              >{bc.label}</button>
+                            </span>
+                          ))}
+                          <span className="ml-2 text-xs text-gray-400">({levelLabels[drill.level]} - {nItems})</span>
+                          {filtroSetoresAnalitica && (
+                            <button onClick={() => setFiltroSetoresAnalitica(null)} className="ml-2 px-2 py-0.5 rounded bg-red-100 text-red-600 text-[10px] font-semibold hover:bg-red-200">Mostrar todos</button>
+                          )}
+                        </div>
+
+                        {/* Botões de FILTRO (Seções) / seleção no topo */}
+                        {drill.level === 'secoes' && (
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {allData.map((item, i) => {
+                              const isActive = filtroSetoresAnalitica === null || filtroSetoresAnalitica.has(i);
+                              return (
+                                <button key={i}
+                                  onClick={() => {
+                                    setFiltroSetoresAnalitica(prev => {
+                                      if (prev === null) return new Set([i]);
+                                      const ns = new Set(prev);
+                                      if (ns.has(i)) { ns.delete(i); return ns.size === 0 ? null : ns; }
+                                      ns.add(i); return ns;
+                                    });
+                                  }}
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border ${isActive ? 'bg-orange-500 text-white border-orange-500 shadow-sm' : 'bg-white text-gray-400 border-gray-200'}`}
+                                >
+                                  {getLabel(item)}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Metric pills */}
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {Object.entries(metricasAnalitica).map(([key, info]) => (
+                            <button key={key} onClick={() => setGraficoAnaliticaMetrica(key)}
+                              className={`px-2 py-1 rounded-full text-[10px] font-semibold transition-colors ${metrica === key ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                            >{info.label}</button>
+                          ))}
+                        </div>
+
+                        {/* Totais */}
+                        <div className="flex flex-wrap gap-3 mb-3 px-1">
+                          <div className="flex items-center gap-1.5 bg-green-50 border border-green-200 rounded-lg px-3 py-1.5">
+                            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: colors.atual.border }}></span>
+                            <span className="text-xs font-bold text-gray-700">Atual: <span className="text-green-700">{fmtVal(totalAtual)}</span></span>
+                          </div>
+                          <div className="flex items-center gap-1.5 bg-purple-50 border border-purple-200 rounded-lg px-3 py-1.5">
+                            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: colors.ml.border }}></span>
+                            <span className="text-xs font-bold text-gray-700">Méd. Linear: <span className="text-purple-700">{fmtVal(totalML)}</span></span>
+                          </div>
+                          <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+                            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: colors.ap.border }}></span>
+                            <span className="text-xs font-bold text-gray-700">Ano Anterior: <span className="text-blue-700">{fmtVal(totalAP)}</span></span>
+                          </div>
+                          <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+                            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: colors.mp.border }}></span>
+                            <span className="text-xs font-bold text-gray-700">Mês Anterior: <span className="text-amber-700">{fmtVal(totalMP)}</span></span>
+                          </div>
+                        </div>
+
+                        {/* Chart */}
+                        <div style={{ height: chartHeight }}>
+                          <Bar
+                            data={{ labels, datasets }}
+                            plugins={[ChartDataLabels, intraGroupLinePlugin]}
+                            options={{
+                              responsive: true,
+                              maintainAspectRatio: false,
+                              animation: { duration: 0 },
+                              layout: { padding: { top: 40, left: 10, right: 10 } },
+                              plugins: {
+                                legend: { position: 'top', labels: { boxWidth: 14, padding: 12, font: { size: 13, weight: 'bold' } } },
+                                tooltip: {
+                                  titleFont: { size: 14, weight: 'bold' },
+                                  bodyFont: { size: 13 },
+                                  callbacks: {
+                                    label: (ctx) => {
+                                      const v = ctx.raw;
+                                      if (isPct) return `${ctx.dataset.label}: ${(v || 0).toFixed(2)}%`;
+                                      if (isMoney) return `${ctx.dataset.label}: R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                                      return `${ctx.dataset.label}: ${Math.round(v || 0).toLocaleString('pt-BR')}`;
+                                    }
+                                  }
+                                },
+                                datalabels: {
+                                  display: (ctx) => {
+                                    const di = ctx.datasetIndex;
+                                    if (di === 0) return true;
+                                    const i = ctx.dataIndex;
+                                    const atualVal = valuesAtual[i] || 0;
+                                    const allVals = [valuesAtual[i], valuesML[i], valuesAP[i], valuesMP[i]];
+                                    const maxVal = Math.max(...allVals);
+                                    if (maxVal <= atualVal) return false;
+                                    const thisVal = ctx.dataset.data[i] || 0;
+                                    return thisVal === maxVal;
+                                  },
+                                  anchor: 'end', align: 'top',
+                                  offset: (ctx) => {
+                                    if (ctx.datasetIndex === 0) return 4;
+                                    return 22; // valor maior fica bem mais acima
+                                  },
+                                  font: { size: 14, weight: 'bold' },
+                                  color: (ctx) => ctx.datasetIndex === 0 ? '#111827' : '#dc2626',
+                                  formatter: (v) => fmtVal(v)
+                                }
+                              },
+                              scales: {
+                                x: { ticks: { font: { size: 13, weight: 'bold' }, maxRotation: 45, minRotation: 0 } },
+                                y: {
+                                  beginAtZero: true,
+                                  ticks: { font: { size: 12, weight: 'bold' }, callback: (v) => isPct ? v + '%' : isMoney ? 'R$ ' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v) : v.toLocaleString('pt-BR') }
+                                }
+                              },
+                              interaction: { mode: 'index', intersect: false },
+                              barPercentage: 0.88,
+                              categoryPercentage: 0.92,
+                            }}
+                          />
+                        </div>
+
+                        {/* Botões de drill-down abaixo do gráfico */}
+                        {drill.level !== 'itens' && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <p className="text-[10px] text-gray-400 mb-2">Detalhar:</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {chartData.map((item, i) => {
+                                const lbl = getLabel(item);
+                                const val = item[metrica] || 0;
+                                return (
+                                  <button key={i}
+                                    onClick={() => {
+                                      if (drill.level === 'secoes' && item.codSecao) toggleAnaliticaSecao(item.codSecao);
+                                      else if (drill.level === 'grupos' && item.codGrupo) {
+                                        const parentSecao = drill.breadcrumb[drill.breadcrumb.length - 1]?.codSecao;
+                                        toggleAnaliticaGrupo(item.codGrupo, parentSecao);
+                                      } else if (drill.level === 'subgrupos' && item.codSubgrupo) {
+                                        const bc = drill.breadcrumb;
+                                        const parentSecao = bc[bc.length - 1]?.codSecao || bc[bc.length - 2]?.codSecao;
+                                        const parentGrupo = bc[bc.length - 1]?.codGrupo;
+                                        toggleAnaliticaSubgrupo(item.codSubgrupo, parentGrupo, parentSecao);
+                                      }
+                                    }}
+                                    className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-white border border-gray-300 hover:border-orange-400 hover:bg-orange-50 transition-colors shadow-sm cursor-pointer"
+                                  >
+                                    <span className="text-[11px] font-semibold text-gray-700 leading-tight">{lbl}</span>
+                                    <span className="text-[10px] text-green-600 font-bold">{fmtVal}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   {loadingVendasAnaliticas ? (
                     <RadarLoading size="sm" message="" />
                   ) : vendasAnaliticas.length > 0 ? (
@@ -2165,10 +2723,12 @@ export default function GestaoInteligente() {
                           <tr className="bg-gray-200">
                             <th rowSpan={2} className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase border-b border-r border-gray-300 min-w-[200px] sticky left-0 bg-gray-200 z-10">Setor / Grupo / Subgrupo / Item</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-gray-700 uppercase border-b border-r border-gray-300 bg-orange-50">Vendas</th>
+                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-blue-700 uppercase border-b border-r border-gray-300 bg-blue-50">% Repr.</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-cyan-700 uppercase border-b border-r border-gray-300 bg-cyan-50">Lucro</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-purple-700 uppercase border-b border-r border-gray-300 bg-purple-50">Markdown</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-emerald-700 uppercase border-b border-r border-gray-300 bg-emerald-50">Margem Limpa</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-red-700 uppercase border-b border-r border-gray-300 bg-red-50">Custo</th>
+                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-orange-700 uppercase border-b border-r border-gray-300 bg-orange-50">Impostos</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-amber-700 uppercase border-b border-r border-gray-300 bg-amber-50">Vendas Oferta R$</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-pink-700 uppercase border-b border-r border-gray-300 bg-pink-50">% Oferta</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-indigo-700 uppercase border-b border-r border-gray-300 bg-indigo-50">Ticket Médio</th>
@@ -2178,12 +2738,12 @@ export default function GestaoInteligente() {
                           </tr>
                           <tr className="bg-gray-100">
                             {/* Sub-headers repetidos para cada grupo: Atual, ML, Ano Ant, Mês Ant */}
-                            {[...Array(11)].map((_, gi) => (
+                            {[...Array(13)].map((_, gi) => (
                               <Fragment key={`sh-${gi}`}>
                                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-green-700 uppercase border-b border-gray-200 min-w-[100px] bg-green-50">Atual</th>
                                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-purple-700 uppercase border-b border-gray-200 min-w-[100px] bg-purple-50">Méd.Lin</th>
                                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-blue-700 uppercase border-b border-gray-200 min-w-[100px] bg-blue-50">Ano Ant</th>
-                                <th className={`px-3 py-2 text-right text-[10px] font-semibold text-amber-700 uppercase border-b min-w-[100px] bg-amber-50 ${gi < 10 ? 'border-r border-gray-300' : 'border-gray-200'}`}>Mês Ant</th>
+                                <th className={`px-3 py-2 text-right text-[10px] font-semibold text-amber-700 uppercase border-b min-w-[100px] bg-amber-50 ${gi < 12 ? 'border-r border-gray-300' : 'border-gray-200'}`}>Mês Ant</th>
                               </Fragment>
                             ))}
                           </tr>
@@ -2205,6 +2765,11 @@ export default function GestaoInteligente() {
                               <td className={mlCls(d.vendaAtual, d.mediaLinear)}>{formatCurrency(d.mediaLinear)}</td>
                               <td className={aaCls(d.vendaAtual, d.vendaAnoPassado)}>{formatCurrency(d.vendaAnoPassado)}</td>
                               <td className={maCls(d.vendaAtual, d.vendaMesPassado, true)}>{formatCurrency(d.vendaMesPassado)}</td>
+                              {/* % Repr. */}
+                              <td className={atCls}>{formatPercent(d.reprAtual)}</td>
+                              <td className={mlCls(d.reprAtual, d.reprMediaLinear)}>{formatPercent(d.reprMediaLinear)}</td>
+                              <td className={aaCls(d.reprAtual, d.reprAnoPassado)}>{formatPercent(d.reprAnoPassado)}</td>
+                              <td className={maCls(d.reprAtual, d.reprMesPassado, true)}>{formatPercent(d.reprMesPassado)}</td>
                               {/* Lucro */}
                               <td className={atCls}>{formatCurrency(d.lucroAtual)}</td>
                               <td className={mlCls(d.lucroAtual, d.lucroMediaLinear)}>{formatCurrency(d.lucroMediaLinear)}</td>
@@ -2225,6 +2790,11 @@ export default function GestaoInteligente() {
                               <td className={mlCls(d.custoMediaLinear, d.custoAtual)}>{formatCurrency(d.custoMediaLinear)}</td>
                               <td className={aaCls(d.custoAnoPassado, d.custoAtual)}>{formatCurrency(d.custoAnoPassado)}</td>
                               <td className={maCls(d.custoMesPassado, d.custoAtual, true)}>{formatCurrency(d.custoMesPassado)}</td>
+                              {/* Impostos (invertido: menor = melhor) */}
+                              <td className={atCls}>{formatCurrency(d.impostosAtual)}</td>
+                              <td className={mlCls(d.impostosMediaLinear, d.impostosAtual)}>{formatCurrency(d.impostosMediaLinear)}</td>
+                              <td className={aaCls(d.impostosAnoPassado, d.impostosAtual)}>{formatCurrency(d.impostosAnoPassado)}</td>
+                              <td className={maCls(d.impostosMesPassado, d.impostosAtual, true)}>{formatCurrency(d.impostosMesPassado)}</td>
                               {/* Vendas Oferta R$ */}
                               <td className={atCls}>{formatCurrency(d.vendasOfertaAtual)}</td>
                               <td className={mlCls(d.vendasOfertaAtual, d.vendasOfertaMediaLinear)}>{formatCurrency(d.vendasOfertaMediaLinear)}</td>
@@ -2353,6 +2923,7 @@ export default function GestaoInteligente() {
                             const mkdAt = calcMkd('vendaAtual','lucroAtual'), mkdML = calcMkd('mediaLinear','lucroMediaLinear'), mkdAP = calcMkd('vendaAnoPassado','lucroAnoPassado'), mkdMP = calcMkd('vendaMesPassado','lucroMesPassado');
                             const mlAt = calcML('vendaAtual','custoAtual','impostosAtual'), mlML = calcML('mediaLinear','custoMediaLinear','impostosMediaLinear'), mlAP = calcML('vendaAnoPassado','custoAnoPassado','impostosAnoPassado'), mlMP = calcML('vendaMesPassado','custoMesPassado','impostosMesPassado');
                             const cAt = sum('custoAtual'), cML = sum('custoMediaLinear'), cAP = sum('custoAnoPassado'), cMP = sum('custoMesPassado');
+                            const iAt = sum('impostosAtual'), iML = sum('impostosMediaLinear'), iAP = sum('impostosAnoPassado'), iMP = sum('impostosMesPassado');
                             const oAt = sum('vendasOfertaAtual'), oML = sum('vendasOfertaMediaLinear'), oAP = sum('vendasOfertaAnoPassado'), oMP = sum('vendasOfertaMesPassado');
                             const poAt = calcPctOferta('vendasOfertaAtual','vendaAtual'), poML = calcPctOferta('vendasOfertaMediaLinear','mediaLinear'), poAP = calcPctOferta('vendasOfertaAnoPassado','vendaAnoPassado'), poMP = calcPctOferta('vendasOfertaMesPassado','vendaMesPassado');
                             const tAt = calcTkt('vendaAtual','cuponsAtual'), tML = calcTkt('mediaLinear','cuponsMediaLinear'), tAP = calcTkt('vendaAnoPassado','cuponsAnoPassado'), tMP = calcTkt('vendaMesPassado','cuponsMesPassado');
@@ -2370,12 +2941,17 @@ export default function GestaoInteligente() {
                           <tr>
                             <td className="px-4 py-2 text-sm font-bold text-gray-800 sticky left-0 bg-gray-200 z-10">TOTAL</td>
                             {td4([vAt,vML,vAP,vMP],'$',true)}
+                            {td4([100,100,100,100],'%',true)}
                             {td4([lAt,lML,lAP,lMP],'$',true)}
                             {td4([mkdAt,mkdML,mkdAP,mkdMP],'%',true)}
                             {td4([mlAt,mlML,mlAP,mlMP],'%',true)}
                             {/* Custo: invertido - menor é melhor */}
                             {[cAt,cML,cAP,cMP].map((v, i) => (
-                              <td key={i} className={`px-3 py-2 text-sm text-right font-bold ${colBg[i]} ${i === 0 ? colTxt[0] : cc(v, cAt)} ${i === 3 ? 'border-r border-gray-300' : ''}`}>{formatCurrency(v)}</td>
+                              <td key={`c${i}`} className={`px-3 py-2 text-sm text-right font-bold ${colBg[i]} ${i === 0 ? colTxt[0] : cc(v, cAt)} ${i === 3 ? 'border-r border-gray-300' : ''}`}>{formatCurrency(v)}</td>
+                            ))}
+                            {/* Impostos: invertido - menor é melhor */}
+                            {[iAt,iML,iAP,iMP].map((v, i) => (
+                              <td key={`i${i}`} className={`px-3 py-2 text-sm text-right font-bold ${colBg[i]} ${i === 0 ? colTxt[0] : cc(v, iAt)} ${i === 3 ? 'border-r border-gray-300' : ''}`}>{formatCurrency(v)}</td>
                             ))}
                             {td4([oAt,oML,oAP,oMP],'$',true)}
                             {td4([poAt,poML,poAP,poMP],'%',true)}
@@ -2398,7 +2974,7 @@ export default function GestaoInteligente() {
               {analiseAtiva === 'vendas-setor' && dadosAnalise.length > 0 && (
                 <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
                   <div className="bg-orange-500 px-4 py-3">
-                    <h3 className="text-white font-semibold">Vendas por Setor - {formatPeriodo()}</h3>
+                    <h3 className="text-white font-semibold">Analise por Setor Periodo Atual - {formatPeriodo()}</h3>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full">
@@ -2539,7 +3115,7 @@ export default function GestaoInteligente() {
               {analiseAtiva === 'vendas-setor-anual' && (
                 <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
                   <div className="bg-orange-500 px-4 py-3 flex items-center justify-between">
-                    <h3 className="text-white font-semibold">Vendas por Setor Anual</h3>
+                    <h3 className="text-white font-semibold">Analise por Setor Anual</h3>
                     <div className="flex items-center gap-3">
                       <button onClick={() => setShowGraficoSetorAnual(prev => !prev)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${showGraficoSetorAnual ? 'bg-white text-orange-600' : 'bg-white/20 hover:bg-white/30 text-white'}`}>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
@@ -2810,31 +3386,235 @@ export default function GestaoInteligente() {
                   )}
                 </div>
               )}
-          </>
-          )}
 
-          {/* Sub-cards: Outros cards expandidos (Em Breve) */}
-          {cardExpandido && cardExpandido !== 'vendas' && !cardsConfig[cardExpandido]?.emBreve && (
-            <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-              {[
-                { emoji: '📊', bg: 'bg-rose-50', border: 'border-rose-200', iconBg: 'bg-rose-200', titleCls: 'text-rose-400', subCls: 'text-rose-300' },
-                { emoji: '📈', bg: 'bg-amber-50', border: 'border-amber-200', iconBg: 'bg-amber-200', titleCls: 'text-amber-400', subCls: 'text-amber-300' },
-                { emoji: '📉', bg: 'bg-teal-50', border: 'border-teal-200', iconBg: 'bg-teal-200', titleCls: 'text-teal-400', subCls: 'text-teal-300' },
-                { emoji: '🔍', bg: 'bg-indigo-50', border: 'border-indigo-200', iconBg: 'bg-indigo-200', titleCls: 'text-indigo-400', subCls: 'text-indigo-300' },
-                { emoji: '⚡', bg: 'bg-pink-50', border: 'border-pink-200', iconBg: 'bg-pink-200', titleCls: 'text-pink-400', subCls: 'text-pink-300' },
-              ].map((item, i) => (
-                <div key={i} className={`rounded-xl shadow-md p-4 border ${item.bg} ${item.border}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className={`w-9 h-9 ${item.iconBg} rounded-lg flex items-center justify-center`}>
-                      <span className="text-lg">{item.emoji}</span>
+              {/* ===== ANALISE PRODUTOS ANUAL ===== */}
+              {analiseAtiva === 'produto-anual' && (
+                <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+                  <div className="bg-orange-500 px-4 py-3 flex items-center justify-between">
+                    <h3 className="text-white font-semibold">Analise Produtos Anual</h3>
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => handleAnoProdutoAnualChange(anoProdutoAnual - 1)} className="w-8 h-8 flex items-center justify-center bg-white/20 hover:bg-white/30 rounded-lg text-white transition-colors">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
+                      </button>
+                      <span className="text-white font-bold text-lg min-w-[60px] text-center">{anoProdutoAnual}</span>
+                      <button onClick={() => handleAnoProdutoAnualChange(anoProdutoAnual + 1)} disabled={anoProdutoAnual >= new Date().getFullYear()} className={`w-8 h-8 flex items-center justify-center rounded-lg text-white transition-colors ${anoProdutoAnual >= new Date().getFullYear() ? 'bg-white/10 cursor-not-allowed opacity-50' : 'bg-white/20 hover:bg-white/30'}`}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
+                      </button>
                     </div>
                   </div>
-                  <p className={`text-sm font-bold ${item.titleCls}`}>Em Breve</p>
-                  <p className={`text-[10px] ${item.subCls} mt-1`}>Funcionalidade em desenvolvimento</p>
+
+                  {/* Metric pills */}
+                  <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 flex flex-wrap gap-1.5">
+                    {[
+                      { key: 'venda', label: 'Vendas' },
+                      { key: 'custo', label: 'Custo' },
+                      { key: 'lucro', label: 'Lucro' },
+                      { key: 'margem', label: 'Markdown %' },
+                      { key: 'margemLimpa', label: 'MG Limpa %' },
+                      { key: 'impostos', label: 'Impostos' },
+                      { key: 'ticketMedio', label: 'Ticket Medio' },
+                      { key: 'vendasOferta', label: 'Vendas Oferta' },
+                      { key: 'pctOferta', label: '% Oferta' },
+                      { key: 'cupons', label: 'Cupons' },
+                      { key: 'skus', label: 'SKUs' },
+                      { key: 'qtd', label: 'Qtd' },
+                    ].map(m => (
+                      <button key={m.key} onClick={() => setProdutoAnualMetrica(m.key)} className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${produtoAnualMetrica === m.key ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}>{m.label}</button>
+                    ))}
+                  </div>
+
+                  {/* Chart when product selected */}
+                  {produtoSelecionadoGrafico && (() => {
+                    const isPct = ['margem', 'margemLimpa', 'pctOferta'].includes(produtoAnualMetrica);
+                    const isQtd = ['cupons', 'skus', 'qtd'].includes(produtoAnualMetrica);
+                    const metLabels = { venda: 'Vendas', custo: 'Custo', lucro: 'Lucro', margem: 'Markdown %', margemLimpa: 'MG Limpa %', impostos: 'Impostos', ticketMedio: 'Ticket Medio', vendasOferta: 'Vendas Oferta', pctOferta: '% Oferta', cupons: 'Cupons', skus: 'SKUs', qtd: 'Qtd' };
+                    const metricaLabel = metLabels[produtoAnualMetrica] || 'Vendas';
+                    const barData = mesesCompletos.map(m => produtoSelecionadoGrafico.meses[m.num]?.[produtoAnualMetrica] || 0);
+                    const totalProd = produtoSelecionadoGrafico.total[produtoAnualMetrica] || 0;
+                    const fmtGraf = (v) => {
+                      if (isPct) return v > 0 ? `${v.toFixed(1)}%` : '';
+                      if (isQtd) return v > 0 ? v.toLocaleString('pt-BR') : '';
+                      return v > 0 ? `R$ ${Math.round(v).toLocaleString('pt-BR')}` : '';
+                    };
+                    return (
+                      <div className="p-4 bg-white border-b border-gray-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-gray-800">{produtoSelecionadoGrafico.nome}</span>
+                            <span className="text-xs text-gray-400">|</span>
+                            <span className="text-xs text-orange-600 font-semibold">{metricaLabel}: {fmtGraf(totalProd)}</span>
+                          </div>
+                          <button onClick={() => setProdutoSelecionadoGrafico(null)} className="text-gray-400 hover:text-gray-600 text-sm font-bold px-2">✕</button>
+                        </div>
+                        <div style={{ height: '300px' }}>
+                          <Bar
+                            plugins={[ChartDataLabels]}
+                            data={{
+                              labels: mesesCompletos.map(m => m.nome),
+                              datasets: [{
+                                label: produtoSelecionadoGrafico.nome,
+                                data: barData,
+                                backgroundColor: barData.map(v => v > 0 ? 'rgba(249, 115, 22, 0.7)' : 'rgba(229, 231, 235, 0.5)'),
+                                borderColor: 'rgba(249, 115, 22, 1)',
+                                borderWidth: 1,
+                                borderRadius: 4,
+                                barPercentage: 0.6,
+                                categoryPercentage: 0.7,
+                                datalabels: {
+                                  display: true,
+                                  anchor: 'end',
+                                  align: 'top',
+                                  offset: 4,
+                                  font: { size: 11, weight: 'bold' },
+                                  color: '#374151',
+                                  formatter: fmtGraf
+                                }
+                              }]
+                            }}
+                            options={{
+                              responsive: true,
+                              maintainAspectRatio: false,
+                              layout: { padding: { top: 30 } },
+                              plugins: {
+                                legend: { display: false },
+                                title: {
+                                  display: true,
+                                  text: `${metricaLabel} - ${produtoSelecionadoGrafico.nome} - ${anoProdutoAnual}`,
+                                  font: { size: 13, weight: 'bold' },
+                                  color: '#374151'
+                                },
+                                tooltip: {
+                                  callbacks: {
+                                    label: (ctx) => {
+                                      if (isPct) return `${ctx.raw.toFixed(2).replace('.', ',')}%`;
+                                      if (isQtd) return ctx.raw.toLocaleString('pt-BR');
+                                      return `R$ ${ctx.raw.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                                    }
+                                  }
+                                }
+                              },
+                              scales: {
+                                x: { grid: { display: false }, ticks: { font: { size: 11, weight: 'bold' } } },
+                                y: {
+                                  ticks: { callback: (v) => isPct ? `${v.toFixed(0)}%` : isQtd ? v.toLocaleString('pt-BR') : `R$ ${(v / 1000).toFixed(0)}k`, font: { size: 10 } },
+                                  grid: { color: 'rgba(0,0,0,0.06)' }
+                                }
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Table */}
+                  {loadingProdutoAnual ? (
+                    <RadarLoading size="sm" message="" />
+                  ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-600">
+                        <tr>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-white uppercase border-b border-gray-500 sticky left-0 bg-gray-600 min-w-[200px] z-10">Setor / Grupo / Produto</th>
+                          {mesesCompletos.map((mes) => (
+                            <th key={`pa-h-${mes.num}`} className="px-2 py-3 text-center text-xs font-semibold text-white uppercase border-b border-gray-500 min-w-[90px]">{mes.nome}</th>
+                          ))}
+                          <th className="px-3 py-3 text-center text-xs font-semibold text-orange-300 uppercase border-b border-gray-500 bg-gray-700 min-w-[100px]">TOTAL</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {produtoAnualSetores.map((setor, idx) => {
+                          const isExpSecao = expandedProdAnualSecoes[setor.cod];
+                          return (
+                            <Fragment key={`pa-s-${setor.cod}`}>
+                              <tr className={`hover:bg-orange-50 cursor-pointer border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`} onClick={() => toggleProdAnualSecao(setor.cod)}>
+                                <td className={`px-3 py-2.5 text-sm font-bold text-gray-800 sticky left-0 z-10 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                                  <span className={`inline-block mr-1 transition-transform ${isExpSecao ? 'rotate-90' : ''}`}>▸</span>
+                                  {setor.nome}
+                                </td>
+                                {mesesCompletos.map((mes) => {
+                                  const v = setor.meses[mes.num]?.[produtoAnualMetrica] || 0;
+                                  return <td key={`pa-s-${setor.cod}-${mes.num}`} className={`px-2 py-2.5 text-xs text-center font-medium ${v ? 'text-gray-800' : 'text-gray-300'}`}>{v ? fmtProdAnualCell(v) : '-'}</td>;
+                                })}
+                                <td className="px-3 py-2.5 text-xs text-center font-bold text-orange-800 bg-orange-50">{fmtProdAnualCell(setor.total[produtoAnualMetrica])}</td>
+                              </tr>
+                              {/* Loading grupos */}
+                              {isExpSecao && isExpSecao.loading && (
+                                <tr><td colSpan={14} className="py-2"><RadarLoading size="sm" message="" /></td></tr>
+                              )}
+                              {/* Grupos */}
+                              {isExpSecao && !isExpSecao.loading && isExpSecao.data.map((grupo, gIdx) => {
+                                const grpKey = `${setor.cod}_${grupo.cod}`;
+                                const isExpGrupo = expandedProdAnualGrupos[grpKey];
+                                return (
+                                  <Fragment key={`pa-g-${grpKey}`}>
+                                    <tr className="hover:bg-blue-50/50 cursor-pointer border-b border-gray-50 bg-blue-50/30" onClick={() => toggleProdAnualGrupo(grupo.cod, setor.cod)}>
+                                      <td className="px-3 py-2 text-xs font-semibold text-blue-800 sticky left-0 z-10 bg-blue-50/30 pl-8">
+                                        <span className={`inline-block mr-1 transition-transform ${isExpGrupo ? 'rotate-90' : ''}`}>▸</span>
+                                        {grupo.nome}
+                                      </td>
+                                      {mesesCompletos.map((mes) => {
+                                        const v = grupo.meses[mes.num]?.[produtoAnualMetrica] || 0;
+                                        return <td key={`pa-g-${grpKey}-${mes.num}`} className={`px-2 py-2 text-xs text-center ${v ? 'text-blue-700' : 'text-gray-300'}`}>{v ? fmtProdAnualCell(v) : '-'}</td>;
+                                      })}
+                                      <td className="px-3 py-2 text-xs text-center font-semibold text-blue-800 bg-orange-50/50">{fmtProdAnualCell(grupo.total[produtoAnualMetrica])}</td>
+                                    </tr>
+                                    {/* Loading subgrupos */}
+                                    {isExpGrupo && isExpGrupo.loading && (
+                                      <tr><td colSpan={14} className="py-2"><RadarLoading size="sm" message="" /></td></tr>
+                                    )}
+                                    {/* Subgrupos */}
+                                    {isExpGrupo && !isExpGrupo.loading && isExpGrupo.data.map((subgrupo) => {
+                                      const sgKey = `${setor.cod}_${grupo.cod}_${subgrupo.cod}`;
+                                      const isExpSub = expandedProdAnualSubgrupos[sgKey];
+                                      return (
+                                        <Fragment key={`pa-sg-${sgKey}`}>
+                                          <tr className="hover:bg-purple-50/50 cursor-pointer border-b border-gray-50 bg-purple-50/20" onClick={() => toggleProdAnualSubgrupo(subgrupo.cod, grupo.cod, setor.cod)}>
+                                            <td className="px-3 py-1.5 text-xs font-medium text-purple-700 sticky left-0 z-10 bg-purple-50/20 pl-14">
+                                              <span className={`inline-block mr-1 transition-transform ${isExpSub ? 'rotate-90' : ''}`}>▸</span>
+                                              {subgrupo.nome}
+                                            </td>
+                                            {mesesCompletos.map((mes) => {
+                                              const v = subgrupo.meses[mes.num]?.[produtoAnualMetrica] || 0;
+                                              return <td key={`pa-sg-${sgKey}-${mes.num}`} className={`px-2 py-1.5 text-xs text-center ${v ? 'text-purple-600' : 'text-gray-300'}`}>{v ? fmtProdAnualCell(v) : '-'}</td>;
+                                            })}
+                                            <td className="px-3 py-1.5 text-xs text-center font-semibold text-purple-700 bg-orange-50/30">{fmtProdAnualCell(subgrupo.total[produtoAnualMetrica])}</td>
+                                          </tr>
+                                          {/* Loading itens */}
+                                          {isExpSub && isExpSub.loading && (
+                                            <tr><td colSpan={14} className="py-2"><RadarLoading size="sm" message="" /></td></tr>
+                                          )}
+                                          {/* Itens (Produtos) */}
+                                          {isExpSub && !isExpSub.loading && isExpSub.data.map((item) => {
+                                            const isSel = produtoSelecionadoGrafico?.cod === item.cod;
+                                            return (
+                                              <tr key={`pa-i-${item.cod}`} className={`border-b border-gray-50 cursor-pointer transition-colors ${isSel ? 'bg-orange-100 ring-1 ring-orange-300' : 'bg-green-50/20 hover:bg-green-50/50'}`} onClick={() => setProdutoSelecionadoGrafico(isSel ? null : item)}>
+                                                <td className={`px-3 py-1.5 text-xs sticky left-0 z-10 pl-20 ${isSel ? 'bg-orange-100 font-bold text-orange-700' : 'bg-green-50/20 text-green-800'}`}>
+                                                  {isSel ? '>> ' : ''}{item.nome}
+                                                </td>
+                                                {mesesCompletos.map((mes) => {
+                                                  const v = item.meses[mes.num]?.[produtoAnualMetrica] || 0;
+                                                  return <td key={`pa-i-${item.cod}-${mes.num}`} className={`px-2 py-1.5 text-xs text-center ${v ? (isSel ? 'text-orange-700 font-semibold' : 'text-green-700') : 'text-gray-300'}`}>{v ? fmtProdAnualCell(v) : '-'}</td>;
+                                                })}
+                                                <td className={`px-3 py-1.5 text-xs text-center font-semibold ${isSel ? 'text-orange-800 bg-orange-50' : 'text-green-800 bg-orange-50/30'}`}>{fmtProdAnualCell(item.total[produtoAnualMetrica])}</td>
+                                              </tr>
+                                            );
+                                          })}
+                                        </Fragment>
+                                      );
+                                    })}
+                                  </Fragment>
+                                );
+                              })}
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
+              )}
           </>
         )}
 

@@ -355,4 +355,61 @@ export class GestaoInteligenteController {
       res.status(500).json({ error: error.message || 'Erro interno do servidor' });
     }
   }
+
+  static getProdutoAnualSetores = async (req: AuthRequest, res: Response) => {
+    try {
+      const ano = parseInt(req.query.ano as string) || new Date().getFullYear();
+      const codLoja = req.query.codLoja ? parseInt(req.query.codLoja as string) : undefined;
+      const data = await GestaoInteligenteService.getProdutoAnualSetores(ano, codLoja);
+      res.json(data);
+    } catch (error: any) {
+      console.error('Erro getProdutoAnualSetores:', error);
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  static getProdutoAnualGrupos = async (req: AuthRequest, res: Response) => {
+    try {
+      const ano = parseInt(req.query.ano as string) || new Date().getFullYear();
+      const codSecao = parseInt(req.query.codSecao as string);
+      const codLoja = req.query.codLoja ? parseInt(req.query.codLoja as string) : undefined;
+      if (!codSecao) return res.status(400).json({ error: 'codSecao obrigatório' });
+      const data = await GestaoInteligenteService.getProdutoAnualGrupos(ano, codSecao, codLoja);
+      res.json(data);
+    } catch (error: any) {
+      console.error('Erro getProdutoAnualGrupos:', error);
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  static getProdutoAnualSubgrupos = async (req: AuthRequest, res: Response) => {
+    try {
+      const ano = parseInt(req.query.ano as string) || new Date().getFullYear();
+      const codGrupo = parseInt(req.query.codGrupo as string);
+      const codSecao = parseInt(req.query.codSecao as string);
+      const codLoja = req.query.codLoja ? parseInt(req.query.codLoja as string) : undefined;
+      if (!codGrupo || !codSecao) return res.status(400).json({ error: 'codGrupo e codSecao obrigatórios' });
+      const data = await GestaoInteligenteService.getProdutoAnualSubgrupos(ano, codGrupo, codSecao, codLoja);
+      res.json(data);
+    } catch (error: any) {
+      console.error('Erro getProdutoAnualSubgrupos:', error);
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  static getProdutoAnualItens = async (req: AuthRequest, res: Response) => {
+    try {
+      const ano = parseInt(req.query.ano as string) || new Date().getFullYear();
+      const codSubgrupo = parseInt(req.query.codSubgrupo as string);
+      const codGrupo = parseInt(req.query.codGrupo as string);
+      const codSecao = parseInt(req.query.codSecao as string);
+      const codLoja = req.query.codLoja ? parseInt(req.query.codLoja as string) : undefined;
+      if (!codSubgrupo || !codGrupo || !codSecao) return res.status(400).json({ error: 'codSubgrupo, codGrupo e codSecao obrigatórios' });
+      const data = await GestaoInteligenteService.getProdutoAnualItens(ano, codSubgrupo, codGrupo, codSecao, codLoja);
+      res.json(data);
+    } catch (error: any) {
+      console.error('Erro getProdutoAnualItens:', error);
+      res.status(500).json({ error: error.message });
+    }
+  };
 }

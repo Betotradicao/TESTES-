@@ -180,7 +180,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         {
           id: 'gestao-inteligente',
           moduleId: 'gestao-inteligente',
-          title: 'Gestão Inteligente',
+          title: 'GESTÃO INTELIGENTE',
           path: '/gestao-inteligente',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -191,7 +191,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         {
           id: 'gestao-estoque-margem',
           moduleId: 'estoque-margem',
-          title: 'Gestão Estoque e Margem',
+          title: 'GESTÃO ESTOQUE E MARGEM',
           path: '/estoque-saude',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -200,48 +200,37 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           )
         },
         {
-          id: 'gestao-compra-venda',
-          moduleId: 'compra-venda',
-          title: 'Compra x Venda',
-          path: '/compra-venda-analise',
+          id: 'compras',
+          moduleId: 'compras',
+          title: 'COMPRAS',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
             </svg>
-          )
+          ),
+          expandable: true,
+          subItems: [
+            { id: 'gestao-compra-venda', submenuId: 'compra-venda', title: 'COMPRA X VENDA', path: '/compra-venda-analise' },
+            { id: 'pedidos-lista', submenuId: 'pedidos', title: 'PEDIDOS DE COMPRAS', path: '/prevencao-pedidos' },
+            { id: 'calendario-atendimento', submenuId: 'calendario-atendimento', title: 'CALENDÁRIO DE ATENDIMENTO', path: '/calendario-atendimento' },
+            { id: 'ruptura-industria', submenuId: 'ruptura-industria', title: 'RUPTURA INDUSTRIA', path: '/ruptura-industria' }
+          ]
         },
         {
-          id: 'pedidos-lista',
-          moduleId: 'pedidos',
-          title: 'Pedidos',
-          path: '/prevencao-pedidos',
+          id: 'pricing',
+          moduleId: 'pricing',
+          title: 'PRICING',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
             </svg>
-          )
-        },
-        {
-          id: 'ruptura-industria',
-          moduleId: 'ruptura-industria',
-          title: 'Ruptura INDUSTRIA',
-          path: '/ruptura-industria',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-            </svg>
-          )
-        },
-        {
-          id: 'calendario-atendimento',
-          moduleId: 'calendario-atendimento',
-          title: 'Calendário de Atendimento',
-          path: '/calendario-atendimento',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-            </svg>
-          )
+          ),
+          expandable: true,
+          subItems: [
+            { id: 'pricing-ponderacao', submenuId: 'pricing-ponderacao', title: 'ANALISE DE CORTE', path: '/pricing-ponderacao' },
+            { id: 'pricing-ancoragem', submenuId: 'pricing-ancoragem', title: 'ANCORAGEM DE PREÇO', path: '/pricing-ancoragem' },
+            { id: 'pricing-competitividade', submenuId: 'pricing-competitividade', title: 'COMPETITIVIDADE E CONCORRÊNCIA', path: '/pricing-competitividade' }
+          ]
         },
       ]
     },
@@ -268,7 +257,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         {
           id: 'bipagens',
           moduleId: 'bipagens',
-          title: 'Prevenção de Bipagens',
+          title: 'PREVENÇÃO DE BIPAGENS',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
@@ -276,15 +265,15 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'bipagens', submenuId: 'bipagens-ao-vivo', title: 'Bipagens', path: '/bipagens' },
-            { id: 'resultados-do-dia', submenuId: 'bipagens-resultados', title: 'Resultados do Dia', path: '/resultados-do-dia' },
-            { id: 'rankings', submenuId: 'bipagens-rankings', title: 'Rankings', path: '/rankings' }
+            { id: 'bipagens', submenuId: 'bipagens-ao-vivo', title: 'BIPAGENS', path: '/bipagens' },
+            { id: 'resultados-do-dia', submenuId: 'bipagens-resultados', title: 'RESULTADOS DO DIA', path: '/resultados-do-dia' },
+            { id: 'rankings', submenuId: 'bipagens-rankings', title: 'RANKINGS', path: '/rankings' }
           ]
         },
         {
           id: 'pdv',
           moduleId: 'pdv',
-          title: 'Prevenção PDV',
+          title: 'PREVENÇÃO PDV',
           path: '/frente-caixa',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -295,7 +284,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         {
           id: 'facial',
           moduleId: 'facial',
-          title: 'Prevenção Facial',
+          title: 'PREVENÇÃO FACIAL',
           path: '/reconhecimento-facial',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -306,7 +295,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         {
           id: 'ruptura',
           moduleId: 'ruptura',
-          title: 'Prevenção Rupturas',
+          title: 'PREVENÇÃO RUPTURAS',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
@@ -314,14 +303,14 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'ruptura-lancador', submenuId: 'ruptura-lancador', title: 'Lançar Auditoria', path: '/ruptura-lancador' },
-            { id: 'ruptura-auditorias', submenuId: 'ruptura-auditorias', title: 'Resultados Auditorias', path: '/ruptura-auditorias' }
+            { id: 'ruptura-lancador', submenuId: 'ruptura-lancador', title: 'LANÇAR AUDITORIA', path: '/ruptura-lancador' },
+            { id: 'ruptura-auditorias', submenuId: 'ruptura-auditorias', title: 'RESULTADOS AUDITORIAS', path: '/ruptura-auditorias' }
           ]
         },
         {
           id: 'etiquetas',
           moduleId: 'etiquetas',
-          title: 'Prevenção Etiquetas',
+          title: 'PREVENÇÃO ETIQUETAS',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
@@ -329,14 +318,14 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'etiquetas-lancador', submenuId: 'etiquetas-lancar', title: 'Lançar Auditoria', path: '/etiquetas/lancar' },
-            { id: 'etiquetas-resultados', submenuId: 'etiquetas-resultados', title: 'Resultados Auditorias', path: '/etiquetas/resultados' }
+            { id: 'etiquetas-lancador', submenuId: 'etiquetas-lancar', title: 'LANÇAR AUDITORIA', path: '/etiquetas/lancar' },
+            { id: 'etiquetas-resultados', submenuId: 'etiquetas-resultados', title: 'RESULTADOS AUDITORIAS', path: '/etiquetas/resultados' }
           ]
         },
         {
           id: 'perdas',
           moduleId: 'perdas',
-          title: 'Prevenção Quebras',
+          title: 'PREVENÇÃO QUEBRAS',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
@@ -344,14 +333,14 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'perdas-lancador', submenuId: 'perdas-lancador', title: 'Lançar Quebras', path: '/perdas-lancador' },
-            { id: 'perdas-resultados', submenuId: 'perdas-resultados', title: 'Resultados Quebras', path: '/perdas-resultados' }
+            { id: 'perdas-lancador', submenuId: 'perdas-lancador', title: 'LANÇAR QUEBRAS', path: '/perdas-lancador' },
+            { id: 'perdas-resultados', submenuId: 'perdas-resultados', title: 'RESULTADOS QUEBRAS', path: '/perdas-resultados' }
           ]
         },
         {
           id: 'producao',
           moduleId: 'producao',
-          title: 'Prevenção Produção',
+          title: 'PREVENÇÃO PRODUÇÃO',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
@@ -359,15 +348,15 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'producao-lancador', submenuId: 'producao-lancador', title: 'Lançar Produção', path: '/producao-lancador' },
-            { id: 'producao-sugestao', submenuId: 'producao-sugestao', title: 'Sugestão de Produção', path: '/producao-sugestao' },
-            { id: 'producao-resultados', submenuId: 'producao-resultados', title: 'Resultados', path: '/producao/resultados' }
+            { id: 'producao-lancador', submenuId: 'producao-lancador', title: 'LANÇAR PRODUÇÃO', path: '/producao-lancador' },
+            { id: 'producao-sugestao', submenuId: 'producao-sugestao', title: 'SUGESTÃO DE PRODUÇÃO', path: '/producao-sugestao' },
+            { id: 'producao-resultados', submenuId: 'producao-resultados', title: 'RESULTADOS', path: '/producao/resultados' }
           ]
         },
         {
           id: 'hortfruti',
           moduleId: 'hortfrut',
-          title: 'Prevenção HortFruti',
+          title: 'PREVENÇÃO HORTFRUTI',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
@@ -375,14 +364,14 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'hortfrut-lancador', submenuId: 'hortfrut-lancador', title: 'Lançar HortFruti', path: '/hortfrut-lancador' },
-            { id: 'hortfrut-resultados', submenuId: 'hortfrut-resultados', title: 'Resultados', path: '/hortfrut-resultados' }
+            { id: 'hortfrut-lancador', submenuId: 'hortfrut-lancador', title: 'LANÇAR HORTFRUTI', path: '/hortfrut-lancador' },
+            { id: 'hortfrut-resultados', submenuId: 'hortfrut-resultados', title: 'RESULTADOS', path: '/hortfrut-resultados' }
           ]
         },
         {
           id: 'controle-recebimento',
           moduleId: 'controle-recebimento',
-          title: 'Prevenção Recebimento',
+          title: 'PREVENÇÃO RECEBIMENTO',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -390,8 +379,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'nf-a-chegar', submenuId: 'nf-a-chegar', title: 'Notas a Chegar', path: '/notas-a-chegar' },
-            { id: 'nf-recebimento', submenuId: 'nf-recebimento', title: 'Notas Entregue', path: '/nota-fiscal-recebimento' }
+            { id: 'nf-a-chegar', submenuId: 'nf-a-chegar', title: 'NOTAS A CHEGAR', path: '/notas-a-chegar' },
+            { id: 'nf-recebimento', submenuId: 'nf-recebimento', title: 'NOTAS ENTREGUE', path: '/nota-fiscal-recebimento' }
           ]
         }
       ]
@@ -418,7 +407,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         {
           id: 'garimpa-fornecedores',
           moduleId: 'garimpa-fornecedores',
-          title: 'Fornecedores e Concorrentes',
+          title: 'FORNECEDORES E CONCORRENTES',
           path: '/garimpa-fornecedores',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -449,7 +438,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         {
           id: 'entradas-saidas',
           moduleId: 'entradas-saidas',
-          title: 'Entradas e Saídas',
+          title: 'ENTRADAS E SAÍDAS',
           path: '/entradas-saidas',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -460,7 +449,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         {
           id: 'bancos',
           moduleId: 'bancos',
-          title: 'Bancos',
+          title: 'BANCOS',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/>
@@ -468,9 +457,9 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'extrato-santander', submenuId: 'extrato-santander', title: 'Santander', path: '/extrato-santander' },
-            { id: 'extrato-tribanco', submenuId: 'extrato-tribanco', title: 'Tribanco', path: '/extrato-tribanco' },
-            { id: 'extrato-banco24h', submenuId: 'extrato-banco24h', title: 'Banco 24horas', path: '/extrato-banco24h' }
+            { id: 'extrato-santander', submenuId: 'extrato-santander', title: 'SANTANDER', path: '/extrato-santander' },
+            { id: 'extrato-tribanco', submenuId: 'extrato-tribanco', title: 'TRIBANCO', path: '/extrato-tribanco' },
+            { id: 'extrato-banco24h', submenuId: 'extrato-banco24h', title: 'BANCO 24HORAS', path: '/extrato-banco24h' }
           ]
         }
       ]
@@ -498,7 +487,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         {
           id: 'rota-crescimento',
           moduleId: 'rota-crescimento',
-          title: 'Rota do Crescimento',
+          title: 'ROTA DO CRESCIMENTO',
           path: '/rota-crescimento',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -510,7 +499,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     },
     {
       id: 'configuracoes',
-      title: 'Configurações',
+      title: 'CONFIGURAÇÕES',
       path: '/configuracoes',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -522,7 +511,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     },
     {
       id: 'configuracoes-rede',
-      title: 'Configurações de REDE',
+      title: 'CONFIGURAÇÕES DE REDE',
       path: '/configuracoes-rede',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -533,7 +522,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     },
     {
       id: 'configuracoes-tabelas',
-      title: 'Configurações de TABELAS',
+      title: 'CONFIGURAÇÕES DE TABELAS',
       path: '/configuracoes-tabelas',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

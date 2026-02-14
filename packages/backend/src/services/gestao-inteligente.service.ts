@@ -644,8 +644,10 @@ export class GestaoInteligenteService {
         s.DES_SECAO as SETOR,
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
+        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
+        COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS,
         NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA
       FROM ${tabProdutoPdv} pv
       JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.COD_PRODUTO
@@ -675,28 +677,36 @@ export class GestaoInteligenteService {
     const resultadoComMargem = result.map((row: any) => {
       const venda = row.VENDA || 0;
       const custo = row.CUSTO || 0;
+      const impostos = row.IMPOSTOS || 0;
       const lucro = venda - custo;
       const markup = custo > 0 ? ((venda - custo) / custo) * 100 : 0;
       const margemLiquida = venda > 0 ? ((venda - custo) / venda) * 100 : 0;
+      const vendasLiq = venda - impostos;
+      const margemLimpa = vendasLiq > 0 ? ((vendasLiq - custo) / vendasLiq) * 100 : 0;
       const percentualSetor = totalVendas > 0 ? (venda / totalVendas) * 100 : 0;
       const qtdCupons = row.QTD_CUPONS || 0;
       const ticketMedio = qtdCupons > 0 ? venda / qtdCupons : 0;
       const vendasOferta = row.VENDAS_OFERTA || 0;
+      const pctOferta = venda > 0 ? (vendasOferta / venda) * 100 : 0;
 
       return {
         codSecao: row.COD_SECAO,
         setor: row.SETOR,
         venda: parseFloat(venda.toFixed(2)),
         custo: parseFloat(custo.toFixed(2)),
+        impostos: parseFloat(impostos.toFixed(2)),
         lucro: parseFloat(lucro.toFixed(2)),
         markup: parseFloat(markup.toFixed(2)),
         margemLiquida: parseFloat(margemLiquida.toFixed(2)),
+        margemLimpa: parseFloat(margemLimpa.toFixed(2)),
         margem: parseFloat(margemLiquida.toFixed(2)),
         percentualSetor: parseFloat(percentualSetor.toFixed(2)),
         ticketMedio: parseFloat(ticketMedio.toFixed(2)),
         vendasOferta: parseFloat(vendasOferta.toFixed(2)),
+        pctOferta: parseFloat(pctOferta.toFixed(2)),
         qtdCupons,
-        qtd: parseFloat((row.QTD || 0).toFixed(2))
+        qtd: parseFloat((row.QTD || 0).toFixed(2)),
+        qtdSkus: row.QTD_SKUS || 0
       };
     });
 
@@ -725,8 +735,10 @@ export class GestaoInteligenteService {
         g.DES_GRUPO as GRUPO,
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
+        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
+        COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS,
         NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA
       FROM ${tabProdutoPdv} pv
       JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.COD_PRODUTO
@@ -756,28 +768,37 @@ export class GestaoInteligenteService {
     return result.map((row: any) => {
       const venda = row.VENDA || 0;
       const custo = row.CUSTO || 0;
+      const impostos = row.IMPOSTOS || 0;
       const lucro = venda - custo;
       const markup = custo > 0 ? ((venda - custo) / custo) * 100 : 0;
       const margemLiquida = venda > 0 ? ((venda - custo) / venda) * 100 : 0;
+      const vendasLiq = venda - impostos;
+      const margemLimpa = vendasLiq > 0 ? ((vendasLiq - custo) / vendasLiq) * 100 : 0;
       const percentualSetor = totalVendas > 0 ? (venda / totalVendas) * 100 : 0;
 
       const qtdCupons = row.QTD_CUPONS || 0;
       const ticketMedio = qtdCupons > 0 ? venda / qtdCupons : 0;
       const vendasOferta = row.VENDAS_OFERTA || 0;
+      const pctOferta = venda > 0 ? (vendasOferta / venda) * 100 : 0;
 
       return {
         codGrupo: row.COD_GRUPO,
         grupo: row.GRUPO,
         venda: parseFloat(venda.toFixed(2)),
         custo: parseFloat(custo.toFixed(2)),
+        impostos: parseFloat(impostos.toFixed(2)),
         lucro: parseFloat(lucro.toFixed(2)),
         markup: parseFloat(markup.toFixed(2)),
         margemLiquida: parseFloat(margemLiquida.toFixed(2)),
+        margemLimpa: parseFloat(margemLimpa.toFixed(2)),
         margem: parseFloat(margemLiquida.toFixed(2)),
         percentualSetor: parseFloat(percentualSetor.toFixed(2)),
         ticketMedio: parseFloat(ticketMedio.toFixed(2)),
         vendasOferta: parseFloat(vendasOferta.toFixed(2)),
-        qtd: parseFloat((row.QTD || 0).toFixed(2))
+        pctOferta: parseFloat(pctOferta.toFixed(2)),
+        qtdCupons,
+        qtd: parseFloat((row.QTD || 0).toFixed(2)),
+        qtdSkus: row.QTD_SKUS || 0
       };
     });
   }
@@ -804,8 +825,10 @@ export class GestaoInteligenteService {
         sg.DES_SUB_GRUPO as SUBGRUPO,
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
+        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
+        COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS,
         NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA
       FROM ${tabProdutoPdv} pv
       JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.COD_PRODUTO
@@ -843,28 +866,37 @@ export class GestaoInteligenteService {
     return result.map((row: any) => {
       const venda = row.VENDA || 0;
       const custo = row.CUSTO || 0;
+      const impostos = row.IMPOSTOS || 0;
       const lucro = venda - custo;
       const markup = custo > 0 ? ((venda - custo) / custo) * 100 : 0;
       const margemLiquida = venda > 0 ? ((venda - custo) / venda) * 100 : 0;
+      const vendasLiq = venda - impostos;
+      const margemLimpa = vendasLiq > 0 ? ((vendasLiq - custo) / vendasLiq) * 100 : 0;
       const percentualSetor = totalVendas > 0 ? (venda / totalVendas) * 100 : 0;
 
       const qtdCupons = row.QTD_CUPONS || 0;
       const ticketMedio = qtdCupons > 0 ? venda / qtdCupons : 0;
       const vendasOferta = row.VENDAS_OFERTA || 0;
+      const pctOferta = venda > 0 ? (vendasOferta / venda) * 100 : 0;
 
       return {
         codSubgrupo: row.COD_SUB_GRUPO,
         subgrupo: row.SUBGRUPO,
         venda: parseFloat(venda.toFixed(2)),
         custo: parseFloat(custo.toFixed(2)),
+        impostos: parseFloat(impostos.toFixed(2)),
         lucro: parseFloat(lucro.toFixed(2)),
         markup: parseFloat(markup.toFixed(2)),
         margemLiquida: parseFloat(margemLiquida.toFixed(2)),
+        margemLimpa: parseFloat(margemLimpa.toFixed(2)),
         margem: parseFloat(margemLiquida.toFixed(2)),
         percentualSetor: parseFloat(percentualSetor.toFixed(2)),
         ticketMedio: parseFloat(ticketMedio.toFixed(2)),
         vendasOferta: parseFloat(vendasOferta.toFixed(2)),
-        qtd: parseFloat((row.QTD || 0).toFixed(2))
+        pctOferta: parseFloat(pctOferta.toFixed(2)),
+        qtdCupons,
+        qtd: parseFloat((row.QTD || 0).toFixed(2)),
+        qtdSkus: row.QTD_SKUS || 0
       };
     });
   }
@@ -889,6 +921,7 @@ export class GestaoInteligenteService {
         p.DES_PRODUTO as PRODUTO,
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
+        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
         NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA
@@ -933,27 +966,35 @@ export class GestaoInteligenteService {
     return result.map((row: any) => {
       const venda = row.VENDA || 0;
       const custo = row.CUSTO || 0;
+      const impostos = row.IMPOSTOS || 0;
       const lucro = venda - custo;
       const markup = custo > 0 ? ((venda - custo) / custo) * 100 : 0;
       const margemLiquida = venda > 0 ? ((venda - custo) / venda) * 100 : 0;
+      const vendasLiq = venda - impostos;
+      const margemLimpa = vendasLiq > 0 ? ((vendasLiq - custo) / vendasLiq) * 100 : 0;
       const percentualSetor = totalVendas > 0 ? (venda / totalVendas) * 100 : 0;
 
       const qtdCupons = row.QTD_CUPONS || 0;
       const ticketMedio = qtdCupons > 0 ? venda / qtdCupons : 0;
       const vendasOferta = row.VENDAS_OFERTA || 0;
+      const pctOferta = venda > 0 ? (vendasOferta / venda) * 100 : 0;
 
       return {
         codProduto: row.COD_PRODUTO,
         produto: row.PRODUTO,
         venda: parseFloat(venda.toFixed(2)),
         custo: parseFloat(custo.toFixed(2)),
+        impostos: parseFloat(impostos.toFixed(2)),
         lucro: parseFloat(lucro.toFixed(2)),
         markup: parseFloat(markup.toFixed(2)),
         margemLiquida: parseFloat(margemLiquida.toFixed(2)),
+        margemLimpa: parseFloat(margemLimpa.toFixed(2)),
         margem: parseFloat(margemLiquida.toFixed(2)),
         percentualSetor: parseFloat(percentualSetor.toFixed(2)),
         ticketMedio: parseFloat(ticketMedio.toFixed(2)),
         vendasOferta: parseFloat(vendasOferta.toFixed(2)),
+        pctOferta: parseFloat(pctOferta.toFixed(2)),
+        qtdCupons,
         qtd: parseFloat((row.QTD || 0).toFixed(2))
       };
     });
@@ -1120,6 +1161,18 @@ export class GestaoInteligenteService {
       };
     });
 
+    // Calcular % Representatividade por período
+    const totalAtual = resultado.reduce((a: number, r: any) => a + (r.vendaAtual || 0), 0);
+    const totalMP = resultado.reduce((a: number, r: any) => a + (r.vendaMesPassado || 0), 0);
+    const totalAP = resultado.reduce((a: number, r: any) => a + (r.vendaAnoPassado || 0), 0);
+    const totalML = resultado.reduce((a: number, r: any) => a + (r.mediaLinear || 0), 0);
+    resultado.forEach((r: any) => {
+      r.reprAtual = totalAtual > 0 ? parseFloat(((r.vendaAtual / totalAtual) * 100).toFixed(2)) : 0;
+      r.reprMesPassado = totalMP > 0 ? parseFloat(((r.vendaMesPassado / totalMP) * 100).toFixed(2)) : 0;
+      r.reprAnoPassado = totalAP > 0 ? parseFloat(((r.vendaAnoPassado / totalAP) * 100).toFixed(2)) : 0;
+      r.reprMediaLinear = totalML > 0 ? parseFloat(((r.mediaLinear / totalML) * 100).toFixed(2)) : 0;
+    });
+
     console.log(`✅ [VENDAS ANALÍTICAS] ${resultado.length} setores com comparativos`);
     return resultado;
   }
@@ -1202,7 +1255,7 @@ export class GestaoInteligenteService {
       };
     };
 
-    return atual.map((row: any) => {
+    const result = atual.map((row: any) => {
       const cod = row[codeField];
       const atualRow = {
         venda: row.VENDA || 0, custo: row.CUSTO || 0, impostos: row.IMPOSTOS || 0,
@@ -1254,6 +1307,20 @@ export class GestaoInteligenteService {
         skusAnoPassado: anoPasData.qtdSkus, skusMediaLinear: mlData.qtdSkus
       };
     });
+
+    // Calcular % Representatividade por período
+    const totalAtual = result.reduce((a: number, r: any) => a + (r.vendaAtual || 0), 0);
+    const totalMPR = result.reduce((a: number, r: any) => a + (r.vendaMesPassado || 0), 0);
+    const totalAPR = result.reduce((a: number, r: any) => a + (r.vendaAnoPassado || 0), 0);
+    const totalMLR = result.reduce((a: number, r: any) => a + (r.mediaLinear || 0), 0);
+    result.forEach((r: any) => {
+      r.reprAtual = totalAtual > 0 ? parseFloat(((r.vendaAtual / totalAtual) * 100).toFixed(2)) : 0;
+      r.reprMesPassado = totalMPR > 0 ? parseFloat(((r.vendaMesPassado / totalMPR) * 100).toFixed(2)) : 0;
+      r.reprAnoPassado = totalAPR > 0 ? parseFloat(((r.vendaAnoPassado / totalAPR) * 100).toFixed(2)) : 0;
+      r.reprMediaLinear = totalMLR > 0 ? parseFloat(((r.mediaLinear / totalMLR) * 100).toFixed(2)) : 0;
+    });
+
+    return result;
   }
 
   /** Helper: vendas por grupo num período (para analíticos) */
@@ -1988,5 +2055,195 @@ export class GestaoInteligenteService {
       qtdProdutos: row.QTD_PRODUTOS || 0,
       valorEstoque: parseFloat((row.VALOR_ESTOQUE || 0).toFixed(2))
     };
+  }
+
+  // ============================================================
+  // ANALISE PRODUTOS ANUAL - Hierarquia mensal
+  // ============================================================
+
+  /**
+   * Helper genérico para buscar dados mensais agrupados por qualquer nível hierárquico
+   */
+  private static async buscarHierarquiaMensal(
+    ano: number,
+    codLoja: number | undefined,
+    groupByField: string,
+    nameField: string,
+    joinClause: string,
+    whereClause: string,
+    extraParams: Record<string, any> = {}
+  ): Promise<any[]> {
+    const mesAtual = new Date().getMonth() + 1;
+    const diaAtual = new Date().getDate();
+    const anoAtual = new Date().getFullYear();
+
+    let ultimoMes = 12;
+    if (ano === anoAtual) ultimoMes = mesAtual;
+    if (ano > anoAtual) return [];
+
+    let dataFimDia: number;
+    if (ano === anoAtual && ultimoMes === mesAtual) {
+      dataFimDia = diaAtual;
+    } else {
+      dataFimDia = new Date(ano, ultimoMes, 0).getDate();
+    }
+
+    const dataInicio = `01/01/${ano}`;
+    const dataFim = `${String(dataFimDia).padStart(2, '0')}/${String(ultimoMes).padStart(2, '0')}/${ano}`;
+
+    const schema = await MappingService.getSchema();
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+
+    let sql = `
+      SELECT
+        ${groupByField} as COD_ITEM,
+        ${nameField} as NOME_ITEM,
+        EXTRACT(MONTH FROM pv.DTA_SAIDA) as MES,
+        NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
+        NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
+        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
+        NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
+        COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
+        COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS,
+        NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA
+      FROM ${tabProdutoPdv} pv
+      JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.COD_PRODUTO
+      ${joinClause}
+      WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+      ${whereClause}
+    `;
+
+    const params: any = { dataInicio, dataFim, ...extraParams };
+    if (codLoja) {
+      sql += ` AND pv.COD_LOJA = :codLoja`;
+      params.codLoja = codLoja;
+    }
+
+    sql += ` GROUP BY ${groupByField}, ${nameField}, EXTRACT(MONTH FROM pv.DTA_SAIDA)`;
+
+    const result = await OracleService.query<any>(sql, params);
+
+    // Agrupar por item
+    const itemMap: Record<string, { cod: any; nome: string; meses: Record<number, any> }> = {};
+    for (const row of result) {
+      const cod = row.COD_ITEM;
+      const key = String(cod);
+      if (!itemMap[key]) {
+        itemMap[key] = { cod, nome: row.NOME_ITEM, meses: {} };
+      }
+      const v = row.VENDA || 0;
+      const c = row.CUSTO || 0;
+      const imp = row.IMPOSTOS || 0;
+      const cupons = row.QTD_CUPONS || 0;
+      const vendasOferta = row.VENDAS_OFERTA || 0;
+      const vendasLiq = v - imp;
+      itemMap[key].meses[row.MES] = {
+        venda: parseFloat(v.toFixed(2)),
+        custo: parseFloat(c.toFixed(2)),
+        lucro: parseFloat((v - c).toFixed(2)),
+        margem: v > 0 ? parseFloat((((v - c) / v) * 100).toFixed(2)) : 0,
+        margemLimpa: vendasLiq > 0 ? parseFloat((((vendasLiq - c) / vendasLiq) * 100).toFixed(2)) : 0,
+        impostos: parseFloat(imp.toFixed(2)),
+        ticketMedio: cupons > 0 ? parseFloat((v / cupons).toFixed(2)) : 0,
+        cupons,
+        skus: row.QTD_SKUS || 0,
+        qtd: parseFloat((row.QTD || 0).toFixed(2)),
+        vendasOferta: parseFloat(vendasOferta.toFixed(2)),
+        pctOferta: v > 0 ? parseFloat(((vendasOferta / v) * 100).toFixed(2)) : 0
+      };
+    }
+
+    // Montar resposta com totais
+    const items = Object.values(itemMap).map(item => {
+      const mesesArr = Object.entries(item.meses);
+      const totalVenda = mesesArr.reduce((a, [, m]) => a + m.venda, 0);
+      const totalCusto = mesesArr.reduce((a, [, m]) => a + m.custo, 0);
+      const totalImpostos = mesesArr.reduce((a, [, m]) => a + m.impostos, 0);
+      const totalCupons = mesesArr.reduce((a, [, m]) => a + m.cupons, 0);
+      const totalOferta = mesesArr.reduce((a, [, m]) => a + m.vendasOferta, 0);
+      const totalQtd = mesesArr.reduce((a, [, m]) => a + m.qtd, 0);
+      const vendasLiq = totalVenda - totalImpostos;
+
+      return {
+        cod: item.cod,
+        nome: item.nome,
+        meses: item.meses,
+        total: {
+          venda: parseFloat(totalVenda.toFixed(2)),
+          custo: parseFloat(totalCusto.toFixed(2)),
+          lucro: parseFloat((totalVenda - totalCusto).toFixed(2)),
+          margem: totalVenda > 0 ? parseFloat((((totalVenda - totalCusto) / totalVenda) * 100).toFixed(2)) : 0,
+          margemLimpa: vendasLiq > 0 ? parseFloat((((vendasLiq - totalCusto) / vendasLiq) * 100).toFixed(2)) : 0,
+          impostos: parseFloat(totalImpostos.toFixed(2)),
+          ticketMedio: totalCupons > 0 ? parseFloat((totalVenda / totalCupons).toFixed(2)) : 0,
+          cupons: totalCupons,
+          skus: Math.max(...mesesArr.map(([, m]) => m.skus), 0),
+          qtd: parseFloat(totalQtd.toFixed(2)),
+          vendasOferta: parseFloat(totalOferta.toFixed(2)),
+          pctOferta: totalVenda > 0 ? parseFloat(((totalOferta / totalVenda) * 100).toFixed(2)) : 0
+        }
+      };
+    });
+
+    items.sort((a, b) => b.total.venda - a.total.venda);
+    return items;
+  }
+
+  /**
+   * Setores mensais para Analise Produtos Anual
+   */
+  static async getProdutoAnualSetores(ano: number, codLoja?: number): Promise<any[]> {
+    const schema = await MappingService.getSchema();
+    const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO')}`;
+    return this.buscarHierarquiaMensal(
+      ano, codLoja,
+      's.COD_SECAO', 's.DES_SECAO',
+      `JOIN ${tabSecao} s ON s.COD_SECAO = p.COD_SECAO`,
+      '', {}
+    );
+  }
+
+  /**
+   * Grupos mensais de uma seção
+   */
+  static async getProdutoAnualGrupos(ano: number, codSecao: number, codLoja?: number): Promise<any[]> {
+    const schema = await MappingService.getSchema();
+    const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO')}`;
+    return this.buscarHierarquiaMensal(
+      ano, codLoja,
+      'g.COD_GRUPO', 'g.DES_GRUPO',
+      `JOIN ${tabGrupo} g ON g.COD_GRUPO = p.COD_GRUPO AND g.COD_SECAO = :codSecao`,
+      'AND p.COD_SECAO = :codSecao',
+      { codSecao }
+    );
+  }
+
+  /**
+   * Subgrupos mensais de um grupo
+   */
+  static async getProdutoAnualSubgrupos(ano: number, codGrupo: number, codSecao: number, codLoja?: number): Promise<any[]> {
+    const schema = await MappingService.getSchema();
+    const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO')}`;
+    return this.buscarHierarquiaMensal(
+      ano, codLoja,
+      'p.COD_SUB_GRUPO', 'sg.DES_SUB_GRUPO',
+      `JOIN ${tabSubgrupo} sg ON sg.COD_SECAO = p.COD_SECAO AND sg.COD_GRUPO = p.COD_GRUPO AND sg.COD_SUB_GRUPO = p.COD_SUB_GRUPO`,
+      'AND p.COD_GRUPO = :codGrupo AND p.COD_SECAO = :codSecao',
+      { codGrupo, codSecao }
+    );
+  }
+
+  /**
+   * Produtos mensais de um subgrupo
+   */
+  static async getProdutoAnualItens(ano: number, codSubgrupo: number, codGrupo: number, codSecao: number, codLoja?: number): Promise<any[]> {
+    return this.buscarHierarquiaMensal(
+      ano, codLoja,
+      'p.COD_PRODUTO', 'p.DES_PRODUTO',
+      '',
+      'AND p.COD_SUB_GRUPO = :codSubgrupo AND p.COD_GRUPO = :codGrupo AND p.COD_SECAO = :codSecao',
+      { codSubgrupo, codGrupo, codSecao }
+    );
   }
 }

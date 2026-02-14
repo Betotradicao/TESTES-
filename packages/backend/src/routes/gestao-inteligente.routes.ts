@@ -53,4 +53,10 @@ router.get('/vendas-por-dia-semana', GestaoInteligenteController.getVendasPorDia
 // Produtos Revenda + Valor Estoque
 router.get('/produtos-revenda-estoque', GestaoInteligenteController.getProdutosRevendaEstoque);
 
+// Analise Produtos Anual - hierarquia mensal
+router.get('/produto-anual-setores', GestaoInteligenteController.getProdutoAnualSetores);
+router.get('/produto-anual-grupos', GestaoInteligenteController.getProdutoAnualGrupos);
+router.get('/produto-anual-subgrupos', GestaoInteligenteController.getProdutoAnualSubgrupos);
+router.get('/produto-anual-itens', GestaoInteligenteController.getProdutoAnualItens);
+
 export default router;
