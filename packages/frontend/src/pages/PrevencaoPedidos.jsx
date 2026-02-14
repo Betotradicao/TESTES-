@@ -995,18 +995,18 @@ export default function PrevencaoPedidos() {
                   </div>
                 </div>
                 <table className="w-full text-sm">
-                  <thead className="bg-red-50 border-b border-red-200">
+                  <thead className="bg-gray-600">
                     <tr>
-                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-left">LOJA</th>
-                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-left">FORNECEDOR</th>
-                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-left">CNPJ</th>
-                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-center">NF</th>
-                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-center">EMISSÃO</th>
-                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-right">VALOR</th>
-                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-center">BLOQ 1F</th>
-                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-center">BLOQ 2F</th>
-                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-center">BLOQ CUSTO</th>
-                      <th className="px-2 py-2 text-xs font-semibold text-red-800 text-left">AUTORIZADOR</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-white text-left">LOJA</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-white text-left">FORNECEDOR</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-white text-left">CNPJ</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-white text-center">NF</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-white text-center">EMISSÃO</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-white text-right">VALOR</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-white text-center">BLOQ 1F</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-white text-center">BLOQ 2F</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-white text-center">BLOQ CUSTO</th>
+                      <th className="px-2 py-2 text-xs font-semibold text-white text-left">AUTORIZADOR</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -1074,16 +1074,16 @@ export default function PrevencaoPedidos() {
                                   ) : (
                                     <div className="overflow-x-auto">
                                       <table className="w-full text-xs border">
-                                        <thead className="bg-red-100">
+                                        <thead className="bg-gray-600 text-white">
                                           <tr>
-                                            <th className="px-2 py-1 text-left border-b">Item</th>
-                                            <th className="px-2 py-1 text-left border-b">Código</th>
-                                            <th className="px-2 py-1 text-left border-b">Descrição</th>
-                                            <th className="px-2 py-1 text-center border-b">Curva</th>
-                                            <th className="px-2 py-1 text-center border-b">Qtd Entrada</th>
-                                            <th className="px-2 py-1 text-center border-b">Unidade</th>
-                                            <th className="px-2 py-1 text-right border-b">Custo Unit.</th>
-                                            <th className="px-2 py-1 text-right border-b">Total</th>
+                                            <th className="px-2 py-1 text-left border-b border-gray-500">Item</th>
+                                            <th className="px-2 py-1 text-left border-b border-gray-500">Código</th>
+                                            <th className="px-2 py-1 text-left border-b border-gray-500">Descrição</th>
+                                            <th className="px-2 py-1 text-center border-b border-gray-500">Curva</th>
+                                            <th className="px-2 py-1 text-center border-b border-gray-500">Qtd Entrada</th>
+                                            <th className="px-2 py-1 text-center border-b border-gray-500">Unidade</th>
+                                            <th className="px-2 py-1 text-right border-b border-gray-500">Custo Unit.</th>
+                                            <th className="px-2 py-1 text-right border-b border-gray-500">Total</th>
                                           </tr>
                                         </thead>
                                         <tbody>
@@ -1123,7 +1123,7 @@ export default function PrevencaoPedidos() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-amber-50 border-b border-amber-200">
+                  <thead className="bg-gray-600">
                     <tr>
                       {nfColumns.map((col) => (
                         <th
@@ -1132,9 +1132,9 @@ export default function PrevencaoPedidos() {
                           onDragStart={(e) => handleDragStart(e, col.key, 'nf')}
                           onDragOver={handleDragOver}
                           onDrop={(e) => handleDrop(e, col.key, 'nf')}
-                          className={`px-2 py-2 text-xs font-semibold text-amber-800 whitespace-nowrap ${
+                          className={`px-2 py-2 text-xs font-semibold text-white whitespace-nowrap ${
                             col.key !== 'expand' ? 'cursor-grab active:cursor-grabbing' : ''
-                          } ${col.sortable ? 'cursor-pointer hover:bg-amber-100' : ''} ${
+                          } ${col.sortable ? 'cursor-pointer hover:bg-gray-500' : ''} ${
                             col.key === 'VAL_TOTAL_NF' ? 'text-right' : col.key === 'NUM_CELULAR' || col.key === 'DTA_EMISSAO' || col.key === 'DTA_ENTRADA' ? 'text-center' : 'text-left'
                           } ${draggedColumn?.key === col.key ? 'opacity-50' : ''}`}
                           onClick={() => col.sortable && handleNfSort(col.key)}
@@ -1311,7 +1311,7 @@ export default function PrevencaoPedidos() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-orange-50 border-b border-orange-200">
+                <thead className="bg-gray-600">
                   <tr>
                     {pedidoColumns.map((col) => (
                       <th
@@ -1320,9 +1320,9 @@ export default function PrevencaoPedidos() {
                         onDragStart={(e) => handleDragStart(e, col.key, 'pedido')}
                         onDragOver={handleDragOver}
                         onDrop={(e) => handleDrop(e, col.key, 'pedido')}
-                        className={`px-2 py-2 text-xs font-semibold text-orange-800 whitespace-nowrap ${
+                        className={`px-2 py-2 text-xs font-semibold text-white whitespace-nowrap ${
                           col.key !== 'expand' ? 'cursor-grab active:cursor-grabbing' : ''
-                        } ${col.sortable ? 'cursor-pointer hover:bg-orange-100' : ''} ${
+                        } ${col.sortable ? 'cursor-pointer hover:bg-gray-500' : ''} ${
                           col.key === 'VAL_PEDIDO' ? 'text-right' :
                           col.key === 'NUM_CELULAR' || col.key === 'DTA_EMISSAO' || col.key === 'DTA_ENTREGA' || col.key === 'ATRASO' || col.key === 'DTA_PEDIDO_CANCELADO' ? 'text-center' : 'text-left'
                         } ${draggedColumn?.key === col.key ? 'opacity-50' : ''}`}

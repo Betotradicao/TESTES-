@@ -48,7 +48,7 @@ export default function Dashboard() {
             </div>
             <h2 className="text-4xl font-bold mb-4"><span className="text-orange-500">RADAR</span> <span className="text-gray-600 italic">360</span></h2>
             <p className="text-xl text-gray-600 mb-8">
-              Bem-vindo ao sistema de prevenção e inteligência contra PERDAS
+              Bem-vindo ao sistema de Gestão Inteligente RADAR 360
             </p>
           </div>
         </main>

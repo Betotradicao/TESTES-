@@ -7,8 +7,10 @@ import { OracleService } from './oracle.service';
 import { MappingService } from './mapping.service';
 
 interface FinanceiroFilters {
-  dataInicio?: string;
-  dataFim?: string;
+  vencInicio?: string;
+  vencFim?: string;
+  entradaInicio?: string;
+  entradaFim?: string;
   tipoConta?: string;    // '0' = pagar (saída), '1' = receber (entrada), '' = todos
   quitado?: string;      // 'S', 'N', '' = todos
   tipoParceiro?: string; // '0','1','3','4','5', '' = todos
@@ -27,13 +29,21 @@ export class FinanceiroService {
   private static buildFilters(filters: FinanceiroFilters, params: any): string {
     let where = ' WHERE 1=1';
 
-    if (filters.dataInicio) {
-      where += ` AND f.DTA_ENTRADA >= TO_DATE(:dataInicio, 'YYYY-MM-DD')`;
-      params.dataInicio = filters.dataInicio;
+    if (filters.vencInicio) {
+      where += ` AND f.DTA_VENCIMENTO >= TO_DATE(:vencInicio, 'YYYY-MM-DD')`;
+      params.vencInicio = filters.vencInicio;
     }
-    if (filters.dataFim) {
-      where += ` AND f.DTA_ENTRADA <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 0.99999`;
-      params.dataFim = filters.dataFim;
+    if (filters.vencFim) {
+      where += ` AND f.DTA_VENCIMENTO <= TO_DATE(:vencFim, 'YYYY-MM-DD') + 0.99999`;
+      params.vencFim = filters.vencFim;
+    }
+    if (filters.entradaInicio) {
+      where += ` AND f.DTA_ENTRADA >= TO_DATE(:entradaInicio, 'YYYY-MM-DD')`;
+      params.entradaInicio = filters.entradaInicio;
+    }
+    if (filters.entradaFim) {
+      where += ` AND f.DTA_ENTRADA <= TO_DATE(:entradaFim, 'YYYY-MM-DD') + 0.99999`;
+      params.entradaFim = filters.entradaFim;
     }
     if (filters.tipoConta !== undefined && filters.tipoConta !== '') {
       where += ` AND f.TIPO_CONTA = :tipoConta`;
@@ -78,6 +88,8 @@ export class FinanceiroService {
     const schema = await MappingService.getSchema();
     const params: any = {};
     const where = this.buildFilters(filters, params);
+    console.log('[FINANCEIRO-SVC] WHERE clause:', where);
+    console.log('[FINANCEIRO-SVC] SQL params:', JSON.stringify(params));
 
     const sql = `
       SELECT * FROM (

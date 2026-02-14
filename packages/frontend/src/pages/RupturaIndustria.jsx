@@ -712,9 +712,9 @@ export default function RupturaIndustria() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
+                <thead className="bg-gray-600 border-b">
                   {/* Header com agrupamento de colunas */}
-                  <tr className="border-b border-gray-200">
+                  <tr className="border-b border-gray-500">
                     <th colSpan="4" className="px-2 py-1"></th>
                     <th colSpan="5" className="px-2 py-1 text-center bg-teal-50 border-l border-r border-teal-200 cursor-pointer hover:bg-teal-100" onClick={() => setSelectedPeriodo('periodo')}>
                       <div className="text-[10px] font-bold text-teal-700">PERIODO SELECIONADO</div>
@@ -734,17 +734,17 @@ export default function RupturaIndustria() {
                     </th>
                   </tr>
                   <tr>
-                    <th className="px-2 py-2 text-left text-xs font-semibold text-gray-600 w-8"></th>
-                    <th className="px-2 py-2 text-left text-xs font-semibold text-gray-600 w-10">
+                    <th className="px-2 py-2 text-left text-xs font-semibold text-white w-8"></th>
+                    <th className="px-2 py-2 text-left text-xs font-semibold text-white w-10">
                       #
                     </th>
                     <th
-                      className="px-2 py-2 text-left text-xs font-semibold text-gray-600 cursor-pointer hover:bg-gray-100"
+                      className="px-2 py-2 text-left text-xs font-semibold text-white cursor-pointer hover:bg-gray-500"
                       onClick={() => handleSort('DES_FORNECEDOR')}
                     >
                       FORNECEDOR<SortIcon columnKey="DES_FORNECEDOR" />
                     </th>
-                    <th className="px-2 py-2 text-left text-xs font-semibold text-gray-600">
+                    <th className="px-2 py-2 text-left text-xs font-semibold text-white">
                       CNPJ
                     </th>
                     {/* Periodo Selecionado */}
@@ -1417,113 +1417,113 @@ export default function RupturaIndustria() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
+                <thead className="bg-gray-600 border-b">
                   <tr>
-                    <th className="px-2 py-2 text-center font-semibold text-gray-700 w-10"></th>
-                    <th className="px-3 py-2 text-left font-semibold text-gray-700 w-16">#</th>
+                    <th className="px-2 py-2 text-center font-semibold text-white w-10"></th>
+                    <th className="px-3 py-2 text-left font-semibold text-white w-16">#</th>
                     <th
-                      className="px-3 py-2 text-left font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-left font-semibold text-white cursor-pointer hover:bg-gray-500"
                       onClick={() => handleRankingSort('COD_PRODUTO')}
                     >
                       COD<RankingSortIcon columnKey="COD_PRODUTO" />
                     </th>
                     <th
-                      className="px-3 py-2 text-left font-semibold text-gray-700 min-w-[250px] cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-left font-semibold text-white min-w-[250px] cursor-pointer hover:bg-gray-500"
                       onClick={() => handleRankingSort('DES_PRODUTO')}
                     >
                       PRODUTO<RankingSortIcon columnKey="DES_PRODUTO" />
                     </th>
                     <th
-                      className="px-2 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      className="px-2 py-2 text-center font-semibold text-white cursor-pointer hover:bg-gray-500"
                       onClick={() => handleRankingSort('FORA_LINHA')}
                       title="Status do Mix - Verde: Ativo | Vermelho: Fora do Mix - Clique para ordenar"
                     >
                       MIX<RankingSortIcon columnKey="FORA_LINHA" />
                     </th>
                     <th
-                      className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-center font-semibold text-white cursor-pointer hover:bg-gray-500"
                       onClick={() => handleRankingSort('QTD_FORNECEDORES')}
                       title="Quantidade de Fornecedores"
                     >
                       FORN.<RankingSortIcon columnKey="QTD_FORNECEDORES" />
                     </th>
                     <th
-                      className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-center font-semibold text-white cursor-pointer hover:bg-gray-500"
                       onClick={() => handleRankingSort('CURVA')}
                       title="Curva ABC do produto"
                     >
                       CURVA<RankingSortIcon columnKey="CURVA" />
                     </th>
                     <th
-                      className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-center font-semibold text-white cursor-pointer hover:bg-gray-500"
                       onClick={() => handleRankingSort('TOTAL_PEDIDOS')}
                     >
                       PED<RankingSortIcon columnKey="TOTAL_PEDIDOS" />
                     </th>
                     <th
-                      className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-center font-semibold text-white cursor-pointer hover:bg-gray-500"
                       onClick={() => handleRankingSort('CORTE_TOTAL')}
                       title="Corte Total - Nenhuma unidade entregue"
                     >
                       CORT.T<RankingSortIcon columnKey="CORTE_TOTAL" />
                     </th>
                     <th
-                      className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-center font-semibold text-white cursor-pointer hover:bg-gray-500"
                       onClick={() => handleRankingSort('CORTE_PARCIAL')}
                       title="Corte Parcial - Parte foi entregue"
                     >
                       CORT.P<RankingSortIcon columnKey="CORTE_PARCIAL" />
                     </th>
                     <th
-                      className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-center font-semibold text-white cursor-pointer hover:bg-gray-500"
                       onClick={() => handleRankingSort('TOTAL_QTD_PEDIDA')}
                       title="Quantidade Total Pedida"
                     >
                       QTD PED.<RankingSortIcon columnKey="TOTAL_QTD_PEDIDA" />
                     </th>
                     <th
-                      className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-center font-semibold text-white cursor-pointer hover:bg-gray-500"
                       onClick={() => handleRankingSort('TOTAL_QTD_ENTREGUE')}
                       title="Quantidade Total Entregue"
                     >
                       QTD ENT.<RankingSortIcon columnKey="TOTAL_QTD_ENTREGUE" />
                     </th>
                     <th
-                      className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-center font-semibold text-white cursor-pointer hover:bg-gray-500"
                       onClick={() => handleRankingSort('TOTAL_QTD_CORTADA')}
                       title="Quantidade Total Cortada"
                     >
                       QTD CORT.<RankingSortIcon columnKey="TOTAL_QTD_CORTADA" />
                     </th>
                     <th
-                      className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-center font-semibold text-white cursor-pointer hover:bg-gray-500"
                       onClick={() => handleRankingSort('QTD_EXCESSO')}
                       title="Quantidade Excesso = QTD Entregue - QTD Pedida (quando entrega mais)"
                     >
                       QTD EXC.<RankingSortIcon columnKey="QTD_EXCESSO" />
                     </th>
                     <th
-                      className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-center font-semibold text-white cursor-pointer hover:bg-gray-500"
                       onClick={() => handleRankingSort('PERCENTUAL_RUPTURA')}
                       title="% Ruptura = QTD Cortada / QTD Pedida × 100"
                     >
                       % RUPT.<RankingSortIcon columnKey="PERCENTUAL_RUPTURA" />
                     </th>
                     <th
-                      className="px-3 py-2 text-center font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-center font-semibold text-white cursor-pointer hover:bg-gray-500"
                       onClick={() => handleRankingSort('PERCENTUAL_EXCESSO')}
                       title="% Excesso = (QTD Entregue - QTD Pedida) / QTD Pedida × 100 (quando entrega mais que o pedido)"
                     >
                       % EXC.<RankingSortIcon columnKey="PERCENTUAL_EXCESSO" />
                     </th>
                     <th
-                      className="px-3 py-2 text-right font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-right font-semibold text-white cursor-pointer hover:bg-gray-500"
                       onClick={() => handleRankingSort('TOTAL_VALOR_CORTADO')}
                     >
                       R$ CORT.<RankingSortIcon columnKey="TOTAL_VALOR_CORTADO" />
                     </th>
                     <th
-                      className="px-3 py-2 text-right font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-right font-semibold text-white cursor-pointer hover:bg-gray-500"
                       onClick={() => handleRankingSort('TOTAL_VALOR_EXCESSO')}
                       title="Valor do Excesso (quando entrega mais que o pedido)"
                     >

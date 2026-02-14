@@ -2538,7 +2538,7 @@ export default function EstoqueSaude() {
             <div className="bg-white rounded-lg shadow overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-orange-50">
+                  <thead className="bg-gray-600">
                     <tr>
                       {visibleColumns.map(col => (
                         <th
@@ -2549,8 +2549,8 @@ export default function EstoqueSaude() {
                           onDragOver={(e) => handleHeaderDragOver(e, col.id)}
                           onDragLeave={handleHeaderDragLeave}
                           onDrop={(e) => handleHeaderDrop(e, col.id)}
-                          className={`px-4 py-3 text-left text-xs font-medium text-orange-700 uppercase cursor-move hover:bg-orange-100 select-none transition-all ${
-                            dragOverColumn === col.id ? 'bg-orange-200 border-l-2 border-orange-500' : ''
+                          className={`px-4 py-3 text-left text-xs font-medium text-white uppercase cursor-move hover:bg-gray-500 select-none transition-all ${
+                            dragOverColumn === col.id ? 'bg-gray-500 border-l-2 border-orange-400' : ''
                           }`}
                           onClick={() => handleSort(col.id)}
                         >
@@ -2653,7 +2653,7 @@ export default function EstoqueSaude() {
             <div className="bg-white rounded-lg shadow overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className={`bg-gradient-to-r ${viewMode === 'pontuacaoMargem' ? 'from-blue-600 to-indigo-500' : 'from-orange-500 to-red-500'} text-white`}>
+                  <thead className="bg-gray-600 text-white">
                     <tr>
                       {/* Coluna de seleção para pedido */}
                       <th className="px-2 py-3 text-center w-12">
@@ -2885,17 +2885,17 @@ export default function EstoqueSaude() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-orange-50">
+                    <thead className="bg-gray-600">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-orange-800 uppercase">Código</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-orange-800 uppercase">Cód. Barras (EAN)</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-orange-800 uppercase min-w-[200px]">Descrição</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-orange-800 uppercase">Seção</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-orange-800 uppercase">Fornecedor</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-orange-800 uppercase">Tipo Emb.</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-orange-800 uppercase">Qtd Emb.</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-orange-800 uppercase w-24">Qtd. Pedido</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-orange-800 uppercase w-16">Remover</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">Código</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">Cód. Barras (EAN)</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase min-w-[200px]">Descrição</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">Seção</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">Fornecedor</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase">Tipo Emb.</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase">Qtd Emb.</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase w-24">Qtd. Pedido</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase w-16">Remover</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -3021,13 +3021,13 @@ export default function EstoqueSaude() {
                       {expandedPedido === pedido.id && (
                         <div className="bg-gray-50 border-t border-gray-200">
                           <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-orange-100">
+                            <thead className="bg-gray-600">
                               <tr>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-orange-800">Código</th>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-orange-800">Descrição</th>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-orange-800">Seção</th>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-orange-800">Fornecedor</th>
-                                <th className="px-4 py-2 text-center text-xs font-medium text-orange-800">Qtd</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-white">Código</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-white">Descrição</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-white">Seção</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-white">Fornecedor</th>
+                                <th className="px-4 py-2 text-center text-xs font-medium text-white">Qtd</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 bg-white">

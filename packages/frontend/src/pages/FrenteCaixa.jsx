@@ -1542,7 +1542,7 @@ export default function FrenteCaixa() {
             <div className="bg-white rounded-lg shadow overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-orange-100">
+                  <thead className="bg-gray-600">
                     <tr>
                       {/* Coluna de expansão */}
                       <th className="w-10 px-2 py-3"></th>
@@ -1556,10 +1556,10 @@ export default function FrenteCaixa() {
                           onDragLeave={handleDragLeave}
                           onDrop={(e) => handleDrop(e, column.id)}
                           onClick={() => handleSort(column.id)}
-                          className={`px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none transition-colors
+                          className={`px-3 py-3 text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none transition-colors
                             ${column.align === 'right' ? 'text-right' : 'text-left'}
-                            ${dragOverColumn === column.id ? 'bg-orange-100' : 'hover:bg-gray-100'}
-                            ${column.sortable ? 'hover:text-orange-600' : ''}
+                            ${dragOverColumn === column.id ? 'bg-gray-500' : 'hover:bg-gray-500'}
+                            ${column.sortable ? 'hover:text-orange-300' : ''}
                           `}
                         >
                           <div className="flex items-center gap-1 justify-between">

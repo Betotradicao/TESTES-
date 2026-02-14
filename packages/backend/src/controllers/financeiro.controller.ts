@@ -11,8 +11,10 @@ export class FinanceiroController {
   static async getEntradasSaidas(req: Request, res: Response) {
     try {
       const filters = {
-        dataInicio: req.query.dataInicio as string,
-        dataFim: req.query.dataFim as string,
+        vencInicio: req.query.vencInicio as string,
+        vencFim: req.query.vencFim as string,
+        entradaInicio: req.query.entradaInicio as string,
+        entradaFim: req.query.entradaFim as string,
         tipoConta: req.query.tipoConta as string,
         quitado: req.query.quitado as string,
         tipoParceiro: req.query.tipoParceiro as string,
@@ -23,7 +25,11 @@ export class FinanceiroController {
         codLoja: req.query.codLoja as string,
       };
 
+      console.log('[FINANCEIRO] Query params recebidos:', req.query);
+      console.log('[FINANCEIRO] Filtros montados:', JSON.stringify(filters));
+
       const result = await FinanceiroService.getEntradasSaidas(filters);
+      console.log('[FINANCEIRO] Resultado: count=', result.count);
       return res.json(result);
     } catch (error: any) {
       console.error('Erro ao buscar entradas/saídas:', error);
@@ -34,8 +40,10 @@ export class FinanceiroController {
   static async getResumo(req: Request, res: Response) {
     try {
       const filters = {
-        dataInicio: req.query.dataInicio as string,
-        dataFim: req.query.dataFim as string,
+        vencInicio: req.query.vencInicio as string,
+        vencFim: req.query.vencFim as string,
+        entradaInicio: req.query.entradaInicio as string,
+        entradaFim: req.query.entradaFim as string,
         tipoConta: req.query.tipoConta as string,
         quitado: req.query.quitado as string,
         tipoParceiro: req.query.tipoParceiro as string,
