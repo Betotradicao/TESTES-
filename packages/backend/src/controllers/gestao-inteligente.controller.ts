@@ -246,6 +246,67 @@ export class GestaoInteligenteController {
     }
   }
 
+  /** GET /api/gestao-inteligente/grupos-analiticos */
+  static async getGruposAnaliticos(req: AuthRequest, res: Response) {
+    try {
+      const { dataInicio, dataFim, codSecao, codLoja } = req.query;
+      if (!dataInicio || !dataFim || !codSecao) {
+        return res.status(400).json({ error: 'Parâmetros dataInicio, dataFim e codSecao são obrigatórios' });
+      }
+      const filters = {
+        dataInicio: String(dataInicio), dataFim: String(dataFim),
+        codSecao: parseInt(String(codSecao)),
+        codLoja: codLoja ? parseInt(String(codLoja)) : undefined
+      };
+      const resultado = await GestaoInteligenteService.getGruposAnaliticos(filters);
+      res.json(resultado);
+    } catch (error: any) {
+      console.error('Erro ao buscar grupos analíticos:', error);
+      res.status(500).json({ error: error.message || 'Erro interno do servidor' });
+    }
+  }
+
+  /** GET /api/gestao-inteligente/subgrupos-analiticos */
+  static async getSubgruposAnaliticos(req: AuthRequest, res: Response) {
+    try {
+      const { dataInicio, dataFim, codSecao, codGrupo, codLoja } = req.query;
+      if (!dataInicio || !dataFim || !codSecao || !codGrupo) {
+        return res.status(400).json({ error: 'Parâmetros dataInicio, dataFim, codSecao e codGrupo são obrigatórios' });
+      }
+      const filters = {
+        dataInicio: String(dataInicio), dataFim: String(dataFim),
+        codSecao: parseInt(String(codSecao)), codGrupo: parseInt(String(codGrupo)),
+        codLoja: codLoja ? parseInt(String(codLoja)) : undefined
+      };
+      const resultado = await GestaoInteligenteService.getSubgruposAnaliticos(filters);
+      res.json(resultado);
+    } catch (error: any) {
+      console.error('Erro ao buscar subgrupos analíticos:', error);
+      res.status(500).json({ error: error.message || 'Erro interno do servidor' });
+    }
+  }
+
+  /** GET /api/gestao-inteligente/itens-analiticos */
+  static async getItensAnaliticos(req: AuthRequest, res: Response) {
+    try {
+      const { dataInicio, dataFim, codSecao, codGrupo, codSubgrupo, codLoja } = req.query;
+      if (!dataInicio || !dataFim || !codSecao || !codGrupo || !codSubgrupo) {
+        return res.status(400).json({ error: 'Parâmetros dataInicio, dataFim, codSecao, codGrupo e codSubgrupo são obrigatórios' });
+      }
+      const filters = {
+        dataInicio: String(dataInicio), dataFim: String(dataFim),
+        codSecao: parseInt(String(codSecao)), codGrupo: parseInt(String(codGrupo)),
+        codSubgrupo: parseInt(String(codSubgrupo)),
+        codLoja: codLoja ? parseInt(String(codLoja)) : undefined
+      };
+      const resultado = await GestaoInteligenteService.getItensAnaliticos(filters);
+      res.json(resultado);
+    } catch (error: any) {
+      console.error('Erro ao buscar itens analíticos:', error);
+      res.status(500).json({ error: error.message || 'Erro interno do servidor' });
+    }
+  }
+
   static async getVendasPorSetorAnual(req: AuthRequest, res: Response) {
     try {
       const { ano, codLoja } = req.query;

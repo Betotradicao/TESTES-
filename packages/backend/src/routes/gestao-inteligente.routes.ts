@@ -36,6 +36,11 @@ router.get('/itens-por-subgrupo', GestaoInteligenteController.getItensPorSubgrup
 // Vendas Analíticas por Setor (com comparativos)
 router.get('/vendas-analiticas-setor', GestaoInteligenteController.getVendasAnaliticasPorSetor);
 
+// Analíticos em cascata (grupos, subgrupos, itens com comparativos)
+router.get('/grupos-analiticos', GestaoInteligenteController.getGruposAnaliticos);
+router.get('/subgrupos-analiticos', GestaoInteligenteController.getSubgruposAnaliticos);
+router.get('/itens-analiticos', GestaoInteligenteController.getItensAnaliticos);
+
 // Vendas por Ano (mensal)
 router.get('/vendas-por-ano', GestaoInteligenteController.getVendasPorAno);
 

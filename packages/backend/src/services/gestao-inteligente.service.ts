@@ -1098,6 +1098,209 @@ export class GestaoInteligenteService {
     return resultado;
   }
 
+  // ============================================================
+  // ANALÍTICOS EM CASCATA (Grupo, Subgrupo, Item)
+  // ============================================================
+
+  /**
+   * Método genérico para construir dados analíticos com 4 períodos comparativos.
+   * Reutilizado por grupo, subgrupo e item.
+   */
+  private static async buildAnaliticos(
+    filters: IndicadoresFilters,
+    queryFn: (dataInicio: string, dataFim: string) => Promise<any[]>,
+    codeField: string,
+    nameField: string,
+    outCodeKey: string,
+    outNameKey: string
+  ): Promise<any[]> {
+    const dataInicio = this.formatDateToOracle(filters.dataInicio);
+    const dataFim = this.formatDateToOracle(filters.dataFim);
+    const mesPassado = this.calcularMesPassado(filters.dataInicio, filters.dataFim);
+    const anoPassado = this.calcularAnoPassado(filters.dataInicio, filters.dataFim);
+
+    const [anoIni] = filters.dataInicio.split('-').map(Number);
+    const anoAnt = anoIni - 1;
+    const mlInicio = `01/01/${anoAnt}`;
+    const mlFim = `31/12/${anoAnt}`;
+
+    const d1 = new Date(filters.dataInicio);
+    const d2 = new Date(filters.dataFim);
+    const diasPeriodoAtual = Math.round((d2.getTime() - d1.getTime()) / 86400000) + 1;
+    const diasAnoAnt = ((anoAnt % 4 === 0 && anoAnt % 100 !== 0) || anoAnt % 400 === 0) ? 366 : 365;
+
+    const [atual, mesPas] = await Promise.all([
+      queryFn(dataInicio, dataFim),
+      queryFn(mesPassado.inicio, mesPassado.fim)
+    ]);
+    const [anoPas, anoInteiro] = await Promise.all([
+      queryFn(anoPassado.inicio, anoPassado.fim),
+      queryFn(mlInicio, mlFim)
+    ]);
+
+    const criarMapa = (dados: any[]) => {
+      const mapa: Record<number, { venda: number; custo: number; impostos: number }> = {};
+      dados.forEach((r: any) => {
+        mapa[r[codeField]] = { venda: r.VENDA || 0, custo: r.CUSTO || 0, impostos: r.IMPOSTOS || 0 };
+      });
+      return mapa;
+    };
+
+    const mapMesPas = criarMapa(mesPas);
+    const mapAnoPas = criarMapa(anoPas);
+    const mapAnoInteiro = criarMapa(anoInteiro);
+
+    const calcPeriodo = (venda: number, custo: number, impostos: number) => {
+      const lucro = venda - custo;
+      const markdown = venda > 0 ? ((venda - custo) / venda) * 100 : 0;
+      const vendasLiq = venda - impostos;
+      const margemLimpa = vendasLiq > 0 ? ((vendasLiq - custo) / vendasLiq) * 100 : 0;
+      return {
+        venda: parseFloat(venda.toFixed(2)),
+        lucro: parseFloat(lucro.toFixed(2)),
+        markdown: parseFloat(markdown.toFixed(2)),
+        margemLimpa: parseFloat(margemLimpa.toFixed(2))
+      };
+    };
+
+    return atual.map((row: any) => {
+      const cod = row[codeField];
+      const atualData = calcPeriodo(row.VENDA || 0, row.CUSTO || 0, row.IMPOSTOS || 0);
+
+      const mp = mapMesPas[cod] || { venda: 0, custo: 0, impostos: 0 };
+      const mesPasData = calcPeriodo(mp.venda, mp.custo, mp.impostos);
+
+      const ap = mapAnoPas[cod] || { venda: 0, custo: 0, impostos: 0 };
+      const anoPasData = calcPeriodo(ap.venda, ap.custo, ap.impostos);
+
+      const ai = mapAnoInteiro[cod] || { venda: 0, custo: 0, impostos: 0 };
+      const fator = diasAnoAnt > 0 ? diasPeriodoAtual / diasAnoAnt : 0;
+      const mlData = calcPeriodo(ai.venda * fator, ai.custo * fator, ai.impostos * fator);
+
+      return {
+        [outCodeKey]: cod,
+        [outNameKey]: row[nameField],
+        vendaAtual: atualData.venda, vendaMesPassado: mesPasData.venda,
+        vendaAnoPassado: anoPasData.venda, mediaLinear: mlData.venda,
+        lucroAtual: atualData.lucro, lucroMesPassado: mesPasData.lucro,
+        lucroAnoPassado: anoPasData.lucro, lucroMediaLinear: mlData.lucro,
+        markdownAtual: atualData.markdown, markdownMesPassado: mesPasData.markdown,
+        markdownAnoPassado: anoPasData.markdown, markdownMediaLinear: mlData.markdown,
+        margemLimpaAtual: atualData.margemLimpa, margemLimpaMesPassado: mesPasData.margemLimpa,
+        margemLimpaAnoPassado: anoPasData.margemLimpa, margemLimpaMediaLinear: mlData.margemLimpa
+      };
+    });
+  }
+
+  /** Helper: vendas por grupo num período (para analíticos) */
+  private static async buscarVendasPorGrupoPeriodo(
+    dataInicio: string, dataFim: string, codLoja?: number, codSecao?: number
+  ): Promise<any[]> {
+    const schema = await MappingService.getSchema();
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO')}`;
+
+    let sql = `
+      SELECT g.COD_GRUPO, g.DES_GRUPO as GRUPO,
+        NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
+        NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
+        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS
+      FROM ${tabProdutoPdv} pv
+      JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.COD_PRODUTO
+      JOIN ${tabGrupo} g ON g.COD_GRUPO = p.COD_GRUPO AND g.COD_SECAO = p.COD_SECAO
+      WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND p.COD_SECAO = :codSecao`;
+    const params: any = { dataInicio, dataFim, codSecao };
+    if (codLoja) { sql += ` AND pv.COD_LOJA = :codLoja`; params.codLoja = codLoja; }
+    sql += ` GROUP BY g.COD_GRUPO, g.DES_GRUPO ORDER BY VENDA DESC`;
+    return OracleService.query<any>(sql, params);
+  }
+
+  /** Helper: vendas por subgrupo num período (para analíticos) */
+  private static async buscarVendasPorSubgrupoPeriodo(
+    dataInicio: string, dataFim: string, codLoja?: number, codSecao?: number, codGrupo?: number
+  ): Promise<any[]> {
+    const schema = await MappingService.getSchema();
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO')}`;
+
+    let sql = `
+      SELECT p.COD_SUB_GRUPO, sg.DES_SUB_GRUPO as SUBGRUPO,
+        NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
+        NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
+        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS
+      FROM ${tabProdutoPdv} pv
+      JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.COD_PRODUTO
+      JOIN ${tabSubgrupo} sg ON sg.COD_SECAO = p.COD_SECAO AND sg.COD_GRUPO = p.COD_GRUPO AND sg.COD_SUB_GRUPO = p.COD_SUB_GRUPO
+      WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND p.COD_GRUPO = :codGrupo AND p.COD_SECAO = :codSecao`;
+    const params: any = { dataInicio, dataFim, codSecao, codGrupo };
+    if (codLoja) { sql += ` AND pv.COD_LOJA = :codLoja`; params.codLoja = codLoja; }
+    sql += ` GROUP BY p.COD_SUB_GRUPO, sg.DES_SUB_GRUPO ORDER BY VENDA DESC`;
+    return OracleService.query<any>(sql, params);
+  }
+
+  /** Helper: vendas por item num período (para analíticos) */
+  private static async buscarVendasPorItemPeriodo(
+    dataInicio: string, dataFim: string, codLoja?: number, codSecao?: number, codGrupo?: number, codSubgrupo?: number
+  ): Promise<any[]> {
+    const schema = await MappingService.getSchema();
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+
+    let sql = `
+      SELECT p.COD_PRODUTO, p.DES_PRODUTO as PRODUTO,
+        NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
+        NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
+        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS
+      FROM ${tabProdutoPdv} pv
+      JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.COD_PRODUTO
+        AND p.COD_SUB_GRUPO = :codSubgrupo AND p.COD_GRUPO = :codGrupo AND p.COD_SECAO = :codSecao
+      WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')`;
+    const params: any = { dataInicio, dataFim, codSecao, codGrupo, codSubgrupo };
+    if (codLoja) { sql += ` AND pv.COD_LOJA = :codLoja`; params.codLoja = codLoja; }
+    sql += ` GROUP BY p.COD_PRODUTO, p.DES_PRODUTO ORDER BY VENDA DESC`;
+    return OracleService.query<any>(sql, params);
+  }
+
+  /** Grupos analíticos com comparativos (cascata nível 2) */
+  static async getGruposAnaliticos(filters: IndicadoresFilters & { codSecao: number }): Promise<any[]> {
+    console.log(`📊 [ANALÍTICOS] Buscando grupos analíticos da seção ${filters.codSecao}...`);
+    const result = await this.buildAnaliticos(
+      filters,
+      (ini, fim) => this.buscarVendasPorGrupoPeriodo(ini, fim, filters.codLoja, filters.codSecao),
+      'COD_GRUPO', 'GRUPO', 'codGrupo', 'grupo'
+    );
+    console.log(`✅ [ANALÍTICOS] ${result.length} grupos com comparativos`);
+    return result;
+  }
+
+  /** Subgrupos analíticos com comparativos (cascata nível 3) */
+  static async getSubgruposAnaliticos(filters: IndicadoresFilters & { codSecao: number; codGrupo: number }): Promise<any[]> {
+    console.log(`📊 [ANALÍTICOS] Buscando subgrupos analíticos do grupo ${filters.codGrupo}...`);
+    const result = await this.buildAnaliticos(
+      filters,
+      (ini, fim) => this.buscarVendasPorSubgrupoPeriodo(ini, fim, filters.codLoja, filters.codSecao, filters.codGrupo),
+      'COD_SUB_GRUPO', 'SUBGRUPO', 'codSubgrupo', 'subgrupo'
+    );
+    console.log(`✅ [ANALÍTICOS] ${result.length} subgrupos com comparativos`);
+    return result;
+  }
+
+  /** Itens analíticos com comparativos (cascata nível 4) */
+  static async getItensAnaliticos(filters: IndicadoresFilters & { codSecao: number; codGrupo: number; codSubgrupo: number }): Promise<any[]> {
+    console.log(`📊 [ANALÍTICOS] Buscando itens analíticos do subgrupo ${filters.codSubgrupo}...`);
+    const result = await this.buildAnaliticos(
+      filters,
+      (ini, fim) => this.buscarVendasPorItemPeriodo(ini, fim, filters.codLoja, filters.codSecao, filters.codGrupo, filters.codSubgrupo),
+      'COD_PRODUTO', 'PRODUTO', 'codProduto', 'produto'
+    );
+    console.log(`✅ [ANALÍTICOS] ${result.length} itens com comparativos`);
+    return result;
+  }
+
   /**
    * Busca lojas disponíveis (Oracle) com apelidos (PostgreSQL)
    */

@@ -176,6 +176,11 @@ export default function GestaoInteligente() {
   const [vendasAnaliticas, setVendasAnaliticas] = useState([]);
   const [loadingVendasAnaliticas, setLoadingVendasAnaliticas] = useState(false);
 
+  // Estado para cascata analítica (Seção > Grupo > Subgrupo > Item)
+  const [expandedAnaliticaSecoes, setExpandedAnaliticaSecoes] = useState({});
+  const [expandedAnaliticaGrupos, setExpandedAnaliticaGrupos] = useState({});
+  const [expandedAnaliticaSubgrupos, setExpandedAnaliticaSubgrupos] = useState({});
+
   // Estado para vendas por setor anual
   const [vendasSetorAnual, setVendasSetorAnual] = useState([]);
   const [loadingVendasSetorAnual, setLoadingVendasSetorAnual] = useState(false);
@@ -796,6 +801,9 @@ export default function GestaoInteligente() {
     setVendasAno([]);
     setAnoAnteriorData(null);
     setVendasDiaSemana([]);
+    setExpandedAnaliticaSecoes({});
+    setExpandedAnaliticaGrupos({});
+    setExpandedAnaliticaSubgrupos({});
 
     try {
       const params = {
@@ -822,6 +830,62 @@ export default function GestaoInteligente() {
       setVendasAnaliticas([]);
     } else {
       fetchVendasAnaliticas();
+    }
+  };
+
+  // Cascata analítica: Expandir/Recolher seção → grupos
+  const toggleAnaliticaSecao = async (codSecao) => {
+    if (expandedAnaliticaSecoes[codSecao]) {
+      setExpandedAnaliticaSecoes(prev => { const n = { ...prev }; delete n[codSecao]; return n; });
+      return;
+    }
+    setExpandedAnaliticaSecoes(prev => ({ ...prev, [codSecao]: { data: [], loading: true } }));
+    try {
+      const params = { dataInicio: filters.dataInicio, dataFim: filters.dataFim, codSecao };
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
+      const response = await api.get('/gestao-inteligente/grupos-analiticos', { params });
+      setExpandedAnaliticaSecoes(prev => ({ ...prev, [codSecao]: { data: response.data, loading: false } }));
+    } catch (err) {
+      console.error('Erro ao buscar grupos analíticos:', err);
+      setExpandedAnaliticaSecoes(prev => ({ ...prev, [codSecao]: { data: [], loading: false } }));
+    }
+  };
+
+  // Cascata analítica: Expandir/Recolher grupo → subgrupos
+  const toggleAnaliticaGrupo = async (codGrupo, codSecao) => {
+    const key = `${codSecao}_${codGrupo}`;
+    if (expandedAnaliticaGrupos[key]) {
+      setExpandedAnaliticaGrupos(prev => { const n = { ...prev }; delete n[key]; return n; });
+      return;
+    }
+    setExpandedAnaliticaGrupos(prev => ({ ...prev, [key]: { data: [], loading: true } }));
+    try {
+      const params = { dataInicio: filters.dataInicio, dataFim: filters.dataFim, codSecao, codGrupo };
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
+      const response = await api.get('/gestao-inteligente/subgrupos-analiticos', { params });
+      setExpandedAnaliticaGrupos(prev => ({ ...prev, [key]: { data: response.data, loading: false } }));
+    } catch (err) {
+      console.error('Erro ao buscar subgrupos analíticos:', err);
+      setExpandedAnaliticaGrupos(prev => ({ ...prev, [key]: { data: [], loading: false } }));
+    }
+  };
+
+  // Cascata analítica: Expandir/Recolher subgrupo → itens
+  const toggleAnaliticaSubgrupo = async (codSubgrupo, codGrupo, codSecao) => {
+    const key = `${codSecao}_${codGrupo}_${codSubgrupo}`;
+    if (expandedAnaliticaSubgrupos[key]) {
+      setExpandedAnaliticaSubgrupos(prev => { const n = { ...prev }; delete n[key]; return n; });
+      return;
+    }
+    setExpandedAnaliticaSubgrupos(prev => ({ ...prev, [key]: { data: [], loading: true } }));
+    try {
+      const params = { dataInicio: filters.dataInicio, dataFim: filters.dataFim, codSecao, codGrupo, codSubgrupo };
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
+      const response = await api.get('/gestao-inteligente/itens-analiticos', { params });
+      setExpandedAnaliticaSubgrupos(prev => ({ ...prev, [key]: { data: response.data, loading: false } }));
+    } catch (err) {
+      console.error('Erro ao buscar itens analíticos:', err);
+      setExpandedAnaliticaSubgrupos(prev => ({ ...prev, [key]: { data: [], loading: false } }));
     }
   };
 
@@ -1822,7 +1886,7 @@ export default function GestaoInteligente() {
                       <table className="w-full">
                         <thead>
                           <tr className="bg-gray-200">
-                            <th rowSpan={2} className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase border-b border-r border-gray-300 min-w-[170px] sticky left-0 bg-gray-200 z-10">Setor</th>
+                            <th rowSpan={2} className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase border-b border-r border-gray-300 min-w-[200px] sticky left-0 bg-gray-200 z-10">Setor / Grupo / Subgrupo / Item</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-gray-700 uppercase border-b border-r border-gray-300 bg-orange-50">Vendas</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-cyan-700 uppercase border-b border-r border-gray-300 bg-cyan-50">Lucro</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-purple-700 uppercase border-b border-r border-gray-300 bg-purple-50">Markdown</th>
@@ -1852,31 +1916,95 @@ export default function GestaoInteligente() {
                           </tr>
                         </thead>
                         <tbody>
-                          {vendasAnaliticas.map((setor, index) => (
-                            <tr key={`analitica-${setor.codSecao || index}`} className={`hover:bg-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} border-b border-gray-100`}>
-                              <td className="px-4 py-2 text-sm font-semibold text-gray-800 sticky left-0 z-10" style={{ backgroundColor: index % 2 === 0 ? '#f9fafb' : '#fff' }}>{setor.setor}</td>
-                              {/* Vendas */}
-                              <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">{formatCurrency(setor.vendaAtual)}</td>
-                              <td className={`px-3 py-2 text-sm text-right font-semibold ${setor.vendaAtual >= setor.mediaLinear ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(setor.mediaLinear)}</td>
-                              <td className={`px-3 py-2 text-sm text-right font-semibold ${setor.vendaAtual >= setor.vendaAnoPassado ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(setor.vendaAnoPassado)}</td>
-                              <td className={`px-3 py-2 text-sm text-right font-semibold border-r border-gray-200 ${setor.vendaAtual >= setor.vendaMesPassado ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(setor.vendaMesPassado)}</td>
-                              {/* Lucro */}
-                              <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">{formatCurrency(setor.lucroAtual)}</td>
-                              <td className={`px-3 py-2 text-sm text-right font-semibold ${setor.lucroAtual >= setor.lucroMediaLinear ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(setor.lucroMediaLinear)}</td>
-                              <td className={`px-3 py-2 text-sm text-right font-semibold ${setor.lucroAtual >= setor.lucroAnoPassado ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(setor.lucroAnoPassado)}</td>
-                              <td className={`px-3 py-2 text-sm text-right font-semibold border-r border-gray-200 ${setor.lucroAtual >= setor.lucroMesPassado ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(setor.lucroMesPassado)}</td>
-                              {/* Markdown */}
-                              <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">{formatPercent(setor.markdownAtual)}</td>
-                              <td className={`px-3 py-2 text-sm text-right font-semibold ${setor.markdownAtual >= setor.markdownMediaLinear ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(setor.markdownMediaLinear)}</td>
-                              <td className={`px-3 py-2 text-sm text-right font-semibold ${setor.markdownAtual >= setor.markdownAnoPassado ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(setor.markdownAnoPassado)}</td>
-                              <td className={`px-3 py-2 text-sm text-right font-semibold border-r border-gray-200 ${setor.markdownAtual >= setor.markdownMesPassado ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(setor.markdownMesPassado)}</td>
-                              {/* Margem Limpa */}
-                              <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">{formatPercent(setor.margemLimpaAtual)}</td>
-                              <td className={`px-3 py-2 text-sm text-right font-semibold ${setor.margemLimpaAtual >= setor.margemLimpaMediaLinear ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(setor.margemLimpaMediaLinear)}</td>
-                              <td className={`px-3 py-2 text-sm text-right font-semibold ${setor.margemLimpaAtual >= setor.margemLimpaAnoPassado ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(setor.margemLimpaAnoPassado)}</td>
-                              <td className={`px-3 py-2 text-sm text-right font-semibold ${setor.margemLimpaAtual >= setor.margemLimpaMesPassado ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(setor.margemLimpaMesPassado)}</td>
-                            </tr>
-                          ))}
+                          {vendasAnaliticas.map((setor, index) => {
+                            const secExpanded = expandedAnaliticaSecoes[setor.codSecao];
+                            const renderAnaliticaCells = (d, sz = 'text-sm') => (<>
+                              <td className={`px-3 py-2 ${sz} text-right font-bold text-gray-800`}>{formatCurrency(d.vendaAtual)}</td>
+                              <td className={`px-3 py-2 ${sz} text-right font-semibold ${d.vendaAtual >= d.mediaLinear ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(d.mediaLinear)}</td>
+                              <td className={`px-3 py-2 ${sz} text-right font-semibold ${d.vendaAtual >= d.vendaAnoPassado ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(d.vendaAnoPassado)}</td>
+                              <td className={`px-3 py-2 ${sz} text-right font-semibold border-r border-gray-200 ${d.vendaAtual >= d.vendaMesPassado ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(d.vendaMesPassado)}</td>
+                              <td className={`px-3 py-2 ${sz} text-right font-bold text-gray-800`}>{formatCurrency(d.lucroAtual)}</td>
+                              <td className={`px-3 py-2 ${sz} text-right font-semibold ${d.lucroAtual >= d.lucroMediaLinear ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(d.lucroMediaLinear)}</td>
+                              <td className={`px-3 py-2 ${sz} text-right font-semibold ${d.lucroAtual >= d.lucroAnoPassado ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(d.lucroAnoPassado)}</td>
+                              <td className={`px-3 py-2 ${sz} text-right font-semibold border-r border-gray-200 ${d.lucroAtual >= d.lucroMesPassado ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(d.lucroMesPassado)}</td>
+                              <td className={`px-3 py-2 ${sz} text-right font-bold text-gray-800`}>{formatPercent(d.markdownAtual)}</td>
+                              <td className={`px-3 py-2 ${sz} text-right font-semibold ${d.markdownAtual >= d.markdownMediaLinear ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(d.markdownMediaLinear)}</td>
+                              <td className={`px-3 py-2 ${sz} text-right font-semibold ${d.markdownAtual >= d.markdownAnoPassado ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(d.markdownAnoPassado)}</td>
+                              <td className={`px-3 py-2 ${sz} text-right font-semibold border-r border-gray-200 ${d.markdownAtual >= d.markdownMesPassado ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(d.markdownMesPassado)}</td>
+                              <td className={`px-3 py-2 ${sz} text-right font-bold text-gray-800`}>{formatPercent(d.margemLimpaAtual)}</td>
+                              <td className={`px-3 py-2 ${sz} text-right font-semibold ${d.margemLimpaAtual >= d.margemLimpaMediaLinear ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(d.margemLimpaMediaLinear)}</td>
+                              <td className={`px-3 py-2 ${sz} text-right font-semibold ${d.margemLimpaAtual >= d.margemLimpaAnoPassado ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(d.margemLimpaAnoPassado)}</td>
+                              <td className={`px-3 py-2 ${sz} text-right font-semibold ${d.margemLimpaAtual >= d.margemLimpaMesPassado ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(d.margemLimpaMesPassado)}</td>
+                            </>);
+                            return (
+                            <Fragment key={`analitica-${setor.codSecao || index}`}>
+                              {/* Nível 1: Seção */}
+                              <tr className={`hover:bg-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} border-b border-gray-100`}>
+                                <td className="px-4 py-2 text-sm font-semibold text-gray-800 sticky left-0 z-10" style={{ backgroundColor: index % 2 === 0 ? '#f9fafb' : '#fff' }}>
+                                  <button onClick={() => toggleAnaliticaSecao(setor.codSecao)} className="flex items-center gap-2 font-semibold text-gray-800">
+                                    <span className={`w-5 h-5 flex items-center justify-center rounded text-xs font-bold transition-colors ${secExpanded ? 'bg-orange-500 text-white' : 'bg-gray-300 text-gray-700'}`}>
+                                      {secExpanded?.loading ? '...' : secExpanded ? '−' : '+'}
+                                    </span>
+                                    {setor.setor}
+                                  </button>
+                                </td>
+                                {renderAnaliticaCells(setor)}
+                              </tr>
+
+                              {/* Nível 2: Grupos */}
+                              {secExpanded?.data?.map((grupo, gIdx) => {
+                                const grupoKey = `${setor.codSecao}_${grupo.codGrupo}`;
+                                const grpExpanded = expandedAnaliticaGrupos[grupoKey];
+                                return (
+                                <Fragment key={`ag-${grupoKey}`}>
+                                  <tr className={`hover:bg-gray-100 ${gIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b border-gray-100`}>
+                                    <td className="px-4 py-2 text-sm text-gray-700 pl-10 sticky left-0 z-10 bg-white">
+                                      <button onClick={() => toggleAnaliticaGrupo(grupo.codGrupo, setor.codSecao)} className="flex items-center gap-2 font-medium text-gray-700">
+                                        <span className={`w-4 h-4 flex items-center justify-center rounded text-xs font-bold transition-colors ${grpExpanded ? 'bg-orange-500 text-white' : 'bg-gray-300 text-gray-700'}`}>
+                                          {grpExpanded?.loading ? '.' : grpExpanded ? '−' : '+'}
+                                        </span>
+                                        {grupo.grupo}
+                                      </button>
+                                    </td>
+                                    {renderAnaliticaCells(grupo)}
+                                  </tr>
+
+                                  {/* Nível 3: Subgrupos */}
+                                  {grpExpanded?.data?.map((sub, sgIdx) => {
+                                    const subKey = `${setor.codSecao}_${grupo.codGrupo}_${sub.codSubgrupo}`;
+                                    const subExpanded = expandedAnaliticaSubgrupos[subKey];
+                                    return (
+                                    <Fragment key={`asg-${subKey}`}>
+                                      <tr className={`hover:bg-gray-100 ${sgIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b border-gray-100`}>
+                                        <td className="px-4 py-2 text-sm text-gray-600 pl-16 sticky left-0 z-10 bg-white">
+                                          <button onClick={() => toggleAnaliticaSubgrupo(sub.codSubgrupo, grupo.codGrupo, setor.codSecao)} className="flex items-center gap-2 text-gray-600">
+                                            <span className={`w-4 h-4 flex items-center justify-center rounded text-xs font-bold transition-colors ${subExpanded ? 'bg-orange-500 text-white' : 'bg-gray-300 text-gray-700'}`}>
+                                              {subExpanded?.loading ? '.' : subExpanded ? '−' : '+'}
+                                            </span>
+                                            {sub.subgrupo}
+                                          </button>
+                                        </td>
+                                        {renderAnaliticaCells(sub)}
+                                      </tr>
+
+                                      {/* Nível 4: Itens */}
+                                      {subExpanded?.data?.map((item, iIdx) => (
+                                        <tr key={`ai-${item.codProduto || iIdx}`} className={`hover:bg-amber-100 ${iIdx % 2 === 0 ? 'bg-amber-50/50' : 'bg-amber-50'} border-b border-amber-100/50`}>
+                                          <td className="px-4 py-1.5 text-xs text-gray-500 pl-24 sticky left-0 z-10 bg-amber-50/50">
+                                            <span className="flex items-center gap-2">
+                                              <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                                              {item.produto}
+                                            </span>
+                                          </td>
+                                          {renderAnaliticaCells(item, 'text-xs')}
+                                        </tr>
+                                      ))}
+                                    </Fragment>);
+                                  })}
+                                </Fragment>);
+                              })}
+                            </Fragment>);
+                          })}
                         </tbody>
                         <tfoot className="bg-gray-200">
                           <tr>
