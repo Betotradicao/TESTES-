@@ -978,7 +978,11 @@ export class GestaoInteligenteService {
         s.DES_SECAO as SETOR,
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
-        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS
+        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
+        NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA,
+        NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
+        COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
+        COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS
       FROM ${tabProdutoPdv} pv
       JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.COD_PRODUTO
       JOIN ${tabSecao} s ON s.COD_SECAO = p.COD_SECAO
@@ -1029,11 +1033,16 @@ export class GestaoInteligenteService {
       this.buscarVendasPorSetorPeriodo(mlInicio, mlFim, filters.codLoja)
     ]);
 
-    // Criar mapas por COD_SECAO (venda, custo, impostos)
+    // Criar mapas por COD_SECAO com todos os campos
+    const defaultRow = { venda: 0, custo: 0, impostos: 0, vendasOferta: 0, qtd: 0, qtdCupons: 0, qtdSkus: 0 };
     const criarMapa = (dados: any[]) => {
-      const mapa: Record<number, { venda: number; custo: number; impostos: number }> = {};
+      const mapa: Record<number, typeof defaultRow> = {};
       dados.forEach((r: any) => {
-        mapa[r.COD_SECAO] = { venda: r.VENDA || 0, custo: r.CUSTO || 0, impostos: r.IMPOSTOS || 0 };
+        mapa[r.COD_SECAO] = {
+          venda: r.VENDA || 0, custo: r.CUSTO || 0, impostos: r.IMPOSTOS || 0,
+          vendasOferta: r.VENDAS_OFERTA || 0, qtd: r.QTD || 0,
+          qtdCupons: r.QTD_CUPONS || 0, qtdSkus: r.QTD_SKUS || 0
+        };
       });
       return mapa;
     };
@@ -1042,55 +1051,72 @@ export class GestaoInteligenteService {
     const mapAnoPas = criarMapa(anoPas);
     const mapAnoInteiro = criarMapa(anoInteiro);
 
-    // Função para calcular indicadores de um período
-    const calcPeriodo = (venda: number, custo: number, impostos: number) => {
+    // Função para calcular todos os indicadores de um período
+    const calcPeriodo = (d: typeof defaultRow) => {
+      const { venda, custo, impostos, vendasOferta, qtd, qtdCupons, qtdSkus } = d;
       const lucro = venda - custo;
       const markdown = venda > 0 ? ((venda - custo) / venda) * 100 : 0;
       const vendasLiq = venda - impostos;
       const margemLimpa = vendasLiq > 0 ? ((vendasLiq - custo) / vendasLiq) * 100 : 0;
+      const ticketMedio = qtdCupons > 0 ? venda / qtdCupons : 0;
+      const pctOferta = venda > 0 ? (vendasOferta / venda) * 100 : 0;
       return {
-        venda: parseFloat(venda.toFixed(2)),
-        lucro: parseFloat(lucro.toFixed(2)),
-        markdown: parseFloat(markdown.toFixed(2)),
-        margemLimpa: parseFloat(margemLimpa.toFixed(2))
+        venda: parseFloat(venda.toFixed(2)), lucro: parseFloat(lucro.toFixed(2)),
+        markdown: parseFloat(markdown.toFixed(2)), margemLimpa: parseFloat(margemLimpa.toFixed(2)),
+        custo: parseFloat(custo.toFixed(2)), impostos: parseFloat(impostos.toFixed(2)),
+        vendasOferta: parseFloat(vendasOferta.toFixed(2)),
+        pctOferta: parseFloat(pctOferta.toFixed(2)), ticketMedio: parseFloat(ticketMedio.toFixed(2)),
+        qtdCupons: Math.round(qtdCupons), qtdItens: Math.round(qtd), qtdSkus: Math.round(qtdSkus)
       };
     };
 
     // Montar resultado
     const resultado = atual.map((row: any) => {
       const cod = row.COD_SECAO;
-      const atualData = calcPeriodo(row.VENDA || 0, row.CUSTO || 0, row.IMPOSTOS || 0);
+      const rowData = { venda: row.VENDA || 0, custo: row.CUSTO || 0, impostos: row.IMPOSTOS || 0,
+        vendasOferta: row.VENDAS_OFERTA || 0, qtd: row.QTD || 0, qtdCupons: row.QTD_CUPONS || 0, qtdSkus: row.QTD_SKUS || 0 };
+      const atualData = calcPeriodo(rowData);
 
-      const mp = mapMesPas[cod] || { venda: 0, custo: 0, impostos: 0 };
-      const mesPasData = calcPeriodo(mp.venda, mp.custo, mp.impostos);
+      const mp = mapMesPas[cod] || defaultRow;
+      const mesPasData = calcPeriodo(mp);
 
-      const ap = mapAnoPas[cod] || { venda: 0, custo: 0, impostos: 0 };
-      const anoPasData = calcPeriodo(ap.venda, ap.custo, ap.impostos);
+      const ap = mapAnoPas[cod] || defaultRow;
+      const anoPasData = calcPeriodo(ap);
 
-      // Média linear: proporcionalizar venda, custo e impostos do ano inteiro
-      const ai = mapAnoInteiro[cod] || { venda: 0, custo: 0, impostos: 0 };
+      const ai = mapAnoInteiro[cod] || defaultRow;
       const fator = diasAnoAnt > 0 ? diasPeriodoAtual / diasAnoAnt : 0;
-      const mlData = calcPeriodo(ai.venda * fator, ai.custo * fator, ai.impostos * fator);
+      const mlData = calcPeriodo({
+        venda: ai.venda * fator, custo: ai.custo * fator, impostos: ai.impostos * fator,
+        vendasOferta: ai.vendasOferta * fator, qtd: ai.qtd * fator,
+        qtdCupons: ai.qtdCupons * fator, qtdSkus: ai.qtdSkus * fator
+      });
 
       return {
-        codSecao: cod,
-        setor: row.SETOR,
-        vendaAtual: atualData.venda,
-        vendaMesPassado: mesPasData.venda,
-        vendaAnoPassado: anoPasData.venda,
-        mediaLinear: mlData.venda,
-        lucroAtual: atualData.lucro,
-        lucroMesPassado: mesPasData.lucro,
-        lucroAnoPassado: anoPasData.lucro,
-        lucroMediaLinear: mlData.lucro,
-        markdownAtual: atualData.markdown,
-        markdownMesPassado: mesPasData.markdown,
-        markdownAnoPassado: anoPasData.markdown,
-        markdownMediaLinear: mlData.markdown,
-        margemLimpaAtual: atualData.margemLimpa,
-        margemLimpaMesPassado: mesPasData.margemLimpa,
-        margemLimpaAnoPassado: anoPasData.margemLimpa,
-        margemLimpaMediaLinear: mlData.margemLimpa
+        codSecao: cod, setor: row.SETOR,
+        vendaAtual: atualData.venda, vendaMesPassado: mesPasData.venda,
+        vendaAnoPassado: anoPasData.venda, mediaLinear: mlData.venda,
+        lucroAtual: atualData.lucro, lucroMesPassado: mesPasData.lucro,
+        lucroAnoPassado: anoPasData.lucro, lucroMediaLinear: mlData.lucro,
+        markdownAtual: atualData.markdown, markdownMesPassado: mesPasData.markdown,
+        markdownAnoPassado: anoPasData.markdown, markdownMediaLinear: mlData.markdown,
+        margemLimpaAtual: atualData.margemLimpa, margemLimpaMesPassado: mesPasData.margemLimpa,
+        margemLimpaAnoPassado: anoPasData.margemLimpa, margemLimpaMediaLinear: mlData.margemLimpa,
+        custoAtual: atualData.custo, custoMesPassado: mesPasData.custo,
+        custoAnoPassado: anoPasData.custo, custoMediaLinear: mlData.custo,
+        impostosAtual: atualData.impostos, impostosMesPassado: mesPasData.impostos,
+        impostosAnoPassado: anoPasData.impostos, impostosMediaLinear: mlData.impostos,
+        vendasOfertaAtual: atualData.vendasOferta, vendasOfertaMesPassado: mesPasData.vendasOferta,
+        vendasOfertaAnoPassado: anoPasData.vendasOferta, vendasOfertaMediaLinear: mlData.vendasOferta,
+        pctOfertaAtual: atualData.pctOferta, pctOfertaMesPassado: mesPasData.pctOferta,
+        pctOfertaAnoPassado: anoPasData.pctOferta, pctOfertaMediaLinear: mlData.pctOferta,
+        ticketMedioAtual: atualData.ticketMedio, ticketMedioMesPassado: mesPasData.ticketMedio,
+        ticketMedioAnoPassado: anoPasData.ticketMedio, ticketMedioMediaLinear: mlData.ticketMedio,
+        cuponsAtual: atualData.qtdCupons, cuponsMesPassado: mesPasData.qtdCupons,
+        cuponsAnoPassado: anoPasData.qtdCupons, cuponsMediaLinear: mlData.qtdCupons,
+        qtdItensAtual: atualData.qtdItens, qtdItensMesPassado: mesPasData.qtdItens,
+        qtdItensAnoPassado: anoPasData.qtdItens, qtdItensMediaLinear: mlData.qtdItens,
+        skusAtual: atualData.qtdSkus, skusMesPassado: mesPasData.qtdSkus,
+        skusAnoPassado: anoPasData.qtdSkus, skusMediaLinear: mlData.qtdSkus
       };
     });
 
@@ -1138,10 +1164,16 @@ export class GestaoInteligenteService {
       queryFn(mlInicio, mlFim)
     ]);
 
+    const defaultRow = { venda: 0, custo: 0, impostos: 0, vendasOferta: 0, qtd: 0, qtdCupons: 0, qtdSkus: 0 };
+
     const criarMapa = (dados: any[]) => {
-      const mapa: Record<number, { venda: number; custo: number; impostos: number }> = {};
+      const mapa: Record<number, typeof defaultRow> = {};
       dados.forEach((r: any) => {
-        mapa[r[codeField]] = { venda: r.VENDA || 0, custo: r.CUSTO || 0, impostos: r.IMPOSTOS || 0 };
+        mapa[r[codeField]] = {
+          venda: r.VENDA || 0, custo: r.CUSTO || 0, impostos: r.IMPOSTOS || 0,
+          vendasOferta: r.VENDAS_OFERTA || 0, qtd: r.QTD || 0,
+          qtdCupons: r.QTD_CUPONS || 0, qtdSkus: r.QTD_SKUS || 0
+        };
       });
       return mapa;
     };
@@ -1150,32 +1182,48 @@ export class GestaoInteligenteService {
     const mapAnoPas = criarMapa(anoPas);
     const mapAnoInteiro = criarMapa(anoInteiro);
 
-    const calcPeriodo = (venda: number, custo: number, impostos: number) => {
+    const calcPeriodo = (d: typeof defaultRow) => {
+      const { venda, custo, impostos, vendasOferta, qtd, qtdCupons, qtdSkus } = d;
       const lucro = venda - custo;
       const markdown = venda > 0 ? ((venda - custo) / venda) * 100 : 0;
       const vendasLiq = venda - impostos;
       const margemLimpa = vendasLiq > 0 ? ((vendasLiq - custo) / vendasLiq) * 100 : 0;
+      const ticketMedio = qtdCupons > 0 ? venda / qtdCupons : 0;
+      const pctOferta = venda > 0 ? (vendasOferta / venda) * 100 : 0;
       return {
         venda: parseFloat(venda.toFixed(2)),
         lucro: parseFloat(lucro.toFixed(2)),
         markdown: parseFloat(markdown.toFixed(2)),
-        margemLimpa: parseFloat(margemLimpa.toFixed(2))
+        margemLimpa: parseFloat(margemLimpa.toFixed(2)),
+        custo: parseFloat(custo.toFixed(2)), impostos: parseFloat(impostos.toFixed(2)),
+        vendasOferta: parseFloat(vendasOferta.toFixed(2)),
+        pctOferta: parseFloat(pctOferta.toFixed(2)), ticketMedio: parseFloat(ticketMedio.toFixed(2)),
+        qtdCupons: Math.round(qtdCupons), qtdItens: Math.round(qtd), qtdSkus: Math.round(qtdSkus)
       };
     };
 
     return atual.map((row: any) => {
       const cod = row[codeField];
-      const atualData = calcPeriodo(row.VENDA || 0, row.CUSTO || 0, row.IMPOSTOS || 0);
+      const atualRow = {
+        venda: row.VENDA || 0, custo: row.CUSTO || 0, impostos: row.IMPOSTOS || 0,
+        vendasOferta: row.VENDAS_OFERTA || 0, qtd: row.QTD || 0,
+        qtdCupons: row.QTD_CUPONS || 0, qtdSkus: row.QTD_SKUS || 0
+      };
+      const atualData = calcPeriodo(atualRow);
 
-      const mp = mapMesPas[cod] || { venda: 0, custo: 0, impostos: 0 };
-      const mesPasData = calcPeriodo(mp.venda, mp.custo, mp.impostos);
+      const mp = mapMesPas[cod] || defaultRow;
+      const mesPasData = calcPeriodo(mp);
 
-      const ap = mapAnoPas[cod] || { venda: 0, custo: 0, impostos: 0 };
-      const anoPasData = calcPeriodo(ap.venda, ap.custo, ap.impostos);
+      const ap = mapAnoPas[cod] || defaultRow;
+      const anoPasData = calcPeriodo(ap);
 
-      const ai = mapAnoInteiro[cod] || { venda: 0, custo: 0, impostos: 0 };
+      const ai = mapAnoInteiro[cod] || defaultRow;
       const fator = diasAnoAnt > 0 ? diasPeriodoAtual / diasAnoAnt : 0;
-      const mlData = calcPeriodo(ai.venda * fator, ai.custo * fator, ai.impostos * fator);
+      const mlData = calcPeriodo({
+        venda: ai.venda * fator, custo: ai.custo * fator, impostos: ai.impostos * fator,
+        vendasOferta: ai.vendasOferta * fator, qtd: ai.qtd * fator,
+        qtdCupons: ai.qtdCupons * fator, qtdSkus: ai.qtdSkus * fator
+      });
 
       return {
         [outCodeKey]: cod,
@@ -1187,7 +1235,23 @@ export class GestaoInteligenteService {
         markdownAtual: atualData.markdown, markdownMesPassado: mesPasData.markdown,
         markdownAnoPassado: anoPasData.markdown, markdownMediaLinear: mlData.markdown,
         margemLimpaAtual: atualData.margemLimpa, margemLimpaMesPassado: mesPasData.margemLimpa,
-        margemLimpaAnoPassado: anoPasData.margemLimpa, margemLimpaMediaLinear: mlData.margemLimpa
+        margemLimpaAnoPassado: anoPasData.margemLimpa, margemLimpaMediaLinear: mlData.margemLimpa,
+        custoAtual: atualData.custo, custoMesPassado: mesPasData.custo,
+        custoAnoPassado: anoPasData.custo, custoMediaLinear: mlData.custo,
+        impostosAtual: atualData.impostos, impostosMesPassado: mesPasData.impostos,
+        impostosAnoPassado: anoPasData.impostos, impostosMediaLinear: mlData.impostos,
+        vendasOfertaAtual: atualData.vendasOferta, vendasOfertaMesPassado: mesPasData.vendasOferta,
+        vendasOfertaAnoPassado: anoPasData.vendasOferta, vendasOfertaMediaLinear: mlData.vendasOferta,
+        pctOfertaAtual: atualData.pctOferta, pctOfertaMesPassado: mesPasData.pctOferta,
+        pctOfertaAnoPassado: anoPasData.pctOferta, pctOfertaMediaLinear: mlData.pctOferta,
+        ticketMedioAtual: atualData.ticketMedio, ticketMedioMesPassado: mesPasData.ticketMedio,
+        ticketMedioAnoPassado: anoPasData.ticketMedio, ticketMedioMediaLinear: mlData.ticketMedio,
+        cuponsAtual: atualData.qtdCupons, cuponsMesPassado: mesPasData.qtdCupons,
+        cuponsAnoPassado: anoPasData.qtdCupons, cuponsMediaLinear: mlData.qtdCupons,
+        qtdItensAtual: atualData.qtdItens, qtdItensMesPassado: mesPasData.qtdItens,
+        qtdItensAnoPassado: anoPasData.qtdItens, qtdItensMediaLinear: mlData.qtdItens,
+        skusAtual: atualData.qtdSkus, skusMesPassado: mesPasData.qtdSkus,
+        skusAnoPassado: anoPasData.qtdSkus, skusMediaLinear: mlData.qtdSkus
       };
     });
   }
@@ -1205,7 +1269,11 @@ export class GestaoInteligenteService {
       SELECT g.COD_GRUPO, g.DES_GRUPO as GRUPO,
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
-        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS
+        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
+        NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA,
+        NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
+        COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
+        COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS
       FROM ${tabProdutoPdv} pv
       JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.COD_PRODUTO
       JOIN ${tabGrupo} g ON g.COD_GRUPO = p.COD_GRUPO AND g.COD_SECAO = p.COD_SECAO
@@ -1230,7 +1298,11 @@ export class GestaoInteligenteService {
       SELECT p.COD_SUB_GRUPO, sg.DES_SUB_GRUPO as SUBGRUPO,
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
-        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS
+        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
+        NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA,
+        NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
+        COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
+        COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS
       FROM ${tabProdutoPdv} pv
       JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.COD_PRODUTO
       JOIN ${tabSubgrupo} sg ON sg.COD_SECAO = p.COD_SECAO AND sg.COD_GRUPO = p.COD_GRUPO AND sg.COD_SUB_GRUPO = p.COD_SUB_GRUPO
@@ -1254,7 +1326,11 @@ export class GestaoInteligenteService {
       SELECT p.COD_PRODUTO, p.DES_PRODUTO as PRODUTO,
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
-        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS
+        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
+        NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA,
+        NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
+        COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
+        1 as QTD_SKUS
       FROM ${tabProdutoPdv} pv
       JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.COD_PRODUTO
         AND p.COD_SUB_GRUPO = :codSubgrupo AND p.COD_GRUPO = :codGrupo AND p.COD_SECAO = :codSecao
@@ -1440,9 +1516,12 @@ export class GestaoInteligenteService {
           mes: mes.nome,
           mesNum: mes.num,
           venda: indicadores.vendas,
+          custo: indicadores.custoVendas,
           lucro: indicadores.lucro,
           margem: indicadores.markdown,
           margemLiquida: indicadores.margemLimpa,
+          impostos: indicadores.impostos,
+          markdownOferta: indicadores.markdownOferta,
           ticketMedio: indicadores.ticketMedio,
           cupons: indicadores.qtdCupons,
           skus: indicadores.qtdSkus,
@@ -1458,9 +1537,12 @@ export class GestaoInteligenteService {
           mes: mes.nome,
           mesNum: mes.num,
           venda: 0,
+          custo: 0,
           lucro: 0,
           margem: 0,
           margemLiquida: 0,
+          impostos: 0,
+          markdownOferta: 0,
           ticketMedio: 0,
           cupons: 0,
           skus: 0,
@@ -1476,9 +1558,12 @@ export class GestaoInteligenteService {
     const mesesComDados = resultados.filter(m => m.venda > 0);
     let anoAnteriorData = {
       venda: 0,
+      custo: 0,
       lucro: 0,
       margem: 0,
       margemLiquida: 0,
+      impostos: 0,
+      markdownOferta: 0,
       ticketMedio: 0,
       cupons: 0,
       skus: 0,
@@ -1514,9 +1599,12 @@ export class GestaoInteligenteService {
 
         anoAnteriorData = {
           venda: indicadoresAnoAnterior.vendas,
+          custo: indicadoresAnoAnterior.custoVendas,
           lucro: indicadoresAnoAnterior.lucro,
           margem: indicadoresAnoAnterior.markdown,
           margemLiquida: indicadoresAnoAnterior.margemLimpa,
+          impostos: indicadoresAnoAnterior.impostos,
+          markdownOferta: indicadoresAnoAnterior.markdownOferta,
           ticketMedio: indicadoresAnoAnterior.ticketMedio,
           cupons: indicadoresAnoAnterior.qtdCupons,
           skus: indicadoresAnoAnterior.qtdSkus,
@@ -1853,5 +1941,52 @@ export class GestaoInteligenteService {
 
     console.log(`✅ [GESTAO INTELIGENTE] Vendas por dia da semana processadas (${ano})`);
     return { meses: mesesResult };
+  }
+
+  /**
+   * Busca contagem de produtos "Mercadoria para Revenda" ativos e valor de estoque
+   */
+  static async getProdutosRevendaEstoque(codLoja?: number): Promise<{
+    qtdProdutos: number;
+    valorEstoque: number;
+  }> {
+    const schema = await MappingService.getSchema();
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
+
+    const tipoEspecieCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'tipo_especie');
+    const tipoEventoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'tipo_evento');
+    const codProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+    const plCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
+    const plCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
+    const plInativoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'inativo');
+    const estoqueAtualCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual');
+    const precoCustoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo');
+
+    let sql = `
+      SELECT
+        COUNT(DISTINCT p.${codProdutoCol}) as QTD_PRODUTOS,
+        NVL(SUM(pl.${estoqueAtualCol} * NVL(pl.${precoCustoCol}, 0)), 0) as VALOR_ESTOQUE
+      FROM ${tabProduto} p
+      JOIN ${tabProdutoLoja} pl ON pl.${plCodProdutoCol} = p.${codProdutoCol}
+      WHERE NVL(pl.${plInativoCol}, 'N') = 'N'
+        AND NVL(p.${tipoEspecieCol}, 0) = 0
+        AND NVL(p.${tipoEventoCol}, 0) = 0
+        AND NVL(pl.${estoqueAtualCol}, 0) > 0
+    `;
+    const params: any = {};
+    if (codLoja) {
+      sql += ` AND pl.${plCodLojaCol} = :codLoja`;
+      params.codLoja = codLoja;
+    }
+
+    console.log(`📦 [GESTAO INTELIGENTE] Buscando produtos revenda e estoque...`);
+    const result = await OracleService.query<any>(sql, params);
+    const row = result[0] || {};
+
+    return {
+      qtdProdutos: row.QTD_PRODUTOS || 0,
+      valorEstoque: parseFloat((row.VALOR_ESTOQUE || 0).toFixed(2))
+    };
   }
 }

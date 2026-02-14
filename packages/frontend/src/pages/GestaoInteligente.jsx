@@ -1,8 +1,13 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, Fragment, useMemo } from 'react';
 import Layout from '../components/Layout';
 import RadarLoading from '../components/RadarLoading';
 import api from '../services/api';
 import { useLoja } from '../contexts/LojaContext';
+import { Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend } from 'chart.js';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend);
 
 // Função para obter datas padrão (primeiro dia do mês atual até hoje)
 const getDefaultDates = () => {
@@ -142,16 +147,20 @@ const initialIndicadores = {
   qtdSkus: { atual: 0, mesPassado: 0, anoPassado: 0, mediaLinear: 0 },
   pctVendasOferta: { atual: 0, mesPassado: 0, anoPassado: 0, mediaLinear: 0 },
   vendasOferta: { atual: 0, mesPassado: 0, anoPassado: 0, mediaLinear: 0 },
-  markdownOferta: { atual: 0, mesPassado: 0, anoPassado: 0, mediaLinear: 0 }
+  markdownOferta: { atual: 0, mesPassado: 0, anoPassado: 0, mediaLinear: 0 },
+  excessoCompras: { atual: 0, mesPassado: 0, anoPassado: 0, mediaLinear: 0 },
+  excessoComprasRs: { atual: 0, mesPassado: 0, anoPassado: 0, mediaLinear: 0 },
+  margemCV: { atual: 0, mesPassado: 0, anoPassado: 0, mediaLinear: 0 }
 };
 
 export default function GestaoInteligente() {
   const [indicadores, setIndicadores] = useState(initialIndicadores);
+  const [produtosRevenda, setProdutosRevenda] = useState({ qtdProdutos: 0, valorEstoque: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState(getDefaultDates());
   const [clearingCache, setClearingCache] = useState(false);
-  const [analiseAtiva, setAnaliseAtiva] = useState(null); // 'vendas-setor', 'vendas-ano', 'vendas-dia-semana', 'vendas-analiticas', 'vendas-setor-anual'
+  const [analiseAtiva, setAnaliseAtiva] = useState('vendas-analiticas'); // 'vendas-setor', 'vendas-ano', 'vendas-dia-semana', 'vendas-analiticas', 'vendas-setor-anual'
   const [dadosAnalise, setDadosAnalise] = useState([]);
   const [loadingAnalise, setLoadingAnalise] = useState(false);
   const { lojaSelecionada } = useLoja();
@@ -166,6 +175,8 @@ export default function GestaoInteligente() {
   const [anoAnteriorData, setAnoAnteriorData] = useState(null);
   const [loadingVendasAno, setLoadingVendasAno] = useState(false);
   const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear());
+  const [showGraficoAno, setShowGraficoAno] = useState(true);
+  const [graficoMetricaAno, setGraficoMetricaAno] = useState('venda');
 
   // Estado para vendas por dia da semana
   const [vendasDiaSemana, setVendasDiaSemana] = useState([]);
@@ -185,17 +196,25 @@ export default function GestaoInteligente() {
   const [vendasSetorAnual, setVendasSetorAnual] = useState([]);
   const [loadingVendasSetorAnual, setLoadingVendasSetorAnual] = useState(false);
   const [anoSetorAnual, setAnoSetorAnual] = useState(new Date().getFullYear());
+  const [showGraficoSetorAnual, setShowGraficoSetorAnual] = useState(true);
+  const [selectedSetoresGrafico, setSelectedSetoresGrafico] = useState(null); // null = todos, Set de indices
+  const [graficoMetrica, setGraficoMetrica] = useState('venda'); // campo ativo no gráfico
   const [expandedSetoresAnual, setExpandedSetoresAnual] = useState({});
 
   // Estado para ordem dos cards (drag and drop)
   const defaultCardOrder = ['vendas', 'lucro', 'markdown', 'margemLimpa', 'ticketMedio', 'pctCompraVenda'];
-  const defaultCardOrder2 = ['pctVendasOferta', 'qtdSkus', 'qtdCupons', 'qtdItens', 'vendasOfertaValor', 'emBreve2'];
-  const defaultCardOrder3 = ['custoVendas', 'markdownOferta', 'emBreve5', 'emBreve6', 'emBreve7', 'emBreve8'];
+  const defaultCardOrder2 = ['pctVendasOferta', 'qtdSkus', 'qtdCupons', 'qtdItens', 'vendasOfertaValor', 'valorEstoque'];
+  const defaultCardOrder3 = ['custoVendas', 'markdownOferta', 'impostoPrevisto', 'produtosRevenda', 'excessoCompras', 'margemCV'];
 
   const migrateCardIds = (ids) => ids.map(id => {
     if (id === 'emBreve1') return 'vendasOfertaValor';
+    if (id === 'emBreve2') return 'valorEstoque';
     if (id === 'emBreve3') return 'custoVendas';
     if (id === 'emBreve4') return 'markdownOferta';
+    if (id === 'emBreve5') return 'impostoPrevisto';
+    if (id === 'emBreve6') return 'produtosRevenda';
+    if (id === 'emBreve7') return 'excessoCompras';
+    if (id === 'emBreve8') return 'margemCV';
     return id;
   });
 
@@ -515,12 +534,46 @@ export default function GestaoInteligente() {
         params.codLoja = lojaSelecionada;
       }
       const response = await api.get('/gestao-inteligente/indicadores', { params });
-      setIndicadores(response.data);
+      const data = response.data;
+      // Calcular indicadores derivados: Excesso de Compras e Margem Compra e Venda
+      const calcExcesso = (vendas, custo, pctCV) => {
+        if (!vendas || vendas === 0) return { pct: 0, rs: 0 };
+        const compras = vendas * (pctCV / 100);
+        const pct = ((custo / vendas) - (compras / vendas)) * 100;
+        const rs = custo - compras;
+        return { pct: parseFloat(pct.toFixed(2)), rs: parseFloat(rs.toFixed(2)) };
+      };
+      const calcMargemCV = (markdown, excPct) => parseFloat((markdown + excPct).toFixed(2));
+      const exAt = calcExcesso(data.vendas?.atual, data.custoVendas?.atual, data.pctCompraVenda?.atual);
+      const exMP = calcExcesso(data.vendas?.mesPassado, data.custoVendas?.mesPassado, data.pctCompraVenda?.mesPassado);
+      const exAP = calcExcesso(data.vendas?.anoPassado, data.custoVendas?.anoPassado, data.pctCompraVenda?.anoPassado);
+      const exML = calcExcesso(data.vendas?.mediaLinear, data.custoVendas?.mediaLinear, data.pctCompraVenda?.mediaLinear);
+      data.excessoCompras = { atual: exAt.pct, mesPassado: exMP.pct, anoPassado: exAP.pct, mediaLinear: exML.pct };
+      data.excessoComprasRs = { atual: exAt.rs, mesPassado: exMP.rs, anoPassado: exAP.rs, mediaLinear: exML.rs };
+      data.margemCV = {
+        atual: calcMargemCV(data.markdown?.atual, exAt.pct),
+        mesPassado: calcMargemCV(data.markdown?.mesPassado, exMP.pct),
+        anoPassado: calcMargemCV(data.markdown?.anoPassado, exAP.pct),
+        mediaLinear: calcMargemCV(data.markdown?.mediaLinear, exML.pct)
+      };
+      setIndicadores(data);
     } catch (err) {
       console.error('Erro ao buscar indicadores:', err);
       setError(err.response?.data?.error || 'Erro ao carregar indicadores');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Buscar produtos revenda e valor estoque
+  const fetchProdutosRevenda = async () => {
+    try {
+      const params = {};
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
+      const { data } = await api.get('/gestao-inteligente/produtos-revenda-estoque', { params });
+      setProdutosRevenda(data);
+    } catch (err) {
+      console.error('Erro ao buscar produtos revenda:', err);
     }
   };
 
@@ -931,6 +984,7 @@ export default function GestaoInteligente() {
 
   useEffect(() => {
     fetchIndicadores();
+    fetchProdutosRevenda();
   }, [filters, lojaSelecionada]);
 
   // Auto-carregar Venda por Ano ao abrir a página
@@ -1115,14 +1169,11 @@ export default function GestaoInteligente() {
       tipo: 'currency',
       indicador: 'vendasOferta'
     },
-    emBreve2: {
-      borderColor: 'border-fuchsia-500',
-      bgColor: 'bg-fuchsia-100',
-      icon: <span className="text-xl">⚡</span>,
-      label: 'Em breve',
-      title: '-',
-      getValue: () => '-',
-      emBreve: true
+    valorEstoque: {
+      borderColor: 'border-fuchsia-500', bgColor: 'bg-fuchsia-100', iconColor: 'text-fuchsia-600',
+      icon: <svg className="w-5 h-5 text-fuchsia-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>,
+      label: 'Estoque', title: 'VALOR ESTOQUE',
+      getValue: () => formatCurrency(produtosRevenda.valorEstoque),
     },
     custoVendas: {
       borderColor: 'border-red-500', bgColor: 'bg-red-100', iconColor: 'text-red-600',
@@ -1138,10 +1189,45 @@ export default function GestaoInteligente() {
       getValue: () => formatPercent(indicadores.markdownOferta?.atual),
       tipo: 'percent', indicador: 'markdownOferta'
     },
-    emBreve5: { borderColor: 'border-emerald-500', bgColor: 'bg-emerald-100', icon: <span className="text-xl">🔔</span>, label: 'Em breve', title: '-', getValue: () => '-', emBreve: true },
-    emBreve6: { borderColor: 'border-violet-500', bgColor: 'bg-violet-100', icon: <span className="text-xl">📌</span>, label: 'Em breve', title: '-', getValue: () => '-', emBreve: true },
-    emBreve7: { borderColor: 'border-amber-500', bgColor: 'bg-amber-100', icon: <span className="text-xl">🎯</span>, label: 'Em breve', title: '-', getValue: () => '-', emBreve: true },
-    emBreve8: { borderColor: 'border-teal-500', bgColor: 'bg-teal-100', icon: <span className="text-xl">⭐</span>, label: 'Em breve', title: '-', getValue: () => '-', emBreve: true }
+    impostoPrevisto: {
+      borderColor: 'border-emerald-500', bgColor: 'bg-emerald-100', iconColor: 'text-emerald-600',
+      icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg>,
+      label: 'Impostos', title: 'IMPOSTO PREVISTO',
+      getValue: () => {
+        const pct = (indicadores.markdown?.atual || 0) - (indicadores.margemLimpa?.atual || 0);
+        return formatPercent(pct);
+      },
+      getExtra: () => {
+        const val = indicadores.impostos?.atual || 0;
+        return <span className="text-sm font-semibold text-red-500">({formatCurrency(val)})</span>;
+      },
+      tipo: 'currency', indicador: 'impostos'
+    },
+    produtosRevenda: {
+      borderColor: 'border-violet-500', bgColor: 'bg-violet-100', iconColor: 'text-violet-600',
+      icon: <svg className="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>,
+      label: 'Produtos', title: 'PRODUTOS EM LOJA',
+      getValue: () => produtosRevenda.qtdProdutos?.toLocaleString('pt-BR') || '0',
+      getExtra: () => <span className="text-xs text-gray-400">Mercadoria Direta</span>,
+    },
+    excessoCompras: {
+      borderColor: 'border-purple-500', bgColor: 'bg-purple-100', iconColor: 'text-purple-600',
+      icon: <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>,
+      label: 'Excesso Compras', title: 'EXCESSO DE COMPRAS',
+      getValue: () => formatPercent(indicadores.excessoCompras?.atual || 0),
+      getExtra: () => {
+        const val = indicadores.excessoComprasRs?.atual || 0;
+        return <span className={`text-sm font-semibold ${val >= 0 ? 'text-green-600' : 'text-red-500'}`}>({formatCurrency(val)})</span>;
+      },
+      tipo: 'percent', indicador: 'excessoCompras'
+    },
+    margemCV: {
+      borderColor: 'border-orange-500', bgColor: 'bg-orange-100', iconColor: 'text-orange-600',
+      icon: <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>,
+      label: 'Margem C&V', title: 'MARGEM COMPRA E VENDA',
+      getValue: () => formatPercent(indicadores.margemCV?.atual || 0),
+      tipo: 'percent', indicador: 'margemCV'
+    }
   };
 
   // Função para renderizar um card
@@ -1489,49 +1575,126 @@ export default function GestaoInteligente() {
                 <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
                   <div className="bg-orange-500 px-4 py-3 flex items-center justify-between">
                     <h3 className="text-white font-semibold">Vendas por Ano</h3>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleAnoChange(anoSelecionado - 1)}
-                        className="w-8 h-8 flex items-center justify-center bg-white/20 hover:bg-white/30 rounded-lg text-white transition-colors"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/>
-                        </svg>
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => setShowGraficoAno(prev => !prev)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${showGraficoAno ? 'bg-white text-orange-600' : 'bg-white/20 hover:bg-white/30 text-white'}`}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                        Gráfico
+                      </button>
+                      <button onClick={() => handleAnoChange(anoSelecionado - 1)} className="w-8 h-8 flex items-center justify-center bg-white/20 hover:bg-white/30 rounded-lg text-white transition-colors">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
                       </button>
                       <span className="text-white font-bold text-lg min-w-[60px] text-center">{anoSelecionado}</span>
-                      <button
-                        onClick={() => handleAnoChange(anoSelecionado + 1)}
-                        disabled={anoSelecionado >= new Date().getFullYear()}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg text-white transition-colors ${
-                          anoSelecionado >= new Date().getFullYear()
-                            ? 'bg-white/10 cursor-not-allowed opacity-50'
-                            : 'bg-white/20 hover:bg-white/30'
-                        }`}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/>
-                        </svg>
+                      <button onClick={() => handleAnoChange(anoSelecionado + 1)} disabled={anoSelecionado >= new Date().getFullYear()} className={`w-8 h-8 flex items-center justify-center rounded-lg text-white transition-colors ${anoSelecionado >= new Date().getFullYear() ? 'bg-white/10 cursor-not-allowed opacity-50' : 'bg-white/20 hover:bg-white/30'}`}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
                       </button>
                     </div>
                   </div>
+                  {/* Gráfico Vendas por Ano */}
+                  {showGraficoAno && vendasAno.length > 0 && (() => {
+                    const metricasAno = [
+                      { field: 'venda', label: 'Vendas', isPct: false, isQtd: false },
+                      { field: 'custo', label: 'Custo', isPct: false, isQtd: false },
+                      { field: 'lucro', label: 'Lucro', isPct: false, isQtd: false },
+                      { field: 'vendasOferta', label: 'Vendas Oferta', isPct: false, isQtd: false },
+                      { field: 'margem', label: 'Markdown %', isPct: true, isQtd: false },
+                      { field: 'margemLiquida', label: 'Margem Líquida %', isPct: true, isQtd: false },
+                      { field: 'pctOferta', label: 'Oferta %', isPct: true, isQtd: false },
+                      { field: 'markdownOferta', label: 'MKD Oferta %', isPct: true, isQtd: false },
+                      { field: 'ticketMedio', label: 'Ticket Médio', isPct: false, isQtd: false },
+                      { field: 'skus', label: 'SKUs', isPct: false, isQtd: true },
+                      { field: 'cupons', label: 'Cupons', isPct: false, isQtd: true },
+                      { field: 'itensVendidos', label: 'Itens', isPct: false, isQtd: true },
+                    ];
+                    const metAtual = metricasAno.find(m => m.field === graficoMetricaAno) || metricasAno[0];
+                    const barData = mesesCompletos.map(m => {
+                      const d = vendasAno.find(v => v.mesNum === m.num);
+                      return d ? (d[graficoMetricaAno] || 0) : 0;
+                    });
+                    const fmtAno = (v) => {
+                      if (metAtual.isPct) return v > 0 ? `${v.toFixed(1)}%` : '';
+                      if (metAtual.isQtd) return v > 0 ? v.toLocaleString('pt-BR') : '';
+                      return v > 0 ? `R$ ${(v / 1000).toFixed(0)}k` : '';
+                    };
+                    return (
+                    <div className="p-4 bg-white border-b border-gray-200">
+                      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                        {metricasAno.map(m => (
+                          <button key={m.field} onClick={() => setGraficoMetricaAno(m.field)} className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${graficoMetricaAno === m.field ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{m.label}</button>
+                        ))}
+                      </div>
+                      <div style={{ height: '380px' }}>
+                        <Bar
+                          plugins={[ChartDataLabels]}
+                          data={{
+                            labels: mesesCompletos.map(m => m.nome),
+                            datasets: [{
+                              type: 'bar',
+                              label: metAtual.label,
+                              data: barData,
+                              backgroundColor: 'rgba(249,115,22,0.75)',
+                              borderColor: 'rgba(249,115,22,1)',
+                              borderWidth: 1,
+                              borderRadius: 4,
+                              barPercentage: 0.7,
+                              categoryPercentage: 0.8,
+                              datalabels: {
+                                display: true,
+                                align: 'top',
+                                anchor: 'end',
+                                offset: 4,
+                                font: { size: 11, weight: 'bold' },
+                                color: '#374151',
+                                formatter: fmtAno
+                              }
+                            }]
+                          }}
+                          options={{
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            layout: { padding: { top: 25 } },
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: {
+                              datalabels: { display: false },
+                              legend: { display: false },
+                              title: { display: true, text: `${metAtual.label} - ${anoSelecionado}`, font: { size: 14, weight: 'bold' }, color: '#374151' },
+                              tooltip: {
+                                callbacks: {
+                                  label: (ctx) => {
+                                    if (metAtual.isPct) return `${ctx.raw.toFixed(2).replace('.', ',')}%`;
+                                    if (metAtual.isQtd) return ctx.raw.toLocaleString('pt-BR');
+                                    return `R$ ${ctx.raw.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                                  }
+                                }
+                              }
+                            },
+                            scales: {
+                              x: { grid: { display: false }, ticks: { font: { size: 11, weight: 'bold' } } },
+                              y: { ticks: { callback: (v) => fmtAno(v), font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.06)' } }
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                    );
+                  })()}
                   {loadingVendasAno ? (
                     <RadarLoading size="sm" message="" />
                   ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full">
-                      <thead className="bg-gray-100">
+                      <thead className="bg-gray-600">
                         <tr>
-                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase border-b border-gray-200 sticky left-0 bg-gray-100 min-w-[140px]">Indicador</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-white uppercase border-b border-gray-500 sticky left-0 bg-gray-600 min-w-[140px]">Indicador</th>
                           {mesesCompletos.map((mes) => (
-                            <th key={`header-${mes.num}`} className={`px-2 py-3 text-center text-xs font-semibold uppercase border-b border-gray-200 min-w-[90px] ${
-                              getDadosMes(mes.num).venda > 0 ? 'text-gray-600' : 'text-gray-400'
+                            <th key={`header-${mes.num}`} className={`px-2 py-3 text-center text-xs font-semibold uppercase border-b border-gray-500 min-w-[90px] ${
+                              getDadosMes(mes.num).venda > 0 ? 'text-white' : 'text-gray-400'
                             }`}>
                               {mes.nome}
                             </th>
                           ))}
-                          <th className="px-3 py-3 text-center text-xs font-semibold text-orange-800 uppercase border-b border-gray-200 bg-orange-100 min-w-[100px]">{anoSelecionado}</th>
-                          <th className="px-3 py-3 text-center text-xs font-semibold text-blue-800 uppercase border-b border-gray-200 bg-blue-100 min-w-[100px]">{anoSelecionado - 1}</th>
-                          <th className="px-3 py-3 text-center text-xs font-semibold text-gray-800 uppercase border-b border-gray-200 bg-gray-300 min-w-[100px]">DIFERENÇA</th>
+                          <th className="px-3 py-3 text-center text-xs font-semibold text-orange-300 uppercase border-b border-gray-500 bg-gray-700 min-w-[100px]">{anoSelecionado}</th>
+                          <th className="px-3 py-3 text-center text-xs font-semibold text-blue-300 uppercase border-b border-gray-500 bg-gray-700 min-w-[100px]">{anoSelecionado - 1}</th>
+                          <th className="px-3 py-3 text-center text-xs font-semibold text-gray-200 uppercase border-b border-gray-500 bg-gray-800 min-w-[100px]">DIFERENÇA</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1565,9 +1728,36 @@ export default function GestaoInteligente() {
                             ) : '-'}
                           </td>
                         </tr>
-                        {/* Linha VENDAS EM OFERTA */}
+                        {/* Linha CUSTO */}
                         <tr className="hover:bg-orange-50 bg-gray-50 border-b border-gray-100">
-                          <td className="px-3 py-3 text-sm font-semibold text-gray-800 sticky left-0 bg-gray-50">VENDAS EM OFERTA</td>
+                          <td className="px-3 py-3 text-sm font-semibold text-gray-800 sticky left-0 bg-gray-50">CUSTO</td>
+                          {mesesCompletos.map((mes) => {
+                            const dados = getDadosMes(mes.num);
+                            return (
+                              <td key={`custo-${mes.num}`} className={`px-2 py-3 text-sm text-center font-medium ${dados.venda > 0 ? 'text-red-600' : 'text-gray-300'}`}>
+                                {dados.venda > 0 ? formatCurrency(dados.custo || 0) : '-'}
+                              </td>
+                            );
+                          })}
+                          <td className="px-3 py-3 text-sm text-center font-bold text-red-600 bg-orange-50">
+                            {formatCurrency(vendasAno.reduce((acc, m) => acc + (m.custo || 0), 0))}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-center font-bold text-red-600 bg-blue-50">
+                            {anoAnteriorData ? formatCurrency(anoAnteriorData.custo || 0) : '-'}
+                          </td>
+                          {(() => {
+                            const custoAtual = vendasAno.reduce((acc, m) => acc + (m.custo || 0), 0);
+                            const diff = anoAnteriorData ? custoAtual - (anoAnteriorData.custo || 0) : 0;
+                            return (
+                              <td className={`px-3 py-3 text-sm text-center font-bold bg-gray-200 ${diff <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {anoAnteriorData ? <>{diff >= 0 ? '+' : ''}{formatCurrency(diff)}</> : '-'}
+                              </td>
+                            );
+                          })()}
+                        </tr>
+                        {/* Linha VENDAS EM OFERTA */}
+                        <tr className="hover:bg-orange-50 bg-white border-b border-gray-100">
+                          <td className="px-3 py-3 text-sm font-semibold text-gray-800 sticky left-0 bg-white">VENDAS EM OFERTA</td>
                           {mesesCompletos.map((mes) => {
                             const dados = getDadosMes(mes.num);
                             return (
@@ -1720,6 +1910,93 @@ export default function GestaoInteligente() {
                                     {diff >= 0 ? '+' : ''}{diff.toFixed(2).replace('.', ',')}%
                                   </>
                                 ) : '-'}
+                              </td>
+                            );
+                          })()}
+                        </tr>
+                        {/* Linha IMPOSTOS */}
+                        <tr className="hover:bg-orange-50 bg-gray-50 border-b border-gray-100">
+                          <td className="px-3 py-3 text-sm font-semibold text-gray-800 sticky left-0 bg-gray-50">IMPOSTOS</td>
+                          {mesesCompletos.map((mes) => {
+                            const dados = getDadosMes(mes.num);
+                            const imp = dados.venda > 0 && dados.margem && dados.margemLiquida ? parseFloat(((dados.margem - dados.margemLiquida) / 100 * dados.venda).toFixed(2)) : 0;
+                            return (
+                              <td key={`imp-${mes.num}`} className={`px-2 py-3 text-sm text-center font-medium ${dados.venda > 0 ? 'text-orange-700' : 'text-gray-300'}`}>
+                                {dados.venda > 0 ? (
+                                  <>
+                                    {formatPercent(dados.margem - dados.margemLiquida)}
+                                    <span className="text-xs text-red-400 block">({formatCurrency(imp)})</span>
+                                  </>
+                                ) : '-'}
+                              </td>
+                            );
+                          })}
+                          {(() => {
+                            const totalVenda = vendasAno.reduce((acc, m) => acc + m.venda, 0);
+                            const totalImp = vendasAno.reduce((acc, m) => acc + (m.impostos || 0), 0);
+                            const pctImp = totalVenda > 0 ? (totalImp / totalVenda) * 100 : 0;
+                            return (
+                              <>
+                                <td className="px-3 py-3 text-sm text-center font-bold text-orange-700 bg-orange-50">
+                                  {formatPercent(pctImp)}
+                                  <span className="text-xs text-red-400 block">({formatCurrency(totalImp)})</span>
+                                </td>
+                                <td className="px-3 py-3 text-sm text-center font-bold text-orange-700 bg-blue-50">
+                                  {anoAnteriorData ? (
+                                    <>
+                                      {formatPercent(anoAnteriorData.venda > 0 ? ((anoAnteriorData.impostos || 0) / anoAnteriorData.venda) * 100 : 0)}
+                                      <span className="text-xs text-red-400 block">({formatCurrency(anoAnteriorData.impostos || 0)})</span>
+                                    </>
+                                  ) : '-'}
+                                </td>
+                                <td className={`px-3 py-3 text-sm text-center font-bold bg-gray-200 ${
+                                  anoAnteriorData && (totalImp - (anoAnteriorData.impostos || 0)) <= 0 ? 'text-green-600' : 'text-red-600'
+                                }`}>
+                                  {anoAnteriorData ? (
+                                    <>{(totalImp - (anoAnteriorData.impostos || 0)) >= 0 ? '+' : ''}{formatCurrency(totalImp - (anoAnteriorData.impostos || 0))}</>
+                                  ) : '-'}
+                                </td>
+                              </>
+                            );
+                          })()}
+                        </tr>
+                        {/* Linha MKD OFERTA */}
+                        <tr className="hover:bg-orange-50 bg-white border-b border-gray-100">
+                          <td className="px-3 py-3 text-sm font-semibold text-gray-800 sticky left-0 bg-white">MKD OFERTA</td>
+                          {mesesCompletos.map((mes) => {
+                            const dados = getDadosMes(mes.num);
+                            return (
+                              <td key={`mkdOferta-${mes.num}`} className={`px-2 py-3 text-sm text-center font-medium ${
+                                dados.venda > 0 ? 'text-pink-600' : 'text-gray-300'
+                              }`}>
+                                {dados.venda > 0 ? formatPercent(dados.markdownOferta || 0) : '-'}
+                              </td>
+                            );
+                          })}
+                          <td className="px-3 py-3 text-sm text-center font-bold text-pink-600 bg-orange-50">
+                            {(() => {
+                              const totalOferta = vendasAno.reduce((acc, m) => acc + (m.vendasOferta || 0), 0);
+                              const totalCustoOf = vendasAno.reduce((acc, m) => {
+                                const c = m.custo || 0; const v = m.venda || 0; const of2 = m.vendasOferta || 0;
+                                return acc + (v > 0 ? (c / v) * of2 : 0);
+                              }, 0);
+                              return totalOferta > 0 ? formatPercent(((totalOferta - totalCustoOf) / totalOferta) * 100) : '-';
+                            })()}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-center font-bold text-pink-600 bg-blue-50">
+                            {anoAnteriorData ? formatPercent(anoAnteriorData.markdownOferta || 0) : '-'}
+                          </td>
+                          {(() => {
+                            const totalOferta = vendasAno.reduce((acc, m) => acc + (m.vendasOferta || 0), 0);
+                            const totalCustoOf = vendasAno.reduce((acc, m) => {
+                              const c2 = m.custo || 0; const v2 = m.venda || 0; const of3 = m.vendasOferta || 0;
+                              return acc + (v2 > 0 ? (c2 / v2) * of3 : 0);
+                            }, 0);
+                            const mkdAtual = totalOferta > 0 ? ((totalOferta - totalCustoOf) / totalOferta) * 100 : 0;
+                            const diff = anoAnteriorData ? mkdAtual - (anoAnteriorData.markdownOferta || 0) : 0;
+                            return (
+                              <td className={`px-3 py-3 text-sm text-center font-bold bg-gray-200 ${diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {anoAnteriorData ? <>{diff >= 0 ? '+' : ''}{diff.toFixed(2).replace('.', ',')}%</> : '-'}
                               </td>
                             );
                           })()}
@@ -1890,52 +2167,96 @@ export default function GestaoInteligente() {
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-gray-700 uppercase border-b border-r border-gray-300 bg-orange-50">Vendas</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-cyan-700 uppercase border-b border-r border-gray-300 bg-cyan-50">Lucro</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-purple-700 uppercase border-b border-r border-gray-300 bg-purple-50">Markdown</th>
-                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-emerald-700 uppercase border-b border-gray-300 bg-emerald-50">Margem Limpa</th>
+                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-emerald-700 uppercase border-b border-r border-gray-300 bg-emerald-50">Margem Limpa</th>
+                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-red-700 uppercase border-b border-r border-gray-300 bg-red-50">Custo</th>
+                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-amber-700 uppercase border-b border-r border-gray-300 bg-amber-50">Vendas Oferta R$</th>
+                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-pink-700 uppercase border-b border-r border-gray-300 bg-pink-50">% Oferta</th>
+                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-indigo-700 uppercase border-b border-r border-gray-300 bg-indigo-50">Ticket Médio</th>
+                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-teal-700 uppercase border-b border-r border-gray-300 bg-teal-50">Cupons</th>
+                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-violet-700 uppercase border-b border-r border-gray-300 bg-violet-50">QTD Itens</th>
+                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-slate-700 uppercase border-b border-gray-300 bg-slate-50">SKUs</th>
                           </tr>
                           <tr className="bg-gray-100">
-                            {/* Vendas sub-headers */}
-                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[120px]">Atual</th>
-                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-blue-600 uppercase border-b border-gray-200 min-w-[120px]">Méd.Linear</th>
-                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[120px]">Ano Ant.</th>
-                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-r border-gray-300 min-w-[120px]">Mês Ant.</th>
-                            {/* Lucro sub-headers */}
-                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[120px]">Atual</th>
-                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-blue-600 uppercase border-b border-gray-200 min-w-[120px]">Méd.Linear</th>
-                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[120px]">Ano Ant.</th>
-                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-r border-gray-300 min-w-[120px]">Mês Ant.</th>
-                            {/* Markdown sub-headers */}
-                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[90px]">Atual</th>
-                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-blue-600 uppercase border-b border-gray-200 min-w-[90px]">Méd.Linear</th>
-                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[90px]">Ano Ant.</th>
-                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-r border-gray-300 min-w-[90px]">Mês Ant.</th>
-                            {/* Margem Limpa sub-headers */}
-                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[90px]">Atual</th>
-                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-blue-600 uppercase border-b border-gray-200 min-w-[90px]">Méd.Linear</th>
-                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[90px]">Ano Ant.</th>
-                            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[90px]">Mês Ant.</th>
+                            {/* Sub-headers repetidos para cada grupo: Atual, ML, Ano Ant, Mês Ant */}
+                            {[...Array(11)].map((_, gi) => (
+                              <Fragment key={`sh-${gi}`}>
+                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-green-700 uppercase border-b border-gray-200 min-w-[100px] bg-green-50">Atual</th>
+                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-purple-700 uppercase border-b border-gray-200 min-w-[100px] bg-purple-50">Méd.Lin</th>
+                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-blue-700 uppercase border-b border-gray-200 min-w-[100px] bg-blue-50">Ano Ant</th>
+                                <th className={`px-3 py-2 text-right text-[10px] font-semibold text-amber-700 uppercase border-b min-w-[100px] bg-amber-50 ${gi < 10 ? 'border-r border-gray-300' : 'border-gray-200'}`}>Mês Ant</th>
+                              </Fragment>
+                            ))}
                           </tr>
                         </thead>
                         <tbody>
                           {vendasAnaliticas.map((setor, index) => {
                             const secExpanded = expandedAnaliticaSecoes[setor.codSecao];
-                            const renderAnaliticaCells = (d, sz = 'text-sm') => (<>
-                              <td className={`px-3 py-2 ${sz} text-right font-bold text-gray-800`}>{formatCurrency(d.vendaAtual)}</td>
-                              <td className={`px-3 py-2 ${sz} text-right font-semibold ${d.vendaAtual >= d.mediaLinear ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(d.mediaLinear)}</td>
-                              <td className={`px-3 py-2 ${sz} text-right font-semibold ${d.vendaAtual >= d.vendaAnoPassado ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(d.vendaAnoPassado)}</td>
-                              <td className={`px-3 py-2 ${sz} text-right font-semibold border-r border-gray-200 ${d.vendaAtual >= d.vendaMesPassado ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(d.vendaMesPassado)}</td>
-                              <td className={`px-3 py-2 ${sz} text-right font-bold text-gray-800`}>{formatCurrency(d.lucroAtual)}</td>
-                              <td className={`px-3 py-2 ${sz} text-right font-semibold ${d.lucroAtual >= d.lucroMediaLinear ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(d.lucroMediaLinear)}</td>
-                              <td className={`px-3 py-2 ${sz} text-right font-semibold ${d.lucroAtual >= d.lucroAnoPassado ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(d.lucroAnoPassado)}</td>
-                              <td className={`px-3 py-2 ${sz} text-right font-semibold border-r border-gray-200 ${d.lucroAtual >= d.lucroMesPassado ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(d.lucroMesPassado)}</td>
-                              <td className={`px-3 py-2 ${sz} text-right font-bold text-gray-800`}>{formatPercent(d.markdownAtual)}</td>
-                              <td className={`px-3 py-2 ${sz} text-right font-semibold ${d.markdownAtual >= d.markdownMediaLinear ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(d.markdownMediaLinear)}</td>
-                              <td className={`px-3 py-2 ${sz} text-right font-semibold ${d.markdownAtual >= d.markdownAnoPassado ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(d.markdownAnoPassado)}</td>
-                              <td className={`px-3 py-2 ${sz} text-right font-semibold border-r border-gray-200 ${d.markdownAtual >= d.markdownMesPassado ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(d.markdownMesPassado)}</td>
-                              <td className={`px-3 py-2 ${sz} text-right font-bold text-gray-800`}>{formatPercent(d.margemLimpaAtual)}</td>
-                              <td className={`px-3 py-2 ${sz} text-right font-semibold ${d.margemLimpaAtual >= d.margemLimpaMediaLinear ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(d.margemLimpaMediaLinear)}</td>
-                              <td className={`px-3 py-2 ${sz} text-right font-semibold ${d.margemLimpaAtual >= d.margemLimpaAnoPassado ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(d.margemLimpaAnoPassado)}</td>
-                              <td className={`px-3 py-2 ${sz} text-right font-semibold ${d.margemLimpaAtual >= d.margemLimpaMesPassado ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(d.margemLimpaMesPassado)}</td>
+                            const cc = (a, b) => a >= b ? 'text-green-600' : 'text-red-600';
+                            const renderAnaliticaCells = (d, sz = 'text-sm') => {
+                            const base = `px-3 py-2 ${sz} text-right font-semibold`;
+                            const atCls = `${base} font-bold text-green-700 bg-green-50`;
+                            const mlCls = (a, b) => `${base} bg-purple-50 ${cc(a, b)}`;
+                            const aaCls = (a, b) => `${base} bg-blue-50 ${cc(a, b)}`;
+                            const maCls = (a, b, br) => `${base} bg-amber-50 ${cc(a, b)} ${br ? 'border-r border-gray-200' : ''}`;
+                            const fmtN = (v) => Math.round(v || 0).toLocaleString('pt-BR');
+                            return (<>
+                              {/* Vendas */}
+                              <td className={atCls}>{formatCurrency(d.vendaAtual)}</td>
+                              <td className={mlCls(d.vendaAtual, d.mediaLinear)}>{formatCurrency(d.mediaLinear)}</td>
+                              <td className={aaCls(d.vendaAtual, d.vendaAnoPassado)}>{formatCurrency(d.vendaAnoPassado)}</td>
+                              <td className={maCls(d.vendaAtual, d.vendaMesPassado, true)}>{formatCurrency(d.vendaMesPassado)}</td>
+                              {/* Lucro */}
+                              <td className={atCls}>{formatCurrency(d.lucroAtual)}</td>
+                              <td className={mlCls(d.lucroAtual, d.lucroMediaLinear)}>{formatCurrency(d.lucroMediaLinear)}</td>
+                              <td className={aaCls(d.lucroAtual, d.lucroAnoPassado)}>{formatCurrency(d.lucroAnoPassado)}</td>
+                              <td className={maCls(d.lucroAtual, d.lucroMesPassado, true)}>{formatCurrency(d.lucroMesPassado)}</td>
+                              {/* Markdown */}
+                              <td className={atCls}>{formatPercent(d.markdownAtual)}</td>
+                              <td className={mlCls(d.markdownAtual, d.markdownMediaLinear)}>{formatPercent(d.markdownMediaLinear)}</td>
+                              <td className={aaCls(d.markdownAtual, d.markdownAnoPassado)}>{formatPercent(d.markdownAnoPassado)}</td>
+                              <td className={maCls(d.markdownAtual, d.markdownMesPassado, true)}>{formatPercent(d.markdownMesPassado)}</td>
+                              {/* Margem Limpa */}
+                              <td className={atCls}>{formatPercent(d.margemLimpaAtual)}</td>
+                              <td className={mlCls(d.margemLimpaAtual, d.margemLimpaMediaLinear)}>{formatPercent(d.margemLimpaMediaLinear)}</td>
+                              <td className={aaCls(d.margemLimpaAtual, d.margemLimpaAnoPassado)}>{formatPercent(d.margemLimpaAnoPassado)}</td>
+                              <td className={maCls(d.margemLimpaAtual, d.margemLimpaMesPassado, true)}>{formatPercent(d.margemLimpaMesPassado)}</td>
+                              {/* Custo (invertido: menor = melhor) */}
+                              <td className={atCls}>{formatCurrency(d.custoAtual)}</td>
+                              <td className={mlCls(d.custoMediaLinear, d.custoAtual)}>{formatCurrency(d.custoMediaLinear)}</td>
+                              <td className={aaCls(d.custoAnoPassado, d.custoAtual)}>{formatCurrency(d.custoAnoPassado)}</td>
+                              <td className={maCls(d.custoMesPassado, d.custoAtual, true)}>{formatCurrency(d.custoMesPassado)}</td>
+                              {/* Vendas Oferta R$ */}
+                              <td className={atCls}>{formatCurrency(d.vendasOfertaAtual)}</td>
+                              <td className={mlCls(d.vendasOfertaAtual, d.vendasOfertaMediaLinear)}>{formatCurrency(d.vendasOfertaMediaLinear)}</td>
+                              <td className={aaCls(d.vendasOfertaAtual, d.vendasOfertaAnoPassado)}>{formatCurrency(d.vendasOfertaAnoPassado)}</td>
+                              <td className={maCls(d.vendasOfertaAtual, d.vendasOfertaMesPassado, true)}>{formatCurrency(d.vendasOfertaMesPassado)}</td>
+                              {/* % Oferta */}
+                              <td className={atCls}>{formatPercent(d.pctOfertaAtual)}</td>
+                              <td className={mlCls(d.pctOfertaAtual, d.pctOfertaMediaLinear)}>{formatPercent(d.pctOfertaMediaLinear)}</td>
+                              <td className={aaCls(d.pctOfertaAtual, d.pctOfertaAnoPassado)}>{formatPercent(d.pctOfertaAnoPassado)}</td>
+                              <td className={maCls(d.pctOfertaAtual, d.pctOfertaMesPassado, true)}>{formatPercent(d.pctOfertaMesPassado)}</td>
+                              {/* Ticket Médio */}
+                              <td className={atCls}>{formatCurrency(d.ticketMedioAtual)}</td>
+                              <td className={mlCls(d.ticketMedioAtual, d.ticketMedioMediaLinear)}>{formatCurrency(d.ticketMedioMediaLinear)}</td>
+                              <td className={aaCls(d.ticketMedioAtual, d.ticketMedioAnoPassado)}>{formatCurrency(d.ticketMedioAnoPassado)}</td>
+                              <td className={maCls(d.ticketMedioAtual, d.ticketMedioMesPassado, true)}>{formatCurrency(d.ticketMedioMesPassado)}</td>
+                              {/* Cupons */}
+                              <td className={atCls}>{fmtN(d.cuponsAtual)}</td>
+                              <td className={mlCls(d.cuponsAtual, d.cuponsMediaLinear)}>{fmtN(d.cuponsMediaLinear)}</td>
+                              <td className={aaCls(d.cuponsAtual, d.cuponsAnoPassado)}>{fmtN(d.cuponsAnoPassado)}</td>
+                              <td className={maCls(d.cuponsAtual, d.cuponsMesPassado, true)}>{fmtN(d.cuponsMesPassado)}</td>
+                              {/* QTD Itens */}
+                              <td className={atCls}>{fmtN(d.qtdItensAtual)}</td>
+                              <td className={mlCls(d.qtdItensAtual, d.qtdItensMediaLinear)}>{fmtN(d.qtdItensMediaLinear)}</td>
+                              <td className={aaCls(d.qtdItensAtual, d.qtdItensAnoPassado)}>{fmtN(d.qtdItensAnoPassado)}</td>
+                              <td className={maCls(d.qtdItensAtual, d.qtdItensMesPassado, true)}>{fmtN(d.qtdItensMesPassado)}</td>
+                              {/* SKUs */}
+                              <td className={atCls}>{fmtN(d.skusAtual)}</td>
+                              <td className={mlCls(d.skusAtual, d.skusMediaLinear)}>{fmtN(d.skusMediaLinear)}</td>
+                              <td className={aaCls(d.skusAtual, d.skusAnoPassado)}>{fmtN(d.skusAnoPassado)}</td>
+                              <td className={maCls(d.skusAtual, d.skusMesPassado, false)}>{fmtN(d.skusMesPassado)}</td>
                             </>);
+                            };
                             return (
                             <Fragment key={`analitica-${setor.codSecao || index}`}>
                               {/* Nível 1: Seção */}
@@ -2007,58 +2328,64 @@ export default function GestaoInteligente() {
                           })}
                         </tbody>
                         <tfoot className="bg-gray-200">
+                          {(() => {
+                            const sum = (key) => vendasAnaliticas.reduce((acc, s) => acc + (s[key] || 0), 0);
+                            const cc = (a, b) => a >= b ? 'text-green-700' : 'text-red-700';
+                            const calcMkd = (vendaKey, lucroKey) => {
+                              const v = sum(vendaKey); const c = sum(vendaKey) - sum(lucroKey);
+                              return v > 0 ? ((v - c) / v) * 100 : 0;
+                            };
+                            const calcML = (vendaKey, custoKey, impostosKey) => {
+                              const v = sum(vendaKey); const c = sum(custoKey); const imp = sum(impostosKey);
+                              const vLiq = v - imp;
+                              return vLiq > 0 ? ((vLiq - c) / vLiq) * 100 : 0;
+                            };
+                            const calcPctOferta = (ofertaKey, vendaKey) => {
+                              const v = sum(vendaKey); const o = sum(ofertaKey);
+                              return v > 0 ? (o / v) * 100 : 0;
+                            };
+                            const calcTkt = (vendaKey, cuponsKey) => {
+                              const v = sum(vendaKey); const c = sum(cuponsKey);
+                              return c > 0 ? v / c : 0;
+                            };
+                            const vAt = sum('vendaAtual'), vML = sum('mediaLinear'), vAP = sum('vendaAnoPassado'), vMP = sum('vendaMesPassado');
+                            const lAt = sum('lucroAtual'), lML = sum('lucroMediaLinear'), lAP = sum('lucroAnoPassado'), lMP = sum('lucroMesPassado');
+                            const mkdAt = calcMkd('vendaAtual','lucroAtual'), mkdML = calcMkd('mediaLinear','lucroMediaLinear'), mkdAP = calcMkd('vendaAnoPassado','lucroAnoPassado'), mkdMP = calcMkd('vendaMesPassado','lucroMesPassado');
+                            const mlAt = calcML('vendaAtual','custoAtual','impostosAtual'), mlML = calcML('mediaLinear','custoMediaLinear','impostosMediaLinear'), mlAP = calcML('vendaAnoPassado','custoAnoPassado','impostosAnoPassado'), mlMP = calcML('vendaMesPassado','custoMesPassado','impostosMesPassado');
+                            const cAt = sum('custoAtual'), cML = sum('custoMediaLinear'), cAP = sum('custoAnoPassado'), cMP = sum('custoMesPassado');
+                            const oAt = sum('vendasOfertaAtual'), oML = sum('vendasOfertaMediaLinear'), oAP = sum('vendasOfertaAnoPassado'), oMP = sum('vendasOfertaMesPassado');
+                            const poAt = calcPctOferta('vendasOfertaAtual','vendaAtual'), poML = calcPctOferta('vendasOfertaMediaLinear','mediaLinear'), poAP = calcPctOferta('vendasOfertaAnoPassado','vendaAnoPassado'), poMP = calcPctOferta('vendasOfertaMesPassado','vendaMesPassado');
+                            const tAt = calcTkt('vendaAtual','cuponsAtual'), tML = calcTkt('mediaLinear','cuponsMediaLinear'), tAP = calcTkt('vendaAnoPassado','cuponsAnoPassado'), tMP = calcTkt('vendaMesPassado','cuponsMesPassado');
+                            const cupAt = sum('cuponsAtual'), cupML = sum('cuponsMediaLinear'), cupAP = sum('cuponsAnoPassado'), cupMP = sum('cuponsMesPassado');
+                            const qAt = sum('qtdItensAtual'), qML = sum('qtdItensMediaLinear'), qAP = sum('qtdItensAnoPassado'), qMP = sum('qtdItensMesPassado');
+                            const sAt = sum('skusAtual'), sML = sum('skusMediaLinear'), sAP = sum('skusAnoPassado'), sMP = sum('skusMesPassado');
+                            // col=0 Atual(verde), col=1 ML(roxa), col=2 AnoAnt(azul), col=3 MêsAnt(âmbar)
+                            const colBg = ['bg-green-50', 'bg-purple-50', 'bg-blue-50', 'bg-amber-50'];
+                            const colTxt = ['text-green-700', '', '', ''];
+                            const fmt = (val, f) => f === '$' ? formatCurrency(val) : f === '%' ? formatPercent(val) : Math.round(val).toLocaleString('pt-BR');
+                            const td4 = (vals, f, br) => vals.map((v, i) => (
+                              <td key={i} className={`px-3 py-2 text-sm text-right font-bold ${colBg[i]} ${i === 0 ? colTxt[0] : cc(vals[0], v)} ${i === 3 && br ? 'border-r border-gray-300' : ''}`}>{fmt(v, f)}</td>
+                            ));
+                            return (
                           <tr>
                             <td className="px-4 py-2 text-sm font-bold text-gray-800 sticky left-0 bg-gray-200 z-10">TOTAL</td>
-                            {/* Totais Vendas */}
-                            {(() => {
-                              const tAtual = vendasAnaliticas.reduce((acc, s) => acc + s.vendaAtual, 0);
-                              const tML = vendasAnaliticas.reduce((acc, s) => acc + s.mediaLinear, 0);
-                              const tAP = vendasAnaliticas.reduce((acc, s) => acc + s.vendaAnoPassado, 0);
-                              const tMP = vendasAnaliticas.reduce((acc, s) => acc + s.vendaMesPassado, 0);
-                              return (<>
-                                <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">{formatCurrency(tAtual)}</td>
-                                <td className={`px-3 py-2 text-sm text-right font-bold ${tAtual >= tML ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(tML)}</td>
-                                <td className={`px-3 py-2 text-sm text-right font-bold ${tAtual >= tAP ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(tAP)}</td>
-                                <td className={`px-3 py-2 text-sm text-right font-bold border-r border-gray-300 ${tAtual >= tMP ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(tMP)}</td>
-                              </>);
-                            })()}
-                            {/* Totais Lucro */}
-                            {(() => {
-                              const tAtual = vendasAnaliticas.reduce((acc, s) => acc + (s.lucroAtual || 0), 0);
-                              const tML = vendasAnaliticas.reduce((acc, s) => acc + (s.lucroMediaLinear || 0), 0);
-                              const tAP = vendasAnaliticas.reduce((acc, s) => acc + (s.lucroAnoPassado || 0), 0);
-                              const tMP = vendasAnaliticas.reduce((acc, s) => acc + (s.lucroMesPassado || 0), 0);
-                              return (<>
-                                <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">{formatCurrency(tAtual)}</td>
-                                <td className={`px-3 py-2 text-sm text-right font-bold ${tAtual >= tML ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(tML)}</td>
-                                <td className={`px-3 py-2 text-sm text-right font-bold ${tAtual >= tAP ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(tAP)}</td>
-                                <td className={`px-3 py-2 text-sm text-right font-bold border-r border-gray-300 ${tAtual >= tMP ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(tMP)}</td>
-                              </>);
-                            })()}
-                            {/* Totais Markdown (média ponderada) */}
-                            {(() => {
-                              const calcMkd = (vendaKey, lucroKey) => {
-                                const v = vendasAnaliticas.reduce((acc, s) => acc + (s[vendaKey] || 0), 0);
-                                const c = vendasAnaliticas.reduce((acc, s) => acc + ((s[vendaKey] || 0) - (s[lucroKey] || 0)), 0);
-                                return v > 0 ? ((v - c) / v) * 100 : 0;
-                              };
-                              const mkdAtual = calcMkd('vendaAtual', 'lucroAtual');
-                              const mkdML = calcMkd('mediaLinear', 'lucroMediaLinear');
-                              const mkdAP = calcMkd('vendaAnoPassado', 'lucroAnoPassado');
-                              const mkdMP = calcMkd('vendaMesPassado', 'lucroMesPassado');
-                              return (<>
-                                <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">{formatPercent(mkdAtual)}</td>
-                                <td className={`px-3 py-2 text-sm text-right font-bold ${mkdAtual >= mkdML ? 'text-green-700' : 'text-red-700'}`}>{formatPercent(mkdML)}</td>
-                                <td className={`px-3 py-2 text-sm text-right font-bold ${mkdAtual >= mkdAP ? 'text-green-700' : 'text-red-700'}`}>{formatPercent(mkdAP)}</td>
-                                <td className={`px-3 py-2 text-sm text-right font-bold border-r border-gray-300 ${mkdAtual >= mkdMP ? 'text-green-700' : 'text-red-700'}`}>{formatPercent(mkdMP)}</td>
-                              </>);
-                            })()}
-                            {/* Totais Margem Limpa */}
-                            <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">-</td>
-                            <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">-</td>
-                            <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">-</td>
-                            <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">-</td>
+                            {td4([vAt,vML,vAP,vMP],'$',true)}
+                            {td4([lAt,lML,lAP,lMP],'$',true)}
+                            {td4([mkdAt,mkdML,mkdAP,mkdMP],'%',true)}
+                            {td4([mlAt,mlML,mlAP,mlMP],'%',true)}
+                            {/* Custo: invertido - menor é melhor */}
+                            {[cAt,cML,cAP,cMP].map((v, i) => (
+                              <td key={i} className={`px-3 py-2 text-sm text-right font-bold ${colBg[i]} ${i === 0 ? colTxt[0] : cc(v, cAt)} ${i === 3 ? 'border-r border-gray-300' : ''}`}>{formatCurrency(v)}</td>
+                            ))}
+                            {td4([oAt,oML,oAP,oMP],'$',true)}
+                            {td4([poAt,poML,poAP,poMP],'%',true)}
+                            {td4([tAt,tML,tAP,tMP],'$',true)}
+                            {td4([cupAt,cupML,cupAP,cupMP],'#',true)}
+                            {td4([qAt,qML,qAP,qMP],'#',true)}
+                            {td4([sAt,sML,sAP,sMP],'#',false)}
                           </tr>
+                            );
+                          })()}
                         </tfoot>
                       </table>
                     </div>
@@ -2213,7 +2540,11 @@ export default function GestaoInteligente() {
                 <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
                   <div className="bg-orange-500 px-4 py-3 flex items-center justify-between">
                     <h3 className="text-white font-semibold">Vendas por Setor Anual</h3>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => setShowGraficoSetorAnual(prev => !prev)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${showGraficoSetorAnual ? 'bg-white text-orange-600' : 'bg-white/20 hover:bg-white/30 text-white'}`}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                        Gráfico
+                      </button>
                       <button onClick={() => handleAnoSetorAnualChange(anoSetorAnual - 1)} className="w-8 h-8 flex items-center justify-center bg-white/20 hover:bg-white/30 rounded-lg text-white transition-colors">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
                       </button>
@@ -2223,20 +2554,197 @@ export default function GestaoInteligente() {
                       </button>
                     </div>
                   </div>
+                  {showGraficoSetorAnual && vendasSetorAnual.length > 0 && (() => {
+                    const cores = [
+                      'rgba(249,115,22,0.8)', 'rgba(34,197,94,0.8)', 'rgba(59,130,246,0.8)',
+                      'rgba(168,85,247,0.8)', 'rgba(236,72,153,0.8)', 'rgba(234,179,8,0.8)',
+                      'rgba(20,184,166,0.8)', 'rgba(239,68,68,0.8)', 'rgba(99,102,241,0.8)',
+                      'rgba(14,165,233,0.8)', 'rgba(244,63,94,0.8)', 'rgba(132,204,22,0.8)',
+                      'rgba(217,70,239,0.8)', 'rgba(251,146,60,0.8)', 'rgba(45,212,191,0.8)',
+                      'rgba(129,140,248,0.8)', 'rgba(244,114,182,0.8)', 'rgba(163,230,53,0.8)',
+                      'rgba(251,191,36,0.8)', 'rgba(96,165,250,0.8)', 'rgba(192,132,252,0.8)'
+                    ];
+                    const metricaLabels = { venda: 'Vendas', custo: 'Custo', vendasOferta: 'Vendas Oferta', lucro: 'Lucro', margem: 'Markdown %', pctOferta: 'Markdown em Oferta %', ticketMedio: 'Ticket Médio', skus: 'SKUs', cupons: 'Cupons', itensVendidos: 'Itens Vendidos' };
+                    const isPct = graficoMetrica === 'margem' || graficoMetrica === 'pctOferta';
+                    const isQtd = graficoMetrica === 'skus' || graficoMetrica === 'cupons' || graficoMetrica === 'itensVendidos';
+                    const metricaLabel = metricaLabels[graficoMetrica] || 'Vendas';
+                    const filteredSetores = selectedSetoresGrafico
+                      ? vendasSetorAnual.filter((_, i) => selectedSetoresGrafico.has(i))
+                      : vendasSetorAnual;
+                    const nFilt = filteredSetores.length;
+                    const barDatasets = filteredSetores.map((s, fi) => {
+                      const origIdx = vendasSetorAnual.indexOf(s);
+                      return {
+                        type: 'bar',
+                        label: s.setor,
+                        data: mesesCompletos.map(m => s.meses[m.num]?.[graficoMetrica] || 0),
+                        backgroundColor: cores[origIdx % cores.length],
+                        borderColor: cores[origIdx % cores.length].replace('0.8', '1'),
+                        borderWidth: 1,
+                        borderRadius: 3,
+                        barPercentage: 0.98,
+                        categoryPercentage: nFilt === 1 ? 0.4 : nFilt <= 3 ? 0.65 : 0.98,
+                        datalabels: { display: false }
+                      };
+                    });
+                    // Linha de tendência: soma/média total por mês dos setores filtrados
+                    const trendData = mesesCompletos.map(m => {
+                      let soma = 0; let cnt = 0;
+                      filteredSetores.forEach(s => { const v = s.meses[m.num]?.[graficoMetrica] || 0; soma += v; if (v) cnt++; });
+                      return isPct ? (cnt > 0 ? soma / cnt : 0) : soma;
+                    });
+                    const fmtLabel = (v) => {
+                      if (isPct) return v > 0 ? `${v.toFixed(1)}%` : '';
+                      if (isQtd) return v > 0 ? v.toLocaleString('pt-BR') : '';
+                      return v > 0 ? `R$ ${(v / 1000).toFixed(0)}k` : '';
+                    };
+                    const trendDataset = {
+                      type: 'line',
+                      label: isPct ? 'Média Mês' : 'Total Mês',
+                      data: trendData,
+                      borderColor: 'rgba(107,114,128,0.9)',
+                      backgroundColor: 'rgba(107,114,128,0.1)',
+                      borderWidth: 2,
+                      borderDash: [6, 3],
+                      pointRadius: 4,
+                      pointBackgroundColor: 'rgba(107,114,128,1)',
+                      pointBorderColor: '#fff',
+                      pointBorderWidth: 2,
+                      tension: 0.3,
+                      fill: false,
+                      order: 0,
+                      datalabels: {
+                        display: true,
+                        align: 'top',
+                        anchor: 'end',
+                        offset: 6,
+                        font: { size: 12, weight: 'bold' },
+                        color: '#374151',
+                        formatter: fmtLabel
+                      }
+                    };
+                    const datasets = selectedSetoresGrafico ? [...barDatasets, trendDataset] : barDatasets;
+                    const handleLegendClick = (_e, legendItem, legend) => {
+                      const idx = vendasSetorAnual.findIndex(s => s.setor === legendItem.text);
+                      if (legendItem.text === 'Total Mês') return; // ignora clique na linha
+                      if (idx === -1) return;
+                      setSelectedSetoresGrafico(prev => {
+                        if (!prev) {
+                          // Nenhum filtro ativo: seleciona apenas este
+                          return new Set([idx]);
+                        }
+                        if (prev.has(idx) && prev.size === 1) {
+                          // Já é o único selecionado: volta a mostrar todos
+                          return null;
+                        }
+                        if (prev.has(idx)) {
+                          // Remove este do filtro
+                          const next = new Set(prev);
+                          next.delete(idx);
+                          return next;
+                        }
+                        // Adiciona este ao filtro
+                        const next = new Set(prev);
+                        next.add(idx);
+                        return next;
+                      });
+                    };
+                    const chartHeight = nFilt === 1 ? 400 : nFilt <= 3 ? 420 : 480;
+                    return (
+                    <div className="p-4 bg-white border-b border-gray-200">
+                      {selectedSetoresGrafico && (
+                        <div className="mb-2 flex items-center gap-2">
+                          <span className="text-xs text-gray-500">{selectedSetoresGrafico.size} setor(es) selecionado(s)</span>
+                          <button onClick={() => setSelectedSetoresGrafico(null)} className="text-xs text-orange-600 hover:text-orange-800 font-semibold underline">Mostrar todos</button>
+                        </div>
+                      )}
+                      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                        {[
+                          { field: 'venda', label: 'Vendas' },
+                          { field: 'custo', label: 'Custo' },
+                          { field: 'lucro', label: 'Lucro' },
+                          { field: 'vendasOferta', label: 'Vendas Oferta' },
+                          { field: 'margem', label: 'Markdown %' },
+                          { field: 'pctOferta', label: 'Oferta %' },
+                          { field: 'ticketMedio', label: 'Ticket Médio' },
+                          { field: 'skus', label: 'SKUs' },
+                          { field: 'cupons', label: 'Cupons' },
+                          { field: 'itensVendidos', label: 'Itens' },
+                        ].map(m => (
+                          <button key={m.field} onClick={() => setGraficoMetrica(m.field)} className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${graficoMetrica === m.field ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{m.label}</button>
+                        ))}
+                      </div>
+                      <div style={{ height: chartHeight + 'px' }}>
+                        <Bar
+                          plugins={[ChartDataLabels]}
+                          data={{ labels: mesesCompletos.map(m => m.nome), datasets }}
+                          options={{
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            layout: { padding: { top: 20, left: 5, right: 5 } },
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: {
+                              datalabels: { display: false },
+                              legend: {
+                                position: 'bottom',
+                                labels: {
+                                  boxWidth: 10, padding: 6, font: { size: 9 },
+                                  generateLabels: (chart) => {
+                                    return vendasSetorAnual.map((s, i) => ({
+                                      text: s.setor,
+                                      fillStyle: cores[i % cores.length],
+                                      strokeStyle: cores[i % cores.length].replace('0.8', '1'),
+                                      lineWidth: 1,
+                                      hidden: selectedSetoresGrafico ? !selectedSetoresGrafico.has(i) : false,
+                                      index: i
+                                    }));
+                                  }
+                                },
+                                onClick: handleLegendClick
+                              },
+                              title: {
+                                display: true,
+                                text: `${metricaLabel} por Setor - ${anoSetorAnual}`,
+                                font: { size: 14, weight: 'bold' }, color: '#374151'
+                              },
+                              tooltip: {
+                                callbacks: {
+                                  label: (ctx) => {
+                                    if (isPct) return `${ctx.dataset.label}: ${ctx.raw.toFixed(2).replace('.', ',')}%`;
+                                    if (isQtd) return `${ctx.dataset.label}: ${ctx.raw.toLocaleString('pt-BR')}`;
+                                    return `${ctx.dataset.label}: R$ ${ctx.raw.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                                  }
+                                }
+                              }
+                            },
+                            scales: {
+                              x: { stacked: false, grid: { display: false }, ticks: { font: { size: 12, weight: 'bold' } } },
+                              y: {
+                                stacked: false,
+                                ticks: { callback: (v) => isPct ? `${v.toFixed(0)}%` : isQtd ? v.toLocaleString('pt-BR') : `R$ ${(v / 1000).toFixed(0)}k`, font: { size: 11 } },
+                                grid: { color: 'rgba(0,0,0,0.06)' }
+                              }
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                    );
+                  })()}
                   {loadingVendasSetorAnual ? (
                     <RadarLoading size="sm" message="" />
                   ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full">
-                      <thead className="bg-gray-100">
+                      <thead className="bg-gray-600">
                         <tr>
-                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase border-b border-gray-200 sticky left-0 bg-gray-100 min-w-[160px]">Setor</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-white uppercase border-b border-gray-500 sticky left-0 bg-gray-600 min-w-[160px]">Setor</th>
                           {mesesCompletos.map((mes) => (
-                            <th key={`sa-h-${mes.num}`} className="px-2 py-3 text-center text-xs font-semibold text-gray-600 uppercase border-b border-gray-200 min-w-[90px]">{mes.nome}</th>
+                            <th key={`sa-h-${mes.num}`} className="px-2 py-3 text-center text-xs font-semibold text-white uppercase border-b border-gray-500 min-w-[90px]">{mes.nome}</th>
                           ))}
-                          <th className="px-3 py-3 text-center text-xs font-semibold text-orange-800 uppercase border-b border-gray-200 bg-orange-100 min-w-[100px]">{anoSetorAnual}</th>
-                          <th className="px-3 py-3 text-center text-xs font-semibold text-blue-800 uppercase border-b border-gray-200 bg-blue-100 min-w-[100px]">{anoSetorAnual - 1}</th>
-                          <th className="px-3 py-3 text-center text-xs font-semibold text-gray-800 uppercase border-b border-gray-200 bg-gray-300 min-w-[100px]">DIFERENÇA</th>
+                          <th className="px-3 py-3 text-center text-xs font-semibold text-orange-300 uppercase border-b border-gray-500 bg-gray-700 min-w-[100px]">{anoSetorAnual}</th>
+                          <th className="px-3 py-3 text-center text-xs font-semibold text-blue-300 uppercase border-b border-gray-500 bg-gray-700 min-w-[100px]">{anoSetorAnual - 1}</th>
+                          <th className="px-3 py-3 text-center text-xs font-semibold text-gray-200 uppercase border-b border-gray-500 bg-gray-800 min-w-[100px]">DIFERENÇA</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2261,6 +2769,7 @@ export default function GestaoInteligente() {
                                 </td>
                               </tr>
                               {isExp && [
+                                { key: 'custo', label: 'Custo', field: 'custo', color: 'text-red-600', fmt: formatCurrency },
                                 { key: 'oferta', label: 'Vendas Oferta', field: 'vendasOferta', color: 'text-rose-600', fmt: formatCurrency },
                                 { key: 'lucro', label: 'Lucro', field: 'lucro', color: 'text-cyan-600', fmt: formatCurrency },
                                 { key: 'margem', label: 'Markdown', field: 'margem', color: 'text-purple-600', fmt: formatPercent },
@@ -2270,8 +2779,10 @@ export default function GestaoInteligente() {
                                 { key: 'cupons', label: 'Cupons', field: 'cupons', color: 'text-indigo-600', fmt: (v) => v?.toLocaleString('pt-BR') || '0' },
                                 { key: 'itens', label: 'Itens Vendidos', field: 'itensVendidos', color: 'text-teal-600', fmt: (v) => v?.toLocaleString('pt-BR') || '0' },
                               ].map((sub) => (
-                                <tr key={`sa-sub-${s.codSecao}-${sub.key}`} className="bg-gray-50/50 border-b border-gray-50">
-                                  <td className="px-3 py-1.5 text-xs text-gray-500 sticky left-0 bg-gray-50/50 pl-8">{sub.label}</td>
+                                <tr key={`sa-sub-${s.codSecao}-${sub.key}`} className={`border-b border-gray-50 cursor-pointer transition-colors ${graficoMetrica === sub.field && showGraficoSetorAnual ? 'bg-orange-100/70' : 'bg-gray-50/50 hover:bg-orange-50/50'}`} onClick={() => { setGraficoMetrica(sub.field); if (!showGraficoSetorAnual) setShowGraficoSetorAnual(true); }}>
+                                  <td className={`px-3 py-1.5 text-xs sticky left-0 pl-8 ${graficoMetrica === sub.field && showGraficoSetorAnual ? 'bg-orange-100/70 font-semibold text-orange-700' : 'bg-gray-50/50 text-gray-500'}`}>
+                                    {graficoMetrica === sub.field && showGraficoSetorAnual ? '📊 ' : ''}{sub.label}
+                                  </td>
                                   {mesesCompletos.map((mes) => {
                                     const d = s.meses[mes.num];
                                     const v = d ? d[sub.field] : 0;

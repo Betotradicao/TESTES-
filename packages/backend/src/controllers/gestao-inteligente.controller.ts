@@ -343,4 +343,16 @@ export class GestaoInteligenteController {
       res.status(500).json({ error: error.message || 'Erro interno do servidor' });
     }
   }
+
+  static async getProdutosRevendaEstoque(req: AuthRequest, res: Response) {
+    try {
+      const { codLoja } = req.query;
+      const codLojaNum = codLoja ? parseInt(String(codLoja)) : undefined;
+      const resultado = await GestaoInteligenteService.getProdutosRevendaEstoque(codLojaNum);
+      res.json(resultado);
+    } catch (error: any) {
+      console.error('Erro ao buscar produtos revenda/estoque:', error);
+      res.status(500).json({ error: error.message || 'Erro interno do servidor' });
+    }
+  }
 }
