@@ -2,6 +2,10 @@
  * Ancoragem de Preco Service
  * Classificacao de marcas por tier + Regua de preco + Analise/Simulacao
  * Fonte: Oracle (produtos/marcas) + PostgreSQL (classificacoes/regras)
+ *
+ * ZERO HARDCODE: Todas as tabelas e colunas Oracle sao resolvidas
+ * exclusivamente via MappingService (Configuracoes de Rede).
+ * Se um mapeamento nao existir, a coluna/tabela e simplesmente ignorada.
  */
 
 import { OracleService } from './oracle.service';
@@ -48,8 +52,28 @@ export interface AncoragemRegra {
 
 export class AncoragemService {
 
+  // ==========================================
+  // Helpers - resolvem via MappingService PURO
+  // Se nao estiver mapeado, retorna null (sem hardcode)
+  // ==========================================
+
+  private static async tryCol(table: string, field: string): Promise<string | null> {
+    try {
+      const col = await MappingService.getColumnFromTable(table, field);
+      return col || null;
+    } catch { return null; }
+  }
+
+  private static async tryTable(table: string, schema: string): Promise<string | null> {
+    try {
+      const real = await MappingService.getRealTableName(table);
+      return real ? `${schema}.${real}` : null;
+    } catch { return null; }
+  }
+
   /**
    * Busca produtos do Oracle com marca, preco, custo, margem, pesquisa concorrente
+   * Todas colunas/tabelas resolvidas via MappingService - ZERO hardcode
    */
   static async getProducts(
     codLoja: number,
@@ -60,11 +84,11 @@ export class AncoragemService {
   ): Promise<AncoragemProduct[]> {
     const schema = await MappingService.getSchema();
 
-    // Resolver tabelas
+    // ---- Tabelas obrigatorias (TAB_PRODUTO + TAB_PRODUTO_LOJA) ----
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
     const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
 
-    // Resolver colunas TAB_PRODUTO
+    // ---- Colunas obrigatorias TAB_PRODUTO ----
     const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
     const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
     const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
@@ -72,163 +96,56 @@ export class AncoragemService {
     const colCodSubgrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo');
     const colCodBarras = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras');
 
-    // Resolver colunas TAB_PRODUTO_LOJA
+    // ---- Colunas obrigatorias TAB_PRODUTO_LOJA ----
     const colCodProdutoLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
     const colCodLojaLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
     const colPrecoVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda');
     const colPrecoCusto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo');
     const colCurva = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva');
 
-    // Colunas opcionais com fallback seguro
-    let colSegmentoProd = 'COD_SEGMENTO';
-    try {
-      const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_segmento');
-      if (mapped) colSegmentoProd = mapped;
-    } catch (e) { /* usa default */ }
+    // ---- Colunas opcionais (so incluidas se mapeadas) ----
+    const colSegmentoProd = await this.tryCol('TAB_PRODUTO', 'codigo_segmento');
+    const colMargem = await this.tryCol('TAB_PRODUTO_LOJA', 'margem');
+    const colPesquisaMedia = await this.tryCol('TAB_PRODUTO_LOJA', 'pesquisa_media');
+    const colPesquisaConcorrente = await this.tryCol('TAB_PRODUTO_LOJA', 'pesquisa_concorrente');
+    const colVendaMedia = await this.tryCol('TAB_PRODUTO_LOJA', 'venda_media');
+    const colCodMarca = await this.tryCol('TAB_PRODUTO', 'codigo_marca');
 
-    let colMargem = 'VAL_MARGEM';
-    try {
-      const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem');
-      if (mapped) colMargem = mapped;
-    } catch (e) { /* usa default */ }
+    // ---- Tabela TAB_MARCA (opcional) ----
+    const tabMarca = await this.tryTable('TAB_MARCA', schema);
+    const colCodMarcaTab = tabMarca ? await this.tryCol('TAB_MARCA', 'codigo_marca') : null;
+    const colDesMarcaTab = tabMarca ? await this.tryCol('TAB_MARCA', 'descricao_marca') : null;
 
-    let colPesquisaMedia = 'VAL_PESQUISA_MEDIA';
-    try {
-      const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pesquisa_media');
-      if (mapped) colPesquisaMedia = mapped;
-    } catch (e) { /* usa default */ }
+    // ---- Tabela TAB_SEGMENTO (opcional) ----
+    const tabSegmento = await this.tryTable('TAB_SEGMENTO', schema);
+    const colCodSegTab = tabSegmento ? await this.tryCol('TAB_SEGMENTO', 'codigo_segmento') : null;
+    const colDesSegTab = tabSegmento ? await this.tryCol('TAB_SEGMENTO', 'descricao_segmento') : null;
 
-    let colPesquisaConcorrente = 'DES_PESQUISA_CONCORRENTE';
-    try {
-      const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pesquisa_concorrente');
-      if (mapped) colPesquisaConcorrente = mapped;
-    } catch (e) { /* usa default */ }
+    // ---- Montar SELECTs opcionais ----
+    const margemSelect = colMargem ? `NVL(pl.${colMargem}, 0) AS VAL_MARGEM` : '0 AS VAL_MARGEM';
+    const pesquisaMediaSelect = colPesquisaMedia ? `NVL(pl.${colPesquisaMedia}, 0) AS CONC_BARATO` : '0 AS CONC_BARATO';
+    const pesquisaConcSelect = colPesquisaConcorrente ? `pl.${colPesquisaConcorrente} AS CONC_NOME` : "NULL AS CONC_NOME";
+    const vendaMediaSelect = colVendaMedia ? `NVL(pl.${colVendaMedia}, 0) AS VD_MEDIA` : '0 AS VD_MEDIA';
 
-    let colVendaMedia = 'VAL_VENDA_MEDIA';
-    try {
-      const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'venda_media');
-      if (mapped) colVendaMedia = mapped;
-    } catch (e) { /* usa default */ }
-
-    // COD_MARCA no TAB_PRODUTO (pode nao existir)
-    let colCodMarca = 'COD_MARCA';
-    try {
-      const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_marca');
-      if (mapped) colCodMarca = mapped;
-    } catch (e) { /* usa default */ }
-
-    // Verificar se TAB_MARCA existe e resolver
-    let tabMarca = '';
-    let colCodMarcaTab = 'COD_MARCA';
-    let colDesMarcaTab = 'DES_MARCA';
-    let hasMarcaTable = false;
-    try {
-      const realMarca = await MappingService.getRealTableName('TAB_MARCA');
-      tabMarca = `${schema}.${realMarca}`;
-      try {
-        const mapped = await MappingService.getColumnFromTable('TAB_MARCA', 'codigo_marca');
-        if (mapped) colCodMarcaTab = mapped;
-      } catch (e) { /* usa default */ }
-      try {
-        const mapped = await MappingService.getColumnFromTable('TAB_MARCA', 'descricao_marca');
-        if (mapped) colDesMarcaTab = mapped;
-      } catch (e) { /* usa default */ }
-      // Verificar se a tabela realmente existe no Oracle
-      const checkTable = `SELECT TABLE_NAME FROM ALL_TABLES WHERE OWNER = '${schema.replace(/"/g, '')}' AND TABLE_NAME = '${realMarca.replace(/"/g, '')}'`;
-      const tableRes = await OracleService.query<any>(checkTable);
-      hasMarcaTable = tableRes.length > 0;
-    } catch (e) {
-      console.log('[Ancoragem] TAB_MARCA nao encontrada, usando fallback sem marca');
-    }
-
-    // Verificar se COD_MARCA existe em TAB_PRODUTO
-    let hasCodMarcaProd = false;
-    try {
-      const tblName = (await MappingService.getRealTableName('TAB_PRODUTO')).replace(/"/g, '');
-      const checkSql = `SELECT COLUMN_NAME FROM ALL_TAB_COLUMNS WHERE OWNER = '${schema.replace(/"/g, '')}' AND TABLE_NAME = '${tblName}' AND COLUMN_NAME = '${colCodMarca}'`;
-      const checkRes = await OracleService.query<any>(checkSql);
-      hasCodMarcaProd = checkRes.length > 0;
-    } catch (e) { /* nao tem */ }
-
-    // Verificar colunas de pesquisa
-    let pesquisaMediaSelect = '0 AS CONC_BARATO';
-    let pesquisaConcorrenteSelect = "NULL AS CONC_NOME";
-    try {
-      const tblName = (await MappingService.getRealTableName('TAB_PRODUTO_LOJA')).replace(/"/g, '');
-      const checkSql = `SELECT COLUMN_NAME FROM ALL_TAB_COLUMNS WHERE OWNER = '${schema.replace(/"/g, '')}' AND TABLE_NAME = '${tblName}' AND COLUMN_NAME = '${colPesquisaMedia}'`;
-      const checkRes = await OracleService.query<any>(checkSql);
-      if (checkRes.length > 0) {
-        pesquisaMediaSelect = `NVL(pl.${colPesquisaMedia}, 0) AS CONC_BARATO`;
-      }
-      const checkSql2 = `SELECT COLUMN_NAME FROM ALL_TAB_COLUMNS WHERE OWNER = '${schema.replace(/"/g, '')}' AND TABLE_NAME = '${tblName}' AND COLUMN_NAME = '${colPesquisaConcorrente}'`;
-      const checkRes2 = await OracleService.query<any>(checkSql2);
-      if (checkRes2.length > 0) {
-        pesquisaConcorrenteSelect = `pl.${colPesquisaConcorrente} AS CONC_NOME`;
-      }
-    } catch (e) {
-      console.log('[Ancoragem] Erro verificando colunas de pesquisa');
-    }
-
-    // Verificar coluna margem
-    let margemSelect = '0 AS VAL_MARGEM';
-    try {
-      const tblName = (await MappingService.getRealTableName('TAB_PRODUTO_LOJA')).replace(/"/g, '');
-      const checkSql = `SELECT COLUMN_NAME FROM ALL_TAB_COLUMNS WHERE OWNER = '${schema.replace(/"/g, '')}' AND TABLE_NAME = '${tblName}' AND COLUMN_NAME = '${colMargem}'`;
-      const checkRes = await OracleService.query<any>(checkSql);
-      if (checkRes.length > 0) {
-        margemSelect = `NVL(pl.${colMargem}, 0) AS VAL_MARGEM`;
-      }
-    } catch (e) { /* usa default */ }
-
-    // Verificar coluna venda media
-    let vendaMediaSelect = '0 AS VD_MEDIA';
-    try {
-      const tblName = (await MappingService.getRealTableName('TAB_PRODUTO_LOJA')).replace(/"/g, '');
-      const checkSql = `SELECT COLUMN_NAME FROM ALL_TAB_COLUMNS WHERE OWNER = '${schema.replace(/"/g, '')}' AND TABLE_NAME = '${tblName}' AND COLUMN_NAME = '${colVendaMedia}'`;
-      const checkRes = await OracleService.query<any>(checkSql);
-      if (checkRes.length > 0) {
-        vendaMediaSelect = `NVL(pl.${colVendaMedia}, 0) AS VD_MEDIA`;
-      }
-    } catch (e) { /* usa default */ }
-
-    // Resolver TAB_SEGMENTO para DES_SEGMENTO
-    let segmentoSelect = "' ' AS DES_SEGMENTO";
-    let segmentoJoin = '';
-    try {
-      const realSeg = await MappingService.getRealTableName('TAB_SEGMENTO');
-      const tabSegmento = `${schema}.${realSeg}`;
-      let colCodSegTab = 'COD_SEGMENTO';
-      let colDesSegTab = 'DES_SEGMENTO';
-      try {
-        const mapped = await MappingService.getColumnFromTable('TAB_SEGMENTO', 'codigo_segmento');
-        if (mapped) colCodSegTab = mapped;
-      } catch (e) { /* usa default */ }
-      try {
-        const mapped = await MappingService.getColumnFromTable('TAB_SEGMENTO', 'descricao_segmento');
-        if (mapped) colDesSegTab = mapped;
-      } catch (e) { /* usa default */ }
-      // Verificar se TAB_SEGMENTO existe
-      const checkSeg = `SELECT TABLE_NAME FROM ALL_TABLES WHERE OWNER = '${schema.replace(/"/g, '')}' AND TABLE_NAME = '${realSeg.replace(/"/g, '')}'`;
-      const segRes = await OracleService.query<any>(checkSeg);
-      if (segRes.length > 0) {
-        segmentoSelect = `NVL(seg.${colDesSegTab}, ' ') AS DES_SEGMENTO`;
-        segmentoJoin = `LEFT JOIN ${tabSegmento} seg ON p.${colSegmentoProd} = seg.${colCodSegTab}`;
-      }
-    } catch (e) {
-      console.log('[Ancoragem] TAB_SEGMENTO nao encontrada, sem descricao de segmento');
-    }
-
-    // Build marca SELECT e JOIN
+    // ---- Marca: SELECT + JOIN ----
     let marcaSelect = "0 AS COD_MARCA, ' ' AS DES_MARCA";
     let marcaJoin = '';
-    if (hasCodMarcaProd && hasMarcaTable) {
+    if (colCodMarca && tabMarca && colCodMarcaTab && colDesMarcaTab) {
       marcaSelect = `NVL(p.${colCodMarca}, 0) AS COD_MARCA, NVL(m.${colDesMarcaTab}, ' ') AS DES_MARCA`;
       marcaJoin = `LEFT JOIN ${tabMarca} m ON p.${colCodMarca} = m.${colCodMarcaTab}`;
-    } else if (hasCodMarcaProd) {
+    } else if (colCodMarca) {
       marcaSelect = `NVL(p.${colCodMarca}, 0) AS COD_MARCA, ' ' AS DES_MARCA`;
     }
 
-    // Filtros dinamicos
+    // ---- Segmento: SELECT + JOIN ----
+    let segmentoSelect = "' ' AS DES_SEGMENTO";
+    let segmentoJoin = '';
+    if (tabSegmento && colSegmentoProd && colCodSegTab && colDesSegTab) {
+      segmentoSelect = `NVL(seg.${colDesSegTab}, ' ') AS DES_SEGMENTO`;
+      segmentoJoin = `LEFT JOIN ${tabSegmento} seg ON p.${colSegmentoProd} = seg.${colCodSegTab}`;
+    }
+
+    // ---- Filtros dinamicos ----
     let filtroGrupo = '';
     let filtroSubgrupo = '';
     let filtroSegmento = '';
@@ -242,7 +159,7 @@ export class AncoragemService {
       filtroSubgrupo = `AND p.${colCodSubgrupoProd} = :codSubGrupo`;
       params.codSubGrupo = codSubGrupo;
     }
-    if (codSegmento) {
+    if (codSegmento && colSegmentoProd) {
       filtroSegmento = `AND p.${colSegmentoProd} = :codSegmento`;
       params.codSegmento = codSegmento;
     }
@@ -259,7 +176,7 @@ export class AncoragemService {
         ${margemSelect},
         NVL(pl.${colCurva}, ' ') AS CURVA,
         ${pesquisaMediaSelect},
-        ${pesquisaConcorrenteSelect},
+        ${pesquisaConcSelect},
         ${vendaMediaSelect}
       FROM ${tabProduto} p
       JOIN ${tabProdutoLoja} pl ON p.${colCodProduto} = pl.${colCodProdutoLoja} AND pl.${colCodLojaLoja} = :codLoja
