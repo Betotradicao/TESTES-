@@ -10,46 +10,34 @@ const AVAILABLE_MODULES = [
   },
   {
     id: 'estoque-margem',
-    name: 'Gestão Estoque e Margem',
-    description: 'Lançador e resultados de auditoria de estoque e margem',
+    name: 'Gestão de Estoque',
+    description: 'Saúde do Estoque e Análise de Corte (Curva ABC ponderada)',
     icon: '📦'
   },
   {
-    id: 'compra-venda',
-    name: 'Compra x Venda',
-    description: 'Análise comparativa de compras vs vendas',
-    icon: '📈'
+    id: 'compras',
+    name: 'Gestão de Compras',
+    description: 'Compra x Venda, Pedidos, Calendário de Atendimento e Ruptura Indústria',
+    icon: '🛒'
   },
   {
-    id: 'pedidos',
-    name: 'Pedidos',
-    description: 'Lista e acompanhamento de pedidos de compra',
-    icon: '📋'
-  },
-  {
-    id: 'ruptura-industria',
-    name: 'Ruptura Indústria',
-    description: 'Análise de itens cortados em pedidos por fornecedor',
-    icon: '🏭'
-  },
-  {
-    id: 'calendario-atendimento',
-    name: 'Calendário de Atendimento',
-    description: 'Agenda de atendimento de fornecedores com pedidos e NFs',
-    icon: '📅'
+    id: 'pricing',
+    name: 'Gestão de Pricing',
+    description: 'Saúde de Margens, Ancoragem de Preço e Competitividade',
+    icon: '🏷️'
   },
   // Prevenção no Radar
   {
     id: 'bipagens',
     name: 'Prevenção de Bipagens',
     description: 'Bipagens ao vivo, resultados do dia, ativar produtos e rankings',
-    icon: '🏷️'
+    icon: '🔖'
   },
   {
     id: 'pdv',
     name: 'Prevenção PDV',
     description: 'Cadastrar e buscar eventos de prevenção no PDV',
-    icon: '🛒'
+    icon: '💻'
   },
   {
     id: 'facial',
@@ -87,12 +75,31 @@ const AVAILABLE_MODULES = [
     description: 'Lançador e resultados de conferência HortFruti',
     icon: '🥬'
   },
+  {
+    id: 'controle-recebimento',
+    name: 'Prevenção Recebimento',
+    description: 'Notas a Chegar e Notas Entregue',
+    icon: '📄'
+  },
   // Oferta no Radar
   {
     id: 'garimpa-fornecedores',
     name: 'Garimpa Fornecedores',
     description: 'Pesquisa e comparação de fornecedores e concorrentes',
     icon: '🔎'
+  },
+  // Finanças no Radar
+  {
+    id: 'entradas-saidas',
+    name: 'Entradas e Saídas',
+    description: 'Controle de entradas e saídas financeiras',
+    icon: '💰'
+  },
+  {
+    id: 'bancos',
+    name: 'Bancos',
+    description: 'Extratos Santander, Tribanco e Banco 24horas',
+    icon: '🏦'
   },
   // IA no Radar
   {

@@ -4,11 +4,8 @@ export const MENU_MODULES = {
   // Gestão no Radar
   GESTAO_INTELIGENTE: 'gestao-inteligente',
   ESTOQUE_MARGEM: 'estoque-margem',
-  COMPRA_VENDA: 'compra-venda',
-  PEDIDOS: 'pedidos',
-  RUPTURA_INDUSTRIA: 'ruptura-industria',
-  CALENDARIO_ATENDIMENTO: 'calendario-atendimento',
-  CONTROLE_RECEBIMENTO: 'controle-recebimento',
+  COMPRAS: 'compras',
+  PRICING: 'pricing',
   // Prevenção no Radar
   BIPAGENS: 'bipagens',
   PDV: 'pdv',
@@ -18,6 +15,7 @@ export const MENU_MODULES = {
   PERDAS: 'perdas',
   PRODUCAO: 'producao',
   HORTFRUT: 'hortfrut',
+  CONTROLE_RECEBIMENTO: 'controle-recebimento',
   // Garimpa Fácil
   GARIMPA_FORNECEDORES: 'garimpa-fornecedores',
   // Finanças no Radar
@@ -32,21 +30,20 @@ export const MENU_SUBMENUS = {
   // Gestão Inteligente
   GESTAO_INTELIGENTE_PAINEL: 'gestao-inteligente-painel',
 
-  // Estoque e Margem
-  ESTOQUE_MARGEM_LANCADOR: 'estoque-margem-lancador',
-  ESTOQUE_MARGEM_RESULTADOS: 'estoque-margem-resultados',
+  // Gestão de Estoque
+  ESTOQUE_SAUDE: 'estoque-saude',
+  ANALISE_CORTE: 'analise-corte',
 
-  // Compra x Venda
-  COMPRA_VENDA_ANALISE: 'compra-venda-analise',
+  // Gestão de Compras
+  COMPRA_VENDA: 'compra-venda',
+  PEDIDOS: 'pedidos',
+  CALENDARIO_ATENDIMENTO: 'calendario-atendimento',
+  RUPTURA_INDUSTRIA: 'ruptura-industria',
 
-  // Pedidos
-  PEDIDOS_LISTA: 'pedidos-lista',
-
-  // Ruptura Indústria
-  RUPTURA_INDUSTRIA_ANALISE: 'ruptura-industria-analise',
-
-  // Calendário de Atendimento
-  CALENDARIO_ATENDIMENTO_PAINEL: 'calendario-atendimento-painel',
+  // Gestão de Pricing
+  SAUDE_MARGENS: 'saude-margens',
+  PRICING_ANCORAGEM: 'pricing-ancoragem',
+  PRICING_COMPETITIVIDADE: 'pricing-competitividade',
 
   // Controle de Recebimento
   NF_A_CHEGAR: 'nf-a-chegar',
@@ -115,89 +112,70 @@ export const MENU_STRUCTURE = [
   },
   {
     id: MENU_MODULES.ESTOQUE_MARGEM,
-    title: 'Gestão Estoque e Margem',
+    title: 'Gestão de Estoque',
     icon: 'estoque',
     section: 'gestao',
     submenus: [
       {
-        id: MENU_SUBMENUS.ESTOQUE_MARGEM_LANCADOR,
-        title: 'Lançador de Itens',
-        path: '/estoque-margem-lancador'
+        id: MENU_SUBMENUS.ESTOQUE_SAUDE,
+        title: 'Saúde do Estoque',
+        path: '/estoque-saude'
       },
       {
-        id: MENU_SUBMENUS.ESTOQUE_MARGEM_RESULTADOS,
-        title: 'Resultado dos Lançamentos',
-        path: '/estoque-margem-resultados'
+        id: MENU_SUBMENUS.ANALISE_CORTE,
+        title: 'Análise de Corte',
+        path: '/pricing-ponderacao'
       }
     ]
   },
   {
-    id: MENU_MODULES.COMPRA_VENDA,
-    title: 'Compra x Venda',
+    id: MENU_MODULES.COMPRAS,
+    title: 'Gestão de Compras',
     icon: 'compra-venda',
     section: 'gestao',
     submenus: [
       {
-        id: MENU_SUBMENUS.COMPRA_VENDA_ANALISE,
-        title: 'Análise',
+        id: MENU_SUBMENUS.COMPRA_VENDA,
+        title: 'Compra x Venda',
         path: '/compra-venda-analise'
-      }
-    ]
-  },
-  {
-    id: MENU_MODULES.PEDIDOS,
-    title: 'Pedidos',
-    icon: 'clipboard',
-    section: 'gestao',
-    submenus: [
+      },
       {
-        id: MENU_SUBMENUS.PEDIDOS_LISTA,
-        title: 'Lista de Pedidos',
+        id: MENU_SUBMENUS.PEDIDOS,
+        title: 'Pedidos de Compras',
         path: '/prevencao-pedidos'
-      }
-    ]
-  },
-  {
-    id: MENU_MODULES.RUPTURA_INDUSTRIA,
-    title: 'Ruptura Indústria',
-    icon: 'clipboard',
-    section: 'gestao',
-    submenus: [
+      },
       {
-        id: MENU_SUBMENUS.RUPTURA_INDUSTRIA_ANALISE,
-        title: 'Análise de Rupturas',
+        id: MENU_SUBMENUS.CALENDARIO_ATENDIMENTO,
+        title: 'Calendário de Atendimento',
+        path: '/calendario-atendimento'
+      },
+      {
+        id: MENU_SUBMENUS.RUPTURA_INDUSTRIA,
+        title: 'Ruptura Indústria',
         path: '/ruptura-industria'
       }
     ]
   },
   {
-    id: MENU_MODULES.CALENDARIO_ATENDIMENTO,
-    title: 'Calendário de Atendimento',
-    icon: 'calendar',
+    id: MENU_MODULES.PRICING,
+    title: 'Gestão de Pricing',
+    icon: 'tag',
     section: 'gestao',
     submenus: [
       {
-        id: MENU_SUBMENUS.CALENDARIO_ATENDIMENTO_PAINEL,
-        title: 'Calendário de Atendimento',
-        path: '/calendario-atendimento'
-      }
-    ]
-  },
-  {
-    id: MENU_MODULES.CONTROLE_RECEBIMENTO,
-    title: 'Controle de Recebimento',
-    icon: 'document',
-    section: 'gestao',
-    submenus: [
-      {
-        id: MENU_SUBMENUS.NF_A_CHEGAR,
-        title: 'Notas a Chegar',
-        path: '/notas-a-chegar'
+        id: MENU_SUBMENUS.SAUDE_MARGENS,
+        title: 'Saúde de Margens',
+        path: '/saude-margens'
       },
       {
-        id: MENU_SUBMENUS.NF_RECEBIMENTO,
-        title: 'Notas Entregue',
-        path: '/nota-fiscal-recebimento'
+        id: MENU_SUBMENUS.PRICING_ANCORAGEM,
+        title: 'Ancoragem de Preço',
+        path: '/pricing-ancoragem'
+      },
+      {
+        id: MENU_SUBMENUS.PRICING_COMPETITIVIDADE,
+        title: 'Competitividade e Concorrência',
+        path: '/pricing-competitividade'
       }
     ]
   },
@@ -343,6 +321,24 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.HORTFRUT_RESULTADOS,
         title: 'Resultado dos Lançamentos',
         path: '/hortfrut-resultados'
+      }
+    ]
+  },
+  {
+    id: MENU_MODULES.CONTROLE_RECEBIMENTO,
+    title: 'Prevenção Recebimento',
+    icon: 'document',
+    section: 'prevencao',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.NF_A_CHEGAR,
+        title: 'Notas a Chegar',
+        path: '/notas-a-chegar'
+      },
+      {
+        id: MENU_SUBMENUS.NF_RECEBIMENTO,
+        title: 'Notas Entregue',
+        path: '/nota-fiscal-recebimento'
       }
     ]
   },

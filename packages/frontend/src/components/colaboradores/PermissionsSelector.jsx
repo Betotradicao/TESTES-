@@ -172,19 +172,20 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
   const moduleEmojis = {
     'gestao-inteligente': '🧠',
     'estoque-margem': '📦',
-    'compra-venda': '📈',
-    'pedidos': '📋',
-    'ruptura-industria': '🏭',
-    'bipagens': '🏷️',
-    'pdv': '🛒',
+    'compras': '🛒',
+    'pricing': '🏷️',
+    'bipagens': '🔖',
+    'pdv': '💻',
     'facial': '👤',
     'ruptura': '📋',
     'etiquetas': '🔖',
     'perdas': '📊',
     'producao': '🥖',
     'hortfrut': '🥬',
-    'calendario-atendimento': '📅',
+    'controle-recebimento': '📄',
     'garimpa-fornecedores': '🔎',
+    'entradas-saidas': '💰',
+    'bancos': '🏦',
     'rota-crescimento': '🚀',
   };
 
@@ -192,6 +193,7 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
   const gestaoModules = MENU_STRUCTURE.filter(m => m.section === 'gestao' && m.submenus.length > 0);
   const prevencaoModules = MENU_STRUCTURE.filter(m => m.section === 'prevencao' && m.submenus.length > 0);
   const garimpaModules = MENU_STRUCTURE.filter(m => m.section === 'garimpa' && m.submenus.length > 0);
+  const financasModules = MENU_STRUCTURE.filter(m => m.section === 'financas' && m.submenus.length > 0);
   const iaModules = MENU_STRUCTURE.filter(m => m.section === 'ia' && m.submenus.length > 0);
 
   const renderModuleCard = (module) => {
@@ -340,6 +342,20 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
             <div className="flex-1 border-t border-green-200"></div>
           </div>
           {garimpaModules.map(module => renderModuleCard(module))}
+        </>
+      )}
+
+      {/* Seção FINANÇAS NO RADAR */}
+      {financasModules.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 mt-6 mb-3">
+            <div className="w-6 h-6 bg-emerald-600 rounded-md flex items-center justify-center">
+              <span className="text-white text-xs font-bold">$</span>
+            </div>
+            <h4 className="text-sm font-bold text-emerald-800 uppercase tracking-wide">Finanças no Radar</h4>
+            <div className="flex-1 border-t border-emerald-200"></div>
+          </div>
+          {financasModules.map(module => renderModuleCard(module))}
         </>
       )}
 

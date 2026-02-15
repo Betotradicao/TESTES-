@@ -34,11 +34,13 @@ import ProducaoLancador from './pages/ProducaoLancador';
 import ProducaoSugestao from './pages/ProducaoSugestao';
 import ProducaoResultados from './pages/ProducaoResultados';
 import EstoqueSaude from './pages/EstoqueSaude';
+import SaudeMargens from './pages/SaudeMargens';
 import HortFrutLancador from './pages/HortFrutLancador';
 import HortFrutConferencia from './pages/HortFrutConferencia';
 import HortFrutResultados from './pages/HortFrutResultados';
 import Fornecedores from './pages/Fornecedores';
 import CompraVendaAnalise from './pages/CompraVendaAnalise';
+import AnalisePonderacao from './pages/AnalisePonderacao';
 import FrenteCaixa from './pages/FrenteCaixa';
 import PrevencaoPedidos from './pages/PrevencaoPedidos';
 import RupturaIndustria from './pages/RupturaIndustria';
@@ -285,6 +287,14 @@ function App() {
               }
             />
             <Route
+              path="/saude-margens"
+              element={
+                <ProtectedRoute>
+                  <SaudeMargens />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/hortfrut-lancador"
               element={
                 <ProtectedRoute>
@@ -321,6 +331,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <CompraVendaAnalise />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/pricing-ponderacao"
+              element={
+                <ProtectedRoute>
+                  <AnalisePonderacao />
                 </ProtectedRoute>
               }
             />

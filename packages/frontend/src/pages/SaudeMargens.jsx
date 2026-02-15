@@ -37,29 +37,23 @@ const AVAILABLE_COLUMNS = [
   { id: 'desPesquisaConcorrente', label: 'Concorrente', visible: false },
 ];
 
-// Configuração dos cards de resumo (data-driven)
+// Configuração dos cards de resumo (data-driven) - somente margem
 const CARD_CONFIG = {
-  zerado: { emoji: '🚫', label: 'Ruptura', textColor: 'text-red-600', borderColor: 'border-red-500', statKey: 'estoqueZerado' },
-  negativo: { emoji: '⚠️', label: 'Estoque Negativo', textColor: 'text-red-700', borderColor: 'border-orange-600', statKey: 'estoqueNegativo' },
-  sem_venda: { emoji: '⏸️', label: 'Sem Venda', textColor: 'text-orange-600', borderColor: 'border-orange-400', statKey: 'semVenda30Dias', special: true },
-  pre_ruptura: { emoji: '📉', label: 'Estoque Mínimo', subtitle: 'Pré Ruptura', textColor: 'text-amber-600', borderColor: 'border-amber-500', statKey: 'preRuptura' },
   margem_negativa: { emoji: '💸', label: 'Margem Negativa', textColor: 'text-red-800', borderColor: 'border-rose-500', statKey: 'margemNegativa' },
   margem_baixa: { emoji: '💰', label: 'Margem Abaixo Meta', textColor: 'text-yellow-600', borderColor: 'border-yellow-500', statKey: 'margemAbaixoMeta' },
   custo_zerado: { emoji: '🏷️', label: 'Custo Zerado', textColor: 'text-purple-600', borderColor: 'border-purple-500', statKey: 'custoZerado' },
   preco_venda_zerado: { emoji: '💵', label: 'Preço Venda Zerado', textColor: 'text-pink-600', borderColor: 'border-pink-500', statKey: 'precoVendaZerado' },
-  curva_x: { emoji: '❌', label: 'Curva X', textColor: 'text-gray-600', borderColor: 'border-gray-400', statKey: 'curvaX' },
   conc_barato: { emoji: '🏪', label: 'Concorrente', subtitle: '+ Barato', textColor: 'text-blue-600', borderColor: 'border-blue-500', statKey: 'concBarato' },
   margem_excessiva: { emoji: '📈', label: 'Margem Excessiva', textColor: 'text-emerald-600', borderColor: 'border-emerald-500', statKey: 'margemExcessiva', specialRanges: true },
-  estoque_excessivo: { emoji: '📦', label: 'Estoque Excessivo', textColor: 'text-amber-600', borderColor: 'border-amber-500', statKey: 'estoqueExcessivo', specialRanges: true },
 };
-const DEFAULT_CARD_ORDER = ['zerado', 'negativo', 'sem_venda', 'pre_ruptura', 'margem_negativa', 'margem_baixa', 'margem_excessiva', 'estoque_excessivo', 'custo_zerado', 'preco_venda_zerado', 'curva_x', 'conc_barato'];
+const DEFAULT_CARD_ORDER = ['margem_excessiva', 'custo_zerado', 'margem_negativa', 'preco_venda_zerado', 'margem_baixa', 'conc_barato'];
 
-// Seções fixas de cards - Somente ESTOQUE
+// Seções fixas de cards - Somente MARGEM
 const CARD_SECTIONS = [
   {
-    id: 'gestao-estoque',
-    title: 'GESTÃO ESTOQUE',
-    cards: ['zerado', 'sem_venda', 'pre_ruptura', 'negativo', 'estoque_excessivo', 'curva_x'],
+    id: 'gestao-margem',
+    title: 'GESTÃO MARGEM',
+    cards: ['margem_excessiva', 'custo_zerado', 'margem_negativa', 'preco_venda_zerado', 'margem_baixa', 'conc_barato'],
   },
 ];
 
@@ -73,24 +67,12 @@ const MARGEM_RANGES = [
   { id: 'acima30', label: '>30%', min: 30.01, max: 99999, color: 'bg-violet-50 hover:bg-violet-100', textColor: 'text-violet-700' },
 ];
 
-// Faixas de estoque excessivo (dias de cobertura = estoque / venda média)
-const ESTOQUE_EXCESSIVO_RANGES = [
-  { id: 'ate20', label: '≤20d', min: 0.01, max: 20, color: 'bg-green-50 hover:bg-green-100', textColor: 'text-green-700' },
-  { id: 'de21a30', label: '21-30d', min: 21, max: 30, color: 'bg-lime-50 hover:bg-lime-100', textColor: 'text-lime-700' },
-  { id: 'de31a60', label: '31-60d', min: 31, max: 60, color: 'bg-yellow-50 hover:bg-yellow-100', textColor: 'text-yellow-700' },
-  { id: 'de61a120', label: '61-120d', min: 61, max: 120, color: 'bg-orange-50 hover:bg-orange-100', textColor: 'text-orange-700' },
-  { id: 'de121a180', label: '121-180d', min: 121, max: 180, color: 'bg-red-50 hover:bg-red-100', textColor: 'text-red-600' },
-  { id: 'acima180', label: '>180d', min: 181, max: 99999, color: 'bg-red-100 hover:bg-red-200', textColor: 'text-red-700' },
-  { id: 'nunca', label: 'Nunca', min: -1, max: -1, color: 'bg-gray-100 hover:bg-gray-200', textColor: 'text-gray-700' },
-];
-
 // Mapa de faixas por card (para cards com specialRanges)
 const SPECIAL_RANGES = {
   margem_excessiva: MARGEM_RANGES,
-  estoque_excessivo: ESTOQUE_EXCESSIVO_RANGES,
 };
 
-export default function EstoqueSaude() {
+export default function SaudeMargens() {
   const { user, logout } = useAuth();
   const { lojaSelecionada } = useLoja();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -101,7 +83,7 @@ export default function EstoqueSaude() {
   // Configuração de colunas - merge inteligente com versão salva
   const [showColumnSelector, setShowColumnSelector] = useState(false);
   const [columns, setColumns] = useState(() => {
-    const saved = localStorage.getItem('estoque_columns');
+    const saved = localStorage.getItem('saude_margens_columns');
     if (!saved) return AVAILABLE_COLUMNS;
     try {
       const savedCols = JSON.parse(saved);
@@ -120,14 +102,14 @@ export default function EstoqueSaude() {
       AVAILABLE_COLUMNS.forEach(c => {
         if (!savedIds.has(c.id)) merged.push({ ...c });
       });
-      localStorage.setItem('estoque_columns', JSON.stringify(merged));
+      localStorage.setItem('saude_margens_columns', JSON.stringify(merged));
       return merged;
     } catch { return AVAILABLE_COLUMNS; }
   });
 
   // Ordem dos cards (drag and drop) - salva no localStorage
   const [cardOrder, setCardOrder] = useState(() => {
-    const saved = localStorage.getItem('estoque_card_order');
+    const saved = localStorage.getItem('saude_margens_card_order');
     if (!saved) return DEFAULT_CARD_ORDER;
     try {
       const parsed = JSON.parse(saved);
@@ -243,10 +225,10 @@ export default function EstoqueSaude() {
   };
 
   // Estados para colunas de cada pontuação (persistidas separadamente)
-  const [pontuacaoEstoqueColumns, setPontuacaoEstoqueColumns] = useState(() => loadPontuacaoCols('estoque_pontuacao_estoque_cols', PONTUACAO_ESTOQUE_COLUMNS_DEFAULT));
-  const [pontuacaoMargemColumns, setPontuacaoMargemColumns] = useState(() => loadPontuacaoCols('estoque_pontuacao_margem_cols', PONTUACAO_MARGEM_COLUMNS_DEFAULT));
+  const [pontuacaoEstoqueColumns, setPontuacaoEstoqueColumns] = useState(() => loadPontuacaoCols('saude_margens_pontuacao_estoque_cols', PONTUACAO_ESTOQUE_COLUMNS_DEFAULT));
+  const [pontuacaoMargemColumns, setPontuacaoMargemColumns] = useState(() => loadPontuacaoCols('saude_margens_pontuacao_margem_cols', PONTUACAO_MARGEM_COLUMNS_DEFAULT));
   // Manter compatibilidade com o state original
-  const [pontuacaoColumns, setPontuacaoColumns] = useState(() => loadPontuacaoCols('estoque_saude_pontuacao_columns', PONTUACAO_COLUMNS_DEFAULT));
+  const [pontuacaoColumns, setPontuacaoColumns] = useState(() => loadPontuacaoCols('saude_margens_pontuacao_columns', PONTUACAO_COLUMNS_DEFAULT));
 
   // Colunas ativas dependem do viewMode
   const activePontuacaoColumns = viewMode === 'pontuacaoEstoque' ? pontuacaoEstoqueColumns
@@ -259,13 +241,13 @@ export default function EstoqueSaude() {
 
   // Persistir ordem das colunas de pontuação
   useEffect(() => {
-    localStorage.setItem('estoque_saude_pontuacao_columns', JSON.stringify(pontuacaoColumns.map(c => c.id)));
+    localStorage.setItem('saude_margens_pontuacao_columns', JSON.stringify(pontuacaoColumns.map(c => c.id)));
   }, [pontuacaoColumns]);
   useEffect(() => {
-    localStorage.setItem('estoque_pontuacao_estoque_cols', JSON.stringify(pontuacaoEstoqueColumns.map(c => c.id)));
+    localStorage.setItem('saude_margens_pontuacao_estoque_cols', JSON.stringify(pontuacaoEstoqueColumns.map(c => c.id)));
   }, [pontuacaoEstoqueColumns]);
   useEffect(() => {
-    localStorage.setItem('estoque_pontuacao_margem_cols', JSON.stringify(pontuacaoMargemColumns.map(c => c.id)));
+    localStorage.setItem('saude_margens_pontuacao_margem_cols', JSON.stringify(pontuacaoMargemColumns.map(c => c.id)));
   }, [pontuacaoMargemColumns]);
 
   // Drag and drop para colunas de pontuação
@@ -333,7 +315,7 @@ export default function EstoqueSaude() {
       critico: { min: 101, max: 150 },
       muitoCritico: { min: 151, max: 999999 }
     };
-    const saved = localStorage.getItem('estoque_saude_risk_config');
+    const saved = localStorage.getItem('saude_margens_risk_config');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -344,7 +326,7 @@ export default function EstoqueSaude() {
 
   // Persistir configuração de risco
   useEffect(() => {
-    localStorage.setItem('estoque_saude_risk_config', JSON.stringify(riskConfig));
+    localStorage.setItem('saude_margens_risk_config', JSON.stringify(riskConfig));
   }, [riskConfig]);
 
   // Filtro de risco ativo
@@ -359,13 +341,13 @@ export default function EstoqueSaude() {
 
   // Pedidos salvos (persistidos no localStorage)
   const [pedidosSalvos, setPedidosSalvos] = useState(() => {
-    const saved = localStorage.getItem('estoque_saude_pedidos');
+    const saved = localStorage.getItem('saude_margens_pedidos');
     return saved ? JSON.parse(saved) : [];
   });
 
   // Persistir pedidos salvos
   useEffect(() => {
-    localStorage.setItem('estoque_saude_pedidos', JSON.stringify(pedidosSalvos));
+    localStorage.setItem('saude_margens_pedidos', JSON.stringify(pedidosSalvos));
   }, [pedidosSalvos]);
 
   // Estado para controlar qual pedido está expandido
@@ -492,27 +474,14 @@ export default function EstoqueSaude() {
     const curvaDefault = { A: 50, B: 35, C: 25, D: 15, E: 10, X: 5 };
     const defaults = {
       _version: PONTUACAO_VERSION,
-      zerado: { ...curvaDefault },
-      negativo: { ...curvaDefault },
-      sem_venda: {
-        A: { dias: 3, pontos: 50 },
-        B: { dias: 7, pontos: 40 },
-        C: { dias: 15, pontos: 30 },
-        D: { dias: 30, pontos: 20 },
-        E: { dias: 45, pontos: 10 },
-        X: { dias: 60, pontos: 5 }
-      },
-      pre_ruptura: { ...curvaDefault },
       margem_negativa: { ...curvaDefault },
       margem_baixa: { ...curvaDefault },
       custo_zerado: { ...curvaDefault },
       preco_venda_zerado: { ...curvaDefault },
-      curva_x: { ...curvaDefault },
       conc_barato: { ...curvaDefault },
       margem_excessiva: { ate5: 50, de5a10: 35, de10a15: 25, de15a20: 15, de20a30: 10, acima30: 5 },
-      estoque_excessivo: { ate20: 5, de21a30: 10, de31a60: 15, de61a120: 25, de121a180: 35, acima180: 50, nunca: 50 },
     };
-    const saved = localStorage.getItem('estoque_saude_pontuacao');
+    const saved = localStorage.getItem('saude_margens_pontuacao');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -524,19 +493,7 @@ export default function EstoqueSaude() {
         const result = { _version: PONTUACAO_VERSION };
         for (const key of Object.keys(defaults)) {
           if (key === '_version') continue;
-          if (key === 'sem_venda') {
-            // Estrutura especial para sem_venda
-            result[key] = {};
-            for (const curva of ['A', 'B', 'C', 'D', 'E', 'X']) {
-              if (parsed[key]?.[curva] && typeof parsed[key][curva] === 'object') {
-                result[key][curva] = { ...defaults[key][curva], ...parsed[key][curva] };
-              } else {
-                result[key][curva] = defaults[key][curva];
-              }
-            }
-          } else {
-            result[key] = { ...defaults[key], ...(parsed[key] || {}) };
-          }
+          result[key] = { ...defaults[key], ...(parsed[key] || {}) };
         }
         return result;
       } catch (e) {
@@ -548,12 +505,12 @@ export default function EstoqueSaude() {
 
   // Salvar pontuação no localStorage
   useEffect(() => {
-    localStorage.setItem('estoque_saude_pontuacao', JSON.stringify(pontuacaoConfig));
+    localStorage.setItem('saude_margens_pontuacao', JSON.stringify(pontuacaoConfig));
   }, [pontuacaoConfig]);
 
   // Salvar ordem dos cards no localStorage
   useEffect(() => {
-    localStorage.setItem('estoque_card_order', JSON.stringify(cardOrder));
+    localStorage.setItem('saude_margens_card_order', JSON.stringify(cardOrder));
   }, [cardOrder]);
 
   // Drag and drop handlers para reordenar cards
@@ -609,7 +566,7 @@ export default function EstoqueSaude() {
 
   // Salvar colunas no localStorage
   useEffect(() => {
-    localStorage.setItem('estoque_columns', JSON.stringify(columns));
+    localStorage.setItem('saude_margens_columns', JSON.stringify(columns));
   }, [columns]);
 
   // Toggle visibilidade de coluna
@@ -849,11 +806,6 @@ export default function EstoqueSaude() {
       filtered = filtered.filter(p => p.valPesquisaMedia > 0 && p.valvenda > 0 && p.valPesquisaMedia < p.valvenda);
     } else if (activeCardFilter === 'margem_excessiva') {
       filtered = filtered.filter(p => p.margemRef > 0 && p.margemCalculada > p.margemRef);
-    } else if (activeCardFilter === 'estoque_excessivo') {
-      filtered = filtered.filter(p => {
-        if (!p.estoque || p.estoque <= 0) return false;
-        return true; // todos com estoque > 0 (detalhamento por faixa no activeCardCurva)
-      });
     }
 
     // Filtro de curva específica dentro do card (ou faixa especial)
@@ -865,30 +817,6 @@ export default function EstoqueSaude() {
             const excesso = p.margemCalculada - p.margemRef;
             return excesso >= range.min && excesso <= range.max;
           });
-        }
-      } else if (activeCardFilter === 'estoque_excessivo') {
-        if (activeCardCurva === 'nunca') {
-          // Nunca vendido: sem registro de venda (diasSemVenda >= 999) e tem estoque
-          filtered = filtered.filter(p => p.estoque > 0 && p.diasSemVenda >= 999);
-        } else if (activeCardCurva === 'acima180') {
-          // >180d: inclui produtos com cobertura > 180 dias OU vendaMedia = 0 mas já vendeu antes
-          filtered = filtered.filter(p => {
-            if (!p.estoque || p.estoque <= 0 || p.diasSemVenda >= 999) return false;
-            const vm = p.vendaMedia || 0;
-            if (vm <= 0) return true; // vendaMedia=0 mas já vendeu → cobertura infinita
-            return (p.estoque / vm) >= 181;
-          });
-        } else {
-          const range = ESTOQUE_EXCESSIVO_RANGES.find(r => r.id === activeCardCurva);
-          if (range) {
-            filtered = filtered.filter(p => {
-              if (p.diasSemVenda >= 999) return false; // nunca vendido vai no "nunca"
-              const vm = p.vendaMedia || 0;
-              if (vm <= 0) return false; // vendaMedia=0 vai no ">180d"
-              const diasCobertura = p.estoque / vm;
-              return diasCobertura >= range.min && diasCobertura <= range.max;
-            });
-          }
         }
       } else if (activeCardCurva === 'X') {
         filtered = filtered.filter(p => p.curva === 'X' || !p.curva);
@@ -1051,33 +979,6 @@ export default function EstoqueSaude() {
       }
     });
 
-    // Estoque Excessivo: produtos com estoque > 0 classificados por dias de cobertura
-    const estoqueExcessivoPorFaixa = {};
-    ESTOQUE_EXCESSIVO_RANGES.forEach(range => { estoqueExcessivoPorFaixa[range.id] = 0; });
-    const produtosEstoqueExcessivo = filtered.filter(p => {
-      if (!p.estoque || p.estoque <= 0) return false;
-      // "Nunca Vendido" = sem data de última venda (diasSemVenda >= 999 = sem registro de venda)
-      if (p.diasSemVenda >= 999) {
-        estoqueExcessivoPorFaixa.nunca++;
-        return true;
-      }
-      const vm = p.vendaMedia || 0;
-      if (vm <= 0) {
-        // Tem histórico de venda mas média arredondou para 0 → cobertura infinita → >180d
-        estoqueExcessivoPorFaixa.acima180++;
-        return true;
-      }
-      const diasCobertura = p.estoque / vm;
-      for (const range of ESTOQUE_EXCESSIVO_RANGES) {
-        if (range.id === 'nunca') continue;
-        if (diasCobertura >= range.min && diasCobertura <= range.max) {
-          estoqueExcessivoPorFaixa[range.id]++;
-          return true;
-        }
-      }
-      return false;
-    });
-
     return {
       estoqueZerado: produtosZerado.length,
       estoqueNegativo: produtosNegativo.length,
@@ -1090,7 +991,6 @@ export default function EstoqueSaude() {
       curvaX: produtosCurvaX.length,
       concBarato: produtosConcBarato.length,
       margemExcessiva: produtosMargemExcessiva.length,
-      estoqueExcessivo: produtosEstoqueExcessivo.length,
       total: filtered.length,
       valorTotalEstoque,
       // Contagem por curva para cada indicador
@@ -1106,10 +1006,9 @@ export default function EstoqueSaude() {
         curva_x: contarPorCurva(produtosCurvaX),
         conc_barato: contarPorCurva(produtosConcBarato),
         margem_excessiva: margemExcessivaPorFaixa,
-        estoque_excessivo: estoqueExcessivoPorFaixa,
       }
     };
-  }, [products, filterTipoEspecie, filterTipoEvento, pontuacaoConfig.sem_venda]);
+  }, [products, filterTipoEspecie, filterTipoEvento]);
 
   // Calcular pontos para cada produto (para a visualização de pontuação)
   const produtosComPontuacao = useMemo(() => {
@@ -1144,32 +1043,8 @@ export default function EstoqueSaude() {
         }
       }
 
-      // Estoque excessivo: pontos por faixa de dias de cobertura
-      let pontosEstoqueExcessivo = 0;
-      if (p.estoque > 0) {
-        if (p.diasSemVenda >= 999) {
-          // Nunca vendido
-          pontosEstoqueExcessivo = pontuacaoConfig.estoque_excessivo?.nunca || 0;
-        } else {
-          const vm = p.vendaMedia || 0;
-          if (vm <= 0) {
-            // Já vendeu mas média é 0 → cobertura infinita → >180d
-            pontosEstoqueExcessivo = pontuacaoConfig.estoque_excessivo?.acima180 || 0;
-          } else {
-            const diasCobertura = p.estoque / vm;
-            for (const range of ESTOQUE_EXCESSIVO_RANGES) {
-              if (range.id === 'nunca') continue;
-              if (diasCobertura >= range.min && diasCobertura <= range.max) {
-                pontosEstoqueExcessivo = pontuacaoConfig.estoque_excessivo?.[range.id] || 0;
-                break;
-              }
-            }
-          }
-        }
-      }
-
       // Totais separados por categoria
-      const totalPontosEstoque = pontosZerado + pontosNegativo + pontosSemVenda + pontosPreRuptura + pontosEstoqueExcessivo;
+      const totalPontosEstoque = pontosZerado + pontosNegativo + pontosSemVenda + pontosPreRuptura;
       const totalPontosMargem = pontosMargemNegativa + pontosMargemBaixa + pontosCustoZerado + pontosPrecoZerado + pontosConcBarato + pontosMargemExcessiva;
       const totalPontos = totalPontosEstoque + totalPontosMargem;
 
@@ -1185,7 +1060,7 @@ export default function EstoqueSaude() {
         pontosPrecoZerado,
         pontosConcBarato,
         pontosMargemExcessiva,
-        pontosEstoqueExcessivo,
+        pontosEstoqueExcessivo: 0,
         totalPontos,
         totalPontosEstoque,
         totalPontosMargem
@@ -2009,7 +1884,7 @@ export default function EstoqueSaude() {
           <div className="hidden lg:block bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg p-6 mb-6 text-white">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl lg:text-3xl font-bold mb-2">📦 SAÚDE DO ESTOQUE</h1>
+                <h1 className="text-2xl lg:text-3xl font-bold mb-2">💹 SAÚDE DE MARGENS</h1>
                 <p className="text-white/90">
                   Monitore a saúde do seu estoque e identifique produtos críticos
                 </p>
@@ -2173,11 +2048,11 @@ export default function EstoqueSaude() {
           {/* Cards de Resumo - Grid 3 colunas com header */}
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {/* Header */}
-            <div className="col-span-2 lg:col-span-3 flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-sm bg-gradient-to-r from-orange-500 to-amber-500">
-              <span className="text-xl">📦</span>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-white">GESTÃO ESTOQUE</h3>
+            <div className="col-span-2 lg:col-span-3 flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-sm bg-gradient-to-r from-blue-600 to-indigo-500">
+              <span className="text-xl">💹</span>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-white">GESTÃO MARGEM</h3>
             </div>
-            {/* Cards de estoque */}
+            {/* Cards de margem */}
             {CARD_SECTIONS[0].cards.map(cardId => {
                 const cfg = CARD_CONFIG[cardId];
                 if (!cfg) return null;

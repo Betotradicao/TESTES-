@@ -260,9 +260,10 @@ export default function GestaoInteligente() {
   // Estado para ordem dos cards DEFESA (drag and drop)
   const defaultDefesaOrder1 = ['naoBipados', 'furtos', 'cancelamentos', 'descontos', 'valeTroca', 'valeDesconto'];
   const defaultDefesaOrder2 = ['sobraCaixa', 'faltaCaixa', 'rupturaTaxa', 'rupturaPerdaVenda', 'rupturaPerdaLucro', 'etiquetaTaxa'];
-  const defaultDefesaOrder3 = ['fluxoCaixa', 'defesa14', 'defesa15', 'defesa16', 'defesa17', 'defesa18'];
+  const defaultDefesaOrder3 = ['fluxoCaixa', 'perdasEstoque', 'defesa15', 'defesa16', 'defesa17', 'defesa18'];
   const migrateDefesaIds = (ids) => ids.map(id => {
     if (id === 'defesa13') return 'fluxoCaixa';
+    if (id === 'defesa14') return 'perdasEstoque';
     return id;
   });
   const [defesaOrder1, setDefesaOrder1] = useState(() => {
@@ -779,9 +780,14 @@ export default function GestaoInteligente() {
         if (codLoja) p.append('codLoja', codLoja); return p.toString();
       };
 
+      const mkLossParams = (ini, fim) => {
+        const p = new URLSearchParams({ data_inicio: ini, data_fim: fim, motivo: 'todos', tipo: 'todos' });
+        if (codLoja) p.append('codLoja', codLoja); return p.toString();
+      };
+
       const safe = (p) => p.catch((err) => { console.warn('Defesa API error:', err?.message); return { data: {} }; });
 
-      const [sellsRes, bipsRes, fcAt, fcMP, fcAP, rAt, rMP, rAP, eAt, eMP, eAP, bkAt, bkMP, bkAP] = await Promise.all([
+      const [sellsRes, bipsRes, fcAt, fcMP, fcAP, rAt, rMP, rAP, eAt, eMP, eAP, bkAt, bkMP, bkAP, lsAt, lsMP, lsAP] = await Promise.all([
         safe(api.get('/sells', { params: { page: 1, limit: 1, date_from: filters.dataInicio, date_to: filters.dataFim } })),
         safe(api.get('/bips', { params: { page: 1, limit: 1000, status: 'cancelled', date_from: filters.dataInicio, date_to: filters.dataFim } })),
         safe(api.get(`/frente-caixa/totais?${mkFCParams(fmtDateBR(filters.dataInicio), fmtDateBR(filters.dataFim))}`)),
@@ -796,6 +802,9 @@ export default function GestaoInteligente() {
         safe(api.get('/santander/extrato-completo', { params: { initialDate: filters.dataInicio, finalDate: filters.dataFim }, timeout: 60000 })),
         safe(api.get('/santander/extrato-completo', { params: { initialDate: fmtISO(mesPassIni), finalDate: fmtISO(mesPassFim) }, timeout: 60000 })),
         safe(api.get('/santander/extrato-completo', { params: { initialDate: fmtISO(anoPassIni), finalDate: fmtISO(anoPassFim) }, timeout: 60000 })),
+        safe(api.get(`/losses/oracle?${mkLossParams(filters.dataInicio, filters.dataFim)}`)),
+        safe(api.get(`/losses/oracle?${mkLossParams(fmtISO(mesPassIni), fmtISO(mesPassFim))}`)),
+        safe(api.get(`/losses/oracle?${mkLossParams(fmtISO(anoPassIni), fmtISO(anoPassFim))}`)),
       ]);
 
       // Não bipados
@@ -811,7 +820,7 @@ export default function GestaoInteligente() {
         cancel: (t.CANCELAMENTOS || 0) + (t.ESTORNOS_ORFAOS || 0), pctC: v > 0 ? (((t.CANCELAMENTOS||0)+(t.ESTORNOS_ORFAOS||0))/v*100) : 0,
         desc: t.TOTAL_DESCONTOS||0, pctD: v>0?((t.TOTAL_DESCONTOS||0)/v*100):0,
         vt: t.VALE_TROCA||0, pctVT: v>0?((t.VALE_TROCA||0)/v*100):0,
-        vd: t.VALE_DESCONTO||0, sob: t.TOTAL_SOBRA||0, fal: t.TOTAL_QUEBRA||0
+        vd: t.VALE_DESCONTO||0, sob: t.TOTAL_SOBRA||0, fal: t.TOTAL_QUEBRA||0, faturamento: v
       };};
       const fc1=pFC(fcAt), fc2=pFC(fcMP), fc3=pFC(fcAP);
 
@@ -828,6 +837,15 @@ export default function GestaoInteligente() {
       const pBK = (r) => { const t=r.data?.totais||{}; return (t.creditos||0) - (t.debitos||0); };
       const bk1=pBK(bkAt), bk2=pBK(bkMP), bk3=pBK(bkAP);
 
+      // Parse perdas de estoque (losses/oracle) - Perdas - Ganhos
+      const pLS = (r) => {
+        const prods = r.data?.produtos_ranking || [];
+        const perdas = prods.filter(p => p.quantidade < 0).reduce((a, p) => a + Math.abs(p.valorPerda || 0), 0);
+        const entradas = prods.filter(p => p.quantidade > 0).reduce((a, p) => a + (p.valorPerda || 0), 0);
+        return Math.round((perdas - entradas) * 100) / 100;
+      };
+      const ls1=pLS(lsAt), ls2=pLS(lsMP), ls3=pLS(lsAP);
+
       setDefesaData({
         naoBipados: { valor: notV/100, pct: totalV>0?(notV/totalV*100):0, total: totalV/100 },
         furtos: { valor: furtoVal/100, qtd: furtos.length },
@@ -842,6 +860,7 @@ export default function GestaoInteligente() {
         rupturaPerdaLucro: { atual: r1.pl, mesPassado: r2.pl, anoPassado: r3.pl },
         etiquetaTaxa: { atual: e1.taxa, mesPassado: e2.taxa, anoPassado: e3.taxa },
         fluxoCaixa: { atual: bk1, mesPassado: bk2, anoPassado: bk3 },
+        perdasEstoque: { atual: ls1, mesPassado: ls2, anoPassado: ls3, pct: fc1.faturamento > 0 ? (ls1 / fc1.faturamento * 100) : 0 },
         loadingDefesa: false
       });
     } catch (err) {
@@ -3861,7 +3880,8 @@ export default function GestaoInteligente() {
                 rupturaPerdaLucro: { border: 'border-indigo-500', bg: 'bg-indigo-100', ic: 'text-indigo-600', lb: 'PERDA LUCRO', val: () => formatCurrency(defesaData.rupturaPerdaLucro?.atual), title: 'PERDA DE LUCRO IDENTIFICADA', tipo: 'currency', d: defesaData.rupturaPerdaLucro, inv: true, svg: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
                 etiquetaTaxa: { border: 'border-sky-500', bg: 'bg-sky-100', ic: 'text-sky-600', lb: 'ETIQ. DESCONF.', val: () => formatPercent(defesaData.etiquetaTaxa?.atual), title: 'TAXA ETIQUETAS DESCONFORMES', tipo: 'percent', d: defesaData.etiquetaTaxa, inv: true, svg: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
                 fluxoCaixa: { border: 'border-teal-500', bg: 'bg-teal-100', ic: 'text-teal-600', lb: 'FLUXO DE CAIXA', val: () => formatCurrency(defesaData.fluxoCaixa?.atual), title: 'RESULTADO DO PERIODO', tipo: 'currency', d: defesaData.fluxoCaixa, svg: 'M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
-                defesa14: { emBreve: true }, defesa15: { emBreve: true },
+                perdasEstoque: { border: 'border-rose-500', bg: 'bg-rose-100', ic: 'text-rose-600', lb: 'PERDAS ESTOQUE', val: () => formatCurrency(defesaData.perdasEstoque?.atual), extra: () => <span className="text-2xl font-bold text-rose-600">{formatPercent(defesaData.perdasEstoque?.pct)}</span>, title: 'PERDAS DE ESTOQUE IDENTIFICADAS', tipo: 'currency', d: defesaData.perdasEstoque, inv: true, svg: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
+                defesa15: { emBreve: true },
                 defesa16: { emBreve: true }, defesa17: { emBreve: true }, defesa18: { emBreve: true },
               };
 

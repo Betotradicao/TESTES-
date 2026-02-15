@@ -211,9 +211,9 @@ export class OracleService {
    * @param params - Parâmetros da query
    */
   static async query<T = any>(sql: string, params: any = {}): Promise<T[]> {
-    // SEGURANÇA: Verifica se é apenas SELECT
+    // SEGURANÇA: Verifica se é apenas SELECT (ou WITH ... SELECT que é CTE read-only)
     const sqlUpper = sql.trim().toUpperCase();
-    if (!sqlUpper.startsWith('SELECT')) {
+    if (!sqlUpper.startsWith('SELECT') && !sqlUpper.startsWith('WITH')) {
       throw new Error('SEGURANÇA: Apenas queries SELECT são permitidas');
     }
 
@@ -241,7 +241,7 @@ export class OracleService {
     try {
       connection = await this.getConnection();
 
-      connection.callTimeout = 120000; // 120s max por query (analíticas com JOINs pesados)
+      connection.callTimeout = 300000; // 300s (5min) max por query (analíticas com JOINs pesados)
       const result = await connection.execute(sql, params, {
         outFormat: oracledb.OUT_FORMAT_OBJECT,
         maxRows: 10000 // Limite de segurança
@@ -269,9 +269,9 @@ export class OracleService {
    * @returns Resultado com BLOBs já convertidos para Buffer
    */
   static async queryWithBlob<T = any>(sql: string, params: any = {}): Promise<T[]> {
-    // SEGURANÇA: Verifica se é apenas SELECT
+    // SEGURANÇA: Verifica se é apenas SELECT (ou WITH ... SELECT que é CTE read-only)
     const sqlUpper = sql.trim().toUpperCase();
-    if (!sqlUpper.startsWith('SELECT')) {
+    if (!sqlUpper.startsWith('SELECT') && !sqlUpper.startsWith('WITH')) {
       throw new Error('SEGURANÇA: Apenas queries SELECT são permitidas');
     }
 

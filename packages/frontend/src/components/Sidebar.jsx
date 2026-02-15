@@ -6,13 +6,25 @@ import { useLoja } from '../contexts/LojaContext';
 import { api } from '../utils/api';
 
 export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileMenuOpen }) {
-  const [expandedSections, setExpandedSections] = useState({
-    'gestao-radar': false,
-    'prevencao-radar': false,
-    'financas-radar': false,
-    'ia-radar': false
+  const [expandedSections, setExpandedSections] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sidebar_expanded_sections');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      'gestao-radar': false,
+      'prevencao-radar': false,
+      'financas-radar': false,
+      'ia-radar': false
+    };
   });
-  const [expandedItems, setExpandedItems] = useState({});
+  const [expandedItems, setExpandedItems] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sidebar_expanded_items');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {};
+  });
   const [modulesConfig, setModulesConfig] = useState([]);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebar_collapsed');
@@ -50,6 +62,15 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
   useEffect(() => {
     localStorage.setItem('sidebar_collapsed', isCollapsed.toString());
   }, [isCollapsed]);
+
+  // Salvar estado dos menus expandidos no localStorage
+  useEffect(() => {
+    localStorage.setItem('sidebar_expanded_sections', JSON.stringify(expandedSections));
+  }, [expandedSections]);
+
+  useEffect(() => {
+    localStorage.setItem('sidebar_expanded_items', JSON.stringify(expandedItems));
+  }, [expandedItems]);
 
   // Carregar configuração de módulos do localStorage
   useEffect(() => {
@@ -98,10 +119,9 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
 
   // Manter submenus expandidos baseado na rota atual
   useEffect(() => {
-    // Verificar qual submenu deve estar expandido baseado na rota
     const currentPath = location.pathname;
 
-    // Mapear rotas para seus submenus pais
+    // Mapear rotas para seus submenus pais (expandedItems)
     const routeToSubmenu = {
       '/bipagens': 'bipagens',
       '/resultados-do-dia': 'bipagens',
@@ -121,15 +141,74 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/notas-a-chegar': 'controle-recebimento',
       '/extrato-santander': 'bancos',
       '/extrato-tribanco': 'bancos',
-      '/extrato-banco24h': 'bancos'
+      '/extrato-banco24h': 'bancos',
+      // Gestão de Estoque
+      '/estoque-saude': 'gestao-estoque-margem',
+      '/pricing-ponderacao': 'gestao-estoque-margem',
+      // Gestão de Compras
+      '/compra-venda-analise': 'compras',
+      '/prevencao-pedidos': 'compras',
+      '/calendario-atendimento': 'compras',
+      '/ruptura-industria': 'compras',
+      // Gestão de Pricing
+      '/saude-margens': 'pricing',
+      '/pricing-ancoragem': 'pricing',
+      '/pricing-competitividade': 'pricing',
     };
 
+    // Mapear rotas para a seção principal (expandedSections)
+    const routeToSection = {
+      '/gestao-inteligente': 'gestao-radar',
+      '/estoque-saude': 'gestao-radar',
+      '/saude-margens': 'gestao-radar',
+      '/pricing-ponderacao': 'gestao-radar',
+      '/compra-venda-analise': 'gestao-radar',
+      '/prevencao-pedidos': 'gestao-radar',
+      '/calendario-atendimento': 'gestao-radar',
+      '/ruptura-industria': 'gestao-radar',
+      '/pricing-ancoragem': 'gestao-radar',
+      '/pricing-competitividade': 'gestao-radar',
+      '/bipagens': 'prevencao-radar',
+      '/resultados-do-dia': 'prevencao-radar',
+      '/rankings': 'prevencao-radar',
+      '/ruptura-lancador': 'prevencao-radar',
+      '/ruptura-auditorias': 'prevencao-radar',
+      '/etiquetas/lancar': 'prevencao-radar',
+      '/etiquetas/resultados': 'prevencao-radar',
+      '/perdas-lancador': 'prevencao-radar',
+      '/perdas-resultados': 'prevencao-radar',
+      '/producao-lancador': 'prevencao-radar',
+      '/producao-sugestao': 'prevencao-radar',
+      '/producao/resultados': 'prevencao-radar',
+      '/hortfrut-lancador': 'prevencao-radar',
+      '/hortfrut-resultados': 'prevencao-radar',
+      '/frente-caixa': 'prevencao-radar',
+      '/gestao-trocas': 'prevencao-radar',
+      '/controle-pdv': 'prevencao-radar',
+      '/oferta-radar': 'oferta-radar',
+      '/nota-fiscal-recebimento': 'financas-radar',
+      '/notas-a-chegar': 'financas-radar',
+      '/extrato-santander': 'financas-radar',
+      '/extrato-tribanco': 'financas-radar',
+      '/extrato-banco24h': 'financas-radar',
+    };
+
+    // Auto-expandir a seção principal
+    const sectionId = routeToSection[currentPath];
+    if (sectionId) {
+      setExpandedSections(prev => {
+        if (prev[sectionId]) return prev;
+        return { ...prev, [sectionId]: true };
+      });
+    }
+
+    // Auto-expandir o item (submenu) dentro da seção
     const submenuId = routeToSubmenu[currentPath];
-    if (submenuId && !expandedItems[submenuId]) {
-      setExpandedItems(prev => ({
-        ...prev,
-        [submenuId]: true
-      }));
+    if (submenuId) {
+      setExpandedItems(prev => {
+        if (prev[submenuId]) return prev;
+        return { ...prev, [submenuId]: true };
+      });
     }
   }, [location.pathname]);
 
@@ -191,18 +270,22 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         {
           id: 'gestao-estoque-margem',
           moduleId: 'estoque-margem',
-          title: 'GESTÃO ESTOQUE E MARGEM',
-          path: '/estoque-saude',
+          title: 'GESTÃO DE ESTOQUE',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
             </svg>
-          )
+          ),
+          expandable: true,
+          subItems: [
+            { id: 'estoque-saude', submenuId: 'estoque-saude', title: 'SAÚDE DO ESTOQUE', path: '/estoque-saude' },
+            { id: 'analise-corte', submenuId: 'analise-corte', title: 'ANÁLISE DE CORTE', path: '/pricing-ponderacao' },
+          ]
         },
         {
           id: 'compras',
           moduleId: 'compras',
-          title: 'COMPRAS',
+          title: 'GESTÃO DE COMPRAS',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
@@ -219,7 +302,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         {
           id: 'pricing',
           moduleId: 'pricing',
-          title: 'PRICING',
+          title: 'GESTÃO DE PRICING',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
@@ -227,7 +310,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'pricing-ponderacao', submenuId: 'pricing-ponderacao', title: 'ANALISE DE CORTE', path: '/pricing-ponderacao' },
+            { id: 'saude-margens', submenuId: 'saude-margens', title: 'SAÚDE DE MARGENS', path: '/saude-margens' },
             { id: 'pricing-ancoragem', submenuId: 'pricing-ancoragem', title: 'ANCORAGEM DE PREÇO', path: '/pricing-ancoragem' },
             { id: 'pricing-competitividade', submenuId: 'pricing-competitividade', title: 'COMPETITIVIDADE E CONCORRÊNCIA', path: '/pricing-competitividade' }
           ]
