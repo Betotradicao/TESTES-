@@ -203,7 +203,7 @@ export class AncoragemService {
             p.${colCodProduto} AS COD_PRODUTO,
             p.${colDesProduto} AS DESCRICAO,
             p.${colCodBarras} AS COD_BARRAS,
-            ' ' AS DES_SEGMENTO,
+            ${segmentoSelect},
             0 AS COD_MARCA,
             ' ' AS DES_MARCA,
             NVL(pl.${colPrecoVenda}, 0) AS PRECO_VENDA,
@@ -215,6 +215,7 @@ export class AncoragemService {
             ${vendaMediaSelect}
           FROM ${tabProduto} p
           JOIN ${tabProdutoLoja} pl ON p.${colCodProduto} = pl.${colCodProdutoLoja} AND pl.${colCodLojaLoja} = :codLoja
+          ${segmentoJoin}
           WHERE p.${colCodSecaoProd} = :codSecao
             ${filtroGrupo}
             ${filtroSubgrupo}
