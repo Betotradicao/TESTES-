@@ -267,6 +267,17 @@ const TABLE_CATALOG = {
       { id: 'descricao_segmento', name: 'Descrição Segmento', defaultTable: 'TAB_SEGMENTO', defaultColumn: 'DES_SEGMENTO' },
     ]
   },
+  TAB_PARAMETRO_LOJA: {
+    name: 'Parâmetros por Loja',
+    description: 'Configurações e parâmetros de cada loja',
+    fields: [
+      { id: 'codigo_loja', name: 'Código Loja', defaultTable: 'TAB_PARAMETRO_LOJA', defaultColumn: 'COD_LOJA' },
+      { id: 'peso_vendas', name: 'Peso Vendas %', defaultTable: 'TAB_PARAMETRO_LOJA', defaultColumn: 'PER_PESO_VENDAS' },
+      { id: 'peso_vendas_qtde', name: 'Peso Vendas Qtde %', defaultTable: 'TAB_PARAMETRO_LOJA', defaultColumn: 'PER_PESO_VENDAS_QTDE' },
+      { id: 'peso_penetracao_cupons', name: 'Peso Penetração Cupons %', defaultTable: 'TAB_PARAMETRO_LOJA', defaultColumn: 'PER_PESO_PENETRACAO_CUPONS' },
+      { id: 'peso_penetracao_subcateg', name: 'Peso Penetração Subcateg %', defaultTable: 'TAB_PARAMETRO_LOJA', defaultColumn: 'PER_PESO_PENETRACAO_SUBCATEG' },
+    ]
+  },
   TAB_COMPRADOR: {
     name: 'Compradores',
     description: 'Compradores da empresa',

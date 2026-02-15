@@ -144,6 +144,56 @@ export class PonderacaoService {
       if (mapped) colCustoMedio = mapped;
     } catch (e) { /* usa default */ }
 
+    // Resolver TAB_PRODUTO extras (peso, segmento)
+    let colValPeso = 'VAL_PESO';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO', 'peso');
+      if (mapped) colValPeso = mapped;
+    } catch (e) { /* usa default */ }
+
+    let colCodSegmentoProd = 'COD_SEGMENTO';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_segmento');
+      if (mapped) colCodSegmentoProd = mapped;
+    } catch (e) { /* usa default */ }
+
+    // Resolver TAB_PRODUTO_LOJA pesos de ponderação
+    let colPesoFat = 'PER_PESO_FAT';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'peso_faturamento');
+      if (mapped) colPesoFat = mapped;
+    } catch (e) { /* usa default */ }
+
+    let colPesoVol = 'PER_PESO_VOL';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'peso_volume');
+      if (mapped) colPesoVol = mapped;
+    } catch (e) { /* usa default */ }
+
+    let colPesoCont = 'PER_PESO_CONT';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'peso_contribuicao');
+      if (mapped) colPesoCont = mapped;
+    } catch (e) { /* usa default */ }
+
+    // Resolver TAB_SEGMENTO
+    let tabSegmento = `${schema}.TAB_SEGMENTO`;
+    try {
+      tabSegmento = `${schema}.${await MappingService.getRealTableName('TAB_SEGMENTO')}`;
+    } catch (e) { /* usa default */ }
+
+    let colCodSegmento = 'COD_SEGMENTO';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_SEGMENTO', 'codigo_segmento');
+      if (mapped) colCodSegmento = mapped;
+    } catch (e) { /* usa default */ }
+
+    let colDesSegmento = 'DES_SEGMENTO';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_SEGMENTO', 'descricao_segmento');
+      if (mapped) colDesSegmento = mapped;
+    } catch (e) { /* usa default */ }
+
     // Filtros dinâmicos
     let filtroGrupo = '';
     let filtroSubgrupo = '';
@@ -164,7 +214,7 @@ export class PonderacaoService {
       params.codSubGrupo = filters.codSubGrupo;
     }
     if (filters.codSegmento) {
-      filtroSegmento = `AND p.COD_SEGMENTO = :codSegmento`;
+      filtroSegmento = `AND p.${colCodSegmentoProd} = :codSegmento`;
       params.codSegmento = filters.codSegmento;
     }
 
@@ -252,23 +302,23 @@ export class PonderacaoService {
         p.${colCodProduto} AS COD_PRODUTO,
         p.${colCodBarras} AS COD_BARRAS,
         p.${colDesProduto} AS DESCRICAO,
-        seg.DES_SEGMENTO AS SEGMENTO,
-        NVL(p.VAL_PESO, 1) AS GRAMAGEM,
+        seg.${colDesSegmento} AS SEGMENTO,
+        NVL(p.${colValPeso}, 1) AS GRAMAGEM,
         v.QTD_TOTAL,
-        v.QTD_TOTAL * NVL(p.VAL_PESO, 1) AS QTD_KG_LT,
+        v.QTD_TOTAL * NVL(p.${colValPeso}, 1) AS QTD_KG_LT,
         v.QTD_CUPONS,
         NVL(tk.TICKET_MEDIO, 0) AS TICKET_MEDIO,
         v.VAL_VENDA,
         v.VAL_PROMO,
         NVL(pl.${colVendaMedia}, 0) AS VD_MEDIA,
-        CASE WHEN v.QTD_TOTAL * NVL(p.VAL_PESO, 1) > 0
-          THEN v.VAL_VENDA / (v.QTD_TOTAL * NVL(p.VAL_PESO, 1))
+        CASE WHEN v.QTD_TOTAL * NVL(p.${colValPeso}, 1) > 0
+          THEN v.VAL_VENDA / (v.QTD_TOTAL * NVL(p.${colValPeso}, 1))
           ELSE 0 END AS VD_KG_LT,
         NVL(pl.${colPrecoVenda}, 0) AS PRECO_VENDA,
         v.VAL_CUSTO,
         ${custoMedioExpr} AS CST_MEDIO,
-        CASE WHEN NVL(p.VAL_PESO, 1) > 0
-          THEN ${custoMedioExpr} / NVL(p.VAL_PESO, 1)
+        CASE WHEN NVL(p.${colValPeso}, 1) > 0
+          THEN ${custoMedioExpr} / NVL(p.${colValPeso}, 1)
           ELSE 0 END AS CST_KG_LT,
         CASE WHEN v.VAL_VENDA > 0
           THEN (v.VAL_VENDA - v.VAL_CUSTO) / v.VAL_VENDA * 100
@@ -279,13 +329,13 @@ export class PonderacaoService {
         CASE WHEN v.QTD_TOTAL > 0
           THEN (v.VAL_VENDA - v.VAL_CUSTO - v.VAL_IMPOSTOS) / v.QTD_TOTAL
           ELSE 0 END AS LB_UNIT,
-        CASE WHEN v.QTD_TOTAL * NVL(p.VAL_PESO, 1) > 0
-          THEN (v.VAL_VENDA - v.VAL_CUSTO - v.VAL_IMPOSTOS) / (v.QTD_TOTAL * NVL(p.VAL_PESO, 1))
+        CASE WHEN v.QTD_TOTAL * NVL(p.${colValPeso}, 1) > 0
+          THEN (v.VAL_VENDA - v.VAL_CUSTO - v.VAL_IMPOSTOS) / (v.QTD_TOTAL * NVL(p.${colValPeso}, 1))
           ELSE 0 END AS LB_KG_LT,
         NVL(pl.${colEstoqueAtual}, 0) AS QTD_EST_ATUAL,
-        NVL(pl.PER_PESO_FAT, ${filters.pesoFat}) AS PESO_FAT,
-        NVL(pl.PER_PESO_VOL, ${filters.pesoVol}) AS PESO_VOL,
-        NVL(pl.PER_PESO_CONT, ${filters.pesoCont}) AS PESO_CONT,
+        NVL(pl.${colPesoFat}, ${filters.pesoFat}) AS PESO_FAT,
+        NVL(pl.${colPesoVol}, ${filters.pesoVol}) AS PESO_VOL,
+        NVL(pl.${colPesoCont}, ${filters.pesoCont}) AS PESO_CONT,
         TO_CHAR(p.${colDtaCadastro}, 'DD/MM/YYYY') AS DTA_CADASTRO,
         TO_CHAR(v.DTA_ULTIMA_VENDA, 'DD/MM/YYYY') AS DTA_ULTIMA_VENDA,
         NVL(pl.${colForaLinha}, 'N') AS FORA_LINHA,
@@ -294,7 +344,7 @@ export class PonderacaoService {
       JOIN ${tabProduto} p ON v.COD_PRODUTO = p.${colCodProduto}
       JOIN ${tabProdutoLoja} pl ON p.${colCodProduto} = pl.${colCodProdutoLoja} AND pl.${colCodLojaLoja} = :codLoja
       LEFT JOIN ticket_produto tk ON v.COD_PRODUTO = tk.COD_PRODUTO
-      LEFT JOIN ${schema}.TAB_SEGMENTO seg ON p.COD_SEGMENTO = seg.COD_SEGMENTO
+      LEFT JOIN ${tabSegmento} seg ON p.${colCodSegmentoProd} = seg.${colCodSegmento}
       ORDER BY v.VAL_VENDA DESC
     `;
 
@@ -428,22 +478,46 @@ export class PonderacaoService {
     const colCodGrupo = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo');
     const colCodSubgrupo = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo');
 
+    // Resolver TAB_SEGMENTO dinamicamente
+    let tabSegmento = `${schema}.TAB_SEGMENTO`;
+    try {
+      tabSegmento = `${schema}.${await MappingService.getRealTableName('TAB_SEGMENTO')}`;
+    } catch (e) { /* usa default */ }
+
+    let colCodSegmento = 'COD_SEGMENTO';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_SEGMENTO', 'codigo_segmento');
+      if (mapped) colCodSegmento = mapped;
+    } catch (e) { /* usa default */ }
+
+    let colDesSegmento = 'DES_SEGMENTO';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_SEGMENTO', 'descricao_segmento');
+      if (mapped) colDesSegmento = mapped;
+    } catch (e) { /* usa default */ }
+
+    let colCodSegmentoProd = 'COD_SEGMENTO';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_segmento');
+      if (mapped) colCodSegmentoProd = mapped;
+    } catch (e) { /* usa default */ }
+
     if (!codSecao) {
       // Sem filtro: retorna todos
-      return OracleService.query(`SELECT COD_SEGMENTO, DES_SEGMENTO FROM ${schema}.TAB_SEGMENTO ORDER BY DES_SEGMENTO`);
+      return OracleService.query(`SELECT ${colCodSegmento} AS COD_SEGMENTO, ${colDesSegmento} AS DES_SEGMENTO FROM ${tabSegmento} ORDER BY ${colDesSegmento}`);
     }
 
-    let filtros = `WHERE p.${colCodSecao} = :codSecao AND p.COD_SEGMENTO IS NOT NULL`;
+    let filtros = `WHERE p.${colCodSecao} = :codSecao AND p.${colCodSegmentoProd} IS NOT NULL`;
     const params: any = { codSecao };
     if (codGrupo) { filtros += ` AND p.${colCodGrupo} = :codGrupo`; params.codGrupo = codGrupo; }
     if (codSubGrupo) { filtros += ` AND p.${colCodSubgrupo} = :codSubGrupo`; params.codSubGrupo = codSubGrupo; }
 
     const sql = `
-      SELECT DISTINCT s.COD_SEGMENTO, s.DES_SEGMENTO
+      SELECT DISTINCT s.${colCodSegmento} AS COD_SEGMENTO, s.${colDesSegmento} AS DES_SEGMENTO
       FROM ${tabProduto} p
-      JOIN ${schema}.TAB_SEGMENTO s ON p.COD_SEGMENTO = s.COD_SEGMENTO
+      JOIN ${tabSegmento} s ON p.${colCodSegmentoProd} = s.${colCodSegmento}
       ${filtros}
-      ORDER BY s.DES_SEGMENTO
+      ORDER BY s.${colDesSegmento}
     `;
     return OracleService.query(sql, params);
   }
@@ -480,6 +554,13 @@ export class PonderacaoService {
     const colCodSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo');
     const colDesSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo');
 
+    // Resolver coluna segmento do produto
+    let colCodSegmentoProd = 'COD_SEGMENTO';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_segmento');
+      if (mapped) colCodSegmentoProd = mapped;
+    } catch (e) { /* usa default */ }
+
     // Query: agregar vendas por produto, depois calcular stats por subgrupo+segmento
     const sql = `
       WITH vendas_produto AS (
@@ -487,7 +568,7 @@ export class PonderacaoService {
           p.${colCodSecaoProd} AS COD_SECAO,
           p.${colCodGrupoProd} AS COD_GRUPO,
           p.${colCodSubgrupoProd} AS COD_SUBGRUPO,
-          NVL(p.COD_SEGMENTO, 0) AS COD_SEGMENTO,
+          NVL(p.${colCodSegmentoProd}, 0) AS COD_SEGMENTO,
           pv.${colCodProdutoPdv} AS COD_PRODUTO,
           SUM(pv.${colValTotal}) AS VAL_VENDA,
           SUM(pv.${colQtdVenda}) AS QTD_TOTAL,
@@ -499,7 +580,7 @@ export class PonderacaoService {
         JOIN ${tabProduto} p ON pv.${colCodProdutoPdv} = p.${colCodProduto}
         WHERE pv.${colCodLojaPdv} = :codLoja
           AND pv.${colDtaVenda} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        GROUP BY p.${colCodSecaoProd}, p.${colCodGrupoProd}, p.${colCodSubgrupoProd}, NVL(p.COD_SEGMENTO, 0), pv.${colCodProdutoPdv}
+        GROUP BY p.${colCodSecaoProd}, p.${colCodGrupoProd}, p.${colCodSubgrupoProd}, NVL(p.${colCodSegmentoProd}, 0), pv.${colCodProdutoPdv}
         HAVING SUM(pv.${colValTotal}) > 0
       )
       SELECT
@@ -607,6 +688,37 @@ export class PonderacaoService {
     const colCodGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo');
     const colCodSubgrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo');
 
+    // Resolver flag_inativo da seção
+    let colFlagInativoSecao = 'FLG_INATIVO';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_SECAO', 'flag_inativo');
+      if (mapped) colFlagInativoSecao = mapped;
+    } catch (e) { /* usa default */ }
+
+    // Resolver TAB_SEGMENTO dinamicamente
+    let tabSegmento = `${schema}.TAB_SEGMENTO`;
+    try {
+      tabSegmento = `${schema}.${await MappingService.getRealTableName('TAB_SEGMENTO')}`;
+    } catch (e) { /* usa default */ }
+
+    let colCodSegmento = 'COD_SEGMENTO';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_SEGMENTO', 'codigo_segmento');
+      if (mapped) colCodSegmento = mapped;
+    } catch (e) { /* usa default */ }
+
+    let colDesSegmento = 'DES_SEGMENTO';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_SEGMENTO', 'descricao_segmento');
+      if (mapped) colDesSegmento = mapped;
+    } catch (e) { /* usa default */ }
+
+    let colCodSegmentoProd = 'COD_SEGMENTO';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_segmento');
+      if (mapped) colCodSegmentoProd = mapped;
+    } catch (e) { /* usa default */ }
+
     // Hierarquia base: Seção > Grupo > Subgrupo
     const sqlBase = `
       SELECT
@@ -619,7 +731,7 @@ export class PonderacaoService {
       FROM ${tabSubgrupo} sg
       JOIN ${tabGrupo} g ON sg.${colCodSecao} = g.${colCodSecao} AND sg.${colCodGrupo} = g.${colCodGrupo}
       JOIN ${tabSecao} s ON sg.${colCodSecao} = s.${colCodSecao}
-      WHERE (s.FLG_INATIVO IS NULL OR s.FLG_INATIVO = 'N')
+      WHERE (s.${colFlagInativoSecao} IS NULL OR s.${colFlagInativoSecao} = 'N')
       ORDER BY s.${colDesSecao}, g.${colDesGrupo}, sg.${colDesSubGrupo}
     `;
 
@@ -629,12 +741,12 @@ export class PonderacaoService {
         p.${colCodSecaoProd} AS COD_SECAO,
         p.${colCodGrupoProd} AS COD_GRUPO,
         p.${colCodSubgrupoProd} AS COD_SUBGRUPO,
-        seg.COD_SEGMENTO,
-        seg.DES_SEGMENTO
+        seg.${colCodSegmento} AS COD_SEGMENTO,
+        seg.${colDesSegmento} AS DES_SEGMENTO
       FROM ${tabProduto} p
-      JOIN ${schema}.TAB_SEGMENTO seg ON p.COD_SEGMENTO = seg.COD_SEGMENTO
-      WHERE p.COD_SEGMENTO IS NOT NULL
-      ORDER BY p.${colCodSecaoProd}, p.${colCodGrupoProd}, p.${colCodSubgrupoProd}, seg.DES_SEGMENTO
+      JOIN ${tabSegmento} seg ON p.${colCodSegmentoProd} = seg.${colCodSegmento}
+      WHERE p.${colCodSegmentoProd} IS NOT NULL
+      ORDER BY p.${colCodSecaoProd}, p.${colCodGrupoProd}, p.${colCodSubgrupoProd}, seg.${colDesSegmento}
     `;
 
     const [hierarquia, segmentos] = await Promise.all([
@@ -650,14 +762,51 @@ export class PonderacaoService {
    */
   static async getPesosLoja(codLoja: number): Promise<any> {
     const schema = await MappingService.getSchema();
+
+    // Resolver TAB_PARAMETRO_LOJA dinamicamente
+    let tabParametroLoja = `${schema}.TAB_PARAMETRO_LOJA`;
+    try {
+      tabParametroLoja = `${schema}.${await MappingService.getRealTableName('TAB_PARAMETRO_LOJA')}`;
+    } catch (e) { /* usa default */ }
+
+    let colCodLojaParam = 'COD_LOJA';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_PARAMETRO_LOJA', 'codigo_loja');
+      if (mapped) colCodLojaParam = mapped;
+    } catch (e) { /* usa default */ }
+
+    let colPesoVendas = 'PER_PESO_VENDAS';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_PARAMETRO_LOJA', 'peso_vendas');
+      if (mapped) colPesoVendas = mapped;
+    } catch (e) { /* usa default */ }
+
+    let colPesoVendasQtde = 'PER_PESO_VENDAS_QTDE';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_PARAMETRO_LOJA', 'peso_vendas_qtde');
+      if (mapped) colPesoVendasQtde = mapped;
+    } catch (e) { /* usa default */ }
+
+    let colPesoPenetCupons = 'PER_PESO_PENETRACAO_CUPONS';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_PARAMETRO_LOJA', 'peso_penetracao_cupons');
+      if (mapped) colPesoPenetCupons = mapped;
+    } catch (e) { /* usa default */ }
+
+    let colPesoPenetSubcateg = 'PER_PESO_PENETRACAO_SUBCATEG';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_PARAMETRO_LOJA', 'peso_penetracao_subcateg');
+      if (mapped) colPesoPenetSubcateg = mapped;
+    } catch (e) { /* usa default */ }
+
     const sql = `
       SELECT
-        PER_PESO_VENDAS,
-        PER_PESO_VENDAS_QTDE,
-        PER_PESO_PENETRACAO_CUPONS,
-        PER_PESO_PENETRACAO_SUBCATEG
-      FROM ${schema}.TAB_PARAMETRO_LOJA
-      WHERE COD_LOJA = :codLoja
+        ${colPesoVendas} AS PER_PESO_VENDAS,
+        ${colPesoVendasQtde} AS PER_PESO_VENDAS_QTDE,
+        ${colPesoPenetCupons} AS PER_PESO_PENETRACAO_CUPONS,
+        ${colPesoPenetSubcateg} AS PER_PESO_PENETRACAO_SUBCATEG
+      FROM ${tabParametroLoja}
+      WHERE ${colCodLojaParam} = :codLoja
     `;
     const rows = await OracleService.query<any>(sql, { codLoja });
     return rows[0] || { PER_PESO_VENDAS: 25, PER_PESO_VENDAS_QTDE: 25, PER_PESO_PENETRACAO_CUPONS: 30, PER_PESO_PENETRACAO_SUBCATEG: 20 };
