@@ -42,6 +42,8 @@ const TABLE_CATALOG = {
       { id: 'descricao_subgrupo', name: 'Descrição Subgrupo', defaultTable: 'TAB_SUBGRUPO', defaultColumn: 'DES_SUB_GRUPO' },
       { id: 'codigo_fornecedor', name: 'Código Fornecedor', defaultTable: 'TAB_PRODUTO', defaultColumn: 'COD_FORNECEDOR' },
       { id: 'codigo_info_nutricional', name: 'Cód Info Nutricional', defaultTable: 'TAB_PRODUTO', defaultColumn: 'COD_INFO_NUTRICIONAL' },
+      { id: 'peso', name: 'Peso', defaultTable: 'TAB_PRODUTO', defaultColumn: 'VAL_PESO' },
+      { id: 'codigo_segmento', name: 'Código Segmento', defaultTable: 'TAB_PRODUTO', defaultColumn: 'COD_SEGMENTO' },
     ]
   },
   TAB_PRODUTO_LOJA: {
@@ -68,6 +70,10 @@ const TABLE_CATALOG = {
       { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'COD_PRODUTO' },
       { id: 'inativo', name: 'Inativo', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'INATIVO' },
       { id: 'codigo_info_receita', name: 'Cód Info Receita', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'COD_INFO_RECEITA' },
+      { id: 'custo_medio', name: 'Custo Médio', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'VAL_CUSTO_MEDIO' },
+      { id: 'peso_faturamento', name: 'Peso Faturamento %', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'PER_PESO_FAT' },
+      { id: 'peso_volume', name: 'Peso Volume %', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'PER_PESO_VOL' },
+      { id: 'peso_contribuicao', name: 'Peso Contribuição %', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'PER_PESO_CONT' },
     ]
   },
   TAB_PRODUTO_PDV: {
@@ -89,6 +95,7 @@ const TABLE_CATALOG = {
       { id: 'valor_custo_reposicao', name: 'Valor Custo Reposição', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'VAL_CUSTO_REP' },
       { id: 'hora_venda', name: 'Hora da Venda', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'TIM_HORA' },
       { id: 'flag_oferta', name: 'Flag Oferta', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'FLG_OFERTA' },
+      { id: 'valor_imposto_debito', name: 'Valor Imposto Débito', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'VAL_IMPOSTO_DEBITO' },
     ]
   },
   TAB_OPERADORES: {
@@ -228,6 +235,7 @@ const TABLE_CATALOG = {
       { id: 'codigo_secao', name: 'Código Seção', defaultTable: 'TAB_SECAO', defaultColumn: 'COD_SECAO' },
       { id: 'descricao_secao', name: 'Descrição Seção', defaultTable: 'TAB_SECAO', defaultColumn: 'DES_SECAO' },
       { id: 'meta', name: 'Meta de Venda', defaultTable: 'TAB_SECAO', defaultColumn: 'VAL_META' },
+      { id: 'flag_inativo', name: 'Flag Inativo', defaultTable: 'TAB_SECAO', defaultColumn: 'FLG_INATIVO' },
     ]
   },
   TAB_GRUPO: {
@@ -249,6 +257,14 @@ const TABLE_CATALOG = {
       { id: 'codigo_grupo', name: 'Código Grupo', defaultTable: 'TAB_SUBGRUPO', defaultColumn: 'COD_GRUPO' },
       { id: 'codigo_secao', name: 'Código Seção', defaultTable: 'TAB_SUBGRUPO', defaultColumn: 'COD_SECAO' },
       { id: 'flag_inativo', name: 'Flag Inativo', defaultTable: 'TAB_SUBGRUPO', defaultColumn: 'FLG_INATIVO' },
+    ]
+  },
+  TAB_SEGMENTO: {
+    name: 'Segmentos',
+    description: 'Segmentos de produtos (classificação adicional)',
+    fields: [
+      { id: 'codigo_segmento', name: 'Código Segmento', defaultTable: 'TAB_SEGMENTO', defaultColumn: 'COD_SEGMENTO' },
+      { id: 'descricao_segmento', name: 'Descrição Segmento', defaultTable: 'TAB_SEGMENTO', defaultColumn: 'DES_SEGMENTO' },
     ]
   },
   TAB_COMPRADOR: {
@@ -430,11 +446,15 @@ const BUSINESS_MODULES = [
     color: 'from-blue-500 to-indigo-600',
     submodules: [
       { id: 'gestao_inteligente', name: 'Gestão Inteligente', icon: '🧠', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_PRODUTO_HISTORICO', 'TAB_CUPOM_FINALIZADORA', 'TAB_NOTA_FISCAL'] },
-      { id: 'estoque_margem', name: 'Estoque e Margem', icon: '📦', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ITENS', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO'] },
-      { id: 'compra_venda', name: 'Compra e Venda', icon: '🛒', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_PRODUTO_DECOMPOSICAO', 'TAB_FORNECEDOR', 'TAB_NOTA_FISCAL', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO', 'TAB_COMPRADOR', 'TAB_LOJA', 'TAB_NF', 'TAB_NF_ITEM'] },
-      { id: 'pedidos', name: 'Pedidos', icon: '📋', tables: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO', 'TAB_NOTA_FISCAL', 'TAB_COMPRADOR'] },
+      { id: 'estoque_saude', name: 'Saúde do Estoque', icon: '📦', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ITENS', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO'] },
+      { id: 'analise_corte', name: 'Análise de Corte (Ponderação)', icon: '✂️', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO', 'TAB_SEGMENTO', 'TAB_LOJA'] },
+      { id: 'compra_venda', name: 'Compra x Venda', icon: '🛒', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_PRODUTO_DECOMPOSICAO', 'TAB_FORNECEDOR', 'TAB_NOTA_FISCAL', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO', 'TAB_COMPRADOR', 'TAB_LOJA', 'TAB_NF', 'TAB_NF_ITEM'] },
+      { id: 'pedidos', name: 'Pedidos de Compras', icon: '📋', tables: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO', 'TAB_NOTA_FISCAL', 'TAB_COMPRADOR'] },
       { id: 'ruptura_industria', name: 'Ruptura Indústria', icon: '🏭', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO', 'TAB_NF', 'TAB_NF_ITEM'] },
       { id: 'calendario_atendimento', name: 'Calendário de Atendimento', icon: '📅', tables: ['TAB_FORNECEDOR', 'TAB_CLASSIFICACAO', 'TAB_NOTA_FISCAL', 'TAB_CONDICAO_FORNECEDOR', 'TAB_CONDICAO', 'TAB_PEDIDO'] },
+      { id: 'saude_margens', name: 'Saúde de Margens', icon: '💹', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO'] },
+      { id: 'pricing_ancoragem', name: 'Ancoragem de Preço', icon: '⚓', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO'] },
+      { id: 'pricing_competitividade', name: 'Competitividade e Concorrência', icon: '🏆', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO'] },
       { id: 'controle_recebimento', name: 'Controle de Recebimento', icon: '📦', tables: ['TAB_FORNECEDOR', 'TAB_NOTA_FISCAL'] },
     ]
   },
@@ -445,6 +465,16 @@ const BUSINESS_MODULES = [
     color: 'from-emerald-500 to-teal-600',
     submodules: [
       { id: 'garimpa_fornecedores', name: 'Garimpa Fornecedores', icon: '🔍', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO'] },
+    ]
+  },
+  {
+    id: 'financas',
+    name: 'Finanças no Radar',
+    icon: '💰',
+    color: 'from-emerald-500 to-green-600',
+    submodules: [
+      { id: 'entradas_saidas', name: 'Entradas e Saídas', icon: '💸', tables: ['TAB_CUPOM_FINALIZADORA', 'TAB_NOTA_FISCAL', 'TAB_FORNECEDOR_PRODUTO'] },
+      { id: 'bancos', name: 'Bancos (Extratos)', icon: '🏦', tables: ['TAB_CUPOM_FINALIZADORA'] },
     ]
   },
   {
