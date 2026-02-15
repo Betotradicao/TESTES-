@@ -59,15 +59,25 @@ export class AncoragemService {
 
   private static async tryCol(table: string, field: string): Promise<string | null> {
     try {
-      const col = await MappingService.getColumnFromTable(table, field);
-      return col || null;
+      // Verifica diretamente nos mappings se a coluna REALMENTE esta mapeada
+      // MappingService.getColumnFromTable retorna fieldName.toUpperCase() como fallback
+      // o que causa ORA-00904, entao verificamos direto na estrutura
+      const mappings = await (MappingService as any).getMappings();
+      if (mappings?.version === 2 && mappings?.tabelas?.[table]?.colunas?.[field]) {
+        return mappings.tabelas[table].colunas[field];
+      }
+      return null;
     } catch { return null; }
   }
 
   private static async tryTable(table: string, schema: string): Promise<string | null> {
     try {
-      const real = await MappingService.getRealTableName(table);
-      return real ? `${schema}.${real}` : null;
+      // Verifica diretamente nos mappings se a tabela REALMENTE esta mapeada
+      const mappings = await (MappingService as any).getMappings();
+      if (mappings?.version === 2 && mappings?.tabelas?.[table]?.nome_real) {
+        return `${schema}.${mappings.tabelas[table].nome_real}`;
+      }
+      return null;
     } catch { return null; }
   }
 
