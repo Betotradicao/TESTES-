@@ -2309,16 +2309,6 @@ export default function EstoqueSaude() {
               📦 PONTUAÇÃO ESTOQUE
             </button>
             <button
-              onClick={() => { setViewMode('pontuacaoMargem'); setActiveRiskFilter(null); setCurrentPagePontuacao(1); }}
-              className={`px-5 py-2 rounded-lg font-semibold transition-all ${
-                viewMode === 'pontuacaoMargem'
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white shadow-lg'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              💹 PONTUAÇÃO MARGEM
-            </button>
-            <button
               onClick={() => setViewMode('pedido')}
               className={`px-6 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
                 viewMode === 'pedido'

@@ -2174,16 +2174,6 @@ export default function SaudeMargens() {
               GERAL
             </button>
             <button
-              onClick={() => { setViewMode('pontuacaoEstoque'); setActiveRiskFilter(null); setCurrentPagePontuacao(1); }}
-              className={`px-5 py-2 rounded-lg font-semibold transition-all ${
-                viewMode === 'pontuacaoEstoque'
-                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              📦 PONTUAÇÃO ESTOQUE
-            </button>
-            <button
               onClick={() => { setViewMode('pontuacaoMargem'); setActiveRiskFilter(null); setCurrentPagePontuacao(1); }}
               className={`px-5 py-2 rounded-lg font-semibold transition-all ${
                 viewMode === 'pontuacaoMargem'

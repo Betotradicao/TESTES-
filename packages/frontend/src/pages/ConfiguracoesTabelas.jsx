@@ -74,6 +74,8 @@ const TABLE_CATALOG = {
       { id: 'peso_faturamento', name: 'Peso Faturamento %', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'PER_PESO_FAT' },
       { id: 'peso_volume', name: 'Peso Volume %', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'PER_PESO_VOL' },
       { id: 'peso_contribuicao', name: 'Peso Contribuição %', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'PER_PESO_CONT' },
+      { id: 'pesquisa_media', name: 'Pesquisa Preço Concorrente', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'VAL_PESQUISA_MEDIA' },
+      { id: 'pesquisa_concorrente', name: 'Nome Concorrente', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'DES_PESQUISA_CONCORRENTE' },
     ]
   },
   TAB_PRODUTO_PDV: {

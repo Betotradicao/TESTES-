@@ -68,6 +68,9 @@ export interface PonderacaoRow {
   DTA_ULTIMA_VENDA: string;
   FORA_LINHA: string;
   FORA_MIX: string;
+  MARGEM_META: number;
+  CONC_BARATO: number;
+  CONC_NOME: string;
   COR: 'verde' | 'vermelho';
 }
 
@@ -194,6 +197,26 @@ export class PonderacaoService {
       if (mapped) colDesSegmento = mapped;
     } catch (e) { /* usa default */ }
 
+    // Margem Meta (referência)
+    let colMargem = 'VAL_MARGEM';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem');
+      if (mapped) colMargem = mapped;
+    } catch (e) { /* usa default */ }
+
+    // Pesquisa de preço do concorrente
+    let colPesquisaMedia = 'VAL_PESQUISA_MEDIA';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pesquisa_media');
+      if (mapped) colPesquisaMedia = mapped;
+    } catch (e) { /* usa default */ }
+
+    let colPesquisaConcorrente = 'DES_PESQUISA_CONCORRENTE';
+    try {
+      const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pesquisa_concorrente');
+      if (mapped) colPesquisaConcorrente = mapped;
+    } catch (e) { /* usa default */ }
+
     // Filtros dinâmicos
     let filtroGrupo = '';
     let filtroSubgrupo = '';
@@ -234,6 +257,29 @@ export class PonderacaoService {
     } catch (e) {
       hasImpostoCol = false;
       console.log(`[Ponderação] Erro verificando coluna imposto, usando 0`);
+    }
+
+    // Verificar colunas de pesquisa concorrente (podem não existir)
+    let pesquisaMediaSelect = '0 AS VAL_PESQUISA_MEDIA';
+    let pesquisaConcorrenteSelect = "NULL AS DES_PESQUISA_CONCORRENTE";
+    try {
+      const tblName = (await MappingService.getRealTableName('TAB_PRODUTO_LOJA')).replace(/"/g, '');
+      const checkSql = `SELECT COLUMN_NAME FROM ALL_TAB_COLUMNS WHERE OWNER = '${schema.replace(/"/g, '')}' AND TABLE_NAME = '${tblName}' AND COLUMN_NAME = '${colPesquisaMedia}'`;
+      const checkRes = await OracleService.query<any>(checkSql);
+      if (checkRes.length > 0) {
+        pesquisaMediaSelect = `NVL(pl.${colPesquisaMedia}, 0) AS VAL_PESQUISA_MEDIA`;
+      } else {
+        console.log(`[Ponderação] Coluna ${colPesquisaMedia} não encontrada em TAB_PRODUTO_LOJA`);
+      }
+      const checkSql2 = `SELECT COLUMN_NAME FROM ALL_TAB_COLUMNS WHERE OWNER = '${schema.replace(/"/g, '')}' AND TABLE_NAME = '${tblName}' AND COLUMN_NAME = '${colPesquisaConcorrente}'`;
+      const checkRes2 = await OracleService.query<any>(checkSql2);
+      if (checkRes2.length > 0) {
+        pesquisaConcorrenteSelect = `pl.${colPesquisaConcorrente} AS DES_PESQUISA_CONCORRENTE`;
+      } else {
+        console.log(`[Ponderação] Coluna ${colPesquisaConcorrente} não encontrada em TAB_PRODUTO_LOJA`);
+      }
+    } catch (e) {
+      console.log(`[Ponderação] Erro verificando colunas de pesquisa concorrente`);
     }
 
     // Verificar coluna CUSTO_MEDIO
@@ -339,7 +385,10 @@ export class PonderacaoService {
         TO_CHAR(p.${colDtaCadastro}, 'DD/MM/YYYY') AS DTA_CADASTRO,
         TO_CHAR(v.DTA_ULTIMA_VENDA, 'DD/MM/YYYY') AS DTA_ULTIMA_VENDA,
         NVL(pl.${colForaLinha}, 'N') AS FORA_LINHA,
-        NVL(pl.${colInativo}, 'N') AS FORA_MIX
+        NVL(pl.${colInativo}, 'N') AS FORA_MIX,
+        NVL(pl.${colMargem}, 0) AS MARGEM_META,
+        ${pesquisaMediaSelect},
+        ${pesquisaConcorrenteSelect}
       FROM vendas v
       JOIN ${tabProduto} p ON v.COD_PRODUTO = p.${colCodProduto}
       JOIN ${tabProdutoLoja} pl ON p.${colCodProduto} = pl.${colCodProdutoLoja} AND pl.${colCodLojaLoja} = :codLoja
@@ -443,6 +492,9 @@ export class PonderacaoService {
         DTA_ULTIMA_VENDA: r.DTA_ULTIMA_VENDA || '',
         FORA_LINHA: r.FORA_LINHA || 'N',
         FORA_MIX: r.FORA_MIX || 'N',
+        MARGEM_META: r.MARGEM_META || 0,
+        CONC_BARATO: r.VAL_PESQUISA_MEDIA || 0,
+        CONC_NOME: r.DES_PESQUISA_CONCORRENTE || '',
         PONDERACAO: ponderacaoNorm,
         ACUMULADO: acumulado,
         COR: acumulado <= filters.diagnostico ? 'verde' : 'vermelho',
