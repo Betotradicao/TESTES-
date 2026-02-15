@@ -62,6 +62,7 @@ import notaFiscalRecebimentoRouter from './routes/nota-fiscal-recebimento.routes
 import santanderRouter from './routes/santander.routes';
 import banco24horasRouter from './routes/banco24horas.routes';
 import ponderacaoRouter from './routes/ponderacao.routes';
+import ancoragemRouter from './routes/ancoragem.routes';
 import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
 import { MappingService } from './services/mapping.service';
@@ -157,6 +158,7 @@ app.use('/api/nota-fiscal-recebimento', notaFiscalRecebimentoRouter);
 app.use('/api/santander', santanderRouter);
 app.use('/api/banco24horas', banco24horasRouter);
 app.use('/api/ponderacao', ponderacaoRouter);
+app.use('/api/ancoragem', ancoragemRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {

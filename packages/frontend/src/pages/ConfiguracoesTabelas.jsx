@@ -44,6 +44,7 @@ const TABLE_CATALOG = {
       { id: 'codigo_info_nutricional', name: 'Cód Info Nutricional', defaultTable: 'TAB_PRODUTO', defaultColumn: 'COD_INFO_NUTRICIONAL' },
       { id: 'peso', name: 'Peso', defaultTable: 'TAB_PRODUTO', defaultColumn: 'VAL_PESO' },
       { id: 'codigo_segmento', name: 'Código Segmento', defaultTable: 'TAB_PRODUTO', defaultColumn: 'COD_SEGMENTO' },
+      { id: 'codigo_marca', name: 'Código Marca', defaultTable: 'TAB_PRODUTO', defaultColumn: 'COD_MARCA' },
     ]
   },
   TAB_PRODUTO_LOJA: {
@@ -269,6 +270,14 @@ const TABLE_CATALOG = {
       { id: 'descricao_segmento', name: 'Descrição Segmento', defaultTable: 'TAB_SEGMENTO', defaultColumn: 'DES_SEGMENTO' },
     ]
   },
+  TAB_MARCA: {
+    name: 'Marcas',
+    description: 'Cadastro de marcas de produtos',
+    fields: [
+      { id: 'codigo_marca', name: 'Código Marca', defaultTable: 'TAB_MARCA', defaultColumn: 'COD_MARCA' },
+      { id: 'descricao_marca', name: 'Descrição Marca', defaultTable: 'TAB_MARCA', defaultColumn: 'DES_MARCA' },
+    ]
+  },
   TAB_PARAMETRO_LOJA: {
     name: 'Parâmetros por Loja',
     description: 'Configurações e parâmetros de cada loja',
@@ -466,7 +475,7 @@ const BUSINESS_MODULES = [
       { id: 'ruptura_industria', name: 'Ruptura Indústria', icon: '🏭', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO', 'TAB_NF', 'TAB_NF_ITEM'] },
       { id: 'calendario_atendimento', name: 'Calendário de Atendimento', icon: '📅', tables: ['TAB_FORNECEDOR', 'TAB_CLASSIFICACAO', 'TAB_NOTA_FISCAL', 'TAB_CONDICAO_FORNECEDOR', 'TAB_CONDICAO', 'TAB_PEDIDO'] },
       { id: 'saude_margens', name: 'Saúde de Margens', icon: '💹', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO'] },
-      { id: 'pricing_ancoragem', name: 'Ancoragem de Preço', icon: '⚓', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO'] },
+      { id: 'pricing_ancoragem', name: 'Ancoragem de Preço', icon: '⚓', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO', 'TAB_SEGMENTO', 'TAB_MARCA'] },
       { id: 'pricing_competitividade', name: 'Competitividade e Concorrência', icon: '🏆', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO'] },
       { id: 'controle_recebimento', name: 'Controle de Recebimento', icon: '📦', tables: ['TAB_FORNECEDOR', 'TAB_NOTA_FISCAL'] },
     ]

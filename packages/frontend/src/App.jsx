@@ -41,6 +41,7 @@ import HortFrutResultados from './pages/HortFrutResultados';
 import Fornecedores from './pages/Fornecedores';
 import CompraVendaAnalise from './pages/CompraVendaAnalise';
 import AnalisePonderacao from './pages/AnalisePonderacao';
+import AncoragemPreco from './pages/AncoragemPreco';
 import FrenteCaixa from './pages/FrenteCaixa';
 import PrevencaoPedidos from './pages/PrevencaoPedidos';
 import RupturaIndustria from './pages/RupturaIndustria';
@@ -339,6 +340,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AnalisePonderacao />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/pricing-ancoragem"
+              element={
+                <ProtectedRoute>
+                  <AncoragemPreco />
                 </ProtectedRoute>
               }
             />
