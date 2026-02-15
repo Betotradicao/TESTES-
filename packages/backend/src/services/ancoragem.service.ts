@@ -218,12 +218,10 @@ export class AncoragemService {
           WHERE p.${colCodSecaoProd} = :codSecao
             ${filtroGrupo}
             ${filtroSubgrupo}
+            ${filtroSegmento}
           ORDER BY p.${colDesProduto}
         `;
-        // Remove filtro de segmento pois pode depender de coluna inexistente
-        const paramsFallback = { ...params };
-        delete paramsFallback.codSegmento;
-        rawRows = await OracleService.query<any>(sqlFallback, paramsFallback);
+        rawRows = await OracleService.query<any>(sqlFallback, params);
       } else {
         throw err;
       }
