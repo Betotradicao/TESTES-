@@ -191,7 +191,43 @@ export class AncoragemService {
 
     console.log(`[Ancoragem] getProducts: Loja=${codLoja}, Secao=${codSecao}, Grupo=${codGrupo || 'todos'}, Sub=${codSubGrupo || 'todos'}, Seg=${codSegmento || 'todos'}`);
 
-    const rawRows = await OracleService.query<any>(sql, params);
+    let rawRows: any[];
+    try {
+      rawRows = await OracleService.query<any>(sql, params);
+    } catch (err: any) {
+      // Se falhou por coluna invalida (ORA-00904), tenta sem marca/segmento JOIN
+      if (err?.errorNum === 904) {
+        console.log(`[Ancoragem] Query falhou (${err.message}), retentando sem JOINs opcionais...`);
+        const sqlFallback = `
+          SELECT
+            p.${colCodProduto} AS COD_PRODUTO,
+            p.${colDesProduto} AS DESCRICAO,
+            p.${colCodBarras} AS COD_BARRAS,
+            ' ' AS DES_SEGMENTO,
+            0 AS COD_MARCA,
+            ' ' AS DES_MARCA,
+            NVL(pl.${colPrecoVenda}, 0) AS PRECO_VENDA,
+            NVL(pl.${colPrecoCusto}, 0) AS VAL_CUSTO,
+            ${margemSelect},
+            NVL(pl.${colCurva}, ' ') AS CURVA,
+            ${pesquisaMediaSelect},
+            ${pesquisaConcSelect},
+            ${vendaMediaSelect}
+          FROM ${tabProduto} p
+          JOIN ${tabProdutoLoja} pl ON p.${colCodProduto} = pl.${colCodProdutoLoja} AND pl.${colCodLojaLoja} = :codLoja
+          WHERE p.${colCodSecaoProd} = :codSecao
+            ${filtroGrupo}
+            ${filtroSubgrupo}
+          ORDER BY p.${colDesProduto}
+        `;
+        // Remove filtro de segmento pois pode depender de coluna inexistente
+        const paramsFallback = { ...params };
+        delete paramsFallback.codSegmento;
+        rawRows = await OracleService.query<any>(sqlFallback, paramsFallback);
+      } else {
+        throw err;
+      }
+    }
     console.log(`[Ancoragem] ${rawRows.length} produtos encontrados`);
 
     return rawRows.map((r: any) => ({
