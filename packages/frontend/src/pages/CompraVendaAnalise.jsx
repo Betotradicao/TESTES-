@@ -300,12 +300,10 @@ export default function CompraVendaAnalise() {
         params.append('tipoEmprestimoDecomposicao', String(filters.tipoEmprestimoDecomposicao));
       }
 
-      // Params anuais (01/01/YYYY ate hoje) - mesmos filtros exceto datas
+      // Params anuais (01/01/YYYY ate mesma dataFim selecionada) - mesmos filtros, so muda dataInicio
       const paramsAnual = new URLSearchParams(params.toString());
       const anoAtual = new Date().getFullYear();
-      const hoje = new Date();
       paramsAnual.set('dataInicio', `01/01/${anoAtual}`);
-      paramsAnual.set('dataFim', `${String(hoje.getDate()).padStart(2,'0')}/${String(hoje.getMonth()+1).padStart(2,'0')}/${anoAtual}`);
 
       // Buscar periodo selecionado + anual em paralelo
       const [response, responseAnual] = await Promise.all([
