@@ -115,14 +115,22 @@ export class AncoragemService {
     const colPrecoCusto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo');
     const colCurva = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva');
 
-    // ---- Colunas opcionais (so incluidas se mapeadas) ----
-    const colSegmentoProd = await this.tryCol('TAB_PRODUTO', 'codigo_segmento');
+    // ---- Colunas opcionais (com fallback para nomes padrao) ----
+    let colSegmentoProd: string = 'COD_SEGMENTO';
+    const mappedSegProd = await this.tryCol('TAB_PRODUTO', 'codigo_segmento');
+    if (mappedSegProd) colSegmentoProd = mappedSegProd;
     const colMargem = await this.tryCol('TAB_PRODUTO_LOJA', 'margem');
     const colPesquisaMedia = await this.tryCol('TAB_PRODUTO_LOJA', 'pesquisa_media');
     const colPesquisaConcorrente = await this.tryCol('TAB_PRODUTO_LOJA', 'pesquisa_concorrente');
     const colVendaMedia = await this.tryCol('TAB_PRODUTO_LOJA', 'venda_media');
-    const colForaLinha = await this.tryCol('TAB_PRODUTO_LOJA', 'fora_linha');
-    const colInativo = await this.tryCol('TAB_PRODUTO_LOJA', 'inativo');
+    // Fora Linha e Fora Mix: usar tryCol, mas com fallback para nomes padrão (igual ponderacao)
+    let colForaLinha: string = 'FORA_LINHA';
+    const mappedForaLinha = await this.tryCol('TAB_PRODUTO_LOJA', 'fora_linha');
+    if (mappedForaLinha) colForaLinha = mappedForaLinha;
+
+    let colInativo: string = 'INATIVO';
+    const mappedInativo = await this.tryCol('TAB_PRODUTO_LOJA', 'inativo');
+    if (mappedInativo) colInativo = mappedInativo;
     const colCodMarca = await this.tryCol('TAB_PRODUTO', 'codigo_marca');
 
     // ---- Tabela TAB_MARCA (opcional) ----
@@ -130,18 +138,26 @@ export class AncoragemService {
     const colCodMarcaTab = tabMarca ? await this.tryCol('TAB_MARCA', 'codigo_marca') : null;
     const colDesMarcaTab = tabMarca ? await this.tryCol('TAB_MARCA', 'descricao_marca') : null;
 
-    // ---- Tabela TAB_SEGMENTO (opcional) ----
-    const tabSegmento = await this.tryTable('TAB_SEGMENTO', schema);
-    const colCodSegTab = tabSegmento ? await this.tryCol('TAB_SEGMENTO', 'codigo_segmento') : null;
-    const colDesSegTab = tabSegmento ? await this.tryCol('TAB_SEGMENTO', 'descricao_segmento') : null;
+    // ---- Tabela TAB_SEGMENTO (com fallback para nomes padrao) ----
+    let tabSegmento = `${schema}.TAB_SEGMENTO`;
+    const mappedTabSeg = await this.tryTable('TAB_SEGMENTO', schema);
+    if (mappedTabSeg) tabSegmento = mappedTabSeg;
+
+    let colCodSegTab: string = 'COD_SEGMENTO';
+    const mappedCodSeg = await this.tryCol('TAB_SEGMENTO', 'codigo_segmento');
+    if (mappedCodSeg) colCodSegTab = mappedCodSeg;
+
+    let colDesSegTab: string = 'DES_SEGMENTO';
+    const mappedDesSeg = await this.tryCol('TAB_SEGMENTO', 'descricao_segmento');
+    if (mappedDesSeg) colDesSegTab = mappedDesSeg;
 
     // ---- Montar SELECTs opcionais ----
     const margemSelect = colMargem ? `NVL(pl.${colMargem}, 0) AS VAL_MARGEM` : '0 AS VAL_MARGEM';
     const pesquisaMediaSelect = colPesquisaMedia ? `NVL(pl.${colPesquisaMedia}, 0) AS CONC_BARATO` : '0 AS CONC_BARATO';
     const pesquisaConcSelect = colPesquisaConcorrente ? `pl.${colPesquisaConcorrente} AS CONC_NOME` : "NULL AS CONC_NOME";
     const vendaMediaSelect = colVendaMedia ? `NVL(pl.${colVendaMedia}, 0) AS VD_MEDIA` : '0 AS VD_MEDIA';
-    const foraLinhaSelect = colForaLinha ? `NVL(pl.${colForaLinha}, 'N') AS FORA_LINHA` : "'N' AS FORA_LINHA";
-    const foraMixSelect = colInativo ? `NVL(pl.${colInativo}, 'N') AS FORA_MIX` : "'N' AS FORA_MIX";
+    const foraLinhaSelect = `NVL(pl.${colForaLinha}, 'N') AS FORA_LINHA`;
+    const foraMixSelect = `NVL(pl.${colInativo}, 'N') AS FORA_MIX`;
 
     // ---- Marca: SELECT + JOIN ----
     let marcaSelect = "0 AS COD_MARCA, ' ' AS DES_MARCA";
@@ -385,11 +401,12 @@ export class AncoragemService {
     codSubGrupo?: number,
     codSegmento?: number
   ): Promise<any> {
-    // Buscar dados em paralelo
-    const [products, classificacoes, regras] = await Promise.all([
+    // Buscar dados em paralelo (inclui tiers custom para ordem)
+    const [products, classificacoes, regras, customTiersDB] = await Promise.all([
       this.getProducts(codLoja, codSecao, codGrupo, codSubGrupo, codSegmento),
       this.getClassificacoes(codLoja, codSecao, codGrupo, codSubGrupo, codSegmento),
       this.getRegras(codLoja, codSecao, codGrupo, codSubGrupo, codSegmento),
+      this.getCustomTiers(codLoja),
     ]);
 
     // Mapear classificacoes por cod_produto
@@ -404,47 +421,132 @@ export class AncoragemService {
       regraMap.set(r.tier, { tipo_gap: r.tipo_gap, valor_gap: parseFloat(r.valor_gap), tier_referencia: r.tier_referencia });
     }
 
-    // Encontrar preco ancora (media dos produtos "Lider")
-    const liderProducts = products.filter(p => classMap.get(p.COD_PRODUTO) === 'Lider');
-    const precoAncora = liderProducts.length > 0
-      ? liderProducts.reduce((s, p) => s + p.PRECO_VENDA, 0) / liderProducts.length
-      : 0;
+    // Agrupar produtos por tier
+    const tierProds = new Map<string, typeof products>();
+    for (const p of products) {
+      const tier = classMap.get(p.COD_PRODUTO);
+      if (!tier) continue;
+      if (!tierProds.has(tier)) tierProds.set(tier, []);
+      tierProds.get(tier)!.push(p);
+    }
 
+    // ================================================================
+    // Preco medio real por tier
+    // ================================================================
+    const tierRefPrice = new Map<string, number>();
+    for (const [tier, prods] of tierProds) {
+      if (prods.length > 0) {
+        tierRefPrice.set(tier, prods.reduce((s, p) => s + p.PRECO_VENDA, 0) / prods.length);
+      }
+    }
+
+    // ================================================================
+    // HIERARQUIA POR POSICAO (ordem dos tiers configurados).
+    // Premium FIXO como posicao 1 (ancora) - NUNCA desce.
+    // Demais tiers seguem a ordem configurada na Regua.
+    // ================================================================
+    // Montar mapa de ordem: default tiers + custom tiers
+    const DEFAULT_TIER_ORDER: Record<string, number> = {
+      'Premium': 1, 'Lider': 2, 'Intermediaria': 3,
+      'Combate': 4, 'Regional': 5, 'Propria': 6,
+    };
+    const tierOrderMap = new Map<string, number>();
+    // Defaults primeiro
+    for (const [name, ord] of Object.entries(DEFAULT_TIER_ORDER)) {
+      tierOrderMap.set(name, ord);
+    }
+    // Tiers custom (pode sobrescrever posicoes dos defaults se usuario reordenou)
+    // Tambem verifica se o user salvou ordem customizada via localStorage (vem como custom tiers do frontend)
+    for (const ct of customTiersDB) {
+      tierOrderMap.set(ct.nome, ct.ordem);
+    }
+    // Se o usuario reordenou tiers default via drag, a ordem vem salva no localStorage do frontend
+    // mas no backend precisamos da regua visual - usar as regras existentes como hint se nao tiver custom
+    // Entao vamos simplesmente ordernar pelo tierOrderMap
+
+    // Premium SEMPRE posicao 1, independente do que o DB diz
+    tierOrderMap.set('Premium', 1);
+
+    const sortedTiers = [...tierRefPrice.entries()].sort((a, b) => {
+      // Premium SEMPRE primeiro (fixo)
+      if (a[0] === 'Premium') return -1;
+      if (b[0] === 'Premium') return 1;
+      const ordA = tierOrderMap.get(a[0]) ?? 99;
+      const ordB = tierOrderMap.get(b[0]) ?? 99;
+      return ordA - ordB;
+    });
+
+    const anchorTier = sortedTiers.length > 0 ? sortedTiers[0][0] : '';
+    const precoAncora = anchorTier ? (tierRefPrice.get(anchorTier) || 0) : 0;
+
+    // Referencia: cada tier compara com o tier ACIMA (mais caro na hierarquia)
+    const tierAbove = new Map<string, string>();
+    for (let i = 1; i < sortedTiers.length; i++) {
+      tierAbove.set(sortedTiers[i][0], sortedTiers[i - 1][0]);
+    }
+
+    console.log(`[Ancoragem] Hierarquia: ${sortedTiers.map(([t, p]) => `${t}(R$${p.toFixed(2)})`).join(' > ')} | Ancora: ${anchorTier}`);
+
+    // ================================================================
+    // Gap entre tiers consecutivos (setas no frontend)
+    // O gap entre tierA (acima) e tierB (abaixo) vem da REGRA do tierA,
+    // pois na Regua o usuario configura "Lider R$0,25 em relação ao Intermediaria"
+    // ou seja, a regra do tier de CIMA define o gap para o tier de BAIXO.
+    // ================================================================
+    const tierGaps: { [tier: string]: { gapIdeal: number; refTier: string; refPrice: number } } = {};
+    for (let i = 1; i < sortedTiers.length; i++) {
+      const tier = sortedTiers[i][0];       // tier de baixo (ex: Intermediaria)
+      const refTier = sortedTiers[i - 1][0]; // tier de cima (ex: Lider)
+      // Gap vem da regra do tier de CIMA (refTier)
+      const regra = regraMap.get(refTier);
+      tierGaps[tier] = {
+        gapIdeal: regra ? Math.abs(regra.valor_gap) : 0,
+        refTier,
+        refPrice: tierRefPrice.get(refTier) || 0,
+      };
+    }
+
+    console.log(`[Ancoragem] tierGaps:`, JSON.stringify(tierGaps));
+
+    // ================================================================
     // Calcular analise para cada produto
+    // Status: 'ancora' | 'dentro' (verde) | 'acima' (laranja) | 'abaixo' (vermelho)
+    // ================================================================
     const rows = products.map(p => {
       const tier = classMap.get(p.COD_PRODUTO) || '';
-      const regra = regraMap.get(tier);
 
       let precoSugerido = 0;
       let markdownAtual = 0;
       let custoIdeal = 0;
-      let status = 'cinza'; // sem classificacao
+      let difReal = 0;
+      let status = 'cinza';
 
-      // Markdown = margem real = (VENDA - CUSTO) / VENDA * 100 (mesma formula da Gestao Inteligente)
       markdownAtual = p.PRECO_VENDA > 0 ? ((p.PRECO_VENDA - p.VAL_CUSTO) / p.PRECO_VENDA) * 100 : 0;
 
-      if (tier && precoAncora > 0) {
-
-        if (regra) {
-          // Calcular preco sugerido (valor_gap positivo = abaixo da ancora)
-          if (regra.tipo_gap === '%') {
-            precoSugerido = precoAncora * (1 - Math.abs(regra.valor_gap) / 100);
-          } else {
-            precoSugerido = precoAncora - Math.abs(regra.valor_gap);
-          }
-
-          // Custo ideal = preco sugerido * (1 - margem_meta/100)
-          custoIdeal = p.VAL_MARGEM > 0 ? precoSugerido * (1 - p.VAL_MARGEM / 100) : 0;
-
-          // Status semaforo
-          const diff = precoSugerido > 0 ? Math.abs((p.PRECO_VENDA - precoSugerido) / precoSugerido * 100) : 0;
-          if (diff <= 2) status = 'verde';
-          else if (diff <= 5) status = 'amarelo';
-          else status = 'vermelho';
+      if (tier && tierRefPrice.has(tier)) {
+        if (tier === anchorTier) {
+          // Ancora: sem comparacao
+          precoSugerido = p.PRECO_VENDA;
+          status = 'ancora';
         } else {
-          // Tem tier mas nao tem regra
-          status = 'cinza';
+          // Pegar preco do tier ACIMA na hierarquia
+          const refTier = tierAbove.get(tier);
+          const refPrice = refTier ? (tierRefPrice.get(refTier) || 0) : 0;
+          // Gap vem da regra do tier de CIMA (refTier)
+          const regra = refTier ? regraMap.get(refTier) : null;
+          const gap = regra ? Math.abs(regra.valor_gap) : 0;
+
+          if (refPrice > 0) {
+            precoSugerido = refPrice - gap;
+            difReal = p.PRECO_VENDA - precoSugerido;
+            // 3 estados: dentro (tolerancia 0.05), acima (positivo), abaixo (negativo)
+            if (Math.abs(difReal) <= 0.05) status = 'dentro';
+            else if (difReal > 0) status = 'acima';
+            else status = 'abaixo';
+          }
         }
+
+        custoIdeal = precoSugerido > 0 && p.VAL_MARGEM > 0 ? precoSugerido * (1 - p.VAL_MARGEM / 100) : 0;
       }
 
       return {
@@ -468,13 +570,17 @@ export class AncoragemService {
         MARKDOWN_ATUAL: markdownAtual,
         PRECO_SUGERIDO: precoSugerido,
         CUSTO_IDEAL: custoIdeal,
+        DIF_REAL: difReal,
         STATUS: status,
       };
     });
 
     return {
       rows,
+      tierGaps,
       precoAncora,
+      anchorTier,
+      tierOrder: sortedTiers.map(([t]) => t),
       totalProdutos: products.length,
       totalClassificados: classificacoes.length,
       totalRegras: regras.length,

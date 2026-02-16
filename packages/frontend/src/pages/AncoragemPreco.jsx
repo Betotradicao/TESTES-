@@ -36,17 +36,19 @@ const CLASSIF_COL_DEFS = [
 const ANALISE_COL_DEFS = [
   { id: 'COD_PRODUTO', label: 'Código', align: 'left' },
   { id: 'DESCRICAO', label: 'Descrição', align: 'left' },
-  { id: 'DES_MARCA', label: 'Marca', align: 'left' },
+  { id: 'GAP_IDEAL', label: 'Dist. Ideal R$', align: 'center', noSort: true },
+  { id: 'DIF_REAL', label: 'Dif. Real R$', align: 'right' },
+  { id: 'STATUS', label: 'Status', align: 'center', noSort: true },
   { id: 'TIER_BADGE', label: 'Tier', align: 'center', noSort: true },
   { id: 'CURVA', label: 'Curva', align: 'center' },
   { id: 'PRECO_VENDA', label: 'Preço Venda', align: 'right' },
+  { id: 'PRECO_SUGERIDO', label: 'Preço Ideal', align: 'right' },
   { id: 'CONC_BARATO', label: 'Conc.Barato', align: 'right' },
+  { id: 'MARG_CONC', label: 'Marg.Conc.%', align: 'right' },
   { id: 'MARKDOWN', label: 'Markdown%', align: 'right' },
   { id: 'MARGEM_META', label: 'Margem Meta%', align: 'right' },
   { id: 'CUSTO_ATUAL', label: 'Custo Atual', align: 'right' },
   { id: 'CUSTO_IDEAL', label: 'Custo Ideal', align: 'right' },
-  { id: 'PRECO_SUGERIDO', label: 'Preço Sugerido', align: 'right' },
-  { id: 'STATUS', label: 'Status', align: 'center', noSort: true },
 ];
 
 const PREVIEW_COL_DEFS = [
@@ -94,6 +96,8 @@ export default function AncoragemPreco() {
   const [customTiers, setCustomTiers] = useState([]);
   const [savingClass, setSavingClass] = useState(false);
   const [savingRegras, setSavingRegras] = useState(false);
+  const regrasLoadedRef = useRef(false);
+  const regrasTimerRef = useRef(null);
 
   // Modal novo tier
   const [showNewTierModal, setShowNewTierModal] = useState(false);
@@ -118,7 +122,30 @@ export default function AncoragemPreco() {
   // Colunas configuráveis - Análise (drag + sort) - persiste no localStorage
   const defaultAnaliseCols = ANALISE_COL_DEFS.map(c => c.id);
   const [anlColOrder, setAnlColOrder] = useState(() => {
-    try { const s = localStorage.getItem('ancoragem_analise_cols'); return s ? JSON.parse(s) : defaultAnaliseCols; } catch { return defaultAnaliseCols; }
+    try {
+      const s = localStorage.getItem('ancoragem_analise_cols');
+      if (!s) return defaultAnaliseCols;
+      const saved = JSON.parse(s);
+      // Remover colunas que não existem mais e adicionar novas
+      const validIds = new Set(defaultAnaliseCols);
+      const filtered = saved.filter(id => validIds.has(id));
+      const missing = defaultAnaliseCols.filter(id => !filtered.includes(id));
+      // Inserir colunas novas na posição correta (após PRECO_VENDA)
+      let result = [...filtered];
+      for (const m of missing) {
+        if (m === 'PRECO_SUGERIDO') {
+          const pvIdx = result.indexOf('PRECO_VENDA');
+          if (pvIdx >= 0) { result.splice(pvIdx + 1, 0, m); continue; }
+        }
+        if (m === 'MARG_CONC') {
+          const cbIdx = result.indexOf('CONC_BARATO');
+          if (cbIdx >= 0) { result.splice(cbIdx + 1, 0, m); continue; }
+        }
+        result.push(m);
+      }
+      if (JSON.stringify(result) !== s) localStorage.setItem('ancoragem_analise_cols', JSON.stringify(result));
+      return result;
+    } catch { return defaultAnaliseCols; }
   });
   const [anlSortCol, setAnlSortCol] = useState(null);
   const [anlSortDir, setAnlSortDir] = useState('asc');
@@ -241,7 +268,17 @@ export default function AncoragemPreco() {
         for (const r of (regrasRes.data || [])) {
           regrasMap[r.tier] = { tipo_gap: r.tipo_gap, valor_gap: parseFloat(r.valor_gap), tier_referencia: r.tier_referencia };
         }
+        // Pré-preencher defaults se não houver regras salvas
+        // Premium = âncora (Neutro), tudo desce a partir dele
+        if (Object.keys(regrasMap).length === 0) {
+          regrasMap['Premium'] = { tipo_gap: 'R$', valor_gap: 0, tier_referencia: 'Neutro' };
+          regrasMap['Lider'] = { tipo_gap: 'R$', valor_gap: 0.10, tier_referencia: 'Premium' };
+          regrasMap['Intermediaria'] = { tipo_gap: 'R$', valor_gap: 0.10, tier_referencia: 'Lider' };
+          regrasMap['Combate'] = { tipo_gap: 'R$', valor_gap: 0.10, tier_referencia: 'Intermediaria' };
+        }
+        regrasLoadedRef.current = false; // impedir auto-save na carga inicial
         setRegras(regrasMap);
+        setTimeout(() => { regrasLoadedRef.current = true; }, 500);
       }
     } catch (err) {
       console.error('Erro ao carregar dados:', err);
@@ -304,6 +341,14 @@ export default function AncoragemPreco() {
       setSavingRegras(false);
     }
   };
+
+  // Auto-save regras com debounce (800ms)
+  useEffect(() => {
+    if (!regrasLoadedRef.current || !codLoja || !codSecao) return;
+    if (regrasTimerRef.current) clearTimeout(regrasTimerRef.current);
+    regrasTimerRef.current = setTimeout(() => { salvarRegras(); }, 800);
+    return () => { if (regrasTimerRef.current) clearTimeout(regrasTimerRef.current); };
+  }, [regras]);
 
   // Criar tier customizado
   const criarTierCustom = async () => {
@@ -460,14 +505,20 @@ export default function AncoragemPreco() {
   };
 
   // Status badge helper
+  // 3 estados: dentro (verde), acima (laranja), abaixo (vermelho) + ancora (azul)
   const statusBadge = (status) => {
+    if (status === 'neutro') return <span className="text-gray-400 text-xs">—</span>;
+    if (status === 'ancora') return <span className="px-2 py-0.5 rounded-full text-xs font-bold border bg-blue-100 text-blue-800 border-blue-300">Âncora</span>;
     const colors = {
+      dentro: 'bg-green-100 text-green-800 border-green-300',
+      acima: 'bg-orange-100 text-orange-700 border-orange-300',
+      abaixo: 'bg-red-100 text-red-800 border-red-300',
+      // Manter compat com status antigos
       verde: 'bg-green-100 text-green-800 border-green-300',
-      amarelo: 'bg-yellow-100 text-yellow-800 border-yellow-300',
       vermelho: 'bg-red-100 text-red-800 border-red-300',
       cinza: 'bg-gray-100 text-gray-500 border-gray-300',
     };
-    const labels = { verde: 'OK', amarelo: 'Atenção', vermelho: 'Fora', cinza: '-' };
+    const labels = { dentro: 'Dentro', acima: 'Acima', abaixo: 'Abaixo', verde: 'OK', vermelho: 'Fora', cinza: '-' };
     return (
       <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${colors[status] || colors.cinza}`}>
         {labels[status] || '-'}
@@ -648,8 +699,15 @@ export default function AncoragemPreco() {
         return <span className="font-bold">{fmt(r.PRECO_VENDA)}</span>;
       case 'CONC_BARATO':
         return <span className="text-blue-600">{r.CONC_BARATO > 0 ? fmt(r.CONC_BARATO) : '-'}</span>;
+      case 'MARG_CONC': {
+        // Margem se vendesse ao preço do concorrente barato: ((conc - custo) / conc) * 100
+        if (!r.CONC_BARATO || r.CONC_BARATO <= 0) return <span className="text-gray-400">-</span>;
+        const margConc = ((r.CONC_BARATO - r.VAL_CUSTO) / r.CONC_BARATO) * 100;
+        return <span className={`font-bold ${margConc >= 20 ? 'text-green-600' : margConc >= 10 ? 'text-yellow-600' : margConc >= 0 ? 'text-orange-600' : 'text-red-600'}`}>{margConc.toFixed(1)}%</span>;
+      }
       case 'MARKDOWN':
-        return <span className={`font-bold ${r.MARKDOWN_ATUAL >= 30 ? 'text-green-600' : r.MARKDOWN_ATUAL >= 15 ? 'text-yellow-600' : r.MARKDOWN_ATUAL > 0 ? 'text-red-600' : 'text-gray-500'}`}>{r.MARKDOWN_ATUAL !== 0 ? `${r.MARKDOWN_ATUAL.toFixed(1)}%` : '-'}</span>;
+        if (!r.MARKDOWN_ATUAL || r.MARKDOWN_ATUAL === 0) return <span className="text-gray-500">-</span>;
+        return <span className={`font-bold ${r.MARKDOWN_ATUAL >= r.VAL_MARGEM ? 'text-green-600' : 'text-red-600'}`}>{r.MARKDOWN_ATUAL.toFixed(1)}%</span>;
       case 'MARGEM_META':
         return <span className="text-orange-600 font-bold">{r.VAL_MARGEM > 0 ? fmtPct(r.VAL_MARGEM) : '-'}</span>;
       case 'CUSTO_ATUAL':
@@ -657,7 +715,29 @@ export default function AncoragemPreco() {
       case 'CUSTO_IDEAL':
         return <span className="text-purple-600">{r.CUSTO_IDEAL > 0 ? fmt(r.CUSTO_IDEAL) : '-'}</span>;
       case 'PRECO_SUGERIDO':
+        if (r.STATUS === 'ancora') return <span className="text-gray-400">—</span>;
         return <span className="font-bold text-green-700">{r.PRECO_SUGERIDO > 0 ? fmt(r.PRECO_SUGERIDO) : '-'}</span>;
+      case 'GAP_IDEAL': {
+        // Ancora nao tem distancia ideal
+        if (r.STATUS === 'ancora') return <span className="text-gray-400">—</span>;
+        // Buscar gap do tier deste produto no tierGaps
+        const gapInfo = analiseData?.tierGaps?.[r.TIER];
+        if (gapInfo && gapInfo.gapIdeal > 0) {
+          return <span className="text-indigo-600 font-bold text-center">{fmt(gapInfo.gapIdeal)}</span>;
+        }
+        return <span className="text-gray-400">-</span>;
+      }
+      case 'DIF_REAL':
+        if (r.STATUS === 'ancora' || r.STATUS === 'neutro') return <span className="text-gray-400">—</span>;
+        if (r.DIF_REAL === 0) return <span className="text-green-600 text-xs">0,00</span>;
+        {
+          const difColor = r.STATUS === 'dentro' ? 'bg-green-50 text-green-700'
+            : r.STATUS === 'acima' ? 'bg-orange-50 text-orange-700'
+            : r.STATUS === 'abaixo' ? 'bg-red-50 text-red-700'
+            : Math.abs(r.DIF_REAL) <= 0.05 ? 'bg-green-50 text-green-700'
+            : r.DIF_REAL > 0 ? 'bg-orange-50 text-orange-700' : 'bg-red-50 text-red-700';
+          return <span className={`font-bold text-xs px-2 py-0.5 rounded ${difColor}`}>{r.DIF_REAL > 0 ? '+' : ''}{fmt(r.DIF_REAL)}</span>;
+        }
       case 'STATUS':
         return statusBadge(r.STATUS);
       default:
@@ -939,49 +1019,52 @@ export default function AncoragemPreco() {
                     >
                       + Novo Tier
                     </button>
-                    <button
-                      onClick={salvarRegras}
-                      disabled={savingRegras}
-                      className="px-4 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-bold disabled:opacity-50"
-                    >
-                      {savingRegras ? 'Salvando...' : 'Salvar Regras'}
-                    </button>
+                    {savingRegras && <span className="text-xs text-green-300 animate-pulse">Salvando...</span>}
                   </div>
                 </div>
 
                 <div className="p-4 space-y-2">
                   {allTiers.map((t, idx) => {
-                    const r = regras[t.nome] || { tipo_gap: 'R$', valor_gap: 0, tier_referencia: 'Lider' };
+                    const r = regras[t.nome] || { tipo_gap: 'R$', valor_gap: 0, tier_referencia: 'Neutro' };
+                    const isPremium = t.nome === 'Premium';
                     return (
                       <div
                         key={t.nome}
-                        draggable
-                        onDragStart={() => { dragTierRef.current = idx; }}
+                        draggable={!isPremium}
+                        onDragStart={() => { if (isPremium) return; dragTierRef.current = idx; }}
                         onDragOver={e => e.preventDefault()}
                         onDrop={() => {
                           const from = dragTierRef.current;
                           if (from === null || from === idx) return;
+                          // Premium NUNCA pode sair da posição 1
+                          if (allTiers[from]?.nome === 'Premium') { dragTierRef.current = null; return; }
+                          // Ninguem pode ser colocado ACIMA do Premium (posição 0)
+                          if (idx === 0) { dragTierRef.current = null; return; }
                           // Reorder: move custom tiers
                           const newOrder = [...allTiers];
                           const [moved] = newOrder.splice(from, 1);
                           newOrder.splice(idx, 0, moved);
-                          // Update ordem and save to customTiers
-                          const updatedCustom = newOrder
-                            .map((t, i) => ({ ...t, ordem: i + 1 }))
-                            .filter(t => !DEFAULT_TIERS.find(d => d.nome === t.nome));
-                          setCustomTiers(updatedCustom);
-                          // Also update default tiers ordem via a local override
+                          // Update ordem - salvar TODOS os tiers (inclusive defaults reordenados)
                           const allUpdated = newOrder.map((t, i) => ({ ...t, ordem: i + 1 }));
-                          // We store the full reordered list in a local state
+                          // Custom tiers (nao-default) para o state
+                          const updatedCustom = allUpdated.filter(t => !DEFAULT_TIERS.find(d => d.nome === t.nome));
+                          setCustomTiers(updatedCustom);
                           setTiers(allUpdated);
+                          // Persistir TODOS no backend (para que getAnalise saiba a ordem)
+                          for (const t of allUpdated) {
+                            api.post('/ancoragem/tiers', { codLoja: Number(codLoja), nome: t.nome, ordem: t.ordem, cor: t.cor }).catch(() => {});
+                          }
                           dragTierRef.current = null;
                         }}
-                        className="flex items-center gap-3 p-3 rounded-lg border cursor-grab active:cursor-grabbing transition-all hover:shadow-md"
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all hover:shadow-md ${isPremium ? 'cursor-default opacity-90' : 'cursor-grab active:cursor-grabbing'}`}
                         style={{ borderColor: t.cor + '40', backgroundColor: t.cor + '08' }}
                       >
-                        {/* Drag handle */}
-                        <div className="text-gray-400 hover:text-gray-600 cursor-grab" title="Arrastar para reordenar">
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
+                        {/* Drag handle - Premium fica fixo (cadeado) */}
+                        <div className={isPremium ? 'text-gray-300 cursor-default' : 'text-gray-400 hover:text-gray-600 cursor-grab'} title={isPremium ? 'Premium: posição fixa' : 'Arrastar para reordenar'}>
+                          {isPremium
+                            ? <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/></svg>
+                            : <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
+                          }
                         </div>
 
                         {/* Nome do tier com badge */}
@@ -998,25 +1081,30 @@ export default function AncoragemPreco() {
                               type="number"
                               step="0.01"
                               min="0"
-                              value={Math.abs(r.valor_gap)}
+                              value={r.tier_referencia === 'Neutro' ? 0 : Math.abs(r.valor_gap)}
                               onChange={e => setRegras(prev => ({ ...prev, [t.nome]: { ...r, tipo_gap: 'R$', valor_gap: Math.abs(parseFloat(e.target.value) || 0) } }))}
                               className="border rounded px-2 py-1.5 text-sm w-24 text-right"
                               placeholder="0.00"
+                              disabled={r.tier_referencia === 'Neutro'}
                             />
                           </div>
                           <span className="text-xs text-gray-500">em relação ao</span>
                           <select
                             value={r.tier_referencia}
-                            onChange={e => setRegras(prev => ({ ...prev, [t.nome]: { ...r, tier_referencia: e.target.value } }))}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setRegras(prev => ({ ...prev, [t.nome]: { ...r, tier_referencia: val, valor_gap: val === 'Neutro' ? 0 : r.valor_gap } }));
+                            }}
                             className="border rounded px-2 py-1.5 text-sm"
                           >
-                            {allTiers.map(ref => (
+                            <option value="Neutro">Neutro</option>
+                            {allTiers.filter(ref => ref.nome !== t.nome).map(ref => (
                               <option key={ref.nome} value={ref.nome}>{ref.nome}</option>
                             ))}
                           </select>
                           {/* Info calculado */}
                           <span className="text-xs text-gray-400">
-                            {r.valor_gap !== 0 ? (
+                            {r.tier_referencia === 'Neutro' ? '(Base / Âncora)' : r.valor_gap !== 0 ? (
                               `(R$ ${fmt(r.valor_gap)} do ${r.tier_referencia})`
                             ) : ''}
                           </span>
@@ -1221,32 +1309,65 @@ export default function AncoragemPreco() {
                       </tr>
                     </thead>
                     <tbody>
-                      {[...allTiers.map(t => t.nome), 'Sem Classificação'].filter(tn => (sortedAnaliseByTier[tn] || []).length > 0).map(tierName => ({ tierName, rows: sortedAnaliseByTier[tierName] || [] })).map(({ tierName, rows }) => (
-                        <React.Fragment key={tierName}>
-                          <tr className="bg-gray-50">
-                            <td colSpan={anlColOrder.length} className="px-3 py-2">
-                              <span className="inline-flex items-center gap-2">
-                                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: tierCor(tierName) }}></span>
-                                <span className="font-bold text-sm" style={{ color: tierCor(tierName) }}>{tierName}</span>
-                                <span className="text-xs text-gray-500">({rows.length} produtos)</span>
-                                {tierName === 'Lider' && <span className="text-xs text-blue-600 font-bold ml-2">⚓ ÂNCORA</span>}
-                              </span>
-                            </td>
-                          </tr>
-                          {rows.map(r => (
-                            <tr key={r.COD_PRODUTO} className="border-b border-gray-100 hover:bg-blue-50 transition-colors" style={{ borderLeft: `3px solid ${tierCor(r.TIER || tierName)}` }}>
-                              {anlColOrder.map(colId => {
-                                const def = ANALISE_COL_DEFS.find(c => c.id === colId);
-                                return (
-                                  <td key={colId} className={`px-2 py-1.5 text-${def?.align || 'left'}`}>
-                                    {renderAnaliseCell(colId, r)}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
-                        </React.Fragment>
-                      ))}
+                      {(() => {
+                        const visibleTiers = [...allTiers.map(t => t.nome), 'Sem Classificação'].filter(tn => (sortedAnaliseByTier[tn] || []).length > 0);
+                        return visibleTiers.map((tierName, tierIdx) => {
+                          const rows = sortedAnaliseByTier[tierName] || [];
+                          const isAnchor = rows.length > 0 && (rows[0].STATUS === 'ancora');
+                          // Gap ideal: pegar do tierGaps retornado pelo backend
+                          const tierGap = analiseData?.tierGaps?.[tierName];
+                          // Seta: mostrar entre este tier e o proximo (abaixo)
+                          const nextTier = visibleTiers[tierIdx + 1];
+                          const nextTierGap = nextTier ? analiseData?.tierGaps?.[nextTier] : null;
+                          return (
+                            <React.Fragment key={tierName}>
+                              <tr className="bg-gray-50">
+                                <td colSpan={anlColOrder.length} className="px-3 py-2">
+                                  <span className="inline-flex items-center gap-2">
+                                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: tierCor(tierName) }}></span>
+                                    <span className="font-bold text-sm" style={{ color: tierCor(tierName) }}>{tierName}</span>
+                                    <span className="text-xs text-gray-500">({rows.length} produtos)</span>
+                                    {isAnchor && <span className="text-xs text-blue-600 font-bold ml-2">⚓ ÂNCORA</span>}
+                                  </span>
+                                </td>
+                              </tr>
+                              {rows.map(r => (
+                                <tr key={r.COD_PRODUTO} className="border-b border-gray-100 hover:bg-blue-50 transition-colors" style={{ borderLeft: `3px solid ${tierCor(r.TIER || tierName)}` }}>
+                                  {anlColOrder.map(colId => {
+                                    const def = ANALISE_COL_DEFS.find(c => c.id === colId);
+                                    return (
+                                      <td key={colId} className={`px-2 py-1.5 text-${def?.align || 'left'}`}>
+                                        {renderAnaliseCell(colId, r)}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                              {/* Seta com Distancia Ideal entre tiers - posicionada na coluna GAP_IDEAL */}
+                              {nextTierGap && nextTierGap.gapIdeal > 0 && (
+                                <tr className="bg-indigo-50/50">
+                                  {anlColOrder.map(colId => {
+                                    if (colId === 'GAP_IDEAL') {
+                                      return (
+                                        <td key={colId} className="py-1.5 text-center">
+                                          <span className="inline-flex items-center justify-center gap-1 text-indigo-600 font-bold text-xs">
+                                            <span>▼</span>
+                                            <span className="px-3 py-0.5 bg-indigo-100 rounded-full border border-indigo-200">
+                                              R$ {fmt(nextTierGap.gapIdeal)}
+                                            </span>
+                                            <span>▼</span>
+                                          </span>
+                                        </td>
+                                      );
+                                    }
+                                    return <td key={colId} className="py-1.5"></td>;
+                                  })}
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          );
+                        });
+                      })()}
                       {(!analiseData?.rows || analiseData.rows.length === 0) && (
                         <tr>
                           <td colSpan={anlColOrder.length} className="text-center py-8 text-gray-400">
