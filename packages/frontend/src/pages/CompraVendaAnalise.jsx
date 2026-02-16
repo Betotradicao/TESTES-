@@ -27,6 +27,8 @@ const INITIAL_COLUMNS = [
   { id: 'PCT', header: '✅ Atingido (%)', align: 'right' },
   { id: 'DIFERENCA_PCT', header: '📐 Dif. (%)', align: 'right' },
   { id: 'DIFERENCA_RS', header: '💱 Diferença (R$)', align: 'right' },
+  { id: 'DIF_ANUAL_PCT', header: '📅 Dif Anual (%)', align: 'right' },
+  { id: 'DIF_ANUAL_RS', header: '📅 Dif Anual (R$)', align: 'right' },
   { id: 'EMPRESTEI', header: '🔄 Emprestei (R$)', align: 'right', highlight: true },
   { id: 'EMPRESTADO', header: '🔃 Emprestado (R$)', align: 'right', highlight: true },
   { id: 'COMPRA_FINAL', header: '🏁 Compra Final (R$)', align: 'right', highlightGreen: true },
@@ -298,13 +300,40 @@ export default function CompraVendaAnalise() {
         params.append('tipoEmprestimoDecomposicao', String(filters.tipoEmprestimoDecomposicao));
       }
 
-      const response = await api.get(`/compra-venda/dados?${params.toString()}`);
+      // Params anuais (01/01/YYYY ate hoje) - mesmos filtros exceto datas
+      const paramsAnual = new URLSearchParams(params.toString());
+      const anoAtual = new Date().getFullYear();
+      const hoje = new Date();
+      paramsAnual.set('dataInicio', `01/01/${anoAtual}`);
+      paramsAnual.set('dataFim', `${String(hoje.getDate()).padStart(2,'0')}/${String(hoje.getMonth()+1).padStart(2,'0')}/${anoAtual}`);
+
+      // Buscar periodo selecionado + anual em paralelo
+      const [response, responseAnual] = await Promise.all([
+        api.get(`/compra-venda/dados?${params.toString()}`),
+        api.get(`/compra-venda/dados?${paramsAnual.toString()}`),
+      ]);
 
       if (response.data.success) {
-        setData(response.data.data || []);
+        // Montar mapa anual por COD_SECAO+COD_LOJA
+        const anualMap = {};
+        if (responseAnual.data.success) {
+          for (const r of (responseAnual.data.data || [])) {
+            const key = `${r.COD_SECAO}_${r.COD_LOJA || r.LOJA}`;
+            anualMap[key] = { DIF_ANUAL_PCT: r.DIFERENCA_PCT || 0, DIF_ANUAL_RS: r.DIFERENCA_RS || 0 };
+          }
+        }
 
-        // Calcular totais
-        const totalData = response.data.data || [];
+        // Juntar dados anuais nos dados do periodo
+        const mergedData = (response.data.data || []).map(row => {
+          const key = `${row.COD_SECAO}_${row.COD_LOJA || row.LOJA}`;
+          const anual = anualMap[key] || { DIF_ANUAL_PCT: 0, DIF_ANUAL_RS: 0 };
+          return { ...row, DIF_ANUAL_PCT: anual.DIF_ANUAL_PCT, DIF_ANUAL_RS: anual.DIF_ANUAL_RS };
+        });
+
+        setData(mergedData);
+
+        // Calcular totais (usar mergedData que tem os dados anuais)
+        const totalData = mergedData;
         const totaisSoma = totalData.reduce((acc, row) => ({
           QTD_COMPRA: acc.QTD_COMPRA + (row.QTD_COMPRA || 0),
           QTD_VENDA: acc.QTD_VENDA + (row.QTD_VENDA || 0),
@@ -316,7 +345,8 @@ export default function CompraVendaAnalise() {
           TOTAL_IMPOSTO_CREDITO: acc.TOTAL_IMPOSTO_CREDITO + (row.TOTAL_IMPOSTO_CREDITO || 0),
           EMPRESTEI: acc.EMPRESTEI + (row.EMPRESTEI || 0),
           EMPRESTADO: acc.EMPRESTADO + (row.EMPRESTADO || 0),
-          COMPRA_FINAL: acc.COMPRA_FINAL + (row.COMPRA_FINAL || 0)
+          COMPRA_FINAL: acc.COMPRA_FINAL + (row.COMPRA_FINAL || 0),
+          DIF_ANUAL_RS: acc.DIF_ANUAL_RS + (row.DIF_ANUAL_RS || 0)
         }), {
           QTD_COMPRA: 0,
           QTD_VENDA: 0,
@@ -328,7 +358,8 @@ export default function CompraVendaAnalise() {
           TOTAL_IMPOSTO_CREDITO: 0,
           EMPRESTEI: 0,
           EMPRESTADO: 0,
-          COMPRA_FINAL: 0
+          COMPRA_FINAL: 0,
+          DIF_ANUAL_RS: 0
         });
 
         // Calcular margens totais
@@ -766,6 +797,16 @@ export default function CompraVendaAnalise() {
         return formatPercent(row.DIFERENCA_PCT);
       case 'DIFERENCA_RS':
         return formatCurrency(isTotal ? totais?.DIFERENCA_RS : row.DIFERENCA_RS);
+      case 'DIF_ANUAL_PCT':
+        if (isTotal && totais) {
+          // Somar todos os DIF_ANUAL_PCT ponderado nao faz sentido, calcular do total anual
+          const totalAnualRS = totais?.DIF_ANUAL_RS || 0;
+          const totalVendas = totais?.VENDAS || 0;
+          return formatPercent(totalVendas > 0 ? (totalAnualRS / totalVendas) * 100 : 0);
+        }
+        return formatPercent(row.DIF_ANUAL_PCT);
+      case 'DIF_ANUAL_RS':
+        return formatCurrency(isTotal ? totais?.DIF_ANUAL_RS : row.DIF_ANUAL_RS);
       case 'EMPRESTEI': {
         const valor = isTotal ? totais?.EMPRESTEI : row.EMPRESTEI;
         const valorFormatado = formatCurrency(valor);
@@ -844,6 +885,16 @@ export default function CompraVendaAnalise() {
     }
     if (columnId === 'DIFERENCA_RS') {
       const value = isTotal ? totais?.DIFERENCA_RS : row.DIFERENCA_RS;
+      return value >= 0 ? 'text-green-600' : 'text-red-600';
+    }
+    if (columnId === 'DIF_ANUAL_PCT') {
+      const value = isTotal
+        ? (totais?.VENDAS > 0 ? ((totais.DIF_ANUAL_RS || 0) / totais.VENDAS) * 100 : 0)
+        : row.DIF_ANUAL_PCT;
+      return value >= 0 ? 'text-green-600' : 'text-red-600';
+    }
+    if (columnId === 'DIF_ANUAL_RS') {
+      const value = isTotal ? totais?.DIF_ANUAL_RS : row.DIF_ANUAL_RS;
       return value >= 0 ? 'text-green-600' : 'text-red-600';
     }
     return 'text-gray-900';
