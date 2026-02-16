@@ -383,9 +383,11 @@ export class NotaFiscalRecebimentoController {
           for (const nf of notasSemConf) {
             if (!nf.num_nota) continue;
             try {
+              const numStr = nf.num_nota.toString();
+              const numTrim = numStr.replace(/^0+/, '') || '0';
               const rows = await OracleService.query(
-                `SELECT COUNT(*) as CNT FROM ${tabFornNota} fn WHERE fn.NUM_NF_FORN = :numNota AND fn.DTA_ENTRADA IS NOT NULL AND ROWNUM <= 1`,
-                { numNota: nf.num_nota.toString() }
+                `SELECT COUNT(*) as CNT FROM ${tabFornNota} fn WHERE (fn.NUM_NF_FORN = :numNota OR fn.NUM_NF_FORN = :numNotaTrim) AND fn.DTA_ENTRADA IS NOT NULL AND ROWNUM <= 1`,
+                { numNota: numStr, numNotaTrim: numTrim }
               );
               if (rows[0]?.CNT > 0) finalizadaSemConf++;
             } catch {}
@@ -419,20 +421,29 @@ export class NotaFiscalRecebimentoController {
       const schema = await MappingService.getSchema();
       const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA')}`;
 
-      // Build conditions for each nota
+      // Build conditions for each nota (match with AND without leading zeros)
       const conditions: string[] = [];
       const params: Record<string, any> = {};
+      // Track original num_nota for each nota to build proper keys later
+      const notaOriginals: Record<string, string> = {};
 
       notas.forEach((n: any, idx: number) => {
         if (n.num_nota) {
+          const numStr = n.num_nota.toString();
+          const numTrim = numStr.replace(/^0+/, '') || '0';
           if (n.cod_fornecedor) {
-            conditions.push(`(fn.NUM_NF_FORN = :nf${idx} AND fn.COD_FORNECEDOR = :forn${idx})`);
-            params[`nf${idx}`] = n.num_nota.toString();
+            conditions.push(`((fn.NUM_NF_FORN = :nf${idx} OR fn.NUM_NF_FORN = :nft${idx}) AND fn.COD_FORNECEDOR = :forn${idx})`);
+            params[`nf${idx}`] = numStr;
+            params[`nft${idx}`] = numTrim;
             params[`forn${idx}`] = parseInt(n.cod_fornecedor);
           } else {
-            conditions.push(`(fn.NUM_NF_FORN = :nf${idx})`);
-            params[`nf${idx}`] = n.num_nota.toString();
+            conditions.push(`(fn.NUM_NF_FORN = :nf${idx} OR fn.NUM_NF_FORN = :nft${idx})`);
+            params[`nf${idx}`] = numStr;
+            params[`nft${idx}`] = numTrim;
           }
+          // Map both formats to original for result key building
+          notaOriginals[numStr] = numStr;
+          notaOriginals[numTrim] = numStr;
         }
       });
 
@@ -453,11 +464,12 @@ export class NotaFiscalRecebimentoController {
 
       const rows = await OracleService.query(query, params);
 
-      // Build result map: key = "numNota_codFornecedor"
+      // Build result map with multiple key formats (with/without leading zeros)
       const result: Record<string, any> = {};
       rows.forEach((r: any) => {
-        const key = `${r.NUM_NF_FORN}_${r.COD_FORNECEDOR}`;
-        const keySimple = `${r.NUM_NF_FORN}`;
+        const numNf = String(r.NUM_NF_FORN);
+        const numNfTrim = numNf.replace(/^0+/, '') || '0';
+        const cod = r.COD_FORNECEDOR;
         const efetivada = r.DTA_ENTRADA != null;
         const confirmada = r.FLG_CONFERIDO === 'S';
         const entrada = {
@@ -469,10 +481,17 @@ export class NotaFiscalRecebimentoController {
           valor_oracle: r.VAL_TOTAL_NF || 0,
           status: efetivada ? 'FINALIZADA' : 'PENDENTE'
         };
-        // Use cod_fornecedor key first (more specific), then simple key as fallback
-        result[key] = entrada;
-        if (!result[keySimple]) {
-          result[keySimple] = entrada;
+        // Store under Oracle format keys
+        result[`${numNf}_${cod}`] = entrada;
+        if (!result[numNf]) result[numNf] = entrada;
+        // Also store under trimmed keys (for matching with leading-zero originals)
+        result[`${numNfTrim}_${cod}`] = entrada;
+        if (!result[numNfTrim]) result[numNfTrim] = entrada;
+        // Also store under original format (from the request) if different
+        const origNum = notaOriginals[numNf] || notaOriginals[numNfTrim];
+        if (origNum && origNum !== numNf && origNum !== numNfTrim) {
+          result[`${origNum}_${cod}`] = entrada;
+          if (!result[origNum]) result[origNum] = entrada;
         }
       });
 

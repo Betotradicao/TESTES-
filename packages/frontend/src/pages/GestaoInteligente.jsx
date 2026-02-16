@@ -257,13 +257,44 @@ export default function GestaoInteligente() {
   const [draggedRow, setDraggedRow] = useState(null);
   const [cardExpandido, setCardExpandido] = useState('vendas'); // qual card de cima está expandido mostrando sub-cards
 
+  // Estado para configuração de colaboradores (card Media Performance)
+  const [showColabModal, setShowColabModal] = useState(false);
+  const [colabConfig, setColabConfig] = useState(() => {
+    const key = `gestao_colab_config_${lojaSelecionada}`;
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : { clt: 0, aprendiz: 0, estagiario: 0, pesoClt: 1, pesoAprendiz: 0.5, pesoEstagiario: 0.5 };
+  });
+  const [colabConfigTemp, setColabConfigTemp] = useState(colabConfig);
+
+  const saveColabConfig = (cfg) => {
+    setColabConfig(cfg);
+    localStorage.setItem(`gestao_colab_config_${lojaSelecionada}`, JSON.stringify(cfg));
+    setShowColabModal(false);
+  };
+
+  const mediaPerformColab = useMemo(() => {
+    const { clt, aprendiz, estagiario, pesoClt, pesoAprendiz, pesoEstagiario } = colabConfig;
+    const totalPonderado = (clt * pesoClt) + (aprendiz * pesoAprendiz) + (estagiario * pesoEstagiario);
+    const calc = (fat) => totalPonderado > 0 ? (fat || 0) / totalPonderado : 0;
+    // Projecao: usa os dias reais do periodo selecionado nos filtros
+    const dtIni = new Date(filters.dataInicio + 'T00:00:00');
+    const dtFim = new Date(filters.dataFim + 'T00:00:00');
+    const diasPeriodo = Math.round((dtFim - dtIni) / 86400000) + 1; // dias no periodo selecionado
+    const diasNoMes = new Date(dtIni.getFullYear(), dtIni.getMonth() + 1, 0).getDate();
+    const fatAtual = defesaData.faturamento?.atual || 0;
+    const projecaoMes = diasPeriodo > 0 ? (fatAtual / diasPeriodo) * diasNoMes : 0;
+    const mediaProjetada = totalPonderado > 0 && diasPeriodo > 0 ? projecaoMes / totalPonderado : 0;
+    return { media: calc(fatAtual), mesPassado: calc(defesaData.faturamento?.mesPassado), anoPassado: calc(defesaData.faturamento?.anoPassado), mediaProjetada, totalPonderado, clt, aprendiz, estagiario, configurado: totalPonderado > 0 };
+  }, [colabConfig, defesaData.faturamento, filters.dataInicio, filters.dataFim]);
+
   // Estado para ordem dos cards DEFESA (drag and drop)
   const defaultDefesaOrder1 = ['naoBipados', 'furtos', 'cancelamentos', 'descontos', 'valeTroca', 'valeDesconto'];
   const defaultDefesaOrder2 = ['sobraCaixa', 'faltaCaixa', 'rupturaTaxa', 'rupturaPerdaVenda', 'rupturaPerdaLucro', 'etiquetaTaxa'];
-  const defaultDefesaOrder3 = ['fluxoCaixa', 'perdasEstoque', 'defesa15', 'defesa16', 'defesa17', 'defesa18'];
+  const defaultDefesaOrder3 = ['fluxoCaixa', 'perdasEstoque', 'mediaPerformColab', 'defesa16', 'defesa17', 'defesa18'];
   const migrateDefesaIds = (ids) => ids.map(id => {
     if (id === 'defesa13') return 'fluxoCaixa';
     if (id === 'defesa14') return 'perdasEstoque';
+    if (id === 'defesa15') return 'mediaPerformColab';
     return id;
   });
   const [defesaOrder1, setDefesaOrder1] = useState(() => {
@@ -339,6 +370,13 @@ export default function GestaoInteligente() {
   useEffect(() => {
     localStorage.setItem('gestao_defesa_order_3', JSON.stringify(defesaOrder3));
   }, [defesaOrder3]);
+
+  // Recarregar config de colaboradores quando loja muda
+  useEffect(() => {
+    const key = `gestao_colab_config_${lojaSelecionada}`;
+    const saved = localStorage.getItem(key);
+    setColabConfig(saved ? JSON.parse(saved) : { clt: 0, aprendiz: 0, estagiario: 0, pesoClt: 1, pesoAprendiz: 0.5, pesoEstagiario: 0.5 });
+  }, [lojaSelecionada]);
 
   // Drag and drop de colunas
   const handleColDragStart = (e, colId) => {
@@ -861,6 +899,7 @@ export default function GestaoInteligente() {
         etiquetaTaxa: { atual: e1.taxa, mesPassado: e2.taxa, anoPassado: e3.taxa },
         fluxoCaixa: { atual: bk1, mesPassado: bk2, anoPassado: bk3 },
         perdasEstoque: { atual: ls1, mesPassado: ls2, anoPassado: ls3, pct: fc1.faturamento > 0 ? (ls1 / fc1.faturamento * 100) : 0 },
+        faturamento: { atual: fc1.faturamento, mesPassado: fc2.faturamento, anoPassado: fc3.faturamento },
         loadingDefesa: false
       });
     } catch (err) {
@@ -2983,9 +3022,9 @@ export default function GestaoInteligente() {
                             {[...Array(13)].map((_, gi) => (
                               <Fragment key={`sh-${gi}`}>
                                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-green-700 uppercase border-b border-gray-200 min-w-[100px] bg-green-50">Atual</th>
-                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-purple-700 uppercase border-b border-gray-200 min-w-[100px] bg-purple-50">Méd.Lin</th>
-                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-blue-700 uppercase border-b border-gray-200 min-w-[100px] bg-blue-50">Ano Ant</th>
-                                <th className={`px-3 py-2 text-right text-[10px] font-semibold text-amber-700 uppercase border-b min-w-[100px] bg-amber-50 ${gi < 12 ? 'border-r border-gray-300' : 'border-gray-200'}`}>Mês Ant</th>
+                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-purple-700 uppercase border-b border-gray-200 min-w-[100px]">Méd.Lin</th>
+                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-blue-700 uppercase border-b border-gray-200 min-w-[100px]">Ano Ant</th>
+                                <th className={`px-3 py-2 text-right text-[10px] font-semibold text-amber-700 uppercase border-b min-w-[100px] ${gi < 12 ? 'border-r border-gray-300' : 'border-gray-200'}`}>Mês Ant</th>
                               </Fragment>
                             ))}
                           </tr>
@@ -2997,9 +3036,9 @@ export default function GestaoInteligente() {
                             const renderAnaliticaCells = (d, sz = 'text-sm') => {
                             const base = `px-3 py-2 ${sz} text-right font-semibold`;
                             const atCls = `${base} font-bold text-green-700 bg-green-50`;
-                            const mlCls = (a, b) => `${base} bg-purple-50 ${cc(a, b)}`;
-                            const aaCls = (a, b) => `${base} bg-blue-50 ${cc(a, b)}`;
-                            const maCls = (a, b, br) => `${base} bg-amber-50 ${cc(a, b)} ${br ? 'border-r border-gray-200' : ''}`;
+                            const mlCls = (a, b) => `${base} ${cc(a, b)}`;
+                            const aaCls = (a, b) => `${base} ${cc(a, b)}`;
+                            const maCls = (a, b, br) => `${base} ${cc(a, b)} ${br ? 'border-r border-gray-200' : ''}`;
                             const fmtN = (v) => Math.round(v || 0).toLocaleString('pt-BR');
                             return (<>
                               {/* Vendas */}
@@ -3173,7 +3212,7 @@ export default function GestaoInteligente() {
                             const qAt = sum('qtdItensAtual'), qML = sum('qtdItensMediaLinear'), qAP = sum('qtdItensAnoPassado'), qMP = sum('qtdItensMesPassado');
                             const sAt = sum('skusAtual'), sML = sum('skusMediaLinear'), sAP = sum('skusAnoPassado'), sMP = sum('skusMesPassado');
                             // col=0 Atual(verde), col=1 ML(roxa), col=2 AnoAnt(azul), col=3 MêsAnt(âmbar)
-                            const colBg = ['bg-green-50', 'bg-purple-50', 'bg-blue-50', 'bg-amber-50'];
+                            const colBg = ['bg-green-50', '', '', ''];
                             const colTxt = ['text-green-700', '', '', ''];
                             const fmt = (val, f) => f === '$' ? formatCurrency(val) : f === '%' ? formatPercent(val) : Math.round(val).toLocaleString('pt-BR');
                             const td4 = (vals, f, br) => vals.map((v, i) => (
@@ -3881,7 +3920,7 @@ export default function GestaoInteligente() {
                 etiquetaTaxa: { border: 'border-sky-500', bg: 'bg-sky-100', ic: 'text-sky-600', lb: 'ETIQ. DESCONF.', val: () => formatPercent(defesaData.etiquetaTaxa?.atual), title: 'TAXA ETIQUETAS DESCONFORMES', tipo: 'percent', d: defesaData.etiquetaTaxa, inv: true, svg: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
                 fluxoCaixa: { border: 'border-teal-500', bg: 'bg-teal-100', ic: 'text-teal-600', lb: 'FLUXO DE CAIXA', val: () => formatCurrency(defesaData.fluxoCaixa?.atual), title: 'RESULTADO DO PERIODO', tipo: 'currency', d: defesaData.fluxoCaixa, svg: 'M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
                 perdasEstoque: { border: 'border-rose-500', bg: 'bg-rose-100', ic: 'text-rose-600', lb: 'PERDAS ESTOQUE', val: () => formatCurrency(defesaData.perdasEstoque?.atual), extra: () => <span className="text-2xl font-bold text-rose-600">{formatPercent(defesaData.perdasEstoque?.pct)}</span>, title: 'PERDAS DE ESTOQUE IDENTIFICADAS', tipo: 'currency', d: defesaData.perdasEstoque, inv: true, svg: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
-                defesa15: { emBreve: true },
+                mediaPerformColab: { border: 'border-cyan-500', bg: 'bg-cyan-100', ic: 'text-cyan-600', lb: 'MEDIA COLAB.', val: () => formatCurrency(mediaPerformColab.media), extra: () => mediaPerformColab.configurado ? <span className="text-xs text-gray-400 ml-1">({mediaPerformColab.totalPonderado.toFixed(1)} colab.)</span> : <span className="text-xs text-orange-500 ml-1">Configurar</span>, title: 'MEDIA PERFORMANCE COLABORADORES', tipo: 'currency', d: { atual: mediaPerformColab.media, mesPassado: mediaPerformColab.mesPassado, anoPassado: mediaPerformColab.anoPassado }, hasGear: true, svg: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
                 defesa16: { emBreve: true }, defesa17: { emBreve: true }, defesa18: { emBreve: true },
               };
 
@@ -3924,22 +3963,48 @@ export default function GestaoInteligente() {
                         <div className={`w-10 h-10 ${c.bg} rounded-lg flex items-center justify-center`}>
                           <svg className={`w-5 h-5 ${c.ic}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d={c.svg} /></svg>
                         </div>
-                        <span className="text-xs text-gray-400 uppercase font-semibold flex items-center gap-1">
-                          <svg className={`w-4 h-4 ${c.ic}`} fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
-                          {c.lb}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-gray-400 uppercase font-semibold flex items-center gap-1">
+                            <svg className={`w-4 h-4 ${c.ic}`} fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+                            {c.lb}
+                          </span>
+                          {c.hasGear && (
+                            <button onClick={(e) => { e.stopPropagation(); e.preventDefault(); setColabConfigTemp({...colabConfig}); setShowColabModal(true); }} className="p-0.5 rounded hover:bg-gray-200 transition-colors" title="Configurar colaboradores">
+                              <svg className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-baseline gap-2 mb-1">
                         <p className="text-2xl font-bold text-gray-800">{c.val()}</p>
                         {c.extra && c.extra()}
                       </div>
-                      <p className="text-xs text-gray-500 mb-3">{c.title}</p>
+                      <p className="text-xs text-gray-500 mb-1">{c.title}</p>
+                      {c.hasGear && mediaPerformColab.mediaProjetada > 0 && (
+                        <div className="flex items-baseline gap-1.5 mb-2">
+                          <span className="text-[10px] text-gray-400 uppercase">Proj. Mes:</span>
+                          <span className="text-sm font-bold text-cyan-700">{formatCurrency(mediaPerformColab.mediaProjetada)}</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="space-y-1 pt-2 border-t border-gray-100">
-                      <Comparativo label="Mes Passado" valor={c.d?.mesPassado} valorAtual={c.d?.atual} tipo={c.tipo} invertido={c.inv} />
-                      <Comparativo label="Ano Passado" valor={c.d?.anoPassado} valorAtual={c.d?.atual} tipo={c.tipo} invertido={c.inv} />
-                      <div className="flex justify-between items-center text-xs"><span className="text-gray-400">&nbsp;</span></div>
-                    </div>
+                    {c.hasGear ? (
+                      <div className="space-y-1 pt-2 border-t border-gray-100">
+                        <Comparativo label="Mes Passado" valor={c.d?.mesPassado} valorAtual={c.d?.atual} tipo={c.tipo} />
+                        <Comparativo label="Ano Passado" valor={c.d?.anoPassado} valorAtual={c.d?.atual} tipo={c.tipo} />
+                        <div className="flex justify-between items-center text-[10px] text-gray-400 pt-0.5">
+                          <span>CLT: {colabConfig.clt}</span><span>Apr: {colabConfig.aprendiz}</span><span>Est: {colabConfig.estagiario}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1 pt-2 border-t border-gray-100">
+                        <Comparativo label="Mes Passado" valor={c.d?.mesPassado} valorAtual={c.d?.atual} tipo={c.tipo} invertido={c.inv} />
+                        <Comparativo label="Ano Passado" valor={c.d?.anoPassado} valorAtual={c.d?.atual} tipo={c.tipo} invertido={c.inv} />
+                        <div className="flex justify-between items-center text-xs"><span className="text-gray-400">&nbsp;</span></div>
+                      </div>
+                    )}
                   </div>
                 );
               };
@@ -3963,6 +4028,60 @@ export default function GestaoInteligente() {
             })()}
           </>
         )}
+
+        {/* Modal Configuração de Colaboradores */}
+        {showColabModal && (() => {
+          const tp = (colabConfigTemp.clt * colabConfigTemp.pesoClt) + (colabConfigTemp.aprendiz * colabConfigTemp.pesoAprendiz) + (colabConfigTemp.estagiario * colabConfigTemp.pesoEstagiario);
+          const tm = tp > 0 ? (defesaData.faturamento?.atual || 0) / tp : 0;
+          return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setShowColabModal(false)}>
+              <div className="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="bg-gradient-to-r from-cyan-600 to-cyan-700 p-4 flex justify-between items-center text-white">
+                  <div>
+                    <h2 className="text-lg font-bold">CONFIGURAR COLABORADORES</h2>
+                    <p className="text-cyan-200 text-xs mt-0.5">Defina a equipe para calcular a media de performance</p>
+                  </div>
+                  <button onClick={() => setShowColabModal(false)} className="text-white hover:text-gray-200">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+                <div className="p-4 space-y-4">
+                  <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600">
+                    <p className="font-semibold mb-1">Formula:</p>
+                    <p>Total Ponderado = (CLT x Peso) + (Aprendiz x Peso) + (Estagiario x Peso)</p>
+                    <p>Media = Faturamento / Total Ponderado</p>
+                  </div>
+                  {[
+                    { key: 'clt', pesoKey: 'pesoClt', label: 'CLT' },
+                    { key: 'aprendiz', pesoKey: 'pesoAprendiz', label: 'Aprendiz' },
+                    { key: 'estagiario', pesoKey: 'pesoEstagiario', label: 'Estagiario' },
+                  ].map(({ key, pesoKey, label }) => (
+                    <div key={key} className="flex items-center gap-3">
+                      <span className="w-24 text-sm font-medium text-gray-700">{label}</span>
+                      <div className="flex-1">
+                        <label className="text-[10px] text-gray-400 uppercase">Qtd</label>
+                        <input type="number" min="0" step="1" value={colabConfigTemp[key]} onChange={e => setColabConfigTemp(prev => ({...prev, [key]: parseInt(e.target.value) || 0}))} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500" />
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-[10px] text-gray-400 uppercase">Peso</label>
+                        <input type="number" min="0" max="2" step="0.1" value={colabConfigTemp[pesoKey]} onChange={e => setColabConfigTemp(prev => ({...prev, [pesoKey]: parseFloat(e.target.value) || 0}))} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500" />
+                      </div>
+                    </div>
+                  ))}
+                  <div className="bg-cyan-50 rounded-lg p-3 text-sm space-y-1">
+                    <div className="flex justify-between"><span className="text-gray-600">Total Ponderado:</span><span className="font-bold">{tp.toFixed(1)} colaboradores</span></div>
+                    <div className="flex justify-between"><span className="text-gray-600">Faturamento:</span><span className="font-bold">{formatCurrency(defesaData.faturamento?.atual || 0)}</span></div>
+                    <div className="flex justify-between text-cyan-700 border-t border-cyan-200 pt-1 mt-1"><span className="font-semibold">Media por Colaborador:</span><span className="font-bold text-lg">{formatCurrency(tm)}</span></div>
+                  </div>
+                </div>
+                <div className="px-4 py-3 bg-gray-50 flex justify-end gap-2 border-t">
+                  <button onClick={() => setShowColabModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-200">Cancelar</button>
+                  <button onClick={() => saveColabConfig(colabConfigTemp)} className="px-4 py-2 text-sm bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 font-semibold">Salvar</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Informativo do Cache */}
         <div className="mt-6 text-center">

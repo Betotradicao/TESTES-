@@ -521,9 +521,10 @@ export default function NotaFiscalRecebimento() {
   const tipoLabels = { conferente: 'CONFERENTE', cpd: 'CPD', financeiro: 'FINANCEIRO' };
 
   const getEntradaStatus = (nota) => {
-    const key = `${nota.num_nota}_${nota.cod_fornecedor}`;
-    const keySimple = `${nota.num_nota}`;
-    return entradasMap[key] || entradasMap[keySimple] || null;
+    const num = String(nota.num_nota || '');
+    const numTrim = num.replace(/^0+/, '') || '0';
+    const cod = nota.cod_fornecedor;
+    return entradasMap[`${num}_${cod}`] || entradasMap[num] || entradasMap[`${numTrim}_${cod}`] || entradasMap[numTrim] || null;
   };
 
   const formatCurrency = (val) => {
