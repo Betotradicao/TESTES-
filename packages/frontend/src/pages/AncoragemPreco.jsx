@@ -122,6 +122,8 @@ export default function AncoragemPreco() {
   });
   const [anlSortCol, setAnlSortCol] = useState(null);
   const [anlSortDir, setAnlSortDir] = useState('asc');
+  const [ocultarForaMix, setOcultarForaMix] = useState(true);
+  const [ocultarForaLinha, setOcultarForaLinha] = useState(false);
   const dragAnlColRef = useRef(null);
 
   // Colunas configuráveis - Prévia (drag) - persiste no localStorage
@@ -341,12 +343,14 @@ export default function AncoragemPreco() {
     );
   }, [products, busca]);
 
-  // Agrupar produtos por tier na aba classificacao
+  // Agrupar produtos por tier na aba classificacao (com filtros fora mix/linha)
   const productsByTier = useMemo(() => {
     const groups = {};
     for (const t of allTiers) groups[t.nome] = [];
     groups['Sem Classificação'] = [];
     for (const p of filteredProducts) {
+      if (ocultarForaMix && p.FORA_MIX === 'S') continue;
+      if (ocultarForaLinha && p.FORA_LINHA === 'S') continue;
       const tier = classificacoes[p.COD_PRODUTO] || '';
       if (tier && groups[tier]) {
         groups[tier].push(p);
@@ -355,7 +359,7 @@ export default function AncoragemPreco() {
       }
     }
     return groups;
-  }, [filteredProducts, classificacoes, allTiers]);
+  }, [filteredProducts, classificacoes, allTiers, ocultarForaMix, ocultarForaLinha]);
 
   // Stats por tier
   const tierStats = useMemo(() => {
@@ -413,7 +417,7 @@ export default function AncoragemPreco() {
     // Para cada tier, calcular preço sugerido relativo ao âncora
     const tiers = reguaVisual.map(t => {
       const offsetFromAnchor = t.posicao - anchorPos;
-      const sugerido = anchorPrice > 0 ? anchorPrice + offsetFromAnchor : 0;
+      const sugerido = anchorPrice > 0 ? anchorPrice - offsetFromAnchor : 0;
       const prods = products.filter(p => classificacoes[p.COD_PRODUTO] === t.nome);
       return {
         ...t,
@@ -435,17 +439,19 @@ export default function AncoragemPreco() {
     return { anchorPrice, baseName, tiers };
   }, [reguaVisual, products, classificacoes, allTiers]);
 
-  // Analise: agrupar por tier
+  // Analise: agrupar por tier (com filtros fora mix/linha)
   const analiseByTier = useMemo(() => {
     if (!analiseData?.rows) return {};
     const groups = {};
     for (const r of analiseData.rows) {
+      if (ocultarForaMix && r.FORA_MIX === 'S') continue;
+      if (ocultarForaLinha && r.FORA_LINHA === 'S') continue;
       const tier = r.TIER || 'Sem Classificação';
       if (!groups[tier]) groups[tier] = [];
       groups[tier].push(r);
     }
     return groups;
-  }, [analiseData]);
+  }, [analiseData, ocultarForaMix, ocultarForaLinha]);
 
   // Cor do tier helper
   const tierCor = (tierName) => {
@@ -759,6 +765,18 @@ export default function AncoragemPreco() {
                 />
               </div>
             </div>
+            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" checked={ocultarForaMix} onChange={e => setOcultarForaMix(e.target.checked)}
+                  className="w-4 h-4 rounded border-orange-300 text-orange-500 focus:ring-orange-400" />
+                <span className="text-sm text-gray-700 font-medium">Ocultar Fora do Mix</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" checked={ocultarForaLinha} onChange={e => setOcultarForaLinha(e.target.checked)}
+                  className="w-4 h-4 rounded border-orange-300 text-orange-500 focus:ring-orange-400" />
+                <span className="text-sm text-gray-700 font-medium">Ocultar Fora de Linha</span>
+              </label>
+            </div>
           </div>
 
           {/* Abas */}
@@ -979,8 +997,9 @@ export default function AncoragemPreco() {
                             <input
                               type="number"
                               step="0.01"
-                              value={r.valor_gap}
-                              onChange={e => setRegras(prev => ({ ...prev, [t.nome]: { ...r, tipo_gap: 'R$', valor_gap: parseFloat(e.target.value) || 0 } }))}
+                              min="0"
+                              value={Math.abs(r.valor_gap)}
+                              onChange={e => setRegras(prev => ({ ...prev, [t.nome]: { ...r, tipo_gap: 'R$', valor_gap: Math.abs(parseFloat(e.target.value) || 0) } }))}
                               className="border rounded px-2 py-1.5 text-sm w-24 text-right"
                               placeholder="0.00"
                             />
@@ -998,7 +1017,7 @@ export default function AncoragemPreco() {
                           {/* Info calculado */}
                           <span className="text-xs text-gray-400">
                             {r.valor_gap !== 0 ? (
-                              `(${r.valor_gap > 0 ? '+' : ''}R$ ${fmt(r.valor_gap)} do ${r.tier_referencia})`
+                              `(R$ ${fmt(r.valor_gap)} do ${r.tier_referencia})`
                             ) : ''}
                           </span>
                         </div>
@@ -1090,7 +1109,7 @@ export default function AncoragemPreco() {
                                     ) : (
                                       <div>
                                         <span className="text-sm font-bold" style={{ color: item.cor }}>
-                                          {item.gapDireto > 0 ? '+' : ''}{item.tipo === 'R$' ? `R$ ${fmt(item.gapDireto)}` : `${item.gapDireto}%`}
+                                          {item.tipo === 'R$' ? `R$ ${fmt(Math.abs(item.gapDireto))}` : `${Math.abs(item.gapDireto)}%`}
                                         </span>
                                         <span className="text-xs text-gray-500 ml-1">do {item.ref}</span>
                                       </div>
@@ -1202,7 +1221,7 @@ export default function AncoragemPreco() {
                       </tr>
                     </thead>
                     <tbody>
-                      {Object.entries(sortedAnaliseByTier).map(([tierName, rows]) => (
+                      {[...allTiers.map(t => t.nome), 'Sem Classificação'].filter(tn => (sortedAnaliseByTier[tn] || []).length > 0).map(tierName => ({ tierName, rows: sortedAnaliseByTier[tierName] || [] })).map(({ tierName, rows }) => (
                         <React.Fragment key={tierName}>
                           <tr className="bg-gray-50">
                             <td colSpan={anlColOrder.length} className="px-3 py-2">

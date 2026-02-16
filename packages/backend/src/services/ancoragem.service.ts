@@ -26,6 +26,8 @@ export interface AncoragemProduct {
   CONC_BARATO: number;
   CONC_NOME: string;
   VD_MEDIA: number;
+  FORA_LINHA: string;
+  FORA_MIX: string;
 }
 
 export interface AncoragemClassificacao {
@@ -119,6 +121,8 @@ export class AncoragemService {
     const colPesquisaMedia = await this.tryCol('TAB_PRODUTO_LOJA', 'pesquisa_media');
     const colPesquisaConcorrente = await this.tryCol('TAB_PRODUTO_LOJA', 'pesquisa_concorrente');
     const colVendaMedia = await this.tryCol('TAB_PRODUTO_LOJA', 'venda_media');
+    const colForaLinha = await this.tryCol('TAB_PRODUTO_LOJA', 'fora_linha');
+    const colInativo = await this.tryCol('TAB_PRODUTO_LOJA', 'inativo');
     const colCodMarca = await this.tryCol('TAB_PRODUTO', 'codigo_marca');
 
     // ---- Tabela TAB_MARCA (opcional) ----
@@ -136,6 +140,8 @@ export class AncoragemService {
     const pesquisaMediaSelect = colPesquisaMedia ? `NVL(pl.${colPesquisaMedia}, 0) AS CONC_BARATO` : '0 AS CONC_BARATO';
     const pesquisaConcSelect = colPesquisaConcorrente ? `pl.${colPesquisaConcorrente} AS CONC_NOME` : "NULL AS CONC_NOME";
     const vendaMediaSelect = colVendaMedia ? `NVL(pl.${colVendaMedia}, 0) AS VD_MEDIA` : '0 AS VD_MEDIA';
+    const foraLinhaSelect = colForaLinha ? `NVL(pl.${colForaLinha}, 'N') AS FORA_LINHA` : "'N' AS FORA_LINHA";
+    const foraMixSelect = colInativo ? `NVL(pl.${colInativo}, 'N') AS FORA_MIX` : "'N' AS FORA_MIX";
 
     // ---- Marca: SELECT + JOIN ----
     let marcaSelect = "0 AS COD_MARCA, ' ' AS DES_MARCA";
@@ -187,7 +193,9 @@ export class AncoragemService {
         NVL(pl.${colCurva}, ' ') AS CURVA,
         ${pesquisaMediaSelect},
         ${pesquisaConcSelect},
-        ${vendaMediaSelect}
+        ${vendaMediaSelect},
+        ${foraLinhaSelect},
+        ${foraMixSelect}
       FROM ${tabProduto} p
       JOIN ${tabProdutoLoja} pl ON p.${colCodProduto} = pl.${colCodProdutoLoja} AND pl.${colCodLojaLoja} = :codLoja
       ${marcaJoin}
@@ -218,6 +226,8 @@ export class AncoragemService {
       CONC_BARATO: r.CONC_BARATO || 0,
       CONC_NOME: (r.CONC_NOME || '').trim(),
       VD_MEDIA: r.VD_MEDIA || 0,
+      FORA_LINHA: r.FORA_LINHA || 'N',
+      FORA_MIX: r.FORA_MIX || 'N',
     }));
   }
 
@@ -416,11 +426,11 @@ export class AncoragemService {
       if (tier && precoAncora > 0) {
 
         if (regra) {
-          // Calcular preco sugerido
+          // Calcular preco sugerido (valor_gap positivo = abaixo da ancora)
           if (regra.tipo_gap === '%') {
-            precoSugerido = precoAncora * (1 + regra.valor_gap / 100);
+            precoSugerido = precoAncora * (1 - Math.abs(regra.valor_gap) / 100);
           } else {
-            precoSugerido = precoAncora + regra.valor_gap;
+            precoSugerido = precoAncora - Math.abs(regra.valor_gap);
           }
 
           // Custo ideal = preco sugerido * (1 - margem_meta/100)
@@ -452,6 +462,8 @@ export class AncoragemService {
         CONC_BARATO: p.CONC_BARATO,
         CONC_NOME: p.CONC_NOME,
         VD_MEDIA: p.VD_MEDIA,
+        FORA_LINHA: p.FORA_LINHA,
+        FORA_MIX: p.FORA_MIX,
         PRECO_ANCORA: precoAncora,
         MARKDOWN_ATUAL: markdownAtual,
         PRECO_SUGERIDO: precoSugerido,
