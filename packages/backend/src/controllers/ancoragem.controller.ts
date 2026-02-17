@@ -135,6 +135,21 @@ export class AncoragemController {
   }
 
   /**
+   * GET /ancoragem/stats - contagem agregada por status em todas as secoes
+   */
+  static async getStats(req: Request, res: Response) {
+    try {
+      const codLoja = Number(req.query.codLoja);
+      if (!codLoja) return res.status(400).json({ error: 'codLoja obrigatorio' });
+      const result = await AncoragemService.getStats(codLoja);
+      return res.json(result);
+    } catch (error: any) {
+      console.error('[Ancoragem] Erro getStats:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
    * GET /ancoragem/tiers
    */
   static async getTiers(req: Request, res: Response) {

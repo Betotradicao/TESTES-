@@ -24,6 +24,9 @@ router.post('/regras', AncoragemController.saveRegras);
 // Analise completa
 router.get('/analise', AncoragemController.getAnalise);
 
+// Stats agregados (contagem por status em todas secoes)
+router.get('/stats', AncoragemController.getStats);
+
 // Tiers customizados
 router.get('/tiers', AncoragemController.getTiers);
 router.post('/tiers', AncoragemController.saveTier);

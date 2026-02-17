@@ -586,4 +586,43 @@ export class AncoragemService {
       totalRegras: regras.length,
     };
   }
+
+  /**
+   * Stats agregados: conta total e por status (ancora/dentro/acima/abaixo) em todas as secoes da loja
+   */
+  static async getStats(codLoja: number): Promise<{ total: number; ancora: number; dentro: number; acima: number; abaixo: number; produtos: Record<string, string[]> }> {
+    console.log('[Ancoragem] getStats chamado para codLoja:', codLoja);
+    const secoesResult = await AppDataSource.query(
+      `SELECT DISTINCT cod_secao FROM ancoragem_classificacao WHERE cod_loja = $1`,
+      [codLoja]
+    );
+
+    const counts = { total: 0, ancora: 0, dentro: 0, acima: 0, abaixo: 0 };
+    const produtos: Record<string, string[]> = { ancora: [], dentro: [], acima: [], abaixo: [] };
+
+    if (!secoesResult || secoesResult.length === 0) return { ...counts, produtos };
+
+    const results = await Promise.all(
+      secoesResult.map((s: any) =>
+        this.getAnalise(codLoja, Number(s.cod_secao))
+          .catch(() => ({ rows: [] }))
+      )
+    );
+
+    for (const result of results) {
+      for (const row of (result.rows || [])) {
+        // Só contar produtos que possuem classificação de tier
+        if (!row.TIER) continue;
+        counts.total++;
+        const st = row.STATUS as string;
+        const cod = String(row.COD_PRODUTO);
+        if (st === 'ancora') { counts.ancora++; produtos.ancora.push(cod); }
+        else if (st === 'dentro') { counts.dentro++; produtos.dentro.push(cod); }
+        else if (st === 'acima') { counts.acima++; produtos.acima.push(cod); }
+        else if (st === 'abaixo') { counts.abaixo++; produtos.abaixo.push(cod); }
+      }
+    }
+
+    return { ...counts, produtos };
+  }
 }

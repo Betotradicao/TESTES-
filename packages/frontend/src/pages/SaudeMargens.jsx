@@ -45,16 +45,25 @@ const CARD_CONFIG = {
   preco_venda_zerado: { emoji: '💵', label: 'Preço Venda Zerado', textColor: 'text-pink-600', borderColor: 'border-pink-500', statKey: 'precoVendaZerado' },
   conc_barato: { emoji: '🏪', label: 'Concorrente', subtitle: '+ Barato', textColor: 'text-blue-600', borderColor: 'border-blue-500', statKey: 'concBarato' },
   margem_excessiva: { emoji: '📈', label: 'Margem Excessiva', textColor: 'text-emerald-600', borderColor: 'border-emerald-500', statKey: 'margemExcessiva', specialRanges: true },
+  ancoragem: { emoji: '⚓', label: 'Ancoragem de Preço', textColor: 'text-cyan-600', borderColor: 'border-cyan-500', statKey: 'ancoragemTotal', specialRanges: true },
 };
-const DEFAULT_CARD_ORDER = ['margem_excessiva', 'custo_zerado', 'margem_negativa', 'preco_venda_zerado', 'margem_baixa', 'conc_barato'];
+const DEFAULT_CARD_ORDER = ['margem_excessiva', 'custo_zerado', 'margem_negativa', 'preco_venda_zerado', 'margem_baixa', 'conc_barato', 'ancoragem'];
 
 // Seções fixas de cards - Somente MARGEM
 const CARD_SECTIONS = [
   {
     id: 'gestao-margem',
     title: 'GESTÃO MARGEM',
-    cards: ['margem_excessiva', 'custo_zerado', 'margem_negativa', 'preco_venda_zerado', 'margem_baixa', 'conc_barato'],
+    cards: ['margem_excessiva', 'custo_zerado', 'margem_negativa', 'preco_venda_zerado', 'margem_baixa', 'conc_barato', 'ancoragem'],
   },
+];
+
+// Faixas de ancoragem de preço (status)
+const ANCORAGEM_RANGES = [
+  { id: 'ancora', label: 'Âncora', color: 'bg-blue-50 hover:bg-blue-100', textColor: 'text-blue-700' },
+  { id: 'dentro', label: 'Dentro', color: 'bg-green-50 hover:bg-green-100', textColor: 'text-green-700' },
+  { id: 'acima', label: 'Acima', color: 'bg-orange-50 hover:bg-orange-100', textColor: 'text-orange-700' },
+  { id: 'abaixo', label: 'Abaixo', color: 'bg-red-50 hover:bg-red-100', textColor: 'text-red-700' },
 ];
 
 // Faixas de margem excessiva (acima da meta)
@@ -70,6 +79,7 @@ const MARGEM_RANGES = [
 // Mapa de faixas por card (para cards com specialRanges)
 const SPECIAL_RANGES = {
   margem_excessiva: MARGEM_RANGES,
+  ancoragem: ANCORAGEM_RANGES,
 };
 
 export default function SaudeMargens() {
@@ -139,6 +149,8 @@ export default function SaudeMargens() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const [ancoragemStats, setAncoragemStats] = useState({ total: 0, ancora: 0, dentro: 0, acima: 0, abaixo: 0, produtos: {} });
+
   const [filterSecao, setFilterSecao] = useState('');
   const [filterGrupo, setFilterGrupo] = useState('');
   const [filterSubGrupo, setFilterSubGrupo] = useState('');
@@ -189,6 +201,7 @@ export default function SaudeMargens() {
     { id: 'pontosPrecoZerado', label: '💵 Preço Zero', type: 'pontos', bg: 'bg-pink-600' },
     { id: 'pontosConcBarato', label: '🏪 Conc. Barato', type: 'pontos', bg: 'bg-blue-600' },
     { id: 'pontosMargemExcessiva', label: '📈 Mg. Excessiva', type: 'pontos', bg: 'bg-emerald-600' },
+    { id: 'pontosAncoragem', label: '⚓ Ancoragem', type: 'pontos', bg: 'bg-cyan-600' },
     { id: 'totalPontosMargem', label: 'TOTAL', type: 'total', bg: 'bg-gray-800' },
     { id: 'nivelRisco', label: 'NÍVEL', type: 'risco', bg: 'bg-gray-700' },
   ];
@@ -205,6 +218,7 @@ export default function SaudeMargens() {
     { id: 'pontosPrecoZerado', label: '💵 Preço Zero', type: 'pontos', bg: 'bg-pink-600' },
     { id: 'pontosConcBarato', label: '🏪 Conc. Barato', type: 'pontos', bg: 'bg-blue-600' },
     { id: 'pontosMargemExcessiva', label: '📈 Mg. Excessiva', type: 'pontos', bg: 'bg-emerald-600' },
+    { id: 'pontosAncoragem', label: '⚓ Ancoragem', type: 'pontos', bg: 'bg-cyan-600' },
     { id: 'pontosEstoqueExcessivo', label: '📦 Est. Excessivo', type: 'pontos', bg: 'bg-amber-600' },
     { id: 'totalPontos', label: 'TOTAL', type: 'total', bg: 'bg-gray-800' },
     { id: 'nivelRisco', label: 'NÍVEL', type: 'risco', bg: 'bg-gray-700' },
@@ -470,7 +484,7 @@ export default function SaudeMargens() {
   // Configuração de pontuação por curva para cada indicador
   // sem_venda tem estrutura diferente: { curva: { dias: X, pontos: Y } }
   const [pontuacaoConfig, setPontuacaoConfig] = useState(() => {
-    const PONTUACAO_VERSION = 4;
+    const PONTUACAO_VERSION = 5;
     const curvaDefault = { A: 50, B: 35, C: 25, D: 15, E: 10, X: 5 };
     const defaults = {
       _version: PONTUACAO_VERSION,
@@ -480,6 +494,7 @@ export default function SaudeMargens() {
       preco_venda_zerado: { ...curvaDefault },
       conc_barato: { ...curvaDefault },
       margem_excessiva: { ate5: 50, de5a10: 35, de10a15: 25, de15a20: 15, de20a30: 10, acima30: 5 },
+      ancoragem: { ancora: 0, dentro: 0, acima: 35, abaixo: 25 },
     };
     const saved = localStorage.getItem('saude_margens_pontuacao');
     if (saved) {
@@ -699,6 +714,14 @@ export default function SaudeMargens() {
     fetchProducts();
   }, [lojaSelecionada]);
 
+  // Buscar stats de ancoragem
+  useEffect(() => {
+    const codLoja = lojaSelecionada || 1;
+    api.get(`/ancoragem/stats?codLoja=${codLoja}`)
+      .then(res => setAncoragemStats(res.data))
+      .catch((e) => { console.error('Ancoragem stats error:', e); setAncoragemStats({ total: 0, ancora: 0, dentro: 0, acima: 0, abaixo: 0, produtos: {} }); });
+  }, [lojaSelecionada]);
+
   // Função para ordenar produtos
   const handleSort = (columnId) => {
     if (sortColumn === columnId) {
@@ -806,11 +829,23 @@ export default function SaudeMargens() {
       filtered = filtered.filter(p => p.valPesquisaMedia > 0 && p.valvenda > 0 && p.valPesquisaMedia < p.valvenda);
     } else if (activeCardFilter === 'margem_excessiva') {
       filtered = filtered.filter(p => p.margemRef > 0 && p.margemCalculada > p.margemRef);
+    } else if (activeCardFilter === 'ancoragem') {
+      // Todos os produtos que estão na análise de ancoragem (qualquer status)
+      const todosAnc = new Set([
+        ...(ancoragemStats.produtos?.ancora || []),
+        ...(ancoragemStats.produtos?.dentro || []),
+        ...(ancoragemStats.produtos?.acima || []),
+        ...(ancoragemStats.produtos?.abaixo || []),
+      ]);
+      filtered = filtered.filter(p => todosAnc.has(String(p.codigo)));
     }
 
     // Filtro de curva específica dentro do card (ou faixa especial)
     if (activeCardCurva) {
-      if (activeCardFilter === 'margem_excessiva') {
+      if (activeCardFilter === 'ancoragem') {
+        const codsStatus = new Set((ancoragemStats.produtos?.[activeCardCurva] || []).map(String));
+        filtered = filtered.filter(p => codsStatus.has(String(p.codigo)));
+      } else if (activeCardFilter === 'margem_excessiva') {
         const range = MARGEM_RANGES.find(r => r.id === activeCardCurva);
         if (range) {
           filtered = filtered.filter(p => {
@@ -853,7 +888,7 @@ export default function SaudeMargens() {
     }
 
     return filtered;
-  }, [products, filterTipoEspecie, filterTipoEvento, filterSecao, filterGrupo, filterSubGrupo, filterCurva, activeCardFilter, activeCardCurva, sortColumn, sortDirection, pontuacaoConfig.sem_venda]);
+  }, [products, filterTipoEspecie, filterTipoEvento, filterSecao, filterGrupo, filterSubGrupo, filterCurva, activeCardFilter, activeCardCurva, sortColumn, sortDirection, pontuacaoConfig.sem_venda, ancoragemStats]);
 
   // Resetar filtros dependentes quando filtro pai muda
   useEffect(() => {
@@ -993,6 +1028,17 @@ export default function SaudeMargens() {
       margemExcessiva: produtosMargemExcessiva.length,
       total: filtered.length,
       valorTotalEstoque,
+
+      // Ancoragem: cruzar códigos do backend com produtos reais da página
+      ...(() => {
+        const codsSet = new Set(filtered.map(p => String(p.codigo)));
+        const ancAncora = (ancoragemStats.produtos?.ancora || []).filter(c => codsSet.has(c)).length;
+        const ancDentro = (ancoragemStats.produtos?.dentro || []).filter(c => codsSet.has(c)).length;
+        const ancAcima = (ancoragemStats.produtos?.acima || []).filter(c => codsSet.has(c)).length;
+        const ancAbaixo = (ancoragemStats.produtos?.abaixo || []).filter(c => codsSet.has(c)).length;
+        return { ancoragemTotal: ancAncora + ancDentro + ancAcima + ancAbaixo };
+      })(),
+
       // Contagem por curva para cada indicador
       curvasPorIndicador: {
         zerado: contarPorCurva(produtosZerado),
@@ -1006,9 +1052,18 @@ export default function SaudeMargens() {
         curva_x: contarPorCurva(produtosCurvaX),
         conc_barato: contarPorCurva(produtosConcBarato),
         margem_excessiva: margemExcessivaPorFaixa,
+        ancoragem: (() => {
+          const codsSet = new Set(filtered.map(p => String(p.codigo)));
+          return {
+            ancora: (ancoragemStats.produtos?.ancora || []).filter(c => codsSet.has(c)).length,
+            dentro: (ancoragemStats.produtos?.dentro || []).filter(c => codsSet.has(c)).length,
+            acima: (ancoragemStats.produtos?.acima || []).filter(c => codsSet.has(c)).length,
+            abaixo: (ancoragemStats.produtos?.abaixo || []).filter(c => codsSet.has(c)).length,
+          };
+        })(),
       }
     };
-  }, [products, filterTipoEspecie, filterTipoEvento]);
+  }, [products, filterTipoEspecie, filterTipoEvento, ancoragemStats]);
 
   // Calcular pontos para cada produto (para a visualização de pontuação)
   const produtosComPontuacao = useMemo(() => {
@@ -1043,9 +1098,21 @@ export default function SaudeMargens() {
         }
       }
 
+      // Ancoragem: verificar status do produto
+      let pontosAncoragem = 0;
+      const codStr = String(p.codigo);
+      if (ancoragemStats.produtos?.acima?.includes(codStr)) {
+        pontosAncoragem = pontuacaoConfig.ancoragem?.acima || 0;
+      } else if (ancoragemStats.produtos?.abaixo?.includes(codStr)) {
+        pontosAncoragem = pontuacaoConfig.ancoragem?.abaixo || 0;
+      } else if (ancoragemStats.produtos?.dentro?.includes(codStr)) {
+        pontosAncoragem = pontuacaoConfig.ancoragem?.dentro || 0;
+      }
+      // ancora (âncora) = 0pts, não pontua
+
       // Totais separados por categoria
       const totalPontosEstoque = pontosZerado + pontosNegativo + pontosSemVenda + pontosPreRuptura;
-      const totalPontosMargem = pontosMargemNegativa + pontosMargemBaixa + pontosCustoZerado + pontosPrecoZerado + pontosConcBarato + pontosMargemExcessiva;
+      const totalPontosMargem = pontosMargemNegativa + pontosMargemBaixa + pontosCustoZerado + pontosPrecoZerado + pontosConcBarato + pontosMargemExcessiva + pontosAncoragem;
       const totalPontos = totalPontosEstoque + totalPontosMargem;
 
       return {
@@ -1060,6 +1127,7 @@ export default function SaudeMargens() {
         pontosPrecoZerado,
         pontosConcBarato,
         pontosMargemExcessiva,
+        pontosAncoragem,
         pontosEstoqueExcessivo: 0,
         totalPontos,
         totalPontosEstoque,
@@ -1085,7 +1153,7 @@ export default function SaudeMargens() {
       bVal = bVal || 0;
       return direction === 'asc' ? aVal - bVal : bVal - aVal;
     });
-  }, [filteredProducts, pontuacaoConfig, sortPontuacao]);
+  }, [filteredProducts, pontuacaoConfig, sortPontuacao, ancoragemStats]);
 
   // Função para alternar ordenação da tabela de pontuação
   const handleSortPontuacao = (column) => {
