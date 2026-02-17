@@ -145,6 +145,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       // Gestão de Estoque
       '/estoque-saude': 'gestao-estoque-margem',
       '/pricing-ponderacao': 'gestao-estoque-margem',
+      '/analise-relevancia': 'pricing',
       // Gestão de Compras
       '/compra-venda-analise': 'compras',
       '/prevencao-pedidos': 'compras',
@@ -162,6 +163,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/estoque-saude': 'gestao-radar',
       '/saude-margens': 'gestao-radar',
       '/pricing-ponderacao': 'gestao-radar',
+      '/analise-relevancia': 'gestao-radar',
       '/compra-venda-analise': 'gestao-radar',
       '/prevencao-pedidos': 'gestao-radar',
       '/calendario-atendimento': 'gestao-radar',
@@ -312,7 +314,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           subItems: [
             { id: 'saude-margens', submenuId: 'saude-margens', title: 'SAÚDE DE MARGENS', path: '/saude-margens' },
             { id: 'pricing-ancoragem', submenuId: 'pricing-ancoragem', title: 'ANCORAGEM DE PREÇO', path: '/pricing-ancoragem' },
-            { id: 'pricing-competitividade', submenuId: 'pricing-competitividade', title: 'COMPETITIVIDADE E CONCORRÊNCIA', path: '/pricing-competitividade' }
+            { id: 'pricing-competitividade', submenuId: 'pricing-competitividade', title: 'COMPETITIVIDADE E CONCORRÊNCIA', path: '/pricing-competitividade' },
+            { id: 'analise-relevancia', submenuId: 'analise-relevancia', title: 'ANÁLISE RELEVÂNCIA', path: '/analise-relevancia' }
           ]
         },
       ]
