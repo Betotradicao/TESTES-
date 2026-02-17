@@ -549,8 +549,8 @@ export default function GestaoInteligente() {
         const tv = dados.reduce((a, i) => a + i.venda, 0);
         const tc = dados.reduce((a, i) => a + (i.custo || 0), 0);
         const ti = dados.reduce((a, i) => a + (i.impostos || 0), 0);
-        const vl = tv - ti;
-        return { cls: 'font-bold text-emerald-600', val: formatPercent(vl > 0 ? ((vl - tc) / vl) * 100 : 0) };
+        const tic = dados.reduce((a, i) => a + (i.impostoCredito || 0), 0);
+        return { cls: 'font-bold text-emerald-600', val: formatPercent(tv > 0 ? ((tv - tc - ti + tic) / tv) * 100 : 0) };
       },
     },
     impostos: {
@@ -3186,10 +3186,12 @@ export default function GestaoInteligente() {
                               const v = sum(vendaKey); const c = sum(vendaKey) - sum(lucroKey);
                               return v > 0 ? ((v - c) / v) * 100 : 0;
                             };
-                            const calcML = (vendaKey, custoKey, impostosKey) => {
-                              const v = sum(vendaKey); const c = sum(custoKey); const imp = sum(impostosKey);
-                              const vLiq = v - imp;
-                              return vLiq > 0 ? ((vLiq - c) / vLiq) * 100 : 0;
+                            const calcML = (vendaKey) => {
+                              const v = sum(vendaKey);
+                              if (v <= 0) return 0;
+                              const mlKey = vendaKey === 'mediaLinear' ? 'margemLimpaMediaLinear' : vendaKey.replace('venda', 'margemLimpa');
+                              const wSum = vendasAnaliticas.reduce((a, d) => a + ((d[mlKey] || 0) * (d[vendaKey] || 0)), 0);
+                              return wSum / v;
                             };
                             const calcPctOferta = (ofertaKey, vendaKey) => {
                               const v = sum(vendaKey); const o = sum(ofertaKey);
@@ -3202,7 +3204,7 @@ export default function GestaoInteligente() {
                             const vAt = sum('vendaAtual'), vML = sum('mediaLinear'), vAP = sum('vendaAnoPassado'), vMP = sum('vendaMesPassado');
                             const lAt = sum('lucroAtual'), lML = sum('lucroMediaLinear'), lAP = sum('lucroAnoPassado'), lMP = sum('lucroMesPassado');
                             const mkdAt = calcMkd('vendaAtual','lucroAtual'), mkdML = calcMkd('mediaLinear','lucroMediaLinear'), mkdAP = calcMkd('vendaAnoPassado','lucroAnoPassado'), mkdMP = calcMkd('vendaMesPassado','lucroMesPassado');
-                            const mlAt = calcML('vendaAtual','custoAtual','impostosAtual'), mlML = calcML('mediaLinear','custoMediaLinear','impostosMediaLinear'), mlAP = calcML('vendaAnoPassado','custoAnoPassado','impostosAnoPassado'), mlMP = calcML('vendaMesPassado','custoMesPassado','impostosMesPassado');
+                            const mlAt = calcML('vendaAtual'), mlML = calcML('mediaLinear'), mlAP = calcML('vendaAnoPassado'), mlMP = calcML('vendaMesPassado');
                             const cAt = sum('custoAtual'), cML = sum('custoMediaLinear'), cAP = sum('custoAnoPassado'), cMP = sum('custoMesPassado');
                             const iAt = sum('impostosAtual'), iML = sum('impostosMediaLinear'), iAP = sum('impostosAnoPassado'), iMP = sum('impostosMesPassado');
                             const oAt = sum('vendasOfertaAtual'), oML = sum('vendasOfertaMediaLinear'), oAP = sum('vendasOfertaAnoPassado'), oMP = sum('vendasOfertaMesPassado');

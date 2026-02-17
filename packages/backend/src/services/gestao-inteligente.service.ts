@@ -645,6 +645,7 @@ export class GestaoInteligenteService {
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
         NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
+        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
         COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS,
@@ -678,11 +679,11 @@ export class GestaoInteligenteService {
       const venda = row.VENDA || 0;
       const custo = row.CUSTO || 0;
       const impostos = row.IMPOSTOS || 0;
+      const impostoCredito = row.IMPOSTO_CREDITO || 0;
       const lucro = venda - custo;
       const markup = custo > 0 ? ((venda - custo) / custo) * 100 : 0;
       const margemLiquida = venda > 0 ? ((venda - custo) / venda) * 100 : 0;
-      const vendasLiq = venda - impostos;
-      const margemLimpa = vendasLiq > 0 ? ((vendasLiq - custo) / vendasLiq) * 100 : 0;
+      const margemLimpa = venda > 0 ? ((venda - custo - impostos + impostoCredito) / venda) * 100 : 0;
       const percentualSetor = totalVendas > 0 ? (venda / totalVendas) * 100 : 0;
       const qtdCupons = row.QTD_CUPONS || 0;
       const ticketMedio = qtdCupons > 0 ? venda / qtdCupons : 0;
@@ -695,6 +696,7 @@ export class GestaoInteligenteService {
         venda: parseFloat(venda.toFixed(2)),
         custo: parseFloat(custo.toFixed(2)),
         impostos: parseFloat(impostos.toFixed(2)),
+        impostoCredito: parseFloat(impostoCredito.toFixed(2)),
         lucro: parseFloat(lucro.toFixed(2)),
         markup: parseFloat(markup.toFixed(2)),
         margemLiquida: parseFloat(margemLiquida.toFixed(2)),
@@ -736,6 +738,7 @@ export class GestaoInteligenteService {
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
         NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
+        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
         COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS,
@@ -769,11 +772,11 @@ export class GestaoInteligenteService {
       const venda = row.VENDA || 0;
       const custo = row.CUSTO || 0;
       const impostos = row.IMPOSTOS || 0;
+      const impostoCredito = row.IMPOSTO_CREDITO || 0;
       const lucro = venda - custo;
       const markup = custo > 0 ? ((venda - custo) / custo) * 100 : 0;
       const margemLiquida = venda > 0 ? ((venda - custo) / venda) * 100 : 0;
-      const vendasLiq = venda - impostos;
-      const margemLimpa = vendasLiq > 0 ? ((vendasLiq - custo) / vendasLiq) * 100 : 0;
+      const margemLimpa = venda > 0 ? ((venda - custo - impostos + impostoCredito) / venda) * 100 : 0;
       const percentualSetor = totalVendas > 0 ? (venda / totalVendas) * 100 : 0;
 
       const qtdCupons = row.QTD_CUPONS || 0;
@@ -787,6 +790,7 @@ export class GestaoInteligenteService {
         venda: parseFloat(venda.toFixed(2)),
         custo: parseFloat(custo.toFixed(2)),
         impostos: parseFloat(impostos.toFixed(2)),
+        impostoCredito: parseFloat(impostoCredito.toFixed(2)),
         lucro: parseFloat(lucro.toFixed(2)),
         markup: parseFloat(markup.toFixed(2)),
         margemLiquida: parseFloat(margemLiquida.toFixed(2)),
@@ -826,6 +830,7 @@ export class GestaoInteligenteService {
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
         NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
+        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
         COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS,
@@ -867,11 +872,11 @@ export class GestaoInteligenteService {
       const venda = row.VENDA || 0;
       const custo = row.CUSTO || 0;
       const impostos = row.IMPOSTOS || 0;
+      const impostoCredito = row.IMPOSTO_CREDITO || 0;
       const lucro = venda - custo;
       const markup = custo > 0 ? ((venda - custo) / custo) * 100 : 0;
       const margemLiquida = venda > 0 ? ((venda - custo) / venda) * 100 : 0;
-      const vendasLiq = venda - impostos;
-      const margemLimpa = vendasLiq > 0 ? ((vendasLiq - custo) / vendasLiq) * 100 : 0;
+      const margemLimpa = venda > 0 ? ((venda - custo - impostos + impostoCredito) / venda) * 100 : 0;
       const percentualSetor = totalVendas > 0 ? (venda / totalVendas) * 100 : 0;
 
       const qtdCupons = row.QTD_CUPONS || 0;
@@ -885,6 +890,7 @@ export class GestaoInteligenteService {
         venda: parseFloat(venda.toFixed(2)),
         custo: parseFloat(custo.toFixed(2)),
         impostos: parseFloat(impostos.toFixed(2)),
+        impostoCredito: parseFloat(impostoCredito.toFixed(2)),
         lucro: parseFloat(lucro.toFixed(2)),
         markup: parseFloat(markup.toFixed(2)),
         margemLiquida: parseFloat(margemLiquida.toFixed(2)),
@@ -922,6 +928,7 @@ export class GestaoInteligenteService {
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
         NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
+        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
         NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA
@@ -967,11 +974,11 @@ export class GestaoInteligenteService {
       const venda = row.VENDA || 0;
       const custo = row.CUSTO || 0;
       const impostos = row.IMPOSTOS || 0;
+      const impostoCredito = row.IMPOSTO_CREDITO || 0;
       const lucro = venda - custo;
       const markup = custo > 0 ? ((venda - custo) / custo) * 100 : 0;
       const margemLiquida = venda > 0 ? ((venda - custo) / venda) * 100 : 0;
-      const vendasLiq = venda - impostos;
-      const margemLimpa = vendasLiq > 0 ? ((vendasLiq - custo) / vendasLiq) * 100 : 0;
+      const margemLimpa = venda > 0 ? ((venda - custo - impostos + impostoCredito) / venda) * 100 : 0;
       const percentualSetor = totalVendas > 0 ? (venda / totalVendas) * 100 : 0;
 
       const qtdCupons = row.QTD_CUPONS || 0;
@@ -985,6 +992,7 @@ export class GestaoInteligenteService {
         venda: parseFloat(venda.toFixed(2)),
         custo: parseFloat(custo.toFixed(2)),
         impostos: parseFloat(impostos.toFixed(2)),
+        impostoCredito: parseFloat(impostoCredito.toFixed(2)),
         lucro: parseFloat(lucro.toFixed(2)),
         markup: parseFloat(markup.toFixed(2)),
         margemLiquida: parseFloat(margemLiquida.toFixed(2)),
@@ -1020,6 +1028,7 @@ export class GestaoInteligenteService {
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
         NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
+        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
         NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
@@ -1075,12 +1084,13 @@ export class GestaoInteligenteService {
     ]);
 
     // Criar mapas por COD_SECAO com todos os campos
-    const defaultRow = { venda: 0, custo: 0, impostos: 0, vendasOferta: 0, qtd: 0, qtdCupons: 0, qtdSkus: 0 };
+    const defaultRow = { venda: 0, custo: 0, impostos: 0, impostoCredito: 0, vendasOferta: 0, qtd: 0, qtdCupons: 0, qtdSkus: 0 };
     const criarMapa = (dados: any[]) => {
       const mapa: Record<number, typeof defaultRow> = {};
       dados.forEach((r: any) => {
         mapa[r.COD_SECAO] = {
           venda: r.VENDA || 0, custo: r.CUSTO || 0, impostos: r.IMPOSTOS || 0,
+          impostoCredito: r.IMPOSTO_CREDITO || 0,
           vendasOferta: r.VENDAS_OFERTA || 0, qtd: r.QTD || 0,
           qtdCupons: r.QTD_CUPONS || 0, qtdSkus: r.QTD_SKUS || 0
         };
@@ -1094,11 +1104,10 @@ export class GestaoInteligenteService {
 
     // Função para calcular todos os indicadores de um período
     const calcPeriodo = (d: typeof defaultRow) => {
-      const { venda, custo, impostos, vendasOferta, qtd, qtdCupons, qtdSkus } = d;
+      const { venda, custo, impostos, impostoCredito, vendasOferta, qtd, qtdCupons, qtdSkus } = d;
       const lucro = venda - custo;
       const markdown = venda > 0 ? ((venda - custo) / venda) * 100 : 0;
-      const vendasLiq = venda - impostos;
-      const margemLimpa = vendasLiq > 0 ? ((vendasLiq - custo) / vendasLiq) * 100 : 0;
+      const margemLimpa = venda > 0 ? ((venda - custo - impostos + impostoCredito) / venda) * 100 : 0;
       const ticketMedio = qtdCupons > 0 ? venda / qtdCupons : 0;
       const pctOferta = venda > 0 ? (vendasOferta / venda) * 100 : 0;
       return {
@@ -1115,6 +1124,7 @@ export class GestaoInteligenteService {
     const resultado = atual.map((row: any) => {
       const cod = row.COD_SECAO;
       const rowData = { venda: row.VENDA || 0, custo: row.CUSTO || 0, impostos: row.IMPOSTOS || 0,
+        impostoCredito: row.IMPOSTO_CREDITO || 0,
         vendasOferta: row.VENDAS_OFERTA || 0, qtd: row.QTD || 0, qtdCupons: row.QTD_CUPONS || 0, qtdSkus: row.QTD_SKUS || 0 };
       const atualData = calcPeriodo(rowData);
 
@@ -1128,6 +1138,7 @@ export class GestaoInteligenteService {
       const fator = diasAnoAnt > 0 ? diasPeriodoAtual / diasAnoAnt : 0;
       const mlData = calcPeriodo({
         venda: ai.venda * fator, custo: ai.custo * fator, impostos: ai.impostos * fator,
+        impostoCredito: ai.impostoCredito * fator,
         vendasOferta: ai.vendasOferta * fator, qtd: ai.qtd * fator,
         qtdCupons: ai.qtdCupons * fator, qtdSkus: ai.qtdSkus * fator
       });
@@ -1217,13 +1228,14 @@ export class GestaoInteligenteService {
       queryFn(mlInicio, mlFim)
     ]);
 
-    const defaultRow = { venda: 0, custo: 0, impostos: 0, vendasOferta: 0, qtd: 0, qtdCupons: 0, qtdSkus: 0 };
+    const defaultRow = { venda: 0, custo: 0, impostos: 0, impostoCredito: 0, vendasOferta: 0, qtd: 0, qtdCupons: 0, qtdSkus: 0 };
 
     const criarMapa = (dados: any[]) => {
       const mapa: Record<number, typeof defaultRow> = {};
       dados.forEach((r: any) => {
         mapa[r[codeField]] = {
           venda: r.VENDA || 0, custo: r.CUSTO || 0, impostos: r.IMPOSTOS || 0,
+          impostoCredito: r.IMPOSTO_CREDITO || 0,
           vendasOferta: r.VENDAS_OFERTA || 0, qtd: r.QTD || 0,
           qtdCupons: r.QTD_CUPONS || 0, qtdSkus: r.QTD_SKUS || 0
         };
@@ -1236,11 +1248,10 @@ export class GestaoInteligenteService {
     const mapAnoInteiro = criarMapa(anoInteiro);
 
     const calcPeriodo = (d: typeof defaultRow) => {
-      const { venda, custo, impostos, vendasOferta, qtd, qtdCupons, qtdSkus } = d;
+      const { venda, custo, impostos, impostoCredito, vendasOferta, qtd, qtdCupons, qtdSkus } = d;
       const lucro = venda - custo;
       const markdown = venda > 0 ? ((venda - custo) / venda) * 100 : 0;
-      const vendasLiq = venda - impostos;
-      const margemLimpa = vendasLiq > 0 ? ((vendasLiq - custo) / vendasLiq) * 100 : 0;
+      const margemLimpa = venda > 0 ? ((venda - custo - impostos + impostoCredito) / venda) * 100 : 0;
       const ticketMedio = qtdCupons > 0 ? venda / qtdCupons : 0;
       const pctOferta = venda > 0 ? (vendasOferta / venda) * 100 : 0;
       return {
@@ -1259,6 +1270,7 @@ export class GestaoInteligenteService {
       const cod = row[codeField];
       const atualRow = {
         venda: row.VENDA || 0, custo: row.CUSTO || 0, impostos: row.IMPOSTOS || 0,
+        impostoCredito: row.IMPOSTO_CREDITO || 0,
         vendasOferta: row.VENDAS_OFERTA || 0, qtd: row.QTD || 0,
         qtdCupons: row.QTD_CUPONS || 0, qtdSkus: row.QTD_SKUS || 0
       };
@@ -1274,6 +1286,7 @@ export class GestaoInteligenteService {
       const fator = diasAnoAnt > 0 ? diasPeriodoAtual / diasAnoAnt : 0;
       const mlData = calcPeriodo({
         venda: ai.venda * fator, custo: ai.custo * fator, impostos: ai.impostos * fator,
+        impostoCredito: ai.impostoCredito * fator,
         vendasOferta: ai.vendasOferta * fator, qtd: ai.qtd * fator,
         qtdCupons: ai.qtdCupons * fator, qtdSkus: ai.qtdSkus * fator
       });
@@ -1337,6 +1350,7 @@ export class GestaoInteligenteService {
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
         NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
+        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
         NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
@@ -1366,6 +1380,7 @@ export class GestaoInteligenteService {
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
         NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
+        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
         NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
@@ -1394,6 +1409,7 @@ export class GestaoInteligenteService {
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
         NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
+        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
         NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
@@ -2103,6 +2119,7 @@ export class GestaoInteligenteService {
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
         NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
+        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
         COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS,
@@ -2135,16 +2152,17 @@ export class GestaoInteligenteService {
       const v = row.VENDA || 0;
       const c = row.CUSTO || 0;
       const imp = row.IMPOSTOS || 0;
+      const impCred = row.IMPOSTO_CREDITO || 0;
       const cupons = row.QTD_CUPONS || 0;
       const vendasOferta = row.VENDAS_OFERTA || 0;
-      const vendasLiq = v - imp;
       itemMap[key].meses[row.MES] = {
         venda: parseFloat(v.toFixed(2)),
         custo: parseFloat(c.toFixed(2)),
         lucro: parseFloat((v - c).toFixed(2)),
         margem: v > 0 ? parseFloat((((v - c) / v) * 100).toFixed(2)) : 0,
-        margemLimpa: vendasLiq > 0 ? parseFloat((((vendasLiq - c) / vendasLiq) * 100).toFixed(2)) : 0,
+        margemLimpa: v > 0 ? parseFloat((((v - c - imp + impCred) / v) * 100).toFixed(2)) : 0,
         impostos: parseFloat(imp.toFixed(2)),
+        impCredito: parseFloat(impCred.toFixed(2)),
         ticketMedio: cupons > 0 ? parseFloat((v / cupons).toFixed(2)) : 0,
         cupons,
         skus: row.QTD_SKUS || 0,
@@ -2160,10 +2178,10 @@ export class GestaoInteligenteService {
       const totalVenda = mesesArr.reduce((a, [, m]) => a + m.venda, 0);
       const totalCusto = mesesArr.reduce((a, [, m]) => a + m.custo, 0);
       const totalImpostos = mesesArr.reduce((a, [, m]) => a + m.impostos, 0);
+      const totalImpCredito = mesesArr.reduce((a, [, m]) => a + (m.impCredito || 0), 0);
       const totalCupons = mesesArr.reduce((a, [, m]) => a + m.cupons, 0);
       const totalOferta = mesesArr.reduce((a, [, m]) => a + m.vendasOferta, 0);
       const totalQtd = mesesArr.reduce((a, [, m]) => a + m.qtd, 0);
-      const vendasLiq = totalVenda - totalImpostos;
 
       return {
         cod: item.cod,
@@ -2174,7 +2192,7 @@ export class GestaoInteligenteService {
           custo: parseFloat(totalCusto.toFixed(2)),
           lucro: parseFloat((totalVenda - totalCusto).toFixed(2)),
           margem: totalVenda > 0 ? parseFloat((((totalVenda - totalCusto) / totalVenda) * 100).toFixed(2)) : 0,
-          margemLimpa: vendasLiq > 0 ? parseFloat((((vendasLiq - totalCusto) / vendasLiq) * 100).toFixed(2)) : 0,
+          margemLimpa: totalVenda > 0 ? parseFloat((((totalVenda - totalCusto - totalImpostos + totalImpCredito) / totalVenda) * 100).toFixed(2)) : 0,
           impostos: parseFloat(totalImpostos.toFixed(2)),
           ticketMedio: totalCupons > 0 ? parseFloat((totalVenda / totalCupons).toFixed(2)) : 0,
           cupons: totalCupons,
