@@ -139,49 +139,49 @@ export default function CompetitividadeConcorrencia() {
           <div></div>
         </div>
 
-      <div className="max-w-[1600px] mx-auto p-4">
+      <div className="p-6">
         {/* Header */}
-        <div className="mb-4">
+        <div className="mb-6">
           <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl p-6 shadow-lg">
             <div className="flex items-center gap-3">
               <span className="text-4xl">🏆</span>
               <div>
                 <h1 className="text-2xl font-bold text-white">COMPETITIVIDADE E CONCORRENCIA</h1>
-                <p className="text-orange-100 text-sm">Compare seus precos com os concorrentes e identifique oportunidades</p>
+                <p className="text-orange-100">Compare seus precos com os concorrentes e identifique oportunidades</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Filtros */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-4 space-y-3">
-          <div className="flex flex-wrap gap-3 items-end">
+        <div className="bg-white rounded-xl shadow-sm p-5 mb-6 space-y-4">
+          <div className="flex flex-wrap gap-4 items-end">
             <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1">📂 Secao</label>
+              <label className="text-sm font-medium text-gray-500 block mb-1">📂 Secao</label>
               <select value={codSecao} onChange={e => setCodSecao(e.target.value)}
-                className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                className="border rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
                 <option value="">Todas</option>
                 {secoes.map(s => <option key={s.COD_SECAO} value={s.COD_SECAO}>{s.DES_SECAO}</option>)}
               </select>
             </div>
             <button onClick={fetchData} disabled={loading}
-              className="px-6 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-lg shadow hover:shadow-lg transition-all disabled:opacity-50">
+              className="px-8 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-sm font-bold rounded-lg shadow hover:shadow-lg transition-all disabled:opacity-50">
               {loading ? '⏳ Buscando...' : '🔍 Pesquisar'}
             </button>
             <div className="flex-1">
-              <label className="text-xs font-medium text-gray-500 block mb-1">🔎 Buscar produto</label>
+              <label className="text-sm font-medium text-gray-500 block mb-1">🔎 Buscar produto</label>
               <input type="text" value={searchText} onChange={e => setSearchText(e.target.value)} placeholder="Nome, codigo ou EAN..."
-                className="border rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:ring-2 focus:ring-orange-500 focus:border-orange-500" />
+                className="border rounded-lg px-4 py-2.5 text-sm w-full max-w-md focus:ring-2 focus:ring-orange-500 focus:border-orange-500" />
             </div>
-            <span className="text-xs text-gray-500 self-center">{filteredData.length} de {dadosConc.length} produtos</span>
+            <span className="text-sm text-gray-500 self-center font-medium">{filteredData.length} de {dadosConc.length} produtos</span>
           </div>
 
           {/* Filtro Relevancia */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-medium text-gray-500">🎯 Relevancia:</span>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-medium text-gray-500">🎯 Relevancia:</span>
             {RELEVANCIA_OPTIONS.map(opt => (
               <button key={opt.key} onClick={() => setRelevanciaFilter(opt.key)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
                   relevanciaFilter === opt.key
                     ? opt.key === 'N' ? 'bg-purple-600 text-white shadow-md'
                     : opt.key === 'SP' ? 'bg-amber-500 text-white shadow-md'
@@ -197,85 +197,85 @@ export default function CompetitividadeConcorrencia() {
 
         {/* Painel do Concorrente */}
         {data.length > 0 && concAtual && (
-          <div className="bg-white rounded-xl shadow-md mb-4 overflow-hidden">
+          <div className="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
             {/* Header do concorrente com setas */}
-            <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-4 flex items-center justify-between">
-              <button onClick={prevConc} className="p-2 rounded-full bg-white/20 hover:bg-white/40 transition-colors text-white" title="Concorrente anterior">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7"/></svg>
+            <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-8 py-5 flex items-center justify-between">
+              <button onClick={prevConc} className="p-3 rounded-full bg-white/20 hover:bg-white/40 transition-colors text-white" title="Concorrente anterior">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7"/></svg>
               </button>
               <div className="text-center flex-1">
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-2xl">🏪</span>
-                  <h2 className="text-xl font-bold text-white">{concAtual}</h2>
+                <div className="flex items-center justify-center gap-3">
+                  <span className="text-3xl">🏪</span>
+                  <h2 className="text-2xl font-bold text-white">{concAtual}</h2>
                 </div>
-                <p className="text-orange-100 text-xs mt-1">
+                <p className="text-orange-100 text-sm mt-1">
                   Concorrente {concIdx + 1} de {concorrentes.length} — {resumo.total} produtos pesquisados
                 </p>
               </div>
-              <button onClick={nextConc} className="p-2 rounded-full bg-white/20 hover:bg-white/40 transition-colors text-white" title="Proximo concorrente">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"/></svg>
+              <button onClick={nextConc} className="p-3 rounded-full bg-white/20 hover:bg-white/40 transition-colors text-white" title="Proximo concorrente">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"/></svg>
               </button>
             </div>
 
             {/* Cards resumo */}
-            <div className="p-4">
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="p-6">
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 {/* Mais Baratos */}
                 <button onClick={() => toggleCardFilter('baratos')}
-                  className={`rounded-lg border-2 p-3 text-left transition-all hover:shadow-md ${cardFilter === 'baratos' ? 'border-green-500 bg-green-50 ring-2 ring-green-300' : 'border-gray-200 bg-white hover:border-green-300'}`}>
+                  className={`rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg ${cardFilter === 'baratos' ? 'border-green-500 bg-green-50 ring-2 ring-green-300' : 'border-gray-200 bg-white hover:border-green-300'}`}>
                   <div className="flex items-center justify-between">
-                    <span className="text-xl">😊</span>
-                    <span className="text-2xl font-bold text-green-600">{resumo.baratos}</span>
+                    <span className="text-2xl">😊</span>
+                    <span className="text-4xl font-bold text-green-600">{resumo.baratos}</span>
                   </div>
-                  <p className="text-xs font-semibold text-gray-700 mt-1">Mais Baratos</p>
-                  <p className="text-[10px] text-green-600">Nosso preco menor</p>
+                  <p className="text-sm font-semibold text-gray-700 mt-2">Mais Baratos</p>
+                  <p className="text-xs text-green-600">Nosso preco menor</p>
                 </button>
 
                 {/* Mais Caros */}
                 <button onClick={() => toggleCardFilter('caros')}
-                  className={`rounded-lg border-2 p-3 text-left transition-all hover:shadow-md ${cardFilter === 'caros' ? 'border-red-500 bg-red-50 ring-2 ring-red-300' : 'border-gray-200 bg-white hover:border-red-300'}`}>
+                  className={`rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg ${cardFilter === 'caros' ? 'border-red-500 bg-red-50 ring-2 ring-red-300' : 'border-gray-200 bg-white hover:border-red-300'}`}>
                   <div className="flex items-center justify-between">
-                    <span className="text-xl">😟</span>
-                    <span className="text-2xl font-bold text-red-600">{resumo.caros}</span>
+                    <span className="text-2xl">😟</span>
+                    <span className="text-4xl font-bold text-red-600">{resumo.caros}</span>
                   </div>
-                  <p className="text-xs font-semibold text-gray-700 mt-1">Mais Caros</p>
-                  <p className="text-[10px] text-red-600">Nosso preco maior</p>
+                  <p className="text-sm font-semibold text-gray-700 mt-2">Mais Caros</p>
+                  <p className="text-xs text-red-600">Nosso preco maior</p>
                 </button>
 
                 {/* Preco Igual */}
                 <button onClick={() => toggleCardFilter('iguais')}
-                  className={`rounded-lg border-2 p-3 text-left transition-all hover:shadow-md ${cardFilter === 'iguais' ? 'border-gray-500 bg-gray-50 ring-2 ring-gray-300' : 'border-gray-200 bg-white hover:border-gray-400'}`}>
+                  className={`rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg ${cardFilter === 'iguais' ? 'border-gray-500 bg-gray-50 ring-2 ring-gray-300' : 'border-gray-200 bg-white hover:border-gray-400'}`}>
                   <div className="flex items-center justify-between">
-                    <span className="text-xl">🤝</span>
-                    <span className="text-2xl font-bold text-gray-600">{resumo.iguais}</span>
+                    <span className="text-2xl">🤝</span>
+                    <span className="text-4xl font-bold text-gray-600">{resumo.iguais}</span>
                   </div>
-                  <p className="text-xs font-semibold text-gray-700 mt-1">Preco Igual</p>
-                  <p className="text-[10px] text-gray-500">Mesmo preco</p>
+                  <p className="text-sm font-semibold text-gray-700 mt-2">Preco Igual</p>
+                  <p className="text-xs text-gray-500">Mesmo preco</p>
                 </button>
 
                 {/* Nosso Total vs Concorrente */}
-                <div className="rounded-lg border-2 border-orange-200 bg-orange-50/30 p-3 flex flex-col justify-center">
-                  <div className="grid grid-cols-2 gap-2 text-center">
+                <div className="rounded-xl border-2 border-orange-200 bg-orange-50/30 p-5 flex flex-col justify-center">
+                  <div className="grid grid-cols-2 gap-3 text-center">
                     <div>
-                      <p className="text-[10px] text-gray-500 mb-1">🏠 Nosso</p>
-                      <p className="text-lg font-extrabold text-orange-600">{formatCurrency(resumo.totalNosso)}</p>
+                      <p className="text-xs text-gray-500 mb-1">🏠 Nosso</p>
+                      <p className="text-xl font-extrabold text-orange-600">{formatCurrency(resumo.totalNosso)}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-gray-500 mb-1">🏪 Deles</p>
-                      <p className="text-lg font-extrabold text-blue-600">{formatCurrency(resumo.totalConc)}</p>
+                      <p className="text-xs text-gray-500 mb-1">🏪 Deles</p>
+                      <p className="text-xl font-extrabold text-blue-600">{formatCurrency(resumo.totalConc)}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Diferenca */}
-                <div className={`rounded-lg border-2 p-3 ${resumo.diferenca > 0 ? 'border-red-300 bg-red-50' : 'border-green-300 bg-green-50'}`}>
+                <div className={`rounded-xl border-2 p-5 flex flex-col justify-center ${resumo.diferenca > 0 ? 'border-red-300 bg-red-50' : 'border-green-300 bg-green-50'}`}>
                   <div className="text-center">
-                    <span className="text-xl">{resumo.diferenca > 0 ? '📈' : '📉'}</span>
-                    <p className={`text-lg font-bold ${resumo.diferenca > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    <span className="text-2xl">{resumo.diferenca > 0 ? '📈' : '📉'}</span>
+                    <p className={`text-xl font-bold ${resumo.diferenca > 0 ? 'text-red-600' : 'text-green-600'}`}>
                       {resumo.diferenca > 0 ? '+' : ''}{formatCurrency(resumo.diferenca)}
                     </p>
                   </div>
-                  <p className={`text-[10px] text-center ${resumo.diferenca > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                  <p className={`text-xs text-center mt-1 ${resumo.diferenca > 0 ? 'text-red-500' : 'text-green-500'}`}>
                     {resumo.diferenca > 0 ? 'Pagaria MAIS conosco' : 'Pagaria MENOS conosco'}
                   </p>
                 </div>
@@ -283,8 +283,8 @@ export default function CompetitividadeConcorrencia() {
 
               {/* Indicador de filtro ativo */}
               {cardFilter && (
-                <div className="mt-3 flex items-center gap-2 text-xs">
-                  <span className={`px-3 py-1 rounded-full font-semibold ${
+                <div className="mt-4 flex items-center gap-3 text-sm">
+                  <span className={`px-4 py-1.5 rounded-full font-semibold ${
                     cardFilter === 'baratos' ? 'bg-green-100 text-green-700' :
                     cardFilter === 'caros' ? 'bg-red-100 text-red-700' :
                     'bg-gray-100 text-gray-700'
@@ -303,9 +303,9 @@ export default function CompetitividadeConcorrencia() {
 
         {/* Tabela */}
         {filteredData.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div className="overflow-x-auto" style={{ maxHeight: '55vh' }}>
-              <table className="min-w-full text-xs">
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="overflow-x-auto" style={{ maxHeight: '65vh' }}>
+              <table className="min-w-full text-sm">
                 <thead className="bg-gray-50 sticky top-0 z-10">
                   <tr>
                     {[
@@ -325,7 +325,7 @@ export default function CompetitividadeConcorrencia() {
                     ].map(col => (
                       <th key={col.key}
                         onClick={() => handleSort(col.key)}
-                        className={`px-3 py-2 text-${col.align} font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 whitespace-nowrap border-b border-gray-200 select-none`}>
+                        className={`px-4 py-3 text-${col.align} font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 whitespace-nowrap border-b-2 border-gray-200 select-none`}>
                         {col.label}
                         {sortConfig.key === col.key && (
                           <span className="ml-1">{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
@@ -339,19 +339,19 @@ export default function CompetitividadeConcorrencia() {
                     const difColor = row.DIFERENCA_RS > 0 ? 'text-red-600 font-semibold' : row.DIFERENCA_RS < 0 ? 'text-green-600 font-semibold' : 'text-gray-500';
                     const pvColor = row.PRECO_VENDA <= row.CONC_PRECO ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold';
                     return (
-                      <tr key={`${row.COD_PRODUTO}-${idx}`} className={`hover:bg-gray-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                        <td className="px-3 py-2 text-gray-700 font-mono">{row.COD_PRODUTO}</td>
-                        <td className="px-3 py-2 text-gray-900 max-w-xs truncate" title={row.DESCRICAO}>{row.DESCRICAO}</td>
-                        <td className="px-3 py-2 text-center">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      <tr key={`${row.COD_PRODUTO}-${idx}`} className={`hover:bg-orange-50/50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                        <td className="px-4 py-2.5 text-gray-700 font-mono">{row.COD_PRODUTO}</td>
+                        <td className="px-4 py-2.5 text-gray-900 max-w-sm truncate font-medium" title={row.DESCRICAO}>{row.DESCRICAO}</td>
+                        <td className="px-4 py-2.5 text-center">
+                          <span className={`px-2.5 py-1 rounded text-xs font-bold ${
                             row.RELEVANCIA === 'N' ? 'bg-purple-100 text-purple-700' :
                             row.RELEVANCIA === 'SP' ? 'bg-amber-100 text-amber-700' :
                             row.RELEVANCIA === 'R' ? 'bg-gray-100 text-gray-600' :
                             'bg-gray-50 text-gray-400'
                           }`}>{row.RELEVANCIA === 'N' ? '⭐ N' : row.RELEVANCIA === 'SP' ? '💰 SP' : row.RELEVANCIA === 'R' ? '📦 R' : '-'}</span>
                         </td>
-                        <td className="px-3 py-2 text-center">
-                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                        <td className="px-4 py-2.5 text-center">
+                          <span className={`px-2.5 py-1 rounded text-xs font-bold ${
                             row.CURVA === 'A' ? 'bg-green-100 text-green-700' :
                             row.CURVA === 'B' ? 'bg-blue-100 text-blue-700' :
                             row.CURVA === 'C' ? 'bg-yellow-100 text-yellow-700' :
@@ -359,19 +359,19 @@ export default function CompetitividadeConcorrencia() {
                             row.CURVA === 'E' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
                           }`}>{row.CURVA}</span>
                         </td>
-                        <td className="px-3 py-2 text-gray-600 text-xs">{row.SECAO}</td>
-                        <td className={`px-3 py-2 text-right ${pvColor}`}>{formatCurrency(row.PRECO_VENDA)}</td>
-                        <td className="px-3 py-2 text-right text-gray-700">{formatCurrency(row.CONC_PRECO)}</td>
-                        <td className={`px-3 py-2 text-right ${difColor}`}>
+                        <td className="px-4 py-2.5 text-gray-600">{row.SECAO}</td>
+                        <td className={`px-4 py-2.5 text-right ${pvColor}`}>{formatCurrency(row.PRECO_VENDA)}</td>
+                        <td className="px-4 py-2.5 text-right text-gray-700">{formatCurrency(row.CONC_PRECO)}</td>
+                        <td className={`px-4 py-2.5 text-right ${difColor}`}>
                           {row.DIFERENCA_RS > 0 ? '+' : ''}{formatCurrency(row.DIFERENCA_RS)}
                         </td>
-                        <td className={`px-3 py-2 text-right ${difColor}`}>
+                        <td className={`px-4 py-2.5 text-right ${difColor}`}>
                           {row.DIFERENCA_PCT > 0 ? '+' : ''}{formatPct(row.DIFERENCA_PCT)}
                         </td>
-                        <td className="px-3 py-2 text-right text-gray-700">{formatPct(row.MARGEM_PCT)}</td>
-                        <td className="px-3 py-2 text-right text-gray-700">{Number(row.ESTOQUE || 0).toFixed(3)}</td>
-                        <td className="px-3 py-2 text-right text-gray-700">{(row.VD_MEDIA || 0).toFixed(1)}</td>
-                        <td className="px-3 py-2 text-center text-gray-500 text-[10px]">{formatDate(row.DTA_PESQUISA)}</td>
+                        <td className="px-4 py-2.5 text-right text-gray-700">{formatPct(row.MARGEM_PCT)}</td>
+                        <td className="px-4 py-2.5 text-right text-gray-700">{Number(row.ESTOQUE || 0).toFixed(3)}</td>
+                        <td className="px-4 py-2.5 text-right text-gray-700">{(row.VD_MEDIA || 0).toFixed(1)}</td>
+                        <td className="px-4 py-2.5 text-center text-gray-500 text-xs">{formatDate(row.DTA_PESQUISA)}</td>
                       </tr>
                     );
                   })}
@@ -383,25 +383,25 @@ export default function CompetitividadeConcorrencia() {
 
         {/* Loading */}
         {loading && (
-          <div className="text-center py-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-            <p className="text-gray-500">Carregando dados de concorrencia...</p>
+          <div className="text-center py-20">
+            <div className="animate-spin rounded-full h-14 w-14 border-b-2 border-orange-500 mx-auto mb-4"></div>
+            <p className="text-gray-500 text-lg">Carregando dados de concorrencia...</p>
           </div>
         )}
 
         {/* Empty */}
         {data.length === 0 && !loading && !codLoja && (
-          <div className="text-center py-16 text-gray-400">
-            <span className="text-5xl block mb-4">🏪</span>
-            <p className="text-lg font-medium">Selecione uma loja</p>
-            <p className="text-sm mt-1">Escolha uma loja no menu lateral para visualizar dados de concorrencia</p>
+          <div className="text-center py-20 text-gray-400">
+            <span className="text-6xl block mb-4">🏪</span>
+            <p className="text-xl font-medium">Selecione uma loja</p>
+            <p className="text-sm mt-2">Escolha uma loja no menu lateral para visualizar dados de concorrencia</p>
           </div>
         )}
         {data.length === 0 && !loading && codLoja && (
-          <div className="text-center py-16 text-gray-400">
-            <span className="text-5xl block mb-4">🏆</span>
-            <p className="text-lg font-medium">Nenhum produto com pesquisa de concorrente</p>
-            <p className="text-sm mt-1">Verifique se existem dados de pesquisa de preco cadastrados no sistema</p>
+          <div className="text-center py-20 text-gray-400">
+            <span className="text-6xl block mb-4">🏆</span>
+            <p className="text-xl font-medium">Nenhum produto com pesquisa de concorrente</p>
+            <p className="text-sm mt-2">Verifique se existem dados de pesquisa de preco cadastrados no sistema</p>
           </div>
         )}
       </div>
