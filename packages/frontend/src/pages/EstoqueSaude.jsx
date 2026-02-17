@@ -51,6 +51,7 @@ const CARD_CONFIG = {
   conc_barato: { emoji: '🏪', label: 'Concorrente', subtitle: '+ Barato', textColor: 'text-blue-600', borderColor: 'border-blue-500', statKey: 'concBarato' },
   margem_excessiva: { emoji: '📈', label: 'Margem Excessiva', textColor: 'text-emerald-600', borderColor: 'border-emerald-500', statKey: 'margemExcessiva', specialRanges: true },
   estoque_excessivo: { emoji: '📦', label: 'Estoque Excessivo', textColor: 'text-amber-600', borderColor: 'border-amber-500', statKey: 'estoqueExcessivo', specialRanges: true },
+  valor_estoque: { emoji: '💲', label: 'Valor em Estoque', textColor: 'text-green-600', borderColor: 'border-green-500', statKey: 'valorEstoque', isValorEstoque: true },
 };
 const DEFAULT_CARD_ORDER = ['zerado', 'negativo', 'sem_venda', 'pre_ruptura', 'margem_negativa', 'margem_baixa', 'margem_excessiva', 'estoque_excessivo', 'custo_zerado', 'preco_venda_zerado', 'curva_x', 'conc_barato'];
 
@@ -59,7 +60,7 @@ const CARD_SECTIONS = [
   {
     id: 'gestao-estoque',
     title: 'GESTÃO ESTOQUE',
-    cards: ['zerado', 'sem_venda', 'pre_ruptura', 'negativo', 'estoque_excessivo', 'curva_x'],
+    cards: ['zerado', 'sem_venda', 'pre_ruptura', 'negativo', 'estoque_excessivo', 'curva_x', 'valor_estoque'],
   },
 ];
 
@@ -982,11 +983,21 @@ export default function EstoqueSaude() {
       return match;
     });
 
-    // Calcular valor total do estoque (estoque * custo)
+    // Calcular valor total do estoque (estoque * custo) - sem estoque negativo
     const valorTotalEstoque = filtered.reduce((total, p) => {
-      const valorItem = (p.estoque || 0) * (p.valCustoRep || 0);
-      return total + valorItem;
+      const est = p.estoque || 0;
+      if (est <= 0) return total;
+      return total + est * (p.valCustoRep || 0);
     }, 0);
+
+    // Valor em estoque por curva (sem estoque negativo)
+    const valorEstoquePorCurva = { A: 0, B: 0, C: 0, D: 0, E: 0, X: 0 };
+    filtered.forEach(p => {
+      const est = p.estoque || 0;
+      if (est <= 0) return;
+      const curva = ['A', 'B', 'C', 'D', 'E', 'X'].includes(p.curva) ? p.curva : 'X';
+      valorEstoquePorCurva[curva] += est * (p.valCustoRep || 0);
+    });
 
     // Filtros para cada indicador
     const produtosZerado = filtered.filter(p => p.estoque === 0);
@@ -1093,6 +1104,8 @@ export default function EstoqueSaude() {
       estoqueExcessivo: produtosEstoqueExcessivo.length,
       total: filtered.length,
       valorTotalEstoque,
+      valorEstoque: valorTotalEstoque,
+      valorEstoquePorCurva,
       // Contagem por curva para cada indicador
       curvasPorIndicador: {
         zerado: contarPorCurva(produtosZerado),
@@ -2197,14 +2210,52 @@ export default function EstoqueSaude() {
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-2xl">{cfg.emoji}</span>
-                      <span className={`text-2xl font-bold ${cfg.textColor}`}>{stats[cfg.statKey]}</span>
+                      {cfg.isValorEstoque ? (
+                        <span className={`text-xl font-bold ${cfg.textColor}`}>
+                          {(stats.valorEstoque || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
+                        </span>
+                      ) : (
+                        <span className={`text-2xl font-bold ${cfg.textColor}`}>{stats[cfg.statKey]}</span>
+                      )}
                     </div>
                     <p className="text-sm font-medium text-gray-700">{cfg.label}</p>
                     {cfg.subtitle && <p className={`text-xs ${cfg.textColor} -mt-0.5`}>{cfg.subtitle}</p>}
                   </button>
                   <div className="mt-2 pt-2 border-t border-gray-100">
                     <div className="flex gap-1 justify-between items-start">
-                      {specialRanges ? (
+                      {cfg.isValorEstoque ? (
+                        ['A', 'B', 'C', 'D', 'E', 'X'].map(curva => {
+                          const val = stats.valorEstoquePorCurva?.[curva] || 0;
+                          const fmt = val >= 1000000 ? `${(val / 1000000).toFixed(1)}M` : val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val.toFixed(0);
+                          return (
+                            <button
+                              key={curva}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isActive) setActiveCardFilter(cardId);
+                                setActiveCardCurva(activeCardCurva === curva ? '' : curva);
+                              }}
+                              className={`flex flex-col items-center px-2 py-2 rounded transition-all ${
+                                isActive && activeCardCurva === curva ? 'ring-2 ring-orange-500 bg-orange-100' : ''
+                              } ${
+                                curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
+                                curva === 'B' ? 'bg-blue-50 hover:bg-blue-100' :
+                                curva === 'C' ? 'bg-yellow-50 hover:bg-yellow-100' :
+                                curva === 'D' ? 'bg-orange-50 hover:bg-orange-100' :
+                                curva === 'E' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'
+                              }`}
+                              title={`Curva ${curva}: R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                            >
+                              <span className={`text-xs font-bold ${
+                                curva === 'A' ? 'text-green-700' : curva === 'B' ? 'text-blue-700' :
+                                curva === 'C' ? 'text-yellow-700' : curva === 'D' ? 'text-orange-700' :
+                                curva === 'E' ? 'text-red-700' : 'text-gray-700'
+                              }`}>{curva}</span>
+                              <span className="text-xs font-semibold text-gray-700">R$ {fmt}</span>
+                            </button>
+                          );
+                        })
+                      ) : specialRanges ? (
                         specialRanges.map(range => (
                           <button
                             key={range.id}
@@ -2266,19 +2317,21 @@ export default function EstoqueSaude() {
                           </button>
                         ))
                       )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setConfigModalOpen(configModalOpen === cardId ? null : cardId);
-                        }}
-                        className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center"
-                        title={isSemVenda ? 'Configurar dias e pontuação' : 'Configurar pontuação'}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                        </svg>
-                      </button>
+                      {!cfg.isValorEstoque && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfigModalOpen(configModalOpen === cardId ? null : cardId);
+                          }}
+                          className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded self-center"
+                          title={isSemVenda ? 'Configurar dias e pontuação' : 'Configurar pontuação'}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                          </svg>
+                        </button>
+                      )}
                     </div>
                   </div>
                   </div>

@@ -36,6 +36,13 @@ function getApiBaseUrl() {
   // Calcular porta do backend como frontend_port + 998 (3002 -> 4000, 3003 -> 4001, etc)
   if (hostname.match(/^\d+\.\d+\.\d+\.\d+$/)) {
     const frontendPort = parseInt(currentPort) || 3000;
+
+    // Vite dev server na porta 3004 ou 3005: usar proxy do Vite (backend na porta 3000)
+    if (frontendPort === 3004 || frontendPort === 3005) {
+      console.log('🔧 Vite dev server detectado (porta ' + frontendPort + ') - usando proxy /api');
+      return '/api';
+    }
+
     // Multi-tenant: frontend 3002 -> backend 4000, frontend 3003 -> backend 4001
     // Single-tenant: frontend 3000 -> backend 3001
     let backendPort;
@@ -57,10 +64,10 @@ function getApiBaseUrl() {
     return 'http://10.6.1.171:3001/api';
   }
 
-  // PRIORIDADE 5: localhost (desenvolvimento local)
+  // PRIORIDADE 5: localhost (desenvolvimento local) - usa proxy do Vite
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    console.log('💻 Localhost detectado');
-    return 'http://localhost:3001/api';
+    console.log('💻 Localhost detectado - usando proxy /api');
+    return '/api';
   }
 
   // Fallback: usar hostname atual com porta 3001

@@ -42,6 +42,7 @@ import Fornecedores from './pages/Fornecedores';
 import CompraVendaAnalise from './pages/CompraVendaAnalise';
 import AnalisePonderacao from './pages/AnalisePonderacao';
 import AnaliseRelevancia from './pages/AnaliseRelevancia';
+import CompetitividadeConcorrencia from './pages/CompetitividadeConcorrencia';
 import AncoragemPreco from './pages/AncoragemPreco';
 import FrenteCaixa from './pages/FrenteCaixa';
 import PrevencaoPedidos from './pages/PrevencaoPedidos';
@@ -349,6 +350,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AnaliseRelevancia />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/pricing-competitividade"
+              element={
+                <ProtectedRoute>
+                  <CompetitividadeConcorrencia />
                 </ProtectedRoute>
               }
             />
