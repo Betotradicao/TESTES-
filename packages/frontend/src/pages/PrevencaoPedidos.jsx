@@ -16,10 +16,11 @@ export default function PrevencaoPedidos() {
   const [pedidos, setPedidos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const anoAtual = new Date().getFullYear();
   const [filters, setFilters] = useState({
     tipoRecebimento: '0', // Inicia sempre em Pendente
-    dataInicio: '',
-    dataFim: '',
+    dataInicio: `${anoAtual}-01-01`,
+    dataFim: `${anoAtual}-12-31`,
     fornecedor: '',
     numPedido: '',
     comprador: '',
@@ -323,7 +324,7 @@ export default function PrevencaoPedidos() {
     if (numero.length < 10) return null;
     // Adiciona 55 se não tiver
     const numeroCompleto = numero.startsWith('55') ? numero : '55' + numero;
-    return `https://wa.me/${numeroCompleto}`;
+    return `https://web.whatsapp.com/send?phone=${numeroCompleto}`;
   };
 
   // Formatar celular para exibição
