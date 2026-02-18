@@ -57,6 +57,7 @@ import NotasAChegar from './pages/NotasAChegar';
 import ExtratoSantander from './pages/ExtratoSantander';
 import ExtratoBanco24h from './pages/ExtratoBanco24h';
 import EntradasSaidas from './pages/EntradasSaidas';
+import ProgramacaoAtual from './pages/ProgramacaoAtual';
 
 function App() {
   return (
@@ -462,6 +463,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <EntradasSaidas />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/gestao-ofertas/programacao-atual"
+              element={
+                <ProtectedRoute>
+                  <ProgramacaoAtual />
                 </ProtectedRoute>
               }
             />

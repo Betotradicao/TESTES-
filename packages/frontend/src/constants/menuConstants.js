@@ -6,6 +6,7 @@ export const MENU_MODULES = {
   ESTOQUE_MARGEM: 'estoque-margem',
   COMPRAS: 'compras',
   PRICING: 'pricing',
+  OFERTAS: 'ofertas',
   // Prevenção no Radar
   BIPAGENS: 'bipagens',
   PDV: 'pdv',
@@ -44,6 +45,9 @@ export const MENU_SUBMENUS = {
   SAUDE_MARGENS: 'saude-margens',
   PRICING_ANCORAGEM: 'pricing-ancoragem',
   PRICING_COMPETITIVIDADE: 'pricing-competitividade',
+
+  // Gestão de Ofertas
+  PROGRAMACAO_ATUAL: 'programacao-atual',
 
   // Controle de Recebimento
   NF_A_CHEGAR: 'nf-a-chegar',
@@ -176,6 +180,19 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.PRICING_COMPETITIVIDADE,
         title: 'Competitividade e Concorrência',
         path: '/pricing-competitividade'
+      }
+    ]
+  },
+  {
+    id: MENU_MODULES.OFERTAS,
+    title: 'Gestão de Ofertas',
+    icon: 'gift',
+    section: 'gestao',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.PROGRAMACAO_ATUAL,
+        title: 'Programação Atual',
+        path: '/gestao-ofertas/programacao-atual'
       }
     ]
   },
