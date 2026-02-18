@@ -345,19 +345,19 @@ export default function NotasAChegar() {
     <Layout>
       <main className="p-4 lg:p-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-2xl">📦</span>
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+              <span className="text-xl sm:text-2xl">📦</span>
             </div>
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Notas a Chegar</h1>
-              <p className="text-sm text-gray-500">Validador XML de NFe Entradas</p>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Notas a Chegar</h1>
+              <p className="text-xs sm:text-sm text-gray-500">Validador XML de NFe Entradas</p>
             </div>
           </div>
           <button
             onClick={handleResetColumns}
-            className="px-3 py-1.5 text-xs text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors border border-gray-200"
+            className="px-3 py-1.5 text-xs text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors border border-gray-200 self-start sm:self-auto"
             title="Resetar ordem das colunas e ordenacao"
           >
             Resetar Colunas
@@ -387,7 +387,7 @@ export default function NotasAChegar() {
         {/* Filtros */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
           {/* Linha 1: Fornecedor + Botao Buscar */}
-          <div className="flex gap-3 mb-3">
+          <div className="flex flex-col sm:flex-row gap-3 mb-3">
             <div className="flex-1">
               <label className="block text-xs font-medium text-gray-500 mb-1">Fornecedor</label>
               <input
@@ -634,7 +634,7 @@ export default function NotasAChegar() {
 
           {/* Rodape */}
           {sortedNotas.length > 0 && (
-            <div className="px-4 py-3 bg-gradient-to-r from-orange-50 to-amber-50 border-t border-orange-200 flex justify-between items-center text-sm">
+            <div className="px-4 py-3 bg-gradient-to-r from-orange-50 to-amber-50 border-t border-orange-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 text-sm">
               <span className="text-gray-600 font-medium">{sortedNotas.length} nota(s)</span>
               <span className="font-bold text-orange-700 text-base">
                 Total: {formatCurrency(sortedNotas.reduce((s, n) => s + (parseFloat(n.valor_total) || 0), 0))}

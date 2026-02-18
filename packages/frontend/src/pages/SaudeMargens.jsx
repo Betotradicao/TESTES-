@@ -2114,9 +2114,9 @@ export default function SaudeMargens() {
           </div>
 
           {/* Cards de Resumo - Grid 3 colunas com header */}
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {/* Header */}
-            <div className="col-span-2 lg:col-span-3 flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-sm bg-gradient-to-r from-blue-600 to-indigo-500">
+            <div className="col-span-1 sm:col-span-2 lg:col-span-3 flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-sm bg-gradient-to-r from-blue-600 to-indigo-500">
               <span className="text-xl">💹</span>
               <h3 className="text-sm font-bold uppercase tracking-wider text-white">GESTÃO MARGEM</h3>
             </div>
@@ -2286,11 +2286,11 @@ export default function SaudeMargens() {
 
           {/* Info do filtro ativo e contador - NÃO mostrar nas telas de pedido */}
           {viewMode !== 'pedido' && viewMode !== 'pedidosRealizados' && (
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
             {activeCardFilter !== 'todos' ? (
-              <div className="flex-1 bg-orange-50 border-l-4 border-orange-500 p-4 rounded">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
+              <div className="flex-1 bg-orange-50 border-l-4 border-orange-500 p-4 rounded w-full">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                     <p className="text-sm text-orange-800">
                       <strong>Filtro ativo:</strong> {
                         CARD_CONFIG[activeCardFilter]
@@ -2408,8 +2408,8 @@ export default function SaudeMargens() {
                   )}
 
                   {/* Info de Total e Valor */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-6">
                       <div className="flex items-center gap-2">
                         <span className="text-blue-800 font-medium">📊 Total de produtos:</span>
                         <span className="bg-blue-200 text-blue-900 px-3 py-1 rounded-full text-sm font-bold">
@@ -2522,7 +2522,7 @@ export default function SaudeMargens() {
 
               {/* Footer da Tabela com Paginação */}
               {!loading && !error && filteredProducts.length > 0 && (
-                <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between">
+                <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
                   <p className="text-sm text-gray-700">
                     Exibindo <strong>{(currentPage - 1) * itemsPerPage + 1}</strong> - <strong>{Math.min(currentPage * itemsPerPage, filteredProducts.length)}</strong> de <strong>{filteredProducts.length}</strong> produtos
                   </p>
@@ -2749,7 +2749,7 @@ export default function SaudeMargens() {
           {viewMode === 'pedido' && (
             <div className="bg-white rounded-lg shadow overflow-hidden">
               <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div>
                     <h2 className="text-xl font-bold">📋 Novo Pedido</h2>
                     <p className="text-orange-100 text-sm">
@@ -2897,10 +2897,10 @@ export default function SaudeMargens() {
                     <div key={pedido.id}>
                       {/* Linha resumida - clicável */}
                       <div
-                        className={`flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors ${expandedPedido === pedido.id ? 'bg-orange-50' : ''}`}
+                        className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 gap-3 cursor-pointer hover:bg-gray-50 transition-colors ${expandedPedido === pedido.id ? 'bg-orange-50' : ''}`}
                         onClick={() => setExpandedPedido(expandedPedido === pedido.id ? null : pedido.id)}
                       >
-                        <div className="flex items-center gap-4">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                           {/* Ícone de expandir/colapsar */}
                           <svg
                             className={`w-5 h-5 text-gray-500 transition-transform ${expandedPedido === pedido.id ? 'rotate-90' : ''}`}
@@ -3470,7 +3470,7 @@ export default function SaudeMargens() {
       {showColumnSelector && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50" onClick={() => setShowColumnSelector(false)}>
           <div
-            className="absolute right-0 top-0 h-full w-96 bg-white shadow-2xl overflow-y-auto"
+            className="absolute right-0 top-0 h-full w-full sm:w-96 bg-white shadow-2xl overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sticky top-0 bg-gradient-to-r from-orange-500 to-red-600 p-6 text-white">

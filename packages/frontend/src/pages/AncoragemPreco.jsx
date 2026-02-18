@@ -845,7 +845,7 @@ export default function AncoragemPreco() {
                 />
               </div>
             </div>
-            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100">
+            <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-gray-100">
               <label className="flex items-center gap-1.5 cursor-pointer">
                 <input type="checkbox" checked={ocultarForaMix} onChange={e => setOcultarForaMix(e.target.checked)}
                   className="w-4 h-4 rounded border-orange-300 text-orange-500 focus:ring-orange-400" />
@@ -860,7 +860,7 @@ export default function AncoragemPreco() {
           </div>
 
           {/* Abas */}
-          <div className="flex gap-1 bg-white rounded-lg shadow p-1">
+          <div className="flex flex-col sm:flex-row gap-1 bg-white rounded-lg shadow p-1">
             {[
               { id: 'classificacao', label: 'CLASSIFICAÇÃO DE MARCAS', icon: '🏷️' },
               { id: 'regua', label: 'RÉGUA DE PREÇO', icon: '📏' },
@@ -869,7 +869,7 @@ export default function AncoragemPreco() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 py-3 px-4 rounded-lg font-bold text-sm transition-all ${
+                className={`flex-1 py-3 px-3 sm:px-4 rounded-lg font-bold text-xs sm:text-sm transition-all ${
                   activeTab === tab.id
                     ? 'bg-orange-500 text-white shadow-lg'
                     : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
@@ -886,15 +886,15 @@ export default function AncoragemPreco() {
           {!loading && activeTab === 'classificacao' && (
             <div className="space-y-4">
               {/* Stats dos tiers */}
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2">
                 {allTiers.map(t => (
-                  <div key={t.nome} className="flex-1 bg-white rounded-lg shadow p-3 border-l-4" style={{ borderColor: t.cor }}>
+                  <div key={t.nome} className="bg-white rounded-lg shadow p-3 border-l-4" style={{ borderColor: t.cor }}>
                     <div className="text-xs font-bold" style={{ color: t.cor }}>{t.nome}</div>
                     <div className="text-lg font-bold text-gray-800">{tierStats[t.nome]?.count || 0}</div>
                     <div className="text-xs text-gray-500">R$ {fmt(tierStats[t.nome]?.avgPreco || 0)} médio</div>
                   </div>
                 ))}
-                <div className="flex-1 bg-white rounded-lg shadow p-3 border-l-4 border-gray-300">
+                <div className="bg-white rounded-lg shadow p-3 border-l-4 border-gray-300">
                   <div className="text-xs font-bold text-gray-400">Sem Class.</div>
                   <div className="text-lg font-bold text-gray-400">{tierStats['Sem Classificação']?.count || 0}</div>
                   <div className="text-xs text-gray-400">R$ {fmt(tierStats['Sem Classificação']?.avgPreco || 0)} médio</div>
@@ -1068,7 +1068,7 @@ export default function AncoragemPreco() {
                         </div>
 
                         {/* Nome do tier com badge */}
-                        <div className="flex items-center gap-2 w-36 shrink-0">
+                        <div className="flex items-center gap-2 w-24 sm:w-36 shrink-0">
                           <span className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: t.cor }}></span>
                           <span className="font-bold text-sm truncate" style={{ color: t.cor }}>{t.nome}</span>
                         </div>
@@ -1139,7 +1139,7 @@ export default function AncoragemPreco() {
 
                 {/* Gráfico de Barras - Visualização da Régua */}
                 <div className="px-4 pb-6">
-                  <div className="bg-gray-50 rounded-xl p-6 border">
+                  <div className="bg-gray-50 rounded-xl p-3 sm:p-6 border">
                     <div className="flex items-center justify-between mb-5">
                       <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Visualização da Régua de Preço</h3>
                       {codSegmento && segmentos.length > 0 && (
@@ -1171,7 +1171,7 @@ export default function AncoragemPreco() {
                               return (
                                 <div key={item.nome} className="flex items-center gap-3">
                                   {/* Nome do tier */}
-                                  <div className="w-32 shrink-0 flex items-center gap-2 justify-end">
+                                  <div className="w-20 sm:w-32 shrink-0 flex items-center gap-2 justify-end">
                                     <span className="font-bold text-sm text-right truncate" style={{ color: item.cor }}>{item.nome}</span>
                                     <span className="w-4 h-4 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: item.cor }}></span>
                                   </div>
@@ -1191,7 +1191,7 @@ export default function AncoragemPreco() {
                                   </div>
 
                                   {/* Info do gap direto */}
-                                  <div className="w-52 shrink-0 text-left">
+                                  <div className="hidden sm:block w-52 shrink-0 text-left">
                                     {isBase ? (
                                       <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">BASE / REFERÊNCIA</span>
                                     ) : (
@@ -1209,7 +1209,7 @@ export default function AncoragemPreco() {
                           </div>
 
                           {/* Escala / eixo */}
-                          <div className="mt-4 ml-[8.5rem] mr-[13.5rem]">
+                          <div className="mt-4 ml-[5.5rem] sm:ml-[8.5rem] mr-4 sm:mr-[13.5rem]">
                             <div className="relative h-6 border-t-2 border-gray-300">
                               {ticks.map((v, i) => {
                                 const pct = (v / scaleMax) * 100;
@@ -1389,7 +1389,7 @@ export default function AncoragemPreco() {
       {/* Modal Novo Tier */}
       {showNewTierModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-96">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-[90vw] max-w-96">
             <h3 className="text-lg font-bold text-gray-800 mb-4">Novo Tier Customizado</h3>
             <div className="space-y-3">
               <div>

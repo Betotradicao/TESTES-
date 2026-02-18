@@ -139,14 +139,14 @@ export default function CompetitividadeConcorrencia() {
           <div></div>
         </div>
 
-      <div className="p-6">
+      <div className="p-3 sm:p-6">
         {/* Header */}
         <div className="mb-6">
-          <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl p-6 shadow-lg">
+          <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl p-4 sm:p-6 shadow-lg">
             <div className="flex items-center gap-3">
               <span className="text-4xl">🏆</span>
               <div>
-                <h1 className="text-2xl font-bold text-white">COMPETITIVIDADE E CONCORRENCIA</h1>
+                <h1 className="text-lg sm:text-2xl font-bold text-white">COMPETITIVIDADE E CONCORRENCIA</h1>
                 <p className="text-orange-100">Compare seus precos com os concorrentes e identifique oportunidades</p>
               </div>
             </div>
@@ -199,14 +199,14 @@ export default function CompetitividadeConcorrencia() {
         {data.length > 0 && concAtual && (
           <div className="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
             {/* Header do concorrente com setas */}
-            <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-8 py-5 flex items-center justify-between">
+            <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-4 sm:px-8 sm:py-5 flex items-center justify-between">
               <button onClick={prevConc} className="p-3 rounded-full bg-white/20 hover:bg-white/40 transition-colors text-white" title="Concorrente anterior">
                 <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7"/></svg>
               </button>
               <div className="text-center flex-1">
                 <div className="flex items-center justify-center gap-3">
                   <span className="text-3xl">🏪</span>
-                  <h2 className="text-2xl font-bold text-white">{concAtual}</h2>
+                  <h2 className="text-lg sm:text-2xl font-bold text-white truncate">{concAtual}</h2>
                 </div>
                 <p className="text-orange-100 text-sm mt-1">
                   Concorrente {concIdx + 1} de {concorrentes.length} — {resumo.total} produtos pesquisados
@@ -219,13 +219,13 @@ export default function CompetitividadeConcorrencia() {
 
             {/* Cards resumo */}
             <div className="p-6">
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {/* Mais Baratos */}
                 <button onClick={() => toggleCardFilter('baratos')}
                   className={`rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg ${cardFilter === 'baratos' ? 'border-green-500 bg-green-50 ring-2 ring-green-300' : 'border-gray-200 bg-white hover:border-green-300'}`}>
                   <div className="flex items-center justify-between">
                     <span className="text-2xl">😊</span>
-                    <span className="text-4xl font-bold text-green-600">{resumo.baratos}</span>
+                    <span className="text-2xl sm:text-4xl font-bold text-green-600">{resumo.baratos}</span>
                   </div>
                   <p className="text-sm font-semibold text-gray-700 mt-2">Mais Baratos</p>
                   <p className="text-xs text-green-600">Nosso preco menor</p>
@@ -236,7 +236,7 @@ export default function CompetitividadeConcorrencia() {
                   className={`rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg ${cardFilter === 'caros' ? 'border-red-500 bg-red-50 ring-2 ring-red-300' : 'border-gray-200 bg-white hover:border-red-300'}`}>
                   <div className="flex items-center justify-between">
                     <span className="text-2xl">😟</span>
-                    <span className="text-4xl font-bold text-red-600">{resumo.caros}</span>
+                    <span className="text-2xl sm:text-4xl font-bold text-red-600">{resumo.caros}</span>
                   </div>
                   <p className="text-sm font-semibold text-gray-700 mt-2">Mais Caros</p>
                   <p className="text-xs text-red-600">Nosso preco maior</p>
@@ -247,7 +247,7 @@ export default function CompetitividadeConcorrencia() {
                   className={`rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg ${cardFilter === 'iguais' ? 'border-gray-500 bg-gray-50 ring-2 ring-gray-300' : 'border-gray-200 bg-white hover:border-gray-400'}`}>
                   <div className="flex items-center justify-between">
                     <span className="text-2xl">🤝</span>
-                    <span className="text-4xl font-bold text-gray-600">{resumo.iguais}</span>
+                    <span className="text-2xl sm:text-4xl font-bold text-gray-600">{resumo.iguais}</span>
                   </div>
                   <p className="text-sm font-semibold text-gray-700 mt-2">Preco Igual</p>
                   <p className="text-xs text-gray-500">Mesmo preco</p>
@@ -258,11 +258,11 @@ export default function CompetitividadeConcorrencia() {
                   <div className="grid grid-cols-2 gap-3 text-center">
                     <div>
                       <p className="text-xs text-gray-500 mb-1">🏠 Nosso</p>
-                      <p className="text-xl font-extrabold text-orange-600">{formatCurrency(resumo.totalNosso)}</p>
+                      <p className="text-base sm:text-xl font-extrabold text-orange-600">{formatCurrency(resumo.totalNosso)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 mb-1">🏪 Deles</p>
-                      <p className="text-xl font-extrabold text-blue-600">{formatCurrency(resumo.totalConc)}</p>
+                      <p className="text-base sm:text-xl font-extrabold text-blue-600">{formatCurrency(resumo.totalConc)}</p>
                     </div>
                   </div>
                 </div>
@@ -271,7 +271,7 @@ export default function CompetitividadeConcorrencia() {
                 <div className={`rounded-xl border-2 p-5 flex flex-col justify-center ${resumo.diferenca > 0 ? 'border-red-300 bg-red-50' : 'border-green-300 bg-green-50'}`}>
                   <div className="text-center">
                     <span className="text-2xl">{resumo.diferenca > 0 ? '📈' : '📉'}</span>
-                    <p className={`text-xl font-bold ${resumo.diferenca > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    <p className={`text-base sm:text-xl font-bold ${resumo.diferenca > 0 ? 'text-red-600' : 'text-green-600'}`}>
                       {resumo.diferenca > 0 ? '+' : ''}{formatCurrency(resumo.diferenca)}
                     </p>
                   </div>

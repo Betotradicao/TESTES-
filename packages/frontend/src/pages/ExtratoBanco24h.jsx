@@ -710,7 +710,7 @@ export default function ExtratoBanco24h() {
           {!loading && depositosOrdenados.length > 0 && (
             <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex flex-wrap justify-between items-center gap-3">
               <span className="text-xs text-gray-500">{depositosOrdenados.length} depositos no periodo</span>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                 <span className="text-xs text-gray-500">
                   Depositado: <strong className="text-green-600">{formatCentavos(totais.totalValor)}</strong>
                 </span>

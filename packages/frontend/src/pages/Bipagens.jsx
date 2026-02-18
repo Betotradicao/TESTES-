@@ -734,10 +734,10 @@ export default function Bipagens() {
         <main className="p-4 lg:p-8">
           {/* Card com Gradiente Laranja */}
           <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg p-6 mb-8 text-white">
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-2xl lg:text-3xl font-bold">📡 Bipagens Ao Vivo</h1>
-              <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center justify-between mb-4 gap-3">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">📡 Bipagens Ao Vivo</h1>
+              <div className="bg-white/20 backdrop-blur-sm rounded-full p-2 sm:p-3 flex-shrink-0">
+                <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                 </svg>
               </div>
@@ -833,9 +833,9 @@ export default function Bipagens() {
           </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Filtros</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {/* Filtro de Data Inicial */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -957,8 +957,8 @@ export default function Bipagens() {
 
       {/* Tabela de Bipagens */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="text-lg font-medium text-gray-900">
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-base sm:text-lg font-medium text-gray-900">
             Resultados ({pagination.total} encontrados)
           </h3>
           <button

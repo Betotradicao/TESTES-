@@ -1442,7 +1442,7 @@ export default function ProducaoSugestao() {
                 </div>
                 {/* Info do produto */}
                 {editingItem && (
-                  <div className="grid grid-cols-3 gap-2 mt-3 text-center">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3 text-center">
                     <div className="bg-white/20 rounded px-2 py-1">
                       <p className="text-[10px] text-white/70">Peso Médio</p>
                       <p className="text-xs font-bold">

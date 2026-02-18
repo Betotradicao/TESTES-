@@ -692,7 +692,7 @@ export default function RupturaVerificacao() {
         </div>
 
         {/* Quick Stats */}
-        <div className="mt-6 grid grid-cols-3 gap-4 text-center">
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
           <div className="bg-green-100 p-4 rounded-lg">
             <p className="text-2xl font-bold text-green-700">
               {produtosSelecionados.filter(p => p.status === 'encontrado').length}

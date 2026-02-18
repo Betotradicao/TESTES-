@@ -386,7 +386,7 @@ export default function PerdasLancador() {
                   />
                 </div>
 
-                <div className="mb-4 grid grid-cols-2 gap-4">
+                <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       📅 Data Inicial:
@@ -479,7 +479,7 @@ export default function PerdasLancador() {
             </div>
 
             {/* Grade do Calendário */}
-            <div className="grid grid-cols-7 gap-1 mb-3">
+            <div className="grid grid-cols-4 sm:grid-cols-7 gap-1 mb-3">
               {/* Cabeçalho dos dias da semana */}
               {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, idx) => (
                 <div key={idx} className="text-center font-semibold text-gray-500 text-xs py-0.5">

@@ -267,8 +267,8 @@ export default function PerdasResultados() {
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-between">
-            <div className="flex space-x-4">
+          <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => handleFiltrar(1)}
                 disabled={loading}
@@ -301,7 +301,7 @@ export default function PerdasResultados() {
         {resultados && (
           <>
             {/* KPI Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 mb-6">
               <div className="bg-white rounded-lg shadow p-6 text-center">
                 <div className="text-4xl font-bold text-gray-800">{stats.total_itens || 0}</div>
                 <div className="text-sm text-gray-600 mt-1">Total Itens</div>
@@ -343,8 +343,8 @@ export default function PerdasResultados() {
 
             {/* Cards de Motivos - Clicáveis como filtro */}
             <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                   <h2 className="text-xl font-bold text-gray-800">
                     📋 {tipoVisualizacao === 'perdas' ? 'Perdas por Motivo' : tipoVisualizacao === 'entradas' ? 'Entradas por Ajuste' : 'Perdas e Entradas por Motivo'}
                   </h2>

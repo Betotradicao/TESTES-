@@ -277,10 +277,10 @@ export default function ResultadosDoDia() {
         <main className="p-4 lg:p-8">
           {/* Card com Gradiente Laranja */}
           <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg p-6 mb-8 text-white">
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-2xl lg:text-3xl font-bold">📊 Resultados do Dia</h1>
-              <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center justify-between mb-4 gap-3">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">📊 Resultados do Dia</h1>
+              <div className="bg-white/20 backdrop-blur-sm rounded-full p-2 sm:p-3 flex-shrink-0">
+                <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                 </svg>
               </div>
@@ -412,8 +412,8 @@ export default function ResultadosDoDia() {
           </div>
 
           {/* Filtros */}
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {/* Data Inicial */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -540,9 +540,9 @@ export default function ResultadosDoDia() {
 
           {/* Lista de Vendas */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium text-gray-900">
+            <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+              <div className="flex flex-wrap justify-between items-center gap-2">
+                <h3 className="text-base sm:text-lg font-medium text-gray-900">
                   Vendas ({pagination.total} encontradas)
                 </h3>
                 <div className="text-sm text-gray-500">

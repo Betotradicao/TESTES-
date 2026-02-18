@@ -583,7 +583,7 @@ export default function HortFrutConferencia() {
                 </div>
                 {/* Info compacta do produto */}
                 {editingItem && (
-                  <div className="grid grid-cols-4 gap-2 mt-3 text-center">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 text-center">
                     <div className="bg-white/20 rounded px-1 py-1">
                       <p className="text-[10px] text-white/70">Custo</p>
                       <p className="text-xs font-bold">
@@ -934,7 +934,7 @@ export default function HortFrutConferencia() {
                     </label>
 
                     {/* Grid de 6 caixinhas de foto */}
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {[0, 1, 2, 3, 4, 5].map((slotIndex) => {
                         const photoUrl = itemForm.photos[slotIndex];
                         const isUploading = uploadingPhotoIndex === slotIndex;

@@ -402,7 +402,7 @@ export default function EtiquetaLancadorItens() {
       <div className="p-4 lg:p-8">
         {/* Card com Gradiente Laranja */}
         <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg p-6 mb-8 text-white">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
             <h1 className="text-2xl lg:text-3xl font-bold">Lançador de Itens</h1>
             <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -434,7 +434,7 @@ export default function EtiquetaLancadorItens() {
             <h2 className="text-lg font-bold text-gray-800 mb-4">Nova Auditoria de Etiquetas</h2>
 
             {/* Toggle: Arquivo ou Direto Sistema */}
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-4">
               <button
                 onClick={() => {
                   setImportMode('arquivo');
@@ -508,11 +508,11 @@ export default function EtiquetaLancadorItens() {
 
                 {file && (
                   <div className="mt-6">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                       <div className="flex items-center">
                         <span className="text-green-500 text-2xl mr-2">OK</span>
                         <div>
-                          <p className="font-semibold text-gray-700">{file.name}</p>
+                          <p className="font-semibold text-gray-700 break-all">{file.name}</p>
                           <p className="text-sm text-gray-500">
                             {(file.size / 1024).toFixed(2)} KB
                           </p>
@@ -523,7 +523,7 @@ export default function EtiquetaLancadorItens() {
                           setFile(null);
                           setPreview(null);
                         }}
-                        className="text-red-500 hover:text-red-700"
+                        className="text-red-500 hover:text-red-700 self-end sm:self-auto"
                       >
                         Remover
                       </button>
@@ -553,7 +553,7 @@ export default function EtiquetaLancadorItens() {
                       </div>
                     )}
 
-                    <div className="flex space-x-4">
+                    <div className="flex flex-col sm:flex-row gap-3">
                       <button
                         onClick={() => {
                           setFile(null);
@@ -580,7 +580,7 @@ export default function EtiquetaLancadorItens() {
             {importMode === 'direto' && (
               <div className="border-2 border-dashed rounded-lg p-6 border-gray-300">
                 {/* Filtros de Data */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Data Início:
@@ -689,12 +689,12 @@ export default function EtiquetaLancadorItens() {
             {/* Produtos carregados do sistema (modo direto) */}
             {importMode === 'direto' && parsedItems.length > 0 && (
               <div className="mt-6">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                   <div className="flex items-center">
                     <span className="text-green-500 text-2xl mr-2">OK</span>
                     <div>
                       <p className="font-semibold text-gray-700">{parsedItems.length} produtos carregados</p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-gray-500 break-words">
                         Período: {dataInicio.split('-').reverse().join('/')} a {dataFim.split('-').reverse().join('/')} | Tipo: {tipoOferta === 'todos' ? 'Todos' : tipoOferta === 'com_oferta' ? 'Com Oferta' : 'Sem Oferta'}
                       </p>
                     </div>
@@ -704,14 +704,14 @@ export default function EtiquetaLancadorItens() {
                       setParsedItems([]);
                       setSuccess('');
                     }}
-                    className="text-red-500 hover:text-red-700"
+                    className="text-red-500 hover:text-red-700 self-end sm:self-auto"
                   >
                     Limpar
                   </button>
                 </div>
 
                 {/* Preview dos itens */}
-                <div className="mb-4 max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
+                <div className="mb-4 max-h-48 overflow-y-auto overflow-x-auto border border-gray-200 rounded-lg">
                   <table className="min-w-full text-xs">
                     <thead className="bg-gray-50 sticky top-0">
                       <tr>
@@ -762,7 +762,7 @@ export default function EtiquetaLancadorItens() {
                   />
                 </div>
 
-                <div className="flex space-x-4">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <button
                     onClick={() => {
                       setParsedItems([]);
@@ -814,7 +814,8 @@ export default function EtiquetaLancadorItens() {
             </div>
 
             {/* Grade do Calendário */}
-            <div className="grid grid-cols-7 gap-1 mb-3">
+            <div className="overflow-x-auto">
+            <div className="grid grid-cols-7 gap-1 mb-3 min-w-[200px]">
               {/* Cabeçalho dos dias da semana */}
               {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, idx) => (
                 <div key={idx} className="text-center font-semibold text-gray-500 text-xs py-0.5">
@@ -853,6 +854,7 @@ export default function EtiquetaLancadorItens() {
 
                 return days;
               })()}
+            </div>
             </div>
 
             {/* Lista de auditorias do mês */}
@@ -911,11 +913,11 @@ export default function EtiquetaLancadorItens() {
                   key={survey.id}
                   className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
                 >
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                     <h3 className="font-semibold text-gray-800">
                       {survey.nome_pesquisa}
                     </h3>
-                    <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(survey.status)}`}>
+                    <span className={`px-3 py-1 rounded-full text-sm whitespace-nowrap self-start sm:self-auto ${getStatusColor(survey.status)}`}>
                       {getStatusText(survey.status)}
                     </span>
                   </div>
@@ -966,7 +968,7 @@ export default function EtiquetaLancadorItens() {
                     </div>
                   </div>
 
-                  <div className="flex space-x-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     {survey.status === 'rascunho' && (
                       <button
                         onClick={() => handleStartSurvey(survey.id)}

@@ -153,7 +153,7 @@ export default function ControlePDV() {
         <main className="p-4 lg:p-8 flex-1 overflow-y-auto">
           {/* Filtros */}
           <div className="bg-white p-4 rounded-lg mb-6 shadow">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Data Inicio</label>
                 <input
@@ -176,7 +176,7 @@ export default function ControlePDV() {
                 />
               </div>
 
-              <div className="flex items-end">
+              <div className="flex items-end sm:col-span-2 md:col-span-1">
                 <button
                   onClick={handleBuscar}
                   disabled={loading}
@@ -199,34 +199,34 @@ export default function ControlePDV() {
           {/* Cards Macro */}
           {resumo && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                 {/* Card Total de Vendas */}
-                <div className="bg-white p-6 rounded-lg shadow">
+                <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
                   <h3 className="text-sm font-medium text-gray-500 mb-2">Total de Vendas</h3>
-                  <p className="text-2xl font-bold text-gray-900">{resumo.totalVendas}</p>
-                  <p className="text-lg text-gray-700 mt-1">{formatCurrency(resumo.valorTotalVendido)}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900">{resumo.totalVendas}</p>
+                  <p className="text-base sm:text-lg text-gray-700 mt-1">{formatCurrency(resumo.valorTotalVendido)}</p>
                 </div>
 
                 {/* Card Descontos */}
-                <div className="bg-white p-6 rounded-lg shadow">
+                <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
                   <h3 className="text-sm font-medium text-gray-500 mb-2">Descontos</h3>
-                  <p className="text-2xl font-bold text-yellow-600">{resumo.qtdDescontos}</p>
-                  <p className="text-lg text-yellow-700 mt-1">{formatCurrency(resumo.valorTotalDescontos)}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-yellow-600">{resumo.qtdDescontos}</p>
+                  <p className="text-base sm:text-lg text-yellow-700 mt-1">{formatCurrency(resumo.valorTotalDescontos)}</p>
                   <p className="text-sm text-gray-600 mt-1">{resumo.percentualDescontos.toFixed(2)}% das vendas</p>
                 </div>
 
                 {/* Card Devolucoes */}
-                <div className="bg-white p-6 rounded-lg shadow">
+                <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
                   <h3 className="text-sm font-medium text-gray-500 mb-2">Devolucoes</h3>
-                  <p className="text-2xl font-bold text-red-600">{resumo.qtdDevolucoes}</p>
-                  <p className="text-lg text-red-700 mt-1">{formatCurrency(resumo.valorTotalDevolucoes)}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-red-600">{resumo.qtdDevolucoes}</p>
+                  <p className="text-base sm:text-lg text-red-700 mt-1">{formatCurrency(resumo.valorTotalDevolucoes)}</p>
                   <p className="text-sm text-gray-600 mt-1">{resumo.percentualDevolucoes.toFixed(2)}% das vendas</p>
                 </div>
               </div>
 
               {/* Tabela de Performance por Operador */}
-              <div className="bg-white p-6 rounded-lg shadow mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance por Operador</h3>
+              <div className="bg-white p-3 sm:p-6 rounded-lg shadow mb-6">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Performance por Operador</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
@@ -267,8 +267,8 @@ export default function ControlePDV() {
 
               {/* Tabela de Descontos Detalhados */}
               {descontos.length > 0 && (
-                <div className="bg-white p-6 rounded-lg shadow mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Descontos Detalhados ({descontos.length})</h3>
+                <div className="bg-white p-3 sm:p-6 rounded-lg shadow mb-6">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Descontos Detalhados ({descontos.length})</h3>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -305,8 +305,8 @@ export default function ControlePDV() {
 
               {/* Tabela de Devolucoes Detalhadas */}
               {devolucoes.length > 0 && (
-                <div className="bg-white p-6 rounded-lg shadow">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Devolucoes Detalhadas ({devolucoes.length})</h3>
+                <div className="bg-white p-3 sm:p-6 rounded-lg shadow">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Devolucoes Detalhadas ({devolucoes.length})</h3>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -345,8 +345,8 @@ export default function ControlePDV() {
 
           {/* Estado vazio */}
           {!loading && !resumo && !error && (
-            <div className="bg-white p-12 rounded-lg shadow text-center">
-              <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-white p-6 sm:p-12 rounded-lg shadow text-center">
+              <svg className="w-12 h-12 sm:w-16 sm:h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
               <p className="text-gray-600">Selecione o periodo e clique em Buscar para visualizar os dados</p>

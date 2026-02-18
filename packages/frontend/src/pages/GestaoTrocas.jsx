@@ -105,9 +105,9 @@ export default function GestaoTrocas() {
         {/* Card com Gradiente Laranja */}
         <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg shadow-lg p-6 mb-8 text-white">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl lg:text-3xl font-bold">Gestão das Trocas</h1>
-            <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">Gestão das Trocas</h1>
+            <div className="bg-white/20 backdrop-blur-sm rounded-full p-2 sm:p-3">
+              <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
               </svg>
             </div>
@@ -122,38 +122,40 @@ export default function GestaoTrocas() {
           <div className="flex border-b">
             <button
               onClick={() => setAbaAtiva('saidas')}
-              className={`flex-1 py-4 px-6 text-center font-semibold transition-colors ${
+              className={`flex-1 py-3 px-3 sm:py-4 sm:px-6 text-center font-semibold transition-colors text-sm sm:text-base ${
                 abaAtiva === 'saidas'
                   ? 'text-orange-600 border-b-2 border-orange-600 bg-orange-50'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
-              <div className="flex items-center justify-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center justify-center gap-1 sm:gap-2">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
                 </svg>
-                <span>Saídas para Troca</span>
+                <span className="hidden sm:inline">Saídas para Troca</span>
+                <span className="sm:hidden">Saídas</span>
               </div>
             </button>
             <button
               onClick={() => setAbaAtiva('entradas')}
-              className={`flex-1 py-4 px-6 text-center font-semibold transition-colors ${
+              className={`flex-1 py-3 px-3 sm:py-4 sm:px-6 text-center font-semibold transition-colors text-sm sm:text-base ${
                 abaAtiva === 'entradas'
                   ? 'text-green-600 border-b-2 border-green-600 bg-green-50'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
-              <div className="flex items-center justify-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center justify-center gap-1 sm:gap-2">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
                 </svg>
-                <span>Retorno de Troca</span>
+                <span className="hidden sm:inline">Retorno de Troca</span>
+                <span className="sm:hidden">Retorno</span>
               </div>
             </button>
           </div>
 
           {/* Filtro de Período */}
-          <div className="p-4 bg-gray-50 border-t flex items-center justify-between">
+          <div className="p-4 bg-gray-50 border-t flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -205,26 +207,26 @@ export default function GestaoTrocas() {
         {resultados && !loading && (
           <>
             {/* KPI Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-              <div className="bg-white rounded-lg shadow p-6 text-center">
-                <div className={`text-4xl font-bold ${abaAtiva === 'saidas' ? 'text-orange-600' : 'text-green-600'}`}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+              <div className="bg-white rounded-lg shadow p-4 sm:p-6 text-center">
+                <div className={`text-3xl sm:text-4xl font-bold ${abaAtiva === 'saidas' ? 'text-orange-600' : 'text-green-600'}`}>
                   {stats.total_fornecedores || 0}
                 </div>
                 <div className="text-sm text-gray-600 mt-1">Fornecedores</div>
               </div>
 
-              <div className="bg-white rounded-lg shadow p-6 text-center">
-                <div className="text-4xl font-bold text-purple-600">{stats.total_produtos || 0}</div>
+              <div className="bg-white rounded-lg shadow p-4 sm:p-6 text-center">
+                <div className="text-3xl sm:text-4xl font-bold text-purple-600">{stats.total_produtos || 0}</div>
                 <div className="text-sm text-gray-600 mt-1">Produtos</div>
               </div>
 
-              <div className="bg-white rounded-lg shadow p-6 text-center">
-                <div className="text-4xl font-bold text-blue-600">{stats.total_itens || 0}</div>
+              <div className="bg-white rounded-lg shadow p-4 sm:p-6 text-center">
+                <div className="text-3xl sm:text-4xl font-bold text-blue-600">{stats.total_itens || 0}</div>
                 <div className="text-sm text-gray-600 mt-1">Total Itens</div>
               </div>
 
-              <div className={`${abaAtiva === 'saidas' ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'} border rounded-lg shadow p-6 text-center`}>
-                <div className={`text-3xl font-bold ${abaAtiva === 'saidas' ? 'text-orange-700' : 'text-green-700'}`}>
+              <div className={`${abaAtiva === 'saidas' ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'} border rounded-lg shadow p-4 sm:p-6 text-center`}>
+                <div className={`text-2xl sm:text-3xl font-bold ${abaAtiva === 'saidas' ? 'text-orange-700' : 'text-green-700'}`}>
                   R$ {Number(stats.total_custo || stats.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </div>
                 <div className={`text-sm mt-1 ${abaAtiva === 'saidas' ? 'text-orange-600' : 'text-green-600'}`}>
@@ -232,8 +234,8 @@ export default function GestaoTrocas() {
                 </div>
               </div>
 
-              <div className="bg-gray-50 border border-gray-200 rounded-lg shadow p-6 text-center">
-                <div className="text-3xl font-bold text-gray-700">
+              <div className="bg-gray-50 border border-gray-200 rounded-lg shadow p-4 sm:p-6 text-center">
+                <div className="text-2xl sm:text-3xl font-bold text-gray-700">
                   R$ {Number(stats.total_venda || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </div>
                 <div className="text-sm mt-1 text-gray-600">
@@ -276,17 +278,17 @@ export default function GestaoTrocas() {
                         {/* Header do Fornecedor - Clicável */}
                         <div
                           onClick={() => toggleFornecedor(fornecedor.codFornecedor)}
-                          className={`flex items-center justify-between p-4 cursor-pointer transition-colors ${
+                          className={`flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 cursor-pointer transition-colors ${
                             isExpanded
                               ? `bg-${corPrimaria}-50`
                               : 'bg-gray-50 hover:bg-gray-100'
                           }`}
                           style={isExpanded ? { backgroundColor: abaAtiva === 'saidas' ? '#fff7ed' : '#f0fdf4' } : {}}
                         >
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-3 sm:gap-4 mb-2 sm:mb-0">
                             {/* Botão Expandir/Colapsar */}
                             <button
-                              className={`w-8 h-8 flex items-center justify-center rounded-full transition-all ${
+                              className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full transition-all ${
                                 isExpanded
                                   ? abaAtiva === 'saidas' ? 'bg-orange-500 text-white' : 'bg-green-500 text-white'
                                   : 'bg-gray-300 text-gray-600'
@@ -304,37 +306,37 @@ export default function GestaoTrocas() {
                             </button>
 
                             {/* Info do Fornecedor */}
-                            <div>
+                            <div className="min-w-0">
                               <div className="flex items-center gap-2">
                                 <span className="text-sm text-gray-500">#{idx + 1}</span>
-                                <h3 className="font-bold text-gray-800">
+                                <h3 className="font-bold text-gray-800 truncate">
                                   {fornecedor.fantasia || fornecedor.fornecedor}
                                 </h3>
                               </div>
                               {fornecedor.fantasia && fornecedor.fantasia !== fornecedor.fornecedor && (
-                                <p className="text-sm text-gray-500">{fornecedor.fornecedor}</p>
+                                <p className="text-sm text-gray-500 truncate">{fornecedor.fornecedor}</p>
                               )}
                             </div>
                           </div>
 
                           {/* Valores */}
-                          <div className="flex items-center gap-6">
+                          <div className="grid grid-cols-4 sm:flex sm:items-center gap-3 sm:gap-6 pl-11 sm:pl-0">
                             <div className="text-center">
-                              <div className="text-lg font-bold text-purple-600">{fornecedor.qtdProdutos}</div>
+                              <div className="text-sm sm:text-lg font-bold text-purple-600">{fornecedor.qtdProdutos}</div>
                               <div className="text-xs text-gray-500">Produtos</div>
                             </div>
                             <div className="text-center">
-                              <div className="text-lg font-bold text-blue-600">{fornecedor.qtdItens}</div>
+                              <div className="text-sm sm:text-lg font-bold text-blue-600">{fornecedor.qtdItens}</div>
                               <div className="text-xs text-gray-500">Total Troca</div>
                             </div>
-                            <div className="text-center min-w-[100px]">
-                              <div className={`text-lg font-bold ${abaAtiva === 'saidas' ? 'text-orange-600' : 'text-green-600'}`}>
+                            <div className="text-center">
+                              <div className={`text-sm sm:text-lg font-bold ${abaAtiva === 'saidas' ? 'text-orange-600' : 'text-green-600'}`}>
                                 R$ {(fornecedor.totalCusto || fornecedor.valorTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                               </div>
                               <div className="text-xs text-gray-500">Total Custo</div>
                             </div>
-                            <div className="text-center min-w-[100px]">
-                              <div className="text-lg font-bold text-gray-700">
+                            <div className="text-center">
+                              <div className="text-sm sm:text-lg font-bold text-gray-700">
                                 R$ {(fornecedor.totalVenda || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                               </div>
                               <div className="text-xs text-gray-500">Total Venda</div>

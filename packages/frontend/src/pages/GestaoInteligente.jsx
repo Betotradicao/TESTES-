@@ -1750,20 +1750,20 @@ export default function GestaoInteligente() {
           onDragEnd={handleDragEnd}
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, cardId, row)}
-          className={`bg-white rounded-xl shadow-lg p-4 border-t-4 ${config.borderColor} hover:shadow-xl transition-all cursor-grab active:cursor-grabbing h-full flex flex-col justify-between ${isDragging ? 'opacity-50 scale-95' : ''}`}
+          className={`bg-white rounded-xl shadow-lg p-3 sm:p-4 border-t-4 ${config.borderColor} hover:shadow-xl transition-all cursor-grab active:cursor-grabbing h-full flex flex-col justify-between ${isDragging ? 'opacity-50 scale-95' : ''}`}
         >
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className={`w-10 h-10 ${config.bgColor} rounded-lg flex items-center justify-center`}>
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
+              <div className={`w-8 h-8 sm:w-10 sm:h-10 ${config.bgColor} rounded-lg flex items-center justify-center`}>
                 {config.icon}
               </div>
-              <span className="text-xs text-gray-400 uppercase font-semibold flex items-center gap-1">
-                <svg className="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+              <span className="text-[10px] sm:text-xs text-gray-400 uppercase font-semibold flex items-center gap-1">
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-500" fill="currentColor" viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
                 {config.label}
               </span>
             </div>
-            <p className="text-2xl font-bold text-gray-400 mb-1">-</p>
-            <p className="text-xs text-gray-500 mb-3">EM BREVE</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-400 mb-1">-</p>
+            <p className="text-[10px] sm:text-xs text-gray-500 mb-2 sm:mb-3">EM BREVE</p>
           </div>
           <div className="space-y-1 pt-2 border-t border-gray-100">
             <p className="text-xs text-gray-300">Indicador em desenvolvimento</p>
@@ -1783,22 +1783,22 @@ export default function GestaoInteligente() {
         onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
         onDrop={(e) => handleDrop(e, cardId, row)}
-        className={`bg-white rounded-xl shadow-lg p-4 border-t-4 ${config.borderColor} hover:shadow-xl transition-all cursor-grab active:cursor-grabbing h-full ${isDragging ? 'opacity-50 scale-95' : ''}`}
+        className={`bg-white rounded-xl shadow-lg p-3 sm:p-4 border-t-4 ${config.borderColor} hover:shadow-xl transition-all cursor-grab active:cursor-grabbing h-full ${isDragging ? 'opacity-50 scale-95' : ''}`}
       >
-        <div className="flex items-center justify-between mb-3">
-          <div className={`w-10 h-10 ${config.bgColor} rounded-lg flex items-center justify-center`}>
+        <div className="flex items-center justify-between mb-2 sm:mb-3">
+          <div className={`w-8 h-8 sm:w-10 sm:h-10 ${config.bgColor} rounded-lg flex items-center justify-center`}>
             {config.icon}
           </div>
-          <span className="text-xs text-gray-400 uppercase font-semibold flex items-center gap-1">
-            <svg className="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+          <span className="text-[10px] sm:text-xs text-gray-400 uppercase font-semibold flex items-center gap-1">
+            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-500" fill="currentColor" viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
             {config.label}
           </span>
         </div>
-        <div className="flex items-baseline gap-2 mb-1">
-          <p className="text-2xl font-bold text-gray-800">{config.getValue()}</p>
+        <div className="flex items-baseline gap-1.5 sm:gap-2 mb-1">
+          <p className="text-xl sm:text-2xl font-bold text-gray-800">{config.getValue()}</p>
           {config.getExtra && config.getExtra()}
         </div>
-        <p className="text-xs text-gray-500 mb-3">{config.title}</p>
+        <p className="text-[10px] sm:text-xs text-gray-500 mb-2 sm:mb-3">{config.title}</p>
         <div className="space-y-1 pt-2 border-t border-gray-100">
           <Comparativo label="Mes Passado" valor={indicador?.mesPassado} valorAtual={indicador?.atual} tipo={config.tipo} invertido={config.invertido} />
           <Comparativo label="Ano Passado" valor={indicador?.anoPassado} valorAtual={indicador?.atual} tipo={config.tipo} invertido={config.invertido} />
@@ -1810,77 +1810,79 @@ export default function GestaoInteligente() {
 
   return (
     <Layout>
-      <div className="p-4 md:p-6">
+      <div className="min-w-0">
         {/* Header Laranja - Compacto */}
-        <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg shadow-lg px-4 py-3 mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="relative w-8 h-8 flex-shrink-0">
-                <svg viewBox="0 0 24 24" className="absolute inset-0 w-full h-full" fill="none" stroke="white" strokeWidth="1.5">
-                  <circle cx="12" cy="12" r="10" opacity="0.5" />
-                  <circle cx="12" cy="12" r="6" opacity="0.3" />
-                  <circle cx="12" cy="12" r="2" fill="white" stroke="white" />
+        <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg shadow-lg px-3 sm:px-4 py-3 mb-4 sm:mb-6">
+          {/* Linha 1: Titulo + Periodo */}
+          <div className="flex items-center gap-2 mb-2">
+            <div className="relative w-7 h-7 sm:w-8 sm:h-8 flex-shrink-0">
+              <svg viewBox="0 0 24 24" className="absolute inset-0 w-full h-full" fill="none" stroke="white" strokeWidth="1.5">
+                <circle cx="12" cy="12" r="10" opacity="0.5" />
+                <circle cx="12" cy="12" r="6" opacity="0.3" />
+                <circle cx="12" cy="12" r="2" fill="white" stroke="white" />
+              </svg>
+              <div className="absolute inset-0 animate-spin" style={{ animationDuration: '2s' }}>
+                <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="white">
+                  <line x1="12" y1="12" x2="20" y2="8" strokeWidth="2" strokeLinecap="round" />
                 </svg>
-                <div className="absolute inset-0 animate-spin" style={{ animationDuration: '2s' }}>
-                  <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="white">
-                    <line x1="12" y1="12" x2="20" y2="8" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                </div>
-              </div>
-              <h1 className="text-lg font-bold text-white">Gestao Inteligente</h1>
-              <span className="bg-white/20 text-white px-3 py-0.5 rounded-full text-xs font-medium ml-2">
-                {formatPeriodo()}
-              </span>
-              {/* Botões ATAQUE / DEFESA */}
-              <div className="flex ml-4 rounded-lg overflow-hidden border border-white/30">
-                <button
-                  onClick={() => setModoVisao('ataque')}
-                  className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wide transition-all flex items-center gap-1.5 ${
-                    modoVisao === 'ataque'
-                      ? 'bg-white text-orange-600 shadow-inner'
-                      : 'bg-white/10 text-white hover:bg-white/20'
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                  ATAQUE
-                </button>
-                <button
-                  onClick={() => setModoVisao('defesa')}
-                  className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wide transition-all flex items-center gap-1.5 ${
-                    modoVisao === 'defesa'
-                      ? 'bg-white text-blue-600 shadow-inner'
-                      : 'bg-white/10 text-white hover:bg-white/20'
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                  DEFESA
-                </button>
               </div>
             </div>
+            <h1 className="text-base sm:text-lg font-bold text-white truncate">Gestao Inteligente</h1>
+            <span className="bg-white/20 text-white px-2 sm:px-3 py-0.5 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap">
+              {formatPeriodo()}
+            </span>
+          </div>
+          {/* Linha 2: Botoes ATAQUE/DEFESA + Filtros */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Botões ATAQUE / DEFESA */}
+            <div className="flex rounded-lg overflow-hidden border border-white/30">
+              <button
+                onClick={() => setModoVisao('ataque')}
+                className={`px-3 sm:px-4 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wide transition-all flex items-center gap-1 ${
+                  modoVisao === 'ataque'
+                    ? 'bg-white text-orange-600 shadow-inner'
+                    : 'bg-white/10 text-white hover:bg-white/20'
+                }`}
+              >
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+                ATAQUE
+              </button>
+              <button
+                onClick={() => setModoVisao('defesa')}
+                className={`px-3 sm:px-4 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wide transition-all flex items-center gap-1 ${
+                  modoVisao === 'defesa'
+                    ? 'bg-white text-blue-600 shadow-inner'
+                    : 'bg-white/10 text-white hover:bg-white/20'
+                }`}
+              >
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                DEFESA
+              </button>
+            </div>
 
-            {/* Filtros */}
-            <div className="flex items-center gap-2">
+            {/* Filtros de data */}
+            <div className="flex items-center gap-1.5 ml-auto">
               <input
                 type="date"
                 value={filters.dataInicio}
                 onChange={(e) => setFilters({ ...filters, dataInicio: e.target.value })}
-                className="bg-white rounded px-2 py-1 text-sm text-gray-700"
+                className="bg-white rounded px-1.5 sm:px-2 py-1 text-xs sm:text-sm text-gray-700 w-[110px] sm:w-auto"
               />
-              <span className="text-white text-sm">a</span>
+              <span className="text-white text-xs sm:text-sm">a</span>
               <input
                 type="date"
                 value={filters.dataFim}
                 onChange={(e) => setFilters({ ...filters, dataFim: e.target.value })}
-                className="bg-white rounded px-2 py-1 text-sm text-gray-700"
+                className="bg-white rounded px-1.5 sm:px-2 py-1 text-xs sm:text-sm text-gray-700 w-[110px] sm:w-auto"
               />
               <button
                 onClick={handleClearCache}
                 disabled={clearingCache}
-                className="flex items-center gap-1 bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                className="flex items-center gap-1 bg-white/20 hover:bg-white/30 text-white px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors disabled:opacity-50"
                 title="Atualizar dados"
               >
                 {clearingCache ? (
@@ -1927,7 +1929,7 @@ export default function GestaoInteligente() {
           </div>
 
           {/* Linha de Cards de Análise - Sempre visível */}
-          <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
             {analiseCardOrder.map((cardId) => {
               const cfg = analiseCardConfig[cardId];
               if (!cfg) return null;
@@ -1940,17 +1942,17 @@ export default function GestaoInteligente() {
                   onDragOver={handleAnaliseCardDragOver}
                   onDrop={(e) => handleAnaliseCardDrop(e, cardId)}
                   onClick={cfg.onClick}
-                  className={`rounded-xl shadow-md p-4 border hover:shadow-lg transition-all cursor-pointer select-none ${
+                  className={`rounded-xl shadow-md p-3 sm:p-4 border hover:shadow-lg transition-all cursor-pointer select-none ${
                     analiseAtiva === cardId ? cfg.active : cfg.inactive
                   } ${draggedAnaliseCard === cardId ? 'opacity-50' : ''}`}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className={`w-9 h-9 ${cfg.icon} rounded-lg flex items-center justify-center`}>
-                      <span className="text-lg">{cfg.emoji}</span>
+                  <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                    <div className={`w-8 h-8 sm:w-9 sm:h-9 ${cfg.icon} rounded-lg flex items-center justify-center`}>
+                      <span className="text-base sm:text-lg">{cfg.emoji}</span>
                     </div>
                   </div>
-                  <p className={`text-sm font-bold ${cfg.title}`}>{cfg.label}</p>
-                  <p className={`text-[10px] ${cfg.sub} mt-1`}>{cfg.desc}</p>
+                  <p className={`text-xs sm:text-sm font-bold ${cfg.title}`}>{cfg.label}</p>
+                  <p className={`text-[9px] sm:text-[10px] ${cfg.sub} mt-0.5 sm:mt-1`}>{cfg.desc}</p>
                 </div>
               );
             })}
@@ -1960,8 +1962,8 @@ export default function GestaoInteligente() {
               {/* Tabela de Vendas por Dia da Semana - 3 sub-colunas por mês */}
               {analiseAtiva === 'vendas-dia-semana' && (
                 <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-                  <div className="bg-orange-500 px-4 py-3 flex items-center justify-between">
-                    <h3 className="text-white font-semibold">Analise Linear Dia da Semana</h3>
+                  <div className="bg-orange-500 px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                    <h3 className="text-white font-semibold text-sm sm:text-base">Analise Linear Dia da Semana</h3>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleAnoDiaSemanaChange(anoDiaSemana - 1)}
@@ -2113,9 +2115,9 @@ export default function GestaoInteligente() {
               {/* Analise por Ano - Meses nas colunas, indicadores nas linhas */}
               {analiseAtiva === 'vendas-ano' && (
                 <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-                  <div className="bg-orange-500 px-4 py-3 flex items-center justify-between">
-                    <h3 className="text-white font-semibold">Analise por Ano</h3>
-                    <div className="flex items-center gap-3">
+                  <div className="bg-orange-500 px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                    <h3 className="text-white font-semibold text-sm sm:text-base">Analise por Ano</h3>
+                    <div className="flex flex-wrap items-center gap-3">
                       <button onClick={() => setShowGraficoAno(prev => !prev)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${showGraficoAno ? 'bg-white text-orange-600' : 'bg-white/20 hover:bg-white/30 text-white'}`}>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                         Gráfico
@@ -2158,12 +2160,12 @@ export default function GestaoInteligente() {
                     const totalAno = barData.reduce((a, b) => a + b, 0);
                     return (
                     <div className="p-4 bg-white border-b border-gray-200">
-                      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                      <div className="mb-3 flex flex-wrap items-center gap-1 sm:gap-1.5">
                         {metricasAno.map(m => (
-                          <button key={m.field} onClick={() => setGraficoMetricaAno(m.field)} className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${graficoMetricaAno === m.field ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{m.label}</button>
+                          <button key={m.field} onClick={() => setGraficoMetricaAno(m.field)} className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold transition-colors ${graficoMetricaAno === m.field ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{m.label}</button>
                         ))}
                       </div>
-                      <div style={{ height: '380px' }}>
+                      <div className="h-[280px] sm:h-[380px]">
                         <Bar
                           plugins={[ChartDataLabels]}
                           data={{
@@ -2693,8 +2695,8 @@ export default function GestaoInteligente() {
               {/* Analise Comparativa por Setor */}
               {analiseAtiva === 'vendas-analiticas' && (
                 <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-                  <div className="bg-orange-500 px-4 py-3 flex items-center justify-between">
-                    <h3 className="text-white font-semibold">Analise Comparativa - {formatPeriodo()}</h3>
+                  <div className="bg-orange-500 px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                    <h3 className="text-white font-semibold text-sm sm:text-base">Analise Comparativa - {formatPeriodo()}</h3>
                     {vendasAnaliticas.length > 0 && (
                       <button onClick={() => setShowGraficoAnalitica(prev => !prev)} className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
@@ -2831,7 +2833,7 @@ export default function GestaoInteligente() {
                     return (
                       <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
                         {/* Breadcrumb */}
-                        <div className="flex items-center gap-1 mb-2 text-sm">
+                        <div className="flex flex-wrap items-center gap-1 mb-2 text-sm">
                           {drill.breadcrumb.map((bc, bi) => (
                             <span key={bi} className="flex items-center gap-1">
                               {bi > 0 && <span className="text-gray-400">›</span>}
@@ -2880,22 +2882,22 @@ export default function GestaoInteligente() {
                         </div>
 
                         {/* Totais */}
-                        <div className="flex flex-wrap gap-3 mb-3 px-1">
-                          <div className="flex items-center gap-1.5 bg-green-50 border border-green-200 rounded-lg px-3 py-1.5">
-                            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: colors.atual.border }}></span>
-                            <span className="text-xs font-bold text-gray-700">Atual: <span className="text-green-700">{fmtVal(totalAtual)}</span></span>
+                        <div className="flex flex-wrap gap-1.5 sm:gap-3 mb-3 px-1">
+                          <div className="flex items-center gap-1 sm:gap-1.5 bg-green-50 border border-green-200 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5">
+                            <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-sm" style={{ backgroundColor: colors.atual.border }}></span>
+                            <span className="text-[10px] sm:text-xs font-bold text-gray-700">Atual: <span className="text-green-700">{fmtVal(totalAtual)}</span></span>
                           </div>
-                          <div className="flex items-center gap-1.5 bg-purple-50 border border-purple-200 rounded-lg px-3 py-1.5">
-                            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: colors.ml.border }}></span>
-                            <span className="text-xs font-bold text-gray-700">Méd. Linear: <span className="text-purple-700">{fmtVal(totalML)}</span></span>
+                          <div className="flex items-center gap-1 sm:gap-1.5 bg-purple-50 border border-purple-200 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5">
+                            <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-sm" style={{ backgroundColor: colors.ml.border }}></span>
+                            <span className="text-[10px] sm:text-xs font-bold text-gray-700">M.Lin: <span className="text-purple-700">{fmtVal(totalML)}</span></span>
                           </div>
-                          <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
-                            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: colors.ap.border }}></span>
-                            <span className="text-xs font-bold text-gray-700">Ano Anterior: <span className="text-blue-700">{fmtVal(totalAP)}</span></span>
+                          <div className="flex items-center gap-1 sm:gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5">
+                            <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-sm" style={{ backgroundColor: colors.ap.border }}></span>
+                            <span className="text-[10px] sm:text-xs font-bold text-gray-700">Ano Ant: <span className="text-blue-700">{fmtVal(totalAP)}</span></span>
                           </div>
-                          <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
-                            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: colors.mp.border }}></span>
-                            <span className="text-xs font-bold text-gray-700">Mês Anterior: <span className="text-amber-700">{fmtVal(totalMP)}</span></span>
+                          <div className="flex items-center gap-1 sm:gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5">
+                            <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-sm" style={{ backgroundColor: colors.mp.border }}></span>
+                            <span className="text-[10px] sm:text-xs font-bold text-gray-700">Mês Ant: <span className="text-amber-700">{fmtVal(totalMP)}</span></span>
                           </div>
                         </div>
 
@@ -3397,9 +3399,9 @@ export default function GestaoInteligente() {
               {/* ===== VENDAS POR SETOR ANUAL ===== */}
               {analiseAtiva === 'vendas-setor-anual' && (
                 <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-                  <div className="bg-orange-500 px-4 py-3 flex items-center justify-between">
-                    <h3 className="text-white font-semibold">Analise por Setor Anual</h3>
-                    <div className="flex items-center gap-3">
+                  <div className="bg-orange-500 px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                    <h3 className="text-white font-semibold text-sm sm:text-base">Analise por Setor Anual</h3>
+                    <div className="flex flex-wrap items-center gap-3">
                       <button onClick={() => setShowGraficoSetorAnual(prev => !prev)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${showGraficoSetorAnual ? 'bg-white text-orange-600' : 'bg-white/20 hover:bg-white/30 text-white'}`}>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                         Gráfico
@@ -3673,9 +3675,9 @@ export default function GestaoInteligente() {
               {/* ===== ANALISE PRODUTOS ANUAL ===== */}
               {analiseAtiva === 'produto-anual' && (
                 <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-                  <div className="bg-orange-500 px-4 py-3 flex items-center justify-between">
-                    <h3 className="text-white font-semibold">Analise Produtos Anual</h3>
-                    <div className="flex items-center gap-3">
+                  <div className="bg-orange-500 px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                    <h3 className="text-white font-semibold text-sm sm:text-base">Analise Produtos Anual</h3>
+                    <div className="flex flex-wrap items-center gap-3">
                       <button onClick={() => handleAnoProdutoAnualChange(anoProdutoAnual - 1)} className="w-8 h-8 flex items-center justify-center bg-white/20 hover:bg-white/30 rounded-lg text-white transition-colors">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
                       </button>
@@ -3687,7 +3689,7 @@ export default function GestaoInteligente() {
                   </div>
 
                   {/* Metric pills */}
-                  <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 flex flex-wrap gap-1.5">
+                  <div className="px-3 sm:px-4 py-2 bg-gray-50 border-b border-gray-200 flex flex-wrap gap-1 sm:gap-1.5">
                     {[
                       { key: 'venda', label: 'Vendas' },
                       { key: 'custo', label: 'Custo' },
@@ -3702,7 +3704,7 @@ export default function GestaoInteligente() {
                       { key: 'skus', label: 'SKUs' },
                       { key: 'qtd', label: 'Qtd' },
                     ].map(m => (
-                      <button key={m.key} onClick={() => setProdutoAnualMetrica(m.key)} className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${produtoAnualMetrica === m.key ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}>{m.label}</button>
+                      <button key={m.key} onClick={() => setProdutoAnualMetrica(m.key)} className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold transition-colors ${produtoAnualMetrica === m.key ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}>{m.label}</button>
                     ))}
                   </div>
 
@@ -3934,19 +3936,19 @@ export default function GestaoInteligente() {
                 if (c.emBreve) {
                   return (
                     <div key={cardId} draggable onDragStart={(e) => handleDefesaDragStart(e, cardId, row)} onDragEnd={handleDefesaDragEnd} onDragOver={handleDefesaDragOver} onDrop={(e) => handleDefesaDrop(e, cardId, row)}
-                      className={`bg-white rounded-xl shadow-lg p-4 border-t-4 border-gray-300 hover:shadow-xl transition-all cursor-grab active:cursor-grabbing h-full flex flex-col justify-between ${isDragging ? 'opacity-50 scale-95' : ''}`}>
+                      className={`bg-white rounded-xl shadow-lg p-3 sm:p-4 border-t-4 border-gray-300 hover:shadow-xl transition-all cursor-grab active:cursor-grabbing h-full flex flex-col justify-between ${isDragging ? 'opacity-50 scale-95' : ''}`}>
                       <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                        <div className="flex items-center justify-between mb-2 sm:mb-3">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
                           </div>
-                          <span className="text-xs text-gray-400 uppercase font-semibold flex items-center gap-1">
-                            <svg className="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                          <span className="text-[10px] sm:text-xs text-gray-400 uppercase font-semibold flex items-center gap-1">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-500" fill="currentColor" viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
                             EM BREVE
                           </span>
                         </div>
-                        <p className="text-2xl font-bold text-gray-400 mb-1">-</p>
-                        <p className="text-xs text-gray-500 mb-3">EM BREVE</p>
+                        <p className="text-xl sm:text-2xl font-bold text-gray-400 mb-1">-</p>
+                        <p className="text-[10px] sm:text-xs text-gray-500 mb-2 sm:mb-3">EM BREVE</p>
                       </div>
                       <div className="space-y-1 pt-2 border-t border-gray-100">
                         <div className="flex justify-between items-center text-xs"><span className="text-gray-400">Mes Passado:</span><span className="text-gray-300">-</span></div>
@@ -3959,15 +3961,15 @@ export default function GestaoInteligente() {
 
                 return (
                   <div key={cardId} draggable onDragStart={(e) => handleDefesaDragStart(e, cardId, row)} onDragEnd={handleDefesaDragEnd} onDragOver={handleDefesaDragOver} onDrop={(e) => handleDefesaDrop(e, cardId, row)}
-                    className={`bg-white rounded-xl shadow-lg p-4 border-t-4 ${c.border} hover:shadow-xl transition-all cursor-grab active:cursor-grabbing h-full flex flex-col justify-between ${isDragging ? 'opacity-50 scale-95' : ''}`}>
+                    className={`bg-white rounded-xl shadow-lg p-3 sm:p-4 border-t-4 ${c.border} hover:shadow-xl transition-all cursor-grab active:cursor-grabbing h-full flex flex-col justify-between ${isDragging ? 'opacity-50 scale-95' : ''}`}>
                     <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className={`w-10 h-10 ${c.bg} rounded-lg flex items-center justify-center`}>
-                          <svg className={`w-5 h-5 ${c.ic}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d={c.svg} /></svg>
+                      <div className="flex items-center justify-between mb-2 sm:mb-3">
+                        <div className={`w-8 h-8 sm:w-10 sm:h-10 ${c.bg} rounded-lg flex items-center justify-center`}>
+                          <svg className={`w-4 h-4 sm:w-5 sm:h-5 ${c.ic}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d={c.svg} /></svg>
                         </div>
                         <div className="flex items-center gap-1">
-                          <span className="text-xs text-gray-400 uppercase font-semibold flex items-center gap-1">
-                            <svg className={`w-4 h-4 ${c.ic}`} fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+                          <span className="text-[10px] sm:text-xs text-gray-400 uppercase font-semibold flex items-center gap-1">
+                            <svg className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${c.ic}`} fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
                             {c.lb}
                           </span>
                           {c.hasGear && (
@@ -3980,11 +3982,11 @@ export default function GestaoInteligente() {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-baseline gap-2 mb-1">
-                        <p className="text-2xl font-bold text-gray-800">{c.val()}</p>
+                      <div className="flex items-baseline gap-1.5 sm:gap-2 mb-1">
+                        <p className="text-xl sm:text-2xl font-bold text-gray-800">{c.val()}</p>
                         {c.extra && c.extra()}
                       </div>
-                      <p className="text-xs text-gray-500 mb-1">{c.title}</p>
+                      <p className="text-[10px] sm:text-xs text-gray-500 mb-1">{c.title}</p>
                       {c.hasGear && mediaPerformColab.mediaProjetada > 0 && (
                         <div className="flex items-baseline gap-1.5 mb-2">
                           <span className="text-[10px] text-gray-400 uppercase">Proj. Mes:</span>

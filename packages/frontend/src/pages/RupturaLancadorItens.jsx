@@ -834,7 +834,7 @@ export default function RupturaLancadorItens() {
             </div>
 
             {/* Grade do Calendário */}
-            <div className="grid grid-cols-7 gap-1 mb-3">
+            <div className="grid grid-cols-4 sm:grid-cols-7 gap-1 mb-3">
               {/* Cabeçalho dos dias da semana */}
               {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, idx) => (
                 <div key={idx} className="text-center font-semibold text-gray-500 text-xs py-0.5">

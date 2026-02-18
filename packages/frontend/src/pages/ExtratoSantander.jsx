@@ -176,7 +176,7 @@ export default function ExtratoSantander() {
       <div className={`bg-white rounded-xl shadow-sm border ${corBorder} overflow-hidden flex flex-col`}>
         {/* Cabecalho da coluna */}
         <div className={`${corBg} px-4 py-3 border-b ${corBorder}`}>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               {isEntrada ? (
                 <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -265,7 +265,7 @@ export default function ExtratoSantander() {
 
         {/* Rodape com total */}
         {!isLoading && items.length > 0 && (
-          <div className={`${corBg} px-4 py-2 border-t ${corBorder} flex justify-between items-center`}>
+          <div className={`${corBg} px-4 py-2 border-t ${corBorder} flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1`}>
             <span className="text-xs text-gray-500">{items.length} lancamentos</span>
             <span className={`text-sm font-bold ${corTexto}`}>
               Total: {formatCurrency(total)}
@@ -527,8 +527,8 @@ export default function ExtratoSantander() {
 
         {/* Rodape geral com resumo */}
         {!loading && allItems.length > 0 && (
-          <div className="mt-4 bg-gray-800 rounded-xl p-4 text-white flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-6">
+          <div className="mt-4 bg-gray-800 rounded-xl p-4 text-white flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6">
               <div>
                 <p className="text-xs text-gray-400 uppercase">Entradas</p>
                 <p className="text-green-400 font-bold">{formatCurrency(totais.creditos)}</p>

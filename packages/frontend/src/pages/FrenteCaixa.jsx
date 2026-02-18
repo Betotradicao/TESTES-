@@ -1086,13 +1086,13 @@ export default function FrenteCaixa() {
         {/* Header Laranja */}
         <div className="bg-gradient-to-br from-orange-500 to-red-600 shadow-lg">
           <div className="px-4 md:px-6 py-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">🛒 Frente de Caixa</h1>
-                <p className="text-white/90">Vendas, cancelamentos, descontos e diferença de caixa por colaborador</p>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-1 sm:mb-2">🛒 Frente de Caixa</h1>
+                <p className="text-white/90 text-sm sm:text-base">Vendas, cancelamentos, descontos e diferença de caixa por colaborador</p>
               </div>
               <div className="flex items-center gap-3">
-                <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${oracleStatus.connected ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+                <div className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg ${oracleStatus.connected ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
                   <div className={`w-2 h-2 rounded-full ${oracleStatus.connected ? 'bg-white animate-pulse' : 'bg-white'}`}></div>
                   <span className="text-sm font-medium">
                     {oracleStatus.connected ? 'Oracle Conectado' : 'Oracle Desconectado'}
@@ -1110,9 +1110,9 @@ export default function FrenteCaixa() {
 
         {/* Filtros */}
         <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4">
-          <div className="flex flex-wrap items-end gap-4">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3 sm:gap-4">
             {/* Data Início */}
-            <div className="flex flex-col">
+            <div className="flex flex-col w-full sm:w-auto">
               <label className="text-xs text-gray-500 mb-1">Data Início</label>
               <input
                 type="date"
@@ -1123,7 +1123,7 @@ export default function FrenteCaixa() {
             </div>
 
             {/* Data Fim */}
-            <div className="flex flex-col">
+            <div className="flex flex-col w-full sm:w-auto">
               <label className="text-xs text-gray-500 mb-1">Data Fim</label>
               <input
                 type="date"
@@ -1134,12 +1134,12 @@ export default function FrenteCaixa() {
             </div>
 
             {/* Colaborador */}
-            <div className="flex flex-col">
+            <div className="flex flex-col w-full sm:w-auto">
               <label className="text-xs text-gray-500 mb-1">Colaborador</label>
               <select
                 value={filters.codOperador}
                 onChange={(e) => setFilters(prev => ({ ...prev, codOperador: e.target.value }))}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 min-w-[200px]"
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 w-full sm:min-w-[200px]"
                 disabled={loadingFilters}
               >
                 <option value="">Todos</option>
@@ -1152,11 +1152,11 @@ export default function FrenteCaixa() {
             </div>
 
             {/* Botão Buscar */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full sm:w-auto">
               <button
                 onClick={handleSearch}
                 disabled={loading || !oracleStatus.connected}
-                className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 w-full sm:w-auto"
               >
                 {loading ? (
                   <>
@@ -1178,9 +1178,9 @@ export default function FrenteCaixa() {
             </div>
 
             {/* Toggle Geral / Meta */}
-            <div className="flex flex-col">
+            <div className="flex flex-col w-full sm:w-auto">
               <label className="text-xs text-gray-500 mb-1">Visualização</label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <div className="flex bg-gray-100 rounded-lg p-1">
                   <button
                     onClick={() => setViewMode('geral')}
@@ -1218,7 +1218,7 @@ export default function FrenteCaixa() {
             </div>
 
             {/* Spacer para empurrar botões para direita */}
-            <div className="flex-1" />
+            <div className="hidden sm:block sm:flex-1" />
 
             {/* Botões Config e PDF */}
             <div className="flex gap-2 items-end">
@@ -1290,7 +1290,7 @@ export default function FrenteCaixa() {
           </div>
 
           {/* Dica de arraste */}
-          <p className="text-xs text-gray-400 mt-3">
+          <p className="hidden sm:block text-xs text-gray-400 mt-3">
             Dica: Arraste os cabeçalhos das colunas para reordená-las. {viewMode === 'geral' ? 'Use o botão de engrenagem para ocultar colunas.' : 'A ordem é salva automaticamente.'}
           </p>
         </div>
@@ -1298,7 +1298,7 @@ export default function FrenteCaixa() {
         {/* Cards de Resumo */}
         {totais && (
           <div className="px-4 md:px-6 pt-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
               {/* Total Cupons */}
               <div className="bg-white rounded-lg shadow p-3 border-l-4 border-indigo-500">
                 <p className="text-xs text-gray-500 font-medium">Total Cupons</p>
@@ -1391,7 +1391,7 @@ export default function FrenteCaixa() {
               {!destaqueMinimizado && (
               <div className="p-4">
                 {/* Categorias de Pontuação */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                   {/* Maior Itens/Hora */}
                   <div className="bg-white rounded-lg p-3 border border-blue-200 shadow-sm">
                     <div className="flex items-center gap-2 mb-2">
@@ -1684,7 +1684,7 @@ export default function FrenteCaixa() {
                                             )}
                                           </td>
                                           <td colSpan={visibleColumns.length} className="px-3 py-1 text-sm">
-                                            <div className="flex items-center gap-4 pl-8">
+                                            <div className="flex items-center gap-2 sm:gap-4 pl-4 sm:pl-8 flex-wrap">
                                               <span className="text-blue-600 font-medium">🧾 Cupom #{cupom.NUM_CUPOM_FISCAL}</span>
                                               <span className="text-gray-500">{cupom.DATA_HORA}</span>
                                               <span className={`font-medium ${cupom.FLG_CANCELADO === 'S' ? 'text-red-500' : 'text-green-600'}`}>
@@ -1731,7 +1731,7 @@ export default function FrenteCaixa() {
                                             >
                                               <td className="px-2 py-1"></td>
                                               <td colSpan={visibleColumns.length} className="px-3 py-1 text-xs">
-                                                <div className="flex items-center gap-4 pl-12">
+                                                <div className="flex items-center gap-2 sm:gap-4 pl-6 sm:pl-12 flex-wrap">
                                                   <span className={`w-8 ${item.FLG_ESTORNADO === 'S' ? 'text-red-400' : 'text-gray-400'}`}>#{item.NUM_SEQ_ITEM}</span>
                                                   <span className={`w-16 ${item.FLG_ESTORNADO === 'S' ? 'text-red-500' : 'text-gray-600'}`}>{item.COD_PRODUTO}</span>
                                                   <span className={`flex-1 truncate max-w-xs ${item.FLG_ESTORNADO === 'S' ? 'text-red-600' : 'text-gray-800'}`}>{item.DES_PRODUTO}</span>
@@ -1800,10 +1800,10 @@ export default function FrenteCaixa() {
 
       {/* Modal de Configuração de Metas */}
       {showMetaConfigModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
             {/* Header do Modal */}
-            <div className="bg-purple-600 text-white px-6 py-4 flex items-center justify-between">
+            <div className="bg-purple-600 text-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold">Configuração de Metas</h2>
                 <p className="text-purple-200 text-sm">Defina as metas para cada operador</p>
@@ -1819,9 +1819,9 @@ export default function FrenteCaixa() {
             </div>
 
             {/* Configuração Global */}
-            <div className="px-6 py-4 bg-purple-50 border-b">
-              <h3 className="font-semibold text-purple-800 mb-3">Meta Global (aplicada a todos os operadores sem config individual)</h3>
-              <div className="flex flex-wrap gap-4">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 bg-purple-50 border-b">
+              <h3 className="font-semibold text-purple-800 mb-3 text-sm sm:text-base">Meta Global (aplicada a todos os operadores sem config individual)</h3>
+              <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4">
                 {/* Venda Mínima Global */}
                 <div className="flex items-center gap-2">
                   <input
@@ -1964,7 +1964,7 @@ export default function FrenteCaixa() {
             </div>
 
             {/* Lista de Operadores */}
-            <div className="flex-1 overflow-auto px-6 py-4">
+            <div className="flex-1 overflow-auto px-4 sm:px-6 py-3 sm:py-4">
               <h3 className="font-semibold text-gray-800 mb-3">Configuração Individual por Operador</h3>
 
               {data.length === 0 ? (
@@ -1989,9 +1989,9 @@ export default function FrenteCaixa() {
 
                     return (
                       <div key={row.COD_OPERADOR} className="bg-gray-50 rounded-lg p-3 border">
-                        <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-wrap">
                           {/* Nome do Operador */}
-                          <div className="min-w-[150px]">
+                          <div className="w-full sm:w-auto sm:min-w-[150px]">
                             <span className="font-medium text-gray-800 text-sm">{row.DES_OPERADOR}</span>
                             <span className="text-xs text-gray-400 ml-1">#{row.COD_OPERADOR}</span>
                           </div>
@@ -2155,7 +2155,7 @@ export default function FrenteCaixa() {
             </div>
 
             {/* Footer do Modal */}
-            <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 border-t flex flex-col-reverse sm:flex-row justify-end gap-3">
               <button
                 onClick={() => {
                   saveMetaConfig({});

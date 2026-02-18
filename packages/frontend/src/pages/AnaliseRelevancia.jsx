@@ -226,7 +226,7 @@ export default function AnaliseRelevancia() {
             <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold text-white">ANÁLISE DE RELEVÂNCIA</h1>
+                <h1 className="text-lg sm:text-2xl font-bold text-white">ANÁLISE DE RELEVÂNCIA</h1>
                 <div className="relative"
                   onMouseEnter={() => setShowTooltip(true)}
                   onMouseLeave={() => setShowTooltip(false)}>
@@ -234,7 +234,7 @@ export default function AnaliseRelevancia() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   {showTooltip && (
-                    <div className="absolute left-0 top-8 z-50 w-[480px] bg-white rounded-xl shadow-2xl border border-gray-200 p-5 text-gray-700 text-sm leading-relaxed"
+                    <div className="absolute left-0 top-8 z-50 w-[90vw] max-w-[480px] bg-white rounded-xl shadow-2xl border border-gray-200 p-5 text-gray-700 text-sm leading-relaxed"
                       style={{ pointerEvents: 'none' }}>
                       <h3 className="font-bold text-orange-600 text-base mb-2">Como funciona a Análise de Relevância?</h3>
                       <p className="mb-3">
@@ -438,7 +438,7 @@ export default function AnaliseRelevancia() {
 
           {/* Totais */}
           {totais && !loading && (
-            <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
               <div className="bg-white rounded-lg shadow-sm border p-3 text-center">
                 <div className="text-xs text-gray-500">Total Itens</div>
                 <div className="text-lg font-bold text-gray-900">{totais.totalItens}</div>
@@ -478,7 +478,7 @@ export default function AnaliseRelevancia() {
           {data.length > 0 && !loading && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200">
               {/* Search */}
-              <div className="p-3 border-b border-gray-100 flex items-center gap-3">
+              <div className="p-3 border-b border-gray-100 flex flex-wrap items-center gap-3">
                 <div className="relative flex-1 max-w-md">
                   <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                   <input type="text" value={searchText} onChange={e => setSearchText(e.target.value)}

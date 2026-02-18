@@ -651,10 +651,10 @@ export default function AnalisePonderacao() {
         {/* Header */}
         <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-4 shadow-lg">
           <div className="flex items-center gap-3">
-            <span className="text-3xl">🎯</span>
+            <span className="text-3xl hidden sm:inline">🎯</span>
             <div>
-              <h1 className="text-2xl font-bold text-white">ANÁLISE DE CORTE</h1>
-              <p className="text-orange-100 text-sm">Relevância de produtos por Faturamento, Volume e Contribuição</p>
+              <h1 className="text-lg sm:text-2xl font-bold text-white">ANÁLISE DE CORTE</h1>
+              <p className="text-orange-100 text-xs sm:text-sm">Relevância de produtos por Faturamento, Volume e Contribuição</p>
             </div>
           </div>
         </div>
@@ -662,7 +662,7 @@ export default function AnalisePonderacao() {
         {/* Filtros */}
         <div className="bg-white border-b p-4 shadow-sm">
           {/* Linha 1: Loja, Seção, Grupo, Subgrupo, Segmento - todos na mesma linha */}
-          <div className="grid grid-cols-5 gap-3 mb-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-3">
             <div>
               <label className="text-xs font-bold text-gray-600 block mb-1">Loja</label>
               <select value={codLoja} onChange={e => setCodLoja(e.target.value)}
@@ -817,7 +817,7 @@ export default function AnalisePonderacao() {
                   Colunas
                 </button>
                 {showColConfig && (
-                  <div className="absolute right-0 top-full mt-1 bg-white border rounded-lg shadow-xl z-50 w-[340px] max-h-[480px] overflow-y-auto p-3">
+                  <div className="absolute right-0 top-full mt-1 bg-white border rounded-lg shadow-xl z-50 w-full sm:w-[340px] max-h-[480px] overflow-y-auto p-3">
                     <div className="flex justify-between items-center mb-2 pb-2 border-b">
                       <span className="font-bold text-sm text-gray-700">Configurar Colunas</span>
                       <button onClick={resetCols} className="text-xs text-orange-600 hover:underline font-medium">Restaurar padrão</button>
@@ -963,7 +963,7 @@ export default function AnalisePonderacao() {
             </div>
 
             {/* Legenda */}
-            <div className="mt-3 flex gap-6 text-xs text-gray-600">
+            <div className="mt-3 flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-6 text-xs text-gray-600">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-green-200 border border-green-400 rounded"></div>
                 <span>Acumulado &le; {diagnostico}% (dentro do diagnóstico)</span>
@@ -972,7 +972,7 @@ export default function AnalisePonderacao() {
                 <div className="w-4 h-4 bg-red-200 border border-red-400 rounded"></div>
                 <span>Acumulado &gt; {diagnostico}% (fora do diagnóstico)</span>
               </div>
-              <div className="flex items-center gap-2 ml-4">
+              <div className="flex items-center gap-2 sm:ml-4">
                 <span className="px-1.5 py-0.5 rounded text-white text-[10px] font-bold bg-blue-600">D</span>
                 <span>Destaque (&le;50%)</span>
               </div>
@@ -1024,7 +1024,7 @@ export default function AnalisePonderacao() {
                 value={hierarquiaBusca}
                 onChange={e => setHierarquiaBusca(e.target.value)}
                 placeholder="🔍 Buscar seção, grupo ou subgrupo..."
-                className="flex-1 min-w-[200px] border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="flex-1 min-w-0 sm:min-w-[200px] border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
               <button
                 onClick={buscarSugestao}

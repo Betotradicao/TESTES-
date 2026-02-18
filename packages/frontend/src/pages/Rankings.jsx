@@ -830,51 +830,51 @@ export default function Rankings() {
 
         <main className="p-4 lg:p-8 overflow-y-auto">
           {/* Cabeçalho */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">🏆 Rankings de Cancelamentos</h1>
-            <p className="text-gray-600">
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">🏆 Rankings de Cancelamentos</h1>
+            <p className="text-sm sm:text-base text-gray-600">
               Análise detalhada dos cancelamentos por motivo, valor, funcionário e setor
             </p>
           </div>
 
           {/* Cards de Resumo */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg shadow-lg p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg shadow-lg p-4 sm:p-6 text-white">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
                   <p className="text-orange-100 text-sm font-medium mb-1">Total de Cancelamentos</p>
-                  <p className="text-4xl font-bold">{totalCancelamentos}</p>
+                  <p className="text-3xl sm:text-4xl font-bold">{totalCancelamentos}</p>
                 </div>
-                <div className="bg-white bg-opacity-20 rounded-full p-4">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="bg-white bg-opacity-20 rounded-full p-3 sm:p-4 flex-shrink-0">
+                  <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </div>
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow-lg p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div>
+            <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow-lg p-4 sm:p-6 text-white">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
                   <p className="text-red-100 text-sm font-medium mb-1">Valor Total Cancelado</p>
-                  <p className="text-4xl font-bold">{formatCurrency(totalValorCancelado)}</p>
+                  <p className="text-2xl sm:text-4xl font-bold truncate">{formatCurrency(totalValorCancelado)}</p>
                 </div>
-                <div className="bg-white bg-opacity-20 rounded-full p-4">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="bg-white bg-opacity-20 rounded-full p-3 sm:p-4 flex-shrink-0">
+                  <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-lg shadow-lg p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div>
+            <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-lg shadow-lg p-4 sm:p-6 text-white sm:col-span-1 col-span-1">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
                   <p className="text-yellow-100 text-sm font-medium mb-1">Bipagens Pendentes</p>
-                  <p className="text-4xl font-bold">{totalBipagensPendentes}</p>
+                  <p className="text-3xl sm:text-4xl font-bold">{totalBipagensPendentes}</p>
                 </div>
-                <div className="bg-white bg-opacity-20 rounded-full p-4">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="bg-white bg-opacity-20 rounded-full p-3 sm:p-4 flex-shrink-0">
+                  <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
@@ -885,7 +885,7 @@ export default function Rankings() {
           {/* Cards Individuais por Tipo de Cancelamento */}
           <div className="mb-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Cancelamentos por Tipo</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {Object.entries(MOTIVOS_LABELS).map(([motivo, label]) => {
                 const motivoData = motivosStats[motivo] || {
                   motivo,
@@ -939,9 +939,9 @@ export default function Rankings() {
           </div>
 
           {/* Filtros */}
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Filtros</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {/* Data Inicial */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1101,7 +1101,7 @@ export default function Rankings() {
             </div>
 
             {/* Conteúdo dos Rankings */}
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {loading ? (
                 <div className="text-center py-12">
                   <svg className="animate-spin h-10 w-10 text-orange-500 mx-auto" fill="none" viewBox="0 0 24 24">
@@ -1123,21 +1123,21 @@ export default function Rankings() {
                         <div
                           key={item.motivo}
                           onClick={() => openMotivoDetails(item.motivo)}
-                          className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-orange-300 transition-colors cursor-pointer"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-orange-300 transition-colors cursor-pointer gap-3"
                         >
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-orange-100 text-orange-600 font-bold">
+                          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-orange-100 text-orange-600 font-bold flex-shrink-0">
                               #{index + 1}
                             </div>
-                            <span className="text-3xl">{item.icon}</span>
-                            <div>
-                              <p className="font-semibold text-gray-900">{item.label}</p>
+                            <span className="text-2xl sm:text-3xl flex-shrink-0">{item.icon}</span>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-gray-900 truncate">{item.label}</p>
                               <p className="text-sm text-gray-600">
                                 Valor total: {formatCurrency(item.totalValue)}
                               </p>
                             </div>
                           </div>
-                          <div className="text-right">
+                          <div className="text-right sm:flex-shrink-0 ml-auto sm:ml-0">
                             <p className="text-2xl font-bold text-orange-600">{item.count}</p>
                             <p className="text-sm text-gray-500">cancelamentos</p>
                           </div>
@@ -1153,22 +1153,22 @@ export default function Rankings() {
                         <div
                           key={item.motivo}
                           onClick={() => openMotivoDetails(item.motivo)}
-                          className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-green-300 transition-colors cursor-pointer"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-green-300 transition-colors cursor-pointer gap-3"
                         >
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-green-100 text-green-600 font-bold">
+                          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-green-100 text-green-600 font-bold flex-shrink-0">
                               #{index + 1}
                             </div>
-                            <span className="text-3xl">{item.icon}</span>
-                            <div>
-                              <p className="font-semibold text-gray-900">{item.label}</p>
+                            <span className="text-2xl sm:text-3xl flex-shrink-0">{item.icon}</span>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-gray-900 truncate">{item.label}</p>
                               <p className="text-sm text-gray-600">
                                 {item.count} cancelamentos
                               </p>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-xl font-bold text-green-600">
+                          <div className="text-right sm:flex-shrink-0 ml-auto sm:ml-0">
+                            <p className="text-lg sm:text-xl font-bold text-green-600">
                               {formatCurrency(item.totalValue)}
                             </p>
                             <p className="text-sm text-gray-500">valor total</p>
@@ -1191,35 +1191,35 @@ export default function Rankings() {
                             key={item.employee.id}
                             className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-red-300 transition-colors"
                           >
-                            <div className="flex items-center justify-between mb-3">
-                              <div className="flex items-center gap-4">
-                                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-100 text-red-600 font-bold">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-3">
+                              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-100 text-red-600 font-bold flex-shrink-0">
                                   #{index + 1}
                                 </div>
                                 {item.employee.avatar ? (
                                   <img
                                     src={item.employee.avatar}
                                     alt={item.employee.name}
-                                    className="w-12 h-12 rounded-full object-cover"
+                                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover flex-shrink-0"
                                   />
                                 ) : (
-                                  <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center text-white font-semibold">
+                                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gray-300 flex items-center justify-center text-white font-semibold flex-shrink-0">
                                     {item.employee.name.charAt(0).toUpperCase()}
                                   </div>
                                 )}
-                                <div>
-                                  <p className="font-semibold text-gray-900">{item.employee.name}</p>
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-gray-900 truncate">{item.employee.name}</p>
                                   <p className="text-sm text-gray-600">
                                     Valor total: {formatCurrency(item.totalValue)}
                                   </p>
                                 </div>
                               </div>
-                              <div className="text-right">
+                              <div className="text-right sm:flex-shrink-0 ml-auto sm:ml-0">
                                 <p className="text-2xl font-bold text-red-600">{item.count}</p>
                                 <p className="text-sm text-gray-500">erros</p>
                               </div>
                             </div>
-                            <div className="flex flex-wrap gap-2 ml-14">
+                            <div className="flex flex-wrap gap-2 ml-0 sm:ml-14">
                               {Object.entries(item.motivos).map(([motivo, count]) => (
                                 <button
                                   key={motivo}
@@ -1252,24 +1252,24 @@ export default function Rankings() {
                             key={item.sector.id}
                             className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors"
                           >
-                            <div className="flex items-center justify-between mb-3">
-                              <div className="flex items-center gap-4">
-                                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-bold">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-3">
+                              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-bold flex-shrink-0">
                                   #{index + 1}
                                 </div>
-                                <div>
-                                  <p className="font-semibold text-gray-900">{item.sector.name}</p>
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-gray-900 truncate">{item.sector.name}</p>
                                   <p className="text-sm text-gray-600">
                                     Valor total: {formatCurrency(item.totalValue)}
                                   </p>
                                 </div>
                               </div>
-                              <div className="text-right">
+                              <div className="text-right sm:flex-shrink-0 ml-auto sm:ml-0">
                                 <p className="text-2xl font-bold text-blue-600">{item.count}</p>
                                 <p className="text-sm text-gray-500">cancelamentos</p>
                               </div>
                             </div>
-                            <div className="flex flex-wrap gap-2 ml-14">
+                            <div className="flex flex-wrap gap-2 ml-0 sm:ml-14">
                               {Object.entries(item.motivos).map(([motivo, count]) => (
                                 <button
                                   key={motivo}

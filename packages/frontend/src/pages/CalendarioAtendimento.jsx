@@ -1206,7 +1206,7 @@ export default function CalendarioAtendimento() {
                     <button
                       type="button"
                       onClick={() => setShowClassifDropdown(!showClassifDropdown)}
-                      className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white hover:bg-gray-50 min-w-[200px] justify-between"
+                      className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white hover:bg-gray-50 w-full sm:w-auto sm:min-w-[200px] justify-between"
                     >
                       <span className="truncate text-gray-700">
                         {classificacoesSel.length === 0
@@ -1265,7 +1265,7 @@ export default function CalendarioAtendimento() {
                   <select
                     value={statusNF}
                     onChange={(e) => setStatusNF(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white hover:bg-gray-50 min-w-[180px]"
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white hover:bg-gray-50 w-full sm:w-auto sm:min-w-[180px]"
                   >
                     <option value="todos">Todos</option>
                     <option value="com_nf">Com NFs 12 meses</option>
@@ -1279,9 +1279,9 @@ export default function CalendarioAtendimento() {
                     Buscar
                   </button>
                 </form>
-                <div className="flex items-center justify-between mt-2">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-2 gap-1">
                   <p className="text-xs text-gray-400">{totalFornecedores} fornecedores encontrados</p>
-                  <p className="text-xs text-gray-400">Arraste os cabeçalhos para reordenar | Clique para ordenar A-Z</p>
+                  <p className="text-xs text-gray-400 hidden sm:block">Arraste os cabeçalhos para reordenar | Clique para ordenar A-Z</p>
                 </div>
               </div>
 
@@ -1518,7 +1518,7 @@ export default function CalendarioAtendimento() {
                 const totalVisitas = calendarioVisitas.reduce((s, d) => s + d.fornecedores.length, 0);
                 const fornUnicos = new Set(calendarioVisitas.flatMap(d => d.fornecedores.map(f => f.cod))).size;
                 return (
-                  <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3">
                       <p className="text-xs font-medium text-gray-500">Dias com Visita</p>
                       <p className="text-2xl font-bold text-gray-900">{diasComVisita}</p>
@@ -1681,7 +1681,7 @@ export default function CalendarioAtendimento() {
                       setCompradorFilterDiario(e.target.value);
                       localStorage.setItem('cal-comprador-filter', e.target.value);
                     }}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white hover:bg-gray-50 min-w-[160px]"
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white hover:bg-gray-50 w-full sm:w-auto sm:min-w-[160px]"
                   >
                     <option value="">Todos Compradores</option>
                     {opcoesComprador.map(o => (
@@ -1689,7 +1689,7 @@ export default function CalendarioAtendimento() {
                     ))}
                   </select>
 
-                  <div className="sm:ml-auto flex items-center gap-3 text-sm">
+                  <div className="sm:ml-auto flex flex-wrap items-center gap-3 text-sm">
                     <span className="text-gray-500">
                       {new Date(diaSelecionado + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
                     </span>

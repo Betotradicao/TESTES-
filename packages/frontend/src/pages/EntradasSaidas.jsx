@@ -386,7 +386,7 @@ export default function EntradasSaidas() {
         <div className="p-6 space-y-4">
           {/* Cards de Resumo */}
           {(resumo.TOTAL_ENTRADAS !== undefined) && (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <p className="text-xs text-green-600 font-medium uppercase">Total Entradas</p>
                 <p className="text-lg font-bold text-green-700">{formatCurrency(resumo.TOTAL_ENTRADAS)}</p>
@@ -413,7 +413,7 @@ export default function EntradasSaidas() {
 
           {/* Filtros */}
           <div className="bg-white rounded-lg shadow p-4">
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">📅 Venc. De</label>
                 <input type="date" value={filters.vencInicio} onChange={(e) => setFilters({...filters, vencInicio: e.target.value})}
@@ -453,7 +453,7 @@ export default function EntradasSaidas() {
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-6 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">🏷️ Tipo Parceiro</label>
                 <select value={filters.tipoParceiro} onChange={(e) => setFilters({...filters, tipoParceiro: e.target.value})}

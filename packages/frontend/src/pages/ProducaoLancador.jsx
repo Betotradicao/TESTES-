@@ -308,7 +308,7 @@ export default function ProducaoLancador() {
             </div>
 
             {/* Grade do Calendário */}
-            <div className="grid grid-cols-7 gap-1 mb-3">
+            <div className="grid grid-cols-4 sm:grid-cols-7 gap-1 mb-3">
               {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, idx) => (
                 <div key={idx} className="text-center font-semibold text-gray-500 text-xs py-0.5">
                   {day}
@@ -410,7 +410,7 @@ export default function ProducaoLancador() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4 mb-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
                       <div>
                         <p className="text-xs text-gray-500">Itens Conferidos</p>
                         <p className="font-semibold text-gray-700">{totalItems}</p>
