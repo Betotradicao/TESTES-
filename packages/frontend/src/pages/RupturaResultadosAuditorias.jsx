@@ -994,7 +994,7 @@ export default function RupturaResultadosAuditorias() {
 
   return (
     <Layout>
-      <div className="p-4 lg:p-8">
+      <div className="min-w-0">
         {/* Card com Gradiente Laranja */}
         <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg p-6 mb-8 text-white">
           <div className="flex items-center justify-between mb-4">

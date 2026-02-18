@@ -18,7 +18,7 @@ export default function Layout({ children, title }) {
       />
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto lg:ml-0">
+      <div className="flex-1 overflow-auto lg:ml-0 min-w-0">
         {/* Mobile Header */}
         <div className="lg:hidden bg-white shadow-sm p-4 flex items-center justify-between">
           <button

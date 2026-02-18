@@ -1924,7 +1924,7 @@ export default function SaudeMargens() {
       />
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto lg:ml-0">
+      <div className="flex-1 overflow-auto lg:ml-0 min-w-0">
         {/* Mobile Header */}
         <div className="lg:hidden bg-white shadow-sm p-4 flex items-center justify-between">
           <button
@@ -1947,7 +1947,7 @@ export default function SaudeMargens() {
         </div>
 
         {/* Content Area */}
-        <div className="p-6">
+        <div className="p-3 sm:p-6 min-w-0">
           {/* Card com Gradiente Laranja */}
           <div className="hidden lg:block bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg p-6 mb-6 text-white">
             <div className="flex items-center justify-between">

@@ -1994,7 +1994,7 @@ export default function EstoqueSaude() {
       />
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto lg:ml-0">
+      <div className="flex-1 overflow-auto lg:ml-0 min-w-0">
         {/* Mobile Header */}
         <div className="lg:hidden bg-white shadow-sm p-4 flex items-center justify-between">
           <button
@@ -2200,7 +2200,7 @@ export default function EstoqueSaude() {
                 return (
                   <div
                     key={cardId}
-                    className={`bg-white rounded-lg shadow p-4 text-left transition-all hover:shadow-lg border-l-4 ${cfg.borderColor} ${
+                    className={`bg-white rounded-lg shadow p-3 sm:p-4 text-left transition-all hover:shadow-lg border-l-4 ${cfg.borderColor} ${
                       isActive ? 'ring-2 ring-orange-500 bg-orange-50' : ''
                     }`}
                   >
@@ -2209,20 +2209,20 @@ export default function EstoqueSaude() {
                     className="w-full text-left"
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-2xl">{cfg.emoji}</span>
+                      <span className="text-xl sm:text-2xl">{cfg.emoji}</span>
                       {cfg.isValorEstoque ? (
-                        <span className={`text-xl font-bold ${cfg.textColor}`}>
+                        <span className={`text-lg sm:text-xl font-bold ${cfg.textColor}`}>
                           {(stats.valorEstoque || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
                         </span>
                       ) : (
-                        <span className={`text-2xl font-bold ${cfg.textColor}`}>{stats[cfg.statKey]}</span>
+                        <span className={`text-xl sm:text-2xl font-bold ${cfg.textColor}`}>{stats[cfg.statKey]}</span>
                       )}
                     </div>
-                    <p className="text-sm font-medium text-gray-700">{cfg.label}</p>
+                    <p className="text-xs sm:text-sm font-medium text-gray-700">{cfg.label}</p>
                     {cfg.subtitle && <p className={`text-xs ${cfg.textColor} -mt-0.5`}>{cfg.subtitle}</p>}
                   </button>
                   <div className="mt-2 pt-2 border-t border-gray-100">
-                    <div className="flex gap-1 justify-between items-start">
+                    <div className="flex gap-0.5 sm:gap-1 justify-between items-start">
                       {cfg.isValorEstoque ? (
                         ['A', 'B', 'C', 'D', 'E', 'X'].map(curva => {
                           const val = stats.valorEstoquePorCurva?.[curva] || 0;
@@ -2235,7 +2235,7 @@ export default function EstoqueSaude() {
                                 if (!isActive) setActiveCardFilter(cardId);
                                 setActiveCardCurva(activeCardCurva === curva ? '' : curva);
                               }}
-                              className={`flex flex-col items-center px-2 py-2 rounded transition-all ${
+                              className={`flex flex-col items-center px-1 sm:px-2 py-1 sm:py-2 rounded transition-all ${
                                 isActive && activeCardCurva === curva ? 'ring-2 ring-orange-500 bg-orange-100' : ''
                               } ${
                                 curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
@@ -2246,12 +2246,12 @@ export default function EstoqueSaude() {
                               }`}
                               title={`Curva ${curva}: R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                             >
-                              <span className={`text-xs font-bold ${
+                              <span className={`text-[10px] sm:text-xs font-bold ${
                                 curva === 'A' ? 'text-green-700' : curva === 'B' ? 'text-blue-700' :
                                 curva === 'C' ? 'text-yellow-700' : curva === 'D' ? 'text-orange-700' :
                                 curva === 'E' ? 'text-red-700' : 'text-gray-700'
                               }`}>{curva}</span>
-                              <span className="text-xs font-semibold text-gray-700">R$ {fmt}</span>
+                              <span className="text-[10px] sm:text-xs font-semibold text-gray-700">R$ {fmt}</span>
                             </button>
                           );
                         })
@@ -2264,16 +2264,16 @@ export default function EstoqueSaude() {
                               if (!isActive) setActiveCardFilter(cardId);
                               setActiveCardCurva(activeCardCurva === range.id ? '' : range.id);
                             }}
-                            className={`flex-1 flex flex-col items-center px-1 py-2 rounded transition-all ${
+                            className={`flex-1 flex flex-col items-center px-0.5 sm:px-1 py-1 sm:py-2 rounded transition-all ${
                               isActive && activeCardCurva === range.id ? 'ring-2 ring-orange-500 bg-orange-100' : range.color
                             }`}
                             title={`${range.label} = ${pontuacaoConfig[cardId]?.[range.id] || 0}pts`}
                           >
-                            <span className={`text-sm font-bold ${range.textColor}`}>
+                            <span className={`text-xs sm:text-sm font-bold ${range.textColor}`}>
                               {stats.curvasPorIndicador?.[cardId]?.[range.id] || 0}
                             </span>
-                            <span className="text-xs text-gray-500">{range.label}</span>
-                            <span className="text-xs text-gray-500">{pontuacaoConfig[cardId]?.[range.id] || 0}pts</span>
+                            <span className="text-[10px] sm:text-xs text-gray-500">{range.label}</span>
+                            <span className="text-[10px] sm:text-xs text-gray-500">{pontuacaoConfig[cardId]?.[range.id] || 0}pts</span>
                           </button>
                         ))
                       ) : (
@@ -2285,7 +2285,7 @@ export default function EstoqueSaude() {
                               if (!isActive) setActiveCardFilter(cardId);
                               setActiveCardCurva(activeCardCurva === curva ? '' : curva);
                             }}
-                            className={`flex flex-col items-center px-3 py-2 rounded transition-all ${
+                            className={`flex flex-col items-center px-1.5 sm:px-3 py-1 sm:py-2 rounded transition-all ${
                               isActive && activeCardCurva === curva ? 'ring-2 ring-orange-500 bg-orange-100' : ''
                             } ${
                               curva === 'A' ? 'bg-green-50 hover:bg-green-100' :
@@ -2299,18 +2299,18 @@ export default function EstoqueSaude() {
                               : `Filtrar curva ${curva}`
                             }
                           >
-                            <span className={`text-sm font-bold ${
+                            <span className={`text-xs sm:text-sm font-bold ${
                               curva === 'A' ? 'text-green-700' : curva === 'B' ? 'text-blue-700' :
                               curva === 'C' ? 'text-yellow-700' : curva === 'D' ? 'text-orange-700' :
                               curva === 'E' ? 'text-red-700' : 'text-gray-700'
                             }`}>{curva}:{stats.curvasPorIndicador?.[cardId]?.[curva] || 0}</span>
                             {isSemVenda ? (
                               <>
-                                <span className="text-xs text-gray-500">{pontuacaoConfig.sem_venda?.[curva]?.dias || 0}d</span>
-                                <span className="text-xs text-gray-500">{pontuacaoConfig.sem_venda?.[curva]?.pontos || 0}pts</span>
+                                <span className="text-[10px] sm:text-xs text-gray-500">{pontuacaoConfig.sem_venda?.[curva]?.dias || 0}d</span>
+                                <span className="text-[10px] sm:text-xs text-gray-500">{pontuacaoConfig.sem_venda?.[curva]?.pontos || 0}pts</span>
                               </>
                             ) : (
-                              <span className="text-xs text-gray-500 mt-0.5">
+                              <span className="text-[10px] sm:text-xs text-gray-500 mt-0.5">
                                 {pontuacaoConfig[cardId]?.[curva] || 0}pts
                               </span>
                             )}
@@ -2340,10 +2340,10 @@ export default function EstoqueSaude() {
           </div>
 
           {/* Botões de Visualização: GERAL / PONTUAÇÃO + Cards de Risco */}
-          <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-4 flex-wrap">
             <button
               onClick={() => setViewMode('geral')}
-              className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+              className={`px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
                 viewMode === 'geral'
                   ? 'bg-orange-500 text-white shadow-lg'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -2353,17 +2353,17 @@ export default function EstoqueSaude() {
             </button>
             <button
               onClick={() => { setViewMode('pontuacaoEstoque'); setActiveRiskFilter(null); setCurrentPagePontuacao(1); }}
-              className={`px-5 py-2 rounded-lg font-semibold transition-all ${
+              className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
                 viewMode === 'pontuacaoEstoque'
                   ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
-              📦 PONTUAÇÃO ESTOQUE
+              📦 <span className="hidden sm:inline">PONTUAÇÃO </span>ESTOQUE
             </button>
             <button
               onClick={() => setViewMode('pedido')}
-              className={`px-6 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+              className={`px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center gap-1 sm:gap-2 ${
                 viewMode === 'pedido'
                   ? 'bg-orange-600 text-white shadow-lg'
                   : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
@@ -2371,22 +2371,22 @@ export default function EstoqueSaude() {
             >
               📋 PEDIDO
               {selectedForPedido.size > 0 && (
-                <span className="bg-white text-orange-600 px-2 py-0.5 rounded-full text-xs font-bold">
+                <span className="bg-white text-orange-600 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold">
                   {selectedForPedido.size}
                 </span>
               )}
             </button>
             <button
               onClick={() => setViewMode('pedidosRealizados')}
-              className={`px-6 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+              className={`px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center gap-1 sm:gap-2 ${
                 viewMode === 'pedidosRealizados'
                   ? 'bg-orange-600 text-white shadow-lg'
                   : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
               }`}
             >
-              📁 PEDIDOS REALIZADOS
+              📁 <span className="hidden sm:inline">PEDIDOS </span>REALIZADOS
               {pedidosSalvos.length > 0 && (
-                <span className="bg-white text-orange-600 px-2 py-0.5 rounded-full text-xs font-bold">
+                <span className="bg-white text-orange-600 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold">
                   {pedidosSalvos.length}
                 </span>
               )}
@@ -2398,22 +2398,21 @@ export default function EstoqueSaude() {
           {viewMode !== 'pedido' && viewMode !== 'pedidosRealizados' && (
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
             {activeCardFilter !== 'todos' ? (
-              <div className="flex-1 w-full bg-orange-50 border-l-4 border-orange-500 p-4 rounded">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-                    <p className="text-sm text-orange-800">
-                      <strong>Filtro ativo:</strong> {
+              <div className="flex-1 w-full bg-orange-50 border-l-4 border-orange-500 p-3 sm:p-4 rounded">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-4">
+                    <p className="text-xs sm:text-sm text-orange-800">
+                      <strong>Filtro:</strong> {
                         CARD_CONFIG[activeCardFilter]
-                          ? `${CARD_CONFIG[activeCardFilter].emoji} ${CARD_CONFIG[activeCardFilter].label}${CARD_CONFIG[activeCardFilter].subtitle ? ' - ' + CARD_CONFIG[activeCardFilter].subtitle : ''}`
+                          ? `${CARD_CONFIG[activeCardFilter].emoji} ${CARD_CONFIG[activeCardFilter].label}`
                           : activeCardFilter
                       }
                     </p>
-                    <span className="bg-orange-200 text-orange-900 px-3 py-1 rounded-full text-xs font-bold">
-                      {filteredProducts.length} produtos
+                    <span className="bg-orange-200 text-orange-900 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold">
+                      {filteredProducts.length} prod.
                     </span>
-                    <span className="text-orange-800 font-medium">💰 Valor Total:</span>
-                    <span className="bg-orange-200 text-orange-900 px-3 py-1 rounded-full text-xs font-bold">
-                      R$ {(stats.valorTotalEstoque / 1000).toFixed(0)}k
+                    <span className="bg-orange-200 text-orange-900 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold">
+                      💰 R$ {(stats.valorTotalEstoque / 1000).toFixed(0)}k
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -2450,23 +2449,23 @@ export default function EstoqueSaude() {
                 <div className="flex flex-col gap-3">
                   {/* Cards de Risco - só aparecem na aba de pontuação */}
                   {(viewMode === 'pontuacaoEstoque' || viewMode === 'pontuacaoMargem') && (
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                       <button
                         onClick={() => { setActiveRiskFilter(activeRiskFilter === 'muitoCritico' ? null : 'muitoCritico'); }}
-                        className={`px-3 py-1.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
+                        className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-semibold text-[10px] sm:text-sm transition-all flex items-center gap-1 sm:gap-2 ${
                           activeRiskFilter === 'muitoCritico'
                             ? 'bg-red-600 text-white shadow-lg ring-2 ring-red-400'
                             : 'bg-red-100 text-red-700 hover:bg-red-200'
                         }`}
                       >
                         <span>🔴</span>
-                        <span>MUITO CRÍTICO</span>
-                        <span className="bg-white text-red-600 px-2 py-0.5 rounded-full text-xs font-bold">{riskCounts.muitoCritico}</span>
+                        <span className="hidden sm:inline">MUITO </span><span>CRÍTICO</span>
+                        <span className="bg-white text-red-600 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold">{riskCounts.muitoCritico}</span>
                       </button>
 
                       <button
                         onClick={() => { setActiveRiskFilter(activeRiskFilter === 'critico' ? null : 'critico'); }}
-                        className={`px-3 py-1.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
+                        className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-semibold text-[10px] sm:text-sm transition-all flex items-center gap-1 sm:gap-2 ${
                           activeRiskFilter === 'critico'
                             ? 'bg-orange-600 text-white shadow-lg ring-2 ring-orange-400'
                             : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
@@ -2474,12 +2473,12 @@ export default function EstoqueSaude() {
                       >
                         <span>🟠</span>
                         <span>CRÍTICO</span>
-                        <span className="bg-white text-orange-600 px-2 py-0.5 rounded-full text-xs font-bold">{riskCounts.critico}</span>
+                        <span className="bg-white text-orange-600 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold">{riskCounts.critico}</span>
                       </button>
 
                       <button
                         onClick={() => { setActiveRiskFilter(activeRiskFilter === 'moderado' ? null : 'moderado'); }}
-                        className={`px-3 py-1.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
+                        className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-semibold text-[10px] sm:text-sm transition-all flex items-center gap-1 sm:gap-2 ${
                           activeRiskFilter === 'moderado'
                             ? 'bg-yellow-500 text-white shadow-lg ring-2 ring-yellow-400'
                             : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
@@ -2487,20 +2486,20 @@ export default function EstoqueSaude() {
                       >
                         <span>🟡</span>
                         <span>MODERADO</span>
-                        <span className="bg-white text-yellow-600 px-2 py-0.5 rounded-full text-xs font-bold">{riskCounts.moderado}</span>
+                        <span className="bg-white text-yellow-600 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold">{riskCounts.moderado}</span>
                       </button>
 
                       <button
                         onClick={() => { setActiveRiskFilter(activeRiskFilter === 'semRisco' ? null : 'semRisco'); }}
-                        className={`px-3 py-1.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
+                        className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-semibold text-[10px] sm:text-sm transition-all flex items-center gap-1 sm:gap-2 ${
                           activeRiskFilter === 'semRisco'
                             ? 'bg-green-600 text-white shadow-lg ring-2 ring-green-400'
                             : 'bg-green-100 text-green-700 hover:bg-green-200'
                         }`}
                       >
                         <span>🟢</span>
-                        <span>SEM RISCO</span>
-                        <span className="bg-white text-green-600 px-2 py-0.5 rounded-full text-xs font-bold">{riskCounts.semRisco}</span>
+                        <span className="hidden sm:inline">SEM </span><span>RISCO</span>
+                        <span className="bg-white text-green-600 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold">{riskCounts.semRisco}</span>
                       </button>
 
                       {/* Botão de Configuração de Risco */}
@@ -2518,19 +2517,19 @@ export default function EstoqueSaude() {
                   )}
 
                   {/* Info de Total e Valor */}
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div className="flex flex-wrap items-center gap-3 sm:gap-6">
-                      <div className="flex items-center gap-2">
-                        <span className="text-blue-800 font-medium">📊 Total de produtos:</span>
-                        <span className="bg-blue-200 text-blue-900 px-3 py-1 rounded-full text-sm font-bold">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-6">
+                      <div className="flex items-center gap-1 sm:gap-2">
+                        <span className="text-blue-800 font-medium text-xs sm:text-sm">📊 Total:</span>
+                        <span className="bg-blue-200 text-blue-900 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-bold">
                           {(viewMode === 'pontuacaoEstoque' || viewMode === 'pontuacaoMargem')
                             ? (activeRiskFilter ? produtosFiltradosPorRisco.length : produtosComPontuacao.length)
                             : filteredProducts.length} produtos
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-blue-800 font-medium">💰 Valor Total Estoque:</span>
-                        <span className="bg-blue-200 text-blue-900 px-3 py-1 rounded-full text-sm font-bold">
+                      <div className="flex items-center gap-1 sm:gap-2">
+                        <span className="text-blue-800 font-medium text-xs sm:text-sm">💰 Valor:</span>
+                        <span className="bg-blue-200 text-blue-900 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-bold">
                           R$ {(stats.valorTotalEstoque / 1000).toFixed(0)}k
                         </span>
                       </div>
@@ -2632,46 +2631,46 @@ export default function EstoqueSaude() {
 
               {/* Footer da Tabela com Paginação */}
               {!loading && !error && filteredProducts.length > 0 && (
-                <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <p className="text-sm text-gray-700">
-                    Exibindo <strong>{(currentPage - 1) * itemsPerPage + 1}</strong> - <strong>{Math.min(currentPage * itemsPerPage, filteredProducts.length)}</strong> de <strong>{filteredProducts.length}</strong> produtos
+                <div className="bg-gray-50 px-3 sm:px-4 py-2 sm:py-3 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
+                  <p className="text-xs sm:text-sm text-gray-700">
+                    <strong>{(currentPage - 1) * itemsPerPage + 1}</strong>-<strong>{Math.min(currentPage * itemsPerPage, filteredProducts.length)}</strong> de <strong>{filteredProducts.length}</strong>
                   </p>
 
                   {/* Controles de Paginação */}
                   {totalPages > 1 && (
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1 sm:gap-2">
                       <button
                         onClick={() => setCurrentPage(1)}
                         disabled={currentPage === 1}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                        className="px-2 sm:px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
                       >
-                        ⏮️ Primeira
+                        ⏮️
                       </button>
                       <button
                         onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                         disabled={currentPage === 1}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                        className="px-2 sm:px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
                       >
-                        ◀️ Anterior
+                        ◀️
                       </button>
 
-                      <span className="text-sm text-gray-700 px-3">
-                        Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong>
+                      <span className="text-xs sm:text-sm text-gray-700 px-1 sm:px-3">
+                        <strong>{currentPage}</strong>/<strong>{totalPages}</strong>
                       </span>
 
                       <button
                         onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                         disabled={currentPage === totalPages}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                        className="px-2 sm:px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
                       >
-                        Próxima ▶️
+                        ▶️
                       </button>
                       <button
                         onClick={() => setCurrentPage(totalPages)}
                         disabled={currentPage === totalPages}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                        className="px-2 sm:px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
                       >
-                        Última ⏭️
+                        ⏭️
                       </button>
                     </div>
                   )}
@@ -2813,39 +2812,39 @@ export default function EstoqueSaude() {
               </div>
               {/* Controles de paginação */}
               {produtosPontuacaoList.length > 0 && (
-                <div className="bg-gray-50 px-4 py-3 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <span className="text-sm text-gray-700">
-                    Exibindo <strong>{(currentPagePontuacao - 1) * itemsPerPagePontuacao + 1}</strong> - <strong>{Math.min(currentPagePontuacao * itemsPerPagePontuacao, produtosPontuacaoList.length)}</strong> de <strong>{produtosPontuacaoList.length}</strong> produtos
+                <div className="bg-gray-50 px-3 sm:px-4 py-2 sm:py-3 border-t flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
+                  <span className="text-xs sm:text-sm text-gray-700">
+                    <strong>{(currentPagePontuacao - 1) * itemsPerPagePontuacao + 1}</strong>-<strong>{Math.min(currentPagePontuacao * itemsPerPagePontuacao, produtosPontuacaoList.length)}</strong> de <strong>{produtosPontuacaoList.length}</strong>
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <button
                       onClick={() => setCurrentPagePontuacao(1)}
                       disabled={currentPagePontuacao === 1}
-                      className="px-2 py-1 text-sm border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-2 py-1 text-xs sm:text-sm border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       ««
                     </button>
                     <button
                       onClick={() => setCurrentPagePontuacao(p => Math.max(1, p - 1))}
                       disabled={currentPagePontuacao === 1}
-                      className="px-3 py-1 text-sm border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-2 sm:px-3 py-1 text-xs sm:text-sm border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Anterior
+                      ◀️
                     </button>
-                    <span className="text-sm text-gray-600 px-2">
-                      Página <strong>{currentPagePontuacao}</strong> de <strong>{totalPagesPontuacao || 1}</strong>
+                    <span className="text-xs sm:text-sm text-gray-600 px-1 sm:px-2">
+                      <strong>{currentPagePontuacao}</strong>/<strong>{totalPagesPontuacao || 1}</strong>
                     </span>
                     <button
                       onClick={() => setCurrentPagePontuacao(p => Math.min(totalPagesPontuacao, p + 1))}
                       disabled={currentPagePontuacao === totalPagesPontuacao || totalPagesPontuacao === 0}
-                      className="px-3 py-1 text-sm border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-2 sm:px-3 py-1 text-xs sm:text-sm border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Próxima
+                      ▶️
                     </button>
                     <button
                       onClick={() => setCurrentPagePontuacao(totalPagesPontuacao)}
                       disabled={currentPagePontuacao === totalPagesPontuacao || totalPagesPontuacao === 0}
-                      className="px-2 py-1 text-sm border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-2 py-1 text-xs sm:text-sm border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       »»
                     </button>
