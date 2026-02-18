@@ -14,6 +14,7 @@ export class OfertasController {
   static async getProgramacoes(req: Request, res: Response) {
     try {
       const { codLoja, ativas } = req.query;
+      console.log('[Ofertas] GET /programacoes - codLoja:', codLoja, 'ativas:', ativas);
       if (!codLoja) {
         return res.status(400).json({ error: 'codLoja obrigatorio' });
       }
@@ -29,16 +30,17 @@ export class OfertasController {
   }
 
   /**
-   * GET /ofertas/produtos/:codProg?codLoja=1
+   * GET /ofertas/produtos/:codProg?codLoja=1&mesAtual=true
+   * codProg=0 significa "todas as programacoes"
    */
   static async getProdutos(req: Request, res: Response) {
     try {
       const codProg = Number(req.params.codProg);
-      const { codLoja } = req.query;
-      if (!codProg || !codLoja) {
+      const { codLoja, mesAtual } = req.query;
+      if (codProg == null || isNaN(codProg) || !codLoja) {
         return res.status(400).json({ error: 'codProg e codLoja obrigatorios' });
       }
-      const result = await OfertasService.getProdutos(codProg, Number(codLoja));
+      const result = await OfertasService.getProdutos(codProg, Number(codLoja), mesAtual === 'true');
       return res.json(result);
     } catch (error: any) {
       console.error('[Ofertas] Erro getProdutos:', error);

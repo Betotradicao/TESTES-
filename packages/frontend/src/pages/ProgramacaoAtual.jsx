@@ -23,6 +23,7 @@ export default function ProgramacaoAtual() {
   const [filterFornecedor, setFilterFornecedor] = useState('');
   const [searchText, setSearchText] = useState('');
   const [apenasAtivas, setApenasAtivas] = useState(true);
+  const [somenteMesAtual, setSomenteMesAtual] = useState(true);
 
   // Sort
   const [sortColumn, setSortColumn] = useState('DESCRICAO');
@@ -32,20 +33,14 @@ export default function ProgramacaoAtual() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
-  // Load programacoes
+  // Load programacoes (busca todas - o filtro de mes e feito no client)
   useEffect(() => {
-    const codLoja = lojaSelecionada?.cod_loja || 1;
+    const codLoja = lojaSelecionada || 1;
     setLoading(true);
     api.get(`/api/ofertas/programacoes?codLoja=${codLoja}&ativas=${apenasAtivas}`)
       .then(res => {
         setProgramacoes(res.data || []);
-        if (res.data?.length > 0) {
-          setSelectedProg(String(res.data[0].COD_PROG));
-        } else {
-          setSelectedProg('');
-          setProdutos([]);
-          setResumo(null);
-        }
+        // A selecao sera ajustada pelo useEffect de programacoesFiltradas
       })
       .catch(err => {
         console.error('Erro ao carregar programacoes:', err);
@@ -57,9 +52,10 @@ export default function ProgramacaoAtual() {
   // Load produtos when programacao changes
   useEffect(() => {
     if (!selectedProg) return;
-    const codLoja = lojaSelecionada?.cod_loja || 1;
+    const codLoja = lojaSelecionada || 1;
+    const mesParam = somenteMesAtual ? '&mesAtual=true' : '';
     setLoadingProdutos(true);
-    api.get(`/api/ofertas/produtos/${selectedProg}?codLoja=${codLoja}`)
+    api.get(`/api/ofertas/produtos/${selectedProg}?codLoja=${codLoja}${mesParam}`)
       .then(res => {
         setProdutos(res.data?.produtos || []);
         setResumo(res.data?.resumo || null);
@@ -71,7 +67,7 @@ export default function ProgramacaoAtual() {
         setResumo(null);
       })
       .finally(() => setLoadingProdutos(false));
-  }, [selectedProg, lojaSelecionada]);
+  }, [selectedProg, lojaSelecionada, somenteMesAtual]);
 
   // Filter options
   const filterOptions = useMemo(() => {
@@ -97,10 +93,19 @@ export default function ProgramacaoAtual() {
       );
     }
 
-    // Sort
+    // Sort (suporta colunas calculadas)
     result.sort((a, b) => {
-      let va = a[sortColumn];
-      let vb = b[sortColumn];
+      let va, vb;
+      if (sortColumn === 'DESC_PCT') {
+        va = a.PRECO_NORMAL > 0 ? ((a.PRECO_NORMAL - a.PRECO_OFERTA) / a.PRECO_NORMAL) * 100 : 0;
+        vb = b.PRECO_NORMAL > 0 ? ((b.PRECO_NORMAL - b.PRECO_OFERTA) / b.PRECO_NORMAL) * 100 : 0;
+      } else if (sortColumn === 'CRESC_OFERTA') {
+        va = a.VD_MEDIA > 0 && a.VD_OFERTA != null ? ((a.VD_OFERTA - a.VD_MEDIA) / a.VD_MEDIA) * 100 : 0;
+        vb = b.VD_MEDIA > 0 && b.VD_OFERTA != null ? ((b.VD_OFERTA - b.VD_MEDIA) / b.VD_MEDIA) * 100 : 0;
+      } else {
+        va = a[sortColumn];
+        vb = b[sortColumn];
+      }
       if (typeof va === 'string') va = va.toLowerCase();
       if (typeof vb === 'string') vb = vb.toLowerCase();
       if (va < vb) return sortDirection === 'asc' ? -1 : 1;
@@ -142,24 +147,61 @@ export default function ProgramacaoAtual() {
     return Number(val).toFixed(2).replace('.', ',');
   };
 
-  const selectedProgData = programacoes.find(p => String(p.COD_PROG) === selectedProg);
+  // Filtrar programacoes por mes atual (client-side)
+  const programacoesFiltradas = useMemo(() => {
+    if (!somenteMesAtual) return programacoes;
+    const agora = new Date();
+    const mesAtual = agora.getMonth(); // 0-based
+    const anoAtual = agora.getFullYear();
+    const primeiroDia = new Date(anoAtual, mesAtual, 1);
+    const ultimoDia = new Date(anoAtual, mesAtual + 1, 0);
+    return programacoes.filter(p => {
+      // Parse DD/MM/YYYY
+      const [dI, mI, yI] = (p.DTA_INICIAL || '').split('/').map(Number);
+      const [dF, mF, yF] = (p.DTA_FINAL || '').split('/').map(Number);
+      if (!dI || !mI || !yI || !dF || !mF || !yF) return false;
+      const dtaIni = new Date(yI, mI - 1, dI);
+      const dtaFim = new Date(yF, mF - 1, dF);
+      // Programacao sobrepoe o mes atual?
+      return dtaFim >= primeiroDia && dtaIni <= ultimoDia;
+    });
+  }, [programacoes, somenteMesAtual]);
 
-  // Table columns definition
-  const columns = [
+  // Quando programacoes filtradas mudam, ajustar selecao
+  useEffect(() => {
+    if (selectedProg === '0') return; // "Todas" fica
+    const existeNaLista = programacoesFiltradas.some(p => String(p.COD_PROG) === selectedProg);
+    if ((!existeNaLista || !selectedProg) && programacoesFiltradas.length > 0) {
+      setSelectedProg(String(programacoesFiltradas[0].COD_PROG));
+    } else if (programacoesFiltradas.length === 0 && selectedProg !== '0') {
+      setSelectedProg('');
+      setProdutos([]);
+      setResumo(null);
+    }
+  }, [programacoesFiltradas]);
+
+  const selectedProgData = selectedProg === '0' ? null : programacoesFiltradas.find(p => String(p.COD_PROG) === selectedProg);
+
+  // Table columns definition (reordenable via drag & drop)
+  const defaultColumns = [
     { id: 'DESCRICAO', label: 'Descricao', align: 'left' },
     { id: 'COD_BARRAS', label: 'EAN', align: 'left' },
+    { id: 'RELEVANCIA', label: 'Relev.', align: 'center' },
     { id: 'CUSTO', label: 'Custo', align: 'right', format: formatCurrency },
     { id: 'PRECO_NORMAL', label: 'Preco Normal', align: 'right', format: formatCurrency },
     { id: 'PRECO_OFERTA', label: 'Preco Oferta', align: 'right', format: formatCurrency },
+    { id: 'DESC_PCT', label: '% Desc.', align: 'right', format: formatPercent },
     { id: 'MARGEM_NORMAL', label: 'Mg Normal', align: 'right', format: formatPercent },
     { id: 'MARGEM_OFERTA', label: 'Mg Oferta', align: 'right', format: formatPercent },
     { id: 'ESTOQUE', label: 'Estoque', align: 'right', format: formatNumber },
     { id: 'VD_MEDIA', label: 'Vd Media', align: 'right', format: formatNumber },
+    { id: 'CRESC_OFERTA', label: 'Cresc. Oferta', align: 'right', format: formatPercent },
     { id: 'DIAS_COBERTURA', label: 'Dias Cob.', align: 'right', format: (v) => v != null ? Number(v).toFixed(1).replace('.', ',') : '0' },
     { id: 'CURVA', label: 'Curva', align: 'center' },
     { id: 'SECAO', label: 'Secao', align: 'left' },
-    { id: 'FORNECEDOR', label: 'Fornecedor', align: 'left' },
   ];
+  const [columns, setColumns] = useState(defaultColumns);
+  const [dragColIdx, setDragColIdx] = useState(null);
 
   const getCurvaColor = (curva) => {
     switch (curva) {
@@ -168,6 +210,15 @@ export default function ProgramacaoAtual() {
       case 'C': return 'bg-yellow-100 text-yellow-800';
       case 'D': return 'bg-orange-100 text-orange-800';
       case 'E': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getRelevanciaColor = (rel) => {
+    switch (rel) {
+      case 'N': return 'bg-green-100 text-green-800';
+      case 'SP': return 'bg-yellow-100 text-yellow-800';
+      case 'R': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -239,12 +290,15 @@ export default function ProgramacaoAtual() {
                   onChange={(e) => setSelectedProg(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                 >
-                  {programacoes.length === 0 && (
+                  {programacoesFiltradas.length === 0 && (
                     <option value="">Nenhuma programacao encontrada</option>
                   )}
-                  {programacoes.map(p => (
+                  {programacoesFiltradas.length > 0 && (
+                    <option value="0">TODAS AS PROGRAMACOES ({programacoesFiltradas.reduce((s, p) => s + (p.TOTAL_PRODUTOS || 0), 0)} itens)</option>
+                  )}
+                  {programacoesFiltradas.map(p => (
                     <option key={p.COD_PROG} value={String(p.COD_PROG)}>
-                      {p.DES_PROGRAMACAO} ({p.DTA_INICIAL} - {p.DTA_FINAL}) [{p.TOTAL_PRODUTOS} itens]
+                      {p.DES_PROGRAMACAO} ({p.DTA_INICIAL} {p.HOR_INICIO}h - {p.DTA_FINAL} {p.HOR_FINAL}h) [{p.TOTAL_PRODUTOS} itens]
                     </option>
                   ))}
                 </select>
@@ -308,8 +362,8 @@ export default function ProgramacaoAtual() {
               </div>
             </div>
 
-            {/* Toggle ativas */}
-            <div className="mt-3 flex items-center gap-2">
+            {/* Toggle ativas + mes atual */}
+            <div className="mt-3 flex flex-wrap items-center gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -319,9 +373,23 @@ export default function ProgramacaoAtual() {
                 />
                 <span className="text-sm text-gray-600">Apenas ofertas ativas</span>
               </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={somenteMesAtual}
+                  onChange={(e) => setSomenteMesAtual(e.target.checked)}
+                  className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                />
+                <span className="text-sm text-gray-600">Somente do mes atual</span>
+              </label>
               {selectedProgData && (
-                <span className="text-xs text-gray-500 ml-4">
-                  Vigencia: {selectedProgData.DTA_INICIAL} a {selectedProgData.DTA_FINAL}
+                <span className="text-xs text-gray-500">
+                  Vigencia: {selectedProgData.DTA_INICIAL} {selectedProgData.HOR_INICIO}h a {selectedProgData.DTA_FINAL} {selectedProgData.HOR_FINAL}h
+                </span>
+              )}
+              {selectedProg === '0' && (
+                <span className="text-xs text-purple-600 font-medium">
+                  Exibindo todas as programacoes {somenteMesAtual ? 'do mes atual' : ''} combinadas
                 </span>
               )}
             </div>
@@ -373,15 +441,18 @@ export default function ProgramacaoAtual() {
                 <p className="text-xs sm:text-sm font-medium text-gray-700">Mg Media Normal</p>
               </div>
 
-              {/* Valor Estoque */}
+              {/* Vendas em Oferta */}
               <div className="bg-white rounded-lg shadow p-3 sm:p-4 border-l-4 border-purple-500">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xl sm:text-2xl">📊</span>
                   <span className="text-lg sm:text-xl font-bold text-purple-600">
-                    {formatCurrency(resumo.valorEstoque)}
+                    {formatPercent(resumo.pctVendasOferta)}
                   </span>
                 </div>
-                <p className="text-xs sm:text-sm font-medium text-gray-700">Valor Estoque</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-700">Vendas em Oferta</p>
+                <p className="text-[10px] sm:text-xs text-purple-500">
+                  {formatCurrency(resumo.vendasOferta)} | MKD: {formatPercent(resumo.markdownOferta)}
+                </p>
               </div>
 
               {/* Diferenca Margem */}
@@ -428,13 +499,27 @@ export default function ProgramacaoAtual() {
                 <table className="w-full">
                   <thead className="bg-gray-100 sticky top-0">
                     <tr>
-                      {columns.map(col => (
+                      {columns.map((col, colIdx) => (
                         <th
                           key={col.id}
+                          draggable
+                          onDragStart={() => setDragColIdx(colIdx)}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => {
+                            if (dragColIdx === null || dragColIdx === colIdx) return;
+                            const newCols = [...columns];
+                            const [moved] = newCols.splice(dragColIdx, 1);
+                            newCols.splice(colIdx, 0, moved);
+                            setColumns(newCols);
+                            setDragColIdx(null);
+                          }}
                           onClick={() => handleSort(col.id)}
-                          className={`px-3 py-3 text-xs font-semibold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors whitespace-nowrap ${
+                          className={`px-3 py-3 text-xs font-semibold cursor-pointer hover:bg-gray-200 transition-colors whitespace-nowrap select-none ${
+                            col.id === 'MARGEM_OFERTA' ? 'bg-purple-100 text-purple-800 hover:bg-purple-200' : 'text-gray-700'
+                          } ${
                             col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
                           }`}
+                          title="Arraste para reordenar"
                         >
                           {col.label}
                           {sortColumn === col.id && (
@@ -447,50 +532,65 @@ export default function ProgramacaoAtual() {
                   <tbody>
                     {paginatedProducts.map((product, idx) => (
                       <tr key={`${product.COD_PRODUTO}-${idx}`} className="border-b border-gray-100 hover:bg-orange-50 transition-colors">
-                        {/* Descricao */}
-                        <td className="px-3 py-2.5 text-sm text-gray-900 max-w-[200px] truncate" title={product.DESCRICAO}>
-                          {product.DESCRICAO}
-                        </td>
-                        {/* EAN */}
-                        <td className="px-3 py-2.5 text-sm text-gray-600 font-mono">{product.COD_BARRAS}</td>
-                        {/* Custo */}
-                        <td className="px-3 py-2.5 text-sm text-right text-gray-700">{formatCurrency(product.CUSTO)}</td>
-                        {/* Preco Normal */}
-                        <td className="px-3 py-2.5 text-sm text-right text-gray-700">{formatCurrency(product.PRECO_NORMAL)}</td>
-                        {/* Preco Oferta */}
-                        <td className="px-3 py-2.5 text-sm text-right font-semibold text-orange-600">{formatCurrency(product.PRECO_OFERTA)}</td>
-                        {/* Margem Normal */}
-                        <td className={`px-3 py-2.5 text-sm text-right ${getMargemColor(product.MARGEM_NORMAL)}`}>
-                          {formatPercent(product.MARGEM_NORMAL)}
-                        </td>
-                        {/* Margem Oferta */}
-                        <td className={`px-3 py-2.5 text-sm text-right ${getMargemColor(product.MARGEM_OFERTA)}`}>
-                          {formatPercent(product.MARGEM_OFERTA)}
-                        </td>
-                        {/* Estoque */}
-                        <td className={`px-3 py-2.5 text-sm text-right ${getEstoqueColor(product.ESTOQUE)}`}>
-                          {formatNumber(product.ESTOQUE)}
-                        </td>
-                        {/* Vd Media */}
-                        <td className="px-3 py-2.5 text-sm text-right text-gray-700">{formatNumber(product.VD_MEDIA)}</td>
-                        {/* Dias Cobertura */}
-                        <td className={`px-3 py-2.5 text-sm text-right ${product.DIAS_COBERTURA <= 0 ? 'text-red-600 font-semibold' : product.DIAS_COBERTURA < 3 ? 'text-orange-600' : 'text-gray-700'}`}>
-                          {product.DIAS_COBERTURA != null ? Number(product.DIAS_COBERTURA).toFixed(1).replace('.', ',') : '0'}
-                        </td>
-                        {/* Curva */}
-                        <td className="px-3 py-2.5 text-center">
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${getCurvaColor(product.CURVA)}`}>
-                            {product.CURVA}
-                          </span>
-                        </td>
-                        {/* Secao */}
-                        <td className="px-3 py-2.5 text-sm text-gray-600 max-w-[120px] truncate" title={product.SECAO}>
-                          {product.SECAO}
-                        </td>
-                        {/* Fornecedor */}
-                        <td className="px-3 py-2.5 text-sm text-gray-600 max-w-[150px] truncate" title={product.FORNECEDOR}>
-                          {product.FORNECEDOR}
-                        </td>
+                        {columns.map(col => {
+                          const val = product[col.id];
+                          // Estilos especiais por coluna
+                          if (col.id === 'DESCRICAO') {
+                            return <td key={col.id} className="px-3 py-2.5 text-sm text-gray-900 max-w-[200px] truncate" title={val}>{val}</td>;
+                          }
+                          if (col.id === 'COD_BARRAS') {
+                            return <td key={col.id} className="px-3 py-2.5 text-sm text-gray-600 font-mono">{val}</td>;
+                          }
+                          if (col.id === 'PRECO_OFERTA') {
+                            return <td key={col.id} className="px-3 py-2.5 text-sm text-right font-semibold text-orange-600">{formatCurrency(val)}</td>;
+                          }
+                          if (col.id === 'DESC_PCT') {
+                            const descPct = product.PRECO_NORMAL > 0
+                              ? ((product.PRECO_NORMAL - product.PRECO_OFERTA) / product.PRECO_NORMAL) * 100
+                              : 0;
+                            return <td key={col.id} className={`px-3 py-2.5 text-sm text-right font-semibold ${descPct > 20 ? 'text-red-600' : descPct > 10 ? 'text-orange-600' : 'text-blue-600'}`}>
+                              {descPct > 0 ? '-' : ''}{formatPercent(Math.abs(descPct))}
+                            </td>;
+                          }
+                          if (col.id === 'MARGEM_NORMAL') {
+                            return <td key={col.id} className={`px-3 py-2.5 text-sm text-right ${getMargemColor(val)}`}>{formatPercent(val)}</td>;
+                          }
+                          if (col.id === 'MARGEM_OFERTA') {
+                            return <td key={col.id} className={`px-3 py-2.5 text-sm text-right bg-purple-50 font-semibold ${val < 0 ? 'text-red-600' : 'text-green-600'}`}>{formatPercent(val)}</td>;
+                          }
+                          if (col.id === 'ESTOQUE') {
+                            return <td key={col.id} className={`px-3 py-2.5 text-sm text-right ${getEstoqueColor(val)}`}>{formatNumber(val)}</td>;
+                          }
+                          if (col.id === 'DIAS_COBERTURA') {
+                            return <td key={col.id} className={`px-3 py-2.5 text-sm text-right ${val <= 0 ? 'text-red-600 font-semibold' : val < 3 ? 'text-orange-600' : 'text-gray-700'}`}>
+                              {val != null ? Number(val).toFixed(1).replace('.', ',') : '0'}
+                            </td>;
+                          }
+                          if (col.id === 'RELEVANCIA') {
+                            return <td key={col.id} className="px-3 py-2.5 text-center">
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${getRelevanciaColor(val)}`}>{val || '-'}</span>
+                            </td>;
+                          }
+                          if (col.id === 'CRESC_OFERTA') {
+                            const cresc = product.VD_MEDIA > 0 && product.VD_OFERTA != null
+                              ? ((product.VD_OFERTA - product.VD_MEDIA) / product.VD_MEDIA) * 100
+                              : 0;
+                            return <td key={col.id} className={`px-3 py-2.5 text-sm text-right font-semibold ${cresc >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {cresc > 0 ? '+' : ''}{formatPercent(cresc)}
+                            </td>;
+                          }
+                          if (col.id === 'CURVA') {
+                            return <td key={col.id} className="px-3 py-2.5 text-center">
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${getCurvaColor(val)}`}>{val}</span>
+                            </td>;
+                          }
+                          if (col.id === 'SECAO') {
+                            return <td key={col.id} className="px-3 py-2.5 text-sm text-gray-600 max-w-[120px] truncate" title={val}>{val}</td>;
+                          }
+                          // Default: usar format da coluna ou valor direto
+                          const formatted = col.format ? col.format(val) : val;
+                          return <td key={col.id} className={`px-3 py-2.5 text-sm text-gray-700 ${col.align === 'right' ? 'text-right' : ''}`}>{formatted}</td>;
+                        })}
                       </tr>
                     ))}
                   </tbody>
