@@ -27,25 +27,31 @@
 
 ## Deploy Correto
 
+> **IMPORTANTE (Windows):** No Git Bash do Windows, a saida dos comandos SSH nao e capturada.
+> Usar PowerShell como wrapper: `powershell -Command "& { ssh vps2-hostinger 'COMANDO 2>&1' | Out-String }"`
+> Consulte `.claude/REGRAS-ACESSO-SSH.md` para detalhes.
+
 ```bash
 # 1. Pull no repo compartilhado
-ssh vps2-hostinger "cd /root/prevencao-radar-repo && git pull origin TESTE"
+powershell -Command "& { ssh vps2-hostinger 'cd /root/prevencao-radar-repo && git pull origin TESTE 2>&1' | Out-String }"
 
-# 2. Rebuild do servico especifico (NUNCA postgres/minio)
-ssh vps2-hostinger "cd /root/clientes/<CLIENTE> && docker compose up -d --build backend"
-ssh vps2-hostinger "cd /root/clientes/<CLIENTE> && docker compose up -d --build frontend"
+# 2. Build sem cache (NUNCA postgres/minio)
+powershell -Command "& { ssh vps2-hostinger 'cd /root/clientes/<CLIENTE> && docker compose build --no-cache frontend backend 2>&1' | Out-String }"
 
-# 3. Limpar cache do Docker (liberar espaco)
-ssh vps2-hostinger "docker builder prune -f && docker image prune -f"
+# 3. Subir containers sem reiniciar dependencias
+powershell -Command "& { ssh vps2-hostinger 'cd /root/clientes/<CLIENTE> && docker compose up -d --no-deps frontend backend 2>&1' | Out-String }"
 
-# 4. Verificar logs
-ssh vps2-hostinger "docker logs prevencao-<CLIENTE>-backend --tail 30"
+# 4. Limpar cache do Docker (liberar espaco)
+powershell -Command "& { ssh vps2-hostinger 'docker builder prune -f && docker image prune -f 2>&1' | Out-String }"
+
+# 5. Verificar logs
+powershell -Command "& { ssh vps2-hostinger 'docker logs prevencao-<CLIENTE>-backend --tail 30 2>&1' | Out-String }"
 ```
 
 ### Comando unico (Frontend + Backend)
 
 ```bash
-ssh vps2-hostinger "cd /root/prevencao-radar-repo && git pull origin TESTE && cd /root/clientes/tradicao && docker compose build --no-cache frontend backend && docker compose up -d --no-deps frontend backend && docker builder prune -f && docker image prune -f"
+powershell -Command "& { ssh vps2-hostinger 'cd /root/prevencao-radar-repo && git pull origin TESTE && cd /root/clientes/tradicao && docker compose build --no-cache frontend backend && docker compose up -d --no-deps frontend backend && docker builder prune -f && docker image prune -f 2>&1' | Out-String }"
 ```
 
 ## NUNCA FACA
@@ -124,4 +130,4 @@ Se espaco < 10GB, limpar ANTES do deploy.
 
 ---
 
-**Atualizado em:** 12/02/2026
+**Atualizado em:** 18/02/2026

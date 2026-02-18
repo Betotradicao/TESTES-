@@ -37,6 +37,33 @@ C:\Users\Administrator\.ssh\
 - NUNCA compartilhar a chave privada
 - NUNCA postar chave no GitHub/WhatsApp
 
+## Captura de Saida SSH no Windows (IMPORTANTE)
+
+No ambiente Windows (Git Bash / Claude Code), o `ssh` executa os comandos na VPS normalmente, mas a **saida (stdout) nao e capturada** pelo terminal. O comando funciona, porem o resultado nao aparece.
+
+**Solucao:** Usar PowerShell como wrapper para capturar a saida:
+
+```bash
+# ERRADO - saida nao aparece no Git Bash do Windows
+ssh vps2-hostinger "docker logs prevencao-tradicao-backend --tail 30"
+
+# CORRETO - PowerShell captura e exibe a saida
+powershell -Command "& { ssh vps2-hostinger 'docker logs prevencao-tradicao-backend --tail 30 2>&1' | Out-String }"
+```
+
+**Padrao para TODOS os comandos SSH remotos:**
+```bash
+powershell -Command "& { ssh vps2-hostinger 'COMANDO_AQUI 2>&1' | Out-String }"
+```
+
+**Notas:**
+- `2>&1` redireciona stderr para stdout (captura tudo)
+- `| Out-String` garante que o PowerShell converta a saida para texto
+- `& { ... }` executa como bloco de script
+- Descoberto em 18/02/2026 apos testes - o SSH funciona mas o Git Bash nao consegue capturar a saida do pipe
+
+---
+
 ## Se Perder Acesso
 
 1. Acessar VPS via painel web da Hostinger
@@ -46,4 +73,4 @@ C:\Users\Administrator\.ssh\
 
 ---
 
-**Atualizado em:** 09/02/2026
+**Atualizado em:** 18/02/2026

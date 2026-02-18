@@ -1,8 +1,16 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLoja } from '../contexts/LojaContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
+
+const DEFAULT_OFERTA_RANGES = [
+  { id: 'excelente', label: 'Excelente', color: 'bg-green-100 text-green-800 border-green-300', de: 100, ate: 9999 },
+  { id: 'boa',       label: 'Boa',       color: 'bg-blue-100 text-blue-800 border-blue-300',   de: 30,  ate: 99.9 },
+  { id: 'regular',   label: 'Regular',   color: 'bg-yellow-100 text-yellow-800 border-yellow-300', de: 0, ate: 29.9 },
+  { id: 'ruim',      label: 'Ruim',      color: 'bg-orange-100 text-orange-800 border-orange-300', de: -50, ate: -0.1 },
+  { id: 'pessima',   label: 'Pessima',   color: 'bg-red-100 text-red-800 border-red-300',     de: -9999, ate: -50.1 },
+];
 
 export default function ProgramacaoAtual() {
   const { user, logout } = useAuth();
@@ -24,6 +32,51 @@ export default function ProgramacaoAtual() {
   const [searchText, setSearchText] = useState('');
   const [apenasAtivas, setApenasAtivas] = useState(true);
   const [somenteMesAtual, setSomenteMesAtual] = useState(true);
+
+  // % Oferta config
+  const [showOfertaConfig, setShowOfertaConfig] = useState(false);
+  const [ofertaRanges, setOfertaRanges] = useState(() => {
+    try {
+      const saved = localStorage.getItem('gestao_ofertas_ranges');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_OFERTA_RANGES;
+  });
+  const ofertaConfigRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (ofertaConfigRef.current && !ofertaConfigRef.current.contains(e.target)) {
+        setShowOfertaConfig(false);
+      }
+    };
+    if (showOfertaConfig) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showOfertaConfig]);
+
+  const handleRangeChange = (idx, field, value) => {
+    const updated = [...ofertaRanges];
+    updated[idx] = { ...updated[idx], [field]: value === '' ? '' : Number(value) };
+    setOfertaRanges(updated);
+  };
+
+  const saveOfertaRanges = () => {
+    localStorage.setItem('gestao_ofertas_ranges', JSON.stringify(ofertaRanges));
+    setShowOfertaConfig(false);
+  };
+
+  const getOfertaClassif = (crescPct) => {
+    for (const range of ofertaRanges) {
+      const de = Number(range.de);
+      const ate = Number(range.ate);
+      const min = Math.min(de, ate);
+      const max = Math.max(de, ate);
+      if (crescPct >= min && crescPct <= max) {
+        return range;
+      }
+    }
+    return null;
+  };
 
   // Sort
   const [sortColumn, setSortColumn] = useState('DESCRICAO');
@@ -99,7 +152,7 @@ export default function ProgramacaoAtual() {
       if (sortColumn === 'DESC_PCT') {
         va = a.PRECO_NORMAL > 0 ? ((a.PRECO_NORMAL - a.PRECO_OFERTA) / a.PRECO_NORMAL) * 100 : 0;
         vb = b.PRECO_NORMAL > 0 ? ((b.PRECO_NORMAL - b.PRECO_OFERTA) / b.PRECO_NORMAL) * 100 : 0;
-      } else if (sortColumn === 'CRESC_OFERTA') {
+      } else if (sortColumn === 'CRESC_OFERTA' || sortColumn === 'CLASSIF_OFERTA') {
         va = a.VD_MEDIA > 0 && a.VD_OFERTA != null ? ((a.VD_OFERTA - a.VD_MEDIA) / a.VD_MEDIA) * 100 : 0;
         vb = b.VD_MEDIA > 0 && b.VD_OFERTA != null ? ((b.VD_OFERTA - b.VD_MEDIA) / b.VD_MEDIA) * 100 : 0;
       } else {
@@ -195,7 +248,9 @@ export default function ProgramacaoAtual() {
     { id: 'MARGEM_OFERTA', label: 'Mg Oferta', align: 'right', format: formatPercent },
     { id: 'ESTOQUE', label: 'Estoque', align: 'right', format: formatNumber },
     { id: 'VD_MEDIA', label: 'Vd Media', align: 'right', format: formatNumber },
+    { id: 'VD_OFERTA', label: 'Vd Atual', align: 'right', format: formatNumber },
     { id: 'CRESC_OFERTA', label: 'Cresc. Oferta', align: 'right', format: formatPercent },
+    { id: 'CLASSIF_OFERTA', label: 'Classif.', align: 'center' },
     { id: 'DIAS_COBERTURA', label: 'Dias Cob.', align: 'right', format: (v) => v != null ? Number(v).toFixed(1).replace('.', ',') : '0' },
     { id: 'CURVA', label: 'Curva', align: 'center' },
     { id: 'SECAO', label: 'Secao', align: 'left' },
@@ -482,6 +537,73 @@ export default function ProgramacaoAtual() {
                 </button>
               )}
             </div>
+
+            {/* Botao engrenagem % OFERTA */}
+            <div className="relative" ref={ofertaConfigRef}>
+              <button
+                onClick={() => setShowOfertaConfig(!showOfertaConfig)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
+                  showOfertaConfig
+                    ? 'bg-orange-100 border-orange-400 text-orange-700'
+                    : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                % OFERTA
+              </button>
+
+              {showOfertaConfig && (
+                <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-50 w-[380px]">
+                  <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                    <span>Classificacao do Crescimento da Oferta</span>
+                  </h3>
+                  <p className="text-xs text-gray-500 mb-3">Defina as faixas de % para cada classificacao</p>
+
+                  <div className="space-y-2">
+                    {ofertaRanges.map((range, idx) => (
+                      <div key={range.id} className="flex items-center gap-2">
+                        <span className={`inline-block w-20 text-center px-2 py-1 rounded-full text-xs font-bold border ${range.color}`}>
+                          {range.label}
+                        </span>
+                        <span className="text-xs text-gray-500">de</span>
+                        <input
+                          type="number"
+                          value={range.de}
+                          onChange={(e) => handleRangeChange(idx, 'de', e.target.value)}
+                          className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                        />
+                        <span className="text-xs text-gray-500">ate</span>
+                        <input
+                          type="number"
+                          value={range.ate}
+                          onChange={(e) => handleRangeChange(idx, 'ate', e.target.value)}
+                          className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                        />
+                        <span className="text-xs text-gray-400">%</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-200">
+                    <button
+                      onClick={() => { setOfertaRanges(DEFAULT_OFERTA_RANGES); localStorage.removeItem('gestao_ofertas_ranges'); }}
+                      className="text-xs text-gray-500 hover:text-gray-700 underline"
+                    >
+                      Restaurar padrao
+                    </button>
+                    <button
+                      onClick={saveOfertaRanges}
+                      className="px-4 py-1.5 bg-orange-600 text-white text-sm font-medium rounded-md hover:bg-orange-700 transition-colors"
+                    >
+                      Salvar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Loading */}
@@ -571,12 +693,37 @@ export default function ProgramacaoAtual() {
                               <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${getRelevanciaColor(val)}`}>{val || '-'}</span>
                             </td>;
                           }
+                          if (col.id === 'VD_OFERTA') {
+                            const vdOferta = product.VD_OFERTA;
+                            const vdMedia = product.VD_MEDIA;
+                            const color = vdOferta == null ? 'text-gray-400'
+                              : vdOferta >= vdMedia ? 'text-green-600 font-semibold'
+                              : 'text-red-600 font-semibold';
+                            return <td key={col.id} className={`px-3 py-2.5 text-sm text-right ${color}`}>
+                              {vdOferta != null ? formatNumber(vdOferta) : '-'}
+                            </td>;
+                          }
                           if (col.id === 'CRESC_OFERTA') {
                             const cresc = product.VD_MEDIA > 0 && product.VD_OFERTA != null
                               ? ((product.VD_OFERTA - product.VD_MEDIA) / product.VD_MEDIA) * 100
                               : 0;
                             return <td key={col.id} className={`px-3 py-2.5 text-sm text-right font-semibold ${cresc >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                               {cresc > 0 ? '+' : ''}{formatPercent(cresc)}
+                            </td>;
+                          }
+                          if (col.id === 'CLASSIF_OFERTA') {
+                            const cresc = product.VD_MEDIA > 0 && product.VD_OFERTA != null
+                              ? ((product.VD_OFERTA - product.VD_MEDIA) / product.VD_MEDIA) * 100
+                              : null;
+                            const classif = cresc != null ? getOfertaClassif(cresc) : null;
+                            return <td key={col.id} className="px-3 py-2.5 text-center">
+                              {classif ? (
+                                <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold border ${classif.color}`}>
+                                  {classif.label}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 text-xs">-</span>
+                              )}
                             </td>;
                           }
                           if (col.id === 'CURVA') {
