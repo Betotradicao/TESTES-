@@ -12,6 +12,7 @@ interface DemonstrativoFilters {
   codLoja?: string;
   regime?: string;       // 'caixa' ou 'competencia'
   tipoFluxo?: string;    // filtro por tab: '', '1', '2', '3', '4'
+  incluirMovBanco?: string; // 'sim' ou 'nao' - incluir movimentações bancárias (TAB_MOV_BCO)
 }
 
 export class DemonstrativoCaixaService {
@@ -33,11 +34,25 @@ export class DemonstrativoCaixaService {
     const dataInicio = filters.dataInicio || `${anoAtual}-${mesAtual}-01`;
     const dataFim = filters.dataFim || `${anoAtual}-${mesAtual}-${String(Math.max(1, hoje.getDate() - 1)).padStart(2, '0')}`;
 
-    // Derivar mesAno para query de metas (usa mês da dataInicio)
+    // Derivar lista de meses para query de metas (agrega todos os meses do período)
     const partsInicio = dataInicio.split('-');
+    const partsFim = dataFim.split('-');
     const mes = partsInicio[1];
     const ano = partsInicio[0];
-    const mesAno = `${mes}${ano}`;
+
+    // Gerar todos os meses entre dataInicio e dataFim para TAB_ORCAMENTO_GERENCIAL
+    const mesesPeriodo: string[] = [];
+    const startYear = Number(partsInicio[0]);
+    const startMonth = Number(partsInicio[1]);
+    const endYear = Number(partsFim[0]);
+    const endMonth = Number(partsFim[1]);
+    let curYear = startYear;
+    let curMonth = startMonth;
+    while (curYear < endYear || (curYear === endYear && curMonth <= endMonth)) {
+      mesesPeriodo.push(`${String(curMonth).padStart(2, '0')}${curYear}`);
+      curMonth++;
+      if (curMonth > 12) { curMonth = 1; curYear++; }
+    }
 
     // 1. Buscar categorias ativas ordenadas
     const categorias = await OracleService.query<any>(`
@@ -60,9 +75,13 @@ export class DemonstrativoCaixaService {
       ORDER BY COD_CATEGORIA, NUM_ORDEM, COD_SUBCATEGORIA
     `);
 
-    // 3. Buscar metas do TAB_ORCAMENTO_GERENCIAL
-    const paramsMeta: any = { mesAno };
-    let whereMeta = `WHERE og.DTA_MENSAL = :mesAno`;
+    // 3. Buscar metas do TAB_ORCAMENTO_GERENCIAL (todos os meses do período)
+    const paramsMeta: any = {};
+    const mesesBinds = mesesPeriodo.map((m, i) => {
+      paramsMeta[`m${i}`] = m;
+      return `:m${i}`;
+    });
+    let whereMeta = `WHERE og.DTA_MENSAL IN (${mesesBinds.join(',')})`;
     if (filters.codLoja) {
       whereMeta += ` AND og.COD_LOJA = :codLoja`;
       paramsMeta.codLoja = Number(filters.codLoja);
@@ -80,10 +99,21 @@ export class DemonstrativoCaixaService {
     `, paramsMeta);
 
     // 4. Buscar valores reais do TAB_FLUXO
+    // Regime Caixa: abertos por DTA_VENCIMENTO, quitados por DTA_QUITADA (quando o dinheiro efetivamente entrou/saiu)
+    // Regime Competência: todos por DTA_ENTRADA
     const paramsFluxo: any = { dataInicio, dataFim };
-    const campoData = filters.regime === 'competencia' ? 'f.DTA_ENTRADA' : 'f.DTA_VENCIMENTO';
-    let whereFluxo = `WHERE ${campoData} >= TO_DATE(:dataInicio, 'YYYY-MM-DD')
-      AND ${campoData} <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 0.99999`;
+    let whereFluxo: string;
+    if (filters.regime === 'competencia') {
+      whereFluxo = `WHERE f.DTA_ENTRADA >= TO_DATE(:dataInicio, 'YYYY-MM-DD')
+        AND f.DTA_ENTRADA <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 0.99999`;
+    } else {
+      // Regime Caixa (híbrido): abertos por vencimento, quitados por data de quitação
+      whereFluxo = `WHERE (
+        (f.FLG_QUITADO = 'N' AND f.DTA_VENCIMENTO >= TO_DATE(:dataInicio, 'YYYY-MM-DD') AND f.DTA_VENCIMENTO <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 0.99999)
+        OR
+        (f.FLG_QUITADO = 'S' AND f.DTA_QUITADA >= TO_DATE(:dataInicio, 'YYYY-MM-DD') AND f.DTA_QUITADA <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 0.99999)
+      )`;
+    }
     if (filters.codLoja) {
       whereFluxo += ` AND f.COD_LOJA = :codLoja`;
       paramsFluxo.codLoja = Number(filters.codLoja);
@@ -100,6 +130,48 @@ export class DemonstrativoCaixaService {
       GROUP BY f.COD_CATEGORIA, f.COD_SUBCATEGORIA
     `, paramsFluxo);
 
+    // 4b. Buscar eventos financeiros (TAB_FLUXO_EVENTO)
+    // Eventos como PIS, COFINS, taxas de cartão, descontos, etc. ficam em tabela separada
+    // e são mapeados para categorias/subcategorias via TAB_EVENTO_FINANCEIRO
+    const paramsEvento: any = { dataInicio, dataFim };
+    let whereEvento: string;
+    if (filters.regime === 'competencia') {
+      whereEvento = `f.DTA_ENTRADA >= TO_DATE(:dataInicio, 'YYYY-MM-DD')
+        AND f.DTA_ENTRADA <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 0.99999`;
+    } else {
+      whereEvento = `(
+        (f.FLG_QUITADO = 'N' AND f.DTA_VENCIMENTO >= TO_DATE(:dataInicio, 'YYYY-MM-DD') AND f.DTA_VENCIMENTO <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 0.99999)
+        OR
+        (f.FLG_QUITADO = 'S' AND f.DTA_QUITADA >= TO_DATE(:dataInicio, 'YYYY-MM-DD') AND f.DTA_QUITADA <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 0.99999)
+      )`;
+    }
+    let whereEventoLoja = '';
+    if (filters.codLoja) {
+      whereEventoLoja = ` AND fe.COD_LOJA = :codLoja`;
+      paramsEvento.codLoja = Number(filters.codLoja);
+    }
+
+    const eventos = await OracleService.query<any>(`
+      SELECT
+        CASE WHEN f.TIPO_CONTA = 1 THEN ef.COD_CATEGORIA_REC ELSE ef.COD_CATEGORIA_PAG END as COD_CATEGORIA,
+        CASE WHEN f.TIPO_CONTA = 1 THEN ef.COD_SUBCATEGORIA_REC ELSE ef.COD_SUBCATEGORIA_PAG END as COD_SUBCATEGORIA,
+        SUM(CASE WHEN f.FLG_QUITADO = 'N' THEN fe.VAL_EVENTO ELSE 0 END) as VAL_ABERTO,
+        SUM(CASE WHEN f.FLG_QUITADO = 'S' THEN fe.VAL_EVENTO ELSE 0 END) as VAL_QUITADO,
+        SUM(fe.VAL_EVENTO) as VAL_REALIZADO,
+        COUNT(*) as QTD
+      FROM ${schema}.TAB_FLUXO_EVENTO fe
+      JOIN ${schema}.TAB_FLUXO f ON f.NUM_REGISTRO = fe.NUM_REGISTRO
+                                  AND f.TIPO_CONTA = fe.TIPO_CONTA
+                                  AND f.TIPO_PARCEIRO = fe.TIPO_PARCEIRO
+                                  AND f.COD_PARCEIRO = fe.COD_PARCEIRO
+                                  AND f.COD_LOJA = fe.COD_LOJA
+      JOIN ${schema}.TAB_EVENTO_FINANCEIRO ef ON ef.COD_EVENTO = fe.COD_EVENTO
+      WHERE ${whereEvento}${whereEventoLoja}
+      GROUP BY
+        CASE WHEN f.TIPO_CONTA = 1 THEN ef.COD_CATEGORIA_REC ELSE ef.COD_CATEGORIA_PAG END,
+        CASE WHEN f.TIPO_CONTA = 1 THEN ef.COD_SUBCATEGORIA_REC ELSE ef.COD_SUBCATEGORIA_PAG END
+    `, paramsEvento);
+
     // 5. Montar mapas para lookup rápido
     const metaMap = new Map<string, any>();
     for (const m of metas) {
@@ -109,6 +181,81 @@ export class DemonstrativoCaixaService {
     const fluxoMap = new Map<string, any>();
     for (const f of fluxo) {
       fluxoMap.set(`${f.COD_CATEGORIA}_${f.COD_SUBCATEGORIA}`, f);
+    }
+
+    // Mesclar eventos no fluxoMap (somar aos valores existentes)
+    for (const ev of eventos) {
+      const key = `${ev.COD_CATEGORIA}_${ev.COD_SUBCATEGORIA}`;
+      const existing = fluxoMap.get(key);
+      if (existing) {
+        existing.VAL_ABERTO = (Number(existing.VAL_ABERTO) || 0) + (Number(ev.VAL_ABERTO) || 0);
+        existing.VAL_QUITADO = (Number(existing.VAL_QUITADO) || 0) + (Number(ev.VAL_QUITADO) || 0);
+        existing.VAL_REALIZADO = (Number(existing.VAL_REALIZADO) || 0) + (Number(ev.VAL_REALIZADO) || 0);
+      } else {
+        fluxoMap.set(key, {
+          COD_CATEGORIA: ev.COD_CATEGORIA,
+          COD_SUBCATEGORIA: ev.COD_SUBCATEGORIA,
+          VAL_ABERTO: Number(ev.VAL_ABERTO) || 0,
+          VAL_QUITADO: Number(ev.VAL_QUITADO) || 0,
+          VAL_REALIZADO: Number(ev.VAL_REALIZADO) || 0,
+        });
+      }
+    }
+
+    // 4c. Buscar movimentações bancárias (TAB_MOV_BCO)
+    // Pagamentos como PIS, COFINS, ICMS, DARF ficam em movimentações bancárias
+    // TIPO_SITUACAO: 0=Aberto, 1=Quitado
+    // FLG_ESTORNO='N' para ignorar estornos
+    if (filters.incluirMovBanco !== 'nao') {
+      const paramsMovBco: any = { dataInicio, dataFim };
+      let whereMovBco: string;
+      if (filters.regime === 'competencia') {
+        whereMovBco = `WHERE m.DTA_ENTRADA >= TO_DATE(:dataInicio, 'YYYY-MM-DD')
+          AND m.DTA_ENTRADA <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 0.99999`;
+      } else {
+        // Regime Caixa: usar DTA_QUITADA para quitados, DTA_ENTRADA para abertos
+        whereMovBco = `WHERE (
+          (m.TIPO_SITUACAO = 0 AND m.DTA_ENTRADA >= TO_DATE(:dataInicio, 'YYYY-MM-DD') AND m.DTA_ENTRADA <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 0.99999)
+          OR
+          (m.TIPO_SITUACAO = 1 AND NVL(m.DTA_QUITADA, m.DTA_ENTRADA) >= TO_DATE(:dataInicio, 'YYYY-MM-DD') AND NVL(m.DTA_QUITADA, m.DTA_ENTRADA) <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 0.99999)
+        )`;
+      }
+      if (filters.codLoja) {
+        whereMovBco += ` AND m.COD_LOJA = :codLoja`;
+        paramsMovBco.codLoja = Number(filters.codLoja);
+      }
+      whereMovBco += ` AND m.FLG_ESTORNO = 'N' AND m.COD_CATEGORIA IS NOT NULL`;
+
+      const movBco = await OracleService.query<any>(`
+        SELECT m.COD_CATEGORIA, m.COD_SUBCATEGORIA,
+               SUM(CASE WHEN m.TIPO_SITUACAO = 0 THEN m.VAL_DOCTO ELSE 0 END) as VAL_ABERTO,
+               SUM(CASE WHEN m.TIPO_SITUACAO = 1 THEN m.VAL_DOCTO ELSE 0 END) as VAL_QUITADO,
+               SUM(m.VAL_DOCTO) as VAL_REALIZADO,
+               COUNT(*) as QTD
+        FROM ${schema}.TAB_MOV_BCO m
+        ${whereMovBco}
+        GROUP BY m.COD_CATEGORIA, m.COD_SUBCATEGORIA
+      `, paramsMovBco);
+
+      // Mesclar movimentações bancárias no fluxoMap
+      for (const mb of movBco) {
+        if (!mb.COD_CATEGORIA) continue;
+        const key = `${mb.COD_CATEGORIA}_${mb.COD_SUBCATEGORIA}`;
+        const existing = fluxoMap.get(key);
+        if (existing) {
+          existing.VAL_ABERTO = (Number(existing.VAL_ABERTO) || 0) + (Number(mb.VAL_ABERTO) || 0);
+          existing.VAL_QUITADO = (Number(existing.VAL_QUITADO) || 0) + (Number(mb.VAL_QUITADO) || 0);
+          existing.VAL_REALIZADO = (Number(existing.VAL_REALIZADO) || 0) + (Number(mb.VAL_REALIZADO) || 0);
+        } else {
+          fluxoMap.set(key, {
+            COD_CATEGORIA: mb.COD_CATEGORIA,
+            COD_SUBCATEGORIA: mb.COD_SUBCATEGORIA,
+            VAL_ABERTO: Number(mb.VAL_ABERTO) || 0,
+            VAL_QUITADO: Number(mb.VAL_QUITADO) || 0,
+            VAL_REALIZADO: Number(mb.VAL_REALIZADO) || 0,
+          });
+        }
+      }
     }
 
     // 6. Montar estrutura hierárquica
@@ -125,8 +272,14 @@ export class DemonstrativoCaixaService {
 
     for (const cat of categorias) {
       // Filtro por tab (tipoFluxo)
-      if (filters.tipoFluxo && filters.tipoFluxo !== '' && cat.TIPO_FLUXO !== Number(filters.tipoFluxo)) {
-        continue;
+      if (filters.tipoFluxo && filters.tipoFluxo !== '') {
+        // Tab específica: mostrar apenas categorias daquele tipo
+        if (cat.TIPO_FLUXO !== Number(filters.tipoFluxo)) continue;
+      } else {
+        // Tab Geral: excluir apenas "TRANSFERENCIA ENTRE CONTAS" (COD_CATEGORIA=19)
+        // Outras categorias com TIPO_FLUXO=4 (Verbas Comerciais, Nota Devolução, etc.) devem aparecer
+        const nomeUpper = (cat.DES_CATEGORIA || '').trim().toUpperCase();
+        if (nomeUpper.includes('TRANSFERENCIA ENTRE CONTAS') || nomeUpper.includes('TRANSFERÊNCIA ENTRE CONTAS')) continue;
       }
 
       const subs = subcategorias.filter((s: any) => s.COD_CATEGORIA === cat.COD_CATEGORIA);
@@ -254,16 +407,29 @@ export class DemonstrativoCaixaService {
     status?: string; // 'aberto', 'quitado', 'todos'
   }): Promise<any> {
     const schema = await MappingService.getSchema();
-    const campoData = filters.regime === 'competencia' ? 'f.DTA_ENTRADA' : 'f.DTA_VENCIMENTO';
     const params: any = {
       codCategoria: filters.codCategoria,
       dataInicio: filters.dataInicio,
       dataFim: filters.dataFim,
     };
 
-    let where = `WHERE f.COD_CATEGORIA = :codCategoria
-      AND ${campoData} >= TO_DATE(:dataInicio, 'YYYY-MM-DD')
-      AND ${campoData} <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 0.99999`;
+    // Mesma lógica híbrida: Regime Caixa usa DTA_VENCIMENTO para abertos e DTA_QUITADA para quitados
+    let whereDate: string;
+    let orderDate: string;
+    if (filters.regime === 'competencia') {
+      whereDate = `f.DTA_ENTRADA >= TO_DATE(:dataInicio, 'YYYY-MM-DD') AND f.DTA_ENTRADA <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 0.99999`;
+      orderDate = 'f.DTA_ENTRADA';
+    } else {
+      // Regime Caixa híbrido
+      whereDate = `(
+        (f.FLG_QUITADO = 'N' AND f.DTA_VENCIMENTO >= TO_DATE(:dataInicio, 'YYYY-MM-DD') AND f.DTA_VENCIMENTO <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 0.99999)
+        OR
+        (f.FLG_QUITADO = 'S' AND f.DTA_QUITADA >= TO_DATE(:dataInicio, 'YYYY-MM-DD') AND f.DTA_QUITADA <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 0.99999)
+      )`;
+      orderDate = 'NVL(f.DTA_QUITADA, f.DTA_VENCIMENTO)';
+    }
+
+    let where = `WHERE f.COD_CATEGORIA = :codCategoria AND ${whereDate}`;
 
     if (filters.codSubcategoria != null) {
       where += ` AND f.COD_SUBCATEGORIA = :codSubcategoria`;
@@ -290,7 +456,7 @@ export class DemonstrativoCaixaService {
       FROM ${schema}.TAB_FLUXO f
       LEFT JOIN ${schema}.TAB_ENTIDADE e ON e.COD_ENTIDADE = f.COD_ENTIDADE
       ${where}
-      ORDER BY ${campoData} DESC, f.NUM_REGISTRO DESC
+      ORDER BY ${orderDate} DESC, f.NUM_REGISTRO DESC
     `, params);
 
     // Calcular totais

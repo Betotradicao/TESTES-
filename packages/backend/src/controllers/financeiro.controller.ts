@@ -23,6 +23,7 @@ export class FinanceiroController {
         codCategoria: req.query.codCategoria as string,
         parceiro: req.query.parceiro as string,
         codLoja: req.query.codLoja as string,
+        incluirMovBanco: (req.query.incluirMovBanco as string) || 'nao',
       };
 
       console.log('[FINANCEIRO] Query params recebidos:', req.query);
@@ -52,6 +53,7 @@ export class FinanceiroController {
         codCategoria: req.query.codCategoria as string,
         parceiro: req.query.parceiro as string,
         codLoja: req.query.codLoja as string,
+        incluirMovBanco: (req.query.incluirMovBanco as string) || 'nao',
       };
 
       const result = await FinanceiroService.getResumo(filters);

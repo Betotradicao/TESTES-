@@ -87,6 +87,9 @@ export default function EntradasSaidas() {
   // Borderô: agrupado ou separado
   const [borderoMode, setBorderoMode] = useState('separado');
 
+  // Movimentação Bancária: com ou sem
+  const [incluirMovBanco, setIncluirMovBanco] = useState('sim');
+
   // Dropdowns
   const [bancos, setBancos] = useState([]);
   const [entidades, setEntidades] = useState([]);
@@ -153,6 +156,7 @@ export default function EntradasSaidas() {
       if (filters.codCategoria && filters.codCategoria !== '') params.append('codCategoria', filters.codCategoria);
       if (filters.parceiro) params.append('parceiro', filters.parceiro);
       if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+      params.append('incluirMovBanco', incluirMovBanco);
 
       console.log('[EntradasSaidas] Filtros:', JSON.stringify(filters));
       console.log('[EntradasSaidas] Params URL:', params.toString());
@@ -561,6 +565,23 @@ export default function EntradasSaidas() {
                       onChange={(e) => setBorderoMode(e.target.value)}
                       className="text-orange-500 focus:ring-orange-500 h-3.5 w-3.5" />
                     <span className="text-sm text-gray-700">Separado</span>
+                  </label>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">🏦 Mov. Banco</label>
+                <div className="flex items-center gap-3 h-[34px] border border-gray-300 rounded-md px-3 bg-white">
+                  <label className="flex items-center gap-1 cursor-pointer">
+                    <input type="radio" name="movBanco" value="sim" checked={incluirMovBanco === 'sim'}
+                      onChange={(e) => setIncluirMovBanco(e.target.value)}
+                      className="text-orange-500 focus:ring-orange-500 h-3.5 w-3.5" />
+                    <span className="text-sm text-gray-700">Com</span>
+                  </label>
+                  <label className="flex items-center gap-1 cursor-pointer">
+                    <input type="radio" name="movBanco" value="nao" checked={incluirMovBanco === 'nao'}
+                      onChange={(e) => setIncluirMovBanco(e.target.value)}
+                      className="text-orange-500 focus:ring-orange-500 h-3.5 w-3.5" />
+                    <span className="text-sm text-gray-700">Sem</span>
                   </label>
                 </div>
               </div>

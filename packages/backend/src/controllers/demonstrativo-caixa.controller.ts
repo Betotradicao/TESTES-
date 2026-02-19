@@ -16,6 +16,7 @@ export class DemonstrativoCaixaController {
         codLoja: req.query.codLoja as string,
         regime: req.query.regime as string,
         tipoFluxo: req.query.tipoFluxo as string,
+        incluirMovBanco: (req.query.incluirMovBanco as string) || 'sim',
       };
 
       const result = await DemonstrativoCaixaService.getDados(filters);

@@ -6,29 +6,20 @@ import RadarLoading from '../components/RadarLoading';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 
-const TABS = [
-  { id: '', label: 'Geral' },
-  { id: '2', label: 'Fixas' },
-  { id: '1', label: 'Variáveis' },
-  { id: '4', label: 'Transferências' },
-  { id: '3', label: 'Impostos' },
-];
+// Tabs removidas por enquanto - usando apenas Geral
 
 const INITIAL_COLUMNS = [
-  { id: 'META', header: 'Meta', minW: 90 },
-  { id: 'PCT_REC_META', header: '% Rec', minW: 55 },
-  { id: 'PCT_DESP_META', header: '% Desp', minW: 55 },
-  { id: 'VAL_ABERTO', header: 'Val. Aberto', minW: 90 },
-  { id: 'VAL_QUITADO', header: 'Val. Quitado', minW: 90 },
-  { id: 'PCT_REC_QUIT', header: '% Rec', minW: 55 },
-  { id: 'PCT_DESP_QUIT', header: '% Desp', minW: 55 },
-  { id: 'VAL_REALIZADO', header: 'Val. Realizado', minW: 90 },
-  { id: 'PCT_REC_REAL', header: '% Rec', minW: 55 },
-  { id: 'PCT_DESP_REAL', header: '% Desp', minW: 55 },
-  { id: 'VAL_DIFERENCA', header: 'Val. Diferença', minW: 90 },
+  { id: 'META', header: 'Meta', headerDesp: 'Meta', minW: 110 },
+  { id: 'PCT_META', header: '% Receitas', headerDesp: '% Despesas', minW: 90 },
+  { id: 'VAL_ABERTO', header: 'Val. Aberto', headerDesp: 'Val. Aberto', minW: 110 },
+  { id: 'VAL_QUITADO', header: 'Val. Quitado', headerDesp: 'Val. Quitado', minW: 110 },
+  { id: 'PCT_QUIT', header: '% Receitas', headerDesp: '% Despesas', minW: 90 },
+  { id: 'VAL_REALIZADO', header: 'Quitado + Aberto', headerDesp: 'Quitado + Aberto', minW: 130 },
+  { id: 'PCT_REAL', header: '% Receitas', headerDesp: '% Despesas', minW: 90 },
+  { id: 'VAL_DIFERENCA', header: 'Val. Diferença', headerDesp: 'Val. Diferença', minW: 110 },
 ];
 
-const STORAGE_KEY = 'demonstrativo_caixa_columns_order';
+const STORAGE_KEY = 'demonstrativo_caixa_columns_v3';
 
 function formatCurrency(val) {
   if (val == null || isNaN(val)) return '-';
@@ -52,45 +43,52 @@ function formatDate(dateStr) {
 }
 
 // Render cell value based on column id for a category row
+// % columns are contextual: show % Receitas for receita rows, % Despesas for despesa rows
 function getCatCellValue(colId, cat, totais) {
-  const metaPctRec = totais.totalMetaReceitas ? (cat.META / totais.totalMetaReceitas * 100) : 0;
-  const metaPctDesp = totais.totalMetaDespesas ? (cat.META / totais.totalMetaDespesas * 100) : 0;
-  const realPctRec = totais.totalReceitas ? (cat.VAL_REALIZADO / totais.totalReceitas * 100) : 0;
-  const realPctDesp = totais.totalDespesas ? (cat.VAL_REALIZADO / totais.totalDespesas * 100) : 0;
+  // % Despesas = valor da despesa / total receitas (não total despesas)
+  const metaPct = cat.IS_RECEITA
+    ? (totais.totalMetaReceitas ? (cat.META / totais.totalMetaReceitas * 100) : 0)
+    : (totais.totalMetaReceitas ? (cat.META / totais.totalMetaReceitas * 100) : 0);
+  const realPct = cat.IS_RECEITA
+    ? (totais.totalReceitas ? (cat.VAL_REALIZADO / totais.totalReceitas * 100) : 0)
+    : (totais.totalReceitas ? (cat.VAL_REALIZADO / totais.totalReceitas * 100) : 0);
+  const quitPct = cat.IS_RECEITA
+    ? (totais.totalQuitadoReceitas ? (cat.VAL_QUITADO / totais.totalQuitadoReceitas * 100) : 0)
+    : (totais.totalQuitadoReceitas ? (cat.VAL_QUITADO / totais.totalQuitadoReceitas * 100) : 0);
 
   switch (colId) {
     case 'META': return formatCurrency(cat.META);
-    case 'PCT_REC_META': return cat.IS_RECEITA ? formatPercent(metaPctRec) : '';
-    case 'PCT_DESP_META': return cat.IS_DESPESA ? formatPercent(metaPctDesp) : '';
+    case 'PCT_META': return formatPercent(metaPct);
     case 'VAL_ABERTO': return formatCurrency(cat.VAL_ABERTO);
     case 'VAL_QUITADO': return formatCurrency(cat.VAL_QUITADO);
-    case 'PCT_REC_QUIT': return cat.IS_RECEITA ? formatPercent(realPctRec) : '';
-    case 'PCT_DESP_QUIT': return cat.IS_DESPESA ? formatPercent(realPctDesp) : '';
+    case 'PCT_QUIT': return formatPercent(quitPct);
     case 'VAL_REALIZADO': return formatCurrency(cat.VAL_REALIZADO);
-    case 'PCT_REC_REAL': return cat.IS_RECEITA ? formatPercent(realPctRec) : '';
-    case 'PCT_DESP_REAL': return cat.IS_DESPESA ? formatPercent(realPctDesp) : '';
+    case 'PCT_REAL': return formatPercent(realPct);
     case 'VAL_DIFERENCA': return formatCurrency(cat.VAL_DIFERENCA);
     default: return '';
   }
 }
 
 function getSubCellValue(colId, sub, cat, totais) {
-  const subMetaPctRec = totais.totalMetaReceitas ? (sub.META / totais.totalMetaReceitas * 100) : 0;
-  const subMetaPctDesp = totais.totalMetaDespesas ? (sub.META / totais.totalMetaDespesas * 100) : 0;
-  const subRealPctRec = totais.totalReceitas ? (sub.VAL_REALIZADO / totais.totalReceitas * 100) : 0;
-  const subRealPctDesp = totais.totalDespesas ? (sub.VAL_REALIZADO / totais.totalDespesas * 100) : 0;
+  // % Despesas = valor da despesa / total receitas (não total despesas)
+  const subMetaPct = cat.IS_RECEITA
+    ? (totais.totalMetaReceitas ? (sub.META / totais.totalMetaReceitas * 100) : 0)
+    : (totais.totalMetaReceitas ? (sub.META / totais.totalMetaReceitas * 100) : 0);
+  const subRealPct = cat.IS_RECEITA
+    ? (totais.totalReceitas ? (sub.VAL_REALIZADO / totais.totalReceitas * 100) : 0)
+    : (totais.totalReceitas ? (sub.VAL_REALIZADO / totais.totalReceitas * 100) : 0);
+  const subQuitPct = cat.IS_RECEITA
+    ? (totais.totalQuitadoReceitas ? (sub.VAL_QUITADO / totais.totalQuitadoReceitas * 100) : 0)
+    : (totais.totalQuitadoReceitas ? (sub.VAL_QUITADO / totais.totalQuitadoReceitas * 100) : 0);
 
   switch (colId) {
     case 'META': return formatCurrency(sub.META);
-    case 'PCT_REC_META': return cat.IS_RECEITA ? formatPercent(subMetaPctRec) : '';
-    case 'PCT_DESP_META': return cat.IS_DESPESA ? formatPercent(subMetaPctDesp) : '';
+    case 'PCT_META': return formatPercent(subMetaPct);
     case 'VAL_ABERTO': return formatCurrency(sub.VAL_ABERTO);
     case 'VAL_QUITADO': return formatCurrency(sub.VAL_QUITADO);
-    case 'PCT_REC_QUIT': return cat.IS_RECEITA ? formatPercent(subRealPctRec) : '';
-    case 'PCT_DESP_QUIT': return cat.IS_DESPESA ? formatPercent(subRealPctDesp) : '';
+    case 'PCT_QUIT': return formatPercent(subQuitPct);
     case 'VAL_REALIZADO': return formatCurrency(sub.VAL_REALIZADO);
-    case 'PCT_REC_REAL': return cat.IS_RECEITA ? formatPercent(subRealPctRec) : '';
-    case 'PCT_DESP_REAL': return cat.IS_DESPESA ? formatPercent(subRealPctDesp) : '';
+    case 'PCT_REAL': return formatPercent(subRealPct);
     case 'VAL_DIFERENCA': return formatCurrency(sub.VAL_DIFERENCA);
     default: return '';
   }
@@ -101,15 +99,12 @@ function getTotalCellValue(colId, totais, type) {
   if (type === 'receitas') {
     switch (colId) {
       case 'META': return formatCurrency(totais.totalMetaReceitas);
-      case 'PCT_REC_META': return '100,00%';
-      case 'PCT_DESP_META': return '';
+      case 'PCT_META': return '100,00%';
       case 'VAL_ABERTO': return formatCurrency(totais.totalAbertoReceitas);
       case 'VAL_QUITADO': return formatCurrency(totais.totalQuitadoReceitas);
-      case 'PCT_REC_QUIT': return '100,00%';
-      case 'PCT_DESP_QUIT': return '';
+      case 'PCT_QUIT': return '100,00%';
       case 'VAL_REALIZADO': return formatCurrency(totais.totalReceitas);
-      case 'PCT_REC_REAL': return '100,00%';
-      case 'PCT_DESP_REAL': return '';
+      case 'PCT_REAL': return '100,00%';
       case 'VAL_DIFERENCA': return formatCurrency((totais.totalMetaReceitas || 0) - (totais.totalReceitas || 0));
       default: return '';
     }
@@ -117,15 +112,12 @@ function getTotalCellValue(colId, totais, type) {
   if (type === 'despesas') {
     switch (colId) {
       case 'META': return formatCurrency(totais.totalMetaDespesas);
-      case 'PCT_REC_META': return '';
-      case 'PCT_DESP_META': return '100,00%';
+      case 'PCT_META': return '100,00%';
       case 'VAL_ABERTO': return formatCurrency(totais.totalAbertoDespesas);
       case 'VAL_QUITADO': return formatCurrency(totais.totalQuitadoDespesas);
-      case 'PCT_REC_QUIT': return '';
-      case 'PCT_DESP_QUIT': return '100,00%';
+      case 'PCT_QUIT': return '100,00%';
       case 'VAL_REALIZADO': return formatCurrency(totais.totalDespesas);
-      case 'PCT_REC_REAL': return '';
-      case 'PCT_DESP_REAL': return '100,00%';
+      case 'PCT_REAL': return '100,00%';
       case 'VAL_DIFERENCA': return formatCurrency((totais.totalMetaDespesas || 0) - (totais.totalDespesas || 0));
       default: return '';
     }
@@ -136,6 +128,7 @@ function getTotalCellValue(colId, totais, type) {
     case 'VAL_ABERTO': return formatCurrency((totais.totalAbertoReceitas || 0) - (totais.totalAbertoDespesas || 0));
     case 'VAL_QUITADO': return formatCurrency((totais.totalQuitadoReceitas || 0) - (totais.totalQuitadoDespesas || 0));
     case 'VAL_REALIZADO': return formatCurrency(totais.saldo);
+    case 'VAL_DIFERENCA': return formatCurrency(((totais.totalMetaReceitas || 0) - (totais.totalMetaDespesas || 0)) - (totais.saldo || 0));
     default: return '';
   }
 }
@@ -147,8 +140,9 @@ export default function DemonstrativoCaixa() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [expandedCats, setExpandedCats] = useState({});
-  const [activeTab, setActiveTab] = useState('');
+  // Tabs removidas - sempre Geral
   const [regime, setRegime] = useState('caixa');
+  const [incluirMovBanco, setIncluirMovBanco] = useState('sim');
 
   // Datas livres
   const now = new Date();
@@ -198,7 +192,7 @@ export default function DemonstrativoCaixa() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const params = { dataInicio, dataFim, regime, tipoFluxo: activeTab };
+      const params = { dataInicio, dataFim, regime, incluirMovBanco };
       if (lojaSelecionada?.cod_loja) params.codLoja = lojaSelecionada.cod_loja;
       const res = await api.get('/demonstrativo-caixa/dados', { params });
       if (res.data?.success) {
@@ -215,7 +209,7 @@ export default function DemonstrativoCaixa() {
     }
   };
 
-  useEffect(() => { fetchData(); }, [dataInicio, dataFim, regime, activeTab, lojaSelecionada]);
+  useEffect(() => { fetchData(); }, [dataInicio, dataFim, regime, lojaSelecionada, incluirMovBanco]);
 
   // Buscar títulos do painel lateral
   const fetchTitulos = async () => {
@@ -404,17 +398,13 @@ export default function DemonstrativoCaixa() {
                   <button onClick={() => setRegime('competencia')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${regime === 'competencia' ? 'bg-white shadow text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>Competência</button>
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="bg-white rounded-t-lg border border-b-0 print:hidden">
-            <div className="flex overflow-x-auto">
-              {TABS.map(tab => (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeTab === tab.id ? 'border-orange-500 text-orange-600 bg-orange-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
-                >{tab.label}</button>
-              ))}
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-600">Mov. Banco:</label>
+                <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+                  <button onClick={() => setIncluirMovBanco('sim')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${incluirMovBanco === 'sim' ? 'bg-white shadow text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>Com</button>
+                  <button onClick={() => setIncluirMovBanco('nao')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${incluirMovBanco === 'nao' ? 'bg-white shadow text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>Sem</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -422,7 +412,7 @@ export default function DemonstrativoCaixa() {
           {loading ? (
             <div className="flex justify-center py-20"><RadarLoading /></div>
           ) : (
-            <div className="bg-white rounded-b-lg shadow-sm border overflow-x-auto print:shadow-none print:border-none">
+            <div className="bg-white rounded-lg shadow-sm border overflow-x-auto print:shadow-none print:border-none">
               <table className="w-full text-sm border-collapse table-fixed">
                 <colgroup>
                   <col style={{ width: 320 }} />
@@ -461,64 +451,95 @@ export default function DemonstrativoCaixa() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(data?.categorias || []).map((cat) => {
-                    const isExpanded = expandedCats[cat.COD_CATEGORIA];
-                    const catBg = cat.IS_RECEITA ? 'bg-green-100' : 'bg-orange-100';
+                  {(() => {
+                    const cats = data?.categorias || [];
+                    const receitas = cats.filter(c => c.IS_RECEITA);
+                    const despesas = cats.filter(c => c.IS_DESPESA);
 
-                    return (
-                      <React.Fragment key={cat.COD_CATEGORIA}>
-                        {/* Linha da categoria */}
-                        <tr className={`${catBg} ${cat.IS_RECEITA ? 'text-green-800' : 'text-orange-800'} cursor-pointer hover:opacity-80 transition-opacity`} onClick={() => toggleCat(cat.COD_CATEGORIA)}>
-                          <td className={`py-1.5 px-3 font-bold sticky left-0 z-10 ${catBg}`}>
-                            <div className="flex items-center gap-2">
-                              <svg className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/>
-                              </svg>
-                              <span className="truncate">{cat.DES_CATEGORIA}</span>
-                            </div>
-                          </td>
-                          {columns.map(col => (
-                            <td key={col.id} className={`text-right py-1.5 px-1 font-bold ${getCatDifClass(col.id, cat)}`}>
-                              {getCatCellValue(col.id, cat, totais)}
-                            </td>
-                          ))}
-                          <td className={catBg}></td>
-                        </tr>
-
-                        {/* Subcategorias */}
-                        {isExpanded && (cat.subcategorias || []).map((sub) => (
-                          <tr key={`${cat.COD_CATEGORIA}_${sub.COD_SUBCATEGORIA}`}
-                            className="bg-white hover:bg-gray-50 border-b border-gray-100 cursor-pointer"
-                            onClick={() => abrirDetalhe(cat, sub)}
-                          >
-                            <td className="py-1 px-3 pl-8 sticky left-0 bg-white z-10">
-                              <span className="text-gray-700">{sub.DES_SUBCATEGORIA}</span>
+                    const renderCat = (cat) => {
+                      const isExpanded = expandedCats[cat.COD_CATEGORIA];
+                      const catBg = cat.IS_RECEITA ? 'bg-green-100' : 'bg-orange-100';
+                      return (
+                        <React.Fragment key={cat.COD_CATEGORIA}>
+                          <tr className={`${catBg} ${cat.IS_RECEITA ? 'text-green-800' : 'text-orange-800'} cursor-pointer hover:opacity-80 transition-opacity`} onClick={() => toggleCat(cat.COD_CATEGORIA)}>
+                            <td className={`py-1.5 px-3 font-bold sticky left-0 z-10 ${catBg}`}>
+                              <div className="flex items-center gap-2">
+                                <svg className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/>
+                                </svg>
+                                <span className="truncate">{cat.DES_CATEGORIA}</span>
+                              </div>
                             </td>
                             {columns.map(col => (
-                              <td key={col.id} className={`text-right py-1 px-1 text-gray-600 ${getSubDifClass(col.id, sub)}`}>
-                                {getSubCellValue(col.id, sub, cat, totais)}
+                              <td key={col.id} className={`text-right py-1.5 px-1 font-bold ${getCatDifClass(col.id, cat)}`}>
+                                {getCatCellValue(col.id, cat, totais)}
                               </td>
                             ))}
-                            <td></td>
+                            <td className={catBg}></td>
                           </tr>
-                        ))}
-                      </React.Fragment>
-                    );
-                  })}
+                          {isExpanded && (cat.subcategorias || []).map((sub) => (
+                            <tr key={`${cat.COD_CATEGORIA}_${sub.COD_SUBCATEGORIA}`}
+                              className="bg-white hover:bg-gray-50 border-b border-gray-100 cursor-pointer"
+                              onClick={() => abrirDetalhe(cat, sub)}
+                            >
+                              <td className="py-1 px-3 pl-8 sticky left-0 bg-white z-10">
+                                <span className="text-gray-700">{sub.DES_SUBCATEGORIA}</span>
+                              </td>
+                              {columns.map(col => (
+                                <td key={col.id} className={`text-right py-1 px-1 text-gray-600 ${getSubDifClass(col.id, sub)}`}>
+                                  {getSubCellValue(col.id, sub, cat, totais)}
+                                </td>
+                              ))}
+                              <td></td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      );
+                    };
 
-                  {/* Totais */}
+                    return (
+                      <>
+                        {/* Receitas */}
+                        {receitas.map(renderCat)}
+
+                        {/* Subtotal Receitas (entre receitas e despesas) */}
+                        {data && receitas.length > 0 && (
+                          <tr className="bg-green-200 text-green-900 font-bold border-t-2 border-green-300">
+                            <td className="py-2 px-3 sticky left-0 bg-green-200 z-10">TOTAL RECEITAS</td>
+                            {columns.map(col => {
+                              const difRec = (totais.totalMetaReceitas || 0) - (totais.totalReceitas || 0);
+                              const difClass = col.id === 'VAL_DIFERENCA' ? (difRec < 0 ? 'text-red-600' : difRec > 0 ? 'text-green-700' : '') : '';
+                              return <td key={col.id} className={`text-right py-1.5 px-1 ${difClass}`}>{getTotalCellValue(col.id, totais, 'receitas')}</td>;
+                            })}
+                            <td className="bg-green-200"></td>
+                          </tr>
+                        )}
+
+                        {/* Cabeçalho da seção Despesas */}
+                        {data && despesas.length > 0 && (
+                          <tr className="bg-gray-700 text-white">
+                            <th className="text-left py-2 px-2 font-semibold sticky left-0 bg-gray-700 z-10 whitespace-nowrap">
+                              Movimento
+                            </th>
+                            {columns.map(col => (
+                              <th key={col.id} className="text-right py-2 px-1 font-semibold whitespace-nowrap">
+                                {col.headerDesp || col.header}
+                              </th>
+                            ))}
+                            <th className="bg-gray-700"></th>
+                          </tr>
+                        )}
+
+                        {/* Despesas */}
+                        {despesas.map(renderCat)}
+                      </>
+                    );
+                  })()}
+
+                  {/* Totais finais */}
                   {data && (
                     <>
-                      <tr className="bg-green-200 text-green-900 font-bold">
-                        <td className="py-2 px-3 sticky left-0 bg-green-200 z-10">TOTAL RECEITAS</td>
-                        {columns.map(col => {
-                          const difRec = (totais.totalMetaReceitas || 0) - (totais.totalReceitas || 0);
-                          const difClass = col.id === 'VAL_DIFERENCA' ? (difRec < 0 ? 'text-red-600' : difRec > 0 ? 'text-green-700' : '') : '';
-                          return <td key={col.id} className={`text-right py-1.5 px-1 ${difClass}`}>{getTotalCellValue(col.id, totais, 'receitas')}</td>;
-                        })}
-                        <td className="bg-green-200"></td>
-                      </tr>
-                      <tr className="bg-orange-200 text-orange-900 font-bold">
+                      <tr className="bg-orange-200 text-orange-900 font-bold border-t-2 border-orange-300">
                         <td className="py-2 px-3 sticky left-0 bg-orange-200 z-10">TOTAL DESPESAS</td>
                         {columns.map(col => {
                           const difDesp = (totais.totalMetaDespesas || 0) - (totais.totalDespesas || 0);
@@ -529,11 +550,21 @@ export default function DemonstrativoCaixa() {
                       </tr>
                       <tr className="bg-gray-800 text-white font-bold text-base">
                         <td className="py-2.5 px-3 sticky left-0 bg-gray-800 z-10">SALDO (Receitas - Despesas)</td>
-                        {columns.map(col => (
-                          <td key={col.id} className={`text-right py-2.5 px-1 ${col.id === 'VAL_REALIZADO' ? (totais.saldo < 0 ? 'text-red-300' : 'text-green-300') : ''}`}>
-                            {getTotalCellValue(col.id, totais, 'saldo')}
-                          </td>
-                        ))}
+                        {columns.map(col => {
+                          // Determina valor numérico para cor condicional
+                          let saldoVal = null;
+                          if (col.id === 'META') saldoVal = (totais.totalMetaReceitas || 0) - (totais.totalMetaDespesas || 0);
+                          else if (col.id === 'VAL_ABERTO') saldoVal = (totais.totalAbertoReceitas || 0) - (totais.totalAbertoDespesas || 0);
+                          else if (col.id === 'VAL_QUITADO') saldoVal = (totais.totalQuitadoReceitas || 0) - (totais.totalQuitadoDespesas || 0);
+                          else if (col.id === 'VAL_REALIZADO') saldoVal = totais.saldo;
+                          else if (col.id === 'VAL_DIFERENCA') saldoVal = ((totais.totalMetaReceitas || 0) - (totais.totalMetaDespesas || 0)) - (totais.saldo || 0);
+                          const colorClass = saldoVal !== null ? (saldoVal < 0 ? 'text-red-300' : 'text-green-300') : '';
+                          return (
+                            <td key={col.id} className={`text-right py-2.5 px-1 ${colorClass}`}>
+                              {getTotalCellValue(col.id, totais, 'saldo')}
+                            </td>
+                          );
+                        })}
                         <td className="bg-gray-800"></td>
                       </tr>
                     </>
@@ -552,8 +583,33 @@ export default function DemonstrativoCaixa() {
           )}
 
           {/* Resumo em cards */}
-          {data && (
+          {data && (() => {
+            const saldoQuitado = (totais.totalQuitadoReceitas || 0) - (totais.totalQuitadoDespesas || 0);
+            return (<>
+            {/* Cards Quitados */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 print:grid-cols-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <div className="text-sm text-green-600 font-medium">Receitas Quitadas</div>
+                <div className="text-xl font-bold text-green-700 mt-1">R$ {formatCurrency(totais.totalQuitadoReceitas)}</div>
+              </div>
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                <div className="text-sm text-orange-600 font-medium">Despesas Quitadas</div>
+                <div className="text-xl font-bold text-orange-700 mt-1">R$ {formatCurrency(totais.totalQuitadoDespesas)}</div>
+              </div>
+              <div className={`${saldoQuitado >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-lg p-3`}>
+                <div className={`text-sm font-medium ${saldoQuitado >= 0 ? 'text-green-600' : 'text-red-600'}`}>Saldo Quitado</div>
+                <div className={`text-xl font-bold mt-1 ${saldoQuitado >= 0 ? 'text-green-700' : 'text-red-700'}`}>R$ {formatCurrency(saldoQuitado)}</div>
+              </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                <div className="text-sm text-gray-600 font-medium">Período</div>
+                <div className="text-base font-bold text-gray-700 mt-1">
+                  {dataInicio.split('-').reverse().join('/')} a {dataFim.split('-').reverse().join('/')}
+                </div>
+                <div className="text-sm text-gray-500 mt-0.5">Regime: {regime === 'caixa' ? 'Caixa' : 'Competência'}</div>
+              </div>
+            </div>
+            {/* Cards Realizado (Quitado + Aberto) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 print:grid-cols-4">
               <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                 <div className="text-sm text-green-600 font-medium">Total Receitas</div>
                 <div className="text-xl font-bold text-green-700 mt-1">R$ {formatCurrency(totais.totalReceitas)}</div>
@@ -576,7 +632,8 @@ export default function DemonstrativoCaixa() {
                 <div className="text-sm text-gray-500 mt-0.5">Regime: {regime === 'caixa' ? 'Caixa' : 'Competência'}</div>
               </div>
             </div>
-          )}
+            </>);
+          })()}
         </div>
       </div>
 
