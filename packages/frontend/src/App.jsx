@@ -57,6 +57,7 @@ import NotasAChegar from './pages/NotasAChegar';
 import ExtratoSantander from './pages/ExtratoSantander';
 import ExtratoBanco24h from './pages/ExtratoBanco24h';
 import EntradasSaidas from './pages/EntradasSaidas';
+import DemonstrativoCaixa from './pages/DemonstrativoCaixa';
 import ProgramacaoAtual from './pages/ProgramacaoAtual';
 
 function App() {
@@ -455,6 +456,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ExtratoBanco24h />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/demonstrativo-caixa"
+              element={
+                <ProtectedRoute>
+                  <DemonstrativoCaixa />
                 </ProtectedRoute>
               }
             />

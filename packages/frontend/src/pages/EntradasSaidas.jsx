@@ -7,11 +7,12 @@ import { api } from '../utils/api';
 import toast from 'react-hot-toast';
 
 const TIPO_PARCEIRO_LABELS = {
-  0: 'Outros',
+  0: 'Cliente',
   1: 'Fornecedor',
-  3: 'Cartão/TEF',
-  4: 'Cupom PDV',
-  5: 'Funcionário',
+  2: 'Transportadora',
+  3: 'Cartão',
+  4: 'Loja',
+  5: 'Banco',
 };
 
 const INITIAL_COLUMNS = [
@@ -40,6 +41,8 @@ const INITIAL_COLUMNS = [
   { id: 'USUARIO', header: '👤 Usuário', align: 'left' },
   { id: 'USR_QUITACAO', header: '✍️ Usr. Quitação', align: 'left' },
   { id: 'BORDERO', header: '📋 Borderô', align: 'center' },
+  { id: 'CONTA_CORRENTE', header: '🏧 Conta Corrente', align: 'left' },
+  { id: 'COMPENSADO', header: '🔄 Compensado', align: 'center' },
   { id: 'OBS', header: '📝 Obs', align: 'left', minW: '200px' },
 ];
 
@@ -66,20 +69,23 @@ export default function EntradasSaidas() {
     return INITIAL_COLUMNS;
   });
 
-  // Filtros
+  // Filtros (pré-selecionados: Saídas + Abertos)
   const [filters, setFilters] = useState({
     vencInicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
     vencFim: new Date().toISOString().split('T')[0],
     entradaInicio: '',
     entradaFim: '',
-    tipoConta: '',
-    quitado: '',
+    tipoConta: '0',
+    quitado: 'N',
     tipoParceiro: '',
     codBanco: '',
     codEntidade: '',
     codCategoria: '',
     parceiro: '',
   });
+
+  // Borderô: agrupado ou separado
+  const [borderoMode, setBorderoMode] = useState('separado');
 
   // Dropdowns
   const [bancos, setBancos] = useState([]);
@@ -94,7 +100,6 @@ export default function EntradasSaidas() {
   // Drag & drop columns
   const [draggedColumn, setDraggedColumn] = useState(null);
   const [dragOverColumn, setDragOverColumn] = useState(null);
-  const isDragging = useRef(false);
 
   // Visibilidade de colunas (engrenagem)
   const [showColumnConfig, setShowColumnConfig] = useState(false);
@@ -160,7 +165,7 @@ export default function EntradasSaidas() {
       // Ignora resposta se outra busca já foi disparada (race condition)
       if (currentSearchId !== searchIdRef.current) return;
 
-      setData(dadosRes.data?.data || []);
+      setData((dadosRes.data?.data || []).map((row, i) => ({ ...row, _uid: i })));
       setResumo(resumoRes.data || {});
 
       const filtrosAtivos = [];
@@ -187,14 +192,15 @@ export default function EntradasSaidas() {
       vencFim: new Date().toISOString().split('T')[0],
       entradaInicio: '',
       entradaFim: '',
-      tipoConta: '',
-      quitado: '',
+      tipoConta: '0',
+      quitado: 'N',
       tipoParceiro: '',
       codBanco: '',
       codEntidade: '',
       codCategoria: '',
       parceiro: '',
     });
+    setBorderoMode('separado');
     setData([]);
     setResumo({});
   };
@@ -264,7 +270,15 @@ export default function EntradasSaidas() {
       case 'USR_QUITACAO':
         return row.DES_USUARIO_QUIT || '-';
       case 'BORDERO':
-        return row.NUM_BORDERO || '-';
+        if (!row.NUM_BORDERO) return '-';
+        return row._groupCount > 1
+          ? <span className="inline-flex items-center gap-1">{row.NUM_BORDERO} <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full font-medium">{row._groupCount}x</span></span>
+          : row.NUM_BORDERO;
+      case 'CONTA_CORRENTE':
+        return row.DES_CC || '-';
+      case 'COMPENSADO':
+        if (!row.FLG_COMPENSADO || row.FLG_COMPENSADO === 'N') return <span className="inline-flex px-2 py-0.5 text-xs font-bold rounded-full bg-gray-100 text-gray-500">Não</span>;
+        return <span className="inline-flex px-2 py-0.5 text-xs font-bold rounded-full bg-blue-100 text-blue-700">Sim</span>;
       case 'OBS':
         return row.DES_OBSERVACAO || '-';
       default:
@@ -272,9 +286,8 @@ export default function EntradasSaidas() {
     }
   };
 
-  // Sort handler (ignora se estava arrastando coluna)
+  // Sort handler
   const handleSort = (colId) => {
-    if (isDragging.current) return;
     if (sortColumn === colId) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
@@ -283,52 +296,83 @@ export default function EntradasSaidas() {
     }
   };
 
-  const getSortValue = (row, colId) => {
-    switch (colId) {
-      case 'TIPO': return row.TIPO_CONTA;
-      case 'PARCEIRO': return (row.DES_PARCEIRO || '').toUpperCase();
-      case 'CNPJ_CPF': return row.NUM_CGC_CPF || '';
-      case 'DOCUMENTO': return row.NUM_DOCTO || '';
-      case 'NF': return row.NUM_NF || '';
-      case 'PARCELA': return row.NUM_PARCELA || 0;
-      case 'DT_ENTRADA': return row.DTA_ENTRADA || '';
-      case 'DT_EMISSAO': return row.DTA_EMISSAO || '';
-      case 'VENCIMENTO': return row.DTA_VENCIMENTO || '';
-      case 'VALOR': return Number(row.VAL_PARCELA) || 0;
-      case 'JUROS': return Number(row.VAL_JUROS) || 0;
-      case 'DESCONTO': return Number(row.VAL_DESCONTO) || 0;
-      case 'CREDITO': return Number(row.VAL_CREDITO) || 0;
-      case 'DEVOLUCAO': return Number(row.VAL_DEVOLUCAO) || 0;
-      case 'STATUS': return row.FLG_QUITADO || '';
-      case 'DT_QUITACAO': return row.DTA_QUITADA || '';
-      case 'DT_PGTO': return row.DTA_PGTO || '';
-      case 'BANCO': return (row.DES_BANCO || '').toUpperCase();
-      case 'ENTIDADE': return (row.DES_ENTIDADE || '').toUpperCase();
-      case 'CATEGORIA': return (row.DES_CATEGORIA || '').toUpperCase();
-      case 'SUBCATEGORIA': return (row.DES_SUBCATEGORIA || '').toUpperCase();
-      case 'TIPO_PARCEIRO': return row.TIPO_PARCEIRO || 0;
-      case 'USUARIO': return (row.USUARIO || '').toUpperCase();
-      case 'USR_QUITACAO': return (row.DES_USUARIO_QUIT || '').toUpperCase();
-      case 'BORDERO': return row.NUM_BORDERO || '';
-      case 'OBS': return (row.DES_OBSERVACAO || '').toUpperCase();
-      default: return '';
-    }
-  };
+  // Dados processados: agrupamento por borderô + ordenação (tudo junto, sem encadear memos)
+  const [sortedData, processedCount] = React.useMemo(() => {
+    if (data.length === 0) return [data, 0];
 
-  const sortedData = React.useMemo(() => {
-    if (!sortColumn || data.length === 0) return data;
-    return [...data].sort((a, b) => {
-      const valA = getSortValue(a, sortColumn);
-      const valB = getSortValue(b, sortColumn);
-      let cmp = 0;
-      if (typeof valA === 'number' && typeof valB === 'number') {
-        cmp = valA - valB;
-      } else {
-        cmp = String(valA).localeCompare(String(valB), 'pt-BR');
+    // Step 1: Borderô grouping
+    let arr = data;
+    if (borderoMode === 'agrupado') {
+      const grouped = [];
+      const borderoMap = new Map();
+      for (const row of data) {
+        const bordero = row.NUM_BORDERO;
+        if (!bordero) { grouped.push(row); continue; }
+        const key = `${bordero}_${row.TIPO_CONTA}`;
+        if (borderoMap.has(key)) {
+          const existing = borderoMap.get(key);
+          existing.VAL_PARCELA = (Number(existing.VAL_PARCELA) || 0) + (Number(row.VAL_PARCELA) || 0);
+          existing.VAL_JUROS = (Number(existing.VAL_JUROS) || 0) + (Number(row.VAL_JUROS) || 0);
+          existing.VAL_DESCONTO = (Number(existing.VAL_DESCONTO) || 0) + (Number(row.VAL_DESCONTO) || 0);
+          existing.VAL_CREDITO = (Number(existing.VAL_CREDITO) || 0) + (Number(row.VAL_CREDITO) || 0);
+          existing.VAL_DEVOLUCAO = (Number(existing.VAL_DEVOLUCAO) || 0) + (Number(row.VAL_DEVOLUCAO) || 0);
+          existing._groupCount = (existing._groupCount || 1) + 1;
+        } else {
+          borderoMap.set(key, { ...row, _groupCount: 1 });
+          grouped.push(borderoMap.get(key));
+        }
       }
-      return sortDirection === 'asc' ? cmp : -cmp;
-    });
-  }, [data, sortColumn, sortDirection]);
+      arr = grouped;
+    }
+
+    const processedLen = arr.length;
+
+    // Step 2: Sort
+    if (sortColumn && arr.length > 0) {
+      const t = (v) => (v || '').toString().trim().toUpperCase();
+      const n = (v) => Number(v) || 0;
+      arr = [...arr].sort((a, b) => {
+        let valA, valB;
+        switch (sortColumn) {
+          case 'TIPO': valA = a.TIPO_CONTA ?? 0; valB = b.TIPO_CONTA ?? 0; break;
+          case 'PARCEIRO': valA = t(a.DES_PARCEIRO); valB = t(b.DES_PARCEIRO); break;
+          case 'CNPJ_CPF': valA = t(a.NUM_CGC_CPF); valB = t(b.NUM_CGC_CPF); break;
+          case 'DOCUMENTO': valA = t(a.NUM_DOCTO); valB = t(b.NUM_DOCTO); break;
+          case 'NF': valA = t(a.NUM_NF); valB = t(b.NUM_NF); break;
+          case 'PARCELA': valA = n(a.NUM_PARCELA); valB = n(b.NUM_PARCELA); break;
+          case 'DT_ENTRADA': valA = t(a.DTA_ENTRADA); valB = t(b.DTA_ENTRADA); break;
+          case 'DT_EMISSAO': valA = t(a.DTA_EMISSAO); valB = t(b.DTA_EMISSAO); break;
+          case 'VENCIMENTO': valA = t(a.DTA_VENCIMENTO); valB = t(b.DTA_VENCIMENTO); break;
+          case 'VALOR': valA = n(a.VAL_PARCELA); valB = n(b.VAL_PARCELA); break;
+          case 'JUROS': valA = n(a.VAL_JUROS); valB = n(b.VAL_JUROS); break;
+          case 'DESCONTO': valA = n(a.VAL_DESCONTO); valB = n(b.VAL_DESCONTO); break;
+          case 'CREDITO': valA = n(a.VAL_CREDITO); valB = n(b.VAL_CREDITO); break;
+          case 'DEVOLUCAO': valA = n(a.VAL_DEVOLUCAO); valB = n(b.VAL_DEVOLUCAO); break;
+          case 'STATUS': valA = t(a.FLG_QUITADO); valB = t(b.FLG_QUITADO); break;
+          case 'DT_QUITACAO': valA = t(a.DTA_QUITADA); valB = t(b.DTA_QUITADA); break;
+          case 'DT_PGTO': valA = t(a.DTA_PGTO); valB = t(b.DTA_PGTO); break;
+          case 'BANCO': valA = t(a.DES_BANCO); valB = t(b.DES_BANCO); break;
+          case 'ENTIDADE': valA = t(a.DES_ENTIDADE); valB = t(b.DES_ENTIDADE); break;
+          case 'CATEGORIA': valA = t(a.DES_CATEGORIA); valB = t(b.DES_CATEGORIA); break;
+          case 'SUBCATEGORIA': valA = t(a.DES_SUBCATEGORIA); valB = t(b.DES_SUBCATEGORIA); break;
+          case 'TIPO_PARCEIRO': valA = a.TIPO_PARCEIRO ?? 0; valB = b.TIPO_PARCEIRO ?? 0; break;
+          case 'USUARIO': valA = t(a.USUARIO); valB = t(b.USUARIO); break;
+          case 'USR_QUITACAO': valA = t(a.DES_USUARIO_QUIT); valB = t(b.DES_USUARIO_QUIT); break;
+          case 'BORDERO': valA = t(a.NUM_BORDERO); valB = t(b.NUM_BORDERO); break;
+          case 'CONTA_CORRENTE': valA = t(a.DES_CC); valB = t(b.DES_CC); break;
+          case 'COMPENSADO': valA = t(a.FLG_COMPENSADO); valB = t(b.FLG_COMPENSADO); break;
+          case 'OBS': valA = t(a.DES_OBSERVACAO); valB = t(b.DES_OBSERVACAO); break;
+          default: return 0;
+        }
+        let cmp = typeof valA === 'number' && typeof valB === 'number'
+          ? valA - valB
+          : String(valA).localeCompare(String(valB), 'pt-BR');
+        return sortDirection === 'asc' ? cmp : -cmp;
+      });
+    }
+
+    return [arr, processedLen];
+  }, [data, borderoMode, sortColumn, sortDirection]);
 
   // Toggle visibilidade de coluna
   const toggleColumn = (colId) => {
@@ -350,8 +394,8 @@ export default function EntradasSaidas() {
   }, []);
 
   // Drag & drop handlers
-  const handleDragStart = (e, colId) => { isDragging.current = true; setDraggedColumn(colId); e.dataTransfer.effectAllowed = 'move'; };
-  const handleDragEnd = () => { setDraggedColumn(null); setDragOverColumn(null); setTimeout(() => { isDragging.current = false; }, 100); };
+  const handleDragStart = (e, colId) => { setDraggedColumn(colId); e.dataTransfer.effectAllowed = 'move'; };
+  const handleDragEnd = () => { setDraggedColumn(null); setDragOverColumn(null); };
   const handleDragOver = (e, colId) => { e.preventDefault(); setDragOverColumn(colId); };
   const handleDragLeave = () => { setDragOverColumn(null); };
   const handleDrop = (e, targetColId) => {
@@ -359,9 +403,12 @@ export default function EntradasSaidas() {
     if (!draggedColumn || draggedColumn === targetColId) return;
     const newCols = [...columns];
     const fromIdx = newCols.findIndex(c => c.id === draggedColumn);
-    const toIdx = newCols.findIndex(c => c.id === targetColId);
+    if (fromIdx === -1) return;
     const [moved] = newCols.splice(fromIdx, 1);
-    newCols.splice(toIdx, 0, moved);
+    // Recalcular índice do alvo APÓS remoção (evita off-by-one)
+    const newToIdx = newCols.findIndex(c => c.id === targetColId);
+    if (newToIdx === -1) return;
+    newCols.splice(newToIdx, 0, moved);
     setColumns(newCols);
     localStorage.setItem('entradas_saidas_columns_order', JSON.stringify(newCols.map(c => c.id)));
     setDraggedColumn(null);
@@ -453,17 +500,18 @@ export default function EntradasSaidas() {
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-6 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-7 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">🏷️ Tipo Parceiro</label>
                 <select value={filters.tipoParceiro} onChange={(e) => setFilters({...filters, tipoParceiro: e.target.value})}
                   className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:ring-orange-500 focus:border-orange-500">
                   <option value="">Todos</option>
+                  <option value="0">Cliente</option>
                   <option value="1">Fornecedor</option>
-                  <option value="3">Cartão/TEF</option>
-                  <option value="4">Cupom PDV</option>
-                  <option value="5">Funcionário</option>
-                  <option value="0">Outros</option>
+                  <option value="2">Transportadora</option>
+                  <option value="3">Cartão</option>
+                  <option value="4">Loja</option>
+                  <option value="5">Banco</option>
                 </select>
               </div>
               <div>
@@ -498,6 +546,23 @@ export default function EntradasSaidas() {
                 <input type="text" placeholder="Nome..." value={filters.parceiro}
                   onChange={(e) => setFilters({...filters, parceiro: e.target.value})}
                   className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:ring-orange-500 focus:border-orange-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">📋 Borderô</label>
+                <div className="flex items-center gap-3 h-[34px] border border-gray-300 rounded-md px-3 bg-white">
+                  <label className="flex items-center gap-1 cursor-pointer">
+                    <input type="radio" name="borderoMode" value="agrupado" checked={borderoMode === 'agrupado'}
+                      onChange={(e) => setBorderoMode(e.target.value)}
+                      className="text-orange-500 focus:ring-orange-500 h-3.5 w-3.5" />
+                    <span className="text-sm text-gray-700">Agrupado</span>
+                  </label>
+                  <label className="flex items-center gap-1 cursor-pointer">
+                    <input type="radio" name="borderoMode" value="separado" checked={borderoMode === 'separado'}
+                      onChange={(e) => setBorderoMode(e.target.value)}
+                      className="text-orange-500 focus:ring-orange-500 h-3.5 w-3.5" />
+                    <span className="text-sm text-gray-700">Separado</span>
+                  </label>
+                </div>
               </div>
               <div className="flex items-end gap-2">
                 <button onClick={handleSearch} disabled={loading}
@@ -554,13 +619,11 @@ export default function EntradasSaidas() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              <table key={visibleColumns.map(c => c.id).join(',')} className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-600">
                   <tr>
                     {visibleColumns.map((col) => (
-                      <th key={col.id} draggable
-                        onDragStart={(e) => handleDragStart(e, col.id)}
-                        onDragEnd={handleDragEnd}
+                      <th key={col.id}
                         onDragOver={(e) => handleDragOver(e, col.id)}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, col.id)}
@@ -571,11 +634,19 @@ export default function EntradasSaidas() {
                           ${dragOverColumn === col.id ? 'bg-gray-500 border-l-2 border-orange-400' : ''}
                           ${draggedColumn === col.id ? 'opacity-50' : ''}
                           hover:bg-gray-500`}
-                        title="Clique para ordenar | Arraste para reordenar">
+                        title="Clique para ordenar | Arraste ⠿ para reordenar">
                         <div className="flex items-center gap-1">
-                          <svg className="w-3 h-3 text-gray-300 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"/>
-                          </svg>
+                          <span
+                            draggable
+                            onDragStart={(e) => { e.stopPropagation(); handleDragStart(e, col.id); }}
+                            onDragEnd={handleDragEnd}
+                            onClick={(e) => e.stopPropagation()}
+                            className="cursor-grab flex-shrink-0"
+                          >
+                            <svg className="w-3 h-3 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"/>
+                            </svg>
+                          </span>
                           <span>{col.header}</span>
                           {sortColumn === col.id && (
                             <svg className="w-3 h-3 text-orange-300 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -590,7 +661,7 @@ export default function EntradasSaidas() {
                     ))}
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody key={`${sortColumn || 'none'}_${sortDirection}`} className="bg-white divide-y divide-gray-200">
                   {sortedData.length === 0 ? (
                     <tr>
                       <td colSpan={visibleColumns.length} className="px-4 py-8 text-center text-gray-500">
@@ -599,7 +670,7 @@ export default function EntradasSaidas() {
                     </tr>
                   ) : (
                     sortedData.map((row, idx) => (
-                      <tr key={row.NUM_REGISTRO || idx} className={`hover:bg-gray-50 ${row.TIPO_CONTA === 0 ? 'bg-red-50/20' : 'bg-green-50/20'}`}>
+                      <tr key={row._uid != null ? row._uid : idx} className={`hover:bg-gray-50 ${row.TIPO_CONTA === 0 ? 'bg-red-50/20' : 'bg-green-50/20'}`}>
                         {visibleColumns.map((col) => (
                           <td key={col.id}
                             style={col.minW ? { minWidth: col.minW } : undefined}
@@ -615,7 +686,7 @@ export default function EntradasSaidas() {
             </div>
             {data.length > 0 && (
               <div className="px-4 py-2 bg-gray-50 text-sm text-gray-500 border-t">
-                Exibindo {data.length} registros (máximo 500)
+                Exibindo {processedCount} registros{borderoMode === 'agrupado' && processedCount !== data.length ? ` (${data.length} originais agrupados por borderô)` : ''} (máximo 500)
               </div>
             )}
           </div>

@@ -66,6 +66,7 @@ import ancoragemRouter from './routes/ancoragem.routes';
 import relevanciaRouter from './routes/relevancia.routes';
 import competitividadeRouter from './routes/competitividade.routes';
 import ofertasRouter from './routes/ofertas.routes';
+import demonstrativoCaixaRouter from './routes/demonstrativo-caixa.routes';
 import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
 import { MappingService } from './services/mapping.service';
@@ -165,6 +166,7 @@ app.use('/api/ancoragem', ancoragemRouter);
 app.use('/api/relevancia', relevanciaRouter);
 app.use('/api/competitividade', competitividadeRouter);
 app.use('/api/ofertas', ofertasRouter);
+app.use('/api/demonstrativo-caixa', demonstrativoCaixaRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {

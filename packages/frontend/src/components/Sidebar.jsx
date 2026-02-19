@@ -193,6 +193,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/oferta-radar': 'oferta-radar',
       '/nota-fiscal-recebimento': 'financas-radar',
       '/notas-a-chegar': 'financas-radar',
+      '/demonstrativo-caixa': 'financas-radar',
+      '/entradas-saidas': 'financas-radar',
       '/extrato-santander': 'financas-radar',
       '/extrato-tribanco': 'financas-radar',
       '/extrato-banco24h': 'financas-radar',
@@ -538,6 +540,17 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       ),
       expandable: true,
       items: [
+        {
+          id: 'demonstrativo-caixa',
+          moduleId: 'demonstrativo-caixa',
+          title: 'DEMONSTRATIVO DE CAIXA',
+          path: '/demonstrativo-caixa',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3v-6m-3 6v-1m6-9a2 2 0 012 2v10a2 2 0 01-2 2H9a2 2 0 01-2-2V9a2 2 0 012-2"/>
+            </svg>
+          )
+        },
         {
           id: 'entradas-saidas',
           moduleId: 'entradas-saidas',
