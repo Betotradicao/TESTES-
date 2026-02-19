@@ -22,6 +22,7 @@ export const MENU_MODULES = {
   // Finanças no Radar
   BANCOS: 'bancos',
   ENTRADAS_SAIDAS: 'entradas-saidas',
+  DEMONSTRATIVO_CAIXA: 'demonstrativo-caixa',
   // IA no Radar
   ROTA_CRESCIMENTO: 'rota-crescimento',
 };
@@ -93,6 +94,7 @@ export const MENU_SUBMENUS = {
   EXTRATO_TRIBANCO: 'extrato-tribanco',
   EXTRATO_BANCO24H: 'extrato-banco24h',
   ENTRADAS_SAIDAS: 'entradas-saidas',
+  DEMONSTRATIVO_CAIXA: 'demonstrativo-caixa',
 
   // IA no Radar
   ROTA_CRESCIMENTO_DASHBOARD: 'rota-crescimento-dashboard',
@@ -384,6 +386,19 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.ENTRADAS_SAIDAS,
         title: 'Entradas e Saídas',
         path: '/entradas-saidas'
+      }
+    ]
+  },
+  {
+    id: MENU_MODULES.DEMONSTRATIVO_CAIXA,
+    title: 'Demonstrativo de Caixa',
+    icon: 'chart',
+    section: 'financas',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.DEMONSTRATIVO_CAIXA,
+        title: 'Demonstrativo de Caixa',
+        path: '/demonstrativo-caixa'
       }
     ]
   },

@@ -97,11 +97,12 @@ export class CompraVendaService {
     const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
     const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
     const colValMeta = await MappingService.getColumnFromTable('TAB_SECAO', 'meta');
+    const colFlgInativo = await MappingService.getColumnFromTable('TAB_SECAO', 'flag_inativo');
 
     const sql = `
       SELECT ${colCodSecao} as COD_SECAO, ${colDesSecao} as DES_SECAO, ${colValMeta} as VAL_META
       FROM ${tabSecao}
-      WHERE FLG_INATIVO IS NULL OR FLG_INATIVO = 'N'
+      WHERE ${colFlgInativo} IS NULL OR ${colFlgInativo} = 'N'
       ORDER BY ${colDesSecao}
     `;
 
@@ -191,12 +192,16 @@ export class CompraVendaService {
     const schema = await MappingService.getSchema();
     const tabComprador = `${schema}.${await MappingService.getRealTableName('TAB_COMPRADOR')}`;
 
-    // TAB_COMPRADOR tem colunas fixas: COD_COMPRADOR, DES_COMPRADOR, FLG_INATIVO
+    const colCodComprador = await MappingService.getColumnFromTable('TAB_COMPRADOR', 'codigo_comprador');
+    const colDesComprador = await MappingService.getColumnFromTable('TAB_COMPRADOR', 'descricao_comprador');
+    let colFlgInativoComp = 'FLG_INATIVO';
+    try { const m = await MappingService.getColumnFromTable('TAB_COMPRADOR', 'flag_inativo'); if (m) colFlgInativoComp = m; } catch {}
+
     const sql = `
-      SELECT COD_COMPRADOR, DES_COMPRADOR
+      SELECT ${colCodComprador} as COD_COMPRADOR, ${colDesComprador} as DES_COMPRADOR
       FROM ${tabComprador}
-      WHERE NVL(FLG_INATIVO, 'N') = 'N'
-      ORDER BY DES_COMPRADOR
+      WHERE NVL(${colFlgInativoComp}, 'N') = 'N'
+      ORDER BY ${colDesComprador}
     `;
 
     return OracleService.query(sql);
@@ -401,6 +406,7 @@ export class CompraVendaService {
     const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
     const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
     const colValMeta = await MappingService.getColumnFromTable('TAB_SECAO', 'meta');
+    const colFlgInativoSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'flag_inativo');
     const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
     const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
     const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
@@ -718,7 +724,7 @@ export class CompraVendaService {
         GROUP BY p_venda.${colCodSecaoProd}, vendas.COD_LOJA
       ) emp_assoc_filho ON sec.${colCodSecao} = emp_assoc_filho.COD_SECAO AND (NVL(c.COD_LOJA, NVL(v.COD_LOJA, emp_assoc_filho.COD_LOJA)) = emp_assoc_filho.COD_LOJA OR emp_assoc_filho.COD_LOJA IS NULL)
       ` : ''}
-      WHERE (sec.FLG_INATIVO IS NULL OR sec.FLG_INATIVO = 'N')
+      WHERE (sec.${colFlgInativoSecao} IS NULL OR sec.${colFlgInativoSecao} = 'N')
       AND (c.COD_SECAO IS NOT NULL OR v.COD_SECAO IS NOT NULL)
       ORDER BY VENDAS DESC NULLS LAST
     `;

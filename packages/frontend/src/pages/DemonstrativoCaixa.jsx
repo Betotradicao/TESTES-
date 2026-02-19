@@ -5,18 +5,20 @@ import Sidebar from '../components/Sidebar';
 import RadarLoading from '../components/RadarLoading';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // Tabs removidas por enquanto - usando apenas Geral
 
 const INITIAL_COLUMNS = [
-  { id: 'META', header: 'Meta', headerDesp: 'Meta', minW: 110 },
-  { id: 'PCT_META', header: '% Receitas', headerDesp: '% Despesas', minW: 90 },
-  { id: 'VAL_ABERTO', header: 'Val. Aberto', headerDesp: 'Val. Aberto', minW: 110 },
-  { id: 'VAL_QUITADO', header: 'Val. Quitado', headerDesp: 'Val. Quitado', minW: 110 },
-  { id: 'PCT_QUIT', header: '% Receitas', headerDesp: '% Despesas', minW: 90 },
-  { id: 'VAL_REALIZADO', header: 'Quitado + Aberto', headerDesp: 'Quitado + Aberto', minW: 130 },
-  { id: 'PCT_REAL', header: '% Receitas', headerDesp: '% Despesas', minW: 90 },
-  { id: 'VAL_DIFERENCA', header: 'Val. Diferença', headerDesp: 'Val. Diferença', minW: 110 },
+  { id: 'META', header: 'Meta', headerDesp: 'Meta', minW: 130 },
+  { id: 'PCT_META', header: '% Receitas', headerDesp: '% Despesas', minW: 100 },
+  { id: 'VAL_ABERTO', header: 'Val. Aberto', headerDesp: 'Val. Aberto', minW: 130 },
+  { id: 'VAL_QUITADO', header: 'Val. Quitado', headerDesp: 'Val. Quitado', minW: 130 },
+  { id: 'PCT_QUIT', header: '% Receitas', headerDesp: '% Despesas', minW: 100 },
+  { id: 'VAL_REALIZADO', header: 'Quitado + Aberto', headerDesp: 'Quitado + Aberto', minW: 150 },
+  { id: 'PCT_REAL', header: '% Receitas', headerDesp: '% Despesas', minW: 100 },
+  { id: 'VAL_DIFERENCA', header: 'Val. Diferença', headerDesp: 'Val. Diferença', minW: 130 },
 ];
 
 const STORAGE_KEY = 'demonstrativo_caixa_columns_v3';
@@ -110,14 +112,17 @@ function getTotalCellValue(colId, totais, type) {
     }
   }
   if (type === 'despesas') {
+    const pctMeta = totais.totalMetaReceitas ? ((totais.totalMetaDespesas || 0) / totais.totalMetaReceitas * 100) : 0;
+    const pctQuit = totais.totalQuitadoReceitas ? ((totais.totalQuitadoDespesas || 0) / totais.totalQuitadoReceitas * 100) : 0;
+    const pctReal = totais.totalReceitas ? ((totais.totalDespesas || 0) / totais.totalReceitas * 100) : 0;
     switch (colId) {
       case 'META': return formatCurrency(totais.totalMetaDespesas);
-      case 'PCT_META': return '100,00%';
+      case 'PCT_META': return formatPercent(pctMeta);
       case 'VAL_ABERTO': return formatCurrency(totais.totalAbertoDespesas);
       case 'VAL_QUITADO': return formatCurrency(totais.totalQuitadoDespesas);
-      case 'PCT_QUIT': return '100,00%';
+      case 'PCT_QUIT': return formatPercent(pctQuit);
       case 'VAL_REALIZADO': return formatCurrency(totais.totalDespesas);
-      case 'PCT_REAL': return '100,00%';
+      case 'PCT_REAL': return formatPercent(pctReal);
       case 'VAL_DIFERENCA': return formatCurrency((totais.totalMetaDespesas || 0) - (totais.totalDespesas || 0));
       default: return '';
     }
@@ -148,10 +153,9 @@ export default function DemonstrativoCaixa() {
   const now = new Date();
   const mesStr = String(now.getMonth() + 1).padStart(2, '0');
   const anoStr = String(now.getFullYear());
-  const ontem = new Date(now);
-  ontem.setDate(ontem.getDate() - 1);
+  const diaStr = String(now.getDate()).padStart(2, '0');
   const defaultInicio = `${anoStr}-${mesStr}-01`;
-  const defaultFim = `${ontem.getFullYear()}-${String(ontem.getMonth() + 1).padStart(2, '0')}-${String(ontem.getDate()).padStart(2, '0')}`;
+  const defaultFim = `${anoStr}-${mesStr}-${diaStr}`;
 
   const [dataInicio, setDataInicio] = useState(defaultInicio);
   const [dataFim, setDataFim] = useState(defaultFim);
@@ -306,6 +310,130 @@ export default function DemonstrativoCaixa() {
 
   const totais = data?.totais || {};
 
+  // Exportar PDF
+  const handleExportPDF = () => {
+    if (!data) {
+      toast.error('Não há dados para exportar');
+      return;
+    }
+    const doc = new jsPDF('landscape', 'mm', 'a4');
+    const cats = data.categorias || [];
+    const receitas = cats.filter(c => c.IS_RECEITA);
+    const despesas = cats.filter(c => c.IS_DESPESA);
+    const custosArr = despesas.filter(c => c.DES_CATEGORIA && c.DES_CATEGORIA.toUpperCase().includes('CUSTO'));
+    const demaisDespesas = despesas.filter(c => !(c.DES_CATEGORIA && c.DES_CATEGORIA.toUpperCase().includes('CUSTO')));
+
+    // Header
+    doc.setFontSize(14);
+    doc.text('DEMONSTRATIVO DE CAIXA', 14, 12);
+    doc.setFontSize(9);
+    doc.text(`Regime: ${regime === 'caixa' ? 'Caixa' : 'Competência'} | Período: ${dataInicio.split('-').reverse().join('/')} a ${dataFim.split('-').reverse().join('/')}`, 14, 18);
+    if (lojaSelecionada?.des_loja) doc.text(`Loja: ${lojaSelecionada.des_loja}`, 14, 23);
+
+    const colHeaders = ['Movimento', ...columns.map(c => c.header)];
+
+    const fmtVal = (v) => v != null && !isNaN(v) ? (Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : '-';
+    const fmtPct = (v) => v != null && !isNaN(v) && v !== 0 ? (v.toFixed(2).replace('.', ',') + '%') : '';
+
+    const buildCatRow = (cat) => {
+      return [cat.DES_CATEGORIA, ...columns.map(col => getCatCellValue(col.id, cat, totais))];
+    };
+    const buildSubRow = (sub, cat) => {
+      return ['   ' + sub.DES_SUBCATEGORIA, ...columns.map(col => getSubCellValue(col.id, sub, cat, totais))];
+    };
+
+    const rows = [];
+    const rowStyles = {};
+
+    // Receitas (respeita estado aberto/fechado)
+    receitas.forEach(cat => {
+      const idx = rows.length;
+      rows.push(buildCatRow(cat));
+      rowStyles[idx] = { fillColor: [220, 252, 231] }; // green-100
+      if (expandedCats[cat.COD_CATEGORIA]) {
+        (cat.subcategorias || []).forEach(sub => rows.push(buildSubRow(sub, cat)));
+      }
+    });
+
+    // Total Receitas
+    let trIdx = rows.length;
+    rows.push(['TOTAL RECEITAS', ...columns.map(col => getTotalCellValue(col.id, totais, 'receitas'))]);
+    rowStyles[trIdx] = { fillColor: [187, 247, 208], fontStyle: 'bold' }; // green-200
+
+    // Custos (respeita estado aberto/fechado)
+    custosArr.forEach(cat => {
+      const idx = rows.length;
+      rows.push(buildCatRow(cat));
+      rowStyles[idx] = { fillColor: [233, 213, 255] }; // purple-200
+      if (expandedCats[cat.COD_CATEGORIA]) {
+        (cat.subcategorias || []).forEach(sub => rows.push(buildSubRow(sub, cat)));
+      }
+    });
+
+    // Despesas Operacionais (respeita estado aberto/fechado)
+    demaisDespesas.forEach(cat => {
+      const idx = rows.length;
+      rows.push(buildCatRow(cat));
+      rowStyles[idx] = { fillColor: [255, 237, 213] }; // orange-100
+      if (expandedCats[cat.COD_CATEGORIA]) {
+        (cat.subcategorias || []).forEach(sub => rows.push(buildSubRow(sub, cat)));
+      }
+    });
+
+    // Subtotal Desp. Operacionais
+    if (demaisDespesas.length > 0) {
+      const subDespOp = {
+        META: demaisDespesas.reduce((s, c) => s + (c.META || 0), 0),
+        VAL_ABERTO: demaisDespesas.reduce((s, c) => s + (c.VAL_ABERTO || 0), 0),
+        VAL_QUITADO: demaisDespesas.reduce((s, c) => s + (c.VAL_QUITADO || 0), 0),
+        VAL_REALIZADO: demaisDespesas.reduce((s, c) => s + (c.VAL_REALIZADO || 0), 0),
+        VAL_DIFERENCA: demaisDespesas.reduce((s, c) => s + (c.VAL_DIFERENCA || 0), 0),
+        IS_RECEITA: false, IS_DESPESA: true,
+      };
+      let sdIdx = rows.length;
+      rows.push(['TOTAL DESP. OPERACIONAIS', ...columns.map(col => getCatCellValue(col.id, subDespOp, totais))]);
+      rowStyles[sdIdx] = { fillColor: [254, 215, 170], fontStyle: 'bold' }; // orange-200
+    }
+
+    // Total Despesas (Custos + Operacionais)
+    let tdIdx = rows.length;
+    rows.push(['TOTAL DESPESAS', ...columns.map(col => getTotalCellValue(col.id, totais, 'despesas'))]);
+    rowStyles[tdIdx] = { fillColor: [216, 180, 254], fontStyle: 'bold' }; // purple-300
+
+    // Saldo
+    let sIdx = rows.length;
+    rows.push(['SALDO (Receitas - Despesas)', ...columns.map(col => getTotalCellValue(col.id, totais, 'saldo'))]);
+    rowStyles[sIdx] = { fillColor: [55, 65, 81], textColor: [255, 255, 255], fontStyle: 'bold' };
+
+    autoTable(doc, {
+      head: [colHeaders],
+      body: rows,
+      startY: lojaSelecionada?.des_loja ? 27 : 22,
+      styles: { fontSize: 7, cellPadding: 1.5 },
+      headStyles: { fillColor: [55, 65, 81], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7 },
+      columnStyles: {
+        0: { cellWidth: 65 },
+      },
+      didParseCell: (hookData) => {
+        if (hookData.section === 'body') {
+          const style = rowStyles[hookData.row.index];
+          if (style) {
+            if (style.fillColor) hookData.cell.styles.fillColor = style.fillColor;
+            if (style.textColor) hookData.cell.styles.textColor = style.textColor;
+            if (style.fontStyle) hookData.cell.styles.fontStyle = style.fontStyle;
+          }
+          // Alinhar valores à direita (todas exceto coluna 0)
+          if (hookData.column.index > 0) {
+            hookData.cell.styles.halign = 'right';
+          }
+        }
+      },
+    });
+
+    doc.save(`demonstrativo-caixa-${dataInicio}-a-${dataFim}.pdf`);
+    toast.success('PDF exportado com sucesso!');
+  };
+
   // Drag & Drop handlers
   const handleDragStart = (e, colId) => {
     dragColRef.current = colId;
@@ -334,18 +462,25 @@ export default function DemonstrativoCaixa() {
   };
   const handleDragEnd = () => { dragColRef.current = null; setDragOverCol(null); };
 
+  // Helper: coluna "real" (Val. Quitado) com destaque visual
+  const realColClass = (colId) => colId === 'VAL_QUITADO' ? 'bg-gray-800/5 font-semibold' : '';
+  const realColHeaderClass = (colId) => colId === 'VAL_QUITADO' ? 'bg-gray-600' : '';
+
+  // Helper: categoria de Custos (CMV) com cor roxa para distinguir
+  const isCustos = (cat) => cat.DES_CATEGORIA && cat.DES_CATEGORIA.toUpperCase().includes('CUSTO');
+
   // Helper: extra class for VAL_DIFERENCA
   const getCatDifClass = (colId, cat) => {
     if (colId === 'VAL_DIFERENCA') {
       if (cat.VAL_DIFERENCA < 0) return 'text-red-600';
-      if (cat.VAL_DIFERENCA > 0) return 'text-green-600';
+      if (cat.VAL_DIFERENCA > 0) return 'text-green-700';
     }
     return '';
   };
   const getSubDifClass = (colId, sub) => {
     if (colId === 'VAL_DIFERENCA') {
       if (sub.VAL_DIFERENCA < 0) return 'text-red-600 font-medium';
-      if (sub.VAL_DIFERENCA > 0) return 'text-green-600 font-medium';
+      if (sub.VAL_DIFERENCA > 0) return 'text-green-700 font-medium';
     }
     return '';
   };
@@ -367,6 +502,10 @@ export default function DemonstrativoCaixa() {
               </button>
               <button onClick={collapseAll} className="p-2 bg-white/20 rounded hover:bg-white/30 transition" title="Recolher tudo">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 9V4.5M9 9H4.5M9 9L3.5 3.5M9 15v4.5M9 15H4.5M9 15l-5.5 5.5M15 9h4.5M15 9V4.5M15 9l5.5-5.5M15 15h4.5m-4.5 0v4.5m0-4.5l5.5 5.5"/></svg>
+              </button>
+              <button onClick={handleExportPDF} className="p-2 bg-white/20 rounded hover:bg-white/30 transition flex items-center gap-1 text-sm" title="Exportar PDF">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                PDF
               </button>
               <button onClick={() => window.print()} className="p-2 bg-white/20 rounded hover:bg-white/30 transition flex items-center gap-1 text-sm" title="Imprimir">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
@@ -417,7 +556,7 @@ export default function DemonstrativoCaixa() {
                 <colgroup>
                   <col style={{ width: 320 }} />
                   {columns.map(col => (
-                    <col key={col.id} style={{ width: col.id.startsWith('PCT_') ? 65 : 110 }} />
+                    <col key={col.id} style={{ width: col.id === 'VAL_REALIZADO' ? 150 : col.id.startsWith('PCT_') ? 100 : 130 }} />
                   ))}
                   <col />
                 </colgroup>
@@ -429,7 +568,7 @@ export default function DemonstrativoCaixa() {
                     {columns.map(col => (
                       <th
                         key={col.id}
-                        className={`text-right py-2 px-1 font-semibold select-none whitespace-nowrap ${dragOverCol === col.id ? 'bg-gray-500' : ''}`}
+                        className={`text-right py-2 px-2 font-semibold select-none whitespace-nowrap ${dragOverCol === col.id ? 'bg-gray-500' : realColHeaderClass(col.id)}`}
                         draggable
                         onDragStart={(e) => handleDragStart(e, col.id)}
                         onDragOver={(e) => handleDragOver(e, col.id)}
@@ -458,10 +597,14 @@ export default function DemonstrativoCaixa() {
 
                     const renderCat = (cat) => {
                       const isExpanded = expandedCats[cat.COD_CATEGORIA];
-                      const catBg = cat.IS_RECEITA ? 'bg-green-100' : 'bg-orange-100';
+                      const custos = isCustos(cat);
+                      const catBg = cat.IS_RECEITA ? 'bg-green-100' : custos ? 'bg-purple-200' : 'bg-orange-100';
+                      const catText = cat.IS_RECEITA ? 'text-green-900' : custos ? 'text-purple-900' : 'text-orange-900';
+                      const subBg = custos ? 'bg-purple-50' : 'bg-white';
+                      const subText = custos ? 'text-purple-800' : 'text-gray-700';
                       return (
                         <React.Fragment key={cat.COD_CATEGORIA}>
-                          <tr className={`${catBg} ${cat.IS_RECEITA ? 'text-green-800' : 'text-orange-800'} cursor-pointer hover:opacity-80 transition-opacity`} onClick={() => toggleCat(cat.COD_CATEGORIA)}>
+                          <tr className={`${catBg} ${catText} cursor-pointer hover:opacity-80 transition-opacity`} onClick={() => toggleCat(cat.COD_CATEGORIA)}>
                             <td className={`py-1.5 px-3 font-bold sticky left-0 z-10 ${catBg}`}>
                               <div className="flex items-center gap-2">
                                 <svg className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 20 20">
@@ -471,7 +614,7 @@ export default function DemonstrativoCaixa() {
                               </div>
                             </td>
                             {columns.map(col => (
-                              <td key={col.id} className={`text-right py-1.5 px-1 font-bold ${getCatDifClass(col.id, cat)}`}>
+                              <td key={col.id} className={`text-right py-1.5 px-2 font-bold ${getCatDifClass(col.id, cat)} ${realColClass(col.id)}`}>
                                 {getCatCellValue(col.id, cat, totais)}
                               </td>
                             ))}
@@ -479,14 +622,14 @@ export default function DemonstrativoCaixa() {
                           </tr>
                           {isExpanded && (cat.subcategorias || []).map((sub) => (
                             <tr key={`${cat.COD_CATEGORIA}_${sub.COD_SUBCATEGORIA}`}
-                              className="bg-white hover:bg-gray-50 border-b border-gray-100 cursor-pointer"
+                              className={`${subBg} hover:bg-gray-50 border-b border-gray-100 cursor-pointer`}
                               onClick={() => abrirDetalhe(cat, sub)}
                             >
-                              <td className="py-1 px-3 pl-8 sticky left-0 bg-white z-10">
-                                <span className="text-gray-700">{sub.DES_SUBCATEGORIA}</span>
+                              <td className={`py-1 px-3 pl-8 sticky left-0 z-10 ${subBg}`}>
+                                <span className={subText}>{sub.DES_SUBCATEGORIA}</span>
                               </td>
                               {columns.map(col => (
-                                <td key={col.id} className={`text-right py-1 px-1 text-gray-600 ${getSubDifClass(col.id, sub)}`}>
+                                <td key={col.id} className={`text-right py-1 px-2 ${custos ? 'text-purple-700' : 'text-gray-600'} ${getSubDifClass(col.id, sub)} ${realColClass(col.id)}`}>
                                   {getSubCellValue(col.id, sub, cat, totais)}
                                 </td>
                               ))}
@@ -504,34 +647,84 @@ export default function DemonstrativoCaixa() {
 
                         {/* Subtotal Receitas (entre receitas e despesas) */}
                         {data && receitas.length > 0 && (
-                          <tr className="bg-green-200 text-green-900 font-bold border-t-2 border-green-300">
+                          <tr className="bg-green-200 text-green-950 font-bold border-t-2 border-green-300">
                             <td className="py-2 px-3 sticky left-0 bg-green-200 z-10">TOTAL RECEITAS</td>
                             {columns.map(col => {
                               const difRec = (totais.totalMetaReceitas || 0) - (totais.totalReceitas || 0);
-                              const difClass = col.id === 'VAL_DIFERENCA' ? (difRec < 0 ? 'text-red-600' : difRec > 0 ? 'text-green-700' : '') : '';
-                              return <td key={col.id} className={`text-right py-1.5 px-1 ${difClass}`}>{getTotalCellValue(col.id, totais, 'receitas')}</td>;
+                              const difClass = col.id === 'VAL_DIFERENCA' ? (difRec < 0 ? 'text-red-600' : difRec > 0 ? 'text-green-800' : '') : '';
+                              return <td key={col.id} className={`text-right py-1.5 px-2 ${difClass} ${realColClass(col.id)}`}>{getTotalCellValue(col.id, totais, 'receitas')}</td>;
                             })}
                             <td className="bg-green-200"></td>
                           </tr>
                         )}
 
-                        {/* Cabeçalho da seção Despesas */}
-                        {data && despesas.length > 0 && (
-                          <tr className="bg-gray-700 text-white">
-                            <th className="text-left py-2 px-2 font-semibold sticky left-0 bg-gray-700 z-10 whitespace-nowrap">
-                              Movimento
-                            </th>
-                            {columns.map(col => (
-                              <th key={col.id} className="text-right py-2 px-1 font-semibold whitespace-nowrap">
-                                {col.headerDesp || col.header}
-                              </th>
-                            ))}
-                            <th className="bg-gray-700"></th>
-                          </tr>
-                        )}
+                        {/* Separar custos (CMV) das demais despesas */}
+                        {(() => {
+                          const custosArr = despesas.filter(c => isCustos(c));
+                          const demaisDespesas = despesas.filter(c => !isCustos(c));
+                          return (
+                            <>
+                              {/* Cabeçalho da seção Custos */}
+                              {custosArr.length > 0 && (
+                                <>
+                                  <tr className="bg-gray-700 text-white">
+                                    <th className="text-left py-2 px-2 font-semibold sticky left-0 bg-gray-700 z-10 whitespace-nowrap">
+                                      Movimento
+                                    </th>
+                                    {columns.map(col => (
+                                      <th key={col.id} className={`text-right py-2 px-2 font-semibold whitespace-nowrap ${realColHeaderClass(col.id)}`}>
+                                        {col.headerDesp || col.header}
+                                      </th>
+                                    ))}
+                                    <th className="bg-gray-700"></th>
+                                  </tr>
+                                  {custosArr.map(renderCat)}
+                                </>
+                              )}
 
-                        {/* Despesas */}
-                        {despesas.map(renderCat)}
+                              {/* Cabeçalho da seção Despesas Operacionais */}
+                              {demaisDespesas.length > 0 && (
+                                <>
+                                  <tr className="bg-gray-700 text-white">
+                                    <th className="text-left py-2 px-2 font-semibold sticky left-0 bg-gray-700 z-10 whitespace-nowrap">
+                                      Movimento
+                                    </th>
+                                    {columns.map(col => (
+                                      <th key={col.id} className={`text-right py-2 px-2 font-semibold whitespace-nowrap ${realColHeaderClass(col.id)}`}>
+                                        {col.headerDesp || col.header}
+                                      </th>
+                                    ))}
+                                    <th className="bg-gray-700"></th>
+                                  </tr>
+                                  {demaisDespesas.map(renderCat)}
+
+                                  {/* Subtotal Despesas Operacionais */}
+                                  {(() => {
+                                    const subDespOp = {
+                                      META: demaisDespesas.reduce((s, c) => s + (c.META || 0), 0),
+                                      VAL_ABERTO: demaisDespesas.reduce((s, c) => s + (c.VAL_ABERTO || 0), 0),
+                                      VAL_QUITADO: demaisDespesas.reduce((s, c) => s + (c.VAL_QUITADO || 0), 0),
+                                      VAL_REALIZADO: demaisDespesas.reduce((s, c) => s + (c.VAL_REALIZADO || 0), 0),
+                                      VAL_DIFERENCA: demaisDespesas.reduce((s, c) => s + (c.VAL_DIFERENCA || 0), 0),
+                                      IS_RECEITA: false, IS_DESPESA: true,
+                                    };
+                                    return (
+                                      <tr className="bg-orange-200 text-orange-950 font-bold border-t-2 border-orange-300">
+                                        <td className="py-2 px-3 sticky left-0 bg-orange-200 z-10">TOTAL DESP. OPERACIONAIS</td>
+                                        {columns.map(col => (
+                                          <td key={col.id} className={`text-right py-1.5 px-2 ${realColClass(col.id)}`}>
+                                            {getCatCellValue(col.id, subDespOp, totais)}
+                                          </td>
+                                        ))}
+                                        <td className="bg-orange-200"></td>
+                                      </tr>
+                                    );
+                                  })()}
+                                </>
+                              )}
+                            </>
+                          );
+                        })()}
                       </>
                     );
                   })()}
@@ -539,14 +732,14 @@ export default function DemonstrativoCaixa() {
                   {/* Totais finais */}
                   {data && (
                     <>
-                      <tr className="bg-orange-200 text-orange-900 font-bold border-t-2 border-orange-300">
-                        <td className="py-2 px-3 sticky left-0 bg-orange-200 z-10">TOTAL DESPESAS</td>
+                      <tr className="bg-purple-300 text-purple-950 font-bold border-t-2 border-purple-400">
+                        <td className="py-2 px-3 sticky left-0 bg-purple-300 z-10">TOTAL DESPESAS</td>
                         {columns.map(col => {
                           const difDesp = (totais.totalMetaDespesas || 0) - (totais.totalDespesas || 0);
-                          const difClass = col.id === 'VAL_DIFERENCA' ? (difDesp < 0 ? 'text-red-600' : difDesp > 0 ? 'text-green-700' : '') : '';
-                          return <td key={col.id} className={`text-right py-1.5 px-1 ${difClass}`}>{getTotalCellValue(col.id, totais, 'despesas')}</td>;
+                          const difClass = col.id === 'VAL_DIFERENCA' ? (difDesp < 0 ? 'text-red-600' : difDesp > 0 ? 'text-green-800' : '') : '';
+                          return <td key={col.id} className={`text-right py-1.5 px-2 ${difClass} ${realColClass(col.id)}`}>{getTotalCellValue(col.id, totais, 'despesas')}</td>;
                         })}
-                        <td className="bg-orange-200"></td>
+                        <td className="bg-purple-300"></td>
                       </tr>
                       <tr className="bg-gray-800 text-white font-bold text-base">
                         <td className="py-2.5 px-3 sticky left-0 bg-gray-800 z-10">SALDO (Receitas - Despesas)</td>
@@ -559,9 +752,26 @@ export default function DemonstrativoCaixa() {
                           else if (col.id === 'VAL_REALIZADO') saldoVal = totais.saldo;
                           else if (col.id === 'VAL_DIFERENCA') saldoVal = ((totais.totalMetaReceitas || 0) - (totais.totalMetaDespesas || 0)) - (totais.saldo || 0);
                           const colorClass = saldoVal !== null ? (saldoVal < 0 ? 'text-red-300' : 'text-green-300') : '';
+                          // Indicador de quanto passou ou ficou abaixo de 100% (despesas vs receitas)
+                          let diff100 = null;
+                          if (col.id === 'PCT_META') {
+                            const pct = totais.totalMetaReceitas ? ((totais.totalMetaDespesas || 0) / totais.totalMetaReceitas * 100) : 0;
+                            if (pct !== 0 && pct !== 100) diff100 = pct - 100;
+                          } else if (col.id === 'PCT_QUIT') {
+                            const pct = totais.totalQuitadoReceitas ? ((totais.totalQuitadoDespesas || 0) / totais.totalQuitadoReceitas * 100) : 0;
+                            if (pct !== 0 && pct !== 100) diff100 = pct - 100;
+                          } else if (col.id === 'PCT_REAL') {
+                            const pct = totais.totalReceitas ? ((totais.totalDespesas || 0) / totais.totalReceitas * 100) : 0;
+                            if (pct !== 0 && pct !== 100) diff100 = pct - 100;
+                          }
                           return (
-                            <td key={col.id} className={`text-right py-2.5 px-1 ${colorClass}`}>
+                            <td key={col.id} className={`text-right py-2.5 px-2 ${colorClass} ${col.id === 'VAL_QUITADO' ? 'bg-gray-700' : ''}`}>
                               {getTotalCellValue(col.id, totais, 'saldo')}
+                              {diff100 !== null && (
+                                <div className={`text-xs font-semibold ${diff100 > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                                  ({diff100 > 0 ? '+' : ''}{diff100.toFixed(2).replace('.', ',')}%)
+                                </div>
+                              )}
                             </td>
                           );
                         })}
@@ -589,12 +799,12 @@ export default function DemonstrativoCaixa() {
             {/* Cards Quitados */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 print:grid-cols-4">
               <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <div className="text-sm text-green-600 font-medium">Receitas Quitadas</div>
-                <div className="text-xl font-bold text-green-700 mt-1">R$ {formatCurrency(totais.totalQuitadoReceitas)}</div>
+                <div className="text-sm text-green-700 font-medium">Receitas Quitadas</div>
+                <div className="text-xl font-bold text-green-800 mt-1">R$ {formatCurrency(totais.totalQuitadoReceitas)}</div>
               </div>
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                <div className="text-sm text-orange-600 font-medium">Despesas Quitadas</div>
-                <div className="text-xl font-bold text-orange-700 mt-1">R$ {formatCurrency(totais.totalQuitadoDespesas)}</div>
+                <div className="text-sm text-orange-700 font-medium">Despesas Quitadas</div>
+                <div className="text-xl font-bold text-orange-800 mt-1">R$ {formatCurrency(totais.totalQuitadoDespesas)}</div>
               </div>
               <div className={`${saldoQuitado >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-lg p-3`}>
                 <div className={`text-sm font-medium ${saldoQuitado >= 0 ? 'text-green-600' : 'text-red-600'}`}>Saldo Quitado</div>
@@ -611,14 +821,14 @@ export default function DemonstrativoCaixa() {
             {/* Cards Realizado (Quitado + Aberto) */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 print:grid-cols-4">
               <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <div className="text-sm text-green-600 font-medium">Total Receitas</div>
-                <div className="text-xl font-bold text-green-700 mt-1">R$ {formatCurrency(totais.totalReceitas)}</div>
-                <div className="text-sm text-green-500 mt-0.5">Meta: R$ {formatCurrency(totais.totalMetaReceitas)}</div>
+                <div className="text-sm text-green-700 font-medium">Total Receitas</div>
+                <div className="text-xl font-bold text-green-800 mt-1">R$ {formatCurrency(totais.totalReceitas)}</div>
+                <div className="text-sm text-green-600 mt-0.5">Meta: R$ {formatCurrency(totais.totalMetaReceitas)}</div>
               </div>
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                <div className="text-sm text-orange-600 font-medium">Total Despesas</div>
-                <div className="text-xl font-bold text-orange-700 mt-1">R$ {formatCurrency(totais.totalDespesas)}</div>
-                <div className="text-sm text-orange-500 mt-0.5">Meta: R$ {formatCurrency(totais.totalMetaDespesas)}</div>
+                <div className="text-sm text-orange-700 font-medium">Total Despesas</div>
+                <div className="text-xl font-bold text-orange-800 mt-1">R$ {formatCurrency(totais.totalDespesas)}</div>
+                <div className="text-sm text-orange-600 mt-0.5">Meta: R$ {formatCurrency(totais.totalMetaDespesas)}</div>
               </div>
               <div className={`${(totais.saldo || 0) >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-lg p-3`}>
                 <div className={`text-sm font-medium ${(totais.saldo || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>Saldo</div>

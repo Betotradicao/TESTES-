@@ -64,6 +64,9 @@ export class CompetitividadeService {
     const colVendaMedia = await this.tryCol('TAB_PRODUTO_LOJA', 'venda_media');
     const vendaMediaSelect = colVendaMedia ? `NVL(pl.${colVendaMedia}, 0)` : '0';
 
+    // Data da pesquisa de preço (sem mapping - nome Oracle fixo)
+    const colDtaPesquisaMedia = 'DTA_PESQUISA_MEDIA';
+
     // Pesquisa concorrente
     let colPesquisaMedia = 'VAL_PESQUISA_MEDIA';
     let colPesquisaConcorrente = 'DES_PESQUISA_CONCORRENTE';
@@ -183,7 +186,7 @@ export class CompetitividadeService {
         NVL(pl.${colEstoqueAtual}, 0) AS ESTOQUE,
         ${vendaMediaSelect} AS VD_MEDIA,
         ${relevanciaSel} AS TIPO_RELEVANCIA,
-        pl.DTA_PESQUISA_MEDIA AS DTA_PESQUISA
+        pl.${colDtaPesquisaMedia} AS DTA_PESQUISA
       FROM ${tabProduto} p
       JOIN ${tabProdutoLoja} pl ON p.${colCodProduto} = pl.${colCodProdutoLoja} AND pl.${colCodLojaLoja} = :codLoja
       LEFT JOIN ${tabSecao} s ON p.${colCodSecaoProd} = s.${colCodSecaoTab}

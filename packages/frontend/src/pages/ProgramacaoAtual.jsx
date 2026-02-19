@@ -25,7 +25,7 @@ export default function ProgramacaoAtual() {
   const [loadingProdutos, setLoadingProdutos] = useState(false);
 
   // Filters
-  const [selectedProg, setSelectedProg] = useState('');
+  const [selectedProg, setSelectedProg] = useState('0');
   const [filterSecao, setFilterSecao] = useState('');
   const [filterCurva, setFilterCurva] = useState('');
   const [filterFornecedor, setFilterFornecedor] = useState('');
@@ -222,14 +222,11 @@ export default function ProgramacaoAtual() {
 
   // Quando programacoes filtradas mudam, ajustar selecao
   useEffect(() => {
-    if (selectedProg === '0') return; // "Todas" fica
+    // Sempre manter "Todas as programações" como default
+    if (selectedProg === '0') return;
     const existeNaLista = programacoesFiltradas.some(p => String(p.COD_PROG) === selectedProg);
-    if ((!existeNaLista || !selectedProg) && programacoesFiltradas.length > 0) {
-      setSelectedProg(String(programacoesFiltradas[0].COD_PROG));
-    } else if (programacoesFiltradas.length === 0 && selectedProg !== '0') {
-      setSelectedProg('');
-      setProdutos([]);
-      setResumo(null);
+    if (!existeNaLista || !selectedProg) {
+      setSelectedProg('0');
     }
   }, [programacoesFiltradas]);
 

@@ -438,6 +438,171 @@ const TABLE_CATALOG = {
       { id: 'descricao_unidade', name: 'Descrição Unidade', defaultTable: 'TAB_FORNECEDOR_PRODUTO', defaultColumn: 'DES_UNIDADE' },
     ]
   },
+  // ====================================================================================
+  // TABELAS FINANCEIRAS
+  // ====================================================================================
+  TAB_FLUXO: {
+    name: 'Fluxo Financeiro',
+    description: 'Contas a pagar e receber (fluxo de caixa)',
+    fields: [
+      { id: 'num_registro', name: 'Número Registro', defaultTable: 'TAB_FLUXO', defaultColumn: 'NUM_REGISTRO' },
+      { id: 'cod_loja', name: 'Código Loja', defaultTable: 'TAB_FLUXO', defaultColumn: 'COD_LOJA' },
+      { id: 'tipo_parceiro', name: 'Tipo Parceiro', defaultTable: 'TAB_FLUXO', defaultColumn: 'TIPO_PARCEIRO' },
+      { id: 'tipo_conta', name: 'Tipo Conta (0=Receber/1=Pagar)', defaultTable: 'TAB_FLUXO', defaultColumn: 'TIPO_CONTA' },
+      { id: 'cod_parceiro', name: 'Código Parceiro', defaultTable: 'TAB_FLUXO', defaultColumn: 'COD_PARCEIRO' },
+      { id: 'des_parceiro', name: 'Nome Parceiro', defaultTable: 'TAB_FLUXO', defaultColumn: 'DES_PARCEIRO' },
+      { id: 'num_cgc_cpf', name: 'CGC/CPF', defaultTable: 'TAB_FLUXO', defaultColumn: 'NUM_CGC_CPF' },
+      { id: 'dta_entrada', name: 'Data Entrada', defaultTable: 'TAB_FLUXO', defaultColumn: 'DTA_ENTRADA' },
+      { id: 'dta_emissao', name: 'Data Emissão', defaultTable: 'TAB_FLUXO', defaultColumn: 'DTA_EMISSAO' },
+      { id: 'dta_vencimento', name: 'Data Vencimento', defaultTable: 'TAB_FLUXO', defaultColumn: 'DTA_VENCIMENTO' },
+      { id: 'val_parcela', name: 'Valor Parcela', defaultTable: 'TAB_FLUXO', defaultColumn: 'VAL_PARCELA' },
+      { id: 'num_parcela', name: 'Número Parcela', defaultTable: 'TAB_FLUXO', defaultColumn: 'NUM_PARCELA' },
+      { id: 'qtd_parcela', name: 'Qtd Parcelas', defaultTable: 'TAB_FLUXO', defaultColumn: 'QTD_PARCELA' },
+      { id: 'num_docto', name: 'Número Documento', defaultTable: 'TAB_FLUXO', defaultColumn: 'NUM_DOCTO' },
+      { id: 'num_nf', name: 'Número NF', defaultTable: 'TAB_FLUXO', defaultColumn: 'NUM_NF' },
+      { id: 'num_serie_nf', name: 'Série NF', defaultTable: 'TAB_FLUXO', defaultColumn: 'NUM_SERIE_NF' },
+      { id: 'flg_quitado', name: 'Flag Quitado (S/N)', defaultTable: 'TAB_FLUXO', defaultColumn: 'FLG_QUITADO' },
+      { id: 'dta_quitada', name: 'Data Quitação', defaultTable: 'TAB_FLUXO', defaultColumn: 'DTA_QUITADA' },
+      { id: 'dta_pgto', name: 'Data Pagamento', defaultTable: 'TAB_FLUXO', defaultColumn: 'DTA_PGTO' },
+      { id: 'cod_banco_pgto', name: 'Código Banco Pgto', defaultTable: 'TAB_FLUXO', defaultColumn: 'COD_BANCO_PGTO' },
+      { id: 'des_cc', name: 'Centro de Custo', defaultTable: 'TAB_FLUXO', defaultColumn: 'DES_CC' },
+      { id: 'cod_entidade', name: 'Código Entidade', defaultTable: 'TAB_FLUXO', defaultColumn: 'COD_ENTIDADE' },
+      { id: 'cod_categoria', name: 'Código Categoria', defaultTable: 'TAB_FLUXO', defaultColumn: 'COD_CATEGORIA' },
+      { id: 'cod_subcategoria', name: 'Código Subcategoria', defaultTable: 'TAB_FLUXO', defaultColumn: 'COD_SUBCATEGORIA' },
+      { id: 'val_juros', name: 'Valor Juros', defaultTable: 'TAB_FLUXO', defaultColumn: 'VAL_JUROS' },
+      { id: 'val_desconto', name: 'Valor Desconto', defaultTable: 'TAB_FLUXO', defaultColumn: 'VAL_DESCONTO' },
+      { id: 'val_credito', name: 'Valor Crédito', defaultTable: 'TAB_FLUXO', defaultColumn: 'VAL_CREDITO' },
+      { id: 'val_devolucao', name: 'Valor Devolução', defaultTable: 'TAB_FLUXO', defaultColumn: 'VAL_DEVOLUCAO' },
+      { id: 'des_observacao', name: 'Observação', defaultTable: 'TAB_FLUXO', defaultColumn: 'DES_OBSERVACAO' },
+      { id: 'des_usuario_quit', name: 'Usuário Quitação', defaultTable: 'TAB_FLUXO', defaultColumn: 'DES_USUARIO_QUIT' },
+      { id: 'usuario', name: 'Usuário', defaultTable: 'TAB_FLUXO', defaultColumn: 'USUARIO' },
+      { id: 'num_bordero', name: 'Número Borderô', defaultTable: 'TAB_FLUXO', defaultColumn: 'NUM_BORDERO' },
+      { id: 'flg_compensado', name: 'Flag Compensado', defaultTable: 'TAB_FLUXO', defaultColumn: 'FLG_COMPENSADO' },
+    ]
+  },
+  TAB_CATEGORIA: {
+    name: 'Categorias Financeiras',
+    description: 'Categorias do fluxo financeiro (receitas, despesas, etc.)',
+    fields: [
+      { id: 'cod_categoria', name: 'Código Categoria', defaultTable: 'TAB_CATEGORIA', defaultColumn: 'COD_CATEGORIA' },
+      { id: 'des_categoria', name: 'Descrição Categoria', defaultTable: 'TAB_CATEGORIA', defaultColumn: 'DES_CATEGORIA' },
+      { id: 'tipo_categoria', name: 'Tipo Categoria', defaultTable: 'TAB_CATEGORIA', defaultColumn: 'TIPO_CATEGORIA' },
+      { id: 'num_ordem', name: 'Ordem', defaultTable: 'TAB_CATEGORIA', defaultColumn: 'NUM_ORDEM' },
+      { id: 'tipo_fluxo', name: 'Tipo Fluxo', defaultTable: 'TAB_CATEGORIA', defaultColumn: 'TIPO_FLUXO' },
+      { id: 'flg_inativo', name: 'Flag Inativo', defaultTable: 'TAB_CATEGORIA', defaultColumn: 'FLG_INATIVO' },
+    ]
+  },
+  TAB_SUBCATEGORIA: {
+    name: 'Subcategorias Financeiras',
+    description: 'Subcategorias do fluxo financeiro',
+    fields: [
+      { id: 'cod_categoria', name: 'Código Categoria', defaultTable: 'TAB_SUBCATEGORIA', defaultColumn: 'COD_CATEGORIA' },
+      { id: 'cod_subcategoria', name: 'Código Subcategoria', defaultTable: 'TAB_SUBCATEGORIA', defaultColumn: 'COD_SUBCATEGORIA' },
+      { id: 'des_subcategoria', name: 'Descrição Subcategoria', defaultTable: 'TAB_SUBCATEGORIA', defaultColumn: 'DES_SUBCATEGORIA' },
+      { id: 'num_ordem', name: 'Ordem', defaultTable: 'TAB_SUBCATEGORIA', defaultColumn: 'NUM_ORDEM' },
+      { id: 'flg_ignora_orcto', name: 'Ignora Orçamento', defaultTable: 'TAB_SUBCATEGORIA', defaultColumn: 'FLG_IGNORA_ORCTO' },
+    ]
+  },
+  TAB_ORCAMENTO_GERENCIAL: {
+    name: 'Orçamento Gerencial',
+    description: 'Metas e orçamento por categoria/mês',
+    fields: [
+      { id: 'dta_mensal', name: 'Mês/Ano (MMYYYY)', defaultTable: 'TAB_ORCAMENTO_GERENCIAL', defaultColumn: 'DTA_MENSAL' },
+      { id: 'cod_loja', name: 'Código Loja', defaultTable: 'TAB_ORCAMENTO_GERENCIAL', defaultColumn: 'COD_LOJA' },
+      { id: 'cod_categoria', name: 'Código Categoria', defaultTable: 'TAB_ORCAMENTO_GERENCIAL', defaultColumn: 'COD_CATEGORIA' },
+      { id: 'cod_subcategoria', name: 'Código Subcategoria', defaultTable: 'TAB_ORCAMENTO_GERENCIAL', defaultColumn: 'COD_SUBCATEGORIA' },
+      { id: 'val_previsao', name: 'Valor Previsão (Meta)', defaultTable: 'TAB_ORCAMENTO_GERENCIAL', defaultColumn: 'VAL_PREVISAO' },
+      { id: 'val_aberto', name: 'Valor Aberto', defaultTable: 'TAB_ORCAMENTO_GERENCIAL', defaultColumn: 'VAL_ABERTO' },
+      { id: 'val_quitado', name: 'Valor Quitado', defaultTable: 'TAB_ORCAMENTO_GERENCIAL', defaultColumn: 'VAL_QUITADO' },
+      { id: 'val_realizado', name: 'Valor Realizado', defaultTable: 'TAB_ORCAMENTO_GERENCIAL', defaultColumn: 'VAL_REALIZADO' },
+    ]
+  },
+  TAB_MOV_BCO: {
+    name: 'Movimentações Bancárias',
+    description: 'Movimentações de contas bancárias (PIS, COFINS, ICMS, etc.)',
+    fields: [
+      { id: 'cod_chave_mov_cta', name: 'Chave Movimentação', defaultTable: 'TAB_MOV_BCO', defaultColumn: 'COD_CHAVE_MOV_CTA' },
+      { id: 'cod_banco', name: 'Código Banco', defaultTable: 'TAB_MOV_BCO', defaultColumn: 'COD_BANCO' },
+      { id: 'cod_loja', name: 'Código Loja', defaultTable: 'TAB_MOV_BCO', defaultColumn: 'COD_LOJA' },
+      { id: 'dta_entrada', name: 'Data Entrada', defaultTable: 'TAB_MOV_BCO', defaultColumn: 'DTA_ENTRADA' },
+      { id: 'dta_quitada', name: 'Data Quitação', defaultTable: 'TAB_MOV_BCO', defaultColumn: 'DTA_QUITADA' },
+      { id: 'val_docto', name: 'Valor Documento', defaultTable: 'TAB_MOV_BCO', defaultColumn: 'VAL_DOCTO' },
+      { id: 'favorecido', name: 'Favorecido', defaultTable: 'TAB_MOV_BCO', defaultColumn: 'FAVORECIDO' },
+      { id: 'num_docto_pgto', name: 'Número Documento Pgto', defaultTable: 'TAB_MOV_BCO', defaultColumn: 'NUM_DOCTO_PGTO' },
+      { id: 'tipo_operacao', name: 'Tipo Operação (0=Depósito/1=Pgto)', defaultTable: 'TAB_MOV_BCO', defaultColumn: 'TIPO_OPERACAO' },
+      { id: 'tipo_situacao', name: 'Tipo Situação (0=Aberto/1=Quitado)', defaultTable: 'TAB_MOV_BCO', defaultColumn: 'TIPO_SITUACAO' },
+      { id: 'flg_estorno', name: 'Flag Estorno (S/N)', defaultTable: 'TAB_MOV_BCO', defaultColumn: 'FLG_ESTORNO' },
+      { id: 'cod_categoria', name: 'Código Categoria', defaultTable: 'TAB_MOV_BCO', defaultColumn: 'COD_CATEGORIA' },
+      { id: 'cod_subcategoria', name: 'Código Subcategoria', defaultTable: 'TAB_MOV_BCO', defaultColumn: 'COD_SUBCATEGORIA' },
+      { id: 'des_observacao', name: 'Observação', defaultTable: 'TAB_MOV_BCO', defaultColumn: 'DES_OBSERVACAO' },
+    ]
+  },
+  TAB_FLUXO_EVENTO: {
+    name: 'Eventos do Fluxo',
+    description: 'Eventos financeiros vinculados ao fluxo (juros, multas, etc.)',
+    fields: [
+      { id: 'num_registro', name: 'Número Registro', defaultTable: 'TAB_FLUXO_EVENTO', defaultColumn: 'NUM_REGISTRO' },
+      { id: 'tipo_conta', name: 'Tipo Conta', defaultTable: 'TAB_FLUXO_EVENTO', defaultColumn: 'TIPO_CONTA' },
+      { id: 'tipo_parceiro', name: 'Tipo Parceiro', defaultTable: 'TAB_FLUXO_EVENTO', defaultColumn: 'TIPO_PARCEIRO' },
+      { id: 'cod_parceiro', name: 'Código Parceiro', defaultTable: 'TAB_FLUXO_EVENTO', defaultColumn: 'COD_PARCEIRO' },
+      { id: 'cod_loja', name: 'Código Loja', defaultTable: 'TAB_FLUXO_EVENTO', defaultColumn: 'COD_LOJA' },
+      { id: 'cod_evento', name: 'Código Evento', defaultTable: 'TAB_FLUXO_EVENTO', defaultColumn: 'COD_EVENTO' },
+      { id: 'val_evento', name: 'Valor Evento', defaultTable: 'TAB_FLUXO_EVENTO', defaultColumn: 'VAL_EVENTO' },
+    ]
+  },
+  TAB_EVENTO_FINANCEIRO: {
+    name: 'Tipos de Evento Financeiro',
+    description: 'Cadastro de tipos de eventos financeiros',
+    fields: [
+      { id: 'cod_evento', name: 'Código Evento', defaultTable: 'TAB_EVENTO_FINANCEIRO', defaultColumn: 'COD_EVENTO' },
+      { id: 'cod_categoria_rec', name: 'Categoria Receita', defaultTable: 'TAB_EVENTO_FINANCEIRO', defaultColumn: 'COD_CATEGORIA_REC' },
+      { id: 'cod_subcategoria_rec', name: 'Subcategoria Receita', defaultTable: 'TAB_EVENTO_FINANCEIRO', defaultColumn: 'COD_SUBCATEGORIA_REC' },
+      { id: 'cod_categoria_pag', name: 'Categoria Pagamento', defaultTable: 'TAB_EVENTO_FINANCEIRO', defaultColumn: 'COD_CATEGORIA_PAG' },
+      { id: 'cod_subcategoria_pag', name: 'Subcategoria Pagamento', defaultTable: 'TAB_EVENTO_FINANCEIRO', defaultColumn: 'COD_SUBCATEGORIA_PAG' },
+    ]
+  },
+  TAB_ENTIDADE: {
+    name: 'Entidades (Centro de Custo)',
+    description: 'Cadastro de entidades / centros de custo',
+    fields: [
+      { id: 'cod_entidade', name: 'Código Entidade', defaultTable: 'TAB_ENTIDADE', defaultColumn: 'COD_ENTIDADE' },
+      { id: 'des_entidade', name: 'Descrição Entidade', defaultTable: 'TAB_ENTIDADE', defaultColumn: 'DES_ENTIDADE' },
+    ]
+  },
+  TAB_BANCO: {
+    name: 'Bancos',
+    description: 'Cadastro de bancos',
+    fields: [
+      { id: 'cod_banco', name: 'Código Banco', defaultTable: 'TAB_BANCO', defaultColumn: 'COD_BANCO' },
+      { id: 'des_banco', name: 'Descrição Banco', defaultTable: 'TAB_BANCO', defaultColumn: 'DES_BANCO' },
+    ]
+  },
+  // ====================================================================================
+  // TABELAS DE OFERTAS
+  // ====================================================================================
+  TAB_PROGRAMACAO: {
+    name: 'Programação de Ofertas',
+    description: 'Programações de ofertas e promoções',
+    fields: [
+      { id: 'cod_prog', name: 'Código Programação', defaultTable: 'TAB_PROGRAMACAO', defaultColumn: 'COD_PROG' },
+      { id: 'des_programacao', name: 'Descrição Programação', defaultTable: 'TAB_PROGRAMACAO', defaultColumn: 'DES_PROGRAMACAO' },
+      { id: 'dta_inicial', name: 'Data Inicial', defaultTable: 'TAB_PROGRAMACAO', defaultColumn: 'DTA_INICIAL' },
+      { id: 'dta_final', name: 'Data Final', defaultTable: 'TAB_PROGRAMACAO', defaultColumn: 'DTA_FINAL' },
+      { id: 'hor_inicio', name: 'Hora Início', defaultTable: 'TAB_PROGRAMACAO', defaultColumn: 'HOR_INICIO' },
+      { id: 'hor_final', name: 'Hora Final', defaultTable: 'TAB_PROGRAMACAO', defaultColumn: 'HOR_FINAL' },
+      { id: 'tipo_programacao', name: 'Tipo Programação', defaultTable: 'TAB_PROGRAMACAO', defaultColumn: 'TIPO_PROGRAMACAO' },
+      { id: 'cod_loja', name: 'Código Loja', defaultTable: 'TAB_PROGRAMACAO', defaultColumn: 'COD_LOJA' },
+    ]
+  },
+  TAB_PRODUTO_PROG: {
+    name: 'Produtos da Programação',
+    description: 'Produtos vinculados a cada programação de oferta',
+    fields: [
+      { id: 'cod_prog', name: 'Código Programação', defaultTable: 'TAB_PRODUTO_PROG', defaultColumn: 'COD_PROG' },
+      { id: 'cod_produto', name: 'Código Produto', defaultTable: 'TAB_PRODUTO_PROG', defaultColumn: 'COD_PRODUTO' },
+      { id: 'val_prog', name: 'Valor Programado', defaultTable: 'TAB_PRODUTO_PROG', defaultColumn: 'VAL_PROG' },
+    ]
+  },
 };
 
 // ====================================================================================
@@ -446,7 +611,7 @@ const TABLE_CATALOG = {
 const BUSINESS_MODULES = [
   {
     id: 'prevencao',
-    name: 'Radar 360',
+    name: 'Prevenção no Radar',
     icon: '🛡️',
     color: 'from-orange-500 to-red-500',
     submodules: [
@@ -487,6 +652,7 @@ const BUSINESS_MODULES = [
     color: 'from-emerald-500 to-teal-600',
     submodules: [
       { id: 'garimpa_fornecedores', name: 'Garimpa Fornecedores', icon: '🔍', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO'] },
+      { id: 'gestao_ofertas', name: 'Gestão de Ofertas', icon: '🏷️', tables: ['TAB_PROGRAMACAO', 'TAB_PRODUTO_PROG', 'TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_SECAO', 'TAB_FORNECEDOR'] },
     ]
   },
   {
@@ -495,8 +661,9 @@ const BUSINESS_MODULES = [
     icon: '💰',
     color: 'from-emerald-500 to-green-600',
     submodules: [
-      { id: 'entradas_saidas', name: 'Entradas e Saídas', icon: '💸', tables: ['TAB_CUPOM_FINALIZADORA', 'TAB_NOTA_FISCAL', 'TAB_FORNECEDOR_PRODUTO'] },
-      { id: 'bancos', name: 'Bancos (Extratos)', icon: '🏦', tables: ['TAB_CUPOM_FINALIZADORA'] },
+      { id: 'entradas_saidas', name: 'Entradas e Saídas', icon: '💸', tables: ['TAB_FLUXO', 'TAB_MOV_BCO', 'TAB_BANCO', 'TAB_ENTIDADE', 'TAB_CATEGORIA', 'TAB_SUBCATEGORIA', 'TAB_CUPOM_FINALIZADORA', 'TAB_NOTA_FISCAL', 'TAB_FORNECEDOR_PRODUTO'] },
+      { id: 'demonstrativo_caixa', name: 'Demonstrativo de Caixa', icon: '📊', tables: ['TAB_FLUXO', 'TAB_FLUXO_EVENTO', 'TAB_EVENTO_FINANCEIRO', 'TAB_MOV_BCO', 'TAB_CATEGORIA', 'TAB_SUBCATEGORIA', 'TAB_ORCAMENTO_GERENCIAL', 'TAB_ENTIDADE', 'TAB_NF', 'TAB_NF_ITEM'] },
+      { id: 'bancos', name: 'Bancos (Extratos)', icon: '🏦', tables: ['TAB_BANCO', 'TAB_MOV_BCO', 'TAB_CUPOM_FINALIZADORA'] },
     ]
   },
   {

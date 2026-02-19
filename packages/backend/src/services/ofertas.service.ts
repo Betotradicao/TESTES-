@@ -3,8 +3,7 @@
  * Consulta programacoes/ofertas ativas do Oracle (TAB_PROGRAMACAO + TAB_PRODUTO_PROG)
  * com dados enriquecidos de produto, estoque, preco e margem.
  *
- * TAB_PROGRAMACAO e TAB_PRODUTO_PROG: colunas diretas (nao estao no MappingService)
- * TAB_PRODUTO e TAB_PRODUTO_LOJA: resolvidos via MappingService
+ * TODAS as tabelas e colunas são resolvidas via MappingService (sem hardcode).
  */
 
 import { OracleService } from './oracle.service';
@@ -43,36 +42,131 @@ export interface ProdutoOferta {
   COD_FORNECEDOR: number;
 }
 
+/**
+ * Resolve TODAS as tabelas e colunas via MappingService.
+ * Chamado uma vez por request; retorna objeto plano com todos os nomes resolvidos.
+ */
+async function resolveMapping() {
+  const schema = await MappingService.getSchema();
+
+  // ── Tabelas ──
+  const tabProgramacao    = `${schema}.${await MappingService.getRealTableName('TAB_PROGRAMACAO')}`;
+  const tabProdutoProg    = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PROG')}`;
+  const tabProduto        = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+  const tabProdutoLoja    = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
+  const tabProdutoPdv     = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+  const tabSecao          = `${schema}.${await MappingService.getRealTableName('TAB_SECAO')}`;
+  const tabFornecedor     = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
+
+  // ── Colunas TAB_PROGRAMACAO ──
+  const pgCodProg          = await MappingService.getColumnFromTable('TAB_PROGRAMACAO', 'cod_prog');
+  const pgDesProgramacao   = await MappingService.getColumnFromTable('TAB_PROGRAMACAO', 'des_programacao');
+  const pgDtaInicial       = await MappingService.getColumnFromTable('TAB_PROGRAMACAO', 'dta_inicial');
+  const pgDtaFinal         = await MappingService.getColumnFromTable('TAB_PROGRAMACAO', 'dta_final');
+  const pgHorInicio        = await MappingService.getColumnFromTable('TAB_PROGRAMACAO', 'hor_inicio');
+  const pgHorFinal         = await MappingService.getColumnFromTable('TAB_PROGRAMACAO', 'hor_final');
+  const pgTipoProgramacao  = await MappingService.getColumnFromTable('TAB_PROGRAMACAO', 'tipo_programacao');
+  const pgCodLoja          = await MappingService.getColumnFromTable('TAB_PROGRAMACAO', 'cod_loja');
+
+  // ── Colunas TAB_PRODUTO_PROG ──
+  const ppCodProg    = await MappingService.getColumnFromTable('TAB_PRODUTO_PROG', 'cod_prog');
+  const ppCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PROG', 'cod_produto');
+  const ppValProg    = await MappingService.getColumnFromTable('TAB_PRODUTO_PROG', 'val_prog');
+
+  // ── Colunas TAB_PRODUTO ──
+  const pCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+  const pDescricao  = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+  const pCodSecao   = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
+
+  // ── Colunas TAB_PRODUTO_LOJA ──
+  const plCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
+  const plCodLoja    = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
+  const plValVenda   = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda');
+  const plValCusto   = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo');
+  const plEstoque    = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual');
+  const plCurva      = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva');
+
+  // ── Colunas TAB_PRODUTO_PDV ──
+  const pvValTotal     = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total');
+  const pvValCustoRep  = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao');
+  const pvQtdTotal     = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade');
+  const pvFlgOferta    = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'flag_oferta');
+  const pvCodProduto   = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto');
+  const pvDtaSaida     = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda');
+  const pvCodLoja      = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_loja');
+
+  // ── Colunas TAB_SECAO ──
+  const sCodSecao  = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
+  const sDesSecao  = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
+
+  // ── Colunas TAB_FORNECEDOR (nomes Oracle abreviados - fallback não bate) ──
+  let fCodFornecedor = 'COD_FORNECEDOR';
+  let fDesFornecedor = 'DES_FORNECEDOR';
+  try { const v = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor'); if (v && v !== 'CODIGO_FORNECEDOR') fCodFornecedor = v; } catch {}
+  try { const v = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'descricao_fornecedor'); if (v && v !== 'DESCRICAO_FORNECEDOR') fDesFornecedor = v; } catch {}
+
+  // ── Colunas opcionais (com fallback) ──
+  let pCodFornecedor = 'COD_FORNECEDOR';
+  let plVdMedia = 'VD_MEDIA';
+  let pCodBarras = 'COD_BARRA_PRINCIPAL';
+  try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_fornecedor'); if (v && v !== 'CODIGO_FORNECEDOR') pCodFornecedor = v; } catch {}
+  try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'venda_media'); if (v && v !== 'VENDA_MEDIA') plVdMedia = v; } catch {}
+  try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras'); if (v && v !== 'CODIGO_BARRAS') pCodBarras = v; } catch {}
+
+  // COD_LOJA em TAB_PRODUTO_PROG (campo opcional - pode nao existir no mapping)
+  let ppCodLoja = 'COD_LOJA';
+  try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PROG', 'cod_loja'); if (v) ppCodLoja = v; } catch {}
+
+  return {
+    schema,
+    // Tabelas
+    tabProgramacao, tabProdutoProg, tabProduto, tabProdutoLoja, tabProdutoPdv, tabSecao, tabFornecedor,
+    // TAB_PROGRAMACAO cols
+    pgCodProg, pgDesProgramacao, pgDtaInicial, pgDtaFinal, pgHorInicio, pgHorFinal, pgTipoProgramacao, pgCodLoja,
+    // TAB_PRODUTO_PROG cols
+    ppCodProg, ppCodProduto, ppValProg, ppCodLoja,
+    // TAB_PRODUTO cols
+    pCodProduto, pDescricao, pCodSecao, pCodFornecedor, pCodBarras,
+    // TAB_PRODUTO_LOJA cols
+    plCodProduto, plCodLoja, plValVenda, plValCusto, plEstoque, plCurva, plVdMedia,
+    // TAB_PRODUTO_PDV cols
+    pvValTotal, pvValCustoRep, pvQtdTotal, pvFlgOferta, pvCodProduto, pvDtaSaida, pvCodLoja,
+    // TAB_SECAO cols
+    sCodSecao, sDesSecao,
+    // TAB_FORNECEDOR cols
+    fCodFornecedor, fDesFornecedor,
+  };
+}
+
 export class OfertasService {
 
   /**
    * Lista programacoes (ativas ou todas)
    */
   static async getProgramacoes(codLoja: number, ativas: boolean = true): Promise<Programacao[]> {
-    const schema = await MappingService.getSchema();
+    const m = await resolveMapping();
 
     let whereAtivas = '';
     if (ativas) {
-      // Considerar horario: oferta ativa se SYSDATE esta entre DTA_INICIAL+HOR_INICIO e DTA_FINAL+HOR_FINAL
-      whereAtivas = `AND (TRUNC(pg.DTA_FINAL) + NVL(pg.HOR_FINAL, 23)/24) >= SYSDATE
-      AND (TRUNC(pg.DTA_INICIAL) + NVL(pg.HOR_INICIO, 0)/24) <= SYSDATE`;
+      whereAtivas = `AND (TRUNC(pg.${m.pgDtaFinal}) + NVL(pg.${m.pgHorFinal}, 23)/24) >= SYSDATE
+      AND (TRUNC(pg.${m.pgDtaInicial}) + NVL(pg.${m.pgHorInicio}, 0)/24) <= SYSDATE`;
     }
 
     const sql = `
       SELECT
-        pg.COD_PROG,
-        pg.DES_PROGRAMACAO,
-        TO_CHAR(pg.DTA_INICIAL, 'DD/MM/YYYY') as DTA_INICIAL,
-        TO_CHAR(pg.DTA_FINAL, 'DD/MM/YYYY') as DTA_FINAL,
-        NVL(pg.HOR_INICIO, 0) as HOR_INICIO,
-        NVL(pg.HOR_FINAL, 23) as HOR_FINAL,
-        pg.TIPO_PROGRAMACAO,
-        NVL(pg.COD_LOJA, :codLoja) as COD_LOJA,
-        (SELECT COUNT(*) FROM ${schema}.TAB_PRODUTO_PROG pp WHERE pp.COD_PROG = pg.COD_PROG AND NVL(pp.COD_LOJA, :codLoja) = :codLoja) as TOTAL_PRODUTOS
-      FROM ${schema}.TAB_PROGRAMACAO pg
-      WHERE NVL(pg.COD_LOJA, :codLoja) = :codLoja
+        pg.${m.pgCodProg} as COD_PROG,
+        pg.${m.pgDesProgramacao} as DES_PROGRAMACAO,
+        TO_CHAR(pg.${m.pgDtaInicial}, 'DD/MM/YYYY') as DTA_INICIAL,
+        TO_CHAR(pg.${m.pgDtaFinal}, 'DD/MM/YYYY') as DTA_FINAL,
+        NVL(pg.${m.pgHorInicio}, 0) as HOR_INICIO,
+        NVL(pg.${m.pgHorFinal}, 23) as HOR_FINAL,
+        pg.${m.pgTipoProgramacao} as TIPO_PROGRAMACAO,
+        NVL(pg.${m.pgCodLoja}, :codLoja) as COD_LOJA,
+        (SELECT COUNT(*) FROM ${m.tabProdutoProg} pp WHERE pp.${m.ppCodProg} = pg.${m.pgCodProg} AND NVL(pp.${m.ppCodLoja}, :codLoja) = :codLoja) as TOTAL_PRODUTOS
+      FROM ${m.tabProgramacao} pg
+      WHERE NVL(pg.${m.pgCodLoja}, :codLoja) = :codLoja
       ${whereAtivas}
-      ORDER BY pg.DTA_FINAL DESC, pg.DES_PROGRAMACAO
+      ORDER BY pg.${m.pgDtaFinal} DESC, pg.${m.pgDesProgramacao}
     `;
 
     console.log('[Ofertas] getProgramacoes - codLoja:', codLoja, 'ativas:', ativas);
@@ -112,58 +206,13 @@ export class OfertasService {
       difMargem: number;
     };
   }> {
-    const schema = await MappingService.getSchema();
-
-    // Resolver colunas via MappingService para TAB_PRODUTO e TAB_PRODUTO_LOJA
-    const colCodProdutoP = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
-    const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
-    const colCodSecaoP = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
-
-    const colCodProdutoPL = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
-    const colCodLojaPL = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
-
-    // Resolver nomes reais das tabelas
-    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
-    const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
-    const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO')}`;
-    const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
-    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
-
-    // Resolver colunas da TAB_PRODUTO_LOJA (mesmos nomes logicos do competitividade.service)
-    const colValVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda');
-    const colValCusto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo');
-    const colEstoque = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual');
-    const colCurva = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva');
-
-    // Resolver colunas da TAB_PRODUTO_PDV (mesma logica da gestao-inteligente.service)
-    const colValTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total');
-    const colValCustoRep = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao');
-    const colQtdTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade');
-    const colFlgOferta = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'flag_oferta');
-    const colCodProdutoPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto');
-    const colDtaSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda');
-    const colCodLojaPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_loja');
-
-    // Colunas opcionais com fallback
-    let colCodFornecedor = 'COD_FORNECEDOR';
-    let colVdMedia = 'VD_MEDIA';
-    let colCodBarras = 'COD_BARRA_PRINCIPAL';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_fornecedor'); if (v) colCodFornecedor = v; } catch {}
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'venda_media'); if (v) colVdMedia = v; } catch {}
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras'); if (v) colCodBarras = v; } catch {}
-
-    // Resolver colunas da secao e fornecedor
-    const colCodSecaoS = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
-    const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
-    // TAB_FORNECEDOR: usar colunas diretas (COD_FORNECEDOR e DES_FORNECEDOR)
-    const colCodFornecedorF = 'COD_FORNECEDOR';
-    const colDesFornecedor = 'DES_FORNECEDOR';
+    const m = await resolveMapping();
 
     // Verificar se coluna TIPO_RELEVANCIA existe na TAB_PRODUTO_LOJA
     let hasRelevanciaCol = true;
     try {
       const tblName = (await MappingService.getRealTableName('TAB_PRODUTO_LOJA')).replace(/"/g, '');
-      const checkSql = `SELECT COLUMN_NAME FROM ALL_TAB_COLUMNS WHERE OWNER = '${schema.replace(/"/g, '')}' AND TABLE_NAME = '${tblName}' AND COLUMN_NAME = 'TIPO_RELEVANCIA'`;
+      const checkSql = `SELECT COLUMN_NAME FROM ALL_TAB_COLUMNS WHERE OWNER = '${m.schema.replace(/"/g, '')}' AND TABLE_NAME = '${tblName}' AND COLUMN_NAME = 'TIPO_RELEVANCIA'`;
       const checkRes = await OracleService.query<any>(checkSql);
       if (checkRes.length === 0) hasRelevanciaCol = false;
     } catch (e) {
@@ -181,13 +230,13 @@ export class OfertasService {
     if (todasProgs) {
       // Pegar range de datas de todas as programacoes (filtrado por mes atual se necessario)
       const filtroMes = mesAtual
-        ? `AND DTA_FINAL >= TRUNC(SYSDATE, 'MM') AND DTA_INICIAL <= LAST_DAY(SYSDATE)`
+        ? `AND ${m.pgDtaFinal} >= TRUNC(SYSDATE, 'MM') AND ${m.pgDtaInicial} <= LAST_DAY(SYSDATE)`
         : '';
       const progSql = `
-        SELECT MIN(DTA_INICIAL) as DTA_INICIAL, MAX(DTA_FINAL) as DTA_FINAL,
-          MIN(NVL(HOR_INICIO, 0)) as HOR_INICIO, MAX(NVL(HOR_FINAL, 23)) as HOR_FINAL
-        FROM ${schema}.TAB_PROGRAMACAO
-        WHERE NVL(COD_LOJA, :codLoja) = :codLoja
+        SELECT MIN(${m.pgDtaInicial}) as DTA_INICIAL, MAX(${m.pgDtaFinal}) as DTA_FINAL,
+          MIN(NVL(${m.pgHorInicio}, 0)) as HOR_INICIO, MAX(NVL(${m.pgHorFinal}, 23)) as HOR_FINAL
+        FROM ${m.tabProgramacao}
+        WHERE NVL(${m.pgCodLoja}, :codLoja) = :codLoja
         ${filtroMes}
       `;
       const progRows = await OracleService.query<any>(progSql, { codLoja });
@@ -197,9 +246,10 @@ export class OfertasService {
       horFinal = Number(progRows[0]?.HOR_FINAL) || 23;
     } else {
       const progSql = `
-        SELECT DTA_INICIAL, DTA_FINAL, NVL(HOR_INICIO, 0) as HOR_INICIO, NVL(HOR_FINAL, 23) as HOR_FINAL
-        FROM ${schema}.TAB_PROGRAMACAO
-        WHERE COD_PROG = :codProg
+        SELECT ${m.pgDtaInicial} as DTA_INICIAL, ${m.pgDtaFinal} as DTA_FINAL,
+          NVL(${m.pgHorInicio}, 0) as HOR_INICIO, NVL(${m.pgHorFinal}, 23) as HOR_FINAL
+        FROM ${m.tabProgramacao}
+        WHERE ${m.pgCodProg} = :codProg
       `;
       const progRows = await OracleService.query<any>(progSql, { codProg });
       dtaInicial = progRows[0]?.DTA_INICIAL || null;
@@ -210,40 +260,40 @@ export class OfertasService {
 
     // 2) Query principal de produtos
     // Se codProg=0 (todas), nao filtra por COD_PROG e usa GROUP BY para evitar duplicados
-    const filtroProgProd = todasProgs ? '' : 'AND pp.COD_PROG = :codProg';
+    const filtroProgProd = todasProgs ? '' : `AND pp.${m.ppCodProg} = :codProg`;
     // Se "todas" + mesAtual, filtrar programacoes do mes atual via JOIN
     const filtroMesProd = (todasProgs && mesAtual)
-      ? `AND pp.COD_PROG IN (SELECT COD_PROG FROM ${schema}.TAB_PROGRAMACAO WHERE NVL(COD_LOJA, :codLoja) = :codLoja AND DTA_FINAL >= TRUNC(SYSDATE, 'MM') AND DTA_INICIAL <= LAST_DAY(SYSDATE))`
+      ? `AND pp.${m.ppCodProg} IN (SELECT ${m.pgCodProg} FROM ${m.tabProgramacao} WHERE NVL(${m.pgCodLoja}, :codLoja) = :codLoja AND ${m.pgDtaFinal} >= TRUNC(SYSDATE, 'MM') AND ${m.pgDtaInicial} <= LAST_DAY(SYSDATE))`
       : '';
     const sql = `
       SELECT
-        pp.COD_PRODUTO,
-        p.${colDesProduto} as DESCRICAO,
-        p.${colCodBarras} as COD_BARRAS,
-        NVL(pl.${colValCusto}, 0) as CUSTO,
-        NVL(pl.${colValVenda}, 0) as PRECO_NORMAL,
-        ${todasProgs ? `MIN(NVL(pp.VAL_PROG, 0))` : `NVL(pp.VAL_PROG, 0)`} as PRECO_OFERTA,
-        NVL(pl.${colEstoque}, 0) as ESTOQUE,
-        NVL(pl.${colVdMedia}, 0) as VD_MEDIA,
-        NVL(pl.${colCurva}, 'X') as CURVA,
-        s.${colDesSecao} as SECAO,
-        p.${colCodSecaoP} as COD_SECAO,
-        f.${colDesFornecedor} as FORNECEDOR,
-        p.${colCodFornecedor} as COD_FORNECEDOR${hasRelevanciaCol ? `,
+        pp.${m.ppCodProduto} as COD_PRODUTO,
+        p.${m.pDescricao} as DESCRICAO,
+        p.${m.pCodBarras} as COD_BARRAS,
+        NVL(pl.${m.plValCusto}, 0) as CUSTO,
+        NVL(pl.${m.plValVenda}, 0) as PRECO_NORMAL,
+        ${todasProgs ? `MIN(NVL(pp.${m.ppValProg}, 0))` : `NVL(pp.${m.ppValProg}, 0)`} as PRECO_OFERTA,
+        NVL(pl.${m.plEstoque}, 0) as ESTOQUE,
+        NVL(pl.${m.plVdMedia}, 0) as VD_MEDIA,
+        NVL(pl.${m.plCurva}, 'X') as CURVA,
+        s.${m.sDesSecao} as SECAO,
+        p.${m.pCodSecao} as COD_SECAO,
+        f.${m.fDesFornecedor} as FORNECEDOR,
+        p.${m.pCodFornecedor} as COD_FORNECEDOR${hasRelevanciaCol ? `,
         NVL(pl.TIPO_RELEVANCIA, -1) as TIPO_RELEVANCIA` : ''}
-      FROM ${schema}.TAB_PRODUTO_PROG pp
-      JOIN ${tabProduto} p ON pp.COD_PRODUTO = p.${colCodProdutoP}
-      JOIN ${tabProdutoLoja} pl ON pp.COD_PRODUTO = pl.${colCodProdutoPL}
-        AND pl.${colCodLojaPL} = :codLoja
-      LEFT JOIN ${tabSecao} s ON p.${colCodSecaoP} = s.${colCodSecaoS}
-      LEFT JOIN ${tabFornecedor} f ON p.${colCodFornecedor} = f.${colCodFornecedorF}
-      WHERE NVL(pp.COD_LOJA, :codLoja) = :codLoja
+      FROM ${m.tabProdutoProg} pp
+      JOIN ${m.tabProduto} p ON pp.${m.ppCodProduto} = p.${m.pCodProduto}
+      JOIN ${m.tabProdutoLoja} pl ON pp.${m.ppCodProduto} = pl.${m.plCodProduto}
+        AND pl.${m.plCodLoja} = :codLoja
+      LEFT JOIN ${m.tabSecao} s ON p.${m.pCodSecao} = s.${m.sCodSecao}
+      LEFT JOIN ${m.tabFornecedor} f ON p.${m.pCodFornecedor} = f.${m.fCodFornecedor}
+      WHERE NVL(pp.${m.ppCodLoja}, :codLoja) = :codLoja
         ${filtroProgProd}
         ${filtroMesProd}
-      ${todasProgs ? `GROUP BY pp.COD_PRODUTO, p.${colDesProduto}, p.${colCodBarras}, pl.${colValCusto}, pl.${colValVenda},
-        pl.${colEstoque}, pl.${colVdMedia}, pl.${colCurva}, s.${colDesSecao}, p.${colCodSecaoP},
-        f.${colDesFornecedor}, p.${colCodFornecedor}${hasRelevanciaCol ? `, pl.TIPO_RELEVANCIA` : ''}` : ''}
-      ORDER BY s.${colDesSecao}, p.${colDesProduto}
+      ${todasProgs ? `GROUP BY pp.${m.ppCodProduto}, p.${m.pDescricao}, p.${m.pCodBarras}, pl.${m.plValCusto}, pl.${m.plValVenda},
+        pl.${m.plEstoque}, pl.${m.plVdMedia}, pl.${m.plCurva}, s.${m.sDesSecao}, p.${m.pCodSecao},
+        f.${m.fDesFornecedor}, p.${m.pCodFornecedor}${hasRelevanciaCol ? `, pl.TIPO_RELEVANCIA` : ''}` : ''}
+      ORDER BY s.${m.sDesSecao}, p.${m.pDescricao}
     `;
 
     const queryParams: any = { codLoja };
@@ -273,16 +323,14 @@ export class OfertasService {
 
       if (diasOferta > 0) {
       // Query vendas agregadas usando horario exato da programacao
-      // TRUNC(dtaIni) + horInicio/24 = datetime exato de inicio
-      // TRUNC(dtaFim) + horFinal/24 = datetime exato de fim
       const vendasAgregSql = `
         SELECT
-          NVL(SUM(pv.${colValTotalProduto}), 0) as VENDAS_TOTAL,
-          NVL(SUM(CASE WHEN pv.${colFlgOferta} = 'S' THEN pv.${colValTotalProduto} ELSE 0 END), 0) as VENDAS_OFERTA,
-          NVL(SUM(CASE WHEN pv.${colFlgOferta} = 'S' THEN pv.${colValCustoRep} * pv.${colQtdTotalProduto} ELSE 0 END), 0) as CUSTO_OFERTA
-        FROM ${tabProdutoPdv} pv
-        WHERE pv.${colDtaSaida} BETWEEN (TRUNC(:dtaIni) + :horIni/24) AND LEAST(TRUNC(:dtaFim) + :horFim/24, SYSDATE)
-          AND pv.${colCodLojaPdv} = :codLoja
+          NVL(SUM(pv.${m.pvValTotal}), 0) as VENDAS_TOTAL,
+          NVL(SUM(CASE WHEN pv.${m.pvFlgOferta} = 'S' THEN pv.${m.pvValTotal} ELSE 0 END), 0) as VENDAS_OFERTA,
+          NVL(SUM(CASE WHEN pv.${m.pvFlgOferta} = 'S' THEN pv.${m.pvValCustoRep} * pv.${m.pvQtdTotal} ELSE 0 END), 0) as CUSTO_OFERTA
+        FROM ${m.tabProdutoPdv} pv
+        WHERE pv.${m.pvDtaSaida} BETWEEN (TRUNC(:dtaIni) + :horIni/24) AND LEAST(TRUNC(:dtaFim) + :horFim/24, SYSDATE)
+          AND pv.${m.pvCodLoja} = :codLoja
       `;
       const vendasAgregRows = await OracleService.query<any>(vendasAgregSql, {
         dtaIni: dtaInicial,
@@ -303,13 +351,13 @@ export class OfertasService {
           const lote = codProdutos.slice(i, i + 500);
           const placeholders = lote.map((_: string, idx: number) => `:p${i + idx}`).join(',');
           const vendasProdSql = `
-            SELECT pv.${colCodProdutoPdv} as COD_PRODUTO,
-              NVL(SUM(pv.${colQtdTotalProduto}), 0) as QTD_VENDIDA
-            FROM ${tabProdutoPdv} pv
-            WHERE pv.${colDtaSaida} BETWEEN (TRUNC(:dtaIni) + :horIni/24) AND LEAST(TRUNC(:dtaFim) + :horFim/24, SYSDATE)
-              AND pv.${colCodLojaPdv} = :codLoja
-              AND pv.${colCodProdutoPdv} IN (${placeholders})
-            GROUP BY pv.${colCodProdutoPdv}
+            SELECT pv.${m.pvCodProduto} as COD_PRODUTO,
+              NVL(SUM(pv.${m.pvQtdTotal}), 0) as QTD_VENDIDA
+            FROM ${m.tabProdutoPdv} pv
+            WHERE pv.${m.pvDtaSaida} BETWEEN (TRUNC(:dtaIni) + :horIni/24) AND LEAST(TRUNC(:dtaFim) + :horFim/24, SYSDATE)
+              AND pv.${m.pvCodLoja} = :codLoja
+              AND pv.${m.pvCodProduto} IN (${placeholders})
+            GROUP BY pv.${m.pvCodProduto}
           `;
           const params: any = { dtaIni: dtaInicial, dtaFim: dtaFinal, horIni: horInicio, horFim: horFinal, codLoja };
           lote.forEach((cod: string, idx: number) => { params[`p${i + idx}`] = cod; });
