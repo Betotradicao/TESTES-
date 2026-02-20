@@ -1924,46 +1924,19 @@ export default function SaudeMargens() {
       />
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto lg:ml-0 min-w-0">
-        {/* Mobile Header */}
-        <div className="lg:hidden bg-white shadow-sm p-4 flex items-center justify-between">
-          <button
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="p-2 text-gray-600 hover:text-gray-900"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"/>
-            </svg>
-          </button>
-          <h1 className="text-lg font-semibold text-gray-900">📦 Prevenção Estoque</h1>
-          <button
-            onClick={logout}
-            className="p-2 text-gray-600 hover:text-red-600"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-            </svg>
-          </button>
+      <main className="flex-1 overflow-auto">
+        {/* Header */}
+        <div className="bg-gradient-to-br from-orange-500 to-red-600 text-white px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold">SAÚDE DE MARGENS</h1>
+              <p className="text-white/90 text-sm">Monitore a saúde do seu estoque e identifique produtos críticos</p>
+            </div>
+          </div>
         </div>
 
         {/* Content Area */}
-        <div className="p-3 sm:p-6 min-w-0">
-          {/* Card com Gradiente Laranja */}
-          <div className="hidden lg:block bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg p-6 mb-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl lg:text-3xl font-bold mb-2">💹 SAÚDE DE MARGENS</h1>
-                <p className="text-white/90">
-                  Monitore a saúde do seu estoque e identifique produtos críticos
-                </p>
-              </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                </svg>
-              </div>
-            </div>
-          </div>
+        <div className="p-3 sm:p-6">
 
           {/* Filtros */}
           <div className="bg-white rounded-lg shadow p-4 mb-6">
@@ -2971,7 +2944,7 @@ export default function SaudeMargens() {
             </div>
           )}
         </div>
-      </div>
+      </main>
 
       {/* Modal de Histórico de Compras */}
       {showHistoryModal && (
