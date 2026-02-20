@@ -26,6 +26,24 @@ const RUPTURA_COLUMNS_DEFAULT = [
   { id: 'historico', label: 'Hist.', align: 'center', sortable: false },
 ];
 
+// Colunas para modo automático (dados do Oracle)
+const RUPTURA_COLUMNS_AUTOMATICO = [
+  { id: 'descricao', label: 'Produto', align: 'left', sortable: true },
+  { id: 'fornecedor', label: 'Fornecedor', align: 'left', sortable: true },
+  { id: 'secao', label: 'Seção', align: 'left', sortable: true },
+  { id: 'curva', label: 'Curva', align: 'center', sortable: true },
+  { id: 'estoque_atual', label: 'Estoque', align: 'right', sortable: true },
+  { id: 'venda_media_dia', label: 'V.Média/Dia', align: 'right', sortable: true },
+  { id: 'valor_venda', label: 'Valor Venda', align: 'right', sortable: true },
+  { id: 'margem_lucro', label: 'Margem %', align: 'right', sortable: true },
+  { id: 'dias_ruptura', label: 'Dias Ruptura', align: 'center', sortable: true },
+  { id: 'data_zerou', label: 'Dt. Zerou', align: 'center', sortable: true },
+  { id: 'data_reposicao', label: 'Dt. Repos.', align: 'center', sortable: true },
+  { id: 'tem_pedido', label: 'Pedido', align: 'center', sortable: true },
+  { id: 'perda_total', label: 'Perda Venda', align: 'right', sortable: true },
+  { id: 'perda_lucro', label: 'Perda Lucro', align: 'right', sortable: true },
+];
+
 // Definição das colunas do carrinho/pedido
 const CARRINHO_COLUMNS_DEFAULT = [
   { id: 'codigo_barras', label: 'Cód. Barras', align: 'left' },
@@ -52,6 +70,11 @@ export default function RupturaResultadosAuditorias() {
 
   // Verificar se usuário pode excluir (admin ou master)
   const canDelete = user?.role === 'admin' || user?.isMaster;
+
+  // Modo de visualização: manual (auditorias) ou automatico (Oracle)
+  const [modoVisao, setModoVisao] = useState('manual'); // 'manual' | 'automatico'
+  const [considerarProducao, setConsiderarProducao] = useState(false); // Filtro de produção (default: NÃO)
+  const [filtrosCurvaAuto, setFiltrosCurvaAuto] = useState(new Set(['A'])); // Curvas selecionadas no modo automático (default: A)
 
   // Filtros
   const [dataInicio, setDataInicio] = useState('');
@@ -534,6 +557,9 @@ export default function RupturaResultadosAuditorias() {
     localStorage.setItem('ruptura_columns_order', JSON.stringify(columnIds));
   }, [rupturaColumns]);
 
+  // Colunas ativas dependem do modo de visualização
+  const activeColumns = modoVisao === 'manual' ? rupturaColumns : RUPTURA_COLUMNS_AUTOMATICO;
+
   // Drag and drop para colunas
   const [draggedCol, setDraggedCol] = useState(null);
   const [dragOverCol, setDragOverCol] = useState(null);
@@ -739,6 +765,28 @@ export default function RupturaResultadosAuditorias() {
             </svg>
           </button>
         );
+      case 'dias_ruptura':
+        return item.dias_ruptura ? (
+          <span className="inline-block px-2 py-1 rounded text-xs font-bold bg-red-100 text-red-700">
+            {item.dias_ruptura}d
+          </span>
+        ) : (
+          <span className="text-gray-400">-</span>
+        );
+      case 'data_zerou':
+        return (
+          <span className="text-xs font-medium text-red-600">
+            {item.data_zerou || '-'}
+          </span>
+        );
+      case 'data_reposicao':
+        return (
+          <span className={`text-xs font-medium ${item.data_reposicao ? 'text-green-600' : 'text-red-500'}`}>
+            {item.data_reposicao || 'Sem repos.'}
+          </span>
+        );
+      case 'perda_lucro':
+        return <span className="font-bold text-orange-600">R$ {Number(item.perda_lucro || 0).toFixed(2)}</span>;
       default:
         return item[columnId] || '-';
     }
@@ -787,16 +835,28 @@ export default function RupturaResultadosAuditorias() {
     setError('');
 
     try {
-      const params = new URLSearchParams({
-        data_inicio: dataInicio,
-        data_fim: dataFim,
-        produto: produtoSelecionado,
-        fornecedor: fornecedorSelecionado,
-        auditor: auditorSelecionado,
-      });
+      if (modoVisao === 'manual') {
+        const params = new URLSearchParams({
+          data_inicio: dataInicio,
+          data_fim: dataFim,
+          produto: produtoSelecionado,
+          fornecedor: fornecedorSelecionado,
+          auditor: auditorSelecionado,
+        });
 
-      const response = await api.get(`/rupture-surveys/agregado?${params}`);
-      setResultados(response.data);
+        const response = await api.get(`/rupture-surveys/agregado?${params}`);
+        setResultados(response.data);
+      } else {
+        // Modo automático - buscar do Oracle
+        const params = new URLSearchParams({
+          data_inicio: dataInicio,
+          data_fim: dataFim,
+          considerarProducao: considerarProducao ? 'true' : 'false',
+        });
+
+        const response = await api.get(`/rupture-surveys/automatico?${params}`);
+        setResultados(response.data);
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Erro ao buscar resultados');
     } finally {
@@ -804,12 +864,12 @@ export default function RupturaResultadosAuditorias() {
     }
   };
 
-  // Executar filtro automaticamente quando período for definido
+  // Executar filtro automaticamente quando período, modo ou filtro de produção mudar
   useEffect(() => {
     if (dataInicio && dataFim) {
       handleFiltrar();
     }
-  }, [dataInicio, dataFim]);
+  }, [dataInicio, dataFim, modoVisao, considerarProducao]);
 
   const stats = resultados?.estatisticas || {};
   const todosItensRuptura = resultados?.itens_ruptura || [];
@@ -834,6 +894,11 @@ export default function RupturaResultadosAuditorias() {
   // Filtro por setor (clicado no card)
   if (filtroSetorTabela !== 'todos') {
     itensRuptura = itensRuptura.filter(item => item.secao === filtroSetorTabela);
+  }
+
+  // Filtro por curva no modo automático (Ruptura Sistêmica)
+  if (modoVisao === 'automatico' && filtrosCurvaAuto.size > 0) {
+    itensRuptura = itensRuptura.filter(item => filtrosCurvaAuto.has(item.curva?.trim() || 'X'));
   }
 
   // Função para ordenar (só se não estiver arrastando)
@@ -890,7 +955,7 @@ export default function RupturaResultadosAuditorias() {
       let bValue = b[sortColumn];
 
       // Tratamento especial para valores numéricos
-      if (['estoque_atual', 'venda_media_dia', 'valor_venda', 'margem_lucro', 'ocorrencias', 'perda_total'].includes(sortColumn)) {
+      if (['estoque_atual', 'venda_media_dia', 'valor_venda', 'margem_lucro', 'ocorrencias', 'perda_total', 'dias_ruptura', 'perda_lucro'].includes(sortColumn)) {
         aValue = Number(aValue) || 0;
         bValue = Number(bValue) || 0;
       } else {
@@ -932,6 +997,10 @@ export default function RupturaResultadosAuditorias() {
     total_rupturas: itensRuptura.length,
     perda_venda_periodo: itensRuptura.reduce((sum, item) => sum + Number(item.perda_total || 0), 0),
     perda_lucro_periodo: itensRuptura.reduce((sum, item) => {
+      // No modo automático, perda_lucro já vem calculado
+      if (modoVisao === 'automatico' && item.perda_lucro !== undefined) {
+        return sum + Number(item.perda_lucro || 0);
+      }
       const perdaVenda = Number(item.perda_total || 0);
       const margem = Number(item.margem_lucro || 0) / 100;
       return sum + (perdaVenda * margem);
@@ -939,7 +1008,9 @@ export default function RupturaResultadosAuditorias() {
   };
 
   // Verificar se há filtro ativo
-  const hasActiveFilter = filtroTipoRuptura !== 'todos' || filtroFornecedorTabela !== 'todos' || filtroSetorTabela !== 'todos';
+  const todosAutoCount = (resultados?.itens_ruptura || []).length;
+  const hasActiveFilter = filtroTipoRuptura !== 'todos' || filtroFornecedorTabela !== 'todos' || filtroSetorTabela !== 'todos'
+    || (modoVisao === 'automatico' && itensRuptura.length !== todosAutoCount);
 
   // Função para gerar PDF
   const gerarPDF = () => {
@@ -947,7 +1018,9 @@ export default function RupturaResultadosAuditorias() {
 
     // Título
     doc.setFontSize(16);
-    doc.text('Relatório de Rupturas - Resultados Agregados', 14, 15);
+    doc.text(modoVisao === 'manual'
+      ? 'Relatório de Rupturas - Resultados Agregados'
+      : 'Relatório de Rupturas - Cálculo Automático', 14, 15);
 
     // Período
     doc.setFontSize(10);
@@ -958,37 +1031,64 @@ export default function RupturaResultadosAuditorias() {
     doc.text('Resumo:', 14, 30);
     doc.setFontSize(9);
     doc.text(`Total de Rupturas: ${stats.total_rupturas || 0}`, 14, 36);
-    doc.text(`Não Encontrado: ${stats.rupturas_nao_encontrado || 0}`, 14, 41);
-    doc.text(`Em Estoque: ${stats.rupturas_em_estoque || 0}`, 14, 46);
+    if (modoVisao === 'manual') {
+      doc.text(`Não Encontrado: ${stats.rupturas_nao_encontrado || 0}`, 14, 41);
+      doc.text(`Em Estoque: ${stats.rupturas_em_estoque || 0}`, 14, 46);
+    } else {
+      doc.text(`Sem Reposição: ${stats.rupturas_nao_encontrado || 0}`, 14, 41);
+      doc.text(`Repostos: ${stats.rupturas_em_estoque || 0}`, 14, 46);
+    }
     doc.text(`Taxa de Ruptura: ${stats.taxa_ruptura ? Number(stats.taxa_ruptura).toFixed(1) : '0'}%`, 14, 51);
 
     // Tabela de produtos
-    const tableData = itensRuptura.map((item, idx) => [
-      idx + 1,
-      item.descricao || '',
-      item.fornecedor || 'Sem fornecedor',
-      item.secao || 'Sem seção',
-      item.curva || '-',
-      Number(item.estoque_atual || 0).toFixed(0),
-      Number(item.venda_media_dia || 0).toFixed(2),
-      `R$ ${Number(item.valor_venda || 0).toFixed(2)}`,
-      `${Number(item.margem_lucro || 0).toFixed(1)}%`,
-      item.tem_pedido || '-',
-      item.ocorrencias || 0,
-      `R$ ${Number(item.perda_total || 0).toFixed(2)}`
-    ]);
+    let tableData, tableHead;
+    if (modoVisao === 'manual') {
+      tableHead = [['#', 'Produto', 'Fornecedor', 'Seção', 'Curva', 'Estoque', 'V.Média/Dia', 'Valor Venda', 'Margem %', 'Pedido', 'Ocorrências', 'Perda Total']];
+      tableData = itensRuptura.map((item, idx) => [
+        idx + 1,
+        item.descricao || '',
+        item.fornecedor || 'Sem fornecedor',
+        item.secao || 'Sem seção',
+        item.curva || '-',
+        Number(item.estoque_atual || 0).toFixed(0),
+        Number(item.venda_media_dia || 0).toFixed(2),
+        `R$ ${Number(item.valor_venda || 0).toFixed(2)}`,
+        `${Number(item.margem_lucro || 0).toFixed(1)}%`,
+        item.tem_pedido || '-',
+        item.ocorrencias || 0,
+        `R$ ${Number(item.perda_total || 0).toFixed(2)}`
+      ]);
+    } else {
+      tableHead = [['#', 'Produto', 'Fornecedor', 'Seção', 'Curva', 'V.Média/Dia', 'Margem %', 'Dias Rupt.', 'Dt. Zerou', 'Dt. Repos.', 'Perda Venda', 'Perda Lucro']];
+      tableData = itensRuptura.map((item, idx) => [
+        idx + 1,
+        item.descricao || '',
+        item.fornecedor || 'Sem fornecedor',
+        item.secao || 'Sem seção',
+        item.curva || '-',
+        Number(item.venda_media_dia || 0).toFixed(2),
+        `${Number(item.margem_lucro || 0).toFixed(1)}%`,
+        item.dias_ruptura || 0,
+        item.data_zerou || '-',
+        item.data_reposicao || 'Sem repos.',
+        `R$ ${Number(item.perda_total || 0).toFixed(2)}`,
+        `R$ ${Number(item.perda_lucro || 0).toFixed(2)}`
+      ]);
+    }
 
     autoTable(doc, {
       startY: 56,
-      head: [['#', 'Produto', 'Fornecedor', 'Seção', 'Curva', 'Estoque', 'V.Média/Dia', 'Valor Venda', 'Margem %', 'Pedido', 'Ocorrências', 'Perda Total']],
+      head: tableHead,
       body: tableData,
       styles: { fontSize: 7 },
-      headStyles: { fillColor: [255, 85, 0], textColor: 255 },
+      headStyles: { fillColor: modoVisao === 'manual' ? [255, 85, 0] : [37, 99, 235], textColor: 255 },
       margin: { top: 10 },
     });
 
     // Salvar PDF
-    const nomeArquivo = `rupturas-agregado-${dataInicio}-${dataFim}.pdf`;
+    const nomeArquivo = modoVisao === 'manual'
+      ? `rupturas-agregado-${dataInicio}-${dataFim}.pdf`
+      : `rupturas-automatico-${dataInicio}-${dataFim}.pdf`;
     doc.save(nomeArquivo);
   };
 
@@ -999,14 +1099,48 @@ export default function RupturaResultadosAuditorias() {
         <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg p-6 mb-8 text-white">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl lg:text-3xl font-bold">📊 Resultados das Auditorias</h1>
-            <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-              </svg>
+            <div className="flex items-center gap-3">
+              {/* Toggle Manual / Automático */}
+              <div className="flex rounded-lg overflow-hidden border border-white/30">
+                <button
+                  onClick={() => setModoVisao('manual')}
+                  className={`px-3 sm:px-4 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wide transition-all flex items-center gap-1 ${
+                    modoVisao === 'manual'
+                      ? 'bg-white text-orange-600 shadow-inner'
+                      : 'bg-white/10 text-white hover:bg-white/20'
+                  }`}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                  </svg>
+                  Manual
+                </button>
+                <button
+                  onClick={() => setModoVisao('automatico')}
+                  className={`px-3 sm:px-4 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wide transition-all flex items-center gap-1 ${
+                    modoVisao === 'automatico'
+                      ? 'bg-white text-blue-600 shadow-inner'
+                      : 'bg-white/10 text-white hover:bg-white/20'
+                  }`}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
+                  Automático
+                </button>
+              </div>
+              <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+              </div>
             </div>
           </div>
           <p className="text-white/90">
-            Análise agregada de múltiplas pesquisas de ruptura com filtros avançados
+            {modoVisao === 'manual'
+              ? 'Análise agregada de múltiplas pesquisas de ruptura com filtros avançados'
+              : 'Cálculo automático de rupturas a partir dos dados do sistema (estoque zerado)'}
           </p>
         </div>
 
@@ -1014,7 +1148,7 @@ export default function RupturaResultadosAuditorias() {
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-lg font-bold text-gray-800 mb-4">🔍 Filtros</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className={`grid grid-cols-1 ${modoVisao === 'manual' ? 'md:grid-cols-5' : 'md:grid-cols-2'} gap-4`}>
             {/* Data Início */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1041,59 +1175,101 @@ export default function RupturaResultadosAuditorias() {
               />
             </div>
 
-            {/* Produto */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Produto
-              </label>
-              <input
-                type="text"
-                value={produtoSelecionado === 'todos' ? '' : produtoSelecionado}
-                onChange={(e) => setProdutoSelecionado(e.target.value || 'todos')}
-                placeholder="Digite o nome do produto ou deixe vazio para todos"
-                list="produtos-list"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-              <datalist id="produtos-list">
-                {Array.isArray(produtos) && produtos.map((p) => (
-                  <option key={p} value={p} />
-                ))}
-              </datalist>
-            </div>
+            {/* Filtro de produção no modo automático */}
+            {modoVisao === 'automatico' && (
+              <div className="flex items-end">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Considerar Produção
+                  </label>
+                  <div className="flex items-center gap-4 h-[42px]">
+                    <label className={`flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer border-2 transition-all ${
+                      !considerarProducao ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="producao"
+                        checked={!considerarProducao}
+                        onChange={() => setConsiderarProducao(false)}
+                        className="accent-blue-600"
+                      />
+                      <span className="text-sm font-medium">Não</span>
+                    </label>
+                    <label className={`flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer border-2 transition-all ${
+                      considerarProducao ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="producao"
+                        checked={considerarProducao}
+                        onChange={() => setConsiderarProducao(true)}
+                        className="accent-blue-600"
+                      />
+                      <span className="text-sm font-medium">Sim</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
 
-            {/* Fornecedor */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Fornecedor
-              </label>
-              <select
-                value={fornecedorSelecionado}
-                onChange={(e) => setFornecedorSelecionado(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="todos">Todos</option>
-                {Array.isArray(fornecedores) && fornecedores.map((f) => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
-              </select>
-            </div>
+            {/* Filtros apenas no modo manual */}
+            {modoVisao === 'manual' && (
+              <>
+                {/* Produto */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Produto
+                  </label>
+                  <input
+                    type="text"
+                    value={produtoSelecionado === 'todos' ? '' : produtoSelecionado}
+                    onChange={(e) => setProdutoSelecionado(e.target.value || 'todos')}
+                    placeholder="Digite o nome do produto ou deixe vazio para todos"
+                    list="produtos-list"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                  <datalist id="produtos-list">
+                    {Array.isArray(produtos) && produtos.map((p) => (
+                      <option key={p} value={p} />
+                    ))}
+                  </datalist>
+                </div>
 
-            {/* Auditor */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Auditor
-              </label>
-              <select
-                value={auditorSelecionado}
-                onChange={(e) => setAuditorSelecionado(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="todos">Todos</option>
-                {Array.isArray(auditores) && auditores.map((a) => (
-                  <option key={a.id} value={a.name}>{a.name}</option>
-                ))}
-              </select>
-            </div>
+                {/* Fornecedor */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Fornecedor
+                  </label>
+                  <select
+                    value={fornecedorSelecionado}
+                    onChange={(e) => setFornecedorSelecionado(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="todos">Todos</option>
+                    {Array.isArray(fornecedores) && fornecedores.map((f) => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Auditor */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Auditor
+                  </label>
+                  <select
+                    value={auditorSelecionado}
+                    onChange={(e) => setAuditorSelecionado(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="todos">Todos</option>
+                    {Array.isArray(auditores) && auditores.map((a) => (
+                      <option key={a.id} value={a.name}>{a.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="mt-4 flex space-x-4">
@@ -1130,21 +1306,33 @@ export default function RupturaResultadosAuditorias() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div className="bg-white rounded-lg shadow p-6 text-center">
                 <div className="text-4xl font-bold text-gray-800">{stats.total_itens_verificados || 0}</div>
-                <div className="text-sm text-gray-600 mt-1">Itens Verificados</div>
+                <div className="text-sm text-gray-600 mt-1">
+                  {modoVisao === 'manual' ? 'Itens Verificados' : 'Produtos Analisados'}
+                </div>
               </div>
 
               <div className="bg-white rounded-lg shadow p-6 text-center">
                 <div className="text-4xl font-bold text-green-600">{stats.total_encontrados || 0}</div>
-                <div className="text-sm text-gray-600 mt-1">Encontrados</div>
+                <div className="text-sm text-gray-600 mt-1">
+                  {modoVisao === 'manual' ? 'Encontrados' : 'Repostos'}
+                </div>
               </div>
 
               <div className="bg-white rounded-lg shadow p-6 text-center">
                 <div className="text-4xl font-bold text-red-600">{stats.total_rupturas || 0}</div>
-                <div className="text-sm text-gray-600 mt-1">Rupturas Total</div>
-                {(stats.rupturas_nao_encontrado > 0 || stats.rupturas_em_estoque > 0) && (
+                <div className="text-sm text-gray-600 mt-1">
+                  {modoVisao === 'manual' ? 'Rupturas Total' : 'Estoque Zerado'}
+                </div>
+                {modoVisao === 'manual' && (stats.rupturas_nao_encontrado > 0 || stats.rupturas_em_estoque > 0) && (
                   <div className="text-xs text-gray-500 mt-2">
                     {stats.rupturas_nao_encontrado > 0 && <div>{stats.rupturas_nao_encontrado} Não Encontrado</div>}
                     {stats.rupturas_em_estoque > 0 && <div>{stats.rupturas_em_estoque} Em Estoque</div>}
+                  </div>
+                )}
+                {modoVisao === 'automatico' && (stats.rupturas_nao_encontrado > 0 || stats.rupturas_em_estoque > 0) && (
+                  <div className="text-xs text-gray-500 mt-2">
+                    {stats.rupturas_nao_encontrado > 0 && <div>{stats.rupturas_nao_encontrado} Sem reposição</div>}
+                    {stats.rupturas_em_estoque > 0 && <div>{stats.rupturas_em_estoque} Repostos</div>}
                   </div>
                 )}
               </div>
@@ -1849,50 +2037,115 @@ export default function RupturaResultadosAuditorias() {
                   )}
                 </div>
 
-                {/* Filtros de Tipo de Ruptura */}
+                {/* Filtros de Tipo de Ruptura (apenas modo manual) */}
                 <div className="flex flex-wrap gap-2 mb-4">
-                  <button
-                    onClick={() => {
-                      setFiltroTipoRuptura('todos');
-                      setFiltroFornecedorTabela('todos');
-                      setFiltroSetorTabela('todos');
-                    }}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      filtroTipoRuptura === 'todos' && filtroFornecedorTabela === 'todos' && filtroSetorTabela === 'todos'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    Todos ({countTodos})
-                  </button>
-                  <button
-                    onClick={() => {
-                      setFiltroTipoRuptura('nao_encontrado');
-                      setFiltroFornecedorTabela('todos');
-                      setFiltroSetorTabela('todos');
-                    }}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      filtroTipoRuptura === 'nao_encontrado'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    Não Encontrado ({countNaoEncontrado})
-                  </button>
-                  <button
-                    onClick={() => {
-                      setFiltroTipoRuptura('ruptura_estoque');
-                      setFiltroFornecedorTabela('todos');
-                      setFiltroSetorTabela('todos');
-                    }}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      filtroTipoRuptura === 'ruptura_estoque'
-                        ? 'bg-yellow-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    Em Estoque ({countEmEstoque})
-                  </button>
+                  {modoVisao === 'manual' ? (
+                    <>
+                      <button
+                        onClick={() => {
+                          setFiltroTipoRuptura('todos');
+                          setFiltroFornecedorTabela('todos');
+                          setFiltroSetorTabela('todos');
+                        }}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                          filtroTipoRuptura === 'todos' && filtroFornecedorTabela === 'todos' && filtroSetorTabela === 'todos'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                      >
+                        Todos ({countTodos})
+                      </button>
+                      <button
+                        onClick={() => {
+                          setFiltroTipoRuptura('nao_encontrado');
+                          setFiltroFornecedorTabela('todos');
+                          setFiltroSetorTabela('todos');
+                        }}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                          filtroTipoRuptura === 'nao_encontrado'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                      >
+                        Não Encontrado ({countNaoEncontrado})
+                      </button>
+                      <button
+                        onClick={() => {
+                          setFiltroTipoRuptura('ruptura_estoque');
+                          setFiltroFornecedorTabela('todos');
+                          setFiltroSetorTabela('todos');
+                        }}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                          filtroTipoRuptura === 'ruptura_estoque'
+                            ? 'bg-yellow-600 text-white'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                      >
+                        Em Estoque ({countEmEstoque})
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-sm font-bold text-gray-700 mr-2">Ruptura Sistêmica:</span>
+                      {(() => {
+                        // Contar por curva nos dados brutos (sem filtro de curva aplicado)
+                        const todosAuto = resultados?.itens_ruptura || [];
+                        const curvas = {};
+                        todosAuto.forEach(item => {
+                          const c = item.curva?.trim() || 'X';
+                          curvas[c] = (curvas[c] || 0) + 1;
+                        });
+                        const curvasOrdenadas = ['A', 'B', 'C', 'D', 'X'].filter(c => curvas[c]);
+                        const toggleCurva = (curva) => {
+                          setFiltrosCurvaAuto(prev => {
+                            const next = new Set(prev);
+                            if (next.has(curva)) {
+                              next.delete(curva);
+                            } else {
+                              next.add(curva);
+                            }
+                            return next;
+                          });
+                        };
+                        return (
+                          <>
+                            <button
+                              onClick={() => {
+                                if (filtrosCurvaAuto.size === Object.keys(curvas).length) {
+                                  setFiltrosCurvaAuto(new Set(['A']));
+                                } else {
+                                  setFiltrosCurvaAuto(new Set(Object.keys(curvas)));
+                                }
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                filtrosCurvaAuto.size === Object.keys(curvas).length
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              }`}
+                            >
+                              Todas ({todosAuto.length})
+                            </button>
+                            {curvasOrdenadas.map(curva => (
+                              <button
+                                key={curva}
+                                onClick={() => toggleCurva(curva)}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                  filtrosCurvaAuto.has(curva)
+                                    ? curva === 'A' ? 'bg-red-600 text-white'
+                                    : curva === 'B' ? 'bg-yellow-600 text-white'
+                                    : curva === 'C' ? 'bg-green-600 text-white'
+                                    : 'bg-gray-600 text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                              >
+                                Curva {curva} ({curvas[curva]})
+                              </button>
+                            ))}
+                          </>
+                        );
+                      })()}
+                    </>
+                  )}
 
                   {/* Indicador de filtro ativo por fornecedor ou setor */}
                   {filtroFornecedorTabela !== 'todos' && (
@@ -1930,7 +2183,7 @@ export default function RupturaResultadosAuditorias() {
                       <thead className="bg-orange-100 border-b">
                         <tr>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                          {rupturaColumns.map((col) => (
+                          {activeColumns.map((col) => (
                             <th
                               key={col.id}
                               draggable="true"
@@ -1955,7 +2208,7 @@ export default function RupturaResultadosAuditorias() {
                               </div>
                             </th>
                           ))}
-                          {canDelete && (
+                          {canDelete && modoVisao === 'manual' && (
                             <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">
                               Excluir
                             </th>
@@ -1967,13 +2220,13 @@ export default function RupturaResultadosAuditorias() {
                           <Fragment key={idx}>
                             <tr className={`hover:bg-gray-50 ${item.ocorrencias > 1 ? 'cursor-pointer' : ''}`}>
                               <td className="px-3 py-2 text-gray-600">{startIndex + idx + 1}</td>
-                              {rupturaColumns.map((col) => (
+                              {activeColumns.map((col) => (
                                 <td key={col.id} className={`px-3 py-2 text-${col.align}`}>
                                   {renderCellValue(item, col.id)}
                                 </td>
                               ))}
-                              {/* Coluna de excluir */}
-                              {canDelete && (
+                              {/* Coluna de excluir (apenas modo manual) */}
+                              {canDelete && modoVisao === 'manual' && (
                                 <td className="px-3 py-2 text-center">
                                   <button
                                     onClick={() => handleDeleteRuptura(item.descricao, item.descricao)}
@@ -2002,7 +2255,7 @@ export default function RupturaResultadosAuditorias() {
                             {/* Linha de expansão para mostrar datas das ocorrências */}
                             {expandedRows.has(item.descricao) && item.datas_ocorrencias && item.datas_ocorrencias.length > 0 && (
                               <tr className="bg-blue-50">
-                                <td colSpan={rupturaColumns.length + 2} className="px-6 py-3">
+                                <td colSpan={activeColumns.length + 2} className="px-6 py-3">
                                   <div className="text-sm">
                                     <p className="font-semibold text-gray-700 mb-2">Datas das Ocorrências ({item.datas_ocorrencias.length}):</p>
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">

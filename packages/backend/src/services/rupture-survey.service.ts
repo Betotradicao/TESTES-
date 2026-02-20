@@ -902,6 +902,314 @@ export class RuptureSurveyService {
   }
 
   /**
+   * Calcula rupturas automaticamente a partir das tabelas Oracle
+   * Identifica produtos com estoque zerado, dias de ruptura, venda e lucro perdidos
+   */
+  static async getAutomaticRuptureResults(filters: {
+    data_inicio: string;
+    data_fim: string;
+    codLoja?: string;
+    considerarProducao?: boolean;
+  }): Promise<any> {
+    const schema = await MappingService.getSchema();
+
+    // --- Resolver tabelas ---
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
+    const tabNf = `${schema}.${await MappingService.getRealTableName('TAB_NF')}`;
+    const tabNfItem = `${schema}.${await MappingService.getRealTableName('TAB_NF_ITEM')}`;
+    const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO')}`;
+    const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
+
+    // --- Resolver colunas TAB_PRODUTO ---
+    const prCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+    const prDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+    const prCodBarras = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras');
+    const prCodSecao = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
+    const prTipoEvento = await MappingService.getColumnFromTable('TAB_PRODUTO', 'tipo_evento');
+
+    // --- Resolver colunas TAB_PRODUTO_LOJA ---
+    const plCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
+    const plCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
+    const plEstoqueAtual = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual');
+    const plPrecoVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda');
+    const plMargem = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem');
+    const plVendaMedia = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'venda_media');
+    const plDtaUltVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'data_ultima_venda');
+    const plCurva = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva');
+    const plCodFornUlt = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra');
+    const plForaLinha = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'fora_linha');
+
+    // --- Resolver colunas TAB_NF ---
+    const nfNumNf = await MappingService.getColumnFromTable('TAB_NF', 'numero_nf');
+    const nfSerieNf = await MappingService.getColumnFromTable('TAB_NF', 'serie_nf');
+    const nfDtaEntrada = await MappingService.getColumnFromTable('TAB_NF', 'data_entrada');
+    const nfCodParceiro = await MappingService.getColumnFromTable('TAB_NF', 'codigo_parceiro');
+    const nfTipoOperacao = await MappingService.getColumnFromTable('TAB_NF', 'tipo_operacao');
+
+    // --- Resolver colunas TAB_NF_ITEM ---
+    const niNumNf = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_nf');
+    const niSerieNf = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'serie_nf');
+    const niCodParceiro = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_parceiro');
+    const niCodItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_item');
+
+    // --- Resolver colunas TAB_SECAO ---
+    const secCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
+    const secDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
+
+    // --- Resolver colunas TAB_FORNECEDOR ---
+    const fornCodForn = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
+    const fornDesRazao = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social');
+
+    // Determinar codLoja (usar 1 como default se nao informado)
+    const codLoja = filters.codLoja || '1';
+
+    // Filtro de produção: tipo_evento = 3 é "Produção"
+    const filtroProducao = filters.considerarProducao ? '' : `AND NVL(p.${prTipoEvento}, 0) != 3`;
+
+    // --- Query 1: Produtos com estoque zero e historico de venda ---
+    console.log('🔍 Buscando produtos com estoque zero no Oracle...', { considerarProducao: filters.considerarProducao });
+    const produtosZero = await OracleService.query<any>(`
+      SELECT
+        p.${prCodProduto} AS COD_PRODUTO,
+        p.${prDesProduto} AS DESCRICAO,
+        p.${prCodBarras} AS CODIGO_BARRAS,
+        s.${secDesSecao} AS SECAO,
+        f.${fornDesRazao} AS FORNECEDOR,
+        NVL(TRIM(pl.${plCurva}), 'X') AS CURVA,
+        NVL(pl.${plEstoqueAtual}, 0) AS ESTOQUE_ATUAL,
+        NVL(pl.${plPrecoVenda}, 0) AS VALOR_VENDA,
+        NVL(pl.${plMargem}, 0) AS MARGEM,
+        NVL(pl.${plVendaMedia}, 0) AS VENDA_MEDIA,
+        pl.${plDtaUltVenda} AS DTA_ULT_VENDA
+      FROM ${tabProduto} p
+      INNER JOIN ${tabProdutoLoja} pl ON p.${prCodProduto} = pl.${plCodProduto}
+      LEFT JOIN ${tabSecao} s ON p.${prCodSecao} = s.${secCodSecao}
+      LEFT JOIN ${tabFornecedor} f ON pl.${plCodFornUlt} = f.${fornCodForn}
+      WHERE pl.${plCodLoja} = :codLoja
+      AND NVL(pl.${plForaLinha}, 'N') = 'N'
+      AND NVL(pl.${plEstoqueAtual}, 0) = 0
+      AND NVL(pl.${plVendaMedia}, 0) > 0
+      AND pl.${plDtaUltVenda} >= TO_DATE(:dataInicio, 'YYYY-MM-DD')
+      AND pl.${plDtaUltVenda} <= TO_DATE(:dataFim, 'YYYY-MM-DD')
+      ${filtroProducao}
+      ORDER BY NVL(pl.${plVendaMedia}, 0) * NVL(pl.${plPrecoVenda}, 0) DESC
+    `, {
+      codLoja,
+      dataInicio: filters.data_inicio,
+      dataFim: filters.data_fim,
+    });
+
+    console.log(`📦 Encontrados ${produtosZero.length} produtos com estoque zero`);
+
+    if (produtosZero.length === 0) {
+      return {
+        estatisticas: {
+          total_itens_verificados: 0,
+          total_encontrados: 0,
+          total_rupturas: 0,
+          rupturas_nao_encontrado: 0,
+          rupturas_em_estoque: 0,
+          taxa_ruptura: 0,
+          perda_venda_periodo: 0,
+          perda_lucro_periodo: 0,
+        },
+        itens_ruptura: [],
+        fornecedores_ranking: [],
+        secoes_ranking: [],
+      };
+    }
+
+    // --- Query 2: Buscar datas de reposicao (proxima NF de entrada) ---
+    const codProdutos = produtosZero.map((p: any) => String(p.COD_PRODUTO));
+    const reposicaoMap = new Map<string, Date>();
+
+    // Processar em lotes de 500 para evitar limite de Oracle IN clause
+    const BATCH_SIZE = 500;
+    for (let i = 0; i < codProdutos.length; i += BATCH_SIZE) {
+      const batch = codProdutos.slice(i, i + BATCH_SIZE);
+      const placeholders = batch.map((_: string, idx: number) => `:p${i + idx}`).join(',');
+      const params: any = {};
+      batch.forEach((cod: string, idx: number) => {
+        params[`p${i + idx}`] = cod;
+      });
+
+      const reposicoes = await OracleService.query<any>(`
+        SELECT
+          ni.${niCodItem} AS COD_PRODUTO,
+          MIN(nf.${nfDtaEntrada}) AS DATA_REPOSICAO
+        FROM ${tabNf} nf
+        INNER JOIN ${tabNfItem} ni ON nf.${nfNumNf} = ni.${niNumNf}
+          AND nf.${nfSerieNf} = ni.${niSerieNf}
+          AND nf.${nfCodParceiro} = ni.${niCodParceiro}
+        WHERE nf.${nfTipoOperacao} = 1
+        AND nf.${nfDtaEntrada} >= TO_DATE(:dataInicio, 'YYYY-MM-DD')
+        AND nf.${nfDtaEntrada} <= TO_DATE(:dataFimPlus, 'YYYY-MM-DD')
+        AND ni.${niCodItem} IN (${placeholders})
+        GROUP BY ni.${niCodItem}
+      `, {
+        ...params,
+        dataInicio: filters.data_inicio,
+        dataFimPlus: filters.data_fim,
+      });
+
+      for (const row of reposicoes) {
+        if (row.DATA_REPOSICAO) {
+          reposicaoMap.set(String(row.COD_PRODUTO), new Date(row.DATA_REPOSICAO));
+        }
+      }
+    }
+
+    console.log(`📦 Encontradas ${reposicaoMap.size} reposições para os produtos`);
+
+    // --- Calcular rupturas ---
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const dataFimDate = new Date(filters.data_fim + 'T23:59:59');
+
+    let perdaVendaPeriodo = 0;
+    let perdaLucroPeriodo = 0;
+    const itensRuptura: any[] = [];
+
+    for (const prod of produtosZero) {
+      const codProduto = String(prod.COD_PRODUTO);
+      const dtaUltVenda = prod.DTA_ULT_VENDA ? new Date(prod.DTA_ULT_VENDA) : null;
+
+      if (!dtaUltVenda) continue;
+      dtaUltVenda.setHours(0, 0, 0, 0);
+
+      const dataReposicao = reposicaoMap.get(codProduto);
+      let diasRuptura: number;
+      let dataReposStr: string | null = null;
+
+      if (dataReposicao) {
+        // Produto foi reposto - calcular dias entre ultima venda e reposicao
+        const dtRepos = new Date(dataReposicao);
+        dtRepos.setHours(0, 0, 0, 0);
+        diasRuptura = Math.max(0, Math.ceil((dtRepos.getTime() - dtaUltVenda.getTime()) / (1000 * 60 * 60 * 24)));
+        dataReposStr = dtRepos.toLocaleDateString('pt-BR');
+      } else {
+        // Produto ainda sem reposicao - calcular ate hoje ou fim do periodo
+        const dataRef = dataFimDate < hoje ? dataFimDate : hoje;
+        diasRuptura = Math.max(0, Math.ceil((dataRef.getTime() - dtaUltVenda.getTime()) / (1000 * 60 * 60 * 24)));
+      }
+
+      if (diasRuptura <= 0) continue;
+
+      const vendaMedia = Number(prod.VENDA_MEDIA) || 0;
+      const valorVenda = Number(prod.VALOR_VENDA) || 0;
+      const margem = Number(prod.MARGEM) || 0;
+
+      const perdaVenda = vendaMedia * valorVenda * diasRuptura;
+      const perdaLucro = perdaVenda * (margem / 100);
+
+      perdaVendaPeriodo += perdaVenda;
+      perdaLucroPeriodo += perdaLucro;
+
+      itensRuptura.push({
+        codigo: codProduto,
+        codigo_barras: prod.CODIGO_BARRAS || null,
+        descricao: prod.DESCRICAO || 'Sem descrição',
+        fornecedor: prod.FORNECEDOR || 'Sem fornecedor',
+        secao: prod.SECAO || 'Sem seção',
+        curva: prod.CURVA || '-',
+        estoque_atual: Number(prod.ESTOQUE_ATUAL) || 0,
+        valor_venda: valorVenda,
+        venda_media_dia: vendaMedia,
+        margem_lucro: margem,
+        tem_pedido: null,
+        status_pedido: null,
+        data_entrega: null,
+        dias_atraso: null,
+        status_verificacao: 'nao_encontrado',
+        ocorrencias: 1,
+        ocorrencias_nao_encontrado: 1,
+        ocorrencias_em_estoque: 0,
+        perda_total: perdaVenda,
+        perda_lucro: perdaLucro,
+        dias_ruptura: diasRuptura,
+        data_zerou: dtaUltVenda.toLocaleDateString('pt-BR'),
+        data_reposicao: dataReposStr,
+        datas_ocorrencias: [],
+      });
+    }
+
+    // Ordenar por maior perda
+    itensRuptura.sort((a, b) => b.perda_total - a.perda_total);
+
+    // --- Enriquecer com dados de pedido (reutilizar metodo existente) ---
+    try {
+      const codigosProdutos = itensRuptura
+        .map((p: any) => p.codigo)
+        .filter((cod: string | null) => cod !== null && cod !== '') as string[];
+
+      if (codigosProdutos.length > 0) {
+        console.log(`🔍 Buscando pedidos no Oracle para ${codigosProdutos.length} produtos...`);
+        const pedidosInfo = await this.getPedidosInfoFromOracle(codigosProdutos);
+
+        for (const item of itensRuptura) {
+          if (item.codigo && pedidosInfo.has(item.codigo)) {
+            const info = pedidosInfo.get(item.codigo);
+            item.tem_pedido = 'Sim';
+            item.status_pedido = info?.status_pedido || null;
+            item.data_entrega = info?.data_entrega || null;
+            item.dias_atraso = info?.dias_atraso || null;
+          } else {
+            item.tem_pedido = 'Não';
+          }
+        }
+        console.log(`✅ Enriquecidos ${pedidosInfo.size} produtos com dados de pedido`);
+      }
+    } catch (oracleError: any) {
+      console.error('⚠️ Erro ao enriquecer com dados do Oracle:', oracleError.message);
+    }
+
+    // --- Agregar rankings ---
+    const rupturasPorFornecedor: { [key: string]: { count: number; perda: number } } = {};
+    const rupturasPorSecao: { [key: string]: { count: number; perda: number } } = {};
+
+    for (const item of itensRuptura) {
+      const forn = item.fornecedor;
+      if (!rupturasPorFornecedor[forn]) rupturasPorFornecedor[forn] = { count: 0, perda: 0 };
+      rupturasPorFornecedor[forn].count++;
+      rupturasPorFornecedor[forn].perda += item.perda_total;
+
+      const sec = item.secao;
+      if (!rupturasPorSecao[sec]) rupturasPorSecao[sec] = { count: 0, perda: 0 };
+      rupturasPorSecao[sec].count++;
+      rupturasPorSecao[sec].perda += item.perda_total;
+    }
+
+    const fornecedoresRanking = Object.entries(rupturasPorFornecedor)
+      .map(([fornecedor, stats]) => ({ fornecedor, rupturas: stats.count, perda_total: stats.perda }))
+      .sort((a, b) => b.perda_total - a.perda_total);
+
+    const secoesRanking = Object.entries(rupturasPorSecao)
+      .map(([secao, stats]) => ({ secao, rupturas: stats.count, perda_total: stats.perda }))
+      .sort((a, b) => b.perda_total - a.perda_total);
+
+    const totalRupturas = itensRuptura.length;
+    const comReposicao = itensRuptura.filter(i => i.data_reposicao !== null).length;
+    const semReposicao = totalRupturas - comReposicao;
+
+    return {
+      estatisticas: {
+        total_itens_verificados: totalRupturas,
+        total_encontrados: comReposicao,
+        total_rupturas: totalRupturas,
+        rupturas_nao_encontrado: semReposicao,
+        rupturas_em_estoque: comReposicao,
+        taxa_ruptura: 100,
+        perda_venda_periodo: perdaVendaPeriodo,
+        perda_lucro_periodo: perdaLucroPeriodo,
+      },
+      itens_ruptura: itensRuptura,
+      fornecedores_ranking: fornecedoresRanking,
+      secoes_ranking: secoesRanking,
+    };
+  }
+
+  /**
    * Buscar produtos únicos para filtro
    */
   static async getUniqueProdutos(): Promise<string[]> {

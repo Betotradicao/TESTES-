@@ -32,6 +32,9 @@ export default function RupturaLancadorItens() {
   const [parsedItems, setParsedItems] = useState([]);
   const [showPeculiaridadesModal, setShowPeculiaridadesModal] = useState(false);
 
+  // Estado para modo Ruptura Sistêmica (já vem ativo por padrão)
+  const [sistemicaAtiva, setSistemicaAtiva] = useState(true);
+
   // Carregar pesquisas recentes e do mês ao montar ou quando mudar a loja
   useEffect(() => {
     loadRecentSurveys();
@@ -61,6 +64,10 @@ export default function RupturaLancadorItens() {
 
   // Carregar produtos filtrados para ruptura
   const loadProductsForRupture = async () => {
+    if (curvasSelecionadas.length === 0) {
+      setError('Selecione pelo menos uma curva');
+      return;
+    }
     setLoadingProducts(true);
     setError('');
 
@@ -94,6 +101,95 @@ export default function RupturaLancadorItens() {
       }
     } catch (err) {
       console.error('Erro ao carregar produtos:', err);
+      setError(err.response?.data?.error || 'Erro ao carregar produtos');
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+  // Carregar produtos combinando busca normal + ruptura sistêmica (estoque zerado no mês)
+  // Soma os dois resultados e remove duplicatas pelo código do produto
+  const loadCombinedRupture = async () => {
+    setError('');
+    setSuccess('');
+    setLoadingProducts(true);
+
+    try {
+      const temCurvas = curvasSelecionadas.length > 0;
+
+      // 1) Buscar produtos normais (dias sem venda) - só se tem curva selecionada
+      let itensNormais = [];
+      if (temCurvas) {
+        const paramsNormal = new URLSearchParams();
+        if (diasSemVenda > 0) {
+          paramsNormal.append('diasSemVenda', diasSemVenda.toString());
+        }
+        if (curvasSelecionadas.length < 5) {
+          paramsNormal.append('curvas', curvasSelecionadas.join(','));
+        }
+        if (secoesSelecionadas.length > 0) {
+          paramsNormal.append('secoes', secoesSelecionadas.join(','));
+        }
+        if (lojaSelecionada) {
+          paramsNormal.append('codLoja', lojaSelecionada);
+        }
+        const resNormal = await api.get(`/products/for-rupture?${paramsNormal.toString()}`);
+        itensNormais = resNormal.data.items || [];
+      }
+
+      // 2) Buscar produtos com estoque zerado (ruptura sistêmica do mês atual)
+      const hoje = new Date();
+      const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      const paramsSistemica = new URLSearchParams({
+        data_inicio: primeiroDiaMes.toISOString().split('T')[0],
+        data_fim: hoje.toISOString().split('T')[0],
+        considerarProducao: 'false',
+      });
+      if (lojaSelecionada) {
+        paramsSistemica.append('codLoja', lojaSelecionada);
+      }
+      const resSistemica = await api.get(`/rupture-surveys/automatico?${paramsSistemica.toString()}`);
+
+      // Filtrar sistêmica pelas curvas (se selecionadas), senão traz todas
+      const itensRuptura = resSistemica.data.itens_ruptura || [];
+      // Sistêmica sempre traz todos (não filtra por curva - curva filtra só o ERP)
+      const itensSistemicaFiltrados = itensRuptura;
+
+      const itensSistemicaConvertidos = itensSistemicaFiltrados.map(item => ({
+        codigo: item.codigo || '',
+        codigo_barras: item.codigo_barras || '',
+        descricao: item.descricao || '',
+        fornecedor: item.fornecedor || 'Sem fornecedor',
+        secao: item.secao || 'Sem seção',
+        curva: item.curva || '-',
+        estoque_atual: item.estoque_atual || 0,
+        valor_venda: item.valor_venda || 0,
+        venda_media_dia: item.venda_media_dia || 0,
+        margem_lucro: item.margem_lucro || 0,
+        dta_ult_venda: item.data_zerou || null,
+        dias_sem_venda: item.dias_ruptura || 0,
+        _origem: 'sistemica',
+      }));
+
+      // 3) Merge: começar com itens normais, adicionar sistêmicos que não existem
+      const codigosExistentes = new Set(itensNormais.map(i => String(i.codigo)));
+      const itensSistemicaNovos = itensSistemicaConvertidos.filter(i => !codigosExistentes.has(String(i.codigo)));
+      const combined = [...itensNormais, ...itensSistemicaNovos];
+
+      setParsedItems(combined);
+
+      if (combined.length > 0) {
+        const today = new Date();
+        const msg = temCurvas
+          ? `${combined.length} produtos (${itensNormais.length} ERP + ${itensSistemicaNovos.length} ruptura sistêmica)`
+          : `${combined.length} produtos em ruptura sistêmica no mês`;
+        setSuccess(msg);
+        setNomePesquisa(`Ruptura ${today.toLocaleDateString('pt-BR')} - ${combined.length} itens`);
+      } else {
+        setError('Nenhum produto encontrado');
+      }
+    } catch (err) {
+      console.error('Erro ao carregar produtos combinados:', err);
       setError(err.response?.data?.error || 'Erro ao carregar produtos');
     } finally {
       setLoadingProducts(false);
@@ -639,6 +735,18 @@ export default function RupturaLancadorItens() {
                       TODAS
                     </button>
 
+                    {/* Ruptura Sistêmica - toggle de filtro (só seleciona, busca no botão Buscar) */}
+                    <button
+                      onClick={() => setSistemicaAtiva(!sistemicaAtiva)}
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        sistemicaAtiva
+                          ? 'bg-orange-600 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      Ruptura Sistêmica
+                    </button>
+
                     {/* Botao Configurar Peculiaridades */}
                     <button
                       onClick={() => setShowPeculiaridadesModal(true)}
@@ -685,7 +793,7 @@ export default function RupturaLancadorItens() {
                 </div>
 
                 <button
-                  onClick={loadProductsForRupture}
+                  onClick={sistemicaAtiva ? loadCombinedRupture : loadProductsForRupture}
                   disabled={loadingProducts}
                   className="w-full py-3 px-6 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
@@ -703,7 +811,10 @@ export default function RupturaLancadorItens() {
                 </button>
 
                 <p className="text-xs text-gray-500 text-center mt-3">
-                  Busca produtos diretamente do sistema ERP com os filtros selecionados
+                  {sistemicaAtiva
+                    ? 'Busca produtos do ERP + produtos com estoque zerado no mês (sem repetir)'
+                    : 'Busca produtos diretamente do sistema ERP com os filtros selecionados'
+                  }
                 </p>
               </div>
             )}
@@ -717,7 +828,10 @@ export default function RupturaLancadorItens() {
                     <div>
                       <p className="font-semibold text-gray-700">{parsedItems.length} produtos carregados</p>
                       <p className="text-sm text-gray-500">
-                        Filtro: {diasSemVenda}+ dias sem venda | Curvas: {curvasSelecionadas.join(', ')}
+                        {sistemicaAtiva
+                          ? `Ruptura Sistêmica | Curvas: ${curvasSelecionadas.join(', ')} | Estoque zerado no mês`
+                          : `Filtro: ${diasSemVenda}+ dias sem venda | Curvas: ${curvasSelecionadas.join(', ')}`
+                        }
                       </p>
                     </div>
                   </div>

@@ -82,6 +82,13 @@ router.get(
   RuptureSurveyController.getEvolucaoMensal
 );
 
+// Calculo automatico de rupturas a partir do Oracle
+router.get(
+  '/automatico',
+  authenticateToken,
+  RuptureSurveyController.getAutomatico
+);
+
 // Excluir rupturas por código do produto (apenas admin/master)
 router.delete(
   '/by-product/:codigo',

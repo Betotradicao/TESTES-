@@ -309,6 +309,36 @@ export class RuptureSurveyController {
   }
 
   /**
+   * Buscar rupturas calculadas automaticamente a partir do Oracle
+   */
+  static async getAutomatico(req: AuthRequest, res: Response) {
+    try {
+      const { data_inicio, data_fim, codLoja, considerarProducao } = req.query;
+
+      if (!data_inicio || !data_fim) {
+        return res.status(400).json({
+          error: 'data_inicio e data_fim são obrigatórios',
+        });
+      }
+
+      console.log('📊 Buscando rupturas automáticas:', { data_inicio, data_fim, codLoja, considerarProducao });
+
+      const results = await RuptureSurveyService.getAutomaticRuptureResults({
+        data_inicio: data_inicio as string,
+        data_fim: data_fim as string,
+        codLoja: codLoja as string | undefined,
+        considerarProducao: considerarProducao === 'true',
+      });
+
+      console.log(`✅ Rupturas automáticas: ${results.estatisticas.total_rupturas} produtos em ruptura`);
+      res.json(results);
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar rupturas automáticas:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
    * Buscar evolução mensal de rupturas para gráfico
    */
   static async getEvolucaoMensal(req: AuthRequest, res: Response) {
