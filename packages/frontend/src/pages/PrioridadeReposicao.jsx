@@ -145,7 +145,7 @@ export default function PrioridadeReposicao() {
     return `${parts[2]}/${parts[1]}/${parts[0]}`;
   })();
 
-  // Exportar PDF
+  // Exportar PDF (agrupado por seção)
   const exportarPDF = () => {
     if (itensFiltrados.length === 0) return;
 
@@ -162,54 +162,88 @@ export default function PrioridadeReposicao() {
     doc.text(`Data Entrada NF: ${dataFormatada}  |  Total: ${itensFiltrados.length} itens  |  P1: ${resumo.prioridade1}  P2: ${resumo.prioridade2}  P3: ${resumo.prioridade3}  P4: ${resumo.prioridade4}`, 148, 22, { align: 'center' });
 
     const prioridadeLabel = { 1: 'P1-CURVA A', 2: 'P2-RUPTURA', 3: 'P3-PRE-RUPT', 4: 'P4-DEMAIS' };
+    const headers = [['#', 'Prior.', 'Produto', 'Cod.Barras', 'Fornecedor', 'Grupo', 'Curva', 'Custo', 'Preco Vd', 'Margem', 'Estoque', 'NF']];
 
-    const headers = [['#', 'Prior.', 'Produto', 'Cod.Barras', 'Fornecedor', 'Secao', 'Grupo', 'Curva', 'Custo', 'Preco Vd', 'Margem', 'Estoque', 'NF']];
-    const data = itensFiltrados.map((item, idx) => [
-      idx + 1,
-      prioridadeLabel[item.prioridade] || 'P4',
-      (item.descricao || '').substring(0, 30),
-      item.codigo_barras || '-',
-      (item.fornecedor || '').substring(0, 20),
-      (item.secao || '').substring(0, 12),
-      (item.grupo || '').substring(0, 12),
-      item.curva || '-',
-      formatCurrency(item.custo),
-      formatCurrency(item.preco_venda),
-      formatPercent(item.margem),
-      (parseFloat(item.estoque_atual) || 0).toFixed(0),
-      item.numero_nf || '-',
-    ]);
+    let startY = 28;
+    let globalIdx = 0;
 
-    autoTable(doc, {
-      head: headers,
-      body: data,
-      startY: 28,
-      styles: { fontSize: 6.5, cellPadding: 1.5 },
-      headStyles: { fillColor: [234, 88, 12], textColor: 255, fontStyle: 'bold', fontSize: 7 },
-      alternateRowStyles: { fillColor: [255, 247, 237] },
-      columnStyles: {
-        0: { cellWidth: 8, halign: 'center' },
-        1: { cellWidth: 22, halign: 'center' },
-        2: { cellWidth: 42 },
-        3: { cellWidth: 24 },
-        4: { cellWidth: 30 },
-        5: { cellWidth: 20 },
-        6: { cellWidth: 20 },
-        7: { cellWidth: 12, halign: 'center' },
-        8: { cellWidth: 18, halign: 'right' },
-        9: { cellWidth: 18, halign: 'right' },
-        10: { cellWidth: 15, halign: 'right' },
-        11: { cellWidth: 15, halign: 'right' },
-        12: { cellWidth: 18, halign: 'center' },
-      },
-      didParseCell: (hookData) => {
-        if (hookData.section === 'body' && hookData.column.index === 1) {
-          const prior = itensFiltrados[hookData.row.index]?.prioridade;
-          if (prior === 1) { hookData.cell.styles.textColor = [185, 28, 28]; hookData.cell.styles.fontStyle = 'bold'; }
-          else if (prior === 2) { hookData.cell.styles.textColor = [194, 65, 12]; hookData.cell.styles.fontStyle = 'bold'; }
-          else if (prior === 3) { hookData.cell.styles.textColor = [161, 98, 7]; hookData.cell.styles.fontStyle = 'bold'; }
-        }
-      },
+    // Agrupar por seção
+    const grupos = new Map();
+    itensFiltrados.forEach(item => {
+      const secao = item.secao || 'SEM SECAO';
+      if (!grupos.has(secao)) grupos.set(secao, []);
+      grupos.get(secao).push(item);
+    });
+
+    // Rastrear itens globais para didParseCell
+    const allItems = [];
+
+    grupos.forEach((itensSecao, secaoNome) => {
+      // Barra da seção
+      const curY = startY;
+      if (curY > 180) {
+        doc.addPage();
+        startY = 15;
+      }
+      doc.setFillColor(234, 88, 12);
+      doc.rect(14, startY, 269, 7, 'F');
+      doc.setFontSize(8);
+      doc.setTextColor(255, 255, 255);
+      doc.text(`${secaoNome}  (${itensSecao.length} itens)`, 17, startY + 5);
+      startY += 9;
+
+      const secaoData = itensSecao.map((item) => {
+        globalIdx++;
+        allItems.push(item);
+        return [
+          globalIdx,
+          prioridadeLabel[item.prioridade] || 'P4',
+          (item.descricao || '').substring(0, 30),
+          item.codigo_barras || '-',
+          (item.fornecedor || '').substring(0, 20),
+          (item.grupo || '').substring(0, 12),
+          item.curva || '-',
+          formatCurrency(item.custo),
+          formatCurrency(item.preco_venda),
+          formatPercent(item.margem),
+          (parseFloat(item.estoque_atual) || 0).toFixed(0),
+          item.numero_nf || '-',
+        ];
+      });
+
+      autoTable(doc, {
+        head: headers,
+        body: secaoData,
+        startY: startY,
+        styles: { fontSize: 6.5, cellPadding: 1.5 },
+        headStyles: { fillColor: [80, 80, 80], textColor: 255, fontStyle: 'bold', fontSize: 6.5 },
+        alternateRowStyles: { fillColor: [255, 247, 237] },
+        columnStyles: {
+          0: { cellWidth: 8, halign: 'center' },
+          1: { cellWidth: 22, halign: 'center' },
+          2: { cellWidth: 45 },
+          3: { cellWidth: 26 },
+          4: { cellWidth: 35 },
+          5: { cellWidth: 22 },
+          6: { cellWidth: 12, halign: 'center' },
+          7: { cellWidth: 20, halign: 'right' },
+          8: { cellWidth: 20, halign: 'right' },
+          9: { cellWidth: 17, halign: 'right' },
+          10: { cellWidth: 17, halign: 'right' },
+          11: { cellWidth: 20, halign: 'center' },
+        },
+        didParseCell: (hookData) => {
+          if (hookData.section === 'body' && hookData.column.index === 1) {
+            const itemIdx = globalIdx - secaoData.length + hookData.row.index;
+            const prior = allItems[itemIdx]?.prioridade;
+            if (prior === 1) { hookData.cell.styles.textColor = [185, 28, 28]; hookData.cell.styles.fontStyle = 'bold'; }
+            else if (prior === 2) { hookData.cell.styles.textColor = [194, 65, 12]; hookData.cell.styles.fontStyle = 'bold'; }
+            else if (prior === 3) { hookData.cell.styles.textColor = [161, 98, 7]; hookData.cell.styles.fontStyle = 'bold'; }
+          }
+        },
+      });
+
+      startY = doc.lastAutoTable.finalY + 6;
     });
 
     const pageCount = doc.internal.getNumberOfPages();
@@ -246,6 +280,19 @@ export default function PrioridadeReposicao() {
     dragCol.current = null;
     dragOverCol.current = null;
   };
+
+  // Agrupar itens filtrados por seção (mantendo ordem)
+  const itensAgrupadosPorSecao = useMemo(() => {
+    const grupos = new Map();
+    itensFiltrados.forEach(item => {
+      const secao = item.secao || 'SEM SECAO';
+      if (!grupos.has(secao)) {
+        grupos.set(secao, []);
+      }
+      grupos.get(secao).push(item);
+    });
+    return grupos;
+  }, [itensFiltrados]);
 
   // Renderizar célula de acordo com coluna
   const renderCell = (item, colId, idx) => {
@@ -515,24 +562,46 @@ export default function PrioridadeReposicao() {
                     </tr>
                   </thead>
                   <tbody>
-                    {itensFiltrados.map((item, idx) => (
-                      <tr
-                        key={`${item.codigo}-${idx}`}
-                        className={`border-b border-gray-100 hover:bg-orange-50/50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
-                      >
-                        <td className="px-3 py-2 text-gray-400 text-xs">{idx + 1}</td>
-                        {colunas.map((col) => (
-                          <td
-                            key={col.id}
-                            className={`px-3 py-2 text-xs text-gray-600 ${
-                              col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'
-                            }`}
-                          >
-                            {renderCell(item, col.id, idx)}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
+                    {(() => {
+                      let globalIdx = 0;
+                      const rows = [];
+                      itensAgrupadosPorSecao.forEach((itensSecao, secaoNome) => {
+                        // Barra de seção
+                        rows.push(
+                          <tr key={`secao-${secaoNome}`}>
+                            <td colSpan={colunas.length + 1} className="px-0 py-0">
+                              <div className="bg-gradient-to-r from-orange-500 to-orange-400 px-4 py-2 flex items-center gap-3">
+                                <span className="text-white font-bold text-xs uppercase tracking-wide">{secaoNome}</span>
+                                <span className="text-orange-100 text-[10px] font-medium">{itensSecao.length} {itensSecao.length === 1 ? 'item' : 'itens'}</span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                        // Itens da seção
+                        itensSecao.forEach((item, localIdx) => {
+                          globalIdx++;
+                          rows.push(
+                            <tr
+                              key={`${item.codigo}-${globalIdx}`}
+                              className={`border-b border-gray-100 hover:bg-orange-50/50 transition-colors ${localIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
+                            >
+                              <td className="px-3 py-2 text-gray-400 text-xs">{globalIdx}</td>
+                              {colunas.map((col) => (
+                                <td
+                                  key={col.id}
+                                  className={`px-3 py-2 text-xs text-gray-600 ${
+                                    col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'
+                                  }`}
+                                >
+                                  {renderCell(item, col.id, globalIdx)}
+                                </td>
+                              ))}
+                            </tr>
+                          );
+                        });
+                      });
+                      return rows;
+                    })()}
                   </tbody>
                 </table>
               </div>
