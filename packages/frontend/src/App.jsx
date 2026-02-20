@@ -58,6 +58,7 @@ import ExtratoSantander from './pages/ExtratoSantander';
 import ExtratoBanco24h from './pages/ExtratoBanco24h';
 import EntradasSaidas from './pages/EntradasSaidas';
 import DemonstrativoCaixa from './pages/DemonstrativoCaixa';
+import PrioridadeReposicao from './pages/PrioridadeReposicao';
 import ProgramacaoAtual from './pages/ProgramacaoAtual';
 
 function App() {
@@ -440,6 +441,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <NotasAChegar />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/prioridade-reposicao"
+              element={
+                <ProtectedRoute>
+                  <PrioridadeReposicao />
                 </ProtectedRoute>
               }
             />

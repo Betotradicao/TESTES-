@@ -17,6 +17,7 @@ export const MENU_MODULES = {
   PRODUCAO: 'producao',
   HORTFRUT: 'hortfrut',
   CONTROLE_RECEBIMENTO: 'controle-recebimento',
+  ABASTECIMENTO: 'abastecimento',
   // Garimpa Fácil
   GARIMPA_FORNECEDORES: 'garimpa-fornecedores',
   // Finanças no Radar
@@ -85,6 +86,9 @@ export const MENU_SUBMENUS = {
   // HortFrut
   HORTFRUT_LANCADOR: 'hortfrut-lancador',
   HORTFRUT_RESULTADOS: 'hortfrut-resultados',
+
+  // Abastecimento
+  PRIORIDADE_REPOSICAO: 'prioridade-reposicao',
 
   // Garimpa Fácil
   GARIMPA_FORNECEDORES_CONCORRENTES: 'garimpa-fornecedores-concorrentes',
@@ -358,6 +362,19 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.NF_RECEBIMENTO,
         title: 'Notas Entregue',
         path: '/nota-fiscal-recebimento'
+      }
+    ]
+  },
+  {
+    id: MENU_MODULES.ABASTECIMENTO,
+    title: 'Prevenção Abastecimento',
+    icon: 'truck',
+    section: 'prevencao',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.PRIORIDADE_REPOSICAO,
+        title: 'Prioridade Reposição',
+        path: '/prioridade-reposicao'
       }
     ]
   },

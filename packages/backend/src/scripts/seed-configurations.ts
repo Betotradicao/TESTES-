@@ -322,6 +322,21 @@ async function seedConfigurations() {
         value: '07:00',
         description: 'Horário de envio automático do relatório de quebras/ajustes (formato HH:MM)'
       },
+      {
+        key: 'whatsapp_group_abastecimento',
+        value: '',
+        description: 'ID do grupo WhatsApp para relatórios de Prioridade de Abastecimento'
+      },
+      {
+        key: 'whatsapp_group_abastecimento_name',
+        value: '',
+        description: 'Nome do grupo WhatsApp para relatórios de Prioridade de Abastecimento'
+      },
+      {
+        key: 'whatsapp_abastecimento_schedule_time',
+        value: '08:00',
+        description: 'Horário de envio automático do relatório de prioridade de abastecimento (formato HH:MM)'
+      },
 
       // Inteligência Artificial
       {

@@ -67,6 +67,7 @@ import relevanciaRouter from './routes/relevancia.routes';
 import competitividadeRouter from './routes/competitividade.routes';
 import ofertasRouter from './routes/ofertas.routes';
 import demonstrativoCaixaRouter from './routes/demonstrativo-caixa.routes';
+import abastecimentoRouter from './routes/abastecimento.routes';
 import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
 import { MappingService } from './services/mapping.service';
@@ -167,6 +168,7 @@ app.use('/api/relevancia', relevanciaRouter);
 app.use('/api/competitividade', competitividadeRouter);
 app.use('/api/ofertas', ofertasRouter);
 app.use('/api/demonstrativo-caixa', demonstrativoCaixaRouter);
+app.use('/api/abastecimento', abastecimentoRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {
@@ -557,6 +559,79 @@ const startServer = async () => {
   });
 
   console.log('📊 Losses report cron job started (checks every minute, respects Brazil timezone)');
+
+  // Abastecimento Report Cron Job - runs every minute and checks configured schedule time
+  let lastAbastecimentoSendMinute = -1;
+
+  cron.schedule('* * * * *', async () => {
+    try {
+      const { ConfigurationService } = await import('./services/configuration.service');
+      const scheduleTime = await ConfigurationService.get('whatsapp_abastecimento_schedule_time');
+
+      const now = new Date();
+      const brDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+
+      if (!scheduleTime) return;
+
+      const [configHours, configMinutes] = scheduleTime.split(':').map(Number);
+      const currentMinuteKey = brDate.getHours() * 60 + brDate.getMinutes();
+      const scheduleMinuteKey = configHours * 60 + configMinutes;
+
+      if (currentMinuteKey === scheduleMinuteKey && lastAbastecimentoSendMinute !== currentMinuteKey) {
+        lastAbastecimentoSendMinute = currentMinuteKey;
+
+        console.log(`⏰ [ABASTECIMENTO CRON] Horário de envio: ${scheduleTime} (Brasil)`);
+
+        const { AbastecimentoService } = await import('./services/abastecimento.service');
+        const { AbastecimentoPDFService } = await import('./services/abastecimento-pdf.service');
+        const { WhatsAppService } = await import('./services/whatsapp.service');
+        const fs = await import('fs');
+
+        // Data de ontem
+        const yesterdayBR = new Date(brDate);
+        yesterdayBR.setDate(yesterdayBR.getDate() - 1);
+        const year = yesterdayBR.getFullYear();
+        const month = String(yesterdayBR.getMonth() + 1).padStart(2, '0');
+        const day = String(yesterdayBR.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        const dateFormatted = `${day}/${month}/${year}`;
+
+        const result = await AbastecimentoService.getPrioridadeReposicao('1', dateStr);
+
+        if (result.itens && result.itens.length > 0) {
+          const itensMercadoria = result.itens.filter((i: any) => i.tipo_especie === 'MERCADORIA');
+
+          if (itensMercadoria.length > 0) {
+            const p1 = itensMercadoria.filter((i: any) => i.prioridade === 1).length;
+            const p2 = itensMercadoria.filter((i: any) => i.prioridade === 2).length;
+            const p3 = itensMercadoria.filter((i: any) => i.prioridade === 3).length;
+            const p4 = itensMercadoria.filter((i: any) => i.prioridade === 4).length;
+
+            // Gerar PDF com pdfkit
+            const pdfPath = await AbastecimentoPDFService.generatePDF(dateFormatted, itensMercadoria);
+
+            const sent = await WhatsAppService.sendAbastecimentoReport(
+              pdfPath, dateFormatted, itensMercadoria.length, p1, p2, p3, p4
+            );
+
+            try { if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath); } catch (e) { /* ignore */ }
+
+            if (sent) {
+              console.log(`✅ [ABASTECIMENTO CRON] ${itensMercadoria.length} itens enviados`);
+            } else {
+              console.error(`❌ [ABASTECIMENTO CRON] Falha ao enviar PDF`);
+            }
+          }
+        } else {
+          console.log(`ℹ️ [ABASTECIMENTO CRON] Sem itens para ${dateFormatted}`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Abastecimento cron error:', error);
+    }
+  });
+
+  console.log('📦 Abastecimento report cron job started (checks every minute, respects Brazil timezone)');
 
   // ==========================================
   // CRON: Sincronização de Vendas (Sells Sync)

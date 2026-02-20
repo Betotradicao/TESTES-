@@ -479,4 +479,51 @@ export class WhatsAppService {
       return false;
     }
   }
+
+  /**
+   * Envia relatório de prioridade de abastecimento para grupo do WhatsApp
+   */
+  static async sendAbastecimentoReport(
+    filePath: string,
+    dataNf: string,
+    total: number,
+    prioridade1: number,
+    prioridade2: number,
+    prioridade3: number,
+    prioridade4: number
+  ): Promise<boolean> {
+    try {
+      const groupId = await ConfigurationService.get('whatsapp_group_abastecimento', '');
+
+      if (!groupId) {
+        console.warn('⚠️  Grupo do WhatsApp não configurado (whatsapp_group_abastecimento)');
+        return false;
+      }
+
+      console.log(`📦 Enviando relatório de abastecimento para grupo: ${groupId}`);
+
+      const caption = `📦 *PRIORIDADE REPOSIÇÃO - ABASTECIMENTO*\n\n` +
+                     `📅 Data NF: ${dataNf}\n` +
+                     `⏰ Enviado: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}\n\n` +
+                     `📦 Total de Itens: ${total}\n` +
+                     `🔴 P1 - Curva A: ${prioridade1} itens\n` +
+                     `🟠 P2 - Ruptura: ${prioridade2} itens\n` +
+                     `🟡 P3 - Pré-Ruptura: ${prioridade3} itens\n` +
+                     `⚪ P4 - Demais: ${prioridade4} itens\n\n` +
+                     `📄 Confira o relatório detalhado em PDF anexo.`;
+
+      const success = await this.sendDocument(groupId, filePath, caption);
+
+      if (success) {
+        console.log(`✅ Relatório de abastecimento enviado para grupo ${groupId}`);
+      } else {
+        console.error(`❌ Falha ao enviar relatório de abastecimento`);
+      }
+
+      return success;
+    } catch (error) {
+      console.error(`❌ Erro ao enviar relatório de abastecimento:`, error);
+      return false;
+    }
+  }
 }

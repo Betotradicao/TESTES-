@@ -402,4 +402,96 @@ router.post('/send-losses-now', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/whatsapp/send-abastecimento-now
+ * Envia manualmente o relatório de prioridade de abastecimento do dia anterior
+ */
+router.post('/send-abastecimento-now', async (req, res) => {
+  try {
+    const { AbastecimentoService } = require('../services/abastecimento.service');
+    const { AbastecimentoPDFService } = require('../services/abastecimento-pdf.service');
+    const fs = require('fs');
+
+    // Calcular data de ontem no horário do Brasil
+    const now = new Date();
+    const brDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    const yesterdayBR = new Date(brDate);
+    yesterdayBR.setDate(yesterdayBR.getDate() - 1);
+
+    const year = yesterdayBR.getFullYear();
+    const month = String(yesterdayBR.getMonth() + 1).padStart(2, '0');
+    const day = String(yesterdayBR.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    const dateFormatted = `${day}/${month}/${year}`;
+
+    console.log(`📤 [ENVIO MANUAL ABASTECIMENTO] Buscando dados de ${dateStr}...`);
+
+    // Buscar dados do abastecimento (codLoja=1 por padrão)
+    const result = await AbastecimentoService.getPrioridadeReposicao('1', dateStr);
+
+    if (!result.itens || result.itens.length === 0) {
+      return res.json({
+        success: true,
+        message: `Nenhum produto encontrado para ${dateFormatted}. Nada enviado.`,
+        count: 0,
+        date: dateStr
+      });
+    }
+
+    // Filtrar apenas MERCADORIA
+    const itensMercadoria = result.itens.filter((i: any) => i.tipo_especie === 'MERCADORIA');
+
+    if (itensMercadoria.length === 0) {
+      return res.json({
+        success: true,
+        message: `Nenhuma mercadoria encontrada para ${dateFormatted}. Nada enviado.`,
+        count: 0,
+        date: dateStr
+      });
+    }
+
+    const p1 = itensMercadoria.filter((i: any) => i.prioridade === 1).length;
+    const p2 = itensMercadoria.filter((i: any) => i.prioridade === 2).length;
+    const p3 = itensMercadoria.filter((i: any) => i.prioridade === 3).length;
+    const p4 = itensMercadoria.filter((i: any) => i.prioridade === 4).length;
+
+    // Gerar PDF com pdfkit
+    const pdfPath = await AbastecimentoPDFService.generatePDF(dateFormatted, itensMercadoria);
+
+    console.log(`📤 [ENVIO MANUAL ABASTECIMENTO] PDF gerado: ${pdfPath}`);
+
+    // Enviar via WhatsApp
+    const sent = await WhatsAppService.sendAbastecimentoReport(
+      pdfPath,
+      dateFormatted,
+      itensMercadoria.length,
+      p1, p2, p3, p4
+    );
+
+    // Limpar PDF temporário
+    try { if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath); } catch (e) { /* ignore */ }
+
+    if (sent) {
+      console.log(`✅ [ENVIO MANUAL ABASTECIMENTO] ${itensMercadoria.length} itens enviados`);
+      res.json({
+        success: true,
+        message: `Relatório enviado com sucesso! ${itensMercadoria.length} itens de ${dateFormatted} (P1: ${p1}, P2: ${p2}, P3: ${p3}, P4: ${p4})`,
+        count: itensMercadoria.length,
+        date: dateStr
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'Falha ao enviar o PDF para o WhatsApp'
+      });
+    }
+  } catch (error: any) {
+    console.error('❌ [ENVIO MANUAL ABASTECIMENTO] Erro:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erro ao enviar relatório de abastecimento'
+    });
+  }
+});
+
 export default router;
