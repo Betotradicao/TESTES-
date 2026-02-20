@@ -486,9 +486,9 @@ export default function DemonstrativoCaixa() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden">
+    <div className="flex h-screen bg-gray-100">
       <Sidebar user={user} onLogout={logout} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
-      <div className="flex-1 overflow-auto print:overflow-visible">
+      <main className="flex-1 overflow-auto print:overflow-visible">
         {/* Header laranja */}
         <div className="bg-gradient-to-r from-orange-600 to-orange-500 text-white px-6 py-4 print:bg-white print:text-black">
           <div className="flex items-center justify-between">
@@ -845,7 +845,7 @@ export default function DemonstrativoCaixa() {
             </>);
           })()}
         </div>
-      </div>
+      </main>
 
       {/* Painel lateral - Detalhamento de Títulos */}
       {detalhePainel && (
