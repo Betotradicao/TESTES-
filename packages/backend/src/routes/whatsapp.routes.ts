@@ -663,4 +663,173 @@ router.post('/send-cortes-now', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/whatsapp/send-atrasos-now
+ * Envia manualmente o relatório de pedidos em atraso
+ */
+router.post('/send-atrasos-now', async (req, res) => {
+  try {
+    const { OracleService } = require('../services/oracle.service');
+    const { AtrasosPDFService } = require('../services/atrasos-pdf.service');
+    const fs = require('fs');
+
+    // Data de hoje no horário do Brasil
+    const now = new Date();
+    const brDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+
+    const year = brDate.getFullYear();
+    const month = String(brDate.getMonth() + 1).padStart(2, '0');
+    const day = String(brDate.getDate()).padStart(2, '0');
+    const dateFormatted = `${day}/${month}/${year}`;
+
+    console.log(`📤 [ENVIO MANUAL ATRASOS] Buscando pedidos em atraso...`);
+
+    // Resolver tabelas e colunas via MappingService
+    const schema = await MappingService.getSchema();
+    const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO')}`;
+    const tabPedidoProduto = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
+    const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
+
+    const pedNumPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'numero_pedido');
+    const pedCodParceiroCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_fornecedor');
+    const pedTipoRecebimentoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_recebimento');
+    const pedTipoParceiroCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro');
+    const pedValPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'valor_pedido');
+    const pedDtaEntregaCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_entrega');
+    const ppNumPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'numero_pedido');
+    const ppCodProdutoCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'codigo_produto');
+    const ppQtdPedidoCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_pedida');
+    const ppQtdRecebidaCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'quantidade_recebida');
+    const ppValTabelaCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'valor_tabela');
+    const prCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+    const prDesProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+    const plCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
+    const plCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
+    const plCurvaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva');
+    const plEstoqueAtualCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual');
+    const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
+    const fornRazaoSocialCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social');
+    const fornCnpjCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cnpj');
+
+    // Query: buscar pedidos pendentes/parciais com data de entrega no passado
+    const query = `
+      SELECT
+        p.${pedNumPedidoCol} as NUM_PEDIDO,
+        p.${pedCodParceiroCol} as COD_FORNECEDOR,
+        p.${pedValPedidoCol} as VAL_PEDIDO,
+        TO_CHAR(p.${pedDtaEntregaCol}, 'DD/MM/YYYY') as DTA_ENTREGA,
+        TRUNC(SYSDATE) - TRUNC(p.${pedDtaEntregaCol}) as DIAS_ATRASO,
+        f.${fornRazaoSocialCol} as DES_FORNECEDOR,
+        f.${fornCnpjCol} as CNPJ,
+        pp.${ppCodProdutoCol} as COD_PRODUTO,
+        pr.${prDesProdutoCol} as DES_PRODUTO,
+        pp.DES_UNIDADE,
+        pp.${ppQtdPedidoCol} as QTD_PEDIDO,
+        NVL(pp.${ppQtdRecebidaCol}, 0) as QTD_RECEBIDA,
+        (pp.${ppQtdPedidoCol} - NVL(pp.${ppQtdRecebidaCol}, 0)) as QTD_PENDENTE,
+        NVL(pp.${ppValTabelaCol}, 0) as VAL_UNITARIO,
+        (pp.${ppQtdPedidoCol} - NVL(pp.${ppQtdRecebidaCol}, 0)) * NVL(pp.${ppValTabelaCol}, 0) as VAL_PENDENTE,
+        NVL(TRIM(pl.${plCurvaCol}), 'X') as CURVA,
+        NVL(pl.${plEstoqueAtualCol}, 0) as ESTOQUE_ATUAL
+      FROM ${tabPedido} p
+      INNER JOIN ${tabPedidoProduto} pp ON pp.${ppNumPedidoCol} = p.${pedNumPedidoCol}
+      INNER JOIN ${tabProduto} pr ON pr.${prCodProdutoCol} = pp.${ppCodProdutoCol}
+      LEFT JOIN ${tabProdutoLoja} pl ON pl.${plCodProdutoCol} = pp.${ppCodProdutoCol} AND pl.${plCodLojaCol} = 1
+      LEFT JOIN ${tabFornecedor} f ON f.${fornCodigoCol} = p.${pedCodParceiroCol}
+      WHERE p.${pedTipoParceiroCol} = 1
+      AND p.${pedTipoRecebimentoCol} < 2
+      AND TRUNC(p.${pedDtaEntregaCol}) < TRUNC(SYSDATE)
+      AND (pp.${ppQtdPedidoCol} - NVL(pp.${ppQtdRecebidaCol}, 0)) > 0
+      ORDER BY TRUNC(SYSDATE) - TRUNC(p.${pedDtaEntregaCol}) DESC, f.${fornRazaoSocialCol}, p.${pedNumPedidoCol}
+    `;
+
+    const oracleItems = await OracleService.query(query, {});
+
+    console.log(`📊 [ENVIO MANUAL ATRASOS] Encontrados ${oracleItems.length} itens em atraso no Oracle`);
+
+    if (oracleItems.length === 0) {
+      return res.json({
+        success: true,
+        message: `Nenhum pedido em atraso encontrado. Nada enviado.`,
+        count: 0
+      });
+    }
+
+    // Agrupar por fornecedor + pedido
+    const fornMap = new Map<string, any>();
+    oracleItems.forEach((item: any) => {
+      const key = `${item.COD_FORNECEDOR}_${item.NUM_PEDIDO}`;
+      if (!fornMap.has(key)) {
+        fornMap.set(key, {
+          cod_fornecedor: item.COD_FORNECEDOR,
+          fornecedor: item.DES_FORNECEDOR || 'SEM FORNECEDOR',
+          cnpj: item.CNPJ || '',
+          num_pedido: item.NUM_PEDIDO,
+          val_pedido: parseFloat(item.VAL_PEDIDO) || 0,
+          dta_entrega: item.DTA_ENTREGA || '-',
+          dias_atraso: parseInt(item.DIAS_ATRASO) || 0,
+          itens: []
+        });
+      }
+      fornMap.get(key).itens.push({
+        cod_produto: item.COD_PRODUTO,
+        descricao: item.DES_PRODUTO || '',
+        qtd_pedida: parseFloat(item.QTD_PEDIDO) || 0,
+        qtd_recebida: parseFloat(item.QTD_RECEBIDA) || 0,
+        val_unitario: parseFloat(item.VAL_UNITARIO) || 0,
+        val_total_pendente: parseFloat(item.VAL_PENDENTE) || 0,
+        curva: item.CURVA || 'X',
+        estoque_atual: parseFloat(item.ESTOQUE_ATUAL) || 0,
+        des_unidade: item.DES_UNIDADE || 'UN'
+      });
+    });
+
+    const fornecedores = Array.from(fornMap.values());
+    const totalItens = fornecedores.reduce((sum: number, f: any) => sum + f.itens.length, 0);
+    const valorTotalPendente = fornecedores.reduce(
+      (sum: number, f: any) => sum + f.itens.reduce((s: number, i: any) => s + i.val_total_pendente, 0), 0
+    );
+
+    // Gerar PDF
+    const pdfPath = await AtrasosPDFService.generatePDF(dateFormatted, fornecedores);
+
+    console.log(`📤 [ENVIO MANUAL ATRASOS] PDF gerado: ${pdfPath}`);
+
+    // Enviar via WhatsApp
+    const sent = await WhatsAppService.sendAtrasosReport(
+      pdfPath,
+      dateFormatted,
+      fornecedores.length,
+      fornecedores.length,
+      totalItens,
+      valorTotalPendente
+    );
+
+    // Limpar PDF temporário
+    try { if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath); } catch (e) { /* ignore */ }
+
+    if (sent) {
+      console.log(`✅ [ENVIO MANUAL ATRASOS] ${totalItens} itens em atraso de ${fornecedores.length} fornecedores enviados`);
+      res.json({
+        success: true,
+        message: `Relatório enviado com sucesso! ${totalItens} itens em atraso de ${fornecedores.length} fornecedores (R$ ${valorTotalPendente.toFixed(2)})`,
+        count: totalItens
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'Falha ao enviar o PDF para o WhatsApp'
+      });
+    }
+  } catch (error: any) {
+    console.error('❌ [ENVIO MANUAL ATRASOS] Erro:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erro ao enviar relatório de atrasos'
+    });
+  }
+});
+
 export default router;

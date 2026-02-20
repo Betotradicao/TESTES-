@@ -569,4 +569,49 @@ export class WhatsAppService {
       return false;
     }
   }
+
+  /**
+   * Envia relatório de pedidos em atraso para grupo do WhatsApp
+   */
+  static async sendAtrasosReport(
+    filePath: string,
+    dataRelatorio: string,
+    totalFornecedores: number,
+    totalPedidos: number,
+    totalItens: number,
+    valorTotalPendente: number
+  ): Promise<boolean> {
+    try {
+      const groupId = await ConfigurationService.get('whatsapp_group_atrasos', '');
+
+      if (!groupId) {
+        console.warn('⚠️  Grupo do WhatsApp não configurado (whatsapp_group_atrasos)');
+        return false;
+      }
+
+      console.log(`⏰ Enviando relatório de atrasos para grupo: ${groupId}`);
+
+      const caption = `⏰ *RELATÓRIO DE PEDIDOS EM ATRASO*\n\n` +
+                     `📅 Data: ${dataRelatorio}\n` +
+                     `⏰ Enviado: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}\n\n` +
+                     `🏭 Fornecedores: ${totalFornecedores}\n` +
+                     `📋 Pedidos: ${totalPedidos}\n` +
+                     `📦 Itens Pendentes: ${totalItens}\n` +
+                     `💰 Valor Total: R$ ${valorTotalPendente.toFixed(2)}\n\n` +
+                     `📄 Confira o relatório detalhado em PDF anexo.`;
+
+      const success = await this.sendDocument(groupId, filePath, caption);
+
+      if (success) {
+        console.log(`✅ Relatório de atrasos enviado para grupo ${groupId}`);
+      } else {
+        console.error(`❌ Falha ao enviar relatório de atrasos`);
+      }
+
+      return success;
+    } catch (error) {
+      console.error(`❌ Erro ao enviar relatório de atrasos:`, error);
+      return false;
+    }
+  }
 }
