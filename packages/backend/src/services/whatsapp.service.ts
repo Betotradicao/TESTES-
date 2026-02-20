@@ -526,4 +526,47 @@ export class WhatsAppService {
       return false;
     }
   }
+
+  /**
+   * Envia relatório de cortes de pedidos para grupo do WhatsApp
+   */
+  static async sendCortesReport(
+    filePath: string,
+    dataCancelamento: string,
+    totalFornecedores: number,
+    totalItens: number,
+    valorTotalCorte: number
+  ): Promise<boolean> {
+    try {
+      const groupId = await ConfigurationService.get('whatsapp_group_cortes', '');
+
+      if (!groupId) {
+        console.warn('⚠️  Grupo do WhatsApp não configurado (whatsapp_group_cortes)');
+        return false;
+      }
+
+      console.log(`✂️ Enviando relatório de cortes para grupo: ${groupId}`);
+
+      const caption = `✂️ *RELATÓRIO DE CORTES DE PEDIDOS*\n\n` +
+                     `📅 Data Cancelamento: ${dataCancelamento}\n` +
+                     `⏰ Enviado: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}\n\n` +
+                     `🏭 Fornecedores: ${totalFornecedores}\n` +
+                     `📦 Itens Cortados: ${totalItens}\n` +
+                     `💰 Valor Total: R$ ${valorTotalCorte.toFixed(2)}\n\n` +
+                     `📄 Confira o relatório detalhado em PDF anexo.`;
+
+      const success = await this.sendDocument(groupId, filePath, caption);
+
+      if (success) {
+        console.log(`✅ Relatório de cortes enviado para grupo ${groupId}`);
+      } else {
+        console.error(`❌ Falha ao enviar relatório de cortes`);
+      }
+
+      return success;
+    } catch (error) {
+      console.error(`❌ Erro ao enviar relatório de cortes:`, error);
+      return false;
+    }
+  }
 }

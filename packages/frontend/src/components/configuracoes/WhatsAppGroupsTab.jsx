@@ -41,6 +41,11 @@ export default function WhatsAppGroupsTab() {
       groupName: '',
       scheduleTime: '08:00'
     },
+    cortes: {
+      groupId: '',
+      groupName: '',
+      scheduleTime: '07:30'
+    },
     facial: {
       groupId: '',
       groupName: '',
@@ -53,6 +58,7 @@ export default function WhatsAppGroupsTab() {
     { id: 'bipagens', label: '🔔 Prevenção Bipagens', icon: '🔔' },
     { id: 'quebras', label: '📊 Prevenção Quebras', icon: '📊' },
     { id: 'abastecimento', label: '📦 Prioridade Abastecimento', icon: '📦' },
+    { id: 'cortes', label: '✂️ Prevenção Pedidos', icon: '✂️' },
     { id: 'producao', label: '🥖 Prevenção Produção', icon: '🥖' },
     { id: 'facial', label: '👤 Prevenção Facial', icon: '👤' }
   ];
@@ -129,6 +135,17 @@ export default function WhatsAppGroupsTab() {
 
 📄 Confira o relatório detalhado em PDF anexo.`,
 
+    cortes: `✂️ *RELATÓRIO DE CORTES DE PEDIDOS*
+
+📅 Data Cancelamento: 19/02/2026
+⏰ Enviado: 20/02/2026, 07:30:00
+
+🏭 Fornecedores: 8
+📦 Itens Cortados: 45
+💰 Valor Total: R$ 12.350,00
+
+📄 Confira o relatório detalhado em PDF anexo.`,
+
     producao: `🥖 *RELATÓRIO DE PRODUÇÃO - PADARIA*
 
 📋 Auditoria: 09/01/2026
@@ -198,6 +215,10 @@ Imagem anexada para verificação.`
             ...getGroupConfig('whatsapp_group_abastecimento', 'whatsapp_group_abastecimento_name'),
             scheduleTime: configs.whatsapp_abastecimento_schedule_time || '08:00'
           },
+          cortes: {
+            ...getGroupConfig('whatsapp_group_cortes', 'whatsapp_group_cortes_name'),
+            scheduleTime: configs.whatsapp_cortes_schedule_time || '07:30'
+          },
           producao: getGroupConfig('whatsapp_group_producao', 'whatsapp_group_producao_name'),
           facial: getGroupConfig('email_monitor_whatsapp_group', 'email_monitor_whatsapp_group_name'),
         });
@@ -248,6 +269,11 @@ Imagem anexada para verificação.`
       // Se for abastecimento, salvar também o horário
       if (activeSubTab === 'abastecimento' && currentConfig.scheduleTime) {
         configData.whatsapp_abastecimento_schedule_time = currentConfig.scheduleTime;
+      }
+
+      // Se for cortes, salvar também o horário
+      if (activeSubTab === 'cortes' && currentConfig.scheduleTime) {
+        configData.whatsapp_cortes_schedule_time = currentConfig.scheduleTime;
       }
 
       await api.post('/config/configurations', configData);
@@ -422,6 +448,30 @@ Imagem anexada para verificação.`
     }
   };
 
+  const handleSendCortesNow = async () => {
+    try {
+      setIsSendingNow(true);
+      setSendNowResult('');
+
+      const response = await api.post('/whatsapp/send-cortes-now');
+
+      if (response.data.success) {
+        if (response.data.count === 0) {
+          setSendNowResult(`ℹ️ ${response.data.message}`);
+        } else {
+          setSendNowResult(`✅ ${response.data.message}`);
+        }
+      } else {
+        setSendNowResult('❌ Erro ao enviar: ' + (response.data.error || 'Erro desconhecido'));
+      }
+    } catch (error) {
+      console.error('Erro ao enviar cortes:', error);
+      setSendNowResult('❌ Erro ao enviar: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setIsSendingNow(false);
+    }
+  };
+
   const currentConfig = groupConfigs[activeSubTab];
   const currentMessage = messageExamples[activeSubTab];
 
@@ -515,7 +565,7 @@ Imagem anexada para verificação.`
               </div>
 
               {/* Campo de Horário - Para Bipagens e Quebras */}
-              {(activeSubTab === 'bipagens' || activeSubTab === 'quebras' || activeSubTab === 'abastecimento') && (
+              {(activeSubTab === 'bipagens' || activeSubTab === 'quebras' || activeSubTab === 'abastecimento' || activeSubTab === 'cortes') && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     ⏰ Horário de Envio Automático
@@ -531,6 +581,8 @@ Imagem anexada para verificação.`
                       ? 'PDF de bipagens pendentes do dia anterior será enviado automaticamente todos os dias neste horário'
                       : activeSubTab === 'abastecimento'
                       ? 'PDF de prioridade de reposição do dia anterior será enviado automaticamente todos os dias neste horário'
+                      : activeSubTab === 'cortes'
+                      ? 'PDF de cortes de pedidos do dia anterior será enviado automaticamente todos os dias neste horário'
                       : 'PDF de quebras/ajustes do dia anterior será enviado automaticamente todos os dias neste horário'}
                   </p>
                 </div>
@@ -592,6 +644,16 @@ Imagem anexada para verificação.`
                     {isSendingNow ? '📤 Enviando...' : '📤 Enviar Agora'}
                   </button>
                 )}
+
+                {activeSubTab === 'cortes' && (
+                  <button
+                    onClick={handleSendCortesNow}
+                    disabled={isSendingNow || !currentConfig.groupId.trim()}
+                    className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                  >
+                    {isSendingNow ? '📤 Enviando...' : '📤 Enviar Agora'}
+                  </button>
+                )}
               </div>
 
               {/* Resultado do Teste */}
@@ -608,7 +670,7 @@ Imagem anexada para verificação.`
               )}
 
               {/* Resultado do Envio Manual (Bipagens e Quebras) */}
-              {sendNowResult && (activeSubTab === 'bipagens' || activeSubTab === 'quebras' || activeSubTab === 'abastecimento') && (
+              {sendNowResult && (activeSubTab === 'bipagens' || activeSubTab === 'quebras' || activeSubTab === 'abastecimento' || activeSubTab === 'cortes') && (
                 <div className={`p-4 rounded-lg ${
                   sendNowResult.startsWith('✅') ? 'bg-green-50 border border-green-200' :
                   sendNowResult.startsWith('ℹ️') ? 'bg-blue-50 border border-blue-200' :
@@ -648,6 +710,8 @@ Imagem anexada para verificação.`
                     ? ' todos os dias no horário configurado com as quebras/ajustes do dia anterior.'
                     : activeSubTab === 'abastecimento'
                     ? ' todos os dias no horário configurado com a prioridade de reposição (NFs do dia anterior).'
+                    : activeSubTab === 'cortes'
+                    ? ' todos os dias no horário configurado com os cortes de pedidos do dia anterior.'
                     : activeSubTab === 'facial'
                     ? ' quando o sistema de DVR detectar movimento ou alerta.'
                     : ` quando uma auditoria de ${activeSubTab} for finalizada.`}
