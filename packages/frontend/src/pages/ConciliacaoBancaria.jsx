@@ -148,9 +148,7 @@ export default function ConciliacaoBancaria() {
 
   // Data state
   const [rows, setRows] = useState([]);
-  const [resumo, setResumo] = useState({});
   const [loading, setLoading] = useState(false);
-  const [conciliando, setConciliando] = useState(false);
 
   // Modal state
   const [candidateModal, setCandidateModal] = useState(null);
@@ -175,7 +173,7 @@ export default function ConciliacaoBancaria() {
   });
   const [tipoFiltro, setTipoFiltro] = useState('todos');
   const [viewFilter, setViewFilter] = useState('todos');
-  const [cardFilter, setCardFilter] = useState(null); // null | 'todos_banco' | 'todos_sistema' | 'correspondencias' | 'conciliados' | 'sem_sistema' | 'sem_banco'
+  const [cardFilter, setCardFilter] = useState(null); // null | 'todos_banco' | 'todos_sistema' | 'conciliados' | 'sem_sistema' | 'sem_banco'
 
   // Draggable columns
   const bankDrag = useDraggableCols(BANK_COLUMNS, 'conciliacao_bank_cols');
@@ -310,7 +308,6 @@ export default function ConciliacaoBancaria() {
 
       if (res.data?.success) {
         setRows(res.data.rows || []);
-        setResumo(res.data.resumo || {});
       } else {
         toast.error(res.data?.message || 'Erro ao buscar dados');
       }
@@ -405,10 +402,8 @@ export default function ConciliacaoBancaria() {
       r = r.filter(row => row.banco);
     } else if (cardFilter === 'todos_sistema') {
       r = r.filter(row => row.sistema);
-    } else if (cardFilter === 'correspondencias') {
-      r = r.filter(row => row.matchStatus === 'MATCHED');
     } else if (cardFilter === 'conciliados') {
-      r = r.filter(row => row.isCompensado);
+      r = r.filter(row => row.matchStatus === 'MATCHED');
     } else if (cardFilter === 'sem_sistema') {
       r = r.filter(row => row.matchStatus === 'UNMATCHED_BANK');
     } else if (cardFilter === 'sem_banco') {
@@ -456,36 +451,6 @@ export default function ConciliacaoBancaria() {
     toast.success('Candidato selecionado!');
   }, []);
 
-  // Conciliar
-  const handleConciliar = async () => {
-    const rowsToReconcile = rows.filter(r =>
-      r.matchStatus === 'MATCHED' && !r.isCompensado && r.sistema
-    );
-    if (rowsToReconcile.length === 0) {
-      toast('Nenhuma linha pendente de conciliação', { icon: 'ℹ️' });
-      return;
-    }
-
-    const allNumRegistros = rowsToReconcile.flatMap(r => r.sistema.numRegistros);
-    const rowIds = new Set(rowsToReconcile.map(r => r.rowId));
-    setConciliando(true);
-    try {
-      const res = await api.post('/conciliacao/conciliar', { numRegistros: allNumRegistros });
-      if (res.data?.success !== false) {
-        // Atualizar estado local - marcar como conciliado sem re-buscar
-        setRows(prev => prev.map(r =>
-          rowIds.has(r.rowId) ? { ...r, isCompensado: true } : r
-        ));
-        toast.success(`${rowsToReconcile.length} registros conciliados!`);
-      }
-    } catch (err) {
-      toast.error('Erro ao conciliar registros');
-    } finally {
-      setConciliando(false);
-    }
-  };
-
-  const pendingCount = rows.filter(r => r.matchStatus === 'MATCHED' && !r.isCompensado).length;
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -623,16 +588,6 @@ export default function ConciliacaoBancaria() {
                 {loading ? 'Buscando...' : 'Buscar'}
               </button>
 
-              <button
-                onClick={handleConciliar}
-                disabled={conciliando || pendingCount === 0}
-                className="px-5 py-1.5 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-2"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                {conciliando ? 'Conciliando...' : `Conciliar (${pendingCount})`}
-              </button>
             </div>
           </div>
 
@@ -740,13 +695,12 @@ export default function ConciliacaoBancaria() {
                   </table>
               </div>
             </div>
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-4">
-              <SummaryCard title="Total Banco" value={cardResumo.totalBanco || 0} color="orange" subtitle={`${cardResumo.totalBanco || 0} mov.`} onClick={() => setCardFilter(cardFilter === 'todos_banco' ? null : 'todos_banco')} active={cardFilter === 'todos_banco'} />
-              <SummaryCard title="Total Sistema" value={cardResumo.totalSistema || 0} color="gray" subtitle={`${cardResumo.totalSistema || 0} reg.`} onClick={() => setCardFilter(cardFilter === 'todos_sistema' ? null : 'todos_sistema')} active={cardFilter === 'todos_sistema'} />
-              <SummaryCard title="Correspondencias" value={cardResumo.totalMatched || 0} color="blue" subtitle={formatCurrency(cardResumo.valMatchedBanco || 0)} onClick={() => setCardFilter(cardFilter === 'correspondencias' ? null : 'correspondencias')} active={cardFilter === 'correspondencias'} />
-              <SummaryCard title="Conciliados" value={cardResumo.totalCompensado || 0} color="green" onClick={() => setCardFilter(cardFilter === 'conciliados' ? null : 'conciliados')} active={cardFilter === 'conciliados'} />
+            <div className="grid grid-cols-3 md:grid-cols-5 gap-3 mb-4">
+              <SummaryCard title="Total Banco" value={cardResumo.totalBanco || 0} color="gray" subtitle={`${cardResumo.totalBanco || 0} mov.`} onClick={() => setCardFilter(cardFilter === 'todos_banco' ? null : 'todos_banco')} active={cardFilter === 'todos_banco'} />
+              <SummaryCard title="Sem Banco" value={cardResumo.unmatchedSistema || 0} color="red" subtitle={formatCurrency(cardResumo.valUnmatchedSistema || 0)} onClick={() => setCardFilter(cardFilter === 'sem_banco' ? null : 'sem_banco')} active={cardFilter === 'sem_banco'} />
+              <SummaryCard title="Conciliados" value={cardResumo.totalMatched || 0} color="green" subtitle={formatCurrency(cardResumo.valMatchedBanco || 0)} onClick={() => setCardFilter(cardFilter === 'conciliados' ? null : 'conciliados')} active={cardFilter === 'conciliados'} />
               <SummaryCard title="Sem Sistema" value={cardResumo.unmatchedBanco || 0} color="red" subtitle={formatCurrency(cardResumo.valUnmatchedBanco || 0)} onClick={() => setCardFilter(cardFilter === 'sem_sistema' ? null : 'sem_sistema')} active={cardFilter === 'sem_sistema'} />
-              <SummaryCard title="Sem Banco" value={cardResumo.unmatchedSistema || 0} color="orange" subtitle={formatCurrency(cardResumo.valUnmatchedSistema || 0)} onClick={() => setCardFilter(cardFilter === 'sem_banco' ? null : 'sem_banco')} active={cardFilter === 'sem_banco'} />
+              <SummaryCard title="Total Sistema" value={cardResumo.totalSistema || 0} color="gray" subtitle={`${cardResumo.totalSistema || 0} reg.`} onClick={() => setCardFilter(cardFilter === 'todos_sistema' ? null : 'todos_sistema')} active={cardFilter === 'todos_sistema'} />
             </div>
             </>
           )}
@@ -950,10 +904,8 @@ function ConciliacaoRow({ row, rowIndex, bankCols, sysCols, onOpenCandidates }) 
   const isBordero = row.sistema?.type === 'bordero' && row.sistema?.items?.length > 1;
 
   const isEven = rowIndex % 2 === 0;
-  const rowBg = row.isCompensado
+  const rowBg = isMatched
     ? (isEven ? 'bg-green-50/70' : 'bg-white')
-    : isMatched
-    ? (isEven ? 'bg-yellow-50/50' : 'bg-white')
     : isBankOnly
     ? (isEven ? 'bg-red-50/50' : 'bg-white')
     : (isEven ? 'bg-orange-50/50' : 'bg-white');
@@ -977,14 +929,14 @@ function ConciliacaoRow({ row, rowIndex, bankCols, sysCols, onOpenCandidates }) 
 
         {/* Status badge */}
         <div className="w-[42px] py-1.5 px-1 text-center bg-gray-50/50 border-r-2 border-gray-200 flex-shrink-0 flex items-center justify-center">
-          {isMatched && !row.isCompensado && !hasCandidates && (
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded border-2 border-gray-400 bg-white cursor-pointer hover:bg-gray-50 transition-colors" title="Correspondencia encontrada - pendente conciliacao">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="3.5">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+          {isMatched && !hasCandidates && (
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded border-2 border-green-500 bg-green-500" title="Conciliado">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5">
+                <polyline points="20 6 9 17 4 12" />
               </svg>
             </span>
           )}
-          {isMatched && !row.isCompensado && hasCandidates && (
+          {isMatched && hasCandidates && (
             <button
               onClick={() => onOpenCandidates(row)}
               className="inline-flex items-center justify-center w-6 h-6 rounded border-2 border-amber-500 bg-amber-50 hover:bg-amber-100 hover:scale-110 transition-all cursor-pointer animate-pulse"
@@ -992,13 +944,6 @@ function ConciliacaoRow({ row, rowIndex, bankCols, sysCols, onOpenCandidates }) 
             >
               <span className="text-amber-600 font-black text-xs">!</span>
             </button>
-          )}
-          {isMatched && row.isCompensado && (
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded border-2 border-green-500 bg-green-500" title="Conciliado">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            </span>
           )}
           {isBankOnly && (
             <span className="inline-flex items-center justify-center w-6 h-6 rounded border-2 border-red-300 bg-white" title="Sem correspondencia no sistema">
