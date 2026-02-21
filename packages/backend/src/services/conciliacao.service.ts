@@ -388,7 +388,6 @@ export class ConciliacaoService {
       const mbDate = truncDate(mb.DTA_ENTRADA);
       const mbDateStr = toDateStr(mbDate);
       const mbVal = Math.abs(parseFloat(mb.VAL_DOCTO) || 0);
-      const mbDocto = mb.NUM_DOCTO_PGTO ? String(mb.NUM_DOCTO_PGTO).trim() : null;
       const mbNome = (mb.FAVORECIDO || '').replace(/\s*BORD[.:]*\s*\d*/gi, '').trim();
 
       // Tipo compatível: banco crédito (0) ↔ sistema receber (1), banco débito (1) ↔ sistema pagar (!=1)
@@ -397,42 +396,13 @@ export class ConciliacaoService {
       // Primary: same date + same value + same type (entrada/saída)
       const candidates: FluxoGroup[] = [];
       for (const fg of availableGroups) {
-        const fgIsEntrada = fg.tipoConta === 1; // 1 = Contas a Receber (entrada)
+        const fgIsEntrada = fg.tipoConta === 1;
         const tipoCompativel = mbIsCredito === fgIsEntrada;
         if (fg.dtaQuitadaStr === mbDateStr && Math.abs(fg.valTotal - mbVal) < 0.02 && tipoCompativel) {
           candidates.push(fg);
         }
       }
 
-      // Log entries that DON'T match to understand why
-      if (candidates.length === 0 && !mbDocto) {
-        // Find closest system group by value (regardless of date)
-        let closestByVal: FluxoGroup | null = null;
-        let closestValDiff = Infinity;
-        let closestByName: FluxoGroup | null = null;
-        for (const fg of availableGroups) {
-          const vd = Math.abs(fg.valTotal - mbVal);
-          if (vd < closestValDiff) { closestValDiff = vd; closestByVal = fg; }
-          if (fg.desParceiro && mbNome && fg.desParceiro.toUpperCase().includes(mbNome.split(' - ').pop()?.trim().split(' ')[0]?.toUpperCase() || '___')) {
-            closestByName = fg;
-          }
-        }
-        if (closestByVal) {
-          console.log(`[UNMATCHED] Banco: "${(mb.FAVORECIDO||'').substring(0,60)}" | date=${mbDateStr} | val=${mbVal.toFixed(2)} → Closest sys: "${closestByVal.desParceiro.substring(0,40)}" | date=${closestByVal.dtaQuitadaStr} | val=${closestByVal.valTotal.toFixed(2)} | dateDiff=${mbDateStr !== closestByVal.dtaQuitadaStr ? 'SIM' : 'nao'} | valDiff=${closestValDiff.toFixed(2)}`);
-        }
-      }
-
-      // Secondary: document number + within 3 days
-      if (candidates.length === 0 && mbDocto) {
-        for (const fg of availableGroups) {
-          if (fg.numDocto && String(fg.numDocto).trim() === mbDocto) {
-            const daysDiff = Math.abs(mbDate.getTime() - fg.dtaQuitada.getTime()) / (1000 * 60 * 60 * 24);
-            if (daysDiff <= 3) {
-              candidates.push(fg);
-            }
-          }
-        }
-      }
 
       // Pick best candidate: prefer name similarity as tiebreaker
       let picked: FluxoGroup | null = null;
