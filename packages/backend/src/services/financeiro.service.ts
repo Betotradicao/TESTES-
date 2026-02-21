@@ -413,6 +413,111 @@ export class FinanceiroService {
   }
 
   /**
+   * Dashboard semanal: totais diários agregados de entradas e saídas (quitados)
+   * Retorna array: [{ DTA: '2026-02-01T...', ENTRADAS: 50000, SAIDAS: 30000 }, ...]
+   */
+  static async getDashboardDiario(filters: FinanceiroFilters): Promise<any[]> {
+    const m = await resolveMapping();
+
+    const params: any = {};
+    const quitadoFlag = filters.quitado && filters.quitado !== '' ? filters.quitado : 'S';
+    let where = ` WHERE f.${m.flxFlgQuitado} = :quitadoFlag`;
+    params.quitadoFlag = quitadoFlag;
+
+    if (filters.vencInicio) {
+      where += ` AND f.${m.flxDtaVencimento} >= TO_DATE(:vencInicio, 'YYYY-MM-DD')`;
+      params.vencInicio = filters.vencInicio;
+    }
+    if (filters.vencFim) {
+      where += ` AND f.${m.flxDtaVencimento} <= TO_DATE(:vencFim, 'YYYY-MM-DD') + 0.99999`;
+      params.vencFim = filters.vencFim;
+    }
+    if (filters.codLoja) {
+      where += ` AND f.${m.flxCodLoja} = :codLoja`;
+      params.codLoja = Number(filters.codLoja);
+    }
+
+    const sql = `
+      SELECT
+        TRUNC(f.${m.flxDtaVencimento}) as DTA,
+        SUM(CASE WHEN f.${m.flxTipoConta} = 1 THEN f.${m.flxValParcela} ELSE 0 END) as ENTRADAS,
+        SUM(CASE WHEN f.${m.flxTipoConta} = 0 THEN f.${m.flxValParcela} ELSE 0 END) as SAIDAS
+      FROM ${m.tabFluxo} f
+      ${where}
+      GROUP BY TRUNC(f.${m.flxDtaVencimento})
+      ORDER BY TRUNC(f.${m.flxDtaVencimento})
+    `;
+
+    const result = await OracleService.query<any>(sql, params);
+
+    // Inicializar campos de banco em todos os registros
+    for (const row of result) {
+      row.ENTRADAS_BCO = 0;
+      row.SAIDAS_BCO = 0;
+    }
+
+    // Incluir mov banco como campos separados (ENTRADAS_BCO, SAIDAS_BCO)
+    if (filters.incluirMovBanco === 'sim') {
+      const mbParams: any = {};
+      let mbWhere = ` WHERE m.${m.mbFlgEstorno} = 'N' AND m.${m.mbCodCategoria} IS NOT NULL`;
+      if (filters.vencInicio) {
+        mbWhere += ` AND m.${m.mbDtaEntrada} >= TO_DATE(:vencInicio, 'YYYY-MM-DD')`;
+        mbParams.vencInicio = filters.vencInicio;
+      }
+      if (filters.vencFim) {
+        mbWhere += ` AND m.${m.mbDtaEntrada} <= TO_DATE(:vencFim, 'YYYY-MM-DD') + 0.99999`;
+        mbParams.vencFim = filters.vencFim;
+      }
+      if (filters.codLoja) {
+        mbWhere += ` AND m.${m.mbCodLoja} = :codLoja`;
+        mbParams.codLoja = Number(filters.codLoja);
+      }
+
+      const mbSql = `
+        SELECT
+          TRUNC(m.${m.mbDtaEntrada}) as DTA,
+          SUM(CASE WHEN m.${m.mbTipoOperacao} = 0 THEN m.${m.mbValDocto} ELSE 0 END) as ENTRADAS_BCO,
+          SUM(CASE WHEN m.${m.mbTipoOperacao} = 1 THEN m.${m.mbValDocto} ELSE 0 END) as SAIDAS_BCO
+        FROM ${m.tabMovBco} m
+        ${mbWhere}
+        GROUP BY TRUNC(m.${m.mbDtaEntrada})
+        ORDER BY TRUNC(m.${m.mbDtaEntrada})
+      `;
+
+      const mbResult = await OracleService.query<any>(mbSql, mbParams);
+
+      // Adicionar dados de banco como campos separados
+      for (const mbRow of mbResult) {
+        const mbDate = mbRow.DTA?.getTime?.() || new Date(mbRow.DTA).getTime();
+        const existing = result.find((r: any) => {
+          const rDate = r.DTA?.getTime?.() || new Date(r.DTA).getTime();
+          return rDate === mbDate;
+        });
+        if (existing) {
+          existing.ENTRADAS_BCO = Number(mbRow.ENTRADAS_BCO) || 0;
+          existing.SAIDAS_BCO = Number(mbRow.SAIDAS_BCO) || 0;
+        } else {
+          result.push({
+            DTA: mbRow.DTA,
+            ENTRADAS: 0,
+            SAIDAS: 0,
+            ENTRADAS_BCO: Number(mbRow.ENTRADAS_BCO) || 0,
+            SAIDAS_BCO: Number(mbRow.SAIDAS_BCO) || 0,
+          });
+        }
+      }
+
+      result.sort((a: any, b: any) => {
+        const aT = a.DTA?.getTime?.() || new Date(a.DTA).getTime();
+        const bT = b.DTA?.getTime?.() || new Date(b.DTA).getTime();
+        return aT - bT;
+      });
+    }
+
+    return result;
+  }
+
+  /**
    * Lista bancos para dropdown
    */
   static async getBancos(): Promise<any[]> {

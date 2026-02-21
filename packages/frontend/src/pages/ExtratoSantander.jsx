@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Layout from '../components/Layout';
 import api from '../services/api';
+import WeeklyDashboard from '../components/WeeklyDashboard';
 
 export default function ExtratoSantander() {
   const [loading, setLoading] = useState(true);
@@ -656,6 +657,19 @@ export default function ExtratoSantander() {
             </div>
           )}
         </div>
+
+        {/* Dashboards Semanais */}
+        {allItems.length > 0 && (
+          <WeeklyDashboard
+            items={allItems}
+            dateField="transactionDate"
+            entradaFilter={(item) => item.creditDebitType === 'CREDITO'}
+            saidaFilter={(item) => item.creditDebitType === 'DEBITO'}
+            valueField="amount"
+            startDate={filters.initialDate}
+            endDate={filters.finalDate}
+          />
+        )}
 
         {/* DUAS COLUNAS: Entradas | Saidas */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

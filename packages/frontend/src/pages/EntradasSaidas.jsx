@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar';
 import RadarLoading from '../components/RadarLoading';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
+import WeeklyDashboard from '../components/WeeklyDashboard';
 
 const TIPO_PARCEIRO_LABELS = {
   0: 'Cliente',
@@ -84,6 +85,9 @@ export default function EntradasSaidas() {
     parceiro: '',
   });
 
+  // Dashboard tab: 'quitados' ou 'abertos'
+  const [dashboardTab, setDashboardTab] = useState('quitados');
+
   // Borderô: agrupado ou separado
   const [borderoMode, setBorderoMode] = useState('separado');
 
@@ -116,10 +120,16 @@ export default function EntradasSaidas() {
   // Controle de race condition na busca
   const searchIdRef = useRef(0);
 
+  // Dashboard semanal - dados independentes (dia 1 até hoje)
+  const [dashboardData, setDashboardData] = useState([]);
+  const [dashboardAbertosData, setDashboardAbertosData] = useState([]);
+  const dashboardStartDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+  const dashboardEndDate = new Date().toISOString().split('T')[0];
+
   // Colunas visíveis (filtradas por hiddenColumns)
   const visibleColumns = columns.filter(c => !hiddenColumns.has(c.id));
 
-  useEffect(() => { loadFilterData(); handleSearch(); }, []);
+  useEffect(() => { loadFilterData(); handleSearch(); fetchDashboardData(); fetchDashboardAbertos(); }, []);
 
   const loadFilterData = async () => {
     setLoadingFilters(true);
@@ -139,26 +149,59 @@ export default function EntradasSaidas() {
     }
   };
 
-  const handleSearch = async () => {
-    setLoading(true);
-    const currentSearchId = ++searchIdRef.current;
+  const fetchDashboardData = async () => {
     try {
       const params = new URLSearchParams();
-      if (filters.vencInicio) params.append('vencInicio', filters.vencInicio);
-      if (filters.vencFim) params.append('vencFim', filters.vencFim);
-      if (filters.entradaInicio) params.append('entradaInicio', filters.entradaInicio);
-      if (filters.entradaFim) params.append('entradaFim', filters.entradaFim);
-      if (filters.tipoConta !== undefined && filters.tipoConta !== '') params.append('tipoConta', filters.tipoConta);
-      if (filters.quitado && filters.quitado !== '') params.append('quitado', filters.quitado);
-      if (filters.tipoParceiro !== undefined && filters.tipoParceiro !== '') params.append('tipoParceiro', filters.tipoParceiro);
-      if (filters.codBanco && filters.codBanco !== '') params.append('codBanco', filters.codBanco);
-      if (filters.codEntidade && filters.codEntidade !== '') params.append('codEntidade', filters.codEntidade);
-      if (filters.codCategoria && filters.codCategoria !== '') params.append('codCategoria', filters.codCategoria);
-      if (filters.parceiro) params.append('parceiro', filters.parceiro);
+      params.append('vencInicio', dashboardStartDate);
+      params.append('vencFim', dashboardEndDate);
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+      params.append('incluirMovBanco', 'sim');
+
+      const res = await api.get(`/financeiro/dashboard-diario?${params.toString()}`);
+      // Endpoint retorna: [{ DTA: date, ENTRADAS: number, SAIDAS: number }]
+      setDashboardData(res.data?.data || []);
+    } catch (error) {
+      console.error('Erro ao buscar dados do dashboard:', error);
+    }
+  };
+
+  const fetchDashboardAbertos = async () => {
+    try {
+      const params = new URLSearchParams();
+      params.append('vencInicio', dashboardStartDate);
+      params.append('vencFim', dashboardEndDate);
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+      params.append('incluirMovBanco', 'sim');
+      params.append('quitado', 'N');
+
+      const res = await api.get(`/financeiro/dashboard-diario?${params.toString()}`);
+      setDashboardAbertosData(res.data?.data || []);
+    } catch (error) {
+      console.error('Erro ao buscar dados do dashboard abertos:', error);
+    }
+  };
+
+  const handleSearch = async (overrideFilters) => {
+    setLoading(true);
+    const currentSearchId = ++searchIdRef.current;
+    const f = overrideFilters || filters;
+    try {
+      const params = new URLSearchParams();
+      if (f.vencInicio) params.append('vencInicio', f.vencInicio);
+      if (f.vencFim) params.append('vencFim', f.vencFim);
+      if (f.entradaInicio) params.append('entradaInicio', f.entradaInicio);
+      if (f.entradaFim) params.append('entradaFim', f.entradaFim);
+      if (f.tipoConta !== undefined && f.tipoConta !== '') params.append('tipoConta', f.tipoConta);
+      if (f.quitado && f.quitado !== '') params.append('quitado', f.quitado);
+      if (f.tipoParceiro !== undefined && f.tipoParceiro !== '') params.append('tipoParceiro', f.tipoParceiro);
+      if (f.codBanco && f.codBanco !== '') params.append('codBanco', f.codBanco);
+      if (f.codEntidade && f.codEntidade !== '') params.append('codEntidade', f.codEntidade);
+      if (f.codCategoria && f.codCategoria !== '') params.append('codCategoria', f.codCategoria);
+      if (f.parceiro) params.append('parceiro', f.parceiro);
       if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
       params.append('incluirMovBanco', incluirMovBanco);
 
-      console.log('[EntradasSaidas] Filtros:', JSON.stringify(filters));
+      console.log('[EntradasSaidas] Filtros:', JSON.stringify(f));
       console.log('[EntradasSaidas] Params URL:', params.toString());
 
       const [dadosRes, resumoRes] = await Promise.all([
@@ -173,12 +216,12 @@ export default function EntradasSaidas() {
       setResumo(resumoRes.data || {});
 
       const filtrosAtivos = [];
-      if (filters.tipoConta === '1') filtrosAtivos.push('Entradas');
-      else if (filters.tipoConta === '0') filtrosAtivos.push('Saídas');
-      if (filters.quitado === 'N') filtrosAtivos.push('Abertos');
-      else if (filters.quitado === 'S') filtrosAtivos.push('Quitados');
-      if (filters.tipoParceiro !== '') filtrosAtivos.push('Tipo Parceiro: ' + (TIPO_PARCEIRO_LABELS[filters.tipoParceiro] || filters.tipoParceiro));
-      if (filters.parceiro) filtrosAtivos.push('Parceiro: ' + filters.parceiro);
+      if (f.tipoConta === '1') filtrosAtivos.push('Entradas');
+      else if (f.tipoConta === '0') filtrosAtivos.push('Saídas');
+      if (f.quitado === 'N') filtrosAtivos.push('Abertos');
+      else if (f.quitado === 'S') filtrosAtivos.push('Quitados');
+      if (f.tipoParceiro !== '') filtrosAtivos.push('Tipo Parceiro: ' + (TIPO_PARCEIRO_LABELS[f.tipoParceiro] || f.tipoParceiro));
+      if (f.parceiro) filtrosAtivos.push('Parceiro: ' + f.parceiro);
       const filtroTexto = filtrosAtivos.length > 0 ? ` | Filtros: ${filtrosAtivos.join(', ')}` : '';
       toast.success(`${dadosRes.data?.count || 0} registros encontrados${filtroTexto}`);
     } catch (error) {
@@ -605,6 +648,84 @@ export default function EntradasSaidas() {
               </div>
             </div>
           </div>
+
+          {/* Dashboards Semanais - tabs QUITADOS / ABERTOS */}
+          {(dashboardData.length > 0 || dashboardAbertosData.length > 0) && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <button
+                  onClick={() => setDashboardTab('quitados')}
+                  className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wide transition-all cursor-pointer ${
+                    dashboardTab === 'quitados'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  Quitados
+                </button>
+                <button
+                  onClick={() => setDashboardTab('abertos')}
+                  className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wide transition-all cursor-pointer ${
+                    dashboardTab === 'abertos'
+                      ? 'bg-yellow-500 text-white shadow-md'
+                      : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  Abertos
+                </button>
+              </div>
+
+              {dashboardTab === 'quitados' && dashboardData.length > 0 && (
+                <WeeklyDashboard
+                  items={dashboardData}
+                  dateField="DTA"
+                  entradaFilter={() => true}
+                  saidaFilter={() => false}
+                  valueField="ENTRADAS"
+                  startDate={dashboardStartDate}
+                  endDate={dashboardEndDate}
+                  aggregated
+                  onBarClick={(date, type) => {
+                    const newFilters = {
+                      ...filters,
+                      vencInicio: date,
+                      vencFim: date,
+                      tipoConta: type === 'entrada' ? '1' : '0',
+                      quitado: 'S',
+                    };
+                    setFilters(newFilters);
+                    handleSearch(newFilters);
+                  }}
+                />
+              )}
+
+              {dashboardTab === 'abertos' && dashboardAbertosData.length > 0 && (
+                <WeeklyDashboard
+                  items={dashboardAbertosData}
+                  dateField="DTA"
+                  entradaFilter={() => true}
+                  saidaFilter={() => false}
+                  valueField="ENTRADAS"
+                  startDate={dashboardStartDate}
+                  endDate={dashboardEndDate}
+                  aggregated
+                  onBarClick={(date, type) => {
+                    const newFilters = {
+                      ...filters,
+                      vencInicio: date,
+                      vencFim: date,
+                      tipoConta: type === 'entrada' ? '1' : '0',
+                      quitado: 'N',
+                    };
+                    setFilters(newFilters);
+                    handleSearch(newFilters);
+                  }}
+                />
+              )}
+            </div>
+          )}
 
           {/* Tabela */}
           <div className="bg-white rounded-lg shadow overflow-hidden relative">

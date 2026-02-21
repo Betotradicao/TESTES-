@@ -98,6 +98,7 @@ export const MENU_SUBMENUS = {
   EXTRATO_TRIBANCO: 'extrato-tribanco',
   EXTRATO_BANCO24H: 'extrato-banco24h',
   BOLETOS_DDA: 'boletos-dda',
+  CONCILIACAO_BANCARIA: 'conciliacao-bancaria',
   ENTRADAS_SAIDAS: 'entradas-saidas',
   DEMONSTRATIVO_CAIXA: 'demonstrativo-caixa',
 
@@ -445,6 +446,11 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.BOLETOS_DDA,
         title: 'Boletos DDA',
         path: '/boletos-dda'
+      },
+      {
+        id: MENU_SUBMENUS.CONCILIACAO_BANCARIA,
+        title: 'Conciliação Bancária',
+        path: '/conciliacao-bancaria'
       }
     ]
   },

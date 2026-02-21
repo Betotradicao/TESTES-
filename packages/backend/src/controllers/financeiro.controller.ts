@@ -64,6 +64,24 @@ export class FinanceiroController {
     }
   }
 
+  static async getDashboardDiario(req: Request, res: Response) {
+    try {
+      const filters = {
+        vencInicio: req.query.vencInicio as string,
+        vencFim: req.query.vencFim as string,
+        codLoja: req.query.codLoja as string,
+        quitado: (req.query.quitado as string) || 'S',
+        incluirMovBanco: (req.query.incluirMovBanco as string) || 'sim',
+      };
+
+      const result = await FinanceiroService.getDashboardDiario(filters);
+      return res.json({ success: true, data: result });
+    } catch (error: any) {
+      console.error('Erro ao buscar dashboard diário:', error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
   static async getBancos(req: Request, res: Response) {
     try {
       const data = await FinanceiroService.getBancos();

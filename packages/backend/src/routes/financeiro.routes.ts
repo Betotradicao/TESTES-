@@ -14,6 +14,7 @@ router.use(authenticateToken);
 // Dados principais
 router.get('/dados', FinanceiroController.getEntradasSaidas);
 router.get('/resumo', FinanceiroController.getResumo);
+router.get('/dashboard-diario', FinanceiroController.getDashboardDiario);
 
 // Dropdowns
 router.get('/bancos', FinanceiroController.getBancos);

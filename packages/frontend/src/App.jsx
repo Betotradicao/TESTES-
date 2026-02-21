@@ -61,6 +61,7 @@ import DemonstrativoCaixa from './pages/DemonstrativoCaixa';
 import PrioridadeReposicao from './pages/PrioridadeReposicao';
 import ProgramacaoAtual from './pages/ProgramacaoAtual';
 import BoletoDDA from './pages/BoletoDDA';
+import ConciliacaoBancaria from './pages/ConciliacaoBancaria';
 
 function App() {
   return (
@@ -474,6 +475,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <BoletoDDA />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/conciliacao-bancaria"
+              element={
+                <ProtectedRoute>
+                  <ConciliacaoBancaria />
                 </ProtectedRoute>
               }
             />
