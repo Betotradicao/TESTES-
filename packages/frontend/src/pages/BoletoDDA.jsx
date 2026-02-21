@@ -26,7 +26,8 @@ const BoletoDDA = () => {
     const loadBanks = async () => {
       try {
         const response = await api.get('/bank-accounts');
-        const activeBanks = (response.data || []).filter(b => b.ativo && b.certificate_path);
+        const banks = response.data?.data || response.data || [];
+        const activeBanks = (Array.isArray(banks) ? banks : []).filter(b => b.ativo && b.certificate_path);
         setBanks(activeBanks);
         if (activeBanks.length > 0) {
           setSelectedBankId(activeBanks[0].id);
