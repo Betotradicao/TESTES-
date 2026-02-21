@@ -427,7 +427,7 @@ export const MENU_STRUCTURE = [
     submenus: [
       {
         id: MENU_SUBMENUS.EXTRATO_SANTANDER,
-        title: 'Extrato Santander',
+        title: 'Extrato Bancário',
         path: '/extrato-santander'
       },
       {

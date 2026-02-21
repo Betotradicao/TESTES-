@@ -3,12 +3,35 @@ import { SantanderService } from '../services/santander.service';
 
 export class SantanderController {
   /**
+   * Resolve o bankId: usa query param ou busca o primeiro banco ativo
+   */
+  private async resolveBankId(req: Request): Promise<string | null> {
+    const bankId = req.query.bankId as string;
+    if (bankId) return bankId;
+
+    // Fallback: primeiro banco ativo
+    try {
+      const { AppDataSource } = await import('../config/database');
+      const { BankAccount } = await import('../entities/BankAccount');
+      const repo = AppDataSource.getRepository(BankAccount);
+      const first = await repo.findOne({ where: { ativo: true }, order: { created_at: 'ASC' } });
+      return first?.id || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * GET /api/santander/saldo
    * Retorna saldo da conta
+   * Query params: bankId (opcional)
    */
   async getSaldo(req: Request, res: Response) {
     try {
-      const balance = await SantanderService.getBalance();
+      const bankId = await this.resolveBankId(req);
+      const balance = bankId
+        ? await SantanderService.getBalanceForBank(bankId)
+        : await SantanderService.getBalance();
       return res.json(balance);
     } catch (error: any) {
       console.error('[Santander] Erro ao buscar saldo:', error.message);
@@ -35,12 +58,10 @@ export class SantanderController {
       const limit = parseInt(_limit as string) || 50;
       const offset = parseInt(_offset as string) || 1;
 
-      const data = await SantanderService.getStatements(
-        initialDate as string,
-        finalDate as string,
-        limit,
-        offset
-      );
+      const bankId = await this.resolveBankId(req);
+      const data = bankId
+        ? await SantanderService.getStatementsForBank(bankId, initialDate as string, finalDate as string, limit, offset)
+        : await SantanderService.getStatements(initialDate as string, finalDate as string, limit, offset);
 
       // Filtrar por tipo se necessário
       if (tipo && tipo !== 'TODOS' && data._content) {
@@ -74,12 +95,10 @@ export class SantanderController {
 
       const limit = parseInt(_limit as string) || 750;
 
-      const data = await SantanderService.getTransactions(
-        initialDate as string,
-        finalDate as string,
-        limit,
-        _nextPage as string | undefined
-      );
+      const bankId = await this.resolveBankId(req);
+      const data = bankId
+        ? await SantanderService.getTransactionsForBank(bankId, initialDate as string, finalDate as string, limit, _nextPage as string | undefined)
+        : await SantanderService.getTransactions(initialDate as string, finalDate as string, limit, _nextPage as string | undefined);
 
       return res.json(data);
     } catch (error: any) {
@@ -97,6 +116,16 @@ export class SantanderController {
    */
   async getConfig(req: Request, res: Response) {
     try {
+      const bankId = await this.resolveBankId(req);
+      if (bankId) {
+        const config = await SantanderService.getConfigByBankId(bankId);
+        return res.json({
+          branchCode: config.branchCode,
+          accountNumber: config.accountNumber,
+          environment: config.environment,
+          hasCertificate: !!config.certificatePath
+        });
+      }
       const config = await SantanderService.getPublicConfig();
       return res.json(config);
     } catch (error: any) {
@@ -117,12 +146,16 @@ export class SantanderController {
    * Busca todas as páginas de um período (máx 90 dias).
    * Usa lotes de 5 paralelos para não sobrecarregar a API.
    */
-  private async fetchAllPages(initialDate: string, finalDate: string): Promise<any[]> {
+  private async fetchAllPages(initialDate: string, finalDate: string, bankId?: string | null): Promise<any[]> {
     const pageSize = 50;
     const BATCH_SIZE = 5;
 
+    const fetchPage = (offset: number) => bankId
+      ? SantanderService.getStatementsForBank(bankId, initialDate, finalDate, pageSize, offset)
+      : SantanderService.getStatements(initialDate, finalDate, pageSize, offset);
+
     // Página 1: descobrir totalPages
-    const firstPage = await SantanderService.getStatements(initialDate, finalDate, pageSize, 1);
+    const firstPage = await fetchPage(1);
     let items: any[] = [];
     if (firstPage._content?.length > 0) {
       items = items.concat(firstPage._content);
@@ -139,12 +172,11 @@ export class SantanderController {
 
       for (let page = batchStart; page <= batchEnd; page++) {
         promises.push(
-          SantanderService.getStatements(initialDate, finalDate, pageSize, page)
+          fetchPage(page)
             .catch(err => {
               console.warn(`[Santander] Erro na página ${page}, tentando novamente...`);
-              // Retry uma vez após 1s
               return new Promise(resolve => setTimeout(resolve, 1000))
-                .then(() => SantanderService.getStatements(initialDate, finalDate, pageSize, page));
+                .then(() => fetchPage(page));
             })
         );
       }
@@ -200,14 +232,15 @@ export class SantanderController {
 
       // Dividir em sub-ranges mensais para não sobrecarregar a API
       const monthRanges = this.splitIntoMonths(initialDate as string, finalDate as string);
-      console.log(`[Santander] Consultando ${monthRanges.length} meses: ${initialDate} a ${finalDate}`);
+      const bankId = await this.resolveBankId(req);
+      console.log(`[Santander] Consultando ${monthRanges.length} meses: ${initialDate} a ${finalDate}${bankId ? ` (banco: ${bankId})` : ''}`);
 
       let allItems: any[] = [];
 
       // Processar cada mês sequencialmente (cada mês faz paginação interna com paralelo)
       for (const range of monthRanges) {
         try {
-          const monthItems = await this.fetchAllPages(range.start, range.end);
+          const monthItems = await this.fetchAllPages(range.start, range.end, bankId);
           allItems = allItems.concat(monthItems);
           console.log(`[Santander] Mês ${range.start}: +${monthItems.length} itens (total: ${allItems.length})`);
         } catch (err: any) {

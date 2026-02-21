@@ -9,7 +9,8 @@ export default function TabsNavigation({ activeTab, onChange, pageType = 'config
     { id: 'cron-monitor', label: 'CRON Monitor' },
     { id: 'empresa', label: 'Empresa' },
     { id: 'modulos', label: 'Módulos' },
-    { id: 'barcode-installer', label: 'Instalador Scanner' }
+    { id: 'barcode-installer', label: 'Instalador Scanner' },
+    { id: 'cadastro-bancario', label: 'Cadastro Bancário' }
   ];
 
   // Abas para Configurações normais

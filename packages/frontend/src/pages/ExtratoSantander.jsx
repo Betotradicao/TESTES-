@@ -14,6 +14,11 @@ export default function ExtratoSantander() {
   const [vendas, setVendas] = useState(null);
   const [loadingVendas, setLoadingVendas] = useState(true);
 
+  // Bancos cadastrados
+  const [banks, setBanks] = useState([]);
+  const [selectedBankId, setSelectedBankId] = useState('all');
+  const [selectedBank, setSelectedBank] = useState(null);
+
   // Filtros - data inicio = primeiro dia do mes, data fim = ontem
   const hoje = new Date();
   const ontem = new Date(hoje);
@@ -25,32 +30,111 @@ export default function ExtratoSantander() {
     finalDate: ontem.toISOString().split('T')[0]
   });
 
+  // Carregar bancos cadastrados
+  useEffect(() => {
+    const fetchBanks = async () => {
+      try {
+        const res = await api.get('/api/bank-accounts');
+        const activeBanks = (res.data.data || []).filter(b => b.ativo && b.certificate_path);
+        setBanks(activeBanks);
+      } catch (err) {
+        console.error('Erro ao buscar bancos:', err);
+      }
+    };
+    fetchBanks();
+  }, []);
+
+  // Atualizar banco selecionado
+  useEffect(() => {
+    if (selectedBankId === 'all') {
+      setSelectedBank(null);
+    } else {
+      const bank = banks.find(b => b.id === selectedBankId);
+      setSelectedBank(bank || null);
+    }
+  }, [selectedBankId, banks]);
+
   const fetchSaldo = useCallback(async () => {
     setLoadingSaldo(true);
     try {
-      const res = await api.get('/santander/saldo');
-      setSaldo(res.data);
+      if (selectedBankId === 'all') {
+        // Buscar saldo de todos os bancos em paralelo
+        const results = await Promise.allSettled(
+          banks.map(bank => api.get(`/santander/saldo?bankId=${bank.id}`))
+        );
+        let totalAvailable = 0;
+        let totalBlocked = 0;
+        const saldosPorBanco = [];
+        results.forEach((result, idx) => {
+          if (result.status === 'fulfilled' && result.value.data) {
+            const s = result.value.data;
+            totalAvailable += parseFloat(s.availableAmount || 0);
+            totalBlocked += parseFloat(s.blockedAmount || 0);
+            saldosPorBanco.push({ bank: banks[idx], saldo: s });
+          }
+        });
+        setSaldo({ availableAmount: totalAvailable, blockedAmount: totalBlocked, saldosPorBanco });
+      } else {
+        const res = await api.get(`/santander/saldo?bankId=${selectedBankId}`);
+        setSaldo(res.data);
+      }
     } catch (err) {
       console.error('Erro ao buscar saldo:', err);
     } finally {
       setLoadingSaldo(false);
     }
-  }, []);
+  }, [selectedBankId, banks]);
 
   const fetchExtrato = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get('/santander/extrato-completo', {
-        params: {
-          initialDate: filters.initialDate,
-          finalDate: filters.finalDate
-        },
-        timeout: 300000 // 5 minutos para consultas grandes (ano inteiro)
-      });
-      const data = res.data;
-      setAllItems(data.items || []);
-      setTotais(data.totais || { creditos: 0, debitos: 0, qtdCreditos: 0, qtdDebitos: 0, totalRegistros: 0 });
+      if (selectedBankId === 'all') {
+        // Buscar extrato de todos os bancos em paralelo
+        const results = await Promise.allSettled(
+          banks.map(bank => api.get('/santander/extrato-completo', {
+            params: { initialDate: filters.initialDate, finalDate: filters.finalDate, bankId: bank.id },
+            timeout: 300000
+          }))
+        );
+        let mergedItems = [];
+        let totalCreditos = 0, totalDebitos = 0, qtdCreditos = 0, qtdDebitos = 0;
+        const errors = [];
+        results.forEach((result, idx) => {
+          if (result.status === 'fulfilled') {
+            const data = result.value.data;
+            // Adicionar nome do banco em cada item para identificação
+            const bankItems = (data.items || []).map(item => ({
+              ...item,
+              _bankName: banks[idx].nome,
+              _bankId: banks[idx].id
+            }));
+            mergedItems = [...mergedItems, ...bankItems];
+            const t = data.totais || {};
+            totalCreditos += t.creditos || 0;
+            totalDebitos += t.debitos || 0;
+            qtdCreditos += t.qtdCreditos || 0;
+            qtdDebitos += t.qtdDebitos || 0;
+          } else {
+            errors.push(`${banks[idx].nome}: ${result.reason?.response?.data?.details || result.reason?.message || 'Erro'}`);
+          }
+        });
+        setAllItems(mergedItems);
+        setTotais({ creditos: totalCreditos, debitos: totalDebitos, qtdCreditos, qtdDebitos, totalRegistros: mergedItems.length });
+        if (errors.length > 0) setError(errors.join(' | '));
+      } else {
+        const res = await api.get('/santander/extrato-completo', {
+          params: {
+            initialDate: filters.initialDate,
+            finalDate: filters.finalDate,
+            bankId: selectedBankId
+          },
+          timeout: 300000
+        });
+        const data = res.data;
+        setAllItems(data.items || []);
+        setTotais(data.totais || { creditos: 0, debitos: 0, qtdCreditos: 0, qtdDebitos: 0, totalRegistros: 0 });
+      }
     } catch (err) {
       console.error('Erro ao buscar extrato:', err);
       setError(err.response?.data?.details || err.message || 'Erro ao buscar extrato');
@@ -59,7 +143,7 @@ export default function ExtratoSantander() {
     } finally {
       setLoading(false);
     }
-  }, [filters.initialDate, filters.finalDate]);
+  }, [filters.initialDate, filters.finalDate, selectedBankId, banks]);
 
   const fetchVendas = useCallback(async () => {
     setLoadingVendas(true);
@@ -80,8 +164,12 @@ export default function ExtratoSantander() {
     }
   }, [filters.initialDate, filters.finalDate]);
 
-  useEffect(() => { fetchSaldo(); }, [fetchSaldo]);
-  useEffect(() => { fetchExtrato(); fetchVendas(); }, [fetchExtrato, fetchVendas]);
+  useEffect(() => {
+    if (selectedBankId === 'all' ? banks.length > 0 : !!selectedBankId) fetchSaldo();
+  }, [fetchSaldo, selectedBankId, banks]);
+  useEffect(() => {
+    if (selectedBankId === 'all' ? banks.length > 0 : !!selectedBankId) { fetchExtrato(); fetchVendas(); }
+  }, [fetchExtrato, fetchVendas, selectedBankId, banks]);
 
   // Separar entradas e saidas
   const entradas = useMemo(() => allItems.filter(i => i.creditDebitType === 'CREDITO'), [allItems]);
@@ -107,6 +195,10 @@ export default function ExtratoSantander() {
         case 'complemento':
           aVal = (a.historicComplement || '').toLowerCase();
           bVal = (b.historicComplement || '').toLowerCase();
+          break;
+        case 'banco':
+          aVal = (a._bankName || '').toLowerCase();
+          bVal = (b._bankName || '').toLowerCase();
           break;
         case 'valor':
           aVal = Math.abs(parseFloat(a.amount || 0));
@@ -164,13 +256,14 @@ export default function ExtratoSantander() {
   };
 
   // Tabela de lancamentos reutilizavel
-  const TabelaLancamentos = ({ items, tipo, sortConfig: sc, onSort, isLoading }) => {
+  const TabelaLancamentos = ({ items, tipo, sortConfig: sc, onSort, isLoading, showBankColumn }) => {
     const isEntrada = tipo === 'CREDITO';
     const corTexto = isEntrada ? 'text-green-600' : 'text-red-600';
     const corBg = isEntrada ? 'bg-green-50' : 'bg-red-50';
     const corBorder = isEntrada ? 'border-green-200' : 'border-red-200';
     const corHeader = isEntrada ? 'bg-green-100' : 'bg-red-100';
     const total = items.reduce((s, i) => s + Math.abs(parseFloat(i.amount || 0)), 0);
+    const colSpanCount = showBankColumn ? 5 : 4;
 
     return (
       <div className={`bg-white rounded-xl shadow-sm border ${corBorder} overflow-hidden flex flex-col`}>
@@ -205,6 +298,11 @@ export default function ExtratoSantander() {
           <table className="w-full">
             <thead className="sticky top-0 z-10">
               <tr className={corHeader}>
+                {showBankColumn && (
+                  <th onClick={() => onSort('banco')} className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase cursor-pointer hover:text-orange-600 select-none w-28">
+                    Banco <SortIcon sortConfig={sc} columnKey="banco" />
+                  </th>
+                )}
                 <th onClick={() => onSort('date')} className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase cursor-pointer hover:text-orange-600 select-none w-24">
                   Data <SortIcon sortConfig={sc} columnKey="date" />
                 </th>
@@ -223,7 +321,7 @@ export default function ExtratoSantander() {
               {isLoading ? (
                 Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i}>
-                    <td colSpan="4" className="px-3 py-2.5">
+                    <td colSpan={colSpanCount} className="px-3 py-2.5">
                       <div className="animate-pulse flex gap-3">
                         <div className="bg-gray-200 h-3.5 w-16 rounded"></div>
                         <div className="bg-gray-200 h-3.5 flex-1 rounded"></div>
@@ -234,7 +332,7 @@ export default function ExtratoSantander() {
                 ))
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan="4" className="px-3 py-8 text-center text-gray-400 text-sm">
+                  <td colSpan={colSpanCount} className="px-3 py-8 text-center text-gray-400 text-sm">
                     Nenhum lancamento encontrado
                   </td>
                 </tr>
@@ -243,6 +341,11 @@ export default function ExtratoSantander() {
                   const valor = Math.abs(parseFloat(item.amount || 0));
                   return (
                     <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                      {showBankColumn && (
+                        <td className="px-3 py-2 text-xs text-orange-700 font-medium whitespace-nowrap" title={item._bankName}>
+                          {(item._bankName || '').replace('Santander - ', '').replace('Santander ', '').substring(0, 15)}
+                        </td>
+                      )}
                       <td className="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">
                         {item.transactionDate}
                       </td>
@@ -289,12 +392,38 @@ export default function ExtratoSantander() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-xl md:text-2xl font-bold">Extrato Bancario - Santander</h1>
-                <p className="text-white/80 text-sm">Ag. 3310 | Conta 13007597-3</p>
+                <h1 className="text-xl md:text-2xl font-bold">Extrato Bancário</h1>
+                <p className="text-white/80 text-sm">
+                  {selectedBankId === 'all'
+                    ? `${banks.length} banco${banks.length !== 1 ? 's' : ''} consolidado${banks.length !== 1 ? 's' : ''}`
+                    : selectedBank
+                      ? `${selectedBank.cnpj ? `CNPJ: ${selectedBank.cnpj}` : ''}${selectedBank.cnpj && selectedBank.agencia ? ' | ' : ''}${selectedBank.agencia ? `Ag. ${selectedBank.agencia}` : ''}${(selectedBank.cnpj || selectedBank.agencia) && selectedBank.conta ? ' | ' : ''}${selectedBank.conta ? `Conta ${selectedBank.conta}` : ''}`
+                      : 'Selecione um banco'}
+                </p>
               </div>
+              {/* Seletor de banco */}
+              {banks.length > 0 && (
+                <select
+                  value={selectedBankId}
+                  onChange={(e) => setSelectedBankId(e.target.value)}
+                  className="ml-4 bg-white/20 border border-white/30 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/50 backdrop-blur-sm"
+                  style={{ color: 'white' }}
+                >
+                  <option value="all" className="text-gray-800 font-bold">
+                    Todos os Bancos
+                  </option>
+                  {banks.map(bank => (
+                    <option key={bank.id} value={bank.id} className="text-gray-800">
+                      {bank.nome}{bank.cnpj ? ` | CNPJ: ${bank.cnpj}` : ''}{bank.conta ? ` | Conta: ${bank.conta}` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
             <div className="text-right">
-              <p className="text-white/70 text-xs uppercase tracking-wider">Saldo Disponivel</p>
+              <p className="text-white/70 text-xs uppercase tracking-wider">
+                {selectedBankId === 'all' ? 'Saldo Total' : 'Saldo Disponivel'}
+              </p>
               {loadingSaldo ? (
                 <div className="animate-pulse bg-white/20 h-8 w-40 rounded mt-1"></div>
               ) : saldo ? (
@@ -304,6 +433,30 @@ export default function ExtratoSantander() {
               )}
             </div>
           </div>
+
+          {/* Detalhamento de saldo por banco quando "Todos" selecionado */}
+          {selectedBankId === 'all' && saldo?.saldosPorBanco && saldo.saldosPorBanco.length > 0 && (
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {saldo.saldosPorBanco.map(({ bank, saldo: s }) => (
+                <div key={bank.id} className="bg-white/15 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-white">{bank.nome}</p>
+                      <p className="text-xs text-white/60">
+                        {bank.cnpj ? `CNPJ: ${bank.cnpj}` : ''}{bank.cnpj && bank.conta ? ' | ' : ''}{bank.conta ? `Conta: ${bank.conta}` : ''}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-white">{formatCurrency(s.availableAmount)}</p>
+                      {parseFloat(s.blockedAmount || 0) > 0 && (
+                        <p className="text-xs text-white/50">Bloq: {formatCurrency(s.blockedAmount)}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Cards de resumo */}
@@ -513,6 +666,7 @@ export default function ExtratoSantander() {
             sortConfig={sortEntradas}
             onSort={handleSortEntradas}
             isLoading={loading}
+            showBankColumn={selectedBankId === 'all'}
           />
 
           {/* Coluna SAIDAS */}
@@ -522,6 +676,7 @@ export default function ExtratoSantander() {
             sortConfig={sortSaidas}
             onSort={handleSortSaidas}
             isLoading={loading}
+            showBankColumn={selectedBankId === 'all'}
           />
         </div>
 

@@ -587,7 +587,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'extrato-santander', submenuId: 'extrato-santander', title: 'SANTANDER', path: '/extrato-santander' },
+            { id: 'extrato-santander', submenuId: 'extrato-santander', title: 'EXTRATO BANCÁRIO', path: '/extrato-santander' },
             { id: 'extrato-tribanco', submenuId: 'extrato-tribanco', title: 'TRIBANCO', path: '/extrato-tribanco' },
             { id: 'extrato-banco24h', submenuId: 'extrato-banco24h', title: 'BANCO 24HORAS', path: '/extrato-banco24h' }
           ]
