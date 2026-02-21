@@ -235,21 +235,6 @@ const BoletoDDA = () => {
                   {selectedBank && ` | ${selectedBank.nome}`}
                 </p>
               </div>
-              {/* Bank selector */}
-              {banks.length > 0 && (
-                <select
-                  value={selectedBankId}
-                  onChange={(e) => setSelectedBankId(e.target.value)}
-                  className="ml-4 bg-white/20 border border-white/30 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/50 backdrop-blur-sm"
-                  style={{ color: 'white' }}
-                >
-                  {banks.map(bank => (
-                    <option key={bank.id} value={bank.id} className="text-gray-800">
-                      {bank.nome} | CNPJ: {bank.cnpj || '-'} | Conta: {bank.conta || '-'}
-                    </option>
-                  ))}
-                </select>
-              )}
             </div>
             {/* Total */}
             <div className="text-right">
@@ -291,6 +276,38 @@ const BoletoDDA = () => {
         {/* Filters */}
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-6">
           <div className="flex flex-wrap items-end gap-3">
+            {banks.length > 0 && (
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Empresa</label>
+                <select
+                  value={selectedBankId}
+                  onChange={(e) => setSelectedBankId(e.target.value)}
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 min-w-[200px]"
+                >
+                  {banks.map(bank => (
+                    <option key={bank.id} value={bank.id}>
+                      {bank.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {selectedBank && (
+              <>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  <p className="text-xs text-gray-500 mb-0.5">CNPJ</p>
+                  <p className="text-sm font-mono font-medium text-gray-700">{formatCNPJ(selectedBank.cnpj) || '-'}</p>
+                </div>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  <p className="text-xs text-gray-500 mb-0.5">Agência</p>
+                  <p className="text-sm font-mono font-medium text-gray-700">{selectedBank.agencia || '-'}</p>
+                </div>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  <p className="text-xs text-gray-500 mb-0.5">Conta</p>
+                  <p className="text-sm font-mono font-medium text-gray-700">{selectedBank.conta || '-'}</p>
+                </div>
+              </>
+            )}
             <div>
               <label className="block text-xs text-gray-500 mb-1">Data Inicial</label>
               <input
@@ -358,6 +375,7 @@ const BoletoDDA = () => {
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Conta</th>
                   <th
                     className="px-4 py-3 text-left font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
                     onClick={() => handleSort('dueDate')}
@@ -392,7 +410,7 @@ const BoletoDDA = () => {
                   // Skeleton loading
                   Array.from({ length: 8 }).map((_, i) => (
                     <tr key={i} className="border-b border-gray-50">
-                      {Array.from({ length: 7 }).map((_, j) => (
+                      {Array.from({ length: 8 }).map((_, j) => (
                         <td key={j} className="px-4 py-3">
                           <div className="h-4 bg-gray-200 rounded animate-pulse" style={{ width: `${60 + Math.random() * 40}%` }} />
                         </td>
@@ -401,7 +419,7 @@ const BoletoDDA = () => {
                   ))
                 ) : sortedBoletos.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
+                    <td colSpan={8} className="px-4 py-12 text-center text-gray-400">
                       <svg className="mx-auto mb-3 w-12 h-12 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                         <rect x="2" y="6" width="20" height="14" rx="2" />
                         <path d="M2 10h20" />
@@ -419,6 +437,9 @@ const BoletoDDA = () => {
 
                     return (
                       <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                          {selectedBank?.nome || '-'}
+                        </td>
                         <td className="px-4 py-3 font-medium text-gray-800 whitespace-nowrap">
                           {formatDate(boleto.dueDate)}
                         </td>
