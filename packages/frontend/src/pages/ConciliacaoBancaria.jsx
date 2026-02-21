@@ -159,6 +159,10 @@ export default function ConciliacaoBancaria() {
   const [bancos, setBancos] = useState([]);
   const [loadingBancos, setLoadingBancos] = useState(true);
   const [codBanco, setCodBanco] = useState('');
+  const [codBancoSistema, setCodBancoSistema] = useState(''); // Grupo de banco do sistema
+  const [contaCorrenteSistema, setContaCorrenteSistema] = useState(''); // DES_CC da conta corrente selecionada
+  const [contasCorrentesList, setContasCorrentesList] = useState([]); // Lista de contas correntes do banco (da API)
+  const [loadingContas, setLoadingContas] = useState(false);
   const [bankAccounts, setBankAccounts] = useState([]);
   const [selectedBankAccountId, setSelectedBankAccountId] = useState('');
   const [dtaInicio, setDtaInicio] = useState(() => {
@@ -199,7 +203,9 @@ export default function ConciliacaoBancaria() {
         if (list.length > 0 && !codBanco) {
           // Priorizar Banco Santander como padrão
           const santander = list.find(b => (b.DES_BANCO || '').toUpperCase().includes('SANTANDER'));
-          setCodBanco(String(santander ? santander.COD_BANCO : list[0].COD_BANCO));
+          const defaultBanco = String(santander ? santander.COD_BANCO : list[0].COD_BANCO);
+          setCodBanco(defaultBanco);
+          setCodBancoSistema(defaultBanco);
         }
       } catch (err) {
         console.error('Erro ao carregar bancos:', err);
@@ -211,6 +217,18 @@ export default function ConciliacaoBancaria() {
     loadBancos();
   }, [lojaSelecionada]);
 
+  // Bancos únicos (dedup por DES_BANCO) para dropdowns de Banco Extrato e Banco Sistema
+  const bancosUnicos = useMemo(() => {
+    const seen = new Map();
+    for (const b of bancos) {
+      const nome = (b.DES_BANCO || '').toUpperCase().trim();
+      if (!seen.has(nome)) {
+        seen.set(nome, b);
+      }
+    }
+    return Array.from(seen.values());
+  }, [bancos]);
+
   // Filter bank accounts that match the selected Oracle bank name
   const matchedAccounts = useMemo(() => {
     if (!codBanco || bankAccounts.length === 0) return [];
@@ -220,7 +238,6 @@ export default function ConciliacaoBancaria() {
     return bankAccounts.filter(acc => {
       const nome = (acc.nome || '').toLowerCase();
       const tipo = (acc.tipo_banco || '').toLowerCase();
-      // Match by name keywords
       if (desBanco.includes('santander') && (nome.includes('santander') || tipo === 'santander')) return true;
       if (desBanco.includes('bradesco') && (nome.includes('bradesco') || tipo === 'bradesco')) return true;
       if (desBanco.includes('itau') && (nome.includes('itau') || tipo === 'itau')) return true;
@@ -238,6 +255,37 @@ export default function ConciliacaoBancaria() {
     }
   }, [matchedAccounts]);
 
+  // Buscar contas correntes da API quando Banco (Sistema) mudar
+  useEffect(() => {
+    const codBancoNum = Number(codBancoSistema || codBanco);
+    if (!codBancoNum) {
+      setContasCorrentesList([]);
+      setContaCorrenteSistema('');
+      return;
+    }
+    const fetchContas = async () => {
+      setLoadingContas(true);
+      try {
+        const res = await api.get(`/conciliacao/contas-correntes?codBanco=${codBancoNum}`);
+        const list = res.data?.data || [];
+        setContasCorrentesList(list);
+        // Auto-selecionar a primeira conta corrente (ordenada por DES_APELIDO)
+        if (list.length > 0) {
+          setContaCorrenteSistema(list[0].DES_CC);
+        } else {
+          setContaCorrenteSistema('');
+        }
+      } catch (err) {
+        console.error('Erro ao buscar contas correntes:', err);
+        setContasCorrentesList([]);
+        setContaCorrenteSistema('');
+      } finally {
+        setLoadingContas(false);
+      }
+    };
+    fetchContas();
+  }, [codBancoSistema, codBanco]);
+
   // Fetch data
   const fetchDados = async () => {
     if (!codBanco) {
@@ -250,6 +298,9 @@ export default function ConciliacaoBancaria() {
       const params = new URLSearchParams();
       if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
       params.append('codBanco', codBanco);
+      const bancoSistemaFinal = codBancoSistema || codBanco;
+      if (bancoSistemaFinal !== codBanco) params.append('codBancoSistema', bancoSistemaFinal);
+      if (contaCorrenteSistema) params.append('desCc', contaCorrenteSistema);
       if (selectedBankAccountId) params.append('bankId', selectedBankAccountId);
       params.append('dtaInicio', dtaInicio);
       params.append('dtaFim', dtaFim);
@@ -272,12 +323,7 @@ export default function ConciliacaoBancaria() {
     }
   };
 
-  // Auto-search when banco is loaded or changed
-  useEffect(() => {
-    if (codBanco && !loadingBancos) {
-      fetchDados();
-    }
-  }, [codBanco, loadingBancos]);
+  // Sem auto-search - busca somente ao clicar Buscar
 
   // Sort state
   const [sortCol, setSortCol] = useState(null); // column id
@@ -470,31 +516,30 @@ export default function ConciliacaoBancaria() {
         </div>
 
         <div className="p-3 md:p-4">
-          {/* Filters */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-4">
+          {/* Filters - Row 1: Banco Extrato + Conta API + Datas + Tipo + Exibir + Botões */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-2">
             <div className="flex flex-wrap items-end gap-3">
               <div className="flex flex-col">
-                <label className="text-xs font-semibold text-gray-500 mb-1">Banco</label>
+                <label className="text-xs font-semibold text-orange-600 mb-1">Banco (Extrato)</label>
                 <select
                   value={codBanco}
                   onChange={e => setCodBanco(e.target.value)}
                   disabled={loadingBancos}
-                  className={`border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400 min-w-[200px] ${codBanco ? 'border-orange-400 bg-orange-50 font-semibold' : 'border-gray-300'}`}
+                  className={`border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400 min-w-[200px] ${codBanco ? 'border-orange-400 bg-orange-50 font-semibold' : 'border-gray-300'}`}
                 >
                   <option value="">{loadingBancos ? 'Carregando...' : 'Selecione'}</option>
-                  {bancos.map(b => (
+                  {bancosUnicos.map(b => (
                     <option key={b.COD_BANCO} value={b.COD_BANCO}>{b.DES_BANCO}</option>
                   ))}
                 </select>
               </div>
-
               {matchedAccounts.length > 0 && (
                 <div className="flex flex-col">
-                  <label className="text-xs font-semibold text-gray-500 mb-1">Conta</label>
+                  <label className="text-xs font-semibold text-orange-500 mb-1">Conta API</label>
                   <select
                     value={selectedBankAccountId}
                     onChange={e => setSelectedBankAccountId(e.target.value)}
-                    className={`border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400 min-w-[220px] ${selectedBankAccountId ? 'border-orange-400 bg-orange-50 font-semibold' : 'border-gray-300'}`}
+                    className={`border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400 min-w-[220px] ${selectedBankAccountId ? 'border-orange-400 bg-orange-50 font-semibold' : 'border-gray-300'}`}
                   >
                     {matchedAccounts.map(acc => (
                       <option key={acc.id} value={acc.id}>
@@ -505,14 +550,13 @@ export default function ConciliacaoBancaria() {
                 </div>
               )}
 
-
               <div className="flex flex-col">
                 <label className="text-xs font-semibold text-gray-500 mb-1">Inicio</label>
                 <input
                   type="date"
                   value={dtaInicio}
                   onChange={e => setDtaInicio(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
                 />
               </div>
               <div className="flex flex-col">
@@ -521,7 +565,7 @@ export default function ConciliacaoBancaria() {
                   type="date"
                   value={dtaFim}
                   onChange={e => setDtaFim(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
                 />
               </div>
 
@@ -536,7 +580,7 @@ export default function ConciliacaoBancaria() {
                     <button
                       key={opt.val}
                       onClick={() => setTipoFiltro(opt.val)}
-                      className={`px-3 py-2 text-xs font-semibold transition-colors ${
+                      className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
                         tipoFiltro === opt.val
                           ? 'bg-orange-600 text-white'
                           : 'bg-white text-gray-600 hover:bg-gray-50'
@@ -559,7 +603,7 @@ export default function ConciliacaoBancaria() {
                     <button
                       key={opt.val}
                       onClick={() => setViewFilter(opt.val)}
-                      className={`px-3 py-2 text-xs font-semibold transition-colors ${
+                      className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
                         viewFilter === opt.val
                           ? 'bg-orange-600 text-white'
                           : 'bg-white text-gray-600 hover:bg-gray-50'
@@ -574,7 +618,7 @@ export default function ConciliacaoBancaria() {
               <button
                 onClick={fetchDados}
                 disabled={loading || !codBanco}
-                className="px-5 py-2 bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                className="px-5 py-1.5 bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors"
               >
                 {loading ? 'Buscando...' : 'Buscar'}
               </button>
@@ -582,13 +626,49 @@ export default function ConciliacaoBancaria() {
               <button
                 onClick={handleConciliar}
                 disabled={conciliando || pendingCount === 0}
-                className="px-5 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+                className="px-5 py-1.5 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-2"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
                 {conciliando ? 'Conciliando...' : `Conciliar (${pendingCount})`}
               </button>
+            </div>
+          </div>
+
+          {/* Filters - Row 2: Banco Sistema + Conta Corrente */}
+          <div className="bg-blue-50 rounded-lg shadow-sm border border-blue-200 p-3 mb-4">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex flex-col">
+                <label className="text-xs font-semibold text-blue-600 mb-1">Banco (Sistema)</label>
+                <select
+                  value={codBancoSistema}
+                  onChange={e => setCodBancoSistema(e.target.value)}
+                  disabled={loadingBancos}
+                  className={`border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 min-w-[200px] ${codBancoSistema ? 'border-blue-400 bg-blue-50 font-semibold' : 'border-gray-300 bg-white'}`}
+                >
+                  <option value="">Mesmo do Extrato</option>
+                  {bancosUnicos.map(b => (
+                    <option key={b.COD_BANCO} value={b.COD_BANCO}>{b.DES_BANCO}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col">
+                <label className="text-xs font-semibold text-blue-500 mb-1">Conta Corrente</label>
+                <select
+                  value={contaCorrenteSistema}
+                  onChange={e => setContaCorrenteSistema(e.target.value)}
+                  disabled={loadingContas}
+                  className={`border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 min-w-[320px] ${contaCorrenteSistema ? 'border-blue-400 bg-blue-50 font-semibold' : 'border-gray-300 bg-white'}`}
+                >
+                  <option value="">{loadingContas ? 'Carregando...' : 'Todas as contas'}</option>
+                  {contasCorrentesList.map(cc => (
+                    <option key={cc.DES_CC} value={cc.DES_CC}>
+                      {cc.DES_APELIDO || cc.DES_CC} | CC: {cc.DES_CC}{cc.DES_AGENCIA ? ` | Ag: ${cc.DES_AGENCIA}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -600,8 +680,7 @@ export default function ConciliacaoBancaria() {
                   <span className="text-xs font-bold text-orange-600 uppercase tracking-wider">R$ Banco</span>
                   <span className="text-xl font-black text-orange-700">{formatCurrency(cardResumo.valTotalBanco || 0)}</span>
                 </div>
-                {tipoFiltro === 'todos' && (
-                  <table className="w-full border-t border-orange-200">
+                                <table className="w-full border-t border-orange-200">
                     <tbody>
                       <tr>
                         <td className="pt-1.5 w-1/2">
@@ -627,15 +706,13 @@ export default function ConciliacaoBancaria() {
                       </tr>
                     </tbody>
                   </table>
-                )}
               </div>
               <div className="bg-gray-50 border-2 border-gray-300 rounded-lg px-4 py-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">R$ Sistema</span>
                   <span className="text-xl font-black text-gray-700">{formatCurrency(cardResumo.valTotalSistema || 0)}</span>
                 </div>
-                {tipoFiltro === 'todos' && (
-                  <table className="w-full border-t border-gray-200">
+                <table className="w-full border-t border-gray-200">
                     <tbody>
                       <tr>
                         <td className="pt-1.5 w-1/2">
@@ -661,7 +738,6 @@ export default function ConciliacaoBancaria() {
                       </tr>
                     </tbody>
                   </table>
-                )}
               </div>
             </div>
             <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-4">

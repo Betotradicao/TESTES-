@@ -10,7 +10,9 @@ import { SantanderService } from './santander.service';
 interface ConciliacaoFilters {
   codLoja?: string;
   codBanco?: string;
+  codBancoSistema?: string; // Banco para filtrar no sistema (TAB_FLUXO), pode ser diferente do banco API
   bankId?: string; // ID do bank_accounts (PostgreSQL) para API Santander
+  desCc?: string; // Conta corrente (DES_CC) para filtrar no sistema
   mesAno?: string; // YYYY-MM (legacy)
   dtaInicio?: string; // YYYY-MM-DD
   dtaFim?: string; // YYYY-MM-DD
@@ -92,12 +94,15 @@ async function resolveMapping() {
   const bcoCodBanco = await MappingService.getColumnFromTable('TAB_BANCO', 'cod_banco');
   const bcoDesBanco = await MappingService.getColumnFromTable('TAB_BANCO', 'des_banco');
 
+  // TAB_BANCO_CC (contas correntes) - tabela fixa, sem mapping
+  const tabBancoCc = `${schema}.TAB_BANCO_CC`;
+
   // TAB_CATEGORIA columns
   const catCodCategoria = await MappingService.getColumnFromTable('TAB_CATEGORIA', 'cod_categoria');
   const catDesCategoria = await MappingService.getColumnFromTable('TAB_CATEGORIA', 'des_categoria');
 
   return {
-    tabFluxo, tabBanco, tabCategoria, tabSubcategoria,
+    tabFluxo, tabBanco, tabBancoCc, tabCategoria, tabSubcategoria,
     flxNumRegistro, flxCodLoja, flxTipoConta, flxDesParceiro,
     flxDtaQuitada, flxDtaVencimento, flxValParcela, flxValJuros, flxValDesconto, flxValCredito, flxValDevolucao, flxValOutros, flxValRetencao, flxValTaxaAdm, flxValDifQuitacao, flxNumDocto,
     flxCodBancoPgto, flxNumBordero, flxFlgCompensado, flxFlgQuitado, flxCodCategoria, flxCodSubcategoria,
@@ -208,6 +213,8 @@ export class ConciliacaoService {
 
     const codLoja = Number(filters.codLoja) || 1;
     const codBanco = Number(filters.codBanco);
+    // Banco para filtrar no sistema: usa codBancoSistema se informado, senão usa codBanco
+    const codBancoSistema = filters.codBancoSistema ? Number(filters.codBancoSistema) : codBanco;
 
     // --- Step 1: Fetch bank data from Santander API ---
     let movBcoRows: any[] = [];
@@ -262,29 +269,21 @@ export class ConciliacaoService {
         f.${m.flxCodBancoPgto} AS COD_BANCO_PGTO,
         f.${m.flxNumBordero} AS NUM_BORDERO,
         f.${m.flxFlgCompensado} AS FLG_COMPENSADO,
-        c.${m.catDesCategoria} AS DES_CATEGORIA,
-        sc.DES_SUBCATEGORIA AS DES_SUBCATEGORIA
+        (SELECT c.${m.catDesCategoria} FROM ${m.tabCategoria} c WHERE c.${m.catCodCategoria} = f.${m.flxCodCategoria} AND ROWNUM = 1) AS DES_CATEGORIA,
+        (SELECT sc.DES_SUBCATEGORIA FROM ${m.tabSubcategoria} sc WHERE sc.COD_SUBCATEGORIA = f.${m.flxCodSubcategoria} AND sc.COD_CATEGORIA = f.${m.flxCodCategoria} AND ROWNUM = 1) AS DES_SUBCATEGORIA
       FROM ${m.tabFluxo} f
-      LEFT JOIN ${m.tabCategoria} c ON c.${m.catCodCategoria} = f.${m.flxCodCategoria}
-      LEFT JOIN ${m.tabSubcategoria} sc ON sc.COD_SUBCATEGORIA = f.${m.flxCodSubcategoria} AND sc.COD_CATEGORIA = f.${m.flxCodCategoria}
       WHERE f.${m.flxFlgQuitado} = 'S'
         AND f.${m.flxCodLoja} = :codLoja
         AND f.${m.flxCodBancoPgto} = :codBanco
         AND f.${m.flxDtaQuitada} >= TO_DATE(:dtaInicio, 'YYYY-MM-DD')
         AND f.${m.flxDtaQuitada} <= TO_DATE(:dtaFim, 'YYYY-MM-DD') + 0.99999
+        ${filters.desCc ? `AND f.DES_CC = :desCc` : ''}
       ORDER BY f.${m.flxDtaQuitada}, f.${m.flxNumRegistro}
     `;
-    const fluxoRowsRaw = await OracleService.query<any>(flxSql, { codLoja, codBanco, dtaInicio, dtaFim });
-
-    // Deduplicate by NUM_REGISTRO (LEFT JOINs may cause duplicate rows)
-    const seenRegistros = new Set<number>();
-    const fluxoRows = fluxoRowsRaw.filter((row: any) => {
-      const nr = Number(row.NUM_REGISTRO);
-      if (seenRegistros.has(nr)) return false;
-      seenRegistros.add(nr);
-      return true;
-    });
-    console.log(`[Conciliacao] TAB_FLUXO: ${fluxoRowsRaw.length} rows brutos -> ${fluxoRows.length} únicos`);
+    const flxParams: any = { codLoja, codBanco: codBancoSistema, dtaInicio, dtaFim };
+    if (filters.desCc) flxParams.desCc = filters.desCc;
+    const fluxoRows = await OracleService.query<any>(flxSql, flxParams);
+    console.log(`[Conciliacao] TAB_FLUXO: ${fluxoRows.length} registros`);
 
     // --- Step A: Group FLUXO by bordero ---
     const fluxoGroups: FluxoGroup[] = [];
@@ -296,8 +295,7 @@ export class ConciliacaoService {
       const val = Math.abs(!isNaN(parsedLiquido) ? parsedLiquido : (parseFloat(row.VAL_PARCELA) || 0));
       const numBordero = row.NUM_BORDERO ? Number(row.NUM_BORDERO) : null;
       const numReg = Number(row.NUM_REGISTRO);
-      // Ignorar FLG_COMPENSADO do Oracle - conciliação é feita apenas por esta tela
-      const compensado = false;
+      const compensado = row.FLG_COMPENSADO === 'S';
       const parceiro = (row.DES_PARCEIRO || '').trim();
 
       const item: FluxoItem = {
@@ -358,7 +356,7 @@ export class ConciliacaoService {
       }
     }
 
-    // Fix bordero group names: same supplier = keep name, multiple = "CARTÃO DE CRÉDITO"
+    // Fix bordero group names: same supplier = keep name, multiple = "MÚLTIPLOS PAGAMENTOS"
     for (const group of fluxoGroups) {
       if (group.type === 'bordero' && group.items && group.items.length > 1) {
         const uniqueNames = new Set(group.items.map(i => i.desParceiro.toUpperCase()));
@@ -370,12 +368,13 @@ export class ConciliacaoService {
       }
     }
 
+    console.log(`[Conciliacao] ${fluxoGroups.length} grupos (${borderoMap.size} borderôs + ${fluxoGroups.length - borderoMap.size} individuais)`);
+
     // --- Step B: Match MOV_BCO → FLUXO groups ---
     const availableGroups = new Set(fluxoGroups);
     const rows: ConciliacaoRow[] = [];
     let rowIdx = 0;
 
-    // Helper: name similarity (simple word overlap score)
     function nameSimilarity(a: string, b: string): number {
       const wa = (a || '').toUpperCase().replace(/[^A-Z0-9 ]/g, '').split(/\s+/).filter(w => w.length > 2);
       const wb = new Set((b || '').toUpperCase().replace(/[^A-Z0-9 ]/g, '').split(/\s+/).filter(w => w.length > 2));
@@ -392,11 +391,34 @@ export class ConciliacaoService {
       const mbDocto = mb.NUM_DOCTO_PGTO ? String(mb.NUM_DOCTO_PGTO).trim() : null;
       const mbNome = (mb.FAVORECIDO || '').replace(/\s*BORD[.:]*\s*\d*/gi, '').trim();
 
-      // Primary: same date + same value
+      // Tipo compatível: banco crédito (0) ↔ sistema receber (1), banco débito (1) ↔ sistema pagar (!=1)
+      const mbIsCredito = mb.TIPO_OPERACAO === 0;
+
+      // Primary: same date + same value + same type (entrada/saída)
       const candidates: FluxoGroup[] = [];
       for (const fg of availableGroups) {
-        if (fg.dtaQuitadaStr === mbDateStr && Math.abs(fg.valTotal - mbVal) < 0.02) {
+        const fgIsEntrada = fg.tipoConta === 1; // 1 = Contas a Receber (entrada)
+        const tipoCompativel = mbIsCredito === fgIsEntrada;
+        if (fg.dtaQuitadaStr === mbDateStr && Math.abs(fg.valTotal - mbVal) < 0.02 && tipoCompativel) {
           candidates.push(fg);
+        }
+      }
+
+      // Log entries that DON'T match to understand why
+      if (candidates.length === 0 && !mbDocto) {
+        // Find closest system group by value (regardless of date)
+        let closestByVal: FluxoGroup | null = null;
+        let closestValDiff = Infinity;
+        let closestByName: FluxoGroup | null = null;
+        for (const fg of availableGroups) {
+          const vd = Math.abs(fg.valTotal - mbVal);
+          if (vd < closestValDiff) { closestValDiff = vd; closestByVal = fg; }
+          if (fg.desParceiro && mbNome && fg.desParceiro.toUpperCase().includes(mbNome.split(' - ').pop()?.trim().split(' ')[0]?.toUpperCase() || '___')) {
+            closestByName = fg;
+          }
+        }
+        if (closestByVal) {
+          console.log(`[UNMATCHED] Banco: "${(mb.FAVORECIDO||'').substring(0,60)}" | date=${mbDateStr} | val=${mbVal.toFixed(2)} → Closest sys: "${closestByVal.desParceiro.substring(0,40)}" | date=${closestByVal.dtaQuitadaStr} | val=${closestByVal.valTotal.toFixed(2)} | dateDiff=${mbDateStr !== closestByVal.dtaQuitadaStr ? 'SIM' : 'nao'} | valDiff=${closestValDiff.toFixed(2)}`);
         }
       }
 
@@ -417,7 +439,6 @@ export class ConciliacaoService {
       if (candidates.length === 1) {
         picked = candidates[0];
       } else if (candidates.length > 1) {
-        // Sort by name similarity (highest first)
         candidates.sort((a, b) => nameSimilarity(mbNome, b.desParceiro) - nameSimilarity(mbNome, a.desParceiro));
         picked = candidates[0];
       }
@@ -430,6 +451,7 @@ export class ConciliacaoService {
           sistema: picked,
           matchStatus: 'MATCHED',
           isCompensado: picked.flgCompensado,
+          candidates: candidates.length > 1 ? candidates : undefined,
         });
       } else {
         rows.push({
@@ -506,7 +528,7 @@ export class ConciliacaoService {
       params.codLoja = Number(codLoja);
     }
     const sql = `
-      SELECT DISTINCT b.${m.bcoCodBanco} AS COD_BANCO, b.${m.bcoDesBanco} AS DES_BANCO
+      SELECT b.${m.bcoCodBanco} AS COD_BANCO, b.${m.bcoDesBanco} AS DES_BANCO
       FROM ${m.tabBanco} b
       WHERE EXISTS (
         SELECT 1 FROM ${m.tabFluxo} f
@@ -520,18 +542,54 @@ export class ConciliacaoService {
   }
 
   /**
+   * Lista contas correntes (TAB_BANCO_CC) de um banco específico
+   */
+  static async getContasCorrentes(codBanco: number): Promise<any[]> {
+    const m = await resolveMapping();
+    const sql = `
+      SELECT cc.COD_BANCO, cc.DES_CC, cc.DES_AGENCIA, cc.DES_APELIDO, cc.INATIVO, cc.ID_CONTA
+      FROM ${m.tabBancoCc} cc
+      WHERE cc.COD_BANCO = :codBanco AND NVL(cc.INATIVO, 'N') = 'N'
+      ORDER BY cc.DES_APELIDO
+    `;
+    return OracleService.query(sql, { codBanco });
+  }
+
+  /**
    * Marca registros como conciliados (FLG_COMPENSADO = 'S')
-   * Por ora, apenas retorna sucesso (OracleService é read-only)
-   * TODO: Implementar UPDATE quando houver conexão com permissão de escrita
    */
   static async conciliarRegistros(numRegistros: number[]): Promise<{ updated: number }> {
     if (!numRegistros.length) return { updated: 0 };
+    console.log(`[Conciliação] Conciliando ${numRegistros.length} registros:`, numRegistros.slice(0, 10));
 
-    // Por enquanto, retornar sucesso simulado
-    // O UPDATE real seria:
-    // UPDATE TAB_FLUXO SET FLG_COMPENSADO = 'S' WHERE NUM_REGISTRO IN (...)
-    console.log(`[Conciliação] Solicitado conciliar ${numRegistros.length} registros:`, numRegistros.slice(0, 10));
+    const m = await resolveMapping();
 
-    return { updated: numRegistros.length };
+    // UPDATE em lotes de 50 (Oracle IN limit = 1000, mas lotes menores são mais seguros)
+    const BATCH_SIZE = 50;
+    let totalUpdated = 0;
+
+    for (let i = 0; i < numRegistros.length; i += BATCH_SIZE) {
+      const batch = numRegistros.slice(i, i + BATCH_SIZE);
+      const placeholders = batch.map((_, idx) => `:r${idx}`).join(',');
+      const binds: any = {};
+      batch.forEach((nr, idx) => { binds[`r${idx}`] = nr; });
+
+      const sql = `
+        UPDATE ${m.tabFluxo}
+        SET ${m.flxFlgCompensado} = 'S'
+        WHERE ${m.flxNumRegistro} IN (${placeholders})
+      `;
+
+      const conn = await OracleService.getConnection();
+      try {
+        const result = await conn.execute(sql, binds, { autoCommit: true });
+        totalUpdated += result.rowsAffected || 0;
+      } finally {
+        await conn.close();
+      }
+    }
+
+    console.log(`[Conciliação] ${totalUpdated} registros atualizados com FLG_COMPENSADO='S'`);
+    return { updated: totalUpdated };
   }
 }

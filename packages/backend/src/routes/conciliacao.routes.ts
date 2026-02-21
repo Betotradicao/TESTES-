@@ -7,6 +7,7 @@ router.use(authenticateToken);
 
 router.get('/dados', ConciliacaoController.getDados);
 router.get('/bancos', ConciliacaoController.getBancos);
+router.get('/contas-correntes', ConciliacaoController.getContasCorrentes);
 router.post('/conciliar', ConciliacaoController.conciliar);
 
 export default router;

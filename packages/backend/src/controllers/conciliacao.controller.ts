@@ -8,7 +8,9 @@ export class ConciliacaoController {
       const filters = {
         codLoja: req.query.codLoja as string,
         codBanco: req.query.codBanco as string,
+        codBancoSistema: req.query.codBancoSistema as string,
         bankId: req.query.bankId as string,
+        desCc: req.query.desCc as string,
         dtaInicio: req.query.dtaInicio as string,
         dtaFim: req.query.dtaFim as string,
         mesAno: req.query.mesAno as string,
@@ -36,6 +38,20 @@ export class ConciliacaoController {
       res.json({ success: true, data: bancos });
     } catch (error: any) {
       console.error('Erro getBancos conciliacao:', error.message);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  static async getContasCorrentes(req: Request, res: Response) {
+    try {
+      const codBanco = Number(req.query.codBanco);
+      if (!codBanco) {
+        return res.status(400).json({ success: false, message: 'codBanco é obrigatório' });
+      }
+      const contas = await ConciliacaoService.getContasCorrentes(codBanco);
+      res.json({ success: true, data: contas });
+    } catch (error: any) {
+      console.error('Erro getContasCorrentes:', error.message);
       res.status(500).json({ success: false, message: error.message });
     }
   }
