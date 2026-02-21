@@ -69,6 +69,7 @@ import ofertasRouter from './routes/ofertas.routes';
 import demonstrativoCaixaRouter from './routes/demonstrativo-caixa.routes';
 import abastecimentoRouter from './routes/abastecimento.routes';
 import bankAccountsRouter from './routes/bank-accounts.routes';
+import ddaRouter from './routes/dda.routes';
 import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
 import { MappingService } from './services/mapping.service';
@@ -171,6 +172,7 @@ app.use('/api/ofertas', ofertasRouter);
 app.use('/api/demonstrativo-caixa', demonstrativoCaixaRouter);
 app.use('/api/abastecimento', abastecimentoRouter);
 app.use('/api/bank-accounts', bankAccountsRouter);
+app.use('/api/dda', ddaRouter);
 // app.use('/api/user-security', userSecurityRouter);
 
 const startServer = async () => {

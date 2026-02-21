@@ -97,6 +97,7 @@ export const MENU_SUBMENUS = {
   EXTRATO_SANTANDER: 'extrato-santander',
   EXTRATO_TRIBANCO: 'extrato-tribanco',
   EXTRATO_BANCO24H: 'extrato-banco24h',
+  BOLETOS_DDA: 'boletos-dda',
   ENTRADAS_SAIDAS: 'entradas-saidas',
   DEMONSTRATIVO_CAIXA: 'demonstrativo-caixa',
 
@@ -439,6 +440,11 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.EXTRATO_BANCO24H,
         title: 'Extrato Banco 24horas',
         path: '/extrato-banco24h'
+      },
+      {
+        id: MENU_SUBMENUS.BOLETOS_DDA,
+        title: 'Boletos DDA',
+        path: '/boletos-dda'
       }
     ]
   },

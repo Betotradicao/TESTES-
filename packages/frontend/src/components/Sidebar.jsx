@@ -142,6 +142,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/extrato-santander': 'bancos',
       '/extrato-tribanco': 'bancos',
       '/extrato-banco24h': 'bancos',
+      '/boletos-dda': 'bancos',
       // Gestão de Estoque
       '/estoque-saude': 'gestao-estoque-margem',
       '/pricing-ponderacao': 'gestao-estoque-margem',
@@ -198,6 +199,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/extrato-santander': 'financas-radar',
       '/extrato-tribanco': 'financas-radar',
       '/extrato-banco24h': 'financas-radar',
+      '/boletos-dda': 'financas-radar',
     };
 
     // Auto-expandir a seção principal
@@ -589,7 +591,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           subItems: [
             { id: 'extrato-santander', submenuId: 'extrato-santander', title: 'EXTRATO BANCÁRIO', path: '/extrato-santander' },
             { id: 'extrato-tribanco', submenuId: 'extrato-tribanco', title: 'TRIBANCO', path: '/extrato-tribanco' },
-            { id: 'extrato-banco24h', submenuId: 'extrato-banco24h', title: 'BANCO 24HORAS', path: '/extrato-banco24h' }
+            { id: 'extrato-banco24h', submenuId: 'extrato-banco24h', title: 'BANCO 24HORAS', path: '/extrato-banco24h' },
+            { id: 'boletos-dda', submenuId: 'boletos-dda', title: 'BOLETOS DDA', path: '/boletos-dda' }
           ]
         }
       ]

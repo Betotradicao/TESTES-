@@ -60,6 +60,7 @@ import EntradasSaidas from './pages/EntradasSaidas';
 import DemonstrativoCaixa from './pages/DemonstrativoCaixa';
 import PrioridadeReposicao from './pages/PrioridadeReposicao';
 import ProgramacaoAtual from './pages/ProgramacaoAtual';
+import BoletoDDA from './pages/BoletoDDA';
 
 function App() {
   return (
@@ -465,6 +466,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ExtratoBanco24h />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/boletos-dda"
+              element={
+                <ProtectedRoute>
+                  <BoletoDDA />
                 </ProtectedRoute>
               }
             />

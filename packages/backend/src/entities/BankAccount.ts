@@ -32,6 +32,9 @@ export class BankAccount {
   @Column({ type: 'varchar', nullable: true })
   certificate_path!: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  workspace_id!: string;
+
   @Column({ default: 'production' })
   environment!: string;
 
