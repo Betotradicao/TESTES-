@@ -421,15 +421,18 @@ export class FinanceiroService {
 
     const params: any = {};
     const quitadoFlag = filters.quitado && filters.quitado !== '' ? filters.quitado : 'S';
+    const isQuitado = quitadoFlag === 'S';
+    // Quitados: agrupar por DTA_QUITADA; Abertos: agrupar por DTA_VENCIMENTO
+    const dtaColuna = isQuitado ? m.flxDtaQuitada : m.flxDtaVencimento;
     let where = ` WHERE f.${m.flxFlgQuitado} = :quitadoFlag`;
     params.quitadoFlag = quitadoFlag;
 
     if (filters.vencInicio) {
-      where += ` AND f.${m.flxDtaVencimento} >= TO_DATE(:vencInicio, 'YYYY-MM-DD')`;
+      where += ` AND f.${dtaColuna} >= TO_DATE(:vencInicio, 'YYYY-MM-DD')`;
       params.vencInicio = filters.vencInicio;
     }
     if (filters.vencFim) {
-      where += ` AND f.${m.flxDtaVencimento} <= TO_DATE(:vencFim, 'YYYY-MM-DD') + 0.99999`;
+      where += ` AND f.${dtaColuna} <= TO_DATE(:vencFim, 'YYYY-MM-DD') + 0.99999`;
       params.vencFim = filters.vencFim;
     }
     if (filters.codLoja) {
@@ -439,13 +442,13 @@ export class FinanceiroService {
 
     const sql = `
       SELECT
-        TRUNC(f.${m.flxDtaVencimento}) as DTA,
+        TRUNC(f.${dtaColuna}) as DTA,
         SUM(CASE WHEN f.${m.flxTipoConta} = 1 THEN f.${m.flxValParcela} ELSE 0 END) as ENTRADAS,
         SUM(CASE WHEN f.${m.flxTipoConta} = 0 THEN f.${m.flxValParcela} ELSE 0 END) as SAIDAS
       FROM ${m.tabFluxo} f
       ${where}
-      GROUP BY TRUNC(f.${m.flxDtaVencimento})
-      ORDER BY TRUNC(f.${m.flxDtaVencimento})
+      GROUP BY TRUNC(f.${dtaColuna})
+      ORDER BY TRUNC(f.${dtaColuna})
     `;
 
     const result = await OracleService.query<any>(sql, params);

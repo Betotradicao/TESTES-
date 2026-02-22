@@ -60,6 +60,7 @@ import EntradasSaidas from './pages/EntradasSaidas';
 import DemonstrativoCaixa from './pages/DemonstrativoCaixa';
 import PrioridadeReposicao from './pages/PrioridadeReposicao';
 import ProgramacaoAtual from './pages/ProgramacaoAtual';
+import AnaliseOferta from './pages/AnaliseOferta';
 import BoletoDDA from './pages/BoletoDDA';
 import ConciliacaoBancaria from './pages/ConciliacaoBancaria';
 
@@ -507,6 +508,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ProgramacaoAtual />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/gestao-ofertas/analise-sugestao"
+              element={
+                <ProtectedRoute>
+                  <AnaliseOferta />
                 </ProtectedRoute>
               }
             />

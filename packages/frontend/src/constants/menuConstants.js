@@ -99,6 +99,7 @@ export const MENU_SUBMENUS = {
   EXTRATO_BANCO24H: 'extrato-banco24h',
   BOLETOS_DDA: 'boletos-dda',
   CONCILIACAO_BANCARIA: 'conciliacao-bancaria',
+  ANALISE_OFERTA: 'analise-oferta',
   ENTRADAS_SAIDAS: 'entradas-saidas',
   DEMONSTRATIVO_CAIXA: 'demonstrativo-caixa',
 
@@ -201,6 +202,11 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.PROGRAMACAO_ATUAL,
         title: 'Programação Atual',
         path: '/gestao-ofertas/programacao-atual'
+      },
+      {
+        id: MENU_SUBMENUS.ANALISE_OFERTA,
+        title: 'Análise e Sugestão',
+        path: '/gestao-ofertas/analise-sugestao'
       }
     ]
   },
