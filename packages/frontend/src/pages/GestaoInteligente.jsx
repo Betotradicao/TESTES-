@@ -1748,11 +1748,10 @@ export default function GestaoInteligente() {
       tipo: 'currency', indicador: 'impostos'
     },
     produtosRevenda: {
-      borderColor: 'border-violet-500', bgColor: 'bg-violet-100', iconColor: 'text-violet-600',
-      icon: <svg className="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>,
-      label: 'Produtos', title: 'PRODUTOS EM LOJA',
-      getValue: () => produtosRevenda.qtdProdutos?.toLocaleString('pt-BR') || '0',
-      getExtra: () => <span className="text-xs text-gray-400">Mercadoria Direta</span>,
+      borderColor: 'border-gray-300', bgColor: 'bg-gray-100', iconColor: 'text-gray-400',
+      icon: <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>,
+      label: 'Novo', title: 'EM BREVE',
+      emBreve: true,
     },
     excessoCompras: {
       borderColor: 'border-purple-500', bgColor: 'bg-purple-100', iconColor: 'text-purple-600',
@@ -1788,22 +1787,21 @@ export default function GestaoInteligente() {
       borderColor: 'border-sky-500', bgColor: 'bg-sky-100', iconColor: 'text-sky-600',
       icon: <svg className="w-5 h-5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>,
       label: 'SKU/m²', title: 'SKU POR M²',
-      getValue: () => areaVenda > 0 ? formatNumber(Math.round((produtosRevenda.qtdProdutos || 0) / areaVenda)) : '-',
+      getValue: () => areaVenda > 0 ? (((produtosRevenda.qtdProdutos || 0) + (produtosRevenda.qtdProducao || 0)) / areaVenda).toFixed(2).replace('.', ',') : '-',
       customCard: true,
     },
     skuVendidoPorMetro: {
       borderColor: 'border-blue-500', bgColor: 'bg-blue-100', iconColor: 'text-blue-600',
       icon: <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>,
       label: 'SKU Vend/m²', title: 'SKU VENDIDO POR M²',
-      getValue: () => areaVenda > 0 ? formatNumber(Math.round((indicadores.qtdSkus?.atual || 0) / areaVenda)) : '-',
+      getValue: () => areaVenda > 0 ? ((indicadores.qtdSkus?.atual || 0) / areaVenda).toFixed(2).replace('.', ',') : '-',
       customCard: true,
     },
     produtosProducao: {
-      borderColor: 'border-amber-500', bgColor: 'bg-amber-100', iconColor: 'text-amber-600',
-      icon: <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>,
-      label: 'Producao', title: 'PRODUTOS DE PRODUCAO',
-      getValue: () => produtosRevenda.qtdProducao?.toLocaleString('pt-BR') || '0',
-      customCard: true,
+      borderColor: 'border-gray-300', bgColor: 'bg-gray-100', iconColor: 'text-gray-400',
+      icon: <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>,
+      label: 'Novo', title: 'EM BREVE',
+      emBreve: true,
     },
     produtosLojaTodos: {
       borderColor: 'border-violet-500', bgColor: 'bg-violet-100', iconColor: 'text-violet-600',
@@ -1861,6 +1859,20 @@ export default function GestaoInteligente() {
 
     if (config.customCard) {
       const isMetroCard = ['vendasPorMetro', 'skuPorMetro', 'skuVendidoPorMetro'].includes(cardId);
+      const isVendasMetro = cardId === 'vendasPorMetro';
+      // Calcular valor projetado/m² para o card vendasPorMetro
+      let valorProjetadoMetro = null;
+      if (isVendasMetro && areaVenda > 0) {
+        const vendaAtual = indicadores.vendas?.atual || 0;
+        const hoje = new Date();
+        const diaAnterior = hoje.getDate() - 1;
+        const diasNoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+        if (diaAnterior > 0 && vendaAtual > 0) {
+          const mediaDia = vendaAtual / diaAnterior;
+          const projetadoMes = mediaDia * diasNoMes;
+          valorProjetadoMetro = projetadoMes / areaVenda;
+        }
+      }
       return (
         <div
           key={cardId}
@@ -1889,7 +1901,11 @@ export default function GestaoInteligente() {
               areaVenda > 0 ? (
                 <>
                   <div className="flex justify-between text-xs"><span className="text-gray-400">Area de Venda:</span><span className="font-medium text-gray-600">{formatNumber(areaVenda)} m²</span></div>
-                  <div className="flex justify-between text-xs"><span className="text-gray-400">&nbsp;</span></div>
+                  {isVendasMetro && valorProjetadoMetro !== null ? (
+                    <div className="flex justify-between text-xs"><span className="text-gray-400">Projetado:</span><span className="font-medium text-gray-600">{formatCurrency(valorProjetadoMetro)}</span></div>
+                  ) : (
+                    <div className="flex justify-between text-xs"><span className="text-gray-400">&nbsp;</span></div>
+                  )}
                   <div className="flex justify-between text-xs"><span className="text-gray-400">&nbsp;</span></div>
                 </>
               ) : (
