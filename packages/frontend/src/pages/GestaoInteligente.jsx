@@ -307,6 +307,120 @@ export default function GestaoInteligente() {
     setShowColabModal(false);
   };
 
+  // Estado para configuração de faixas SKU/M²
+  const defaultSkuFaixas = [
+    { label: 'PESSIMO', min: null, max: 5 },
+    { label: 'RUIM', min: 5, max: 10 },
+    { label: 'REGULAR', min: 11, max: 14 },
+    { label: 'BOM', min: 15, max: 23 },
+    { label: 'OTIMO', min: 23, max: null },
+  ];
+  const [showSkuFaixasModal, setShowSkuFaixasModal] = useState(false);
+  const [skuFaixas, setSkuFaixas] = useState(() => {
+    const key = `gestao_sku_faixas_${lojaSelecionada}`;
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : defaultSkuFaixas;
+  });
+  const [skuFaixasTemp, setSkuFaixasTemp] = useState(skuFaixas);
+
+  const saveSkuFaixas = (faixas) => {
+    setSkuFaixas(faixas);
+    localStorage.setItem(`gestao_sku_faixas_${lojaSelecionada}`, JSON.stringify(faixas));
+    setShowSkuFaixasModal(false);
+  };
+
+  const getSkuClassificacao = (valor) => {
+    if (!valor || valor === '-') return null;
+    const v = typeof valor === 'string' ? parseFloat(valor.replace(',', '.')) : valor;
+    if (isNaN(v)) return null;
+    // Itera do último ao primeiro, encontra a faixa onde v >= min
+    for (let i = skuFaixas.length - 1; i >= 0; i--) {
+      const f = skuFaixas[i];
+      if (f.min === null) continue;
+      if (v >= f.min) return f;
+    }
+    return skuFaixas[0]; // PESSIMO (abaixo de tudo)
+  };
+
+  const skuClassifCores = {
+    PESSIMO: { text: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
+    RUIM: { text: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
+    REGULAR: { text: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200' },
+    BOM: { text: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200' },
+    OTIMO: { text: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+    EXCELENTE: { text: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+  };
+
+  // Estado para configuração de faixas Vendas/M²
+  const defaultVendasFaixas = [
+    { label: 'PESSIMO', min: null, max: 2000 },
+    { label: 'RUIM', min: 2000, max: 2500 },
+    { label: 'REGULAR', min: 2500, max: 2700 },
+    { label: 'BOM', min: 2700, max: 3000 },
+    { label: 'EXCELENTE', min: 3000, max: null },
+  ];
+  const [showVendasFaixasModal, setShowVendasFaixasModal] = useState(false);
+  const [vendasFaixas, setVendasFaixas] = useState(() => {
+    const key = `gestao_vendas_faixas_${lojaSelecionada}`;
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : defaultVendasFaixas;
+  });
+  const [vendasFaixasTemp, setVendasFaixasTemp] = useState(vendasFaixas);
+
+  const saveVendasFaixas = (faixas) => {
+    setVendasFaixas(faixas);
+    localStorage.setItem(`gestao_vendas_faixas_${lojaSelecionada}`, JSON.stringify(faixas));
+    setShowVendasFaixasModal(false);
+  };
+
+  const getVendasClassificacao = (valor) => {
+    if (!valor || areaVenda <= 0) return null;
+    const v = typeof valor === 'number' ? valor : parseFloat(String(valor).replace(/[R$\s.]/g, '').replace(',', '.'));
+    if (isNaN(v)) return null;
+    for (let i = vendasFaixas.length - 1; i >= 0; i--) {
+      const f = vendasFaixas[i];
+      if (f.min === null) continue;
+      if (v >= f.min) return f;
+    }
+    return vendasFaixas[0];
+  };
+
+  // Estado para configuração de Ticket Médio por Área
+  const defaultTicketFaixas = [
+    { minArea: 0, maxArea: 50, ticketEsperado: 20 },
+    { minArea: 50, maxArea: 100, ticketEsperado: 25 },
+    { minArea: 100, maxArea: 200, ticketEsperado: 30 },
+    { minArea: 200, maxArea: 400, ticketEsperado: 35 },
+    { minArea: 400, maxArea: 800, ticketEsperado: 40 },
+    { minArea: 800, maxArea: 1200, ticketEsperado: 45 },
+    { minArea: 1200, maxArea: 1600, ticketEsperado: 50 },
+    { minArea: 1600, maxArea: 2000, ticketEsperado: 55 },
+    { minArea: 2000, maxArea: 2400, ticketEsperado: 60 },
+    { minArea: 2400, maxArea: null, ticketEsperado: 65 },
+  ];
+  const [showTicketFaixasModal, setShowTicketFaixasModal] = useState(false);
+  const [ticketFaixas, setTicketFaixas] = useState(() => {
+    const key = `gestao_ticket_faixas_${lojaSelecionada}`;
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : defaultTicketFaixas;
+  });
+  const [ticketFaixasTemp, setTicketFaixasTemp] = useState(ticketFaixas);
+
+  const saveTicketFaixas = (faixas) => {
+    setTicketFaixas(faixas);
+    localStorage.setItem(`gestao_ticket_faixas_${lojaSelecionada}`, JSON.stringify(faixas));
+    setShowTicketFaixasModal(false);
+  };
+
+  const getTicketMedioEsperado = () => {
+    if (areaVenda <= 0) return null;
+    for (const f of ticketFaixas) {
+      if (f.maxArea === null && areaVenda >= f.minArea) return f.ticketEsperado;
+      if (areaVenda >= f.minArea && areaVenda < f.maxArea) return f.ticketEsperado;
+    }
+    return null;
+  };
+
   const mediaPerformColab = useMemo(() => {
     const { clt, aprendiz, estagiario, pesoClt, pesoAprendiz, pesoEstagiario } = colabConfig;
     const totalPonderado = (clt * pesoClt) + (aprendiz * pesoAprendiz) + (estagiario * pesoEstagiario);
@@ -1636,9 +1750,24 @@ export default function GestaoInteligente() {
       label: 'Por Cupom',
       title: 'TICKET MEDIO',
       getValue: () => formatCurrency(indicadores.ticketMedio?.atual),
-      getExtra: () => <span className="text-sm font-semibold text-green-600">({formatNumber(indicadores.qtdCupons?.atual)} cupons)</span>,
+      getExtra: () => (
+        <div className="flex items-center gap-1">
+          <span className="text-sm font-semibold text-green-600">({formatNumber(indicadores.qtdCupons?.atual)} cupons)</span>
+          <button onClick={(e) => { e.stopPropagation(); setTicketFaixasTemp(JSON.parse(JSON.stringify(ticketFaixas))); setShowTicketFaixasModal(true); }} className="p-1 hover:bg-gray-100 rounded-full transition-colors" title="Configurar ticket médio por área">
+            <svg className="w-4 h-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </button>
+        </div>
+      ),
       tipo: 'currency',
-      indicador: 'ticketMedio'
+      indicador: 'ticketMedio',
+      getFooterExtra: () => {
+        const esperado = getTicketMedioEsperado();
+        if (esperado === null) return null;
+        const atual = indicadores.ticketMedio?.atual || 0;
+        const dentro = atual >= esperado;
+        const diff = atual - esperado;
+        return { dentro, esperado, diff };
+      },
     },
     pctCompraVenda: {
       borderColor: 'border-teal-500',
@@ -1777,9 +1906,14 @@ export default function GestaoInteligente() {
       label: 'Vendas/m²', title: 'VENDAS POR MTRS',
       getValue: () => areaVenda > 0 ? formatCurrency((indicadores.vendas?.atual || 0) / areaVenda) : '-',
       getExtra: () => (
-        <button onClick={(e) => { e.stopPropagation(); setAreaVendaTemp(areaVenda); setShowAreaVendaModal(true); }} className="p-1 hover:bg-gray-100 rounded-full transition-colors" title="Configurar área de venda">
-          <svg className="w-4 h-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-        </button>
+        <div className="flex items-center gap-0.5">
+          <button onClick={(e) => { e.stopPropagation(); setAreaVendaTemp(areaVenda); setVendasFaixasTemp(JSON.parse(JSON.stringify(vendasFaixas))); setShowAreaVendaModal(true); }} className="p-1 hover:bg-gray-100 rounded-full transition-colors" title="Configurar área de venda">
+            <svg className="w-4 h-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); setVendasFaixasTemp(JSON.parse(JSON.stringify(vendasFaixas))); setShowVendasFaixasModal(true); }} className="p-1 hover:bg-gray-100 rounded-full transition-colors" title="Configurar faixas Vendas/M²">
+            <svg className="w-4 h-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          </button>
+        </div>
       ),
       customCard: true,
     },
@@ -1788,6 +1922,11 @@ export default function GestaoInteligente() {
       icon: <svg className="w-5 h-5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>,
       label: 'SKU/m²', title: 'SKU POR M²',
       getValue: () => areaVenda > 0 ? (((produtosRevenda.qtdProdutos || 0) + (produtosRevenda.qtdProducao || 0)) / areaVenda).toFixed(2).replace('.', ',') : '-',
+      getExtra: () => (
+        <button onClick={(e) => { e.stopPropagation(); setSkuFaixasTemp(JSON.parse(JSON.stringify(skuFaixas))); setShowSkuFaixasModal(true); }} className="p-1 hover:bg-gray-100 rounded-full transition-colors" title="Configurar faixas SKU/M²">
+          <svg className="w-4 h-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        </button>
+      ),
       customCard: true,
     },
     skuVendidoPorMetro: {
@@ -1860,6 +1999,7 @@ export default function GestaoInteligente() {
     if (config.customCard) {
       const isMetroCard = ['vendasPorMetro', 'skuPorMetro', 'skuVendidoPorMetro'].includes(cardId);
       const isVendasMetro = cardId === 'vendasPorMetro';
+      const isSkuMetro = cardId === 'skuPorMetro';
       // Calcular valor projetado/m² para o card vendasPorMetro
       let valorProjetadoMetro = null;
       if (isVendasMetro && areaVenda > 0) {
@@ -1892,8 +2032,21 @@ export default function GestaoInteligente() {
               {config.label}
             </span>
           </div>
-          <div className="flex items-baseline gap-1.5 sm:gap-2 mb-1">
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
             <p className="text-xl sm:text-2xl font-bold text-gray-800">{config.getValue()}</p>
+            {isSkuMetro && areaVenda > 0 && (() => {
+              const classif = getSkuClassificacao(config.getValue());
+              if (!classif) return null;
+              const cores = skuClassifCores[classif.label] || {};
+              return <span className={`text-xs sm:text-sm font-bold px-2 py-0.5 rounded-full ${cores.text} ${cores.bg} border ${cores.border}`}>{classif.label}</span>;
+            })()}
+            {isVendasMetro && areaVenda > 0 && (() => {
+              const vendasMetroVal = (indicadores.vendas?.atual || 0) / areaVenda;
+              const classif = getVendasClassificacao(vendasMetroVal);
+              if (!classif) return null;
+              const cores = skuClassifCores[classif.label] || {};
+              return <span className={`text-xs sm:text-sm font-bold px-2 py-0.5 rounded-full ${cores.text} ${cores.bg} border ${cores.border}`}>{classif.label}</span>;
+            })()}
           </div>
           <p className="text-[10px] sm:text-xs text-gray-500 mb-2 sm:mb-3">{config.title}</p>
           <div className="space-y-1 pt-2 border-t border-gray-100">
@@ -1901,9 +2054,21 @@ export default function GestaoInteligente() {
               areaVenda > 0 ? (
                 <>
                   <div className="flex justify-between text-xs"><span className="text-gray-400">Area de Venda:</span><span className="font-medium text-gray-600">{formatNumber(areaVenda)} m²</span></div>
-                  {isVendasMetro && valorProjetadoMetro !== null ? (
-                    <div className="flex justify-between text-xs"><span className="text-gray-400">Projetado:</span><span className="font-medium text-gray-600">{formatCurrency(valorProjetadoMetro)}</span></div>
-                  ) : (
+                  {isVendasMetro && valorProjetadoMetro !== null ? (() => {
+                    const classifProj = getVendasClassificacao(valorProjetadoMetro);
+                    const coresProj = classifProj ? (skuClassifCores[classifProj.label] || {}) : {};
+                    return (
+                      <>
+                        <div className="flex justify-between text-xs items-center">
+                          <span className="text-gray-400">Projetado:</span>
+                          <span className="flex items-center gap-1">
+                            <span className="font-medium text-gray-600">{formatCurrency(valorProjetadoMetro)}</span>
+                            {classifProj && <span className={`font-bold text-[10px] px-1.5 py-0.5 rounded-full ${coresProj.text} ${coresProj.bg} border ${coresProj.border}`}>{classifProj.label}</span>}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })() : (
                     <div className="flex justify-between text-xs"><span className="text-gray-400">&nbsp;</span></div>
                   )}
                   <div className="flex justify-between text-xs"><span className="text-gray-400">&nbsp;</span></div>
@@ -1958,6 +2123,20 @@ export default function GestaoInteligente() {
           <Comparativo label="Mes Passado" valor={indicador?.mesPassado} valorAtual={indicador?.atual} tipo={config.tipo} invertido={config.invertido} />
           <Comparativo label="Ano Passado" valor={indicador?.anoPassado} valorAtual={indicador?.atual} tipo={config.tipo} invertido={config.invertido} />
           <Comparativo label="Media Linear" valor={indicador?.mediaLinear} valorAtual={indicador?.atual} tipo={config.tipo} invertido={config.invertido} />
+          {config.getFooterExtra && (() => {
+            const info = config.getFooterExtra();
+            if (!info) return null;
+            return (
+              <div className={`flex justify-between text-xs items-center pt-1 border-t border-gray-100 mt-1`}>
+                <span className={`font-bold px-1.5 py-0.5 rounded ${info.dentro ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+                  {info.dentro ? 'DENTRO DA MEDIA' : 'FORA DA MEDIA'}
+                </span>
+                <span className={`font-semibold ${info.dentro ? 'text-green-600' : 'text-red-600'}`}>
+                  {info.diff >= 0 ? '+' : ''}{formatCurrency(info.diff)}
+                </span>
+              </div>
+            );
+          })()}
         </div>
       </div>
     );
@@ -4197,8 +4376,8 @@ export default function GestaoInteligente() {
         {/* Modal Configurar Área de Venda (m²) */}
         {showAreaVendaModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setShowAreaVendaModal(false)}>
-            <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
-              <div className="bg-gradient-to-r from-cyan-600 to-cyan-700 p-4 flex justify-between items-center text-white">
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="bg-gradient-to-r from-cyan-600 to-cyan-700 p-4 flex justify-between items-center text-white flex-shrink-0">
                 <div>
                   <h2 className="text-lg font-bold">AREA DE VENDA</h2>
                   <p className="text-cyan-200 text-xs mt-0.5">Defina a metragem da area de venda da loja</p>
@@ -4207,7 +4386,7 @@ export default function GestaoInteligente() {
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
-              <div className="p-4 space-y-4">
+              <div className="p-4 space-y-4 overflow-y-auto flex-1">
                 <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600">
                   <p>Informe a area de venda em metros quadrados (m²). Este valor sera usado para calcular os indicadores por metro quadrado.</p>
                 </div>
@@ -4224,20 +4403,264 @@ export default function GestaoInteligente() {
                     autoFocus
                   />
                 </div>
-                {areaVendaTemp > 0 && (
-                  <div className="bg-cyan-50 rounded-lg p-3 text-sm space-y-1">
-                    <div className="flex justify-between"><span className="text-gray-600">Vendas Atual:</span><span className="font-bold">{formatCurrency(indicadores.vendas?.atual || 0)}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-600">Area:</span><span className="font-bold">{formatNumber(areaVendaTemp)} m²</span></div>
-                    <div className="flex justify-between text-cyan-700 border-t border-cyan-200 pt-1 mt-1">
-                      <span className="font-semibold">Vendas/m²:</span>
-                      <span className="font-bold text-lg">{formatCurrency((indicadores.vendas?.atual || 0) / areaVendaTemp)}</span>
+                {areaVendaTemp > 0 && (() => {
+                  const vendasMetroTemp = (indicadores.vendas?.atual || 0) / areaVendaTemp;
+                  const classifTemp = getVendasClassificacao(vendasMetroTemp);
+                  const coresTemp = classifTemp ? (skuClassifCores[classifTemp.label] || {}) : {};
+                  return (
+                    <div className="bg-cyan-50 rounded-lg p-3 text-sm space-y-1">
+                      <div className="flex justify-between"><span className="text-gray-600">Vendas Atual:</span><span className="font-bold">{formatCurrency(indicadores.vendas?.atual || 0)}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-600">Area:</span><span className="font-bold">{formatNumber(areaVendaTemp)} m²</span></div>
+                      <div className="flex justify-between text-cyan-700 border-t border-cyan-200 pt-1 mt-1">
+                        <span className="font-semibold">Vendas/m²:</span>
+                        <span className="font-bold text-lg">{formatCurrency(vendasMetroTemp)}</span>
+                      </div>
+                      {classifTemp && (
+                        <div className="flex justify-between items-center border-t border-cyan-200 pt-1 mt-1">
+                          <span className="font-semibold text-gray-600">Classificação:</span>
+                          <span className={`font-bold text-lg px-3 py-0.5 rounded-full ${coresTemp.text} ${coresTemp.bg} border ${coresTemp.border}`}>{classifTemp.label}</span>
+                        </div>
+                      )}
                     </div>
+                  );
+                })()}
+                <div className="border-t border-gray-200 pt-3 mt-2">
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Faixas de Classificação (Vendas/M²)</p>
+                  <div className="space-y-2">
+                    {vendasFaixasTemp.map((f, i) => {
+                      const cores = skuClassifCores[f.label] || {};
+                      return (
+                        <div key={i} className={`flex items-center gap-2 p-2 rounded-lg ${cores.bg} border ${cores.border}`}>
+                          <div className="flex-1 flex items-center gap-1 text-sm">
+                            {f.min === null ? (
+                              <>
+                                <span className="text-gray-500 text-xs">ABAIXO DE</span>
+                                <span className="text-gray-400 text-xs">R$</span>
+                                <input type="number" min="0" step="0.01" value={f.max} onChange={(e) => { const nf = [...vendasFaixasTemp]; nf[i] = { ...nf[i], max: Number(e.target.value) || 0 }; setVendasFaixasTemp(nf); }} className="w-20 border border-gray-300 rounded px-1.5 py-0.5 text-center text-sm font-bold focus:ring-1 focus:ring-cyan-500" />
+                              </>
+                            ) : f.max === null ? (
+                              <>
+                                <span className="text-gray-500 text-xs">ACIMA DE</span>
+                                <span className="text-gray-400 text-xs">R$</span>
+                                <input type="number" min="0" step="0.01" value={f.min} onChange={(e) => { const nf = [...vendasFaixasTemp]; nf[i] = { ...nf[i], min: Number(e.target.value) || 0 }; setVendasFaixasTemp(nf); }} className="w-20 border border-gray-300 rounded px-1.5 py-0.5 text-center text-sm font-bold focus:ring-1 focus:ring-cyan-500" />
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-gray-400 text-xs">R$</span>
+                                <input type="number" min="0" step="0.01" value={f.min} onChange={(e) => { const nf = [...vendasFaixasTemp]; nf[i] = { ...nf[i], min: Number(e.target.value) || 0 }; setVendasFaixasTemp(nf); }} className="w-20 border border-gray-300 rounded px-1.5 py-0.5 text-center text-sm font-bold focus:ring-1 focus:ring-cyan-500" />
+                                <span className="text-gray-500 text-xs">A</span>
+                                <span className="text-gray-400 text-xs">R$</span>
+                                <input type="number" min="0" step="0.01" value={f.max} onChange={(e) => { const nf = [...vendasFaixasTemp]; nf[i] = { ...nf[i], max: Number(e.target.value) || 0 }; setVendasFaixasTemp(nf); }} className="w-20 border border-gray-300 rounded px-1.5 py-0.5 text-center text-sm font-bold focus:ring-1 focus:ring-cyan-500" />
+                              </>
+                            )}
+                          </div>
+                          <span className={`font-bold text-xs ${cores.text}`}>{f.label}</span>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
+                </div>
               </div>
               <div className="px-4 py-3 bg-gray-50 flex justify-end gap-2 border-t">
                 <button onClick={() => setShowAreaVendaModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-200">Cancelar</button>
-                <button onClick={() => saveAreaVenda(areaVendaTemp)} className="px-4 py-2 text-sm bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 font-semibold">Salvar</button>
+                <button onClick={() => { saveAreaVenda(areaVendaTemp); saveVendasFaixas(vendasFaixasTemp); }} className="px-4 py-2 text-sm bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 font-semibold">Salvar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Configurar Faixas SKU/M² */}
+        {showSkuFaixasModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setShowSkuFaixasModal(false)}>
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="bg-gradient-to-r from-sky-600 to-sky-700 p-4 flex justify-between items-center text-white">
+                <div>
+                  <h2 className="text-lg font-bold">FAIXAS SKU POR M²</h2>
+                  <p className="text-sky-200 text-xs mt-0.5">Configure as faixas de classificação</p>
+                </div>
+                <button onClick={() => setShowSkuFaixasModal(false)} className="text-white hover:text-gray-200">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div className="p-4 space-y-3">
+                <div className="grid grid-cols-3 gap-2 text-xs font-semibold text-gray-500 uppercase px-1">
+                  <span>Faixa</span>
+                  <span className="col-span-1 text-center">Valores</span>
+                  <span className="text-right">Classificação</span>
+                </div>
+                {skuFaixasTemp.map((f, i) => {
+                  const cores = skuClassifCores[f.label] || {};
+                  return (
+                    <div key={i} className={`flex items-center gap-2 p-2 rounded-lg ${cores.bg} border ${cores.border}`}>
+                      <div className="flex-1 flex items-center gap-1 text-sm">
+                        {f.min === null ? (
+                          <>
+                            <span className="text-gray-500 text-xs">ABAIXO DE</span>
+                            <input type="number" min="0" value={f.max} onChange={(e) => { const nf = [...skuFaixasTemp]; nf[i] = { ...nf[i], max: Number(e.target.value) || 0 }; setSkuFaixasTemp(nf); }} className="w-14 border border-gray-300 rounded px-1.5 py-0.5 text-center text-sm font-bold focus:ring-1 focus:ring-sky-500" />
+                          </>
+                        ) : f.max === null ? (
+                          <>
+                            <span className="text-gray-500 text-xs">ACIMA DE</span>
+                            <input type="number" min="0" value={f.min} onChange={(e) => { const nf = [...skuFaixasTemp]; nf[i] = { ...nf[i], min: Number(e.target.value) || 0 }; setSkuFaixasTemp(nf); }} className="w-14 border border-gray-300 rounded px-1.5 py-0.5 text-center text-sm font-bold focus:ring-1 focus:ring-sky-500" />
+                          </>
+                        ) : (
+                          <>
+                            <input type="number" min="0" value={f.min} onChange={(e) => { const nf = [...skuFaixasTemp]; nf[i] = { ...nf[i], min: Number(e.target.value) || 0 }; setSkuFaixasTemp(nf); }} className="w-14 border border-gray-300 rounded px-1.5 py-0.5 text-center text-sm font-bold focus:ring-1 focus:ring-sky-500" />
+                            <span className="text-gray-500 text-xs">A</span>
+                            <input type="number" min="0" value={f.max} onChange={(e) => { const nf = [...skuFaixasTemp]; nf[i] = { ...nf[i], max: Number(e.target.value) || 0 }; setSkuFaixasTemp(nf); }} className="w-14 border border-gray-300 rounded px-1.5 py-0.5 text-center text-sm font-bold focus:ring-1 focus:ring-sky-500" />
+                          </>
+                        )}
+                      </div>
+                      <span className={`font-bold text-sm ${cores.text}`}>{f.label}</span>
+                    </div>
+                  );
+                })}
+                {areaVenda > 0 && (() => {
+                  const skuAtual = ((produtosRevenda.qtdProdutos || 0) + (produtosRevenda.qtdProducao || 0)) / areaVenda;
+                  const classif = getSkuClassificacao(skuAtual.toFixed(2).replace('.', ','));
+                  const cores = classif ? (skuClassifCores[classif.label] || {}) : {};
+                  return (
+                    <div className="bg-sky-50 rounded-lg p-3 text-sm space-y-1 border border-sky-200 mt-2">
+                      <div className="flex justify-between"><span className="text-gray-600">SKU/M² Atual:</span><span className="font-bold">{skuAtual.toFixed(2).replace('.', ',')}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-600">Classificação:</span><span className={`font-bold ${cores.text || ''}`}>{classif?.label || '-'}</span></div>
+                    </div>
+                  );
+                })()}
+              </div>
+              <div className="px-4 py-3 bg-gray-50 flex justify-end gap-2 border-t">
+                <button onClick={() => setShowSkuFaixasModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-200">Cancelar</button>
+                <button onClick={() => saveSkuFaixas(skuFaixasTemp)} className="px-4 py-2 text-sm bg-sky-600 text-white rounded-lg hover:bg-sky-700 font-semibold">Salvar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Configurar Faixas Vendas/M² */}
+        {showVendasFaixasModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setShowVendasFaixasModal(false)}>
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="bg-gradient-to-r from-cyan-600 to-cyan-700 p-4 flex justify-between items-center text-white">
+                <div>
+                  <h2 className="text-lg font-bold">FAIXAS VENDAS POR M²</h2>
+                  <p className="text-cyan-200 text-xs mt-0.5">Configure as faixas de classificação</p>
+                </div>
+                <button onClick={() => setShowVendasFaixasModal(false)} className="text-white hover:text-gray-200">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div className="p-4 space-y-3">
+                {vendasFaixasTemp.map((f, i) => {
+                  const cores = skuClassifCores[f.label] || {};
+                  return (
+                    <div key={i} className={`flex items-center gap-2 p-2 rounded-lg ${cores.bg} border ${cores.border}`}>
+                      <div className="flex-1 flex items-center gap-1 text-sm">
+                        {f.min === null ? (
+                          <>
+                            <span className="text-gray-500 text-xs">ABAIXO DE</span>
+                            <span className="text-gray-400 text-xs">R$</span>
+                            <input type="number" min="0" step="0.01" value={f.max} onChange={(e) => { const nf = [...vendasFaixasTemp]; nf[i] = { ...nf[i], max: Number(e.target.value) || 0 }; setVendasFaixasTemp(nf); }} className="w-20 border border-gray-300 rounded px-1.5 py-0.5 text-center text-sm font-bold focus:ring-1 focus:ring-cyan-500" />
+                          </>
+                        ) : f.max === null ? (
+                          <>
+                            <span className="text-gray-500 text-xs">ACIMA DE</span>
+                            <span className="text-gray-400 text-xs">R$</span>
+                            <input type="number" min="0" step="0.01" value={f.min} onChange={(e) => { const nf = [...vendasFaixasTemp]; nf[i] = { ...nf[i], min: Number(e.target.value) || 0 }; setVendasFaixasTemp(nf); }} className="w-20 border border-gray-300 rounded px-1.5 py-0.5 text-center text-sm font-bold focus:ring-1 focus:ring-cyan-500" />
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-gray-400 text-xs">R$</span>
+                            <input type="number" min="0" step="0.01" value={f.min} onChange={(e) => { const nf = [...vendasFaixasTemp]; nf[i] = { ...nf[i], min: Number(e.target.value) || 0 }; setVendasFaixasTemp(nf); }} className="w-20 border border-gray-300 rounded px-1.5 py-0.5 text-center text-sm font-bold focus:ring-1 focus:ring-cyan-500" />
+                            <span className="text-gray-500 text-xs">A</span>
+                            <span className="text-gray-400 text-xs">R$</span>
+                            <input type="number" min="0" step="0.01" value={f.max} onChange={(e) => { const nf = [...vendasFaixasTemp]; nf[i] = { ...nf[i], max: Number(e.target.value) || 0 }; setVendasFaixasTemp(nf); }} className="w-20 border border-gray-300 rounded px-1.5 py-0.5 text-center text-sm font-bold focus:ring-1 focus:ring-cyan-500" />
+                          </>
+                        )}
+                      </div>
+                      <span className={`font-bold text-sm ${cores.text}`}>{f.label}</span>
+                    </div>
+                  );
+                })}
+                {areaVenda > 0 && (() => {
+                  const vendasMetroVal = (indicadores.vendas?.atual || 0) / areaVenda;
+                  const classif = getVendasClassificacao(vendasMetroVal);
+                  const cores = classif ? (skuClassifCores[classif.label] || {}) : {};
+                  return (
+                    <div className="bg-cyan-50 rounded-lg p-3 text-sm space-y-1 border border-cyan-200 mt-2">
+                      <div className="flex justify-between"><span className="text-gray-600">Vendas/M² Atual:</span><span className="font-bold">{formatCurrency(vendasMetroVal)}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-600">Classificação:</span><span className={`font-bold ${cores.text || ''}`}>{classif?.label || '-'}</span></div>
+                    </div>
+                  );
+                })()}
+              </div>
+              <div className="px-4 py-3 bg-gray-50 flex justify-end gap-2 border-t">
+                <button onClick={() => setShowVendasFaixasModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-200">Cancelar</button>
+                <button onClick={() => saveVendasFaixas(vendasFaixasTemp)} className="px-4 py-2 text-sm bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 font-semibold">Salvar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Configurar Ticket Médio por Área */}
+        {showTicketFaixasModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setShowTicketFaixasModal(false)}>
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-4 flex justify-between items-center text-white">
+                <div>
+                  <h2 className="text-lg font-bold">TICKET MEDIO POR M²</h2>
+                  <p className="text-orange-200 text-xs mt-0.5">Configure o ticket esperado por faixa de área</p>
+                </div>
+                <button onClick={() => setShowTicketFaixasModal(false)} className="text-white hover:text-gray-200">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div className="p-4 space-y-2 overflow-y-auto flex-1">
+                <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-gray-500 uppercase px-1 mb-1">
+                  <span>AREA EM M²</span>
+                  <span className="text-right">TICKET MEDIO</span>
+                </div>
+                {(() => {
+                  const ticketRowColors = ['bg-orange-50 border-orange-200','bg-amber-50 border-amber-200','bg-yellow-50 border-yellow-200','bg-lime-50 border-lime-200','bg-green-50 border-green-200','bg-emerald-50 border-emerald-200','bg-teal-50 border-teal-200','bg-cyan-50 border-cyan-200','bg-sky-50 border-sky-200','bg-blue-50 border-blue-200'];
+                  return ticketFaixasTemp.map((f, i) => (
+                    <div key={i} className={`flex items-center gap-2 p-2 rounded-lg border ${ticketRowColors[i % ticketRowColors.length]}`}>
+                      <div className="flex-1 flex items-center gap-1 text-sm">
+                        <input type="number" min="0" value={f.minArea} onChange={(e) => { const nf = [...ticketFaixasTemp]; nf[i] = { ...nf[i], minArea: Number(e.target.value) || 0 }; setTicketFaixasTemp(nf); }} className="w-16 border border-gray-300 rounded px-1.5 py-0.5 text-center text-sm font-bold focus:ring-1 focus:ring-orange-500" />
+                        <span className="text-gray-500 text-xs">{f.maxArea !== null ? 'A' : '+'}</span>
+                        {f.maxArea !== null ? (
+                          <input type="number" min="0" value={f.maxArea} onChange={(e) => { const nf = [...ticketFaixasTemp]; nf[i] = { ...nf[i], maxArea: Number(e.target.value) || 0 }; setTicketFaixasTemp(nf); }} className="w-16 border border-gray-300 rounded px-1.5 py-0.5 text-center text-sm font-bold focus:ring-1 focus:ring-orange-500" />
+                        ) : (
+                          <span className="w-16 text-center text-sm text-gray-400">...</span>
+                        )}
+                        <span className="text-gray-400 text-xs">m²</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-500 text-xs">R$</span>
+                        <input type="number" min="0" step="0.01" value={f.ticketEsperado} onChange={(e) => { const nf = [...ticketFaixasTemp]; nf[i] = { ...nf[i], ticketEsperado: Number(e.target.value) || 0 }; setTicketFaixasTemp(nf); }} className="w-20 border border-gray-300 rounded px-1.5 py-0.5 text-center text-sm font-bold focus:ring-1 focus:ring-orange-500" />
+                      </div>
+                    </div>
+                  ));
+                })()}
+                {areaVenda > 0 && (() => {
+                  const esperado = getTicketMedioEsperado();
+                  const atual = indicadores.ticketMedio?.atual || 0;
+                  if (esperado === null) return null;
+                  const dentro = atual >= esperado;
+                  const diff = atual - esperado;
+                  return (
+                    <div className={`rounded-lg p-3 text-sm space-y-1 border mt-2 ${dentro ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                      <div className="flex justify-between"><span className="text-gray-600">Sua área:</span><span className="font-bold">{formatNumber(areaVenda)} m²</span></div>
+                      <div className="flex justify-between"><span className="text-gray-600">Ticket Esperado:</span><span className="font-bold">{formatCurrency(esperado)}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-600">Ticket Atual:</span><span className="font-bold">{formatCurrency(atual)}</span></div>
+                      <div className={`flex justify-between border-t pt-1 mt-1 ${dentro ? 'border-green-200' : 'border-red-200'}`}>
+                        <span className={`font-bold ${dentro ? 'text-green-600' : 'text-red-600'}`}>{dentro ? 'DENTRO DA MEDIA' : 'FORA DA MEDIA'}</span>
+                        <span className={`font-bold ${dentro ? 'text-green-600' : 'text-red-600'}`}>{diff >= 0 ? '+' : ''}{formatCurrency(diff)}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+              <div className="px-4 py-3 bg-gray-50 flex justify-end gap-2 border-t">
+                <button onClick={() => setShowTicketFaixasModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-200">Cancelar</button>
+                <button onClick={() => saveTicketFaixas(ticketFaixasTemp)} className="px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-semibold">Salvar</button>
               </div>
             </div>
           </div>
