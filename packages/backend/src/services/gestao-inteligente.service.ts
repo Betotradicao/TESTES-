@@ -2069,16 +2069,16 @@ export class GestaoInteligenteService {
       params.codLoja = codLoja;
     }
 
-    // Revenda (tipo_especie = 0) e Produção (tipo_especie != 0) em uma query só
+    // Revenda (tipo_especie = 0 E tipo_evento = 0) e Produção (tipo_especie != 0) em uma query só
+    // NÃO filtrar tipo_evento no WHERE - senão elimina produção. Filtrar dentro do CASE WHEN.
     let sql = `
       SELECT
-        COUNT(DISTINCT CASE WHEN NVL(p.${tipoEspecieCol}, 0) = 0 THEN p.${codProdutoCol} END) as QTD_REVENDA,
-        NVL(SUM(CASE WHEN NVL(p.${tipoEspecieCol}, 0) = 0 THEN pl.${estoqueAtualCol} * NVL(pl.${precoCustoCol}, 0) ELSE 0 END), 0) as VALOR_ESTOQUE,
-        COUNT(DISTINCT CASE WHEN NVL(p.${tipoEspecieCol}, 0) != 0 THEN p.${codProdutoCol} END) as QTD_PRODUCAO
+        COUNT(DISTINCT CASE WHEN NVL(p.${tipoEspecieCol}, 0) = 0 AND NVL(p.${tipoEventoCol}, 0) = 0 THEN p.${codProdutoCol} END) as QTD_REVENDA,
+        NVL(SUM(CASE WHEN NVL(p.${tipoEspecieCol}, 0) = 0 AND NVL(p.${tipoEventoCol}, 0) = 0 THEN pl.${estoqueAtualCol} * NVL(pl.${precoCustoCol}, 0) ELSE 0 END), 0) as VALOR_ESTOQUE,
+        COUNT(DISTINCT CASE WHEN NVL(p.${tipoEspecieCol}, 0) <> 0 THEN p.${codProdutoCol} END) as QTD_PRODUCAO
       FROM ${tabProduto} p
       JOIN ${tabProdutoLoja} pl ON pl.${plCodProdutoCol} = p.${codProdutoCol}
       WHERE NVL(pl.${plInativoCol}, 'N') = 'N'
-        AND NVL(p.${tipoEventoCol}, 0) = 0
         AND NVL(pl.${estoqueAtualCol}, 0) > 0
         ${lojaFilter}
     `;
