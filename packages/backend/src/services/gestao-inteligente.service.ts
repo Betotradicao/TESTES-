@@ -2084,8 +2084,11 @@ export class GestaoInteligenteService {
     `;
 
     console.log(`📦 [GESTAO INTELIGENTE] Buscando produtos revenda, produção e estoque...`);
+    console.log(`📦 [DEBUG SQL PRODUCAO] tipoEspecieCol=${tipoEspecieCol}, tipoEventoCol=${tipoEventoCol}`);
+    console.log(`📦 [DEBUG SQL PRODUCAO] SQL:`, sql);
     const result = await OracleService.query<any>(sql, params);
     const row = result[0] || {};
+    console.log(`📦 [DEBUG SQL PRODUCAO] ROW:`, JSON.stringify(row));
 
     return {
       qtdProdutos: row.QTD_REVENDA || 0,
