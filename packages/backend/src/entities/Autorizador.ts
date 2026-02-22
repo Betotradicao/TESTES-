@@ -20,6 +20,9 @@ export class Autorizador {
   @Column({ name: 'cargo', type: 'varchar', length: 50, nullable: true })
   cargo?: string;
 
+  @Column({ name: 'cod_loja', type: 'int', nullable: true })
+  cod_loja: number | null;
+
   @Column({ name: 'ativo', type: 'boolean', default: true })
   ativo!: boolean;
 

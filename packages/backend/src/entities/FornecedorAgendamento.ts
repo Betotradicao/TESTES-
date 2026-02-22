@@ -38,6 +38,9 @@ export class FornecedorAgendamento {
   @Column({ type: 'varchar', length: 10, nullable: true })
   hora_termino: string | null;
 
+  @Column({ name: 'cod_loja', type: 'int', nullable: true })
+  cod_loja: number | null;
+
   @CreateDateColumn()
   created_at: Date;
 

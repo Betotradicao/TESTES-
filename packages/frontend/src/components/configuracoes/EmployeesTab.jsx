@@ -175,10 +175,6 @@ export default function EmployeesTab() {
   };
 
   const handleNewEmployee = () => {
-    if (lojaSelecionada === null) {
-      toast.error('Selecione uma loja específica para criar um novo colaborador');
-      return;
-    }
     setEditingEmployee(null);
     setShowModal(true);
   };

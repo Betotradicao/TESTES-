@@ -38,6 +38,9 @@ export class BankAccount {
   @Column({ default: 'production' })
   environment!: string;
 
+  @Column({ name: 'cod_loja', type: 'int', nullable: true })
+  cod_loja: number | null;
+
   @Column({ default: true })
   ativo!: boolean;
 

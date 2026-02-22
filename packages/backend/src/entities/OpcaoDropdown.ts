@@ -11,4 +11,7 @@ export class OpcaoDropdown {
 
   @Column({ type: 'varchar', length: 100 })
   valor: string;
+
+  @Column({ name: 'cod_loja', type: 'int', nullable: true })
+  cod_loja: number | null;
 }

@@ -29,6 +29,9 @@ export class EmailMonitorLog {
   @Column({ type: 'varchar', length: 500, nullable: true })
   image_path: string | null;
 
+  @Column({ name: 'cod_loja', type: 'int', nullable: true })
+  cod_loja: number | null;
+
   @CreateDateColumn()
   processed_at: Date;
 }

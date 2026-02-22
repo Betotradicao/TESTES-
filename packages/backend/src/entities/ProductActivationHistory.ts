@@ -13,6 +13,9 @@ export class ProductActivationHistory {
   @Column({ type: 'integer' })
   product_id: number;
 
+  @Column({ name: 'cod_loja', type: 'int', nullable: true })
+  cod_loja: number | null;
+
   @Column({ type: 'boolean' })
   active: boolean;
 

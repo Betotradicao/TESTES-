@@ -24,6 +24,9 @@ export class LossReasonConfig {
   @Column({ name: 'motivo', type: 'text' })
   motivo!: string;
 
+  @Column({ name: 'cod_loja', type: 'int', nullable: true })
+  cod_loja: number | null;
+
   @Column({ name: 'ignorar_calculo', type: 'boolean', default: false })
   ignorarCalculo!: boolean;
 

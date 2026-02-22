@@ -17,6 +17,9 @@ export class Operador {
   @Column({ name: 'nome', type: 'varchar', length: 100 })
   nome!: string;
 
+  @Column({ name: 'cod_loja', type: 'int', nullable: true })
+  cod_loja: number | null;
+
   @Column({ name: 'ativo', type: 'boolean', default: true })
   ativo!: boolean;
 

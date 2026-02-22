@@ -18,6 +18,9 @@ export class CotacaoPedido {
   @Column({ type: 'varchar', length: 255 })
   nome_fornecedor!: string;
 
+  @Column({ name: 'cod_loja', type: 'int', nullable: true })
+  cod_loja: number | null;
+
   @Column({ type: 'varchar', length: 20, default: 'pendente' })
   status!: string; // 'pendente' | 'respondida' | 'expirada'
 
