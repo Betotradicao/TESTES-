@@ -155,7 +155,7 @@ const initialIndicadores = {
 
 export default function GestaoInteligente() {
   const [indicadores, setIndicadores] = useState(initialIndicadores);
-  const [produtosRevenda, setProdutosRevenda] = useState({ qtdProdutos: 0, valorEstoque: 0 });
+  const [produtosRevenda, setProdutosRevenda] = useState({ qtdProdutos: 0, valorEstoque: 0, qtdProducao: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState(getDefaultDates());
@@ -228,6 +228,7 @@ export default function GestaoInteligente() {
   const defaultCardOrder = ['vendas', 'lucro', 'markdown', 'margemLimpa', 'ticketMedio', 'pctCompraVenda'];
   const defaultCardOrder2 = ['pctVendasOferta', 'qtdSkus', 'qtdCupons', 'qtdItens', 'vendasOfertaValor', 'valorEstoque'];
   const defaultCardOrder3 = ['custoVendas', 'markdownOferta', 'impostoPrevisto', 'produtosRevenda', 'excessoCompras', 'margemCV'];
+  const defaultCardOrder4 = ['vendasPorMetro', 'skuPorMetro', 'skuVendidoPorMetro', 'produtosProducao', 'produtosLojaTodos', 'emBreveC'];
 
   const migrateCardIds = (ids) => ids.map(id => {
     if (id === 'emBreve1') return 'vendasOfertaValor';
@@ -253,9 +254,43 @@ export default function GestaoInteligente() {
     const saved = localStorage.getItem('gestao_card_order_3');
     return saved ? migrateCardIds(JSON.parse(saved)) : defaultCardOrder3;
   });
+  const [cardOrder4, setCardOrder4] = useState(() => {
+    const saved = localStorage.getItem('gestao_card_order_4');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Migrar IDs antigos
+      const migrated = parsed.map(id => {
+        if (id === 'emBreveA') return 'produtosProducao';
+        if (id === 'emBreveB') return 'produtosLojaTodos';
+        return id;
+      });
+      // Se mudou, salvar
+      if (JSON.stringify(migrated) !== saved) {
+        localStorage.setItem('gestao_card_order_4', JSON.stringify(migrated));
+      }
+      return migrated;
+    }
+    return defaultCardOrder4;
+  });
   const [draggedCard, setDraggedCard] = useState(null);
   const [draggedRow, setDraggedRow] = useState(null);
   const [cardExpandido, setCardExpandido] = useState('vendas'); // qual card de cima está expandido mostrando sub-cards
+
+  // Estado para configuração de Área de Venda (m²)
+  const [showAreaVendaModal, setShowAreaVendaModal] = useState(false);
+  const [areaVenda, setAreaVenda] = useState(() => {
+    const key = `gestao_area_venda_${lojaSelecionada}`;
+    const saved = localStorage.getItem(key);
+    return saved ? Number(saved) : 0;
+  });
+  const [areaVendaTemp, setAreaVendaTemp] = useState(areaVenda);
+
+  const saveAreaVenda = (val) => {
+    const num = Number(val) || 0;
+    setAreaVenda(num);
+    localStorage.setItem(`gestao_area_venda_${lojaSelecionada}`, String(num));
+    setShowAreaVendaModal(false);
+  };
 
   // Estado para configuração de colaboradores (card Media Performance)
   const [showColabModal, setShowColabModal] = useState(false);
@@ -351,6 +386,10 @@ export default function GestaoInteligente() {
   useEffect(() => {
     localStorage.setItem('gestao_card_order_3', JSON.stringify(cardOrder3));
   }, [cardOrder3]);
+
+  useEffect(() => {
+    localStorage.setItem('gestao_card_order_4', JSON.stringify(cardOrder4));
+  }, [cardOrder4]);
 
   useEffect(() => {
     localStorage.setItem('gestao_col_order', JSON.stringify(colOrder));
@@ -621,7 +660,8 @@ export default function GestaoInteligente() {
     const getRowData = (row) => {
       if (row === 1) return [cardOrder, setCardOrder];
       if (row === 2) return [cardOrder2, setCardOrder2];
-      return [cardOrder3, setCardOrder3];
+      if (row === 3) return [cardOrder3, setCardOrder3];
+      return [cardOrder4, setCardOrder4];
     };
 
     if (draggedRow === targetRow) {
@@ -1731,6 +1771,53 @@ export default function GestaoInteligente() {
       label: 'Margem C&V', title: 'MARGEM COMPRA E VENDA',
       getValue: () => formatPercent(indicadores.margemCV?.atual || 0),
       tipo: 'percent', indicador: 'margemCV'
+    },
+    vendasPorMetro: {
+      borderColor: 'border-cyan-500', bgColor: 'bg-cyan-100', iconColor: 'text-cyan-600',
+      icon: <svg className="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>,
+      label: 'Vendas/m²', title: 'VENDAS POR MTRS',
+      getValue: () => areaVenda > 0 ? formatCurrency((indicadores.vendas?.atual || 0) / areaVenda) : '-',
+      getExtra: () => (
+        <button onClick={(e) => { e.stopPropagation(); setAreaVendaTemp(areaVenda); setShowAreaVendaModal(true); }} className="p-1 hover:bg-gray-100 rounded-full transition-colors" title="Configurar área de venda">
+          <svg className="w-4 h-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        </button>
+      ),
+      customCard: true,
+    },
+    skuPorMetro: {
+      borderColor: 'border-sky-500', bgColor: 'bg-sky-100', iconColor: 'text-sky-600',
+      icon: <svg className="w-5 h-5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>,
+      label: 'SKU/m²', title: 'SKU POR M²',
+      getValue: () => areaVenda > 0 ? formatNumber(Math.round((produtosRevenda.qtdProdutos || 0) / areaVenda)) : '-',
+      customCard: true,
+    },
+    skuVendidoPorMetro: {
+      borderColor: 'border-blue-500', bgColor: 'bg-blue-100', iconColor: 'text-blue-600',
+      icon: <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>,
+      label: 'SKU Vend/m²', title: 'SKU VENDIDO POR M²',
+      getValue: () => areaVenda > 0 ? formatNumber(Math.round((indicadores.qtdSkus?.atual || 0) / areaVenda)) : '-',
+      customCard: true,
+    },
+    produtosProducao: {
+      borderColor: 'border-amber-500', bgColor: 'bg-amber-100', iconColor: 'text-amber-600',
+      icon: <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>,
+      label: 'Producao', title: 'PRODUTOS DE PRODUCAO',
+      getValue: () => produtosRevenda.qtdProducao?.toLocaleString('pt-BR') || '0',
+      customCard: true,
+    },
+    produtosLojaTodos: {
+      borderColor: 'border-violet-500', bgColor: 'bg-violet-100', iconColor: 'text-violet-600',
+      icon: <svg className="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>,
+      label: 'Todos', title: 'PRODUTOS EM LOJA',
+      getValue: () => ((produtosRevenda.qtdProdutos || 0) + (produtosRevenda.qtdProducao || 0)).toLocaleString('pt-BR'),
+      getExtra: () => <span className="text-xs text-gray-400">Direta + Producao</span>,
+      customCard: true,
+    },
+    emBreveC: {
+      borderColor: 'border-gray-300', bgColor: 'bg-gray-100', iconColor: 'text-gray-400',
+      icon: <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>,
+      label: 'Novo', title: 'EM BREVE',
+      emBreve: true,
     }
   };
 
@@ -1767,6 +1854,58 @@ export default function GestaoInteligente() {
           </div>
           <div className="space-y-1 pt-2 border-t border-gray-100">
             <p className="text-xs text-gray-300">Indicador em desenvolvimento</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (config.customCard) {
+      const isMetroCard = ['vendasPorMetro', 'skuPorMetro', 'skuVendidoPorMetro'].includes(cardId);
+      return (
+        <div
+          key={cardId}
+          draggable
+          onDragStart={(e) => handleDragStart(e, cardId, row)}
+          onDragEnd={handleDragEnd}
+          onDragOver={handleDragOver}
+          onDrop={(e) => handleDrop(e, cardId, row)}
+          className={`bg-white rounded-xl shadow-lg p-3 sm:p-4 border-t-4 ${config.borderColor} hover:shadow-xl transition-all cursor-grab active:cursor-grabbing h-full ${isDragging ? 'opacity-50 scale-95' : ''}`}
+        >
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
+            <div className={`w-8 h-8 sm:w-10 sm:h-10 ${config.bgColor} rounded-lg flex items-center justify-center`}>
+              {config.icon}
+            </div>
+            <span className="text-[10px] sm:text-xs text-gray-400 uppercase font-semibold flex items-center gap-1">
+              {config.getExtra && config.getExtra()}
+              {config.label}
+            </span>
+          </div>
+          <div className="flex items-baseline gap-1.5 sm:gap-2 mb-1">
+            <p className="text-xl sm:text-2xl font-bold text-gray-800">{config.getValue()}</p>
+          </div>
+          <p className="text-[10px] sm:text-xs text-gray-500 mb-2 sm:mb-3">{config.title}</p>
+          <div className="space-y-1 pt-2 border-t border-gray-100">
+            {isMetroCard ? (
+              areaVenda > 0 ? (
+                <>
+                  <div className="flex justify-between text-xs"><span className="text-gray-400">Area de Venda:</span><span className="font-medium text-gray-600">{formatNumber(areaVenda)} m²</span></div>
+                  <div className="flex justify-between text-xs"><span className="text-gray-400">&nbsp;</span></div>
+                  <div className="flex justify-between text-xs"><span className="text-gray-400">&nbsp;</span></div>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-amber-500">Configure a area de venda (m²)</p>
+                  <div className="flex justify-between text-xs"><span className="text-gray-400">&nbsp;</span></div>
+                  <div className="flex justify-between text-xs"><span className="text-gray-400">&nbsp;</span></div>
+                </>
+              )
+            ) : (
+              <>
+                <div className="flex justify-between text-xs"><span className="text-gray-400">Revenda:</span><span className="font-medium text-gray-600">{(produtosRevenda.qtdProdutos || 0).toLocaleString('pt-BR')}</span></div>
+                <div className="flex justify-between text-xs"><span className="text-gray-400">Producao:</span><span className="font-medium text-gray-600">{(produtosRevenda.qtdProducao || 0).toLocaleString('pt-BR')}</span></div>
+                <div className="flex justify-between text-xs"><span className="text-gray-400">&nbsp;</span></div>
+              </>
+            )}
           </div>
         </div>
       );
@@ -1926,6 +2065,11 @@ export default function GestaoInteligente() {
           {/* Linha 3 - Cards Terciários (Drag and Drop) */}
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             {cardOrder3.map((cardId) => renderCard(cardId, 3))}
+          </div>
+
+          {/* Linha 4 - Cards Metro Quadrado (Drag and Drop) */}
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            {cardOrder4.map((cardId) => renderCard(cardId, 4))}
           </div>
 
           {/* Linha de Cards de Análise - Sempre visível */}
@@ -4034,6 +4178,55 @@ export default function GestaoInteligente() {
         )}
 
         {/* Modal Configuração de Colaboradores */}
+        {/* Modal Configurar Área de Venda (m²) */}
+        {showAreaVendaModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setShowAreaVendaModal(false)}>
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="bg-gradient-to-r from-cyan-600 to-cyan-700 p-4 flex justify-between items-center text-white">
+                <div>
+                  <h2 className="text-lg font-bold">AREA DE VENDA</h2>
+                  <p className="text-cyan-200 text-xs mt-0.5">Defina a metragem da area de venda da loja</p>
+                </div>
+                <button onClick={() => setShowAreaVendaModal(false)} className="text-white hover:text-gray-200">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div className="p-4 space-y-4">
+                <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600">
+                  <p>Informe a area de venda em metros quadrados (m²). Este valor sera usado para calcular os indicadores por metro quadrado.</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Area de Venda (m²)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={areaVendaTemp}
+                    onChange={(e) => setAreaVendaTemp(Number(e.target.value) || 0)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-lg font-bold focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                    placeholder="Ex: 500"
+                    autoFocus
+                  />
+                </div>
+                {areaVendaTemp > 0 && (
+                  <div className="bg-cyan-50 rounded-lg p-3 text-sm space-y-1">
+                    <div className="flex justify-between"><span className="text-gray-600">Vendas Atual:</span><span className="font-bold">{formatCurrency(indicadores.vendas?.atual || 0)}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-600">Area:</span><span className="font-bold">{formatNumber(areaVendaTemp)} m²</span></div>
+                    <div className="flex justify-between text-cyan-700 border-t border-cyan-200 pt-1 mt-1">
+                      <span className="font-semibold">Vendas/m²:</span>
+                      <span className="font-bold text-lg">{formatCurrency((indicadores.vendas?.atual || 0) / areaVendaTemp)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="px-4 py-3 bg-gray-50 flex justify-end gap-2 border-t">
+                <button onClick={() => setShowAreaVendaModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-200">Cancelar</button>
+                <button onClick={() => saveAreaVenda(areaVendaTemp)} className="px-4 py-2 text-sm bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 font-semibold">Salvar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {showColabModal && (() => {
           const tp = (colabConfigTemp.clt * colabConfigTemp.pesoClt) + (colabConfigTemp.aprendiz * colabConfigTemp.pesoAprendiz) + (colabConfigTemp.estagiario * colabConfigTemp.pesoEstagiario);
           const tm = tp > 0 ? (defesaData.faturamento?.atual || 0) / tp : 0;

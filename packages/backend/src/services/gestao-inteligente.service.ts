@@ -2047,6 +2047,7 @@ export class GestaoInteligenteService {
   static async getProdutosRevendaEstoque(codLoja?: number): Promise<{
     qtdProdutos: number;
     valorEstoque: number;
+    qtdProducao: number;
   }> {
     const schema = await MappingService.getSchema();
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
@@ -2061,30 +2062,35 @@ export class GestaoInteligenteService {
     const estoqueAtualCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual');
     const precoCustoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo');
 
-    let sql = `
-      SELECT
-        COUNT(DISTINCT p.${codProdutoCol}) as QTD_PRODUTOS,
-        NVL(SUM(pl.${estoqueAtualCol} * NVL(pl.${precoCustoCol}, 0)), 0) as VALOR_ESTOQUE
-      FROM ${tabProduto} p
-      JOIN ${tabProdutoLoja} pl ON pl.${plCodProdutoCol} = p.${codProdutoCol}
-      WHERE NVL(pl.${plInativoCol}, 'N') = 'N'
-        AND NVL(p.${tipoEspecieCol}, 0) = 0
-        AND NVL(p.${tipoEventoCol}, 0) = 0
-        AND NVL(pl.${estoqueAtualCol}, 0) > 0
-    `;
+    let lojaFilter = '';
     const params: any = {};
     if (codLoja) {
-      sql += ` AND pl.${plCodLojaCol} = :codLoja`;
+      lojaFilter = ` AND pl.${plCodLojaCol} = :codLoja`;
       params.codLoja = codLoja;
     }
 
-    console.log(`📦 [GESTAO INTELIGENTE] Buscando produtos revenda e estoque...`);
+    // Revenda (tipo_especie = 0) e Produção (tipo_especie != 0) em uma query só
+    let sql = `
+      SELECT
+        COUNT(DISTINCT CASE WHEN NVL(p.${tipoEspecieCol}, 0) = 0 THEN p.${codProdutoCol} END) as QTD_REVENDA,
+        NVL(SUM(CASE WHEN NVL(p.${tipoEspecieCol}, 0) = 0 THEN pl.${estoqueAtualCol} * NVL(pl.${precoCustoCol}, 0) ELSE 0 END), 0) as VALOR_ESTOQUE,
+        COUNT(DISTINCT CASE WHEN NVL(p.${tipoEspecieCol}, 0) != 0 THEN p.${codProdutoCol} END) as QTD_PRODUCAO
+      FROM ${tabProduto} p
+      JOIN ${tabProdutoLoja} pl ON pl.${plCodProdutoCol} = p.${codProdutoCol}
+      WHERE NVL(pl.${plInativoCol}, 'N') = 'N'
+        AND NVL(p.${tipoEventoCol}, 0) = 0
+        AND NVL(pl.${estoqueAtualCol}, 0) > 0
+        ${lojaFilter}
+    `;
+
+    console.log(`📦 [GESTAO INTELIGENTE] Buscando produtos revenda, produção e estoque...`);
     const result = await OracleService.query<any>(sql, params);
     const row = result[0] || {};
 
     return {
-      qtdProdutos: row.QTD_PRODUTOS || 0,
-      valorEstoque: parseFloat((row.VALOR_ESTOQUE || 0).toFixed(2))
+      qtdProdutos: row.QTD_REVENDA || 0,
+      valorEstoque: parseFloat((row.VALOR_ESTOQUE || 0).toFixed(2)),
+      qtdProducao: row.QTD_PRODUCAO || 0
     };
   }
 
