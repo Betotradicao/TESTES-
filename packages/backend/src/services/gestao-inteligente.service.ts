@@ -420,12 +420,29 @@ export class GestaoInteligenteService {
     }
     comprasSql += ` GROUP BY TRUNC(n.${colDtaEntradaNf})`;
 
-    // Executar as 3 queries em paralelo
-    const [vendasResult, cuponsResult, comprasResult] = await Promise.all([
+    // Query SKUs distintos do período equivalente no ano anterior (COUNT DISTINCT não é aditivo dia a dia)
+    const dataInicioEquiv = `${String(diaIni).padStart(2, '0')}/${String(mesIni).padStart(2, '0')}/${anoAnterior}`;
+    const dataFimEquiv = `${String(diaFim).padStart(2, '0')}/${String(mesFim).padStart(2, '0')}/${anoAnterior}`;
+    let skusPeriodoSql = `
+      SELECT COUNT(DISTINCT pv.${colCodProdutoPdv}) as QTD_SKUS
+      FROM ${tabProdutoPdv} pv
+      WHERE pv.${colDtaSaida} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+    `;
+    const skusPeriodoParams: any = { dataInicio: dataInicioEquiv, dataFim: dataFimEquiv };
+    if (codLoja) {
+      skusPeriodoSql += ` AND pv.${colCodLojaPdv} = :codLoja`;
+      skusPeriodoParams.codLoja = codLoja;
+    }
+
+    // Executar as 4 queries em paralelo
+    const [vendasResult, cuponsResult, comprasResult, skusPeriodoResult] = await Promise.all([
       OracleService.query<any>(vendasSql, vendasParams),
       OracleService.query<any>(cuponsSql, cuponsParams),
-      OracleService.query<any>(comprasSql, comprasParams)
+      OracleService.query<any>(comprasSql, comprasParams),
+      OracleService.query<any>(skusPeriodoSql, skusPeriodoParams)
     ]);
+
+    const skusPeriodoAnoAnterior = skusPeriodoResult[0]?.QTD_SKUS || 0;
 
     console.log(`   📊 [MEDIA LINEAR] ${vendasResult.length} dias vendas, ${cuponsResult.length} dias cupons, ${comprasResult.length} dias compras do ano ${anoAnterior}`);
 
@@ -529,11 +546,9 @@ export class GestaoInteligenteService {
       }
     }
 
-    // SKUs: média ponderada = soma(dias_tipo × média_tipo) / total_dias
-    // Isso dá o valor médio de SKUs distintos por dia, ponderado pela composição do período
-    const mediaLinearSkus = totalDiasPeriodo > 0 ? Math.round(totalSkusPonderado / totalDiasPeriodo) : 0;
-
-    console.log(`   ✅ [MEDIA LINEAR] Vendas previstas: R$ ${totalVendas.toFixed(2)}, SKUs média ponderada: ${mediaLinearSkus} (${totalDiasPeriodo} dias) (${Object.entries(currentDayCounts).filter(([,c]) => c > 0).map(([k,v]) => `${k}:${v}`).join(', ')})`);
+    // SKUs: usar COUNT DISTINCT do período equivalente no ano anterior
+    // (COUNT DISTINCT não é aditivo dia a dia, então a média ponderada diária não serve)
+    console.log(`   ✅ [MEDIA LINEAR] Vendas previstas: R$ ${totalVendas.toFixed(2)}, SKUs período equiv ano ant: ${skusPeriodoAnoAnterior} (${totalDiasPeriodo} dias) (${Object.entries(currentDayCounts).filter(([,c]) => c > 0).map(([k,v]) => `${k}:${v}`).join(', ')})`);
 
     return {
       vendas: totalVendas,
@@ -545,7 +560,7 @@ export class GestaoInteligenteService {
       compras: totalCompras,
       vendasOferta: totalVendasOferta,
       custoOferta: totalCustoOferta,
-      qtdSkus: mediaLinearSkus
+      qtdSkus: skusPeriodoAnoAnterior
     };
   }
 
