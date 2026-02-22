@@ -361,14 +361,14 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
         </>
       )}
 
-      {/* Seção IA NO RADAR */}
+      {/* Seção CONSULTOR DIGITAL */}
       {iaModules.length > 0 && (
         <>
           <div className="flex items-center gap-2 mt-6 mb-3">
             <div className="w-6 h-6 bg-purple-600 rounded-md flex items-center justify-center">
-              <span className="text-white text-xs font-bold">IA</span>
+              <span className="text-white text-xs font-bold">CD</span>
             </div>
-            <h4 className="text-sm font-bold text-purple-800 uppercase tracking-wide">IA no Radar</h4>
+            <h4 className="text-sm font-bold text-purple-800 uppercase tracking-wide">Consultor Digital</h4>
             <div className="flex-1 border-t border-purple-200"></div>
           </div>
           {iaModules.map(module => renderModuleCard(module))}

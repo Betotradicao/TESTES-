@@ -101,7 +101,7 @@ const AVAILABLE_MODULES = [
     description: 'Extratos Santander, Tribanco e Banco 24horas',
     icon: '🏦'
   },
-  // IA no Radar
+  // Consultor Digital
   {
     id: 'rota-crescimento',
     name: 'Rota do Crescimento',

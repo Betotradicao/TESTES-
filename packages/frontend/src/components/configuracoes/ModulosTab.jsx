@@ -1,30 +1,83 @@
 import { useState, useEffect } from 'react';
 
-export default function ModulosTab() {
-  const defaultModules = [
-    // Gestão no Radar
-    { id: 'gestao-inteligente', name: 'Gestão Inteligente', icon: '📊', active: true },
-    { id: 'estoque-margem', name: 'Gestão Estoque e Margem', icon: '📦', active: true },
-    { id: 'compra-venda', name: 'Compra x Venda', icon: '📈', active: true },
-    { id: 'pedidos', name: 'Pedidos', icon: '📋', active: true },
-    { id: 'ruptura-industria', name: 'Ruptura Indústria', icon: '🏭', active: true },
-    { id: 'calendario-atendimento', name: 'Calendário de Atendimento', icon: '📅', active: true },
-    // Prevenção no Radar
-    { id: 'bipagens', name: 'Prevenção de Bipagens', icon: '🔍', active: true },
-    { id: 'pdv', name: 'Prevenção de PDV', icon: '💳', active: true },
-    { id: 'facial', name: 'Prevenção Facial', icon: '👤', active: true },
-    { id: 'ruptura', name: 'Prevenção Rupturas', icon: '📋', active: true },
-    { id: 'etiquetas', name: 'Prevenção Etiquetas', icon: '🔖', active: true },
-    { id: 'perdas', name: 'Prevenção Quebras', icon: '📉', active: true },
-    { id: 'producao', name: 'Prevenção Produção', icon: '🥖', active: true },
-    { id: 'hortfrut', name: 'Prevenção HortFruti', icon: '🥬', active: true },
-    // Oferta no Radar
-    { id: 'garimpa-fornecedores', name: 'Garimpa Fornecedores', icon: '🔎', active: true },
-    // IA no Radar
-    { id: 'rota-crescimento', name: 'Rota do Crescimento', icon: '🚀', active: true },
-  ];
+const SECTIONS = [
+  {
+    id: 'gestao-radar',
+    name: 'Gestão no Radar',
+    icon: '📊',
+    color: 'blue',
+    modules: [
+      { id: 'gestao-inteligente', name: 'Gestão Inteligente', icon: '📊' },
+      { id: 'estoque-margem', name: 'Gestão de Estoque', icon: '📦' },
+      { id: 'compras', name: 'Gestão de Compras', icon: '🛒' },
+      { id: 'pricing', name: 'Gestão de Pricing', icon: '🏷️' },
+      { id: 'ofertas', name: 'Gestão de Ofertas', icon: '🎁' },
+    ]
+  },
+  {
+    id: 'prevencao-radar',
+    name: 'Prevenção no Radar',
+    icon: '🔍',
+    color: 'red',
+    modules: [
+      { id: 'bipagens', name: 'Prevenção de Bipagens', icon: '🔍' },
+      { id: 'pdv', name: 'Prevenção PDV', icon: '💳' },
+      { id: 'facial', name: 'Prevenção Facial', icon: '👤' },
+      { id: 'ruptura', name: 'Prevenção Rupturas', icon: '📋' },
+      { id: 'etiquetas', name: 'Prevenção Etiquetas', icon: '🔖' },
+      { id: 'perdas', name: 'Prevenção Quebras', icon: '📉' },
+      { id: 'producao', name: 'Prevenção Produção', icon: '🥖' },
+      { id: 'hortfrut', name: 'Prevenção HortFruti', icon: '🥬' },
+      { id: 'controle-recebimento', name: 'Prevenção Recebimento', icon: '📄' },
+      { id: 'abastecimento', name: 'Prevenção Abastecimento', icon: '🚚' },
+    ]
+  },
+  {
+    id: 'oferta-radar',
+    name: 'Oferta no Radar',
+    icon: '💎',
+    color: 'purple',
+    modules: [
+      { id: 'garimpa-fornecedores', name: 'Fornecedores e Concorrentes', icon: '🔎' },
+    ]
+  },
+  {
+    id: 'financas-radar',
+    name: 'Finanças no Radar',
+    icon: '💰',
+    color: 'green',
+    modules: [
+      { id: 'demonstrativo-caixa', name: 'Demonstrativo de Caixa', icon: '📊' },
+      { id: 'entradas-saidas', name: 'Entradas e Saídas', icon: '↕️' },
+      { id: 'bancos', name: 'Bancos', icon: '🏦' },
+    ]
+  },
+  {
+    id: 'consultor-digital',
+    name: 'Consultor Digital',
+    icon: '🤖',
+    color: 'orange',
+    modules: [
+      { id: 'rota-crescimento', name: 'Rota do Crescimento', icon: '🚀' },
+    ]
+  },
+];
 
-  const [modules, setModules] = useState(defaultModules);
+// Flatten all modules for initial state
+const ALL_MODULES = SECTIONS.flatMap(s => s.modules);
+
+const SECTION_COLORS = {
+  blue: { bg: 'bg-blue-600', bgLight: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-800', ring: 'ring-blue-500' },
+  red: { bg: 'bg-red-600', bgLight: 'bg-red-50', border: 'border-red-200', text: 'text-red-800', ring: 'ring-red-500' },
+  purple: { bg: 'bg-purple-600', bgLight: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-800', ring: 'ring-purple-500' },
+  green: { bg: 'bg-green-600', bgLight: 'bg-green-50', border: 'border-green-200', text: 'text-green-800', ring: 'ring-green-500' },
+  orange: { bg: 'bg-orange-600', bgLight: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-800', ring: 'ring-orange-500' },
+};
+
+export default function ModulosTab() {
+  const [modules, setModules] = useState(() =>
+    ALL_MODULES.map(m => ({ ...m, active: true }))
+  );
   const [success, setSuccess] = useState(null);
 
   // Carregar configuração salva do localStorage e migrar dados antigos
@@ -33,45 +86,63 @@ export default function ModulosTab() {
     if (savedModules) {
       try {
         const parsed = JSON.parse(savedModules);
-
-        // Migrar dados antigos: atualizar nomes e remover módulo 'cameras'
-        const migratedModules = defaultModules.map(defaultMod => {
-          const savedMod = parsed.find(m => m.id === defaultMod.id);
-          return savedMod ? { ...defaultMod, active: savedMod.active } : defaultMod;
+        // Migrar: garantir que todos os módulos existam, preservar active state
+        const migrated = ALL_MODULES.map(defaultMod => {
+          const saved = parsed.find(m => m.id === defaultMod.id);
+          return { ...defaultMod, active: saved ? saved.active : true };
         });
-
-        setModules(migratedModules);
-        // Salvar dados migrados
-        localStorage.setItem('modules_config', JSON.stringify(migratedModules));
+        setModules(migrated);
+        localStorage.setItem('modules_config', JSON.stringify(migrated));
       } catch (err) {
         console.error('Erro ao carregar módulos:', err);
-        // Em caso de erro, usar valores padrão
-        setModules(defaultModules);
-        localStorage.setItem('modules_config', JSON.stringify(defaultModules));
+        const defaults = ALL_MODULES.map(m => ({ ...m, active: true }));
+        setModules(defaults);
+        localStorage.setItem('modules_config', JSON.stringify(defaults));
       }
     } else {
-      // Primeira vez: salvar valores padrão
-      localStorage.setItem('modules_config', JSON.stringify(defaultModules));
+      const defaults = ALL_MODULES.map(m => ({ ...m, active: true }));
+      localStorage.setItem('modules_config', JSON.stringify(defaults));
     }
   }, []);
 
+  const saveAndNotify = (updated) => {
+    setModules(updated);
+    localStorage.setItem('modules_config', JSON.stringify(updated));
+    window.dispatchEvent(new Event('storage'));
+  };
+
   const handleToggleModule = (moduleId) => {
-    setModules(prev => {
-      const updated = prev.map(mod =>
-        mod.id === moduleId ? { ...mod, active: !mod.active } : mod
-      );
+    const updated = modules.map(mod =>
+      mod.id === moduleId ? { ...mod, active: !mod.active } : mod
+    );
+    saveAndNotify(updated);
+    const toggled = updated.find(m => m.id === moduleId);
+    setSuccess(`${toggled.name} ${toggled.active ? 'ativado' : 'desativado'} com sucesso!`);
+    setTimeout(() => setSuccess(null), 3000);
+  };
 
-      // Salvar no localStorage
-      localStorage.setItem('modules_config', JSON.stringify(updated));
+  const handleToggleSection = (sectionId) => {
+    const section = SECTIONS.find(s => s.id === sectionId);
+    if (!section) return;
+    const sectionModuleIds = section.modules.map(m => m.id);
+    const allActive = sectionModuleIds.every(id => modules.find(m => m.id === id)?.active);
+    const newState = !allActive;
+    const updated = modules.map(mod =>
+      sectionModuleIds.includes(mod.id) ? { ...mod, active: newState } : mod
+    );
+    saveAndNotify(updated);
+    setSuccess(`${section.name} ${newState ? 'ativado' : 'desativado'} por completo!`);
+    setTimeout(() => setSuccess(null), 3000);
+  };
 
-      // Disparar evento para atualizar o Sidebar
-      window.dispatchEvent(new Event('storage'));
-
-      setSuccess(`Módulo ${updated.find(m => m.id === moduleId).name} ${updated.find(m => m.id === moduleId).active ? 'ativado' : 'desativado'} com sucesso!`);
-      setTimeout(() => setSuccess(null), 3000);
-
-      return updated;
-    });
+  const getSectionState = (sectionId) => {
+    const section = SECTIONS.find(s => s.id === sectionId);
+    if (!section) return 'off';
+    const sectionModuleIds = section.modules.map(m => m.id);
+    const activeCount = sectionModuleIds.filter(id => modules.find(m => m.id === id)?.active).length;
+    if (activeCount === sectionModuleIds.length) return 'on';
+    if (activeCount === 0) return 'off';
+    return 'partial';
   };
 
   return (
@@ -80,71 +151,111 @@ export default function ModulosTab() {
         <div className="mb-6">
           <h2 className="text-xl font-semibold text-gray-900">Gerenciar Módulos do Sistema</h2>
           <p className="text-sm text-gray-600 mt-1">
-            Ative ou desative módulos do menu lateral. Módulos desativados ficarão em cinza e inacessíveis.
+            Ative ou desative módulos e seções inteiras. Módulos desativados ficarão inacessíveis no menu lateral.
           </p>
         </div>
 
         {success && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">
+          <div className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center gap-2">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/>
+            </svg>
             {success}
           </div>
         )}
 
-        <div className="space-y-3">
-          {modules.map(module => (
-            <div
-              key={module.id}
-              className={`
-                border rounded-lg p-4 transition-all
-                ${module.active
-                  ? 'border-gray-200 bg-white hover:bg-gray-50'
-                  : 'border-gray-300 bg-gray-100'
-                }
-              `}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`
-                    text-3xl
-                    ${!module.active && 'opacity-40 grayscale'}
-                  `}>
-                    {module.icon}
+        <div className="space-y-6">
+          {SECTIONS.map(section => {
+            const colors = SECTION_COLORS[section.color];
+            const sectionState = getSectionState(section.id);
+
+            return (
+              <div key={section.id} className={`rounded-xl border-2 ${sectionState === 'off' ? 'border-gray-200 bg-gray-50' : `${colors.border} ${colors.bgLight}`} overflow-hidden transition-all`}>
+                {/* Section Header */}
+                <div className={`flex items-center justify-between px-5 py-4 ${sectionState === 'off' ? 'bg-gray-100' : ''}`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 ${sectionState === 'off' ? 'bg-gray-400' : colors.bg} rounded-lg flex items-center justify-center text-lg`}>
+                      <span>{section.icon}</span>
+                    </div>
+                    <div>
+                      <h3 className={`font-bold text-base ${sectionState === 'off' ? 'text-gray-500' : colors.text}`}>
+                        {section.name}
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        {section.modules.length} módulo{section.modules.length > 1 ? 's' : ''} &middot;{' '}
+                        {sectionState === 'on' ? 'Todos ativos' : sectionState === 'off' ? 'Todos inativos' : 'Parcialmente ativo'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className={`
-                      font-semibold text-lg
-                      ${module.active ? 'text-gray-900' : 'text-gray-500'}
-                    `}>
-                      {module.name}
-                    </h3>
-                    <p className={`
-                      text-sm
-                      ${module.active ? 'text-gray-600' : 'text-gray-400'}
-                    `}>
-                      {module.active ? 'Módulo ativo e acessível' : 'Módulo desativado (apenas visualização)'}
-                    </p>
-                  </div>
+
+                  {/* Section Toggle */}
+                  <button
+                    onClick={() => handleToggleSection(section.id)}
+                    className={`
+                      relative inline-flex h-8 w-14 items-center rounded-full transition-colors
+                      ${sectionState === 'on' ? 'bg-green-500' : sectionState === 'partial' ? 'bg-yellow-400' : 'bg-gray-300'}
+                    `}
+                    title={sectionState === 'on' ? 'Desativar seção inteira' : 'Ativar seção inteira'}
+                  >
+                    <span
+                      className={`
+                        inline-block h-6 w-6 transform rounded-full bg-white transition-transform shadow
+                        ${sectionState === 'on' ? 'translate-x-7' : sectionState === 'partial' ? 'translate-x-4' : 'translate-x-1'}
+                      `}
+                    />
+                  </button>
                 </div>
 
-                {/* Toggle Switch */}
-                <button
-                  onClick={() => handleToggleModule(module.id)}
-                  className={`
-                    relative inline-flex h-8 w-14 items-center rounded-full transition-colors
-                    ${module.active ? 'bg-green-500' : 'bg-gray-300'}
-                  `}
-                  title={module.active ? 'Desativar módulo' : 'Ativar módulo'}
-                >
-                  <span
-                    className={`
-                      inline-block h-6 w-6 transform rounded-full bg-white transition-transform
-                      ${module.active ? 'translate-x-7' : 'translate-x-1'}
-                    `}
-                  />
-                </button>
+                {/* Module List */}
+                <div className="px-5 pb-4 pt-1">
+                  <div className="space-y-2">
+                    {section.modules.map(mod => {
+                      const moduleState = modules.find(m => m.id === mod.id);
+                      const isActive = moduleState?.active ?? true;
+
+                      return (
+                        <div
+                          key={mod.id}
+                          className={`
+                            flex items-center justify-between px-4 py-3 rounded-lg border transition-all
+                            ${isActive
+                              ? 'border-gray-200 bg-white hover:bg-gray-50'
+                              : 'border-gray-200 bg-gray-100'
+                            }
+                          `}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className={`text-xl ${!isActive && 'opacity-40 grayscale'}`}>
+                              {mod.icon}
+                            </span>
+                            <span className={`font-medium ${isActive ? 'text-gray-800' : 'text-gray-400'}`}>
+                              {mod.name}
+                            </span>
+                          </div>
+
+                          <button
+                            onClick={() => handleToggleModule(mod.id)}
+                            className={`
+                              relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                              ${isActive ? 'bg-green-500' : 'bg-gray-300'}
+                            `}
+                            title={isActive ? 'Desativar módulo' : 'Ativar módulo'}
+                          >
+                            <span
+                              className={`
+                                inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm
+                                ${isActive ? 'translate-x-6' : 'translate-x-1'}
+                              `}
+                            />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -155,8 +266,8 @@ export default function ModulosTab() {
             <div className="text-sm text-blue-800">
               <p className="font-medium">Informação importante:</p>
               <ul className="mt-2 space-y-1 list-disc list-inside">
-                <li>Módulos desativados continuarão visíveis no menu, mas ficarão em cinza claro</li>
-                <li>Ao tentar acessar um módulo desativado, o usuário verá uma mensagem informativa</li>
+                <li>Use o toggle da seção para ativar/desativar todos os módulos de uma vez</li>
+                <li>Módulos desativados ficarão em cinza e inacessíveis no menu lateral</li>
                 <li>Apenas administradores podem ativar/desativar módulos</li>
               </ul>
             </div>

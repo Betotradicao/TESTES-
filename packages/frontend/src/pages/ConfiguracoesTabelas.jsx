@@ -77,6 +77,8 @@ const TABLE_CATALOG = {
       { id: 'peso_contribuicao', name: 'Peso Contribuição %', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'PER_PESO_CONT' },
       { id: 'pesquisa_media', name: 'Pesquisa Preço Concorrente', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'VAL_PESQUISA_MEDIA' },
       { id: 'pesquisa_concorrente', name: 'Nome Concorrente', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'DES_PESQUISA_CONCORRENTE' },
+      { id: 'tipo_relevancia', name: 'Tipo Relevância', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'TIPO_RELEVANCIA' },
+      { id: 'codigo_associado', name: 'Código Associado', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'COD_ASSOCIADO' },
     ]
   },
   TAB_PRODUTO_PDV: {
@@ -99,6 +101,8 @@ const TABLE_CATALOG = {
       { id: 'hora_venda', name: 'Hora da Venda', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'TIM_HORA' },
       { id: 'flag_oferta', name: 'Flag Oferta', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'FLG_OFERTA' },
       { id: 'valor_imposto_debito', name: 'Valor Imposto Débito', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'VAL_IMPOSTO_DEBITO' },
+      { id: 'valor_imposto_credito', name: 'Valor Imposto Crédito', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'VAL_IMPOSTO_CREDITO' },
+      { id: 'tipo_saida', name: 'Tipo Saída', defaultTable: 'TAB_PRODUTO_PDV', defaultColumn: 'TIPO_SAIDA' },
     ]
   },
   TAB_OPERADORES: {
@@ -225,6 +229,26 @@ const TABLE_CATALOG = {
       { id: 'quantidade_entrada', name: 'Qtd Entrada', defaultTable: 'TAB_NF_ITEM', defaultColumn: 'QTD_ENTRADA' },
       { id: 'valor_custo', name: 'Valor Custo', defaultTable: 'TAB_NF_ITEM', defaultColumn: 'VAL_CUSTO_SCRED' },
       { id: 'valor_total', name: 'Valor Total', defaultTable: 'TAB_NF_ITEM', defaultColumn: 'VAL_TOTAL' },
+      { id: 'cfop', name: 'CFOP', defaultTable: 'TAB_NF_ITEM', defaultColumn: 'CFOP' },
+      { id: 'quantidade_total', name: 'Qtd Total', defaultTable: 'TAB_NF_ITEM', defaultColumn: 'QTD_TOTAL' },
+    ]
+  },
+  TAB_PRODUTO_DECOMPOSICAO: {
+    name: 'Decomposição de Produtos',
+    description: 'Relação pai/filho de produtos decompostos',
+    fields: [
+      { id: 'codigo_produto', name: 'Código Produto (Pai)', defaultTable: 'TAB_PRODUTO_DECOMPOSICAO', defaultColumn: 'COD_PRODUTO' },
+      { id: 'codigo_produto_decomposicao', name: 'Código Produto Decomposto', defaultTable: 'TAB_PRODUTO_DECOMPOSICAO', defaultColumn: 'COD_PRODUTO_DECOM' },
+      { id: 'quantidade_decomposicao', name: 'Qtd Decomposição (%)', defaultTable: 'TAB_PRODUTO_DECOMPOSICAO', defaultColumn: 'QTD_DECOMP' },
+    ]
+  },
+  TAB_PRODUTO_PRODUCAO: {
+    name: 'Produção / Receituário',
+    description: 'Relação produto final e insumos de produção',
+    fields: [
+      { id: 'codigo_produto', name: 'Código Produto (Final)', defaultTable: 'TAB_PRODUTO_PRODUCAO', defaultColumn: 'COD_PRODUTO' },
+      { id: 'codigo_produto_producao', name: 'Código Insumo', defaultTable: 'TAB_PRODUTO_PRODUCAO', defaultColumn: 'COD_PRODUTO_PRODUCAO' },
+      { id: 'quantidade_producao', name: 'Qtd na Receita', defaultTable: 'TAB_PRODUTO_PRODUCAO', defaultColumn: 'QTD_PRODUCAO' },
     ]
   },
   // NOTA: TAB_RUPTURA, TAB_QUEBRA, TAB_ETIQUETA são tabelas INTERNAS (PostgreSQL)
@@ -367,15 +391,7 @@ const TABLE_CATALOG = {
       { id: 'usuario', name: 'Usuário', defaultTable: 'TAB_INFO_RECEITA', defaultColumn: 'USUARIO' },
     ]
   },
-  TAB_PRODUTO_DECOMPOSICAO: {
-    name: 'Decomposição de Produto',
-    description: 'Composição/decomposição de produtos (boi casado, kits)',
-    fields: [
-      { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_PRODUTO_DECOMPOSICAO', defaultColumn: 'COD_PRODUTO' },
-      { id: 'codigo_produto_decom', name: 'Código Produto Decomp.', defaultTable: 'TAB_PRODUTO_DECOMPOSICAO', defaultColumn: 'COD_PRODUTO_DECOM' },
-      { id: 'quantidade_decomp', name: 'Quantidade Decomp.', defaultTable: 'TAB_PRODUTO_DECOMPOSICAO', defaultColumn: 'QTD_DECOMP' },
-    ]
-  },
+  // TAB_PRODUTO_DECOMPOSICAO já definido acima (perto de TAB_NF_ITEM)
   TAB_PRODUTO_HISTORICO: {
     name: 'Histórico de Produto',
     description: 'Histórico de preços e custos do produto',
@@ -601,6 +617,7 @@ const TABLE_CATALOG = {
       { id: 'cod_prog', name: 'Código Programação', defaultTable: 'TAB_PRODUTO_PROG', defaultColumn: 'COD_PROG' },
       { id: 'cod_produto', name: 'Código Produto', defaultTable: 'TAB_PRODUTO_PROG', defaultColumn: 'COD_PRODUTO' },
       { id: 'val_prog', name: 'Valor Programado', defaultTable: 'TAB_PRODUTO_PROG', defaultColumn: 'VAL_PROG' },
+      { id: 'cod_loja', name: 'Código Loja', defaultTable: 'TAB_PRODUTO_PROG', defaultColumn: 'COD_LOJA' },
     ]
   },
 };
@@ -635,7 +652,7 @@ const BUSINESS_MODULES = [
       { id: 'gestao_inteligente', name: 'Gestão Inteligente', icon: '🧠', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_PRODUTO_HISTORICO', 'TAB_CUPOM_FINALIZADORA', 'TAB_NOTA_FISCAL'] },
       { id: 'estoque_saude', name: 'Saúde do Estoque', icon: '📦', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ITENS', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO'] },
       { id: 'analise_corte', name: 'Análise de Corte (Ponderação)', icon: '✂️', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO', 'TAB_SEGMENTO', 'TAB_LOJA'] },
-      { id: 'compra_venda', name: 'Compra x Venda', icon: '🛒', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_PRODUTO_DECOMPOSICAO', 'TAB_FORNECEDOR', 'TAB_NOTA_FISCAL', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO', 'TAB_COMPRADOR', 'TAB_LOJA', 'TAB_NF', 'TAB_NF_ITEM'] },
+      { id: 'compra_venda', name: 'Compra x Venda', icon: '🛒', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_PRODUTO_DECOMPOSICAO', 'TAB_PRODUTO_PRODUCAO', 'TAB_FORNECEDOR', 'TAB_NOTA_FISCAL', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO', 'TAB_COMPRADOR', 'TAB_LOJA', 'TAB_NF', 'TAB_NF_ITEM'] },
       { id: 'pedidos', name: 'Pedidos de Compras', icon: '📋', tables: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO', 'TAB_NOTA_FISCAL', 'TAB_COMPRADOR'] },
       { id: 'ruptura_industria', name: 'Ruptura Indústria', icon: '🏭', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO', 'TAB_NF', 'TAB_NF_ITEM'] },
       { id: 'calendario_atendimento', name: 'Calendário de Atendimento', icon: '📅', tables: ['TAB_FORNECEDOR', 'TAB_CLASSIFICACAO', 'TAB_NOTA_FISCAL', 'TAB_CONDICAO_FORNECEDOR', 'TAB_CONDICAO', 'TAB_PEDIDO'] },
@@ -652,7 +669,7 @@ const BUSINESS_MODULES = [
     color: 'from-emerald-500 to-teal-600',
     submodules: [
       { id: 'garimpa_fornecedores', name: 'Garimpa Fornecedores', icon: '🔍', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO'] },
-      { id: 'gestao_ofertas', name: 'Gestão de Ofertas', icon: '🏷️', tables: ['TAB_PROGRAMACAO', 'TAB_PRODUTO_PROG', 'TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_SECAO', 'TAB_FORNECEDOR'] },
+      { id: 'gestao_ofertas', name: 'Gestão de Ofertas', icon: '🏷️', tables: ['TAB_PROGRAMACAO', 'TAB_PRODUTO_PROG', 'TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_SECAO', 'TAB_FORNECEDOR', 'TAB_NF', 'TAB_NF_ITEM'] },
     ]
   },
   {
@@ -668,7 +685,7 @@ const BUSINESS_MODULES = [
   },
   {
     id: 'ia',
-    name: 'IA no Radar',
+    name: 'Consultor Digital',
     icon: '🤖',
     color: 'from-purple-500 to-violet-600',
     submodules: [

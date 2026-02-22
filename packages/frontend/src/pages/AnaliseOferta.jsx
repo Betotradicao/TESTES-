@@ -31,7 +31,7 @@ const CURVA_COLORS = {
   E: { color: 'bg-red-100 text-red-700 border-red-400 hover:bg-red-200',         activeColor: 'bg-red-500 text-white border-red-600' },
 };
 
-export default function AnaliseOferta() {
+export default function AnaliseOferta({ defaultTab }) {
   const { user, logout } = useAuth();
   const { lojaSelecionada } = useLoja();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -42,7 +42,7 @@ export default function AnaliseOferta() {
   const [loading, setLoading] = useState(false);
 
   // Abas
-  const [activeTab, setActiveTab] = useState('analise');
+  const [activeTab, setActiveTab] = useState(defaultTab || 'analise');
   const [excedidoData, setExcedidoData] = useState([]);
   const [excedidoLoading, setExcedidoLoading] = useState(false);
   const [excedidoLoaded, setExcedidoLoaded] = useState(false);

@@ -151,15 +151,22 @@ async function resolveMapping() {
   try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_parceiro'); if (v) niCodParceiro = v; } catch {}
   try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_item'); if (v) niCodItem = v; } catch {}
   try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total'); if (v) niValTotal = v; } catch {}
+  let niCfop = 'CFOP';
+  try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'cfop'); if (v) niCfop = v; } catch {}
 
-  // ── Coluna DIAS_COBERTURA em TAB_PRODUTO_LOJA (hardcode: QTD_COBERTURA, padrão compra-venda.service) ──
-  const plDiasCobertura = 'QTD_COBERTURA';
+  // ── Coluna DIAS_COBERTURA em TAB_PRODUTO_LOJA ──
+  let plDiasCobertura = 'QTD_COBERTURA';
+  try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cobertura'); if (v) plDiasCobertura = v; } catch {}
 
   // ── Colunas TIPO_ESPECIE e TIPO_EVENTO em TAB_PRODUTO ──
   let pTipoEspecie = 'TIPO_ESPECIE';
   let pTipoEvento = 'TIPO_EVENTO';
   try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO', 'tipo_especie'); if (v) pTipoEspecie = v; } catch {}
   try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO', 'tipo_evento'); if (v) pTipoEvento = v; } catch {}
+
+  // ── Coluna TIPO_RELEVANCIA em TAB_PRODUTO_LOJA ──
+  let plTipoRelevancia = 'TIPO_RELEVANCIA';
+  try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'tipo_relevancia'); if (v) plTipoRelevancia = v; } catch {}
 
   // ── Colunas Concorrente em TAB_PRODUTO_LOJA ──
   let plPesquisaMedia = 'VAL_PESQUISA_MEDIA';
@@ -194,6 +201,10 @@ async function resolveMapping() {
     pTipoEspecie, pTipoEvento,
     // Concorrente cols
     plPesquisaMedia, plPesquisaConcorrente,
+    // Relevancia col
+    plTipoRelevancia,
+    // NF_ITEM extra cols
+    niCfop,
   };
 }
 
@@ -271,7 +282,7 @@ export class OfertasService {
     let hasRelevanciaCol = true;
     try {
       const tblName = (await MappingService.getRealTableName('TAB_PRODUTO_LOJA')).replace(/"/g, '');
-      const checkSql = `SELECT COLUMN_NAME FROM ALL_TAB_COLUMNS WHERE OWNER = '${m.schema.replace(/"/g, '')}' AND TABLE_NAME = '${tblName}' AND COLUMN_NAME = 'TIPO_RELEVANCIA'`;
+      const checkSql = `SELECT COLUMN_NAME FROM ALL_TAB_COLUMNS WHERE OWNER = '${m.schema.replace(/"/g, '')}' AND TABLE_NAME = '${tblName}' AND COLUMN_NAME = '${m.plTipoRelevancia}'`;
       const checkRes = await OracleService.query<any>(checkSql);
       if (checkRes.length === 0) hasRelevanciaCol = false;
     } catch (e) {
@@ -342,7 +353,7 @@ export class OfertasService {
         p.${m.pCodFornecedor} as COD_FORNECEDOR,
         NVL(pl.${m.plPesquisaMedia}, 0) as CONC_BARATO,
         pl.${m.plPesquisaConcorrente} as CONC_NOME${hasRelevanciaCol ? `,
-        NVL(pl.TIPO_RELEVANCIA, -1) as TIPO_RELEVANCIA` : ''}
+        NVL(pl.${m.plTipoRelevancia}, -1) as TIPO_RELEVANCIA` : ''}
       FROM ${m.tabProdutoProg} pp
       JOIN ${m.tabProduto} p ON pp.${m.ppCodProduto} = p.${m.pCodProduto}
       JOIN ${m.tabProdutoLoja} pl ON pp.${m.ppCodProduto} = pl.${m.plCodProduto}
@@ -354,7 +365,7 @@ export class OfertasService {
         ${filtroMesProd}
       ${todasProgs ? `GROUP BY pp.${m.ppCodProduto}, p.${m.pDescricao}, p.${m.pCodBarras}, pl.${m.plValCusto}, pl.${m.plValVenda},
         pl.${m.plEstoque}, pl.${m.plVdMedia}, pl.${m.plCurva}, s.${m.sDesSecao}, p.${m.pCodSecao},
-        f.${m.fDesFornecedor}, p.${m.pCodFornecedor}, pl.${m.plPesquisaMedia}, pl.${m.plPesquisaConcorrente}${hasRelevanciaCol ? `, pl.TIPO_RELEVANCIA` : ''}` : ''}
+        f.${m.fDesFornecedor}, p.${m.pCodFornecedor}, pl.${m.plPesquisaMedia}, pl.${m.plPesquisaConcorrente}${hasRelevanciaCol ? `, pl.${m.plTipoRelevancia}` : ''}` : ''}
       ORDER BY s.${m.sDesSecao}, p.${m.pDescricao}
     `;
 
@@ -658,7 +669,7 @@ export class OfertasService {
     let hasRelevanciaCol = true;
     try {
       const tblName = (await MappingService.getRealTableName('TAB_PRODUTO_LOJA')).replace(/"/g, '');
-      const checkSql = `SELECT COLUMN_NAME FROM ALL_TAB_COLUMNS WHERE OWNER = '${m.schema.replace(/"/g, '')}' AND TABLE_NAME = '${tblName}' AND COLUMN_NAME = 'TIPO_RELEVANCIA'`;
+      const checkSql = `SELECT COLUMN_NAME FROM ALL_TAB_COLUMNS WHERE OWNER = '${m.schema.replace(/"/g, '')}' AND TABLE_NAME = '${tblName}' AND COLUMN_NAME = '${m.plTipoRelevancia}'`;
       const checkRes = await OracleService.query<any>(checkSql);
       if (checkRes.length === 0) hasRelevanciaCol = false;
     } catch (e) {
@@ -689,7 +700,7 @@ export class OfertasService {
         (SELECT COUNT(*) FROM ${m.tabProdutoProg} pp2 WHERE pp2.${m.ppCodProduto} = p.${m.pCodProduto} AND NVL(pp2.${m.ppCodLoja}, :codLoja) = :codLoja) as QTD_OFERTAS,
         NVL(pl.${m.plPesquisaMedia}, 0) as CONC_BARATO,
         pl.${m.plPesquisaConcorrente} as CONC_NOME${hasRelevanciaCol ? `,
-        NVL(pl.TIPO_RELEVANCIA, -1) as TIPO_RELEVANCIA` : ''}
+        NVL(pl.${m.plTipoRelevancia}, -1) as TIPO_RELEVANCIA` : ''}
       FROM ${m.tabProduto} p
       JOIN (
         SELECT
@@ -702,16 +713,16 @@ export class OfertasService {
         WHERE nf.${m.nfDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND nf.${m.nfTipoOperacao} = 0
           AND nf.${m.nfCodLoja} = :codLoja
-          AND TRIM(ni.CFOP) IN ('1101','1102','2101','2102','1401','1403','1407','2403')
+          AND TRIM(ni.${m.niCfop}) IN ('1101','1102','2101','2102','1401','1403','1407','2403')
         GROUP BY ni.${m.niCodItem}
       ) c ON p.${m.pCodProduto} = c.COD_PRODUTO
       LEFT JOIN (
         SELECT
           pv.${m.pvCodProduto} as COD_PRODUTO,
-          SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO) as CUSTO_VENDA,
-          SUM(pv.VAL_TOTAL_PRODUTO) as VALOR_VENDAS
+          SUM(pv.${m.pvValCustoRep} * pv.${m.pvQtdTotal}) as CUSTO_VENDA,
+          SUM(pv.${m.pvValTotal}) as VALOR_VENDAS
         FROM ${m.tabProdutoPdv} pv
-        WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        WHERE pv.${m.pvDtaSaida} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
           AND pv.${m.pvCodLoja} = :codLoja
         GROUP BY pv.${m.pvCodProduto}
       ) v ON p.${m.pCodProduto} = v.COD_PRODUTO

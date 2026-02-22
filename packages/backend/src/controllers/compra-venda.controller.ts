@@ -87,8 +87,8 @@ export class CompraVendaController {
 
       // Colunas Decomposição
       const colCodProdutoDecomp = await MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'codigo_produto');
-      const colCodProdutoDecom = await MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'codigo_produto_decom');
-      const colQtdDecomp = await MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'quantidade_decomp');
+      const colCodProdutoDecom = await MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'codigo_produto_decomposicao');
+      const colQtdDecomp = await MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'quantidade_decomposicao');
 
       // Se passou busca por nome de produto
       if (busca) {

@@ -519,6 +519,14 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/gestao-ofertas/ofertas-salvas"
+              element={
+                <ProtectedRoute>
+                  <AnaliseOferta defaultTab="salvas" />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </SetupCheck>

@@ -604,11 +604,11 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     },
     {
       id: 'ia-radar',
-      title: 'IA NO RADAR',
+      title: 'CONSULTOR DIGITAL',
       titleComponent: (
         <span>
-          <span className="text-gray-700">IA NO </span>
-          <span className="text-orange-500 font-bold">RADAR</span>
+          <span className="text-gray-700">CONSULTOR </span>
+          <span className="text-orange-500 font-bold">DIGITAL</span>
         </span>
       ),
       icon: (
@@ -781,7 +781,9 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
 
           return true;
         }).map((item) => {
-          const moduleActive = item.moduleId ? isModuleActive(item.moduleId) : true;
+          // Se a seção tem items, verificar se TODOS estão inativos para desabilitar seção inteira
+          const allItemsInactive = item.items && item.items.length > 0 && item.items.every(subItem => subItem.moduleId && !isModuleActive(subItem.moduleId));
+          const moduleActive = item.moduleId ? isModuleActive(item.moduleId) : !allItemsInactive;
 
           // Filtrar items baseado em permissões de módulo do colaborador
           const filteredItems = item.items ? item.items.filter(subitem => {

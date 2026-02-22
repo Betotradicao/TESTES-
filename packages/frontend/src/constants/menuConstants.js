@@ -24,7 +24,7 @@ export const MENU_MODULES = {
   BANCOS: 'bancos',
   ENTRADAS_SAIDAS: 'entradas-saidas',
   DEMONSTRATIVO_CAIXA: 'demonstrativo-caixa',
-  // IA no Radar
+  // Consultor Digital
   ROTA_CRESCIMENTO: 'rota-crescimento',
 };
 
@@ -50,6 +50,7 @@ export const MENU_SUBMENUS = {
 
   // Gestão de Ofertas
   PROGRAMACAO_ATUAL: 'programacao-atual',
+  OFERTAS_SALVAS: 'ofertas-salvas',
 
   // Controle de Recebimento
   NF_A_CHEGAR: 'nf-a-chegar',
@@ -62,6 +63,8 @@ export const MENU_SUBMENUS = {
 
   // PDV
   PDV_FRENTE_CAIXA: 'pdv-frente-caixa',
+  PDV_GESTAO_TROCAS: 'pdv-gestao-trocas',
+  PDV_CONTROLE_PDV: 'pdv-controle-pdv',
 
   // Facial
   FACIAL_RECONHECIMENTO: 'facial-reconhecimento',
@@ -103,7 +106,7 @@ export const MENU_SUBMENUS = {
   ENTRADAS_SAIDAS: 'entradas-saidas',
   DEMONSTRATIVO_CAIXA: 'demonstrativo-caixa',
 
-  // IA no Radar
+  // Consultor Digital
   ROTA_CRESCIMENTO_DASHBOARD: 'rota-crescimento-dashboard',
 };
 
@@ -207,6 +210,11 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.ANALISE_OFERTA,
         title: 'Análise e Sugestão',
         path: '/gestao-ofertas/analise-sugestao'
+      },
+      {
+        id: MENU_SUBMENUS.OFERTAS_SALVAS,
+        title: 'Ofertas Salvas',
+        path: '/gestao-ofertas/ofertas-salvas'
       }
     ]
   },
@@ -244,6 +252,16 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.PDV_FRENTE_CAIXA,
         title: 'Frente de Caixa',
         path: '/frente-caixa'
+      },
+      {
+        id: MENU_SUBMENUS.PDV_GESTAO_TROCAS,
+        title: 'Gestão de Trocas',
+        path: '/gestao-trocas'
+      },
+      {
+        id: MENU_SUBMENUS.PDV_CONTROLE_PDV,
+        title: 'Controle de PDV',
+        path: '/controle-pdv'
       }
     ]
   },
@@ -460,7 +478,7 @@ export const MENU_STRUCTURE = [
       }
     ]
   },
-  // ========== IA NO RADAR ==========
+  // ========== CONSULTOR DIGITAL ==========
   {
     id: MENU_MODULES.ROTA_CRESCIMENTO,
     title: 'Rota do Crescimento',
