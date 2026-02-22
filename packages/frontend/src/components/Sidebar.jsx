@@ -159,6 +159,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/pricing-competitividade': 'pricing',
       // Gestão de Ofertas
       '/gestao-ofertas/programacao-atual': 'ofertas',
+      '/gestao-ofertas/analise-sugestao': 'ofertas',
     };
 
     // Mapear rotas para a seção principal (expandedSections)
@@ -175,6 +176,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/pricing-ancoragem': 'gestao-radar',
       '/pricing-competitividade': 'gestao-radar',
       '/gestao-ofertas/programacao-atual': 'gestao-radar',
+      '/gestao-ofertas/analise-sugestao': 'gestao-radar',
       '/bipagens': 'prevencao-radar',
       '/resultados-do-dia': 'prevencao-radar',
       '/rankings': 'prevencao-radar',
@@ -338,7 +340,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'programacao-atual', submenuId: 'programacao-atual', title: 'PROGRAMAÇÃO ATUAL', path: '/gestao-ofertas/programacao-atual' }
+            { id: 'programacao-atual', submenuId: 'programacao-atual', title: 'PROGRAMAÇÃO ATUAL', path: '/gestao-ofertas/programacao-atual' },
+            { id: 'analise-oferta', submenuId: 'analise-oferta', title: 'ANÁLISE E SUGESTÃO', path: '/gestao-ofertas/analise-sugestao' }
           ]
         },
       ]

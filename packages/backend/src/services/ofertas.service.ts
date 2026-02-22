@@ -94,6 +94,8 @@ async function resolveMapping() {
   const pvCodProduto   = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto');
   const pvDtaSaida     = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda');
   const pvCodLoja      = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_loja');
+  let pvNumCupom = 'NUM_CUPOM';
+  try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_cupom'); if (v) pvNumCupom = v; } catch {}
 
   // ── Colunas TAB_SECAO ──
   const sCodSecao  = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
@@ -117,10 +119,59 @@ async function resolveMapping() {
   let ppCodLoja = 'COD_LOJA';
   try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PROG', 'cod_loja'); if (v) ppCodLoja = v; } catch {}
 
+  // ── Tabelas NF (para compra-venda excedido) ──
+  let tabNf = '';
+  let tabNfItem = '';
+  try { tabNf = `${schema}.${await MappingService.getRealTableName('TAB_NF')}`; } catch {}
+  try { tabNfItem = `${schema}.${await MappingService.getRealTableName('TAB_NF_ITEM')}`; } catch {}
+
+  // ── Colunas TAB_NF (padrão: resolver de TAB_NF, exceto COD_LOJA que vem de TAB_LOJA) ──
+  let nfNumNf = 'NUM_NF';
+  let nfSerieNf = 'NUM_SERIE_NF';
+  let nfDtaEntrada = 'DTA_ENTRADA';
+  let nfCodParceiro = 'COD_PARCEIRO';
+  let nfTipoOperacao = 'TIPO_OPERACAO';
+  let nfCodLoja = 'COD_LOJA';
+  try { const v = await MappingService.getColumnFromTable('TAB_NF', 'numero_nf'); if (v) nfNumNf = v; } catch {}
+  try { const v = await MappingService.getColumnFromTable('TAB_NF', 'serie_nf'); if (v) nfSerieNf = v; } catch {}
+  try { const v = await MappingService.getColumnFromTable('TAB_NF', 'data_entrada'); if (v) nfDtaEntrada = v; } catch {}
+  try { const v = await MappingService.getColumnFromTable('TAB_NF', 'codigo_parceiro'); if (v) nfCodParceiro = v; } catch {}
+  try { const v = await MappingService.getColumnFromTable('TAB_NF', 'tipo_operacao'); if (v) nfTipoOperacao = v; } catch {}
+  // COD_LOJA: resolver de TAB_LOJA (mesmo padrão do compra-venda.service)
+  try { const v = await MappingService.getColumnFromTable('TAB_LOJA', 'codigo_loja'); if (v) nfCodLoja = v; } catch {}
+
+  // ── Colunas TAB_NF_ITEM ──
+  let niNumNf = 'NUM_NF';
+  let niSerieNf = 'NUM_SERIE_NF';
+  let niCodParceiro = 'COD_PARCEIRO';
+  let niCodItem = 'COD_ITEM';
+  let niValTotal = 'VAL_TOTAL';
+  try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_nf'); if (v) niNumNf = v; } catch {}
+  try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'serie_nf'); if (v) niSerieNf = v; } catch {}
+  try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_parceiro'); if (v) niCodParceiro = v; } catch {}
+  try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_item'); if (v) niCodItem = v; } catch {}
+  try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total'); if (v) niValTotal = v; } catch {}
+
+  // ── Coluna DIAS_COBERTURA em TAB_PRODUTO_LOJA (hardcode: QTD_COBERTURA, padrão compra-venda.service) ──
+  const plDiasCobertura = 'QTD_COBERTURA';
+
+  // ── Colunas TIPO_ESPECIE e TIPO_EVENTO em TAB_PRODUTO ──
+  let pTipoEspecie = 'TIPO_ESPECIE';
+  let pTipoEvento = 'TIPO_EVENTO';
+  try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO', 'tipo_especie'); if (v) pTipoEspecie = v; } catch {}
+  try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO', 'tipo_evento'); if (v) pTipoEvento = v; } catch {}
+
+  // ── Colunas Concorrente em TAB_PRODUTO_LOJA ──
+  let plPesquisaMedia = 'VAL_PESQUISA_MEDIA';
+  let plPesquisaConcorrente = 'DES_PESQUISA_CONCORRENTE';
+  try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pesquisa_media'); if (v) plPesquisaMedia = v; } catch {}
+  try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pesquisa_concorrente'); if (v) plPesquisaConcorrente = v; } catch {}
+
   return {
     schema,
     // Tabelas
     tabProgramacao, tabProdutoProg, tabProduto, tabProdutoLoja, tabProdutoPdv, tabSecao, tabFornecedor,
+    tabNf, tabNfItem,
     // TAB_PROGRAMACAO cols
     pgCodProg, pgDesProgramacao, pgDtaInicial, pgDtaFinal, pgHorInicio, pgHorFinal, pgTipoProgramacao, pgCodLoja,
     // TAB_PRODUTO_PROG cols
@@ -128,13 +179,21 @@ async function resolveMapping() {
     // TAB_PRODUTO cols
     pCodProduto, pDescricao, pCodSecao, pCodFornecedor, pCodBarras,
     // TAB_PRODUTO_LOJA cols
-    plCodProduto, plCodLoja, plValVenda, plValCusto, plEstoque, plCurva, plVdMedia,
+    plCodProduto, plCodLoja, plValVenda, plValCusto, plEstoque, plCurva, plVdMedia, plDiasCobertura,
     // TAB_PRODUTO_PDV cols
-    pvValTotal, pvValCustoRep, pvQtdTotal, pvFlgOferta, pvCodProduto, pvDtaSaida, pvCodLoja,
+    pvValTotal, pvValCustoRep, pvQtdTotal, pvFlgOferta, pvCodProduto, pvDtaSaida, pvCodLoja, pvNumCupom,
     // TAB_SECAO cols
     sCodSecao, sDesSecao,
     // TAB_FORNECEDOR cols
     fCodFornecedor, fDesFornecedor,
+    // TAB_NF cols
+    nfNumNf, nfSerieNf, nfDtaEntrada, nfCodParceiro, nfTipoOperacao, nfCodLoja,
+    // TAB_NF_ITEM cols
+    niNumNf, niSerieNf, niCodParceiro, niCodItem, niValTotal,
+    // TAB_PRODUTO extra cols
+    pTipoEspecie, pTipoEvento,
+    // Concorrente cols
+    plPesquisaMedia, plPesquisaConcorrente,
   };
 }
 
@@ -273,13 +332,16 @@ export class OfertasService {
         NVL(pl.${m.plValCusto}, 0) as CUSTO,
         NVL(pl.${m.plValVenda}, 0) as PRECO_NORMAL,
         ${todasProgs ? `MIN(NVL(pp.${m.ppValProg}, 0))` : `NVL(pp.${m.ppValProg}, 0)`} as PRECO_OFERTA,
+        (SELECT COUNT(*) FROM ${m.tabProdutoProg} pp2 WHERE pp2.${m.ppCodProduto} = pp.${m.ppCodProduto} AND NVL(pp2.${m.ppCodLoja}, :codLoja) = :codLoja) as QTD_OFERTAS,
         NVL(pl.${m.plEstoque}, 0) as ESTOQUE,
         NVL(pl.${m.plVdMedia}, 0) as VD_MEDIA,
         NVL(pl.${m.plCurva}, 'X') as CURVA,
         s.${m.sDesSecao} as SECAO,
         p.${m.pCodSecao} as COD_SECAO,
         f.${m.fDesFornecedor} as FORNECEDOR,
-        p.${m.pCodFornecedor} as COD_FORNECEDOR${hasRelevanciaCol ? `,
+        p.${m.pCodFornecedor} as COD_FORNECEDOR,
+        NVL(pl.${m.plPesquisaMedia}, 0) as CONC_BARATO,
+        pl.${m.plPesquisaConcorrente} as CONC_NOME${hasRelevanciaCol ? `,
         NVL(pl.TIPO_RELEVANCIA, -1) as TIPO_RELEVANCIA` : ''}
       FROM ${m.tabProdutoProg} pp
       JOIN ${m.tabProduto} p ON pp.${m.ppCodProduto} = p.${m.pCodProduto}
@@ -292,7 +354,7 @@ export class OfertasService {
         ${filtroMesProd}
       ${todasProgs ? `GROUP BY pp.${m.ppCodProduto}, p.${m.pDescricao}, p.${m.pCodBarras}, pl.${m.plValCusto}, pl.${m.plValVenda},
         pl.${m.plEstoque}, pl.${m.plVdMedia}, pl.${m.plCurva}, s.${m.sDesSecao}, p.${m.pCodSecao},
-        f.${m.fDesFornecedor}, p.${m.pCodFornecedor}${hasRelevanciaCol ? `, pl.TIPO_RELEVANCIA` : ''}` : ''}
+        f.${m.fDesFornecedor}, p.${m.pCodFornecedor}, pl.${m.plPesquisaMedia}, pl.${m.plPesquisaConcorrente}${hasRelevanciaCol ? `, pl.TIPO_RELEVANCIA` : ''}` : ''}
       ORDER BY s.${m.sDesSecao}, p.${m.pDescricao}
     `;
 
@@ -307,6 +369,7 @@ export class OfertasService {
     let vendasTotal = 0;
     let custoOfertaTotal = 0;
     let vendasPorProduto: Record<string, number> = {};
+    let ticketMedioPorProduto: Record<string, number> = {};
     let diasOferta = 1;
 
     if (dtaInicial && dtaFinal) {
@@ -365,6 +428,39 @@ export class OfertasService {
           vendasProdRows.forEach((r: any) => {
             vendasPorProduto[String(r.COD_PRODUTO)] = parseFloat(r.QTD_VENDIDA) || 0;
           });
+
+          // Ticket Medio: media do valor total dos cupons onde o produto aparece
+          const ticketSql = `
+            WITH cupons_prod AS (
+              SELECT DISTINCT pv.${m.pvCodProduto} AS COD_PRODUTO, pv.${m.pvNumCupom} AS NUM_CUPOM
+              FROM ${m.tabProdutoPdv} pv
+              WHERE pv.${m.pvDtaSaida} BETWEEN (TRUNC(:dtaIni) + :horIni/24) AND LEAST(TRUNC(:dtaFim) + :horFim/24, SYSDATE)
+                AND pv.${m.pvCodLoja} = :codLoja
+                AND pv.${m.pvCodProduto} IN (${placeholders})
+            ),
+            cupom_totais AS (
+              SELECT cp.NUM_CUPOM, SUM(pv2.${m.pvValTotal}) AS TOTAL_CUPOM
+              FROM (SELECT DISTINCT NUM_CUPOM FROM cupons_prod) cp
+              JOIN ${m.tabProdutoPdv} pv2 ON cp.NUM_CUPOM = pv2.${m.pvNumCupom}
+                AND pv2.${m.pvCodLoja} = :codLoja
+                AND pv2.${m.pvDtaSaida} BETWEEN (TRUNC(:dtaIni) + :horIni/24) AND LEAST(TRUNC(:dtaFim) + :horFim/24, SYSDATE)
+              GROUP BY cp.NUM_CUPOM
+            )
+            SELECT cp.COD_PRODUTO, AVG(ct.TOTAL_CUPOM) AS TICKET_MEDIO
+            FROM cupons_prod cp
+            JOIN cupom_totais ct ON cp.NUM_CUPOM = ct.NUM_CUPOM
+            GROUP BY cp.COD_PRODUTO
+          `;
+          const ticketParams: any = { dtaIni: dtaInicial, dtaFim: dtaFinal, horIni: horInicio, horFim: horFinal, codLoja };
+          lote.forEach((cod: string, idx: number) => { ticketParams[`p${i + idx}`] = cod; });
+          try {
+            const ticketRows = await OracleService.query<any>(ticketSql, ticketParams);
+            ticketRows.forEach((r: any) => {
+              ticketMedioPorProduto[String(r.COD_PRODUTO)] = parseFloat(r.TICKET_MEDIO) || 0;
+            });
+          } catch (err: any) {
+            console.warn('[Ofertas] Ticket medio query falhou (ignorando):', err.message);
+          }
         }
       }
       } // fim if diasOferta > 0
@@ -386,7 +482,7 @@ export class OfertasService {
       const vdOferta = qtdVendidaOferta / diasOferta;
 
       // Relevancia: 0=N, 1=SP, 2=R
-      const tipoRelev = row.TIPO_RELEVANCIA;
+      const tipoRelev = row.TIPO_RELEVANCIA != null ? Number(row.TIPO_RELEVANCIA) : -1;
       let relevancia = '-';
       if (tipoRelev === 0) relevancia = 'N';
       else if (tipoRelev === 1) relevancia = 'SP';
@@ -411,6 +507,10 @@ export class OfertasService {
         COD_SECAO: Number(row.COD_SECAO) || 0,
         FORNECEDOR: row.FORNECEDOR || '',
         COD_FORNECEDOR: Number(row.COD_FORNECEDOR) || 0,
+        QTD_OFERTAS: Number(row.QTD_OFERTAS) || 0,
+        TICKET_MEDIO: Math.round((ticketMedioPorProduto[String(row.COD_PRODUTO)] || 0) * 100) / 100,
+        CONC_BARATO: Math.round((parseFloat(row.CONC_BARATO) || 0) * 100) / 100,
+        CONC_NOME: row.CONC_NOME || '',
       };
     });
 
@@ -440,5 +540,243 @@ export class OfertasService {
         difMargem,
       },
     };
+  }
+
+  /**
+   * Historico de ofertas de um produto especifico
+   * Retorna todas as programacoes em que o produto participou, com dados de performance
+   */
+  static async getHistoricoProduto(codProduto: string, codLoja: number): Promise<any[]> {
+    const m = await resolveMapping();
+
+    // Buscar todas as programacoes em que o produto participou
+    const sql = `
+      SELECT
+        pg.${m.pgCodProg} as COD_PROG,
+        pg.${m.pgDesProgramacao} as DES_PROGRAMACAO,
+        TO_CHAR(pg.${m.pgDtaInicial}, 'DD/MM/YYYY') as DTA_INICIAL,
+        TO_CHAR(pg.${m.pgDtaFinal}, 'DD/MM/YYYY') as DTA_FINAL,
+        pg.${m.pgDtaInicial} as DTA_INI_RAW,
+        pg.${m.pgDtaFinal} as DTA_FIM_RAW,
+        NVL(pg.${m.pgHorInicio}, 0) as HOR_INICIO,
+        NVL(pg.${m.pgHorFinal}, 23) as HOR_FINAL,
+        NVL(pp.${m.ppValProg}, 0) as PRECO_OFERTA,
+        NVL(pl.${m.plValVenda}, 0) as PRECO_NORMAL,
+        NVL(pl.${m.plValCusto}, 0) as CUSTO,
+        NVL(pl.${m.plVdMedia}, 0) as VD_MEDIA
+      FROM ${m.tabProdutoProg} pp
+      JOIN ${m.tabProgramacao} pg ON pp.${m.ppCodProg} = pg.${m.pgCodProg}
+      JOIN ${m.tabProdutoLoja} pl ON pp.${m.ppCodProduto} = pl.${m.plCodProduto}
+        AND pl.${m.plCodLoja} = :codLoja
+      WHERE pp.${m.ppCodProduto} = :codProduto
+        AND NVL(pp.${m.ppCodLoja}, :codLoja) = :codLoja
+      ORDER BY pg.${m.pgDtaInicial} DESC
+    `;
+
+    const rows = await OracleService.query<any>(sql, { codProduto, codLoja });
+
+    // Para cada programacao, buscar vendas reais no periodo
+    const resultado = [];
+    for (const row of rows) {
+      const custo = parseFloat(row.CUSTO) || 0;
+      const precoNormal = parseFloat(row.PRECO_NORMAL) || 0;
+      const precoOferta = parseFloat(row.PRECO_OFERTA) || 0;
+      const vdMedia = parseFloat(row.VD_MEDIA) || 0;
+      const margemOferta = precoOferta > 0 ? ((precoOferta - custo) / precoOferta) * 100 : 0;
+
+      // Calcular dias do periodo
+      const dtaIni = row.DTA_INI_RAW ? new Date(row.DTA_INI_RAW) : null;
+      const dtaFim = row.DTA_FIM_RAW ? new Date(row.DTA_FIM_RAW) : null;
+      let vdOferta = 0;
+      let crescOferta = 0;
+
+      if (dtaIni && dtaFim) {
+        const hoje = new Date();
+        const fimReal = dtaFim > hoje ? hoje : dtaFim;
+        const diffMs = fimReal.getTime() - dtaIni.getTime();
+        const diasOferta = diffMs > 0 ? Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24))) : 0;
+
+        if (diasOferta > 0) {
+          const vendasSql = `
+            SELECT NVL(SUM(pv.${m.pvQtdTotal}), 0) as QTD_VENDIDA
+            FROM ${m.tabProdutoPdv} pv
+            WHERE pv.${m.pvCodProduto} = :codProduto
+              AND pv.${m.pvCodLoja} = :codLoja
+              AND pv.${m.pvDtaSaida} BETWEEN (TRUNC(:dtaIni) + :horIni/24) AND LEAST(TRUNC(:dtaFim) + :horFim/24, SYSDATE)
+          `;
+          const vRows = await OracleService.query<any>(vendasSql, {
+            codProduto,
+            codLoja,
+            dtaIni: row.DTA_INI_RAW,
+            dtaFim: row.DTA_FIM_RAW,
+            horIni: Number(row.HOR_INICIO) || 0,
+            horFim: Number(row.HOR_FINAL) || 23,
+          });
+          const qtdVendida = parseFloat(vRows[0]?.QTD_VENDIDA) || 0;
+          vdOferta = qtdVendida / diasOferta;
+          crescOferta = vdMedia > 0 ? ((vdOferta - vdMedia) / vdMedia) * 100 : 0;
+        }
+      }
+
+      resultado.push({
+        COD_PROG: Number(row.COD_PROG),
+        DES_PROGRAMACAO: row.DES_PROGRAMACAO || '',
+        DTA_INICIAL: row.DTA_INICIAL,
+        DTA_FINAL: row.DTA_FINAL,
+        PRECO_NORMAL: Math.round(precoNormal * 100) / 100,
+        PRECO_OFERTA: Math.round(precoOferta * 100) / 100,
+        MARGEM_OFERTA: Math.round(margemOferta * 10) / 10,
+        VD_MEDIA: Math.round(vdMedia * 100) / 100,
+        VD_OFERTA: Math.round(vdOferta * 100) / 100,
+        CRESC_OFERTA: Math.round(crescOferta * 10) / 10,
+      });
+    }
+
+    return resultado;
+  }
+
+  /**
+   * Compra e Venda Excedido - produtos "estourados" (compra > custo de venda) no ano corrente.
+   * Retorna apenas produtos com DIFERENCA_RS < 0.
+   */
+  static async getCompraVendaExcedido(codLoja: number, tipoEspecie: number | null = 0, tipoEvento: number | null = 0): Promise<any[]> {
+    const m = await resolveMapping();
+
+    if (!m.tabNf || !m.tabNfItem) {
+      console.warn('[Ofertas] TAB_NF ou TAB_NF_ITEM nao mapeadas');
+      return [];
+    }
+
+    // Periodo: 01/01 do ano corrente ate hoje
+    const anoAtual = new Date().getFullYear();
+    const dataInicio = `01/01/${anoAtual}`;
+    const dataFim = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    console.log('[Ofertas] getCompraVendaExcedido - codLoja:', codLoja, 'periodo:', dataInicio, '-', dataFim, 'tipoEspecie:', tipoEspecie, 'tipoEvento:', tipoEvento);
+
+    // Verificar se coluna TIPO_RELEVANCIA existe
+    let hasRelevanciaCol = true;
+    try {
+      const tblName = (await MappingService.getRealTableName('TAB_PRODUTO_LOJA')).replace(/"/g, '');
+      const checkSql = `SELECT COLUMN_NAME FROM ALL_TAB_COLUMNS WHERE OWNER = '${m.schema.replace(/"/g, '')}' AND TABLE_NAME = '${tblName}' AND COLUMN_NAME = 'TIPO_RELEVANCIA'`;
+      const checkRes = await OracleService.query<any>(checkSql);
+      if (checkRes.length === 0) hasRelevanciaCol = false;
+    } catch (e) {
+      hasRelevanciaCol = false;
+    }
+
+    // Filtros de tipo especie e tipo evento
+    const filtroEspecie = tipoEspecie !== null ? `AND NVL(p.${m.pTipoEspecie}, 0) = :tipoEspecie` : '';
+    const filtroEvento = tipoEvento !== null ? `AND NVL(p.${m.pTipoEvento}, 0) = :tipoEvento` : '';
+
+    const sql = `
+      SELECT
+        p.${m.pCodProduto} as COD_PRODUTO,
+        p.${m.pDescricao} as DESCRICAO,
+        p.${m.pCodBarras} as COD_BARRAS,
+        s.${m.sDesSecao} as SECAO,
+        p.${m.pCodSecao} as COD_SECAO,
+        NVL(pl.${m.plEstoque}, 0) as ESTOQUE_ATUAL,
+        NVL(pl.${m.plDiasCobertura}, 0) as DIAS_COBERTURA,
+        NVL(pl.${m.plCurva}, 'X') as CURVA,
+        NVL(pl.${m.plValVenda}, 0) as PRECO_VENDA,
+        NVL(pl.${m.plValCusto}, 0) as CUSTO_UNITARIO,
+        NVL(c.VALOR_COMPRAS, 0) as COMPRAS,
+        NVL(v.CUSTO_VENDA, 0) as CUSTO_VENDA,
+        NVL(v.VALOR_VENDAS, 0) as VENDAS,
+        NVL(v.CUSTO_VENDA, 0) - NVL(c.VALOR_COMPRAS, 0) as DIFERENCA_RS,
+        NVL(pl.${m.plVdMedia}, 0) as VD_MEDIA,
+        (SELECT COUNT(*) FROM ${m.tabProdutoProg} pp2 WHERE pp2.${m.ppCodProduto} = p.${m.pCodProduto} AND NVL(pp2.${m.ppCodLoja}, :codLoja) = :codLoja) as QTD_OFERTAS,
+        NVL(pl.${m.plPesquisaMedia}, 0) as CONC_BARATO,
+        pl.${m.plPesquisaConcorrente} as CONC_NOME${hasRelevanciaCol ? `,
+        NVL(pl.TIPO_RELEVANCIA, -1) as TIPO_RELEVANCIA` : ''}
+      FROM ${m.tabProduto} p
+      JOIN (
+        SELECT
+          ni.${m.niCodItem} as COD_PRODUTO,
+          SUM(ni.${m.niValTotal}) as VALOR_COMPRAS
+        FROM ${m.tabNf} nf
+        JOIN ${m.tabNfItem} ni ON nf.${m.nfNumNf} = ni.${m.niNumNf}
+          AND nf.${m.nfSerieNf} = ni.${m.niSerieNf}
+          AND nf.${m.nfCodParceiro} = ni.${m.niCodParceiro}
+        WHERE nf.${m.nfDtaEntrada} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND nf.${m.nfTipoOperacao} = 0
+          AND nf.${m.nfCodLoja} = :codLoja
+          AND TRIM(ni.CFOP) IN ('1101','1102','2101','2102','1401','1403','1407','2403')
+        GROUP BY ni.${m.niCodItem}
+      ) c ON p.${m.pCodProduto} = c.COD_PRODUTO
+      LEFT JOIN (
+        SELECT
+          pv.${m.pvCodProduto} as COD_PRODUTO,
+          SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO) as CUSTO_VENDA,
+          SUM(pv.VAL_TOTAL_PRODUTO) as VALOR_VENDAS
+        FROM ${m.tabProdutoPdv} pv
+        WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+          AND pv.${m.pvCodLoja} = :codLoja
+        GROUP BY pv.${m.pvCodProduto}
+      ) v ON p.${m.pCodProduto} = v.COD_PRODUTO
+      LEFT JOIN ${m.tabSecao} s ON p.${m.pCodSecao} = s.${m.sCodSecao}
+      LEFT JOIN ${m.tabProdutoLoja} pl ON p.${m.pCodProduto} = pl.${m.plCodProduto}
+        AND pl.${m.plCodLoja} = :codLoja
+      WHERE (NVL(v.CUSTO_VENDA, 0) - NVL(c.VALOR_COMPRAS, 0)) < 0
+      ${filtroEspecie}
+      ${filtroEvento}
+      ORDER BY s.${m.sDesSecao}, (NVL(v.CUSTO_VENDA, 0) - NVL(c.VALOR_COMPRAS, 0)) ASC
+    `;
+
+    const params: any = { dataInicio, dataFim, codLoja };
+    if (tipoEspecie !== null) params.tipoEspecie = tipoEspecie;
+    if (tipoEvento !== null) params.tipoEvento = tipoEvento;
+    const rows = await OracleService.query<any>(sql, params);
+
+    console.log('[Ofertas] Compra-venda excedido:', rows.length, 'produtos estourados');
+
+    return rows.map((row: any) => {
+      const precoVenda = parseFloat(row.PRECO_VENDA) || 0;
+      const custoUnit = parseFloat(row.CUSTO_UNITARIO) || 0;
+      const compras = parseFloat(row.COMPRAS) || 0;
+      const custoVenda = parseFloat(row.CUSTO_VENDA) || 0;
+      const vendas = parseFloat(row.VENDAS) || 0;
+      const difRS = parseFloat(row.DIFERENCA_RS) || 0;
+
+      // META_PCT = CUSTO_VENDA / VENDAS * 100; PCT = COMPRAS / VENDAS * 100; DIF = META - PCT
+      const metaPct = vendas > 0 ? (custoVenda / vendas) * 100 : 0;
+      const pct = vendas > 0 ? (compras / vendas) * 100 : 0;
+      const difPct = Math.round((metaPct - pct) * 100) / 100;
+
+      // Margem = (PrecoVenda - Custo) / PrecoVenda * 100
+      const margem = precoVenda > 0 ? Math.round(((precoVenda - custoUnit) / precoVenda) * 10000) / 100 : 0;
+
+      // Relevancia: 0=N, 1=SP, 2=R
+      const tipoRelev = row.TIPO_RELEVANCIA != null ? Number(row.TIPO_RELEVANCIA) : -1;
+      let relevancia = '-';
+      if (tipoRelev === 0) relevancia = 'N';
+      else if (tipoRelev === 1) relevancia = 'SP';
+      else if (tipoRelev === 2) relevancia = 'R';
+
+      return {
+        COD_PRODUTO: String(row.COD_PRODUTO),
+        DESCRICAO: row.DESCRICAO || '',
+        COD_BARRAS: row.COD_BARRAS || '',
+        SECAO: row.SECAO || 'SEM SECAO',
+        COD_SECAO: Number(row.COD_SECAO) || 0,
+        ESTOQUE_ATUAL: parseFloat(row.ESTOQUE_ATUAL) || 0,
+        DIAS_COBERTURA: Math.round((parseFloat(row.DIAS_COBERTURA) || 0) * 10) / 10,
+        CURVA: row.CURVA || 'X',
+        PRECO_VENDA: Math.round(precoVenda * 100) / 100,
+        CUSTO: Math.round(custoUnit * 100) / 100,
+        MARGEM: margem,
+        DIF_ANUAL_RS: Math.round(difRS * 100) / 100,
+        DIF_ANUAL_PCT: difPct,
+        COMPRAS: Math.round(compras * 100) / 100,
+        CUSTO_VENDA: Math.round(custoVenda * 100) / 100,
+        VENDAS: Math.round(vendas * 100) / 100,
+        RELEVANCIA: relevancia,
+        QTD_OFERTAS: Number(row.QTD_OFERTAS) || 0,
+        VD_MEDIA: Math.round((parseFloat(row.VD_MEDIA) || 0) * 100) / 100,
+        CONC_BARATO: Math.round((parseFloat(row.CONC_BARATO) || 0) * 100) / 100,
+        CONC_NOME: row.CONC_NOME || '',
+      };
+    });
   }
 }
