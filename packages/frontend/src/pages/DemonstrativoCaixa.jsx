@@ -849,7 +849,7 @@ export default function DemonstrativoCaixa() {
 
       {/* Painel lateral - Detalhamento de Títulos */}
       {detalhePainel && (
-        <div className="w-[520px] flex-shrink-0 border-l border-gray-300 bg-white flex flex-col overflow-hidden shadow-xl">
+        <div className="w-[620px] flex-shrink-0 border-l border-gray-300 bg-white flex flex-col overflow-hidden shadow-xl">
           {/* Header do painel */}
           <div className="bg-gradient-to-r from-orange-600 to-orange-500 text-white px-4 py-3 flex items-center justify-between shrink-0">
             <div className="min-w-0">
@@ -892,6 +892,9 @@ export default function DemonstrativoCaixa() {
                       <div className="flex items-center gap-2">
                         <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${t.FLG_QUITADO === 'S' ? 'bg-green-500' : 'bg-red-500'}`}></span>
                         <span className="text-sm font-medium text-gray-800 truncate flex-1">{t.DES_PARCEIRO || 'Sem parceiro'}</span>
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${t.FLG_COMPENSADO === 'S' ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-red-100 text-red-600 border border-red-300'}`}>
+                          {t.FLG_COMPENSADO === 'S' ? 'CONCILIADA' : 'NÃO CONCILIADA'}
+                        </span>
                         <span className="text-sm font-bold text-gray-700 shrink-0">
                           {formatCurrency(t.VAL_PARCELA)}
                         </span>

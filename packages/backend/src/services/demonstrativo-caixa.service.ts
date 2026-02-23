@@ -85,6 +85,8 @@ async function resolveMapping() {
   const flxCodCategoria = await MappingService.getColumnFromTable('TAB_FLUXO', 'cod_categoria');
   const flxCodSubcategoria = await MappingService.getColumnFromTable('TAB_FLUXO', 'cod_subcategoria');
   const flxDesObservacao = await MappingService.getColumnFromTable('TAB_FLUXO', 'des_observacao');
+  let flxFlgCompensado = 'FLG_COMPENSADO';
+  try { const v = await MappingService.getColumnFromTable('TAB_FLUXO', 'flg_compensado'); if (v) flxFlgCompensado = v; } catch {}
 
   // Colunas TAB_FLUXO_EVENTO
   const feNumRegistro = await MappingService.getColumnFromTable('TAB_FLUXO_EVENTO', 'num_registro');
@@ -149,7 +151,7 @@ async function resolveMapping() {
     // Colunas TAB_FLUXO
     flxNumRegistro, flxCodLoja, flxTipoConta, flxTipoParceiro, flxCodParceiro, flxDesParceiro,
     flxNumDocto, flxNumNf, flxNumSerieNf, flxValParcela, flxNumParcela, flxQtdParcela,
-    flxFlgQuitado, flxDtaVencimento, flxDtaEntrada, flxDtaQuitada, flxDtaEmissao,
+    flxFlgQuitado, flxFlgCompensado, flxDtaVencimento, flxDtaEntrada, flxDtaQuitada, flxDtaEmissao,
     flxCodEntidade, flxCodCategoria, flxCodSubcategoria, flxDesObservacao,
     // Colunas TAB_FLUXO_EVENTO
     feNumRegistro, feTipoConta, feTipoParceiro, feCodParceiro, feCodLoja, feCodEvento, feValEvento,
@@ -597,6 +599,7 @@ export class DemonstrativoCaixaService {
 
     const titulos = await OracleService.query<any>(`
       SELECT f.${m.flxNumRegistro} as NUM_REGISTRO, f.${m.flxFlgQuitado} as FLG_QUITADO,
+             f.${m.flxFlgCompensado} as FLG_COMPENSADO,
              f.${m.flxCodLoja} as COD_LOJA, f.${m.flxTipoConta} as TIPO_CONTA,
              f.${m.flxDesParceiro} as DES_PARCEIRO, f.${m.flxNumDocto} as NUM_DOCTO,
              f.${m.flxNumNf} as NUM_NF, f.${m.flxNumSerieNf} as NUM_SERIE_NF,
