@@ -38,6 +38,9 @@ export class FornecedorAgendamento {
   @Column({ type: 'varchar', length: 10, nullable: true })
   hora_termino: string | null;
 
+  @Column({ type: 'boolean', default: false })
+  romaneio: boolean;
+
   @Column({ name: 'cod_loja', type: 'int', nullable: true })
   cod_loja: number | null;
 

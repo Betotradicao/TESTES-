@@ -2,11 +2,13 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Layout from '../components/Layout';
 import api from '../services/api';
 import { useLoja } from '../contexts/LojaContext';
+import { useAuth } from '../contexts/AuthContext';
 
 // Definição das colunas da tabela (ordem padrão)
 const ALL_COLUMNS = [
   { id: 'lote', label: 'LOTE', align: 'center', width: 'w-[50px]', special: 'lote' },
   { id: 'idx', label: '#', align: 'left' },
+  { id: 'tipo_nota', label: 'Tipo Nota', align: 'center', width: 'w-[100px]' },
   { id: 'num_nota', label: 'N° da Nota', align: 'left' },
   { id: 'fornecedor', label: 'FORNECEDOR', align: 'left' },
   { id: 'data_recebimento', label: 'Data Recebimento', align: 'center' },
@@ -33,6 +35,8 @@ const CARD_ORDER_KEY = 'nf-recebimento-card-order';
 
 export default function NotaFiscalRecebimento() {
   const { lojaSelecionada } = useLoja();
+  const { user } = useAuth();
+  const isAdminOrMaster = user?.type === 'admin' || user?.isMaster;
   const [notas, setNotas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [colaboradores, setColaboradores] = useState({ conferentes: [], cpds: [], financeiros: [] });
@@ -69,6 +73,11 @@ export default function NotaFiscalRecebimento() {
   // Resumo pendentes (ano vigente)
   const [resumoPendentes, setResumoPendentes] = useState({ semConferente: 0, semCpd: 0, semFinanceiro: 0, total: 0, ano: new Date().getFullYear() });
   const [cardFilter, setCardFilter] = useState(null); // null | 'conferente' | 'cpd' | 'financeiro'
+  const [tipoNotaFilter, setTipoNotaFilter] = useState('todos'); // 'todos' | 'fiscal' | 'romaneio'
+  const [romaneioSubFilter, setRomaneioSubFilter] = useState('todos'); // 'todos' | 'com_nf' | 'sem_nf'
+  const [fornecedoresRomaneio, setFornecedoresRomaneio] = useState([]);
+  const [editingNumNota, setEditingNumNota] = useState(null); // { id, value }
+  const [savingNumNota, setSavingNumNota] = useState(null);
 
   // Ordenação de colunas (click no header)
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
@@ -83,14 +92,31 @@ export default function NotaFiscalRecebimento() {
     });
   };
 
+  // Filtrar por tipo_nota + sub-filtro romaneio
+  const filteredNotas = useMemo(() => {
+    let filtered = notas;
+    if (tipoNotaFilter !== 'todos') {
+      filtered = filtered.filter(n => (n.tipo_nota || 'fiscal') === tipoNotaFilter);
+    }
+    if (tipoNotaFilter === 'romaneio' && romaneioSubFilter !== 'todos') {
+      if (romaneioSubFilter === 'com_nf') {
+        filtered = filtered.filter(n => n.num_nota && n.num_nota.trim() !== '');
+      } else if (romaneioSubFilter === 'sem_nf') {
+        filtered = filtered.filter(n => !n.num_nota || n.num_nota.trim() === '');
+      }
+    }
+    return filtered;
+  }, [notas, tipoNotaFilter, romaneioSubFilter]);
+
   const sortedNotas = useMemo(() => {
-    if (!sortConfig.key || notas.length === 0) return notas;
-    const sorted = [...notas];
+    if (!sortConfig.key || filteredNotas.length === 0) return filteredNotas;
+    const sorted = [...filteredNotas];
     const dir = sortConfig.direction === 'asc' ? 1 : -1;
     sorted.sort((a, b) => {
       let va, vb;
       switch (sortConfig.key) {
         case 'idx': return 0; // idx is just row number
+        case 'tipo_nota': va = a.tipo_nota || 'fiscal'; vb = b.tipo_nota || 'fiscal'; break;
         case 'num_nota': va = a.num_nota || ''; vb = b.num_nota || ''; break;
         case 'fornecedor': va = a.fornecedor || ''; vb = b.fornecedor || ''; break;
         case 'data_recebimento': va = a.data_recebimento || ''; vb = b.data_recebimento || ''; break;
@@ -104,7 +130,7 @@ export default function NotaFiscalRecebimento() {
       return dir * va.localeCompare(vb, 'pt-BR', { sensitivity: 'base' });
     });
     return sorted;
-  }, [notas, sortConfig]);
+  }, [filteredNotas, sortConfig]);
 
   // Ordem das colunas (drag-and-drop persistente)
   const [columnOrder, setColumnOrder] = useState(() => {
@@ -124,7 +150,11 @@ export default function NotaFiscalRecebimento() {
   const dragColRef = useRef(null);
   const dragOverColRef = useRef(null);
 
-  const orderedColumns = columnOrder.map(id => ALL_COLUMNS.find(c => c.id === id)).filter(Boolean);
+  const orderedColumns = columnOrder.map(id => ALL_COLUMNS.find(c => c.id === id)).filter(c => {
+    if (!c) return false;
+    if (c.id === 'acoes' && !isAdminOrMaster) return false;
+    return true;
+  });
 
   const handleColumnDragStart = (e, colId) => {
     dragColRef.current = colId;
@@ -224,6 +254,7 @@ export default function NotaFiscalRecebimento() {
   };
 
   const [formNota, setFormNota] = useState({
+    tipo_nota: 'fiscal',
     num_nota: '',
     fornecedor: '',
     cod_fornecedor: null,
@@ -341,10 +372,20 @@ export default function NotaFiscalRecebimento() {
     }
   }, [lojaSelecionada]);
 
+  const fetchFornecedoresRomaneio = useCallback(async () => {
+    try {
+      const res = await api.get('/nota-fiscal-recebimento/fornecedores-romaneio');
+      setFornecedoresRomaneio(res.data || []);
+    } catch (err) {
+      console.error('Erro ao buscar fornecedores romaneio:', err);
+    }
+  }, []);
+
   useEffect(() => { fetchNotas(); }, [fetchNotas]);
   useEffect(() => { fetchColaboradores(); }, [fetchColaboradores]);
   useEffect(() => { fetchFornecedores(); }, [fetchFornecedores]);
   useEffect(() => { fetchResumoPendentes(); }, [fetchResumoPendentes]);
+  useEffect(() => { fetchFornecedoresRomaneio(); }, [fetchFornecedoresRomaneio]);
 
   useEffect(() => {
     if (notas.length > 0) verificarEntradas(notas);
@@ -378,7 +419,9 @@ export default function NotaFiscalRecebimento() {
   }).slice(0, 10);
 
   const handleSalvarNota = async () => {
-    if (!formNota.num_nota || !formNota.fornecedor || !formNota.valor_nota) return;
+    const isRomaneio = formNota.tipo_nota === 'romaneio';
+    if (!isRomaneio && !formNota.num_nota) return;
+    if (!formNota.fornecedor || !formNota.valor_nota) return;
     setSubmitting(true);
     try {
       const payload = {
@@ -396,6 +439,7 @@ export default function NotaFiscalRecebimento() {
       setShowNovaModal(false);
       setEditingNota(null);
       setFormNota({
+        tipo_nota: 'fiscal',
         num_nota: '',
         fornecedor: '',
         cod_fornecedor: null,
@@ -486,6 +530,7 @@ export default function NotaFiscalRecebimento() {
     setEditingNota(nota);
     setNfOracleInfo(null);
     setFormNota({
+      tipo_nota: nota.tipo_nota || 'fiscal',
       num_nota: nota.num_nota,
       fornecedor: nota.fornecedor,
       cod_fornecedor: nota.cod_fornecedor,
@@ -511,10 +556,23 @@ export default function NotaFiscalRecebimento() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedNotas.size === notas.length) {
+    if (selectedNotas.size === filteredNotas.length) {
       setSelectedNotas(new Set());
     } else {
-      setSelectedNotas(new Set(notas.map(n => n.id)));
+      setSelectedNotas(new Set(filteredNotas.map(n => n.id)));
+    }
+  };
+
+  const handleSaveNumNotaInline = async (notaId, numNota) => {
+    setSavingNumNota(notaId);
+    try {
+      await api.put(`/nota-fiscal-recebimento/${notaId}`, { num_nota: numNota });
+      setEditingNumNota(null);
+      fetchNotas();
+    } catch (err) {
+      console.error('Erro ao salvar N° da nota:', err);
+    } finally {
+      setSavingNumNota(null);
     }
   };
 
@@ -556,6 +614,7 @@ export default function NotaFiscalRecebimento() {
             onClick={() => {
               setEditingNota(null);
               setFormNota({
+                tipo_nota: 'fiscal',
                 num_nota: '',
                 fornecedor: '',
                 cod_fornecedor: null,
@@ -636,6 +695,50 @@ export default function NotaFiscalRecebimento() {
             <button onClick={() => setCardFilter(null)} className="text-amber-600 hover:text-amber-800 text-sm underline">Limpar filtro</button>
           </div>
         )}
+
+        {/* Filtro Tipo Nota */}
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <span className="text-xs font-medium text-gray-500">Tipo:</span>
+          {[
+            { value: 'todos', label: 'Todos' },
+            { value: 'fiscal', label: 'Fiscal' },
+            { value: 'romaneio', label: 'Romaneio' },
+          ].map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => { setTipoNotaFilter(opt.value); if (opt.value !== 'romaneio') setRomaneioSubFilter('todos'); }}
+              className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                tipoNotaFilter === opt.value
+                  ? 'bg-orange-500 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+          {tipoNotaFilter === 'romaneio' && (
+            <>
+              <span className="text-gray-300 mx-1">|</span>
+              {[
+                { value: 'todos', label: 'Todos' },
+                { value: 'com_nf', label: 'Com Nota Fiscal' },
+                { value: 'sem_nf', label: 'Sem Nota Fiscal' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setRomaneioSubFilter(opt.value)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    romaneioSubFilter === opt.value
+                      ? 'bg-purple-500 text-white shadow-md'
+                      : 'bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-200'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
 
         {/* Filters */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
@@ -808,7 +911,7 @@ export default function NotaFiscalRecebimento() {
                             <span className="text-[10px]">LOTE</span>
                             <input
                               type="checkbox"
-                              checked={notas.length > 0 && selectedNotas.size === notas.length}
+                              checked={filteredNotas.length > 0 && selectedNotas.size === filteredNotas.length}
                               onChange={toggleSelectAll}
                               className="w-4 h-4 rounded border-white/50 text-orange-600 focus:ring-orange-500 cursor-pointer"
                             />
@@ -856,7 +959,7 @@ export default function NotaFiscalRecebimento() {
                       </div>
                     </td>
                   </tr>
-                ) : notas.length === 0 ? (
+                ) : sortedNotas.length === 0 ? (
                   <tr>
                     <td colSpan={orderedColumns.length} className="px-4 py-16 text-center text-gray-400">
                       Nenhuma nota fiscal registrada para o periodo selecionado
@@ -888,8 +991,73 @@ export default function NotaFiscalRecebimento() {
                             );
                           case 'idx':
                             return <td key={col.id} className="px-3 py-2.5 text-gray-400 font-mono text-xs">{idx + 1}</td>;
-                          case 'num_nota':
-                            return <td key={col.id} className="px-3 py-2.5 font-semibold text-gray-900">{nota.num_nota}</td>;
+                          case 'tipo_nota':
+                            return (
+                              <td key={col.id} className="px-3 py-2.5 text-center">
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  (nota.tipo_nota || 'fiscal') === 'romaneio'
+                                    ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                                    : 'bg-blue-100 text-blue-700 border border-blue-300'
+                                }`}>
+                                  {(nota.tipo_nota || 'fiscal') === 'romaneio' ? 'ROMANEIO' : 'FISCAL'}
+                                </span>
+                              </td>
+                            );
+                          case 'num_nota': {
+                            const isRomaneioNota = (nota.tipo_nota || 'fiscal') === 'romaneio';
+                            const semNota = !nota.num_nota || nota.num_nota.trim() === '';
+                            const isEditing = editingNumNota?.id === nota.id;
+                            const isSaving = savingNumNota === nota.id;
+                            if (isRomaneioNota && semNota && !isEditing) {
+                              return (
+                                <td key={col.id} className="px-3 py-2.5">
+                                  <button
+                                    onClick={() => setEditingNumNota({ id: nota.id, value: '' })}
+                                    className="text-xs text-purple-500 hover:text-purple-700 border border-dashed border-purple-300 rounded px-2 py-1 hover:bg-purple-50 transition-colors"
+                                  >
+                                    + Adicionar NF
+                                  </button>
+                                </td>
+                              );
+                            }
+                            if (isEditing) {
+                              return (
+                                <td key={col.id} className="px-1 py-1">
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="text"
+                                      value={editingNumNota.value}
+                                      onChange={(e) => setEditingNumNota({ ...editingNumNota, value: e.target.value })}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && editingNumNota.value.trim()) {
+                                          handleSaveNumNotaInline(nota.id, editingNumNota.value.trim());
+                                        }
+                                        if (e.key === 'Escape') setEditingNumNota(null);
+                                      }}
+                                      onBlur={() => {
+                                        if (editingNumNota.value.trim()) {
+                                          handleSaveNumNotaInline(nota.id, editingNumNota.value.trim());
+                                        } else {
+                                          setEditingNumNota(null);
+                                        }
+                                      }}
+                                      autoFocus
+                                      disabled={isSaving}
+                                      className="w-full px-2 py-1 border border-purple-400 rounded text-sm font-semibold focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-purple-50"
+                                      placeholder="N° da NF..."
+                                    />
+                                    {isSaving && (
+                                      <svg className="animate-spin h-4 w-4 text-purple-500 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                      </svg>
+                                    )}
+                                  </div>
+                                </td>
+                              );
+                            }
+                            return <td key={col.id} className="px-3 py-2.5 font-semibold text-gray-900">{nota.num_nota || '-'}</td>;
+                          }
                           case 'fornecedor':
                             return (
                               <td key={col.id} className="px-3 py-2.5 text-xs">
@@ -1044,11 +1212,11 @@ export default function NotaFiscalRecebimento() {
             </table>
           </div>
           {/* Total */}
-          {notas.length > 0 && (
+          {sortedNotas.length > 0 && (
             <div className="px-4 py-3 bg-gradient-to-r from-orange-50 to-amber-50 border-t border-orange-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 text-sm">
-              <span className="text-gray-600 font-medium">{notas.length} nota(s) encontrada(s)</span>
+              <span className="text-gray-600 font-medium">{sortedNotas.length} nota(s) encontrada(s){tipoNotaFilter !== 'todos' ? ` (${tipoNotaFilter})` : ''}</span>
               <span className="font-bold text-orange-700 text-base">
-                Total: {formatCurrency(notas.reduce((sum, n) => sum + parseFloat(n.valor_nota || 0), 0))}
+                Total: {formatCurrency(sortedNotas.reduce((sum, n) => sum + parseFloat(n.valor_nota || 0), 0))}
               </span>
             </div>
           )}
@@ -1065,24 +1233,52 @@ export default function NotaFiscalRecebimento() {
                 </h3>
               </div>
               <div className="p-6 space-y-4">
+                {/* Tipo Nota: Fiscal / Romaneio */}
+                <div className="flex items-center gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="tipo_nota"
+                      value="fiscal"
+                      checked={formNota.tipo_nota === 'fiscal'}
+                      onChange={() => setFormNota({ ...formNota, tipo_nota: 'fiscal' })}
+                      className="w-4 h-4 text-orange-500 focus:ring-orange-500"
+                    />
+                    <span className="text-sm font-semibold text-gray-700">Fiscal</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="tipo_nota"
+                      value="romaneio"
+                      checked={formNota.tipo_nota === 'romaneio'}
+                      onChange={() => setFormNota({ ...formNota, tipo_nota: 'romaneio', num_nota: '' })}
+                      className="w-4 h-4 text-orange-500 focus:ring-orange-500"
+                    />
+                    <span className="text-sm font-semibold text-gray-700">ROMANEIO</span>
+                  </label>
+                </div>
+
                 {/* N° da Nota */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">N° da Nota *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">N° da Nota {formNota.tipo_nota === 'fiscal' ? '*' : <span className="text-gray-400 text-xs">(opcional)</span>}</label>
                   <div className="relative">
                     <input
                       type="text"
                       value={formNota.num_nota}
                       onChange={(e) => {
                         setFormNota({ ...formNota, num_nota: e.target.value });
-                        if (nfOracleInfo) setNfOracleInfo(null);
+                        if (formNota.tipo_nota !== 'romaneio' && nfOracleInfo) setNfOracleInfo(null);
                       }}
                       onBlur={(e) => {
+                        if (formNota.tipo_nota === 'romaneio') return;
                         const val = e.target.value.trim();
                         if (val && val !== nfOracleInfo?.num_nf?.toString()) {
                           buscarNfOracle(val);
                         }
                       }}
                       onKeyDown={(e) => {
+                        if (formNota.tipo_nota === 'romaneio') return;
                         if (e.key === 'Enter' || e.key === 'Tab') {
                           const val = formNota.num_nota.trim();
                           if (val && val !== nfOracleInfo?.num_nf?.toString()) {
@@ -1091,11 +1287,12 @@ export default function NotaFiscalRecebimento() {
                         }
                       }}
                       className={`w-full px-3 py-2.5 border rounded-lg text-sm font-semibold focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
+                        formNota.tipo_nota === 'romaneio' ? 'border-purple-300 bg-purple-50/30' :
                         nfOracleInfo?.found ? 'border-green-400 bg-green-50' :
                         nfOracleInfo?.found === false ? 'border-yellow-400 bg-yellow-50' :
                         'border-gray-300'
                       }`}
-                      placeholder="Digite o numero da NF e pressione Tab..."
+                      placeholder={formNota.tipo_nota === 'romaneio' ? 'Preencha quando a NF chegar...' : 'Digite o numero da NF e pressione Tab...'}
                       autoFocus
                     />
                     {buscandoNf && (
@@ -1207,44 +1404,76 @@ export default function NotaFiscalRecebimento() {
                 {/* Fornecedor */}
                 <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Fornecedor *</label>
-                  <input
-                    type="text"
-                    value={formFornecedorSearch}
-                    readOnly={!!nfOracleInfo?.found}
-                    onChange={(e) => {
-                      if (nfOracleInfo?.found) return;
-                      setFormFornecedorSearch(e.target.value);
-                      setFormNota({ ...formNota, fornecedor: e.target.value, cod_fornecedor: null });
-                      setShowFormFornecedorDropdown(true);
-                    }}
-                    onFocus={() => !nfOracleInfo?.found && setShowFormFornecedorDropdown(true)}
-                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
-                      nfOracleInfo?.found ? 'bg-gray-100 text-gray-700 border-gray-200' :
-                      formNota.cod_fornecedor ? 'border-green-400 bg-green-50' : 'border-gray-300'
-                    }`}
-                    placeholder="Buscar por nome ou codigo..."
-                  />
-                  {formNota.cod_fornecedor && !nfOracleInfo?.found && (
-                    <span className="absolute right-3 top-8 text-green-600 text-xs">Vinculado</span>
-                  )}
-                  {!nfOracleInfo?.found && showFormFornecedorDropdown && formFornecedorSearch && !formNota.cod_fornecedor && filteredFormFornecedores.length > 0 && (
-                    <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      {filteredFormFornecedores.map(f => (
-                        <button
-                          key={f.cod}
-                          onClick={() => {
-                            setFormFornecedorSearch(f.nome);
-                            setFormCnpjSearch(f.cnpj ? formatCnpj(f.cnpj) : '');
-                            setFormNota({ ...formNota, fornecedor: f.nome, cod_fornecedor: parseInt(f.cod) || null });
-                            setShowFormFornecedorDropdown(false);
-                          }}
-                          className="w-full px-3 py-2 text-left text-sm hover:bg-orange-50"
-                        >
-                          <div className="truncate">{f.nome}</div>
-                          <div className="text-gray-400 text-[10px]">{f.cod} {f.cnpj ? `- ${formatCnpj(f.cnpj)}` : ''}</div>
-                        </button>
-                      ))}
-                    </div>
+                  {formNota.tipo_nota === 'romaneio' && fornecedoresRomaneio.length > 0 ? (
+                    <>
+                      <select
+                        value={formNota.cod_fornecedor || ''}
+                        onChange={(e) => {
+                          const cod = e.target.value;
+                          if (!cod) {
+                            setFormNota({ ...formNota, fornecedor: '', cod_fornecedor: null });
+                            setFormFornecedorSearch('');
+                            setFormCnpjSearch('');
+                            return;
+                          }
+                          const forn = fornecedoresRomaneio.find(f => String(f.cod) === String(cod));
+                          if (forn) {
+                            setFormNota({ ...formNota, fornecedor: forn.nome, cod_fornecedor: parseInt(forn.cod) || null });
+                            setFormFornecedorSearch(forn.nome);
+                            setFormCnpjSearch(forn.cnpj ? formatCnpj(forn.cnpj) : '');
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-purple-300 bg-purple-50 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                      >
+                        <option value="">Selecione o fornecedor...</option>
+                        {fornecedoresRomaneio.map(f => (
+                          <option key={f.cod} value={f.cod}>{f.nome}{f.cnpj ? ` - ${f.cnpj}` : ''}</option>
+                        ))}
+                      </select>
+                      <p className="text-[10px] text-purple-500 mt-1">Fornecedores marcados como Romaneio no Calendário de Atendimento</p>
+                    </>
+                  ) : (
+                    <>
+                      <input
+                        type="text"
+                        value={formFornecedorSearch}
+                        readOnly={!!nfOracleInfo?.found}
+                        onChange={(e) => {
+                          if (nfOracleInfo?.found) return;
+                          setFormFornecedorSearch(e.target.value);
+                          setFormNota({ ...formNota, fornecedor: e.target.value, cod_fornecedor: null });
+                          setShowFormFornecedorDropdown(true);
+                        }}
+                        onFocus={() => !nfOracleInfo?.found && setShowFormFornecedorDropdown(true)}
+                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
+                          nfOracleInfo?.found ? 'bg-gray-100 text-gray-700 border-gray-200' :
+                          formNota.cod_fornecedor ? 'border-green-400 bg-green-50' : 'border-gray-300'
+                        }`}
+                        placeholder="Buscar por nome ou codigo..."
+                      />
+                      {formNota.cod_fornecedor && !nfOracleInfo?.found && (
+                        <span className="absolute right-3 top-8 text-green-600 text-xs">Vinculado</span>
+                      )}
+                      {!nfOracleInfo?.found && showFormFornecedorDropdown && formFornecedorSearch && !formNota.cod_fornecedor && filteredFormFornecedores.length > 0 && (
+                        <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          {filteredFormFornecedores.map(f => (
+                            <button
+                              key={f.cod}
+                              onClick={() => {
+                                setFormFornecedorSearch(f.nome);
+                                setFormCnpjSearch(f.cnpj ? formatCnpj(f.cnpj) : '');
+                                setFormNota({ ...formNota, fornecedor: f.nome, cod_fornecedor: parseInt(f.cod) || null });
+                                setShowFormFornecedorDropdown(false);
+                              }}
+                              className="w-full px-3 py-2 text-left text-sm hover:bg-orange-50"
+                            >
+                              <div className="truncate">{f.nome}</div>
+                              <div className="text-gray-400 text-[10px]">{f.cod} {f.cnpj ? `- ${formatCnpj(f.cnpj)}` : ''}</div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1277,7 +1506,7 @@ export default function NotaFiscalRecebimento() {
                 </button>
                 <button
                   onClick={handleSalvarNota}
-                  disabled={submitting || !formNota.num_nota || !formNota.fornecedor || !formNota.valor_nota}
+                  disabled={submitting || (formNota.tipo_nota !== 'romaneio' && !formNota.num_nota) || !formNota.fornecedor || !formNota.valor_nota}
                   className="px-5 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg text-sm font-medium hover:from-orange-600 hover:to-amber-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submitting ? 'Salvando...' : 'Salvar'}

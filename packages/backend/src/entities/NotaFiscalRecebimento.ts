@@ -56,6 +56,9 @@ export class NotaFiscalRecebimento {
   @Column({ type: 'uuid', nullable: true })
   created_by: string | null;
 
+  @Column({ type: 'varchar', length: 20, default: 'fiscal' })
+  tipo_nota: string;
+
   @Column({ type: 'int', nullable: true })
   cod_loja: number | null;
 

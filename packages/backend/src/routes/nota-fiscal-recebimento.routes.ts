@@ -8,6 +8,7 @@ router.use(authenticateToken);
 router.get('/', NotaFiscalRecebimentoController.listar);
 router.get('/colaboradores', NotaFiscalRecebimentoController.listarColaboradores);
 router.get('/fornecedores', NotaFiscalRecebimentoController.listarFornecedores);
+router.get('/fornecedores-romaneio', NotaFiscalRecebimentoController.listarFornecedoresRomaneio);
 router.get('/notas-a-chegar', NotaFiscalRecebimentoController.listarNotasAChegar);
 router.get('/resumo-pendentes', NotaFiscalRecebimentoController.resumoPendentes);
 router.get('/buscar-nf-oracle/:numNota', NotaFiscalRecebimentoController.buscarNfOracle);

@@ -24,7 +24,7 @@ const formatMoney = (val) => {
 // Opções para dropdowns de agendamento
 const FREQ_OPTIONS = ['', 'Mensal', 'Quinzenal', 'Semanal', 'Diario', '21 Dias'];
 const DIA_SEMANA_OPTIONS = ['', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado', 'Domingo', 'Todos'];
-const AGENDAMENTO_FIELDS = new Set(['FREQ_VISITA', 'DIA_SEMANA_1', 'DIA_SEMANA_2', 'DIA_SEMANA_3', 'DIA_MES', 'INICIO_AGENDAMENTO', 'COMPRADOR', 'TIPO_ATENDIMENTO', 'HORA_INICIO', 'HORA_TERMINO']);
+const AGENDAMENTO_FIELDS = new Set(['ROMANEIO', 'FREQ_VISITA', 'DIA_SEMANA_1', 'DIA_SEMANA_2', 'DIA_SEMANA_3', 'DIA_MES', 'INICIO_AGENDAMENTO', 'COMPRADOR', 'TIPO_ATENDIMENTO', 'HORA_INICIO', 'HORA_TERMINO']);
 
 // Mapeamento dia da semana JS (0=Dom) → nome em português usado no agendamento
 const DIA_SEMANA_MAP = { 0: 'Domingo', 1: 'Segunda', 2: 'Terca', 3: 'Quarta', 4: 'Quinta', 5: 'Sexta', 6: 'Sabado' };
@@ -200,6 +200,7 @@ const FORNECEDOR_COLS = [
   { id: 'NUM_CGC', label: '🔢 CNPJ', align: 'left' },
   { id: 'DES_CONTATO', label: '👤 CONTATO', align: 'left' },
   { id: 'CELULAR', label: '📱 CELULAR', align: 'left' },
+  { id: 'ROMANEIO', label: '📋 ROMANEIO', align: 'center' },
   { id: 'NUM_FREQ_VISITA', label: '🗓️ VISITA', align: 'center' },
   { id: 'NUM_PRAZO', label: '🚚 PRAZO ENT.', align: 'center' },
   { id: 'DIAS_REPOSICAO', label: '📦 DIAS REPOSIÇÃO', align: 'center' },
@@ -304,6 +305,7 @@ const getCellRaw = (colId, f) => {
     case 'NUM_CGC': return f.NUM_CGC || '';
     case 'DES_CONTATO': return (f.DES_CONTATO || '').toUpperCase();
     case 'CELULAR': return f.NUM_CELULAR || f.NUM_FONE || '';
+    case 'ROMANEIO': return f._ag?.romaneio ? 1 : 0;
     case 'NUM_FREQ_VISITA': return Number(f.NUM_FREQ_VISITA) || 0;
     case 'NUM_PRAZO': return Number(f.NUM_PRAZO) || 0;
     case 'DIAS_REPOSICAO': return (Number(f.NUM_FREQ_VISITA) || 0) + (Number(f.NUM_PRAZO) || 0);
@@ -1344,10 +1346,17 @@ export default function CalendarioAtendimento() {
                               return (
                                 <td
                                   key={col.id}
-                                  className={`px-1.5 py-1 whitespace-nowrap max-w-[200px] truncate ${col.align === 'center' ? 'text-center' : 'text-left'} ${isAgCol && !isEditing ? 'cursor-pointer hover:bg-orange-50' : ''}`}
-                                  onClick={isAgCol && !isEditing ? () => setEditingCell({ cod: f.COD_FORNECEDOR, campo: col.id }) : undefined}
+                                  className={`px-1.5 py-1 whitespace-nowrap max-w-[200px] truncate ${col.align === 'center' ? 'text-center' : 'text-left'} ${isAgCol && col.id !== 'ROMANEIO' && !isEditing ? 'cursor-pointer hover:bg-orange-50' : ''}`}
+                                  onClick={isAgCol && col.id !== 'ROMANEIO' && !isEditing ? () => setEditingCell({ cod: f.COD_FORNECEDOR, campo: col.id }) : undefined}
                                 >
-                                  {isAgCol ? (
+                                  {col.id === 'ROMANEIO' ? (
+                                    <input
+                                      type="checkbox"
+                                      checked={!!ag.romaneio}
+                                      onChange={(e) => saveAgendamento(f.COD_FORNECEDOR, 'romaneio', e.target.checked)}
+                                      className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                                    />
+                                  ) : isAgCol ? (
                                     isEditing ? (
                                       // === MODO EDIÇÃO ===
                                       col.id === 'FREQ_VISITA' ? (

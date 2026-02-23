@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import { AppDataSource } from '../config/database';
 import { NotaFiscalRecebimento } from '../entities/NotaFiscalRecebimento';
 import { Employee } from '../entities/Employee';
+import { FornecedorAgendamento } from '../entities/FornecedorAgendamento';
 import { MappingService } from '../services/mapping.service';
 import { OracleService } from '../services/oracle.service';
 
@@ -68,15 +69,20 @@ export class NotaFiscalRecebimentoController {
    */
   static async criar(req: AuthRequest, res: Response) {
     try {
-      const { num_nota, fornecedor, cod_fornecedor, razao_social, data_recebimento, hora_recebimento, valor_nota, cod_loja } = req.body;
+      const { num_nota, fornecedor, cod_fornecedor, razao_social, data_recebimento, hora_recebimento, valor_nota, cod_loja, tipo_nota } = req.body;
 
-      if (!num_nota || !fornecedor || !data_recebimento || !hora_recebimento) {
-        return res.status(400).json({ error: 'Campos obrigatórios: num_nota, fornecedor, data_recebimento, hora_recebimento' });
+      const isRomaneio = tipo_nota === 'romaneio';
+
+      if (!isRomaneio && !num_nota) {
+        return res.status(400).json({ error: 'Campo num_nota é obrigatório para notas fiscais' });
+      }
+      if (!fornecedor || !data_recebimento || !hora_recebimento) {
+        return res.status(400).json({ error: 'Campos obrigatórios: fornecedor, data_recebimento, hora_recebimento' });
       }
 
       const repo = AppDataSource.getRepository(NotaFiscalRecebimento);
       const nf = repo.create({
-        num_nota,
+        num_nota: isRomaneio ? (num_nota || '') : num_nota,
         fornecedor,
         cod_fornecedor: cod_fornecedor || null,
         razao_social: razao_social || null,
@@ -84,6 +90,7 @@ export class NotaFiscalRecebimentoController {
         hora_recebimento,
         valor_nota: parseFloat(valor_nota) || 0,
         cod_loja: cod_loja || null,
+        tipo_nota: tipo_nota || 'fiscal',
         created_by: req.user?.id || null,
       });
 
@@ -117,6 +124,7 @@ export class NotaFiscalRecebimentoController {
       if (data_recebimento !== undefined) nf.data_recebimento = data_recebimento;
       if (hora_recebimento !== undefined) nf.hora_recebimento = hora_recebimento;
       if (valor_nota !== undefined) nf.valor_nota = parseFloat(valor_nota) || 0;
+      if (req.body.tipo_nota !== undefined) nf.tipo_nota = req.body.tipo_nota;
 
       await repo.save(nf);
       res.json(nf);
@@ -863,6 +871,53 @@ export class NotaFiscalRecebimentoController {
     } catch (error: any) {
       console.error('Erro debug nota:', error);
       res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * Lista fornecedores marcados como romaneio (do fornecedor_agendamentos)
+   * GET /api/nota-fiscal-recebimento/fornecedores-romaneio
+   */
+  static async listarFornecedoresRomaneio(req: AuthRequest, res: Response) {
+    try {
+      const repo = AppDataSource.getRepository(FornecedorAgendamento);
+      const agendamentos = await repo.find({ where: { romaneio: true } });
+
+      if (agendamentos.length === 0) {
+        return res.json([]);
+      }
+
+      // Buscar nomes dos fornecedores no Oracle
+      const codFornecedores = agendamentos.map(a => a.cod_fornecedor);
+      try {
+        const schema = await MappingService.getSchema();
+        const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
+
+        const placeholders = codFornecedores.map((_, i) => `:cod${i}`).join(',');
+        const params: Record<string, any> = {};
+        codFornecedores.forEach((cod, i) => { params[`cod${i}`] = cod; });
+
+        const rows = await OracleService.query(
+          `SELECT COD_FORNECEDOR, NVL(DES_FANTASIA, DES_FORNECEDOR) as NOME, NUM_CGC
+           FROM ${tabFornecedor}
+           WHERE COD_FORNECEDOR IN (${placeholders})`,
+          params
+        );
+
+        const result = rows.map((r: any) => ({
+          cod: r.COD_FORNECEDOR,
+          nome: r.NOME,
+          cnpj: r.NUM_CGC || ''
+        }));
+
+        res.json(result);
+      } catch {
+        // Oracle not available - return just codes
+        res.json(codFornecedores.map(cod => ({ cod, nome: `Fornecedor ${cod}`, cnpj: '' })));
+      }
+    } catch (error: any) {
+      console.error('Erro ao listar fornecedores romaneio:', error);
+      res.status(500).json({ error: 'Erro ao listar fornecedores romaneio', details: error.message });
     }
   }
 }

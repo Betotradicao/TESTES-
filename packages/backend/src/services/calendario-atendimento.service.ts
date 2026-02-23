@@ -359,6 +359,7 @@ export class CalendarioAtendimentoService {
     tipo_atendimento?: string | null;
     hora_inicio?: string | null;
     hora_termino?: string | null;
+    romaneio?: boolean;
   }): Promise<FornecedorAgendamento> {
     const repo = AppDataSource.getRepository(FornecedorAgendamento);
 
@@ -380,6 +381,7 @@ export class CalendarioAtendimentoService {
     if (dados.tipo_atendimento !== undefined) agendamento.tipo_atendimento = dados.tipo_atendimento || null;
     if (dados.hora_inicio !== undefined) agendamento.hora_inicio = dados.hora_inicio || null;
     if (dados.hora_termino !== undefined) agendamento.hora_termino = dados.hora_termino || null;
+    if (dados.romaneio !== undefined) agendamento.romaneio = !!dados.romaneio;
 
     return await repo.save(agendamento);
   }
