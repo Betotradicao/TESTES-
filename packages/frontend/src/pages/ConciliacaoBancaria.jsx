@@ -5,6 +5,8 @@ import Sidebar from '../components/Sidebar';
 import RadarLoading from '../components/RadarLoading';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 function formatCurrency(v) {
   return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -244,10 +246,11 @@ export default function ConciliacaoBancaria() {
     });
   }, [codBanco, bancos, bankAccounts]);
 
-  // Auto-select first account when matched accounts change
+  // Auto-select account when matched accounts change (priorizar Tradição LTDA 130075973)
   useEffect(() => {
     if (matchedAccounts.length > 0) {
-      setSelectedBankAccountId(matchedAccounts[0].id);
+      const tradicao = matchedAccounts.find(a => a.conta && a.conta.includes('130075973'));
+      setSelectedBankAccountId(tradicao ? tradicao.id : matchedAccounts[0].id);
     } else {
       setSelectedBankAccountId('');
     }
@@ -451,6 +454,185 @@ export default function ConciliacaoBancaria() {
     toast.success('Candidato selecionado!');
   }, []);
 
+  // PDF Export - Banco (Movimentação)
+  const gerarPdfBanco = useCallback(() => {
+    const bancoRows = filteredRows.filter(r => r.banco);
+    if (!bancoRows.length) return toast.error('Nenhum movimento bancário para exportar');
+
+    const doc = new jsPDF('landscape', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Header
+    doc.setFillColor(234, 88, 12);
+    doc.rect(0, 0, pageWidth, 22, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CONCILIAÇÃO BANCÁRIA - BANCO (MOVIMENTAÇÃO)', pageWidth / 2, 10, { align: 'center' });
+    doc.setFontSize(9);
+    doc.text(`Período: ${formatDate(dtaInicio)} a ${formatDate(dtaFim)}`, pageWidth / 2, 17, { align: 'center' });
+
+    // Resumo
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    const totalEntradas = bancoRows.filter(r => r.banco.TIPO_OPERACAO === 0).reduce((s, r) => s + Math.abs(parseFloat(r.banco.VAL_DOCTO) || 0), 0);
+    const totalSaidas = bancoRows.filter(r => r.banco.TIPO_OPERACAO === 1).reduce((s, r) => s + Math.abs(parseFloat(r.banco.VAL_DOCTO) || 0), 0);
+    doc.text(`Total: ${bancoRows.length} mov.  |  Entradas: ${formatCurrency(totalEntradas)}  |  Saídas: ${formatCurrency(totalSaidas)}  |  Saldo: ${formatCurrency(totalEntradas - totalSaidas)}`, 14, 30);
+
+    // Tabela
+    const tableData = bancoRows.map(r => [
+      formatDate(r.banco.DTA_ENTRADA),
+      r.banco.FAVORECIDO || '-',
+      r.banco.TIPO_OPERACAO === 0 ? 'Entrada' : 'Saída',
+      formatCurrency(Math.abs(parseFloat(r.banco.VAL_DOCTO) || 0)),
+      r.matchStatus === 'MATCHED' ? 'Conciliado' : 'Sem Sistema',
+    ]);
+
+    autoTable(doc, {
+      startY: 35,
+      head: [['Data', 'Favorecido', 'Tipo', 'Valor', 'Status']],
+      body: tableData,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [234, 88, 12], textColor: 255, fontStyle: 'bold' },
+      columnStyles: {
+        0: { cellWidth: 22, halign: 'center' },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 20, halign: 'center' },
+        3: { cellWidth: 30, halign: 'right' },
+        4: { cellWidth: 28, halign: 'center' },
+      },
+      alternateRowStyles: { fillColor: [255, 247, 237] },
+      didDrawCell: (data) => {
+        // Badge colorido no Status (coluna 4)
+        if (data.section === 'body' && data.column.index === 4) {
+          const text = data.cell.raw;
+          const x = data.cell.x + 1;
+          const y = data.cell.y + 1;
+          const w = data.cell.width - 2;
+          const h = data.cell.height - 2;
+          if (text === 'Conciliado') {
+            doc.setFillColor(220, 252, 231);
+            doc.roundedRect(x, y, w, h, 1.5, 1.5, 'F');
+            doc.setTextColor(22, 101, 52);
+          } else {
+            doc.setFillColor(254, 226, 226);
+            doc.roundedRect(x, y, w, h, 1.5, 1.5, 'F');
+            doc.setTextColor(153, 27, 27);
+          }
+          doc.setFontSize(7);
+          doc.setFont('helvetica', 'bold');
+          doc.text(text, data.cell.x + data.cell.width / 2, data.cell.y + data.cell.height / 2 + 1, { align: 'center' });
+        }
+      },
+      willDrawCell: (data) => {
+        // Esconder texto padrão do Status para desenhar custom
+        if (data.section === 'body' && data.column.index === 4) {
+          data.cell.text = [];
+        }
+      },
+      didDrawPage: (data) => {
+        doc.setFontSize(7);
+        doc.setTextColor(150);
+        doc.text(`Página ${doc.internal.getNumberOfPages()}`, pageWidth - 14, doc.internal.pageSize.getHeight() - 5, { align: 'right' });
+      },
+    });
+
+    doc.save(`conciliacao-banco-${dtaInicio}-${dtaFim}.pdf`);
+    toast.success('PDF Banco gerado!');
+  }, [filteredRows, dtaInicio, dtaFim]);
+
+  // PDF Export - Sistema (Contas Pagas)
+  const gerarPdfSistema = useCallback(() => {
+    const sistemaRows = filteredRows.filter(r => r.sistema);
+    if (!sistemaRows.length) return toast.error('Nenhum movimento do sistema para exportar');
+
+    const doc = new jsPDF('landscape', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Header
+    doc.setFillColor(234, 88, 12);
+    doc.rect(0, 0, pageWidth, 22, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CONCILIAÇÃO BANCÁRIA - SISTEMA (CONTAS PAGAS)', pageWidth / 2, 10, { align: 'center' });
+    doc.setFontSize(9);
+    doc.text(`Período: ${formatDate(dtaInicio)} a ${formatDate(dtaFim)}`, pageWidth / 2, 17, { align: 'center' });
+
+    // Resumo
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    const totalEntradas = sistemaRows.filter(r => r.sistema.tipoConta === 1).reduce((s, r) => s + r.sistema.valTotal, 0);
+    const totalSaidas = sistemaRows.filter(r => r.sistema.tipoConta !== 1).reduce((s, r) => s + r.sistema.valTotal, 0);
+    doc.text(`Total: ${sistemaRows.length} reg.  |  Entradas: ${formatCurrency(totalEntradas)}  |  Saídas: ${formatCurrency(totalSaidas)}  |  Saldo: ${formatCurrency(totalEntradas - totalSaidas)}`, 14, 30);
+
+    // Tabela
+    const tableData = sistemaRows.map(r => [
+      formatDate(r.sistema.dtaQuitada),
+      r.sistema.desParceiro || '-',
+      r.sistema.numDocto || '-',
+      r.sistema.numBordero || '-',
+      r.sistema.desSubcategoria || '-',
+      r.sistema.tipoConta === 1 ? 'Entrada' : 'Saída',
+      formatCurrency(r.sistema.valTotal || 0),
+      r.matchStatus === 'MATCHED' ? 'Conciliado' : 'Sem Banco',
+    ]);
+
+    autoTable(doc, {
+      startY: 35,
+      head: [['Data', 'Parceiro', 'Nota', 'Bordero', 'Subcategoria', 'Tipo', 'Valor', 'Status']],
+      body: tableData,
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [234, 88, 12], textColor: 255, fontStyle: 'bold' },
+      columnStyles: {
+        0: { cellWidth: 20, halign: 'center' },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 18, halign: 'center' },
+        3: { cellWidth: 18, halign: 'center' },
+        4: { cellWidth: 40 },
+        5: { cellWidth: 18, halign: 'center' },
+        6: { cellWidth: 28, halign: 'right' },
+        7: { cellWidth: 25, halign: 'center' },
+      },
+      alternateRowStyles: { fillColor: [255, 247, 237] },
+      didDrawCell: (data) => {
+        if (data.section === 'body' && data.column.index === 7) {
+          const text = data.cell.raw;
+          const x = data.cell.x + 1;
+          const y = data.cell.y + 1;
+          const w = data.cell.width - 2;
+          const h = data.cell.height - 2;
+          if (text === 'Conciliado') {
+            doc.setFillColor(220, 252, 231);
+            doc.roundedRect(x, y, w, h, 1.5, 1.5, 'F');
+            doc.setTextColor(22, 101, 52);
+          } else {
+            doc.setFillColor(254, 226, 226);
+            doc.roundedRect(x, y, w, h, 1.5, 1.5, 'F');
+            doc.setTextColor(153, 27, 27);
+          }
+          doc.setFontSize(6);
+          doc.setFont('helvetica', 'bold');
+          doc.text(text, data.cell.x + data.cell.width / 2, data.cell.y + data.cell.height / 2 + 1, { align: 'center' });
+        }
+      },
+      willDrawCell: (data) => {
+        if (data.section === 'body' && data.column.index === 7) {
+          data.cell.text = [];
+        }
+      },
+      didDrawPage: (data) => {
+        doc.setFontSize(7);
+        doc.setTextColor(150);
+        doc.text(`Página ${doc.internal.getNumberOfPages()}`, pageWidth - 14, doc.internal.pageSize.getHeight() - 5, { align: 'right' });
+      },
+    });
+
+    doc.save(`conciliacao-sistema-${dtaInicio}-${dtaFim}.pdf`);
+    toast.success('PDF Sistema gerado!');
+  }, [filteredRows, dtaInicio, dtaFim]);
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -718,14 +900,22 @@ export default function ConciliacaoBancaria() {
             <div className="bg-white rounded-lg shadow-sm border">
               {/* Group headers */}
               <div className="flex">
-                <div className="flex-1 bg-orange-600 text-white text-center py-2 px-3 text-xs font-bold uppercase tracking-wider border-r-2 border-gray-300">
-                  Banco (Movimentacao)
+                <div className="flex-1 bg-orange-600 text-white py-2 px-3 text-xs font-bold uppercase tracking-wider border-r-2 border-gray-300 flex items-center justify-between">
+                  <span className="flex-1 text-center">Banco (Movimentacao)</span>
+                  <button onClick={gerarPdfBanco} className="ml-2 bg-white/20 hover:bg-white/30 rounded px-2 py-0.5 text-[10px] font-bold transition-colors flex items-center gap-1" title="Exportar PDF Banco">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    PDF
+                  </button>
                 </div>
                 <div className="w-[42px] bg-gray-800 text-white text-center py-2 px-1 text-xs font-bold border-r-2 border-gray-300 flex-shrink-0">
                   ST
                 </div>
-                <div className="flex-1 bg-orange-600 text-white text-center py-2 px-3 text-xs font-bold uppercase tracking-wider">
-                  Sistema (Contas Pagas)
+                <div className="flex-1 bg-orange-600 text-white py-2 px-3 text-xs font-bold uppercase tracking-wider flex items-center justify-between">
+                  <button onClick={gerarPdfSistema} className="mr-2 bg-white/20 hover:bg-white/30 rounded px-2 py-0.5 text-[10px] font-bold transition-colors flex items-center gap-1" title="Exportar PDF Sistema">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    PDF
+                  </button>
+                  <span className="flex-1 text-center">Sistema (Contas Pagas)</span>
                 </div>
               </div>
 

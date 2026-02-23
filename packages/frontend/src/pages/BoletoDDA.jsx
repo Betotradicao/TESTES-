@@ -1,6 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Layout from '../components/Layout';
 import { api } from '../utils/api';
+import { Bar } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Tooltip,
+} from 'chart.js';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
 
 const BoletoDDA = () => {
   const [loading, setLoading] = useState(false);
@@ -20,6 +30,10 @@ const BoletoDDA = () => {
   const [finalDate, setFinalDate] = useState(today);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [copiedCode, setCopiedCode] = useState(null);
+
+  // Chart month filter (independente dos filtros da tabela)
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const [chartMonth, setChartMonth] = useState(currentMonth);
 
   // Load banks
   useEffect(() => {
@@ -192,6 +206,71 @@ const BoletoDDA = () => {
     return { total: boletos.length, totalValor, aVencer, vencidos, valorAVencer, valorVencidos };
   }, [boletos]);
 
+  // Segmentação semanal dos boletos para o gráfico
+  const DAY_LABELS = ['Sáb', 'Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
+
+  const weeklyData = useMemo(() => {
+    if (!boletos.length) return [];
+
+    // Filtrar boletos pelo mês selecionado
+    const [year, month] = chartMonth.split('-').map(Number);
+    const monthStart = new Date(year, month - 1, 1);
+    const monthEnd = new Date(year, month, 0); // último dia do mês
+
+    const filtered = boletos.filter(b => {
+      if (!b.dueDate) return false;
+      const d = new Date(b.dueDate + 'T00:00:00');
+      return d >= monthStart && d <= monthEnd;
+    });
+
+    // Encontrar primeiro sábado <= início do mês
+    const firstSat = new Date(monthStart);
+    const dayOfWeek = firstSat.getDay();
+    const diffToSat = dayOfWeek === 6 ? 0 : (dayOfWeek + 1);
+    firstSat.setDate(firstSat.getDate() - diffToSat);
+
+    // Gerar semanas (Sáb-Sex)
+    const weeks = [];
+    const weekStart = new Date(firstSat);
+    while (weekStart <= monthEnd) {
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+
+      const days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(weekStart);
+        d.setDate(d.getDate() + i);
+        return { date: new Date(d), valor: 0, qtd: 0 };
+      });
+
+      // Preencher com boletos
+      filtered.forEach(b => {
+        const bDate = new Date(b.dueDate + 'T00:00:00');
+        for (const day of days) {
+          if (bDate.getFullYear() === day.date.getFullYear() &&
+              bDate.getMonth() === day.date.getMonth() &&
+              bDate.getDate() === day.date.getDate()) {
+            day.valor += parseNominalValue(b.nominalValue);
+            day.qtd += 1;
+            break;
+          }
+        }
+      });
+
+      const totalValor = days.reduce((s, d) => s + d.valor, 0);
+      const totalQtd = days.reduce((s, d) => s + d.qtd, 0);
+
+      // Só incluir semanas que tenham ao menos 1 dia no mês
+      const hasMonthDay = days.some(d => d.date.getMonth() === month - 1);
+      if (hasMonthDay) {
+        weeks.push({ start: new Date(weekStart), end: new Date(weekEnd), days, totalValor, totalQtd });
+      }
+
+      weekStart.setDate(weekStart.getDate() + 7);
+    }
+
+    return weeks;
+  }, [boletos, chartMonth]);
+
   const copyToClipboard = (code) => {
     navigator.clipboard.writeText(code).then(() => {
       setCopiedCode(code);
@@ -266,11 +345,11 @@ const BoletoDDA = () => {
               <p className="text-xs text-gray-400">{formatCurrency(summary.valorVencidos)}</p>
             </div>
             <div className="bg-white rounded-xl p-4 shadow-sm border border-purple-100">
-              <p className="text-xs text-purple-500 font-medium">Valor Médio</p>
+              <p className="text-xs text-purple-500 font-medium">Valor Total</p>
               <p className="text-2xl font-bold text-purple-700">
-                {summary.total > 0 ? formatCurrency(summary.totalValor / summary.total) : 'R$ 0,00'}
+                {formatCurrency(summary.totalValor)}
               </p>
-              <p className="text-xs text-gray-400">por boleto</p>
+              <p className="text-xs text-gray-400">{summary.total} boleto{summary.total !== 1 ? 's' : ''}</p>
             </div>
           </div>
         )}
@@ -363,6 +442,113 @@ const BoletoDDA = () => {
             </button>
           </div>
         </div>
+
+        {/* Gráfico Semanal */}
+        {!loading && boletos.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-orange-500">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <path d="M3 9h18M9 21V9" />
+                </svg>
+                Boletos por Semana
+              </h3>
+              <input
+                type="month"
+                value={chartMonth}
+                onChange={(e) => setChartMonth(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+
+            {weeklyData.length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-6">Nenhum boleto no mês selecionado</p>
+            ) : (
+              <div className={`grid gap-4 ${weeklyData.length === 1 ? 'grid-cols-1' : weeklyData.length === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
+                {weeklyData.map((week, wi) => {
+                  const formatDay = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+                  const labels = week.days.map((d, i) => [DAY_LABELS[i], String(d.date.getDate())]);
+
+                  const chartData = {
+                    labels,
+                    datasets: [{
+                      label: 'Boletos',
+                      data: week.days.map(d => d.valor),
+                      backgroundColor: week.days.map(d => d.valor > 0 ? 'rgba(249, 115, 22, 0.85)' : 'rgba(229, 231, 235, 0.4)'),
+                      borderRadius: 4,
+                      barPercentage: 0.8,
+                      categoryPercentage: 0.75,
+                    }],
+                  };
+
+                  const chartOptions = {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: { display: false },
+                      tooltip: {
+                        callbacks: {
+                          title: (items) => {
+                            const idx = items[0].dataIndex;
+                            const d = week.days[idx];
+                            return `${DAY_LABELS[idx]} ${formatDay(d.date)}`;
+                          },
+                          label: (ctx) => {
+                            const d = week.days[ctx.dataIndex];
+                            return [
+                              `Valor: ${formatCurrency(d.valor)}`,
+                              `Boletos: ${d.qtd}`
+                            ];
+                          },
+                        },
+                      },
+                    },
+                    scales: {
+                      x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 10, weight: 'bold' }, color: '#6b7280' },
+                      },
+                      y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.05)' },
+                        ticks: {
+                          callback: (v) => {
+                            if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
+                            if (v >= 1000) return `${(v / 1000).toFixed(1)}k`;
+                            return v.toFixed(0);
+                          },
+                          maxTicksLimit: 4,
+                          font: { size: 10 },
+                        },
+                      },
+                    },
+                  };
+
+                  return (
+                    <div key={wi} className="border border-gray-100 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-gray-600">
+                          Semana {wi + 1}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {formatDay(week.start)} - {formatDay(week.end)}
+                        </span>
+                      </div>
+                      <div style={{ height: 160 }}>
+                        <Bar data={chartData} options={chartOptions} />
+                      </div>
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
+                        <span className="text-xs text-gray-500">{week.totalQtd} boleto{week.totalQtd !== 1 ? 's' : ''}</span>
+                        <span className="text-xs font-bold text-orange-600">{formatCurrency(week.totalValor)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Error */}
         {error && (

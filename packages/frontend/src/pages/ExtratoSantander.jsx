@@ -38,6 +38,9 @@ export default function ExtratoSantander() {
         const res = await api.get('/api/bank-accounts');
         const activeBanks = (res.data.data || []).filter(b => b.ativo && b.certificate_path);
         setBanks(activeBanks);
+        // Priorizar conta Tradição LTDA (130075973)
+        const tradicao = activeBanks.find(b => b.conta && b.conta.includes('130075973'));
+        if (tradicao) setSelectedBankId(tradicao.id);
       } catch (err) {
         console.error('Erro ao buscar bancos:', err);
       }
