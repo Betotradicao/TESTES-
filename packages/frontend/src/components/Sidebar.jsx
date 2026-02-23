@@ -132,6 +132,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/etiquetas/resultados': 'etiquetas',
       '/perdas-lancador': 'perdas',
       '/perdas-resultados': 'perdas',
+      '/prevencao-trocas': 'prevencao-trocas',
       '/producao-lancador': 'producao',
       '/producao-sugestao': 'producao',
       '/producao/resultados': 'producao',
@@ -186,6 +187,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/etiquetas/resultados': 'prevencao-radar',
       '/perdas-lancador': 'prevencao-radar',
       '/perdas-resultados': 'prevencao-radar',
+      '/prevencao-trocas': 'prevencao-radar',
       '/producao-lancador': 'prevencao-radar',
       '/producao-sugestao': 'prevencao-radar',
       '/producao/resultados': 'prevencao-radar',
@@ -448,6 +450,17 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             { id: 'perdas-lancador', submenuId: 'perdas-lancador', title: 'LANÇAR QUEBRAS', path: '/perdas-lancador' },
             { id: 'perdas-resultados', submenuId: 'perdas-resultados', title: 'RESULTADOS QUEBRAS', path: '/perdas-resultados' }
           ]
+        },
+        {
+          id: 'prevencao-trocas',
+          moduleId: 'prevencao-trocas',
+          title: 'PREVENÇÃO TROCAS',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+            </svg>
+          ),
+          path: '/prevencao-trocas',
         },
         {
           id: 'producao',

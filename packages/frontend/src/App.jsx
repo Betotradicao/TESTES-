@@ -29,6 +29,7 @@ import EtiquetaResultadosAuditorias from './pages/EtiquetaResultadosAuditorias';
 import PerdasLancador from './pages/PerdasLancador';
 import PerdasResultados from './pages/PerdasResultados';
 import GestaoTrocas from './pages/GestaoTrocas';
+import PrevencaoTrocas from './pages/PrevencaoTrocas';
 import ControlePDV from './pages/ControlePDV';
 import ProducaoLancador from './pages/ProducaoLancador';
 import ProducaoSugestao from './pages/ProducaoSugestao';
@@ -252,6 +253,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <GestaoTrocas />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/prevencao-trocas"
+              element={
+                <ProtectedRoute>
+                  <PrevencaoTrocas />
                 </ProtectedRoute>
               }
             />

@@ -55,6 +55,8 @@ export class LossController {
     const estValVendaCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'valor_venda');
     const estCodFornecedorCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'codigo_fornecedor');
     const estUsuarioCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'usuario');
+    // Colunas de saldo de troca (para calcular trocas pendentes)
+    const estQtdEstPostTrocaCol = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'qtd_est_post_troca').catch(() => 'QTD_EST_POST_TROCA');
 
     // --- TAB_PRODUTO ---
     const prodCodigoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
@@ -79,7 +81,7 @@ export class LossController {
       // TAB_AJUSTE_ESTOQUE
       estCodAjusteEstoqueCol, estCodProdutoCol, estQuantidadeCol, estTipoMovCol, estDataMovCol,
       estMotivoCol, estCodLojaCol, estValCustoRepCol,
-      estFlgCanceladoCol, estValVendaCol, estCodFornecedorCol, estUsuarioCol,
+      estFlgCanceladoCol, estValVendaCol, estCodFornecedorCol, estUsuarioCol, estQtdEstPostTrocaCol,
       // TAB_PRODUTO
       prodCodigoCol, prodDescricaoCol, prodEanCol, prodCodSecaoCol,
       // TAB_SECAO
@@ -556,75 +558,124 @@ export class LossController {
 
   /**
    * Buscar trocas agrupadas por fornecedor
-   * Endpoint para a tela de Gestão das Trocas
-   * tipo: 'saidas' (SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR) ou 'entradas' (SAIR TROCA FORNECEDOR ENTRAR ESTOQUE LOJA)
-   * Usando mesma lógica do sistema legado:
-   * - Apenas tipo principal (sem "NÃO VOLTAR")
-   * - SOMA(VAL_CUSTO_REP) e SOMA(VAL_VENDA) direto (não multiplicado por quantidade)
+   * tipo: 'saldo' (NET pendente), 'saidas', 'retornos', 'zerados'
+   * Abordagem NET: saldo = SUM(saídas) - SUM(retornos) - SUM(zerados) por produto/fornecedor
    */
   static async getTrocasFornecedor(req: AuthRequest, res: Response) {
     try {
-      const { loja, tipo, dias } = req.query;
+      const { loja, tipo } = req.query;
 
       const codigoLoja = loja ? parseInt(loja as string) : 1;
-      const tipoTroca = (tipo as string) || 'saidas'; // 'saidas' ou 'entradas'
-      const diasFiltro = dias ? parseInt(dias as string) : 0;
+      const tipoTroca = (tipo as string) || 'saldo';
 
-      console.log('📦 Buscando trocas por fornecedor:', { codigoLoja, tipoTroca, diasFiltro });
+      console.log('📦 Buscando trocas por fornecedor:', { codigoLoja, tipoTroca });
 
-      // Busca mapeamentos dinâmicos via helper centralizado
       const m = await LossController.getLossMappings();
 
-      // Filtro por tipo de ajuste baseado na descrição
-      // ta.${m.taDesAjusteCol}: coluna de TAB_TIPO_AJUSTE - sem mapeamento no TABLE_CATALOG
-      // Saídas: produto sai da loja para troca com fornecedor (tipo principal apenas)
-      // Entradas: produto volta do fornecedor para a loja
-      const tipoAjusteFiltro = tipoTroca === 'entradas'
-        ? `ta.${m.taDesAjusteCol} = 'SAIR TROCA FORNECEDOR ENTRAR ESTOQUE LOJA'`
-        : `ta.${m.taDesAjusteCol} = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR'`;
-
-      // Filtro de período (dias)
-      const filtroPeriodo = diasFiltro > 0 ? `AND ae.${m.estDataMovCol} >= SYSDATE - :dias` : '';
-
-      // Buscar schema e nomes de tabelas dinâmicos
       const schema = await MappingService.getSchema();
       const tabAjusteEstoque = `${schema}.${await MappingService.getRealTableName('TAB_AJUSTE_ESTOQUE')}`;
       const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
       const tabTipoAjuste = `${schema}.${await MappingService.getRealTableName('TAB_TIPO_AJUSTE')}`;
-      const fornecedoresQuery = `
-        SELECT
-          NVL(f.${m.fornCodigoCol}, 0) as COD_FORNECEDOR,
-          NVL(f.${m.fornRazaoSocialCol}, 'SEM FORNECEDOR') as FORNECEDOR,
-          NVL(f.${m.fornFantasiaCol}, f.${m.fornRazaoSocialCol}) as FANTASIA,
-          COUNT(DISTINCT ae.${m.estCodProdutoCol}) as QTD_PRODUTOS,
-          COUNT(*) as QTD_ITENS,
-          SUM(ABS(NVL(ae.${m.estQuantidadeCol}, 0))) as QTD_TOTAL,
-          SUM(NVL(ae.${m.estValCustoRepCol}, 0)) as TOTAL_CUSTO,
-          SUM(NVL(ae.${m.estValVendaCol}, 0)) as TOTAL_VENDA
-        FROM ${tabAjusteEstoque} ae
-        LEFT JOIN ${tabFornecedor} f ON ae.${m.estCodFornecedorCol} = f.${m.fornCodigoCol}
-        LEFT JOIN ${tabTipoAjuste} ta ON ae.${m.estTipoMovCol} = ta.${m.taCodAjusteCol}
-        WHERE ae.${m.estCodLojaCol} = :loja
-        AND (ae.${m.estFlgCanceladoCol} IS NULL OR ae.${m.estFlgCanceladoCol} = 'N')
-        AND ${tipoAjusteFiltro}
-        ${filtroPeriodo}
-        GROUP BY f.${m.fornCodigoCol}, f.${m.fornRazaoSocialCol}, f.${m.fornFantasiaCol}
-        ORDER BY SUM(NVL(ae.${m.estValCustoRepCol}, 0)) DESC
-      `;
+      const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
 
-      const params: any = {
-        loja: codigoLoja,
-      };
-      if (diasFiltro > 0) {
-        params.dias = diasFiltro;
+      // Colunas de TAB_PRODUTO_LOJA para custo/venda ATUAL do produto
+      const plCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto').catch(() => 'COD_PRODUTO');
+      const plCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja').catch(() => 'COD_LOJA');
+      const plPrecoCustoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo').catch(() => 'PRE_CUSTO');
+      const plPrecoVendaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda').catch(() => 'PRE_VENDA');
+
+      let fornecedoresQuery: string;
+      const params: any = { loja: codigoLoja };
+
+      // Expressão CASE para cálculo NET
+      const netCase = `
+        CASE
+          WHEN ta.${m.taDesAjusteCol} = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR' THEN ABS(ae.${m.estQuantidadeCol})
+          WHEN ta.${m.taDesAjusteCol} = 'SAIR TROCA FORNECEDOR ENTRAR ESTOQUE LOJA' THEN -ABS(ae.${m.estQuantidadeCol})
+          WHEN ta.${m.taDesAjusteCol} LIKE '%SAIR TROCA FORNECEDOR E N%O VOLTAR%' THEN -ABS(ae.${m.estQuantidadeCol})
+          ELSE 0
+        END`;
+
+      const baseWhere = `
+        ae.${m.estCodLojaCol} = :loja
+        AND (ae.${m.estFlgCanceladoCol} IS NULL OR ae.${m.estFlgCanceladoCol} = 'N')`;
+
+      const trocaTypes = `(
+        ta.${m.taDesAjusteCol} = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR'
+        OR ta.${m.taDesAjusteCol} = 'SAIR TROCA FORNECEDOR ENTRAR ESTOQUE LOJA'
+        OR ta.${m.taDesAjusteCol} LIKE '%SAIR TROCA FORNECEDOR E N%O VOLTAR%'
+      )`;
+
+      if (tipoTroca === 'saldo') {
+        // SALDO PENDENTE via cálculo NET (saídas - retornos - zerados)
+        // Custo/Venda do TAB_PRODUTO_LOJA (preço ATUAL do produto, igual legado)
+        fornecedoresQuery = `
+          WITH saldo_produto AS (
+            SELECT
+              ae.${m.estCodFornecedorCol} as COD_FORN,
+              ae.${m.estCodProdutoCol} as COD_PROD,
+              SUM(${netCase}) as SALDO_NET
+            FROM ${tabAjusteEstoque} ae
+            LEFT JOIN ${tabTipoAjuste} ta ON ae.${m.estTipoMovCol} = ta.${m.taCodAjusteCol}
+            WHERE ${baseWhere}
+            AND ${trocaTypes}
+            GROUP BY ae.${m.estCodFornecedorCol}, ae.${m.estCodProdutoCol}
+            HAVING SUM(${netCase}) > 0
+          )
+          SELECT
+            NVL(f.${m.fornCodigoCol}, 0) as COD_FORNECEDOR,
+            NVL(f.${m.fornRazaoSocialCol}, 'SEM FORNECEDOR') as FORNECEDOR,
+            NVL(f.${m.fornFantasiaCol}, f.${m.fornRazaoSocialCol}) as FANTASIA,
+            f.NUM_CGC as CNPJ, f.DES_CONTATO as CONTATO, f.NUM_CELULAR as CELULAR, f.NUM_FONE as FONE, f.DES_EMAIL as EMAIL,
+            COUNT(DISTINCT sp.COD_PROD) as QTD_PRODUTOS,
+            SUM(sp.SALDO_NET) as QTD_ITENS,
+            SUM(sp.SALDO_NET) as QTD_TOTAL,
+            SUM(sp.SALDO_NET * NVL(pl.${plPrecoCustoCol}, 0)) as TOTAL_CUSTO,
+            SUM(sp.SALDO_NET * NVL(pl.${plPrecoVendaCol}, 0)) as TOTAL_VENDA
+          FROM saldo_produto sp
+          LEFT JOIN ${tabProdutoLoja} pl ON sp.COD_PROD = pl.${plCodProdutoCol} AND pl.${plCodLojaCol} = :loja
+          LEFT JOIN ${tabFornecedor} f ON sp.COD_FORN = f.${m.fornCodigoCol}
+          GROUP BY f.${m.fornCodigoCol}, f.${m.fornRazaoSocialCol}, f.${m.fornFantasiaCol}, f.NUM_CGC, f.DES_CONTATO, f.NUM_CELULAR, f.NUM_FONE, f.DES_EMAIL
+          ORDER BY SUM(sp.SALDO_NET * NVL(pl.${plPrecoCustoCol}, 0)) DESC
+        `;
+      } else {
+        // Filtro por tipo específico de movimentação
+        let tipoAjusteFiltro: string;
+        if (tipoTroca === 'retornos') {
+          tipoAjusteFiltro = `ta.${m.taDesAjusteCol} = 'SAIR TROCA FORNECEDOR ENTRAR ESTOQUE LOJA'`;
+        } else if (tipoTroca === 'zerados') {
+          tipoAjusteFiltro = `ta.${m.taDesAjusteCol} LIKE '%SAIR TROCA FORNECEDOR E N%O VOLTAR%'`;
+        } else {
+          // saidas
+          tipoAjusteFiltro = `ta.${m.taDesAjusteCol} = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR'`;
+        }
+
+        fornecedoresQuery = `
+          SELECT
+            NVL(f.${m.fornCodigoCol}, 0) as COD_FORNECEDOR,
+            NVL(f.${m.fornRazaoSocialCol}, 'SEM FORNECEDOR') as FORNECEDOR,
+            NVL(f.${m.fornFantasiaCol}, f.${m.fornRazaoSocialCol}) as FANTASIA,
+            f.NUM_CGC as CNPJ, f.DES_CONTATO as CONTATO, f.NUM_CELULAR as CELULAR, f.NUM_FONE as FONE, f.DES_EMAIL as EMAIL,
+            COUNT(DISTINCT ae.${m.estCodProdutoCol}) as QTD_PRODUTOS,
+            SUM(ABS(NVL(ae.${m.estQuantidadeCol}, 0))) as QTD_ITENS,
+            SUM(ABS(NVL(ae.${m.estQuantidadeCol}, 0))) as QTD_TOTAL,
+            SUM(ABS(NVL(ae.${m.estQuantidadeCol}, 0)) * NVL(ae.${m.estValCustoRepCol}, 0)) as TOTAL_CUSTO,
+            SUM(ABS(NVL(ae.${m.estQuantidadeCol}, 0)) * NVL(ae.${m.estValVendaCol}, 0)) as TOTAL_VENDA
+          FROM ${tabAjusteEstoque} ae
+          LEFT JOIN ${tabFornecedor} f ON ae.${m.estCodFornecedorCol} = f.${m.fornCodigoCol}
+          LEFT JOIN ${tabTipoAjuste} ta ON ae.${m.estTipoMovCol} = ta.${m.taCodAjusteCol}
+          WHERE ${baseWhere}
+          AND ${tipoAjusteFiltro}
+          GROUP BY f.${m.fornCodigoCol}, f.${m.fornRazaoSocialCol}, f.${m.fornFantasiaCol}, f.NUM_CGC, f.DES_CONTATO, f.NUM_CELULAR, f.NUM_FONE, f.DES_EMAIL
+          ORDER BY SUM(ABS(NVL(ae.${m.estQuantidadeCol}, 0)) * NVL(ae.${m.estValCustoRepCol}, 0)) DESC
+        `;
       }
 
       const fornecedores = await OracleService.query(fornecedoresQuery, params);
 
-      // Calcular totais
       const totalCusto = fornecedores.reduce((acc: number, f: any) => acc + (parseFloat(f.TOTAL_CUSTO) || 0), 0);
       const totalVenda = fornecedores.reduce((acc: number, f: any) => acc + (parseFloat(f.TOTAL_VENDA) || 0), 0);
-      const totalItens = fornecedores.reduce((acc: number, f: any) => acc + (parseInt(f.QTD_ITENS) || 0), 0);
+      const totalItens = Math.round(fornecedores.reduce((acc: number, f: any) => acc + (parseFloat(f.QTD_ITENS) || 0), 0) * 100) / 100;
       const totalProdutos = fornecedores.reduce((acc: number, f: any) => acc + (parseInt(f.QTD_PRODUTOS) || 0), 0);
 
       const response = {
@@ -640,16 +691,21 @@ export class LossController {
           codFornecedor: parseInt(f.COD_FORNECEDOR) || 0,
           fornecedor: f.FORNECEDOR || 'SEM FORNECEDOR',
           fantasia: f.FANTASIA || f.FORNECEDOR || 'SEM FORNECEDOR',
+          cnpj: f.CNPJ || '',
+          contato: f.CONTATO || '',
+          celular: f.CELULAR || '',
+          fone: f.FONE || '',
+          email: f.EMAIL || '',
           qtdProdutos: parseInt(f.QTD_PRODUTOS) || 0,
-          qtdItens: parseInt(f.QTD_ITENS) || 0,
+          qtdItens: Math.round((parseFloat(f.QTD_ITENS) || 0) * 1000) / 1000,
           qtdTotal: Math.round((parseFloat(f.QTD_TOTAL) || 0) * 1000) / 1000,
           totalCusto: Math.round((parseFloat(f.TOTAL_CUSTO) || 0) * 100) / 100,
           totalVenda: Math.round((parseFloat(f.TOTAL_VENDA) || 0) * 100) / 100,
-          valorTotal: Math.round((parseFloat(f.TOTAL_CUSTO) || 0) * 100) / 100, // mantém para compatibilidade
+          valorTotal: Math.round((parseFloat(f.TOTAL_CUSTO) || 0) * 100) / 100,
         })),
       };
 
-      console.log(`✅ Encontrados ${fornecedores.length} fornecedores com trocas (${tipoTroca})`);
+      console.log(`✅ Encontrados ${fornecedores.length} fornecedores (tipo: ${tipoTroca})`);
       res.json(response);
     } catch (error: any) {
       console.error('❌ Erro ao buscar trocas por fornecedor:', error);
@@ -879,70 +935,124 @@ export class LossController {
 
   /**
    * Buscar itens de troca de um fornecedor específico
+   * tipo: 'saldo' (NET pendente), 'saidas', 'retornos', 'zerados'
    */
   static async getTrocasItensFornecedor(req: AuthRequest, res: Response) {
     try {
-      const { loja, cod_fornecedor, tipo, dias } = req.query;
+      const { loja, cod_fornecedor, tipo } = req.query;
 
       const codigoLoja = loja ? parseInt(loja as string) : 1;
       const codForn = cod_fornecedor ? parseInt(cod_fornecedor as string) : 0;
-      const tipoTroca = (tipo as string) || 'saidas';
-      const diasFiltro = dias ? parseInt(dias as string) : 0;
+      const tipoTroca = (tipo as string) || 'saldo';
 
-      console.log('📦 Buscando itens de troca do fornecedor:', { codigoLoja, codForn, tipoTroca, diasFiltro });
+      console.log('📦 Buscando itens de troca do fornecedor:', { codigoLoja, codForn, tipoTroca });
 
-      // Busca mapeamentos dinâmicos via helper centralizado
       const m = await LossController.getLossMappings();
 
-      // Filtro por tipo de ajuste baseado na descrição (tipo principal apenas)
-      // ta.${m.taDesAjusteCol}: coluna de TAB_TIPO_AJUSTE - sem mapeamento no TABLE_CATALOG
-      // Saídas: produto sai da loja para troca com fornecedor
-      // Entradas: produto volta do fornecedor para a loja
-      const tipoAjusteFiltro = tipoTroca === 'entradas'
-        ? `ta.${m.taDesAjusteCol} = 'SAIR TROCA FORNECEDOR ENTRAR ESTOQUE LOJA'`
-        : `ta.${m.taDesAjusteCol} = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR'`;
-
-      // Filtro de período (dias)
-      const filtroPeriodo = diasFiltro > 0 ? `AND ae.${m.estDataMovCol} >= SYSDATE - :dias` : '';
-
-      // Buscar schema e nomes de tabelas dinâmicos
       const schema = await MappingService.getSchema();
       const tabAjusteEstoque = `${schema}.${await MappingService.getRealTableName('TAB_AJUSTE_ESTOQUE')}`;
       const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
       const tabTipoAjuste = `${schema}.${await MappingService.getRealTableName('TAB_TIPO_AJUSTE')}`;
       const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO')}`;
+      const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
 
-      // Query para buscar itens do fornecedor
-      const itensQuery = `
-        SELECT
-          ae.${m.estCodProdutoCol} as COD_PRODUTO,
-          p.${m.prodDescricaoCol} as DESCRICAO,
-          p.${m.prodEanCol} as CODIGO_BARRAS,
-          ta.${m.taDesAjusteCol} as TIPO_AJUSTE,
-          s.${m.secDesSecaoCol} as SECAO,
-          NVL(ae.${m.estQuantidadeCol}, 0) as QUANTIDADE,
-          NVL(ae.${m.estValCustoRepCol}, 0) as CUSTO_REPOSICAO,
-          NVL(ae.${m.estQuantidadeCol}, 0) * NVL(ae.${m.estValCustoRepCol}, 0) as VALOR_TOTAL,
-          TO_CHAR(ae.${m.estDataMovCol}, 'YYYY-MM-DD') as DATA_AJUSTE,
-          ae.${m.estUsuarioCol}
-        FROM ${tabAjusteEstoque} ae
-        JOIN ${tabProduto} p ON ae.${m.estCodProdutoCol} = p.${m.prodCodigoCol}
-        LEFT JOIN ${tabTipoAjuste} ta ON ae.${m.estTipoMovCol} = ta.${m.taCodAjusteCol}
-        LEFT JOIN ${tabSecao} s ON p.${m.prodCodSecaoCol} = s.${m.secCodSecaoCol}
-        WHERE ae.${m.estCodLojaCol} = :loja
+      // Colunas de TAB_PRODUTO_LOJA para venda média e curva
+      const plCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto').catch(() => 'COD_PRODUTO');
+      const plCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja').catch(() => 'COD_LOJA');
+      const plVendaMediaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'venda_media').catch(() => 'VD_MEDIA');
+      const plCurvaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva').catch(() => 'CURVA');
+
+      let itensQuery: string;
+      const params: any = { loja: codigoLoja, cod_fornecedor: codForn };
+
+      const baseWhere = `
+        ae.${m.estCodLojaCol} = :loja
         AND (ae.${m.estFlgCanceladoCol} IS NULL OR ae.${m.estFlgCanceladoCol} = 'N')
-        AND ${tipoAjusteFiltro}
-        ${filtroPeriodo}
-        AND NVL(ae.${m.estCodFornecedorCol}, 0) = :cod_fornecedor
-        ORDER BY ae.${m.estDataMovCol} DESC, ABS(NVL(ae.${m.estValCustoRepCol}, 0)) DESC
-      `;
+        AND NVL(ae.${m.estCodFornecedorCol}, 0) = :cod_fornecedor`;
 
-      const params: any = {
-        loja: codigoLoja,
-        cod_fornecedor: codForn,
-      };
-      if (diasFiltro > 0) {
-        params.dias = diasFiltro;
+      const netCase = `
+        CASE
+          WHEN ta.${m.taDesAjusteCol} = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR' THEN ABS(ae.${m.estQuantidadeCol})
+          WHEN ta.${m.taDesAjusteCol} = 'SAIR TROCA FORNECEDOR ENTRAR ESTOQUE LOJA' THEN -ABS(ae.${m.estQuantidadeCol})
+          WHEN ta.${m.taDesAjusteCol} LIKE '%SAIR TROCA FORNECEDOR E N%O VOLTAR%' THEN -ABS(ae.${m.estQuantidadeCol})
+          ELSE 0
+        END`;
+
+      // Colunas de TAB_PRODUTO_LOJA para custo/venda ATUAL (igual legado)
+      const plPrecoCustoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo').catch(() => 'PRE_CUSTO');
+      const plPrecoVendaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda').catch(() => 'PRE_VENDA');
+
+      if (tipoTroca === 'saldo') {
+        // SALDO NET por produto: saídas - retornos - zerados, HAVING > 0
+        // Custo/Venda de TAB_PRODUTO_LOJA (preço ATUAL, igual legado)
+        itensQuery = `
+          WITH saldo_produto AS (
+            SELECT
+              ae.${m.estCodProdutoCol} as COD_PRODUTO,
+              SUM(${netCase}) as SALDO_NET
+            FROM ${tabAjusteEstoque} ae
+            LEFT JOIN ${tabTipoAjuste} ta ON ae.${m.estTipoMovCol} = ta.${m.taCodAjusteCol}
+            WHERE ${baseWhere}
+            AND (
+              ta.${m.taDesAjusteCol} = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR'
+              OR ta.${m.taDesAjusteCol} = 'SAIR TROCA FORNECEDOR ENTRAR ESTOQUE LOJA'
+              OR ta.${m.taDesAjusteCol} LIKE '%SAIR TROCA FORNECEDOR E N%O VOLTAR%'
+            )
+            GROUP BY ae.${m.estCodProdutoCol}
+            HAVING SUM(${netCase}) > 0
+          )
+          SELECT
+            sp.COD_PRODUTO,
+            p.${m.prodDescricaoCol} as DESCRICAO,
+            p.${m.prodEanCol} as CODIGO_BARRAS,
+            s.${m.secDesSecaoCol} as SECAO,
+            sp.SALDO_NET as QUANTIDADE,
+            NVL(pl.${plPrecoCustoCol}, 0) as CUSTO_REPOSICAO,
+            NVL(pl.${plPrecoVendaCol}, 0) as PRECO_VENDA,
+            sp.SALDO_NET * NVL(pl.${plPrecoCustoCol}, 0) as VALOR_TOTAL,
+            NVL(pl.${plVendaMediaCol}, 0) as VD_MEDIA,
+            NVL(TRIM(pl.${plCurvaCol}), 'X') as CURVA
+          FROM saldo_produto sp
+          JOIN ${tabProduto} p ON sp.COD_PRODUTO = p.${m.prodCodigoCol}
+          LEFT JOIN ${tabSecao} s ON p.${m.prodCodSecaoCol} = s.${m.secCodSecaoCol}
+          LEFT JOIN ${tabProdutoLoja} pl ON sp.COD_PRODUTO = pl.${plCodProdutoCol} AND pl.${plCodLojaCol} = :loja
+          ORDER BY sp.SALDO_NET * NVL(pl.${plPrecoCustoCol}, 0) DESC
+        `;
+      } else {
+        // Filtro por tipo específico
+        let tipoAjusteFiltro: string;
+        if (tipoTroca === 'retornos') {
+          tipoAjusteFiltro = `ta.${m.taDesAjusteCol} = 'SAIR TROCA FORNECEDOR ENTRAR ESTOQUE LOJA'`;
+        } else if (tipoTroca === 'zerados') {
+          tipoAjusteFiltro = `ta.${m.taDesAjusteCol} LIKE '%SAIR TROCA FORNECEDOR E N%O VOLTAR%'`;
+        } else {
+          tipoAjusteFiltro = `ta.${m.taDesAjusteCol} = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR'`;
+        }
+
+        itensQuery = `
+          SELECT
+            ae.${m.estCodProdutoCol} as COD_PRODUTO,
+            p.${m.prodDescricaoCol} as DESCRICAO,
+            p.${m.prodEanCol} as CODIGO_BARRAS,
+            ta.${m.taDesAjusteCol} as TIPO_AJUSTE,
+            s.${m.secDesSecaoCol} as SECAO,
+            ABS(NVL(ae.${m.estQuantidadeCol}, 0)) as QUANTIDADE,
+            NVL(ae.${m.estValCustoRepCol}, 0) as CUSTO_REPOSICAO,
+            NVL(ae.${m.estValVendaCol}, 0) as PRECO_VENDA,
+            ABS(NVL(ae.${m.estQuantidadeCol}, 0)) * NVL(ae.${m.estValCustoRepCol}, 0) as VALOR_TOTAL,
+            NVL(pl.${plVendaMediaCol}, 0) as VD_MEDIA,
+            NVL(TRIM(pl.${plCurvaCol}), 'X') as CURVA,
+            TO_CHAR(ae.${m.estDataMovCol}, 'YYYY-MM-DD') as DATA_AJUSTE,
+            ae.${m.estUsuarioCol}
+          FROM ${tabAjusteEstoque} ae
+          JOIN ${tabProduto} p ON ae.${m.estCodProdutoCol} = p.${m.prodCodigoCol}
+          LEFT JOIN ${tabTipoAjuste} ta ON ae.${m.estTipoMovCol} = ta.${m.taCodAjusteCol}
+          LEFT JOIN ${tabSecao} s ON p.${m.prodCodSecaoCol} = s.${m.secCodSecaoCol}
+          LEFT JOIN ${tabProdutoLoja} pl ON ae.${m.estCodProdutoCol} = pl.${plCodProdutoCol} AND pl.${plCodLojaCol} = :loja
+          WHERE ${baseWhere}
+          AND ${tipoAjusteFiltro}
+          ORDER BY ae.${m.estDataMovCol} DESC
+        `;
       }
 
       const itens = await OracleService.query(itensQuery, params);
@@ -952,17 +1062,23 @@ export class LossController {
           codProduto: i.COD_PRODUTO,
           descricao: i.DESCRICAO,
           codigoBarras: i.CODIGO_BARRAS,
-          tipoAjuste: i.TIPO_AJUSTE,
+          tipoAjuste: i.TIPO_AJUSTE || '',
           secao: i.SECAO || 'SEM SEÇÃO',
           quantidade: Math.round((parseFloat(i.QUANTIDADE) || 0) * 1000) / 1000,
           custoReposicao: Math.round((parseFloat(i.CUSTO_REPOSICAO) || 0) * 100) / 100,
+          precoVenda: Math.round((parseFloat(i.PRECO_VENDA) || 0) * 100) / 100,
           valorTotal: Math.round((parseFloat(i.VALOR_TOTAL) || 0) * 100) / 100,
+          vdMedia: Math.round((parseFloat(i.VD_MEDIA) || 0) * 1000) / 1000,
+          curva: i.CURVA || 'X',
+          margem: (parseFloat(i.PRECO_VENDA) || 0) > 0
+            ? Math.round(((parseFloat(i.PRECO_VENDA) - parseFloat(i.CUSTO_REPOSICAO)) / parseFloat(i.PRECO_VENDA)) * 10000) / 100
+            : 0,
           dataAjuste: i.DATA_AJUSTE,
           usuario: i.USUARIO,
         })),
       };
 
-      console.log(`✅ Encontrados ${itens.length} itens de troca do fornecedor ${codForn}`);
+      console.log(`✅ Encontrados ${itens.length} itens de troca do fornecedor ${codForn} (tipo: ${tipoTroca})`);
       res.json(response);
     } catch (error: any) {
       console.error('❌ Erro ao buscar itens de troca:', error);

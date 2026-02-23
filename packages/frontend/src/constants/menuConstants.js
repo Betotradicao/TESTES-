@@ -14,6 +14,7 @@ export const MENU_MODULES = {
   RUPTURA: 'ruptura',
   ETIQUETAS: 'etiquetas',
   PERDAS: 'perdas',
+  PREVENCAO_TROCAS: 'prevencao-trocas',
   PRODUCAO: 'producao',
   HORTFRUT: 'hortfrut',
   CONTROLE_RECEBIMENTO: 'controle-recebimento',
@@ -80,6 +81,9 @@ export const MENU_SUBMENUS = {
   // Perdas/Quebras
   PERDAS_LANCADOR: 'perdas-lancador',
   PERDAS_RESULTADOS: 'perdas-resultados',
+
+  // Trocas
+  PREVENCAO_TROCAS: 'prevencao-trocas',
 
   // Produção
   PRODUCAO_LANCADOR: 'producao-lancador',
@@ -329,6 +333,19 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.PERDAS_RESULTADOS,
         title: 'Resultados dos Lançamentos',
         path: '/perdas-resultados'
+      }
+    ]
+  },
+  {
+    id: MENU_MODULES.PREVENCAO_TROCAS,
+    title: 'Prevenção Trocas',
+    icon: 'exchange',
+    section: 'prevencao',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.PREVENCAO_TROCAS,
+        title: 'Trocas com Fornecedores',
+        path: '/prevencao-trocas'
       }
     ]
   },
