@@ -2920,6 +2920,312 @@ export default function ConfiguracoesTabelas() {
     );
   };
 
+  // Gerar helper: quais módulos usam cada tabela
+  const getModulesUsingTable = (tableId) => {
+    const modules = [];
+    BUSINESS_MODULES.forEach(mod => {
+      mod.submodules.forEach(sub => {
+        if (sub.tables.includes(tableId)) {
+          const label = `${mod.icon} ${sub.name}`;
+          if (!modules.includes(label)) modules.push(label);
+        }
+      });
+    });
+    return modules;
+  };
+
+  // Estado para testes do template
+  const [templateTestResults, setTemplateTestResults] = useState({});
+  const [testingTemplate, setTestingTemplate] = useState(false);
+
+  const handleTestAllTemplate = async () => {
+    if (!selectedConnection) return;
+    setTestingTemplate(true);
+    const results = {};
+    const allFields = [];
+    Object.entries(TABLE_CATALOG).forEach(([tableId, tableInfo]) => {
+      tableInfo.fields.forEach(field => {
+        const mapping = tableMappings[tableId];
+        const tabela = mapping?.tabelas_campo?.[field.id] || mapping?.nome_real || field.defaultTable;
+        const coluna = mapping?.colunas?.[field.id] || field.defaultColumn;
+        allFields.push({ tableId, fieldId: field.id, tabela, coluna });
+      });
+    });
+    // Testar em lotes de 5
+    for (let i = 0; i < allFields.length; i += 5) {
+      const batch = allFields.slice(i, i + 5);
+      await Promise.all(batch.map(async ({ tableId, fieldId, tabela, coluna }) => {
+        try {
+          const res = await api.post('/database-connections/test-mapping', {
+            connectionId: selectedConnection,
+            tableName: tabela,
+            columnName: coluna,
+          });
+          results[`${tableId}_${fieldId}`] = { success: true, count: res.data?.count || 0, sample: res.data?.sample || '' };
+        } catch {
+          results[`${tableId}_${fieldId}`] = { success: false };
+        }
+      }));
+    }
+    setTemplateTestResults(results);
+    setTestingTemplate(false);
+  };
+
+  // Gerar PDF do Template
+  const gerarPdfTemplate = () => {
+    const doc = new jsPDF('landscape');
+    const connName = connections.find(c => c.id == selectedConnection)?.name || 'Sem conexão';
+    const dataAtual = new Date().toLocaleDateString('pt-BR');
+
+    const allTables = Object.entries(TABLE_CATALOG);
+    const totalCampos = allTables.reduce((acc, [, t]) => acc + t.fields.length, 0);
+
+    // Header
+    doc.setFontSize(18);
+    doc.setTextColor(234, 88, 12);
+    doc.text('Template de Tabelas - Visão Unificada', 14, 18);
+
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`${allTables.length} tabelas  |  ${totalCampos} campos  |  Conexão: ${connName}  |  Data: ${dataAtual}`, 14, 26);
+
+    let startY = 34;
+    let fieldCounter = 0;
+
+    // Coletar posições das células editáveis
+    const editableCells = [];
+
+    allTables.forEach(([tableId, tableInfo]) => {
+      const mapping = tableMappings[tableId];
+      const modulesUsing = getModulesUsingTable(tableId);
+
+      // Nome da tabela
+      doc.setFontSize(11);
+      doc.setTextColor(30, 30, 30);
+      doc.text(`${tableInfo.name} (${mapping?.nome_real || tableId})`, 14, startY);
+      doc.setFontSize(7);
+      doc.setTextColor(130, 130, 130);
+      doc.text(`${tableInfo.description} — ${tableInfo.fields.length} campos — Usado em: ${modulesUsing.length} submódulos`, 14, startY + 4);
+      startY += 7;
+
+      const baseFieldIdx = fieldCounter;
+      const tableData = tableInfo.fields.map((field, fi) => {
+        const tabela = mapping?.tabelas_campo?.[field.id] || field.defaultTable;
+        const coluna = mapping?.colunas?.[field.id] || field.defaultColumn;
+        const testKey = `${tableId}_${field.id}`;
+        const result = templateTestResults[testKey] || testResults[testKey];
+        let status = '—';
+        if (result?.success) status = result.sample || `(${result.count} reg.)`;
+        else if (result?.success === false) status = 'Erro';
+        fieldCounter++;
+        return [field.name, tabela, '', coluna, '', status];
+      });
+
+      autoTable(doc, {
+        startY,
+        head: [['Campo', 'Tabela', 'Tabela ERP', 'Coluna', 'Coluna ERP', 'Resultado']],
+        body: tableData,
+        styles: { fontSize: 7.5, cellPadding: 1.5 },
+        headStyles: { fillColor: [234, 88, 12], textColor: 255 },
+        columnStyles: { 0: { cellWidth: 42 }, 1: { cellWidth: 42 }, 2: { cellWidth: 42, fillColor: [240, 248, 255] }, 3: { cellWidth: 50 }, 4: { cellWidth: 50, fillColor: [240, 248, 255] }, 5: { cellWidth: 42 } },
+        margin: { left: 14 },
+        didDrawCell: (data) => {
+          // Capturar posição das colunas 2 (Tabela ERP) e 4 (Coluna ERP) do body
+          if (data.section === 'body' && (data.column.index === 2 || data.column.index === 4)) {
+            const idx = baseFieldIdx + data.row.index;
+            const tipo = data.column.index === 2 ? 'tab' : 'col';
+            editableCells.push({
+              x: data.cell.x + 0.5,
+              y: data.cell.y + 0.5,
+              w: data.cell.width - 1,
+              h: data.cell.height - 1,
+              name: `${tipo}_${idx}`,
+              page: doc.internal.getNumberOfPages()
+            });
+          }
+        },
+        didDrawPage: () => {
+          doc.setFontSize(7);
+          doc.setTextColor(150, 150, 150);
+          doc.text('Radar 360 - Template de Tabelas', 14, doc.internal.pageSize.height - 8);
+          doc.text(`Página ${doc.internal.getNumberOfPages()}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 8);
+        }
+      });
+
+      startY = (doc.lastAutoTable?.finalY || startY) + 10;
+      if (startY > doc.internal.pageSize.height - 40) {
+        doc.addPage();
+        startY = 20;
+      }
+    });
+
+    // Adicionar campos de texto editáveis nas posições capturadas
+    editableCells.forEach(cell => {
+      doc.setPage(cell.page);
+      const placeholder = 'PREENCHER';
+      const textField = new doc.AcroFormTextField();
+      textField.Rect = [cell.x, cell.y, cell.w, cell.h];
+      textField.fieldName = cell.name;
+      textField.fontSize = 7;
+      textField.maxFontSize = 7;
+      textField.textAlign = 'left';
+      textField.value = placeholder;
+      textField.defaultValue = placeholder;
+      textField.color = '#999999';
+      doc.addField(textField);
+    });
+
+    doc.save(`template-tabelas-${dataAtual.replace(/\//g, '-')}.pdf`);
+  };
+
+  // Render da aba Template de Tabelas (VISÃO UNIFICADA)
+  const renderTemplateTab = () => {
+    const allTables = Object.entries(TABLE_CATALOG);
+    const totalCampos = allTables.reduce((acc, [, t]) => acc + t.fields.length, 0);
+    const connName = connections.find(c => c.id == selectedConnection)?.name;
+    const testedCount = Object.keys(templateTestResults).length;
+    const okCount = Object.values(templateTestResults).filter(r => r.success).length;
+
+    return (
+      <div>
+        {/* Header */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                📊 Template de Tabelas
+              </h2>
+              <p className="text-gray-500 mt-1">Visão unificada de todas as tabelas e colunas do sistema</p>
+              <div className="flex items-center gap-4 mt-3">
+                <span className="bg-orange-100 text-orange-700 font-bold px-3 py-1 rounded-full text-sm">{allTables.length} tabelas</span>
+                <span className="bg-blue-100 text-blue-700 font-bold px-3 py-1 rounded-full text-sm">{totalCampos} campos</span>
+                {testedCount > 0 && (
+                  <span className={`font-bold px-3 py-1 rounded-full text-sm ${okCount === testedCount ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                    {okCount}/{testedCount} OK
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <select
+                value={selectedConnection || ''}
+                onChange={(e) => handleConnectionChange(e.target.value)}
+                className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-orange-500"
+              >
+                <option value="">Selecione uma conexão...</option>
+                {connections.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.host})</option>
+                ))}
+              </select>
+              {selectedConnection && (
+                <button
+                  onClick={handleTestAllTemplate}
+                  disabled={testingTemplate}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 text-sm font-semibold flex items-center gap-2"
+                >
+                  {testingTemplate ? '⏳ Testando...' : '🚀 Testar Todos'}
+                </button>
+              )}
+              <button
+                onClick={gerarPdfTemplate}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-semibold flex items-center gap-2"
+              >
+                📄 Gerar PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabelas */}
+        <div className="space-y-6">
+          {allTables.map(([tableId, tableInfo]) => {
+            const mapping = tableMappings[tableId];
+            const modulesUsing = getModulesUsingTable(tableId);
+
+            return (
+              <div key={tableId} className="bg-white rounded-xl shadow-lg overflow-hidden">
+                {/* Header da tabela */}
+                <div className="bg-gradient-to-r from-orange-500 to-red-500 px-5 py-3 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold text-lg">{tableInfo.name}</h3>
+                      <p className="text-orange-100 text-xs">{tableInfo.description} — <span className="font-semibold">{mapping?.nome_real || tableId}</span></p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="bg-white/20 backdrop-blur-sm rounded-lg px-3 py-1.5 text-xs">
+                        <span className="text-orange-100">Tabela no ERP:</span>
+                        <span className="font-bold text-yellow-200 ml-1">PREENCHER</span>
+                      </div>
+                      <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-bold">{tableInfo.fields.length} campos</span>
+                    </div>
+                  </div>
+                  {modulesUsing.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {modulesUsing.map((m, i) => (
+                        <span key={i} className="bg-white/15 text-white text-[10px] px-2 py-0.5 rounded-full">{m}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Corpo da tabela */}
+                <table className="w-full text-sm table-fixed">
+                  <colgroup>
+                    <col style={{ width: '14%' }} />
+                    <col style={{ width: '13%' }} />
+                    <col style={{ width: '18%' }} />
+                    <col style={{ width: '15%' }} />
+                    <col style={{ width: '18%' }} />
+                    <col style={{ width: '22%' }} />
+                  </colgroup>
+                  <thead>
+                    <tr className="bg-gray-100 text-gray-600 text-xs uppercase">
+                      <th className="px-3 py-2 text-left">Campo</th>
+                      <th className="px-3 py-2 text-left">Tabela</th>
+                      <th className="px-3 py-2 text-left bg-blue-50 text-blue-500 border-l border-blue-200">Tabela ERP</th>
+                      <th className="px-3 py-2 text-left">Coluna</th>
+                      <th className="px-3 py-2 text-left bg-blue-50 text-blue-500 border-l border-blue-200">Coluna ERP</th>
+                      <th className="px-3 py-2 text-left">Resultado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tableInfo.fields.map((field, idx) => {
+                      const tabela = mapping?.tabelas_campo?.[field.id] || field.defaultTable;
+                      const coluna = mapping?.colunas?.[field.id] || field.defaultColumn;
+                      const testKey = `${tableId}_${field.id}`;
+                      const result = templateTestResults[testKey] || testResults[testKey];
+
+                      return (
+                        <tr key={field.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          <td className="px-3 py-2 font-medium text-gray-800">{field.name}</td>
+                          <td className="px-3 py-2 text-gray-600 font-mono text-xs">{tabela}</td>
+                          <td className="px-3 py-2 bg-blue-50/30 border-l border-blue-100"></td>
+                          <td className="px-3 py-2 text-gray-600 font-mono text-xs">{coluna}</td>
+                          <td className="px-3 py-2 bg-blue-50/30 border-l border-blue-100"></td>
+                          <td className="px-3 py-2 overflow-hidden">
+                            {result?.success === true ? (
+                              <div className="truncate" title={result.sample || `${result.count?.toLocaleString('pt-BR')} registros`}>
+                                <span className="text-green-600 font-semibold text-xs">✅ {result.sample || `(${result.count?.toLocaleString('pt-BR')} reg.)`}</span>
+                              </div>
+                            ) : result?.success === false ? (
+                              <span className="text-red-500 font-semibold text-xs">❌ Erro</span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar
@@ -3004,6 +3310,16 @@ export default function ConfiguracoesTabelas() {
             >
               📋 Mapeamento
             </button>
+            <button
+              onClick={() => setActiveTab('template')}
+              className={`px-6 py-3 font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
+                activeTab === 'template'
+                  ? 'text-orange-600 border-orange-500'
+                  : 'text-gray-500 border-transparent hover:text-gray-700'
+              }`}
+            >
+              📊 Template de Tabelas
+            </button>
           </div>
 
           {/* Conteúdo das Tabs */}
@@ -3011,6 +3327,7 @@ export default function ConfiguracoesTabelas() {
           {activeTab === 'erp' && renderErpTab()}
           {activeTab === 'conexoes' && renderConnectionsTab()}
           {activeTab === 'mapeamento' && renderMappingTab()}
+          {activeTab === 'template' && renderTemplateTab()}
         </main>
       </div>
 

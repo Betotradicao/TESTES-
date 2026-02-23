@@ -30,7 +30,9 @@ const BoletoDDA = () => {
         const activeBanks = (Array.isArray(banks) ? banks : []).filter(b => b.ativo && b.certificate_path);
         setBanks(activeBanks);
         if (activeBanks.length > 0) {
-          setSelectedBankId(activeBanks[0].id);
+          // Priorizar conta Tradição LTDA (130075973)
+          const tradicao = activeBanks.find(b => b.conta && b.conta.includes('130075973'));
+          setSelectedBankId(tradicao ? tradicao.id : activeBanks[0].id);
         }
       } catch (err) {
         console.error('Erro ao carregar bancos:', err);

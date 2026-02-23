@@ -133,6 +133,8 @@ export class DDAService {
       }
     } catch (e: any) {
       console.log(`[DDA] Erro ao listar workspaces: ${e.message}`);
+      console.log(`[DDA] Status: ${e.response?.status}, Body: ${JSON.stringify(e.response?.data)}`);
+      console.log(`[DDA] ClientId usado: ${config.clientId}`);
     }
 
     // Criar workspace novo
