@@ -439,11 +439,12 @@ export default function GestaoInteligente() {
   // Estado para ordem dos cards DEFESA (drag and drop)
   const defaultDefesaOrder1 = ['naoBipados', 'furtos', 'cancelamentos', 'descontos', 'valeTroca', 'valeDesconto'];
   const defaultDefesaOrder2 = ['sobraCaixa', 'faltaCaixa', 'rupturaTaxa', 'rupturaPerdaVenda', 'rupturaPerdaLucro', 'etiquetaTaxa'];
-  const defaultDefesaOrder3 = ['fluxoCaixa', 'perdasEstoque', 'mediaPerformColab', 'defesa16', 'defesa17', 'defesa18'];
+  const defaultDefesaOrder3 = ['fluxoCaixa', 'perdasEstoque', 'mediaPerformColab', 'trocasFornecedor', 'defesa17', 'defesa18'];
   const migrateDefesaIds = (ids) => ids.map(id => {
     if (id === 'defesa13') return 'fluxoCaixa';
     if (id === 'defesa14') return 'perdasEstoque';
     if (id === 'defesa15') return 'mediaPerformColab';
+    if (id === 'defesa16') return 'trocasFornecedor';
     return id;
   });
   const [defesaOrder1, setDefesaOrder1] = useState(() => {
@@ -979,7 +980,7 @@ export default function GestaoInteligente() {
 
       const safe = (p) => p.catch((err) => { console.warn('Defesa API error:', err?.message); return { data: {} }; });
 
-      const [sellsRes, bipsRes, fcAt, fcMP, fcAP, rAt, rMP, rAP, eAt, eMP, eAP, bkAt, bkMP, bkAP, lsAt, lsMP, lsAP] = await Promise.all([
+      const [sellsRes, bipsRes, fcAt, fcMP, fcAP, rAt, rMP, rAP, eAt, eMP, eAP, bkAt, bkMP, bkAP, lsAt, lsMP, lsAP, trocasRes] = await Promise.all([
         safe(api.get('/sells', { params: { page: 1, limit: 1, date_from: filters.dataInicio, date_to: filters.dataFim } })),
         safe(api.get('/bips', { params: { page: 1, limit: 1000, status: 'cancelled', date_from: filters.dataInicio, date_to: filters.dataFim } })),
         safe(api.get(`/frente-caixa/totais?${mkFCParams(fmtDateBR(filters.dataInicio), fmtDateBR(filters.dataFim))}`)),
@@ -997,6 +998,7 @@ export default function GestaoInteligente() {
         safe(api.get(`/losses/oracle?${mkLossParams(filters.dataInicio, filters.dataFim)}`)),
         safe(api.get(`/losses/oracle?${mkLossParams(fmtISO(mesPassIni), fmtISO(mesPassFim))}`)),
         safe(api.get(`/losses/oracle?${mkLossParams(fmtISO(anoPassIni), fmtISO(anoPassFim))}`)),
+        safe(api.get('/losses/oracle/trocas', { params: { loja: codLoja || 1, tipo: 'saldo' } })),
       ]);
 
       // Não bipados
@@ -1038,6 +1040,12 @@ export default function GestaoInteligente() {
       };
       const ls1=pLS(lsAt), ls2=pLS(lsMP), ls3=pLS(lsAP);
 
+      // Parse trocas fornecedor (saldo pendente - snapshot atual)
+      const trocasEst = trocasRes.data?.estatisticas || {};
+      const trocasCusto = Math.round((trocasEst.total_custo || 0) * 100) / 100;
+      const trocasForns = trocasEst.total_fornecedores || 0;
+      const trocasItens = Math.round((trocasEst.total_itens || 0) * 100) / 100;
+
       setDefesaData({
         naoBipados: { valor: notV/100, pct: totalV>0?(notV/totalV*100):0, total: totalV/100 },
         furtos: { valor: furtoVal/100, qtd: furtos.length },
@@ -1053,6 +1061,7 @@ export default function GestaoInteligente() {
         etiquetaTaxa: { atual: e1.taxa, mesPassado: e2.taxa, anoPassado: e3.taxa },
         fluxoCaixa: { atual: bk1, mesPassado: bk2, anoPassado: bk3 },
         perdasEstoque: { atual: ls1, mesPassado: ls2, anoPassado: ls3, pct: fc1.faturamento > 0 ? (ls1 / fc1.faturamento * 100) : 0 },
+        trocasFornecedor: { atual: trocasCusto, fornecedores: trocasForns, itens: trocasItens },
         faturamento: { atual: fc1.faturamento, mesPassado: fc2.faturamento, anoPassado: fc3.faturamento },
         loadingDefesa: false
       });
@@ -4264,7 +4273,8 @@ export default function GestaoInteligente() {
                 fluxoCaixa: { border: 'border-teal-500', bg: 'bg-teal-100', ic: 'text-teal-600', lb: 'FLUXO DE CAIXA', val: () => formatCurrency(defesaData.fluxoCaixa?.atual), title: 'RESULTADO DO PERIODO', tipo: 'currency', d: defesaData.fluxoCaixa, svg: 'M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
                 perdasEstoque: { border: 'border-rose-500', bg: 'bg-rose-100', ic: 'text-rose-600', lb: 'PERDAS ESTOQUE', val: () => formatCurrency(defesaData.perdasEstoque?.atual), extra: () => <span className="text-2xl font-bold text-rose-600">{formatPercent(defesaData.perdasEstoque?.pct)}</span>, title: 'PERDAS DE ESTOQUE IDENTIFICADAS', tipo: 'currency', d: defesaData.perdasEstoque, inv: true, svg: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
                 mediaPerformColab: { border: 'border-cyan-500', bg: 'bg-cyan-100', ic: 'text-cyan-600', lb: 'MEDIA COLAB.', val: () => formatCurrency(mediaPerformColab.media), extra: () => mediaPerformColab.configurado ? <span className="text-xs text-gray-400 ml-1">({mediaPerformColab.totalPonderado.toFixed(1)} colab.)</span> : <span className="text-xs text-orange-500 ml-1">Configurar</span>, title: 'MEDIA PERFORMANCE COLABORADORES', tipo: 'currency', d: { atual: mediaPerformColab.media, mesPassado: mediaPerformColab.mesPassado, anoPassado: mediaPerformColab.anoPassado }, hasGear: true, svg: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
-                defesa16: { emBreve: true }, defesa17: { emBreve: true }, defesa18: { emBreve: true },
+                trocasFornecedor: { border: 'border-orange-400', bg: 'bg-orange-50', ic: 'text-orange-500', lb: 'TROCAS FORN.', val: () => formatCurrency(defesaData.trocasFornecedor?.atual), extra: () => <span className="text-sm font-semibold text-orange-500">({defesaData.trocasFornecedor?.fornecedores || 0} forn.)</span>, title: 'TROCAS PENDENTES FORNECEDORES', tipo: 'currency', d: defesaData.trocasFornecedor, inv: true, svg: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4' },
+                defesa17: { emBreve: true }, defesa18: { emBreve: true },
               };
 
               const renderDefesaCard = (cardId, row) => {
