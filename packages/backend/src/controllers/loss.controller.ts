@@ -558,8 +558,8 @@ export class LossController {
 
   /**
    * Buscar trocas agrupadas por fornecedor
-   * tipo: 'saldo' (NET pendente), 'saidas', 'retornos', 'zerados'
-   * Abordagem NET: saldo = SUM(saídas) - SUM(retornos) - SUM(zerados) por produto/fornecedor
+   * tipo: 'saldo' (pendente via POST_TROCA), 'saidas', 'retornos', 'zerados'
+   * Saldo: QTD_EST_POST_TROCA do último registro de SAÍDA + filtro ACEITA_DEVOL_MERC='S' (igual legado)
    */
   static async getTrocasFornecedor(req: AuthRequest, res: Response) {
     try {
@@ -607,36 +607,45 @@ export class LossController {
       )`;
 
       if (tipoTroca === 'saldo') {
-        // SALDO PENDENTE via cálculo NET (saídas - retornos - zerados)
+        // SALDO PENDENTE via QTD_EST_POST_TROCA do último registro de SAÍDA,
+        // filtrado por ACEITA_DEVOL_MERC = 'S' (igual legado "Efetivar Trocas")
+        // O último registro é determinado pelo MAX(COD_AJUSTE_ESTOQUE) entre TODOS os tipos de troca (saída/retorno/zerado)
         // Custo/Venda do TAB_PRODUTO_LOJA (preço ATUAL do produto, igual legado)
         fornecedoresQuery = `
-          WITH saldo_produto AS (
-            SELECT
-              ae.${m.estCodFornecedorCol} as COD_FORN,
-              ae.${m.estCodProdutoCol} as COD_PROD,
-              SUM(${netCase}) as SALDO_NET
-            FROM ${tabAjusteEstoque} ae
-            LEFT JOIN ${tabTipoAjuste} ta ON ae.${m.estTipoMovCol} = ta.${m.taCodAjusteCol}
-            WHERE ${baseWhere}
-            AND ${trocaTypes}
-            GROUP BY ae.${m.estCodFornecedorCol}, ae.${m.estCodProdutoCol}
-            HAVING SUM(${netCase}) > 0
-          )
           SELECT
             NVL(f.${m.fornCodigoCol}, 0) as COD_FORNECEDOR,
             NVL(f.${m.fornRazaoSocialCol}, 'SEM FORNECEDOR') as FORNECEDOR,
             NVL(f.${m.fornFantasiaCol}, f.${m.fornRazaoSocialCol}) as FANTASIA,
             f.NUM_CGC as CNPJ, f.DES_CONTATO as CONTATO, f.NUM_CELULAR as CELULAR, f.NUM_FONE as FONE, f.DES_EMAIL as EMAIL,
-            COUNT(DISTINCT sp.COD_PROD) as QTD_PRODUTOS,
-            SUM(sp.SALDO_NET) as QTD_ITENS,
-            SUM(sp.SALDO_NET) as QTD_TOTAL,
-            SUM(sp.SALDO_NET * NVL(pl.${plPrecoCustoCol}, 0)) as TOTAL_CUSTO,
-            SUM(sp.SALDO_NET * NVL(pl.${plPrecoVendaCol}, 0)) as TOTAL_VENDA
-          FROM saldo_produto sp
-          LEFT JOIN ${tabProdutoLoja} pl ON sp.COD_PROD = pl.${plCodProdutoCol} AND pl.${plCodLojaCol} = :loja
-          LEFT JOIN ${tabFornecedor} f ON sp.COD_FORN = f.${m.fornCodigoCol}
+            COUNT(DISTINCT ae.${m.estCodProdutoCol}) as QTD_PRODUTOS,
+            SUM(ae.${m.estQtdEstPostTrocaCol}) as QTD_ITENS,
+            SUM(ae.${m.estQtdEstPostTrocaCol}) as QTD_TOTAL,
+            SUM(ae.${m.estQtdEstPostTrocaCol} * NVL(pl.${plPrecoCustoCol}, 0)) as TOTAL_CUSTO,
+            SUM(ae.${m.estQtdEstPostTrocaCol} * NVL(pl.${plPrecoVendaCol}, 0)) as TOTAL_VENDA
+          FROM ${tabAjusteEstoque} ae
+          LEFT JOIN ${tabFornecedor} f ON ae.${m.estCodFornecedorCol} = f.${m.fornCodigoCol}
+          LEFT JOIN ${tabTipoAjuste} ta ON ae.${m.estTipoMovCol} = ta.${m.taCodAjusteCol}
+          LEFT JOIN ${tabProdutoLoja} pl ON ae.${m.estCodProdutoCol} = pl.${plCodProdutoCol} AND pl.${plCodLojaCol} = :loja
+          WHERE ${baseWhere}
+          AND ta.${m.taDesAjusteCol} = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR'
+          AND f.ACEITA_DEVOL_MERC = 'S'
+          AND ae.${m.estQtdEstPostTrocaCol} > 0
+          AND ae.${m.estCodAjusteEstoqueCol} = (
+            SELECT MAX(ae2.${m.estCodAjusteEstoqueCol})
+            FROM ${tabAjusteEstoque} ae2
+            LEFT JOIN ${tabTipoAjuste} ta2 ON ae2.${m.estTipoMovCol} = ta2.${m.taCodAjusteCol}
+            WHERE ae2.${m.estCodProdutoCol} = ae.${m.estCodProdutoCol}
+            AND ae2.${m.estCodFornecedorCol} = ae.${m.estCodFornecedorCol}
+            AND ae2.${m.estCodLojaCol} = :loja
+            AND (ae2.${m.estFlgCanceladoCol} IS NULL OR ae2.${m.estFlgCanceladoCol} = 'N')
+            AND (
+              ta2.${m.taDesAjusteCol} = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR'
+              OR ta2.${m.taDesAjusteCol} = 'SAIR TROCA FORNECEDOR ENTRAR ESTOQUE LOJA'
+              OR ta2.${m.taDesAjusteCol} LIKE '%SAIR TROCA FORNECEDOR E N%O VOLTAR%'
+            )
+          )
           GROUP BY f.${m.fornCodigoCol}, f.${m.fornRazaoSocialCol}, f.${m.fornFantasiaCol}, f.NUM_CGC, f.DES_CONTATO, f.NUM_CELULAR, f.NUM_FONE, f.DES_EMAIL
-          ORDER BY SUM(sp.SALDO_NET * NVL(pl.${plPrecoCustoCol}, 0)) DESC
+          ORDER BY SUM(ae.${m.estQtdEstPostTrocaCol} * NVL(pl.${plPrecoCustoCol}, 0)) DESC
         `;
       } else {
         // Filtro por tipo específico de movimentação
@@ -935,7 +944,7 @@ export class LossController {
 
   /**
    * Buscar itens de troca de um fornecedor específico
-   * tipo: 'saldo' (NET pendente), 'saidas', 'retornos', 'zerados'
+   * tipo: 'saldo' (pendente via POST_TROCA), 'saidas', 'retornos', 'zerados'
    */
   static async getTrocasItensFornecedor(req: AuthRequest, res: Response) {
     try {
@@ -983,40 +992,43 @@ export class LossController {
       const plPrecoVendaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda').catch(() => 'PRE_VENDA');
 
       if (tipoTroca === 'saldo') {
-        // SALDO NET por produto: saídas - retornos - zerados, HAVING > 0
+        // SALDO via QTD_EST_POST_TROCA do último registro de SAÍDA (igual legado)
         // Custo/Venda de TAB_PRODUTO_LOJA (preço ATUAL, igual legado)
         itensQuery = `
-          WITH saldo_produto AS (
-            SELECT
-              ae.${m.estCodProdutoCol} as COD_PRODUTO,
-              SUM(${netCase}) as SALDO_NET
-            FROM ${tabAjusteEstoque} ae
-            LEFT JOIN ${tabTipoAjuste} ta ON ae.${m.estTipoMovCol} = ta.${m.taCodAjusteCol}
-            WHERE ${baseWhere}
-            AND (
-              ta.${m.taDesAjusteCol} = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR'
-              OR ta.${m.taDesAjusteCol} = 'SAIR TROCA FORNECEDOR ENTRAR ESTOQUE LOJA'
-              OR ta.${m.taDesAjusteCol} LIKE '%SAIR TROCA FORNECEDOR E N%O VOLTAR%'
-            )
-            GROUP BY ae.${m.estCodProdutoCol}
-            HAVING SUM(${netCase}) > 0
-          )
           SELECT
-            sp.COD_PRODUTO,
+            ae.${m.estCodProdutoCol} as COD_PRODUTO,
             p.${m.prodDescricaoCol} as DESCRICAO,
             p.${m.prodEanCol} as CODIGO_BARRAS,
             s.${m.secDesSecaoCol} as SECAO,
-            sp.SALDO_NET as QUANTIDADE,
+            ae.${m.estQtdEstPostTrocaCol} as QUANTIDADE,
             NVL(pl.${plPrecoCustoCol}, 0) as CUSTO_REPOSICAO,
             NVL(pl.${plPrecoVendaCol}, 0) as PRECO_VENDA,
-            sp.SALDO_NET * NVL(pl.${plPrecoCustoCol}, 0) as VALOR_TOTAL,
+            ae.${m.estQtdEstPostTrocaCol} * NVL(pl.${plPrecoCustoCol}, 0) as VALOR_TOTAL,
             NVL(pl.${plVendaMediaCol}, 0) as VD_MEDIA,
             NVL(TRIM(pl.${plCurvaCol}), 'X') as CURVA
-          FROM saldo_produto sp
-          JOIN ${tabProduto} p ON sp.COD_PRODUTO = p.${m.prodCodigoCol}
+          FROM ${tabAjusteEstoque} ae
+          JOIN ${tabProduto} p ON ae.${m.estCodProdutoCol} = p.${m.prodCodigoCol}
+          LEFT JOIN ${tabTipoAjuste} ta ON ae.${m.estTipoMovCol} = ta.${m.taCodAjusteCol}
           LEFT JOIN ${tabSecao} s ON p.${m.prodCodSecaoCol} = s.${m.secCodSecaoCol}
-          LEFT JOIN ${tabProdutoLoja} pl ON sp.COD_PRODUTO = pl.${plCodProdutoCol} AND pl.${plCodLojaCol} = :loja
-          ORDER BY sp.SALDO_NET * NVL(pl.${plPrecoCustoCol}, 0) DESC
+          LEFT JOIN ${tabProdutoLoja} pl ON ae.${m.estCodProdutoCol} = pl.${plCodProdutoCol} AND pl.${plCodLojaCol} = :loja
+          WHERE ${baseWhere}
+          AND ta.${m.taDesAjusteCol} = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR'
+          AND ae.${m.estQtdEstPostTrocaCol} > 0
+          AND ae.${m.estCodAjusteEstoqueCol} = (
+            SELECT MAX(ae2.${m.estCodAjusteEstoqueCol})
+            FROM ${tabAjusteEstoque} ae2
+            LEFT JOIN ${tabTipoAjuste} ta2 ON ae2.${m.estTipoMovCol} = ta2.${m.taCodAjusteCol}
+            WHERE ae2.${m.estCodProdutoCol} = ae.${m.estCodProdutoCol}
+            AND ae2.${m.estCodFornecedorCol} = ae.${m.estCodFornecedorCol}
+            AND ae2.${m.estCodLojaCol} = :loja
+            AND (ae2.${m.estFlgCanceladoCol} IS NULL OR ae2.${m.estFlgCanceladoCol} = 'N')
+            AND (
+              ta2.${m.taDesAjusteCol} = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR'
+              OR ta2.${m.taDesAjusteCol} = 'SAIR TROCA FORNECEDOR ENTRAR ESTOQUE LOJA'
+              OR ta2.${m.taDesAjusteCol} LIKE '%SAIR TROCA FORNECEDOR E N%O VOLTAR%'
+            )
+          )
+          ORDER BY ae.${m.estQtdEstPostTrocaCol} * NVL(pl.${plPrecoCustoCol}, 0) DESC
         `;
       } else {
         // Filtro por tipo específico
