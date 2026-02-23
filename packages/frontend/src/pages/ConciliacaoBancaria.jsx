@@ -154,6 +154,7 @@ export default function ConciliacaoBancaria() {
 
   // Modal state
   const [candidateModal, setCandidateModal] = useState(null);
+  const [transferModal, setTransferModal] = useState(null);
 
   // Filter state
   const [bancos, setBancos] = useState([]);
@@ -439,20 +440,74 @@ export default function ConciliacaoBancaria() {
 
   // Handle selecting a candidate from the modal
   const handleSelectCandidate = useCallback((rowId, selectedCandidate) => {
+    setRows(prev => {
+      const newRows = [];
+      for (const r of prev) {
+        if (r.rowId === rowId) {
+          // Row selecionada: vincular candidato escolhido e limpar candidates (fica verde)
+          newRows.push({
+            ...r,
+            sistema: selectedCandidate,
+            matchStatus: 'MATCHED',
+            isCompensado: selectedCandidate.flgCompensado || false,
+            candidates: null,
+          });
+          // Candidatos não selecionados voltam como "Sem Banco"
+          const others = (r.candidates || []).filter(c => c !== selectedCandidate);
+          for (let i = 0; i < others.length; i++) {
+            newRows.push({
+              rowId: `resolved_${rowId}_${i}_${Date.now()}`,
+              banco: null,
+              sistema: others[i],
+              matchStatus: 'UNMATCHED_SYSTEM',
+              isCompensado: false,
+              candidates: null,
+            });
+          }
+        } else {
+          newRows.push(r);
+        }
+      }
+      return newRows;
+    });
+    setCandidateModal(null);
+    toast.success('Conciliado com sucesso!');
+  }, []);
+
+  // Handle confirming a transfer between accounts
+  const handleConfirmTransfer = useCallback((rowId, targetAccountId) => {
+    const targetAccount = bankAccounts.find(a => String(a.id) === String(targetAccountId));
+    const currentAccount = bankAccounts.find(a => String(a.id) === String(selectedBankAccountId));
+
     setRows(prev => prev.map(r => {
       if (r.rowId === rowId) {
+        const val = Math.abs(parseFloat(r.banco.VAL_DOCTO) || 0);
+        const isSaida = r.banco.TIPO_OPERACAO === 1;
         return {
           ...r,
-          sistema: selectedCandidate,
+          sistema: {
+            dtaQuitada: r.banco.DTA_ENTRADA,
+            desParceiro: targetAccount
+              ? `${targetAccount.nome}${targetAccount.conta ? ` | ${targetAccount.conta}` : ''}`
+              : 'Transferência',
+            numDocto: '',
+            numBordero: '',
+            desSubcategoria: 'Transferência',
+            desCategoria: 'Transferência',
+            valTotal: val,
+            tipoConta: isSaida ? 2 : 1,
+            flgCompensado: false,
+          },
           matchStatus: 'MATCHED',
-          isCompensado: selectedCandidate.flgCompensado || false,
+          isCompensado: false,
+          candidates: null,
         };
       }
       return r;
     }));
-    setCandidateModal(null);
-    toast.success('Candidato selecionado!');
-  }, []);
+    setTransferModal(null);
+    toast.success('Marcado como transferência!');
+  }, [bankAccounts, selectedBankAccountId]);
 
   // PDF Export - Banco (Movimentação)
   const gerarPdfBanco = useCallback(() => {
@@ -983,6 +1038,10 @@ export default function ConciliacaoBancaria() {
                       banco: r.banco,
                       candidates: r.candidates || [],
                     })}
+                    onOpenTransfer={(r) => setTransferModal({
+                      rowId: r.rowId,
+                      banco: r.banco,
+                    })}
                   />
                 ))}
               </div>
@@ -1003,6 +1062,17 @@ export default function ConciliacaoBancaria() {
           modal={candidateModal}
           onSelect={(candidate) => handleSelectCandidate(candidateModal.rowId, candidate)}
           onClose={() => setCandidateModal(null)}
+        />
+      )}
+
+      {/* Modal de transferência */}
+      {transferModal && (
+        <TransferModal
+          modal={transferModal}
+          bankAccounts={bankAccounts}
+          currentAccountId={selectedBankAccountId}
+          onConfirm={handleConfirmTransfer}
+          onClose={() => setTransferModal(null)}
         />
       )}
     </div>
@@ -1085,7 +1155,7 @@ function SysCell({ colId, row, expanded, onToggleBordero }) {
   }
 }
 
-function ConciliacaoRow({ row, rowIndex, bankCols, sysCols, onOpenCandidates }) {
+function ConciliacaoRow({ row, rowIndex, bankCols, sysCols, onOpenCandidates, onOpenTransfer }) {
   const [expanded, setExpanded] = useState(false);
   const isMatched = row.matchStatus === 'MATCHED';
   const isBankOnly = row.matchStatus === 'UNMATCHED_BANK';
@@ -1136,11 +1206,15 @@ function ConciliacaoRow({ row, rowIndex, bankCols, sysCols, onOpenCandidates }) 
             </button>
           )}
           {isBankOnly && (
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded border-2 border-red-300 bg-white" title="Sem correspondencia no sistema">
+            <button
+              onClick={() => onOpenTransfer && onOpenTransfer(row)}
+              className="inline-flex items-center justify-center w-6 h-6 rounded border-2 border-red-300 bg-white hover:bg-red-50 hover:border-red-500 hover:scale-110 transition-all cursor-pointer"
+              title="Sem correspondência no sistema - clique para marcar como transferência"
+            >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3">
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
-            </span>
+            </button>
           )}
           {isSysOnly && (
             <span className="inline-flex items-center justify-center w-6 h-6 rounded border-2 border-orange-300 bg-white" title="Sem correspondencia no banco">
@@ -1288,6 +1362,103 @@ function CandidateModal({ modal, onSelect, onClose }) {
               </button>
             ))}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Modal para marcar transferência entre contas */
+function TransferModal({ modal, bankAccounts, currentAccountId, onConfirm, onClose }) {
+  const [targetAccountId, setTargetAccountId] = useState('');
+  const currentAccount = bankAccounts.find(a => String(a.id) === String(currentAccountId));
+  const otherAccounts = bankAccounts.filter(a => String(a.id) !== String(currentAccountId));
+  const bancoVal = modal.banco ? Math.abs(parseFloat(modal.banco.VAL_DOCTO) || 0) : 0;
+  const isSaida = modal.banco?.TIPO_OPERACAO === 1;
+
+  useEffect(() => {
+    if (otherAccounts.length > 0 && !targetAccountId) {
+      setTargetAccountId(String(otherAccounts[0].id));
+    }
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="bg-blue-600 text-white px-5 py-3 rounded-t-xl flex items-center justify-between">
+          <div>
+            <h3 className="font-bold text-lg">Transferencia entre Contas</h3>
+            <p className="text-blue-200 text-xs">Marcar movimento como transferencia interna</p>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-blue-700 rounded-lg transition-colors">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Banco info */}
+        <div className="px-5 py-3 bg-orange-50 border-b">
+          <p className="text-xs text-orange-600 font-bold uppercase">Movimento Bancario</p>
+          <div className="flex items-center gap-4 mt-1">
+            <span className="text-sm font-bold text-gray-800">{formatDate(modal.banco?.DTA_ENTRADA)}</span>
+            <span className="text-sm text-gray-600 flex-1 truncate">{modal.banco?.FAVORECIDO}</span>
+            <span className="text-sm font-black text-orange-700">{formatCurrency(bancoVal)}</span>
+          </div>
+        </div>
+
+        {/* Transfer form */}
+        <div className="px-5 py-4 space-y-3">
+          <div>
+            <label className="text-xs font-bold text-red-500 uppercase tracking-wide">
+              {isSaida ? 'Sai da conta' : 'Entra na conta'}
+            </label>
+            <div className="mt-1 bg-gray-100 border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-semibold text-gray-700">
+              {currentAccount?.nome || 'Conta atual'}
+              {currentAccount?.conta ? ` | Conta: ${currentAccount.conta}` : ''}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center py-1">
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5">
+                <path d="M12 5v14M5 12l7 7 7-7"/>
+              </svg>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-green-600 uppercase tracking-wide">
+              {isSaida ? 'Entra na conta' : 'Sai da conta'}
+            </label>
+            <select
+              value={targetAccountId}
+              onChange={e => setTargetAccountId(e.target.value)}
+              className="mt-1 w-full border-2 border-blue-300 bg-blue-50 rounded-lg px-3 py-2.5 text-sm font-semibold focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+            >
+              {otherAccounts.length === 0 && <option value="">Nenhuma outra conta disponivel</option>}
+              {otherAccounts.map(acc => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.nome}{acc.conta ? ` | Conta: ${acc.conta}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="px-5 py-3 bg-gray-50 rounded-b-xl flex justify-end gap-2 border-t">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-200 rounded-lg transition-colors font-medium">
+            Cancelar
+          </button>
+          <button
+            onClick={() => onConfirm(modal.rowId, targetAccountId)}
+            disabled={!targetAccountId}
+            className="px-5 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            Confirmar Transferencia
+          </button>
         </div>
       </div>
     </div>
