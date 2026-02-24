@@ -51,6 +51,7 @@ const CARD_CONFIG = {
   conc_barato: { emoji: '🏪', label: 'Concorrente', subtitle: '+ Barato', textColor: 'text-blue-600', borderColor: 'border-blue-500', statKey: 'concBarato' },
   margem_excessiva: { emoji: '📈', label: 'Margem Excessiva', textColor: 'text-emerald-600', borderColor: 'border-emerald-500', statKey: 'margemExcessiva', specialRanges: true },
   estoque_excessivo: { emoji: '📦', label: 'Estoque Excessivo', textColor: 'text-amber-600', borderColor: 'border-amber-500', statKey: 'estoqueExcessivo', specialRanges: true },
+  trocas: { emoji: '🔄', label: 'Trocas', subtitle: 'Fornecedor', textColor: 'text-orange-600', borderColor: 'border-orange-500', statKey: 'trocas' },
   valor_estoque: { emoji: '💲', label: 'Valor em Estoque', textColor: 'text-green-600', borderColor: 'border-green-500', statKey: 'valorEstoque', isValorEstoque: true },
 };
 const DEFAULT_CARD_ORDER = ['zerado', 'negativo', 'sem_venda', 'pre_ruptura', 'margem_negativa', 'margem_baixa', 'margem_excessiva', 'estoque_excessivo', 'custo_zerado', 'preco_venda_zerado', 'curva_x', 'conc_barato'];
@@ -60,7 +61,7 @@ const CARD_SECTIONS = [
   {
     id: 'gestao-estoque',
     title: 'GESTÃO ESTOQUE',
-    cards: ['zerado', 'sem_venda', 'pre_ruptura', 'negativo', 'estoque_excessivo', 'curva_x', 'valor_estoque'],
+    cards: ['zerado', 'sem_venda', 'pre_ruptura', 'negativo', 'estoque_excessivo', 'trocas', 'curva_x', 'valor_estoque'],
   },
 ];
 
@@ -98,6 +99,8 @@ export default function EstoqueSaude() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [trocasProductCodes, setTrocasProductCodes] = useState(new Set());
+  const [trocasTotalCusto, setTrocasTotalCusto] = useState(0);
 
   // Configuração de colunas - merge inteligente com versão salva
   const [showColumnSelector, setShowColumnSelector] = useState(false);
@@ -195,6 +198,7 @@ export default function EstoqueSaude() {
     { id: 'pontosSemVenda', label: '⏸️ Sem Venda', type: 'pontos', bg: 'bg-orange-600' },
     { id: 'pontosPreRuptura', label: '📉 Pré Ruptura', type: 'pontos', bg: 'bg-amber-600' },
     { id: 'pontosEstoqueExcessivo', label: '📦 Est. Excessivo', type: 'pontos', bg: 'bg-amber-700' },
+    { id: 'pontosTrocas', label: '🔄 Trocas', type: 'pontos', bg: 'bg-orange-600' },
     { id: 'totalPontosEstoque', label: 'TOTAL', type: 'total', bg: 'bg-gray-800' },
     { id: 'nivelRisco', label: 'NÍVEL', type: 'risco', bg: 'bg-gray-700' },
   ];
@@ -225,6 +229,7 @@ export default function EstoqueSaude() {
     { id: 'pontosConcBarato', label: '🏪 Conc. Barato', type: 'pontos', bg: 'bg-blue-600' },
     { id: 'pontosMargemExcessiva', label: '📈 Mg. Excessiva', type: 'pontos', bg: 'bg-emerald-600' },
     { id: 'pontosEstoqueExcessivo', label: '📦 Est. Excessivo', type: 'pontos', bg: 'bg-amber-600' },
+    { id: 'pontosTrocas', label: '🔄 Trocas', type: 'pontos', bg: 'bg-orange-600' },
     { id: 'totalPontos', label: 'TOTAL', type: 'total', bg: 'bg-gray-800' },
     { id: 'nivelRisco', label: 'NÍVEL', type: 'risco', bg: 'bg-gray-700' },
   ];
@@ -489,7 +494,7 @@ export default function EstoqueSaude() {
   // Configuração de pontuação por curva para cada indicador
   // sem_venda tem estrutura diferente: { curva: { dias: X, pontos: Y } }
   const [pontuacaoConfig, setPontuacaoConfig] = useState(() => {
-    const PONTUACAO_VERSION = 4;
+    const PONTUACAO_VERSION = 5;
     const curvaDefault = { A: 50, B: 35, C: 25, D: 15, E: 10, X: 5 };
     const defaults = {
       _version: PONTUACAO_VERSION,
@@ -512,6 +517,7 @@ export default function EstoqueSaude() {
       conc_barato: { ...curvaDefault },
       margem_excessiva: { ate5: 50, de5a10: 35, de10a15: 25, de15a20: 15, de20a30: 10, acima30: 5 },
       estoque_excessivo: { ate20: 5, de21a30: 10, de31a60: 15, de61a120: 25, de121a180: 35, acima180: 50, nunca: 50 },
+      trocas: { ...curvaDefault },
     };
     const saved = localStorage.getItem('estoque_saude_pontuacao');
     if (saved) {
@@ -739,8 +745,28 @@ export default function EstoqueSaude() {
     }
   };
 
+  // Buscar produtos com trocas pendentes (para card TROCAS)
+  const fetchTrocasProdutos = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (lojaSelecionada) params.append('loja', lojaSelecionada);
+      const [produtosRes, trocasRes] = await Promise.all([
+        api.get(`/losses/oracle/trocas/produtos?${params.toString()}`),
+        api.get(`/losses/oracle/trocas?tipo=saldo&${params.toString()}`),
+      ]);
+      const codigos = produtosRes.data?.produtos || [];
+      setTrocasProductCodes(new Set(codigos.map(c => String(c))));
+      setTrocasTotalCusto(Math.round((trocasRes.data?.estatisticas?.total_custo || 0) * 100) / 100);
+    } catch (err) {
+      console.error('Erro ao buscar produtos com trocas:', err);
+      setTrocasProductCodes(new Set());
+      setTrocasTotalCusto(0);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
+    fetchTrocasProdutos();
   }, [lojaSelecionada]);
 
   // Função para ordenar produtos
@@ -855,6 +881,8 @@ export default function EstoqueSaude() {
         if (!p.estoque || p.estoque <= 0) return false;
         return true; // todos com estoque > 0 (detalhamento por faixa no activeCardCurva)
       });
+    } else if (activeCardFilter === 'trocas') {
+      filtered = filtered.filter(p => trocasProductCodes.has(p.codigo));
     }
 
     // Filtro de curva específica dentro do card (ou faixa especial)
@@ -926,7 +954,7 @@ export default function EstoqueSaude() {
     }
 
     return filtered;
-  }, [products, filterTipoEspecie, filterTipoEvento, filterSecao, filterGrupo, filterSubGrupo, filterCurva, activeCardFilter, activeCardCurva, sortColumn, sortDirection, pontuacaoConfig.sem_venda]);
+  }, [products, filterTipoEspecie, filterTipoEvento, filterSecao, filterGrupo, filterSubGrupo, filterCurva, activeCardFilter, activeCardCurva, sortColumn, sortDirection, pontuacaoConfig.sem_venda, trocasProductCodes]);
 
   // Resetar filtros dependentes quando filtro pai muda
   useEffect(() => {
@@ -1089,6 +1117,9 @@ export default function EstoqueSaude() {
       return false;
     });
 
+    // Trocas: produtos com trocas pendentes no fornecedor
+    const produtosTrocas = filtered.filter(p => trocasProductCodes.has(p.codigo));
+
     return {
       estoqueZerado: produtosZerado.length,
       estoqueNegativo: produtosNegativo.length,
@@ -1102,6 +1133,7 @@ export default function EstoqueSaude() {
       concBarato: produtosConcBarato.length,
       margemExcessiva: produtosMargemExcessiva.length,
       estoqueExcessivo: produtosEstoqueExcessivo.length,
+      trocas: produtosTrocas.length,
       total: filtered.length,
       valorTotalEstoque,
       valorEstoque: valorTotalEstoque,
@@ -1120,9 +1152,10 @@ export default function EstoqueSaude() {
         conc_barato: contarPorCurva(produtosConcBarato),
         margem_excessiva: margemExcessivaPorFaixa,
         estoque_excessivo: estoqueExcessivoPorFaixa,
+        trocas: contarPorCurva(produtosTrocas),
       }
     };
-  }, [products, filterTipoEspecie, filterTipoEvento, pontuacaoConfig.sem_venda]);
+  }, [products, filterTipoEspecie, filterTipoEvento, pontuacaoConfig.sem_venda, trocasProductCodes]);
 
   // Calcular pontos para cada produto (para a visualização de pontuação)
   const produtosComPontuacao = useMemo(() => {
@@ -1181,8 +1214,11 @@ export default function EstoqueSaude() {
         }
       }
 
+      // Trocas: pontos se o produto está em troca com fornecedor
+      const pontosTrocas = trocasProductCodes.has(p.codigo) ? (pontuacaoConfig.trocas?.[curvaKey] || 0) : 0;
+
       // Totais separados por categoria
-      const totalPontosEstoque = pontosZerado + pontosNegativo + pontosSemVenda + pontosPreRuptura + pontosEstoqueExcessivo;
+      const totalPontosEstoque = pontosZerado + pontosNegativo + pontosSemVenda + pontosPreRuptura + pontosEstoqueExcessivo + pontosTrocas;
       const totalPontosMargem = pontosMargemNegativa + pontosMargemBaixa + pontosCustoZerado + pontosPrecoZerado + pontosConcBarato + pontosMargemExcessiva;
       const totalPontos = totalPontosEstoque + totalPontosMargem;
 
@@ -1199,6 +1235,7 @@ export default function EstoqueSaude() {
         pontosConcBarato,
         pontosMargemExcessiva,
         pontosEstoqueExcessivo,
+        pontosTrocas,
         totalPontos,
         totalPontosEstoque,
         totalPontosMargem
@@ -1223,7 +1260,7 @@ export default function EstoqueSaude() {
       bVal = bVal || 0;
       return direction === 'asc' ? aVal - bVal : bVal - aVal;
     });
-  }, [filteredProducts, pontuacaoConfig, sortPontuacao]);
+  }, [filteredProducts, pontuacaoConfig, sortPontuacao, trocasProductCodes]);
 
   // Função para alternar ordenação da tabela de pontuação
   const handleSortPontuacao = (column) => {
@@ -1411,6 +1448,8 @@ export default function EstoqueSaude() {
         return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosEstoqueExcessivo > 0 ? 'text-amber-600 bg-amber-50' : 'text-gray-400'}`}>{product.pontosEstoqueExcessivo > 0 ? product.pontosEstoqueExcessivo : '-'}</td>;
       case 'pontosPreRuptura':
         return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosPreRuptura > 0 ? 'text-amber-600 bg-amber-50' : 'text-gray-400'}`}>{product.pontosPreRuptura > 0 ? product.pontosPreRuptura : '-'}</td>;
+      case 'pontosTrocas':
+        return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosTrocas > 0 ? 'text-orange-600 bg-orange-50' : 'text-gray-400'}`}>{product.pontosTrocas > 0 ? product.pontosTrocas : '-'}</td>;
       case 'totalPontos':
         return <td key={col.id} className="px-3 py-2 text-center text-sm font-bold text-white bg-gray-800">{product.totalPontos}</td>;
       case 'totalPontosEstoque':
@@ -1604,6 +1643,7 @@ export default function EstoqueSaude() {
             case 'pontosMargemExcessiva': return product.pontosMargemExcessiva > 0 ? product.pontosMargemExcessiva.toString() : '-';
             case 'pontosEstoqueExcessivo': return product.pontosEstoqueExcessivo > 0 ? product.pontosEstoqueExcessivo.toString() : '-';
             case 'pontosPreRuptura': return (product.pontosPreRuptura || 0) > 0 ? product.pontosPreRuptura.toString() : '-';
+            case 'pontosTrocas': return (product.pontosTrocas || 0) > 0 ? product.pontosTrocas.toString() : '-';
             case 'totalPontos': return product.totalPontos.toString();
             case 'totalPontosEstoque': return (product.totalPontosEstoque || 0).toString();
             case 'totalPontosMargem': return (product.totalPontosMargem || 0).toString();
@@ -2214,6 +2254,13 @@ export default function EstoqueSaude() {
                         <span className={`text-lg sm:text-xl font-bold ${cfg.textColor}`}>
                           {(stats.valorEstoque || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
                         </span>
+                      ) : cardId === 'trocas' ? (
+                        <div className="text-right">
+                          <span className={`text-xl sm:text-2xl font-bold ${cfg.textColor}`}>{stats[cfg.statKey]}</span>
+                          <p className="text-xs sm:text-sm font-semibold text-gray-500">
+                            {trocasTotalCusto > 0 ? `R$ ${trocasTotalCusto.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : ''}
+                          </p>
+                        </div>
                       ) : (
                         <span className={`text-xl sm:text-2xl font-bold ${cfg.textColor}`}>{stats[cfg.statKey]}</span>
                       )}

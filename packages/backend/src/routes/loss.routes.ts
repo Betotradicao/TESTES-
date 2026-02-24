@@ -64,6 +64,13 @@ router.get(
   LossController.getTrocasItensFornecedor
 );
 
+// Buscar lista de produtos com trocas pendentes (para card EstoqueSaude)
+router.get(
+  '/oracle/trocas/produtos',
+  authenticateToken,
+  LossController.getTrocasProdutos
+);
+
 // Buscar perdas mensais por produto (mês anterior e mês atual)
 router.get(
   '/oracle/perdas-mensais',

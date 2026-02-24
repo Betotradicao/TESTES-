@@ -1097,4 +1097,56 @@ export class LossController {
       res.status(500).json({ error: error.message });
     }
   }
+
+  /**
+   * Retorna lista de COD_PRODUTO com trocas pendentes (saldo > 0)
+   * Endpoint leve usado pelo EstoqueSaude para o card TROCAS
+   */
+  static async getTrocasProdutos(req: AuthRequest, res: Response) {
+    try {
+      const { loja } = req.query;
+      const codigoLoja = loja ? parseInt(loja as string) : 1;
+
+      const m = await LossController.getLossMappings();
+      const schema = await MappingService.getSchema();
+      const tabAjusteEstoque = `${schema}.${await MappingService.getRealTableName('TAB_AJUSTE_ESTOQUE')}`;
+      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
+      const tabTipoAjuste = `${schema}.${await MappingService.getRealTableName('TAB_TIPO_AJUSTE')}`;
+
+      const query = `
+        SELECT DISTINCT ae.${m.estCodProdutoCol} as COD_PRODUTO
+        FROM ${tabAjusteEstoque} ae
+        LEFT JOIN ${tabFornecedor} f ON ae.${m.estCodFornecedorCol} = f.${m.fornCodigoCol}
+        LEFT JOIN ${tabTipoAjuste} ta ON ae.${m.estTipoMovCol} = ta.${m.taCodAjusteCol}
+        WHERE ae.${m.estCodLojaCol} = :loja
+        AND (ae.${m.estFlgCanceladoCol} IS NULL OR ae.${m.estFlgCanceladoCol} = 'N')
+        AND ta.${m.taDesAjusteCol} = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR'
+        AND f.ACEITA_DEVOL_MERC = 'S'
+        AND ae.${m.estQtdEstPostTrocaCol} > 0
+        AND ae.${m.estCodAjusteEstoqueCol} = (
+          SELECT MAX(ae2.${m.estCodAjusteEstoqueCol})
+          FROM ${tabAjusteEstoque} ae2
+          LEFT JOIN ${tabTipoAjuste} ta2 ON ae2.${m.estTipoMovCol} = ta2.${m.taCodAjusteCol}
+          WHERE ae2.${m.estCodProdutoCol} = ae.${m.estCodProdutoCol}
+          AND ae2.${m.estCodFornecedorCol} = ae.${m.estCodFornecedorCol}
+          AND ae2.${m.estCodLojaCol} = :loja
+          AND (ae2.${m.estFlgCanceladoCol} IS NULL OR ae2.${m.estFlgCanceladoCol} = 'N')
+          AND (
+            ta2.${m.taDesAjusteCol} = 'SAIR ESTOQUE LOJA ENTRAR TROCA FORNECEDOR'
+            OR ta2.${m.taDesAjusteCol} = 'SAIR TROCA FORNECEDOR ENTRAR ESTOQUE LOJA'
+            OR ta2.${m.taDesAjusteCol} LIKE '%SAIR TROCA FORNECEDOR E N%O VOLTAR%'
+          )
+        )
+      `;
+
+      const result = await OracleService.query(query, { loja: codigoLoja });
+      const produtos = result.map((r: any) => parseInt(r.COD_PRODUTO) || 0);
+
+      console.log(`✅ Produtos com trocas pendentes: ${produtos.length}`);
+      res.json({ produtos });
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar produtos com trocas:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
 }
