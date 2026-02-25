@@ -72,6 +72,24 @@ export class OfertasController {
   }
 
   /**
+   * GET /ofertas/todos-produtos?codLoja=1
+   * Retorna todos os produtos ativos na loja (Revenda + Producao)
+   */
+  static async getTodosProdutos(req: Request, res: Response) {
+    try {
+      const { codLoja } = req.query;
+      if (!codLoja) {
+        return res.status(400).json({ error: 'codLoja obrigatorio' });
+      }
+      const result = await OfertasService.getTodosProdutos(Number(codLoja));
+      return res.json(result);
+    } catch (error: any) {
+      console.error('[Ofertas] Erro getTodosProdutos:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
    * GET /ofertas/compra-venda-excedido?codLoja=1&tipoEspecie=0&tipoEvento=0
    * Retorna produtos estourados (compra > custo de venda) no ano corrente
    * tipoEspecie: 0=Mercadoria, 2=Servico, 3=Imobilizado, 4=Insumo, null=Todos
@@ -194,6 +212,47 @@ export class OfertasController {
       return res.json({ success: true, affected: result.affected });
     } catch (error: any) {
       console.error('[Ofertas] Erro deleteSugestaoPorNome:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * POST /ofertas/crescimentos-oferta
+   * Calcula crescimento de venda de N produtos em um periodo vs VD_MEDIA historica
+   */
+  static async getCrescimentosOferta(req: Request, res: Response) {
+    try {
+      const { codLoja, produtos } = req.body;
+      if (!codLoja || !Array.isArray(produtos)) {
+        return res.status(400).json({ error: 'codLoja e array de produtos obrigatorios' });
+      }
+      const result = await OfertasService.getCrescimentosOferta(Number(codLoja), produtos);
+      return res.json(result);
+    } catch (error: any) {
+      console.error('[Ofertas] Erro getCrescimentosOferta:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * GET /ofertas/carrinho-junto?codLoja=1&codProduto=X&dtaInicio=DD/MM/YYYY&dtaFim=DD/MM/YYYY
+   * Top 10 produtos mais comprados no mesmo cupom que o produto no periodo
+   */
+  static async getCarrinhosJuntos(req: Request, res: Response) {
+    try {
+      const { codLoja, codProduto, dtaInicio, dtaFim } = req.query;
+      if (!codLoja || !codProduto || !dtaInicio || !dtaFim) {
+        return res.status(400).json({ error: 'codLoja, codProduto, dtaInicio e dtaFim obrigatorios' });
+      }
+      const result = await OfertasService.getCarrinhosJuntos(
+        Number(codLoja),
+        String(codProduto),
+        String(dtaInicio),
+        String(dtaFim)
+      );
+      return res.json(result);
+    } catch (error: any) {
+      console.error('[Ofertas] Erro getCarrinhosJuntos:', error);
       return res.status(500).json({ error: error.message });
     }
   }

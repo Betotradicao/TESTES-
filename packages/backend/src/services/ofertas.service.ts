@@ -647,6 +647,205 @@ export class OfertasService {
   }
 
   /**
+   * Todos Produtos - lista completa de produtos ativos na loja (Revenda + Producao)
+   */
+  static async getTodosProdutos(codLoja: number): Promise<any> {
+    const m = await resolveMapping();
+
+    // Campo inativo em TAB_PRODUTO_LOJA (mesmo filtro usado em products.controller.ts)
+    let colInativo = 'FLG_INATIVO';
+    try {
+      const v = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'inativo');
+      if (v) colInativo = v;
+    } catch {}
+
+    const sql = `
+      SELECT
+        p.${m.pCodProduto} as COD_PRODUTO,
+        p.${m.pDescricao} as DESCRICAO,
+        p.${m.pCodBarras || m.pCodProduto} as EAN,
+        sec.${m.sDesSecao} as SECAO,
+        sec.${m.sCodSecao} as COD_SECAO,
+        pl.${m.plCurva} as CURVA,
+        pl.${m.plValVenda} as PRECO,
+        pl.${m.plValCusto} as CUSTO,
+        pl.${m.plEstoque} as ESTOQUE,
+        NVL(p.${m.pTipoEspecie}, 0) as TIPO_ESPECIE,
+        NVL(p.${m.pTipoEvento}, 0) as TIPO_EVENTO
+      FROM ${m.tabProduto} p
+      INNER JOIN ${m.tabProdutoLoja} pl
+        ON p.${m.pCodProduto} = pl.${m.plCodProduto}
+        AND pl.${m.plCodLoja} = :codLoja
+      LEFT JOIN ${m.tabSecao} sec ON p.${m.pCodSecao} = sec.${m.sCodSecao}
+      WHERE NVL(pl.${colInativo}, 'N') = 'N'
+        AND NVL(pl.${m.plEstoque}, 0) > 0
+      ORDER BY sec.${m.sDesSecao} NULLS LAST, p.${m.pDescricao}
+    `;
+
+    const rows = await OracleService.query<any>(sql, { codLoja });
+
+    const produtos = rows.map(r => ({
+      COD_PRODUTO: r.COD_PRODUTO,
+      DESCRICAO: r.DESCRICAO,
+      EAN: r.EAN,
+      COD_BARRAS: r.EAN,
+      SECAO: r.SECAO || 'SEM SECAO',
+      COD_SECAO: r.COD_SECAO,
+      CURVA: r.CURVA || 'X',
+      PRECO: Math.round((parseFloat(r.PRECO) || 0) * 100) / 100,
+      CUSTO: Math.round((parseFloat(r.CUSTO) || 0) * 100) / 100,
+      ESTOQUE: Math.round(parseFloat(r.ESTOQUE) || 0),
+      TIPO_ESPECIE: Number(r.TIPO_ESPECIE),
+      TIPO_EVENTO: Number(r.TIPO_EVENTO),
+      // Revenda = especie 0 + evento 0 (Mercadoria Direta); Producao = tudo mais (insumos, composição, etc.)
+      TIPO_LABEL: (Number(r.TIPO_ESPECIE) === 0 && Number(r.TIPO_EVENTO) === 0) ? 'Revenda' : 'Producao',
+    }));
+
+    const totalRevenda = produtos.filter(p => p.TIPO_LABEL === 'Revenda').length;
+    const totalProducao = produtos.filter(p => p.TIPO_LABEL === 'Producao').length;
+
+    return { total: produtos.length, totalRevenda, totalProducao, produtos };
+  }
+
+  /**
+   * Crescimentos de oferta - calcula crescimento de venda de N produtos em um periodo
+   * comparando venda real no periodo vs VD_MEDIA historica
+   */
+  static async getCrescimentosOferta(codLoja: number, produtos: Array<{
+    codProduto: string;
+    dtaInicio: string; // DD/MM/YYYY
+    dtaFim: string;    // DD/MM/YYYY
+    vdMedia: number;
+  }>): Promise<Record<string, { vdOferta: number; crescimentoPct: number }>> {
+    const m = await resolveMapping();
+    const resultado: Record<string, { vdOferta: number; crescimentoPct: number; vdHist: number }> = {};
+
+    if (!produtos || produtos.length === 0) return resultado;
+
+    // Processar em lotes de 20 em paralelo
+    const LOTE = 20;
+    for (let i = 0; i < produtos.length; i += LOTE) {
+      const lote = produtos.slice(i, i + LOTE);
+      await Promise.all(lote.map(async ({ codProduto, dtaInicio, dtaFim, vdMedia }) => {
+        try {
+          // Calcular dias do período
+          const [d1, mo1, y1] = dtaInicio.split('/').map(Number);
+          const [d2, mo2, y2] = dtaFim.split('/').map(Number);
+          const ini = new Date(y1, mo1 - 1, d1);
+          const fim = new Date(y2, mo2 - 1, d2);
+          const dias = Math.max(1, Math.ceil((fim.getTime() - ini.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+          const sql = `
+            SELECT
+              NVL(SUM(pv.${m.pvQtdTotal}), 0) as QTD_VENDIDA,
+              NVL(MAX(pl.${m.plVdMedia}), 0) as VD_MEDIA_HIST
+            FROM ${m.tabProdutoPdv} pv
+            LEFT JOIN ${m.tabProdutoLoja} pl
+              ON pl.${m.plCodProduto} = pv.${m.pvCodProduto}
+              AND pl.${m.plCodLoja} = pv.${m.pvCodLoja}
+            WHERE pv.${m.pvCodProduto} = :codProduto
+              AND pv.${m.pvCodLoja} = :codLoja
+              AND pv.${m.pvDtaSaida} BETWEEN TO_DATE(:dtaInicio, 'DD/MM/YYYY') AND TO_DATE(:dtaFim, 'DD/MM/YYYY') + 0.99999
+          `;
+          const rows = await OracleService.query<any>(sql, { codProduto, codLoja, dtaInicio, dtaFim });
+          const qtd = parseFloat(rows[0]?.QTD_VENDIDA) || 0;
+          const vdHist = parseFloat(rows[0]?.VD_MEDIA_HIST) || vdMedia || 0;
+          const vdOferta = Math.round((qtd / dias) * 100) / 100;
+          const crescimentoPct = vdHist > 0
+            ? Math.round(((vdOferta - vdHist) / vdHist) * 10000) / 100
+            : 0;
+          resultado[codProduto] = { vdOferta, crescimentoPct, vdHist };
+        } catch (err: any) {
+          console.error(`[Ofertas] Erro getCrescimentosOferta cod=${codProduto}:`, err?.message);
+          resultado[codProduto] = { vdOferta: 0, crescimentoPct: 0, vdHist: 0 };
+        }
+      }));
+    }
+    return resultado;
+  }
+
+  /**
+   * Carrinho junto - top 10 produtos mais comprados no mesmo cupom que o produto informado
+   * no periodo da oferta (basket analysis)
+   */
+  static async getCarrinhosJuntos(codLoja: number, codProduto: string, dtaInicio: string, dtaFim: string): Promise<any[]> {
+    const m = await resolveMapping();
+
+    const sql = `
+      SELECT * FROM (
+        SELECT
+          pv2.${m.pvCodProduto} as COD_PRODUTO,
+          p.${m.pDescricao} as DESCRICAO,
+          p.${m.pCodBarras} as COD_BARRAS,
+          s.${m.sDesSecao} as SECAO,
+          COUNT(DISTINCT pv1.${m.pvNumCupom}) as FREQ_JUNTO,
+          NVL(tot.QTD_TOTAL_REAL, 0) as QTD_TOTAL_PERIODO,
+          NVL(MAX(pl.${m.plVdMedia}), 0) as VD_MEDIA_HISTORICA,
+          NVL(MAX(pl.${m.plValVenda}), 0) as PRECO_VENDA,
+          NVL(MAX(pl.${m.plValCusto}), 0) as CUSTO_UNIT
+        FROM ${m.tabProdutoPdv} pv1
+        INNER JOIN ${m.tabProdutoPdv} pv2
+          ON pv1.${m.pvNumCupom} = pv2.${m.pvNumCupom}
+          AND pv1.${m.pvCodLoja} = pv2.${m.pvCodLoja}
+          AND pv1.${m.pvCodProduto} != pv2.${m.pvCodProduto}
+        INNER JOIN ${m.tabProduto} p ON pv2.${m.pvCodProduto} = p.${m.pCodProduto}
+        LEFT JOIN ${m.tabProdutoLoja} pl
+          ON pv2.${m.pvCodProduto} = pl.${m.plCodProduto}
+          AND pl.${m.plCodLoja} = :codLoja
+        LEFT JOIN ${m.tabSecao} s ON p.${m.pCodSecao} = s.${m.sCodSecao}
+        LEFT JOIN (
+          SELECT ${m.pvCodProduto} as COD_PROD_TOT,
+                 NVL(SUM(${m.pvQtdTotal}), 0) as QTD_TOTAL_REAL
+          FROM ${m.tabProdutoPdv}
+          WHERE ${m.pvCodLoja} = :codLoja
+            AND ${m.pvDtaSaida} BETWEEN TO_DATE(:dtaInicio, 'DD/MM/YYYY') AND TO_DATE(:dtaFim, 'DD/MM/YYYY') + 0.99999
+          GROUP BY ${m.pvCodProduto}
+        ) tot ON tot.COD_PROD_TOT = pv2.${m.pvCodProduto}
+        WHERE pv1.${m.pvCodProduto} = :codProduto
+          AND pv1.${m.pvDtaSaida} BETWEEN TO_DATE(:dtaInicio, 'DD/MM/YYYY') AND TO_DATE(:dtaFim, 'DD/MM/YYYY') + 0.99999
+          AND pv1.${m.pvCodLoja} = :codLoja
+        GROUP BY pv2.${m.pvCodProduto}, p.${m.pDescricao}, p.${m.pCodBarras}, s.${m.sDesSecao}, tot.QTD_TOTAL_REAL
+        ORDER BY FREQ_JUNTO DESC
+      ) WHERE ROWNUM <= 10
+    `;
+
+    const rows = await OracleService.query<any>(sql, { codProduto, codLoja, dtaInicio, dtaFim });
+
+    // Calcular dias do período para vdOferta
+    const [d1, mo1, y1] = dtaInicio.split('/').map(Number);
+    const [d2, mo2, y2] = dtaFim.split('/').map(Number);
+    const ini = new Date(y1, mo1 - 1, d1);
+    const fim = new Date(y2, mo2 - 1, d2);
+    const dias = Math.max(1, Math.ceil((fim.getTime() - ini.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+    return rows.map((row: any) => {
+      const vdMedia = parseFloat(row.VD_MEDIA_HISTORICA) || 0;
+      const qtdTotal = parseFloat(row.QTD_TOTAL_PERIODO) || 0;
+      const vdOferta = Math.round((qtdTotal / dias) * 100) / 100;
+      const crescimentoPct = vdMedia > 0
+        ? Math.round(((vdOferta - vdMedia) / vdMedia) * 10000) / 100
+        : 0;
+      const precoVenda = Math.round((parseFloat(row.PRECO_VENDA) || 0) * 100) / 100;
+      const custoUnit = Math.round((parseFloat(row.CUSTO_UNIT) || 0) * 100) / 100;
+      const margem = precoVenda > 0 && custoUnit > 0
+        ? Math.round(((precoVenda - custoUnit) / precoVenda) * 1000) / 10
+        : null;
+      return {
+        codProduto: String(row.COD_PRODUTO),
+        descricao: row.DESCRICAO || '',
+        codBarras: row.COD_BARRAS || '',
+        secao: row.SECAO || '',
+        freqJunto: Number(row.FREQ_JUNTO) || 0,
+        vdMediaHistorica: Math.round(vdMedia * 100) / 100,
+        vdOferta,
+        crescimentoPct,
+        precoVenda,
+        margem,
+      };
+    });
+  }
+
+  /**
    * Compra e Venda Excedido - produtos "estourados" (compra > custo de venda) no ano corrente.
    * Retorna apenas produtos com DIFERENCA_RS < 0.
    */

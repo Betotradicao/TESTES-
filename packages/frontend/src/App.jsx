@@ -62,6 +62,7 @@ import DemonstrativoCaixa from './pages/DemonstrativoCaixa';
 import PrioridadeReposicao from './pages/PrioridadeReposicao';
 import ProgramacaoAtual from './pages/ProgramacaoAtual';
 import AnaliseOferta from './pages/AnaliseOferta';
+import SimuladorVenda from './pages/SimuladorVenda';
 import BoletoDDA from './pages/BoletoDDA';
 import ConciliacaoBancaria from './pages/ConciliacaoBancaria';
 
@@ -533,6 +534,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AnaliseOferta defaultTab="salvas" />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/gestao-ofertas/simulador-venda"
+              element={
+                <ProtectedRoute>
+                  <SimuladorVenda />
                 </ProtectedRoute>
               }
             />

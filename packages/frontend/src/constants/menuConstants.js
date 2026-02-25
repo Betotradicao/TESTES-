@@ -107,6 +107,7 @@ export const MENU_SUBMENUS = {
   BOLETOS_DDA: 'boletos-dda',
   CONCILIACAO_BANCARIA: 'conciliacao-bancaria',
   ANALISE_OFERTA: 'analise-oferta',
+  SIMULADOR_VENDA: 'simulador-venda',
   ENTRADAS_SAIDAS: 'entradas-saidas',
   DEMONSTRATIVO_CAIXA: 'demonstrativo-caixa',
 
@@ -219,6 +220,11 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.OFERTAS_SALVAS,
         title: 'Ofertas Salvas',
         path: '/gestao-ofertas/ofertas-salvas'
+      },
+      {
+        id: MENU_SUBMENUS.SIMULADOR_VENDA,
+        title: 'Simulador de Venda',
+        path: '/gestao-ofertas/simulador-venda'
       }
     ]
   },

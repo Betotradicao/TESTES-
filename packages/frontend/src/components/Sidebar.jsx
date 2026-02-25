@@ -161,6 +161,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       // Gestão de Ofertas
       '/gestao-ofertas/programacao-atual': 'ofertas',
       '/gestao-ofertas/analise-sugestao': 'ofertas',
+      '/gestao-ofertas/simulador-venda': 'ofertas',
     };
 
     // Mapear rotas para a seção principal (expandedSections)
@@ -178,6 +179,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/pricing-competitividade': 'gestao-radar',
       '/gestao-ofertas/programacao-atual': 'gestao-radar',
       '/gestao-ofertas/analise-sugestao': 'gestao-radar',
+      '/gestao-ofertas/simulador-venda': 'gestao-radar',
       '/bipagens': 'prevencao-radar',
       '/resultados-do-dia': 'prevencao-radar',
       '/rankings': 'prevencao-radar',
@@ -343,7 +345,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           expandable: true,
           subItems: [
             { id: 'programacao-atual', submenuId: 'programacao-atual', title: 'PROGRAMAÇÃO ATUAL', path: '/gestao-ofertas/programacao-atual' },
-            { id: 'analise-oferta', submenuId: 'analise-oferta', title: 'ANÁLISE E SUGESTÃO', path: '/gestao-ofertas/analise-sugestao' }
+            { id: 'analise-oferta', submenuId: 'analise-oferta', title: 'ANÁLISE E SUGESTÃO', path: '/gestao-ofertas/analise-sugestao' },
+            { id: 'simulador-venda', submenuId: 'simulador-venda', title: 'SIMULADOR DE VENDA', path: '/gestao-ofertas/simulador-venda' }
           ]
         },
       ]
