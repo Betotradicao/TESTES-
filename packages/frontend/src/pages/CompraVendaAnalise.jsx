@@ -571,11 +571,28 @@ export default function CompraVendaAnalise() {
         try {
           const params = buildDrillDownParams();
           params.append('codSecao', secaoKey);
-          console.log('📊 Buscando grupos da seção:', secaoKey, 'params:', params.toString());
-          const response = await api.get(`/compra-venda/drill-down/grupos?${params.toString()}`);
+          const paramsAnual = new URLSearchParams(params.toString());
+          paramsAnual.set('dataInicio', `01/01/${new Date().getFullYear()}`);
+          console.log('📊 Buscando grupos da seção:', secaoKey);
+          const [response, responseAnual] = await Promise.all([
+            api.get(`/compra-venda/drill-down/grupos?${params.toString()}`),
+            api.get(`/compra-venda/drill-down/grupos?${paramsAnual.toString()}`),
+          ]);
           console.log('📊 Resposta grupos:', response.data);
           if (response.data.success) {
-            setGruposData(prev => ({ ...prev, [secaoKey]: response.data.data }));
+            const anualMap = {};
+            if (responseAnual.data.success) {
+              for (const r of (responseAnual.data.data || [])) {
+                const key = `${r.COD_GRUPO}_${r.LOJA}`;
+                anualMap[key] = { DIF_ANUAL_PCT: r.DIFERENCA_PCT || 0, DIF_ANUAL_RS: r.DIFERENCA_RS || 0 };
+              }
+            }
+            const mergedData = (response.data.data || []).map(row => {
+              const key = `${row.COD_GRUPO}_${row.LOJA}`;
+              const anual = anualMap[key] || { DIF_ANUAL_PCT: 0, DIF_ANUAL_RS: 0 };
+              return { ...row, DIF_ANUAL_PCT: anual.DIF_ANUAL_PCT, DIF_ANUAL_RS: anual.DIF_ANUAL_RS };
+            });
+            setGruposData(prev => ({ ...prev, [secaoKey]: mergedData }));
           }
         } catch (error) {
           console.error('Erro ao carregar grupos:', error);
@@ -605,11 +622,28 @@ export default function CompraVendaAnalise() {
           const params = buildDrillDownParams();
           params.append('codSecao', secaoKey);
           params.append('codGrupo', grupoKey);
+          const paramsAnual = new URLSearchParams(params.toString());
+          paramsAnual.set('dataInicio', `01/01/${new Date().getFullYear()}`);
           console.log('📊 Buscando subgrupos do grupo:', grupoKey, 'seção:', secaoKey);
-          const response = await api.get(`/compra-venda/drill-down/subgrupos?${params.toString()}`);
+          const [response, responseAnual] = await Promise.all([
+            api.get(`/compra-venda/drill-down/subgrupos?${params.toString()}`),
+            api.get(`/compra-venda/drill-down/subgrupos?${paramsAnual.toString()}`),
+          ]);
           console.log('📊 Resposta subgrupos:', response.data);
           if (response.data.success) {
-            setSubgruposData(prev => ({ ...prev, [key]: response.data.data }));
+            const anualMap = {};
+            if (responseAnual.data.success) {
+              for (const r of (responseAnual.data.data || [])) {
+                const anualKey = `${r.COD_SUB_GRUPO}_${r.LOJA}`;
+                anualMap[anualKey] = { DIF_ANUAL_PCT: r.DIFERENCA_PCT || 0, DIF_ANUAL_RS: r.DIFERENCA_RS || 0 };
+              }
+            }
+            const mergedData = (response.data.data || []).map(row => {
+              const anualKey = `${row.COD_SUB_GRUPO}_${row.LOJA}`;
+              const anual = anualMap[anualKey] || { DIF_ANUAL_PCT: 0, DIF_ANUAL_RS: 0 };
+              return { ...row, DIF_ANUAL_PCT: anual.DIF_ANUAL_PCT, DIF_ANUAL_RS: anual.DIF_ANUAL_RS };
+            });
+            setSubgruposData(prev => ({ ...prev, [key]: mergedData }));
           }
         } catch (error) {
           console.error('Erro ao carregar subgrupos:', error);

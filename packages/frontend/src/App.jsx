@@ -48,6 +48,7 @@ import AncoragemPreco from './pages/AncoragemPreco';
 import FrenteCaixa from './pages/FrenteCaixa';
 import PrevencaoPedidos from './pages/PrevencaoPedidos';
 import RupturaIndustria from './pages/RupturaIndustria';
+import PrazoFornecedores from './pages/PrazoFornecedores';
 import GestaoInteligente from './pages/GestaoInteligente';
 import GarimpaFornecedores from './pages/GarimpaFornecedores';
 import RotaCrescimento from './pages/RotaCrescimento';
@@ -406,6 +407,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <RupturaIndustria />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/prazo-fornecedores"
+              element={
+                <ProtectedRoute>
+                  <PrazoFornecedores />
                 </ProtectedRoute>
               }
             />

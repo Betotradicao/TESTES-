@@ -43,6 +43,7 @@ export const MENU_SUBMENUS = {
   PEDIDOS: 'pedidos',
   CALENDARIO_ATENDIMENTO: 'calendario-atendimento',
   RUPTURA_INDUSTRIA: 'ruptura-industria',
+  PRAZO_FORNECEDORES: 'prazo-fornecedores',
 
   // Gestão de Pricing
   SAUDE_MARGENS: 'saude-margens',
@@ -174,6 +175,11 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.RUPTURA_INDUSTRIA,
         title: 'Ruptura Indústria',
         path: '/ruptura-industria'
+      },
+      {
+        id: MENU_SUBMENUS.PRAZO_FORNECEDORES,
+        title: 'Prazo Fornecedores',
+        path: '/prazo-fornecedores'
       }
     ]
   },

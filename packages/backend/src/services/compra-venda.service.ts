@@ -757,65 +757,87 @@ export class CompraVendaService {
       tipoEmprestimoDecomposicao = true
     } = filters;
 
-    // Obter schema e nomes das tabelas dinamicamente
+    // Resolver tabelas e colunas em paralelo (Promise.all para evitar awaits sequenciais)
     const schema = await MappingService.getSchema();
-    const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO')}`;
-    const tabNf = `${schema}.${await MappingService.getRealTableName('TAB_NF')}`;
-    const tabNfItem = `${schema}.${await MappingService.getRealTableName('TAB_NF_ITEM')}`;
-    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
-    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
-    const tabProdutoDecomposicao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_DECOMPOSICAO')}`;
-    const tabProdutoProducao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PRODUCAO')}`;
-    const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
-    const tabProdutoComprador = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_COMPRADOR')}`;
+    const [
+      tabGrupoName, tabNfName, tabNfItemName, tabProdutoName, tabProdutoPdvName,
+      tabProdutoDecomposicaoName, tabProdutoProducaoName, tabProdutoLojaName, tabProdutoCompradorName,
+      colCodGrupo, colDesGrupo, colCodSecao,
+      colCodProduto, colCodSecaoProd, colCodGrupoProd,
+      colNumNf, colSerieNf, colDtaEntrada, colCodParceiro, colTipoOperacao,
+      colNumNfItem, colSerieNfItem, colCodParceiroItem, colCodItem, colValTotalItem, colCodLoja,
+      colQtdTotalProduto, colValTotalProduto, colValCustoRepPdv, colDtaSaida,
+      colValImpostoDebitoRaw, colValImpositoCreditoRaw, colTipoSaidaRaw,
+      colQtdTotalNfRaw, colCfopRaw,
+      colQtdDecompRaw, colCodProdutoDecomRaw,
+      colQtdProducaoRaw, colCodProdutoProducaoRaw, colCodProdutoFinalRaw,
+      colCodAssociadoRaw, colQtdEmbalagemVendaRaw
+    ] = await Promise.all([
+      MappingService.getRealTableName('TAB_GRUPO'),
+      MappingService.getRealTableName('TAB_NF'),
+      MappingService.getRealTableName('TAB_NF_ITEM'),
+      MappingService.getRealTableName('TAB_PRODUTO'),
+      MappingService.getRealTableName('TAB_PRODUTO_PDV'),
+      MappingService.getRealTableName('TAB_PRODUTO_DECOMPOSICAO'),
+      MappingService.getRealTableName('TAB_PRODUTO_PRODUCAO'),
+      MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
+      MappingService.getRealTableName('TAB_PRODUTO_COMPRADOR'),
+      MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo'),
+      MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo'),
+      MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo'),
+      MappingService.getColumnFromTable('TAB_NF', 'numero_nf'),
+      MappingService.getColumnFromTable('TAB_NF', 'serie_nf'),
+      MappingService.getColumnFromTable('TAB_NF', 'data_entrada'),
+      MappingService.getColumnFromTable('TAB_NF', 'codigo_parceiro'),
+      MappingService.getColumnFromTable('TAB_NF', 'tipo_operacao'),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_nf'),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'serie_nf'),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_parceiro'),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_item'),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total'),
+      MappingService.getColumnFromTable('TAB_LOJA', 'codigo_loja'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'tipo_saida').catch(() => null),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'quantidade_total').catch(() => null),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'cfop').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'quantidade_decomposicao').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'codigo_produto_decomposicao').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PRODUCAO', 'quantidade_producao').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PRODUCAO', 'codigo_produto_producao').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PRODUCAO', 'codigo_produto').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_associado').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'qtd_embalagem_venda').catch(() => null),
+    ]);
 
-    // Resolver colunas dinamicamente
-    const colCodGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo');
-    const colDesGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo');
-    const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
-    const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
-    const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
-    const colCodGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo');
-    const colNumNf = await MappingService.getColumnFromTable('TAB_NF', 'numero_nf');
-    const colSerieNf = await MappingService.getColumnFromTable('TAB_NF', 'serie_nf');
-    const colDtaEntrada = await MappingService.getColumnFromTable('TAB_NF', 'data_entrada');
-    const colCodParceiro = await MappingService.getColumnFromTable('TAB_NF', 'codigo_parceiro');
-    const colTipoOperacao = await MappingService.getColumnFromTable('TAB_NF', 'tipo_operacao');
-    const colNumNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_nf');
-    const colSerieNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'serie_nf');
-    const colCodParceiroItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_parceiro');
-    const colCodItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_item');
-    const colValTotalItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total');
-    const colCodLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'codigo_loja');
-    // Colunas PDV (vendas)
-    const colQtdTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade');
-    const colValTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total');
-    const colValCustoRepPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao');
-    const colDtaSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda');
-    let colValImpostoDebito = 'VAL_IMPOSTO_DEBITO';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito'); if (v) colValImpostoDebito = v; } catch {}
-    let colValImpostoCredito = 'VAL_IMPOSTO_CREDITO';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito'); if (v) colValImpostoCredito = v; } catch {}
-    let colTipoSaida = 'TIPO_SAIDA';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'tipo_saida'); if (v) colTipoSaida = v; } catch {}
-    let colQtdTotalNf = 'QTD_TOTAL';
-    try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'quantidade_total'); if (v) colQtdTotalNf = v; } catch {}
-    let colCfop = 'CFOP';
-    try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'cfop'); if (v) colCfop = v; } catch {}
-    let colQtdDecomp = 'QTD_DECOMP';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'quantidade_decomposicao'); if (v) colQtdDecomp = v; } catch {}
-    let colCodProdutoDecom = 'COD_PRODUTO_DECOM';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'codigo_produto_decomposicao'); if (v) colCodProdutoDecom = v; } catch {}
-    let colQtdProducao = 'QTD_PRODUCAO';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PRODUCAO', 'quantidade_producao'); if (v) colQtdProducao = v; } catch {}
-    let colCodProdutoProducao = 'COD_PRODUTO_PRODUCAO';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PRODUCAO', 'codigo_produto_producao'); if (v) colCodProdutoProducao = v; } catch {}
-    let colCodProdutoFinal = 'COD_PRODUTO';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PRODUCAO', 'codigo_produto'); if (v) colCodProdutoFinal = v; } catch {}
-    let colCodAssociado = 'COD_ASSOCIADO';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_associado'); if (v) colCodAssociado = v; } catch {}
-    let colQtdEmbalagemVenda = 'QTD_EMBALAGEM_VENDA';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO', 'qtd_embalagem_venda'); if (v) colQtdEmbalagemVenda = v; } catch {}
+    const tabGrupo = `${schema}.${tabGrupoName}`;
+    const tabNf = `${schema}.${tabNfName}`;
+    const tabNfItem = `${schema}.${tabNfItemName}`;
+    const tabProduto = `${schema}.${tabProdutoName}`;
+    const tabProdutoPdv = `${schema}.${tabProdutoPdvName}`;
+    const tabProdutoDecomposicao = `${schema}.${tabProdutoDecomposicaoName}`;
+    const tabProdutoProducao = `${schema}.${tabProdutoProducaoName}`;
+    const tabProdutoLoja = `${schema}.${tabProdutoLojaName}`;
+    const tabProdutoComprador = `${schema}.${tabProdutoCompradorName}`;
+    const colValImpostoDebito = colValImpostoDebitoRaw || 'VAL_IMPOSTO_DEBITO';
+    const colValImpostoCredito = colValImpositoCreditoRaw || 'VAL_IMPOSTO_CREDITO';
+    const colTipoSaida = colTipoSaidaRaw || 'TIPO_SAIDA';
+    const colQtdTotalNf = colQtdTotalNfRaw || 'QTD_TOTAL';
+    const colCfop = colCfopRaw || 'CFOP';
+    const colQtdDecomp = colQtdDecompRaw || 'QTD_DECOMP';
+    const colCodProdutoDecom = colCodProdutoDecomRaw || 'COD_PRODUTO_DECOM';
+    const colQtdProducao = colQtdProducaoRaw || 'QTD_PRODUCAO';
+    const colCodProdutoProducao = colCodProdutoProducaoRaw || 'COD_PRODUTO_PRODUCAO';
+    const colCodProdutoFinal = colCodProdutoFinalRaw || 'COD_PRODUTO';
+    const colCodAssociado = colCodAssociadoRaw || 'COD_ASSOCIADO';
+    const colQtdEmbalagemVenda = colQtdEmbalagemVendaRaw || 'QTD_EMBALAGEM_VENDA';
 
     const params: any = {
       dataInicio,
@@ -1135,67 +1157,89 @@ export class CompraVendaService {
       tipoEmprestimoDecomposicao = true
     } = filters;
 
-    // Obter schema e nomes das tabelas dinamicamente
+    // Resolver tabelas e colunas em paralelo (Promise.all para evitar awaits sequenciais)
     const schema = await MappingService.getSchema();
-    const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO')}`;
-    const tabNf = `${schema}.${await MappingService.getRealTableName('TAB_NF')}`;
-    const tabNfItem = `${schema}.${await MappingService.getRealTableName('TAB_NF_ITEM')}`;
-    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
-    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
-    const tabProdutoDecomposicao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_DECOMPOSICAO')}`;
-    const tabProdutoProducao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PRODUCAO')}`;
-    const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
-    const tabProdutoComprador = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_COMPRADOR')}`;
+    const [
+      tabSubgrupoName, tabNfName, tabNfItemName, tabProdutoName, tabProdutoPdvName,
+      tabProdutoDecomposicaoName, tabProdutoProducaoName, tabProdutoLojaName, tabProdutoCompradorName,
+      colCodSubGrupo, colDesSubGrupo, colCodSecao, colCodGrupo,
+      colCodProduto, colCodSecaoProd, colCodGrupoProd, colCodSubGrupoProd,
+      colNumNf, colSerieNf, colDtaEntrada, colCodParceiro, colTipoOperacao,
+      colNumNfItem, colSerieNfItem, colCodParceiroItem, colCodItem, colValTotalItem, colCodLoja,
+      colQtdTotalProduto, colValTotalProduto, colValCustoRepPdv, colDtaSaida,
+      colValImpostoDebitoRaw, colValImpositoCreditoRaw, colTipoSaidaRaw,
+      colQtdTotalNfRaw, colCfopRaw,
+      colQtdDecompRaw, colCodProdutoDecomRaw,
+      colQtdProducaoRaw, colCodProdutoProducaoRaw, colCodProdutoFinalRaw,
+      colCodAssociadoRaw, colQtdEmbalagemVendaRaw
+    ] = await Promise.all([
+      MappingService.getRealTableName('TAB_SUBGRUPO'),
+      MappingService.getRealTableName('TAB_NF'),
+      MappingService.getRealTableName('TAB_NF_ITEM'),
+      MappingService.getRealTableName('TAB_PRODUTO'),
+      MappingService.getRealTableName('TAB_PRODUTO_PDV'),
+      MappingService.getRealTableName('TAB_PRODUTO_DECOMPOSICAO'),
+      MappingService.getRealTableName('TAB_PRODUTO_PRODUCAO'),
+      MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
+      MappingService.getRealTableName('TAB_PRODUTO_COMPRADOR'),
+      MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo'),
+      MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo'),
+      MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao'),
+      MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo'),
+      MappingService.getColumnFromTable('TAB_NF', 'numero_nf'),
+      MappingService.getColumnFromTable('TAB_NF', 'serie_nf'),
+      MappingService.getColumnFromTable('TAB_NF', 'data_entrada'),
+      MappingService.getColumnFromTable('TAB_NF', 'codigo_parceiro'),
+      MappingService.getColumnFromTable('TAB_NF', 'tipo_operacao'),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_nf'),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'serie_nf'),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_parceiro'),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_item'),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total'),
+      MappingService.getColumnFromTable('TAB_LOJA', 'codigo_loja'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'tipo_saida').catch(() => null),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'quantidade_total').catch(() => null),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'cfop').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'quantidade_decomposicao').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'codigo_produto_decomposicao').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PRODUCAO', 'quantidade_producao').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PRODUCAO', 'codigo_produto_producao').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PRODUCAO', 'codigo_produto').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_associado').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'qtd_embalagem_venda').catch(() => null),
+    ]);
 
-    // Resolver colunas dinamicamente
-    const colCodSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo');
-    const colDesSubGrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo');
-    const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
-    const colCodGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo');
-    const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
-    const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
-    const colCodGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo');
-    const colCodSubGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo');
-    const colNumNf = await MappingService.getColumnFromTable('TAB_NF', 'numero_nf');
-    const colSerieNf = await MappingService.getColumnFromTable('TAB_NF', 'serie_nf');
-    const colDtaEntrada = await MappingService.getColumnFromTable('TAB_NF', 'data_entrada');
-    const colCodParceiro = await MappingService.getColumnFromTable('TAB_NF', 'codigo_parceiro');
-    const colTipoOperacao = await MappingService.getColumnFromTable('TAB_NF', 'tipo_operacao');
-    const colNumNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_nf');
-    const colSerieNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'serie_nf');
-    const colCodParceiroItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_parceiro');
-    const colCodItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_item');
-    const colValTotalItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total');
-    const colCodLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'codigo_loja');
-    // Colunas PDV (vendas)
-    const colQtdTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade');
-    const colValTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total');
-    const colValCustoRepPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao');
-    const colDtaSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda');
-    let colValImpostoDebito = 'VAL_IMPOSTO_DEBITO';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito'); if (v) colValImpostoDebito = v; } catch {}
-    let colValImpostoCredito = 'VAL_IMPOSTO_CREDITO';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito'); if (v) colValImpostoCredito = v; } catch {}
-    let colTipoSaida = 'TIPO_SAIDA';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'tipo_saida'); if (v) colTipoSaida = v; } catch {}
-    let colQtdTotalNf = 'QTD_TOTAL';
-    try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'quantidade_total'); if (v) colQtdTotalNf = v; } catch {}
-    let colCfop = 'CFOP';
-    try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'cfop'); if (v) colCfop = v; } catch {}
-    let colQtdDecomp = 'QTD_DECOMP';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'quantidade_decomposicao'); if (v) colQtdDecomp = v; } catch {}
-    let colCodProdutoDecom = 'COD_PRODUTO_DECOM';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'codigo_produto_decomposicao'); if (v) colCodProdutoDecom = v; } catch {}
-    let colQtdProducao = 'QTD_PRODUCAO';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PRODUCAO', 'quantidade_producao'); if (v) colQtdProducao = v; } catch {}
-    let colCodProdutoProducao = 'COD_PRODUTO_PRODUCAO';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PRODUCAO', 'codigo_produto_producao'); if (v) colCodProdutoProducao = v; } catch {}
-    let colCodProdutoFinal = 'COD_PRODUTO';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PRODUCAO', 'codigo_produto'); if (v) colCodProdutoFinal = v; } catch {}
-    let colCodAssociado = 'COD_ASSOCIADO';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_associado'); if (v) colCodAssociado = v; } catch {}
-    let colQtdEmbalagemVenda = 'QTD_EMBALAGEM_VENDA';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO', 'qtd_embalagem_venda'); if (v) colQtdEmbalagemVenda = v; } catch {}
+    const tabSubgrupo = `${schema}.${tabSubgrupoName}`;
+    const tabNf = `${schema}.${tabNfName}`;
+    const tabNfItem = `${schema}.${tabNfItemName}`;
+    const tabProduto = `${schema}.${tabProdutoName}`;
+    const tabProdutoPdv = `${schema}.${tabProdutoPdvName}`;
+    const tabProdutoDecomposicao = `${schema}.${tabProdutoDecomposicaoName}`;
+    const tabProdutoProducao = `${schema}.${tabProdutoProducaoName}`;
+    const tabProdutoLoja = `${schema}.${tabProdutoLojaName}`;
+    const tabProdutoComprador = `${schema}.${tabProdutoCompradorName}`;
+    const colValImpostoDebito = colValImpostoDebitoRaw || 'VAL_IMPOSTO_DEBITO';
+    const colValImpostoCredito = colValImpositoCreditoRaw || 'VAL_IMPOSTO_CREDITO';
+    const colTipoSaida = colTipoSaidaRaw || 'TIPO_SAIDA';
+    const colQtdTotalNf = colQtdTotalNfRaw || 'QTD_TOTAL';
+    const colCfop = colCfopRaw || 'CFOP';
+    const colQtdDecomp = colQtdDecompRaw || 'QTD_DECOMP';
+    const colCodProdutoDecom = colCodProdutoDecomRaw || 'COD_PRODUTO_DECOM';
+    const colQtdProducao = colQtdProducaoRaw || 'QTD_PRODUCAO';
+    const colCodProdutoProducao = colCodProdutoProducaoRaw || 'COD_PRODUTO_PRODUCAO';
+    const colCodProdutoFinal = colCodProdutoFinalRaw || 'COD_PRODUTO';
+    const colCodAssociado = colCodAssociadoRaw || 'COD_ASSOCIADO';
+    const colQtdEmbalagemVenda = colQtdEmbalagemVendaRaw || 'QTD_EMBALAGEM_VENDA';
 
     const params: any = {
       dataInicio,
@@ -1512,66 +1556,87 @@ export class CompraVendaService {
       tipoEmprestimoDecomposicao = true
     } = filters;
 
-    // Obter schema e nomes das tabelas dinamicamente
+    // Resolver tabelas e colunas em paralelo (Promise.all para evitar 43 awaits sequenciais)
     const schema = await MappingService.getSchema();
-    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
-    const tabNf = `${schema}.${await MappingService.getRealTableName('TAB_NF')}`;
-    const tabNfItem = `${schema}.${await MappingService.getRealTableName('TAB_NF_ITEM')}`;
-    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
-    const tabProdutoDecomposicao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_DECOMPOSICAO')}`;
-    const tabProdutoProducao = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PRODUCAO')}`;
-    const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
-    const tabProdutoComprador = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_COMPRADOR')}`;
+    const [
+      tabProdutoName, tabNfName, tabNfItemName, tabProdutoPdvName,
+      tabProdutoDecomposicaoName, tabProdutoProducaoName, tabProdutoLojaName, tabProdutoCompradorName,
+      colCodProduto, colDesProduto, colCodSecaoProd, colCodGrupoProd, colCodSubGrupoProd,
+      colNumNf, colSerieNf, colDtaEntrada, colCodParceiro, colTipoOperacao,
+      colNumNfItem, colSerieNfItem, colCodParceiroItem, colCodItem, colValTotalItem,
+      colCodLoja,
+      colQtdTotalProduto, colValTotalProduto, colValCustoRepPdv, colDtaSaida,
+      colValImpostoDebitoRaw, colValImpositoCreditoRaw, colTipoSaidaRaw,
+      colQtdTotalNfRaw, colCfopRaw,
+      colQtdDecompRaw, colCodProdutoDecomRaw,
+      colQtdProducaoRaw, colCodProdutoProducaoRaw, colCodProdutoFinalRaw,
+      colCodAssociadoRaw, colQtdEmbalagemVendaRaw,
+      colEstoqueAtual, colCobertura
+    ] = await Promise.all([
+      MappingService.getRealTableName('TAB_PRODUTO'),
+      MappingService.getRealTableName('TAB_NF'),
+      MappingService.getRealTableName('TAB_NF_ITEM'),
+      MappingService.getRealTableName('TAB_PRODUTO_PDV'),
+      MappingService.getRealTableName('TAB_PRODUTO_DECOMPOSICAO'),
+      MappingService.getRealTableName('TAB_PRODUTO_PRODUCAO'),
+      MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
+      MappingService.getRealTableName('TAB_PRODUTO_COMPRADOR'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo'),
+      MappingService.getColumnFromTable('TAB_NF', 'numero_nf'),
+      MappingService.getColumnFromTable('TAB_NF', 'serie_nf'),
+      MappingService.getColumnFromTable('TAB_NF', 'data_entrada'),
+      MappingService.getColumnFromTable('TAB_NF', 'codigo_parceiro'),
+      MappingService.getColumnFromTable('TAB_NF', 'tipo_operacao'),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_nf'),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'serie_nf'),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_parceiro'),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_item'),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total'),
+      MappingService.getColumnFromTable('TAB_LOJA', 'codigo_loja'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'tipo_saida').catch(() => null),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'quantidade_total').catch(() => null),
+      MappingService.getColumnFromTable('TAB_NF_ITEM', 'cfop').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'quantidade_decomposicao').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'codigo_produto_decomposicao').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PRODUCAO', 'quantidade_producao').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PRODUCAO', 'codigo_produto_producao').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PRODUCAO', 'codigo_produto').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_associado').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'qtd_embalagem_venda').catch(() => null),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cobertura'),
+    ]);
 
-    // Resolver colunas dinamicamente
-    const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
-    const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
-    const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
-    const colCodGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo');
-    const colCodSubGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo');
-    const colNumNf = await MappingService.getColumnFromTable('TAB_NF', 'numero_nf');
-    const colSerieNf = await MappingService.getColumnFromTable('TAB_NF', 'serie_nf');
-    const colDtaEntrada = await MappingService.getColumnFromTable('TAB_NF', 'data_entrada');
-    const colCodParceiro = await MappingService.getColumnFromTable('TAB_NF', 'codigo_parceiro');
-    const colTipoOperacao = await MappingService.getColumnFromTable('TAB_NF', 'tipo_operacao');
-    const colNumNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_nf');
-    const colSerieNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'serie_nf');
-    const colCodParceiroItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_parceiro');
-    const colCodItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_item');
-    const colValTotalItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total');
-    const colCodLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'codigo_loja');
-    // Colunas PDV (vendas)
-    const colQtdTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade');
-    const colValTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total');
-    const colValCustoRepPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao');
-    const colDtaSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda');
-    let colValImpostoDebito = 'VAL_IMPOSTO_DEBITO';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito'); if (v) colValImpostoDebito = v; } catch {}
-    let colValImpostoCredito = 'VAL_IMPOSTO_CREDITO';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito'); if (v) colValImpostoCredito = v; } catch {}
-    let colTipoSaida = 'TIPO_SAIDA';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'tipo_saida'); if (v) colTipoSaida = v; } catch {}
-    let colQtdTotalNf = 'QTD_TOTAL';
-    try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'quantidade_total'); if (v) colQtdTotalNf = v; } catch {}
-    let colCfop = 'CFOP';
-    try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'cfop'); if (v) colCfop = v; } catch {}
-    let colQtdDecomp = 'QTD_DECOMP';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'quantidade_decomposicao'); if (v) colQtdDecomp = v; } catch {}
-    let colCodProdutoDecom = 'COD_PRODUTO_DECOM';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'codigo_produto_decomposicao'); if (v) colCodProdutoDecom = v; } catch {}
-    let colQtdProducao = 'QTD_PRODUCAO';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PRODUCAO', 'quantidade_producao'); if (v) colQtdProducao = v; } catch {}
-    let colCodProdutoProducao = 'COD_PRODUTO_PRODUCAO';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PRODUCAO', 'codigo_produto_producao'); if (v) colCodProdutoProducao = v; } catch {}
-    let colCodProdutoFinal = 'COD_PRODUTO';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_PRODUCAO', 'codigo_produto'); if (v) colCodProdutoFinal = v; } catch {}
-    let colCodAssociado = 'COD_ASSOCIADO';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_associado'); if (v) colCodAssociado = v; } catch {}
-    let colQtdEmbalagemVenda = 'QTD_EMBALAGEM_VENDA';
-    try { const v = await MappingService.getColumnFromTable('TAB_PRODUTO', 'qtd_embalagem_venda'); if (v) colQtdEmbalagemVenda = v; } catch {}
-    // Estoque
-    const colEstoqueAtual = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual');
-    const colCobertura = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cobertura');
+    const tabProduto = `${schema}.${tabProdutoName}`;
+    const tabNf = `${schema}.${tabNfName}`;
+    const tabNfItem = `${schema}.${tabNfItemName}`;
+    const tabProdutoPdv = `${schema}.${tabProdutoPdvName}`;
+    const tabProdutoDecomposicao = `${schema}.${tabProdutoDecomposicaoName}`;
+    const tabProdutoProducao = `${schema}.${tabProdutoProducaoName}`;
+    const tabProdutoLoja = `${schema}.${tabProdutoLojaName}`;
+    const tabProdutoComprador = `${schema}.${tabProdutoCompradorName}`;
+    const colValImpostoDebito = colValImpostoDebitoRaw || 'VAL_IMPOSTO_DEBITO';
+    const colValImpostoCredito = colValImpositoCreditoRaw || 'VAL_IMPOSTO_CREDITO';
+    const colTipoSaida = colTipoSaidaRaw || 'TIPO_SAIDA';
+    const colQtdTotalNf = colQtdTotalNfRaw || 'QTD_TOTAL';
+    const colCfop = colCfopRaw || 'CFOP';
+    const colQtdDecomp = colQtdDecompRaw || 'QTD_DECOMP';
+    const colCodProdutoDecom = colCodProdutoDecomRaw || 'COD_PRODUTO_DECOM';
+    const colQtdProducao = colQtdProducaoRaw || 'QTD_PRODUCAO';
+    const colCodProdutoProducao = colCodProdutoProducaoRaw || 'COD_PRODUTO_PRODUCAO';
+    const colCodProdutoFinal = colCodProdutoFinalRaw || 'COD_PRODUTO';
+    const colCodAssociado = colCodAssociadoRaw || 'COD_ASSOCIADO';
+    const colQtdEmbalagemVenda = colQtdEmbalagemVendaRaw || 'QTD_EMBALAGEM_VENDA';
 
     const params: any = {
       dataInicio,

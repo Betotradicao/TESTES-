@@ -154,6 +154,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/prevencao-pedidos': 'compras',
       '/calendario-atendimento': 'compras',
       '/ruptura-industria': 'compras',
+      '/prazo-fornecedores': 'compras',
       // Gestão de Pricing
       '/saude-margens': 'pricing',
       '/pricing-ancoragem': 'pricing',
@@ -175,6 +176,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/prevencao-pedidos': 'gestao-radar',
       '/calendario-atendimento': 'gestao-radar',
       '/ruptura-industria': 'gestao-radar',
+      '/prazo-fornecedores': 'gestao-radar',
       '/pricing-ancoragem': 'gestao-radar',
       '/pricing-competitividade': 'gestao-radar',
       '/gestao-ofertas/programacao-atual': 'gestao-radar',
@@ -313,7 +315,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             { id: 'gestao-compra-venda', submenuId: 'compra-venda', title: 'COMPRA X VENDA', path: '/compra-venda-analise' },
             { id: 'pedidos-lista', submenuId: 'pedidos', title: 'PEDIDOS DE COMPRAS', path: '/prevencao-pedidos' },
             { id: 'calendario-atendimento', submenuId: 'calendario-atendimento', title: 'CALENDÁRIO DE ATENDIMENTO', path: '/calendario-atendimento' },
-            { id: 'ruptura-industria', submenuId: 'ruptura-industria', title: 'RUPTURA INDUSTRIA', path: '/ruptura-industria' }
+            { id: 'ruptura-industria', submenuId: 'ruptura-industria', title: 'RUPTURA INDUSTRIA', path: '/ruptura-industria' },
+            { id: 'prazo-fornecedores', submenuId: 'prazo-fornecedores', title: 'PRAZO FORNECEDORES', path: '/prazo-fornecedores' }
           ]
         },
         {

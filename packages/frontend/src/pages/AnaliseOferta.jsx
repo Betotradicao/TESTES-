@@ -47,6 +47,14 @@ export default function AnaliseOferta({ defaultTab }) {
   const [excedidoLoading, setExcedidoLoading] = useState(false);
   const [excedidoLoaded, setExcedidoLoaded] = useState(false);
 
+  // Aba Todos Produtos
+  const [todosProdutos, setTodosProdutos] = useState([]);
+  const [todosProdutosResumo, setTodosProdutosResumo] = useState(null);
+  const [todosProdutosLoading, setTodosProdutosLoading] = useState(false);
+  const [todosProdutosLoaded, setTodosProdutosLoaded] = useState(false);
+  const [todosSearch, setTodosSearch] = useState('');
+  const [todosTipoFiltro, setTodosTipoFiltro] = useState('todos'); // 'todos' | 'Revenda' | 'Producao'
+
   // Filtros Aba 2
   const [excTipoEspecie, setExcTipoEspecie] = useState('0');
   const [excTipoEvento, setExcTipoEvento] = useState('0');
@@ -409,6 +417,24 @@ export default function AnaliseOferta({ defaultTab }) {
     setFilterFornecedor('');
     setSearchText('');
     setCurrentPage(1);
+  };
+
+  // === Aba Todos Produtos ===
+  const carregarTodosProdutos = () => {
+    if (todosProdutosLoaded) return;
+    const codLoja = lojaSelecionada || 1;
+    setTodosProdutosLoading(true);
+    api.get(`/api/ofertas/todos-produtos?codLoja=${codLoja}`)
+      .then(res => {
+        setTodosProdutos(res.data?.produtos || []);
+        setTodosProdutosResumo({ total: res.data?.total, totalRevenda: res.data?.totalRevenda, totalProducao: res.data?.totalProducao });
+        setTodosProdutosLoaded(true);
+      })
+      .catch(err => {
+        console.error('Erro ao carregar todos produtos:', err);
+        setTodosProdutos([]);
+      })
+      .finally(() => setTodosProdutosLoading(false));
   };
 
   // === Aba 2: Compra e Venda Excedido ===
@@ -1005,6 +1031,21 @@ export default function AnaliseOferta({ defaultTab }) {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
             <div className="flex items-center gap-0">
               <button
+                onClick={() => { setActiveTab('todos_produtos'); carregarTodosProdutos(); }}
+                className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
+                  activeTab === 'todos_produtos'
+                    ? 'border-blue-500 text-blue-700 bg-blue-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                } rounded-t-md`}
+              >
+                Todos Produtos
+                <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
+                  activeTab === 'todos_produtos' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'
+                }`}>
+                  {todosProdutosLoaded ? todosProdutos.length : '...'}
+                </span>
+              </button>
+              <button
                 onClick={() => setActiveTab('analise')}
                 className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
                   activeTab === 'analise'
@@ -1169,10 +1210,125 @@ export default function AnaliseOferta({ defaultTab }) {
           </div>
 
           {/* Loading */}
-          {(activeTab === 'analise' ? loading : excedidoLoading) && (
+          {(activeTab === 'analise' ? loading : activeTab === 'excedido' ? excedidoLoading : activeTab === 'todos_produtos' ? todosProdutosLoading : false) && (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-500"></div>
               <span className="ml-3 text-gray-600">Carregando...</span>
+            </div>
+          )}
+
+          {/* === ABA 0: Todos Produtos === */}
+          {activeTab === 'todos_produtos' && !todosProdutosLoading && (
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              {/* Resumo */}
+              {todosProdutosResumo && (
+                <div className="flex items-center gap-6 px-4 py-3 bg-blue-50 border-b border-blue-100 text-sm">
+                  <span className="font-bold text-blue-800">{todosProdutosResumo.total?.toLocaleString('pt-BR')} Produtos em Loja</span>
+                  <span className="text-gray-600">Revenda: <strong>{todosProdutosResumo.totalRevenda?.toLocaleString('pt-BR')}</strong></span>
+                  <span className="text-gray-600">Producao: <strong>{todosProdutosResumo.totalProducao?.toLocaleString('pt-BR')}</strong></span>
+                  {/* Filtros inline */}
+                  <div className="ml-auto flex items-center gap-2">
+                    <select
+                      value={todosTipoFiltro}
+                      onChange={e => setTodosTipoFiltro(e.target.value)}
+                      className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                    >
+                      <option value="todos">Todos</option>
+                      <option value="Revenda">Revenda</option>
+                      <option value="Producao">Producao</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Buscar produto..."
+                      value={todosSearch}
+                      onChange={e => setTodosSearch(e.target.value)}
+                      className="text-xs border border-gray-300 rounded px-2 py-1 w-48"
+                    />
+                  </div>
+                </div>
+              )}
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  {(() => {
+                    const filtrados = todosProdutos.filter(p => {
+                      if (filterSecao && p.SECAO !== filterSecao) return false;
+                      if (todosTipoFiltro !== 'todos' && p.TIPO_LABEL !== todosTipoFiltro) return false;
+                      if (todosSearch) {
+                        const s = todosSearch.toLowerCase();
+                        return (p.DESCRICAO || '').toLowerCase().includes(s) || (p.EAN || '').includes(s) || String(p.COD_PRODUTO || '').includes(s);
+                      }
+                      return true;
+                    });
+                    const grouped = filtrados.reduce((acc, p) => {
+                      const sec = p.SECAO || 'SEM SECAO';
+                      if (!acc[sec]) acc[sec] = [];
+                      acc[sec].push(p);
+                      return acc;
+                    }, {});
+                    let rowNum = 0;
+                    return (
+                      <>
+                        <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 w-10">Ofertar</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 w-8">#</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Descricao</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">EAN</th>
+                            <th className="px-3 py-2 text-center text-xs font-semibold text-gray-500">Curva</th>
+                            <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500">Custo</th>
+                            <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500">Preco Normal</th>
+                            <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500">Estoque</th>
+                            <th className="px-3 py-2 text-center text-xs font-semibold text-gray-500">Tipo</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(grouped).map(([secao, prods]) => (
+                            <>
+                              <tr key={`sec-${secao}`}>
+                                <td colSpan={9} className="px-3 py-1.5 bg-orange-500 text-white text-xs font-bold uppercase">
+                                  {secao} <span className="font-normal opacity-80">{prods.length} itens</span>
+                                </td>
+                              </tr>
+                              {prods.map((p, idx) => {
+                                rowNum++;
+                                const sel = isProductSelected(p.COD_PRODUTO);
+                                return (
+                                  <tr key={p.COD_PRODUTO} className={`border-b border-gray-100 ${sel ? 'bg-orange-50' : idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-orange-50`}>
+                                    <td className="px-3 py-1.5 text-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={sel}
+                                        onChange={() => toggleProductSelection({ ...p, PRECO_ATUAL: p.PRECO }, 'todos_produtos')}
+                                        className="w-4 h-4 accent-orange-500 cursor-pointer"
+                                      />
+                                    </td>
+                                    <td className="px-3 py-1.5 text-xs text-gray-400">{rowNum}</td>
+                                    <td className="px-3 py-1.5 text-xs font-medium text-gray-800">{p.DESCRICAO}</td>
+                                    <td className="px-3 py-1.5 text-xs text-gray-500 font-mono">{p.EAN}</td>
+                                    <td className="px-3 py-1.5 text-center">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${p.CURVA === 'A' ? 'bg-green-100 text-green-700' : p.CURVA === 'B' ? 'bg-blue-100 text-blue-700' : p.CURVA === 'C' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`}>{p.CURVA || '-'}</span>
+                                    </td>
+                                    <td className="px-3 py-1.5 text-xs text-right text-gray-600">
+                                      {p.CUSTO > 0 ? `R$ ${p.CUSTO.toFixed(2)}` : '-'}
+                                    </td>
+                                    <td className="px-3 py-1.5 text-xs text-right font-medium text-gray-800">
+                                      {p.PRECO > 0 ? `R$ ${p.PRECO.toFixed(2)}` : '-'}
+                                    </td>
+                                    <td className="px-3 py-1.5 text-xs text-right text-gray-600">{p.ESTOQUE}</td>
+                                    <td className="px-3 py-1.5 text-center">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs ${p.TIPO_LABEL === 'Producao' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>{p.TIPO_LABEL}</span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </>
+                          ))}
+                        </tbody>
+                      </>
+                    );
+                  })()}
+                </table>
+              </div>
             </div>
           )}
 
