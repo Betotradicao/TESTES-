@@ -678,7 +678,8 @@ export class OfertasService {
         AND pl.${m.plCodLoja} = :codLoja
       LEFT JOIN ${m.tabSecao} sec ON p.${m.pCodSecao} = sec.${m.sCodSecao}
       WHERE NVL(pl.${colInativo}, 'N') = 'N'
-        AND NVL(pl.${m.plEstoque}, 0) > 0
+        AND NVL(p.${m.pTipoEspecie}, 0) = 0
+        AND NVL(p.${m.pTipoEvento}, 0) IN (0, 3)
       ORDER BY sec.${m.sDesSecao} NULLS LAST, p.${m.pDescricao}
     `;
 
@@ -697,8 +698,8 @@ export class OfertasService {
       ESTOQUE: Math.round(parseFloat(r.ESTOQUE) || 0),
       TIPO_ESPECIE: Number(r.TIPO_ESPECIE),
       TIPO_EVENTO: Number(r.TIPO_EVENTO),
-      // Revenda = especie 0 + evento 0 (Mercadoria Direta); Producao = tudo mais (insumos, composição, etc.)
-      TIPO_LABEL: (Number(r.TIPO_ESPECIE) === 0 && Number(r.TIPO_EVENTO) === 0) ? 'Revenda' : 'Producao',
+      // Direta/Revenda = TIPO_EVENTO 0; Producao = TIPO_EVENTO 3
+      TIPO_LABEL: (Number(r.TIPO_EVENTO) === 0) ? 'Revenda' : 'Producao',
     }));
 
     const totalRevenda = produtos.filter(p => p.TIPO_LABEL === 'Revenda').length;

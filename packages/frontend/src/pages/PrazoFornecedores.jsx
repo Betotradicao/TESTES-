@@ -50,6 +50,7 @@ export default function PrazoFornecedores() {
   const [filtroClassif, setFiltroClassif] = useState(null); // null = todos, ou 'PÉSSIMO', 'RUIM', etc.
   const [filtroFormaPgto, setFiltroFormaPgto] = useState([]); // array de formas selecionadas
   const [showFormaPgto, setShowFormaPgto] = useState(false);
+  const [filtroCombinado, setFiltroCombinado] = useState(null); // null, 'fora', 'dentro'
 
   // Ordem das colunas (drag-and-drop) com persistência em localStorage
   const [colOrder, setColOrder] = useState(() => {
@@ -191,7 +192,21 @@ export default function PrazoFornecedores() {
     return notas.filter(n => filtroFormaPgto.includes(n.FORMA_PGTO));
   };
 
-  // Filtrar por busca + classificação + forma de pagamento
+  // Stats Combinado (FORA/DENTRO) - calculado sobre dados originais
+  const statsCombinado = (() => {
+    let fora = 0, dentro = 0;
+    for (const f of fornecedores) {
+      if (!f.COND_PGTO_SISTEMA || f.COND_PGTO_SISTEMA <= 0) continue;
+      const notasComPrazo = (f.notas || []).filter(n => n.PRAZO_MEDIO_NF > 0);
+      if (notasComPrazo.length === 0) continue;
+      const temFora = notasComPrazo.some(n => n.PRAZO_MEDIO_NF < f.COND_PGTO_SISTEMA);
+      if (temFora) fora++;
+      else dentro++;
+    }
+    return { fora, dentro };
+  })();
+
+  // Filtrar por busca + classificação + forma de pagamento + combinado
   const filteredFornecedores = fornecedores
     .map((f) => {
       // Quando filtro de forma pgto ativo, recalcular dados do fornecedor com notas filtradas
@@ -215,6 +230,15 @@ export default function PrazoFornecedores() {
     })
     .filter((f) => {
       if (!f) return false;
+      // Filtro por combinado (FORA/DENTRO)
+      if (filtroCombinado) {
+        if (!f.COND_PGTO_SISTEMA || f.COND_PGTO_SISTEMA <= 0) return false;
+        const notasComPrazo = (f.notas || []).filter(n => n.PRAZO_MEDIO_NF > 0);
+        if (notasComPrazo.length === 0) return false;
+        const temFora = notasComPrazo.some(n => n.PRAZO_MEDIO_NF < f.COND_PGTO_SISTEMA);
+        if (filtroCombinado === 'fora' && !temFora) return false;
+        if (filtroCombinado === 'dentro' && temFora) return false;
+      }
       // Filtro por classificação
       if (filtroClassif) {
         const classif = getClassificacao(f.PRAZO_MEDIO);
@@ -320,7 +344,7 @@ export default function PrazoFornecedores() {
         </div>
 
         {/* Cards de Resumo */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
           <div className="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
             <div className="flex items-center justify-between">
               <div>
@@ -358,6 +382,19 @@ export default function PrazoFornecedores() {
                 <p className="text-xl font-bold text-purple-600">{formatCurrency(resumoFiltrado.valorTotal)}</p>
               </div>
               <span className="text-3xl">💰</span>
+            </div>
+          </div>
+
+          <div
+            onClick={() => setFiltroCombinado(filtroCombinado === 'fora' ? null : 'fora')}
+            className={`bg-white rounded-lg shadow p-4 border-l-4 border-red-500 cursor-pointer transition-all ${filtroCombinado === 'fora' ? 'ring-2 ring-red-500 shadow-lg bg-red-50' : 'hover:shadow-md'}`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 uppercase">Fora do Combinado</p>
+                <p className="text-2xl font-bold text-red-600">{statsCombinado.fora}</p>
+              </div>
+              <span className="text-3xl">⚠️</span>
             </div>
           </div>
         </div>
