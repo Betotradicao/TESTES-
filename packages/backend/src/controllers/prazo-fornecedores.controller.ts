@@ -46,15 +46,40 @@ export class PrazoFornecedoresController {
       const codFornecedor = req.query.codFornecedor ? Number(req.query.codFornecedor) : 0;
       const numNf = req.query.numNf ? String(req.query.numNf) : '';
       const codLoja = req.query.codLoja ? Number(req.query.codLoja) : undefined;
+      const prazoAtual = req.query.prazoAtual != null ? Number(req.query.prazoAtual) : undefined;
+      const mesesHistorico = req.query.meses ? Number(req.query.meses) : undefined;
 
       if (!codFornecedor || !numNf) {
         return res.status(400).json({ error: 'codFornecedor e numNf são obrigatórios' });
       }
 
-      const itens = await PrazoFornecedoresService.buscarItensNota(codFornecedor, numNf, codLoja);
+      const itens = await PrazoFornecedoresService.buscarItensNota(codFornecedor, numNf, codLoja, prazoAtual, mesesHistorico);
       res.json({ itens, total: itens.length });
     } catch (error: any) {
       console.error('[PrazoFornecedores] Erro itens nota:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/prazo-fornecedores/fornecedores-alternativos
+   * Busca outros fornecedores que vendem o mesmo produto com prazo maior
+   */
+  static async fornecedoresAlternativos(req: AuthRequest, res: Response) {
+    try {
+      const codProduto = req.query.codProduto ? Number(req.query.codProduto) : 0;
+      const codFornecedorAtual = req.query.codFornecedorAtual ? Number(req.query.codFornecedorAtual) : 0;
+      const mesesHistorico = req.query.meses ? Number(req.query.meses) : 6;
+      const codLoja = req.query.codLoja ? Number(req.query.codLoja) : undefined;
+
+      if (!codProduto || !codFornecedorAtual) {
+        return res.status(400).json({ error: 'codProduto e codFornecedorAtual são obrigatórios' });
+      }
+
+      const fornecedores = await PrazoFornecedoresService.buscarFornecedoresAlternativos(codProduto, codFornecedorAtual, mesesHistorico, codLoja);
+      res.json({ fornecedores, total: fornecedores.length });
+    } catch (error: any) {
+      console.error('[PrazoFornecedores] Erro fornecedores alternativos:', error.message);
       res.status(500).json({ error: error.message });
     }
   }

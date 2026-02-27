@@ -17,4 +17,7 @@ router.get('/', PrazoFornecedoresController.listar);
 // Itens (produtos) de uma nota fiscal
 router.get('/itens-nota', PrazoFornecedoresController.itensNota);
 
+// Fornecedores alternativos para um produto (com prazo maior)
+router.get('/fornecedores-alternativos', PrazoFornecedoresController.fornecedoresAlternativos);
+
 export default router;

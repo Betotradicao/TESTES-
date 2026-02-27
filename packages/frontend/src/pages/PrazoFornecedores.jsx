@@ -51,6 +51,8 @@ export default function PrazoFornecedores() {
   const [filtroFormaPgto, setFiltroFormaPgto] = useState([]); // array de formas selecionadas
   const [showFormaPgto, setShowFormaPgto] = useState(false);
   const [filtroCombinado, setFiltroCombinado] = useState(null); // null, 'fora', 'dentro'
+  const [mesesHistorico, setMesesHistorico] = useState(6); // Histórico de fornecedores alternativos
+  const [altPopup, setAltPopup] = useState(null); // { codProduto, desProduto, data, loading }
 
   // Ordem das colunas (drag-and-drop) com persistência em localStorage
   const [colOrder, setColOrder] = useState(() => {
@@ -119,7 +121,7 @@ export default function PrazoFornecedores() {
     setExpandedNota(null);
   };
 
-  const toggleNota = async (codFornecedor, numNf, e) => {
+  const toggleNota = async (codFornecedor, numNf, prazoMedio, e) => {
     e.stopPropagation();
     const notaKey = `${codFornecedor}_${numNf}`;
     if (expandedNota === notaKey) {
@@ -133,7 +135,7 @@ export default function PrazoFornecedores() {
 
     try {
       setLoadingItens((prev) => ({ ...prev, [notaKey]: true }));
-      const params = { codFornecedor, numNf };
+      const params = { codFornecedor, numNf, prazoAtual: prazoMedio || 0, meses: mesesHistorico };
       if (lojaSelecionada?.codigo) params.codLoja = lojaSelecionada.codigo;
       const response = await api.get('/prazo-fornecedores/itens-nota', { params });
       setNotaItens((prev) => ({ ...prev, [notaKey]: response.data.itens || [] }));
@@ -142,6 +144,25 @@ export default function PrazoFornecedores() {
       setNotaItens((prev) => ({ ...prev, [notaKey]: [] }));
     } finally {
       setLoadingItens((prev) => ({ ...prev, [notaKey]: false }));
+    }
+  };
+
+  const fetchAlternativos = async (codProduto, desProduto, codFornecedor, prazoAtual, e) => {
+    e.stopPropagation();
+    if (altPopup && altPopup.codProduto === codProduto && altPopup.codFornecedor === codFornecedor) {
+      setAltPopup(null);
+      return;
+    }
+    setAltPopup({ codProduto, desProduto, codFornecedor, prazoAtual, data: [], loading: true });
+    try {
+      const params = { codProduto, codFornecedorAtual: codFornecedor, meses: mesesHistorico };
+      if (lojaSelecionada?.codigo) params.codLoja = lojaSelecionada.codigo;
+      const response = await api.get('/prazo-fornecedores/fornecedores-alternativos', { params });
+      const alts = (response.data.fornecedores || []).filter(f => f.PRAZO_MEDIO > prazoAtual);
+      setAltPopup(prev => prev ? { ...prev, data: alts, loading: false } : null);
+    } catch (err) {
+      console.error('Erro ao buscar fornecedores alternativos:', err);
+      setAltPopup(prev => prev ? { ...prev, data: [], loading: false } : null);
     }
   };
 
@@ -439,6 +460,20 @@ export default function PrazoFornecedores() {
             Mais recentes
           </button>
 
+          {/* Histórico de Fornecedor (meses) - usado na busca de alternativas */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 bg-white">
+            <span className="text-xs text-gray-500 whitespace-nowrap">Hist. Fornecedor</span>
+            <input
+              type="number"
+              min="1"
+              max="36"
+              value={mesesHistorico}
+              onChange={(e) => setMesesHistorico(Math.max(1, Math.min(36, Number(e.target.value) || 6)))}
+              className="w-12 px-1 py-0.5 border border-gray-200 rounded text-sm text-center font-bold text-orange-600 focus:ring-1 focus:ring-orange-500"
+            />
+            <span className="text-xs text-gray-500">meses</span>
+          </div>
+
           {/* Filtro Forma de Pagamento - dropdown multi-select */}
           <div className="relative">
             <button
@@ -676,7 +711,7 @@ export default function PrazoFornecedores() {
 
                           return (
                             <React.Fragment key={`${forn.COD_FORNECEDOR}_${nota.NUM_NF_FORN}_${idx}`}>
-                              <tr className="bg-white hover:bg-blue-50/30 cursor-pointer" onClick={(e) => toggleNota(forn.COD_FORNECEDOR, nota.NUM_NF_FORN, e)}>
+                              <tr className="bg-white hover:bg-blue-50/30 cursor-pointer" onClick={(e) => toggleNota(forn.COD_FORNECEDOR, nota.NUM_NF_FORN, forn.PRAZO_MEDIO, e)}>
                                 <td className="px-4 py-2 pl-8">
                                   <span className={`inline-flex items-center justify-center w-4 h-4 rounded text-[10px] font-bold transition-colors ${isNotaExpanded ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-blue-200'}`}>
                                     {isNotaExpanded ? '−' : '📦'}
@@ -704,6 +739,7 @@ export default function PrazoFornecedores() {
                                               <th className="px-3 py-1.5 text-left">Unid</th>
                                               <th className="px-3 py-1.5 text-right">Custo Unit</th>
                                               <th className="px-3 py-1.5 text-right">Total</th>
+                                              <th className="px-3 py-1.5 text-center w-10">Alt</th>
                                             </tr>
                                           </thead>
                                           <tbody className="divide-y divide-gray-100">
@@ -715,6 +751,21 @@ export default function PrazoFornecedores() {
                                                 <td className="px-3 py-1 text-gray-500">{item.DES_UNIDADE || '-'}</td>
                                                 <td className="px-3 py-1 text-right text-gray-600">{formatCurrency(item.VAL_CUSTO)}</td>
                                                 <td className="px-3 py-1 text-right font-medium text-gray-700">{formatCurrency(item.VAL_TOTAL)}</td>
+                                                <td className="px-3 py-1 text-center">
+                                                  {item.TEM_ALTERNATIVO ? (
+                                                    <button
+                                                      onClick={(e) => fetchAlternativos(item.COD_PRODUTO, item.DES_PRODUTO || item.COD_PRODUTO, forn.COD_FORNECEDOR, forn.PRAZO_MEDIO, e)}
+                                                      className={`w-5 h-5 rounded-full text-white text-[10px] font-bold inline-flex items-center justify-center transition-colors ${
+                                                        altPopup && altPopup.codProduto === item.COD_PRODUTO && altPopup.codFornecedor === forn.COD_FORNECEDOR
+                                                          ? 'bg-orange-500 ring-2 ring-orange-300'
+                                                          : 'bg-green-500 hover:bg-green-600'
+                                                      }`}
+                                                      title={`Fornecedores alternativos com prazo maior (últimos ${mesesHistorico} meses)`}
+                                                    >
+                                                      🔍
+                                                    </button>
+                                                  ) : null}
+                                                </td>
                                               </tr>
                                             ))}
                                           </tbody>
@@ -735,6 +786,55 @@ export default function PrazoFornecedores() {
             </table>
           </div>
         </div>
+
+        {/* Popup de Fornecedores Alternativos */}
+        {altPopup && (
+          <>
+            <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setAltPopup(null)} />
+            <div className="fixed z-50 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-2xl border border-gray-200 p-5 w-[540px] max-h-[420px]">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
+                    <span className="text-base">🔍</span> Fornecedores Alternativos
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">{altPopup.desProduto} <span className="text-gray-400">(cód: {altPopup.codProduto})</span></p>
+                  <p className="text-[10px] text-gray-400">Prazo maior que {altPopup.prazoAtual} dias | Últimos {mesesHistorico} meses</p>
+                </div>
+                <button onClick={() => setAltPopup(null)} className="text-gray-400 hover:text-gray-600 text-lg font-bold">✕</button>
+              </div>
+              {altPopup.loading ? (
+                <div className="py-8 text-center text-gray-400 text-sm">Buscando fornecedores...</div>
+              ) : altPopup.data.length === 0 ? (
+                <div className="py-8 text-center text-gray-400 text-sm">Nenhum fornecedor com prazo maior encontrado</div>
+              ) : (
+                <div className="overflow-y-auto max-h-[300px]">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-100 text-gray-600 sticky top-0">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Fornecedor</th>
+                        <th className="px-3 py-2 text-center">Prazo Médio</th>
+                        <th className="px-3 py-2 text-right">Custo Unit</th>
+                        <th className="px-3 py-2 text-center">Últ. Compra</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {altPopup.data.map((alt, i) => (
+                        <tr key={i} className="hover:bg-green-50">
+                          <td className="px-3 py-2 text-gray-800 font-medium">{alt.DES_FANTASIA}</td>
+                          <td className="px-3 py-2 text-center">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">{alt.PRAZO_MEDIO}d</span>
+                          </td>
+                          <td className="px-3 py-2 text-right text-gray-600">{formatCurrency(alt.VAL_CUSTO)}</td>
+                          <td className="px-3 py-2 text-center text-gray-500">{alt.DTA_ULT_COMPRA || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </Layout>
   );

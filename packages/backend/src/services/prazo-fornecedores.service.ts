@@ -299,10 +299,12 @@ export class PrazoFornecedoresService {
    * Busca itens (produtos) de uma nota fiscal de fornecedor
    * Usa TAB_FORNECEDOR_PRODUTO (mesma tabela da tela de Pedidos)
    */
-  static async buscarItensNota(codFornecedor: number, numNf: string, codLoja?: number): Promise<any[]> {
+  static async buscarItensNota(codFornecedor: number, numNf: string, codLoja?: number, prazoAtual?: number, mesesHistorico?: number): Promise<any[]> {
     const schema = await MappingService.getSchema();
     const tabFornecedorProduto = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_PRODUTO')}`;
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
+    const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA')}`;
 
     // Mapeamentos dinâmicos
     const prCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
@@ -330,8 +332,106 @@ export class PrazoFornecedoresService {
       ORDER BY fp.NUM_ITEM
     `;
 
-    const rows = await OracleService.query(query, params);
+    const rows = await OracleService.query(query, params) as any[];
     console.log(`[PrazoFornecedores] Itens NF ${numNf} forn ${codFornecedor}: ${rows.length} itens`);
+
+    // Verificar quais produtos têm fornecedores alternativos com prazo maior
+    if (prazoAtual != null && prazoAtual >= 0 && rows.length > 0) {
+      const diasHist = (mesesHistorico || 6) * 30;
+      const codProdutos = rows.map((r: any) => Number(r.COD_PRODUTO)).filter(Boolean);
+
+      if (codProdutos.length > 0) {
+        try {
+          // Construir IN clause com binds numerados
+          const inBinds: any = { codFornExcl: codFornecedor, prazoMin: prazoAtual, diasHist };
+          const inParts: string[] = [];
+          codProdutos.forEach((cod: number, i: number) => {
+            inBinds[`p${i}`] = cod;
+            inParts.push(`:p${i}`);
+          });
+
+          let lojaFilterAlt = '';
+          if (codLoja) {
+            lojaFilterAlt = 'AND fn2.COD_LOJA = :codLojaAlt';
+            inBinds.codLojaAlt = codLoja;
+          }
+
+          const altQuery = `
+            SELECT DISTINCT fp2.COD_PRODUTO
+            FROM ${tabFornecedorProduto} fp2
+            JOIN ${tabFornecedor} f2 ON f2.COD_FORNECEDOR = fp2.${nfCodFornecedorCol}
+            JOIN ${tabFornecedorNota} fn2 ON fn2.COD_FORNECEDOR = fp2.${nfCodFornecedorCol}
+              AND fn2.NUM_NF_FORN = fp2.${nfNumeroNfCol}
+            WHERE fp2.COD_PRODUTO IN (${inParts.join(',')})
+            AND fp2.${nfCodFornecedorCol} <> :codFornExcl
+            AND NVL(fn2.FLG_CANCELADO, 'N') = 'N'
+            AND fn2.DTA_ENTRADA >= SYSDATE - :diasHist
+            AND NVL(f2.NUM_MED_CPGTO, 0) > :prazoMin
+            ${lojaFilterAlt}
+          `;
+
+          const altRows = await OracleService.query(altQuery, inBinds) as any[];
+          const prodsComAlt = new Set(altRows.map((r: any) => Number(r.COD_PRODUTO)));
+
+          for (const row of rows) {
+            (row as any).TEM_ALTERNATIVO = prodsComAlt.has(Number((row as any).COD_PRODUTO));
+          }
+
+          console.log(`[PrazoFornecedores] Produtos com alternativa (prazo > ${prazoAtual}): ${prodsComAlt.size}/${codProdutos.length}`);
+        } catch (err: any) {
+          console.warn(`[PrazoFornecedores] Erro ao verificar alternativos: ${err.message}`);
+          // Se falhar, não bloqueia - apenas não marca
+        }
+      }
+    }
+
+    return rows;
+  }
+
+  /**
+   * Busca fornecedores alternativos que vendem o mesmo produto,
+   * com prazo médio (NUM_MED_CPGTO) e último custo pago.
+   * Retorna a compra mais recente de cada fornecedor alternativo.
+   */
+  static async buscarFornecedoresAlternativos(codProduto: number, codFornecedorAtual: number, mesesHistorico: number = 6, codLoja?: number): Promise<any[]> {
+    const schema = await MappingService.getSchema();
+    const tabFornecedorProduto = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_PRODUTO')}`;
+    const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
+    const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA')}`;
+    const nfNumeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf');
+    const nfCodFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor');
+
+    const params: any = { codProduto, codFornecedorAtual, diasHistorico: mesesHistorico * 30 };
+    let lojaFilter = '';
+    if (codLoja) {
+      lojaFilter = 'AND fn.COD_LOJA = :codLoja';
+      params.codLoja = codLoja;
+    }
+
+    const query = `
+      SELECT * FROM (
+        SELECT
+          fp.${nfCodFornecedorCol} as COD_FORNECEDOR,
+          NVL(f.DES_FANTASIA, f.DES_FORNECEDOR) as DES_FANTASIA,
+          NVL(fp.VAL_TABELA, 0) as VAL_CUSTO,
+          NVL(f.NUM_MED_CPGTO, 0) as PRAZO_MEDIO,
+          TO_CHAR(fn.DTA_ENTRADA, 'DD/MM/YYYY') as DTA_ULT_COMPRA,
+          ROW_NUMBER() OVER (PARTITION BY fp.${nfCodFornecedorCol} ORDER BY fn.DTA_ENTRADA DESC) as RN
+        FROM ${tabFornecedorProduto} fp
+        JOIN ${tabFornecedor} f ON f.COD_FORNECEDOR = fp.${nfCodFornecedorCol}
+        JOIN ${tabFornecedorNota} fn ON fn.COD_FORNECEDOR = fp.${nfCodFornecedorCol}
+          AND fn.NUM_NF_FORN = fp.${nfNumeroNfCol}
+        WHERE fp.COD_PRODUTO = :codProduto
+        AND fp.${nfCodFornecedorCol} <> :codFornecedorAtual
+        AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
+        AND fn.DTA_ENTRADA >= SYSDATE - :diasHistorico
+        ${lojaFilter}
+      ) WHERE RN = 1
+      ORDER BY PRAZO_MEDIO DESC
+    `;
+
+    const rows = await OracleService.query(query, params);
+    console.log(`[PrazoFornecedores] Alternativas produto ${codProduto}: ${rows.length} fornecedores (${mesesHistorico} meses)`);
     return rows as any[];
   }
 }
