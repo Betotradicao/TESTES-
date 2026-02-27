@@ -51,6 +51,7 @@ export default function PrazoFornecedores() {
   const [filtroFormaPgto, setFiltroFormaPgto] = useState([]); // array de formas selecionadas
   const [showFormaPgto, setShowFormaPgto] = useState(false);
   const [filtroCombinado, setFiltroCombinado] = useState(null); // null, 'fora', 'dentro'
+  const [filtroMelhorPrazo, setFiltroMelhorPrazo] = useState(false); // filtro card oportunidade
   const [mesesHistorico, setMesesHistorico] = useState(6); // Histórico de fornecedores alternativos
   const [altPopup, setAltPopup] = useState(null); // { codProduto, desProduto, data, loading }
 
@@ -101,6 +102,7 @@ export default function PrazoFornecedores() {
         if (lojaSelecionada?.codigo) params.codLoja = lojaSelecionada.codigo;
         if (dataInicio) params.dataInicio = dataInicio;
         if (dataFim) params.dataFim = dataFim;
+        if (mesesHistorico) params.meses = mesesHistorico;
 
         const response = await api.get('/prazo-fornecedores', { params });
         setFornecedores(response.data.fornecedores || []);
@@ -114,7 +116,7 @@ export default function PrazoFornecedores() {
     };
 
     fetchData();
-  }, [lojaSelecionada, dataInicio, dataFim]);
+  }, [lojaSelecionada, dataInicio, dataFim, mesesHistorico]);
 
   const toggleFornecedor = (cod) => {
     setExpandedFornecedor(expandedFornecedor === cod ? null : cod);
@@ -227,7 +229,10 @@ export default function PrazoFornecedores() {
     return { fora, dentro };
   })();
 
-  // Filtrar por busca + classificação + forma de pagamento + combinado
+  // Stats Oportunidade de Prazo - fornecedores com alternativa de prazo melhor
+  const statsOportunidade = fornecedores.filter(f => f.TEM_MELHOR_PRAZO).length;
+
+  // Filtrar por busca + classificação + forma de pagamento + combinado + oportunidade
   const filteredFornecedores = fornecedores
     .map((f) => {
       // Quando filtro de forma pgto ativo, recalcular dados do fornecedor com notas filtradas
@@ -260,6 +265,8 @@ export default function PrazoFornecedores() {
         if (filtroCombinado === 'fora' && !temFora) return false;
         if (filtroCombinado === 'dentro' && temFora) return false;
       }
+      // Filtro por oportunidade de prazo
+      if (filtroMelhorPrazo && !f.TEM_MELHOR_PRAZO) return false;
       // Filtro por classificação
       if (filtroClassif) {
         const classif = getClassificacao(f.PRAZO_MEDIO);
@@ -365,7 +372,7 @@ export default function PrazoFornecedores() {
         </div>
 
         {/* Cards de Resumo */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-4">
           <div className="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
             <div className="flex items-center justify-between">
               <div>
@@ -416,6 +423,19 @@ export default function PrazoFornecedores() {
                 <p className="text-2xl font-bold text-red-600">{statsCombinado.fora}</p>
               </div>
               <span className="text-3xl">⚠️</span>
+            </div>
+          </div>
+
+          <div
+            onClick={() => setFiltroMelhorPrazo(!filtroMelhorPrazo)}
+            className={`bg-white rounded-lg shadow p-4 border-l-4 border-cyan-500 cursor-pointer transition-all ${filtroMelhorPrazo ? 'ring-2 ring-cyan-500 shadow-lg bg-cyan-50' : 'hover:shadow-md'}`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 uppercase">Oportunidade de Prazo</p>
+                <p className="text-2xl font-bold text-cyan-600">{statsOportunidade}</p>
+              </div>
+              <span className="text-3xl">💡</span>
             </div>
           </div>
         </div>

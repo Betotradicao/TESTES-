@@ -14,7 +14,17 @@ export class PrazoFornecedoresController {
       const dataInicio = req.query.dataInicio ? String(req.query.dataInicio) : undefined;
       const dataFim = req.query.dataFim ? String(req.query.dataFim) : undefined;
 
-      const fornecedores = await PrazoFornecedoresService.listarFornecedoresComPrazo(codLoja, dataInicio, dataFim);
+      const mesesHistorico = req.query.meses ? Number(req.query.meses) : 6;
+
+      const [fornecedores, fornComMelhorPrazo] = await Promise.all([
+        PrazoFornecedoresService.listarFornecedoresComPrazo(codLoja, dataInicio, dataFim),
+        PrazoFornecedoresService.verificarFornecedoresComMelhorPrazo(codLoja, dataInicio, dataFim, mesesHistorico),
+      ]);
+
+      // Marcar fornecedores que têm alternativa com melhor prazo
+      for (const f of fornecedores) {
+        (f as any).TEM_MELHOR_PRAZO = fornComMelhorPrazo.has(f.COD_FORNECEDOR);
+      }
 
       res.json({
         fornecedores,
@@ -29,6 +39,7 @@ export class PrazoFornecedoresController {
             : 0,
           totalNFs: fornecedores.reduce((s, f) => s + f.QTD_NFS, 0),
           valorTotal: Math.round(fornecedores.reduce((s, f) => s + f.VAL_TOTAL, 0) * 100) / 100,
+          fornComMelhorPrazo: fornComMelhorPrazo.size,
         }
       });
     } catch (error: any) {

@@ -389,6 +389,78 @@ export class PrazoFornecedoresService {
   }
 
   /**
+   * Verifica quais fornecedores possuem pelo menos 1 produto
+   * que outro fornecedor vende com prazo (NUM_MED_CPGTO) maior.
+   * Retorna Set de COD_FORNECEDOR que têm "oportunidade de prazo".
+   */
+  static async verificarFornecedoresComMelhorPrazo(
+    codLoja?: number,
+    dataInicio?: string,
+    dataFim?: string,
+    mesesHistorico: number = 6
+  ): Promise<Set<number>> {
+    const schema = await MappingService.getSchema();
+    const tabFornecedorProduto = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_PRODUTO')}`;
+    const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
+    const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA')}`;
+    const nfNumeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf');
+    const nfCodFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor');
+
+    const params: any = { diasHist: mesesHistorico * 30 };
+    let lojaFilter1 = '';
+    let lojaFilter2 = '';
+    let dateFilter = '';
+
+    if (codLoja) {
+      lojaFilter1 = 'AND fn1.COD_LOJA = :codLoja';
+      lojaFilter2 = 'AND fn2.COD_LOJA = :codLoja';
+      params.codLoja = codLoja;
+    }
+
+    if (dataInicio && dataFim) {
+      dateFilter = "AND fn1.DTA_ENTRADA >= TO_DATE(:dataInicio, 'YYYY-MM-DD') AND fn1.DTA_ENTRADA <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 1";
+      params.dataInicio = dataInicio;
+      params.dataFim = dataFim;
+    } else {
+      dateFilter = 'AND fn1.DTA_ENTRADA >= SYSDATE - 180';
+    }
+
+    const query = `
+      SELECT DISTINCT fp1.${nfCodFornecedorCol} as COD_FORN_ORIG
+      FROM ${tabFornecedorProduto} fp1
+      JOIN ${tabFornecedorNota} fn1 ON fn1.COD_FORNECEDOR = fp1.${nfCodFornecedorCol}
+        AND fn1.NUM_NF_FORN = fp1.${nfNumeroNfCol}
+      JOIN ${tabFornecedor} f1 ON f1.COD_FORNECEDOR = fp1.${nfCodFornecedorCol}
+      WHERE NVL(fn1.FLG_CANCELADO, 'N') = 'N'
+      ${dateFilter}
+      ${lojaFilter1}
+      AND EXISTS (
+        SELECT 1
+        FROM ${tabFornecedorProduto} fp2
+        JOIN ${tabFornecedor} f2 ON f2.COD_FORNECEDOR = fp2.${nfCodFornecedorCol}
+        JOIN ${tabFornecedorNota} fn2 ON fn2.COD_FORNECEDOR = fp2.${nfCodFornecedorCol}
+          AND fn2.NUM_NF_FORN = fp2.${nfNumeroNfCol}
+        WHERE fp2.COD_PRODUTO = fp1.COD_PRODUTO
+        AND fp2.${nfCodFornecedorCol} <> fp1.${nfCodFornecedorCol}
+        AND NVL(fn2.FLG_CANCELADO, 'N') = 'N'
+        AND fn2.DTA_ENTRADA >= SYSDATE - :diasHist
+        AND NVL(f2.NUM_MED_CPGTO, 0) > NVL(f1.NUM_MED_CPGTO, 0)
+        ${lojaFilter2}
+      )
+    `;
+
+    try {
+      const rows = await OracleService.query(query, params) as any[];
+      const result = new Set(rows.map(r => Number(r.COD_FORN_ORIG)));
+      console.log(`[PrazoFornecedores] Fornecedores com melhor prazo disponível: ${result.size}`);
+      return result;
+    } catch (err: any) {
+      console.warn(`[PrazoFornecedores] Erro ao verificar melhor prazo: ${err.message}`);
+      return new Set();
+    }
+  }
+
+  /**
    * Busca fornecedores alternativos que vendem o mesmo produto,
    * com prazo médio (NUM_MED_CPGTO) e último custo pago.
    * Retorna a compra mais recente de cada fornecedor alternativo.
