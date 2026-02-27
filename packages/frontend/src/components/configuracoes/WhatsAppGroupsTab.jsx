@@ -54,6 +54,11 @@ export default function WhatsAppGroupsTab() {
     facial: {
       groupId: '',
       groupName: '',
+    },
+    prazoFornecedores: {
+      groupId: '',
+      groupName: '',
+      scheduleTime: '08:00'
     }
   });
 
@@ -66,7 +71,8 @@ export default function WhatsAppGroupsTab() {
     { id: 'cortes', label: '✂️ Prevenção Pedidos', icon: '✂️' },
     { id: 'atrasos', label: '⏰ Pedidos em Atraso', icon: '⏰' },
     { id: 'producao', label: '🥖 Prevenção Produção', icon: '🥖' },
-    { id: 'facial', label: '👤 Prevenção Facial', icon: '👤' }
+    { id: 'facial', label: '👤 Prevenção Facial', icon: '👤' },
+    { id: 'prazoFornecedores', label: '📋 Prazo Fornecedores', icon: '📋' }
   ];
 
   // Mensagens de exemplo para cada tipo
@@ -192,7 +198,18 @@ export default function WhatsAppGroupsTab() {
 📅 Data: 28/01/2026, 14:30:00
 
 Alerta recebido do sistema DVR.
-Imagem anexada para verificação.`
+Imagem anexada para verificação.`,
+
+    prazoFornecedores: `📋 *PRAZO FORNECEDORES - FORA DO COMBINADO*
+
+📅 Data: 26/02/2026
+⏰ Enviado: 27/02/2026, 08:00:00
+
+⚠️ Fornecedores Fora: 15
+📄 Notas Fora do Combinado: 23
+💰 Valor Total: R$ 125.430,00
+
+📄 Confira o relatório detalhado em PDF anexo.`
   };
 
   useEffect(() => {
@@ -243,6 +260,10 @@ Imagem anexada para verificação.`
           },
           producao: getGroupConfig('whatsapp_group_producao', 'whatsapp_group_producao_name'),
           facial: getGroupConfig('email_monitor_whatsapp_group', 'email_monitor_whatsapp_group_name'),
+          prazoFornecedores: {
+            ...getGroupConfig('whatsapp_group_prazo_fornecedores', 'whatsapp_group_prazo_fornecedores_name'),
+            scheduleTime: configs.whatsapp_prazo_fornecedores_schedule_time || '08:00'
+          },
         });
       }
     } catch (error) {
@@ -267,6 +288,11 @@ Imagem anexada para verificação.`
         configData = {
           email_monitor_whatsapp_group: groupIdToSave,
           email_monitor_whatsapp_group_name: currentConfig.groupName,
+        };
+      } else if (activeSubTab === 'prazoFornecedores') {
+        configData = {
+          whatsapp_group_prazo_fornecedores: groupIdToSave,
+          whatsapp_group_prazo_fornecedores_name: currentConfig.groupName,
         };
       } else {
         const configKey = `whatsapp_group_${activeSubTab}`;
@@ -301,6 +327,11 @@ Imagem anexada para verificação.`
       // Se for atrasos, salvar também o horário
       if (activeSubTab === 'atrasos' && currentConfig.scheduleTime) {
         configData.whatsapp_atrasos_schedule_time = currentConfig.scheduleTime;
+      }
+
+      // Se for prazo fornecedores, salvar também o horário
+      if (activeSubTab === 'prazoFornecedores' && currentConfig.scheduleTime) {
+        configData.whatsapp_prazo_fornecedores_schedule_time = currentConfig.scheduleTime;
       }
 
       await api.post('/config/configurations', configData);
@@ -523,6 +554,30 @@ Imagem anexada para verificação.`
     }
   };
 
+  const handleSendPrazoFornecedoresNow = async () => {
+    try {
+      setIsSendingNow(true);
+      setSendNowResult('');
+
+      const response = await api.post('/whatsapp/send-prazo-fornecedores-now');
+
+      if (response.data.success) {
+        if (response.data.count === 0) {
+          setSendNowResult(`ℹ️ ${response.data.message}`);
+        } else {
+          setSendNowResult(`✅ ${response.data.message}`);
+        }
+      } else {
+        setSendNowResult('❌ Erro ao enviar: ' + (response.data.error || 'Erro desconhecido'));
+      }
+    } catch (error) {
+      console.error('Erro ao enviar prazo fornecedores:', error);
+      setSendNowResult('❌ Erro ao enviar: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setIsSendingNow(false);
+    }
+  };
+
   const currentConfig = groupConfigs[activeSubTab];
   const currentMessage = messageExamples[activeSubTab];
 
@@ -616,7 +671,7 @@ Imagem anexada para verificação.`
               </div>
 
               {/* Campo de Horário - Para Bipagens e Quebras */}
-              {(activeSubTab === 'bipagens' || activeSubTab === 'quebras' || activeSubTab === 'abastecimento' || activeSubTab === 'cortes' || activeSubTab === 'atrasos') && (
+              {(activeSubTab === 'bipagens' || activeSubTab === 'quebras' || activeSubTab === 'abastecimento' || activeSubTab === 'cortes' || activeSubTab === 'atrasos' || activeSubTab === 'prazoFornecedores') && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     ⏰ Horário de Envio Automático
@@ -636,6 +691,8 @@ Imagem anexada para verificação.`
                       ? 'PDF de cortes de pedidos do dia anterior será enviado automaticamente todos os dias neste horário'
                       : activeSubTab === 'atrasos'
                       ? 'PDF de pedidos em atraso será enviado automaticamente todos os dias neste horário'
+                      : activeSubTab === 'prazoFornecedores'
+                      ? 'PDF de fornecedores fora do combinado do dia anterior será enviado automaticamente todos os dias neste horário'
                       : 'PDF de quebras/ajustes do dia anterior será enviado automaticamente todos os dias neste horário'}
                   </p>
                 </div>
@@ -717,6 +774,16 @@ Imagem anexada para verificação.`
                     {isSendingNow ? '📤 Enviando...' : '📤 Enviar Agora'}
                   </button>
                 )}
+
+                {activeSubTab === 'prazoFornecedores' && (
+                  <button
+                    onClick={handleSendPrazoFornecedoresNow}
+                    disabled={isSendingNow || !currentConfig.groupId.trim()}
+                    className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                  >
+                    {isSendingNow ? '📤 Enviando...' : '📤 Enviar Agora'}
+                  </button>
+                )}
               </div>
 
               {/* Resultado do Teste */}
@@ -733,7 +800,7 @@ Imagem anexada para verificação.`
               )}
 
               {/* Resultado do Envio Manual (Bipagens e Quebras) */}
-              {sendNowResult && (activeSubTab === 'bipagens' || activeSubTab === 'quebras' || activeSubTab === 'abastecimento' || activeSubTab === 'cortes' || activeSubTab === 'atrasos') && (
+              {sendNowResult && (activeSubTab === 'bipagens' || activeSubTab === 'quebras' || activeSubTab === 'abastecimento' || activeSubTab === 'cortes' || activeSubTab === 'atrasos' || activeSubTab === 'prazoFornecedores') && (
                 <div className={`p-4 rounded-lg ${
                   sendNowResult.startsWith('✅') ? 'bg-green-50 border border-green-200' :
                   sendNowResult.startsWith('ℹ️') ? 'bg-blue-50 border border-blue-200' :
@@ -777,6 +844,8 @@ Imagem anexada para verificação.`
                     ? ' todos os dias no horário configurado com os cortes de pedidos do dia anterior.'
                     : activeSubTab === 'atrasos'
                     ? ' todos os dias no horário configurado com os pedidos em atraso.'
+                    : activeSubTab === 'prazoFornecedores'
+                    ? ' todos os dias no horário configurado com os fornecedores fora do combinado do dia anterior.'
                     : activeSubTab === 'facial'
                     ? ' quando o sistema de DVR detectar movimento ou alerta.'
                     : ` quando uma auditoria de ${activeSubTab} for finalizada.`}

@@ -832,4 +832,100 @@ router.post('/send-atrasos-now', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/whatsapp/send-prazo-fornecedores-now
+ * Envia manualmente o relatório de prazo fornecedores fora do combinado (dia anterior)
+ */
+router.post('/send-prazo-fornecedores-now', async (req, res) => {
+  try {
+    const { PrazoFornecedoresService } = require('../services/prazo-fornecedores.service');
+    const { PrazoFornecedoresPDFService } = require('../services/prazo-fornecedores-pdf.service');
+    const fs = require('fs');
+
+    // Calcular data de ontem no horário do Brasil
+    const now = new Date();
+    const brDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    const yesterdayBR = new Date(brDate);
+    yesterdayBR.setDate(yesterdayBR.getDate() - 1);
+
+    const year = yesterdayBR.getFullYear();
+    const month = String(yesterdayBR.getMonth() + 1).padStart(2, '0');
+    const day = String(yesterdayBR.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    const dateFormatted = `${day}/${month}/${year}`;
+
+    console.log(`📤 [ENVIO MANUAL PRAZO FORN] Buscando fornecedores de ${dateStr}...`);
+
+    // Buscar fornecedores com prazos do dia anterior
+    const fornecedores = await PrazoFornecedoresService.listarFornecedoresComPrazo(undefined, dateStr, dateStr);
+
+    // Filtrar apenas fornecedores com COND_PGTO_SISTEMA > 0 e notas fora do combinado
+    const fornecedoresFora: any[] = [];
+    for (const forn of fornecedores) {
+      if (!forn.COND_PGTO_SISTEMA || forn.COND_PGTO_SISTEMA <= 0) continue;
+      const notasFora = (forn.notas || []).filter((n: any) => n.PRAZO_MEDIO_NF > 0 && n.PRAZO_MEDIO_NF < forn.COND_PGTO_SISTEMA);
+      if (notasFora.length > 0) {
+        fornecedoresFora.push({
+          COD_FORNECEDOR: forn.COD_FORNECEDOR,
+          DES_FANTASIA: forn.DES_FANTASIA,
+          DES_CONTATO: (forn as any).DES_CONTATO || '',
+          NUM_CELULAR: (forn as any).NUM_CELULAR || '',
+          NUM_FONE: (forn as any).NUM_FONE || '',
+          COND_PGTO_SISTEMA: forn.COND_PGTO_SISTEMA,
+          PRAZO_MEDIO: forn.PRAZO_MEDIO,
+          VAL_TOTAL: forn.VAL_TOTAL,
+          notasFora,
+        });
+      }
+    }
+
+    if (fornecedoresFora.length === 0) {
+      return res.json({
+        success: true,
+        message: `Nenhum fornecedor fora do combinado encontrado para ${dateFormatted}. Nada enviado.`,
+        count: 0,
+        date: dateStr
+      });
+    }
+
+    const totalNFs = fornecedoresFora.reduce((s: number, f: any) => s + f.notasFora.length, 0);
+    const valorTotal = fornecedoresFora.reduce((s: number, f: any) =>
+      s + f.notasFora.reduce((s2: number, n: any) => s2 + (n.VAL_TOTAL_NF || 0), 0), 0);
+
+    // Gerar PDF
+    const pdfPath = await PrazoFornecedoresPDFService.generatePDF(dateFormatted, fornecedoresFora);
+
+    console.log(`📤 [ENVIO MANUAL PRAZO FORN] PDF gerado: ${pdfPath}`);
+
+    // Enviar via WhatsApp
+    const sent = await WhatsAppService.sendPrazoFornecedoresReport(
+      pdfPath, dateFormatted, fornecedoresFora.length, totalNFs, valorTotal
+    );
+
+    // Limpar PDF temporário
+    try { if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath); } catch (e) { /* ignore */ }
+
+    if (sent) {
+      console.log(`✅ [ENVIO MANUAL PRAZO FORN] ${fornecedoresFora.length} fornecedores fora do combinado enviados`);
+      res.json({
+        success: true,
+        message: `Relatório enviado! ${fornecedoresFora.length} fornecedores fora do combinado, ${totalNFs} NFs (R$ ${valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`,
+        count: fornecedoresFora.length,
+        date: dateStr
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'Falha ao enviar o PDF para o WhatsApp'
+      });
+    }
+  } catch (error: any) {
+    console.error('❌ [ENVIO MANUAL PRAZO FORN] Erro:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erro ao enviar relatório de prazo fornecedores'
+    });
+  }
+});
+
 export default router;

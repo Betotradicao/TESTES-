@@ -22,6 +22,9 @@ export interface FornecedorPrazo {
   DES_FANTASIA: string;
   DES_FORNECEDOR: string;
   NUM_CGC: string;
+  DES_CONTATO: string;
+  NUM_CELULAR: string;
+  NUM_FONE: string;
   COND_PGTO_SISTEMA: number;
   PRAZO_MEDIO: number;
   QTD_NFS: number;
@@ -80,6 +83,9 @@ export class PrazoFornecedoresService {
           NVL(f.DES_FANTASIA, f.DES_FORNECEDOR) as DES_FANTASIA,
           f.DES_FORNECEDOR,
           f.NUM_CGC,
+          f.DES_CONTATO,
+          f.NUM_CELULAR,
+          f.NUM_FONE,
           NVL(f.NUM_MED_CPGTO, 0) as COND_PGTO_SISTEMA,
           fn.NUM_NF_FORN,
           TO_CHAR(fn.DTA_EMISSAO, 'DD/MM/YYYY') as DTA_EMISSAO_FMT,
@@ -205,6 +211,9 @@ export class PrazoFornecedoresService {
           DES_FANTASIA: row.DES_FANTASIA,
           DES_FORNECEDOR: row.DES_FORNECEDOR,
           NUM_CGC: row.NUM_CGC || '',
+          DES_CONTATO: row.DES_CONTATO || '',
+          NUM_CELULAR: row.NUM_CELULAR || '',
+          NUM_FONE: row.NUM_FONE || '',
           COND_PGTO_SISTEMA: Number(row.COND_PGTO_SISTEMA) || 0,
           PRAZO_MEDIO: 0,
           QTD_NFS: 0,

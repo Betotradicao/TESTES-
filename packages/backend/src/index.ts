@@ -642,6 +642,93 @@ const startServer = async () => {
 
   console.log('📦 Abastecimento report cron job started (checks every minute, respects Brazil timezone)');
 
+  // Prazo Fornecedores (Fora do Combinado) Report Cron Job
+  let lastPrazoFornSendMinute = -1;
+
+  cron.schedule('* * * * *', async () => {
+    try {
+      const { ConfigurationService } = await import('./services/configuration.service');
+      const scheduleTime = await ConfigurationService.get('whatsapp_prazo_fornecedores_schedule_time');
+
+      const now = new Date();
+      const brDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+
+      if (!scheduleTime) return;
+
+      const [configHours, configMinutes] = scheduleTime.split(':').map(Number);
+      const currentMinuteKey = brDate.getHours() * 60 + brDate.getMinutes();
+      const scheduleMinuteKey = configHours * 60 + configMinutes;
+
+      if (currentMinuteKey === scheduleMinuteKey && lastPrazoFornSendMinute !== currentMinuteKey) {
+        lastPrazoFornSendMinute = currentMinuteKey;
+
+        console.log(`⏰ [PRAZO FORN CRON] Horário de envio: ${scheduleTime} (Brasil)`);
+
+        const { PrazoFornecedoresService } = await import('./services/prazo-fornecedores.service');
+        const { PrazoFornecedoresPDFService } = await import('./services/prazo-fornecedores-pdf.service');
+        const { WhatsAppService } = await import('./services/whatsapp.service');
+        const fs = await import('fs');
+
+        // Data de ontem
+        const yesterdayBR = new Date(brDate);
+        yesterdayBR.setDate(yesterdayBR.getDate() - 1);
+        const year = yesterdayBR.getFullYear();
+        const month = String(yesterdayBR.getMonth() + 1).padStart(2, '0');
+        const day = String(yesterdayBR.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        const dateFormatted = `${day}/${month}/${year}`;
+
+        const fornecedores = await PrazoFornecedoresService.listarFornecedoresComPrazo(undefined, dateStr, dateStr);
+
+        // Filtrar fora do combinado
+        const fornecedoresFora: any[] = [];
+        for (const forn of fornecedores) {
+          if (!forn.COND_PGTO_SISTEMA || forn.COND_PGTO_SISTEMA <= 0) continue;
+          const notasFora = (forn.notas || []).filter((n: any) => n.PRAZO_MEDIO_NF > 0 && n.PRAZO_MEDIO_NF < forn.COND_PGTO_SISTEMA);
+          if (notasFora.length > 0) {
+            fornecedoresFora.push({
+              COD_FORNECEDOR: forn.COD_FORNECEDOR,
+              DES_FANTASIA: forn.DES_FANTASIA,
+              DES_CONTATO: (forn as any).DES_CONTATO || '',
+              NUM_CELULAR: (forn as any).NUM_CELULAR || '',
+              NUM_FONE: (forn as any).NUM_FONE || '',
+              COND_PGTO_SISTEMA: forn.COND_PGTO_SISTEMA,
+              PRAZO_MEDIO: forn.PRAZO_MEDIO,
+              VAL_TOTAL: forn.VAL_TOTAL,
+              notasFora,
+            });
+          }
+        }
+
+        if (fornecedoresFora.length > 0) {
+          const totalNFs = fornecedoresFora.reduce((s: number, f: any) => s + f.notasFora.length, 0);
+          const valorTotal = fornecedoresFora.reduce((s: number, f: any) =>
+            s + f.notasFora.reduce((s2: number, n: any) => s2 + (n.VAL_TOTAL_NF || 0), 0), 0);
+
+          const pdfPath = await PrazoFornecedoresPDFService.generatePDF(dateFormatted, fornecedoresFora);
+
+          const sent = await WhatsAppService.sendPrazoFornecedoresReport(
+            pdfPath, dateFormatted, fornecedoresFora.length, totalNFs, valorTotal
+          );
+
+          try { if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath); } catch (e) { /* ignore */ }
+
+          if (sent) {
+            console.log(`✅ [PRAZO FORN CRON] ${fornecedoresFora.length} fornecedores fora do combinado enviados`);
+          } else {
+            console.error(`❌ [PRAZO FORN CRON] Falha ao enviar PDF`);
+          }
+        } else {
+          console.log(`ℹ️ [PRAZO FORN CRON] Nenhum fornecedor fora do combinado para ${dateFormatted}`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Prazo Fornecedores cron error:', error);
+    }
+  });
+
+  console.log('📋 Prazo Fornecedores report cron job started (checks every minute, respects Brazil timezone)');
+
   // Cortes de Pedidos Report Cron Job - runs every minute and checks configured schedule time
   let lastCortesSendMinute = -1;
 

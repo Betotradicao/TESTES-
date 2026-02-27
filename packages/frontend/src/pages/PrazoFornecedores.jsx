@@ -5,12 +5,20 @@ import api from '../services/api';
 import { useLoja } from '../contexts/LojaContext';
 
 // IDs das colunas reordenáveis (expand fica fixo)
-const DEFAULT_COL_ORDER = ['fornecedor', 'nNota', 'valor', 'prazo', 'prazoSistema', 'combinado', 'formaPgto', 'tipoNf', 'classificacao', 'prazoMedio'];
+const DEFAULT_COL_ORDER = ['fornecedor', 'contato', 'celular', 'nNota', 'valor', 'prazo', 'prazoSistema', 'combinado', 'formaPgto', 'tipoNf', 'classificacao', 'prazoMedio'];
 const COL_ORDER_KEY = 'prazo-fornecedores-col-order';
 
 const formatCurrency = (value) => {
   if (value == null) return '-';
   return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
+
+const formatWhatsAppUrl = (phone) => {
+  if (!phone) return null;
+  const digits = String(phone).replace(/\D/g, '');
+  if (digits.length < 10) return null;
+  const num = digits.startsWith('55') ? digits : '55' + digits;
+  return `https://web.whatsapp.com/send?phone=${num}`;
 };
 
 // Classificação de prazo - cores bem distintas entre cada nível
@@ -617,6 +625,10 @@ export default function PrazoFornecedores() {
                     switch (colId) {
                       case 'fornecedor':
                         return <th {...thProps} className="px-4 py-3 text-left font-semibold cursor-pointer hover:bg-gray-500 select-none" onClick={() => handleSort('DES_FANTASIA')}>Fornecedor {sortIndicator('DES_FANTASIA')}</th>;
+                      case 'contato':
+                        return <th {...thProps} className="px-4 py-3 text-left font-semibold select-none">Contato</th>;
+                      case 'celular':
+                        return <th {...thProps} className="px-4 py-3 text-left font-semibold select-none">Celular</th>;
                       case 'nNota':
                         return <th {...thProps} className="px-4 py-3 text-left font-semibold select-none">N° Nota</th>;
                       case 'valor':
@@ -655,6 +667,20 @@ export default function PrazoFornecedores() {
                     const renderParentCell = (colId) => {
                       switch (colId) {
                         case 'fornecedor': return <td key={colId} className="px-4 py-3"><div className="font-semibold text-gray-900">{forn.DES_FANTASIA}</div>{forn.NUM_CGC && <div className="text-xs text-gray-400">{forn.NUM_CGC}</div>}</td>;
+                        case 'contato': return <td key={colId} className="px-4 py-3 text-sm text-gray-600">{forn.DES_CONTATO || '-'}</td>;
+                        case 'celular': {
+                          const cel = forn.NUM_CELULAR || forn.NUM_FONE || '';
+                          const waUrl = formatWhatsAppUrl(cel);
+                          return (
+                            <td key={colId} className="px-4 py-3">
+                              {cel && waUrl ? (
+                                <a href={waUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-green-600 hover:text-green-800 hover:underline font-medium text-sm">
+                                  {cel} 📱
+                                </a>
+                              ) : <span className="text-gray-400 text-sm">-</span>}
+                            </td>
+                          );
+                        }
                         case 'nNota': return <td key={colId} className="px-4 py-3 text-gray-400 text-xs">{forn.QTD_NFS} notas</td>;
                         case 'valor': return <td key={colId} className="px-4 py-3 text-right font-medium text-gray-700">{formatCurrency(forn.VAL_TOTAL)}</td>;
                         case 'prazo': return <td key={colId} className="px-4 py-3"></td>;
@@ -704,6 +730,8 @@ export default function PrazoFornecedores() {
                           const renderChildCell = (colId) => {
                             switch (colId) {
                               case 'fornecedor': return <td key={colId} className="px-4 py-2 pl-10"><span className="text-gray-500 text-xs">{nota.DTA_ENTRADA && <span className="text-gray-400 mr-2">Entrada: {nota.DTA_ENTRADA}</span>}{nota.DTA_EMISSAO && <span className="text-gray-400">Emissão: {nota.DTA_EMISSAO}</span>}</span></td>;
+                              case 'contato': return <td key={colId} className="px-4 py-2"></td>;
+                              case 'celular': return <td key={colId} className="px-4 py-2"></td>;
                               case 'nNota': return <td key={colId} className="px-4 py-2 font-mono text-gray-700">{nota.NUM_NF_FORN}</td>;
                               case 'valor': return <td key={colId} className="px-4 py-2 text-right font-medium text-gray-600">{formatCurrency(nota.VAL_TOTAL_NF)}</td>;
                               case 'prazo': return <td key={colId} className="px-4 py-2 text-center"><span className={`font-semibold ${nota.PRAZO === '-' ? 'text-gray-300' : 'text-yellow-600'}`}>{nota.PRAZO}</span></td>;

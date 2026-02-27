@@ -528,6 +528,49 @@ export class WhatsAppService {
   }
 
   /**
+   * Envia relatório de prazo fornecedores fora do combinado para grupo do WhatsApp
+   */
+  static async sendPrazoFornecedoresReport(
+    filePath: string,
+    dataRef: string,
+    totalFornecedores: number,
+    totalNFs: number,
+    valorTotal: number
+  ): Promise<boolean> {
+    try {
+      const groupId = await ConfigurationService.get('whatsapp_group_prazo_fornecedores', '');
+
+      if (!groupId) {
+        console.warn('⚠️  Grupo do WhatsApp não configurado (whatsapp_group_prazo_fornecedores)');
+        return false;
+      }
+
+      console.log(`📋 Enviando relatório prazo fornecedores para grupo: ${groupId}`);
+
+      const caption = `📋 *PRAZO FORNECEDORES - FORA DO COMBINADO*\n\n` +
+                     `📅 Data: ${dataRef}\n` +
+                     `⏰ Enviado: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}\n\n` +
+                     `⚠️ Fornecedores Fora: ${totalFornecedores}\n` +
+                     `📄 Notas Fora do Combinado: ${totalNFs}\n` +
+                     `💰 Valor Total: R$ ${valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\n` +
+                     `📄 Confira o relatório detalhado em PDF anexo.`;
+
+      const success = await this.sendDocument(groupId, filePath, caption);
+
+      if (success) {
+        console.log(`✅ Relatório prazo fornecedores enviado para grupo ${groupId}`);
+      } else {
+        console.error(`❌ Falha ao enviar relatório prazo fornecedores`);
+      }
+
+      return success;
+    } catch (error) {
+      console.error(`❌ Erro ao enviar relatório prazo fornecedores:`, error);
+      return false;
+    }
+  }
+
+  /**
    * Envia relatório de cortes de pedidos para grupo do WhatsApp
    */
   static async sendCortesReport(
