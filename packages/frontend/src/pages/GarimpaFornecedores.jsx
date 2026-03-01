@@ -180,15 +180,15 @@ export default function GarimpaFornecedores() {
               {/* Filtro por tipo */}
               <div className="flex gap-1 mt-2">
                 {[
-                  { val: 'todos', label: 'Todos', color: 'gray' },
-                  { val: 'nao_classificado', label: 'Pendentes', color: 'yellow' },
-                  { val: 'fornecedor', label: 'Fornec.', color: 'blue' },
-                  { val: 'concorrente', label: 'Concorr.', color: 'red' },
+                  { val: 'nao_classificado', label: 'Pendentes', color: 'yellow', count: stats?.naoClassificados || 0 },
+                  { val: 'fornecedor', label: 'Fornecedor', color: 'blue', count: stats?.fornecedores || 0 },
+                  { val: 'concorrente', label: 'Concorrente', color: 'red', count: stats?.concorrentes || 0 },
+                  { val: 'todos', label: 'Todos', color: 'gray', count: stats?.totalContatos || 0 },
                 ].map(f => (
                   <button
                     key={f.val}
                     onClick={() => setFiltroTipo(f.val)}
-                    className={`flex-1 text-xs py-1 rounded-md transition-colors ${
+                    className={`flex-1 text-xs py-1.5 rounded-md transition-colors flex flex-col items-center ${
                       filtroTipo === f.val
                         ? f.color === 'gray' ? 'bg-gray-600 text-white'
                         : f.color === 'yellow' ? 'bg-yellow-500 text-white'
@@ -197,7 +197,8 @@ export default function GarimpaFornecedores() {
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
-                    {f.label}
+                    <span>{f.label}</span>
+                    <span className="font-bold text-[10px]">{f.count}</span>
                   </button>
                 ))}
               </div>
