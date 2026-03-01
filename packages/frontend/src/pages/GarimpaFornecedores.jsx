@@ -341,16 +341,36 @@ export default function GarimpaFornecedores() {
                             )}
                           </div>
                           {/* Conteúdo */}
+                          {/* Imagem */}
+                          {msg.tipo_midia === 'imagem' && msg.media_url && (
+                            <div className="mt-1 mb-2">
+                              <img
+                                src={msg.media_url}
+                                alt="Imagem recebida"
+                                className="max-w-xs max-h-64 rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition"
+                                onClick={() => window.open(msg.media_url, '_blank')}
+                                onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
+                              />
+                              <p className="text-xs text-gray-400 italic hidden">[Imagem expirada ou indisponivel]</p>
+                            </div>
+                          )}
+                          {msg.tipo_midia === 'imagem' && !msg.media_url && (
+                            <p className="text-sm text-gray-400 italic">[Imagem sem URL]</p>
+                          )}
+                          {/* Texto */}
                           {msg.conteudo_original && (
                             <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
                               {msg.conteudo_original}
                             </p>
                           )}
-                          {msg.tipo_midia === 'imagem' && !msg.conteudo_original && (
+                          {msg.tipo_midia === 'imagem' && !msg.conteudo_original && !msg.media_url && (
                             <p className="text-sm text-gray-400 italic">[Imagem sem legenda]</p>
                           )}
                           {msg.tipo_midia === 'audio' && (
                             <p className="text-sm text-gray-400 italic">[Mensagem de audio]</p>
+                          )}
+                          {msg.tipo_midia === 'documento' && (
+                            <p className="text-sm text-gray-400 italic">[Documento recebido]</p>
                           )}
                           {msg.conteudo_extraido && (
                             <div className="mt-1 p-2 bg-blue-50 rounded text-xs text-blue-800">

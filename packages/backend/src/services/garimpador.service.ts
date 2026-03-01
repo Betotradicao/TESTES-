@@ -1,6 +1,8 @@
 import { AppDataSource } from '../config/database';
 import { GarimpadorContato } from '../entities/GarimpadorContato';
 import { GarimpadorMensagem } from '../entities/GarimpadorMensagem';
+import { ConfigurationService } from './configuration.service';
+import { minioService } from './minio.service';
 
 export class GarimpadorService {
 
@@ -73,10 +75,70 @@ export class GarimpadorService {
       await msgRepo.save(mensagem);
       console.log(`[Garimpador] Mensagem salva: ${tipoMidia} de ${pushName || telefone}`);
 
+      // Se é imagem/áudio/documento, baixar a mídia e salvar no MinIO (async, não bloqueia)
+      if (tipoMidia !== 'texto' && messageId) {
+        this.baixarESalvarMidia(mensagem, data).catch(err => {
+          console.error('[Garimpador] Erro ao baixar mídia (background):', err.message);
+        });
+      }
+
       return { contato, mensagem };
     } catch (error) {
       console.error('[Garimpador] Erro ao processar webhook:', error);
       return null;
+    }
+  }
+
+  /**
+   * Baixa a mídia da Evolution API e salva no MinIO
+   */
+  private static async baixarESalvarMidia(mensagem: GarimpadorMensagem, webhookData: any): Promise<void> {
+    try {
+      const apiUrl = await ConfigurationService.get('evolution_api_url', process.env.EVOLUTION_API_URL || '');
+      const apiToken = await ConfigurationService.get('evolution_api_token', process.env.EVOLUTION_API_TOKEN || '');
+      const instance = await ConfigurationService.get('evolution_instance', process.env.EVOLUTION_INSTANCE || '');
+
+      if (!apiUrl || !apiToken || !instance) return;
+
+      // Endpoint para baixar mídia em base64
+      const downloadUrl = `${apiUrl}/chat/getBase64FromMediaMessage/${encodeURIComponent(instance)}`;
+
+      const response = await fetch(downloadUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': apiToken },
+        body: JSON.stringify({ message: webhookData, convertToMp4: false })
+      });
+
+      if (!response.ok) {
+        console.log(`[Garimpador] Não conseguiu baixar mídia: ${response.status}`);
+        return;
+      }
+
+      const result = await response.json() as any;
+      const base64Data = result?.base64;
+
+      if (!base64Data) {
+        console.log('[Garimpador] Resposta sem base64');
+        return;
+      }
+
+      // Converter base64 para Buffer
+      const buffer = Buffer.from(base64Data, 'base64');
+
+      // Gerar nome do arquivo
+      const ext = mensagem.media_mimetype?.split('/')[1] || 'bin';
+      const fileName = `garimpador/${mensagem.contato_id}/${Date.now()}_${mensagem.id}.${ext}`;
+
+      // Upload para MinIO
+      const publicUrl = await minioService.uploadFile(fileName, buffer, mensagem.media_mimetype || 'application/octet-stream');
+
+      // Atualizar a mensagem com a URL permanente do MinIO
+      const msgRepo = AppDataSource.getRepository(GarimpadorMensagem);
+      await msgRepo.update(mensagem.id, { media_url: publicUrl });
+
+      console.log(`[Garimpador] Mídia salva no MinIO: ${publicUrl}`);
+    } catch (error: any) {
+      console.error('[Garimpador] Erro ao baixar/salvar mídia:', error.message);
     }
   }
 
