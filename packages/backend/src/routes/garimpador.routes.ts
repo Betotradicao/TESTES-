@@ -16,4 +16,8 @@ router.get('/estatisticas', GarimpadorController.getEstatisticas);
 router.post('/configurar-webhook', GarimpadorController.configurarWebhook);
 router.get('/webhook-status', GarimpadorController.webhookStatus);
 
+// Processamento de mensagens (extração de dados)
+router.post('/processar', GarimpadorController.processarTodas);
+router.post('/processar/:id', GarimpadorController.processarUma);
+
 export default router;

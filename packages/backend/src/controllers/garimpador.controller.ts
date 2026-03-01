@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import { GarimpadorService } from '../services/garimpador.service';
+import { GarimpadorProcessadorService } from '../services/garimpador-processador.service';
 import { ConfigurationService } from '../services/configuration.service';
+import { AppDataSource } from '../config/database';
+import { GarimpadorMensagem } from '../entities/GarimpadorMensagem';
 
 export class GarimpadorController {
 
@@ -199,6 +202,49 @@ export class GarimpadorController {
       });
     } catch (error: any) {
       console.error('[Garimpador] Erro ao verificar webhook:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * POST /api/garimpador/processar
+   * Processa todas as mensagens nao processadas
+   */
+  static async processarTodas(req: Request, res: Response) {
+    try {
+      const resultado = await GarimpadorProcessadorService.processarMensagensNaoProcessadas();
+      res.json({
+        success: true,
+        ...resultado,
+      });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro ao processar mensagens:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * POST /api/garimpador/processar/:id
+   * Processa uma mensagem especifica
+   */
+  static async processarUma(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+      const repo = AppDataSource.getRepository(GarimpadorMensagem);
+      const mensagem = await repo.findOne({ where: { id } });
+
+      if (!mensagem) {
+        return res.status(404).json({ success: false, error: 'Mensagem nao encontrada' });
+      }
+
+      const extraido = await GarimpadorProcessadorService.processarMensagem(mensagem);
+      res.json({
+        success: true,
+        processado: true,
+        conteudo_extraido: extraido,
+      });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro ao processar mensagem:', error);
       res.status(500).json({ success: false, error: error.message });
     }
   }

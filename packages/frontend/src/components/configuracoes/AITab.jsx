@@ -3,10 +3,10 @@ import api from '../../utils/api';
 
 // Modelos disponíveis
 const MODELS = [
-  { id: 'gpt-4o', name: 'GPT-4o', desc: 'Mais inteligente e abrangente (Recomendado)', badge: 'Recomendado' },
-  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', desc: 'Mais rapido e economico, menos detalhado', badge: 'Economico' },
-  { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', desc: 'Muito inteligente, respostas longas', badge: '' },
-  { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', desc: 'Mais barato, respostas basicas', badge: 'Basico' },
+  { id: 'gpt-5.2', name: 'GPT-5.2', desc: 'Mais avancado, raciocinio profundo, 400K contexto', badge: 'Novo' },
+  { id: 'gpt-5-mini', name: 'GPT-5 Mini', desc: 'Rapido e inteligente, custo-beneficio otimo', badge: 'Recomendado' },
+  { id: 'gpt-4o', name: 'GPT-4o', desc: 'Inteligente e abrangente, boa opcao geral', badge: '' },
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', desc: 'Rapido e economico, menos detalhado', badge: 'Economico' },
 ];
 
 const DEFAULT_PROMPT = `Voce e o **Radar IA**, um consultor senior especialista em gestao de supermercados e varejo alimentar brasileiro, com mais de 20 anos de experiencia no setor.
@@ -46,12 +46,94 @@ Voce trabalha dentro do sistema "Radar 360" e tem acesso direto aos dados reais 
 - Se vendas cairam vs mes anterior, investigue os motivos
 - Identifique sazonalidades e oportunidades`;
 
+// Componente de seletor de modelo reutilizavel
+function ModelSelector({ models, selected, onSelect, accentColor = 'emerald' }) {
+  const colors = {
+    emerald: { border: 'border-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-700', check: 'text-emerald-500', badgeActive: 'bg-emerald-100 text-emerald-700' },
+    orange: { border: 'border-orange-500', bg: 'bg-orange-50', text: 'text-orange-700', check: 'text-orange-500', badgeActive: 'bg-orange-100 text-orange-700' },
+  };
+  const c = colors[accentColor] || colors.emerald;
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {models.map((model) => (
+        <button
+          key={model.id}
+          onClick={() => onSelect(model.id)}
+          className={`relative text-left p-4 rounded-xl border-2 transition-all ${
+            selected === model.id
+              ? `${c.border} ${c.bg} shadow-sm`
+              : 'border-gray-200 hover:border-gray-300 bg-white'
+          }`}
+        >
+          <div className="flex items-start justify-between">
+            <div className="pr-6">
+              <p className={`font-semibold text-sm ${selected === model.id ? c.text : 'text-gray-800'}`}>
+                {model.name}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">{model.desc}</p>
+            </div>
+            {model.badge && (
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
+                model.badge === 'Recomendado'
+                  ? c.badgeActive
+                  : model.badge === 'Novo'
+                  ? 'bg-purple-100 text-purple-700'
+                  : model.badge === 'Economico'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-600'
+              }`}>
+                {model.badge}
+              </span>
+            )}
+          </div>
+          {selected === model.id && (
+            <div className="absolute top-2 right-2">
+              <svg className={`w-5 h-5 ${c.check}`} fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            </div>
+          )}
+          <p className="text-[10px] text-gray-400 mt-1 font-mono">{model.id}</p>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Toggle reutilizavel
+function Toggle({ label, desc, checked, onChange }) {
+  return (
+    <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+      <div>
+        <p className="text-sm font-medium text-gray-800">{label}</p>
+        {desc && <p className="text-xs text-gray-400 mt-0.5">{desc}</p>}
+      </div>
+      <button
+        onClick={() => onChange(!checked)}
+        className={`relative w-11 h-6 rounded-full transition-colors ${checked ? 'bg-orange-500' : 'bg-gray-300'}`}
+      >
+        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${checked ? 'translate-x-5' : ''}`} />
+      </button>
+    </div>
+  );
+}
+
 export default function AITab() {
+  const [aiSubTab, setAiSubTab] = useState('oferta');
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
+  // Radar IA
   const [selectedModel, setSelectedModel] = useState('gpt-4o');
   const [customPrompt, setCustomPrompt] = useState('');
   const [showPrompt, setShowPrompt] = useState(false);
+  // Oferta no Radar
+  const [garimpadorModel, setGarimpadorModel] = useState('gpt-4o-mini');
+  const [garimpadorAuto, setGarimpadorAuto] = useState(true);
+  const [garimpadorImagens, setGarimpadorImagens] = useState(true);
+  const [garimpadorPdf, setGarimpadorPdf] = useState(true);
+  const [garimpadorExcel, setGarimpadorExcel] = useState(true);
+  // UI
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [saved, setSaved] = useState(false);
@@ -68,8 +150,15 @@ export default function AITab() {
       if (response.data.success && response.data.data) {
         const data = response.data.data;
         setApiKey(data.openai_api_key || '');
+        // Radar IA
         setSelectedModel(data.openai_model || 'gpt-4o');
         setCustomPrompt(data.openai_system_prompt || '');
+        // Oferta no Radar
+        setGarimpadorModel(data.openai_garimpador_model || 'gpt-4o-mini');
+        setGarimpadorAuto(data.garimpador_auto_processar !== 'false');
+        setGarimpadorImagens(data.garimpador_processar_imagens !== 'false');
+        setGarimpadorPdf(data.garimpador_processar_pdf !== 'false');
+        setGarimpadorExcel(data.garimpador_processar_excel !== 'false');
       }
     } catch (error) {
       console.error('Erro ao carregar configuracao:', error);
@@ -84,7 +173,14 @@ export default function AITab() {
     try {
       const payload = {
         openai_api_key: apiKey,
+        // Radar IA
         openai_model: selectedModel,
+        // Oferta no Radar
+        openai_garimpador_model: garimpadorModel,
+        garimpador_auto_processar: String(garimpadorAuto),
+        garimpador_processar_imagens: String(garimpadorImagens),
+        garimpador_processar_pdf: String(garimpadorPdf),
+        garimpador_processar_excel: String(garimpadorExcel),
       };
       if (customPrompt.trim()) {
         payload.openai_system_prompt = customPrompt.trim();
@@ -161,7 +257,7 @@ export default function AITab() {
         </div>
       </div>
 
-      {/* Campo API Key */}
+      {/* Campo API Key (compartilhado) */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Chave de API (API Key)
@@ -182,58 +278,10 @@ export default function AITab() {
             {showKey ? 'Ocultar' : 'Mostrar'}
           </button>
         </div>
-        <p className="text-xs text-gray-400 mt-1">A chave e armazenada de forma criptografada no banco de dados</p>
+        <p className="text-xs text-gray-400 mt-1">A chave e armazenada de forma criptografada no banco de dados. Usada por todos os modulos de IA.</p>
       </div>
 
-      {/* Seletor de Modelo */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Modelo da IA (Radar IA)
-        </label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {MODELS.map((model) => (
-            <button
-              key={model.id}
-              onClick={() => setSelectedModel(model.id)}
-              className={`relative text-left p-4 rounded-xl border-2 transition-all ${
-                selectedModel === model.id
-                  ? 'border-emerald-500 bg-emerald-50 shadow-sm'
-                  : 'border-gray-200 hover:border-gray-300 bg-white'
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="pr-6">
-                  <p className={`font-semibold text-sm ${selectedModel === model.id ? 'text-emerald-700' : 'text-gray-800'}`}>
-                    {model.name}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-0.5">{model.desc}</p>
-                </div>
-                {model.badge && (
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
-                    model.badge === 'Recomendado'
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : model.badge === 'Economico'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-gray-100 text-gray-600'
-                  }`}>
-                    {model.badge}
-                  </span>
-                )}
-              </div>
-              {selectedModel === model.id && (
-                <div className="absolute top-2 right-2">
-                  <svg className="w-5 h-5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              )}
-              <p className="text-[10px] text-gray-400 mt-1 font-mono">{model.id}</p>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Botões Salvar + Testar */}
+      {/* Botoes Salvar + Testar (compartilhado) */}
       <div className="flex items-center gap-3">
         <button
           onClick={handleSave}
@@ -333,6 +381,175 @@ export default function AITab() {
         </div>
       )}
 
+      {/* Sub-abas: Oferta no Radar | Radar IA */}
+      <div className="border-b border-gray-200">
+        <div className="flex">
+          <button
+            onClick={() => setAiSubTab('oferta')}
+            className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+              aiSubTab === 'oferta'
+                ? 'border-orange-500 text-orange-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Oferta no Radar
+          </button>
+          <button
+            onClick={() => setAiSubTab('radar')}
+            className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+              aiSubTab === 'radar'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Radar IA
+          </button>
+        </div>
+      </div>
+
+      {/* ===== Conteudo: Oferta no Radar ===== */}
+      {aiSubTab === 'oferta' && (
+        <div className="space-y-6">
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <h3 className="font-semibold text-orange-800">Oferta no Radar</h3>
+                <p className="text-sm text-orange-700 mt-1">
+                  A IA analisa automaticamente as mensagens recebidas de fornecedores e concorrentes via WhatsApp, extraindo produtos e precos de textos, imagens (encartes), PDFs e planilhas Excel.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Modelo para processamento */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Modelo da IA (Processamento de Ofertas)
+            </label>
+            <p className="text-xs text-gray-400 mb-3">Modelo usado para extrair produtos e precos de imagens e textos complexos. GPT-4o Mini e recomendado por ser mais economico.</p>
+            <ModelSelector
+              models={MODELS}
+              selected={garimpadorModel}
+              onSelect={setGarimpadorModel}
+              accentColor="orange"
+            />
+          </div>
+
+          {/* Toggles de processamento */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Opcoes de Processamento
+            </label>
+            <div className="bg-white border border-gray-200 rounded-lg px-4">
+              <Toggle
+                label="Processar mensagens automaticamente"
+                desc="Ao receber uma mensagem, a IA extrai produtos e precos automaticamente"
+                checked={garimpadorAuto}
+                onChange={setGarimpadorAuto}
+              />
+              <Toggle
+                label="Extrair texto de imagens (Vision)"
+                desc="Usa GPT Vision para ler encartes, fotos de tabelas de precos e ofertas"
+                checked={garimpadorImagens}
+                onChange={setGarimpadorImagens}
+              />
+              <Toggle
+                label="Processar PDFs recebidos"
+                desc="Extrai texto de documentos PDF e identifica produtos e precos"
+                checked={garimpadorPdf}
+                onChange={setGarimpadorPdf}
+              />
+              <Toggle
+                label="Processar planilhas Excel recebidas"
+                desc="Le planilhas .xls/.xlsx e extrai dados de produtos e precos"
+                checked={garimpadorExcel}
+                onChange={setGarimpadorExcel}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Conteudo: Radar IA ===== */}
+      {aiSubTab === 'radar' && (
+        <div className="space-y-6">
+          {/* Seletor de Modelo */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Modelo da IA (Consultor Radar IA)
+            </label>
+            <p className="text-xs text-gray-400 mb-3">Modelo usado pelo consultor flutuante (chat). GPT-4o e recomendado para analises mais completas.</p>
+            <ModelSelector
+              models={MODELS}
+              selected={selectedModel}
+              onSelect={setSelectedModel}
+              accentColor="emerald"
+            />
+          </div>
+
+          {/* Script/Prompt da IA */}
+          <div className="pt-4 border-t border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700">Script do Consultor (System Prompt)</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Define como a IA se comporta, responde e analisa os dados</p>
+              </div>
+              <button
+                onClick={() => setShowPrompt(!showPrompt)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+              >
+                <svg className={`w-4 h-4 transition-transform ${showPrompt ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                </svg>
+                {showPrompt ? 'Ocultar' : 'Ver / Editar'}
+              </button>
+            </div>
+
+            {showPrompt && (
+              <div className="space-y-3">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-xs text-amber-700">
+                      Este e o "cerebro" da IA. Ele define a personalidade, formato das respostas, benchmarks e estrategias de analise.
+                      A data atual e adicionada automaticamente pelo sistema. Edite com cuidado!
+                    </p>
+                  </div>
+                </div>
+
+                <textarea
+                  value={customPrompt || DEFAULT_PROMPT}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  rows={20}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-mono leading-relaxed bg-gray-50"
+                  placeholder="Digite o prompt customizado..."
+                />
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleResetPrompt}
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Restaurar Padrao
+                  </button>
+                  <span className="text-xs text-gray-400">
+                    {customPrompt ? '(Usando prompt customizado)' : '(Usando prompt padrao)'}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Links OpenAI */}
       <div className="pt-4 border-t border-gray-200">
         <h3 className="text-sm font-semibold text-gray-700 mb-3">Links Uteis</h3>
@@ -365,80 +582,6 @@ export default function AITab() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
           </a>
-        </div>
-      </div>
-
-      {/* Script/Prompt da IA */}
-      <div className="pt-4 border-t border-gray-200">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700">Script do Consultor (System Prompt)</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Define como a IA se comporta, responde e analisa os dados</p>
-          </div>
-          <button
-            onClick={() => setShowPrompt(!showPrompt)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-          >
-            <svg className={`w-4 h-4 transition-transform ${showPrompt ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-            </svg>
-            {showPrompt ? 'Ocultar' : 'Ver / Editar'}
-          </button>
-        </div>
-
-        {showPrompt && (
-          <div className="space-y-3">
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <div className="flex items-start gap-2">
-                <svg className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-xs text-amber-700">
-                  Este e o "cerebro" da IA. Ele define a personalidade, formato das respostas, benchmarks e estrategias de analise.
-                  A data atual e adicionada automaticamente pelo sistema. Edite com cuidado!
-                </p>
-              </div>
-            </div>
-
-            <textarea
-              value={customPrompt || DEFAULT_PROMPT}
-              onChange={(e) => setCustomPrompt(e.target.value)}
-              rows={20}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-mono leading-relaxed bg-gray-50"
-              placeholder="Digite o prompt customizado..."
-            />
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleResetPrompt}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Restaurar Padrao
-              </button>
-              <span className="text-xs text-gray-400">
-                {customPrompt ? '(Usando prompt customizado)' : '(Usando prompt padrao)'}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Info */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <div>
-            <h3 className="font-semibold text-blue-800">Sobre a Inteligencia Artificial</h3>
-            <p className="text-sm text-blue-700 mt-1">
-              A chave de API do ChatGPT e utilizada pelo <strong>Radar IA</strong> (consultor flutuante), analise de ofertas de fornecedores, extracao de dados de imagens e classificacao automatica de mensagens.
-              O modelo selecionado afeta a qualidade e custo das respostas do Radar IA.
-            </p>
-          </div>
         </div>
       </div>
     </div>

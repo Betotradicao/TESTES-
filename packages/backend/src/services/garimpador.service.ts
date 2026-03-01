@@ -3,6 +3,7 @@ import { GarimpadorContato } from '../entities/GarimpadorContato';
 import { GarimpadorMensagem } from '../entities/GarimpadorMensagem';
 import { ConfigurationService } from './configuration.service';
 import { minioService } from './minio.service';
+import { GarimpadorProcessadorService } from './garimpador-processador.service';
 
 export class GarimpadorService {
 
@@ -77,15 +78,40 @@ export class GarimpadorService {
 
       // Se é imagem/áudio/documento, baixar a mídia e salvar no MinIO (async, não bloqueia)
       if (tipoMidia !== 'texto' && messageId) {
-        this.baixarESalvarMidia(mensagem, data).catch(err => {
+        this.baixarESalvarMidia(mensagem, data).then(async () => {
+          // Apos baixar midia, processar automaticamente se habilitado
+          await this.autoProcessar(mensagem);
+        }).catch(err => {
           console.error('[Garimpador] Erro ao baixar mídia (background):', err.message);
         });
+      } else {
+        // Texto: processar automaticamente se habilitado
+        this.autoProcessar(mensagem).catch(() => {});
       }
 
       return { contato, mensagem };
     } catch (error) {
       console.error('[Garimpador] Erro ao processar webhook:', error);
       return null;
+    }
+  }
+
+  /**
+   * Processa mensagem automaticamente se habilitado nas configs
+   */
+  private static async autoProcessar(mensagem: GarimpadorMensagem): Promise<void> {
+    try {
+      const autoProcessar = await ConfigurationService.get('garimpador_auto_processar', 'true');
+      if (autoProcessar === 'false') return;
+
+      // Recarregar a mensagem (pode ter sido atualizada com media_url do MinIO)
+      const repo = AppDataSource.getRepository(GarimpadorMensagem);
+      const msgAtualizada = await repo.findOne({ where: { id: mensagem.id } });
+      if (!msgAtualizada || msgAtualizada.processado) return;
+
+      await GarimpadorProcessadorService.processarMensagem(msgAtualizada);
+    } catch (error: any) {
+      console.error('[Garimpador] Erro no auto-processamento:', error.message);
     }
   }
 
