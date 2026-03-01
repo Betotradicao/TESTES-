@@ -72,6 +72,7 @@ import bankAccountsRouter from './routes/bank-accounts.routes';
 import ddaRouter from './routes/dda.routes';
 import conciliacaoRouter from './routes/conciliacao.routes';
 import prazoFornecedoresRouter from './routes/prazo-fornecedores.routes';
+import garimpadorRouter from './routes/garimpador.routes';
 import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
 import { MappingService } from './services/mapping.service';
@@ -177,6 +178,7 @@ app.use('/api/bank-accounts', bankAccountsRouter);
 app.use('/api/dda', ddaRouter);
 app.use('/api/conciliacao', conciliacaoRouter);
 app.use('/api/prazo-fornecedores', prazoFornecedoresRouter);
+app.use('/api/garimpador', garimpadorRouter);
 
 // app.use('/api/user-security', userSecurityRouter);
 

@@ -9,6 +9,7 @@ export default function APIsTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [testResults, setTestResults] = useState({});
   const [isTesting, setIsTesting] = useState({});
+  const [configurandoWebhook, setConfigurandoWebhook] = useState(false);
   const [showPasswords, setShowPasswords] = useState({
     intersolid: false,
     database: false,
@@ -34,7 +35,8 @@ export default function APIsTab() {
       apiUrl: 'http://31.97.82.235:8090',
       apiToken: '',
       instance: '',
-      whatsappGroupId: ''
+      whatsappGroupId: '',
+      garimpadorEnabled: false
     },
     database: {
       host: 'localhost',
@@ -97,7 +99,8 @@ export default function APIsTab() {
             apiUrl: configs.evolution_api_url || 'http://31.97.82.235:8090',
             apiToken: configs.evolution_api_token || '',
             instance: configs.evolution_instance || '',
-            whatsappGroupId: configs.evolution_whatsapp_group_id || ''
+            whatsappGroupId: configs.evolution_whatsapp_group_id || '',
+            garimpadorEnabled: configs.evolution_garimpador_enabled === 'true' || false
           },
           database: {
             host: configs.postgres_host || 'localhost',
@@ -192,6 +195,7 @@ export default function APIsTab() {
         evolution_api_token: apiConfigs.evolution.apiToken,
         evolution_instance: apiConfigs.evolution.instance,
         evolution_whatsapp_group_id: apiConfigs.evolution.whatsappGroupId,
+        evolution_garimpador_enabled: String(apiConfigs.evolution.garimpadorEnabled),
 
         // PostgreSQL
         postgres_host: apiConfigs.database.host,
@@ -1194,6 +1198,72 @@ AND ROWNUM &lt;= 5</pre>
               </div>
             )}
           </>
+        )}
+      </div>
+
+      {/* Toggle Conectar Ofertas no Radar */}
+      <div className="border-t pt-4 mt-4">
+        <div className="flex items-center justify-between p-4 bg-orange-50 border border-orange-200 rounded-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900">Conectar Ofertas no Radar</p>
+              <p className="text-xs text-gray-600">Receber mensagens do WhatsApp para garimpar ofertas de fornecedores e concorrentes</p>
+            </div>
+          </div>
+          <button
+            disabled={configurandoWebhook}
+            onClick={async () => {
+              const newValue = !apiConfigs.evolution.garimpadorEnabled;
+              setConfigurandoWebhook(true);
+              try {
+                const resp = await api.post('/garimpador/configurar-webhook', { enabled: newValue });
+                if (resp.data.success) {
+                  handleInputChange('evolution', 'garimpadorEnabled', newValue);
+                  alert(newValue ? '✅ Webhook configurado! Mensagens do WhatsApp serão capturadas.' : '✅ Webhook desativado.');
+                } else {
+                  alert('❌ Erro: ' + (resp.data.error || 'Erro desconhecido'));
+                }
+              } catch (err) {
+                alert('❌ Erro ao configurar webhook: ' + (err.response?.data?.error || err.message));
+              } finally {
+                setConfigurandoWebhook(false);
+              }
+            }}
+            className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors ${
+              configurandoWebhook ? 'opacity-50 cursor-wait' :
+              apiConfigs.evolution.garimpadorEnabled ? 'bg-orange-500' : 'bg-gray-300'
+            }`}
+          >
+            {configurandoWebhook ? (
+              <svg className="animate-spin h-5 w-5 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : (
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
+                  apiConfigs.evolution.garimpadorEnabled ? 'translate-x-8' : 'translate-x-1'
+                }`}
+              />
+            )}
+          </button>
+        </div>
+        {apiConfigs.evolution.garimpadorEnabled && (
+          <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <p className="text-sm text-green-800">
+                Webhook ativo — mensagens recebidas nesta instância serão capturadas pelo Ofertas no Radar
+              </p>
+            </div>
+          </div>
         )}
       </div>
 
