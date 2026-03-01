@@ -238,7 +238,44 @@ export class GarimpadorService {
     });
     await repo.save(contato);
     console.log(`[Garimpador] Novo contato criado: ${nome || telefone}`);
+
+    // Buscar foto de perfil em background
+    this.buscarFotoPerfil(contato).catch(err => {
+      console.log('[Garimpador] Não conseguiu buscar foto de perfil:', err.message);
+    });
+
     return contato;
+  }
+
+  /**
+   * Busca a foto de perfil do contato via Evolution API
+   */
+  private static async buscarFotoPerfil(contato: GarimpadorContato): Promise<void> {
+    const apiUrl = await ConfigurationService.get('evolution_api_url', process.env.EVOLUTION_API_URL || '');
+    const apiToken = await ConfigurationService.get('evolution_api_token', process.env.EVOLUTION_API_TOKEN || '');
+    const instance = await ConfigurationService.get('evolution_instance', process.env.EVOLUTION_INSTANCE || '');
+
+    if (!apiUrl || !apiToken || !instance) return;
+
+    const jid = `${contato.telefone}@s.whatsapp.net`;
+    const profileUrl = `${apiUrl}/chat/fetchProfile/${encodeURIComponent(instance)}`;
+
+    const response = await fetch(profileUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': apiToken },
+      body: JSON.stringify({ number: jid })
+    });
+
+    if (!response.ok) return;
+
+    const data = await response.json() as any;
+    const pictureUrl = data?.picture || data?.profilePictureUrl || data?.imgUrl || null;
+
+    if (pictureUrl) {
+      const repo = AppDataSource.getRepository(GarimpadorContato);
+      await repo.update(contato.id, { foto_url: pictureUrl });
+      console.log(`[Garimpador] Foto de perfil salva para ${contato.nome || contato.telefone}`);
+    }
   }
 
   /**
@@ -256,6 +293,7 @@ export class GarimpadorService {
         'c.nome as nome',
         'c.tipo as tipo',
         'c.ativo as ativo',
+        'c.foto_url as "fotoUrl"',
         'c.created_at as "createdAt"',
         'COUNT(m.id) as "totalMensagens"',
         'MAX(m.received_at) as "ultimaMensagem"',

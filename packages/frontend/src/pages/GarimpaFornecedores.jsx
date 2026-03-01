@@ -227,6 +227,15 @@ export default function GarimpaFornecedores() {
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
+                      {/* Foto de perfil */}
+                      <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                        {contato.fotoUrl ? (
+                          <img src={contato.fotoUrl} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
+                        ) : null}
+                        <div className={`w-full h-full items-center justify-center text-white text-sm font-bold ${contato.fotoUrl ? 'hidden' : 'flex'}`} style={{ background: `hsl(${(contato.telefone || '').split('').reduce((a,c) => a + c.charCodeAt(0), 0) % 360}, 60%, 50%)` }}>
+                          {(contato.nome || contato.telefone || '?').charAt(0).toUpperCase()}
+                        </div>
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-sm text-gray-900 truncate">
                           {contato.nome || formatTelefone(contato.telefone)}

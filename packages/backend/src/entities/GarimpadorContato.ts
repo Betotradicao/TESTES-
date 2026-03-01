@@ -15,6 +15,9 @@ export class GarimpadorContato {
   @Column({ type: 'varchar', length: 20, default: 'nao_classificado' })
   tipo: string; // 'fornecedor' | 'concorrente' | 'nao_classificado'
 
+  @Column({ type: 'text', nullable: true })
+  foto_url: string | null;
+
   @Column({ type: 'boolean', default: true })
   ativo: boolean;
 
