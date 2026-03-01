@@ -226,6 +226,10 @@ export class GarimpadorService {
         contato.nome = nome;
         await repo.save(contato);
       }
+      // Buscar foto se ainda não tem
+      if (!contato.foto_url) {
+        this.buscarFotoPerfil(contato).catch(() => {});
+      }
       return contato;
     }
 
@@ -301,6 +305,15 @@ export class GarimpadorService {
       .groupBy('c.id')
       .orderBy('MAX(m.received_at)', 'DESC', 'NULLS LAST')
       .getRawMany();
+
+    // Buscar fotos em background para contatos que ainda não têm
+    const semFoto = contatos.filter(c => !c.fotoUrl && c.telefone);
+    if (semFoto.length > 0) {
+      for (const c of semFoto) {
+        const contatoObj = Object.assign(new GarimpadorContato(), { id: c.id, telefone: c.telefone, nome: c.nome });
+        this.buscarFotoPerfil(contatoObj).catch(() => {});
+      }
+    }
 
     return contatos;
   }
