@@ -249,15 +249,28 @@ export default function GarimpaFornecedores() {
                           {contato.ultimaMensagem && ` - ${formatData(contato.ultimaMensagem)}`}
                         </div>
                       </div>
-                      {/* Badge de tipo */}
-                      <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
-                        contato.tipo === 'fornecedor' ? 'bg-blue-100 text-blue-700' :
-                        contato.tipo === 'concorrente' ? 'bg-red-100 text-red-700' :
-                        'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        {contato.tipo === 'fornecedor' ? 'Fornec.' :
-                         contato.tipo === 'concorrente' ? 'Concorr.' : 'Pendente'}
-                      </span>
+                      {/* Badge de tipo + botão lixeira */}
+                      <div className="flex items-center gap-1">
+                        <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
+                          contato.tipo === 'fornecedor' ? 'bg-blue-100 text-blue-700' :
+                          contato.tipo === 'concorrente' ? 'bg-red-100 text-red-700' :
+                          'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {contato.tipo === 'fornecedor' ? 'Fornec.' :
+                           contato.tipo === 'concorrente' ? 'Concorr.' : 'Pendente'}
+                        </span>
+                        {contato.tipo !== 'nao_classificado' && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleTipoChange(contato.id, 'nao_classificado'); }}
+                            className="p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            title="Voltar para Pendentes"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Radio buttons de classificação */}
