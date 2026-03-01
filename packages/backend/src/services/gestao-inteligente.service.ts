@@ -132,8 +132,8 @@ export class GestaoInteligenteService {
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA')}`;
-    const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_NOTA_FISCAL')}`;
-    const tabFornecedorProduto = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_PRODUTO')}`;
+    const tabNf = `${schema}.${await MappingService.getRealTableName('TAB_NF')}`;
+    const tabNfItem = `${schema}.${await MappingService.getRealTableName('TAB_NF_ITEM')}`;
 
     // Resolver colunas via MappingService
     const colValTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total');
@@ -147,13 +147,21 @@ export class GestaoInteligenteService {
     const colDtaVendaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'data_venda');
     const colCodTipoCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_tipo');
     const colCodLojaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_loja');
-    const colDtaEntradaNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada');
-    const colFlgCanceladoNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado');
-    const colCodLojaNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_loja');
-    const colCodFornecedorNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor');
-    const colNumNfForn = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf');
-    const colQtdEntradaNi = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'quantidade_entrada');
-    const colValTabelaNi = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'valor_tabela');
+    // Colunas NF/NF_ITEM (mesma fonte que Compra e Venda)
+    const colNumNf = await MappingService.getColumnFromTable('TAB_NF', 'numero_nf');
+    const colSerieNf = await MappingService.getColumnFromTable('TAB_NF', 'serie_nf');
+    const colDtaEntradaNf = await MappingService.getColumnFromTable('TAB_NF', 'data_entrada');
+    const colCodParceiroNf = await MappingService.getColumnFromTable('TAB_NF', 'codigo_parceiro');
+    const colTipoOperacaoNf = await MappingService.getColumnFromTable('TAB_NF', 'tipo_operacao');
+    const colCodLojaNf = await MappingService.getColumnFromTable('TAB_NF', 'codigo_loja');
+    const colNumNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_nf');
+    const colSerieNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'serie_nf');
+    const colCodParceiroItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_parceiro');
+    const colValTotalItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total');
+    let colCfopNi = 'CFOP';
+    try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'cfop'); if (v) colCfopNi = v; } catch {}
+    // CFOPs de compra para comercialização (mesmo filtro padrão da tela Compra e Venda)
+    const cfopCompras = "('1101','1102','2101','2102','1401','1403','2403')";
 
     let vendasQuery = `
       SELECT
@@ -187,12 +195,14 @@ export class GestaoInteligenteService {
     }
 
     let comprasQuery = `
-      SELECT NVL(SUM(ni.${colQtdEntradaNi} * ni.${colValTabelaNi}), 0) as COMPRAS
-      FROM ${tabFornecedorNota} n
-      JOIN ${tabFornecedorProduto} ni ON ni.${colNumNfForn} = n.${colNumNfForn}
-        AND ni.${colCodFornecedorNf} = n.${colCodFornecedorNf}
-      WHERE TRUNC(n.${colDtaEntradaNf}) BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND NVL(n.${colFlgCanceladoNf}, 'N') = 'N'
+      SELECT NVL(SUM(ni.${colValTotalItem}), 0) as COMPRAS
+      FROM ${tabNf} n
+      JOIN ${tabNfItem} ni ON n.${colNumNf} = ni.${colNumNfItem}
+        AND n.${colSerieNf} = ni.${colSerieNfItem}
+        AND n.${colCodParceiroNf} = ni.${colCodParceiroItem}
+      WHERE n.${colDtaEntradaNf} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND n.${colTipoOperacaoNf} = 0
+        AND TRIM(ni.${colCfopNi}) IN ${cfopCompras}
     `;
     const comprasParams: any = { dataInicio, dataFim };
     if (codLoja) {
@@ -252,7 +262,7 @@ export class GestaoInteligenteService {
       lucro: parseFloat(lucro.toFixed(2)),
       custoVendas,
       compras,
-      impostos,
+      impostos: parseFloat((impostos - impostoCredito).toFixed(2)),
       markdown: parseFloat(markdown.toFixed(2)),
       margemLimpa: parseFloat(margemLimpa.toFixed(2)),
       ticketMedio: parseFloat(ticketMedio.toFixed(2)),
@@ -342,8 +352,8 @@ export class GestaoInteligenteService {
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA')}`;
-    const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_NOTA_FISCAL')}`;
-    const tabFornecedorProduto = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_PRODUTO')}`;
+    const tabNf = `${schema}.${await MappingService.getRealTableName('TAB_NF')}`;
+    const tabNfItem = `${schema}.${await MappingService.getRealTableName('TAB_NF_ITEM')}`;
 
     const colValTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total');
     const colValCustoRep = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao');
@@ -356,13 +366,20 @@ export class GestaoInteligenteService {
     const colDtaVendaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'data_venda');
     const colCodTipoCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_tipo');
     const colCodLojaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_loja');
-    const colDtaEntradaNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada');
-    const colFlgCanceladoNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado');
-    const colCodLojaNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_loja');
-    const colCodFornecedorNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor');
-    const colNumNfForn = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf');
-    const colQtdEntradaNi = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'quantidade_entrada');
-    const colValTabelaNi = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'valor_tabela');
+    // Colunas NF/NF_ITEM (mesma fonte que Compra e Venda)
+    const colNumNf = await MappingService.getColumnFromTable('TAB_NF', 'numero_nf');
+    const colSerieNf = await MappingService.getColumnFromTable('TAB_NF', 'serie_nf');
+    const colDtaEntradaNf = await MappingService.getColumnFromTable('TAB_NF', 'data_entrada');
+    const colCodParceiroNf = await MappingService.getColumnFromTable('TAB_NF', 'codigo_parceiro');
+    const colTipoOperacaoNf = await MappingService.getColumnFromTable('TAB_NF', 'tipo_operacao');
+    const colCodLojaNf = await MappingService.getColumnFromTable('TAB_NF', 'codigo_loja');
+    const colNumNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'numero_nf');
+    const colSerieNfItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'serie_nf');
+    const colCodParceiroItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'codigo_parceiro');
+    const colValTotalItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total');
+    let colCfopNi = 'CFOP';
+    try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'cfop'); if (v) colCfopNi = v; } catch {}
+    const cfopCompras = "('1101','1102','2101','2102','1401','1403','2403')";
 
     const dataInicioAnoAnt = `01/01/${anoAnterior}`;
     const dataFimAnoAnt = `31/12/${anoAnterior}`;
@@ -403,15 +420,17 @@ export class GestaoInteligenteService {
     }
     cuponsSql += ` GROUP BY TRUNC(cf.${colDtaVendaCf})`;
 
-    // Query compras diárias (ano anterior inteiro)
+    // Query compras diárias (ano anterior inteiro) - mesma fonte que Compra e Venda
     let comprasSql = `
       SELECT TRUNC(n.${colDtaEntradaNf}) as DIA,
-        NVL(SUM(ni.${colQtdEntradaNi} * ni.${colValTabelaNi}), 0) as COMPRAS
-      FROM ${tabFornecedorNota} n
-      JOIN ${tabFornecedorProduto} ni ON ni.${colNumNfForn} = n.${colNumNfForn}
-        AND ni.${colCodFornecedorNf} = n.${colCodFornecedorNf}
-      WHERE TRUNC(n.${colDtaEntradaNf}) BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND NVL(n.${colFlgCanceladoNf}, 'N') = 'N'
+        NVL(SUM(ni.${colValTotalItem}), 0) as COMPRAS
+      FROM ${tabNf} n
+      JOIN ${tabNfItem} ni ON n.${colNumNf} = ni.${colNumNfItem}
+        AND n.${colSerieNf} = ni.${colSerieNfItem}
+        AND n.${colCodParceiroNf} = ni.${colCodParceiroItem}
+      WHERE n.${colDtaEntradaNf} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND n.${colTipoOperacaoNf} = 0
+        AND TRIM(ni.${colCfopNi}) IN ${cfopCompras}
     `;
     const comprasParams: any = { dataInicio: dataInicioAnoAnt, dataFim: dataFimAnoAnt };
     if (codLoja) {
@@ -705,12 +724,13 @@ export class GestaoInteligenteService {
       const vendasOferta = row.VENDAS_OFERTA || 0;
       const pctOferta = venda > 0 ? (vendasOferta / venda) * 100 : 0;
 
+      const impostoLiquido = impostos - impostoCredito;
       return {
         codSecao: row.COD_SECAO,
         setor: row.SETOR,
         venda: parseFloat(venda.toFixed(2)),
         custo: parseFloat(custo.toFixed(2)),
-        impostos: parseFloat(impostos.toFixed(2)),
+        impostos: parseFloat(impostoLiquido.toFixed(2)),
         impostoCredito: parseFloat(impostoCredito.toFixed(2)),
         lucro: parseFloat(lucro.toFixed(2)),
         markup: parseFloat(markup.toFixed(2)),
@@ -799,12 +819,13 @@ export class GestaoInteligenteService {
       const vendasOferta = row.VENDAS_OFERTA || 0;
       const pctOferta = venda > 0 ? (vendasOferta / venda) * 100 : 0;
 
+      const impostoLiquido = impostos - impostoCredito;
       return {
         codGrupo: row.COD_GRUPO,
         grupo: row.GRUPO,
         venda: parseFloat(venda.toFixed(2)),
         custo: parseFloat(custo.toFixed(2)),
-        impostos: parseFloat(impostos.toFixed(2)),
+        impostos: parseFloat(impostoLiquido.toFixed(2)),
         impostoCredito: parseFloat(impostoCredito.toFixed(2)),
         lucro: parseFloat(lucro.toFixed(2)),
         markup: parseFloat(markup.toFixed(2)),
@@ -899,12 +920,13 @@ export class GestaoInteligenteService {
       const vendasOferta = row.VENDAS_OFERTA || 0;
       const pctOferta = venda > 0 ? (vendasOferta / venda) * 100 : 0;
 
+      const impostoLiquido = impostos - impostoCredito;
       return {
         codSubgrupo: row.COD_SUB_GRUPO,
         subgrupo: row.SUBGRUPO,
         venda: parseFloat(venda.toFixed(2)),
         custo: parseFloat(custo.toFixed(2)),
-        impostos: parseFloat(impostos.toFixed(2)),
+        impostos: parseFloat(impostoLiquido.toFixed(2)),
         impostoCredito: parseFloat(impostoCredito.toFixed(2)),
         lucro: parseFloat(lucro.toFixed(2)),
         markup: parseFloat(markup.toFixed(2)),
@@ -1001,12 +1023,13 @@ export class GestaoInteligenteService {
       const vendasOferta = row.VENDAS_OFERTA || 0;
       const pctOferta = venda > 0 ? (vendasOferta / venda) * 100 : 0;
 
+      const impostoLiquido = impostos - impostoCredito;
       return {
         codProduto: row.COD_PRODUTO,
         produto: row.PRODUTO,
         venda: parseFloat(venda.toFixed(2)),
         custo: parseFloat(custo.toFixed(2)),
-        impostos: parseFloat(impostos.toFixed(2)),
+        impostos: parseFloat(impostoLiquido.toFixed(2)),
         impostoCredito: parseFloat(impostoCredito.toFixed(2)),
         lucro: parseFloat(lucro.toFixed(2)),
         markup: parseFloat(markup.toFixed(2)),
@@ -1125,10 +1148,11 @@ export class GestaoInteligenteService {
       const margemLimpa = venda > 0 ? ((venda - custo - impostos + impostoCredito) / venda) * 100 : 0;
       const ticketMedio = qtdCupons > 0 ? venda / qtdCupons : 0;
       const pctOferta = venda > 0 ? (vendasOferta / venda) * 100 : 0;
+      const impostoLiquido = impostos - impostoCredito;
       return {
         venda: parseFloat(venda.toFixed(2)), lucro: parseFloat(lucro.toFixed(2)),
         markdown: parseFloat(markdown.toFixed(2)), margemLimpa: parseFloat(margemLimpa.toFixed(2)),
-        custo: parseFloat(custo.toFixed(2)), impostos: parseFloat(impostos.toFixed(2)),
+        custo: parseFloat(custo.toFixed(2)), impostos: parseFloat(impostoLiquido.toFixed(2)),
         vendasOferta: parseFloat(vendasOferta.toFixed(2)),
         pctOferta: parseFloat(pctOferta.toFixed(2)), ticketMedio: parseFloat(ticketMedio.toFixed(2)),
         qtdCupons: Math.round(qtdCupons), qtdItens: Math.round(qtd), qtdSkus: Math.round(qtdSkus)
@@ -1269,12 +1293,13 @@ export class GestaoInteligenteService {
       const margemLimpa = venda > 0 ? ((venda - custo - impostos + impostoCredito) / venda) * 100 : 0;
       const ticketMedio = qtdCupons > 0 ? venda / qtdCupons : 0;
       const pctOferta = venda > 0 ? (vendasOferta / venda) * 100 : 0;
+      const impostoLiquido = impostos - impostoCredito;
       return {
         venda: parseFloat(venda.toFixed(2)),
         lucro: parseFloat(lucro.toFixed(2)),
         markdown: parseFloat(markdown.toFixed(2)),
         margemLimpa: parseFloat(margemLimpa.toFixed(2)),
-        custo: parseFloat(custo.toFixed(2)), impostos: parseFloat(impostos.toFixed(2)),
+        custo: parseFloat(custo.toFixed(2)), impostos: parseFloat(impostoLiquido.toFixed(2)),
         vendasOferta: parseFloat(vendasOferta.toFixed(2)),
         pctOferta: parseFloat(pctOferta.toFixed(2)), ticketMedio: parseFloat(ticketMedio.toFixed(2)),
         qtdCupons: Math.round(qtdCupons), qtdItens: Math.round(qtd), qtdSkus: Math.round(qtdSkus)
@@ -2186,7 +2211,7 @@ export class GestaoInteligenteService {
         lucro: parseFloat((v - c).toFixed(2)),
         margem: v > 0 ? parseFloat((((v - c) / v) * 100).toFixed(2)) : 0,
         margemLimpa: v > 0 ? parseFloat((((v - c - imp + impCred) / v) * 100).toFixed(2)) : 0,
-        impostos: parseFloat(imp.toFixed(2)),
+        impostos: parseFloat((imp - impCred).toFixed(2)),
         impCredito: parseFloat(impCred.toFixed(2)),
         ticketMedio: cupons > 0 ? parseFloat((v / cupons).toFixed(2)) : 0,
         cupons,

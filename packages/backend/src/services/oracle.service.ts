@@ -172,11 +172,11 @@ export class OracleService {
       // Timeouts agressivos para não travar quando túnel SSH cair
       this.pool = await oracledb.createPool({
         ...this.oracleConfig,
-        poolMin: 0,
-        poolMax: 5,
+        poolMin: 1,
+        poolMax: 10,
         poolIncrement: 1,
-        poolTimeout: 30,
-        queueTimeout: 10000,     // 10s max esperando conexão do pool
+        poolTimeout: 60,
+        queueTimeout: 60000,     // 60s max esperando conexão do pool
         expireTime: 30,          // Verifica conexões mortas a cada 30s
       });
 

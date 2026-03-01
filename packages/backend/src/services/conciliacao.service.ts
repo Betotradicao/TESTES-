@@ -6,6 +6,9 @@
 import { OracleService } from './oracle.service';
 import { MappingService } from './mapping.service';
 import { SantanderService } from './santander.service';
+import { AppDataSource } from '../config/database';
+import { BankTransfer } from '../entities/BankTransfer';
+import { BankAccount } from '../entities/BankAccount';
 
 interface ConciliacaoFilters {
   codLoja?: string;
@@ -445,6 +448,82 @@ export class ConciliacaoService {
       });
     }
 
+    // --- Step D: Match transferências entre contas ---
+    if (filters.bankId && AppDataSource.isInitialized) {
+      try {
+        const transfers = await ConciliacaoService.getTransferencias(filters.bankId, dtaInicio, dtaFim);
+        if (transfers.length > 0) {
+          console.log(`[Conciliacao] ${transfers.length} transferências encontradas para esta conta`);
+
+          for (const transfer of transfers) {
+            const isSource = transfer.source_account_id === filters.bankId;
+            const transferAmount = Number(transfer.amount);
+            const transferDate = typeof transfer.date === 'string'
+              ? transfer.date.substring(0, 10)
+              : toDateStr(truncDate(transfer.date));
+
+            // Procurar row UNMATCHED_BANK com mesmo valor e data
+            const unmatchedRow = rows.find(r => {
+              if (r.matchStatus !== 'UNMATCHED_BANK' || !r.banco) return false;
+              const rowDate = toDateStr(truncDate(r.banco.DTA_ENTRADA));
+              const rowVal = Math.abs(parseFloat(r.banco.VAL_DOCTO) || 0);
+              return rowDate === transferDate && Math.abs(rowVal - transferAmount) < 0.02;
+            });
+
+            const otherAccount = isSource ? transfer.targetAccount : transfer.sourceAccount;
+            const otherName = otherAccount
+              ? `${otherAccount.nome}${otherAccount.conta ? ` | Conta: ${otherAccount.conta}` : ''}`
+              : 'Outra conta';
+
+            if (unmatchedRow) {
+              // Movimento real encontrado → marcar MATCHED com sistema sintético
+              unmatchedRow.sistema = {
+                type: 'individual',
+                numBordero: null,
+                dtaQuitada: truncDate(transfer.date),
+                dtaQuitadaStr: transferDate,
+                valTotal: transferAmount,
+                numRegistros: [],
+                tipoConta: isSource ? 2 : 1,
+                desParceiro: isSource ? `Transferido para ${otherName}` : `Recebido de ${otherName}`,
+                numDocto: null,
+                flgCompensado: false,
+                desCategoria: 'Transferência entre Contas',
+                desSubcategoria: 'Transferência entre Contas',
+                dtaVencimento: null,
+                transferId: transfer.id,
+              } as any;
+              unmatchedRow.matchStatus = 'MATCHED';
+              unmatchedRow.isCompensado = false;
+              (unmatchedRow as any).isTransfer = true;
+              (unmatchedRow as any).transferId = transfer.id;
+            } else {
+              // Sem movimento real → criar linha com banco SINTÉTICO (transferência esperada)
+              rows.push({
+                rowId: `r${rowIdx++}`,
+                banco: {
+                  DTA_ENTRADA: transfer.date,
+                  FAVORECIDO: isSource
+                    ? `Transferência para ${otherName}`
+                    : `Transferência de ${otherName}`,
+                  VAL_DOCTO: String(isSource ? -transferAmount : transferAmount),
+                  TIPO_OPERACAO: isSource ? 1 : 0,
+                  isSynthetic: true,
+                },
+                sistema: null,
+                matchStatus: 'UNMATCHED_BANK',
+                isCompensado: false,
+                isTransfer: true,
+                transferId: transfer.id,
+              } as any);
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error('[Conciliacao] Erro ao buscar transferências:', err.message);
+      }
+    }
+
     // Sort: by date (banco date or sistema date), then matched first
     rows.sort((a, b) => {
       const dateA = a.banco ? truncDate(a.banco.DTA_ENTRADA).getTime() : (a.sistema ? a.sistema.dtaQuitada.getTime() : 0);
@@ -561,5 +640,71 @@ export class ConciliacaoService {
 
     console.log(`[Conciliação] ${totalUpdated} registros atualizados com FLG_COMPENSADO='S'`);
     return { updated: totalUpdated };
+  }
+
+  /**
+   * Registra uma transferência entre contas
+   */
+  static async registrarTransferencia(data: {
+    sourceAccountId: string;
+    targetAccountId: string;
+    amount: number;
+    date: string;
+    description?: string;
+  }): Promise<BankTransfer> {
+    const repo = AppDataSource.getRepository(BankTransfer);
+
+    // Evitar duplicatas: mesma origem, destino, valor e data
+    const existing = await repo.findOne({
+      where: {
+        source_account_id: data.sourceAccountId,
+        target_account_id: data.targetAccountId,
+        amount: data.amount as any,
+        date: data.date,
+      }
+    });
+
+    if (existing) {
+      console.log(`[Conciliação] Transferência já existe (id=${existing.id}), retornando existente`);
+      return existing;
+    }
+
+    const transfer = repo.create({
+      source_account_id: data.sourceAccountId,
+      target_account_id: data.targetAccountId,
+      amount: data.amount,
+      date: data.date,
+      description: data.description || '',
+    });
+
+    const saved = await repo.save(transfer);
+    console.log(`[Conciliação] Transferência registrada: ${data.sourceAccountId} → ${data.targetAccountId}, R$ ${data.amount}, data ${data.date}`);
+    return saved;
+  }
+
+  /**
+   * Busca transferências registradas onde a conta é origem OU destino
+   */
+  static async getTransferencias(accountId: string, dtaInicio: string, dtaFim: string): Promise<BankTransfer[]> {
+    const repo = AppDataSource.getRepository(BankTransfer);
+    const transfers = await repo
+      .createQueryBuilder('t')
+      .leftJoinAndSelect('t.sourceAccount', 'source')
+      .leftJoinAndSelect('t.targetAccount', 'target')
+      .where('(t.source_account_id = :accountId OR t.target_account_id = :accountId)', { accountId })
+      .andWhere('t.date >= :dtaInicio', { dtaInicio })
+      .andWhere('t.date <= :dtaFim', { dtaFim })
+      .getMany();
+
+    return transfers;
+  }
+
+  /**
+   * Remove uma transferência entre contas
+   */
+  static async removerTransferencia(transferId: string): Promise<boolean> {
+    const repo = AppDataSource.getRepository(BankTransfer);
+    const result = await repo.delete(transferId);
+    return (result.affected || 0) > 0;
   }
 }

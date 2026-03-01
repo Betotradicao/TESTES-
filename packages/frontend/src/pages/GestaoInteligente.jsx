@@ -166,7 +166,7 @@ export default function GestaoInteligente() {
     furtos: { valor: 0, qtd: 0 },
     loadingDefesa: false
   });
-  const [analiseAtiva, setAnaliseAtiva] = useState('vendas-analiticas'); // 'vendas-setor', 'vendas-ano', 'vendas-dia-semana', 'vendas-analiticas', 'vendas-setor-anual'
+  const [analiseAtiva, setAnaliseAtiva] = useState(null); // 'vendas-setor', 'vendas-ano', 'vendas-dia-semana', 'vendas-analiticas', 'vendas-setor-anual'
   const [dadosAnalise, setDadosAnalise] = useState([]);
   const [loadingAnalise, setLoadingAnalise] = useState(false);
   const { lojaSelecionada } = useLoja();
@@ -906,18 +906,18 @@ export default function GestaoInteligente() {
       const response = await api.get('/gestao-inteligente/indicadores', { params });
       const data = response.data;
       // Calcular indicadores derivados: Excesso de Compras e Margem Compra e Venda
-      const calcExcesso = (vendas, custo, pctCV) => {
+      // Usa valor real de compras (não recalcula do %) para bater com tela Compra e Venda
+      const calcExcesso = (vendas, custo, compras) => {
         if (!vendas || vendas === 0) return { pct: 0, rs: 0 };
-        const compras = vendas * (pctCV / 100);
         const pct = ((custo / vendas) - (compras / vendas)) * 100;
         const rs = custo - compras;
         return { pct: parseFloat(pct.toFixed(2)), rs: parseFloat(rs.toFixed(2)) };
       };
       const calcMargemCV = (markdown, excPct) => parseFloat((markdown + excPct).toFixed(2));
-      const exAt = calcExcesso(data.vendas?.atual, data.custoVendas?.atual, data.pctCompraVenda?.atual);
-      const exMP = calcExcesso(data.vendas?.mesPassado, data.custoVendas?.mesPassado, data.pctCompraVenda?.mesPassado);
-      const exAP = calcExcesso(data.vendas?.anoPassado, data.custoVendas?.anoPassado, data.pctCompraVenda?.anoPassado);
-      const exML = calcExcesso(data.vendas?.mediaLinear, data.custoVendas?.mediaLinear, data.pctCompraVenda?.mediaLinear);
+      const exAt = calcExcesso(data.vendas?.atual, data.custoVendas?.atual, data.compras?.atual || 0);
+      const exMP = calcExcesso(data.vendas?.mesPassado, data.custoVendas?.mesPassado, data.compras?.mesPassado || 0);
+      const exAP = calcExcesso(data.vendas?.anoPassado, data.custoVendas?.anoPassado, data.compras?.anoPassado || 0);
+      const exML = calcExcesso(data.vendas?.mediaLinear, data.custoVendas?.mediaLinear, data.compras?.mediaLinear || 0);
       data.excessoCompras = { atual: exAt.pct, mesPassado: exMP.pct, anoPassado: exAP.pct, mediaLinear: exML.pct };
       data.excessoComprasRs = { atual: exAt.rs, mesPassado: exMP.rs, anoPassado: exAP.rs, mediaLinear: exML.rs };
       data.margemCV = {
@@ -1638,65 +1638,25 @@ export default function GestaoInteligente() {
     return formatCurrency(v);
   };
 
+  // Carregar indicadores apenas 1x ao abrir a página (com datas padrão)
   useEffect(() => {
     fetchIndicadores();
     fetchProdutosRevenda();
-  }, [filters, lojaSelecionada]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Carregar dados DEFESA quando ativar o modo
+  // Carregar dados DEFESA apenas quando ativar o modo (sem reagir a filtros)
   useEffect(() => {
     if (modoVisao === 'defesa') {
       fetchDefesaData();
     }
-  }, [modoVisao, filters, lojaSelecionada]);
+  }, [modoVisao]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-carregar Venda por Ano ao abrir a página
   useEffect(() => {
     fetchVendasPorAno(anoSelecionado);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-executar análise ativa quando filtros mudarem
-  useEffect(() => {
-    if (analiseAtiva === 'vendas-setor') {
-      // Limpar expansões quando filtros mudam
-      setExpandedSecoes({});
-      setExpandedGrupos({});
-      setExpandedSubgrupos({});
-
-      const fetchData = async () => {
-        setLoadingAnalise(true);
-        try {
-          const params = {
-            dataInicio: filters.dataInicio,
-            dataFim: filters.dataFim
-          };
-          if (lojaSelecionada) {
-            params.codLoja = lojaSelecionada;
-          }
-          const response = await api.get('/gestao-inteligente/vendas-por-setor', { params });
-          setDadosAnalise(response.data);
-        } catch (err) {
-          console.error('Erro ao buscar vendas por setor:', err);
-          setDadosAnalise([]);
-        } finally {
-          setLoadingAnalise(false);
-        }
-      };
-      fetchData();
-    }
-
-    if (analiseAtiva === 'vendas-analiticas') {
-      fetchVendasAnaliticas();
-    }
-
-    if (analiseAtiva === 'vendas-setor-anual') {
-      fetchVendasPorSetorAnual(anoSetorAnual);
-    }
-
-    if (analiseAtiva === 'produto-anual') {
-      fetchProdutoAnualSetores(anoProdutoAnual);
-    }
-  }, [filters, lojaSelecionada, analiseAtiva]);
+  // Nenhum auto-fetch ao mudar filtros - tudo controlado pelo botão "Buscar"
 
   // Formatar período para exibição
   const formatPeriodo = () => {
@@ -1880,7 +1840,9 @@ export default function GestaoInteligente() {
         return formatPercent(pct);
       },
       getExtra: () => {
-        const val = indicadores.impostos?.atual || 0;
+        const pct = (indicadores.markdown?.atual || 0) - (indicadores.margemLimpa?.atual || 0);
+        const vendas = indicadores.vendas?.atual || 0;
+        const val = vendas * (pct / 100);
         return <span className="text-sm font-semibold text-red-500">({formatCurrency(val)})</span>;
       },
       tipo: 'currency', indicador: 'impostos'
@@ -2223,10 +2185,38 @@ export default function GestaoInteligente() {
                 className="bg-white rounded px-1.5 sm:px-2 py-1 text-xs sm:text-sm text-gray-700 w-[110px] sm:w-auto"
               />
               <button
+                onClick={() => {
+                  fetchIndicadores();
+                  fetchProdutosRevenda();
+                  if (analiseAtiva === 'vendas-analiticas') {
+                    fetchVendasAnaliticas();
+                  } else {
+                    // Ativa vendas-analiticas e busca
+                    fetchVendasAnaliticas();
+                  }
+                  if (modoVisao === 'defesa') fetchDefesaData();
+                }}
+                disabled={loading || loadingVendasAnaliticas}
+                className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-colors disabled:opacity-50"
+                title="Buscar dados do período"
+              >
+                {(loading || loadingVendasAnaliticas) ? (
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                )}
+                Buscar
+              </button>
+              <button
                 onClick={handleClearCache}
                 disabled={clearingCache}
                 className="flex items-center gap-1 bg-white/20 hover:bg-white/30 text-white px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors disabled:opacity-50"
-                title="Atualizar dados"
+                title="Limpar cache e atualizar"
               >
                 {clearingCache ? (
                   <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -3559,10 +3549,12 @@ export default function GestaoInteligente() {
                             const iAt = sum('impostosAtual'), iML = sum('impostosMediaLinear'), iAP = sum('impostosAnoPassado'), iMP = sum('impostosMesPassado');
                             const oAt = sum('vendasOfertaAtual'), oML = sum('vendasOfertaMediaLinear'), oAP = sum('vendasOfertaAnoPassado'), oMP = sum('vendasOfertaMesPassado');
                             const poAt = calcPctOferta('vendasOfertaAtual','vendaAtual'), poML = calcPctOferta('vendasOfertaMediaLinear','mediaLinear'), poAP = calcPctOferta('vendasOfertaAnoPassado','vendaAnoPassado'), poMP = calcPctOferta('vendasOfertaMesPassado','vendaMesPassado');
-                            const tAt = calcTkt('vendaAtual','cuponsAtual'), tML = calcTkt('mediaLinear','cuponsMediaLinear'), tAP = calcTkt('vendaAnoPassado','cuponsAnoPassado'), tMP = calcTkt('vendaMesPassado','cuponsMesPassado');
-                            const cupAt = sum('cuponsAtual'), cupML = sum('cuponsMediaLinear'), cupAP = sum('cuponsAnoPassado'), cupMP = sum('cuponsMesPassado');
-                            const qAt = sum('qtdItensAtual'), qML = sum('qtdItensMediaLinear'), qAP = sum('qtdItensAnoPassado'), qMP = sum('qtdItensMesPassado');
-                            const sAt = sum('skusAtual'), sML = sum('skusMediaLinear'), sAP = sum('skusAnoPassado'), sMP = sum('skusMesPassado');
+                            // Ticket médio TOTAL: usar indicadores gerais (cupons por setor são duplicados pois mesmo cupom aparece em vários setores)
+                            const tAt = indicadores.ticketMedio?.atual || 0, tML = indicadores.ticketMedio?.mediaLinear || 0, tAP = indicadores.ticketMedio?.anoPassado || 0, tMP = indicadores.ticketMedio?.mesPassado || 0;
+                            // Cupons, Itens e SKUs TOTAL: usar indicadores gerais (cupons/SKUs por setor contam duplicado)
+                            const cupAt = indicadores.qtdCupons?.atual || 0, cupML = indicadores.qtdCupons?.mediaLinear || 0, cupAP = indicadores.qtdCupons?.anoPassado || 0, cupMP = indicadores.qtdCupons?.mesPassado || 0;
+                            const qAt = indicadores.qtdItens?.atual || 0, qML = indicadores.qtdItens?.mediaLinear || 0, qAP = indicadores.qtdItens?.anoPassado || 0, qMP = indicadores.qtdItens?.mesPassado || 0;
+                            const sAt = indicadores.qtdSkus?.atual || 0, sML = indicadores.qtdSkus?.mediaLinear || 0, sAP = indicadores.qtdSkus?.anoPassado || 0, sMP = indicadores.qtdSkus?.mesPassado || 0;
                             // col=0 Atual(verde), col=1 ML(roxa), col=2 AnoAnt(azul), col=3 MêsAnt(âmbar)
                             const colBg = ['bg-green-50', '', '', ''];
                             const colTxt = ['text-green-700', '', '', ''];

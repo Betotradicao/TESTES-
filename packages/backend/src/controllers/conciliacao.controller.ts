@@ -69,4 +69,38 @@ export class ConciliacaoController {
       res.status(500).json({ success: false, message: error.message });
     }
   }
+
+  static async registrarTransferencia(req: Request, res: Response) {
+    try {
+      const { sourceAccountId, targetAccountId, amount, date, description } = req.body;
+      if (!sourceAccountId || !targetAccountId || !amount || !date) {
+        return res.status(400).json({ success: false, message: 'sourceAccountId, targetAccountId, amount e date são obrigatórios' });
+      }
+      const transfer = await ConciliacaoService.registrarTransferencia({
+        sourceAccountId,
+        targetAccountId,
+        amount: Number(amount),
+        date,
+        description,
+      });
+      res.json({ success: true, data: transfer });
+    } catch (error: any) {
+      console.error('Erro registrarTransferencia:', error.message);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  static async removerTransferencia(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({ success: false, message: 'id é obrigatório' });
+      }
+      const removed = await ConciliacaoService.removerTransferencia(id);
+      res.json({ success: true, removed });
+    } catch (error: any) {
+      console.error('Erro removerTransferencia:', error.message);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
 }

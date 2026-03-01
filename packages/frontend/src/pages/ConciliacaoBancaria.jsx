@@ -475,39 +475,94 @@ export default function ConciliacaoBancaria() {
   }, []);
 
   // Handle confirming a transfer between accounts
-  const handleConfirmTransfer = useCallback((rowId, targetAccountId) => {
+  const handleConfirmTransfer = useCallback(async (rowId, targetAccountId, bancoData) => {
     const targetAccount = bankAccounts.find(a => String(a.id) === String(targetAccountId));
-    const currentAccount = bankAccounts.find(a => String(a.id) === String(selectedBankAccountId));
 
-    setRows(prev => prev.map(r => {
-      if (r.rowId === rowId) {
-        const val = Math.abs(parseFloat(r.banco.VAL_DOCTO) || 0);
-        const isSaida = r.banco.TIPO_OPERACAO === 1;
-        return {
-          ...r,
-          sistema: {
-            dtaQuitada: r.banco.DTA_ENTRADA,
-            desParceiro: targetAccount
-              ? `${targetAccount.nome}${targetAccount.conta ? ` | ${targetAccount.conta}` : ''}`
-              : 'Transferência',
-            numDocto: '',
-            numBordero: '',
-            desSubcategoria: 'Transferência',
-            desCategoria: 'Transferência',
-            valTotal: val,
-            tipoConta: isSaida ? 2 : 1,
-            flgCompensado: false,
-          },
-          matchStatus: 'MATCHED',
-          isCompensado: false,
-          candidates: null,
-        };
-      }
-      return r;
-    }));
+    const val = Math.abs(parseFloat(bancoData.VAL_DOCTO) || 0);
+    const isSaida = bancoData.TIPO_OPERACAO === 1;
+    const targetLabel = targetAccount
+      ? `${targetAccount.nome}${targetAccount.conta ? ` | ${targetAccount.conta}` : ''}`
+      : 'outra conta';
+
     setTransferModal(null);
-    toast.success('Marcado como transferência!');
+
+    // Persist to API first, then update UI with real transferId
+    try {
+      const res = await api.post('/conciliacao/transferencia', {
+        sourceAccountId: isSaida ? selectedBankAccountId : targetAccountId,
+        targetAccountId: isSaida ? targetAccountId : selectedBankAccountId,
+        amount: val,
+        date: bancoData.DTA_ENTRADA,
+        description: bancoData.FAVORECIDO || 'Transferência entre contas',
+      });
+      const transferId = res.data?.data?.id;
+
+      setRows(prev => prev.map(r => {
+        if (r.rowId === rowId) {
+          return {
+            ...r,
+            sistema: {
+              dtaQuitada: r.banco.DTA_ENTRADA,
+              desParceiro: isSaida
+                ? `Transferido para ${targetLabel}`
+                : `Recebido de ${targetLabel}`,
+              numDocto: '',
+              numBordero: '',
+              desSubcategoria: 'Transferência entre Contas',
+              desCategoria: 'Transferência entre Contas',
+              valTotal: val,
+              tipoConta: isSaida ? 2 : 1,
+              flgCompensado: false,
+              transferId,
+            },
+            matchStatus: 'MATCHED',
+            isCompensado: false,
+            isTransfer: true,
+            transferId,
+            candidates: null,
+          };
+        }
+        return r;
+      }));
+      toast.success('Transferência registrada!');
+    } catch (err) {
+      console.error('Erro ao registrar transferência:', err);
+      toast.error('Erro ao salvar transferência');
+    }
   }, [bankAccounts, selectedBankAccountId]);
+
+  // Handle deleting a transfer (undo)
+  const handleDeleteTransfer = useCallback(async (rowId, transferId) => {
+    try {
+      await api.delete(`/conciliacao/transferencia/${transferId}`);
+      setRows(prev => {
+        const row = prev.find(r => r.rowId === rowId);
+        // Se banco era sintético (criado pelo Step D), remover a row inteira
+        if (row?.banco?.isSynthetic) {
+          return prev.filter(r => r.rowId !== rowId);
+        }
+        // Se tinha movimento real, voltar para UNMATCHED_BANK
+        return prev.map(r => {
+          if (r.rowId === rowId) {
+            return {
+              ...r,
+              sistema: null,
+              matchStatus: 'UNMATCHED_BANK',
+              isCompensado: false,
+              isTransfer: false,
+              transferId: null,
+              candidates: null,
+            };
+          }
+          return r;
+        });
+      });
+      toast.success('Transferência removida!');
+    } catch (err) {
+      console.error('Erro ao remover transferência:', err);
+      toast.error('Erro ao remover transferência');
+    }
+  }, []);
 
   // PDF Export - Banco (Movimentação)
   const gerarPdfBanco = useCallback(() => {
@@ -962,7 +1017,7 @@ export default function ConciliacaoBancaria() {
                     PDF
                   </button>
                 </div>
-                <div className="w-[42px] bg-gray-800 text-white text-center py-2 px-1 text-xs font-bold border-r-2 border-gray-300 flex-shrink-0">
+                <div className="w-[66px] bg-gray-800 text-white text-center py-2 px-1 text-xs font-bold border-r-2 border-gray-300 flex-shrink-0">
                   ST
                 </div>
                 <div className="flex-1 bg-orange-600 text-white py-2 px-3 text-xs font-bold uppercase tracking-wider flex items-center justify-between">
@@ -999,7 +1054,7 @@ export default function ConciliacaoBancaria() {
                   ))}
                 </div>
                 {/* ST spacer */}
-                <div className="w-[42px] py-2 px-1 text-center bg-gray-200 border-r-2 border-gray-300 flex-shrink-0"></div>
+                <div className="w-[66px] py-2 px-1 text-center bg-gray-200 border-r-2 border-gray-300 flex-shrink-0"></div>
                 {/* System columns */}
                 <div className="flex-1 flex">
                   {sysDrag.cols.map((col, idx) => (
@@ -1042,6 +1097,7 @@ export default function ConciliacaoBancaria() {
                       rowId: r.rowId,
                       banco: r.banco,
                     })}
+                    onDeleteTransfer={(r) => handleDeleteTransfer(r.rowId, r.transferId || r.sistema?.transferId)}
                   />
                 ))}
               </div>
@@ -1155,12 +1211,13 @@ function SysCell({ colId, row, expanded, onToggleBordero }) {
   }
 }
 
-function ConciliacaoRow({ row, rowIndex, bankCols, sysCols, onOpenCandidates, onOpenTransfer }) {
+function ConciliacaoRow({ row, rowIndex, bankCols, sysCols, onOpenCandidates, onOpenTransfer, onDeleteTransfer }) {
   const [expanded, setExpanded] = useState(false);
   const isMatched = row.matchStatus === 'MATCHED';
   const isBankOnly = row.matchStatus === 'UNMATCHED_BANK';
   const isSysOnly = row.matchStatus === 'UNMATCHED_SYSTEM';
   const hasCandidates = row.candidates && row.candidates.length > 1;
+  const isTransfer = row.isTransfer || row.sistema?.transferId;
   const isBordero = row.sistema?.type === 'bordero' && row.sistema?.items?.length > 1;
 
   const isEven = rowIndex % 2 === 0;
@@ -1188,13 +1245,34 @@ function ConciliacaoRow({ row, rowIndex, bankCols, sysCols, onOpenCandidates, on
         </div>
 
         {/* Status badge */}
-        <div className="w-[42px] py-1.5 px-1 text-center bg-gray-50/50 border-r-2 border-gray-200 flex-shrink-0 flex items-center justify-center">
-          {isMatched && !hasCandidates && (
+        <div className="w-[66px] py-1.5 px-1 text-center bg-gray-50/50 border-r-2 border-gray-200 flex-shrink-0 flex items-center justify-center gap-1">
+          {isMatched && !hasCandidates && !isTransfer && (
             <span className="inline-flex items-center justify-center w-6 h-6 rounded border-2 border-green-500 bg-green-500" title="Conciliado">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
             </span>
+          )}
+          {isMatched && !hasCandidates && isTransfer && (
+            <>
+              {/* Check verde para transferência */}
+              <span className="inline-flex items-center justify-center w-6 h-6 rounded border-2 border-green-500 bg-green-500" title="Transferência entre contas">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </span>
+              {/* Botão lixeira para desfazer */}
+              <button
+                onClick={() => onDeleteTransfer && onDeleteTransfer(row)}
+                className="inline-flex items-center justify-center w-6 h-6 rounded border-2 border-red-300 bg-white hover:bg-red-50 hover:border-red-500 hover:scale-110 transition-all cursor-pointer"
+                title="Desfazer transferência"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+              </button>
+            </>
           )}
           {isMatched && hasCandidates && (
             <button
@@ -1205,16 +1283,48 @@ function ConciliacaoRow({ row, rowIndex, bankCols, sysCols, onOpenCandidates, on
               <span className="text-amber-600 font-black text-xs">!</span>
             </button>
           )}
-          {isBankOnly && (
-            <button
-              onClick={() => onOpenTransfer && onOpenTransfer(row)}
-              className="inline-flex items-center justify-center w-6 h-6 rounded border-2 border-red-300 bg-white hover:bg-red-50 hover:border-red-500 hover:scale-110 transition-all cursor-pointer"
-              title="Sem correspondência no sistema - clique para marcar como transferência"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
+          {isBankOnly && !isTransfer && (
+            <>
+              {/* X vermelho - indicador estático */}
+              <span className="inline-flex items-center justify-center w-6 h-6 rounded border-2 border-red-300 bg-white" title="Sem correspondência no sistema">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </span>
+              {/* Botão de transferência - setinha */}
+              <button
+                onClick={() => onOpenTransfer && onOpenTransfer(row)}
+                className="inline-flex items-center justify-center w-6 h-6 rounded border-2 border-blue-400 bg-blue-50 hover:bg-blue-100 hover:border-blue-600 hover:scale-110 transition-all cursor-pointer"
+                title="Marcar como transferência entre contas"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="3">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="14 7 19 12 14 17" />
+                </svg>
+              </button>
+            </>
+          )}
+          {isBankOnly && isTransfer && (
+            <>
+              {/* Indicador de transferência esperada (setinha azul estática) */}
+              <span className="inline-flex items-center justify-center w-6 h-6 rounded border-2 border-blue-400 bg-blue-100" title="Transferência registrada - aguardando movimento no banco">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="3">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="14 7 19 12 14 17" />
+                </svg>
+              </span>
+              {/* Botão lixeira para desfazer */}
+              <button
+                onClick={() => onDeleteTransfer && onDeleteTransfer(row)}
+                className="inline-flex items-center justify-center w-6 h-6 rounded border-2 border-red-300 bg-white hover:bg-red-50 hover:border-red-500 hover:scale-110 transition-all cursor-pointer"
+                title="Desfazer transferência"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+              </button>
+            </>
           )}
           {isSysOnly && (
             <span className="inline-flex items-center justify-center w-6 h-6 rounded border-2 border-orange-300 bg-white" title="Sem correspondencia no banco">
@@ -1250,7 +1360,7 @@ function ConciliacaoRow({ row, rowIndex, bankCols, sysCols, onOpenCandidates, on
               ))}
             </div>
             {/* Status column - small dot */}
-            <div className="w-[42px] py-1 px-1 text-center bg-gray-50/50 border-r-2 border-gray-200 flex-shrink-0 flex items-center justify-center">
+            <div className="w-[66px] py-1 px-1 text-center bg-gray-50/50 border-r-2 border-gray-200 flex-shrink-0 flex items-center justify-center">
               <span className="w-2 h-2 rounded-full bg-orange-300" />
             </div>
             {/* System sub-row cells */}
@@ -1453,7 +1563,7 @@ function TransferModal({ modal, bankAccounts, currentAccountId, onConfirm, onClo
             Cancelar
           </button>
           <button
-            onClick={() => onConfirm(modal.rowId, targetAccountId)}
+            onClick={() => onConfirm(modal.rowId, targetAccountId, modal.banco)}
             disabled={!targetAccountId}
             className="px-5 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
