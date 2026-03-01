@@ -59,8 +59,29 @@ export default function WhatsAppGroupsTab() {
       groupId: '',
       groupName: '',
       scheduleTime: '08:00'
+    },
+    garimpadorOuro: {
+      groupId: '',
+      groupName: '',
+      pct: '10'
+    },
+    garimpadorPrata: {
+      groupId: '',
+      groupName: '',
+      pct: '5'
+    },
+    garimpadorBronze: {
+      groupId: '',
+      groupName: '',
+      pct: '0'
+    },
+    garimpadorConcorrente: {
+      groupId: '',
+      groupName: '',
     }
   });
+
+  const [modalTarget, setModalTarget] = useState(null);
 
   const subTabs = [
     { id: 'ruptura', label: '📦 Prevenção Ruptura', icon: '📦' },
@@ -72,7 +93,8 @@ export default function WhatsAppGroupsTab() {
     { id: 'atrasos', label: '⏰ Pedidos em Atraso', icon: '⏰' },
     { id: 'producao', label: '🥖 Prevenção Produção', icon: '🥖' },
     { id: 'facial', label: '👤 Prevenção Facial', icon: '👤' },
-    { id: 'prazoFornecedores', label: '📋 Prazo Fornecedores', icon: '📋' }
+    { id: 'prazoFornecedores', label: '📋 Prazo Fornecedores', icon: '📋' },
+    { id: 'garimpadorOfertas', label: '🏷️ Oferta no Radar', icon: '🏷️' }
   ];
 
   // Mensagens de exemplo para cada tipo
@@ -200,6 +222,30 @@ export default function WhatsAppGroupsTab() {
 Alerta recebido do sistema DVR.
 Imagem anexada para verificação.`,
 
+    garimpadorOfertas: `🟠 *Oportunidade encontrada!*
+
+🏷️ Produto *OFERTADO*: Cerveja Skol lt 350ml pilsen
+🏷️ Produto *LOJA*: CERVEJA SKOL PILSEN LT 350ML
+
+💲 Preço Venda Loja: R$ 3,49
+💲 Custo Loja: R$ 2,30
+💲 Custo Fornecedor: R$ 1,99
+📉 Diferença: R$ 0,31
+
+📊 Curva: A
+📈 Média Venda Dia: 15
+📈 Média Venda Mês: 450
+📦 Estoque Atual: 120
+⏳ Dias de Cobertura: 8
+👨‍🌾 Fornecedor Atual: AMBEV S/A
+
+📊 Margem Meta: 35%
+📊 Margem Atual: 34.10%
+📊 Margem Futura: 42.98%
+
+👨‍🌾 Fornecedor: João Silva
+📲 Contato: https://wa.me/5512999999999`,
+
     prazoFornecedores: `📋 *PRAZO FORNECEDORES - FORA DO COMBINADO*
 
 📅 Data: 26/02/2026
@@ -264,6 +310,19 @@ Imagem anexada para verificação.`,
             ...getGroupConfig('whatsapp_group_prazo_fornecedores', 'whatsapp_group_prazo_fornecedores_name'),
             scheduleTime: configs.whatsapp_prazo_fornecedores_schedule_time || '08:00'
           },
+          garimpadorOuro: {
+            ...getGroupConfig('whatsapp_group_garimpador_ouro', 'whatsapp_group_garimpador_ouro_name'),
+            pct: configs.garimpador_pct_ouro || '10'
+          },
+          garimpadorPrata: {
+            ...getGroupConfig('whatsapp_group_garimpador_prata', 'whatsapp_group_garimpador_prata_name'),
+            pct: configs.garimpador_pct_prata || '5'
+          },
+          garimpadorBronze: {
+            ...getGroupConfig('whatsapp_group_garimpador_bronze', 'whatsapp_group_garimpador_bronze_name'),
+            pct: configs.garimpador_pct_bronze || '0'
+          },
+          garimpadorConcorrente: getGroupConfig('whatsapp_group_garimpador_concorrente', 'whatsapp_group_garimpador_concorrente_name'),
         });
       }
     } catch (error) {
@@ -293,6 +352,21 @@ Imagem anexada para verificação.`,
         configData = {
           whatsapp_group_prazo_fornecedores: groupIdToSave,
           whatsapp_group_prazo_fornecedores_name: currentConfig.groupName,
+        };
+      } else if (activeSubTab === 'garimpadorOfertas') {
+        const gc = groupConfigs;
+        configData = {
+          whatsapp_group_garimpador_ouro: gc.garimpadorOuro.groupName === 'Nenhum (Desabilitado)' ? '' : gc.garimpadorOuro.groupId,
+          whatsapp_group_garimpador_ouro_name: gc.garimpadorOuro.groupName,
+          garimpador_pct_ouro: gc.garimpadorOuro.pct || '10',
+          whatsapp_group_garimpador_prata: gc.garimpadorPrata.groupName === 'Nenhum (Desabilitado)' ? '' : gc.garimpadorPrata.groupId,
+          whatsapp_group_garimpador_prata_name: gc.garimpadorPrata.groupName,
+          garimpador_pct_prata: gc.garimpadorPrata.pct || '5',
+          whatsapp_group_garimpador_bronze: gc.garimpadorBronze.groupName === 'Nenhum (Desabilitado)' ? '' : gc.garimpadorBronze.groupId,
+          whatsapp_group_garimpador_bronze_name: gc.garimpadorBronze.groupName,
+          garimpador_pct_bronze: gc.garimpadorBronze.pct || '0',
+          whatsapp_group_garimpador_concorrente: gc.garimpadorConcorrente.groupName === 'Nenhum (Desabilitado)' ? '' : gc.garimpadorConcorrente.groupId,
+          whatsapp_group_garimpador_concorrente_name: gc.garimpadorConcorrente.groupName,
         };
       } else {
         const configKey = `whatsapp_group_${activeSubTab}`;
@@ -423,15 +497,46 @@ Imagem anexada para verificação.`,
   };
 
   const handleSelectGroup = (group) => {
-    handleInputChange('groupId', group.id);
-    handleInputChange('groupName', group.subject || 'Grupo sem nome');
+    const target = modalTarget || activeSubTab;
+    setGroupConfigs(prev => ({
+      ...prev,
+      [target]: {
+        ...prev[target],
+        groupId: group.id,
+        groupName: group.subject || 'Grupo sem nome',
+      }
+    }));
     setShowGroupsModal(false);
+    setModalTarget(null);
   };
 
   const handleSelectNone = () => {
-    handleInputChange('groupId', '');
-    handleInputChange('groupName', 'Nenhum (Desabilitado)');
+    const target = modalTarget || activeSubTab;
+    setGroupConfigs(prev => ({
+      ...prev,
+      [target]: {
+        ...prev[target],
+        groupId: '',
+        groupName: 'Nenhum (Desabilitado)',
+      }
+    }));
     setShowGroupsModal(false);
+    setModalTarget(null);
+  };
+
+  const handleFetchGroupsFor = async (target) => {
+    setModalTarget(target);
+    await handleFetchGroups();
+  };
+
+  const handleGarimpadorChange = (tier, field, value) => {
+    setGroupConfigs(prev => ({
+      ...prev,
+      [tier]: {
+        ...prev[tier],
+        [field]: value
+      }
+    }));
   };
 
   const handleSendBipsNow = async () => {
@@ -578,7 +683,30 @@ Imagem anexada para verificação.`,
     }
   };
 
-  const currentConfig = groupConfigs[activeSubTab];
+  const handleTestGarimpador = async (tier, label) => {
+    try {
+      setIsTesting(true);
+      setTestResult('');
+      const config = groupConfigs[tier];
+      if (!config.groupId.trim()) {
+        setTestResult(`❌ Grupo ${label} não configurado.`);
+        return;
+      }
+      const testMessage = `🧪 *MENSAGEM DE TESTE - GARIMPADOR ${label}*\n\n⏰ ${new Date().toLocaleString('pt-BR')}\n\n✅ Configuração do grupo ${label} está funcionando!`;
+      const response = await api.post('/whatsapp/test-group', { groupId: config.groupId, message: testMessage });
+      if (response.data.success) {
+        setTestResult(`✅ Teste enviado para o grupo ${label}!`);
+      } else {
+        setTestResult(`❌ Erro no grupo ${label}: ${response.data.message || 'Erro desconhecido'}`);
+      }
+    } catch (error) {
+      setTestResult(`❌ Erro: ${error.response?.data?.error || error.message}`);
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const currentConfig = groupConfigs[activeSubTab] || groupConfigs.garimpadorOuro;
   const currentMessage = messageExamples[activeSubTab];
 
   if (isLoading) {
@@ -618,7 +746,245 @@ Imagem anexada para verificação.`,
 
       {/* Content */}
       <div className="p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Garimpador Ofertas - Layout especial com 4 grupos + percentuais */}
+        {activeSubTab === 'garimpadorOfertas' && (
+          <div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left: Configuração dos Grupos */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  🏷️ Grupos de Ofertas
+                </h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Configure os grupos WhatsApp para receber ofertas classificadas por ganho de margem
+                </p>
+
+                {/* OURO */}
+                <div className="border-2 rounded-lg p-4 mb-3 border-yellow-400 bg-yellow-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center">
+                      <span className="text-xl mr-2">🥇</span>
+                      <h4 className="font-bold text-yellow-800">OURO</h4>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-600">Margem &ge;</span>
+                      <input
+                        type="number"
+                        value={groupConfigs.garimpadorOuro.pct}
+                        onChange={(e) => handleGarimpadorChange('garimpadorOuro', 'pct', e.target.value)}
+                        className="w-16 px-2 py-1 border border-yellow-400 rounded text-center text-sm font-semibold bg-white focus:ring-2 focus:ring-yellow-500"
+                        min="0"
+                        max="100"
+                      />
+                      <span className="text-sm font-semibold text-gray-700">%</span>
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={groupConfigs.garimpadorOuro.groupName && groupConfigs.garimpadorOuro.groupName !== 'Nenhum (Desabilitado)' ? groupConfigs.garimpadorOuro.groupName : ''}
+                      readOnly
+                      placeholder="Nenhum grupo selecionado"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm"
+                    />
+                    <button
+                      onClick={() => handleFetchGroupsFor('garimpadorOuro')}
+                      disabled={isFetchingGroups}
+                      className="px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 text-sm font-medium whitespace-nowrap"
+                    >
+                      📱 Grupos
+                    </button>
+                  </div>
+                </div>
+
+                {/* PRATA */}
+                <div className="border-2 rounded-lg p-4 mb-3 border-gray-400 bg-gray-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center">
+                      <span className="text-xl mr-2">🥈</span>
+                      <h4 className="font-bold text-gray-700">PRATA</h4>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-600">Margem &ge;</span>
+                      <input
+                        type="number"
+                        value={groupConfigs.garimpadorPrata.pct}
+                        onChange={(e) => handleGarimpadorChange('garimpadorPrata', 'pct', e.target.value)}
+                        className="w-16 px-2 py-1 border border-gray-400 rounded text-center text-sm font-semibold bg-white focus:ring-2 focus:ring-gray-500"
+                        min="0"
+                        max="100"
+                      />
+                      <span className="text-sm font-semibold text-gray-700">%</span>
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={groupConfigs.garimpadorPrata.groupName && groupConfigs.garimpadorPrata.groupName !== 'Nenhum (Desabilitado)' ? groupConfigs.garimpadorPrata.groupName : ''}
+                      readOnly
+                      placeholder="Nenhum grupo selecionado"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm"
+                    />
+                    <button
+                      onClick={() => handleFetchGroupsFor('garimpadorPrata')}
+                      disabled={isFetchingGroups}
+                      className="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 text-sm font-medium whitespace-nowrap"
+                    >
+                      📱 Grupos
+                    </button>
+                  </div>
+                </div>
+
+                {/* BRONZE */}
+                <div className="border-2 rounded-lg p-4 mb-3 border-orange-400 bg-orange-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center">
+                      <span className="text-xl mr-2">🥉</span>
+                      <h4 className="font-bold text-orange-800">BRONZE</h4>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-600">Margem &ge;</span>
+                      <input
+                        type="number"
+                        value={groupConfigs.garimpadorBronze.pct}
+                        onChange={(e) => handleGarimpadorChange('garimpadorBronze', 'pct', e.target.value)}
+                        className="w-16 px-2 py-1 border border-orange-400 rounded text-center text-sm font-semibold bg-white focus:ring-2 focus:ring-orange-500"
+                        min="0"
+                        max="100"
+                      />
+                      <span className="text-sm font-semibold text-gray-700">%</span>
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={groupConfigs.garimpadorBronze.groupName && groupConfigs.garimpadorBronze.groupName !== 'Nenhum (Desabilitado)' ? groupConfigs.garimpadorBronze.groupName : ''}
+                      readOnly
+                      placeholder="Nenhum grupo selecionado"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm"
+                    />
+                    <button
+                      onClick={() => handleFetchGroupsFor('garimpadorBronze')}
+                      disabled={isFetchingGroups}
+                      className="px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 text-sm font-medium whitespace-nowrap"
+                    >
+                      📱 Grupos
+                    </button>
+                  </div>
+                </div>
+
+                {/* CONCORRENTE */}
+                <div className="border-2 rounded-lg p-4 mb-3 border-blue-400 bg-blue-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center">
+                      <span className="text-xl mr-2">🏪</span>
+                      <h4 className="font-bold text-blue-800">CONCORRENTE</h4>
+                    </div>
+                    <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">Todas as ofertas com custo menor</span>
+                  </div>
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={groupConfigs.garimpadorConcorrente.groupName && groupConfigs.garimpadorConcorrente.groupName !== 'Nenhum (Desabilitado)' ? groupConfigs.garimpadorConcorrente.groupName : ''}
+                      readOnly
+                      placeholder="Nenhum grupo selecionado"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm"
+                    />
+                    <button
+                      onClick={() => handleFetchGroupsFor('garimpadorConcorrente')}
+                      disabled={isFetchingGroups}
+                      className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium whitespace-nowrap"
+                    >
+                      📱 Grupos
+                    </button>
+                  </div>
+                </div>
+
+                {/* Botões Salvar e Testar */}
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium transition-colors"
+                  >
+                    {isSaving ? '💾 Salvando...' : '💾 Salvar Configuração'}
+                  </button>
+                </div>
+
+                {/* Testar grupos individualmente */}
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button onClick={() => handleTestGarimpador('garimpadorOuro', 'OURO')} disabled={isTesting || !groupConfigs.garimpadorOuro.groupId} className="px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 text-sm font-medium">🧪 Testar Ouro</button>
+                  <button onClick={() => handleTestGarimpador('garimpadorPrata', 'PRATA')} disabled={isTesting || !groupConfigs.garimpadorPrata.groupId} className="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 text-sm font-medium">🧪 Testar Prata</button>
+                  <button onClick={() => handleTestGarimpador('garimpadorBronze', 'BRONZE')} disabled={isTesting || !groupConfigs.garimpadorBronze.groupId} className="px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 text-sm font-medium">🧪 Testar Bronze</button>
+                  <button onClick={() => handleTestGarimpador('garimpadorConcorrente', 'CONCORRENTE')} disabled={isTesting || !groupConfigs.garimpadorConcorrente.groupId} className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium">🧪 Testar Concorrente</button>
+                </div>
+
+                {testResult && (
+                  <div className={`mt-3 p-3 rounded-lg ${testResult.startsWith('✅') ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                    <p className={`text-sm ${testResult.startsWith('✅') ? 'text-green-800' : 'text-red-800'}`}>{testResult}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Preview da Mensagem + Info */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  📱 Preview da Mensagem
+                </h3>
+
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-green-500">
+                    <pre className="text-sm font-mono whitespace-pre-wrap text-gray-800">
+                      {currentMessage}
+                    </pre>
+                  </div>
+                </div>
+
+                {/* Regras de classificação */}
+                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h4 className="font-semibold text-blue-900 mb-2">📊 Regras de Classificação</h4>
+                  <p className="text-sm text-blue-800 mb-3">
+                    Quando uma oferta de fornecedor tem custo menor que o custo atual da loja, o sistema calcula o ganho de margem e classifica:
+                  </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center text-sm">
+                      <span className="mr-2">🥇</span>
+                      <span className="font-semibold text-yellow-700 w-16">OURO</span>
+                      <span className="text-gray-600">Ganho de margem &ge; {groupConfigs.garimpadorOuro.pct || 10}%</span>
+                    </div>
+                    <div className="flex items-center text-sm">
+                      <span className="mr-2">🥈</span>
+                      <span className="font-semibold text-gray-600 w-16">PRATA</span>
+                      <span className="text-gray-600">Ganho de margem &ge; {groupConfigs.garimpadorPrata.pct || 5}% (e &lt; {groupConfigs.garimpadorOuro.pct || 10}%)</span>
+                    </div>
+                    <div className="flex items-center text-sm">
+                      <span className="mr-2">🥉</span>
+                      <span className="font-semibold text-orange-700 w-16">BRONZE</span>
+                      <span className="text-gray-600">Ganho de margem &ge; {groupConfigs.garimpadorBronze.pct || 0}% (e &lt; {groupConfigs.garimpadorPrata.pct || 5}%)</span>
+                    </div>
+                    <div className="flex items-center text-sm">
+                      <span className="mr-2">🏪</span>
+                      <span className="font-semibold text-blue-700 w-24">CONCORRENTE</span>
+                      <span className="text-gray-600">Ofertas de concorrentes com preço menor que o da loja</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fórmula */}
+                <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <h4 className="font-semibold text-gray-900 mb-2">📐 Fórmula</h4>
+                  <div className="text-sm text-gray-700 space-y-1">
+                    <p><strong>Margem Atual:</strong> ((Preço Venda - Custo Atual) / Preço Venda) x 100</p>
+                    <p><strong>Margem Futura:</strong> ((Preço Venda - Custo Oferta) / Preço Venda) x 100</p>
+                    <p><strong>Ganho Margem:</strong> Margem Futura - Margem Atual</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${activeSubTab === 'garimpadorOfertas' ? 'hidden' : ''}`}>
           {/* Configuração do Grupo */}
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -858,7 +1224,7 @@ Imagem anexada para verificação.`,
         </div>
 
         {/* Informações Adicionais */}
-        <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <div className={`mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg ${activeSubTab === 'garimpadorOfertas' ? 'hidden' : ''}`}>
           <h4 className="font-semibold text-yellow-900 mb-2">⚠️ Importante:</h4>
           <ul className="text-sm text-yellow-800 space-y-1 list-disc list-inside">
             <li>O grupo do WhatsApp deve existir e o bot deve ser membro do grupo</li>
