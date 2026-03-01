@@ -335,25 +335,11 @@ Imagem anexada para verificação.`,
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      const currentConfig = groupConfigs[activeSubTab];
-
-      // Se o nome é "Nenhum (Desabilitado)", garantir que o ID seja vazio
-      const groupIdToSave = currentConfig.groupName === 'Nenhum (Desabilitado)' ? '' : currentConfig.groupId;
 
       let configData = {};
 
-      // Facial usa chaves especiais (email_monitor_whatsapp_group)
-      if (activeSubTab === 'facial') {
-        configData = {
-          email_monitor_whatsapp_group: groupIdToSave,
-          email_monitor_whatsapp_group_name: currentConfig.groupName,
-        };
-      } else if (activeSubTab === 'prazoFornecedores') {
-        configData = {
-          whatsapp_group_prazo_fornecedores: groupIdToSave,
-          whatsapp_group_prazo_fornecedores_name: currentConfig.groupName,
-        };
-      } else if (activeSubTab === 'garimpadorOfertas') {
+      // Garimpador salva 4 grupos de uma vez (não tem chave 'garimpadorOfertas' em groupConfigs)
+      if (activeSubTab === 'garimpadorOfertas') {
         const gc = groupConfigs;
         configData = {
           whatsapp_group_garimpador_ouro: gc.garimpadorOuro.groupName === 'Nenhum (Desabilitado)' ? '' : gc.garimpadorOuro.groupId,
@@ -367,6 +353,30 @@ Imagem anexada para verificação.`,
           garimpador_pct_bronze: gc.garimpadorBronze.pct || '0',
           whatsapp_group_garimpador_concorrente: gc.garimpadorConcorrente.groupName === 'Nenhum (Desabilitado)' ? '' : gc.garimpadorConcorrente.groupId,
           whatsapp_group_garimpador_concorrente_name: gc.garimpadorConcorrente.groupName,
+        };
+
+        await api.post('/config/configurations', configData);
+        alert('Configuração salva com sucesso!');
+        await loadConfigurations();
+        setIsSaving(false);
+        return;
+      }
+
+      const currentConfig = groupConfigs[activeSubTab];
+
+      // Se o nome é "Nenhum (Desabilitado)", garantir que o ID seja vazio
+      const groupIdToSave = currentConfig.groupName === 'Nenhum (Desabilitado)' ? '' : currentConfig.groupId;
+
+      // Facial usa chaves especiais (email_monitor_whatsapp_group)
+      if (activeSubTab === 'facial') {
+        configData = {
+          email_monitor_whatsapp_group: groupIdToSave,
+          email_monitor_whatsapp_group_name: currentConfig.groupName,
+        };
+      } else if (activeSubTab === 'prazoFornecedores') {
+        configData = {
+          whatsapp_group_prazo_fornecedores: groupIdToSave,
+          whatsapp_group_prazo_fornecedores_name: currentConfig.groupName,
         };
       } else {
         const configKey = `whatsapp_group_${activeSubTab}`;
