@@ -51,6 +51,7 @@ interface ProdutoForaMix {
   dataRecebido: string;
   mensagemId: number;
   ocorrencias: number;
+  mediaUrl: string | null;
 }
 
 interface ResumoAnalytics {
@@ -386,6 +387,7 @@ export class GarimpadorAnalyticsService {
                 dataRecebido: dataMsg,
                 mensagemId: msg.id,
                 ocorrencias: 1,
+                mediaUrl: msg.media_url || null,
               });
             }
           }
@@ -409,6 +411,7 @@ export class GarimpadorAnalyticsService {
               dataRecebido: dataMsg,
               mensagemId: msg.id,
               ocorrencias: 1,
+              mediaUrl: msg.media_url || null,
             });
           }
         }

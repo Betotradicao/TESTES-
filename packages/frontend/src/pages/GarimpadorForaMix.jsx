@@ -1,6 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
 import { api } from '../utils/api';
+
+const COLUNAS_DEFAULT = [
+  { id: 'produtoNome', label: 'Produto', align: 'left', type: 'text' },
+  { id: 'preco', label: 'Preco Ofertado', align: 'right', type: 'money' },
+  { id: 'fornecedor', label: 'Fornecedor', align: 'left', type: 'text' },
+  { id: 'dataRecebido', label: 'Data', align: 'left', type: 'date' },
+  { id: 'ocorrencias', label: 'Ocorrencias', align: 'center', type: 'number' },
+  { id: 'tabloid', label: 'Tabloid', align: 'center', type: 'action' },
+];
 
 export default function GarimpadorForaMix() {
   const [produtos, setProdutos] = useState([]);
@@ -8,6 +17,11 @@ export default function GarimpadorForaMix() {
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [busca, setBusca] = useState('');
+  const [sortCol, setSortCol] = useState(null);
+  const [sortDir, setSortDir] = useState('asc');
+  const [colunas, setColunas] = useState(COLUNAS_DEFAULT);
+  const [dragIdx, setDragIdx] = useState(null);
+  const [tabloidUrl, setTabloidUrl] = useState(null);
 
   const fmtBRL = (v) => Number(v || 0).toFixed(2).replace('.', ',');
 
@@ -36,8 +50,93 @@ export default function GarimpadorForaMix() {
       )
     : produtos;
 
-  // Agrupar por fornecedor para stats
+  // Ordenacao
+  const produtosOrdenados = [...produtosFiltrados];
+  if (sortCol) {
+    produtosOrdenados.sort((a, b) => {
+      let va = a[sortCol];
+      let vb = b[sortCol];
+      if (sortCol === 'dataRecebido') {
+        va = va ? new Date(va).getTime() : 0;
+        vb = vb ? new Date(vb).getTime() : 0;
+      } else if (typeof va === 'string') {
+        va = va.toUpperCase();
+        vb = (vb || '').toUpperCase();
+      }
+      if (va < vb) return sortDir === 'asc' ? -1 : 1;
+      if (va > vb) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+
+  // Sort handler
+  const handleSort = (colId) => {
+    if (colId === 'tabloid') return;
+    if (sortCol === colId) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortCol(colId);
+      setSortDir('asc');
+    }
+  };
+
+  // Drag & drop reorder columns
+  const handleDragStart = (idx) => setDragIdx(idx);
+  const handleDragOver = (e) => e.preventDefault();
+  const handleDrop = (targetIdx) => {
+    if (dragIdx === null || dragIdx === targetIdx) return;
+    const newCols = [...colunas];
+    const [moved] = newCols.splice(dragIdx, 1);
+    newCols.splice(targetIdx, 0, moved);
+    setColunas(newCols);
+    setDragIdx(null);
+  };
+
+  // Sort indicator
+  const SortIcon = ({ colId }) => {
+    if (sortCol !== colId) return <span className="text-gray-300 ml-1">{'\u2195'}</span>;
+    return <span className="text-orange-500 ml-1">{sortDir === 'asc' ? '\u2191' : '\u2193'}</span>;
+  };
+
+  // Stats
   const fornecedoresUnicos = new Set(produtos.map(p => p.fornecedor)).size;
+
+  // Render cell value
+  const renderCell = (p, col) => {
+    switch (col.id) {
+      case 'produtoNome':
+        return <span className="font-medium text-gray-800">{p.produtoNome}</span>;
+      case 'preco':
+        return <span className="font-semibold text-orange-600">R$ {fmtBRL(p.preco)}</span>;
+      case 'fornecedor':
+        return <span className="text-gray-600">{p.fornecedor}</span>;
+      case 'dataRecebido':
+        return <span className="text-gray-500">{p.dataRecebido ? new Date(p.dataRecebido).toLocaleDateString('pt-BR') : '-'}</span>;
+      case 'ocorrencias':
+        return (
+          <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+            p.ocorrencias > 2 ? 'bg-red-100 text-red-700' :
+            p.ocorrencias > 1 ? 'bg-yellow-100 text-yellow-700' :
+            'bg-gray-100 text-gray-600'
+          }`}>
+            {p.ocorrencias}x
+          </span>
+        );
+      case 'tabloid':
+        return p.mediaUrl ? (
+          <button
+            onClick={() => setTabloidUrl(p.mediaUrl)}
+            className="text-blue-600 hover:text-blue-800 underline text-[10px] font-medium"
+          >
+            Ver
+          </button>
+        ) : (
+          <span className="text-gray-300 text-[10px]">-</span>
+        );
+      default:
+        return '-';
+    }
+  };
 
   return (
     <Layout>
@@ -87,10 +186,15 @@ export default function GarimpadorForaMix() {
           </button>
         </div>
 
+        {/* Dica de reordenacao */}
+        <div className="text-[10px] text-gray-400 text-right">
+          Arraste os cabecalhos para reordenar colunas | Clique para ordenar A-Z
+        </div>
+
         {/* Tabela */}
         {loading ? (
           <div className="text-center py-10 text-gray-500">Carregando...</div>
-        ) : produtosFiltrados.length === 0 ? (
+        ) : produtosOrdenados.length === 0 ? (
           <div className="text-center py-10 text-gray-400">
             {busca ? `Nenhum produto encontrado para "${busca}"` : 'Nenhum produto fora do mix encontrado'}
           </div>
@@ -98,44 +202,87 @@ export default function GarimpadorForaMix() {
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="p-3 border-b flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-700">
-                {produtosFiltrados.length} produto{produtosFiltrados.length !== 1 ? 's' : ''} fora do mix
+                {produtosOrdenados.length} produto{produtosOrdenados.length !== 1 ? 's' : ''} fora do mix
               </h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="text-left p-2.5 font-semibold text-gray-600">#</th>
-                    <th className="text-left p-2.5 font-semibold text-gray-600">Produto</th>
-                    <th className="text-right p-2.5 font-semibold text-gray-600">Preco Ofertado</th>
-                    <th className="text-left p-2.5 font-semibold text-gray-600">Fornecedor</th>
-                    <th className="text-left p-2.5 font-semibold text-gray-600">Data</th>
-                    <th className="text-center p-2.5 font-semibold text-gray-600">Ocorrencias</th>
+                    <th className="text-left p-2.5 font-semibold text-gray-600 w-8">#</th>
+                    {colunas.map((col, idx) => (
+                      <th
+                        key={col.id}
+                        draggable
+                        onDragStart={() => handleDragStart(idx)}
+                        onDragOver={handleDragOver}
+                        onDrop={() => handleDrop(idx)}
+                        onClick={() => handleSort(col.id)}
+                        className={`p-2.5 font-semibold text-gray-600 cursor-pointer select-none hover:bg-gray-100 transition-colors ${
+                          col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
+                        } ${dragIdx === idx ? 'bg-orange-50 opacity-70' : ''}`}
+                      >
+                        <span className="inline-flex items-center gap-0.5">
+                          {col.label}
+                          {col.id !== 'tabloid' && <SortIcon colId={col.id} />}
+                        </span>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {produtosFiltrados.map((p, i) => (
+                  {produtosOrdenados.map((p, i) => (
                     <tr key={i} className="border-b hover:bg-gray-50">
                       <td className="p-2.5 text-gray-400">{i + 1}</td>
-                      <td className="p-2.5 font-medium text-gray-800">{p.produtoNome}</td>
-                      <td className="p-2.5 text-right font-semibold text-orange-600">R$ {fmtBRL(p.preco)}</td>
-                      <td className="p-2.5 text-gray-600">{p.fornecedor}</td>
-                      <td className="p-2.5 text-gray-500">
-                        {p.dataRecebido ? new Date(p.dataRecebido).toLocaleDateString('pt-BR') : '-'}
-                      </td>
-                      <td className="p-2.5 text-center">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                          p.ocorrencias > 2 ? 'bg-red-100 text-red-700' :
-                          p.ocorrencias > 1 ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-gray-100 text-gray-600'
+                      {colunas.map((col) => (
+                        <td key={col.id} className={`p-2.5 ${
+                          col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
                         }`}>
-                          {p.ocorrencias}x
-                        </span>
-                      </td>
+                          {renderCell(p, col)}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Tabloid */}
+        {tabloidUrl && (
+          <div
+            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+            onClick={() => setTabloidUrl(null)}
+          >
+            <div
+              className="bg-white rounded-xl shadow-2xl max-w-3xl max-h-[90vh] overflow-auto relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="sticky top-0 bg-white border-b p-3 flex items-center justify-between">
+                <h3 className="font-semibold text-gray-800 text-sm">Tabloid / Imagem Original</h3>
+                <button
+                  onClick={() => setTabloidUrl(null)}
+                  className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+                >
+                  {'\u00D7'}
+                </button>
+              </div>
+              <div className="p-4">
+                <img
+                  src={tabloidUrl}
+                  alt="Tabloid"
+                  className="max-w-full rounded-lg"
+                  onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
+                />
+                <div className="hidden text-center py-8 text-gray-400">
+                  <p>Nao foi possivel carregar a imagem</p>
+                  <a href={tabloidUrl} target="_blank" rel="noopener noreferrer"
+                    className="text-blue-500 underline text-sm mt-2 block">
+                    Abrir em nova aba
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
         )}
