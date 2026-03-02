@@ -407,10 +407,11 @@ export default function GarimpaFornecedores() {
                                     <span className="font-medium text-gray-700 block mb-1">Produtos extraidos ({dados.produtos_originais.length}):</span>
                                     {dados.produtos_originais.map((item, idx) => {
                                       const match = dados.resultados_comparacao.find(r => r.produtoOfertado === item.produto);
+                                      const isBoaOferta = match && match.boaOferta;
                                       return (
-                                        <div key={idx} className="border-b border-gray-200 pb-1.5 mb-1 last:border-0">
+                                        <div key={idx} className={`border-b border-gray-200 pb-1.5 mb-1 last:border-0 ${isBoaOferta ? 'bg-green-50 rounded px-1.5 py-1' : ''}`}>
                                           <div className="flex justify-between items-center text-blue-700">
-                                            <span>{item.produto} <span className="text-blue-400 font-normal">(Fornecedor)</span></span>
+                                            <span>{isBoaOferta && '\u{1F3C6} '}{item.produto} <span className="text-blue-400 font-normal">(Fornecedor)</span></span>
                                             <span className="font-semibold ml-2 whitespace-nowrap">R$ {fmtBRL(item.preco)}</span>
                                           </div>
                                           {match && match.produtoLoja ? (
@@ -421,6 +422,11 @@ export default function GarimpaFornecedores() {
                                           ) : (
                                             <div className="text-orange-500 mt-0.5 italic">
                                               Nao encontrado no sistema
+                                            </div>
+                                          )}
+                                          {isBoaOferta && (
+                                            <div className="text-green-600 font-semibold mt-0.5 text-[10px]">
+                                              Enviado para WhatsApp - {match.classificacao?.toUpperCase()}
                                             </div>
                                           )}
                                         </div>
