@@ -49,6 +49,23 @@ export default function GarimpadorRanking() {
   const [projecaoFiltro, setProjecaoFiltro] = useState('todos'); // 'todos' | 'fornecedor' | 'abaixo_custo'
   const [projecaoItem, setProjecaoItem] = useState(null); // item atual da projecao
 
+  // Colunas reordenaveis da tabela de detalhes
+  const [colunasDetalhe, setColunasDetalhe] = useState([
+    { id: 'num', label: '#', align: 'left' },
+    { id: 'produtoOfertado', label: 'Produto Ofertado', align: 'left' },
+    { id: 'produtoLoja', label: 'Produto Loja', align: 'left' },
+    { id: 'tabloid', label: 'Tabloid', align: 'center' },
+    { id: 'oferta', label: 'Oferta', align: 'right' },
+    { id: 'custoLoja', label: 'Custo Loja', align: 'right' },
+    { id: 'diferenca', label: 'Diferenca', align: 'right' },
+    { id: 'curva', label: 'Curva', align: 'center' },
+    { id: 'classif', label: 'Classif.', align: 'center' },
+    { id: 'data', label: 'Data', align: 'left' },
+    { id: 'projecao', label: 'Projecao', align: 'center' },
+    { id: 'excluir', label: '', align: 'center' },
+  ]);
+  const [dragColIdx, setDragColIdx] = useState(null);
+
   const fmtBRL = (v) => Number(v || 0).toFixed(2).replace('.', ',');
 
   // Carregar exclusoes salvas
@@ -128,6 +145,65 @@ export default function GarimpadorRanking() {
       await api.post('/garimpador/produtos-excluidos', { excluidos: Array.from(novos) });
     } catch (err) {
       console.error('Erro ao excluir produto:', err);
+    }
+  };
+
+  // Drag-and-drop colunas
+  const handleDragStartCol = (idx) => setDragColIdx(idx);
+  const handleDragOverCol = (e) => e.preventDefault();
+  const handleDropCol = (dropIdx) => {
+    if (dragColIdx === null || dragColIdx === dropIdx) return;
+    const nova = [...colunasDetalhe];
+    const [removed] = nova.splice(dragColIdx, 1);
+    nova.splice(dropIdx, 0, removed);
+    setColunasDetalhe(nova);
+    setDragColIdx(null);
+  };
+
+  // Renderizar celula baseado no id da coluna
+  const renderCelDetalhe = (col, item, i, jaExcluido, chaveExclusao) => {
+    switch (col.id) {
+      case 'num': return <span className="text-gray-400">{i + 1}</span>;
+      case 'produtoOfertado': return <span className="font-medium text-blue-700 max-w-[200px] truncate block">{item.produtoOfertado}</span>;
+      case 'produtoLoja': return <span className="text-green-700 max-w-[200px] truncate block">{item.produtoLoja || '-'}</span>;
+      case 'tabloid': return item.mediaUrl ? (
+        <button onClick={(e) => { e.stopPropagation(); setTabloidUrl(item.mediaUrl); }} className="text-lg hover:scale-110 transition-transform" title="Ver tabloid">{'\u{1F4F0}'}</button>
+      ) : <span className="text-gray-300 text-xs">-</span>;
+      case 'oferta': return <span className="font-semibold">R$ {fmtBRL(item.precoOferta)}</span>;
+      case 'custoLoja': return <span>R$ {fmtBRL(item.precoCustoLoja)}</span>;
+      case 'diferenca': return <span className={`font-semibold ${item.diferenca > 0 ? 'text-green-600' : 'text-red-500'}`}>R$ {fmtBRL(item.diferenca)}</span>;
+      case 'curva': return item.curva;
+      case 'classif': return (
+        <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${classifColor(item.classificacao)}`}>
+          {item.classificacao?.toUpperCase()}
+        </span>
+      );
+      case 'data': return <span className="text-gray-500">{item.data ? new Date(item.data).toLocaleDateString('pt-BR') : '-'}</span>;
+      case 'projecao': return (
+        <button onClick={(e) => { e.stopPropagation(); toggleProjecao(i, item); }} className={`text-xl hover:scale-125 transition-transform ${projecaoAberta === i ? 'scale-125' : ''}`} title="Ver projecao de preco">{'\u{1F4C8}'}</button>
+      );
+      case 'excluir': return jaExcluido ? (
+        <button onClick={(e) => { e.stopPropagation(); restaurarProduto(chaveExclusao); }} className="text-green-500 hover:text-green-700 transition-colors p-1" title="Restaurar produto">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+        </button>
+      ) : (
+        <button onClick={(e) => { e.stopPropagation(); excluirProduto(item.codProdutoLoja, item.produtoOfertado); }} className="text-red-400 hover:text-red-600 transition-colors p-1" title="Excluir da pesquisa">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+        </button>
+      );
+      default: return '-';
+    }
+  };
+
+  // Restaurar produto excluido
+  const restaurarProduto = async (chave) => {
+    const novos = new Set(excluidos);
+    novos.delete(chave);
+    setExcluidos(novos);
+    try {
+      await api.post('/garimpador/produtos-excluidos', { excluidos: Array.from(novos) });
+    } catch (err) {
+      console.error('Erro ao restaurar produto:', err);
     }
   };
 
@@ -441,79 +517,39 @@ export default function GarimpadorRanking() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="text-left p-2.5 font-semibold text-gray-600">#</th>
-                      <th className="text-left p-2.5 font-semibold text-gray-600">Produto Ofertado</th>
-                      <th className="text-left p-2.5 font-semibold text-gray-600">Produto Loja</th>
-                      <th className="text-center p-2.5 font-semibold text-gray-600">Tabloid</th>
-                      <th className="text-right p-2.5 font-semibold text-gray-600">Oferta</th>
-                      <th className="text-right p-2.5 font-semibold text-gray-600">Custo Loja</th>
-                      <th className="text-right p-2.5 font-semibold text-gray-600">Diferenca</th>
-                      <th className="text-center p-2.5 font-semibold text-gray-600">Curva</th>
-                      <th className="text-center p-2.5 font-semibold text-gray-600">Classif.</th>
-                      <th className="text-left p-2.5 font-semibold text-gray-600">Data</th>
-                      <th className="text-center p-2.5 font-semibold text-gray-600">Projecao</th>
-                      <th className="text-center p-2.5 font-semibold text-gray-600 w-16"></th>
+                      {colunasDetalhe.map((col, ci) => (
+                        <th
+                          key={col.id}
+                          className={`text-${col.align} p-2.5 font-semibold text-gray-600 ${col.id === 'excluir' ? 'w-16' : ''} cursor-grab select-none`}
+                          draggable
+                          onDragStart={() => handleDragStartCol(ci)}
+                          onDragOver={handleDragOverCol}
+                          onDrop={() => handleDropCol(ci)}
+                          title="Arraste para reordenar"
+                        >
+                          {col.label}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {detalhes.map((item, i) => (
+                    {detalhes.map((item, i) => {
+                      const chaveExclusao = item.codProdutoLoja ? String(item.codProdutoLoja) : (item.produtoOfertado || '').toUpperCase().trim();
+                      const jaExcluido = excluidos.has(chaveExclusao);
+                      return (
                       <>
-                        <tr key={`row-${i}`} className={`border-b hover:bg-gray-50 ${item.boaOferta ? 'bg-green-50/50' : ''}`}>
-                          <td className="p-2.5 text-gray-400">{i + 1}</td>
-                          <td className="p-2.5 font-medium text-blue-700 max-w-[200px] truncate">{item.produtoOfertado}</td>
-                          <td className="p-2.5 text-green-700 max-w-[200px] truncate">{item.produtoLoja || '-'}</td>
-                          <td className="p-2.5 text-center">
-                            {item.mediaUrl ? (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setTabloidUrl(item.mediaUrl); }}
-                                className="text-blue-600 hover:text-blue-800 underline text-xs font-medium"
-                              >
-                                Ver
-                              </button>
-                            ) : (
-                              <span className="text-gray-300 text-xs">-</span>
-                            )}
-                          </td>
-                          <td className="p-2.5 text-right font-semibold">R$ {fmtBRL(item.precoOferta)}</td>
-                          <td className="p-2.5 text-right">R$ {fmtBRL(item.precoCustoLoja)}</td>
-                          <td className={`p-2.5 text-right font-semibold ${item.diferenca > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                            R$ {fmtBRL(item.diferenca)}
-                          </td>
-                          <td className="p-2.5 text-center">{item.curva}</td>
-                          <td className="p-2.5 text-center">
-                            <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${classifColor(item.classificacao)}`}>
-                              {item.classificacao?.toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="p-2.5 text-gray-500">
-                            {item.data ? new Date(item.data).toLocaleDateString('pt-BR') : '-'}
-                          </td>
-                          <td className="p-2.5 text-center">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); toggleProjecao(i, item); }}
-                              className={`text-xl hover:scale-125 transition-transform ${projecaoAberta === i ? 'scale-125' : ''}`}
-                              title="Ver projecao de preco"
-                            >
-                              {'\u{1F4C8}'}
-                            </button>
-                          </td>
-                          <td className="p-2.5 text-center">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); excluirProduto(item.codProdutoLoja, item.produtoOfertado); }}
-                              className="text-red-400 hover:text-red-600 transition-colors p-1"
-                              title="Excluir da pesquisa"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </td>
+                        <tr key={`row-${i}`} className={`border-b hover:bg-gray-50 ${jaExcluido ? 'bg-red-50 opacity-50 line-through' : ''} ${!jaExcluido && item.boaOferta ? 'bg-green-50/50' : ''}`}>
+                          {colunasDetalhe.map((col) => (
+                            <td key={col.id} className={`p-2.5 text-${col.align}`}>
+                              {renderCelDetalhe(col, item, i, jaExcluido, chaveExclusao)}
+                            </td>
+                          ))}
                         </tr>
 
                         {/* Projecao inline expandida */}
                         {projecaoAberta === i && (
                           <tr key={`proj-${i}`}>
-                            <td colSpan={12} className="p-0">
+                            <td colSpan={colunasDetalhe.length} className="p-0">
                               <div className="bg-blue-50 border-y-2 border-blue-200 p-4">
                                 {loadingProjecao ? (
                                   <div className="text-center py-6 text-gray-500">Carregando projecao de preco...</div>
@@ -664,7 +700,8 @@ export default function GarimpadorRanking() {
                           </tr>
                         )}
                       </>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
