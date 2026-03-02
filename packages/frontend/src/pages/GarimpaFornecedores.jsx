@@ -395,11 +395,64 @@ export default function GarimpaFornecedores() {
                           {msg.tipo_midia === 'documento' && (
                             <p className="text-sm text-gray-400 italic">[Documento recebido]</p>
                           )}
-                          {msg.conteudo_extraido && (
-                            <div className="mt-1 p-2 bg-blue-50 rounded text-xs text-blue-800">
-                              <span className="font-medium">Texto extraido:</span> {msg.conteudo_extraido}
-                            </div>
-                          )}
+                          {msg.conteudo_extraido && (() => {
+                            try {
+                              const dados = JSON.parse(msg.conteudo_extraido);
+                              const fmtBRL = (v) => Number(v).toFixed(2).replace('.', ',');
+
+                              // Formato com resultados de comparacao (apos etapa 3)
+                              if (dados.produtos_originais && dados.resultados_comparacao) {
+                                return (
+                                  <div className="mt-1 p-2 bg-gray-50 rounded text-xs space-y-2">
+                                    <span className="font-medium text-gray-700 block mb-1">Produtos extraidos ({dados.produtos_originais.length}):</span>
+                                    {dados.produtos_originais.map((item, idx) => {
+                                      const match = dados.resultados_comparacao.find(r => r.produtoOfertado === item.produto);
+                                      return (
+                                        <div key={idx} className="border-b border-gray-200 pb-1.5 mb-1 last:border-0">
+                                          <div className="flex justify-between items-center text-blue-700">
+                                            <span>{item.produto} <span className="text-blue-400 font-normal">(Fornecedor)</span></span>
+                                            <span className="font-semibold ml-2 whitespace-nowrap">R$ {fmtBRL(item.preco)}</span>
+                                          </div>
+                                          {match && match.produtoLoja ? (
+                                            <div className="flex justify-between items-center text-green-700 mt-0.5">
+                                              <span>{match.produtoLoja.descricao} <span className="text-green-500 font-semibold">(SISTEMA)</span></span>
+                                              <span className="font-semibold ml-2 whitespace-nowrap">R$ {fmtBRL(match.produtoLoja.preco_venda)}</span>
+                                            </div>
+                                          ) : (
+                                            <div className="text-orange-500 mt-0.5 italic">
+                                              Nao encontrado no sistema
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              }
+
+                              // Formato so com produtos extraidos (antes da comparacao)
+                              let prods = Array.isArray(dados) ? dados : null;
+                              if (prods && prods.length > 0 && prods[0].produto) {
+                                return (
+                                  <div className="mt-1 p-2 bg-blue-50 rounded text-xs text-blue-800">
+                                    <span className="font-medium block mb-1">Produtos extraidos:</span>
+                                    {prods.map((item, idx) => (
+                                      <div key={idx} className="flex justify-between py-0.5 border-b border-blue-100 last:border-0">
+                                        <span>{item.produto}</span>
+                                        <span className="font-semibold ml-2 whitespace-nowrap">R$ {Number(item.preco).toFixed(2).replace('.', ',')}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              }
+                            } catch {}
+                            // Fallback: mostra texto bruto
+                            return (
+                              <div className="mt-1 p-2 bg-blue-50 rounded text-xs text-blue-800">
+                                <span className="font-medium">Texto extraido:</span> {msg.conteudo_extraido}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
