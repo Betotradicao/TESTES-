@@ -20,4 +20,9 @@ router.get('/webhook-status', GarimpadorController.webhookStatus);
 router.post('/processar', GarimpadorController.processarTodas);
 router.post('/processar/:id', GarimpadorController.processarUma);
 
+// Comparação com Oracle + envio para WhatsApp
+router.post('/comparar', GarimpadorController.compararTodas);
+router.post('/comparar/:id', GarimpadorController.compararUma);
+router.post('/buscar-produto', GarimpadorController.buscarProduto);
+
 export default router;

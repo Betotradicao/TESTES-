@@ -4,6 +4,7 @@ import { GarimpadorMensagem } from '../entities/GarimpadorMensagem';
 import { ConfigurationService } from './configuration.service';
 import { minioService } from './minio.service';
 import { GarimpadorProcessadorService } from './garimpador-processador.service';
+import { GarimpadorComparadorService } from './garimpador-comparador.service';
 
 export class GarimpadorService {
 
@@ -98,6 +99,7 @@ export class GarimpadorService {
 
   /**
    * Processa mensagem automaticamente se habilitado nas configs
+   * Fluxo: Extrair dados -> Comparar com Oracle -> Enviar para WhatsApp
    */
   private static async autoProcessar(mensagem: GarimpadorMensagem): Promise<void> {
     try {
@@ -106,10 +108,23 @@ export class GarimpadorService {
 
       // Recarregar a mensagem (pode ter sido atualizada com media_url do MinIO)
       const repo = AppDataSource.getRepository(GarimpadorMensagem);
-      const msgAtualizada = await repo.findOne({ where: { id: mensagem.id } });
+      const msgAtualizada = await repo.findOne({ where: { id: mensagem.id }, relations: ['contato'] });
       if (!msgAtualizada || msgAtualizada.processado) return;
 
-      await GarimpadorProcessadorService.processarMensagem(msgAtualizada);
+      // Etapa 1: Extrair produtos/precos da mensagem
+      const extraido = await GarimpadorProcessadorService.processarMensagem(msgAtualizada);
+
+      // Etapa 2: Se extraiu dados E o contato esta classificado, comparar e enviar
+      if (extraido && msgAtualizada.contato?.tipo && msgAtualizada.contato.tipo !== 'nao_classificado') {
+        try {
+          const resultado = await GarimpadorComparadorService.compararEEnviar(msgAtualizada.id);
+          console.log(`[Garimpador] Auto-comparacao: ${resultado.enviadas}/${resultado.total} enviadas para WhatsApp`);
+        } catch (err: any) {
+          console.error('[Garimpador] Erro na auto-comparacao:', err.message);
+        }
+      } else if (extraido) {
+        console.log(`[Garimpador] Dados extraidos mas contato nao classificado - aguardando classificacao`);
+      }
     } catch (error: any) {
       console.error('[Garimpador] Erro no auto-processamento:', error.message);
     }

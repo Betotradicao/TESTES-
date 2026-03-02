@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { GarimpadorService } from '../services/garimpador.service';
 import { GarimpadorProcessadorService } from '../services/garimpador-processador.service';
+import { GarimpadorComparadorService } from '../services/garimpador-comparador.service';
 import { ConfigurationService } from '../services/configuration.service';
 import { AppDataSource } from '../config/database';
 import { GarimpadorMensagem } from '../entities/GarimpadorMensagem';
@@ -245,6 +246,54 @@ export class GarimpadorController {
       });
     } catch (error: any) {
       console.error('[Garimpador] Erro ao processar mensagem:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * POST /api/garimpador/comparar/:id
+   * Compara produtos de uma mensagem com Oracle e envia para WhatsApp
+   */
+  static async compararUma(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+      const resultado = await GarimpadorComparadorService.compararEEnviar(id);
+      res.json({ success: true, ...resultado });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro ao comparar mensagem:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * POST /api/garimpador/comparar
+   * Compara todas as mensagens pendentes com Oracle e envia para WhatsApp
+   */
+  static async compararTodas(req: Request, res: Response) {
+    try {
+      const resultado = await GarimpadorComparadorService.processarPendentes();
+      res.json({ success: true, ...resultado });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro ao comparar mensagens:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * POST /api/garimpador/buscar-produto
+   * Busca um produto no Oracle (para testes)
+   */
+  static async buscarProduto(req: Request, res: Response) {
+    try {
+      const { descricao } = req.body;
+      if (!descricao) {
+        return res.status(400).json({ success: false, error: 'Campo "descricao" obrigatorio' });
+      }
+
+      const produto = await GarimpadorComparadorService.buscarProdutoOracle(descricao);
+      res.json({ success: true, produto });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro ao buscar produto:', error);
       res.status(500).json({ success: false, error: error.message });
     }
   }
