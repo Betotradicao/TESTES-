@@ -205,6 +205,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/garimpador-ranking': 'oferta-radar',
       '/garimpador-projecao': 'oferta-radar',
       '/garimpador-fora-mix': 'oferta-radar',
+      '/garimpador-produtos-pesquisar': 'oferta-radar',
       '/nota-fiscal-recebimento': 'financas-radar',
       '/notas-a-chegar': 'financas-radar',
       '/demonstrativo-caixa': 'financas-radar',
@@ -594,6 +595,17 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+            </svg>
+          )
+        },
+        {
+          id: 'garimpador-produtos-pesquisar',
+          moduleId: 'garimpa-fornecedores',
+          title: 'PRODUTOS A ELIMINAR',
+          path: '/garimpador-produtos-pesquisar',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
             </svg>
           )
         }

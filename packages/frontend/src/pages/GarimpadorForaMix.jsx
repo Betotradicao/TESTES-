@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { api } from '../utils/api';
 
@@ -22,8 +22,17 @@ export default function GarimpadorForaMix() {
   const [colunas, setColunas] = useState(COLUNAS_DEFAULT);
   const [dragIdx, setDragIdx] = useState(null);
   const [tabloidUrl, setTabloidUrl] = useState(null);
+  const [excluidos, setExcluidos] = useState(new Set());
+  const [salvando, setSalvando] = useState(false);
 
   const fmtBRL = (v) => Number(v || 0).toFixed(2).replace('.', ',');
+
+  // Carregar exclusoes salvas
+  useEffect(() => {
+    api.get('/garimpador/produtos-excluidos').then(({ data }) => {
+      setExcluidos(new Set((data.excluidos || []).map(String)));
+    }).catch(() => {});
+  }, []);
 
   const fetchProdutos = useCallback(async () => {
     try {
@@ -42,13 +51,47 @@ export default function GarimpadorForaMix() {
 
   useEffect(() => { fetchProdutos(); }, [fetchProdutos]);
 
-  // Filtro local por busca
-  const produtosFiltrados = busca.trim()
-    ? produtos.filter(p =>
-        p.produtoNome.toUpperCase().includes(busca.toUpperCase()) ||
-        p.fornecedor.toUpperCase().includes(busca.toUpperCase())
-      )
-    : produtos;
+  // Excluir produto (adiciona nome normalizado a lista)
+  const excluirProduto = async (produtoNome) => {
+    const nomeNorm = produtoNome.toUpperCase().trim();
+    const novosExcluidos = new Set(excluidos);
+    novosExcluidos.add(nomeNorm);
+    setExcluidos(novosExcluidos);
+
+    // Salvar no backend
+    try {
+      await api.post('/garimpador/produtos-excluidos', {
+        excluidos: Array.from(novosExcluidos),
+      });
+    } catch (err) {
+      console.error('Erro ao salvar exclusao:', err);
+    }
+  };
+
+  // Restaurar produto excluido
+  const restaurarProduto = async (produtoNome) => {
+    const nomeNorm = produtoNome.toUpperCase().trim();
+    const novosExcluidos = new Set(excluidos);
+    novosExcluidos.delete(nomeNorm);
+    setExcluidos(novosExcluidos);
+
+    try {
+      await api.post('/garimpador/produtos-excluidos', {
+        excluidos: Array.from(novosExcluidos),
+      });
+    } catch (err) {
+      console.error('Erro ao restaurar produto:', err);
+    }
+  };
+
+  // Filtro local por busca (e remove excluidos)
+  const produtosFiltrados = produtos.filter(p => {
+    const nomeNorm = (p.produtoNome || '').toUpperCase().trim();
+    if (excluidos.has(nomeNorm)) return false;
+    if (!busca.trim()) return true;
+    return p.produtoNome.toUpperCase().includes(busca.toUpperCase()) ||
+           p.fornecedor.toUpperCase().includes(busca.toUpperCase());
+  });
 
   // Ordenacao
   const produtosOrdenados = [...produtosFiltrados];
@@ -114,7 +157,7 @@ export default function GarimpadorForaMix() {
         return <span className="text-gray-500">{p.dataRecebido ? new Date(p.dataRecebido).toLocaleDateString('pt-BR') : '-'}</span>;
       case 'ocorrencias':
         return (
-          <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+          <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
             p.ocorrencias > 2 ? 'bg-red-100 text-red-700' :
             p.ocorrencias > 1 ? 'bg-yellow-100 text-yellow-700' :
             'bg-gray-100 text-gray-600'
@@ -125,13 +168,13 @@ export default function GarimpadorForaMix() {
       case 'tabloid':
         return p.mediaUrl ? (
           <button
-            onClick={() => setTabloidUrl(p.mediaUrl)}
-            className="text-blue-600 hover:text-blue-800 underline text-[10px] font-medium"
+            onClick={(e) => { e.stopPropagation(); setTabloidUrl(p.mediaUrl); }}
+            className="text-blue-600 hover:text-blue-800 underline text-xs font-medium"
           >
             Ver
           </button>
         ) : (
-          <span className="text-gray-300 text-[10px]">-</span>
+          <span className="text-gray-300 text-xs">-</span>
         );
       default:
         return '-';
@@ -150,13 +193,19 @@ export default function GarimpadorForaMix() {
             </div>
             <div className="flex gap-3">
               <div className="bg-white/20 rounded-lg p-3 text-center min-w-[80px]">
-                <div className="text-2xl font-bold">{produtos.length}</div>
+                <div className="text-2xl font-bold">{produtosOrdenados.length}</div>
                 <div className="text-xs text-orange-100">Produtos</div>
               </div>
               <div className="bg-white/20 rounded-lg p-3 text-center min-w-[80px]">
                 <div className="text-2xl font-bold">{fornecedoresUnicos}</div>
                 <div className="text-xs text-orange-100">Fornecedores</div>
               </div>
+              {excluidos.size > 0 && (
+                <div className="bg-white/20 rounded-lg p-3 text-center min-w-[80px]">
+                  <div className="text-2xl font-bold">{excluidos.size}</div>
+                  <div className="text-xs text-orange-100">Excluidos</div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -187,7 +236,7 @@ export default function GarimpadorForaMix() {
         </div>
 
         {/* Dica de reordenacao */}
-        <div className="text-[10px] text-gray-400 text-right">
+        <div className="text-xs text-gray-400 text-right">
           Arraste os cabecalhos para reordenar colunas | Clique para ordenar A-Z
         </div>
 
@@ -206,7 +255,7 @@ export default function GarimpadorForaMix() {
               </h3>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="text-left p-2.5 font-semibold text-gray-600 w-8">#</th>
@@ -228,6 +277,7 @@ export default function GarimpadorForaMix() {
                         </span>
                       </th>
                     ))}
+                    <th className="p-2.5 font-semibold text-gray-600 text-center w-20">Acao</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -241,6 +291,15 @@ export default function GarimpadorForaMix() {
                           {renderCell(p, col)}
                         </td>
                       ))}
+                      <td className="p-2.5 text-center">
+                        <button
+                          onClick={() => excluirProduto(p.produtoNome)}
+                          className="bg-red-50 text-red-600 hover:bg-red-100 px-2 py-1 rounded text-xs font-medium transition-colors"
+                          title="Excluir dos cruzamentos"
+                        >
+                          Excluir
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

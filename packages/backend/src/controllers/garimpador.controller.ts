@@ -374,4 +374,53 @@ export class GarimpadorController {
       res.status(500).json({ success: false, error: error.message });
     }
   }
+
+  /**
+   * GET /api/garimpador/produtos-pesquisar
+   */
+  static async getProdutosPesquisar(req: Request, res: Response) {
+    try {
+      const { codSecao, codGrupo, codSubGrupo, tipoEspecie, tipoEvento } = req.query as any;
+      const produtos = await GarimpadorAnalyticsService.getProdutosPesquisar({
+        codSecao, codGrupo, codSubGrupo, tipoEspecie, tipoEvento,
+      });
+      res.json({ success: true, total: produtos.length, produtos });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro produtos pesquisar:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/garimpador/produtos-excluidos
+   * Retorna lista de codigos de produtos excluidos dos cruzamentos
+   */
+  static async getProdutosExcluidos(req: Request, res: Response) {
+    try {
+      const raw = await ConfigurationService.get('garimpador_produtos_excluidos', '[]');
+      const excluidos = JSON.parse(raw || '[]');
+      res.json({ success: true, total: excluidos.length, excluidos });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro ao buscar excluidos:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * POST /api/garimpador/produtos-excluidos
+   * Salva lista de codigos de produtos excluidos dos cruzamentos
+   */
+  static async salvarProdutosExcluidos(req: Request, res: Response) {
+    try {
+      const { excluidos } = req.body;
+      if (!Array.isArray(excluidos)) {
+        return res.status(400).json({ success: false, error: 'Campo "excluidos" deve ser um array' });
+      }
+      await ConfigurationService.set('garimpador_produtos_excluidos', JSON.stringify(excluidos));
+      res.json({ success: true, total: excluidos.length });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro ao salvar excluidos:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
 }

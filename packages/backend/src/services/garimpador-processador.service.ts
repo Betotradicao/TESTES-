@@ -164,7 +164,22 @@ export class GarimpadorProcessadorService {
         {
           role: 'system',
           content: `Voce e um extrator de dados de ofertas de supermercado. Analise a imagem e extraia TODOS os produtos e precos visiveis.
-Retorne APENAS um JSON array no formato: [{"produto": "descricao do produto", "preco": 9.99}]
+
+IMPORTANTE sobre CONDICOES DE PRECO:
+Muitos encartes tem precos diferentes por condicao de pagamento. Exemplos:
+- Preco normal: 6,79
+- Cliente APP: 6,49
+- Cartao da loja: 6,29
+- Atacado (acima de X unidades): 5,99
+
+Quando um produto tiver MULTIPLOS precos/condicoes, use o MENOR preco como "preco" principal e liste TODAS as condicoes no campo "condicoes".
+
+Retorne APENAS um JSON array no formato:
+[{"produto": "descricao do produto", "preco": 5.99, "condicoes": [{"tipo": "Normal", "preco": 6.79}, {"tipo": "Cliente APP", "preco": 6.49}, {"tipo": "Cartao Loja", "preco": 5.99}]}]
+
+Se o produto tiver apenas UM preco (sem condicoes), retorne sem o campo condicoes:
+[{"produto": "descricao do produto", "preco": 9.99}]
+
 Se nao conseguir identificar produtos/precos, retorne [].
 Nao inclua explicacoes, apenas o JSON.`
         },

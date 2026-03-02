@@ -168,14 +168,14 @@ export default function GarimpaFornecedores() {
           {/* Lista de Contatos */}
           <div className="lg:col-span-1 bg-white rounded-lg shadow overflow-hidden">
             <div className="p-3 border-b bg-gray-50">
-              <h2 className="font-semibold text-gray-800 text-sm mb-2">Contatos</h2>
+              <h2 className="font-semibold text-gray-800 text-base mb-2">Contatos</h2>
               {/* Busca */}
               <input
                 type="text"
                 placeholder="Buscar por nome ou telefone..."
                 value={busca}
                 onChange={e => setBusca(e.target.value)}
-                className="w-full px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-orange-300 focus:outline-none"
+                className="w-full px-3 py-2 border rounded-lg text-base focus:ring-2 focus:ring-orange-300 focus:outline-none"
               />
               {/* Filtro por tipo */}
               <div className="flex gap-1 mt-2">
@@ -188,7 +188,7 @@ export default function GarimpaFornecedores() {
                   <button
                     key={f.val}
                     onClick={() => setFiltroTipo(f.val)}
-                    className={`flex-1 text-xs py-1.5 rounded-md transition-colors flex flex-col items-center ${
+                    className={`flex-1 text-sm py-1.5 rounded-md transition-colors flex flex-col items-center ${
                       filtroTipo === f.val
                         ? f.color === 'gray' ? 'bg-gray-600 text-white'
                         : f.color === 'yellow' ? 'bg-yellow-500 text-white'
@@ -198,7 +198,7 @@ export default function GarimpaFornecedores() {
                     }`}
                   >
                     <span>{f.label}</span>
-                    <span className="font-bold text-[10px]">{f.count}</span>
+                    <span className="font-bold text-xs">{f.count}</span>
                   </button>
                 ))}
               </div>
@@ -238,20 +238,20 @@ export default function GarimpaFornecedores() {
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm text-gray-900 truncate">
+                        <div className="font-medium text-base text-gray-900 truncate">
                           {contato.nome || formatTelefone(contato.telefone)}
                         </div>
                         {contato.nome && (
-                          <div className="text-xs text-gray-400 truncate">{formatTelefone(contato.telefone)}</div>
+                          <div className="text-sm text-gray-400 truncate">{formatTelefone(contato.telefone)}</div>
                         )}
-                        <div className="text-xs text-gray-400 mt-0.5">
+                        <div className="text-sm text-gray-400 mt-0.5">
                           {contato.totalMensagens} msgs
                           {contato.ultimaMensagem && ` - ${formatData(contato.ultimaMensagem)}`}
                         </div>
                       </div>
                       {/* Badge de tipo + botão lixeira */}
                       <div className="flex items-center gap-1">
-                        <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
+                        <span className={`text-sm px-2 py-0.5 rounded-full whitespace-nowrap ${
                           contato.tipo === 'fornecedor' ? 'bg-blue-100 text-blue-700' :
                           contato.tipo === 'concorrente' ? 'bg-red-100 text-red-700' :
                           'bg-yellow-100 text-yellow-700'
@@ -275,7 +275,7 @@ export default function GarimpaFornecedores() {
 
                     {/* Radio buttons de classificação */}
                     <div className="flex gap-4 mt-2" onClick={e => e.stopPropagation()}>
-                      <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                      <label className="flex items-center gap-1.5 text-sm cursor-pointer">
                         <input
                           type="radio"
                           name={`tipo-${contato.id}`}
@@ -285,7 +285,7 @@ export default function GarimpaFornecedores() {
                         />
                         <span className="text-gray-600">Fornecedor</span>
                       </label>
-                      <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                      <label className="flex items-center gap-1.5 text-sm cursor-pointer">
                         <input
                           type="radio"
                           name={`tipo-${contato.id}`}
@@ -306,18 +306,18 @@ export default function GarimpaFornecedores() {
           <div className="lg:col-span-2 bg-white rounded-lg shadow overflow-hidden">
             <div className="p-3 border-b bg-gray-50 flex items-center justify-between">
               <div>
-                <h2 className="font-semibold text-gray-800 text-sm">
+                <h2 className="font-semibold text-gray-800 text-base">
                   {contatoSelecionado
                     ? `Mensagens de ${contatoSelecionado.nome || formatTelefone(contatoSelecionado.telefone)}`
                     : 'Mensagens'
                   }
                 </h2>
                 {contatoSelecionado && (
-                  <p className="text-xs text-gray-500">{totalMensagens} mensagem(ns)</p>
+                  <p className="text-sm text-gray-500">{totalMensagens} mensagem(ns)</p>
                 )}
               </div>
               {contatoSelecionado && (
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                <span className={`text-sm px-2 py-0.5 rounded-full ${
                   contatoSelecionado.tipo === 'fornecedor' ? 'bg-blue-100 text-blue-700' :
                   contatoSelecionado.tipo === 'concorrente' ? 'bg-red-100 text-red-700' :
                   'bg-yellow-100 text-yellow-700'
@@ -334,7 +334,7 @@ export default function GarimpaFornecedores() {
                   <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                   </svg>
-                  <p className="text-sm">Selecione um contato para ver as mensagens</p>
+                  <p className="text-base">Selecione um contato para ver as mensagens</p>
                 </div>
               ) : loadingMsgs ? (
                 <div className="p-8 text-center text-gray-400">
@@ -353,14 +353,14 @@ export default function GarimpaFornecedores() {
                         <span className="text-lg" title={msg.tipo_midia}>{iconMidia(msg.tipo_midia)}</span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs text-gray-400">
+                            <span className="text-sm text-gray-400">
                               {formatData(msg.received_at)}
                             </span>
                             {msg.sender_name && (
-                              <span className="text-xs text-gray-500 font-medium">{msg.sender_name}</span>
+                              <span className="text-sm text-gray-500 font-medium">{msg.sender_name}</span>
                             )}
                             {msg.processado && (
-                              <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Processado</span>
+                              <span className="text-sm bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Processado</span>
                             )}
                           </div>
                           {/* Conteúdo */}
@@ -403,7 +403,7 @@ export default function GarimpaFornecedores() {
                               // Formato com resultados de comparacao (apos etapa 3)
                               if (dados.produtos_originais && dados.resultados_comparacao) {
                                 return (
-                                  <div className="mt-1 p-2 bg-gray-50 rounded text-xs space-y-2">
+                                  <div className="mt-1 p-2 bg-gray-50 rounded text-sm space-y-2">
                                     <span className="font-medium text-gray-700 block mb-1">Produtos extraidos ({dados.produtos_originais.length}):</span>
                                     {dados.produtos_originais.map((item, idx) => {
                                       const match = dados.resultados_comparacao.find(r => r.produtoOfertado === item.produto);
@@ -425,7 +425,7 @@ export default function GarimpaFornecedores() {
                                             </div>
                                           )}
                                           {isBoaOferta && (
-                                            <div className="text-green-600 font-semibold mt-0.5 text-[10px]">
+                                            <div className="text-green-600 font-semibold mt-0.5 text-xs">
                                               Enviado para WhatsApp - {match.classificacao?.toUpperCase()}
                                             </div>
                                           )}
@@ -440,7 +440,7 @@ export default function GarimpaFornecedores() {
                               let prods = Array.isArray(dados) ? dados : null;
                               if (prods && prods.length > 0 && prods[0].produto) {
                                 return (
-                                  <div className="mt-1 p-2 bg-blue-50 rounded text-xs text-blue-800">
+                                  <div className="mt-1 p-2 bg-blue-50 rounded text-sm text-blue-800">
                                     <span className="font-medium block mb-1">Produtos extraidos:</span>
                                     {prods.map((item, idx) => (
                                       <div key={idx} className="flex justify-between py-0.5 border-b border-blue-100 last:border-0">
@@ -454,7 +454,7 @@ export default function GarimpaFornecedores() {
                             } catch {}
                             // Fallback: mostra texto bruto
                             return (
-                              <div className="mt-1 p-2 bg-blue-50 rounded text-xs text-blue-800">
+                              <div className="mt-1 p-2 bg-blue-50 rounded text-sm text-blue-800">
                                 <span className="font-medium">Texto extraido:</span> {msg.conteudo_extraido}
                               </div>
                             );

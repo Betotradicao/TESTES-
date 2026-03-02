@@ -31,5 +31,8 @@ router.get('/analytics/ranking', GarimpadorController.getRankingFornecedores);
 router.get('/analytics/ranking/:contatoId', GarimpadorController.getDetalhesFornecedor);
 router.get('/analytics/projecao', GarimpadorController.getProjecaoPreco);
 router.get('/analytics/fora-mix', GarimpadorController.getProdutosForaMix);
+router.get('/produtos-pesquisar', GarimpadorController.getProdutosPesquisar);
+router.get('/produtos-excluidos', GarimpadorController.getProdutosExcluidos);
+router.post('/produtos-excluidos', GarimpadorController.salvarProdutosExcluidos);
 
 export default router;

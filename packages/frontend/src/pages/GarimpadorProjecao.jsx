@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { api } from '../utils/api';
 import { Line } from 'react-chartjs-2';
@@ -21,15 +21,115 @@ const CORES_FORNECEDORES = [
   '#06b6d4', '#f59e0b', '#ec4899', '#14b8a6', '#6366f1',
 ];
 
+// Datas padrao: dia 1 do mes corrente e hoje
+const hoje = new Date();
+const primeiroDiaMes = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`;
+const hojeFmt = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+
 export default function GarimpadorProjecao() {
   const [termoBusca, setTermoBusca] = useState('');
-  const [dataInicio, setDataInicio] = useState('');
-  const [dataFim, setDataFim] = useState('');
+  const [dataInicio, setDataInicio] = useState(primeiroDiaMes);
+  const [dataFim, setDataFim] = useState(hojeFmt);
   const [apenasMinimo, setApenasMinimo] = useState(false);
   const [resultado, setResultado] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // Produtos encontrados no periodo
+  const [produtosEncontrados, setProdutosEncontrados] = useState([]);
+  const [loadingProdutos, setLoadingProdutos] = useState(false);
+
+  // Filtros de Secao/Grupo/SubGrupo
+  const [secoesDisponiveis, setSecoesDisponiveis] = useState([]);
+  const [gruposDisponiveis, setGruposDisponiveis] = useState([]);
+  const [subgruposDisponiveis, setSubgruposDisponiveis] = useState([]);
+  const [filtroSecao, setFiltroSecao] = useState('');
+  const [filtroGrupo, setFiltroGrupo] = useState('');
+  const [filtroSubgrupo, setFiltroSubgrupo] = useState('');
+
   const fmtBRL = (v) => Number(v || 0).toFixed(2).replace('.', ',');
+
+  // Buscar lista de produtos encontrados no periodo
+  const fetchProdutosEncontrados = useCallback(async () => {
+    try {
+      setLoadingProdutos(true);
+      const params = {};
+      if (dataInicio) params.dataInicio = dataInicio;
+      if (dataFim) params.dataFim = dataFim;
+      const { data } = await api.get('/garimpador/analytics/ranking', { params });
+      // Extrair produtos unicos de todos os fornecedores
+      const ranking = data.ranking || [];
+      const todosProdutos = [];
+      for (const forn of ranking) {
+        try {
+          const { data: det } = await api.get(`/garimpador/analytics/ranking/${forn.contatoId}`);
+          const itens = det.itens || [];
+          for (const item of itens) {
+            const nome = (item.produtoLoja || item.produtoOfertado || '').toUpperCase().trim();
+            if (nome && !todosProdutos.find(p => p.nome === nome)) {
+              todosProdutos.push({
+                nome,
+                display: item.produtoLoja || item.produtoOfertado,
+                classificacao: item.classificacao,
+                preco: item.precoOferta,
+                fornecedor: forn.nome,
+                secao: item.secao || '-',
+                grupo: item.grupo || '-',
+                subgrupo: item.subgrupo || '-',
+              });
+            }
+          }
+        } catch {}
+      }
+      // Ordenar por nome
+      todosProdutos.sort((a, b) => a.nome.localeCompare(b.nome));
+      setProdutosEncontrados(todosProdutos);
+
+      // Extrair secoes/grupos/subgrupos unicos
+      const secSet = new Set();
+      const grpSet = new Set();
+      const subSet = new Set();
+      for (const p of todosProdutos) {
+        if (p.secao && p.secao !== '-') secSet.add(p.secao);
+        if (p.grupo && p.grupo !== '-') grpSet.add(p.grupo);
+        if (p.subgrupo && p.subgrupo !== '-') subSet.add(p.subgrupo);
+      }
+      setSecoesDisponiveis([...secSet].sort());
+      setGruposDisponiveis([...grpSet].sort());
+      setSubgruposDisponiveis([...subSet].sort());
+    } catch (err) {
+      console.error('Erro ao buscar produtos encontrados:', err);
+    } finally {
+      setLoadingProdutos(false);
+    }
+  }, [dataInicio, dataFim]);
+
+  // Ao carregar a pagina, buscar produtos encontrados
+  useEffect(() => { fetchProdutosEncontrados(); }, []);
+
+  // Filtrar grupos e subgrupos baseados na selecao
+  const gruposFiltrados = filtroSecao
+    ? gruposDisponiveis.filter(g => {
+        return produtosEncontrados.some(p => p.secao === filtroSecao && p.grupo === g);
+      })
+    : gruposDisponiveis;
+
+  const subgruposFiltrados = (filtroSecao || filtroGrupo)
+    ? subgruposDisponiveis.filter(sg => {
+        return produtosEncontrados.some(p =>
+          (!filtroSecao || p.secao === filtroSecao) &&
+          (!filtroGrupo || p.grupo === filtroGrupo) &&
+          p.subgrupo === sg
+        );
+      })
+    : subgruposDisponiveis;
+
+  // Produtos filtrados
+  const produtosFiltrados = produtosEncontrados.filter(p => {
+    if (filtroSecao && p.secao !== filtroSecao) return false;
+    if (filtroGrupo && p.grupo !== filtroGrupo) return false;
+    if (filtroSubgrupo && p.subgrupo !== filtroSubgrupo) return false;
+    return true;
+  });
 
   const buscar = useCallback(async () => {
     if (!termoBusca.trim()) return;
@@ -51,13 +151,30 @@ export default function GarimpadorProjecao() {
     if (e.key === 'Enter') buscar();
   };
 
+  const selecionarProduto = (produto) => {
+    setTermoBusca(produto.display);
+    setTimeout(async () => {
+      try {
+        setLoading(true);
+        const params = { termo: produto.display };
+        if (dataInicio) params.dataInicio = dataInicio;
+        if (dataFim) params.dataFim = dataFim;
+        const { data } = await api.get('/garimpador/analytics/projecao', { params });
+        setResultado(data);
+      } catch (err) {
+        console.error('Erro ao buscar projecao:', err);
+      } finally {
+        setLoading(false);
+      }
+    }, 0);
+  };
+
   // Montar dados do grafico
   const montarChartData = () => {
     if (!resultado?.pontos?.length) return null;
 
     let pontos = [...resultado.pontos];
 
-    // Se "apenas minimo por dia", filtra
     if (apenasMinimo) {
       const porDia = new Map();
       for (const p of pontos) {
@@ -69,7 +186,6 @@ export default function GarimpadorProjecao() {
       pontos = Array.from(porDia.values());
     }
 
-    // Agrupar por fornecedor
     const fornecedores = [...new Set(pontos.map(p => p.fornecedor))];
     const labels = [...new Set(pontos.map(p => {
       const d = new Date(p.data);
@@ -124,6 +240,13 @@ export default function GarimpadorProjecao() {
     },
   };
 
+  const classifColor = (c) => {
+    if (c === 'ouro') return 'bg-yellow-100 text-yellow-800';
+    if (c === 'prata') return 'bg-gray-100 text-gray-700';
+    if (c === 'bronze') return 'bg-orange-100 text-orange-700';
+    return 'bg-red-50 text-red-600';
+  };
+
   return (
     <Layout>
       <div className="p-4 lg:p-6 space-y-4">
@@ -173,12 +296,140 @@ export default function GarimpadorProjecao() {
               <input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)}
                 className="border rounded px-2 py-1 text-sm" />
             </div>
+            <button
+              onClick={fetchProdutosEncontrados}
+              className="text-orange-600 hover:text-orange-800 text-xs font-medium underline"
+            >
+              Atualizar lista
+            </button>
           </div>
         </div>
+
+        {/* Produtos encontrados no periodo */}
+        {!resultado && (
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="p-3 border-b flex items-center justify-between">
+              <h3 className="font-semibold text-gray-700">
+                Produtos encontrados no periodo
+              </h3>
+              <span className="text-sm text-gray-400">
+                {loadingProdutos ? 'Carregando...' : `${produtosFiltrados.length} produto${produtosFiltrados.length !== 1 ? 's' : ''}`}
+              </span>
+            </div>
+
+            {/* Filtros Secao / Grupo / SubGrupo */}
+            <div className="p-3 border-b bg-gray-50 flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-semibold text-gray-500">Secao</label>
+                <select
+                  value={filtroSecao}
+                  onChange={(e) => { setFiltroSecao(e.target.value); setFiltroGrupo(''); setFiltroSubgrupo(''); }}
+                  className="border rounded px-2 py-1 text-sm bg-white min-w-[160px]"
+                >
+                  <option value="">Todos</option>
+                  {secoesDisponiveis.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-semibold text-gray-500">Grupo</label>
+                <select
+                  value={filtroGrupo}
+                  onChange={(e) => { setFiltroGrupo(e.target.value); setFiltroSubgrupo(''); }}
+                  className="border rounded px-2 py-1 text-sm bg-white min-w-[160px]"
+                >
+                  <option value="">Todos</option>
+                  {gruposFiltrados.map(g => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-semibold text-gray-500">SubGrupo</label>
+                <select
+                  value={filtroSubgrupo}
+                  onChange={(e) => setFiltroSubgrupo(e.target.value)}
+                  className="border rounded px-2 py-1 text-sm bg-white min-w-[160px]"
+                >
+                  <option value="">Todos</option>
+                  {subgruposFiltrados.map(sg => (
+                    <option key={sg} value={sg}>{sg}</option>
+                  ))}
+                </select>
+              </div>
+              {(filtroSecao || filtroGrupo || filtroSubgrupo) && (
+                <button
+                  onClick={() => { setFiltroSecao(''); setFiltroGrupo(''); setFiltroSubgrupo(''); }}
+                  className="text-red-500 hover:text-red-700 text-xs font-medium"
+                >
+                  Limpar filtros
+                </button>
+              )}
+            </div>
+
+            {loadingProdutos ? (
+              <div className="p-6 text-center text-gray-500">Carregando produtos...</div>
+            ) : produtosFiltrados.length === 0 ? (
+              <div className="p-6 text-center text-gray-400">
+                Nenhum produto encontrado {filtroSecao || filtroGrupo || filtroSubgrupo ? 'com esses filtros' : 'no periodo selecionado'}
+              </div>
+            ) : (
+              <div className="overflow-x-auto" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="text-left p-2.5 font-semibold text-gray-600">#</th>
+                      <th className="text-left p-2.5 font-semibold text-gray-600">Produto</th>
+                      <th className="text-left p-2.5 font-semibold text-gray-600">Secao</th>
+                      <th className="text-left p-2.5 font-semibold text-gray-600">Grupo</th>
+                      <th className="text-right p-2.5 font-semibold text-gray-600">Ultimo Preco</th>
+                      <th className="text-left p-2.5 font-semibold text-gray-600">Fornecedor</th>
+                      <th className="text-center p-2.5 font-semibold text-gray-600">Classif.</th>
+                      <th className="text-center p-2.5 font-semibold text-gray-600">Acao</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {produtosFiltrados.map((p, i) => (
+                      <tr key={i} className="border-b hover:bg-orange-50 cursor-pointer" onClick={() => selecionarProduto(p)}>
+                        <td className="p-2.5 text-gray-400">{i + 1}</td>
+                        <td className="p-2.5 font-medium text-gray-800">{p.display}</td>
+                        <td className="p-2.5 text-gray-500 text-xs">{p.secao !== '-' ? p.secao : ''}</td>
+                        <td className="p-2.5 text-gray-500 text-xs">{p.grupo !== '-' ? p.grupo : ''}</td>
+                        <td className="p-2.5 text-right font-semibold text-orange-600">R$ {fmtBRL(p.preco)}</td>
+                        <td className="p-2.5 text-gray-600">{p.fornecedor}</td>
+                        <td className="p-2.5 text-center">
+                          {p.classificacao && (
+                            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${classifColor(p.classificacao)}`}>
+                              {p.classificacao.toUpperCase()}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-2.5 text-center">
+                          <button className="text-orange-500 hover:text-orange-700 text-xs font-medium">
+                            Ver Projecao
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Resultados */}
         {resultado && (
           <>
+            {/* Botao voltar pra lista */}
+            <button
+              onClick={() => { setResultado(null); setTermoBusca(''); }}
+              className="text-orange-600 hover:text-orange-800 text-sm font-medium flex items-center gap-1"
+            >
+              {'\u2190'} Voltar para lista de produtos
+            </button>
+
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-white rounded-lg shadow p-3 text-center">
@@ -218,35 +469,30 @@ export default function GarimpadorProjecao() {
                   <h3 className="text-sm font-semibold text-gray-700">Detalhes ({resultado.totalRegistros} registros)</h3>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-sm">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="text-left p-2">Data</th>
-                        <th className="text-left p-2">Produto Ofertado</th>
-                        <th className="text-right p-2">Preco</th>
-                        <th className="text-left p-2">Fornecedor</th>
-                        <th className="text-left p-2">Produto Loja</th>
-                        <th className="text-center p-2">Classif.</th>
+                        <th className="text-left p-2.5">Data</th>
+                        <th className="text-left p-2.5">Produto Ofertado</th>
+                        <th className="text-right p-2.5">Preco</th>
+                        <th className="text-left p-2.5">Fornecedor</th>
+                        <th className="text-left p-2.5">Produto Loja</th>
+                        <th className="text-center p-2.5">Classif.</th>
                       </tr>
                     </thead>
                     <tbody>
                       {resultado.pontos.map((p, i) => (
                         <tr key={i} className="border-b hover:bg-gray-50">
-                          <td className="p-2 text-gray-500">
+                          <td className="p-2.5 text-gray-500">
                             {p.data ? new Date(p.data).toLocaleDateString('pt-BR') : '-'}
                           </td>
-                          <td className="p-2 font-medium text-blue-700">{p.produtoOfertado}</td>
-                          <td className="p-2 text-right font-semibold">R$ {fmtBRL(p.preco)}</td>
-                          <td className="p-2 text-gray-600">{p.fornecedor}</td>
-                          <td className="p-2 text-green-700">{p.produtoLoja || '-'}</td>
-                          <td className="p-2 text-center">
+                          <td className="p-2.5 font-medium text-blue-700">{p.produtoOfertado}</td>
+                          <td className="p-2.5 text-right font-semibold">R$ {fmtBRL(p.preco)}</td>
+                          <td className="p-2.5 text-gray-600">{p.fornecedor}</td>
+                          <td className="p-2.5 text-green-700">{p.produtoLoja || '-'}</td>
+                          <td className="p-2.5 text-center">
                             {p.classificacao && (
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                                p.classificacao === 'ouro' ? 'bg-yellow-100 text-yellow-800' :
-                                p.classificacao === 'prata' ? 'bg-gray-100 text-gray-700' :
-                                p.classificacao === 'bronze' ? 'bg-orange-100 text-orange-700' :
-                                'bg-red-50 text-red-600'
-                              }`}>
+                              <span className={`px-2 py-0.5 rounded text-xs font-semibold ${classifColor(p.classificacao)}`}>
                                 {p.classificacao.toUpperCase()}
                               </span>
                             )}
@@ -265,13 +511,6 @@ export default function GarimpadorProjecao() {
               </div>
             )}
           </>
-        )}
-
-        {!resultado && !loading && (
-          <div className="text-center py-16 text-gray-400">
-            <div className="text-5xl mb-4">{'\u{1F4C8}'}</div>
-            <p>Busque um produto para ver a projecao de preco</p>
-          </div>
         )}
       </div>
     </Layout>

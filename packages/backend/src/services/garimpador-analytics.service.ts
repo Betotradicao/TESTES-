@@ -1,5 +1,8 @@
 import { AppDataSource } from '../config/database';
 import { GarimpadorMensagem } from '../entities/GarimpadorMensagem';
+import { OracleService } from './oracle.service';
+import { MappingService } from './mapping.service';
+import { ConfigurationService } from './configuration.service';
 
 interface RankingFornecedor {
   contatoId: number;
@@ -21,6 +24,7 @@ interface DetalheItem {
   produtoOfertado: string;
   precoOferta: number;
   produtoLoja: string | null;
+  codProdutoLoja: string | null;
   precoVendaLoja: number;
   precoCustoLoja: number;
   diferenca: number;
@@ -32,6 +36,10 @@ interface DetalheItem {
   curva: string;
   fornecedorAtual: string;
   data: string;
+  mediaUrl: string | null;
+  secao: string | null;
+  grupo: string | null;
+  subgrupo: string | null;
 }
 
 interface PontoProjecao {
@@ -218,6 +226,7 @@ export class GarimpadorAnalyticsService {
           produtoOfertado: r.produtoOfertado || '',
           precoOferta: r.precoOferta || 0,
           produtoLoja: r.produtoLoja?.descricao || null,
+          codProdutoLoja: r.produtoLoja?.codProduto ? String(r.produtoLoja.codProduto) : null,
           precoVendaLoja: r.produtoLoja?.preco_venda || 0,
           precoCustoLoja: r.produtoLoja?.preco_custo || 0,
           diferenca: r.diferenca || 0,
@@ -229,6 +238,10 @@ export class GarimpadorAnalyticsService {
           curva: r.produtoLoja?.curva || '-',
           fornecedorAtual: r.produtoLoja?.fornecedor || '-',
           data: (msg.received_at || msg.created_at)?.toISOString() || '',
+          mediaUrl: msg.media_url || null,
+          secao: r.produtoLoja?.secao || null,
+          grupo: r.produtoLoja?.grupo || null,
+          subgrupo: r.produtoLoja?.subgrupo || null,
         });
       }
     }
@@ -490,5 +503,138 @@ export class GarimpadorAnalyticsService {
       topCategorias,
       totalForaMix: foraMix.length,
     };
+  }
+
+  /**
+   * Lista produtos Oracle para pesquisa, com filtros de secao/grupo/subgrupo/especie/evento
+   */
+  static async getProdutosPesquisar(filtros: {
+    codSecao?: string;
+    codGrupo?: string;
+    codSubGrupo?: string;
+    tipoEspecie?: string;
+    tipoEvento?: string;
+  }): Promise<any[]> {
+    const schema = await MappingService.getSchema();
+    const tabProduto = await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO');
+    const tabProdutoLoja = await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA');
+    const tabSecao = await MappingService.getRealTableName('TAB_SECAO', 'TAB_SECAO');
+    const tabGrupo = await MappingService.getRealTableName('TAB_GRUPO', 'TAB_GRUPO');
+    const tabSubgrupo = await MappingService.getRealTableName('TAB_SUBGRUPO', 'TAB_SUBGRUPO');
+    const tabFornecedor = await MappingService.getRealTableName('TAB_FORNECEDOR', 'TAB_FORNECEDOR');
+
+    const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+    const colDescricao = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
+    const colCodBarras = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras', 'COD_BARRA');
+    const colCodSecao = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao', 'COD_SECAO');
+    const colCodGrupo = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo', 'COD_GRUPO');
+    const colCodSubgrupo = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo', 'COD_SUBGRUPO');
+    const colTipoEspecie = await MappingService.getColumnFromTable('TAB_PRODUTO', 'tipo_especie', 'TIP_ESPECIE');
+    const colTipoEvento = await MappingService.getColumnFromTable('TAB_PRODUTO', 'tipo_evento', 'TIP_EVENTO');
+
+    const colCodProdutoLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
+    const colCodLojaLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
+    const colPrecoCusto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo', 'VAL_CUSTO_REP');
+    const colPrecoVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda', 'VAL_VENDA');
+    const colEstoque = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual', 'QTD_EST_ATUAL');
+    const colCurva = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA');
+    const colMargem = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem', 'VAL_MARGEM');
+    const colCodFornUltCompra = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra', 'COD_FORN_ULT_COMPRA');
+
+    const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
+    const colCodSecaoSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
+    const colDesGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo', 'DES_GRUPO');
+    const colCodGrupoGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo', 'COD_GRUPO');
+    const colCodSecaoGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_secao', 'COD_SECAO');
+    const colDesSubgrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo', 'DES_SUB_GRUPO');
+    const colCodSubgrupoSub = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo', 'COD_SUB_GRUPO');
+    const colCodSecaoSub = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_secao', 'COD_SECAO');
+    const colCodGrupoSub = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_grupo', 'COD_GRUPO');
+    const colCodForn = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
+    const colRazaoSocial = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR');
+
+    const codLoja = parseInt((await ConfigurationService.get('garimpador_cod_loja', '1')) || '1');
+
+    // Montar WHERE dinamico
+    const where: string[] = ['1=1'];
+    const params: any = { codLoja };
+
+    if (filtros.codSecao) {
+      where.push(`p.${colCodSecao} = :codSecao`);
+      params.codSecao = filtros.codSecao;
+    }
+    if (filtros.codGrupo) {
+      where.push(`p.${colCodGrupo} = :codGrupo`);
+      params.codGrupo = filtros.codGrupo;
+    }
+    if (filtros.codSubGrupo) {
+      where.push(`p.${colCodSubgrupo} = :codSubGrupo`);
+      params.codSubGrupo = filtros.codSubGrupo;
+    }
+    if (filtros.tipoEspecie !== undefined && filtros.tipoEspecie !== '') {
+      where.push(`NVL(p.${colTipoEspecie}, 0) = :tipoEspecie`);
+      params.tipoEspecie = parseInt(filtros.tipoEspecie);
+    }
+    if (filtros.tipoEvento !== undefined && filtros.tipoEvento !== '') {
+      where.push(`NVL(p.${colTipoEvento}, 0) = :tipoEvento`);
+      params.tipoEvento = parseInt(filtros.tipoEvento);
+    }
+
+    const sql = `
+      SELECT
+        p.${colCodProduto} AS COD_PRODUTO,
+        p.${colCodBarras} AS COD_BARRAS,
+        p.${colDescricao} AS DESCRICAO,
+        NVL(pl.${colPrecoCusto}, 0) AS CUSTO,
+        NVL(pl.${colPrecoVenda}, 0) AS VENDA,
+        NVL(pl.${colEstoque}, 0) AS ESTOQUE,
+        NVL(pl.${colCurva}, '-') AS CURVA,
+        NVL(pl.${colMargem}, 0) AS MARGEM,
+        NVL(s.${colDesSecao}, '-') AS SECAO,
+        NVL(g.${colDesGrupo}, '-') AS GRUPO,
+        NVL(sg.${colDesSubgrupo}, '-') AS SUBGRUPO,
+        NVL(f.${colRazaoSocial}, '-') AS FORNECEDOR,
+        CASE NVL(p.${colTipoEspecie}, 0)
+          WHEN 0 THEN 'MERCADORIA'
+          WHEN 2 THEN 'SERVICO'
+          WHEN 3 THEN 'IMOBILIZADO'
+          WHEN 4 THEN 'INSUMO'
+          ELSE 'OUTROS'
+        END AS TIPO_ESPECIE,
+        CASE NVL(p.${colTipoEvento}, 0)
+          WHEN 0 THEN 'DIRETA'
+          WHEN 1 THEN 'COMPOSICAO'
+          WHEN 2 THEN 'DECOMPOSICAO'
+          WHEN 3 THEN 'PRODUCAO'
+          ELSE 'OUTROS'
+        END AS TIPO_EVENTO
+      FROM ${schema}.${tabProduto} p
+      LEFT JOIN ${schema}.${tabProdutoLoja} pl ON pl.${colCodProdutoLoja} = p.${colCodProduto} AND pl.${colCodLojaLoja} = :codLoja
+      LEFT JOIN ${schema}.${tabSecao} s ON s.${colCodSecaoSecao} = p.${colCodSecao}
+      LEFT JOIN ${schema}.${tabGrupo} g ON g.${colCodGrupoGrupo} = p.${colCodGrupo} AND g.${colCodSecaoGrupo} = p.${colCodSecao}
+      LEFT JOIN ${schema}.${tabSubgrupo} sg ON sg.${colCodSubgrupoSub} = p.${colCodSubgrupo} AND sg.${colCodSecaoSub} = p.${colCodSecao} AND sg.${colCodGrupoSub} = p.${colCodGrupo}
+      LEFT JOIN ${schema}.${tabFornecedor} f ON f.${colCodForn} = pl.${colCodFornUltCompra}
+      WHERE ${where.join(' AND ')}
+      ORDER BY p.${colDescricao}
+    `;
+
+    const rows = await OracleService.query<any>(sql, params);
+
+    return rows.map((r: any) => ({
+      codProduto: r.COD_PRODUTO,
+      codBarras: r.COD_BARRAS || '',
+      descricao: r.DESCRICAO || '',
+      custo: parseFloat(r.CUSTO) || 0,
+      venda: parseFloat(r.VENDA) || 0,
+      estoque: parseFloat(r.ESTOQUE) || 0,
+      curva: r.CURVA || '-',
+      margem: parseFloat(r.MARGEM) || 0,
+      secao: r.SECAO || '-',
+      grupo: r.GRUPO || '-',
+      subgrupo: r.SUBGRUPO || '-',
+      fornecedor: r.FORNECEDOR || '-',
+      tipoEspecie: r.TIPO_ESPECIE || 'OUTROS',
+      tipoEvento: r.TIPO_EVENTO || 'OUTROS',
+    }));
   }
 }

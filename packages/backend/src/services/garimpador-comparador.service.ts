@@ -7,13 +7,20 @@ import { OracleService } from './oracle.service';
 import { WhatsAppService } from './whatsapp.service';
 import axios from 'axios';
 
+interface CondicaoPreco {
+  tipo: string;
+  preco: number;
+}
+
 interface ProdutoExtraido {
   produto: string;
   preco: number;
   condicao?: string;
+  condicoes?: CondicaoPreco[];
 }
 
 interface ProdutoOracle {
+  codProduto: string;
   codigo_barras: string;
   descricao: string;
   preco_custo: number;
@@ -36,6 +43,7 @@ interface ResultadoComparacao {
   produtoOfertado: string;
   precoOferta: number;
   condicao?: string;
+  condicoes?: CondicaoPreco[];
   produtoLoja: ProdutoOracle | null;
   diferenca: number;
   boaOferta: boolean;
@@ -79,6 +87,13 @@ export class GarimpadorComparadorService {
     const resultados: ResultadoComparacao[] = [];
     let enviadas = 0;
 
+    // Carregar produtos excluidos
+    let produtosExcluidos: string[] = [];
+    try {
+      const raw = await ConfigurationService.get('garimpador_produtos_excluidos', '[]');
+      produtosExcluidos = JSON.parse(raw || '[]');
+    } catch { }
+
     for (const prod of produtos) {
       try {
         // 1. Buscar produto no Oracle
@@ -97,7 +112,14 @@ export class GarimpadorComparadorService {
 
         resultados.push(resultado);
 
-        // 4. Se for boa oferta (preco oferta < custo), enviar para WhatsApp
+        // 4. Verificar se produto esta excluido
+        const codProdStr = String(produtoOracle.codProduto);
+        if (produtosExcluidos.includes(codProdStr)) {
+          console.log(`[Garimpador Comparador] Produto ${codProdStr} excluido - nao envia pro WhatsApp`);
+          continue;
+        }
+
+        // 5. Se for boa oferta (preco oferta < custo), enviar para WhatsApp
         if (resultado.boaOferta) {
           const msgFormatada = this.formatarMensagem(resultado, tipoContato, contato);
           const enviou = await this.enviarParaGrupo(msgFormatada, resultado.classificacao, tipoContato);
@@ -156,9 +178,11 @@ export class GarimpadorComparadorService {
       const colPedidoCompra = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pedido_compra', 'QTD_PEDIDO_COMPRA');
       const colCurva = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA');
       const colVendaMedia = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'venda_media', 'VAL_VENDA_MEDIA');
-      const colMargemFixa = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem_fixa', 'VAL_MARGEM_FIXA');
+      const colMargem = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem', 'VAL_MARGEM');
       // pesquisa_media = preco medio da pesquisa de concorrente (pode nao existir em todos os clientes)
       const colPesquisaMedia = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pesquisa_media', 'VAL_PESQUISA_MEDIA');
+      // Fornecedor da ultima compra (campo correto para pegar fornecedor do produto)
+      const colCodFornUltCompra = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra', 'COD_FORN_ULT_COMPRA');
 
       // Coluna COD_LOJA para filtrar loja correta
       const colCodLojaLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
@@ -228,6 +252,7 @@ export class GarimpadorComparadorService {
       const sql = `
         SELECT * FROM (
           SELECT
+            p.${colCodProduto} AS COD_PRODUTO,
             p.${colCodBarras} AS CODIGO_BARRAS,
             p.${colDescricao} AS DESCRICAO,
             NVL(pl.${colPrecoCusto}, 0) AS PRECO_CUSTO,
@@ -238,7 +263,7 @@ export class GarimpadorComparadorService {
             NVL(pl.${colPedidoCompra}, 0) AS PEDIDO_COMPRA,
             NVL(pl.${colCurva}, '-') AS CURVA,
             NVL(pl.${colVendaMedia}, 0) AS VENDA_MEDIA_DIA,
-            NVL(pl.${colMargemFixa}, 0) AS MARGEM_REFERENCIA,
+            NVL(pl.${colMargem}, 0) AS MARGEM_REFERENCIA,
             NVL(s.${colDesSecao}, '-') AS SECAO,
             NVL(g.${colDesGrupo}, '-') AS GRUPO,
             NVL(sg.${colDesSubgrupo}, '-') AS SUBGRUPO,
@@ -255,7 +280,7 @@ export class GarimpadorComparadorService {
           LEFT JOIN ${schema}.${tabSecao} s ON s.${colCodSecaoSecao} = p.${colCodSecao}
           LEFT JOIN ${schema}.${tabGrupo} g ON g.${colCodGrupoGrupo} = p.${colCodGrupo} AND g.${colCodSecaoGrupo} = p.${colCodSecao}
           LEFT JOIN ${schema}.${tabSubgrupo} sg ON sg.${colCodSubgrupoSub} = p.${colCodSubgrupo} AND sg.${colCodSecaoSub} = p.${colCodSecao} AND sg.${colCodGrupoSub} = p.${colCodGrupo}
-          LEFT JOIN ${schema}.${tabFornecedor} f ON f.${colCodForn} = p.${colCodFornecedor}
+          LEFT JOIN ${schema}.${tabFornecedor} f ON f.${colCodForn} = pl.${colCodFornUltCompra}
           WHERE (${orConds})
           ORDER BY (${scoreCalc}) DESC, NVL(pl.${colPrecoVenda}, 0) DESC
         ) WHERE ROWNUM <= 5 AND MATCH_SCORE >= :minScore
@@ -299,6 +324,7 @@ export class GarimpadorComparadorService {
    */
   private static mapearProdutoOracle(row: any): ProdutoOracle {
     return {
+      codProduto: String(row.COD_PRODUTO || ''),
       codigo_barras: String(row.CODIGO_BARRAS || ''),
       descricao: String(row.DESCRICAO || ''),
       preco_custo: parseFloat(row.PRECO_CUSTO) || 0,
@@ -440,7 +466,8 @@ export class GarimpadorComparadorService {
       const colPedidoCompra = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pedido_compra', 'QTD_PEDIDO_COMPRA');
       const colCurva = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA');
       const colVendaMedia = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'venda_media', 'VAL_VENDA_MEDIA');
-      const colMargemFixa = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem_fixa', 'VAL_MARGEM_FIXA');
+      const colMargem = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem', 'VAL_MARGEM');
+      const colCodFornUltCompra = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra', 'COD_FORN_ULT_COMPRA');
 
       const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
       const colDesGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo', 'DES_GRUPO');
@@ -464,6 +491,7 @@ export class GarimpadorComparadorService {
 
       const sql = `
         SELECT
+          p.${colCodProduto} AS COD_PRODUTO,
           p.${colCodBarras} AS CODIGO_BARRAS,
           p.${colDescricao} AS DESCRICAO,
           NVL(pl.${colPrecoCusto}, 0) AS PRECO_CUSTO,
@@ -474,7 +502,7 @@ export class GarimpadorComparadorService {
           NVL(pl.${colPedidoCompra}, 0) AS PEDIDO_COMPRA,
           NVL(pl.${colCurva}, '-') AS CURVA,
           NVL(pl.${colVendaMedia}, 0) AS VENDA_MEDIA_DIA,
-          NVL(pl.${colMargemFixa}, 0) AS MARGEM_REFERENCIA,
+          NVL(pl.${colMargem}, 0) AS MARGEM_REFERENCIA,
           NVL(s.${colDesSecao}, '-') AS SECAO,
           NVL(g.${colDesGrupo}, '-') AS GRUPO,
           NVL(sg.${colDesSubgrupo}, '-') AS SUBGRUPO,
@@ -490,7 +518,7 @@ export class GarimpadorComparadorService {
         LEFT JOIN ${schema}.${tabSecao} s ON s.${colCodSecaoSecao} = p.${colCodSecao}
         LEFT JOIN ${schema}.${tabGrupo} g ON g.${colCodGrupoGrupo} = p.${colCodGrupo} AND g.${colCodSecaoGrupo} = p.${colCodSecao}
         LEFT JOIN ${schema}.${tabSubgrupo} sg ON sg.${colCodSubgrupoSub} = p.${colCodSubgrupo} AND sg.${colCodSecaoSub} = p.${colCodSecao} AND sg.${colCodGrupoSub} = p.${colCodGrupo}
-        LEFT JOIN ${schema}.${tabFornecedor} f ON f.${colCodForn} = p.${colCodFornecedor}
+        LEFT JOIN ${schema}.${tabFornecedor} f ON f.${colCodForn} = pl.${colCodFornUltCompra}
         WHERE p.${colCodProduto} = :codProduto
       `;
 
@@ -572,6 +600,7 @@ export class GarimpadorComparadorService {
       produtoOfertado: prodExtraido.produto,
       precoOferta,
       condicao: prodExtraido.condicao,
+      condicoes: prodExtraido.condicoes,
       produtoLoja: prodOracle,
       diferenca: parseFloat(diferenca.toFixed(2)),
       boaOferta,
@@ -634,8 +663,14 @@ export class GarimpadorComparadorService {
     }
     msg += `📉 Diferença: R$ ${fmtBRL(resultado.diferenca)}\n\n`;
 
-    // Condicao (so se existir, igual no n8n)
-    if (resultado.condicao) {
+    // Condicoes de preco (Normal, APP, Cartao, etc)
+    if (resultado.condicoes && resultado.condicoes.length > 1) {
+      msg += `🔖 *Condições de Preço:*\n`;
+      for (const cond of resultado.condicoes) {
+        const isUsado = Math.abs(cond.preco - resultado.precoOferta) < 0.01;
+        msg += `   ${isUsado ? '👉' : '  '} ${cond.tipo}: R$ ${fmtBRL(cond.preco)}\n`;
+      }
+    } else if (resultado.condicao) {
       msg += `🔖 Condição: ${resultado.condicao}\n`;
     }
 
