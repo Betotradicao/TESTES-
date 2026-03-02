@@ -416,7 +416,7 @@ export default function GarimpaFornecedores() {
                                           {match && match.produtoLoja ? (
                                             <div className="flex justify-between items-center text-green-700 mt-0.5">
                                               <span>{match.produtoLoja.descricao} <span className="text-green-500 font-semibold">(SISTEMA)</span></span>
-                                              <span className="font-semibold ml-2 whitespace-nowrap">R$ {fmtBRL(match.produtoLoja.preco_venda)}</span>
+                                              <span className="font-semibold ml-2 whitespace-nowrap">R$ {fmtBRL(match.produtoLoja.preco_custo)}</span>
                                             </div>
                                           ) : (
                                             <div className="text-orange-500 mt-0.5 italic">
