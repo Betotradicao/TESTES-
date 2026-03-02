@@ -160,6 +160,9 @@ export class GarimpadorComparadorService {
       // pesquisa_media = preco medio da pesquisa de concorrente (pode nao existir em todos os clientes)
       const colPesquisaMedia = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pesquisa_media', 'VAL_PESQUISA_MEDIA');
 
+      // Coluna COD_LOJA para filtrar loja correta
+      const colCodLojaLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
+
       // Colunas de descricao das categorias
       const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
       const colDesGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo', 'DES_GRUPO');
@@ -178,7 +181,13 @@ export class GarimpadorComparadorService {
       const colCodProdutoLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
       const colCodSecaoSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
       const colCodGrupoGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo', 'COD_GRUPO');
+      const colCodSecaoGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_secao', 'COD_SECAO');
       const colCodSubgrupoSub = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo', 'COD_SUB_GRUPO');
+      const colCodSecaoSub = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_secao', 'COD_SECAO');
+      const colCodGrupoSub = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_grupo', 'COD_GRUPO');
+
+      // COD_LOJA: busca da config ou default 1
+      const codLoja = parseInt((await ConfigurationService.get('garimpador_cod_loja', '1')) || '1');
 
       // Preparar termos de busca: remove acentos, divide em palavras
       const termos = descricaoBusca
@@ -192,7 +201,7 @@ export class GarimpadorComparadorService {
 
       // Monta condições LIKE para cada termo
       const likeConds = termos.map((_, i) => `UPPER(p.${colDescricao}) LIKE :termo${i}`).join(' AND ');
-      const params: any = {};
+      const params: any = { codLoja };
       termos.forEach((t, i) => { params[`termo${i}`] = `%${t}%`; });
 
       const sql = `
@@ -219,10 +228,10 @@ export class GarimpadorComparadorService {
               AND pdv.${colDataVendaPdv} >= SYSDATE - 30
           ) AS VENDA_30D
         FROM ${schema}.${tabProduto} p
-        LEFT JOIN ${schema}.${tabProdutoLoja} pl ON pl.${colCodProdutoLoja} = p.${colCodProduto}
+        LEFT JOIN ${schema}.${tabProdutoLoja} pl ON pl.${colCodProdutoLoja} = p.${colCodProduto} AND pl.${colCodLojaLoja} = :codLoja
         LEFT JOIN ${schema}.${tabSecao} s ON s.${colCodSecaoSecao} = p.${colCodSecao}
-        LEFT JOIN ${schema}.${tabGrupo} g ON g.${colCodGrupoGrupo} = p.${colCodGrupo}
-        LEFT JOIN ${schema}.${tabSubgrupo} sg ON sg.${colCodSubgrupoSub} = p.${colCodSubgrupo}
+        LEFT JOIN ${schema}.${tabGrupo} g ON g.${colCodGrupoGrupo} = p.${colCodGrupo} AND g.${colCodSecaoGrupo} = p.${colCodSecao}
+        LEFT JOIN ${schema}.${tabSubgrupo} sg ON sg.${colCodSubgrupoSub} = p.${colCodSubgrupo} AND sg.${colCodSecaoSub} = p.${colCodSecao} AND sg.${colCodGrupoSub} = p.${colCodGrupo}
         LEFT JOIN ${schema}.${tabFornecedor} f ON f.${colCodForn} = p.${colCodFornecedor}
         WHERE ${likeConds}
           AND ROWNUM <= 5
@@ -416,12 +425,19 @@ export class GarimpadorComparadorService {
       const colCodForn = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor', 'COD_FORNECEDOR');
       const colRazaoSocial = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social', 'DES_FORNECEDOR');
 
+      const colCodLojaLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
       const colCodProdutoPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto', 'COD_PRODUTO');
       const colQtdVendaPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade', 'QTD_TOTAL_PRODUTO');
       const colDataVendaPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda', 'DTA_SAIDA');
       const colCodSecaoSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
       const colCodGrupoGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo', 'COD_GRUPO');
+      const colCodSecaoGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_secao', 'COD_SECAO');
       const colCodSubgrupoSub = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo', 'COD_SUB_GRUPO');
+      const colCodSecaoSub = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_secao', 'COD_SECAO');
+      const colCodGrupoSub = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_grupo', 'COD_GRUPO');
+
+      // COD_LOJA: busca da config ou default 1
+      const codLoja = parseInt((await ConfigurationService.get('garimpador_cod_loja', '1')) || '1');
 
       const sql = `
         SELECT
@@ -447,15 +463,15 @@ export class GarimpadorComparadorService {
               AND pdv.${colDataVendaPdv} >= SYSDATE - 30
           ) AS VENDA_30D
         FROM ${schema}.${tabProduto} p
-        LEFT JOIN ${schema}.${tabProdutoLoja} pl ON pl.${colCodProdutoLoja} = p.${colCodProduto}
+        LEFT JOIN ${schema}.${tabProdutoLoja} pl ON pl.${colCodProdutoLoja} = p.${colCodProduto} AND pl.${colCodLojaLoja} = :codLoja
         LEFT JOIN ${schema}.${tabSecao} s ON s.${colCodSecaoSecao} = p.${colCodSecao}
-        LEFT JOIN ${schema}.${tabGrupo} g ON g.${colCodGrupoGrupo} = p.${colCodGrupo}
-        LEFT JOIN ${schema}.${tabSubgrupo} sg ON sg.${colCodSubgrupoSub} = p.${colCodSubgrupo}
+        LEFT JOIN ${schema}.${tabGrupo} g ON g.${colCodGrupoGrupo} = p.${colCodGrupo} AND g.${colCodSecaoGrupo} = p.${colCodSecao}
+        LEFT JOIN ${schema}.${tabSubgrupo} sg ON sg.${colCodSubgrupoSub} = p.${colCodSubgrupo} AND sg.${colCodSecaoSub} = p.${colCodSecao} AND sg.${colCodGrupoSub} = p.${colCodGrupo}
         LEFT JOIN ${schema}.${tabFornecedor} f ON f.${colCodForn} = p.${colCodFornecedor}
         WHERE p.${colCodProduto} = :codProduto
       `;
 
-      const rows = await OracleService.query<any>(sql, { codProduto });
+      const rows = await OracleService.query<any>(sql, { codProduto, codLoja });
       if (rows.length === 0) return null;
 
       return this.mapearProdutoOracle(rows[0]);
