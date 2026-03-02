@@ -199,47 +199,70 @@ export class GarimpadorComparadorService {
 
       if (termos.length === 0) return null;
 
-      // Monta condições LIKE para cada termo
-      const likeConds = termos.map((_, i) => `UPPER(p.${colDescricao}) LIKE :termo${i}`).join(' AND ');
+      // Sistema de SCORE: conta quantos termos batem ao inves de exigir todos
+      // Isso resolve abreviacoes (ex: "TRADICIONAL" no texto vs "TRAD" no Oracle)
+      // Tambem adiciona busca por prefixo para termos longos (>= 5 chars)
+      const scoreExprs: string[] = [];
       const params: any = { codLoja };
-      termos.forEach((t, i) => { params[`termo${i}`] = `%${t}%`; });
+
+      termos.forEach((t, i) => {
+        // Termo exato (LIKE %TERMO%)
+        params[`termo${i}`] = `%${t}%`;
+        scoreExprs.push(`CASE WHEN UPPER(p.${colDescricao}) LIKE :termo${i} THEN 1 ELSE 0 END`);
+
+        // Prefixo curto para termos longos (>= 6 chars): busca pelos 4 primeiros chars
+        // Ex: TRADICIONAL -> tambem busca %TRAD% para pegar abreviacoes
+        if (t.length >= 6) {
+          const prefix = t.substring(0, 4);
+          params[`pref${i}`] = `%${prefix}%`;
+          scoreExprs.push(`CASE WHEN UPPER(p.${colDescricao}) LIKE :pref${i} AND NOT UPPER(p.${colDescricao}) LIKE :termo${i} THEN 0.5 ELSE 0 END`);
+        }
+      });
+
+      const scoreCalc = scoreExprs.join(' + ');
+      // Minimo de termos que devem bater: pelo menos 60% ou minimo 2
+      const minScore = Math.max(2, Math.ceil(termos.length * 0.6));
+      // Filtro OR para trazer candidatos (pelo menos 1 termo deve bater)
+      const orConds = termos.map((_, i) => `UPPER(p.${colDescricao}) LIKE :termo${i}`).join(' OR ');
 
       const sql = `
-        SELECT
-          p.${colCodBarras} AS CODIGO_BARRAS,
-          p.${colDescricao} AS DESCRICAO,
-          NVL(pl.${colPrecoCusto}, 0) AS PRECO_CUSTO,
-          NVL(pl.${colPrecoVenda}, 0) AS PRECO_VENDA,
-          NVL(pl.${colPesquisaMedia}, 0) AS PRECO_VENDA_CONCORRENTE,
-          NVL(pl.${colEstoque}, 0) AS ESTOQUE_ATUAL,
-          NVL(pl.${colCobertura}, 0) AS COBERTURA,
-          NVL(pl.${colPedidoCompra}, 0) AS PEDIDO_COMPRA,
-          NVL(pl.${colCurva}, '-') AS CURVA,
-          NVL(pl.${colVendaMedia}, 0) AS VENDA_MEDIA_DIA,
-          NVL(pl.${colMargemFixa}, 0) AS MARGEM_REFERENCIA,
-          NVL(s.${colDesSecao}, '-') AS SECAO,
-          NVL(g.${colDesGrupo}, '-') AS GRUPO,
-          NVL(sg.${colDesSubgrupo}, '-') AS SUBGRUPO,
-          NVL(f.${colRazaoSocial}, '-') AS FORNECEDOR,
-          (
-            SELECT NVL(SUM(pdv.${colQtdVendaPdv}), 0)
-            FROM ${schema}.${tabProdutoPdv} pdv
-            WHERE pdv.${colCodProdutoPdv} = p.${colCodProduto}
-              AND pdv.${colDataVendaPdv} >= SYSDATE - 30
-          ) AS VENDA_30D
-        FROM ${schema}.${tabProduto} p
-        LEFT JOIN ${schema}.${tabProdutoLoja} pl ON pl.${colCodProdutoLoja} = p.${colCodProduto} AND pl.${colCodLojaLoja} = :codLoja
-        LEFT JOIN ${schema}.${tabSecao} s ON s.${colCodSecaoSecao} = p.${colCodSecao}
-        LEFT JOIN ${schema}.${tabGrupo} g ON g.${colCodGrupoGrupo} = p.${colCodGrupo} AND g.${colCodSecaoGrupo} = p.${colCodSecao}
-        LEFT JOIN ${schema}.${tabSubgrupo} sg ON sg.${colCodSubgrupoSub} = p.${colCodSubgrupo} AND sg.${colCodSecaoSub} = p.${colCodSecao} AND sg.${colCodGrupoSub} = p.${colCodGrupo}
-        LEFT JOIN ${schema}.${tabFornecedor} f ON f.${colCodForn} = p.${colCodFornecedor}
-        WHERE ${likeConds}
-          AND ROWNUM <= 5
-        ORDER BY NVL(pl.${colPrecoVenda}, 0) DESC
+        SELECT * FROM (
+          SELECT
+            p.${colCodBarras} AS CODIGO_BARRAS,
+            p.${colDescricao} AS DESCRICAO,
+            NVL(pl.${colPrecoCusto}, 0) AS PRECO_CUSTO,
+            NVL(pl.${colPrecoVenda}, 0) AS PRECO_VENDA,
+            NVL(pl.${colPesquisaMedia}, 0) AS PRECO_VENDA_CONCORRENTE,
+            NVL(pl.${colEstoque}, 0) AS ESTOQUE_ATUAL,
+            NVL(pl.${colCobertura}, 0) AS COBERTURA,
+            NVL(pl.${colPedidoCompra}, 0) AS PEDIDO_COMPRA,
+            NVL(pl.${colCurva}, '-') AS CURVA,
+            NVL(pl.${colVendaMedia}, 0) AS VENDA_MEDIA_DIA,
+            NVL(pl.${colMargemFixa}, 0) AS MARGEM_REFERENCIA,
+            NVL(s.${colDesSecao}, '-') AS SECAO,
+            NVL(g.${colDesGrupo}, '-') AS GRUPO,
+            NVL(sg.${colDesSubgrupo}, '-') AS SUBGRUPO,
+            NVL(f.${colRazaoSocial}, '-') AS FORNECEDOR,
+            (
+              SELECT NVL(SUM(pdv.${colQtdVendaPdv}), 0)
+              FROM ${schema}.${tabProdutoPdv} pdv
+              WHERE pdv.${colCodProdutoPdv} = p.${colCodProduto}
+                AND pdv.${colDataVendaPdv} >= SYSDATE - 30
+            ) AS VENDA_30D,
+            (${scoreCalc}) AS MATCH_SCORE
+          FROM ${schema}.${tabProduto} p
+          LEFT JOIN ${schema}.${tabProdutoLoja} pl ON pl.${colCodProdutoLoja} = p.${colCodProduto} AND pl.${colCodLojaLoja} = :codLoja
+          LEFT JOIN ${schema}.${tabSecao} s ON s.${colCodSecaoSecao} = p.${colCodSecao}
+          LEFT JOIN ${schema}.${tabGrupo} g ON g.${colCodGrupoGrupo} = p.${colCodGrupo} AND g.${colCodSecaoGrupo} = p.${colCodSecao}
+          LEFT JOIN ${schema}.${tabSubgrupo} sg ON sg.${colCodSubgrupoSub} = p.${colCodSubgrupo} AND sg.${colCodSecaoSub} = p.${colCodSecao} AND sg.${colCodGrupoSub} = p.${colCodGrupo}
+          LEFT JOIN ${schema}.${tabFornecedor} f ON f.${colCodForn} = p.${colCodFornecedor}
+          WHERE (${orConds})
+          ORDER BY (${scoreCalc}) DESC, NVL(pl.${colPrecoVenda}, 0) DESC
+        ) WHERE ROWNUM <= 5 AND MATCH_SCORE >= :minScore
       `;
+      params.minScore = minScore;
 
-      console.log(`[Garimpador Comparador] Buscando "${descricaoBusca}" - termos: ${termos.join(', ')}`);
-      console.log(`[Garimpador Comparador] SQL WHERE: ${likeConds}`);
+      console.log(`[Garimpador Comparador] Buscando "${descricaoBusca}" - termos: ${termos.join(', ')} (min score: ${minScore})`);
 
       let rows: any[];
       try {
@@ -250,7 +273,7 @@ export class GarimpadorComparadorService {
         return await this.buscarProdutoComGPT(descricaoBusca);
       }
 
-      console.log(`[Garimpador Comparador] Encontrados: ${rows.length} resultados`);
+      console.log(`[Garimpador Comparador] Encontrados: ${rows.length} resultados (melhor score: ${rows[0]?.MATCH_SCORE || 0})`);
 
       if (rows.length === 0) {
         // Tenta busca com GPT se nao encontrou no LIKE direto
