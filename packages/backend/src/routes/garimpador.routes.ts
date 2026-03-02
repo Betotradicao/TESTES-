@@ -25,4 +25,11 @@ router.post('/comparar', GarimpadorController.compararTodas);
 router.post('/comparar/:id', GarimpadorController.compararUma);
 router.post('/buscar-produto', GarimpadorController.buscarProduto);
 
+// Analytics
+router.get('/analytics/resumo', GarimpadorController.getResumoAnalytics);
+router.get('/analytics/ranking', GarimpadorController.getRankingFornecedores);
+router.get('/analytics/ranking/:contatoId', GarimpadorController.getDetalhesFornecedor);
+router.get('/analytics/projecao', GarimpadorController.getProjecaoPreco);
+router.get('/analytics/fora-mix', GarimpadorController.getProdutosForaMix);
+
 export default router;

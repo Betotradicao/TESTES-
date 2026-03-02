@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { GarimpadorService } from '../services/garimpador.service';
 import { GarimpadorProcessadorService } from '../services/garimpador-processador.service';
 import { GarimpadorComparadorService } from '../services/garimpador-comparador.service';
+import { GarimpadorAnalyticsService } from '../services/garimpador-analytics.service';
 import { ConfigurationService } from '../services/configuration.service';
 import { AppDataSource } from '../config/database';
 import { GarimpadorMensagem } from '../entities/GarimpadorMensagem';
@@ -294,6 +295,82 @@ export class GarimpadorController {
       res.json({ success: true, produto });
     } catch (error: any) {
       console.error('[Garimpador] Erro ao buscar produto:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  // ===== ANALYTICS =====
+
+  /**
+   * GET /api/garimpador/analytics/resumo
+   */
+  static async getResumoAnalytics(req: Request, res: Response) {
+    try {
+      const { dataInicio, dataFim } = req.query as any;
+      const resumo = await GarimpadorAnalyticsService.getResumoAnalytics(dataInicio, dataFim);
+      res.json({ success: true, ...resumo });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro resumo analytics:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/garimpador/analytics/ranking
+   */
+  static async getRankingFornecedores(req: Request, res: Response) {
+    try {
+      const { dataInicio, dataFim } = req.query as any;
+      const ranking = await GarimpadorAnalyticsService.getRankingFornecedores(dataInicio, dataFim);
+      res.json({ success: true, ranking });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro ranking:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/garimpador/analytics/ranking/:contatoId
+   */
+  static async getDetalhesFornecedor(req: Request, res: Response) {
+    try {
+      const contatoId = parseInt(req.params.contatoId);
+      const { classificacao } = req.query as any;
+      const itens = await GarimpadorAnalyticsService.getDetalhesFornecedor(contatoId, classificacao);
+      res.json({ success: true, itens });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro detalhes fornecedor:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/garimpador/analytics/projecao
+   */
+  static async getProjecaoPreco(req: Request, res: Response) {
+    try {
+      const { termo, dataInicio, dataFim } = req.query as any;
+      if (!termo) {
+        return res.status(400).json({ success: false, error: 'Parametro "termo" obrigatorio' });
+      }
+      const resultado = await GarimpadorAnalyticsService.getProjecaoPreco(termo, dataInicio, dataFim);
+      res.json({ success: true, ...resultado });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro projecao:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/garimpador/analytics/fora-mix
+   */
+  static async getProdutosForaMix(req: Request, res: Response) {
+    try {
+      const { dataInicio, dataFim } = req.query as any;
+      const produtos = await GarimpadorAnalyticsService.getProdutosForaMix(dataInicio, dataFim);
+      res.json({ success: true, total: produtos.length, produtos });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro fora do mix:', error);
       res.status(500).json({ success: false, error: error.message });
     }
   }

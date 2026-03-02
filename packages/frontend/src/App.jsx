@@ -51,6 +51,9 @@ import RupturaIndustria from './pages/RupturaIndustria';
 import PrazoFornecedores from './pages/PrazoFornecedores';
 import GestaoInteligente from './pages/GestaoInteligente';
 import GarimpaFornecedores from './pages/GarimpaFornecedores';
+import GarimpadorRanking from './pages/GarimpadorRanking';
+import GarimpadorProjecao from './pages/GarimpadorProjecao';
+import GarimpadorForaMix from './pages/GarimpadorForaMix';
 import RotaCrescimento from './pages/RotaCrescimento';
 import CalendarioAtendimento from './pages/CalendarioAtendimento';
 import CotacaoPublica from './pages/CotacaoPublica';
@@ -431,6 +434,30 @@ function App() {
               element={
                 <ProtectedRoute>
                   <GarimpaFornecedores />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/garimpador-ranking"
+              element={
+                <ProtectedRoute>
+                  <GarimpadorRanking />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/garimpador-projecao"
+              element={
+                <ProtectedRoute>
+                  <GarimpadorProjecao />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/garimpador-fora-mix"
+              element={
+                <ProtectedRoute>
+                  <GarimpadorForaMix />
                 </ProtectedRoute>
               }
             />

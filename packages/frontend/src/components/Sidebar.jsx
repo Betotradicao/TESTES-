@@ -201,6 +201,10 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/gestao-trocas': 'prevencao-radar',
       '/controle-pdv': 'prevencao-radar',
       '/oferta-radar': 'oferta-radar',
+      '/garimpa-fornecedores': 'oferta-radar',
+      '/garimpador-ranking': 'oferta-radar',
+      '/garimpador-projecao': 'oferta-radar',
+      '/garimpador-fora-mix': 'oferta-radar',
       '/nota-fiscal-recebimento': 'financas-radar',
       '/notas-a-chegar': 'financas-radar',
       '/demonstrativo-caixa': 'financas-radar',
@@ -557,6 +561,39 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          )
+        },
+        {
+          id: 'garimpador-ranking',
+          moduleId: 'garimpa-fornecedores',
+          title: 'RANKING FORNECEDORES',
+          path: '/garimpador-ranking',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+          )
+        },
+        {
+          id: 'garimpador-projecao',
+          moduleId: 'garimpa-fornecedores',
+          title: 'PROJECAO DE PRECO',
+          path: '/garimpador-projecao',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+            </svg>
+          )
+        },
+        {
+          id: 'garimpador-fora-mix',
+          moduleId: 'garimpa-fornecedores',
+          title: 'FORA DO MIX',
+          path: '/garimpador-fora-mix',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
             </svg>
           )
         }
