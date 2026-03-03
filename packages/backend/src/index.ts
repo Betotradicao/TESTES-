@@ -1052,6 +1052,22 @@ const startServer = async () => {
     }
   });
   console.log('🔄 Sells sync cron job started (every 1 minute)');
+
+  // ==========================================
+  // CRON: Sync VectorStore do Garimpador (semanal - segunda 6h)
+  // Sincroniza produtos Oracle → PGVector para busca vetorial
+  // ==========================================
+  cron.schedule('0 6 * * 1', async () => {
+    try {
+      console.log('🔄 [VectorStore] Sync semanal iniciado (segunda 6h)...');
+      const { GarimpadorVectorStoreService } = await import('./services/garimpador-vectorstore.service');
+      await GarimpadorVectorStoreService.sincronizar();
+      console.log('✅ [VectorStore] Sync semanal concluído');
+    } catch (error) {
+      console.error('❌ [VectorStore] Sync semanal erro:', error);
+    }
+  }, { timezone: 'America/Sao_Paulo' });
+  console.log('📦 VectorStore sync cron job started (every Monday 6:00 AM BRT)');
 };
 
 startServer();
