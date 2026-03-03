@@ -59,6 +59,7 @@ import GarimpadorProdutosPesquisar from './pages/GarimpadorProdutosPesquisar';
 import RotaCrescimento from './pages/RotaCrescimento';
 import CalendarioAtendimento from './pages/CalendarioAtendimento';
 import CotacaoPublica from './pages/CotacaoPublica';
+import AnaliseCotacao from './pages/AnaliseCotacao';
 import NotaFiscalRecebimento from './pages/NotaFiscalRecebimento';
 import NotasAChegar from './pages/NotasAChegar';
 import ExtratoSantander from './pages/ExtratoSantander';
@@ -420,6 +421,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PrazoFornecedores />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/analise-cotacao"
+              element={
+                <ProtectedRoute>
+                  <AnaliseCotacao />
                 </ProtectedRoute>
               }
             />
