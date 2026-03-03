@@ -35,4 +35,10 @@ router.get('/produtos-pesquisar', GarimpadorController.getProdutosPesquisar);
 router.get('/produtos-excluidos', GarimpadorController.getProdutosExcluidos);
 router.post('/produtos-excluidos', GarimpadorController.salvarProdutosExcluidos);
 
+// Config do algoritmo de matching
+router.get('/match-config', GarimpadorController.getMatchConfig);
+router.post('/match-config', GarimpadorController.saveMatchConfig);
+router.post('/test-match', GarimpadorController.testMatch);
+router.post('/reprocessar', GarimpadorController.reprocessarTodos);
+
 export default router;

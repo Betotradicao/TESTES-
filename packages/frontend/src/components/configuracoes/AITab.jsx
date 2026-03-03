@@ -139,9 +139,22 @@ export default function AITab() {
   const [saved, setSaved] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [testMessage, setTestMessage] = useState('');
+  // Match config
+  const [matchConfig, setMatchConfig] = useState({
+    pesoMarca: 3.0, pesoGramatura: 2.0, pesoEmbalagem: 1.5,
+    pesoVariante: 1.5, pesoDescricao: 1.0, toleranciaGramatura: 15, penalMarca: 5.0,
+  });
+  const [matchTestInput, setMatchTestInput] = useState('');
+  const [matchTestResult, setMatchTestResult] = useState(null);
+  const [matchTestLoading, setMatchTestLoading] = useState(false);
+  const [matchSaving, setMatchSaving] = useState(false);
+  const [matchSaved, setMatchSaved] = useState(false);
+  const [reprocessando, setReprocessando] = useState(false);
+  const [reprocessResult, setReprocessResult] = useState(null);
 
   useEffect(() => {
     loadConfig();
+    loadMatchConfig();
   }, []);
 
   const loadConfig = async () => {
@@ -193,6 +206,55 @@ export default function AITab() {
       alert('Erro ao salvar configuracao: ' + (error.response?.data?.message || error.message));
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const loadMatchConfig = async () => {
+    try {
+      const { data } = await api.get('/garimpador/match-config');
+      if (data.success && data.config) setMatchConfig(data.config);
+    } catch { }
+  };
+
+  const saveMatchConfig = async () => {
+    setMatchSaving(true);
+    setMatchSaved(false);
+    try {
+      await api.post('/garimpador/match-config', matchConfig);
+      setMatchSaved(true);
+      setTimeout(() => setMatchSaved(false), 3000);
+    } catch (e) {
+      alert('Erro ao salvar: ' + (e.response?.data?.error || e.message));
+    } finally {
+      setMatchSaving(false);
+    }
+  };
+
+  const handleTestMatch = async () => {
+    if (!matchTestInput.trim()) return;
+    setMatchTestLoading(true);
+    setMatchTestResult(null);
+    try {
+      const { data } = await api.post('/garimpador/test-match', { descricao: matchTestInput.trim() });
+      setMatchTestResult(data);
+    } catch (e) {
+      setMatchTestResult({ success: false, error: e.response?.data?.error || e.message });
+    } finally {
+      setMatchTestLoading(false);
+    }
+  };
+
+  const handleReprocessar = async () => {
+    if (!window.confirm('Reprocessar TODAS as comparacoes existentes com o novo algoritmo?\n\nIsso pode levar alguns minutos. As mensagens NAO serao reenviadas ao WhatsApp.')) return;
+    setReprocessando(true);
+    setReprocessResult(null);
+    try {
+      const { data } = await api.post('/garimpador/reprocessar');
+      setReprocessResult(data);
+    } catch (e) {
+      setReprocessResult({ success: false, error: e.response?.data?.error || e.message });
+    } finally {
+      setReprocessando(false);
     }
   };
 
@@ -468,6 +530,206 @@ export default function AITab() {
                 checked={garimpadorExcel}
                 onChange={setGarimpadorExcel}
               />
+            </div>
+          </div>
+
+          {/* ===== Algoritmo de Matching de Produtos ===== */}
+          <div className="border border-orange-200 rounded-xl overflow-hidden">
+            <div className="bg-gradient-to-r from-orange-50 to-amber-50 p-4 border-b border-orange-200">
+              <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Algoritmo de Matching de Produtos
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">Configure os pesos de cada categoria para melhorar a precisao do cruzamento de produtos</p>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {/* Pesos */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {[
+                  { key: 'pesoMarca', label: 'Marca', icon: '\u{1F3F7}', desc: 'Skol, Ype, Itambe...' },
+                  { key: 'pesoGramatura', label: 'Gramatura', icon: '\u{2696}', desc: '350ml, 85g, 1kg...' },
+                  { key: 'pesoEmbalagem', label: 'Embalagem', icon: '\u{1F4E6}', desc: 'Lata, PET, Caixa...' },
+                  { key: 'pesoVariante', label: 'Variante/Sabor', icon: '\u{1F3A8}', desc: 'Pilsen, Zero, Alecrim...' },
+                  { key: 'pesoDescricao', label: 'Descricao', icon: '\u{1F4DD}', desc: 'Termos genericos' },
+                  { key: 'penalMarca', label: 'Penalidade Marca', icon: '\u{26A0}', desc: 'Quando marca e diferente' },
+                ].map(({ key, label, icon, desc }) => (
+                  <div key={key} className="bg-white border rounded-lg p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-sm">{icon}</span>
+                      <span className="text-xs font-semibold text-gray-700">{label}</span>
+                    </div>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="20"
+                      value={matchConfig[key]}
+                      onChange={(e) => setMatchConfig(prev => ({ ...prev, [key]: parseFloat(e.target.value) || 0 }))}
+                      className="w-full border rounded px-2 py-1.5 text-sm font-mono text-center focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+                    />
+                    <p className="text-[10px] text-gray-400 mt-1">{desc}</p>
+                  </div>
+                ))}
+                <div className="bg-white border rounded-lg p-3">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-sm">{'\u{1F4CF}'}</span>
+                    <span className="text-xs font-semibold text-gray-700">Tolerancia Gramatura</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min="0"
+                      max="30"
+                      step="1"
+                      value={matchConfig.toleranciaGramatura}
+                      onChange={(e) => setMatchConfig(prev => ({ ...prev, toleranciaGramatura: parseInt(e.target.value) }))}
+                      className="flex-1 accent-orange-500"
+                    />
+                    <span className="text-sm font-bold text-orange-600 min-w-[36px] text-right">{matchConfig.toleranciaGramatura}%</span>
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1">Ex: 85g aceita {Math.round(85 * (1 - matchConfig.toleranciaGramatura / 100))}g-{Math.round(85 * (1 + matchConfig.toleranciaGramatura / 100))}g</p>
+                </div>
+              </div>
+
+              {/* Botoes Salvar + Restaurar */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={saveMatchConfig}
+                  disabled={matchSaving}
+                  className="flex items-center gap-2 px-5 py-2 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 disabled:opacity-50 transition text-sm"
+                >
+                  {matchSaving ? 'Salvando...' : matchSaved ? 'Salvo!' : 'Salvar Pesos'}
+                </button>
+                <button
+                  onClick={() => setMatchConfig({
+                    pesoMarca: 3.0, pesoGramatura: 2.0, pesoEmbalagem: 1.5,
+                    pesoVariante: 1.5, pesoDescricao: 1.0, toleranciaGramatura: 15, penalMarca: 5.0,
+                  })}
+                  className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+                >
+                  Restaurar Padrao
+                </button>
+                <button
+                  onClick={handleReprocessar}
+                  disabled={reprocessando}
+                  className="ml-auto flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50 transition"
+                >
+                  {reprocessando ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Reprocessando...
+                    </>
+                  ) : 'Reprocessar Todos os Matches'}
+                </button>
+              </div>
+
+              {/* Resultado do reprocessamento */}
+              {reprocessResult && (
+                <div className={`p-3 rounded-lg text-sm ${reprocessResult.success ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
+                  {reprocessResult.success
+                    ? `Reprocessamento concluido: ${reprocessResult.reprocessadas} de ${reprocessResult.total} mensagens reprocessadas${reprocessResult.erros > 0 ? `, ${reprocessResult.erros} erros` : ''}`
+                    : `Erro: ${reprocessResult.error}`
+                  }
+                </div>
+              )}
+
+              {/* Area de Teste */}
+              <div className="border-t border-gray-200 pt-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Testar Matching</h4>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={matchTestInput}
+                    onChange={(e) => setMatchTestInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleTestMatch()}
+                    placeholder="Ex: SAB FLOR YPE ALECRIM 85G"
+                    className="flex-1 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+                  />
+                  <button
+                    onClick={handleTestMatch}
+                    disabled={matchTestLoading || !matchTestInput.trim()}
+                    className="px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 disabled:opacity-50 transition text-sm"
+                  >
+                    {matchTestLoading ? 'Buscando...' : 'Testar'}
+                  </button>
+                </div>
+
+                {matchTestResult && (
+                  <div className="mt-3 space-y-2">
+                    {/* Decomposicao */}
+                    {matchTestResult.decomposicao && (
+                      <div className="bg-gray-50 border rounded-lg p-3">
+                        <p className="text-xs font-semibold text-gray-600 mb-1.5">Decomposicao:</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {matchTestResult.decomposicao.marcas?.map((m, i) => (
+                            <span key={`m${i}`} className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium">
+                              {'\u{1F3F7}'} {m}
+                              {matchTestResult.decomposicao.marcaFonte && (
+                                <span className="ml-1 text-[10px] opacity-60">
+                                  ({matchTestResult.decomposicao.marcaFonte === 'oracle' ? 'Oracle' :
+                                    matchTestResult.decomposicao.marcaFonte === 'posicional' ? 'Auto' : 'Lista'})
+                                </span>
+                              )}
+                            </span>
+                          ))}
+                          {matchTestResult.decomposicao.gramaturas?.map((g, i) => (
+                            <span key={`g${i}`} className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">{'\u{2696}'} {g.textoOriginal}</span>
+                          ))}
+                          {matchTestResult.decomposicao.embalagens?.map((e, i) => (
+                            <span key={`e${i}`} className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium">{'\u{1F4E6}'} {e}</span>
+                          ))}
+                          {matchTestResult.decomposicao.variantes?.map((v, i) => (
+                            <span key={`v${i}`} className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs font-medium">{'\u{1F3A8}'} {v}</span>
+                          ))}
+                          {matchTestResult.decomposicao.descricao?.map((d, i) => (
+                            <span key={`d${i}`} className="px-2 py-0.5 bg-gray-200 text-gray-700 rounded text-xs font-medium">{'\u{1F4DD}'} {d}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Produto encontrado */}
+                    {matchTestResult.produtoEncontrado ? (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-green-800">{matchTestResult.produtoEncontrado.descricao}</p>
+                            <p className="text-xs text-green-600 mt-0.5">
+                              Custo: R$ {Number(matchTestResult.produtoEncontrado.preco_custo || 0).toFixed(2).replace('.', ',')}
+                              {' | '}Venda: R$ {Number(matchTestResult.produtoEncontrado.preco_venda || 0).toFixed(2).replace('.', ',')}
+                              {' | '}Curva: {matchTestResult.produtoEncontrado.curva || '-'}
+                            </p>
+                          </div>
+                          {matchTestResult.produtoEncontrado.matchScore > 0 && (
+                            <span className={`px-2 py-1 rounded text-sm font-bold ${
+                              matchTestResult.produtoEncontrado.matchScore >= 80 ? 'bg-green-200 text-green-800' :
+                              matchTestResult.produtoEncontrado.matchScore >= 50 ? 'bg-yellow-200 text-yellow-800' :
+                              'bg-orange-200 text-orange-800'
+                            }`}>
+                              {matchTestResult.produtoEncontrado.matchScore}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ) : matchTestResult.success === false ? (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                        Erro: {matchTestResult.error}
+                      </div>
+                    ) : (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-700">
+                        Nenhum produto encontrado no Oracle
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

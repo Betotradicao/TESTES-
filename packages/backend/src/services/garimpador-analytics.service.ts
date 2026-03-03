@@ -3,6 +3,7 @@ import { GarimpadorMensagem } from '../entities/GarimpadorMensagem';
 import { OracleService } from './oracle.service';
 import { MappingService } from './mapping.service';
 import { ConfigurationService } from './configuration.service';
+import { GarimpadorDecomposerService } from './garimpador-decomposer.service';
 
 interface RankingFornecedor {
   contatoId: number;
@@ -18,6 +19,7 @@ interface RankingFornecedor {
   totalEconomia: number;
   margemMediaMelhoria: number;
   ultimaMensagem: string | null;
+  diasAtivos: number[]; // dias da semana com atividade (0=Dom, 1=Seg, ..., 6=Sab)
 }
 
 interface DetalheItem {
@@ -40,6 +42,7 @@ interface DetalheItem {
   secao: string | null;
   grupo: string | null;
   subgrupo: string | null;
+  matchScore: number;
 }
 
 interface PontoProjecao {
@@ -123,11 +126,16 @@ export class GarimpadorAnalyticsService {
   /**
    * Ranking de fornecedores por quantidade de ouro/prata/bronze
    */
-  static async getRankingFornecedores(dataInicio?: string, dataFim?: string): Promise<RankingFornecedor[]> {
-    const mensagens = await this.buscarMensagensComparadas(dataInicio, dataFim);
+  static async getRankingFornecedores(dataInicio?: string, dataFim?: string, tipo?: string): Promise<RankingFornecedor[]> {
+    let mensagens = await this.buscarMensagensComparadas(dataInicio, dataFim);
+
+    // Filtrar por tipo de contato se especificado
+    if (tipo) {
+      mensagens = mensagens.filter(m => m.contato?.tipo === tipo);
+    }
 
     // Agregar por contato
-    const mapa = new Map<number, RankingFornecedor>();
+    const mapa = new Map<number, RankingFornecedor & { _diasSet: Set<number> }>();
 
     for (const msg of mensagens) {
       const dados = this.parseExtraido(msg);
@@ -149,12 +157,19 @@ export class GarimpadorAnalyticsService {
           totalEconomia: 0,
           margemMediaMelhoria: 0,
           ultimaMensagem: null,
+          diasAtivos: [],
+          _diasSet: new Set<number>(),
         });
       }
 
       const rank = mapa.get(cId)!;
       if (!rank.ultimaMensagem && msg.received_at) {
         rank.ultimaMensagem = msg.received_at.toISOString();
+      }
+
+      // Registrar dia da semana desta mensagem
+      if (msg.received_at) {
+        rank._diasSet.add(msg.received_at.getDay());
       }
 
       let somaMargemMelhoria = 0;
@@ -191,9 +206,11 @@ export class GarimpadorAnalyticsService {
       return b.totalOfertas - a.totalOfertas;
     });
 
-    // Arredondar economia
+    // Arredondar economia e converter diasAtivos
     ranking.forEach(r => {
       r.totalEconomia = parseFloat(r.totalEconomia.toFixed(2));
+      r.diasAtivos = [...(r as any)._diasSet].sort();
+      delete (r as any)._diasSet;
     });
 
     return ranking;
@@ -242,6 +259,7 @@ export class GarimpadorAnalyticsService {
           secao: r.produtoLoja?.secao || null,
           grupo: r.produtoLoja?.grupo || null,
           subgrupo: r.produtoLoja?.subgrupo || null,
+          matchScore: r.matchScore ?? r.produtoLoja?.matchScore ?? 0,
         });
       }
     }
@@ -428,6 +446,26 @@ export class GarimpadorAnalyticsService {
             });
           }
         }
+      }
+    }
+
+    // Filtro de qualidade: remover produtos com descricao muito generica
+    // Ex: "Chocolate Lacta" (so marca + tipo, sem gramatura/sabor) = muito vago
+    // Ex: "Cobertura de Chocolate Harald 1kg Meio Amargo" = OK, tem detalhes
+    for (const [chave, item] of mapa.entries()) {
+      const decomp = GarimpadorDecomposerService.decompor(item.produtoNome);
+      const totalTermosUteis = decomp.marcas.length + decomp.gramaturas.length +
+        decomp.embalagens.length + decomp.variantes.length + decomp.descricao.length;
+
+      // Criterios de exclusao (muito generico):
+      // 1. Menos de 3 termos uteis (ex: "Chocolate Lacta" = 2 termos)
+      // 2. Sem gramatura E sem embalagem (nao da pra saber qual SKU e)
+      // 3. Descricao original muito curta (menos de 12 chars)
+      const temGramOuEmb = decomp.gramaturas.length > 0 || decomp.embalagens.length > 0;
+      const descCurta = item.produtoNome.trim().length < 12;
+
+      if (totalTermosUteis < 3 || (!temGramOuEmb && totalTermosUteis < 4) || descCurta) {
+        mapa.delete(chave);
       }
     }
 

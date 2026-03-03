@@ -3,6 +3,7 @@ import { GarimpadorService } from '../services/garimpador.service';
 import { GarimpadorProcessadorService } from '../services/garimpador-processador.service';
 import { GarimpadorComparadorService } from '../services/garimpador-comparador.service';
 import { GarimpadorAnalyticsService } from '../services/garimpador-analytics.service';
+import { GarimpadorDecomposerService } from '../services/garimpador-decomposer.service';
 import { ConfigurationService } from '../services/configuration.service';
 import { AppDataSource } from '../config/database';
 import { GarimpadorMensagem } from '../entities/GarimpadorMensagem';
@@ -320,8 +321,8 @@ export class GarimpadorController {
    */
   static async getRankingFornecedores(req: Request, res: Response) {
     try {
-      const { dataInicio, dataFim } = req.query as any;
-      const ranking = await GarimpadorAnalyticsService.getRankingFornecedores(dataInicio, dataFim);
+      const { dataInicio, dataFim, tipo } = req.query as any;
+      const ranking = await GarimpadorAnalyticsService.getRankingFornecedores(dataInicio, dataFim, tipo);
       res.json({ success: true, ranking });
     } catch (error: any) {
       console.error('[Garimpador] Erro ranking:', error);
@@ -422,5 +423,174 @@ export class GarimpadorController {
       console.error('[Garimpador] Erro ao salvar excluidos:', error);
       res.status(500).json({ success: false, error: error.message });
     }
+  }
+
+  // ===== MATCH CONFIG =====
+
+  /**
+   * GET /api/garimpador/match-config
+   * Retorna os 7 pesos/configs do algoritmo de matching
+   */
+  static async getMatchConfig(req: Request, res: Response) {
+    try {
+      const config = {
+        pesoMarca: parseFloat(await ConfigurationService.get('garimpador_match_peso_marca', '3.0') || '3.0'),
+        pesoGramatura: parseFloat(await ConfigurationService.get('garimpador_match_peso_gramatura', '2.0') || '2.0'),
+        pesoEmbalagem: parseFloat(await ConfigurationService.get('garimpador_match_peso_embalagem', '1.5') || '1.5'),
+        pesoVariante: parseFloat(await ConfigurationService.get('garimpador_match_peso_variante', '1.5') || '1.5'),
+        pesoDescricao: parseFloat(await ConfigurationService.get('garimpador_match_peso_descricao', '1.0') || '1.0'),
+        toleranciaGramatura: parseFloat(await ConfigurationService.get('garimpador_match_tolerancia_gramatura', '15') || '15'),
+        penalMarca: parseFloat(await ConfigurationService.get('garimpador_match_penal_marca', '5.0') || '5.0'),
+      };
+      res.json({ success: true, config });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro getMatchConfig:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * POST /api/garimpador/match-config
+   * Salva os pesos/configs do algoritmo de matching
+   */
+  static async saveMatchConfig(req: Request, res: Response) {
+    try {
+      const { pesoMarca, pesoGramatura, pesoEmbalagem, pesoVariante, pesoDescricao, toleranciaGramatura, penalMarca } = req.body;
+
+      if (pesoMarca !== undefined) await ConfigurationService.set('garimpador_match_peso_marca', String(pesoMarca));
+      if (pesoGramatura !== undefined) await ConfigurationService.set('garimpador_match_peso_gramatura', String(pesoGramatura));
+      if (pesoEmbalagem !== undefined) await ConfigurationService.set('garimpador_match_peso_embalagem', String(pesoEmbalagem));
+      if (pesoVariante !== undefined) await ConfigurationService.set('garimpador_match_peso_variante', String(pesoVariante));
+      if (pesoDescricao !== undefined) await ConfigurationService.set('garimpador_match_peso_descricao', String(pesoDescricao));
+      if (toleranciaGramatura !== undefined) await ConfigurationService.set('garimpador_match_tolerancia_gramatura', String(toleranciaGramatura));
+      if (penalMarca !== undefined) await ConfigurationService.set('garimpador_match_penal_marca', String(penalMarca));
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro saveMatchConfig:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * POST /api/garimpador/test-match
+   * Testa decomposicao + matching de um produto
+   */
+  static async testMatch(req: Request, res: Response) {
+    try {
+      const { descricao } = req.body;
+      if (!descricao) {
+        return res.status(400).json({ success: false, error: 'Campo "descricao" obrigatorio' });
+      }
+
+      // Carregar marcas do Oracle antes de decompor
+      await GarimpadorDecomposerService.carregarMarcasOracle();
+      const decomposicao = GarimpadorDecomposerService.decompor(descricao);
+      const produtoEncontrado = await GarimpadorComparadorService.buscarProdutoOracle(descricao);
+
+      res.json({
+        success: true,
+        decomposicao,
+        produtoEncontrado,
+      });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro testMatch:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * POST /api/garimpador/reprocessar
+   * Reprocessa todas as comparacoes existentes com o novo algoritmo de matching
+   * NAO envia para WhatsApp, apenas recalcula os matches
+   */
+  static async reprocessarTodos(req: Request, res: Response) {
+    // Responder imediatamente - o reprocessamento roda em background
+    res.json({ success: true, message: 'Reprocessamento iniciado em background. Acompanhe pelo console.' });
+
+    // Executar reprocessamento em background (sem bloquear a resposta HTTP)
+    (async () => {
+      try {
+        console.log('[Garimpador Reprocessar] Iniciando reprocessamento...');
+        await GarimpadorDecomposerService.carregarMarcasOracle();
+
+        const msgRepo = AppDataSource.getRepository(GarimpadorMensagem);
+
+        const mensagens = await msgRepo
+          .createQueryBuilder('m')
+          .leftJoinAndSelect('m.contato', 'c')
+          .where('m.processado = true')
+          .andWhere('m.conteudo_extraido IS NOT NULL')
+          .orderBy('m.received_at', 'ASC')
+          .getMany();
+
+        let reprocessadas = 0;
+        let erros = 0;
+        let totalProdutos = 0;
+        let novosMatches = 0;
+        let matchesAnteriores = 0;
+
+        console.log(`[Garimpador Reprocessar] ${mensagens.length} mensagens para processar`);
+
+        for (const msg of mensagens) {
+          try {
+            let dados: any;
+            try {
+              dados = JSON.parse(msg.conteudo_extraido || '{}');
+            } catch { continue; }
+
+            let produtosOriginais = dados.produtos_originais;
+
+            if (!produtosOriginais && Array.isArray(dados) && dados.length > 0 && dados[0].produto) {
+              produtosOriginais = dados;
+            }
+
+            if (!Array.isArray(produtosOriginais) || produtosOriginais.length === 0) continue;
+
+            const matchesAntes = Array.isArray(dados.resultados_comparacao) ? dados.resultados_comparacao.length : 0;
+            matchesAnteriores += matchesAntes;
+
+            const resultados: any[] = [];
+            totalProdutos += produtosOriginais.length;
+
+            for (const prod of produtosOriginais) {
+              try {
+                const produtoOracle = await GarimpadorComparadorService.buscarProdutoOracle(prod.produto);
+                if (!produtoOracle) continue;
+
+                const resultado = GarimpadorComparadorService.calcularComparacao(prod, produtoOracle);
+                resultado.classificacao = await GarimpadorComparadorService.classificar(resultado.diferencaMargem);
+                resultados.push(resultado);
+              } catch (e: any) {
+                console.error(`[Garimpador Reprocessar] Erro produto "${prod.produto}":`, e.message);
+              }
+            }
+
+            if (resultados.length > matchesAntes) {
+              novosMatches += (resultados.length - matchesAntes);
+            }
+
+            await msgRepo.update(msg.id, {
+              conteudo_extraido: JSON.stringify({
+                produtos_originais: produtosOriginais,
+                resultados_comparacao: resultados,
+                total_enviadas: 0,
+                data_comparacao: new Date().toISOString(),
+                reprocessado: true,
+              }),
+            });
+            reprocessadas++;
+            console.log(`[Garimpador Reprocessar] Msg ${reprocessadas}/${mensagens.length} (${msg.contato?.nome || 'sem contato'}) - ${resultados.length}/${produtosOriginais.length} matches`);
+          } catch (e: any) {
+            erros++;
+            console.error(`[Garimpador Reprocessar] Erro msg ${msg.id}:`, e.message);
+          }
+        }
+
+        console.log(`[Garimpador Reprocessar] ✅ CONCLUIDO: ${reprocessadas} msgs, ${totalProdutos} produtos, ${novosMatches} novos matches, ${erros} erros`);
+      } catch (error: any) {
+        console.error('[Garimpador Reprocessar] ❌ ERRO FATAL:', error);
+      }
+    })();
   }
 }

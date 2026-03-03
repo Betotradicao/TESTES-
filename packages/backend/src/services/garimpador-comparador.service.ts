@@ -5,6 +5,7 @@ import { ConfigurationService } from './configuration.service';
 import { MappingService } from './mapping.service';
 import { OracleService } from './oracle.service';
 import { WhatsAppService } from './whatsapp.service';
+import { GarimpadorDecomposerService } from './garimpador-decomposer.service';
 import axios from 'axios';
 
 interface CondicaoPreco {
@@ -37,6 +38,7 @@ interface ProdutoOracle {
   grupo: string;
   subgrupo: string;
   fornecedor: string;
+  matchScore: number;
 }
 
 interface ResultadoComparacao {
@@ -52,6 +54,7 @@ interface ResultadoComparacao {
   margemMeta: number;
   diferencaMargem: number;
   classificacao: 'ouro' | 'prata' | 'bronze' | 'ruim';
+  matchScore: number;
 }
 
 /**
@@ -145,8 +148,11 @@ export class GarimpadorComparadorService {
   }
 
   /**
-   * Busca produto no Oracle usando GPT para matching inteligente
-   * Primeiro tenta busca direta por LIKE, depois usa GPT se necessario
+   * Busca produto no Oracle - Abordagem inspirada no n8n:
+   * 1. IA decompoe o produto de entrada (marca, tipo, gramatura, etc)
+   * 2. SQL busca AMPLA com OR de todos os termos - pega top 15 candidatos
+   * 3. IA (GPT-mini) avalia todos os candidatos e escolhe o correto
+   * Se IA diz "nenhum" -> Fora do Mix
    */
   static async buscarProdutoOracle(descricaoBusca: string): Promise<ProdutoOracle | null> {
     try {
@@ -168,7 +174,6 @@ export class GarimpadorComparadorService {
       const colCodSecao = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao', 'COD_SECAO');
       const colCodGrupo = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo', 'COD_GRUPO');
       const colCodSubgrupo = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo', 'COD_SUBGRUPO');
-      const colCodFornecedor = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_fornecedor', 'COD_FORNECEDOR');
 
       // Colunas TAB_PRODUTO_LOJA
       const colPrecoCusto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo', 'VAL_CUSTO_REP');
@@ -179,12 +184,8 @@ export class GarimpadorComparadorService {
       const colCurva = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA');
       const colVendaMedia = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'venda_media', 'VAL_VENDA_MEDIA');
       const colMargem = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem', 'VAL_MARGEM');
-      // pesquisa_media = preco medio da pesquisa de concorrente (pode nao existir em todos os clientes)
       const colPesquisaMedia = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pesquisa_media', 'VAL_PESQUISA_MEDIA');
-      // Fornecedor da ultima compra (campo correto para pegar fornecedor do produto)
       const colCodFornUltCompra = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra', 'COD_FORN_ULT_COMPRA');
-
-      // Coluna COD_LOJA para filtrar loja correta
       const colCodLojaLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
 
       // Colunas de descricao das categorias
@@ -201,7 +202,7 @@ export class GarimpadorComparadorService {
       const colQtdVendaPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade', 'QTD_TOTAL_PRODUTO');
       const colDataVendaPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda', 'DTA_SAIDA');
 
-      // Colunas de join TAB_PRODUTO_LOJA e TAB_SECAO/GRUPO/SUBGRUPO
+      // Colunas de join
       const colCodProdutoLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
       const colCodSecaoSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao', 'COD_SECAO');
       const colCodGrupoGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo', 'COD_GRUPO');
@@ -210,44 +211,82 @@ export class GarimpadorComparadorService {
       const colCodSecaoSub = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_secao', 'COD_SECAO');
       const colCodGrupoSub = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_grupo', 'COD_GRUPO');
 
-      // COD_LOJA: busca da config ou default 1
       const codLoja = parseInt((await ConfigurationService.get('garimpador_cod_loja', '1')) || '1');
 
-      // Preparar termos de busca: remove acentos, divide em palavras
-      const termos = descricaoBusca
-        .toUpperCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^A-Z0-9\s]/g, ' ')
-        .split(/\s+/)
-        .filter(t => t.length >= 2);
+      // ========== PASSO 1: IA DECOMPOE O PRODUTO DE ENTRADA ==========
+      await GarimpadorDecomposerService.carregarMarcasOracle();
+      const decomp = await GarimpadorDecomposerService.decomporComIA(descricaoBusca);
 
-      if (termos.length === 0) return null;
+      console.log(`[Garimpador] Buscando "${descricaoBusca}" → decomp: marcas=[${decomp.marcas}] gram=[${decomp.gramaturas.map(g=>g.textoOriginal)}] desc=[${decomp.descricao}] emb=[${decomp.embalagens}] var=[${decomp.variantes}]`);
 
-      // Sistema de SCORE: conta quantos termos batem ao inves de exigir todos
-      // Isso resolve abreviacoes (ex: "TRADICIONAL" no texto vs "TRAD" no Oracle)
-      // Tambem adiciona busca por prefixo para termos longos (>= 5 chars)
-      const scoreExprs: string[] = [];
+      // ========== PASSO 2: SQL BUSCA AMPLA - PEGAR CANDIDATOS ==========
+      // Montar termos de busca com variantes para abreviacoes
+      const termosLike: string[] = [];
       const params: any = { codLoja };
+      let pi = 0;
 
-      termos.forEach((t, i) => {
-        // Termo exato (LIKE %TERMO%)
-        params[`termo${i}`] = `%${t}%`;
-        scoreExprs.push(`CASE WHEN UPPER(p.${colDescricao}) LIKE :termo${i} THEN 1 ELSE 0 END`);
-
-        // Prefixo curto para termos longos (>= 6 chars): busca pelos 4 primeiros chars
-        // Ex: TRADICIONAL -> tambem busca %TRAD% para pegar abreviacoes
-        if (t.length >= 6) {
-          const prefix = t.substring(0, 4);
-          params[`pref${i}`] = `%${prefix}%`;
-          scoreExprs.push(`CASE WHEN UPPER(p.${colDescricao}) LIKE :pref${i} AND NOT UPPER(p.${colDescricao}) LIKE :termo${i} THEN 0.5 ELSE 0 END`);
+      // Marcas - buscar com variantes (ex: TRES CORACOES -> 3 CORACOES)
+      for (const marca of decomp.marcas) {
+        const variantes = GarimpadorDecomposerService.gerarVariantesMarca(marca);
+        for (const v of variantes) {
+          const k = `p${pi++}`;
+          params[k] = `%${v}%`;
+          termosLike.push(`UPPER(p.${colDescricao}) LIKE :${k}`);
         }
-      });
+      }
 
-      const scoreCalc = scoreExprs.join(' + ');
-      // Minimo de termos que devem bater: pelo menos 60% ou minimo 2
-      const minScore = Math.max(2, Math.ceil(termos.length * 0.6));
-      // Filtro OR para trazer candidatos (pelo menos 1 termo deve bater)
-      const orConds = termos.map((_, i) => `UPPER(p.${colDescricao}) LIKE :termo${i}`).join(' OR ');
+      // Gramaturas - variantes (1L->1LT, 500G->500GR)
+      for (const gram of decomp.gramaturas) {
+        const gramVariants: string[] = [gram.textoOriginal];
+        if (gram.unidade === 'L') gramVariants.push(`${gram.valor}LT`);
+        if (gram.unidade === 'G') gramVariants.push(`${gram.valor}GR`);
+        for (const gv of gramVariants) {
+          const k = `p${pi++}`;
+          params[k] = `%${gv}%`;
+          termosLike.push(`UPPER(p.${colDescricao}) LIKE :${k}`);
+        }
+      }
+
+      // Descricao/tipo - truncar pra 3 chars pra pegar abreviacoes Oracle
+      for (const d of decomp.descricao) {
+        const searchTerm = d.length >= 5 ? d.substring(0, 3) : d;
+        const k = `p${pi++}`;
+        params[k] = `%${searchTerm}%`;
+        termosLike.push(`UPPER(p.${colDescricao}) LIKE :${k}`);
+      }
+
+      // Embalagens e variantes
+      for (const emb of decomp.embalagens) {
+        const k = `p${pi++}`;
+        params[k] = `%${emb}%`;
+        termosLike.push(`UPPER(p.${colDescricao}) LIKE :${k}`);
+      }
+      for (const v of decomp.variantes) {
+        const k = `p${pi++}`;
+        params[k] = `%${v}%`;
+        termosLike.push(`UPPER(p.${colDescricao}) LIKE :${k}`);
+      }
+
+      // Fallback: se nenhum termo decomposto, usar termos brutos da descricao
+      if (termosLike.length === 0) {
+        const termosBrutos = descricaoBusca
+          .toUpperCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^A-Z0-9\s]/g, ' ')
+          .split(/\s+/)
+          .filter(t => t.length >= 3);
+        for (const t of termosBrutos) {
+          const k = `p${pi++}`;
+          params[k] = `%${t}%`;
+          termosLike.push(`UPPER(p.${colDescricao}) LIKE :${k}`);
+        }
+      }
+
+      if (termosLike.length === 0) return null;
+
+      // Busca com OR amplo + score simples (contagem de termos que batem)
+      const scoreCalc = termosLike.map(cond => `CASE WHEN ${cond.replace(`UPPER(p.${colDescricao}) LIKE`, `UPPER(p.${colDescricao}) LIKE`)} THEN 1 ELSE 0 END`).join(' + ');
+      const orConds = termosLike.join(' OR ');
 
       const sql = `
         SELECT * FROM (
@@ -283,38 +322,91 @@ export class GarimpadorComparadorService {
           LEFT JOIN ${schema}.${tabFornecedor} f ON f.${colCodForn} = pl.${colCodFornUltCompra}
           WHERE (${orConds})
           ORDER BY (${scoreCalc}) DESC, NVL(pl.${colPrecoVenda}, 0) DESC
-        ) WHERE ROWNUM <= 5 AND MATCH_SCORE >= :minScore
+        ) WHERE ROWNUM <= 15
       `;
-      params.minScore = minScore;
-
-      console.log(`[Garimpador Comparador] Buscando "${descricaoBusca}" - termos: ${termos.join(', ')} (min score: ${minScore})`);
 
       let rows: any[];
       try {
         rows = await OracleService.query<any>(sql, params);
       } catch (queryErr: any) {
-        console.error(`[Garimpador Comparador] Erro na query Oracle:`, queryErr.message);
-        // Tenta busca alternativa com GPT
-        return await this.buscarProdutoComGPT(descricaoBusca);
+        console.error(`[Garimpador] Erro na query Oracle:`, queryErr.message);
+        return null;
       }
 
-      console.log(`[Garimpador Comparador] Encontrados: ${rows.length} resultados (melhor score: ${rows[0]?.MATCH_SCORE || 0})`);
+      console.log(`[Garimpador] SQL encontrou ${rows.length} candidatos para "${descricaoBusca}"`);
 
-      if (rows.length === 0) {
-        // Tenta busca com GPT se nao encontrou no LIKE direto
-        return await this.buscarProdutoComGPT(descricaoBusca);
+      if (rows.length === 0) return null;
+
+      // ========== PASSO 3: IA DECIDE QUAL CANDIDATO E O CORRETO ==========
+      const apiKey = await ConfigurationService.get('openai_api_key');
+      const model = await ConfigurationService.get('openai_garimpador_model', 'gpt-4o-mini');
+
+      if (!apiKey) {
+        // Sem IA, usa primeiro resultado (fallback)
+        return this.mapearProdutoOracle(rows[0], 50);
       }
 
-      // Se encontrou multiplos, usa GPT para escolher o melhor match
-      if (rows.length > 1) {
-        const melhor = await this.escolherMelhorMatch(descricaoBusca, rows);
-        return this.mapearProdutoOracle(melhor || rows[0]);
+      // Montar lista de candidatos para a IA avaliar
+      const listaCandidatos = rows.map((r: any, i: number) => `${i + 1}. ${r.DESCRICAO}`).join('\n');
+
+      const response = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model: model || 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: `Voce e um especialista em matching de produtos de supermercado brasileiro.
+
+Seu trabalho: dado um produto buscado e uma lista de candidatos do sistema, identifique qual candidato e o MESMO produto.
+
+REGRAS IMPORTANTES:
+- Descricoes no sistema podem estar ABREVIADAS: "achocolatado"="achoc", "cerveja"="cerv", "detergente"="deterg", "absorvente"="abs", "biscoito"="bisc", "refrigerante"="refrig", "amaciante"="amac", "acucar"="acucar" ou "acuc", "refinado"="ref", "sanitaria"="sanit", etc.
+- O PRODUTO deve ser o MESMO tipo (cerveja=cerveja, detergente=detergente, nao detergente=amaciante)
+- A MARCA deve ser a MESMA (Skol=Skol, Ype=Ype, nao misturar marcas)
+- A GRAMATURA/VOLUME deve ser compativel (350ml=350ml, 1L=1LT, 500g=500gr)
+- Se encontrar o produto, retorne APENAS o numero. Se NENHUM candidato corresponder ao produto buscado, retorne 0.
+- Retorne APENAS um numero, nada mais.`
+            },
+            {
+              role: 'user',
+              content: `Produto buscado: "${descricaoBusca}"
+
+Candidatos do sistema:
+${listaCandidatos}
+
+Qual numero corresponde ao produto buscado? (0 se nenhum):`,
+            },
+          ],
+          temperature: 0,
+          max_tokens: 10,
+        },
+        {
+          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          timeout: 15000,
+        }
+      );
+
+      const resposta = response.data.choices?.[0]?.message?.content?.trim();
+      const escolha = parseInt(resposta);
+
+      if (escolha === 0 || isNaN(escolha)) {
+        console.log(`[Garimpador] IA decidiu: NENHUM candidato corresponde a "${descricaoBusca}" → Fora do Mix`);
+        return null;
       }
 
-      return this.mapearProdutoOracle(rows[0]);
+      const idx = escolha - 1;
+      if (idx < 0 || idx >= rows.length) {
+        console.log(`[Garimpador] IA retornou indice invalido ${escolha} para "${descricaoBusca}"`);
+        return null;
+      }
+
+      const escolhido = rows[idx];
+      console.log(`[Garimpador] IA decidiu: "${descricaoBusca}" → "${escolhido.DESCRICAO}" (candidato ${escolha}/${rows.length})`);
+
+      return this.mapearProdutoOracle(escolhido, 90);
     } catch (error: any) {
-      console.error('[Garimpador Comparador] Erro ao buscar produto no Oracle:', error.message);
-      console.error('[Garimpador Comparador] Stack:', error.stack?.substring(0, 500));
+      console.error('[Garimpador] Erro ao buscar produto no Oracle:', error.message);
       return null;
     }
   }
@@ -322,7 +414,7 @@ export class GarimpadorComparadorService {
   /**
    * Mapeia resultado Oracle para interface ProdutoOracle
    */
-  private static mapearProdutoOracle(row: any): ProdutoOracle {
+  private static mapearProdutoOracle(row: any, matchScore: number = 0): ProdutoOracle {
     return {
       codProduto: String(row.COD_PRODUTO || ''),
       codigo_barras: String(row.CODIGO_BARRAS || ''),
@@ -341,7 +433,94 @@ export class GarimpadorComparadorService {
       grupo: String(row.GRUPO || '-'),
       subgrupo: String(row.SUBGRUPO || '-'),
       fornecedor: String(row.FORNECEDOR || '-'),
+      matchScore,
     };
+  }
+
+  /**
+   * Reranking pos-SQL: aplica penalidade de marca e tolerancia de gramatura
+   * Decompoe cada candidato Oracle e compara semanticamente com o input
+   */
+  private static rerankCandidatos(
+    rows: any[],
+    decompInput: import('./garimpador-decomposer.service').ProdutoDecomposto,
+    penalMarca: number,
+    toleranciaGram: number,
+    maxScore: number,
+  ): Array<{ row: any; adjustedScore: number; matchPct: number }> {
+    const results = rows.map(row => {
+      let adjustedScore = parseFloat(row.MATCH_SCORE) || 0;
+      const descOracle = String(row.DESCRICAO || '');
+      const decompOracle = GarimpadorDecomposerService.decompor(descOracle);
+
+      // PENALIDADE DE MARCA: se input tem marca X e Oracle nao contem essa marca -> penalizar forte
+      // Verifica de 2 formas:
+      // 1. Decomposicao local do Oracle (se ambos tem marca detectada e sao diferentes)
+      // 2. Presenca direta da marca do input no texto Oracle (para marcas nao conhecidas pelo decomposer)
+      if (decompInput.marcas.length > 0) {
+        const descOracleNorm = GarimpadorDecomposerService.normalizar(descOracle);
+        // Verificar se a marca do input aparece no texto Oracle (direto ou via variantes)
+        const variantesInput = decompInput.marcas.flatMap(m => GarimpadorDecomposerService.gerarVariantesMarca(m));
+        const marcaNoTexto = variantesInput.some(v => descOracleNorm.includes(v));
+
+        if (!marcaNoTexto) {
+          // Marca do input NAO esta no texto Oracle -> penalidade forte
+          adjustedScore -= penalMarca;
+        } else if (decompOracle.marcas.length > 0) {
+          // Marca esta no texto mas decomposer local detectou outra marca - sem penalidade
+          // (a presenca direta no texto e mais confiavel que o decomposer local)
+        }
+      }
+
+      // PENALIDADE VARIANTE EXTRA: se input NAO tem variante/sabor mas Oracle TEM,
+      // penalizar para preferir o produto TRADICIONAL/sem sabor especifico.
+      // Ex: input "MAIONESE HELLMANNS 500G" (sem sabor) deve preferir a tradicional,
+      // nao "MAIONESE HELLMANNS 500G LIMAO" (com sabor)
+      if (decompInput.variantes.length === 0 && decompOracle.variantes.length > 0) {
+        // Qualquer variante extra no Oracle que nao foi pedida no input = penalidade
+        // Isso faz preferir o produto TRADICIONAL/generico quando nao se especifica sabor
+        adjustedScore -= 1.5; // penalidade por variante nao solicitada
+      }
+
+      // PENALIDADE TIPO PRODUTO: se input tem tipo (ex: DETERGENTE) mas Oracle tem tipo diferente
+      // (ex: AMACIANTE), penalizar. Compara termos do campo descricao (tipo generico).
+      if (decompInput.descricao.length > 0 && decompOracle.descricao.length > 0) {
+        // Verificar se pelo menos um termo do tipo do input aparece na descricao Oracle
+        const tiposInput = new Set(decompInput.descricao.map(d => d.length >= 5 ? d.substring(0, 3) : d));
+        const descOracleNorm = GarimpadorDecomposerService.normalizar(descOracle);
+        const temTipoCorreto = [...tiposInput].some(t => descOracleNorm.includes(t));
+        if (!temTipoCorreto) {
+          adjustedScore -= 2.0; // penalidade forte por tipo de produto diferente
+        }
+      }
+
+      // BONUS GRAMATURA TOLERANCIA: se gramatura nao bateu exato mas esta dentro da tolerancia
+      if (decompInput.gramaturas.length > 0 && decompOracle.gramaturas.length > 0) {
+        for (const gramInput of decompInput.gramaturas) {
+          const temExata = decompOracle.gramaturas.some(g => g.textoOriginal === gramInput.textoOriginal);
+          if (!temExata) {
+            const temTolerancia = decompOracle.gramaturas.some(g =>
+              GarimpadorDecomposerService.gramaturasDentroTolerancia(gramInput, g, toleranciaGram)
+            );
+            if (temTolerancia) {
+              adjustedScore += 0.5; // meio ponto bonus por gramatura proxima
+            }
+          }
+        }
+      }
+
+      const matchPct = maxScore > 0
+        ? Math.max(0, Math.min(100, Math.round((adjustedScore / maxScore) * 100)))
+        : 0;
+
+      return { row, adjustedScore, matchPct };
+    });
+
+    // Ordenar por score ajustado decrescente
+    results.sort((a, b) => b.adjustedScore - a.adjustedScore);
+
+    // Filtrar candidatos com score negativo ou zero
+    return results.filter(r => r.adjustedScore > 0);
   }
 
   /**
@@ -358,15 +537,35 @@ export class GarimpadorComparadorService {
       const colCodProdutoLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
       const colPrecoVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda', 'VAL_VENDA');
 
-      // Pega os 2 termos mais relevantes (mais longos)
-      const termos = descricaoBusca
-        .toUpperCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^A-Z0-9\s]/g, ' ')
-        .split(/\s+/)
-        .filter(t => t.length >= 3)
-        .sort((a, b) => b.length - a.length)
-        .slice(0, 2);
+      // Usar a decomposicao IA para termos de busca mais inteligentes
+      const decomp = await GarimpadorDecomposerService.decomporComIA(descricaoBusca);
+
+      // Montar termos: marca (mais importante) + tipo truncado (pra pegar abreviacoes)
+      const termos: string[] = [];
+      for (const marca of decomp.marcas) {
+        termos.push(marca);
+      }
+      for (const d of decomp.descricao) {
+        // Truncar termos longos pra pegar abreviacoes no Oracle (3 chars)
+        termos.push(d.length >= 5 ? d.substring(0, 3) : d);
+      }
+      // Adicionar gramatura se tiver
+      for (const g of decomp.gramaturas) {
+        termos.push(g.textoOriginal);
+      }
+
+      if (termos.length === 0) {
+        // Fallback: pega os 2 termos mais longos da descricao original
+        const termosOrig = descricaoBusca
+          .toUpperCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^A-Z0-9\s]/g, ' ')
+          .split(/\s+/)
+          .filter(t => t.length >= 3)
+          .sort((a, b) => b.length - a.length)
+          .slice(0, 2);
+        termos.push(...termosOrig);
+      }
 
       if (termos.length === 0) return null;
 
@@ -406,7 +605,7 @@ export class GarimpadorComparadorService {
           messages: [
             {
               role: 'system',
-              content: 'Voce e um comparador de produtos de supermercado. Dado um produto buscado e uma lista de candidatos, retorne APENAS o numero do melhor match. Se nenhum for compativel, retorne 0.'
+              content: 'Voce e um comparador de produtos de supermercado brasileiro. Dado um produto buscado e uma lista de candidatos, retorne APENAS o numero do melhor match. Considere abreviacoes comuns (CERV=CERVEJA, DET=DETERGENTE, AG SANIT=AGUA SANITARIA, FEIJ=FEIJAO, etc). A MARCA deve ser a MESMA - se o produto buscado e de uma marca e nenhum candidato e da mesma marca, retorne 0. Se nenhum candidato for o mesmo tipo de produto, retorne 0.'
             },
             {
               role: 'user',
@@ -423,8 +622,13 @@ export class GarimpadorComparadorService {
       );
 
       const resposta = response.data.choices?.[0]?.message?.content?.trim();
-      const idx = parseInt(resposta) - 1;
+      const escolha = parseInt(resposta);
+      console.log(`[Garimpador Comparador] GPT fallback: "${descricaoBusca}" -> escolheu ${escolha} de ${candidatos.length} candidatos`);
 
+      // GPT retorna 0 se nenhum candidato for compativel
+      if (escolha === 0) return null;
+
+      const idx = escolha - 1;
       if (isNaN(idx) || idx < 0 || idx >= candidatos.length) return null;
 
       // Buscar dados completos do produto escolhido
@@ -550,7 +754,7 @@ export class GarimpadorComparadorService {
           messages: [
             {
               role: 'system',
-              content: 'Voce e um comparador de produtos de supermercado. Dado um produto buscado e uma lista de candidatos, retorne APENAS o numero do melhor match. Se nenhum for compativel, retorne 1.'
+              content: 'Voce e um comparador de produtos de supermercado brasileiro. Dado um produto buscado e uma lista de candidatos, retorne APENAS o numero do melhor match. Considere abreviacoes comuns no Oracle (CERV=CERVEJA, DET=DETERGENTE, AG SANIT=AGUA SANITARIA, FEIJ=FEIJAO, BISC=BISCOITO, etc). Priorize: mesma marca, mesmo tipo de produto, mesma gramatura. Se nenhum for compativel, retorne 0.'
             },
             {
               role: 'user',
@@ -609,6 +813,7 @@ export class GarimpadorComparadorService {
       margemMeta: prodOracle.margem_referencia,
       diferencaMargem: parseFloat(diferencaMargem.toFixed(2)),
       classificacao: 'bronze', // sera reclassificado
+      matchScore: prodOracle.matchScore || 0,
     };
   }
 

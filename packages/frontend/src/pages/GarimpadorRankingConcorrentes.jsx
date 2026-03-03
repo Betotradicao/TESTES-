@@ -23,7 +23,10 @@ const CORES_FORNECEDORES = [
   '#06b6d4', '#f59e0b', '#ec4899', '#14b8a6', '#6366f1',
 ];
 
-export default function GarimpadorRanking() {
+const DIAS_SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+const DIAS_SEMANA_FULL = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+
+export default function GarimpadorRankingConcorrentes() {
   const [ranking, setRanking] = useState([]);
   const [resumo, setResumo] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -43,24 +46,26 @@ export default function GarimpadorRanking() {
   const [excluidos, setExcluidos] = useState(new Set());
 
   // Projecao inline
-  const [projecaoAberta, setProjecaoAberta] = useState(null); // indice do item na tabela de detalhes
+  const [projecaoAberta, setProjecaoAberta] = useState(null);
   const [projecaoData, setProjecaoData] = useState(null);
   const [loadingProjecao, setLoadingProjecao] = useState(false);
-  const [projecaoFiltro, setProjecaoFiltro] = useState('todos'); // 'todos' | 'fornecedor' | 'abaixo_custo'
-  const [projecaoItem, setProjecaoItem] = useState(null); // item atual da projecao
+  const [projecaoFiltro, setProjecaoFiltro] = useState('todos');
+  const [projecaoItem, setProjecaoItem] = useState(null);
 
-  // Colunas reordenaveis da tabela de detalhes
+  // Colunas reordenaveis
   const [colunasDetalhe, setColunasDetalhe] = useState([
     { id: 'num', label: '#', align: 'left' },
-    { id: 'produtoOfertado', label: 'Produto Ofertado', align: 'left' },
+    { id: 'produtoOfertado', label: 'Produto Concorrente', align: 'left' },
     { id: 'produtoLoja', label: 'Produto Loja', align: 'left' },
     { id: 'match', label: 'Match', align: 'center' },
     { id: 'tabloid', label: 'Tabloid', align: 'center' },
-    { id: 'oferta', label: 'Oferta', align: 'right' },
+    { id: 'oferta', label: 'Preco Conc.', align: 'right' },
+    { id: 'vendaLoja', label: 'Venda Loja', align: 'right' },
     { id: 'custoLoja', label: 'Custo Loja', align: 'right' },
     { id: 'diferenca', label: 'Diferenca', align: 'right' },
     { id: 'curva', label: 'Curva', align: 'center' },
     { id: 'classif', label: 'Classif.', align: 'center' },
+    { id: 'diaSemana', label: 'Dia', align: 'center' },
     { id: 'data', label: 'Data', align: 'left' },
     { id: 'projecao', label: 'Projecao', align: 'center' },
     { id: 'excluir', label: '', align: 'center' },
@@ -69,7 +74,7 @@ export default function GarimpadorRanking() {
 
   const fmtBRL = (v) => Number(v || 0).toFixed(2).replace('.', ',');
 
-  // Carregar exclusoes salvas
+  // Carregar exclusoes
   useEffect(() => {
     api.get('/garimpador/produtos-excluidos').then(({ data }) => {
       setExcluidos(new Set((data.excluidos || []).map(String)));
@@ -79,7 +84,7 @@ export default function GarimpadorRanking() {
   const fetchRanking = useCallback(async () => {
     try {
       setLoading(true);
-      const params = {};
+      const params = { tipo: 'concorrente' };
       if (dataInicio) params.dataInicio = dataInicio;
       if (dataFim) params.dataFim = dataFim;
       const [rankRes, resumoRes] = await Promise.all([
@@ -89,7 +94,7 @@ export default function GarimpadorRanking() {
       setRanking(rankRes.data.ranking || []);
       setResumo(resumoRes.data);
     } catch (err) {
-      console.error('Erro ao buscar ranking:', err);
+      console.error('Erro ao buscar ranking concorrentes:', err);
     } finally {
       setLoading(false);
     }
@@ -97,19 +102,19 @@ export default function GarimpadorRanking() {
 
   useEffect(() => { fetchRanking(); }, [fetchRanking]);
 
-  const abrirDetalhes = async (fornecedor) => {
-    if (selecionado?.contatoId === fornecedor.contatoId) {
+  const abrirDetalhes = async (concorrente) => {
+    if (selecionado?.contatoId === concorrente.contatoId) {
       setSelecionado(null);
       setDetalhes([]);
       setProjecaoAberta(null);
       setProjecaoData(null);
       return;
     }
-    setSelecionado(fornecedor);
+    setSelecionado(concorrente);
     setFiltroClassif('todos');
     setProjecaoAberta(null);
     setProjecaoData(null);
-    await fetchDetalhes(fornecedor.contatoId, null);
+    await fetchDetalhes(concorrente.contatoId, null);
   };
 
   const fetchDetalhes = async (contatoId, classificacao) => {
@@ -135,7 +140,6 @@ export default function GarimpadorRanking() {
     }
   };
 
-  // Excluir produto da pesquisa
   const excluirProduto = async (codProduto, produtoNome) => {
     const chave = codProduto ? String(codProduto) : (produtoNome || '').toUpperCase().trim();
     if (!chave) return;
@@ -146,6 +150,17 @@ export default function GarimpadorRanking() {
       await api.post('/garimpador/produtos-excluidos', { excluidos: Array.from(novos) });
     } catch (err) {
       console.error('Erro ao excluir produto:', err);
+    }
+  };
+
+  const restaurarProduto = async (chave) => {
+    const novos = new Set(excluidos);
+    novos.delete(chave);
+    setExcluidos(novos);
+    try {
+      await api.post('/garimpador/produtos-excluidos', { excluidos: Array.from(novos) });
+    } catch (err) {
+      console.error('Erro ao restaurar produto:', err);
     }
   };
 
@@ -161,7 +176,7 @@ export default function GarimpadorRanking() {
     setDragColIdx(null);
   };
 
-  // Renderizar celula baseado no id da coluna
+  // Renderizar celula
   const renderCelDetalhe = (col, item, i, jaExcluido, chaveExclusao) => {
     switch (col.id) {
       case 'num': return <span className="text-gray-400">{i + 1}</span>;
@@ -181,6 +196,7 @@ export default function GarimpadorRanking() {
         <button onClick={(e) => { e.stopPropagation(); setTabloidUrl(item.mediaUrl); }} className="text-lg hover:scale-110 transition-transform" title="Ver tabloid">{'\u{1F4F0}'}</button>
       ) : <span className="text-gray-300 text-xs">-</span>;
       case 'oferta': return <span className="font-semibold">R$ {fmtBRL(item.precoOferta)}</span>;
+      case 'vendaLoja': return <span className="text-purple-700 font-medium">R$ {fmtBRL(item.precoVendaLoja)}</span>;
       case 'custoLoja': return <span>R$ {fmtBRL(item.precoCustoLoja)}</span>;
       case 'diferenca': return <span className={`font-semibold ${item.diferenca > 0 ? 'text-green-600' : 'text-red-500'}`}>R$ {fmtBRL(item.diferenca)}</span>;
       case 'curva': return item.curva;
@@ -189,6 +205,15 @@ export default function GarimpadorRanking() {
           {item.classificacao?.toUpperCase()}
         </span>
       );
+      case 'diaSemana': {
+        if (!item.data) return '-';
+        const dia = new Date(item.data).getDay();
+        return (
+          <span className="px-2 py-0.5 rounded text-xs font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
+            {DIAS_SEMANA_FULL[dia]}
+          </span>
+        );
+      }
       case 'data': return <span className="text-gray-500">{item.data ? new Date(item.data).toLocaleDateString('pt-BR') : '-'}</span>;
       case 'projecao': return (
         <button onClick={(e) => { e.stopPropagation(); toggleProjecao(i, item); }} className={`text-xl hover:scale-125 transition-transform ${projecaoAberta === i ? 'scale-125' : ''}`} title="Ver projecao de preco">{'\u{1F4C8}'}</button>
@@ -206,19 +231,7 @@ export default function GarimpadorRanking() {
     }
   };
 
-  // Restaurar produto excluido
-  const restaurarProduto = async (chave) => {
-    const novos = new Set(excluidos);
-    novos.delete(chave);
-    setExcluidos(novos);
-    try {
-      await api.post('/garimpador/produtos-excluidos', { excluidos: Array.from(novos) });
-    } catch (err) {
-      console.error('Erro ao restaurar produto:', err);
-    }
-  };
-
-  // Abrir projecao inline
+  // Projecao inline
   const toggleProjecao = async (idx, item) => {
     if (projecaoAberta === idx) {
       setProjecaoAberta(null);
@@ -245,7 +258,6 @@ export default function GarimpadorRanking() {
     }
   };
 
-  // Filtrar pontos da projecao
   const filtrarPontosProjecao = (dados) => {
     if (!dados?.pontos) return dados;
     let pontosFiltrados = [...dados.pontos];
@@ -266,7 +278,6 @@ export default function GarimpadorRanking() {
     };
   };
 
-  // Montar chart data para projecao inline
   const montarChartData = (dados) => {
     if (!dados?.pontos?.length) return null;
     const pontos = [...dados.pontos];
@@ -325,14 +336,14 @@ export default function GarimpadorRanking() {
     <Layout>
       <div className="p-4 lg:p-6 space-y-4">
         {/* Header */}
-        <div className="bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl p-5 text-white shadow-lg">
-          <h1 className="text-2xl font-bold">Ranking de Fornecedores</h1>
-          <p className="text-orange-100 text-sm mt-1">Melhores oportunidades encontradas pelo Garimpador</p>
+        <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-xl p-5 text-white shadow-lg">
+          <h1 className="text-2xl font-bold">Ranking de Concorrentes</h1>
+          <p className="text-red-100 text-sm mt-1">Monitoramento de precos e ofertas dos concorrentes</p>
         </div>
 
         {/* Cards de resumo */}
         {resumo && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center shadow-sm">
               <div className="text-lg">{'\u{1F947}'}</div>
               <div className="text-2xl font-bold text-yellow-700">{resumo.totalOuro}</div>
@@ -348,20 +359,15 @@ export default function GarimpadorRanking() {
               <div className="text-2xl font-bold text-orange-700">{resumo.totalBronze}</div>
               <div className="text-xs text-orange-600 font-medium">Bronze</div>
             </div>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center shadow-sm">
-              <div className="text-lg">{'\u{274C}'}</div>
-              <div className="text-2xl font-bold text-red-600">{resumo.totalRuim}</div>
-              <div className="text-xs text-red-500 font-medium">Ruim</div>
-            </div>
             <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center shadow-sm">
               <div className="text-lg">{'\u{1F4B0}'}</div>
               <div className="text-2xl font-bold text-green-700">R$ {fmtBRL(resumo.economiaTotal)}</div>
               <div className="text-xs text-green-600 font-medium">Economia Total</div>
             </div>
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center shadow-sm">
-              <div className="text-lg">{'\u{1F6AB}'}</div>
-              <div className="text-2xl font-bold text-purple-700">{resumo.totalForaMix}</div>
-              <div className="text-xs text-purple-600 font-medium">Fora do Mix</div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center shadow-sm">
+              <div className="text-lg">{'\u{1F4CA}'}</div>
+              <div className="text-2xl font-bold text-blue-700">{resumo.totalProdutosAnalisados}</div>
+              <div className="text-xs text-blue-600 font-medium">Produtos Analisados</div>
             </div>
           </div>
         )}
@@ -378,29 +384,21 @@ export default function GarimpadorRanking() {
             <input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)}
               className="border rounded px-2 py-1 text-sm" />
           </div>
-          <button onClick={fetchRanking} className="bg-orange-500 text-white px-4 py-1.5 rounded text-sm hover:bg-orange-600 transition-colors">
+          <button onClick={fetchRanking} className="bg-red-500 text-white px-4 py-1.5 rounded text-sm hover:bg-red-600 transition-colors">
             Atualizar
           </button>
-          {resumo?.topCategorias?.length > 0 && (
-            <div className="ml-auto flex items-center gap-2 text-xs text-gray-500">
-              <span>Top categorias:</span>
-              {resumo.topCategorias.slice(0, 3).map((c, i) => (
-                <span key={i} className="bg-gray-100 px-2 py-0.5 rounded">{c.categoria} ({c.count})</span>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Tabela de Ranking */}
         {loading ? (
           <div className="text-center py-10 text-gray-500">Carregando ranking...</div>
         ) : ranking.length === 0 ? (
-          <div className="text-center py-10 text-gray-400">Nenhuma comparacao encontrada no periodo</div>
+          <div className="text-center py-10 text-gray-400">Nenhum concorrente encontrado no periodo</div>
         ) : (
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="p-3 border-b">
               <h3 className="font-semibold text-gray-700">
-                {ranking.length} fornecedor{ranking.length !== 1 ? 'es' : ''} encontrado{ranking.length !== 1 ? 's' : ''}
+                {ranking.length} concorrente{ranking.length !== 1 ? 's' : ''} encontrado{ranking.length !== 1 ? 's' : ''}
               </h3>
             </div>
             <div className="overflow-x-auto">
@@ -408,7 +406,8 @@ export default function GarimpadorRanking() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="text-center p-3 font-semibold text-gray-600 w-16">Pos.</th>
-                    <th className="text-left p-3 font-semibold text-gray-600">Fornecedor</th>
+                    <th className="text-left p-3 font-semibold text-gray-600">Concorrente</th>
+                    <th className="text-center p-3 font-semibold text-gray-600">Dias Ativos</th>
                     <th className="text-center p-3 font-semibold text-gray-600">Qtd Produtos</th>
                     <th className="text-center p-3 font-semibold text-yellow-600">Ouro</th>
                     <th className="text-center p-3 font-semibold text-gray-500">Prata</th>
@@ -425,7 +424,7 @@ export default function GarimpadorRanking() {
                       onClick={() => abrirDetalhes(f)}
                       className={`border-b cursor-pointer transition-colors ${
                         selecionado?.contatoId === f.contatoId
-                          ? 'bg-orange-50 border-l-4 border-l-orange-500'
+                          ? 'bg-red-50 border-l-4 border-l-red-500'
                           : 'hover:bg-gray-50'
                       }`}
                     >
@@ -442,8 +441,28 @@ export default function GarimpadorRanking() {
                           )}
                           <div>
                             <div className="font-semibold text-gray-800">{f.nome}</div>
-                            <div className="text-xs text-gray-400">{f.tipo === 'concorrente' ? 'Concorrente' : 'Fornecedor'}</div>
+                            <div className="text-xs text-red-400">Concorrente</div>
                           </div>
+                        </div>
+                      </td>
+                      <td className="p-3 text-center">
+                        <div className="flex items-center justify-center gap-0.5">
+                          {DIAS_SEMANA.map((dia, di) => {
+                            const ativo = f.diasAtivos?.includes(di);
+                            return (
+                              <span
+                                key={di}
+                                className={`w-6 h-6 rounded text-[10px] font-bold inline-flex items-center justify-center ${
+                                  ativo
+                                    ? 'bg-red-500 text-white'
+                                    : 'bg-gray-100 text-gray-300'
+                                }`}
+                                title={DIAS_SEMANA_FULL[di]}
+                              >
+                                {dia}
+                              </span>
+                            );
+                          })}
                         </div>
                       </td>
                       <td className="p-3 text-center">
@@ -495,12 +514,12 @@ export default function GarimpadorRanking() {
           </div>
         )}
 
-        {/* Detalhes do fornecedor selecionado */}
+        {/* Detalhes do concorrente selecionado */}
         {selecionado && (
           <div className="bg-white rounded-lg shadow">
             <div className="p-4 border-b flex flex-wrap items-center gap-3">
               <h2 className="font-semibold text-gray-800 text-lg">
-                Itens de {selecionado.nome}
+                Produtos de {selecionado.nome}
               </h2>
               <div className="flex gap-1 ml-auto">
                 {['todos', 'ouro', 'prata', 'bronze', 'ruim'].map((c) => (
@@ -509,7 +528,7 @@ export default function GarimpadorRanking() {
                     onClick={() => mudarFiltroClassif(c)}
                     className={`px-3 py-1 text-sm rounded font-medium transition-colors ${
                       filtroClassif === c
-                        ? 'bg-orange-500 text-white'
+                        ? 'bg-red-500 text-white'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
@@ -557,7 +576,7 @@ export default function GarimpadorRanking() {
                           ))}
                         </tr>
 
-                        {/* Projecao inline expandida */}
+                        {/* Projecao inline */}
                         {projecaoAberta === i && (
                           <tr key={`proj-${i}`}>
                             <td colSpan={colunasDetalhe.length} className="p-0">
@@ -576,8 +595,8 @@ export default function GarimpadorRanking() {
                                       </h4>
                                       <div className="flex items-center gap-1">
                                         {[
-                                          { key: 'todos', label: 'Todos Fornecedores' },
-                                          { key: 'fornecedor', label: `Somente ${selecionado?.nome || 'Fornecedor'}` },
+                                          { key: 'todos', label: 'Todos' },
+                                          { key: 'fornecedor', label: `Somente ${selecionado?.nome || 'Concorrente'}` },
                                           { key: 'abaixo_custo', label: `Abaixo do Custo (R$ ${fmtBRL(item.precoCustoLoja)})` },
                                         ].map(f => (
                                           <button
@@ -631,7 +650,6 @@ export default function GarimpadorRanking() {
                                       if (!cd || !cd.datasets.length) return (
                                         <div className="text-center py-4 text-gray-400 text-sm">Dados insuficientes para grafico</div>
                                       );
-                                      // Adicionar linha de referencia do custo
                                       const custoLoja = item.precoCustoLoja || 0;
                                       if (custoLoja > 0) {
                                         cd.datasets.push({
@@ -663,11 +681,12 @@ export default function GarimpadorRanking() {
                                             <thead className="bg-gray-50 sticky top-0">
                                               <tr>
                                                 <th className="text-left p-2">Data</th>
-                                                <th className="text-left p-2">Produto Ofertado</th>
-                                                <th className="text-right p-2">Preco</th>
+                                                <th className="text-center p-2">Dia</th>
+                                                <th className="text-left p-2">Produto</th>
+                                                <th className="text-right p-2">Preco Conc.</th>
                                                 <th className="text-right p-2">Custo Loja</th>
                                                 <th className="text-right p-2">Economia</th>
-                                                <th className="text-left p-2">Fornecedor</th>
+                                                <th className="text-left p-2">Concorrente</th>
                                                 <th className="text-left p-2">Produto Loja</th>
                                                 <th className="text-center p-2">Classif.</th>
                                               </tr>
@@ -675,10 +694,14 @@ export default function GarimpadorRanking() {
                                             <tbody>
                                               {dadosFiltrados.pontos.map((p, pi) => {
                                                 const economia = (item.precoCustoLoja || 0) - (p.preco || 0);
+                                                const diaSem = p.data ? DIAS_SEMANA_FULL[new Date(p.data).getDay()] : '-';
                                                 return (
                                                 <tr key={pi} className={`border-b hover:bg-gray-50 ${p.preco < (item.precoCustoLoja || 0) ? 'bg-green-50/50' : ''}`}>
                                                   <td className="p-2 text-gray-500">
                                                     {p.data ? new Date(p.data).toLocaleDateString('pt-BR') : '-'}
+                                                  </td>
+                                                  <td className="p-2 text-center">
+                                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700">{diaSem}</span>
                                                   </td>
                                                   <td className="p-2 font-medium text-blue-700">{p.produtoOfertado}</td>
                                                   <td className="p-2 text-right font-semibold">R$ {fmtBRL(p.preco)}</td>
