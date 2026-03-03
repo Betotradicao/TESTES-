@@ -296,21 +296,22 @@ export default function GarimpadorRanking() {
     };
   };
 
-  // Montar chart data para projecao inline
+  // Montar chart data para projecao inline - eixo X = dias 1 a 31
   const montarChartData = (dados) => {
     if (!dados?.pontos?.length) return null;
     const pontos = [...dados.pontos];
     const fornecedores = [...new Set(pontos.map(p => p.fornecedor))];
-    const labels = [...new Set(pontos.map(p => {
-      const d = new Date(p.data);
-      return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    }))];
+    // Labels fixos: dias 1 a 31
+    const labels = Array.from({ length: 31 }, (_, i) => String(i + 1));
     const datasets = fornecedores.map((forn, i) => {
       const pontosDoForn = pontos.filter(p => p.fornecedor === forn);
-      const dataMap = new Map(pontosDoForn.map(p => {
+      // Mapear dia do mes -> preco
+      const dataMap = new Map();
+      pontosDoForn.forEach(p => {
         const d = new Date(p.data);
-        return [d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), p.preco];
-      }));
+        const dia = String(d.getDate());
+        dataMap.set(dia, p.preco);
+      });
       return {
         label: forn,
         data: labels.map(l => dataMap.get(l) ?? null),
@@ -320,8 +321,24 @@ export default function GarimpadorRanking() {
         spanGaps: true,
         pointRadius: 5,
         pointHoverRadius: 7,
+        borderWidth: 2,
       };
     });
+
+    // Linha de referencia: Custo Loja (tracejada)
+    if (dados.custoLoja > 0) {
+      datasets.push({
+        label: `Custo Loja (R$ ${fmtBRL(dados.custoLoja)})`,
+        data: labels.map(() => dados.custoLoja),
+        borderColor: '#f97316',
+        borderDash: [6, 4],
+        borderWidth: 1.5,
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        fill: false,
+      });
+    }
+
     return { labels, datasets };
   };
 
@@ -332,11 +349,18 @@ export default function GarimpadorRanking() {
       legend: { position: 'top' },
       tooltip: {
         callbacks: {
-          label: (ctx) => `${ctx.dataset.label}: R$ ${fmtBRL(ctx.parsed.y)}`,
+          label: (ctx) => {
+            if (ctx.parsed.y == null) return null;
+            return `${ctx.dataset.label}: R$ ${fmtBRL(ctx.parsed.y)}`;
+          },
         },
       },
     },
     scales: {
+      x: {
+        title: { display: true, text: 'Dia do Mes', font: { size: 11 } },
+        ticks: { font: { size: 10 } },
+      },
       y: {
         beginAtZero: false,
         ticks: { callback: (v) => `R$ ${fmtBRL(v)}` },
