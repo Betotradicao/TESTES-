@@ -600,16 +600,14 @@ export class GarimpadorController {
    * Sincroniza produtos Oracle -> PGVector cache (gera embeddings)
    */
   static async syncVectorStore(req: Request, res: Response) {
-    res.json({ success: true, message: 'Sincronizacao iniciada em background. Acompanhe pelo console.' });
-
-    (async () => {
-      try {
-        const result = await GarimpadorVectorStoreService.sincronizar();
-        console.log(`[VectorStore Sync] Concluido: ${result.total} produtos, ${result.atualizados} atualizados, ${result.erros} erros`);
-      } catch (error: any) {
-        console.error('[VectorStore Sync] Erro:', error.message);
-      }
-    })();
+    try {
+      const result = await GarimpadorVectorStoreService.sincronizar();
+      const stats = await GarimpadorVectorStoreService.stats();
+      res.json({ success: true, message: `Sincronizacao concluida: ${result.total} produtos, ${result.atualizados} atualizados`, stats });
+    } catch (error: any) {
+      console.error('[VectorStore Sync] Erro:', error.message);
+      res.status(500).json({ success: false, error: error.message });
+    }
   }
 
   /**
@@ -619,7 +617,7 @@ export class GarimpadorController {
   static async vectorStoreStats(req: Request, res: Response) {
     try {
       const stats = await GarimpadorVectorStoreService.stats();
-      res.json(stats);
+      res.json({ success: true, stats });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

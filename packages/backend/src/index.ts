@@ -1054,20 +1054,43 @@ const startServer = async () => {
   console.log('🔄 Sells sync cron job started (every 1 minute)');
 
   // ==========================================
-  // CRON: Sync VectorStore do Garimpador (semanal - segunda 6h)
-  // Sincroniza produtos Oracle → PGVector para busca vetorial
+  // CRON: Sync VectorStore do Garimpador (configurável via tela de IA)
+  // Verifica a cada hora se é o momento de sincronizar
   // ==========================================
-  cron.schedule('0 6 * * 1', async () => {
+  let vectorStoreLastSyncDate = '';
+  cron.schedule('0 * * * *', async () => {
     try {
-      console.log('🔄 [VectorStore] Sync semanal iniciado (segunda 6h)...');
-      const { GarimpadorVectorStoreService } = await import('./services/garimpador-vectorstore.service');
-      await GarimpadorVectorStoreService.sincronizar();
-      console.log('✅ [VectorStore] Sync semanal concluído');
+      const { ConfigurationService } = await import('./services/configuration.service');
+      const freq = await ConfigurationService.get('vectorstore_sync_freq') || 'semanal';
+      const diaConfig = parseInt(await ConfigurationService.get('vectorstore_sync_dia') || '1');
+      const horaConfig = parseInt(await ConfigurationService.get('vectorstore_sync_hora') || '6');
+
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+      const hora = now.getHours();
+      const diaSemana = now.getDay(); // 0=dom, 1=seg...
+      const diaMes = now.getDate();
+      const hoje = now.toISOString().split('T')[0];
+
+      if (hora !== horaConfig) return;
+      if (vectorStoreLastSyncDate === hoje) return; // já sincronizou hoje
+
+      let deveSync = false;
+      if (freq === 'diario') deveSync = true;
+      else if (freq === 'semanal') deveSync = (diaSemana === diaConfig);
+      else if (freq === 'mensal') deveSync = (diaMes === diaConfig);
+
+      if (deveSync) {
+        vectorStoreLastSyncDate = hoje;
+        console.log(`🔄 [VectorStore] Sync ${freq} iniciado (config: dia=${diaConfig}, hora=${horaConfig}h)...`);
+        const { GarimpadorVectorStoreService } = await import('./services/garimpador-vectorstore.service');
+        await GarimpadorVectorStoreService.sincronizar();
+        console.log('✅ [VectorStore] Sync concluído');
+      }
     } catch (error) {
-      console.error('❌ [VectorStore] Sync semanal erro:', error);
+      console.error('❌ [VectorStore] Sync erro:', error);
     }
   }, { timezone: 'America/Sao_Paulo' });
-  console.log('📦 VectorStore sync cron job started (every Monday 6:00 AM BRT)');
+  console.log('📦 VectorStore sync cron job started (configurable schedule)');
 };
 
 startServer();

@@ -151,10 +151,20 @@ export default function AITab() {
   const [matchSaved, setMatchSaved] = useState(false);
   const [reprocessando, setReprocessando] = useState(false);
   const [reprocessResult, setReprocessResult] = useState(null);
+  // VectorStore
+  const [vectorSyncFreq, setVectorSyncFreq] = useState('semanal');
+  const [vectorSyncDia, setVectorSyncDia] = useState(1);
+  const [vectorSyncHora, setVectorSyncHora] = useState(6);
+  const [vectorStats, setVectorStats] = useState(null);
+  const [vectorSyncing, setVectorSyncing] = useState(false);
+  const [vectorSyncResult, setVectorSyncResult] = useState(null);
+  const [vectorConfigSaving, setVectorConfigSaving] = useState(false);
+  const [vectorConfigSaved, setVectorConfigSaved] = useState(false);
 
   useEffect(() => {
     loadConfig();
     loadMatchConfig();
+    loadVectorStats();
   }, []);
 
   const loadConfig = async () => {
@@ -172,6 +182,10 @@ export default function AITab() {
         setGarimpadorImagens(data.garimpador_processar_imagens !== 'false');
         setGarimpadorPdf(data.garimpador_processar_pdf !== 'false');
         setGarimpadorExcel(data.garimpador_processar_excel !== 'false');
+        // VectorStore
+        if (data.vectorstore_sync_freq) setVectorSyncFreq(data.vectorstore_sync_freq);
+        if (data.vectorstore_sync_dia) setVectorSyncDia(parseInt(data.vectorstore_sync_dia) || 1);
+        if (data.vectorstore_sync_hora) setVectorSyncHora(parseInt(data.vectorstore_sync_hora) || 6);
       }
     } catch (error) {
       console.error('Erro ao carregar configuracao:', error);
@@ -255,6 +269,46 @@ export default function AITab() {
       setReprocessResult({ success: false, error: e.response?.data?.error || e.message });
     } finally {
       setReprocessando(false);
+    }
+  };
+
+  const loadVectorStats = async () => {
+    try {
+      const { data } = await api.get('/garimpador/vectorstore/stats');
+      if (data.success) setVectorStats(data.stats);
+    } catch { }
+  };
+
+  const handleVectorSync = async () => {
+    if (!window.confirm('Iniciar sincronizacao dos produtos Oracle para o VectorStore?\n\nIsso pode levar alguns minutos dependendo da quantidade de produtos.')) return;
+    setVectorSyncing(true);
+    setVectorSyncResult(null);
+    try {
+      const { data } = await api.post('/garimpador/vectorstore/sync');
+      setVectorSyncResult(data);
+      loadVectorStats();
+    } catch (e) {
+      setVectorSyncResult({ success: false, error: e.response?.data?.error || e.message });
+    } finally {
+      setVectorSyncing(false);
+    }
+  };
+
+  const saveVectorConfig = async () => {
+    setVectorConfigSaving(true);
+    setVectorConfigSaved(false);
+    try {
+      await api.post('/config/configurations', {
+        vectorstore_sync_freq: vectorSyncFreq,
+        vectorstore_sync_dia: String(vectorSyncDia),
+        vectorstore_sync_hora: String(vectorSyncHora),
+      });
+      setVectorConfigSaved(true);
+      setTimeout(() => setVectorConfigSaved(false), 3000);
+    } catch (e) {
+      alert('Erro ao salvar: ' + (e.response?.data?.error || e.message));
+    } finally {
+      setVectorConfigSaving(false);
     }
   };
 
@@ -730,6 +784,167 @@ export default function AITab() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+          {/* ===== Base de Produtos Vetorial (VectorStore) ===== */}
+          <div className="border border-blue-200 rounded-xl overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 border-b border-blue-200">
+              <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                </svg>
+                Base de Produtos Vetorial (VectorStore)
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">Sincroniza os produtos do Oracle para busca inteligente por similaridade. Melhora drasticamente a precisao do matching.</p>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {/* Stats */}
+              {vectorStats && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-center">
+                    <p className="text-2xl font-bold text-blue-700">{vectorStats.total || 0}</p>
+                    <p className="text-xs text-blue-600 mt-0.5">Produtos no cache</p>
+                  </div>
+                  <div className="bg-green-50 border border-green-100 rounded-lg p-3 text-center">
+                    <p className="text-2xl font-bold text-green-700">{vectorStats.comEmbedding || 0}</p>
+                    <p className="text-xs text-green-600 mt-0.5">Com embedding</p>
+                  </div>
+                  <div className="bg-orange-50 border border-orange-100 rounded-lg p-3 text-center">
+                    <p className="text-2xl font-bold text-orange-700">{(vectorStats.total || 0) - (vectorStats.comEmbedding || 0)}</p>
+                    <p className="text-xs text-orange-600 mt-0.5">Sem embedding</p>
+                  </div>
+                  <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 text-center">
+                    <p className="text-sm font-bold text-gray-700">{vectorStats.ultimaSync ? new Date(vectorStats.ultimaSync).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Nunca'}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Ultima sincronizacao</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Configuracao de agendamento */}
+              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Agendamento da Sincronizacao</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Frequencia */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Frequencia</label>
+                    <select
+                      value={vectorSyncFreq}
+                      onChange={(e) => setVectorSyncFreq(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                    >
+                      <option value="diario">Diario</option>
+                      <option value="semanal">Semanal</option>
+                      <option value="mensal">Mensal</option>
+                    </select>
+                  </div>
+
+                  {/* Dia (condicional) */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      {vectorSyncFreq === 'semanal' ? 'Dia da Semana' : vectorSyncFreq === 'mensal' ? 'Dia do Mes' : 'Dia'}
+                    </label>
+                    {vectorSyncFreq === 'semanal' ? (
+                      <select
+                        value={vectorSyncDia}
+                        onChange={(e) => setVectorSyncDia(parseInt(e.target.value))}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                      >
+                        <option value={0}>Domingo</option>
+                        <option value={1}>Segunda-feira</option>
+                        <option value={2}>Terca-feira</option>
+                        <option value={3}>Quarta-feira</option>
+                        <option value={4}>Quinta-feira</option>
+                        <option value={5}>Sexta-feira</option>
+                        <option value={6}>Sabado</option>
+                      </select>
+                    ) : vectorSyncFreq === 'mensal' ? (
+                      <select
+                        value={vectorSyncDia}
+                        onChange={(e) => setVectorSyncDia(parseInt(e.target.value))}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                      >
+                        {Array.from({ length: 28 }, (_, i) => (
+                          <option key={i + 1} value={i + 1}>Dia {i + 1}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 bg-gray-50">
+                        Todos os dias
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Horario */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Horario</label>
+                    <select
+                      value={vectorSyncHora}
+                      onChange={(e) => setVectorSyncHora(parseInt(e.target.value))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                    >
+                      {Array.from({ length: 24 }, (_, i) => (
+                        <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Resumo */}
+                <div className="mt-3 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                  <p className="text-xs text-blue-700">
+                    {vectorSyncFreq === 'diario'
+                      ? `Sincronizacao diaria as ${String(vectorSyncHora).padStart(2, '0')}:00`
+                      : vectorSyncFreq === 'semanal'
+                      ? `Sincronizacao toda ${['Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado'][vectorSyncDia]} as ${String(vectorSyncHora).padStart(2, '0')}:00`
+                      : `Sincronizacao todo dia ${vectorSyncDia} as ${String(vectorSyncHora).padStart(2, '0')}:00`
+                    }
+                  </p>
+                </div>
+              </div>
+
+              {/* Botoes */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={saveVectorConfig}
+                  disabled={vectorConfigSaving}
+                  className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition text-sm"
+                >
+                  {vectorConfigSaving ? 'Salvando...' : vectorConfigSaved ? 'Salvo!' : 'Salvar Agendamento'}
+                </button>
+                <button
+                  onClick={handleVectorSync}
+                  disabled={vectorSyncing}
+                  className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition text-sm"
+                >
+                  {vectorSyncing ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Sincronizando...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Atualizar Agora
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Resultado do sync */}
+              {vectorSyncResult && (
+                <div className={`p-3 rounded-lg text-sm ${vectorSyncResult.success ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
+                  {vectorSyncResult.success
+                    ? `Sincronizacao concluida! ${vectorSyncResult.stats?.total || 0} produtos no cache, ${vectorSyncResult.stats?.comEmbedding || 0} com embedding.`
+                    : `Erro: ${vectorSyncResult.error}`
+                  }
+                </div>
+              )}
             </div>
           </div>
         </div>
