@@ -41,6 +41,7 @@ export interface CotacaoFornecedorPreco {
   qtdPedido: number;
   numPedido: number;
   ganhouPedido: boolean;
+  prazoEntrega: number;
 }
 
 export interface RankingFornecedor {
@@ -52,6 +53,9 @@ export interface RankingFornecedor {
   qtdCotou: number;
   qtdGanhouPedido: number;
   valorTotalPedidos: number;
+  valorTotalPedidosEmb: number;
+  pedidoMinimo: number;
+  prazoEntrega: number;
 }
 
 export class AnaliseCotacaoService {
@@ -63,10 +67,11 @@ export class AnaliseCotacaoService {
     const schema = await MappingService.getSchema();
 
     let sql = `
-      SELECT c.COD_COTA, c.COD_LOJA, c.DES_COTA, c.DTA_COTA, c.USUARIO, c.DTA_ALTERACAO,
-        (SELECT COUNT(*) FROM ${schema}.TAB_COTA_PROD cp WHERE cp.COD_COTA = c.COD_COTA AND cp.COD_LOJA = c.COD_LOJA) as TOTAL_PRODUTOS,
-        (SELECT COUNT(*) FROM ${schema}.TAB_FORN_COTA fc WHERE fc.COD_COTA = c.COD_COTA AND fc.COD_LOJA = c.COD_LOJA) as TOTAL_FORNECEDORES
-      FROM ${schema}.TAB_COTA c
+      SELECT * FROM (
+        SELECT c.COD_COTA, c.COD_LOJA, c.DES_COTA, c.DTA_COTA, c.USUARIO, c.DTA_ALTERACAO,
+          (SELECT COUNT(*) FROM ${schema}.TAB_COTA_PROD cp WHERE cp.COD_COTA = c.COD_COTA AND cp.COD_LOJA = c.COD_LOJA) as TOTAL_PRODUTOS,
+          (SELECT COUNT(*) FROM ${schema}.TAB_FORN_COTA fc WHERE fc.COD_COTA = c.COD_COTA AND fc.COD_LOJA = c.COD_LOJA) as TOTAL_FORNECEDORES
+        FROM ${schema}.TAB_COTA c
     `;
     const params: any = {};
 
@@ -75,8 +80,8 @@ export class AnaliseCotacaoService {
       params.codLoja = codLoja;
     }
 
-    sql += ` ORDER BY c.COD_COTA DESC`;
-    sql += ` FETCH FIRST 100 ROWS ONLY`;
+    sql += ` ORDER BY c.COD_COTA DESC
+      ) WHERE ROWNUM <= 100`;
 
     const rows = await OracleService.query<any>(sql, params);
 
@@ -116,7 +121,8 @@ export class AnaliseCotacaoService {
     const sqlForn = `
       SELECT cf.COD_PRODUTO, cf.COD_FORNECEDOR, f.DES_FORNECEDOR,
         cf.VAL_CUSTO_TAB, cf.VAL_CUSTO_CALC, cf.PER_DESCONTO,
-        cf.QTD_PEDIDO, cf.NUM_PEDIDO
+        cf.QTD_PEDIDO, cf.NUM_PEDIDO,
+        NVL(f.NUM_PRAZO, 0) as NUM_PRAZO
       FROM ${schema}.TAB_COTA_FORN cf
       LEFT JOIN ${schema}.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = cf.COD_FORNECEDOR
       WHERE cf.COD_COTA = :codCota AND cf.COD_LOJA = :codLoja
@@ -138,6 +144,7 @@ export class AnaliseCotacaoService {
         qtdPedido: fp.QTD_PEDIDO || 0,
         numPedido: fp.NUM_PEDIDO || 0,
         ganhouPedido: (fp.NUM_PEDIDO || 0) > 0,
+        prazoEntrega: fp.NUM_PRAZO || 0,
       });
     }
 
@@ -176,12 +183,18 @@ export class AnaliseCotacaoService {
   static async rankingFornecedores(codCota: number, codLoja: number): Promise<RankingFornecedor[]> {
     const schema = await MappingService.getSchema();
 
-    // Buscar todos os preços
+    // Buscar todos os preços + pedido mínimo do fornecedor + qtd pedido do produto + embalagem
     const sql = `
       SELECT cf.COD_PRODUTO, cf.COD_FORNECEDOR, f.DES_FORNECEDOR,
-        cf.VAL_CUSTO_TAB, cf.NUM_PEDIDO, cf.QTD_PEDIDO
+        cf.VAL_CUSTO_TAB, cf.NUM_PEDIDO, cf.QTD_PEDIDO,
+        NVL(f.PED_MIN_VAL, 0) as PED_MIN_VAL,
+        NVL(f.NUM_PRAZO, 0) as NUM_PRAZO,
+        NVL(cp.QTD_PEDIDO, 0) as QTD_PEDIDO_PROD,
+        NVL(p.QTD_EMBALAGEM_COMPRA, 1) as QTD_EMB
       FROM ${schema}.TAB_COTA_FORN cf
       LEFT JOIN ${schema}.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = cf.COD_FORNECEDOR
+      LEFT JOIN ${schema}.TAB_COTA_PROD cp ON cp.COD_COTA = cf.COD_COTA AND cp.COD_LOJA = cf.COD_LOJA AND cp.COD_PRODUTO = cf.COD_PRODUTO
+      LEFT JOIN ${schema}.TAB_PRODUTO p ON p.COD_PRODUTO = cf.COD_PRODUTO
       WHERE cf.COD_COTA = :codCota AND cf.COD_LOJA = :codLoja
     `;
     const rows = await OracleService.query<any>(sql, { codCota, codLoja });
@@ -197,7 +210,7 @@ export class AnaliseCotacaoService {
     // Contadores por fornecedor
     const stats: Record<number, RankingFornecedor> = {};
 
-    const getOrCreate = (codForn: number, desForn: string) => {
+    const getOrCreate = (codForn: number, desForn: string, pedMinVal?: number, numPrazo?: number) => {
       if (!stats[codForn]) {
         stats[codForn] = {
           codFornecedor: codForn,
@@ -208,7 +221,16 @@ export class AnaliseCotacaoService {
           qtdCotou: 0,
           qtdGanhouPedido: 0,
           valorTotalPedidos: 0,
+          valorTotalPedidosEmb: 0,
+          pedidoMinimo: pedMinVal || 0,
+          prazoEntrega: numPrazo || 0,
         };
+      }
+      if (pedMinVal && pedMinVal > stats[codForn].pedidoMinimo) {
+        stats[codForn].pedidoMinimo = pedMinVal;
+      }
+      if (numPrazo && numPrazo > 0 && stats[codForn].prazoEntrega === 0) {
+        stats[codForn].prazoEntrega = numPrazo;
       }
       return stats[codForn];
     };
@@ -219,17 +241,23 @@ export class AnaliseCotacaoService {
       cotaram.sort((a: any, b: any) => a.VAL_CUSTO_TAB - b.VAL_CUSTO_TAB);
 
       for (const f of fornecedores) {
-        const s = getOrCreate(f.COD_FORNECEDOR, f.DES_FORNECEDOR);
+        const s = getOrCreate(f.COD_FORNECEDOR, f.DES_FORNECEDOR, f.PED_MIN_VAL || 0, f.NUM_PRAZO || 0);
         if ((f.VAL_CUSTO_TAB || 0) > 0) s.qtdCotou++;
-        if ((f.NUM_PEDIDO || 0) > 0) {
-          s.qtdGanhouPedido++;
-          s.valorTotalPedidos += (f.VAL_CUSTO_TAB || 0) * (f.QTD_PEDIDO || 0);
-        }
+        if ((f.NUM_PEDIDO || 0) > 0) s.qtdGanhouPedido++;
       }
 
-      if (cotaram[0]) getOrCreate(cotaram[0].COD_FORNECEDOR, cotaram[0].DES_FORNECEDOR).qtdMaisBarato++;
-      if (cotaram[1]) getOrCreate(cotaram[1].COD_FORNECEDOR, cotaram[1].DES_FORNECEDOR).qtdSegundo++;
-      if (cotaram[2]) getOrCreate(cotaram[2].COD_FORNECEDOR, cotaram[2].DES_FORNECEDOR).qtdTerceiro++;
+      // Mais barato: somar valor da compra (preco * qtd do produto na cotacao)
+      if (cotaram[0]) {
+        const s = getOrCreate(cotaram[0].COD_FORNECEDOR, cotaram[0].DES_FORNECEDOR, cotaram[0].PED_MIN_VAL || 0, cotaram[0].NUM_PRAZO || 0);
+        s.qtdMaisBarato++;
+        const preco = cotaram[0].VAL_CUSTO_TAB || 0;
+        const qtdPed = cotaram[0].QTD_PEDIDO_PROD || 0;
+        const qtdEmb = cotaram[0].QTD_EMB || 1;
+        s.valorTotalPedidos += preco * qtdPed;
+        s.valorTotalPedidosEmb += preco * qtdPed * qtdEmb;
+      }
+      if (cotaram[1]) getOrCreate(cotaram[1].COD_FORNECEDOR, cotaram[1].DES_FORNECEDOR, cotaram[1].PED_MIN_VAL || 0, cotaram[1].NUM_PRAZO || 0).qtdSegundo++;
+      if (cotaram[2]) getOrCreate(cotaram[2].COD_FORNECEDOR, cotaram[2].DES_FORNECEDOR, cotaram[2].PED_MIN_VAL || 0, cotaram[2].NUM_PRAZO || 0).qtdTerceiro++;
     }
 
     return Object.values(stats)
