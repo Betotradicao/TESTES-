@@ -32,4 +32,10 @@ router.get('/itens', FrenteCaixaController.getItensPorCupom);
 // Estornos órfãos de um operador em uma data (Canc. Cupom)
 router.get('/estornos-orfaos', FrenteCaixaController.getEstornosOrfaos);
 
+// Persistencia de horas trabalhadas e metas
+router.get('/config/horas', FrenteCaixaController.getHorasConfig);
+router.post('/config/horas', FrenteCaixaController.saveHorasConfig);
+router.get('/config/metas', FrenteCaixaController.getMetasConfig);
+router.post('/config/metas', FrenteCaixaController.saveMetasConfig);
+
 export default router;

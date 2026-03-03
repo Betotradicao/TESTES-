@@ -218,13 +218,28 @@ export class SantanderController {
     return ranges;
   }
 
+  /**
+   * Busca todos os bancos ativos com certificado
+   */
+  private async getAllActiveBankIds(): Promise<string[]> {
+    try {
+      const { AppDataSource } = await import('../config/database');
+      const { BankAccount } = await import('../entities/BankAccount');
+      const repo = AppDataSource.getRepository(BankAccount);
+      const banks = await repo.find({ where: { ativo: true }, select: ['id'] });
+      return banks.map(b => b.id);
+    } catch {
+      return [];
+    }
+  }
+
   async getExtratoCompleto(req: Request, res: Response) {
     try {
       // Timeout de 5 minutos para consultas grandes (ano inteiro)
       req.setTimeout(300000);
       res.setTimeout(300000);
 
-      const { initialDate, finalDate } = req.query;
+      const { initialDate, finalDate, bankId: bankIdParam } = req.query;
 
       if (!initialDate || !finalDate) {
         return res.status(400).json({ error: 'initialDate e finalDate são obrigatórios' });
@@ -232,6 +247,43 @@ export class SantanderController {
 
       // Dividir em sub-ranges mensais para não sobrecarregar a API
       const monthRanges = this.splitIntoMonths(initialDate as string, finalDate as string);
+
+      // Se bankId=all, consolidar todos os bancos
+      if (bankIdParam === 'all') {
+        const bankIds = await this.getAllActiveBankIds();
+        console.log(`[Santander] Consolidando ${bankIds.length} bancos: ${initialDate} a ${finalDate}`);
+
+        let allItems: any[] = [];
+        for (const bId of bankIds) {
+          for (const range of monthRanges) {
+            try {
+              const monthItems = await this.fetchAllPages(range.start, range.end, bId);
+              allItems = allItems.concat(monthItems);
+            } catch (err: any) {
+              console.error(`[Santander] Erro banco ${bId} mês ${range.start}: ${err.message}`);
+            }
+          }
+        }
+
+        console.log(`[Santander] Consolidado total: ${allItems.length} lançamentos de ${bankIds.length} bancos`);
+
+        const creditos = allItems.filter((i: any) => i.creditDebitType === 'CREDITO');
+        const debitos = allItems.filter((i: any) => i.creditDebitType === 'DEBITO');
+        const totalCreditos = creditos.reduce((s: number, i: any) => s + parseFloat(i.amount || 0), 0);
+        const totalDebitos = debitos.reduce((s: number, i: any) => s + Math.abs(parseFloat(i.amount || 0)), 0);
+
+        return res.json({
+          items: allItems,
+          totais: {
+            creditos: totalCreditos,
+            debitos: totalDebitos,
+            qtdCreditos: creditos.length,
+            qtdDebitos: debitos.length,
+            totalRegistros: allItems.length
+          }
+        });
+      }
+
       const bankId = await this.resolveBankId(req);
       console.log(`[Santander] Consultando ${monthRanges.length} meses: ${initialDate} a ${finalDate}${bankId ? ` (banco: ${bankId})` : ''}`);
 

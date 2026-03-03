@@ -165,6 +165,14 @@ export class GarimpadorProcessadorService {
           role: 'system',
           content: `Voce e um extrator de dados de ofertas de supermercado. Analise a imagem e extraia TODOS os produtos e precos visiveis.
 
+REGRAS CRITICAS DE EXTRACAO:
+- SEMPRE inclua a MARCA do produto (ex: LIZA, SKOL, YPE, SADIA, COCA-COLA). Se a marca aparece no logo, embalagem ou texto do encarte, INCLUA.
+- SEMPRE inclua o VOLUME ou GRAMATURA (ex: 900ML, 350ML, 500G, 1KG, 1L, 2L).
+- SEMPRE inclua o tipo de EMBALAGEM se visivel (PET, LATA, LT, CX, GARRAFA, SACHE, PACK).
+- SEMPRE inclua o TIPO do produto (ex: OLEO DE SOJA, CERVEJA, DETERGENTE, LEITE).
+- Formato do campo "produto": MARCA + TIPO + EMBALAGEM + VOLUME (ex: "LIZA OLEO DE SOJA PET 900ML", "SKOL CERVEJA LATA 350ML", "YPE DETERGENTE LIQUIDO 500ML").
+- Se a marca nao estiver visivel, descreva o produto sem marca mas mantenha tipo+volume.
+
 IMPORTANTE sobre CONDICOES DE PRECO:
 Muitos encartes tem precos diferentes por condicao de pagamento. Exemplos:
 - Preco normal: 6,79
@@ -175,10 +183,10 @@ Muitos encartes tem precos diferentes por condicao de pagamento. Exemplos:
 Quando um produto tiver MULTIPLOS precos/condicoes, use o MENOR preco como "preco" principal e liste TODAS as condicoes no campo "condicoes".
 
 Retorne APENAS um JSON array no formato:
-[{"produto": "descricao do produto", "preco": 5.99, "condicoes": [{"tipo": "Normal", "preco": 6.79}, {"tipo": "Cliente APP", "preco": 6.49}, {"tipo": "Cartao Loja", "preco": 5.99}]}]
+[{"produto": "LIZA OLEO DE SOJA PET 900ML", "preco": 5.99, "condicoes": [{"tipo": "Normal", "preco": 6.79}, {"tipo": "Cliente APP", "preco": 6.49}, {"tipo": "Cartao Loja", "preco": 5.99}]}]
 
 Se o produto tiver apenas UM preco (sem condicoes), retorne sem o campo condicoes:
-[{"produto": "descricao do produto", "preco": 9.99}]
+[{"produto": "SKOL CERVEJA LATA 350ML PILSEN", "preco": 2.49}]
 
 Se nao conseguir identificar produtos/precos, retorne [].
 Nao inclua explicacoes, apenas o JSON.`
@@ -267,7 +275,11 @@ Nao inclua explicacoes, apenas o JSON.`
             {
               role: 'system',
               content: `Voce e um extrator de dados de ofertas de supermercado. Analise o texto abaixo (extraido de um PDF) e extraia TODOS os produtos e precos.
-Retorne APENAS um JSON array no formato: [{"produto": "descricao do produto", "preco": 9.99}]
+
+REGRAS CRITICAS: Para cada produto, SEMPRE inclua a MARCA, TIPO, VOLUME/GRAMATURA e EMBALAGEM quando disponiveis.
+Formato: "MARCA TIPO EMBALAGEM VOLUME" (ex: "LIZA OLEO DE SOJA PET 900ML", "SKOL CERVEJA LATA 350ML").
+
+Retorne APENAS um JSON array no formato: [{"produto": "MARCA TIPO VOLUME", "preco": 9.99}]
 Se nao conseguir identificar produtos/precos, retorne [].`
             },
             { role: 'user', content: texto.substring(0, 10000) }

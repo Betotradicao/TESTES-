@@ -6,6 +6,7 @@ import { MappingService } from './mapping.service';
 import { OracleService } from './oracle.service';
 import { WhatsAppService } from './whatsapp.service';
 import { GarimpadorDecomposerService } from './garimpador-decomposer.service';
+import { GarimpadorVectorStoreService } from './garimpador-vectorstore.service';
 import axios from 'axios';
 
 interface CondicaoPreco {
@@ -148,14 +149,22 @@ export class GarimpadorComparadorService {
   }
 
   /**
-   * Busca produto no Oracle - Abordagem inspirada no n8n:
-   * 1. IA decompoe o produto de entrada (marca, tipo, gramatura, etc)
-   * 2. SQL busca AMPLA com OR de todos os termos - pega top 15 candidatos
-   * 3. IA (GPT-mini) avalia todos os candidatos e escolhe o correto
-   * Se IA diz "nenhum" -> Fora do Mix
+   * Busca produto - Abordagem vetorial (inspirada no Garimpador 2.0 n8n):
+   * 1. Busca vetorial via PGVector (embedding semantico) -> top 15 candidatos
+   * 2. GPT avalia candidatos COM dados completos (secao, grupo, fornecedor)
+   * 3. Fallback: se cache vazio, usa SQL LIKE no Oracle (metodo antigo)
    */
   static async buscarProdutoOracle(descricaoBusca: string): Promise<ProdutoOracle | null> {
     try {
+      // === TENTAR BUSCA VETORIAL PRIMEIRO ===
+      const resultadoVetorial = await this.buscarProdutoVetorial(descricaoBusca);
+      if (resultadoVetorial !== undefined) {
+        // undefined = cache vazio (fallback pra LIKE), null = nenhum match, ProdutoOracle = match
+        return resultadoVetorial;
+      }
+
+      // === FALLBACK: SQL LIKE (metodo antigo, quando cache PGVector vazio) ===
+      console.log(`[Garimpador] Cache vetorial vazio, usando fallback SQL LIKE para "${descricaoBusca}"`);
       const schema = await MappingService.getSchema();
 
       // Tabelas
@@ -187,6 +196,13 @@ export class GarimpadorComparadorService {
       const colPesquisaMedia = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pesquisa_media', 'VAL_PESQUISA_MEDIA');
       const colCodFornUltCompra = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra', 'COD_FORN_ULT_COMPRA');
       const colCodLojaLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
+
+      // Coluna de produto inativo (fora do mix)
+      let colInativo = 'INATIVO';
+      try {
+        const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'inativo');
+        if (mapped) colInativo = mapped;
+      } catch (e) { /* usa default */ }
 
       // Colunas de descricao das categorias
       const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao', 'DES_SECAO');
@@ -321,6 +337,7 @@ export class GarimpadorComparadorService {
           LEFT JOIN ${schema}.${tabSubgrupo} sg ON sg.${colCodSubgrupoSub} = p.${colCodSubgrupo} AND sg.${colCodSecaoSub} = p.${colCodSecao} AND sg.${colCodGrupoSub} = p.${colCodGrupo}
           LEFT JOIN ${schema}.${tabFornecedor} f ON f.${colCodForn} = pl.${colCodFornUltCompra}
           WHERE (${orConds})
+            AND NVL(pl.${colInativo}, 'N') != 'S'
           ORDER BY (${scoreCalc}) DESC, NVL(pl.${colPrecoVenda}, 0) DESC
         ) WHERE ROWNUM <= 15
       `;
@@ -409,6 +426,135 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`,
       console.error('[Garimpador] Erro ao buscar produto no Oracle:', error.message);
       return null;
     }
+  }
+
+  /**
+   * Busca produto via PGVector (busca vetorial semantica)
+   * Retorna: ProdutoOracle (match encontrado), null (nenhum match), undefined (cache vazio -> fallback)
+   */
+  private static async buscarProdutoVetorial(descricaoBusca: string): Promise<ProdutoOracle | null | undefined> {
+    try {
+      // Verificar se cache tem dados
+      const stats = await GarimpadorVectorStoreService.stats();
+      if (stats.comEmbedding === 0) {
+        return undefined; // Sinaliza para usar fallback LIKE
+      }
+
+      // Buscar top 15 candidatos por similaridade vetorial
+      const candidatos = await GarimpadorVectorStoreService.buscarSimilares(descricaoBusca, 15);
+
+      if (candidatos.length === 0) {
+        console.log(`[Garimpador Vetorial] Nenhum candidato para "${descricaoBusca}"`);
+        return null;
+      }
+
+      console.log(`[Garimpador Vetorial] ${candidatos.length} candidatos para "${descricaoBusca}" (sim: ${candidatos[0]?.similarity.toFixed(3)} ~ ${candidatos[candidatos.length-1]?.similarity.toFixed(3)})`);
+
+      // GPT decide com dados completos (secao, grupo, fornecedor, custo)
+      const apiKey = await ConfigurationService.get('openai_api_key');
+      const model = await ConfigurationService.get('openai_garimpador_model', 'gpt-4o-mini');
+
+      if (!apiKey) {
+        // Sem GPT, usa primeiro candidato se similaridade > 0.7
+        if (candidatos[0].similarity >= 0.7) {
+          return this.candidatoParaProdutoOracle(candidatos[0], Math.round(candidatos[0].similarity * 100));
+        }
+        return null;
+      }
+
+      // Montar lista com dados completos para GPT avaliar
+      const listaCandidatos = candidatos.map((c, i) =>
+        `${i + 1}. ${c.descricao} | Secao: ${c.secao} | Grupo: ${c.grupo} | Custo: R$${c.preco_custo.toFixed(2)} | Fornecedor: ${c.fornecedor} | Sim: ${(c.similarity * 100).toFixed(0)}%`
+      ).join('\n');
+
+      const response = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model: model || 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: `Voce e um especialista em matching de produtos de supermercado brasileiro.
+
+Seu trabalho: dado um produto buscado e uma lista de candidatos do sistema, identifique qual candidato e o MESMO produto.
+
+REGRAS IMPORTANTES:
+- Descricoes no sistema usam ABREVIACOES: "achocolatado"="achoc", "cerveja"="cerv", "detergente"="deterg", "absorvente"="abs", "biscoito"="bisc", "refrigerante"="refrig", "amaciante"="amac", "acucar"="acuc", "sanitaria"="sanit", "desodorante"="desod", etc.
+- A MARCA e o criterio MAIS importante - NUNCA misture marcas (Skol!=Brahma, Liza!=Concordia, Ype!=Limpol)
+- Se o produto buscado especifica uma marca e NENHUM candidato tem essa marca, retorne 0
+- O TIPO deve ser o MESMO (cerveja=cerveja, oleo=oleo, nao detergente=amaciante)
+- A GRAMATURA/VOLUME deve ser compativel (350ml=350ml, 1L=1LT, 500g=500gr, 900ml=900ML)
+- Use Secao/Grupo/Fornecedor como contexto adicional para desambiguar candidatos similares
+- Se encontrar o produto, retorne APENAS o numero. Se NENHUM candidato corresponder, retorne 0.
+- Retorne APENAS um numero, nada mais.`
+            },
+            {
+              role: 'user',
+              content: `Produto buscado: "${descricaoBusca}"
+
+Candidatos do sistema:
+${listaCandidatos}
+
+Qual numero corresponde ao produto buscado? (0 se nenhum):`
+            },
+          ],
+          temperature: 0,
+          max_tokens: 10,
+        },
+        {
+          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          timeout: 15000,
+        }
+      );
+
+      const resposta = response.data.choices?.[0]?.message?.content?.trim();
+      const escolha = parseInt(resposta);
+
+      if (escolha === 0 || isNaN(escolha)) {
+        console.log(`[Garimpador Vetorial] GPT: NENHUM match para "${descricaoBusca}" -> Fora do Mix`);
+        return null;
+      }
+
+      const idx = escolha - 1;
+      if (idx < 0 || idx >= candidatos.length) {
+        console.log(`[Garimpador Vetorial] GPT retornou indice invalido ${escolha}`);
+        return null;
+      }
+
+      const escolhido = candidatos[idx];
+      console.log(`[Garimpador Vetorial] GPT: "${descricaoBusca}" -> "${escolhido.descricao}" (sim: ${(escolhido.similarity * 100).toFixed(0)}%)`);
+
+      return this.candidatoParaProdutoOracle(escolhido, Math.round(escolhido.similarity * 100));
+    } catch (error: any) {
+      console.error(`[Garimpador Vetorial] Erro:`, error.message);
+      return undefined; // Erro -> fallback para LIKE
+    }
+  }
+
+  /**
+   * Converte candidato vetorial para ProdutoOracle
+   */
+  private static candidatoParaProdutoOracle(c: any, matchScore: number): ProdutoOracle {
+    return {
+      codProduto: c.cod_produto,
+      codigo_barras: c.codigo_barras,
+      descricao: c.descricao,
+      preco_custo: c.preco_custo,
+      preco_venda: c.preco_venda,
+      preco_venda_concorrente: 0,
+      estoque_atual: c.estoque_atual,
+      cobertura: c.cobertura,
+      pedido_compra: 0,
+      curva: c.curva,
+      venda_media_dia: c.venda_media_dia,
+      venda_30d: c.venda_30d,
+      margem_referencia: c.margem_referencia,
+      secao: c.secao,
+      grupo: c.grupo,
+      subgrupo: c.subgrupo,
+      fornecedor: c.fornecedor,
+      matchScore,
+    };
   }
 
   /**
@@ -537,6 +683,13 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`,
       const colCodProdutoLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
       const colPrecoVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda', 'VAL_VENDA');
 
+      // Coluna de produto inativo (fora do mix)
+      let colInativoFb = 'INATIVO';
+      try {
+        const mapped = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'inativo');
+        if (mapped) colInativoFb = mapped;
+      } catch (e) { /* usa default */ }
+
       // Usar a decomposicao IA para termos de busca mais inteligentes
       const decomp = await GarimpadorDecomposerService.decomporComIA(descricaoBusca);
 
@@ -580,6 +733,7 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`,
         FROM ${schema}.${tabProduto} p
         LEFT JOIN ${schema}.${tabProdutoLoja} pl ON pl.${colCodProdutoLoja} = p.${colCodProduto}
         WHERE (${likeConds})
+          AND NVL(pl.${colInativoFb}, 'N') != 'S'
           AND ROWNUM <= 20
         ORDER BY NVL(pl.${colPrecoVenda}, 0) DESC
       `;

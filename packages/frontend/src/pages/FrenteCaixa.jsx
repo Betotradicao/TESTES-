@@ -85,20 +85,11 @@ export default function FrenteCaixa() {
   const [showMetaConfigModal, setShowMetaConfigModal] = useState(false);
 
   // Configuração de metas por operador
-  // Formato: { [codOperador]: { vendaMinima: { enabled: bool, value: number }, descontoMaximo: { enabled: bool, value: number }, pctCancelamentoMax: { enabled: bool, value: number } } }
   const [metaConfig, setMetaConfig] = useState(() => {
     const saved = localStorage.getItem('frente_caixa_meta_config');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return {};
-      }
-    }
-    return {};
+    try { return saved ? JSON.parse(saved) : {}; } catch { return {}; }
   });
 
-  // Configuração global de metas (aplica a todos que não têm config individual)
   const defaultMetaGlobal = {
     vendaMinima: { enabled: false, value: 0 },
     descontoMaximo: { enabled: false, value: 0 },
@@ -109,14 +100,7 @@ export default function FrenteCaixa() {
 
   const [metaGlobal, setMetaGlobal] = useState(() => {
     const saved = localStorage.getItem('frente_caixa_meta_global');
-    if (saved) {
-      try {
-        return { ...defaultMetaGlobal, ...JSON.parse(saved) };
-      } catch (e) {
-        return defaultMetaGlobal;
-      }
-    }
-    return defaultMetaGlobal;
+    try { return saved ? { ...defaultMetaGlobal, ...JSON.parse(saved) } : defaultMetaGlobal; } catch { return defaultMetaGlobal; }
   });
 
   // Estado para ausência por operador: { [codOperador]: 'positiva' | 'negativa' | null }
@@ -314,6 +298,33 @@ export default function FrenteCaixa() {
 
     loadFilters();
   }, [lojaSelecionada]);
+
+  // Carregar horas e metas do banco (sobrescreve localStorage)
+  useEffect(() => {
+    const loadConfigs = async () => {
+      try {
+        const [horasRes, metasRes] = await Promise.all([
+          api.get('/frente-caixa/config/horas'),
+          api.get('/frente-caixa/config/metas'),
+        ]);
+        if (horasRes.data?.horas && Object.keys(horasRes.data.horas).length > 0) {
+          setHorasTrabalhadas(horasRes.data.horas);
+          localStorage.setItem('frente_caixa_horas', JSON.stringify(horasRes.data.horas));
+        }
+        if (metasRes.data?.metaGlobal && Object.keys(metasRes.data.metaGlobal).length > 0) {
+          setMetaGlobal(prev => ({ ...prev, ...metasRes.data.metaGlobal }));
+          localStorage.setItem('frente_caixa_meta_global', JSON.stringify(metasRes.data.metaGlobal));
+        }
+        if (metasRes.data?.metaConfig && Object.keys(metasRes.data.metaConfig).length > 0) {
+          setMetaConfig(metasRes.data.metaConfig);
+          localStorage.setItem('frente_caixa_meta_config', JSON.stringify(metasRes.data.metaConfig));
+        }
+      } catch (err) {
+        console.log('Configs do banco nao disponiveis, usando localStorage');
+      }
+    };
+    loadConfigs();
+  }, []);
 
   // Buscar dados
   const handleSearch = async () => {
@@ -616,15 +627,17 @@ export default function FrenteCaixa() {
     return ((row.TOTAL_CUPONS || 0) / row.TOTAL_VENDAS) * 100;
   };
 
-  // Salvar configurações de meta no localStorage
+  // Salvar configurações de meta (localStorage + banco)
   const saveMetaConfig = (newConfig) => {
     setMetaConfig(newConfig);
     localStorage.setItem('frente_caixa_meta_config', JSON.stringify(newConfig));
+    api.post('/frente-caixa/config/metas', { metaConfig: newConfig }).catch(() => {});
   };
 
   const saveMetaGlobal = (newGlobal) => {
     setMetaGlobal(newGlobal);
     localStorage.setItem('frente_caixa_meta_global', JSON.stringify(newGlobal));
+    api.post('/frente-caixa/config/metas', { metaGlobal: newGlobal }).catch(() => {});
   };
 
   // Obter config de meta para um operador (individual ou global)
@@ -682,11 +695,12 @@ export default function FrenteCaixa() {
     localStorage.setItem('frente_caixa_ausencia', JSON.stringify(newAusencia));
   };
 
-  // Salvar horas trabalhadas no localStorage
+  // Salvar horas trabalhadas (localStorage + banco)
   const saveHoras = (codOperador, valor) => {
     const newHoras = { ...horasTrabalhadas, [codOperador]: valor };
     setHorasTrabalhadas(newHoras);
     localStorage.setItem('frente_caixa_horas', JSON.stringify(newHoras));
+    api.post('/frente-caixa/config/horas', { horas: newHoras }).catch(() => {});
   };
 
   // Converter HH:MM para horas decimais (ex: 7:30 -> 7.5)
@@ -995,6 +1009,63 @@ export default function FrenteCaixa() {
     return 'text-gray-900';
   };
 
+  // Renderizar valor da célula como texto puro (para PDF/impressão)
+  const renderCellValueText = (row, columnId) => {
+    const value = row[columnId];
+
+    switch (columnId) {
+      case 'DES_OPERADOR':
+        return value || 'N/A';
+      case 'TOTAL_ITENS':
+      case 'TOTAL_CUPONS':
+        return formatNumber(value);
+      case 'PCT_DESCONTO':
+        return formatPercent(calcPctDesconto(row));
+      case 'PCT_CANCELAMENTOS':
+        return formatPercent(calcPctCancelamentos(row));
+      case 'PCT_ESTORNOS_ORFAOS':
+        return formatPercent(calcPctEstornosOrfaos(row));
+      case 'PCT_VALE_TROCA':
+        return formatPercent(calcPctValeTroca(row));
+      case 'PCT_ITENS':
+        return formatPercent(calcPctItens(row));
+      case 'PCT_CUPONS':
+        return formatPercent(calcPctCupons(row));
+      case 'META_VENDA': {
+        const r = checkMetaVenda(row);
+        return r === null ? '-' : r ? 'BATEU' : 'NÃO BATEU';
+      }
+      case 'META_DESCONTO': {
+        const r = checkMetaDesconto(row);
+        return r === null ? '-' : r ? 'BATEU' : 'NÃO BATEU';
+      }
+      case 'META_CANCELAMENTO': {
+        const r = checkMetaCancelamento(row);
+        return r === null ? '-' : r ? 'BATEU' : 'NÃO BATEU';
+      }
+      case 'META_SOBRA': {
+        const r = checkMetaSobra(row);
+        return r === null ? '-' : r ? 'BATEU' : 'NÃO BATEU';
+      }
+      case 'META_QUEBRA': {
+        const r = checkMetaQuebra(row);
+        return r === null ? '-' : r ? 'BATEU' : 'NÃO BATEU';
+      }
+      case 'AUSENCIA': {
+        const aus = ausenciaOperador[row.COD_OPERADOR];
+        return aus === 'positiva' ? 'POSITIVA' : aus === 'negativa' ? 'NEGATIVA' : '-';
+      }
+      case 'HORAS_TRABALHADAS':
+        return horasTrabalhadas[row.COD_OPERADOR] || '-';
+      case 'CUPONS_POR_HORA': {
+        const cph = calcCuponsPorHora(row);
+        return cph === null ? '-' : cph.toFixed(1);
+      }
+      default:
+        return formatCurrency(value);
+    }
+  };
+
   // Exportar para PDF
   const handleExportPDF = () => {
     if (data.length === 0) {
@@ -1009,15 +1080,27 @@ export default function FrenteCaixa() {
       return;
     }
 
-    const tableRows = sortedData.map(row => `
-      <tr>
-        ${visibleColumns.map(col => `<td style="border: 1px solid #ddd; padding: 8px; text-align: ${col.align};">${renderCellValue(row, col.id)}</td>`).join('')}
-      </tr>
-    `).join('');
+    const cols = visibleColumns;
+    const isMeta = viewMode === 'meta';
+    const titulo = isMeta ? 'Relatório Frente de Caixa - Metas' : 'Relatório Frente de Caixa - Geral';
+
+    const tableRows = sortedData.map(row => {
+      const cells = cols.map(col => {
+        const val = renderCellValueText(row, col.id);
+        // Colorir BATEU/NÃO BATEU no PDF
+        let style = `border: 1px solid #ddd; padding: 8px; text-align: ${col.align};`;
+        if (isMeta && val === 'BATEU') style += ' color: #15803d; font-weight: bold;';
+        if (isMeta && val === 'NÃO BATEU') style += ' color: #dc2626; font-weight: bold;';
+        if (isMeta && val === 'NEGATIVA') style += ' color: #dc2626;';
+        if (isMeta && val === 'POSITIVA') style += ' color: #15803d;';
+        return `<td style="${style}">${val}</td>`;
+      }).join('');
+      return `<tr>${cells}</tr>`;
+    }).join('');
 
     const totaisRow = totais ? `
       <tr style="background: #f3f4f6; font-weight: bold;">
-        ${visibleColumns.map(col => `<td style="border: 1px solid #ddd; padding: 8px; text-align: ${col.align};">${col.id === 'DES_OPERADOR' ? `TOTAIS (${totais.TOTAL_OPERADORES} colaboradores)` : renderCellValue(totais, col.id)}</td>`).join('')}
+        ${cols.map(col => `<td style="border: 1px solid #ddd; padding: 8px; text-align: ${col.align};">${col.id === 'DES_OPERADOR' ? `TOTAIS (${totais.TOTAL_OPERADORES} colaboradores)` : renderCellValueText(totais, col.id)}</td>`).join('')}
       </tr>
     ` : '';
 
@@ -1025,7 +1108,7 @@ export default function FrenteCaixa() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Frente de Caixa - ${filters.dataInicio} a ${filters.dataFim}</title>
+        <title>${titulo} - ${filters.dataInicio} a ${filters.dataFim}</title>
         <style>
           body { font-family: Arial, sans-serif; font-size: 10px; margin: 20px; }
           h1 { font-size: 16px; margin-bottom: 5px; }
@@ -1037,12 +1120,12 @@ export default function FrenteCaixa() {
         </style>
       </head>
       <body>
-        <h1>Relatório Frente de Caixa</h1>
+        <h1>${titulo}</h1>
         <h2>Período: ${formatDateForApi(filters.dataInicio)} a ${formatDateForApi(filters.dataFim)}</h2>
         <table>
           <thead>
             <tr>
-              ${visibleColumns.map(col => `<th style="text-align: ${col.align};">${col.header}</th>`).join('')}
+              ${cols.map(col => `<th style="text-align: ${col.align};">${col.header}</th>`).join('')}
             </tr>
           </thead>
           <tbody>

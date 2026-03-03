@@ -439,12 +439,13 @@ export default function GestaoInteligente() {
   // Estado para ordem dos cards DEFESA (drag and drop)
   const defaultDefesaOrder1 = ['naoBipados', 'furtos', 'cancelamentos', 'descontos', 'valeTroca', 'valeDesconto'];
   const defaultDefesaOrder2 = ['sobraCaixa', 'faltaCaixa', 'rupturaTaxa', 'rupturaPerdaVenda', 'rupturaPerdaLucro', 'etiquetaTaxa'];
-  const defaultDefesaOrder3 = ['fluxoCaixa', 'perdasEstoque', 'mediaPerformColab', 'trocasFornecedor', 'defesa17', 'defesa18'];
+  const defaultDefesaOrder3 = ['fluxoCaixa', 'perdasEstoque', 'mediaPerformColab', 'trocasFornecedor', 'defesa17', 'dre'];
   const migrateDefesaIds = (ids) => ids.map(id => {
     if (id === 'defesa13') return 'fluxoCaixa';
     if (id === 'defesa14') return 'perdasEstoque';
     if (id === 'defesa15') return 'mediaPerformColab';
     if (id === 'defesa16') return 'trocasFornecedor';
+    if (id === 'defesa18') return 'dre';
     return id;
   });
   const [defesaOrder1, setDefesaOrder1] = useState(() => {
@@ -980,7 +981,12 @@ export default function GestaoInteligente() {
 
       const safe = (p) => p.catch((err) => { console.warn('Defesa API error:', err?.message); return { data: {} }; });
 
-      const [sellsRes, bipsRes, fcAt, fcMP, fcAP, rAt, rMP, rAP, eAt, eMP, eAP, bkAt, bkMP, bkAP, lsAt, lsMP, lsAP, trocasRes] = await Promise.all([
+      const mkDREParams = (ini, fim) => {
+        const p = new URLSearchParams({ dataInicio: ini, dataFim: fim, regime: 'caixa', incluirMovBanco: 'sim' });
+        if (codLoja) p.append('codLoja', codLoja); return p.toString();
+      };
+
+      const [sellsRes, bipsRes, fcAt, fcMP, fcAP, rAt, rMP, rAP, eAt, eMP, eAP, bkAt, bkMP, bkAP, lsAt, lsMP, lsAP, trocasRes, dreRes] = await Promise.all([
         safe(api.get('/sells', { params: { page: 1, limit: 1, date_from: filters.dataInicio, date_to: filters.dataFim } })),
         safe(api.get('/bips', { params: { page: 1, limit: 1000, status: 'cancelled', date_from: filters.dataInicio, date_to: filters.dataFim } })),
         safe(api.get(`/frente-caixa/totais?${mkFCParams(fmtDateBR(filters.dataInicio), fmtDateBR(filters.dataFim))}`)),
@@ -992,13 +998,14 @@ export default function GestaoInteligente() {
         safe(api.get(`/label-audits/agregado?${mkAuditParams(filters.dataInicio, filters.dataFim)}`)),
         safe(api.get(`/label-audits/agregado?${mkAuditParams(fmtISO(mesPassIni), fmtISO(mesPassFim))}`)),
         safe(api.get(`/label-audits/agregado?${mkAuditParams(fmtISO(anoPassIni), fmtISO(anoPassFim))}`)),
-        safe(api.get('/santander/extrato-completo', { params: { initialDate: filters.dataInicio, finalDate: filters.dataFim }, timeout: 60000 })),
-        safe(api.get('/santander/extrato-completo', { params: { initialDate: fmtISO(mesPassIni), finalDate: fmtISO(mesPassFim) }, timeout: 60000 })),
-        safe(api.get('/santander/extrato-completo', { params: { initialDate: fmtISO(anoPassIni), finalDate: fmtISO(anoPassFim) }, timeout: 60000 })),
+        safe(api.get('/santander/extrato-completo', { params: { initialDate: filters.dataInicio, finalDate: filters.dataFim, bankId: 'all' }, timeout: 120000 })),
+        safe(api.get('/santander/extrato-completo', { params: { initialDate: fmtISO(mesPassIni), finalDate: fmtISO(mesPassFim), bankId: 'all' }, timeout: 120000 })),
+        safe(api.get('/santander/extrato-completo', { params: { initialDate: fmtISO(anoPassIni), finalDate: fmtISO(anoPassFim), bankId: 'all' }, timeout: 120000 })),
         safe(api.get(`/losses/oracle?${mkLossParams(filters.dataInicio, filters.dataFim)}`)),
         safe(api.get(`/losses/oracle?${mkLossParams(fmtISO(mesPassIni), fmtISO(mesPassFim))}`)),
         safe(api.get(`/losses/oracle?${mkLossParams(fmtISO(anoPassIni), fmtISO(anoPassFim))}`)),
         safe(api.get('/losses/oracle/trocas', { params: { loja: codLoja || 1, tipo: 'saldo' } })),
+        safe(api.get(`/demonstrativo-caixa/dados?${mkDREParams(filters.dataInicio, filters.dataFim)}`)),
       ]);
 
       // Não bipados
@@ -1046,6 +1053,25 @@ export default function GestaoInteligente() {
       const trocasForns = trocasEst.total_fornecedores || 0;
       const trocasItens = Math.round((trocasEst.total_itens || 0) * 100) / 100;
 
+      // Parse DRE (Demonstrativo de Caixa)
+      const dreCats = dreRes.data?.categorias || [];
+      let dreReceitas = 0, dreCustos = 0, dreDespesas = 0;
+      for (const cat of dreCats) {
+        const nome = (cat.DES_CATEGORIA || '').toUpperCase();
+        const val = cat.VAL_QUITADO || 0;
+        if (cat.IS_RECEITA) {
+          dreReceitas += val;
+        } else if (nome.includes('CUSTO')) {
+          dreCustos += val;
+        } else {
+          dreDespesas += val;
+        }
+      }
+      const dreLiquido = dreReceitas - dreCustos - dreDespesas;
+      const drePctCustos = dreReceitas > 0 ? (dreCustos / dreReceitas * 100) : 0;
+      const drePctDespesas = dreReceitas > 0 ? (dreDespesas / dreReceitas * 100) : 0;
+      const drePctLiquido = dreReceitas > 0 ? (dreLiquido / dreReceitas * 100) : 0;
+
       setDefesaData({
         naoBipados: { valor: notV/100, pct: totalV>0?(notV/totalV*100):0, total: totalV/100 },
         furtos: { valor: furtoVal/100, qtd: furtos.length },
@@ -1063,6 +1089,7 @@ export default function GestaoInteligente() {
         perdasEstoque: { atual: ls1, mesPassado: ls2, anoPassado: ls3, pct: fc1.faturamento > 0 ? (ls1 / fc1.faturamento * 100) : 0 },
         trocasFornecedor: { atual: trocasCusto, fornecedores: trocasForns, itens: trocasItens },
         faturamento: { atual: fc1.faturamento, mesPassado: fc2.faturamento, anoPassado: fc3.faturamento },
+        dre: { receitas: dreReceitas, custos: dreCustos, despesas: dreDespesas, liquido: dreLiquido, pctCustos: drePctCustos, pctDespesas: drePctDespesas, pctLiquido: drePctLiquido },
         loadingDefesa: false
       });
     } catch (err) {
@@ -4266,13 +4293,61 @@ export default function GestaoInteligente() {
                 perdasEstoque: { border: 'border-rose-500', bg: 'bg-rose-100', ic: 'text-rose-600', lb: 'PERDAS ESTOQUE', val: () => formatCurrency(defesaData.perdasEstoque?.atual), extra: () => <span className="text-2xl font-bold text-rose-600">{formatPercent(defesaData.perdasEstoque?.pct)}</span>, title: 'PERDAS DE ESTOQUE IDENTIFICADAS', tipo: 'currency', d: defesaData.perdasEstoque, inv: true, svg: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
                 mediaPerformColab: { border: 'border-cyan-500', bg: 'bg-cyan-100', ic: 'text-cyan-600', lb: 'MEDIA COLAB.', val: () => formatCurrency(mediaPerformColab.media), extra: () => mediaPerformColab.configurado ? <span className="text-xs text-gray-400 ml-1">({mediaPerformColab.totalPonderado.toFixed(1)} colab.)</span> : <span className="text-xs text-orange-500 ml-1">Configurar</span>, title: 'MEDIA PERFORMANCE COLABORADORES', tipo: 'currency', d: { atual: mediaPerformColab.media, mesPassado: mediaPerformColab.mesPassado, anoPassado: mediaPerformColab.anoPassado }, hasGear: true, svg: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
                 trocasFornecedor: { border: 'border-orange-400', bg: 'bg-orange-50', ic: 'text-orange-500', lb: 'TROCAS FORN.', val: () => formatCurrency(defesaData.trocasFornecedor?.atual), extra: () => <span className="text-sm font-semibold text-orange-500">({defesaData.trocasFornecedor?.fornecedores || 0} forn.)</span>, title: 'TROCAS PENDENTES FORNECEDORES', tipo: 'currency', d: defesaData.trocasFornecedor, inv: true, svg: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4' },
-                defesa17: { emBreve: true }, defesa18: { emBreve: true },
+                defesa17: { emBreve: true },
+                dre: { isDre: true, border: 'border-violet-500', bg: 'bg-violet-100', ic: 'text-violet-600', lb: 'DRE', svg: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z' },
               };
 
               const renderDefesaCard = (cardId, row) => {
                 const c = defesaCardsConfig[cardId];
                 if (!c) return null;
                 const isDragging = draggedDefesaCard === cardId;
+
+                // Card DRE customizado
+                if (c.isDre) {
+                  const dre = defesaData.dre || {};
+                  const liqColor = (dre.liquido || 0) >= 0 ? 'text-green-700' : 'text-red-700';
+                  return (
+                    <div key={cardId} draggable onDragStart={(e) => handleDefesaDragStart(e, cardId, row)} onDragEnd={handleDefesaDragEnd} onDragOver={handleDefesaDragOver} onDrop={(e) => handleDefesaDrop(e, cardId, row)}
+                      className={`bg-white rounded-xl shadow-lg p-3 sm:p-4 border-t-4 ${c.border} hover:shadow-xl transition-all cursor-grab active:cursor-grabbing h-full flex flex-col justify-between ${isDragging ? 'opacity-50 scale-95' : ''}`}>
+                      <div>
+                        <div className="flex items-center justify-between mb-2 sm:mb-3">
+                          <div className={`w-8 h-8 sm:w-10 sm:h-10 ${c.bg} rounded-lg flex items-center justify-center`}>
+                            <svg className={`w-4 h-4 sm:w-5 sm:h-5 ${c.ic}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d={c.svg} /></svg>
+                          </div>
+                          <span className="text-[10px] sm:text-xs text-gray-400 uppercase font-semibold flex items-center gap-1">
+                            <svg className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${c.ic}`} fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+                            {c.lb}
+                          </span>
+                        </div>
+                        <div className="flex items-baseline gap-1.5 mb-1">
+                          <p className={`text-xl sm:text-2xl font-bold ${liqColor}`}>{formatCurrency(dre.liquido || 0)}</p>
+                          <span className={`text-sm font-bold ${liqColor}`}>{formatPercent(dre.pctLiquido || 0)}</span>
+                        </div>
+                        <p className="text-[10px] sm:text-xs text-gray-500 mb-1">LIQUIDO DO PERIODO</p>
+                      </div>
+                      <div className="space-y-1.5 pt-2 border-t border-gray-100">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-gray-500">Receitas:</span>
+                          <span className="font-semibold text-green-700">{formatCurrency(dre.receitas || 0)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-gray-500">Custos:</span>
+                          <div className="flex items-center gap-1">
+                            <span className="font-semibold text-red-600">{formatCurrency(dre.custos || 0)}</span>
+                            <span className="text-[10px] text-red-400">{formatPercent(dre.pctCustos || 0)}</span>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-gray-500">Despesas:</span>
+                          <div className="flex items-center gap-1">
+                            <span className="font-semibold text-orange-600">{formatCurrency(dre.despesas || 0)}</span>
+                            <span className="text-[10px] text-orange-400">{formatPercent(dre.pctDespesas || 0)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
 
                 if (c.emBreve) {
                   return (

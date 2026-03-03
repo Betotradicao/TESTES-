@@ -55,6 +55,7 @@ export default function GarimpadorRanking() {
     { id: 'num', label: '#', align: 'left' },
     { id: 'produtoOfertado', label: 'Produto Ofertado', align: 'left' },
     { id: 'produtoLoja', label: 'Produto Loja', align: 'left' },
+    { id: 'codBarrasLoja', label: 'Cod. Barras', align: 'center' },
     { id: 'qtdEncontrado', label: 'Qtd', align: 'center' },
     { id: 'match', label: 'Match', align: 'center' },
     { id: 'tabloid', label: 'Tabloid', align: 'center' },
@@ -187,6 +188,7 @@ export default function GarimpadorRanking() {
       case 'num': return <span className="text-gray-400">{i + 1}</span>;
       case 'produtoOfertado': return <span className="font-medium text-blue-700 whitespace-nowrap">{item.produtoOfertado}</span>;
       case 'produtoLoja': return <span className="text-green-700 whitespace-nowrap">{item.produtoLoja || '-'}</span>;
+      case 'codBarrasLoja': return <span className="text-gray-600 text-xs font-mono">{item.codBarrasLoja || '-'}</span>;
       case 'qtdEncontrado': {
         const qtd = item.qtdEncontrado || 0;
         return qtd > 1 ? (

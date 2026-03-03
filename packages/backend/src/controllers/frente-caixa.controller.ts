@@ -6,6 +6,7 @@
 import { Request, Response } from 'express';
 import { FrenteCaixaService, FrenteCaixaFilters } from '../services/frente-caixa.service';
 import { OracleService } from '../services/oracle.service';
+import { ConfigurationService } from '../services/configuration.service';
 
 export class FrenteCaixaController {
   /**
@@ -284,6 +285,66 @@ export class FrenteCaixaController {
         error: 'Erro ao buscar estornos órfãos',
         message: error.message
       });
+    }
+  }
+
+  /**
+   * GET /frente-caixa/config/horas - Busca horas trabalhadas salvas
+   */
+  static async getHorasConfig(req: Request, res: Response) {
+    try {
+      const raw = await ConfigurationService.get('frente_caixa_horas', '{}');
+      return res.json({ success: true, horas: JSON.parse(raw || '{}') });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * POST /frente-caixa/config/horas - Salva horas trabalhadas
+   */
+  static async saveHorasConfig(req: Request, res: Response) {
+    try {
+      const { horas } = req.body;
+      await ConfigurationService.set('frente_caixa_horas', JSON.stringify(horas || {}));
+      return res.json({ success: true });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * GET /frente-caixa/config/metas - Busca configuracao de metas
+   */
+  static async getMetasConfig(req: Request, res: Response) {
+    try {
+      const rawGlobal = await ConfigurationService.get('frente_caixa_meta_global', '{}');
+      const rawIndividual = await ConfigurationService.get('frente_caixa_meta_config', '{}');
+      return res.json({
+        success: true,
+        metaGlobal: JSON.parse(rawGlobal || '{}'),
+        metaConfig: JSON.parse(rawIndividual || '{}'),
+      });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * POST /frente-caixa/config/metas - Salva configuracao de metas
+   */
+  static async saveMetasConfig(req: Request, res: Response) {
+    try {
+      const { metaGlobal, metaConfig } = req.body;
+      if (metaGlobal !== undefined) {
+        await ConfigurationService.set('frente_caixa_meta_global', JSON.stringify(metaGlobal));
+      }
+      if (metaConfig !== undefined) {
+        await ConfigurationService.set('frente_caixa_meta_config', JSON.stringify(metaConfig));
+      }
+      return res.json({ success: true });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: error.message });
     }
   }
 }

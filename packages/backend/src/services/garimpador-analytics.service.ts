@@ -27,6 +27,7 @@ interface DetalheItem {
   precoOferta: number;
   produtoLoja: string | null;
   codProdutoLoja: string | null;
+  codBarrasLoja: string | null;
   precoVendaLoja: number;
   precoCustoLoja: number;
   diferenca: number;
@@ -271,6 +272,7 @@ export class GarimpadorAnalyticsService {
           precoOferta: r.precoOferta || 0,
           produtoLoja: r.produtoLoja?.descricao || null,
           codProdutoLoja: codProd,
+          codBarrasLoja: r.produtoLoja?.codigo_barras || null,
           precoVendaLoja: r.produtoLoja?.preco_venda || 0,
           precoCustoLoja: r.produtoLoja?.preco_custo || 0,
           diferenca: r.diferenca || 0,

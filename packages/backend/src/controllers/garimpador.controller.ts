@@ -4,6 +4,7 @@ import { GarimpadorProcessadorService } from '../services/garimpador-processador
 import { GarimpadorComparadorService } from '../services/garimpador-comparador.service';
 import { GarimpadorAnalyticsService } from '../services/garimpador-analytics.service';
 import { GarimpadorDecomposerService } from '../services/garimpador-decomposer.service';
+import { GarimpadorVectorStoreService } from '../services/garimpador-vectorstore.service';
 import { ConfigurationService } from '../services/configuration.service';
 import { AppDataSource } from '../config/database';
 import { GarimpadorMensagem } from '../entities/GarimpadorMensagem';
@@ -592,5 +593,52 @@ export class GarimpadorController {
         console.error('[Garimpador Reprocessar] ❌ ERRO FATAL:', error);
       }
     })();
+  }
+
+  /**
+   * POST /api/garimpador/vectorstore/sync
+   * Sincroniza produtos Oracle -> PGVector cache (gera embeddings)
+   */
+  static async syncVectorStore(req: Request, res: Response) {
+    res.json({ success: true, message: 'Sincronizacao iniciada em background. Acompanhe pelo console.' });
+
+    (async () => {
+      try {
+        const result = await GarimpadorVectorStoreService.sincronizar();
+        console.log(`[VectorStore Sync] Concluido: ${result.total} produtos, ${result.atualizados} atualizados, ${result.erros} erros`);
+      } catch (error: any) {
+        console.error('[VectorStore Sync] Erro:', error.message);
+      }
+    })();
+  }
+
+  /**
+   * GET /api/garimpador/vectorstore/stats
+   * Retorna estatisticas do cache vetorial
+   */
+  static async vectorStoreStats(req: Request, res: Response) {
+    try {
+      const stats = await GarimpadorVectorStoreService.stats();
+      res.json(stats);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/garimpador/vectorstore/search?q=texto
+   * Testa busca vetorial
+   */
+  static async vectorStoreSearch(req: Request, res: Response) {
+    try {
+      const q = req.query.q as string;
+      if (!q) return res.status(400).json({ error: 'Parametro q obrigatorio' });
+
+      const limite = parseInt(req.query.limite as string) || 10;
+      const candidatos = await GarimpadorVectorStoreService.buscarSimilares(q, limite);
+      res.json(candidatos);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   }
 }

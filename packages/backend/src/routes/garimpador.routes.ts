@@ -41,4 +41,9 @@ router.post('/match-config', GarimpadorController.saveMatchConfig);
 router.post('/test-match', GarimpadorController.testMatch);
 router.post('/reprocessar', GarimpadorController.reprocessarTodos);
 
+// VectorStore (PGVector)
+router.post('/vectorstore/sync', GarimpadorController.syncVectorStore);
+router.get('/vectorstore/stats', GarimpadorController.vectorStoreStats);
+router.get('/vectorstore/search', GarimpadorController.vectorStoreSearch);
+
 export default router;
