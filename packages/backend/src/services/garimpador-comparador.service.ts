@@ -124,7 +124,7 @@ export class GarimpadorComparadorService {
 
         // 5. Se for boa oferta (preco oferta < custo), enviar para WhatsApp
         if (resultado.boaOferta) {
-          const msgFormatada = this.formatarMensagem(resultado, tipoContato, contato);
+          const msgFormatada = this.formatarMensagem(resultado, tipoContato, contato, mensagem.media_url);
           const enviou = await this.enviarParaGrupo(msgFormatada, resultado.classificacao, tipoContato);
           if (enviou) enviadas++;
         }
@@ -838,6 +838,7 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`,
     resultado: ResultadoComparacao,
     tipoContato: string,
     contato?: GarimpadorContato | null,
+    mediaUrl?: string | null,
   ): string {
     const p = resultado.produtoLoja!;
     const fmtBRL = (v: number) => v.toFixed(2).replace('.', ',');
@@ -903,6 +904,11 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`,
     // Rodape com info do fornecedor/concorrente
     msg += `\n👨‍🌾 Fornecedor: ${contato?.nome || 'Desconhecido'}`;
     msg += `\n📲 Contato: https://wa.me/${contato?.telefone || ''}`;
+
+    // Link do tabloid/encarte (se disponivel)
+    if (mediaUrl) {
+      msg += `\n\n📰 Tabloid: ${mediaUrl}`;
+    }
 
     return msg;
   }

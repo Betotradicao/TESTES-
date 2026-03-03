@@ -43,6 +43,7 @@ interface DetalheItem {
   grupo: string | null;
   subgrupo: string | null;
   matchScore: number;
+  qtdEncontrado: number;
 }
 
 interface PontoProjecao {
@@ -219,16 +220,40 @@ export class GarimpadorAnalyticsService {
   /**
    * Detalhes de um fornecedor especifico com filtro de classificacao
    */
-  static async getDetalhesFornecedor(contatoId: number, classificacao?: string): Promise<DetalheItem[]> {
+  static async getDetalhesFornecedor(contatoId: number, classificacao?: string, dataInicio?: string, dataFim?: string): Promise<DetalheItem[]> {
     const repo = AppDataSource.getRepository(GarimpadorMensagem);
-    const mensagens = await repo
+    const qb = repo
       .createQueryBuilder('m')
       .leftJoinAndSelect('m.contato', 'c')
       .where('m.contato_id = :contatoId', { contatoId })
       .andWhere('m.processado = true')
-      .andWhere("m.conteudo_extraido LIKE '%resultados_comparacao%'")
-      .orderBy('m.received_at', 'DESC')
-      .getMany();
+      .andWhere("m.conteudo_extraido LIKE '%resultados_comparacao%'");
+
+    if (dataInicio) {
+      qb.andWhere('m.received_at >= :dataInicio', { dataInicio: new Date(dataInicio) });
+    }
+    if (dataFim) {
+      const fim = new Date(dataFim);
+      fim.setDate(fim.getDate() + 1);
+      qb.andWhere('m.received_at < :dataFim', { dataFim: fim });
+    }
+
+    qb.orderBy('m.received_at', 'DESC');
+    const mensagens = await qb.getMany();
+
+    // Contar quantas vezes cada produto Oracle (por codProduto) aparece em TODAS as mensagens do periodo
+    const todasMensagens = await this.buscarMensagensComparadas(dataInicio, dataFim);
+    const contagemProduto = new Map<string, number>();
+    for (const msg of todasMensagens) {
+      const dados = this.parseExtraido(msg);
+      if (!dados) continue;
+      for (const r of dados.resultados_comparacao) {
+        const cod = r.produtoLoja?.codProduto ? String(r.produtoLoja.codProduto) : null;
+        if (cod) {
+          contagemProduto.set(cod, (contagemProduto.get(cod) || 0) + 1);
+        }
+      }
+    }
 
     const itens: DetalheItem[] = [];
 
@@ -239,11 +264,13 @@ export class GarimpadorAnalyticsService {
       for (const r of dados.resultados_comparacao) {
         if (classificacao && r.classificacao !== classificacao) continue;
 
+        const codProd = r.produtoLoja?.codProduto ? String(r.produtoLoja.codProduto) : null;
+
         itens.push({
           produtoOfertado: r.produtoOfertado || '',
           precoOferta: r.precoOferta || 0,
           produtoLoja: r.produtoLoja?.descricao || null,
-          codProdutoLoja: r.produtoLoja?.codProduto ? String(r.produtoLoja.codProduto) : null,
+          codProdutoLoja: codProd,
           precoVendaLoja: r.produtoLoja?.preco_venda || 0,
           precoCustoLoja: r.produtoLoja?.preco_custo || 0,
           diferenca: r.diferenca || 0,
@@ -260,6 +287,7 @@ export class GarimpadorAnalyticsService {
           grupo: r.produtoLoja?.grupo || null,
           subgrupo: r.produtoLoja?.subgrupo || null,
           matchScore: r.matchScore ?? r.produtoLoja?.matchScore ?? 0,
+          qtdEncontrado: codProd ? (contagemProduto.get(codProd) || 1) : 0,
         });
       }
     }

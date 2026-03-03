@@ -336,8 +336,8 @@ export class GarimpadorController {
   static async getDetalhesFornecedor(req: Request, res: Response) {
     try {
       const contatoId = parseInt(req.params.contatoId);
-      const { classificacao } = req.query as any;
-      const itens = await GarimpadorAnalyticsService.getDetalhesFornecedor(contatoId, classificacao);
+      const { classificacao, dataInicio, dataFim } = req.query as any;
+      const itens = await GarimpadorAnalyticsService.getDetalhesFornecedor(contatoId, classificacao, dataInicio, dataFim);
       res.json({ success: true, itens });
     } catch (error: any) {
       console.error('[Garimpador] Erro detalhes fornecedor:', error);

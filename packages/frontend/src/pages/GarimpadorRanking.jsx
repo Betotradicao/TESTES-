@@ -37,8 +37,9 @@ export default function GarimpadorRanking() {
   });
   const [selecionado, setSelecionado] = useState(null);
   const [detalhes, setDetalhes] = useState([]);
-  const [filtroClassif, setFiltroClassif] = useState('todos');
+  const [filtrosClassif, setFiltrosClassif] = useState(new Set(['ouro', 'prata', 'bronze']));
   const [loadingDetalhes, setLoadingDetalhes] = useState(false);
+  const [detalhesTodosCache, setDetalhesTodosCache] = useState([]);
   const [tabloidUrl, setTabloidUrl] = useState(null);
   const [excluidos, setExcluidos] = useState(new Set());
 
@@ -54,6 +55,7 @@ export default function GarimpadorRanking() {
     { id: 'num', label: '#', align: 'left' },
     { id: 'produtoOfertado', label: 'Produto Ofertado', align: 'left' },
     { id: 'produtoLoja', label: 'Produto Loja', align: 'left' },
+    { id: 'qtdEncontrado', label: 'Qtd', align: 'center' },
     { id: 'match', label: 'Match', align: 'center' },
     { id: 'tabloid', label: 'Tabloid', align: 'center' },
     { id: 'oferta', label: 'Oferta', align: 'right' },
@@ -83,7 +85,7 @@ export default function GarimpadorRanking() {
       if (dataInicio) params.dataInicio = dataInicio;
       if (dataFim) params.dataFim = dataFim;
       const [rankRes, resumoRes] = await Promise.all([
-        api.get('/garimpador/analytics/ranking', { params }),
+        api.get('/garimpador/analytics/ranking', { params: { ...params, tipo: 'fornecedor' } }),
         api.get('/garimpador/analytics/resumo', { params }),
       ]);
       setRanking(rankRes.data.ranking || []);
@@ -106,19 +108,27 @@ export default function GarimpadorRanking() {
       return;
     }
     setSelecionado(fornecedor);
-    setFiltroClassif('todos');
+    setFiltrosClassif(new Set(['ouro', 'prata', 'bronze']));
     setProjecaoAberta(null);
     setProjecaoData(null);
-    await fetchDetalhes(fornecedor.contatoId, null);
+    await fetchDetalhes(fornecedor.contatoId, ['ouro', 'prata', 'bronze']);
   };
 
-  const fetchDetalhes = async (contatoId, classificacao) => {
+  const fetchDetalhes = async (contatoId, classifArray) => {
     try {
       setLoadingDetalhes(true);
       const params = {};
-      if (classificacao && classificacao !== 'todos') params.classificacao = classificacao;
+      if (dataInicio) params.dataInicio = dataInicio;
+      if (dataFim) params.dataFim = dataFim;
+      // Busca todos e filtra no frontend para suportar multiplos filtros
       const { data } = await api.get(`/garimpador/analytics/ranking/${contatoId}`, { params });
-      setDetalhes(data.itens || []);
+      const todos = data.itens || [];
+      if (classifArray && classifArray.length > 0 && classifArray.length < 4) {
+        setDetalhes(todos.filter(it => classifArray.includes(it.classificacao)));
+      } else {
+        setDetalhes(todos);
+      }
+      setDetalhesTodosCache(todos);
     } catch (err) {
       console.error('Erro ao buscar detalhes:', err);
     } finally {
@@ -126,12 +136,22 @@ export default function GarimpadorRanking() {
     }
   };
 
-  const mudarFiltroClassif = (classif) => {
-    setFiltroClassif(classif);
+  const toggleFiltroClassif = (classif) => {
     setProjecaoAberta(null);
     setProjecaoData(null);
-    if (selecionado) {
-      fetchDetalhes(selecionado.contatoId, classif === 'todos' ? null : classif);
+    const novos = new Set(filtrosClassif);
+    if (novos.has(classif)) {
+      novos.delete(classif);
+    } else {
+      novos.add(classif);
+    }
+    setFiltrosClassif(novos);
+    // Filtrar do cache local
+    const arr = [...novos];
+    if (arr.length === 0 || arr.length === 4) {
+      setDetalhes(detalhesTodosCache);
+    } else {
+      setDetalhes(detalhesTodosCache.filter(it => novos.has(it.classificacao)));
     }
   };
 
@@ -167,6 +187,14 @@ export default function GarimpadorRanking() {
       case 'num': return <span className="text-gray-400">{i + 1}</span>;
       case 'produtoOfertado': return <span className="font-medium text-blue-700 whitespace-nowrap">{item.produtoOfertado}</span>;
       case 'produtoLoja': return <span className="text-green-700 whitespace-nowrap">{item.produtoLoja || '-'}</span>;
+      case 'qtdEncontrado': {
+        const qtd = item.qtdEncontrado || 0;
+        return qtd > 1 ? (
+          <span className="inline-block min-w-[24px] px-1.5 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">{qtd}</span>
+        ) : qtd === 1 ? (
+          <span className="text-gray-400 text-xs">1</span>
+        ) : <span className="text-gray-300 text-xs">-</span>;
+      }
       case 'match': {
         const score = item.matchScore || 0;
         const color = score >= 80 ? 'text-green-600 bg-green-50 border-green-200'
@@ -502,18 +530,23 @@ export default function GarimpadorRanking() {
               <h2 className="font-semibold text-gray-800 text-lg">
                 Itens de {selecionado.nome}
               </h2>
-              <div className="flex gap-1 ml-auto">
-                {['todos', 'ouro', 'prata', 'bronze', 'ruim'].map((c) => (
+              <div className="flex gap-1.5 ml-auto">
+                {[
+                  { key: 'ouro', label: 'Ouro', emoji: '\u{1F947}', activeBg: 'bg-yellow-100 border-yellow-400 text-yellow-800' },
+                  { key: 'prata', label: 'Prata', emoji: '\u{1F948}', activeBg: 'bg-gray-200 border-gray-400 text-gray-800' },
+                  { key: 'bronze', label: 'Bronze', emoji: '\u{1F949}', activeBg: 'bg-orange-100 border-orange-400 text-orange-800' },
+                  { key: 'ruim', label: 'Ruim', emoji: '\u{274C}', activeBg: 'bg-red-100 border-red-400 text-red-700' },
+                ].map((c) => (
                   <button
-                    key={c}
-                    onClick={() => mudarFiltroClassif(c)}
-                    className={`px-3 py-1 text-sm rounded font-medium transition-colors ${
-                      filtroClassif === c
-                        ? 'bg-orange-500 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    key={c.key}
+                    onClick={() => toggleFiltroClassif(c.key)}
+                    className={`px-3 py-1 text-sm rounded font-medium transition-colors border ${
+                      filtrosClassif.has(c.key)
+                        ? c.activeBg
+                        : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50'
                     }`}
                   >
-                    {c === 'todos' ? 'Todos' : c.charAt(0).toUpperCase() + c.slice(1)}
+                    {c.emoji} {c.label}
                   </button>
                 ))}
               </div>
