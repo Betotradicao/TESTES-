@@ -69,7 +69,21 @@ export class PrevencaoCaixaService {
       prodCodProdutoCol,
       prodDesProdutoCol,
       // TAB_OPERADORES
-      opNomeCol
+      opNomeCol,
+      // TAB_CUPOM_CANCELADO
+      ccNumSeqCol,
+      ccNumPdvCol,
+      ccCodLojaCol,
+      ccDtaSeqCol,
+      ccFlgEstornoCol,
+      // TAB_CUPOM_PDV
+      cpNumCupomCol,
+      cpNumPdvCol,
+      cpCodLojaCol,
+      cpDtaVendaCol,
+      // TAB_OPERADORES extras
+      opCodOperadorCol,
+      opCodLojaCol
     ] = await Promise.all([
       // TAB_PRODUTO_PDV_ESTORNO
       MappingService.getColumnFromTable('TAB_PRODUTO_PDV_ESTORNO', 'data_venda', 'DTA_SAIDA'),
@@ -91,7 +105,21 @@ export class PrevencaoCaixaService {
       MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO'),
       MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO'),
       // TAB_OPERADORES
-      MappingService.getColumnFromTable('TAB_OPERADORES', 'nome_operador', 'DES_OPERADOR')
+      MappingService.getColumnFromTable('TAB_OPERADORES', 'nome_operador'),
+      // TAB_CUPOM_CANCELADO
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'numero_sequencia'),
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'numero_pdv'),
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'codigo_loja'),
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'data_sequencia'),
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'flag_estorno'),
+      // TAB_CUPOM_PDV
+      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'numero_cupom_fiscal'),
+      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'numero_pdv'),
+      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'codigo_loja'),
+      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'data_venda'),
+      // TAB_OPERADORES (COD_OPERADOR e COD_LOJA)
+      MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_operador'),
+      MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_loja')
     ]);
 
     return {
@@ -115,7 +143,21 @@ export class PrevencaoCaixaService {
       prodCodProdutoCol,
       prodDesProdutoCol,
       // TAB_OPERADORES
-      opNomeCol
+      opNomeCol,
+      // TAB_CUPOM_CANCELADO
+      ccNumSeqCol,
+      ccNumPdvCol,
+      ccCodLojaCol,
+      ccDtaSeqCol,
+      ccFlgEstornoCol,
+      // TAB_CUPOM_PDV
+      cpNumCupomCol,
+      cpNumPdvCol,
+      cpCodLojaCol,
+      cpDtaVendaCol,
+      // TAB_OPERADORES extras
+      opCodOperadorCol,
+      opCodLojaCol
     };
   }
 
@@ -139,10 +181,9 @@ export class PrevencaoCaixaService {
       MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA'),
       MappingService.getRealTableName('TAB_PRODUTO'),
       MappingService.getRealTableName('TAB_OPERADORES'),
-      // Tabelas não mapeadas - usar fallback hardcoded
-      MappingService.getRealTableName('TAB_CUPOM_CANCELADO', 'TAB_CUPOM_CANCELADO'),
-      MappingService.getRealTableName('TAB_CUPOM_PDV', 'TAB_CUPOM_PDV'),
-      MappingService.getRealTableName('TAB_SEQ_CUPOM', 'TAB_SEQ_CUPOM'),
+      MappingService.getRealTableName('TAB_CUPOM_CANCELADO'),
+      MappingService.getRealTableName('TAB_CUPOM_PDV'),
+      MappingService.getRealTableName('TAB_SEQ_CUPOM'),
       MappingService.getRealTableName('TAB_PRODUTO_PDV')
     ]);
 
@@ -178,8 +219,8 @@ export class PrevencaoCaixaService {
     }
 
     const lojaFilterEstorno = codLoja ? `AND e.${cols.estornoCodLojaCol} = :codLoja` : '';
-    const lojaFilterCC = codLoja ? `AND cc.COD_LOJA = :codLoja` : '';
-    const lojaFilterSC = codLoja ? `AND sc.COD_LOJA = :codLoja` : '';
+    const lojaFilterCC = codLoja ? `AND cc.${cols.ccCodLojaCol} = :codLoja` : '';
+    const lojaFilterSC = codLoja ? `AND sc.COD_LOJA = :codLoja` : ''; // TAB_SEQ_CUPOM não usado em queries atuais
 
     // ----------------------------------------------------------
     // Type ITEM: from TAB_PRODUTO_PDV_ESTORNO (items with operator = finalized sale)
@@ -225,33 +266,33 @@ export class PrevencaoCaixaService {
     // ----------------------------------------------------------
     const sqlCupom = `
       SELECT 'CUPOM' as TIPO,
-        TO_CHAR(cc.DTA_SEQ, 'DD/MM/YYYY') as DATA,
+        TO_CHAR(cc.${cols.ccDtaSeqCol}, 'DD/MM/YYYY') as DATA,
         NVL(
-          (SELECT TO_CHAR(MIN(cf_h.HORA_MOV) KEEP (DENSE_RANK FIRST ORDER BY ABS(cf_h.${cols.cfNumCupomCol} - cc.NUM_SEQ)), 'HH24:MI')
+          (SELECT TO_CHAR(MIN(cf_h.HORA_MOV) KEEP (DENSE_RANK FIRST ORDER BY ABS(cf_h.${cols.cfNumCupomCol} - cc.${cols.ccNumSeqCol})), 'HH24:MI')
            FROM ${tables.tabCupomFinalizadora} cf_h
-           WHERE cf_h.${cols.cfNumPdvCol} = cc.NUM_PDV
-           AND cf_h.${cols.cfCodLojaCol} = cc.COD_LOJA
-           AND TRUNC(cf_h.${cols.cfDataVendaCol}) = TRUNC(cc.DTA_SEQ)),
+           WHERE cf_h.${cols.cfNumPdvCol} = cc.${cols.ccNumPdvCol}
+           AND cf_h.${cols.cfCodLojaCol} = cc.${cols.ccCodLojaCol}
+           AND TRUNC(cf_h.${cols.cfDataVendaCol}) = TRUNC(cc.${cols.ccDtaSeqCol})),
           '00:00') as HORA,
-        cc.NUM_SEQ as COO,
-        cc.NUM_PDV as NUM_PDV,
-        (SELECT MIN(cf_near.${cols.cfCodOperadorCol}) KEEP (DENSE_RANK FIRST ORDER BY ABS(cf_near.${cols.cfNumCupomCol} - cc.NUM_SEQ))
+        cc.${cols.ccNumSeqCol} as COO,
+        cc.${cols.ccNumPdvCol} as NUM_PDV,
+        (SELECT MIN(cf_near.${cols.cfCodOperadorCol}) KEEP (DENSE_RANK FIRST ORDER BY ABS(cf_near.${cols.cfNumCupomCol} - cc.${cols.ccNumSeqCol}))
          FROM ${tables.tabCupomFinalizadora} cf_near
-         WHERE cf_near.${cols.cfNumPdvCol} = cc.NUM_PDV
-         AND cf_near.${cols.cfCodLojaCol} = cc.COD_LOJA
-         AND TRUNC(cf_near.${cols.cfDataVendaCol}) = TRUNC(cc.DTA_SEQ)) as COD_OPERADOR,
+         WHERE cf_near.${cols.cfNumPdvCol} = cc.${cols.ccNumPdvCol}
+         AND cf_near.${cols.cfCodLojaCol} = cc.${cols.ccCodLojaCol}
+         AND TRUNC(cf_near.${cols.cfDataVendaCol}) = TRUNC(cc.${cols.ccDtaSeqCol})) as COD_OPERADOR,
         NULL as COD_FISCAL,
         NULL as COD_PRODUTO,
         NULL as DES_PRODUTO,
         0 as VALOR
       FROM ${tables.tabCupomCancelado} cc
-      JOIN ${tables.tabCupomPdv} cp ON cp.NUM_CUPOM_FISCAL = cc.NUM_SEQ
-        AND cp.NUM_PDV = cc.NUM_PDV
-        AND cp.COD_LOJA = cc.COD_LOJA
-        AND TRUNC(cp.DTA_VENDA) = TRUNC(cc.DTA_SEQ)
-      WHERE cc.DTA_SEQ >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND cc.DTA_SEQ < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
-        AND cc.FLG_ESTORNO = 'S'
+      JOIN ${tables.tabCupomPdv} cp ON cp.${cols.cpNumCupomCol} = cc.${cols.ccNumSeqCol}
+        AND cp.${cols.cpNumPdvCol} = cc.${cols.ccNumPdvCol}
+        AND cp.${cols.cpCodLojaCol} = cc.${cols.ccCodLojaCol}
+        AND TRUNC(cp.${cols.cpDtaVendaCol}) = TRUNC(cc.${cols.ccDtaSeqCol})
+      WHERE cc.${cols.ccDtaSeqCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND cc.${cols.ccDtaSeqCol} < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
+        AND cc.${cols.ccFlgEstornoCol} = 'S'
         ${lojaFilterCC}
     `;
 
@@ -334,10 +375,10 @@ export class PrevencaoCaixaService {
         }
 
         const opSql = `
-          SELECT DISTINCT COD_OPERADOR, ${cols.opNomeCol} as DES_OPERADOR
+          SELECT DISTINCT ${cols.opCodOperadorCol} as COD_OPERADOR, ${cols.opNomeCol} as DES_OPERADOR
           FROM ${tables.tabOperadores}
-          WHERE COD_OPERADOR IN (${placeholders})
-          ${codLoja ? 'AND COD_LOJA = :codLojaOp' : ''}
+          WHERE ${cols.opCodOperadorCol} IN (${placeholders})
+          ${codLoja ? `AND ${cols.opCodLojaCol} = :codLojaOp` : ''}
         `;
 
         const opRows = await OracleService.query<any>(opSql, opParams);

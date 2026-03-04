@@ -119,7 +119,21 @@ export class FrenteCaixaService {
       codProdutoCol,
       desProdutoCol,
       // Campos de tesouraria (TAB_TESOURARIA_HISTORICO)
-      dtaMovimentoCol
+      dtaMovimentoCol,
+      // Campos de TAB_CUPOM_CANCELADO
+      ccNumSeqCol,
+      ccNumPdvCol,
+      ccCodLojaCol,
+      ccDtaSeqCol,
+      ccFlgEstornoCol,
+      // Campos de TAB_CUPOM_PDV
+      cpNumCupomCol,
+      cpNumPdvCol,
+      cpCodLojaCol,
+      cpDtaVendaCol,
+      // Campos extras de TAB_OPERADORES
+      opCodOperadorCol,
+      opCodLojaCol
     ] = await Promise.all([
       // Campos de TAB_PRODUTO_PDV (cupom/venda)
       MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_cupom'),
@@ -149,7 +163,21 @@ export class FrenteCaixaService {
       MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto'),
       MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao'),
       // Campos de TAB_TESOURARIA_HISTORICO
-      MappingService.getColumnFromTable('TAB_TESOURARIA_HISTORICO', 'data_movimento')
+      MappingService.getColumnFromTable('TAB_TESOURARIA_HISTORICO', 'data_movimento'),
+      // Campos de TAB_CUPOM_CANCELADO
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'numero_sequencia'),
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'numero_pdv'),
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'codigo_loja'),
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'data_sequencia'),
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'flag_estorno'),
+      // Campos de TAB_CUPOM_PDV
+      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'numero_cupom_fiscal'),
+      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'numero_pdv'),
+      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'codigo_loja'),
+      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'data_venda'),
+      // Campos extras de TAB_OPERADORES
+      MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_operador'),
+      MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_loja')
     ]);
     return {
       // Campos de cupom/venda
@@ -180,7 +208,21 @@ export class FrenteCaixaService {
       codProdutoCol,
       desProdutoCol,
       // Campos de tesouraria (TAB_TESOURARIA_HISTORICO)
-      dtaMovimentoCol
+      dtaMovimentoCol,
+      // Campos de TAB_CUPOM_CANCELADO
+      ccNumSeqCol,
+      ccNumPdvCol,
+      ccCodLojaCol,
+      ccDtaSeqCol,
+      ccFlgEstornoCol,
+      // Campos de TAB_CUPOM_PDV
+      cpNumCupomCol,
+      cpNumPdvCol,
+      cpCodLojaCol,
+      cpDtaVendaCol,
+      // Campos extras de TAB_OPERADORES
+      opCodOperadorCol,
+      opCodLojaCol
     };
   }
 
@@ -193,24 +235,27 @@ export class FrenteCaixaService {
     const schema = await MappingService.getSchema();
     const tabOperadores = `${schema}.${await MappingService.getRealTableName('TAB_OPERADORES')}`;
 
-    // TAB_OPERADORES tem colunas fixas: COD_OPERADOR, DES_OPERADOR, COD_LOJA
-    // Não confundir com COD_VENDEDOR que é da TAB_PRODUTO_PDV
+    // Mapeamento dinâmico das colunas de TAB_OPERADORES
+    const opCodOperador = await MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_operador');
+    const opDesOperador = await MappingService.getColumnFromTable('TAB_OPERADORES', 'nome_operador');
+    const opCodLoja = await MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_loja');
+
     let sql = `
       SELECT DISTINCT
-        o.COD_OPERADOR as COD_OPERADOR,
-        o.DES_OPERADOR as DES_OPERADOR
+        o.${opCodOperador} as COD_OPERADOR,
+        o.${opDesOperador} as DES_OPERADOR
       FROM ${tabOperadores} o
-      WHERE o.DES_OPERADOR IS NOT NULL
+      WHERE o.${opDesOperador} IS NOT NULL
     `;
 
     const params: any = {};
 
     if (codLoja) {
-      sql += ` AND o.COD_LOJA = :codLoja`;
+      sql += ` AND o.${opCodLoja} = :codLoja`;
       params.codLoja = codLoja;
     }
 
-    sql += ` ORDER BY o.DES_OPERADOR`;
+    sql += ` ORDER BY o.${opDesOperador}`;
 
     return OracleService.query<Operador>(sql, params);
   }
@@ -228,8 +273,8 @@ export class FrenteCaixaService {
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO')}`;
     const tabTesourariaHistorico = `${schema}.${await MappingService.getRealTableName('TAB_TESOURARIA_HISTORICO')}`;
-    const tabCupomCancelado = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_CANCELADO', 'TAB_CUPOM_CANCELADO')}`;
-    const tabCupomPdv = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_PDV', 'TAB_CUPOM_PDV')}`;
+    const tabCupomCancelado = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_CANCELADO')}`;
+    const tabCupomPdv = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_PDV')}`;
 
     // Busca mapeamentos dinâmicos
     const {
@@ -252,7 +297,16 @@ export class FrenteCaixaService {
       valQuebraCol,
       numTurnoCol,
       numRegistroCol,
-      dtaMovimentoCol
+      dtaMovimentoCol,
+      ccNumSeqCol,
+      ccNumPdvCol,
+      ccCodLojaCol,
+      ccDtaSeqCol,
+      ccFlgEstornoCol,
+      cpNumCupomCol,
+      cpNumPdvCol,
+      cpCodLojaCol,
+      cpDtaVendaCol,
     } = await this.getVendasMappings();
 
     // Query principal - vendas por operador
@@ -370,20 +424,20 @@ export class FrenteCaixaService {
         NVL(SUM(cf.${valorLiquidoCol}), 0) as TOTAL_ESTORNOS_ORFAOS
       FROM ${tabCupomCancelado} cc
       JOIN ${tabCupomPdv} cp
-        ON cp.${numeroCupomCol} = cc.NUM_SEQ
-        AND cp.${codPdvCol} = cc.NUM_PDV
-        AND cp.COD_LOJA = cc.COD_LOJA
-        AND TRUNC(cp.${dataVendaCol}) = TRUNC(cc.DTA_SEQ)
+        ON cp.${numeroCupomCol} = cc.${ccNumSeqCol}
+        AND cp.${codPdvCol} = cc.${ccNumPdvCol}
+        AND cp.${cpCodLojaCol} = cc.${ccCodLojaCol}
+        AND TRUNC(cp.${dataVendaCol}) = TRUNC(cc.${ccDtaSeqCol})
       JOIN ${tabCupomFinalizadora} cf
-        ON cf.${numeroCupomCol} = cc.NUM_SEQ
-        AND cf.${codPdvCol} = cc.NUM_PDV
-        AND cf.${codLojaCol} = cc.COD_LOJA
-        AND TRUNC(cf.${dataVendaCol}) = TRUNC(cc.DTA_SEQ)
+        ON cf.${numeroCupomCol} = cc.${ccNumSeqCol}
+        AND cf.${codPdvCol} = cc.${ccNumPdvCol}
+        AND cf.${codLojaCol} = cc.${ccCodLojaCol}
+        AND TRUNC(cf.${dataVendaCol}) = TRUNC(cc.${ccDtaSeqCol})
         AND cf.${codTipoCol} = 1110
-      WHERE cc.DTA_SEQ >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND cc.DTA_SEQ < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
-        AND cc.FLG_ESTORNO = 'S'
-        ${codLoja ? `AND cc.COD_LOJA = :codLoja` : ''}
+      WHERE cc.${ccDtaSeqCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND cc.${ccDtaSeqCol} < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
+        AND cc.${ccFlgEstornoCol} = 'S'
+        ${codLoja ? `AND cc.${ccCodLojaCol} = :codLoja` : ''}
         ${codOperador ? `AND cf.${codOperadorCol} = :codOperador` : ''}
       GROUP BY cf.${codOperadorCol}`;
 
@@ -488,8 +542,8 @@ export class FrenteCaixaService {
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO')}`;
     const tabTesourariaHistorico = `${schema}.${await MappingService.getRealTableName('TAB_TESOURARIA_HISTORICO')}`;
-    const tabCupomCancelado = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_CANCELADO', 'TAB_CUPOM_CANCELADO')}`;
-    const tabCupomPdv = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_PDV', 'TAB_CUPOM_PDV')}`;
+    const tabCupomCancelado = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_CANCELADO')}`;
+    const tabCupomPdv = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_PDV')}`;
 
     // Busca mapeamentos dinâmicos
     const {
@@ -512,7 +566,16 @@ export class FrenteCaixaService {
       valQuebraCol,
       numTurnoCol,
       numRegistroCol,
-      dtaMovimentoCol
+      dtaMovimentoCol,
+      ccNumSeqCol,
+      ccNumPdvCol,
+      ccCodLojaCol,
+      ccDtaSeqCol,
+      ccFlgEstornoCol,
+      cpNumCupomCol,
+      cpNumPdvCol,
+      cpCodLojaCol,
+      cpDtaVendaCol,
     } = await this.getVendasMappings();
 
     // Query principal - vendas por dia
@@ -631,26 +694,26 @@ export class FrenteCaixaService {
     // Buscar cancelamentos de cupom por dia (cupons finalizados que foram cancelados inteiros)
     let sqlEstornosOrfaos = `
       SELECT
-        TO_CHAR(cc.DTA_SEQ, 'DD/MM/YYYY') as DATA,
+        TO_CHAR(cc.${ccDtaSeqCol}, 'DD/MM/YYYY') as DATA,
         NVL(SUM(cf.${valorLiquidoCol}), 0) as TOTAL_ESTORNOS_ORFAOS
       FROM ${tabCupomCancelado} cc
       JOIN ${tabCupomPdv} cp
-        ON cp.${numeroCupomCol} = cc.NUM_SEQ
-        AND cp.${codPdvCol} = cc.NUM_PDV
-        AND cp.COD_LOJA = cc.COD_LOJA
-        AND TRUNC(cp.${dataVendaCol}) = TRUNC(cc.DTA_SEQ)
+        ON cp.${numeroCupomCol} = cc.${ccNumSeqCol}
+        AND cp.${codPdvCol} = cc.${ccNumPdvCol}
+        AND cp.${cpCodLojaCol} = cc.${ccCodLojaCol}
+        AND TRUNC(cp.${dataVendaCol}) = TRUNC(cc.${ccDtaSeqCol})
       JOIN ${tabCupomFinalizadora} cf
-        ON cf.${numeroCupomCol} = cc.NUM_SEQ
-        AND cf.${codPdvCol} = cc.NUM_PDV
-        AND cf.${codLojaCol} = cc.COD_LOJA
-        AND TRUNC(cf.${dataVendaCol}) = TRUNC(cc.DTA_SEQ)
+        ON cf.${numeroCupomCol} = cc.${ccNumSeqCol}
+        AND cf.${codPdvCol} = cc.${ccNumPdvCol}
+        AND cf.${codLojaCol} = cc.${ccCodLojaCol}
+        AND TRUNC(cf.${dataVendaCol}) = TRUNC(cc.${ccDtaSeqCol})
         AND cf.${codTipoCol} = 1110
-      WHERE cc.DTA_SEQ >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND cc.DTA_SEQ < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
-        AND cc.FLG_ESTORNO = 'S'
-        ${codLoja ? `AND cc.COD_LOJA = :codLoja` : ''}
+      WHERE cc.${ccDtaSeqCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND cc.${ccDtaSeqCol} < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
+        AND cc.${ccFlgEstornoCol} = 'S'
+        ${codLoja ? `AND cc.${ccCodLojaCol} = :codLoja` : ''}
         AND cf.${codOperadorCol} = :codOperador
-      GROUP BY TO_CHAR(cc.DTA_SEQ, 'DD/MM/YYYY')`;
+      GROUP BY TO_CHAR(cc.${ccDtaSeqCol}, 'DD/MM/YYYY')`;
 
     const estornosOrfaos = await OracleService.query<any>(sqlEstornosOrfaos, params);
     const estornosOrfaosMap = new Map(estornosOrfaos.map(e => [e.DATA, e.TOTAL_ESTORNOS_ORFAOS]));
@@ -726,8 +789,8 @@ export class FrenteCaixaService {
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO')}`;
     const tabTesourariaHistorico = `${schema}.${await MappingService.getRealTableName('TAB_TESOURARIA_HISTORICO')}`;
-    const tabCupomCancelado = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_CANCELADO', 'TAB_CUPOM_CANCELADO')}`;
-    const tabCupomPdv = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_PDV', 'TAB_CUPOM_PDV')}`;
+    const tabCupomCancelado = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_CANCELADO')}`;
+    const tabCupomPdv = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_PDV')}`;
 
     // Busca mapeamentos dinâmicos
     const {
@@ -746,7 +809,13 @@ export class FrenteCaixaService {
       valQuebraCol,
       numTurnoCol,
       numRegistroCol,
-      dtaMovimentoCol
+      dtaMovimentoCol,
+      ccNumSeqCol,
+      ccNumPdvCol,
+      ccCodLojaCol,
+      ccDtaSeqCol,
+      ccFlgEstornoCol,
+      cpCodLojaCol,
     } = await this.getVendasMappings();
 
     const params: any = { dataInicio, dataFim };
@@ -809,20 +878,20 @@ export class FrenteCaixaService {
       SELECT NVL(SUM(cf.${valorLiquidoCol}), 0) as ESTORNOS_ORFAOS
       FROM ${tabCupomCancelado} cc
       JOIN ${tabCupomPdv} cp
-        ON cp.${numeroCupomCol} = cc.NUM_SEQ
-        AND cp.${codPdvCol} = cc.NUM_PDV
-        AND cp.COD_LOJA = cc.COD_LOJA
-        AND TRUNC(cp.${dataVendaCol}) = TRUNC(cc.DTA_SEQ)
+        ON cp.${numeroCupomCol} = cc.${ccNumSeqCol}
+        AND cp.${codPdvCol} = cc.${ccNumPdvCol}
+        AND cp.${cpCodLojaCol} = cc.${ccCodLojaCol}
+        AND TRUNC(cp.${dataVendaCol}) = TRUNC(cc.${ccDtaSeqCol})
       JOIN ${tabCupomFinalizadora} cf
-        ON cf.${numeroCupomCol} = cc.NUM_SEQ
-        AND cf.${codPdvCol} = cc.NUM_PDV
-        AND cf.${codLojaCol} = cc.COD_LOJA
-        AND TRUNC(cf.${dataVendaCol}) = TRUNC(cc.DTA_SEQ)
+        ON cf.${numeroCupomCol} = cc.${ccNumSeqCol}
+        AND cf.${codPdvCol} = cc.${ccNumPdvCol}
+        AND cf.${codLojaCol} = cc.${ccCodLojaCol}
+        AND TRUNC(cf.${dataVendaCol}) = TRUNC(cc.${ccDtaSeqCol})
         AND cf.${codTipoCol} = 1110
-      WHERE cc.DTA_SEQ >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND cc.DTA_SEQ < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
-        AND cc.FLG_ESTORNO = 'S'
-        ${codLoja ? `AND cc.COD_LOJA = :codLoja` : ''}
+      WHERE cc.${ccDtaSeqCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND cc.${ccDtaSeqCol} < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
+        AND cc.${ccFlgEstornoCol} = 'S'
+        ${codLoja ? `AND cc.${ccCodLojaCol} = :codLoja` : ''}
     `;
     const estornosOrfaos = await OracleService.query<any>(sqlEstornosOrfaos, params);
 

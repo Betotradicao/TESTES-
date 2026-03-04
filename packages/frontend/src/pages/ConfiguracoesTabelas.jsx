@@ -620,6 +620,83 @@ const TABLE_CATALOG = {
       { id: 'cod_loja', name: 'Código Loja', defaultTable: 'TAB_PRODUTO_PROG', defaultColumn: 'COD_LOJA' },
     ]
   },
+  TAB_CUPOM_CANCELADO: {
+    name: 'Cupons Cancelados',
+    description: 'Registro de cupons fiscais cancelados após finalização',
+    fields: [
+      { id: 'numero_sequencia', name: 'Número Sequência (COO)', defaultTable: 'TAB_CUPOM_CANCELADO', defaultColumn: 'NUM_SEQ' },
+      { id: 'numero_pdv', name: 'Número do PDV', defaultTable: 'TAB_CUPOM_CANCELADO', defaultColumn: 'NUM_PDV' },
+      { id: 'codigo_loja', name: 'Código da Loja', defaultTable: 'TAB_CUPOM_CANCELADO', defaultColumn: 'COD_LOJA' },
+      { id: 'data_sequencia', name: 'Data da Sequência', defaultTable: 'TAB_CUPOM_CANCELADO', defaultColumn: 'DTA_SEQ' },
+      { id: 'flag_estorno', name: 'Flag Estorno', defaultTable: 'TAB_CUPOM_CANCELADO', defaultColumn: 'FLG_ESTORNO' },
+    ]
+  },
+  TAB_CUPOM_PDV: {
+    name: 'Cupons do PDV',
+    description: 'Registro de cupons por ponto de venda',
+    fields: [
+      { id: 'numero_cupom_fiscal', name: 'Número Cupom Fiscal', defaultTable: 'TAB_CUPOM_PDV', defaultColumn: 'NUM_CUPOM_FISCAL' },
+      { id: 'numero_pdv', name: 'Número do PDV', defaultTable: 'TAB_CUPOM_PDV', defaultColumn: 'NUM_PDV' },
+      { id: 'codigo_loja', name: 'Código da Loja', defaultTable: 'TAB_CUPOM_PDV', defaultColumn: 'COD_LOJA' },
+      { id: 'data_venda', name: 'Data da Venda', defaultTable: 'TAB_CUPOM_PDV', defaultColumn: 'DTA_VENDA' },
+    ]
+  },
+  TAB_SEQ_CUPOM: {
+    name: 'Sequência de Cupons',
+    description: 'Sequência de todos os cupons emitidos no PDV',
+    fields: [
+      { id: 'numero_sequencia', name: 'Número Sequência (COO)', defaultTable: 'TAB_SEQ_CUPOM', defaultColumn: 'NUM_SEQ' },
+      { id: 'numero_pdv', name: 'Número do PDV', defaultTable: 'TAB_SEQ_CUPOM', defaultColumn: 'NUM_PDV' },
+      { id: 'codigo_loja', name: 'Código da Loja', defaultTable: 'TAB_SEQ_CUPOM', defaultColumn: 'COD_LOJA' },
+      { id: 'data_sequencia', name: 'Data da Sequência', defaultTable: 'TAB_SEQ_CUPOM', defaultColumn: 'DTA_SEQ' },
+      { id: 'flag_cancelado', name: 'Flag Cancelado', defaultTable: 'TAB_SEQ_CUPOM', defaultColumn: 'FLG_CANCELADO' },
+      { id: 'codigo_operador', name: 'Código Operador', defaultTable: 'TAB_SEQ_CUPOM', defaultColumn: 'COD_OPERADOR' },
+    ]
+  },
+  TAB_COTA: {
+    name: 'Cotações',
+    description: 'Cabeçalho de cotações de compra',
+    fields: [
+      { id: 'codigo_cota', name: 'Código da Cotação', defaultTable: 'TAB_COTA', defaultColumn: 'COD_COTA' },
+      { id: 'codigo_loja', name: 'Código da Loja', defaultTable: 'TAB_COTA', defaultColumn: 'COD_LOJA' },
+      { id: 'descricao_cota', name: 'Descrição da Cotação', defaultTable: 'TAB_COTA', defaultColumn: 'DES_COTA' },
+      { id: 'data_cota', name: 'Data da Cotação', defaultTable: 'TAB_COTA', defaultColumn: 'DTA_COTA' },
+      { id: 'usuario', name: 'Usuário', defaultTable: 'TAB_COTA', defaultColumn: 'USUARIO' },
+      { id: 'data_alteracao', name: 'Data Alteração', defaultTable: 'TAB_COTA', defaultColumn: 'DTA_ALTERACAO' },
+    ]
+  },
+  TAB_COTA_PROD: {
+    name: 'Produtos da Cotação',
+    description: 'Produtos incluídos em uma cotação de compra',
+    fields: [
+      { id: 'codigo_cota', name: 'Código da Cotação', defaultTable: 'TAB_COTA_PROD', defaultColumn: 'COD_COTA' },
+      { id: 'codigo_loja', name: 'Código da Loja', defaultTable: 'TAB_COTA_PROD', defaultColumn: 'COD_LOJA' },
+      { id: 'codigo_produto', name: 'Código do Produto', defaultTable: 'TAB_COTA_PROD', defaultColumn: 'COD_PRODUTO' },
+      { id: 'quantidade_pedido', name: 'Quantidade a Pedir', defaultTable: 'TAB_COTA_PROD', defaultColumn: 'QTD_PEDIDO' },
+      { id: 'valor_custo_rep', name: 'Valor Custo Reposição', defaultTable: 'TAB_COTA_PROD', defaultColumn: 'VAL_CUSTO_REP' },
+      { id: 'valor_venda', name: 'Valor de Venda', defaultTable: 'TAB_COTA_PROD', defaultColumn: 'VAL_VENDA' },
+      { id: 'quantidade_estoque', name: 'Quantidade em Estoque', defaultTable: 'TAB_COTA_PROD', defaultColumn: 'QTD_ESTOQUE' },
+      { id: 'quantidade_cobertura', name: 'Dias de Cobertura', defaultTable: 'TAB_COTA_PROD', defaultColumn: 'QTD_COBERTURA' },
+      { id: 'data_ultima_compra', name: 'Data Última Compra', defaultTable: 'TAB_COTA_PROD', defaultColumn: 'DTA_ULT_COMPRA' },
+      { id: 'codigo_forn_ultima_compra', name: 'Fornecedor Última Compra', defaultTable: 'TAB_COTA_PROD', defaultColumn: 'COD_FORN_ULT_COMPRA' },
+      { id: 'quantidade_venda_30d', name: 'Qtd Vendas Últimos 30d', defaultTable: 'TAB_COTA_PROD', defaultColumn: 'QTD_VDA_ULT_30D' },
+    ]
+  },
+  TAB_COTA_FORN: {
+    name: 'Fornecedores da Cotação',
+    description: 'Preços cotados por cada fornecedor em uma cotação',
+    fields: [
+      { id: 'codigo_cota', name: 'Código da Cotação', defaultTable: 'TAB_COTA_FORN', defaultColumn: 'COD_COTA' },
+      { id: 'codigo_loja', name: 'Código da Loja', defaultTable: 'TAB_COTA_FORN', defaultColumn: 'COD_LOJA' },
+      { id: 'codigo_produto', name: 'Código do Produto', defaultTable: 'TAB_COTA_FORN', defaultColumn: 'COD_PRODUTO' },
+      { id: 'codigo_fornecedor', name: 'Código do Fornecedor', defaultTable: 'TAB_COTA_FORN', defaultColumn: 'COD_FORNECEDOR' },
+      { id: 'valor_custo_tabela', name: 'Valor Custo Tabela', defaultTable: 'TAB_COTA_FORN', defaultColumn: 'VAL_CUSTO_TAB' },
+      { id: 'valor_custo_calculado', name: 'Valor Custo Calculado', defaultTable: 'TAB_COTA_FORN', defaultColumn: 'VAL_CUSTO_CALC' },
+      { id: 'percentual_desconto', name: 'Percentual Desconto', defaultTable: 'TAB_COTA_FORN', defaultColumn: 'PER_DESCONTO' },
+      { id: 'quantidade_pedido', name: 'Quantidade Pedida', defaultTable: 'TAB_COTA_FORN', defaultColumn: 'QTD_PEDIDO' },
+      { id: 'numero_pedido', name: 'Número do Pedido', defaultTable: 'TAB_COTA_FORN', defaultColumn: 'NUM_PEDIDO' },
+    ]
+  },
 };
 
 // ====================================================================================
@@ -633,7 +710,7 @@ const BUSINESS_MODULES = [
     color: 'from-orange-500 to-red-500',
     submodules: [
       { id: 'bipagens', name: 'Prevenção de Bipagens', icon: '📡', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_OPERADORES', 'TAB_CUPOM_FINALIZADORA'] },
-      { id: 'pdv', name: 'Prevenção PDV', icon: '💳', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_PDV', 'TAB_OPERADORES', 'TAB_CUPOM_FINALIZADORA', 'TAB_TESOURARIA_HISTORICO', 'TAB_PRODUTO_PDV_ESTORNO'] },
+      { id: 'pdv', name: 'Prevenção PDV', icon: '💳', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_PDV', 'TAB_OPERADORES', 'TAB_CUPOM_FINALIZADORA', 'TAB_TESOURARIA_HISTORICO', 'TAB_PRODUTO_PDV_ESTORNO', 'TAB_CUPOM_CANCELADO', 'TAB_CUPOM_PDV', 'TAB_SEQ_CUPOM'] },
       { id: 'facial', name: 'Prevenção Facial', icon: '👤', tables: ['TAB_OPERADORES'] },
       { id: 'rupturas', name: 'Prevenção Rupturas', icon: '🔍', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO', 'TAB_NF', 'TAB_NF_ITEM'] },
       { id: 'etiquetas', name: 'Prevenção Etiquetas', icon: '🏷️', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_SECAO'] },
@@ -653,6 +730,7 @@ const BUSINESS_MODULES = [
       { id: 'estoque_saude', name: 'Saúde do Estoque', icon: '📦', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ITENS', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO'] },
       { id: 'analise_corte', name: 'Análise de Corte (Ponderação)', icon: '✂️', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO', 'TAB_SEGMENTO', 'TAB_LOJA'] },
       { id: 'compra_venda', name: 'Compra x Venda', icon: '🛒', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_PRODUTO_PDV', 'TAB_PRODUTO_DECOMPOSICAO', 'TAB_PRODUTO_PRODUCAO', 'TAB_FORNECEDOR', 'TAB_NOTA_FISCAL', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO', 'TAB_COMPRADOR', 'TAB_LOJA', 'TAB_NF', 'TAB_NF_ITEM'] },
+      { id: 'analise_cotacao', name: 'Análise de Cotação', icon: '📊', tables: ['TAB_COTA', 'TAB_COTA_PROD', 'TAB_COTA_FORN', 'TAB_PRODUTO', 'TAB_FORNECEDOR'] },
       { id: 'pedidos', name: 'Pedidos de Compras', icon: '📋', tables: ['TAB_PRODUTO', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO', 'TAB_NOTA_FISCAL', 'TAB_COMPRADOR'] },
       { id: 'ruptura_industria', name: 'Ruptura Indústria', icon: '🏭', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_FORNECEDOR', 'TAB_PEDIDO', 'TAB_PEDIDO_PRODUTO', 'TAB_NF', 'TAB_NF_ITEM'] },
       { id: 'calendario_atendimento', name: 'Calendário de Atendimento', icon: '📅', tables: ['TAB_FORNECEDOR', 'TAB_CLASSIFICACAO', 'TAB_NOTA_FISCAL', 'TAB_CONDICAO_FORNECEDOR', 'TAB_CONDICAO', 'TAB_PEDIDO'] },

@@ -61,26 +61,119 @@ export interface RankingFornecedor {
 export class AnaliseCotacaoService {
 
   /**
+   * Helper para buscar mapeamentos das tabelas de cotação
+   */
+  private static async getCotacaoMappings() {
+    const schema = await MappingService.getSchema();
+
+    // Tabelas
+    const [tabCota, tabCotaProd, tabCotaForn, tabProduto, tabFornecedor] = await Promise.all([
+      MappingService.getRealTableName('TAB_COTA'),
+      MappingService.getRealTableName('TAB_COTA_PROD'),
+      MappingService.getRealTableName('TAB_COTA_FORN'),
+      MappingService.getRealTableName('TAB_PRODUTO'),
+      MappingService.getRealTableName('TAB_FORNECEDOR'),
+    ]);
+
+    // Colunas TAB_COTA
+    const [cCodCota, cCodLoja, cDesCota, cDtaCota, cUsuario, cDtaAlteracao] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_COTA', 'codigo_cota'),
+      MappingService.getColumnFromTable('TAB_COTA', 'codigo_loja'),
+      MappingService.getColumnFromTable('TAB_COTA', 'descricao_cota'),
+      MappingService.getColumnFromTable('TAB_COTA', 'data_cota'),
+      MappingService.getColumnFromTable('TAB_COTA', 'usuario'),
+      MappingService.getColumnFromTable('TAB_COTA', 'data_alteracao'),
+    ]);
+
+    // Colunas TAB_COTA_PROD
+    const [cpCodCota, cpCodLoja, cpCodProduto, cpQtdPedido, cpValCustoRep, cpValVenda,
+      cpQtdEstoque, cpQtdCobertura, cpDtaUltCompra, cpCodFornUltCompra, cpQtdVda30d] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_COTA_PROD', 'codigo_cota'),
+      MappingService.getColumnFromTable('TAB_COTA_PROD', 'codigo_loja'),
+      MappingService.getColumnFromTable('TAB_COTA_PROD', 'codigo_produto'),
+      MappingService.getColumnFromTable('TAB_COTA_PROD', 'quantidade_pedido'),
+      MappingService.getColumnFromTable('TAB_COTA_PROD', 'valor_custo_rep'),
+      MappingService.getColumnFromTable('TAB_COTA_PROD', 'valor_venda'),
+      MappingService.getColumnFromTable('TAB_COTA_PROD', 'quantidade_estoque'),
+      MappingService.getColumnFromTable('TAB_COTA_PROD', 'quantidade_cobertura'),
+      MappingService.getColumnFromTable('TAB_COTA_PROD', 'data_ultima_compra'),
+      MappingService.getColumnFromTable('TAB_COTA_PROD', 'codigo_forn_ultima_compra'),
+      MappingService.getColumnFromTable('TAB_COTA_PROD', 'quantidade_venda_30d'),
+    ]);
+
+    // Colunas TAB_COTA_FORN
+    const [cfCodCota, cfCodLoja, cfCodProduto, cfCodFornecedor, cfValCustoTab, cfValCustoCalc,
+      cfPerDesconto, cfQtdPedido, cfNumPedido] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_COTA_FORN', 'codigo_cota'),
+      MappingService.getColumnFromTable('TAB_COTA_FORN', 'codigo_loja'),
+      MappingService.getColumnFromTable('TAB_COTA_FORN', 'codigo_produto'),
+      MappingService.getColumnFromTable('TAB_COTA_FORN', 'codigo_fornecedor'),
+      MappingService.getColumnFromTable('TAB_COTA_FORN', 'valor_custo_tabela'),
+      MappingService.getColumnFromTable('TAB_COTA_FORN', 'valor_custo_calculado'),
+      MappingService.getColumnFromTable('TAB_COTA_FORN', 'percentual_desconto'),
+      MappingService.getColumnFromTable('TAB_COTA_FORN', 'quantidade_pedido'),
+      MappingService.getColumnFromTable('TAB_COTA_FORN', 'numero_pedido'),
+    ]);
+
+    // Colunas TAB_PRODUTO
+    const [pCodProduto, pDesProduto, pDesReduzida, pCodBarra, pDesUnidadeCompra, pQtdEmbCompra] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_reduzida'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'des_unidade_compra'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'qtd_embalagem_compra'),
+    ]);
+
+    // Colunas TAB_FORNECEDOR
+    const [fCodFornecedor, fDesFornecedor, fNumPrazo, fPedMinVal] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'prazo_entrega'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'pedido_minimo_valor'),
+    ]);
+
+    return {
+      schema,
+      tabCota: `${schema}.${tabCota}`, tabCotaProd: `${schema}.${tabCotaProd}`,
+      tabCotaForn: `${schema}.${tabCotaForn}`, tabProduto: `${schema}.${tabProduto}`,
+      tabFornecedor: `${schema}.${tabFornecedor}`,
+      // TAB_COTA
+      cCodCota, cCodLoja, cDesCota, cDtaCota, cUsuario, cDtaAlteracao,
+      // TAB_COTA_PROD
+      cpCodCota, cpCodLoja, cpCodProduto, cpQtdPedido, cpValCustoRep, cpValVenda,
+      cpQtdEstoque, cpQtdCobertura, cpDtaUltCompra, cpCodFornUltCompra, cpQtdVda30d,
+      // TAB_COTA_FORN
+      cfCodCota, cfCodLoja, cfCodProduto, cfCodFornecedor, cfValCustoTab, cfValCustoCalc,
+      cfPerDesconto, cfQtdPedido, cfNumPedido,
+      // TAB_PRODUTO
+      pCodProduto, pDesProduto, pDesReduzida, pCodBarra, pDesUnidadeCompra, pQtdEmbCompra,
+      // TAB_FORNECEDOR
+      fCodFornecedor, fDesFornecedor, fNumPrazo, fPedMinVal,
+    };
+  }
+
+  /**
    * Lista todas as cotações disponíveis (header)
    */
   static async listarCotacoes(codLoja?: number): Promise<CotacaoHeader[]> {
-    const schema = await MappingService.getSchema();
+    const m = await this.getCotacaoMappings();
 
     let sql = `
       SELECT * FROM (
-        SELECT c.COD_COTA, c.COD_LOJA, c.DES_COTA, c.DTA_COTA, c.USUARIO, c.DTA_ALTERACAO,
-          (SELECT COUNT(*) FROM ${schema}.TAB_COTA_PROD cp WHERE cp.COD_COTA = c.COD_COTA AND cp.COD_LOJA = c.COD_LOJA) as TOTAL_PRODUTOS,
-          (SELECT COUNT(*) FROM ${schema}.TAB_FORN_COTA fc WHERE fc.COD_COTA = c.COD_COTA AND fc.COD_LOJA = c.COD_LOJA) as TOTAL_FORNECEDORES
-        FROM ${schema}.TAB_COTA c
+        SELECT c.${m.cCodCota} as COD_COTA, c.${m.cCodLoja} as COD_LOJA, c.${m.cDesCota} as DES_COTA, c.${m.cDtaCota} as DTA_COTA, c.${m.cUsuario} as USUARIO, c.${m.cDtaAlteracao} as DTA_ALTERACAO,
+          (SELECT COUNT(*) FROM ${m.tabCotaProd} cp WHERE cp.${m.cpCodCota} = c.${m.cCodCota} AND cp.${m.cpCodLoja} = c.${m.cCodLoja}) as TOTAL_PRODUTOS,
+          (SELECT COUNT(DISTINCT cf.${m.cfCodFornecedor}) FROM ${m.tabCotaForn} cf WHERE cf.${m.cfCodCota} = c.${m.cCodCota} AND cf.${m.cfCodLoja} = c.${m.cCodLoja}) as TOTAL_FORNECEDORES
+        FROM ${m.tabCota} c
     `;
     const params: any = {};
 
     if (codLoja) {
-      sql += ` WHERE c.COD_LOJA = :codLoja`;
+      sql += ` WHERE c.${m.cCodLoja} = :codLoja`;
       params.codLoja = codLoja;
     }
 
-    sql += ` ORDER BY c.COD_COTA DESC
+    sql += ` ORDER BY c.${m.cCodCota} DESC
       ) WHERE ROWNUM <= 100`;
 
     const rows = await OracleService.query<any>(sql, params);
@@ -101,32 +194,32 @@ export class AnaliseCotacaoService {
    * Detalhes de uma cotação: produtos + preços de cada fornecedor
    */
   static async detalhesCotacao(codCota: number, codLoja: number): Promise<CotacaoProduto[]> {
-    const schema = await MappingService.getSchema();
+    const m = await this.getCotacaoMappings();
 
     // 1. Buscar produtos da cotação
     const sqlProd = `
-      SELECT cp.COD_PRODUTO, p.DES_PRODUTO, p.DES_REDUZIDA, p.COD_BARRA_PRINCIPAL,
-        cp.QTD_PEDIDO, cp.VAL_CUSTO_REP, cp.VAL_VENDA,
-        cp.QTD_ESTOQUE, cp.QTD_COBERTURA, cp.DTA_ULT_COMPRA, cp.COD_FORN_ULT_COMPRA,
-        cp.QTD_VDA_ULT_30D,
-        p.DES_UNIDADE_COMPRA, p.QTD_EMBALAGEM_COMPRA
-      FROM ${schema}.TAB_COTA_PROD cp
-      LEFT JOIN ${schema}.TAB_PRODUTO p ON p.COD_PRODUTO = cp.COD_PRODUTO
-      WHERE cp.COD_COTA = :codCota AND cp.COD_LOJA = :codLoja
-      ORDER BY p.DES_PRODUTO
+      SELECT cp.${m.cpCodProduto} as COD_PRODUTO, p.${m.pDesProduto} as DES_PRODUTO, p.${m.pDesReduzida} as DES_REDUZIDA, p.${m.pCodBarra} as COD_BARRA_PRINCIPAL,
+        cp.${m.cpQtdPedido} as QTD_PEDIDO, cp.${m.cpValCustoRep} as VAL_CUSTO_REP, cp.${m.cpValVenda} as VAL_VENDA,
+        cp.${m.cpQtdEstoque} as QTD_ESTOQUE, cp.${m.cpQtdCobertura} as QTD_COBERTURA, cp.${m.cpDtaUltCompra} as DTA_ULT_COMPRA, cp.${m.cpCodFornUltCompra} as COD_FORN_ULT_COMPRA,
+        cp.${m.cpQtdVda30d} as QTD_VDA_ULT_30D,
+        p.${m.pDesUnidadeCompra} as DES_UNIDADE_COMPRA, p.${m.pQtdEmbCompra} as QTD_EMBALAGEM_COMPRA
+      FROM ${m.tabCotaProd} cp
+      LEFT JOIN ${m.tabProduto} p ON p.${m.pCodProduto} = cp.${m.cpCodProduto}
+      WHERE cp.${m.cpCodCota} = :codCota AND cp.${m.cpCodLoja} = :codLoja
+      ORDER BY p.${m.pDesProduto}
     `;
     const produtos = await OracleService.query<any>(sqlProd, { codCota, codLoja });
 
     // 2. Buscar todos os preços de fornecedores de uma vez
     const sqlForn = `
-      SELECT cf.COD_PRODUTO, cf.COD_FORNECEDOR, f.DES_FORNECEDOR,
-        cf.VAL_CUSTO_TAB, cf.VAL_CUSTO_CALC, cf.PER_DESCONTO,
-        cf.QTD_PEDIDO, cf.NUM_PEDIDO,
-        NVL(f.NUM_PRAZO, 0) as NUM_PRAZO
-      FROM ${schema}.TAB_COTA_FORN cf
-      LEFT JOIN ${schema}.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = cf.COD_FORNECEDOR
-      WHERE cf.COD_COTA = :codCota AND cf.COD_LOJA = :codLoja
-      ORDER BY cf.COD_PRODUTO, cf.VAL_CUSTO_TAB
+      SELECT cf.${m.cfCodProduto} as COD_PRODUTO, cf.${m.cfCodFornecedor} as COD_FORNECEDOR, f.${m.fDesFornecedor} as DES_FORNECEDOR,
+        cf.${m.cfValCustoTab} as VAL_CUSTO_TAB, cf.${m.cfValCustoCalc} as VAL_CUSTO_CALC, cf.${m.cfPerDesconto} as PER_DESCONTO,
+        cf.${m.cfQtdPedido} as QTD_PEDIDO, cf.${m.cfNumPedido} as NUM_PEDIDO,
+        NVL(f.${m.fNumPrazo}, 0) as NUM_PRAZO
+      FROM ${m.tabCotaForn} cf
+      LEFT JOIN ${m.tabFornecedor} f ON f.${m.fCodFornecedor} = cf.${m.cfCodFornecedor}
+      WHERE cf.${m.cfCodCota} = :codCota AND cf.${m.cfCodLoja} = :codLoja
+      ORDER BY cf.${m.cfCodProduto}, cf.${m.cfValCustoTab}
     `;
     const fornPrecos = await OracleService.query<any>(sqlForn, { codCota, codLoja });
 
@@ -181,21 +274,21 @@ export class AnaliseCotacaoService {
    * Ranking de fornecedores: quem cotou mais barato, quem ganhou mais pedidos
    */
   static async rankingFornecedores(codCota: number, codLoja: number): Promise<RankingFornecedor[]> {
-    const schema = await MappingService.getSchema();
+    const m = await this.getCotacaoMappings();
 
     // Buscar todos os preços + pedido mínimo do fornecedor + qtd pedido do produto + embalagem
     const sql = `
-      SELECT cf.COD_PRODUTO, cf.COD_FORNECEDOR, f.DES_FORNECEDOR,
-        cf.VAL_CUSTO_TAB, cf.NUM_PEDIDO, cf.QTD_PEDIDO,
-        NVL(f.PED_MIN_VAL, 0) as PED_MIN_VAL,
-        NVL(f.NUM_PRAZO, 0) as NUM_PRAZO,
-        NVL(cp.QTD_PEDIDO, 0) as QTD_PEDIDO_PROD,
-        NVL(p.QTD_EMBALAGEM_COMPRA, 1) as QTD_EMB
-      FROM ${schema}.TAB_COTA_FORN cf
-      LEFT JOIN ${schema}.TAB_FORNECEDOR f ON f.COD_FORNECEDOR = cf.COD_FORNECEDOR
-      LEFT JOIN ${schema}.TAB_COTA_PROD cp ON cp.COD_COTA = cf.COD_COTA AND cp.COD_LOJA = cf.COD_LOJA AND cp.COD_PRODUTO = cf.COD_PRODUTO
-      LEFT JOIN ${schema}.TAB_PRODUTO p ON p.COD_PRODUTO = cf.COD_PRODUTO
-      WHERE cf.COD_COTA = :codCota AND cf.COD_LOJA = :codLoja
+      SELECT cf.${m.cfCodProduto} as COD_PRODUTO, cf.${m.cfCodFornecedor} as COD_FORNECEDOR, f.${m.fDesFornecedor} as DES_FORNECEDOR,
+        cf.${m.cfValCustoTab} as VAL_CUSTO_TAB, cf.${m.cfNumPedido} as NUM_PEDIDO, cf.${m.cfQtdPedido} as QTD_PEDIDO,
+        NVL(f.${m.fPedMinVal}, 0) as PED_MIN_VAL,
+        NVL(f.${m.fNumPrazo}, 0) as NUM_PRAZO,
+        NVL(cp.${m.cpQtdPedido}, 0) as QTD_PEDIDO_PROD,
+        NVL(p.${m.pQtdEmbCompra}, 1) as QTD_EMB
+      FROM ${m.tabCotaForn} cf
+      LEFT JOIN ${m.tabFornecedor} f ON f.${m.fCodFornecedor} = cf.${m.cfCodFornecedor}
+      LEFT JOIN ${m.tabCotaProd} cp ON cp.${m.cpCodCota} = cf.${m.cfCodCota} AND cp.${m.cpCodLoja} = cf.${m.cfCodLoja} AND cp.${m.cpCodProduto} = cf.${m.cfCodProduto}
+      LEFT JOIN ${m.tabProduto} p ON p.${m.pCodProduto} = cf.${m.cfCodProduto}
+      WHERE cf.${m.cfCodCota} = :codCota AND cf.${m.cfCodLoja} = :codLoja
     `;
     const rows = await OracleService.query<any>(sql, { codCota, codLoja });
 
