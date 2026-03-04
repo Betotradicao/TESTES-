@@ -42,6 +42,7 @@ export default function GarimpadorRanking() {
   const [detalhesTodosCache, setDetalhesTodosCache] = useState([]);
   const [tabloidUrl, setTabloidUrl] = useState(null);
   const [excluidos, setExcluidos] = useState(new Set());
+  const [openaiBalance, setOpenaiBalance] = useState(null);
 
   // Projecao inline
   const [projecaoAberta, setProjecaoAberta] = useState(null); // indice do item na tabela de detalhes
@@ -76,6 +77,10 @@ export default function GarimpadorRanking() {
   useEffect(() => {
     api.get('/garimpador/produtos-excluidos').then(({ data }) => {
       setExcluidos(new Set((data.excluidos || []).map(String)));
+    }).catch(() => {});
+    api.get('/garimpador/openai-balance').then(({ data }) => {
+      if (data.success) setOpenaiBalance(data.balance);
+      else if (data.error) setOpenaiBalance({ error: data.error });
     }).catch(() => {});
   }, []);
 
@@ -435,6 +440,24 @@ export default function GarimpadorRanking() {
           <button onClick={fetchRanking} className="bg-orange-500 text-white px-4 py-1.5 rounded text-sm hover:bg-orange-600 transition-colors">
             Atualizar
           </button>
+          {openaiBalance && !openaiBalance.error && (
+            <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5" title={`Referencia: ${openaiBalance.mesReferencia || ''}`}>
+              <svg className="w-4 h-4 text-emerald-600 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M12 6v6l4 2"/>
+              </svg>
+              <span className="text-xs font-semibold text-emerald-700">
+                OpenAI: ${openaiBalance.usageThisMonth > 0 ? openaiBalance.usageThisMonth.toFixed(2) : '0.00'} <span className="font-normal text-emerald-500">este mes</span>
+              </span>
+            </div>
+          )}
+          {openaiBalance && openaiBalance.error && (
+            <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5" title={openaiBalance.error}>
+              <svg className="w-4 h-4 text-amber-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 9v4m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/>
+              </svg>
+              <span className="text-[10px] text-amber-700">OpenAI: key sem permissao de billing</span>
+            </div>
+          )}
           {resumo?.topCategorias?.length > 0 && (
             <div className="ml-auto flex items-center gap-2 text-xs text-gray-500">
               <span>Top categorias:</span>

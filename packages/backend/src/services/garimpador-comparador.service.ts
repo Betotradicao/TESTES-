@@ -9,6 +9,196 @@ import { GarimpadorDecomposerService } from './garimpador-decomposer.service';
 import { GarimpadorVectorStoreService } from './garimpador-vectorstore.service';
 import axios from 'axios';
 
+// Prompts default - usados se nao houver configuracao customizada
+const DEFAULT_PROMPT_MATCHING_SQL = `Voce e um especialista em matching de produtos de supermercado brasileiro.
+
+Seu trabalho: dado um produto buscado e uma lista de candidatos do sistema ERP, identifique qual candidato e o MESMO produto.
+
+REGRAS CRITICAS - O SISTEMA ERP USA ABREVIACOES PESADAS:
+- CERVEJA = "CERV", DETERGENTE = "DETERG" ou "DET", REFRIGERANTE = "REFRIG", AMACIANTE = "AMAC"
+- ACHOCOLATADO = "ACHOC", ABSORVENTE = "ABS", BISCOITO = "BISC", DESODORANTE = "DESOD"
+- SANITARIA = "SANIT", MARGARINA = "MARG", MAIONESE = "MAIO", ACUCAR = "ACUC"
+- LATA = "LT" ou "LTA", GARRAFA = "GRF", LONGNECK = "LN", CAIXA = "CX", PACOTE = "PCT" ou "PT"
+- TETRA PAK = "TP", FARDO = "FD", PET = "PET"
+- O nome do produto NO SISTEMA pode estar TOTALMENTE abreviado: "CERV SKOL LT 350ML" = "CERVEJA SKOL LATA 350ML"
+
+REGRAS DE MATCHING:
+- A MARCA deve ser a MESMA (Skol=Skol, Itaipava=Itaipava, nao misturar)
+- O TIPO deve ser o MESMO considerando abreviacoes acima
+- O SUB-TIPO deve ser o MESMO: oleo de SOJA nao e oleo de MILHO, leite INTEGRAL nao e DESNATADO
+- A GRAMATURA deve ser compativel (350ml=350ml, 1L=1LT, 500g=500gr, 269ML=269 ML)
+- Se encontrar o produto, retorne APENAS o numero. Se NENHUM corresponder, retorne 0.
+- Retorne APENAS um numero, nada mais.`;
+
+const DEFAULT_PROMPT_MATCHING_VETORIAL = `Voce e um especialista em matching de produtos de supermercado brasileiro.
+
+Seu trabalho: dado um produto buscado e uma lista de candidatos do sistema ERP, identifique qual candidato e o MESMO produto.
+
+REGRAS CRITICAS - O SISTEMA ERP USA ABREVIACOES PESADAS:
+- CERVEJA = "CERV", DETERGENTE = "DETERG" ou "DET", REFRIGERANTE = "REFRIG", AMACIANTE = "AMAC"
+- ACHOCOLATADO = "ACHOC", ABSORVENTE = "ABS", BISCOITO = "BISC", DESODORANTE = "DESOD"
+- SANITARIA = "SANIT", MARGARINA = "MARG", MAIONESE = "MAIO", ACUCAR = "ACUC"
+- LATA = "LT" ou "LTA", GARRAFA = "GRF", LONGNECK = "LN", CAIXA = "CX", PACOTE = "PCT" ou "PT"
+- TETRA PAK = "TP", FARDO = "FD", PET = "PET"
+- O nome do produto NO SISTEMA pode estar TOTALMENTE abreviado: "CERV SKOL LT 350ML" = "CERVEJA SKOL LATA 350ML"
+
+REGRAS DE MATCHING:
+- A MARCA e o criterio MAIS importante - NUNCA misture marcas (Skol!=Brahma, Itaipava!=Heineken)
+- Se o produto buscado especifica uma marca e NENHUM candidato tem essa marca, retorne 0
+- O TIPO deve ser o MESMO considerando abreviacoes acima (CERV=CERVEJA, DET=DETERGENTE, etc)
+- O SUB-TIPO deve ser o MESMO: oleo de SOJA nao e oleo de MILHO, leite INTEGRAL nao e DESNATADO
+- A GRAMATURA deve ser compativel (350ml=350ml, 1L=1LT, 500g=500gr, 269ML=269 ML)
+- Use Secao/Grupo/Fornecedor como contexto adicional para desambiguar
+- Se encontrar o produto, retorne APENAS o numero. Se NENHUM corresponder, retorne 0.
+- Retorne APENAS um numero, nada mais.`;
+
+// Dicionario de abreviacoes comuns em supermercados (Oracle usa formas curtas)
+// Formato: palavra completa -> [abreviacoes possiveis no Oracle]
+const ABREVIACOES_PRODUTO: Record<string, string[]> = {
+  'CERVEJA': ['CERV'],
+  'REFRIGERANTE': ['REFRIG', 'REFRI'],
+  'DETERGENTE': ['DETERG', 'DET'],
+  'AMACIANTE': ['AMAC'],
+  'DESINFETANTE': ['DESINF'],
+  'ACHOCOLATADO': ['ACHOC'],
+  'ABSORVENTE': ['ABS', 'ABSORV'],
+  'BISCOITO': ['BISC'],
+  'CHOCOLATE': ['CHOC'],
+  'DESODORANTE': ['DESOD'],
+  'SANITARIA': ['SANIT'],
+  'MARGARINA': ['MARG'],
+  'MAIONESE': ['MAIO'],
+  'SABONETE': ['SAB'],
+  'SHAMPOO': ['SHAM'],
+  'CONDICIONADOR': ['COND'],
+  'ACUCAR': ['ACUC'],
+  'FEIJAO': ['FEIJ'],
+  'FARINHA': ['FAR'],
+  'MACARRAO': ['MAC'],
+  'MISTURA': ['MIST'],
+  'MANTEIGA': ['MANT'],
+  'IOGURTE': ['IOG'],
+  'MOLHO': ['MOL'],
+  'LINGUICA': ['LING'],
+  'MORTADELA': ['MORT'],
+  'PRESUNTO': ['PRES'],
+  'REQUEIJAO': ['REQ'],
+  'QUEIJO': ['QJ'],
+  'VINAGRE': ['VIN'],
+  'EXTRATO': ['EXT'],
+  'CATCHUP': ['CATCH', 'KETCHUP'],
+  'MOSTARDA': ['MOST'],
+  'INSETICIDA': ['INSET'],
+  'ESPONJA': ['ESP'],
+  'PAPEL': ['PAP'],
+  'TOALHA': ['TOAL'],
+  'GUARDANAPO': ['GUARD'],
+  'CAFE': ['CAF'],
+  'LEITE': ['LT'],
+  'SUCO': ['SUC'],
+  'CREME': ['CR'],
+  'OLEO': ['OL'],
+};
+
+// Dicionario de abreviacoes de EMBALAGEM (Oracle usa siglas)
+const ABREVIACOES_EMBALAGEM: Record<string, string[]> = {
+  'LATA': ['LT', 'LTA'],
+  'LATAO': ['LT', 'LTAO'],
+  'GARRAFA': ['GRF', 'GF'],
+  'LONGNECK': ['LN', 'LONG'],
+  'CAIXA': ['CX'],
+  'PACOTE': ['PCT', 'PC', 'PT'],
+  'SACHE': ['SACHE', 'SCH'],
+  'FARDO': ['FD'],
+  'VIDRO': ['VD'],
+  'POTE': ['PT'],
+  'BISNAGA': ['BSN'],
+  'BANDEJA': ['BDJ', 'BAND'],
+  'UNIDADE': ['UN', 'UND'],
+  'LITRO': ['LT'],
+  'PET': ['PET'],
+  'TETRA': ['TP'],
+  'TETRA PAK': ['TP'],
+  'SQUEEZE': ['SQZ'],
+  'REFIL': ['REF'],
+};
+
+const DEFAULT_PROMPT_MATCHING_FALLBACK = 'Voce e um comparador de produtos de supermercado brasileiro. Dado um produto buscado e uma lista de candidatos, retorne APENAS o numero do melhor match. Considere abreviacoes comuns (CERV=CERVEJA, DET=DETERGENTE, AG SANIT=AGUA SANITARIA, FEIJ=FEIJAO, etc). A MARCA deve ser a MESMA - se o produto buscado e de uma marca e nenhum candidato e da mesma marca, retorne 0. Se nenhum candidato for o mesmo tipo de produto, retorne 0.';
+
+// Correcao de erros de digitacao comuns em produtos
+const CORRECAO_TYPOS: Record<string, string> = {
+  'CERVEIA': 'CERVEJA',
+  'CERVEIJA': 'CERVEJA',
+  'CERVEGA': 'CERVEJA',
+  'REFRIGERENTE': 'REFRIGERANTE',
+  'REFIRGERANTE': 'REFRIGERANTE',
+  'DETERJENTE': 'DETERGENTE',
+  'DETERGENETE': 'DETERGENTE',
+  'SHAMPPO': 'SHAMPOO',
+  'SHAMPO': 'SHAMPOO',
+  'XAMPU': 'SHAMPOO',
+  'MARGARINA': 'MARGARINA',
+  'MAIONEZE': 'MAIONESE',
+  'MAIONSE': 'MAIONESE',
+  'ACUÇAR': 'ACUCAR',
+  'ASSUCAR': 'ACUCAR',
+  'BISCOUTO': 'BISCOITO',
+  'BISCOTO': 'BISCOITO',
+  'CHOCLATE': 'CHOCOLATE',
+  'CHOCOLOTE': 'CHOCOLATE',
+  'DESODORANETE': 'DESODORANTE',
+  'DESODORENTE': 'DESODORANTE',
+  'SABONETTE': 'SABONETE',
+  'CONDISIONADOR': 'CONDICIONADOR',
+  'LINGUISA': 'LINGUICA',
+  'LINGUÇA': 'LINGUICA',
+  'REQUEIJÃO': 'REQUEIJAO',
+  'MORATDELA': 'MORTADELA',
+  'MORTADELLA': 'MORTADELA',
+  'PRESUNTO': 'PRESUNTO',
+  'IOGURTHE': 'IOGURTE',
+  'YOGURT': 'IOGURTE',
+  'YOGURTE': 'IOGURTE',
+  'CATCHAP': 'CATCHUP',
+  'KATCHUP': 'CATCHUP',
+  'KETCCHUP': 'KETCHUP',
+  'INSENTICIDA': 'INSETICIDA',
+  'GUARADNAPO': 'GUARDANAPO',
+  'EZPONJA': 'ESPONJA',
+  'AMASIANTE': 'AMACIANTE',
+  'AMAZIANTE': 'AMACIANTE',
+  'DEZINFETANTE': 'DESINFETANTE',
+};
+
+/**
+ * Corrige erros de digitacao comuns na descricao do produto
+ */
+function corrigirTypos(texto: string): string {
+  let corrigido = texto.toUpperCase();
+  for (const [errado, certo] of Object.entries(CORRECAO_TYPOS)) {
+    corrigido = corrigido.replace(new RegExp(`\\b${errado}\\b`, 'g'), certo);
+  }
+  return corrigido;
+}
+
+/**
+ * Converte termos completos para abreviacoes do Oracle.
+ * Ex: "ITAIPAVA CERVEJA LATA 269ML" -> "ITAIPAVA CERV LT 269ML"
+ * Isso melhora a busca vetorial pois os embeddings no VectorStore sao das descricoes abreviadas.
+ */
+function abreviarParaOracle(texto: string): string {
+  let result = texto.toUpperCase();
+  // Aplicar abreviacoes de produto (usar primeira abreviacao)
+  for (const [completo, abrevs] of Object.entries(ABREVIACOES_PRODUTO)) {
+    result = result.replace(new RegExp(`\\b${completo}\\b`, 'g'), abrevs[0]);
+  }
+  // Aplicar abreviacoes de embalagem
+  for (const [completo, abrevs] of Object.entries(ABREVIACOES_EMBALAGEM)) {
+    result = result.replace(new RegExp(`\\b${completo}\\b`, 'g'), abrevs[0]);
+  }
+  return result;
+}
+
 interface CondicaoPreco {
   tipo: string;
   preco: number;
@@ -42,12 +232,21 @@ interface ProdutoOracle {
   matchScore: number;
 }
 
+interface CandidatoInfo {
+  descricao: string;
+  similarity?: number;
+  secao?: string;
+  grupo?: string;
+  fornecedor?: string;
+}
+
 interface ResultadoComparacao {
   produtoOfertado: string;
   precoOferta: number;
   condicao?: string;
   condicoes?: CondicaoPreco[];
   produtoLoja: ProdutoOracle | null;
+  candidatos?: CandidatoInfo[];
   diferenca: number;
   boaOferta: boolean;
   margemAtual: number;
@@ -100,24 +299,44 @@ export class GarimpadorComparadorService {
 
     for (const prod of produtos) {
       try {
-        // 1. Buscar produto no Oracle
-        const produtoOracle = await this.buscarProdutoOracle(prod.produto);
+        // 1. Buscar produto no Oracle (retorna match + candidatos encontrados)
+        const busca = await this.buscarProdutoOracle(prod.produto);
 
-        if (!produtoOracle) {
-          console.log(`[Garimpador Comparador] Produto nao encontrado: ${prod.produto}`);
+        if (!busca.match) {
+          console.log(`[Garimpador Comparador] Produto nao encontrado: ${prod.produto} (${busca.candidatos.length} candidatos rejeitados)`);
+          // Incluir nos resultados com produtoLoja null + candidatos para visibilidade
+          resultados.push({
+            produtoOfertado: prod.produto,
+            precoOferta: prod.preco,
+            condicao: prod.condicao,
+            condicoes: prod.condicoes,
+            produtoLoja: null,
+            candidatos: busca.candidatos.slice(0, 10), // top 10 candidatos
+            diferenca: 0,
+            boaOferta: false,
+            margemAtual: 0,
+            margemFutura: 0,
+            margemMeta: 0,
+            diferencaMargem: 0,
+            classificacao: 'ruim',
+            matchScore: 0,
+          });
           continue;
         }
 
         // 2. Comparar precos e calcular margens
-        const resultado = this.calcularComparacao(prod, produtoOracle);
+        const resultado = this.calcularComparacao(prod, busca.match);
 
         // 3. Classificar (Ouro/Prata/Bronze)
         resultado.classificacao = await this.classificar(resultado.diferencaMargem);
 
+        // Incluir candidatos para visibilidade no frontend
+        resultado.candidatos = busca.candidatos.slice(0, 10);
+
         resultados.push(resultado);
 
         // 4. Verificar se produto esta excluido
-        const codProdStr = String(produtoOracle.codProduto);
+        const codProdStr = String(busca.match.codProduto);
         if (produtosExcluidos.includes(codProdStr)) {
           console.log(`[Garimpador Comparador] Produto ${codProdStr} excluido - nao envia pro WhatsApp`);
           continue;
@@ -153,13 +372,21 @@ export class GarimpadorComparadorService {
    * 1. Busca vetorial via PGVector (embedding semantico) -> top 15 candidatos
    * 2. GPT avalia candidatos COM dados completos (secao, grupo, fornecedor)
    * 3. Fallback: se cache vazio, usa SQL LIKE no Oracle (metodo antigo)
+   * Retorna { match, candidatos } para transparencia (mostrar candidatos no frontend)
    */
-  static async buscarProdutoOracle(descricaoBusca: string): Promise<ProdutoOracle | null> {
+  static async buscarProdutoOracle(descricaoBusca: string): Promise<{ match: ProdutoOracle | null; candidatos: CandidatoInfo[] }> {
     try {
+      // Corrigir typos comuns antes de buscar
+      const descCorrigida = corrigirTypos(descricaoBusca);
+      if (descCorrigida !== descricaoBusca.toUpperCase()) {
+        console.log(`[Garimpador] Typo corrigido: "${descricaoBusca}" -> "${descCorrigida}"`);
+      }
+      const termoBusca = descCorrigida !== descricaoBusca.toUpperCase() ? descCorrigida : descricaoBusca;
+
       // === TENTAR BUSCA VETORIAL PRIMEIRO ===
-      const resultadoVetorial = await this.buscarProdutoVetorial(descricaoBusca);
+      const resultadoVetorial = await this.buscarProdutoVetorial(termoBusca);
       if (resultadoVetorial !== undefined) {
-        // undefined = cache vazio (fallback pra LIKE), null = nenhum match, ProdutoOracle = match
+        // undefined = cache vazio (fallback pra LIKE), { match, candidatos }
         return resultadoVetorial;
       }
 
@@ -251,31 +478,57 @@ export class GarimpadorComparadorService {
         }
       }
 
-      // Gramaturas - variantes (1L->1LT, 500G->500GR)
+      // Gramaturas - variantes (1L->1LT, 500G->500GR, 269ML->"269 ML")
       for (const gram of decomp.gramaturas) {
         const gramVariants: string[] = [gram.textoOriginal];
-        if (gram.unidade === 'L') gramVariants.push(`${gram.valor}LT`);
-        if (gram.unidade === 'G') gramVariants.push(`${gram.valor}GR`);
-        for (const gv of gramVariants) {
+        // Variante COM espaco (Oracle pode ter "269 ML" em vez de "269ML")
+        gramVariants.push(`${gram.valor} ${gram.unidade}`);
+        if (gram.unidade === 'L') { gramVariants.push(`${gram.valor}LT`); gramVariants.push(`${gram.valor} LT`); }
+        if (gram.unidade === 'G') { gramVariants.push(`${gram.valor}GR`); gramVariants.push(`${gram.valor} GR`); }
+        if (gram.unidade === 'ML') { gramVariants.push(`${gram.valor} ML`); }
+        if (gram.unidade === 'KG') { gramVariants.push(`${gram.valor} KG`); }
+        // Deduplicar
+        const uniqueGram = [...new Set(gramVariants)];
+        for (const gv of uniqueGram) {
           const k = `p${pi++}`;
           params[k] = `%${gv}%`;
           termosLike.push(`UPPER(p.${colDescricao}) LIKE :${k}`);
         }
       }
 
-      // Descricao/tipo - truncar pra 3 chars pra pegar abreviacoes Oracle
+      // Descricao/tipo - usar dicionario de abreviacoes em vez de truncar cegamente
       for (const d of decomp.descricao) {
-        const searchTerm = d.length >= 5 ? d.substring(0, 3) : d;
-        const k = `p${pi++}`;
-        params[k] = `%${searchTerm}%`;
-        termosLike.push(`UPPER(p.${colDescricao}) LIKE :${k}`);
+        const variantes: string[] = [d]; // termo original sempre
+        // Buscar abreviacoes conhecidas
+        const abrevs = ABREVIACOES_PRODUTO[d];
+        if (abrevs) {
+          variantes.push(...abrevs);
+        } else if (d.length >= 6) {
+          // Se nao tem no dicionario e e longo, truncar em 4 chars (nao 3!)
+          variantes.push(d.substring(0, 4));
+        }
+        // Deduplicar
+        const uniqueDesc = [...new Set(variantes)];
+        for (const v of uniqueDesc) {
+          const k = `p${pi++}`;
+          params[k] = `%${v}%`;
+          termosLike.push(`UPPER(p.${colDescricao}) LIKE :${k}`);
+        }
       }
 
-      // Embalagens e variantes
+      // Embalagens - usar dicionario de abreviacoes de embalagem
       for (const emb of decomp.embalagens) {
-        const k = `p${pi++}`;
-        params[k] = `%${emb}%`;
-        termosLike.push(`UPPER(p.${colDescricao}) LIKE :${k}`);
+        const embVariantes: string[] = [emb];
+        const abrevs = ABREVIACOES_EMBALAGEM[emb];
+        if (abrevs) {
+          embVariantes.push(...abrevs);
+        }
+        const uniqueEmb = [...new Set(embVariantes)];
+        for (const v of uniqueEmb) {
+          const k = `p${pi++}`;
+          params[k] = `%${v}%`;
+          termosLike.push(`UPPER(p.${colDescricao}) LIKE :${k}`);
+        }
       }
       for (const v of decomp.variantes) {
         const k = `p${pi++}`;
@@ -298,7 +551,7 @@ export class GarimpadorComparadorService {
         }
       }
 
-      if (termosLike.length === 0) return null;
+      if (termosLike.length === 0) return { match: null, candidatos: [] };
 
       // Busca com OR amplo + score simples (contagem de termos que batem)
       const scoreCalc = termosLike.map(cond => `CASE WHEN ${cond.replace(`UPPER(p.${colDescricao}) LIKE`, `UPPER(p.${colDescricao}) LIKE`)} THEN 1 ELSE 0 END`).join(' + ');
@@ -347,12 +600,20 @@ export class GarimpadorComparadorService {
         rows = await OracleService.query<any>(sql, params);
       } catch (queryErr: any) {
         console.error(`[Garimpador] Erro na query Oracle:`, queryErr.message);
-        return null;
+        return { match: null, candidatos: [] };
       }
 
       console.log(`[Garimpador] SQL encontrou ${rows.length} candidatos para "${descricaoBusca}"`);
 
-      if (rows.length === 0) return null;
+      // Extrair info dos candidatos SQL para retornar ao frontend
+      const candidatosSql: CandidatoInfo[] = rows.map((r: any) => ({
+        descricao: r.DESCRICAO,
+        secao: r.SECAO,
+        grupo: r.GRUPO,
+        fornecedor: r.FORNECEDOR,
+      }));
+
+      if (rows.length === 0) return { match: null, candidatos: [] };
 
       // ========== PASSO 3: IA DECIDE QUAL CANDIDATO E O CORRETO ==========
       const apiKey = await ConfigurationService.get('openai_api_key');
@@ -360,11 +621,32 @@ export class GarimpadorComparadorService {
 
       if (!apiKey) {
         // Sem IA, usa primeiro resultado (fallback)
-        return this.mapearProdutoOracle(rows[0], 50);
+        return { match: this.mapearProdutoOracle(rows[0], 50), candidatos: candidatosSql };
       }
 
       // Montar lista de candidatos para a IA avaliar
       const listaCandidatos = rows.map((r: any, i: number) => `${i + 1}. ${r.DESCRICAO}`).join('\n');
+
+      console.log(`[Garimpador SQL] Candidatos para GPT:\n${listaCandidatos}`);
+
+      // Ler prompt customizado ou usar default
+      const promptSql = (await ConfigurationService.get('garimpador_prompt_matching_sql')) || DEFAULT_PROMPT_MATCHING_SQL;
+
+      // User message com reforco de abreviacoes
+      const userMsgSql = `Produto buscado: "${descricaoBusca}"
+
+LEMBRETE: Os nomes no sistema ERP sao ABREVIADOS. Exemplos reais:
+- "CERVEJA" aparece como "CERV"
+- "LATA" aparece como "LT"
+- "GARRAFA" aparece como "GRF"
+- "DETERGENTE" aparece como "DET"
+- "REFRIGERANTE" aparece como "REFRIG"
+Portanto "CERV ITAIPAVA LT 269ML" = "CERVEJA ITAIPAVA LATA 269ML"
+
+Candidatos do sistema:
+${listaCandidatos}
+
+Qual numero corresponde ao produto buscado? (0 se nenhum):`;
 
       const response = await axios.post(
         'https://api.openai.com/v1/chat/completions',
@@ -373,26 +655,11 @@ export class GarimpadorComparadorService {
           messages: [
             {
               role: 'system',
-              content: `Voce e um especialista em matching de produtos de supermercado brasileiro.
-
-Seu trabalho: dado um produto buscado e uma lista de candidatos do sistema, identifique qual candidato e o MESMO produto.
-
-REGRAS IMPORTANTES:
-- Descricoes no sistema podem estar ABREVIADAS: "achocolatado"="achoc", "cerveja"="cerv", "detergente"="deterg", "absorvente"="abs", "biscoito"="bisc", "refrigerante"="refrig", "amaciante"="amac", "acucar"="acucar" ou "acuc", "refinado"="ref", "sanitaria"="sanit", etc.
-- O PRODUTO deve ser o MESMO tipo (cerveja=cerveja, detergente=detergente, nao detergente=amaciante)
-- A MARCA deve ser a MESMA (Skol=Skol, Ype=Ype, nao misturar marcas)
-- A GRAMATURA/VOLUME deve ser compativel (350ml=350ml, 1L=1LT, 500g=500gr)
-- Se encontrar o produto, retorne APENAS o numero. Se NENHUM candidato corresponder ao produto buscado, retorne 0.
-- Retorne APENAS um numero, nada mais.`
+              content: promptSql
             },
             {
               role: 'user',
-              content: `Produto buscado: "${descricaoBusca}"
-
-Candidatos do sistema:
-${listaCandidatos}
-
-Qual numero corresponde ao produto buscado? (0 se nenhum):`,
+              content: userMsgSql,
             },
           ],
           temperature: 0,
@@ -405,34 +672,35 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`,
       );
 
       const resposta = response.data.choices?.[0]?.message?.content?.trim();
+      console.log(`[Garimpador SQL] GPT raw response: "${resposta}" para "${descricaoBusca}"`);
       const escolha = parseInt(resposta);
 
       if (escolha === 0 || isNaN(escolha)) {
         console.log(`[Garimpador] IA decidiu: NENHUM candidato corresponde a "${descricaoBusca}" → Fora do Mix`);
-        return null;
+        return { match: null, candidatos: candidatosSql };
       }
 
       const idx = escolha - 1;
       if (idx < 0 || idx >= rows.length) {
         console.log(`[Garimpador] IA retornou indice invalido ${escolha} para "${descricaoBusca}"`);
-        return null;
+        return { match: null, candidatos: candidatosSql };
       }
 
       const escolhido = rows[idx];
       console.log(`[Garimpador] IA decidiu: "${descricaoBusca}" → "${escolhido.DESCRICAO}" (candidato ${escolha}/${rows.length})`);
 
-      return this.mapearProdutoOracle(escolhido, 90);
+      return { match: this.mapearProdutoOracle(escolhido, 90), candidatos: candidatosSql };
     } catch (error: any) {
       console.error('[Garimpador] Erro ao buscar produto no Oracle:', error.message);
-      return null;
+      return { match: null, candidatos: [] };
     }
   }
 
   /**
    * Busca produto via PGVector (busca vetorial semantica)
-   * Retorna: ProdutoOracle (match encontrado), null (nenhum match), undefined (cache vazio -> fallback)
+   * Retorna: { match, candidatos } | undefined (cache vazio -> fallback LIKE)
    */
-  private static async buscarProdutoVetorial(descricaoBusca: string): Promise<ProdutoOracle | null | undefined> {
+  private static async buscarProdutoVetorial(descricaoBusca: string): Promise<{ match: ProdutoOracle | null; candidatos: CandidatoInfo[] } | undefined> {
     try {
       // Verificar se cache tem dados
       const stats = await GarimpadorVectorStoreService.stats();
@@ -440,12 +708,43 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`,
         return undefined; // Sinaliza para usar fallback LIKE
       }
 
-      // Buscar top 15 candidatos por similaridade vetorial
-      const candidatos = await GarimpadorVectorStoreService.buscarSimilares(descricaoBusca, 15);
+      // Busca hibrida: vetorial + trigram + abreviado
+      // 1. buscarHibrido com termo original (vetorial + texto)
+      // 2. buscarSimilares com termo abreviado (estilo Oracle)
+      const termoAbreviado = abreviarParaOracle(descricaoBusca);
+      const buscas: Promise<any[]>[] = [GarimpadorVectorStoreService.buscarHibrido(descricaoBusca, 15)];
+      if (termoAbreviado !== descricaoBusca.toUpperCase()) {
+        console.log(`[Garimpador Vetorial] + busca abreviada: "${termoAbreviado}"`);
+        buscas.push(GarimpadorVectorStoreService.buscarSimilares(termoAbreviado, 10));
+      }
+      const resultados = await Promise.all(buscas);
+
+      // Combinar e deduplicar por cod_produto, mantendo maior similarity
+      const candidatosMap = new Map<string, any>();
+      for (const lista of resultados) {
+        for (const c of lista) {
+          const existing = candidatosMap.get(c.cod_produto);
+          if (!existing || c.similarity > existing.similarity) {
+            candidatosMap.set(c.cod_produto, c);
+          }
+        }
+      }
+      const candidatos = Array.from(candidatosMap.values())
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, 15);
+
+      // Extrair info dos candidatos para retornar ao frontend
+      const candidatosInfo: CandidatoInfo[] = candidatos.map(c => ({
+        descricao: c.descricao,
+        similarity: c.similarity,
+        secao: c.secao,
+        grupo: c.grupo,
+        fornecedor: c.fornecedor,
+      }));
 
       if (candidatos.length === 0) {
         console.log(`[Garimpador Vetorial] Nenhum candidato para "${descricaoBusca}"`);
-        return null;
+        return { match: null, candidatos: [] };
       }
 
       console.log(`[Garimpador Vetorial] ${candidatos.length} candidatos para "${descricaoBusca}" (sim: ${candidatos[0]?.similarity.toFixed(3)} ~ ${candidatos[candidatos.length-1]?.similarity.toFixed(3)})`);
@@ -457,15 +756,36 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`,
       if (!apiKey) {
         // Sem GPT, usa primeiro candidato se similaridade > 0.7
         if (candidatos[0].similarity >= 0.7) {
-          return this.candidatoParaProdutoOracle(candidatos[0], Math.round(candidatos[0].similarity * 100));
+          return { match: this.candidatoParaProdutoOracle(candidatos[0], Math.round(candidatos[0].similarity * 100)), candidatos: candidatosInfo };
         }
-        return null;
+        return { match: null, candidatos: candidatosInfo };
       }
 
       // Montar lista com dados completos para GPT avaliar
       const listaCandidatos = candidatos.map((c, i) =>
         `${i + 1}. ${c.descricao} | Secao: ${c.secao} | Grupo: ${c.grupo} | Custo: R$${c.preco_custo.toFixed(2)} | Fornecedor: ${c.fornecedor} | Sim: ${(c.similarity * 100).toFixed(0)}%`
       ).join('\n');
+
+      console.log(`[Garimpador Vetorial] Candidatos para GPT:\n${listaCandidatos}`);
+
+      // Ler prompt customizado ou usar default
+      const promptVetorial = (await ConfigurationService.get('garimpador_prompt_matching_vetorial')) || DEFAULT_PROMPT_MATCHING_VETORIAL;
+
+      // User message com reforco de abreviacoes para aumentar taxa de acerto
+      const userMessage = `Produto buscado: "${descricaoBusca}"
+
+LEMBRETE: Os nomes no sistema ERP sao ABREVIADOS. Exemplos reais:
+- "CERVEJA" aparece como "CERV"
+- "LATA" aparece como "LT"
+- "GARRAFA" aparece como "GRF"
+- "DETERGENTE" aparece como "DET"
+- "REFRIGERANTE" aparece como "REFRIG"
+Portanto "CERV ITAIPAVA LT 269ML" = "CERVEJA ITAIPAVA LATA 269ML"
+
+Candidatos do sistema:
+${listaCandidatos}
+
+Qual numero corresponde ao produto buscado? (0 se nenhum):`;
 
       const response = await axios.post(
         'https://api.openai.com/v1/chat/completions',
@@ -474,28 +794,11 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`,
           messages: [
             {
               role: 'system',
-              content: `Voce e um especialista em matching de produtos de supermercado brasileiro.
-
-Seu trabalho: dado um produto buscado e uma lista de candidatos do sistema, identifique qual candidato e o MESMO produto.
-
-REGRAS IMPORTANTES:
-- Descricoes no sistema usam ABREVIACOES: "achocolatado"="achoc", "cerveja"="cerv", "detergente"="deterg", "absorvente"="abs", "biscoito"="bisc", "refrigerante"="refrig", "amaciante"="amac", "acucar"="acuc", "sanitaria"="sanit", "desodorante"="desod", etc.
-- A MARCA e o criterio MAIS importante - NUNCA misture marcas (Skol!=Brahma, Liza!=Concordia, Ype!=Limpol)
-- Se o produto buscado especifica uma marca e NENHUM candidato tem essa marca, retorne 0
-- O TIPO deve ser o MESMO (cerveja=cerveja, oleo=oleo, nao detergente=amaciante)
-- A GRAMATURA/VOLUME deve ser compativel (350ml=350ml, 1L=1LT, 500g=500gr, 900ml=900ML)
-- Use Secao/Grupo/Fornecedor como contexto adicional para desambiguar candidatos similares
-- Se encontrar o produto, retorne APENAS o numero. Se NENHUM candidato corresponder, retorne 0.
-- Retorne APENAS um numero, nada mais.`
+              content: promptVetorial
             },
             {
               role: 'user',
-              content: `Produto buscado: "${descricaoBusca}"
-
-Candidatos do sistema:
-${listaCandidatos}
-
-Qual numero corresponde ao produto buscado? (0 se nenhum):`
+              content: userMessage
             },
           ],
           temperature: 0,
@@ -508,23 +811,24 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`
       );
 
       const resposta = response.data.choices?.[0]?.message?.content?.trim();
+      console.log(`[Garimpador Vetorial] GPT raw response: "${resposta}" para "${descricaoBusca}"`);
       const escolha = parseInt(resposta);
 
       if (escolha === 0 || isNaN(escolha)) {
         console.log(`[Garimpador Vetorial] GPT: NENHUM match para "${descricaoBusca}" -> Fora do Mix`);
-        return null;
+        return { match: null, candidatos: candidatosInfo };
       }
 
       const idx = escolha - 1;
       if (idx < 0 || idx >= candidatos.length) {
         console.log(`[Garimpador Vetorial] GPT retornou indice invalido ${escolha}`);
-        return null;
+        return { match: null, candidatos: candidatosInfo };
       }
 
       const escolhido = candidatos[idx];
       console.log(`[Garimpador Vetorial] GPT: "${descricaoBusca}" -> "${escolhido.descricao}" (sim: ${(escolhido.similarity * 100).toFixed(0)}%)`);
 
-      return this.candidatoParaProdutoOracle(escolhido, Math.round(escolhido.similarity * 100));
+      return { match: this.candidatoParaProdutoOracle(escolhido, Math.round(escolhido.similarity * 100)), candidatos: candidatosInfo };
     } catch (error: any) {
       console.error(`[Garimpador Vetorial] Erro:`, error.message);
       return undefined; // Erro -> fallback para LIKE
@@ -759,7 +1063,7 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`
           messages: [
             {
               role: 'system',
-              content: 'Voce e um comparador de produtos de supermercado brasileiro. Dado um produto buscado e uma lista de candidatos, retorne APENAS o numero do melhor match. Considere abreviacoes comuns (CERV=CERVEJA, DET=DETERGENTE, AG SANIT=AGUA SANITARIA, FEIJ=FEIJAO, etc). A MARCA deve ser a MESMA - se o produto buscado e de uma marca e nenhum candidato e da mesma marca, retorne 0. Se nenhum candidato for o mesmo tipo de produto, retorne 0.'
+              content: (await ConfigurationService.get('garimpador_prompt_matching_fallback')) || DEFAULT_PROMPT_MATCHING_FALLBACK
             },
             {
               role: 'user',
@@ -908,7 +1212,7 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`
           messages: [
             {
               role: 'system',
-              content: 'Voce e um comparador de produtos de supermercado brasileiro. Dado um produto buscado e uma lista de candidatos, retorne APENAS o numero do melhor match. Considere abreviacoes comuns no Oracle (CERV=CERVEJA, DET=DETERGENTE, AG SANIT=AGUA SANITARIA, FEIJ=FEIJAO, BISC=BISCOITO, etc). Priorize: mesma marca, mesmo tipo de produto, mesma gramatura. Se nenhum for compativel, retorne 0.'
+              content: (await ConfigurationService.get('garimpador_prompt_matching_fallback')) || DEFAULT_PROMPT_MATCHING_FALLBACK
             },
             {
               role: 'user',

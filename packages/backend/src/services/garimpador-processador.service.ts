@@ -3,6 +3,52 @@ import { GarimpadorMensagem } from '../entities/GarimpadorMensagem';
 import { ConfigurationService } from './configuration.service';
 import axios from 'axios';
 
+// Prompts default - usados se nao houver configuracao customizada
+const DEFAULT_PROMPT_EXTRACAO_IMAGEM = `Voce e um extrator de dados de ofertas de supermercado. Analise a imagem e extraia TODOS os produtos e precos visiveis.
+
+REGRAS CRITICAS DE EXTRACAO:
+- SEMPRE inclua a MARCA do produto (ex: LIZA, SKOL, YPE, SADIA, COCA-COLA). Se a marca aparece no logo, embalagem ou texto do encarte, INCLUA.
+- SEMPRE inclua o VOLUME ou GRAMATURA (ex: 900ML, 350ML, 500G, 1KG, 1L, 2L).
+- SEMPRE inclua o tipo de EMBALAGEM se visivel (PET, LATA, LT, CX, GARRAFA, SACHE, PACK).
+- SEMPRE inclua o TIPO do produto (ex: OLEO DE SOJA, CERVEJA, DETERGENTE, LEITE).
+- Formato do campo "produto": MARCA + TIPO + EMBALAGEM + VOLUME (ex: "LIZA OLEO DE SOJA PET 900ML", "SKOL CERVEJA LATA 350ML", "YPE DETERGENTE LIQUIDO 500ML").
+- Se a marca nao estiver visivel, descreva o produto sem marca mas mantenha tipo+volume.
+
+IMPORTANTE sobre CONDICOES DE PRECO:
+Muitos encartes tem precos diferentes por condicao de pagamento. Exemplos:
+- Preco normal: 6,79
+- Cliente APP: 6,49
+- Cartao da loja: 6,29
+- Atacado (acima de X unidades): 5,99
+
+Quando um produto tiver MULTIPLOS precos/condicoes, use o MENOR preco como "preco" principal e liste TODAS as condicoes no campo "condicoes".
+
+Retorne APENAS um JSON array no formato:
+[{"produto": "LIZA OLEO DE SOJA PET 900ML", "preco": 5.99, "condicoes": [{"tipo": "Normal", "preco": 6.79}, {"tipo": "Cliente APP", "preco": 6.49}, {"tipo": "Cartao Loja", "preco": 5.99}]}]
+
+Se o produto tiver apenas UM preco (sem condicoes), retorne sem o campo condicoes:
+[{"produto": "SKOL CERVEJA LATA 350ML PILSEN", "preco": 2.49}]
+
+Se nao conseguir identificar produtos/precos, retorne [].
+Nao inclua explicacoes, apenas o JSON.`;
+
+const DEFAULT_PROMPT_EXTRACAO_PDF = `Voce e um extrator de dados de ofertas de supermercado. Analise o texto abaixo (extraido de um PDF) e extraia TODOS os produtos e precos.
+
+REGRAS CRITICAS: Para cada produto, SEMPRE inclua a MARCA, TIPO, VOLUME/GRAMATURA e EMBALAGEM quando disponiveis.
+Formato: "MARCA TIPO EMBALAGEM VOLUME" (ex: "LIZA OLEO DE SOJA PET 900ML", "SKOL CERVEJA LATA 350ML").
+
+Retorne APENAS um JSON array no formato: [{"produto": "MARCA TIPO VOLUME", "preco": 9.99}]
+Se nao conseguir identificar produtos/precos, retorne [].`;
+
+const DEFAULT_PROMPT_EXTRACAO_TEXTO = `Voce e um extrator de dados de ofertas de supermercado. Analise o texto da mensagem e extraia TODOS os produtos e precos.
+
+Para cada produto identificado, crie uma string de resumo. Identifique informacoes comuns a varios produtos (como marca, preco, volume ou condicoes) e aplique a CADA produto.
+
+Na string de cada produto, inclua APENAS as informacoes encontradas separando com " | ": [Nome] | [Marca] | [Tipo] | [Volume] | [Preco] | [Condicao].
+
+Retorne APENAS um JSON array no formato: [{"produto": "MARCA TIPO VOLUME", "preco": 9.99}]
+Se nao conseguir identificar produtos/precos, retorne [].`;
+
 /**
  * Service responsavel por processar mensagens do Garimpador.
  * Extrai produtos e precos de textos, imagens, PDFs e Excel.
@@ -160,36 +206,13 @@ export class GarimpadorProcessadorService {
     }
 
     try {
+      // Ler prompt customizado ou usar default
+      const promptImagem = (await ConfigurationService.get('garimpador_prompt_extracao_imagem')) || DEFAULT_PROMPT_EXTRACAO_IMAGEM;
+
       const messages: any[] = [
         {
           role: 'system',
-          content: `Voce e um extrator de dados de ofertas de supermercado. Analise a imagem e extraia TODOS os produtos e precos visiveis.
-
-REGRAS CRITICAS DE EXTRACAO:
-- SEMPRE inclua a MARCA do produto (ex: LIZA, SKOL, YPE, SADIA, COCA-COLA). Se a marca aparece no logo, embalagem ou texto do encarte, INCLUA.
-- SEMPRE inclua o VOLUME ou GRAMATURA (ex: 900ML, 350ML, 500G, 1KG, 1L, 2L).
-- SEMPRE inclua o tipo de EMBALAGEM se visivel (PET, LATA, LT, CX, GARRAFA, SACHE, PACK).
-- SEMPRE inclua o TIPO do produto (ex: OLEO DE SOJA, CERVEJA, DETERGENTE, LEITE).
-- Formato do campo "produto": MARCA + TIPO + EMBALAGEM + VOLUME (ex: "LIZA OLEO DE SOJA PET 900ML", "SKOL CERVEJA LATA 350ML", "YPE DETERGENTE LIQUIDO 500ML").
-- Se a marca nao estiver visivel, descreva o produto sem marca mas mantenha tipo+volume.
-
-IMPORTANTE sobre CONDICOES DE PRECO:
-Muitos encartes tem precos diferentes por condicao de pagamento. Exemplos:
-- Preco normal: 6,79
-- Cliente APP: 6,49
-- Cartao da loja: 6,29
-- Atacado (acima de X unidades): 5,99
-
-Quando um produto tiver MULTIPLOS precos/condicoes, use o MENOR preco como "preco" principal e liste TODAS as condicoes no campo "condicoes".
-
-Retorne APENAS um JSON array no formato:
-[{"produto": "LIZA OLEO DE SOJA PET 900ML", "preco": 5.99, "condicoes": [{"tipo": "Normal", "preco": 6.79}, {"tipo": "Cliente APP", "preco": 6.49}, {"tipo": "Cartao Loja", "preco": 5.99}]}]
-
-Se o produto tiver apenas UM preco (sem condicoes), retorne sem o campo condicoes:
-[{"produto": "SKOL CERVEJA LATA 350ML PILSEN", "preco": 2.49}]
-
-Se nao conseguir identificar produtos/precos, retorne [].
-Nao inclua explicacoes, apenas o JSON.`
+          content: promptImagem
         },
         {
           role: 'user',
@@ -267,6 +290,9 @@ Nao inclua explicacoes, apenas o JSON.`
 
       if (!apiKey) return null;
 
+      // Ler prompt customizado ou usar default
+      const promptPdf = (await ConfigurationService.get('garimpador_prompt_extracao_pdf')) || DEFAULT_PROMPT_EXTRACAO_PDF;
+
       const gptResponse = await axios.post(
         'https://api.openai.com/v1/chat/completions',
         {
@@ -274,13 +300,7 @@ Nao inclua explicacoes, apenas o JSON.`
           messages: [
             {
               role: 'system',
-              content: `Voce e um extrator de dados de ofertas de supermercado. Analise o texto abaixo (extraido de um PDF) e extraia TODOS os produtos e precos.
-
-REGRAS CRITICAS: Para cada produto, SEMPRE inclua a MARCA, TIPO, VOLUME/GRAMATURA e EMBALAGEM quando disponiveis.
-Formato: "MARCA TIPO EMBALAGEM VOLUME" (ex: "LIZA OLEO DE SOJA PET 900ML", "SKOL CERVEJA LATA 350ML").
-
-Retorne APENAS um JSON array no formato: [{"produto": "MARCA TIPO VOLUME", "preco": 9.99}]
-Se nao conseguir identificar produtos/precos, retorne [].`
+              content: promptPdf
             },
             { role: 'user', content: texto.substring(0, 10000) }
           ],

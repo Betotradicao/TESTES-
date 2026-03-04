@@ -3,8 +3,9 @@ import { MigrationInterface, QueryRunner } from "typeorm";
 export class CreateGarimpadorProdutosCacheTable1783100000000 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Habilitar extensao pgvector
+    // Habilitar extensoes
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS vector`);
+    await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm`);
 
     // Tabela de cache de produtos com embeddings para busca vetorial
     await queryRunner.query(`
@@ -41,11 +42,18 @@ export class CreateGarimpadorProdutosCacheTable1783100000000 implements Migratio
       WITH (lists = 100)
     `);
 
-    // Indice para busca por descricao
+    // Indice para busca por descricao (full text search)
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS "idx_garimpador_cache_descricao"
       ON "garimpador_produtos_cache"
       USING gin (to_tsvector('portuguese', "descricao_normalizada"))
+    `);
+
+    // Indice trigram para busca por similaridade de texto (pg_trgm)
+    await queryRunner.query(`
+      CREATE INDEX IF NOT EXISTS "idx_garimpador_cache_trgm"
+      ON "garimpador_produtos_cache"
+      USING gin ("descricao_normalizada" gin_trgm_ops)
     `);
   }
 

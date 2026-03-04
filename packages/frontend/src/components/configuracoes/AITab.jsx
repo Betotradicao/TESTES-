@@ -5,9 +5,82 @@ import api from '../../utils/api';
 const MODELS = [
   { id: 'gpt-5.2', name: 'GPT-5.2', desc: 'Mais avancado, raciocinio profundo, 400K contexto', badge: 'Novo' },
   { id: 'gpt-5-mini', name: 'GPT-5 Mini', desc: 'Rapido e inteligente, custo-beneficio otimo', badge: 'Recomendado' },
+  { id: 'gpt-4.1', name: 'GPT-4.1', desc: 'Balanceado entre custo e performance', badge: '' },
+  { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', desc: 'Rapido e economico, bom para tarefas simples', badge: 'Economico' },
   { id: 'gpt-4o', name: 'GPT-4o', desc: 'Inteligente e abrangente, boa opcao geral', badge: '' },
-  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', desc: 'Rapido e economico, menos detalhado', badge: 'Economico' },
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', desc: 'Rapido e economico, menos detalhado', badge: '' },
 ];
+
+// Prompts padrao do sistema - exibidos quando nao ha customizacao
+const DEFAULT_PROMPTS = {
+  matching_sql: `Voce e um especialista em matching de produtos de supermercado brasileiro.
+
+Seu trabalho: dado um produto buscado e uma lista de candidatos do sistema ERP, identifique qual candidato e o MESMO produto.
+
+REGRAS CRITICAS - O SISTEMA ERP USA ABREVIACOES PESADAS:
+- CERVEJA = "CERV", DETERGENTE = "DETERG" ou "DET", REFRIGERANTE = "REFRIG", AMACIANTE = "AMAC"
+- ACHOCOLATADO = "ACHOC", ABSORVENTE = "ABS", BISCOITO = "BISC", DESODORANTE = "DESOD"
+- SANITARIA = "SANIT", MARGARINA = "MARG", MAIONESE = "MAIO", ACUCAR = "ACUC"
+- LATA = "LT" ou "LTA", GARRAFA = "GRF", LONGNECK = "LN", CAIXA = "CX", PACOTE = "PCT" ou "PT"
+- TETRA PAK = "TP", FARDO = "FD", PET = "PET"
+- O nome do produto NO SISTEMA pode estar TOTALMENTE abreviado: "CERV SKOL LT 350ML" = "CERVEJA SKOL LATA 350ML"
+
+REGRAS DE MATCHING:
+- A MARCA deve ser a MESMA (Skol=Skol, Itaipava=Itaipava, nao misturar)
+- O TIPO deve ser o MESMO considerando abreviacoes acima
+- O SUB-TIPO deve ser o MESMO: oleo de SOJA nao e oleo de MILHO, leite INTEGRAL nao e DESNATADO
+- A GRAMATURA deve ser compativel (350ml=350ml, 1L=1LT, 500g=500gr, 269ML=269 ML)
+- Se encontrar o produto, retorne APENAS o numero. Se NENHUM corresponder, retorne 0.
+- Retorne APENAS um numero, nada mais.`,
+
+  matching_vetorial: `Voce e um especialista em matching de produtos de supermercado brasileiro.
+
+Seu trabalho: dado um produto buscado e uma lista de candidatos do sistema ERP, identifique qual candidato e o MESMO produto.
+
+REGRAS CRITICAS - O SISTEMA ERP USA ABREVIACOES PESADAS:
+- CERVEJA = "CERV", DETERGENTE = "DETERG" ou "DET", REFRIGERANTE = "REFRIG", AMACIANTE = "AMAC"
+- ACHOCOLATADO = "ACHOC", ABSORVENTE = "ABS", BISCOITO = "BISC", DESODORANTE = "DESOD"
+- SANITARIA = "SANIT", MARGARINA = "MARG", MAIONESE = "MAIO", ACUCAR = "ACUC"
+- LATA = "LT" ou "LTA", GARRAFA = "GRF", LONGNECK = "LN", CAIXA = "CX", PACOTE = "PCT" ou "PT"
+- TETRA PAK = "TP", FARDO = "FD", PET = "PET"
+- O nome do produto NO SISTEMA pode estar TOTALMENTE abreviado: "CERV SKOL LT 350ML" = "CERVEJA SKOL LATA 350ML"
+
+REGRAS DE MATCHING:
+- A MARCA e o criterio MAIS importante - NUNCA misture marcas (Skol!=Brahma, Itaipava!=Heineken)
+- Se o produto buscado especifica uma marca e NENHUM candidato tem essa marca, retorne 0
+- O TIPO deve ser o MESMO considerando abreviacoes acima (CERV=CERVEJA, DET=DETERGENTE, etc)
+- O SUB-TIPO deve ser o MESMO: oleo de SOJA nao e oleo de MILHO, leite INTEGRAL nao e DESNATADO
+- A GRAMATURA deve ser compativel (350ml=350ml, 1L=1LT, 500g=500gr, 269ML=269 ML)
+- Use Secao/Grupo/Fornecedor como contexto adicional para desambiguar
+- Se encontrar o produto, retorne APENAS o numero. Se NENHUM corresponder, retorne 0.
+- Retorne APENAS um numero, nada mais.`,
+
+  decomposicao: `Extraia as partes do produto. Retorne JSON puro (sem markdown):
+{"marca":"","tipo":"","gramatura":"","embalagem":"","variante":"","quantidade":""}
+
+Regras:
+- marca: nome da marca (ex: "Skol", "Omo", "Nescafe")
+- tipo: categoria do produto COM sub-tipo se houver (ex: "CERVEJA", "OLEO DE SOJA", "LEITE INTEGRAL", "DETERGENTE")
+- gramatura: peso/volume (ex: "350ML", "1L", "500G", "1KG")
+- embalagem: tipo de embalagem (ex: "LATA", "GARRAFA", "CAIXA", "PACOTE", "PET")
+- variante: sabor/versao especial (ex: "ZERO", "LIGHT", "TRADICIONAL", "EXTRA FORTE")
+- quantidade: se indicar pack/fardo (ex: "12UN", "FARDO 6")
+
+Exemplo: "CERVEJA SKOL LATA 350ML" -> {"marca":"SKOL","tipo":"CERVEJA","gramatura":"350ML","embalagem":"LATA","variante":"","quantidade":""}`,
+
+  extracao_imagem: `Resumo curto da imagem. Caso tenha produtos na imagem, precisamos de detalhes precisos sobre esses produtos.
+
+Extraia TODOS os produtos visiveis na imagem com seus precos.
+Retorne um JSON array puro (sem markdown, sem \`\`\`):
+[{"produto": "NOME COMPLETO DO PRODUTO COM MARCA GRAMATURA", "preco": 0.00}]
+
+REGRAS:
+- Inclua marca, tipo, gramatura e embalagem no nome
+- Precos em formato numerico (ex: 12.99, nao "R$ 12,99")
+- Se houver condicoes de pagamento diferentes (a vista, cartao), inclua no campo "condicoes"
+- Se nao conseguir ler o preco, use 0
+- Se a imagem nao tiver produtos, retorne []`,
+};
 
 const DEFAULT_PROMPT = `Voce e o **Radar IA**, um consultor senior especialista em gestao de supermercados e varejo alimentar brasileiro, com mais de 20 anos de experiencia no setor.
 Voce trabalha dentro do sistema "Radar 360" e tem acesso direto aos dados reais do supermercado.
@@ -139,18 +212,23 @@ export default function AITab() {
   const [saved, setSaved] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [testMessage, setTestMessage] = useState('');
-  // Match config
-  const [matchConfig, setMatchConfig] = useState({
-    pesoMarca: 3.0, pesoGramatura: 2.0, pesoEmbalagem: 1.5,
-    pesoVariante: 1.5, pesoDescricao: 1.0, toleranciaGramatura: 15, penalMarca: 5.0,
-  });
+  // Match test
   const [matchTestInput, setMatchTestInput] = useState('');
   const [matchTestResult, setMatchTestResult] = useState(null);
   const [matchTestLoading, setMatchTestLoading] = useState(false);
-  const [matchSaving, setMatchSaving] = useState(false);
-  const [matchSaved, setMatchSaved] = useState(false);
   const [reprocessando, setReprocessando] = useState(false);
   const [reprocessResult, setReprocessResult] = useState(null);
+  // Prompts de IA do Garimpador
+  const [promptMatchingSql, setPromptMatchingSql] = useState(DEFAULT_PROMPTS.matching_sql);
+  const [promptMatchingVetorial, setPromptMatchingVetorial] = useState(DEFAULT_PROMPTS.matching_vetorial);
+  const [promptDecomposicao, setPromptDecomposicao] = useState(DEFAULT_PROMPTS.decomposicao);
+  const [promptExtracaoImagem, setPromptExtracaoImagem] = useState(DEFAULT_PROMPTS.extracao_imagem);
+  const [showPromptsSql, setShowPromptsSql] = useState(false);
+  const [showPromptsVetorial, setShowPromptsVetorial] = useState(false);
+  const [showPromptsDecomp, setShowPromptsDecomp] = useState(false);
+  const [showPromptsExtracao, setShowPromptsExtracao] = useState(false);
+  const [promptsSaving, setPromptsSaving] = useState(false);
+  const [promptsSaved, setPromptsSaved] = useState(false);
   // VectorStore
   const [vectorSyncFreq, setVectorSyncFreq] = useState('semanal');
   const [vectorSyncDia, setVectorSyncDia] = useState(1);
@@ -163,7 +241,6 @@ export default function AITab() {
 
   useEffect(() => {
     loadConfig();
-    loadMatchConfig();
     loadVectorStats();
   }, []);
 
@@ -182,6 +259,11 @@ export default function AITab() {
         setGarimpadorImagens(data.garimpador_processar_imagens !== 'false');
         setGarimpadorPdf(data.garimpador_processar_pdf !== 'false');
         setGarimpadorExcel(data.garimpador_processar_excel !== 'false');
+        // Prompts de IA (se customizado no banco, usa; senao mantem default)
+        if (data.garimpador_prompt_matching_sql) setPromptMatchingSql(data.garimpador_prompt_matching_sql);
+        if (data.garimpador_prompt_matching_vetorial) setPromptMatchingVetorial(data.garimpador_prompt_matching_vetorial);
+        if (data.garimpador_prompt_decomposicao) setPromptDecomposicao(data.garimpador_prompt_decomposicao);
+        if (data.garimpador_prompt_extracao_imagem) setPromptExtracaoImagem(data.garimpador_prompt_extracao_imagem);
         // VectorStore
         if (data.vectorstore_sync_freq) setVectorSyncFreq(data.vectorstore_sync_freq);
         if (data.vectorstore_sync_dia) setVectorSyncDia(parseInt(data.vectorstore_sync_dia) || 1);
@@ -223,24 +305,23 @@ export default function AITab() {
     }
   };
 
-  const loadMatchConfig = async () => {
+  const handleSavePrompts = async () => {
+    setPromptsSaving(true);
+    setPromptsSaved(false);
     try {
-      const { data } = await api.get('/garimpador/match-config');
-      if (data.success && data.config) setMatchConfig(data.config);
-    } catch { }
-  };
-
-  const saveMatchConfig = async () => {
-    setMatchSaving(true);
-    setMatchSaved(false);
-    try {
-      await api.post('/garimpador/match-config', matchConfig);
-      setMatchSaved(true);
-      setTimeout(() => setMatchSaved(false), 3000);
+      const payload = {
+        garimpador_prompt_matching_sql: promptMatchingSql.trim(),
+        garimpador_prompt_matching_vetorial: promptMatchingVetorial.trim(),
+        garimpador_prompt_decomposicao: promptDecomposicao.trim(),
+        garimpador_prompt_extracao_imagem: promptExtracaoImagem.trim(),
+      };
+      await api.post('/config/configurations', payload);
+      setPromptsSaved(true);
+      setTimeout(() => setPromptsSaved(false), 3000);
     } catch (e) {
-      alert('Erro ao salvar: ' + (e.response?.data?.error || e.message));
+      alert('Erro ao salvar prompts: ' + (e.response?.data?.message || e.message));
     } finally {
-      setMatchSaving(false);
+      setPromptsSaving(false);
     }
   };
 
@@ -259,11 +340,11 @@ export default function AITab() {
   };
 
   const handleReprocessar = async () => {
-    if (!window.confirm('Reprocessar TODAS as comparacoes existentes com o novo algoritmo?\n\nIsso pode levar alguns minutos. As mensagens NAO serao reenviadas ao WhatsApp.')) return;
+    if (!window.confirm('Reprocessar mensagens de HOJE que possuem produtos nao encontrados?\n\nAs mensagens NAO serao reenviadas ao WhatsApp.')) return;
     setReprocessando(true);
     setReprocessResult(null);
     try {
-      const { data } = await api.post('/garimpador/reprocessar');
+      const { data } = await api.post('/garimpador/reprocessar', {}, { timeout: 600000 });
       setReprocessResult(data);
     } catch (e) {
       setReprocessResult({ success: false, error: e.response?.data?.error || e.message });
@@ -549,7 +630,10 @@ export default function AITab() {
             <ModelSelector
               models={MODELS}
               selected={garimpadorModel}
-              onSelect={setGarimpadorModel}
+              onSelect={(id) => {
+                setGarimpadorModel(id);
+                api.post('/config/configurations', { openai_garimpador_model: id }).catch(() => {});
+              }}
               accentColor="orange"
             />
           </div>
@@ -587,123 +671,28 @@ export default function AITab() {
             </div>
           </div>
 
-          {/* ===== Algoritmo de Matching de Produtos ===== */}
+          {/* ===== Testar Matching + Reprocessar ===== */}
           <div className="border border-orange-200 rounded-xl overflow-hidden">
             <div className="bg-gradient-to-r from-orange-50 to-amber-50 p-4 border-b border-orange-200">
               <h3 className="font-semibold text-gray-800 flex items-center gap-2">
                 <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                Algoritmo de Matching de Produtos
+                Testar Matching de Produtos
               </h3>
-              <p className="text-xs text-gray-500 mt-1">Configure os pesos de cada categoria para melhorar a precisao do cruzamento de produtos</p>
+              <p className="text-xs text-gray-500 mt-1">Busca hibrida: VectorStore (embedding) + Trigram (texto) + GPT (avaliacao)</p>
             </div>
 
             <div className="p-4 space-y-4">
-              {/* Pesos */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {[
-                  { key: 'pesoMarca', label: 'Marca', icon: '\u{1F3F7}', desc: 'Skol, Ype, Itambe...' },
-                  { key: 'pesoGramatura', label: 'Gramatura', icon: '\u{2696}', desc: '350ml, 85g, 1kg...' },
-                  { key: 'pesoEmbalagem', label: 'Embalagem', icon: '\u{1F4E6}', desc: 'Lata, PET, Caixa...' },
-                  { key: 'pesoVariante', label: 'Variante/Sabor', icon: '\u{1F3A8}', desc: 'Pilsen, Zero, Alecrim...' },
-                  { key: 'pesoDescricao', label: 'Descricao', icon: '\u{1F4DD}', desc: 'Termos genericos' },
-                  { key: 'penalMarca', label: 'Penalidade Marca', icon: '\u{26A0}', desc: 'Quando marca e diferente' },
-                ].map(({ key, label, icon, desc }) => (
-                  <div key={key} className="bg-white border rounded-lg p-3">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="text-sm">{icon}</span>
-                      <span className="text-xs font-semibold text-gray-700">{label}</span>
-                    </div>
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      max="20"
-                      value={matchConfig[key]}
-                      onChange={(e) => setMatchConfig(prev => ({ ...prev, [key]: parseFloat(e.target.value) || 0 }))}
-                      className="w-full border rounded px-2 py-1.5 text-sm font-mono text-center focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
-                    />
-                    <p className="text-[10px] text-gray-400 mt-1">{desc}</p>
-                  </div>
-                ))}
-                <div className="bg-white border rounded-lg p-3">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-sm">{'\u{1F4CF}'}</span>
-                    <span className="text-xs font-semibold text-gray-700">Tolerancia Gramatura</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="range"
-                      min="0"
-                      max="30"
-                      step="1"
-                      value={matchConfig.toleranciaGramatura}
-                      onChange={(e) => setMatchConfig(prev => ({ ...prev, toleranciaGramatura: parseInt(e.target.value) }))}
-                      className="flex-1 accent-orange-500"
-                    />
-                    <span className="text-sm font-bold text-orange-600 min-w-[36px] text-right">{matchConfig.toleranciaGramatura}%</span>
-                  </div>
-                  <p className="text-[10px] text-gray-400 mt-1">Ex: 85g aceita {Math.round(85 * (1 - matchConfig.toleranciaGramatura / 100))}g-{Math.round(85 * (1 + matchConfig.toleranciaGramatura / 100))}g</p>
-                </div>
-              </div>
-
-              {/* Botoes Salvar + Restaurar */}
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={saveMatchConfig}
-                  disabled={matchSaving}
-                  className="flex items-center gap-2 px-5 py-2 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 disabled:opacity-50 transition text-sm"
-                >
-                  {matchSaving ? 'Salvando...' : matchSaved ? 'Salvo!' : 'Salvar Pesos'}
-                </button>
-                <button
-                  onClick={() => setMatchConfig({
-                    pesoMarca: 3.0, pesoGramatura: 2.0, pesoEmbalagem: 1.5,
-                    pesoVariante: 1.5, pesoDescricao: 1.0, toleranciaGramatura: 15, penalMarca: 5.0,
-                  })}
-                  className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-                >
-                  Restaurar Padrao
-                </button>
-                <button
-                  onClick={handleReprocessar}
-                  disabled={reprocessando}
-                  className="ml-auto flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50 transition"
-                >
-                  {reprocessando ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Reprocessando...
-                    </>
-                  ) : 'Reprocessar Todos os Matches'}
-                </button>
-              </div>
-
-              {/* Resultado do reprocessamento */}
-              {reprocessResult && (
-                <div className={`p-3 rounded-lg text-sm ${reprocessResult.success ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
-                  {reprocessResult.success
-                    ? `Reprocessamento concluido: ${reprocessResult.reprocessadas} de ${reprocessResult.total} mensagens reprocessadas${reprocessResult.erros > 0 ? `, ${reprocessResult.erros} erros` : ''}`
-                    : `Erro: ${reprocessResult.error}`
-                  }
-                </div>
-              )}
-
               {/* Area de Teste */}
-              <div className="border-t border-gray-200 pt-4">
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Testar Matching</h4>
+              <div>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={matchTestInput}
                     onChange={(e) => setMatchTestInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleTestMatch()}
-                    placeholder="Ex: SAB FLOR YPE ALECRIM 85G"
+                    placeholder="Ex: OLEO DE SOJA SOYA 900ML, CERVEJA SKOL LATA 350ML"
                     className="flex-1 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
                   />
                   <button
@@ -781,11 +770,235 @@ export default function AITab() {
                         Nenhum produto encontrado no Oracle
                       </div>
                     )}
+
+                    {/* Candidatos analisados */}
+                    {matchTestResult.candidatos && matchTestResult.candidatos.length > 0 && (
+                      <details className="bg-gray-50 border rounded-lg p-3">
+                        <summary className="text-xs font-semibold text-gray-600 cursor-pointer hover:text-gray-800">
+                          {matchTestResult.candidatos.length} candidatos analisados pela IA
+                        </summary>
+                        <div className="mt-2 space-y-1">
+                          {matchTestResult.candidatos.map((cand, ci) => (
+                            <div key={ci} className="text-xs text-gray-600 flex items-center gap-2 py-0.5">
+                              <span className="text-gray-400 w-4 text-right">{ci + 1}.</span>
+                              <span className="flex-1">{cand.descricao}</span>
+                              {cand.similarity != null && (
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                  cand.similarity >= 0.8 ? 'bg-green-100 text-green-700' :
+                                  cand.similarity >= 0.6 ? 'bg-yellow-100 text-yellow-700' :
+                                  'bg-gray-200 text-gray-500'
+                                }`}>
+                                  {Math.round(cand.similarity * 100)}%
+                                </span>
+                              )}
+                              {cand.grupo && (
+                                <span className="text-gray-400 text-[10px]">{cand.grupo}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
                   </div>
                 )}
               </div>
+
+              {/* Reprocessar */}
+              <div className="border-t border-gray-200 pt-3 flex items-center gap-3">
+                <button
+                  onClick={handleReprocessar}
+                  disabled={reprocessando}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50 transition"
+                >
+                  {reprocessando ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Reprocessando...
+                    </>
+                  ) : 'Reprocessar Nao Encontrados (Hoje)'}
+                </button>
+                <span className="text-xs text-gray-400">Reprocessa mensagens de hoje que possuem produtos nao encontrados</span>
+              </div>
+
+              {/* Resultado do reprocessamento */}
+              {reprocessResult && (
+                <div className={`p-3 rounded-lg text-sm ${reprocessResult.success ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
+                  {reprocessResult.success
+                    ? `Reprocessamento concluido: ${reprocessResult.reprocessadas} de ${reprocessResult.total} mensagens reprocessadas${reprocessResult.erros > 0 ? `, ${reprocessResult.erros} erros` : ''}`
+                    : `Erro: ${reprocessResult.error}`
+                  }
+                </div>
+              )}
             </div>
           </div>
+          {/* ===== Prompts de IA (Matching) ===== */}
+          <div className="border border-purple-200 rounded-xl overflow-hidden">
+            <div className="bg-gradient-to-r from-purple-50 to-fuchsia-50 p-4 border-b border-purple-200">
+              <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Prompts de IA (Oferta no Radar)
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">Prompts usados pela IA para extrair e identificar produtos. Edite para ajustar o comportamento.</p>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {/* Prompt Extracao de Imagem */}
+              <div>
+                <button
+                  onClick={() => setShowPromptsExtracao(!showPromptsExtracao)}
+                  className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-gray-800">Prompt de Extracao de Imagem</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Instrui a IA a extrair produtos e precos das imagens recebidas via WhatsApp</p>
+                  </div>
+                  <svg className={`w-4 h-4 text-gray-400 transition-transform ${showPromptsExtracao ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showPromptsExtracao && (
+                  <div className="mt-2">
+                    <textarea
+                      value={promptExtracaoImagem}
+                      onChange={(e) => setPromptExtracaoImagem(e.target.value)}
+                      rows={8}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-purple-400 focus:border-purple-400 resize-y"
+                    />
+                    <div className="flex justify-between items-center mt-1">
+                      <p className="text-xs text-gray-400">A IA recebe a imagem e deve retornar JSON array com produtos e precos</p>
+                      <button onClick={() => setPromptExtracaoImagem(DEFAULT_PROMPTS.extracao_imagem)} className="text-xs text-purple-500 hover:text-purple-700 underline">Restaurar padrao</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Prompt Matching SQL */}
+              <div>
+                <button
+                  onClick={() => setShowPromptsSql(!showPromptsSql)}
+                  className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-gray-800">Prompt de Matching (Busca SQL)</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Usado quando candidatos vem da busca SQL LIKE no Oracle</p>
+                  </div>
+                  <svg className={`w-4 h-4 text-gray-400 transition-transform ${showPromptsSql ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showPromptsSql && (
+                  <div className="mt-2">
+                    <textarea
+                      value={promptMatchingSql}
+                      onChange={(e) => setPromptMatchingSql(e.target.value)}
+                      rows={10}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-purple-400 focus:border-purple-400 resize-y"
+                    />
+                    <div className="flex justify-between items-center mt-1">
+                      <p className="text-xs text-gray-400">Variaveis: produto buscado + lista numerada de candidatos. Deve retornar numero ou 0.</p>
+                      <button onClick={() => setPromptMatchingSql(DEFAULT_PROMPTS.matching_sql)} className="text-xs text-purple-500 hover:text-purple-700 underline">Restaurar padrao</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Prompt Matching Vetorial */}
+              <div>
+                <button
+                  onClick={() => setShowPromptsVetorial(!showPromptsVetorial)}
+                  className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-gray-800">Prompt de Matching (Busca Vetorial)</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Usado quando candidatos vem da busca por similaridade vetorial (VectorStore)</p>
+                  </div>
+                  <svg className={`w-4 h-4 text-gray-400 transition-transform ${showPromptsVetorial ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showPromptsVetorial && (
+                  <div className="mt-2">
+                    <textarea
+                      value={promptMatchingVetorial}
+                      onChange={(e) => setPromptMatchingVetorial(e.target.value)}
+                      rows={10}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-purple-400 focus:border-purple-400 resize-y"
+                    />
+                    <div className="flex justify-between items-center mt-1">
+                      <p className="text-xs text-gray-400">Candidatos incluem: descricao, secao, grupo, custo, fornecedor e % similaridade</p>
+                      <button onClick={() => setPromptMatchingVetorial(DEFAULT_PROMPTS.matching_vetorial)} className="text-xs text-purple-500 hover:text-purple-700 underline">Restaurar padrao</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Prompt Decomposicao */}
+              <div>
+                <button
+                  onClick={() => setShowPromptsDecomp(!showPromptsDecomp)}
+                  className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-gray-800">Prompt de Decomposicao de Produto</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Decompoe a descricao do produto em marca, tipo, gramatura, embalagem e variante</p>
+                  </div>
+                  <svg className={`w-4 h-4 text-gray-400 transition-transform ${showPromptsDecomp ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showPromptsDecomp && (
+                  <div className="mt-2">
+                    <textarea
+                      value={promptDecomposicao}
+                      onChange={(e) => setPromptDecomposicao(e.target.value)}
+                      rows={8}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-purple-400 focus:border-purple-400 resize-y"
+                    />
+                    <div className="flex justify-between items-center mt-1">
+                      <p className="text-xs text-gray-400">A IA deve retornar JSON puro: {`{"marca":"","tipo":"","gramatura":"","embalagem":"","variante":"","quantidade":""}`}</p>
+                      <button onClick={() => setPromptDecomposicao(DEFAULT_PROMPTS.decomposicao)} className="text-xs text-purple-500 hover:text-purple-700 underline">Restaurar padrao</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Botao salvar prompts */}
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  onClick={() => {
+                    setPromptMatchingSql(DEFAULT_PROMPTS.matching_sql);
+                    setPromptMatchingVetorial(DEFAULT_PROMPTS.matching_vetorial);
+                    setPromptDecomposicao(DEFAULT_PROMPTS.decomposicao);
+                    setPromptExtracaoImagem(DEFAULT_PROMPTS.extracao_imagem);
+                  }}
+                  className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Restaurar Todos ao Padrao
+                </button>
+                <div className="flex items-center gap-3">
+                  {promptsSaved && (
+                    <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+                      Salvo!
+                    </span>
+                  )}
+                  <button
+                    onClick={handleSavePrompts}
+                    disabled={promptsSaving}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                  >
+                    {promptsSaving ? 'Salvando...' : 'Salvar Prompts'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* ===== Base de Produtos Vetorial (VectorStore) ===== */}
           <div className="border border-blue-200 rounded-xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 border-b border-blue-200">
@@ -962,7 +1175,10 @@ export default function AITab() {
             <ModelSelector
               models={MODELS}
               selected={selectedModel}
-              onSelect={setSelectedModel}
+              onSelect={(id) => {
+                setSelectedModel(id);
+                api.post('/config/configurations', { openai_model: id }).catch(() => {});
+              }}
               accentColor="emerald"
             />
           </div>

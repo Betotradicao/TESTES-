@@ -46,4 +46,7 @@ router.post('/vectorstore/sync', GarimpadorController.syncVectorStore);
 router.get('/vectorstore/stats', GarimpadorController.vectorStoreStats);
 router.get('/vectorstore/search', GarimpadorController.vectorStoreSearch);
 
+// OpenAI Balance
+router.get('/openai-balance', GarimpadorController.getOpenAIBalance);
+
 export default router;

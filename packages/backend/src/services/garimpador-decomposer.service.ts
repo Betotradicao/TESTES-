@@ -19,6 +19,21 @@ import { MappingService } from './mapping.service';
 import { ConfigurationService } from './configuration.service';
 import axios from 'axios';
 
+// Prompt default de decomposicao - usado se nao houver configuracao customizada
+const DEFAULT_PROMPT_DECOMPOSICAO = `Voce e um especialista em produtos de supermercado brasileiro. Decomponha a descricao do produto em categorias.
+
+Retorne APENAS um JSON valido sem markdown, neste formato exato:
+{"marca":"NOME DA MARCA","tipo":"TIPO DO PRODUTO","gramatura":"PESO OU VOLUME (ex: 500G, 1L, 750ML)","embalagem":"TIPO EMBALAGEM (ex: CX, PT, LT, LATA, PET, TP, FD, SACHE)","variante":"SABOR OU VARIACAO (ex: TRADICIONAL, LIMAO, ZERO, INTEGRAL)","quantidade":"QUANTIDADE DE UNIDADES (ex: 12, 6, 24)"}
+
+Regras:
+- Se nao identificar algum campo, use string vazia ""
+- Marca: nome comercial do fabricante (ex: HELLMANNS, YPE, V FORT, NUGGET, PIRISA)
+- Tipo: categoria generica do produto INCLUINDO o sub-tipo se houver (ex: OLEO DE SOJA, OLEO DE MILHO, LEITE INTEGRAL, FARINHA DE TRIGO, CERVEJA PILSEN)
+- Gramatura: peso ou volume com unidade
+- Embalagem: sigla do tipo de embalagem
+- Variante: sabor, fragrancia, cor ou variacao especifica
+- Quantidade: se houver pack/fardo (ex: C/10, COM 5, 12UN, PACK 6)`;
+
 export interface GramaturaParsed {
   valor: number;
   unidade: string;      // G, ML, KG, L, UN
@@ -265,6 +280,9 @@ export class GarimpadorDecomposerService {
         return this.decompor(descricao);
       }
 
+      // Ler prompt customizado ou usar default
+      const promptDecomp = (await ConfigurationService.get('garimpador_prompt_decomposicao')) || DEFAULT_PROMPT_DECOMPOSICAO;
+
       const response = await axios.post(
         'https://api.openai.com/v1/chat/completions',
         {
@@ -272,19 +290,7 @@ export class GarimpadorDecomposerService {
           messages: [
             {
               role: 'system',
-              content: `Voce e um especialista em produtos de supermercado brasileiro. Decomponha a descricao do produto em categorias.
-
-Retorne APENAS um JSON valido sem markdown, neste formato exato:
-{"marca":"NOME DA MARCA","tipo":"TIPO DO PRODUTO","gramatura":"PESO OU VOLUME (ex: 500G, 1L, 750ML)","embalagem":"TIPO EMBALAGEM (ex: CX, PT, LT, LATA, PET, TP, FD, SACHE)","variante":"SABOR OU VARIACAO (ex: TRADICIONAL, LIMAO, ZERO, INTEGRAL)","quantidade":"QUANTIDADE DE UNIDADES (ex: 12, 6, 24)"}
-
-Regras:
-- Se nao identificar algum campo, use string vazia ""
-- Marca: nome comercial do fabricante (ex: HELLMANNS, YPE, V FORT, NUGGET, PIRISA)
-- Tipo: categoria generica do produto (ex: MAIONESE, SACO DE LIXO, CERA, INSETICIDA)
-- Gramatura: peso ou volume com unidade
-- Embalagem: sigla do tipo de embalagem
-- Variante: sabor, fragrancia, cor ou variacao especifica
-- Quantidade: se houver pack/fardo (ex: C/10, COM 5, 12UN, PACK 6)`
+              content: promptDecomp
             },
             {
               role: 'user',

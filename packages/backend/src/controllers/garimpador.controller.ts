@@ -293,8 +293,8 @@ export class GarimpadorController {
         return res.status(400).json({ success: false, error: 'Campo "descricao" obrigatorio' });
       }
 
-      const produto = await GarimpadorComparadorService.buscarProdutoOracle(descricao);
-      res.json({ success: true, produto });
+      const busca = await GarimpadorComparadorService.buscarProdutoOracle(descricao);
+      res.json({ success: true, produto: busca.match, candidatos: busca.candidatos });
     } catch (error: any) {
       console.error('[Garimpador] Erro ao buscar produto:', error);
       res.status(500).json({ success: false, error: error.message });
@@ -487,12 +487,13 @@ export class GarimpadorController {
       // Carregar marcas do Oracle antes de decompor
       await GarimpadorDecomposerService.carregarMarcasOracle();
       const decomposicao = GarimpadorDecomposerService.decompor(descricao);
-      const produtoEncontrado = await GarimpadorComparadorService.buscarProdutoOracle(descricao);
+      const busca = await GarimpadorComparadorService.buscarProdutoOracle(descricao);
 
       res.json({
         success: true,
         decomposicao,
-        produtoEncontrado,
+        produtoEncontrado: busca.match,
+        candidatos: busca.candidatos,
       });
     } catch (error: any) {
       console.error('[Garimpador] Erro testMatch:', error);
@@ -506,93 +507,117 @@ export class GarimpadorController {
    * NAO envia para WhatsApp, apenas recalcula os matches
    */
   static async reprocessarTodos(req: Request, res: Response) {
-    // Responder imediatamente - o reprocessamento roda em background
-    res.json({ success: true, message: 'Reprocessamento iniciado em background. Acompanhe pelo console.' });
+    try {
+      console.log('[Garimpador Reprocessar] Iniciando reprocessamento (somente nao encontrados do dia)...');
+      await GarimpadorDecomposerService.carregarMarcasOracle();
 
-    // Executar reprocessamento em background (sem bloquear a resposta HTTP)
-    (async () => {
-      try {
-        console.log('[Garimpador Reprocessar] Iniciando reprocessamento...');
-        await GarimpadorDecomposerService.carregarMarcasOracle();
+      const msgRepo = AppDataSource.getRepository(GarimpadorMensagem);
 
-        const msgRepo = AppDataSource.getRepository(GarimpadorMensagem);
+      // Buscar apenas mensagens de hoje
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
 
-        const mensagens = await msgRepo
-          .createQueryBuilder('m')
-          .leftJoinAndSelect('m.contato', 'c')
-          .where('m.processado = true')
-          .andWhere('m.conteudo_extraido IS NOT NULL')
-          .orderBy('m.received_at', 'ASC')
-          .getMany();
+      const mensagens = await msgRepo
+        .createQueryBuilder('m')
+        .leftJoinAndSelect('m.contato', 'c')
+        .where('m.processado = true')
+        .andWhere('m.conteudo_extraido IS NOT NULL')
+        .andWhere('m.received_at >= :hoje', { hoje })
+        .orderBy('m.received_at', 'ASC')
+        .getMany();
 
-        let reprocessadas = 0;
-        let erros = 0;
-        let totalProdutos = 0;
-        let novosMatches = 0;
-        let matchesAnteriores = 0;
+      let reprocessadas = 0;
+      let erros = 0;
+      let totalProdutos = 0;
+      let novosMatches = 0;
 
-        console.log(`[Garimpador Reprocessar] ${mensagens.length} mensagens para processar`);
+      console.log(`[Garimpador Reprocessar] ${mensagens.length} mensagens para processar`);
 
-        for (const msg of mensagens) {
+      for (const msg of mensagens) {
+        try {
+          let dados: any;
           try {
-            let dados: any;
-            try {
-              dados = JSON.parse(msg.conteudo_extraido || '{}');
-            } catch { continue; }
+            dados = JSON.parse(msg.conteudo_extraido || '{}');
+          } catch { continue; }
 
-            let produtosOriginais = dados.produtos_originais;
+          let produtosOriginais = dados.produtos_originais;
 
-            if (!produtosOriginais && Array.isArray(dados) && dados.length > 0 && dados[0].produto) {
-              produtosOriginais = dados;
-            }
-
-            if (!Array.isArray(produtosOriginais) || produtosOriginais.length === 0) continue;
-
-            const matchesAntes = Array.isArray(dados.resultados_comparacao) ? dados.resultados_comparacao.length : 0;
-            matchesAnteriores += matchesAntes;
-
-            const resultados: any[] = [];
-            totalProdutos += produtosOriginais.length;
-
-            for (const prod of produtosOriginais) {
-              try {
-                const produtoOracle = await GarimpadorComparadorService.buscarProdutoOracle(prod.produto);
-                if (!produtoOracle) continue;
-
-                const resultado = GarimpadorComparadorService.calcularComparacao(prod, produtoOracle);
-                resultado.classificacao = await GarimpadorComparadorService.classificar(resultado.diferencaMargem);
-                resultados.push(resultado);
-              } catch (e: any) {
-                console.error(`[Garimpador Reprocessar] Erro produto "${prod.produto}":`, e.message);
-              }
-            }
-
-            if (resultados.length > matchesAntes) {
-              novosMatches += (resultados.length - matchesAntes);
-            }
-
-            await msgRepo.update(msg.id, {
-              conteudo_extraido: JSON.stringify({
-                produtos_originais: produtosOriginais,
-                resultados_comparacao: resultados,
-                total_enviadas: 0,
-                data_comparacao: new Date().toISOString(),
-                reprocessado: true,
-              }),
-            });
-            reprocessadas++;
-            console.log(`[Garimpador Reprocessar] Msg ${reprocessadas}/${mensagens.length} (${msg.contato?.nome || 'sem contato'}) - ${resultados.length}/${produtosOriginais.length} matches`);
-          } catch (e: any) {
-            erros++;
-            console.error(`[Garimpador Reprocessar] Erro msg ${msg.id}:`, e.message);
+          if (!produtosOriginais && Array.isArray(dados) && dados.length > 0 && dados[0].produto) {
+            produtosOriginais = dados;
           }
-        }
 
-        console.log(`[Garimpador Reprocessar] ✅ CONCLUIDO: ${reprocessadas} msgs, ${totalProdutos} produtos, ${novosMatches} novos matches, ${erros} erros`);
-      } catch (error: any) {
-        console.error('[Garimpador Reprocessar] ❌ ERRO FATAL:', error);
+          if (!Array.isArray(produtosOriginais) || produtosOriginais.length === 0) continue;
+
+          // Verificar se tem algum produto nao encontrado (produtoLoja null)
+          const resultadosAnteriores = Array.isArray(dados.resultados_comparacao) ? dados.resultados_comparacao : [];
+          const temNaoEncontrado = resultadosAnteriores.some((r: any) => !r.produtoLoja);
+          if (!temNaoEncontrado && resultadosAnteriores.length > 0) continue; // Todos ja encontrados, pular
+
+          const resultados: any[] = [];
+          totalProdutos += produtosOriginais.length;
+
+          for (const prod of produtosOriginais) {
+            try {
+              const busca = await GarimpadorComparadorService.buscarProdutoOracle(prod.produto);
+              if (!busca.match) {
+                resultados.push({
+                  produtoOfertado: prod.produto,
+                  precoOferta: prod.preco,
+                  produtoLoja: null,
+                  candidatos: busca.candidatos.slice(0, 10),
+                  diferenca: 0,
+                  boaOferta: false,
+                  margemAtual: 0,
+                  margemFutura: 0,
+                  margemMeta: 0,
+                  diferencaMargem: 0,
+                  classificacao: 'ruim',
+                  matchScore: 0,
+                });
+                continue;
+              }
+
+              const resultado = GarimpadorComparadorService.calcularComparacao(prod, busca.match);
+              resultado.classificacao = await GarimpadorComparadorService.classificar(resultado.diferencaMargem);
+              // Incluir candidatos no resultado com match tambem
+              resultado.candidatos = busca.candidatos.slice(0, 10);
+              resultados.push(resultado);
+            } catch (e: any) {
+              console.error(`[Garimpador Reprocessar] Erro produto "${prod.produto}":`, e.message);
+            }
+          }
+
+          await msgRepo.update(msg.id, {
+            conteudo_extraido: JSON.stringify({
+              produtos_originais: produtosOriginais,
+              resultados_comparacao: resultados,
+              total_enviadas: 0,
+              data_comparacao: new Date().toISOString(),
+              reprocessado: true,
+            }),
+          });
+          reprocessadas++;
+          console.log(`[Garimpador Reprocessar] Msg ${reprocessadas}/${mensagens.length} (${msg.contato?.nome || 'sem contato'}) - ${resultados.length}/${produtosOriginais.length} matches`);
+        } catch (e: any) {
+          erros++;
+          console.error(`[Garimpador Reprocessar] Erro msg ${msg.id}:`, e.message);
+        }
       }
-    })();
+
+      console.log(`[Garimpador Reprocessar] CONCLUIDO: ${reprocessadas} msgs, ${totalProdutos} produtos, ${novosMatches} novos matches, ${erros} erros`);
+
+      res.json({
+        success: true,
+        reprocessadas,
+        total: mensagens.length,
+        erros,
+        totalProdutos,
+        novosMatches,
+      });
+    } catch (error: any) {
+      console.error('[Garimpador Reprocessar] ERRO FATAL:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
   }
 
   /**
@@ -637,6 +662,76 @@ export class GarimpadorController {
       res.json(candidatos);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/garimpador/openai-balance
+   * Retorna saldo/uso da conta OpenAI
+   */
+  static async getOpenAIBalance(req: Request, res: Response) {
+    try {
+      const apiKey = await ConfigurationService.get('openai_api_key');
+      if (!apiKey) {
+        return res.json({ success: false, error: 'API Key OpenAI nao configurada' });
+      }
+
+      const headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+
+      // Usar a API oficial de Costs (https://platform.openai.com/docs/api-reference/usage)
+      // GET /v1/organization/costs?start_time=UNIX&end_time=UNIX&group_by[]=line_item
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const startTime = Math.floor(startOfMonth.getTime() / 1000);
+      const endTime = Math.floor(now.getTime() / 1000) + 86400;
+
+      let usageThisMonth = 0;
+      let dailyCosts: { date: string; cost: number }[] = [];
+      let needsPermission = false;
+
+      try {
+        const costsUrl = `https://api.openai.com/v1/organization/costs?start_time=${startTime}&end_time=${endTime}&bucket_width=1d`;
+        const costsResp = await fetch(costsUrl, { headers });
+        if (costsResp.ok) {
+          const costsData = await costsResp.json() as any;
+          if (Array.isArray(costsData.data)) {
+            for (const bucket of costsData.data) {
+              const bucketTotal = Array.isArray(bucket.results)
+                ? bucket.results.reduce((sum: number, r: any) => sum + (r.amount?.value || 0), 0)
+                : 0;
+              usageThisMonth += bucketTotal;
+              if (bucketTotal > 0) {
+                dailyCosts.push({
+                  date: new Date(bucket.start_time * 1000).toISOString().split('T')[0],
+                  cost: Math.round(bucketTotal * 100) / 100,
+                });
+              }
+            }
+          }
+          usageThisMonth = Math.round(usageThisMonth * 100) / 100;
+        } else if (costsResp.status === 403) {
+          needsPermission = true;
+        }
+      } catch { }
+
+      if (needsPermission) {
+        return res.json({
+          success: false,
+          error: 'A API Key nao tem permissao "api.usage.read". Gere uma nova key em platform.openai.com com essa permissao.',
+        });
+      }
+
+      res.json({
+        success: true,
+        balance: {
+          usageThisMonth,
+          dailyCosts,
+          mesReferencia: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+        },
+      });
+    } catch (error: any) {
+      console.error('[OpenAI Balance] Erro:', error);
+      res.status(500).json({ success: false, error: error.message });
     }
   }
 }

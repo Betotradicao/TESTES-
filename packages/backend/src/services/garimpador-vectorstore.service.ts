@@ -323,9 +323,12 @@ export class GarimpadorVectorStoreService {
     return { total: produtos.length, atualizados, erros };
   }
 
+  // Stop words em portugues para filtrar na busca por texto
+  private static STOP_WORDS = new Set(['DE', 'DO', 'DA', 'DOS', 'DAS', 'EM', 'COM', 'PARA', 'POR', 'SEM', 'AO', 'NO', 'NA', 'NOS', 'NAS', 'UM', 'UMA', 'UNS', 'UMAS', 'O', 'A', 'OS', 'AS', 'E']);
+
   /**
    * Busca produtos similares via embedding vetorial
-   * Retorna top N candidatos ordenados por similaridade coseno
+   * Usa IVFFlat com probes=10 para nao perder candidatos
    */
   static async buscarSimilares(texto: string, limite: number = 15): Promise<CandidatoVetorial[]> {
     const apiKey = await ConfigurationService.get('openai_api_key');
@@ -348,19 +351,144 @@ export class GarimpadorVectorStoreService {
     const embedding = await this.gerarEmbedding(textoNorm, apiKey);
     const embStr = `[${embedding.join(',')}]`;
 
-    // Busca vetorial por similaridade coseno (1 - distancia = similaridade)
+    // Busca vetorial com probes=10 para nao perder candidatos (IVFFlat default=1 perde)
+    // Usamos transacao para que SET LOCAL funcione
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      await queryRunner.query('SET LOCAL ivfflat.probes = 10');
+      const rows = await queryRunner.query(`
+        SELECT
+          cod_produto, codigo_barras, descricao, preco_custo, preco_venda,
+          estoque_atual, cobertura, curva, venda_media_dia, venda_30d,
+          margem_referencia, secao, grupo, subgrupo, fornecedor,
+          1 - (embedding <=> $1::vector) AS similarity
+        FROM garimpador_produtos_cache
+        WHERE embedding IS NOT NULL
+        ORDER BY embedding <=> $1::vector
+        LIMIT $2
+      `, [embStr, limite]);
+      await queryRunner.commitTransaction();
+      return this.mapRows(rows);
+    } catch (e) {
+      await queryRunner.rollbackTransaction();
+      throw e;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Busca produtos por similaridade de texto (trigram pg_trgm)
+   * Complementa a busca vetorial capturando candidatos que o embedding pode perder
+   */
+  static async buscarPorTexto(texto: string, limite: number = 10): Promise<CandidatoVetorial[]> {
+    const textoNorm = this.normalizar(texto);
+
+    try {
+      // Busca por trigram similarity (pg_trgm)
+      const rows = await AppDataSource.query(`
+        SELECT
+          cod_produto, codigo_barras, descricao, preco_custo, preco_venda,
+          estoque_atual, cobertura, curva, venda_media_dia, venda_30d,
+          margem_referencia, secao, grupo, subgrupo, fornecedor,
+          similarity(descricao_normalizada, $1) AS similarity
+        FROM garimpador_produtos_cache
+        WHERE descricao_normalizada % $1
+        ORDER BY descricao_normalizada <-> $1
+        LIMIT $2
+      `, [textoNorm, limite]);
+
+      return this.mapRows(rows);
+    } catch (e: any) {
+      // pg_trgm nao disponivel - fallback com ILIKE por palavras-chave
+      console.log('[VectorStore] pg_trgm indisponivel, usando ILIKE fallback');
+      return this.buscarPorPalavrasChave(textoNorm, limite);
+    }
+  }
+
+  /**
+   * Busca por palavras-chave usando ILIKE (fallback se pg_trgm nao disponivel)
+   */
+  static async buscarPorPalavrasChave(textoNorm: string, limite: number = 10): Promise<CandidatoVetorial[]> {
+    const palavras = textoNorm.split(/\s+/).filter(p => p.length >= 2 && !this.STOP_WORDS.has(p));
+    if (palavras.length === 0) return [];
+
+    // Montar WHERE: cada palavra deve aparecer na descricao
+    const conditions = palavras.map((_, i) => `descricao_normalizada ILIKE $${i + 1}`);
+    const params = palavras.map(p => `%${p}%`);
+    params.push(String(limite));
+
     const rows = await AppDataSource.query(`
       SELECT
         cod_produto, codigo_barras, descricao, preco_custo, preco_venda,
         estoque_atual, cobertura, curva, venda_media_dia, venda_30d,
         margem_referencia, secao, grupo, subgrupo, fornecedor,
-        1 - (embedding <=> $1::vector) AS similarity
+        0.5 AS similarity
       FROM garimpador_produtos_cache
-      WHERE embedding IS NOT NULL
-      ORDER BY embedding <=> $1::vector
-      LIMIT $2
-    `, [embStr, limite]);
+      WHERE ${conditions.join(' AND ')}
+      LIMIT $${params.length}
+    `, params);
 
+    return this.mapRows(rows);
+  }
+
+  /**
+   * Busca hibrida: combina vetorial (embedding) + texto (trigram/keywords)
+   * Garante que candidatos relevantes nao se percam em nenhum metodo isolado
+   */
+  static async buscarHibrido(texto: string, limite: number = 15): Promise<CandidatoVetorial[]> {
+    const apiKey = await ConfigurationService.get('openai_api_key');
+    if (!apiKey) {
+      throw new Error('API key OpenAI nao configurada');
+    }
+
+    // Verificar se tem produtos no cache
+    const countResult = await AppDataSource.query(
+      'SELECT COUNT(*) as total FROM garimpador_produtos_cache WHERE embedding IS NOT NULL'
+    );
+    const total = parseInt(countResult[0]?.total || '0');
+    if (total === 0) {
+      console.log('[VectorStore] Cache vazio - execute sincronizacao primeiro');
+      return [];
+    }
+
+    // Rodar busca vetorial e texto em paralelo
+    const [vetorial, texto_results] = await Promise.all([
+      this.buscarSimilares(texto, limite),
+      this.buscarPorTexto(texto, 10),
+    ]);
+
+    // Combinar e deduplicar por cod_produto, mantendo maior similarity
+    const mergedMap = new Map<string, CandidatoVetorial>();
+    for (const c of vetorial) {
+      mergedMap.set(c.cod_produto, c);
+    }
+    for (const c of texto_results) {
+      const existing = mergedMap.get(c.cod_produto);
+      if (!existing) {
+        // Produto novo do texto que embedding perdeu - bonus de +0.1 no similarity
+        c.similarity = Math.min(c.similarity + 0.1, 1.0);
+        mergedMap.set(c.cod_produto, c);
+      } else if (c.similarity > existing.similarity) {
+        mergedMap.set(c.cod_produto, c);
+      }
+    }
+
+    const merged = Array.from(mergedMap.values())
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, limite);
+
+    console.log(`[VectorStore Hibrido] ${vetorial.length} vetorial + ${texto_results.length} texto = ${merged.length} candidatos unicos`);
+
+    return merged;
+  }
+
+  /**
+   * Mapeia rows do DB para CandidatoVetorial[]
+   */
+  private static mapRows(rows: any[]): CandidatoVetorial[] {
     return rows.map((r: any) => ({
       cod_produto: r.cod_produto,
       codigo_barras: r.codigo_barras,
