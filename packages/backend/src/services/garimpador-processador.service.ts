@@ -235,7 +235,7 @@ export class GarimpadorProcessadorService {
         {
           model: effectiveModel,
           messages,
-          temperature: 0.1,
+          ...(isGpt5 ? {} : { temperature: 0.1 }),
           ...tokensParam,
         },
         {
@@ -315,7 +315,7 @@ export class GarimpadorProcessadorService {
             },
             { role: 'user', content: texto.substring(0, 10000) }
           ],
-          temperature: 0.1,
+          ...(isGpt5 ? {} : { temperature: 0.1 }),
           ...tokensParam,
         },
         {

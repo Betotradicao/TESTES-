@@ -297,8 +297,7 @@ export class GarimpadorDecomposerService {
               content: descricao,
             },
           ],
-          temperature: 0,
-          ...((model || '').startsWith('gpt-5') || (model || '').startsWith('gpt-4.1') ? { max_completion_tokens: 150 } : { max_tokens: 150 }),
+          ...((model || '').startsWith('gpt-5') || (model || '').startsWith('gpt-4.1') ? { max_completion_tokens: 150 } : { temperature: 0, max_tokens: 150 }),
         },
         {
           headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },

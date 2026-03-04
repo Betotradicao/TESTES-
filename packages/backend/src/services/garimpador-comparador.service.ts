@@ -9,10 +9,16 @@ import { GarimpadorDecomposerService } from './garimpador-decomposer.service';
 import { GarimpadorVectorStoreService } from './garimpador-vectorstore.service';
 import axios from 'axios';
 
-// Helper: GPT-5+ usa max_completion_tokens ao inves de max_tokens
-function buildTokensParam(model: string, tokens: number): Record<string, number> {
-  const isNewModel = model.startsWith('gpt-5') || model.startsWith('gpt-4.1');
-  return isNewModel ? { max_completion_tokens: tokens } : { max_tokens: tokens };
+// Helper: GPT-5+ usa max_completion_tokens e nao suporta temperature customizado
+function isNewOpenAIModel(model: string): boolean {
+  return model.startsWith('gpt-5') || model.startsWith('gpt-4.1');
+}
+function buildModelParams(model: string, tokens: number, temperature?: number): Record<string, any> {
+  const isNew = isNewOpenAIModel(model);
+  return {
+    ...(isNew ? { max_completion_tokens: tokens } : { max_tokens: tokens }),
+    ...(isNew ? {} : { temperature: temperature ?? 0 }),
+  };
 }
 
 // Prompts default - usados se nao houver configuracao customizada
@@ -669,8 +675,7 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
               content: userMsgSql,
             },
           ],
-          temperature: 0,
-          ...buildTokensParam(effectiveModel, 10),
+          ...buildModelParams(effectiveModel, 10),
         },
         {
           headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -809,8 +814,7 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
               content: userMessage
             },
           ],
-          temperature: 0,
-          ...buildTokensParam(effectiveModelV, 10),
+          ...buildModelParams(effectiveModelV, 10),
         },
         {
           headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -1078,8 +1082,7 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
               content: `Produto buscado: "${descricaoBusca}"\n\nCandidatos:\n${listaDescricoes}\n\nRetorne apenas o numero (1, 2, 3...):`,
             },
           ],
-          temperature: 0,
-          ...buildTokensParam(model || 'gpt-4o-mini', 10),
+          ...buildModelParams(model || 'gpt-4o-mini', 10),
         },
         {
           headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -1227,8 +1230,7 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
               content: `Produto buscado: "${descricaoBusca}"\n\nCandidatos:\n${lista}\n\nRetorne apenas o numero:`,
             },
           ],
-          temperature: 0,
-          ...buildTokensParam(model || 'gpt-4o-mini', 10),
+          ...buildModelParams(model || 'gpt-4o-mini', 10),
         },
         {
           headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
