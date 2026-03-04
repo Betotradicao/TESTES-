@@ -368,7 +368,7 @@ export class GarimpadorService {
 
     if (!contato) return null;
 
-    const tiposValidos = ['fornecedor', 'concorrente', 'nao_classificado'];
+    const tiposValidos = ['fornecedor', 'concorrente', 'neutro', 'nao_classificado'];
     if (!tiposValidos.includes(tipo)) {
       throw new Error(`Tipo inválido: ${tipo}. Valores aceitos: ${tiposValidos.join(', ')}`);
     }
@@ -427,18 +427,20 @@ export class GarimpadorService {
     naoClassificados: number;
     fornecedores: number;
     concorrentes: number;
+    neutros: number;
     naoProcessadas: number;
   }> {
     const contatoRepo = AppDataSource.getRepository(GarimpadorContato);
     const msgRepo = AppDataSource.getRepository(GarimpadorMensagem);
 
-    const [totalContatos, totalMensagens, naoClassificados, fornecedores, concorrentes, naoProcessadas] =
+    const [totalContatos, totalMensagens, naoClassificados, fornecedores, concorrentes, neutros, naoProcessadas] =
       await Promise.all([
         contatoRepo.count(),
         msgRepo.count(),
         contatoRepo.count({ where: { tipo: 'nao_classificado' } }),
         contatoRepo.count({ where: { tipo: 'fornecedor' } }),
         contatoRepo.count({ where: { tipo: 'concorrente' } }),
+        contatoRepo.count({ where: { tipo: 'neutro' } }),
         msgRepo.count({ where: { processado: false } }),
       ]);
 
@@ -448,6 +450,7 @@ export class GarimpadorService {
       naoClassificados,
       fornecedores,
       concorrentes,
+      neutros,
       naoProcessadas,
     };
   }

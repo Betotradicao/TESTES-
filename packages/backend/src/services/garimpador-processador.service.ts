@@ -226,13 +226,17 @@ export class GarimpadorProcessadorService {
         }
       ];
 
+      const effectiveModel = model || 'gpt-4o-mini';
+      const isGpt5 = effectiveModel.startsWith('gpt-5') || effectiveModel.startsWith('gpt-4.1');
+      const tokensParam = isGpt5 ? { max_completion_tokens: 4000 } : { max_tokens: 4000 };
+
       const response = await axios.post(
         'https://api.openai.com/v1/chat/completions',
         {
-          model: model || 'gpt-4o-mini',
+          model: effectiveModel,
           messages,
           temperature: 0.1,
-          max_tokens: 4000,
+          ...tokensParam,
         },
         {
           headers: {
@@ -261,7 +265,6 @@ export class GarimpadorProcessadorService {
       if (error.response?.data) {
         console.error('[Garimpador Processador] Detalhes erro:', JSON.stringify(error.response.data));
       }
-      console.error('[Garimpador Processador] Modelo usado:', model, '| URL imagem:', mediaUrl?.substring(0, 80));
       return null;
     }
   }
@@ -297,10 +300,14 @@ export class GarimpadorProcessadorService {
       // Ler prompt customizado ou usar default
       const promptPdf = (await ConfigurationService.get('garimpador_prompt_extracao_pdf')) || DEFAULT_PROMPT_EXTRACAO_PDF;
 
+      const effectiveModel = model || 'gpt-4o-mini';
+      const isGpt5 = effectiveModel.startsWith('gpt-5') || effectiveModel.startsWith('gpt-4.1');
+      const tokensParam = isGpt5 ? { max_completion_tokens: 4000 } : { max_tokens: 4000 };
+
       const gptResponse = await axios.post(
         'https://api.openai.com/v1/chat/completions',
         {
-          model: model || 'gpt-4o-mini',
+          model: effectiveModel,
           messages: [
             {
               role: 'system',
@@ -309,7 +316,7 @@ export class GarimpadorProcessadorService {
             { role: 'user', content: texto.substring(0, 10000) }
           ],
           temperature: 0.1,
-          max_tokens: 4000,
+          ...tokensParam,
         },
         {
           headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },

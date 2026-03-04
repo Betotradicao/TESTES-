@@ -9,6 +9,12 @@ import { GarimpadorDecomposerService } from './garimpador-decomposer.service';
 import { GarimpadorVectorStoreService } from './garimpador-vectorstore.service';
 import axios from 'axios';
 
+// Helper: GPT-5+ usa max_completion_tokens ao inves de max_tokens
+function buildTokensParam(model: string, tokens: number): Record<string, number> {
+  const isNewModel = model.startsWith('gpt-5') || model.startsWith('gpt-4.1');
+  return isNewModel ? { max_completion_tokens: tokens } : { max_tokens: tokens };
+}
+
 // Prompts default - usados se nao houver configuracao customizada
 const DEFAULT_PROMPT_MATCHING_SQL = `Voce e um especialista em matching de produtos de supermercado brasileiro.
 
@@ -648,10 +654,11 @@ ${listaCandidatos}
 
 Qual numero corresponde ao produto buscado? (0 se nenhum):`;
 
+      const effectiveModel = model || 'gpt-4o-mini';
       const response = await axios.post(
         'https://api.openai.com/v1/chat/completions',
         {
-          model: model || 'gpt-4o-mini',
+          model: effectiveModel,
           messages: [
             {
               role: 'system',
@@ -663,7 +670,7 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
             },
           ],
           temperature: 0,
-          max_tokens: 10,
+          ...buildTokensParam(effectiveModel, 10),
         },
         {
           headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -787,10 +794,11 @@ ${listaCandidatos}
 
 Qual numero corresponde ao produto buscado? (0 se nenhum):`;
 
+      const effectiveModelV = model || 'gpt-4o-mini';
       const response = await axios.post(
         'https://api.openai.com/v1/chat/completions',
         {
-          model: model || 'gpt-4o-mini',
+          model: effectiveModelV,
           messages: [
             {
               role: 'system',
@@ -802,7 +810,7 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
             },
           ],
           temperature: 0,
-          max_tokens: 10,
+          ...buildTokensParam(effectiveModelV, 10),
         },
         {
           headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -1071,7 +1079,7 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
             },
           ],
           temperature: 0,
-          max_tokens: 10,
+          ...buildTokensParam(model || 'gpt-4o-mini', 10),
         },
         {
           headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -1220,7 +1228,7 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
             },
           ],
           temperature: 0,
-          max_tokens: 10,
+          ...buildTokensParam(model || 'gpt-4o-mini', 10),
         },
         {
           headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },

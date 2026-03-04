@@ -514,7 +514,7 @@ export class AIConsultantService {
           functions: AVAILABLE_FUNCTIONS,
           function_call: 'auto',
           temperature: 0.7,
-          max_tokens: 15000
+          ...((configModel || '').startsWith('gpt-5') || (configModel || '').startsWith('gpt-4.1') ? { max_completion_tokens: 15000 } : { max_tokens: 15000 })
         },
         {
           headers: {

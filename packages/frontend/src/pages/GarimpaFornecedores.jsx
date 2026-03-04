@@ -183,6 +183,7 @@ export default function GarimpaFornecedores() {
                   { val: 'nao_classificado', label: 'Pendentes', color: 'yellow', count: stats?.naoClassificados || 0 },
                   { val: 'fornecedor', label: 'Fornecedor', color: 'blue', count: stats?.fornecedores || 0 },
                   { val: 'concorrente', label: 'Concorrente', color: 'red', count: stats?.concorrentes || 0 },
+                  { val: 'neutro', label: 'Neutro', color: 'slate', count: stats?.neutros || 0 },
                   { val: 'todos', label: 'Todos', color: 'gray', count: stats?.totalContatos || 0 },
                 ].map(f => (
                   <button
@@ -193,6 +194,7 @@ export default function GarimpaFornecedores() {
                         ? f.color === 'gray' ? 'bg-gray-600 text-white'
                         : f.color === 'yellow' ? 'bg-yellow-500 text-white'
                         : f.color === 'blue' ? 'bg-blue-500 text-white'
+                        : f.color === 'slate' ? 'bg-slate-500 text-white'
                         : 'bg-red-500 text-white'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
@@ -254,10 +256,12 @@ export default function GarimpaFornecedores() {
                         <span className={`text-sm px-2 py-0.5 rounded-full whitespace-nowrap ${
                           contato.tipo === 'fornecedor' ? 'bg-blue-100 text-blue-700' :
                           contato.tipo === 'concorrente' ? 'bg-red-100 text-red-700' :
+                          contato.tipo === 'neutro' ? 'bg-slate-100 text-slate-700' :
                           'bg-yellow-100 text-yellow-700'
                         }`}>
                           {contato.tipo === 'fornecedor' ? 'Fornec.' :
-                           contato.tipo === 'concorrente' ? 'Concorr.' : 'Pendente'}
+                           contato.tipo === 'concorrente' ? 'Concorr.' :
+                           contato.tipo === 'neutro' ? 'Neutro' : 'Pendente'}
                         </span>
                         {contato.tipo !== 'nao_classificado' && (
                           <button
@@ -294,6 +298,16 @@ export default function GarimpaFornecedores() {
                           className="text-red-500 focus:ring-red-400"
                         />
                         <span className="text-gray-600">Concorrente</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                        <input
+                          type="radio"
+                          name={`tipo-${contato.id}`}
+                          checked={contato.tipo === 'neutro'}
+                          onChange={() => handleTipoChange(contato.id, 'neutro')}
+                          className="text-slate-500 focus:ring-slate-400"
+                        />
+                        <span className="text-gray-600">Neutro</span>
                       </label>
                     </div>
                   </div>
