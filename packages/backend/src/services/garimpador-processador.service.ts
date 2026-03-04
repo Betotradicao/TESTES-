@@ -258,6 +258,10 @@ export class GarimpadorProcessadorService {
       return null;
     } catch (error: any) {
       console.error('[Garimpador Processador] Erro GPT Vision:', error.message);
+      if (error.response?.data) {
+        console.error('[Garimpador Processador] Detalhes erro:', JSON.stringify(error.response.data));
+      }
+      console.error('[Garimpador Processador] Modelo usado:', model, '| URL imagem:', mediaUrl?.substring(0, 80));
       return null;
     }
   }
