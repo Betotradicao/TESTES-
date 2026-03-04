@@ -26,6 +26,7 @@ const SECTIONS = [
       { id: 'ruptura', name: 'Prevenção Rupturas', icon: '📋' },
       { id: 'etiquetas', name: 'Prevenção Etiquetas', icon: '🔖' },
       { id: 'perdas', name: 'Prevenção Quebras', icon: '📉' },
+      { id: 'prevencao-trocas', name: 'Prevenção Trocas', icon: '🔄' },
       { id: 'producao', name: 'Prevenção Produção', icon: '🥖' },
       { id: 'hortfrut', name: 'Prevenção HortFruti', icon: '🥬' },
       { id: 'controle-recebimento', name: 'Prevenção Recebimento', icon: '📄' },

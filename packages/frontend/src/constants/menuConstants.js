@@ -99,8 +99,16 @@ export const MENU_SUBMENUS = {
   // Abastecimento
   PRIORIDADE_REPOSICAO: 'prioridade-reposicao',
 
+  // Compras
+  ANALISE_COTACAO: 'analise-cotacao',
+
   // Garimpa Fácil
   GARIMPA_FORNECEDORES_CONCORRENTES: 'garimpa-fornecedores-concorrentes',
+  GARIMPA_RANKING_FORNECEDORES: 'garimpa-ranking-fornecedores',
+  GARIMPA_RANKING_CONCORRENTES: 'garimpa-ranking-concorrentes',
+  GARIMPA_PROJECAO_PRECO: 'garimpa-projecao-preco',
+  GARIMPA_FORA_MIX: 'garimpa-fora-mix',
+  GARIMPA_PRODUTOS_PESQUISAR: 'garimpa-produtos-pesquisar',
 
   // Finanças no Radar
   EXTRATO_SANTANDER: 'extrato-santander',
@@ -181,6 +189,11 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.PRAZO_FORNECEDORES,
         title: 'Prazo Fornecedores',
         path: '/prazo-fornecedores'
+      },
+      {
+        id: MENU_SUBMENUS.ANALISE_COTACAO,
+        title: 'Análise de Cotação',
+        path: '/analise-cotacao'
       }
     ]
   },
@@ -269,6 +282,11 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.PDV_FRENTE_CAIXA,
         title: 'Frente de Caixa',
         path: '/frente-caixa'
+      },
+      {
+        id: MENU_SUBMENUS.PDV_PREVENCAO_CAIXA,
+        title: 'Prevenção de Caixa',
+        path: '/prevencao-caixa'
       },
       {
         id: MENU_SUBMENUS.PDV_GESTAO_TROCAS,
@@ -437,7 +455,7 @@ export const MENU_STRUCTURE = [
   // ========== GARIMPA FÁCIL ==========
   {
     id: MENU_MODULES.GARIMPA_FORNECEDORES,
-    title: 'Fornecedores e Concorrentes',
+    title: 'Garimpa Fácil',
     icon: 'search',
     section: 'garimpa',
     submenus: [
@@ -445,6 +463,31 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.GARIMPA_FORNECEDORES_CONCORRENTES,
         title: 'Fornecedores e Concorrentes',
         path: '/garimpa-fornecedores'
+      },
+      {
+        id: MENU_SUBMENUS.GARIMPA_RANKING_FORNECEDORES,
+        title: 'Ranking Fornecedores',
+        path: '/garimpador-ranking'
+      },
+      {
+        id: MENU_SUBMENUS.GARIMPA_RANKING_CONCORRENTES,
+        title: 'Ranking Concorrentes',
+        path: '/garimpador-ranking-concorrentes'
+      },
+      {
+        id: MENU_SUBMENUS.GARIMPA_PROJECAO_PRECO,
+        title: 'Projeção de Preço',
+        path: '/garimpador-projecao'
+      },
+      {
+        id: MENU_SUBMENUS.GARIMPA_FORA_MIX,
+        title: 'Fora do Mix',
+        path: '/garimpador-fora-mix'
+      },
+      {
+        id: MENU_SUBMENUS.GARIMPA_PRODUTOS_PESQUISAR,
+        title: 'Produtos a Pesquisar',
+        path: '/garimpador-produtos-pesquisar'
       }
     ]
   },

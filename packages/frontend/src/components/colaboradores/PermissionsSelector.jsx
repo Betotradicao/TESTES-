@@ -189,6 +189,8 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
     'bancos': '🏦',
     'rota-crescimento': '🚀',
     'ofertas': '🏷️',
+    'prevencao-trocas': '🔄',
+    'abastecimento': '🚚',
   };
 
   // Separar módulos por seção
