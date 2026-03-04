@@ -191,9 +191,11 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
     'ofertas': '🏷️',
     'prevencao-trocas': '🔄',
     'abastecimento': '🚚',
+    'metas': '🎯',
   };
 
   // Separar módulos por seção
+  const metasModules = MENU_STRUCTURE.filter(m => m.section === 'metas' && m.submenus.length > 0);
   const gestaoModules = MENU_STRUCTURE.filter(m => m.section === 'gestao' && m.submenus.length > 0);
   const prevencaoModules = MENU_STRUCTURE.filter(m => m.section === 'prevencao' && m.submenus.length > 0);
   const garimpaModules = MENU_STRUCTURE.filter(m => m.section === 'garimpa' && m.submenus.length > 0);
@@ -308,6 +310,20 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
       </div>
 
       {/* Seção GESTÃO NO RADAR */}
+      {/* Seção METAS NO RADAR */}
+      {metasModules.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 mt-2 mb-3">
+            <div className="w-6 h-6 bg-amber-500 rounded-md flex items-center justify-center">
+              <span className="text-white text-xs font-bold">M</span>
+            </div>
+            <h4 className="text-sm font-bold text-amber-800 uppercase tracking-wide">Metas no Radar</h4>
+            <div className="flex-1 border-t border-amber-200"></div>
+          </div>
+          {metasModules.map(module => renderModuleCard(module))}
+        </>
+      )}
+
       {gestaoModules.length > 0 && (
         <>
           <div className="flex items-center gap-2 mt-2 mb-3">

@@ -73,6 +73,8 @@ import AnaliseOferta from './pages/AnaliseOferta';
 import SimuladorVenda from './pages/SimuladorVenda';
 import BoletoDDA from './pages/BoletoDDA';
 import ConciliacaoBancaria from './pages/ConciliacaoBancaria';
+import MetasRanking from './pages/MetasRanking';
+import MetasParametrizar from './pages/MetasParametrizar';
 
 function App() {
   return (
@@ -566,6 +568,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ConciliacaoBancaria />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/metas-ranking"
+              element={
+                <ProtectedRoute>
+                  <MetasRanking />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/metas-parametrizar"
+              element={
+                <ProtectedRoute>
+                  <MetasParametrizar />
                 </ProtectedRoute>
               }
             />

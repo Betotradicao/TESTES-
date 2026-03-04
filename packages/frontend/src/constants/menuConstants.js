@@ -1,6 +1,8 @@
 // IDs dos módulos principais
 export const MENU_MODULES = {
   DASHBOARD: 'dashboard',
+  // Metas no Radar
+  METAS: 'metas',
   // Gestão no Radar
   GESTAO_INTELIGENTE: 'gestao-inteligente',
   ESTOQUE_MARGEM: 'estoque-margem',
@@ -31,6 +33,10 @@ export const MENU_MODULES = {
 
 // IDs dos sub-menus
 export const MENU_SUBMENUS = {
+  // Metas
+  METAS_RANKING: 'metas-ranking',
+  METAS_PARAMETRIZAR: 'metas-parametrizar',
+
   // Gestão Inteligente
   GESTAO_INTELIGENTE_PAINEL: 'gestao-inteligente-painel',
 
@@ -127,6 +133,25 @@ export const MENU_SUBMENUS = {
 
 // Estrutura completa do menu
 export const MENU_STRUCTURE = [
+  // ========== METAS NO RADAR ==========
+  {
+    id: MENU_MODULES.METAS,
+    title: 'Metas',
+    icon: 'target',
+    section: 'metas',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.METAS_RANKING,
+        title: 'Ranking de Metas',
+        path: '/metas-ranking'
+      },
+      {
+        id: MENU_SUBMENUS.METAS_PARAMETRIZAR,
+        title: 'Parametrizar',
+        path: '/metas-parametrizar'
+      }
+    ]
+  },
   // ========== GESTÃO NO RADAR ==========
   {
     id: MENU_MODULES.GESTAO_INTELIGENTE,

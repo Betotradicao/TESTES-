@@ -12,6 +12,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       if (saved) return JSON.parse(saved);
     } catch {}
     return {
+      'metas-radar': false,
       'gestao-radar': false,
       'prevencao-radar': false,
       'financas-radar': false,
@@ -123,6 +124,9 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
 
     // Mapear rotas para seus submenus pais (expandedItems)
     const routeToSubmenu = {
+      // Metas
+      '/metas-ranking': 'metas',
+      '/metas-parametrizar': 'metas',
       '/bipagens': 'bipagens',
       '/resultados-do-dia': 'bipagens',
       '/rankings': 'bipagens',
@@ -168,6 +172,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
 
     // Mapear rotas para a seção principal (expandedSections)
     const routeToSection = {
+      '/metas-ranking': 'metas-radar',
+      '/metas-parametrizar': 'metas-radar',
       '/gestao-inteligente': 'gestao-radar',
       '/estoque-saude': 'gestao-radar',
       '/saude-margens': 'gestao-radar',
@@ -266,6 +272,46 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
   };
 
   const menuItems = [
+    {
+      id: 'metas-radar',
+      title: 'METAS NO RADAR',
+      titleComponent: (
+        <span>
+          <span className="text-gray-700">METAS NO </span>
+          <span className="text-amber-500 font-bold">RADAR</span>
+        </span>
+      ),
+      icon: (
+        <div className="w-5 h-5 bg-amber-500 rounded-md flex items-center justify-center">
+          <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10"/>
+            <circle cx="12" cy="12" r="6"/>
+            <circle cx="12" cy="12" r="2"/>
+            <line x1="12" y1="2" x2="12" y2="6"/>
+          </svg>
+        </div>
+      ),
+      expandable: true,
+      items: [
+        {
+          id: 'metas',
+          moduleId: 'metas',
+          title: 'METAS',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" strokeWidth="2"/>
+              <circle cx="12" cy="12" r="6" strokeWidth="2"/>
+              <circle cx="12" cy="12" r="2" strokeWidth="2"/>
+            </svg>
+          ),
+          expandable: true,
+          subItems: [
+            { id: 'metas-ranking', submenuId: 'metas-ranking', title: 'RANKING DE METAS', path: '/metas-ranking' },
+            { id: 'metas-parametrizar', submenuId: 'metas-parametrizar', title: 'PARAMETRIZAR', path: '/metas-parametrizar' },
+          ]
+        }
+      ]
+    },
     {
       id: 'gestao-radar',
       title: 'GESTÃO NO RADAR',

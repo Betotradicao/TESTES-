@@ -2,6 +2,15 @@ import { useState, useEffect } from 'react';
 
 const SECTIONS = [
   {
+    id: 'metas-radar',
+    name: 'Metas no Radar',
+    icon: '🎯',
+    color: 'amber',
+    modules: [
+      { id: 'metas', name: 'Metas', icon: '🎯' },
+    ]
+  },
+  {
     id: 'gestao-radar',
     name: 'Gestão no Radar',
     icon: '📊',
