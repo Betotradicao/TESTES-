@@ -243,7 +243,7 @@ export class GarimpadorProcessadorService {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
           },
-          timeout: 60000,
+          timeout: 120000,
         }
       );
 
@@ -320,7 +320,7 @@ export class GarimpadorProcessadorService {
         },
         {
           headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-          timeout: 60000,
+          timeout: 120000,
         }
       );
 
