@@ -434,40 +434,38 @@ export default function GarimpaFornecedores() {
                                               <span className="font-semibold ml-2 whitespace-nowrap">R$ {fmtBRL(match.produtoLoja.preco_custo)}</span>
                                             </div>
                                           ) : (
-                                            <div>
-                                              <div className="text-orange-500 mt-0.5 italic">
-                                                Nao encontrado no sistema
-                                              </div>
-                                              {match && match.candidatos && match.candidatos.length > 0 && (
-                                                <details className="mt-1">
-                                                  <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600">
-                                                    {match.candidatos.length} candidatos analisados pela IA
-                                                  </summary>
-                                                  <div className="mt-1 ml-2 space-y-0.5">
-                                                    {match.candidatos.slice(0, 5).map((cand, ci) => (
-                                                      <div key={ci} className="text-xs text-gray-500 flex items-center gap-1">
-                                                        <span className="text-gray-300">{ci + 1}.</span>
-                                                        <span>{cand.descricao}</span>
-                                                        {cand.similarity && (
-                                                          <span className="text-gray-300 ml-1">({Math.round(cand.similarity * 100)}%)</span>
-                                                        )}
-                                                        {cand.grupo && (
-                                                          <span className="text-gray-300">- {cand.grupo}</span>
-                                                        )}
-                                                      </div>
-                                                    ))}
-                                                    {match.candidatos.length > 5 && (
-                                                      <div className="text-xs text-gray-300">... +{match.candidatos.length - 5} outros</div>
-                                                    )}
-                                                  </div>
-                                                </details>
-                                              )}
+                                            <div className="text-orange-500 mt-0.5 italic">
+                                              Nao encontrado no sistema
                                             </div>
                                           )}
                                           {isBoaOferta && (
                                             <div className="text-green-600 font-semibold mt-0.5 text-xs">
                                               Enviado para WhatsApp - {match.classificacao?.toUpperCase()}
                                             </div>
+                                          )}
+                                          {match && match.candidatos && match.candidatos.length > 0 && (
+                                            <details className="mt-1">
+                                              <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600">
+                                                &#9658; {match.candidatos.length} candidatos analisados pela IA
+                                              </summary>
+                                              <div className="mt-1 ml-2 space-y-0.5">
+                                                {match.candidatos.slice(0, 10).map((cand, ci) => (
+                                                  <div key={ci} className={`text-xs flex items-center gap-1 ${match.produtoLoja && cand.descricao === match.produtoLoja.descricao ? 'text-green-600 font-semibold' : 'text-gray-500'}`}>
+                                                    <span className="text-gray-300">{ci + 1}.</span>
+                                                    <span>{cand.descricao}</span>
+                                                    {cand.similarity != null && (
+                                                      <span className="text-gray-300 ml-1">({Math.round(cand.similarity * 100)}%)</span>
+                                                    )}
+                                                    {cand.grupo && (
+                                                      <span className="text-gray-300">- {cand.grupo}</span>
+                                                    )}
+                                                  </div>
+                                                ))}
+                                                {match.candidatos.length > 10 && (
+                                                  <div className="text-xs text-gray-300">... +{match.candidatos.length - 10} outros</div>
+                                                )}
+                                              </div>
+                                            </details>
                                           )}
                                         </div>
                                       );
