@@ -46,6 +46,7 @@ import AnaliseRelevancia from './pages/AnaliseRelevancia';
 import CompetitividadeConcorrencia from './pages/CompetitividadeConcorrencia';
 import AncoragemPreco from './pages/AncoragemPreco';
 import FrenteCaixa from './pages/FrenteCaixa';
+import PrevencaoCaixa from './pages/PrevencaoCaixa';
 import PrevencaoPedidos from './pages/PrevencaoPedidos';
 import RupturaIndustria from './pages/RupturaIndustria';
 import PrazoFornecedores from './pages/PrazoFornecedores';
@@ -397,6 +398,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <FrenteCaixa />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/prevencao-caixa"
+              element={
+                <ProtectedRoute>
+                  <PrevencaoCaixa />
                 </ProtectedRoute>
               }
             />

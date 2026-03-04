@@ -228,6 +228,8 @@ export class FrenteCaixaService {
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO')}`;
     const tabTesourariaHistorico = `${schema}.${await MappingService.getRealTableName('TAB_TESOURARIA_HISTORICO')}`;
+    const tabCupomCancelado = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_CANCELADO', 'TAB_CUPOM_CANCELADO')}`;
+    const tabCupomPdv = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_PDV', 'TAB_CUPOM_PDV')}`;
 
     // Busca mapeamentos dinâmicos
     const {
@@ -359,46 +361,31 @@ export class FrenteCaixaService {
         ${codOperador ? 'AND sub.COD_OPERADOR = :codOperador' : ''}
       GROUP BY sub.COD_OPERADOR`;
 
-    // Buscar estornos órfãos
+    // Buscar cancelamentos de cupom (cupons finalizados que foram cancelados inteiros)
+    // Usa TAB_CUPOM_CANCELADO JOIN TAB_CUPOM_PDV (identifica venda original)
+    // JOIN TAB_CUPOM_FINALIZADORA (valor e operador)
     let sqlEstornosOrfaos = `
       SELECT
-        sub.COD_OPERADOR,
-        SUM(sub.VAL_TOTAL_PRODUTO) as TOTAL_ESTORNOS_ORFAOS
-      FROM (
-        SELECT
-          e.${valorTotalCol} as VAL_TOTAL_PRODUTO,
-          e.${codPdvCol},
-          e.${dataSaidaCol},
-          e.${desHoraCol},
-          NVL(
-            (
-              SELECT MIN(cf.${codOperadorCol}) KEEP (DENSE_RANK FIRST ORDER BY ABS(TO_NUMBER(TO_CHAR(cf.${dataVendaCol}, 'HH24MI')) - TO_NUMBER(NVL(e.${desHoraCol}, '0'))))
-              FROM ${tabCupomFinalizadora} cf
-              WHERE cf.${codPdvCol} = e.${codPdvCol}
-                AND cf.${codLojaCol} = e.${codLojaCol}
-                AND TRUNC(cf.${dataVendaCol}) = TRUNC(e.${dataSaidaCol})
-            ),
-            (
-              SELECT MAX(th.${codOperadorCol}) FROM ${tabTesourariaHistorico} th
-              WHERE th.${codPdvCol} = e.${codPdvCol}
-                AND th.${codLojaCol} = e.${codLojaCol}
-                AND TRUNC(th.${dtaMovimentoCol}) = TRUNC(e.${dataSaidaCol})
-            )
-          ) as COD_OPERADOR
-        FROM ${tabProdutoPdvEstorno} e
-        WHERE e.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-          AND e.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-          ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
-          AND NOT EXISTS (
-            SELECT 1 FROM ${tabCupomFinalizadora} cf
-            WHERE cf.${numeroCupomCol} = e.${numeroCupomCol}
-            AND cf.${codLojaCol} = e.${codLojaCol}
-            AND cf.${codPdvCol} = e.${codPdvCol}
-          )
-      ) sub
-      WHERE sub.COD_OPERADOR IS NOT NULL
-        ${codOperador ? 'AND sub.COD_OPERADOR = :codOperador' : ''}
-      GROUP BY sub.COD_OPERADOR`;
+        cf.${codOperadorCol} as COD_OPERADOR,
+        NVL(SUM(cf.${valorLiquidoCol}), 0) as TOTAL_ESTORNOS_ORFAOS
+      FROM ${tabCupomCancelado} cc
+      JOIN ${tabCupomPdv} cp
+        ON cp.${numeroCupomCol} = cc.NUM_SEQ
+        AND cp.${codPdvCol} = cc.NUM_PDV
+        AND cp.COD_LOJA = cc.COD_LOJA
+        AND TRUNC(cp.${dataVendaCol}) = TRUNC(cc.DTA_SEQ)
+      JOIN ${tabCupomFinalizadora} cf
+        ON cf.${numeroCupomCol} = cc.NUM_SEQ
+        AND cf.${codPdvCol} = cc.NUM_PDV
+        AND cf.${codLojaCol} = cc.COD_LOJA
+        AND TRUNC(cf.${dataVendaCol}) = TRUNC(cc.DTA_SEQ)
+        AND cf.${codTipoCol} = 1110
+      WHERE cc.DTA_SEQ >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND cc.DTA_SEQ < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
+        AND cc.FLG_ESTORNO = 'S'
+        ${codLoja ? `AND cc.COD_LOJA = :codLoja` : ''}
+        ${codOperador ? `AND cf.${codOperadorCol} = :codOperador` : ''}
+      GROUP BY cf.${codOperadorCol}`;
 
     // Buscar sobra/quebra de caixa
     let sqlTesouraria = `
@@ -501,6 +488,8 @@ export class FrenteCaixaService {
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO')}`;
     const tabTesourariaHistorico = `${schema}.${await MappingService.getRealTableName('TAB_TESOURARIA_HISTORICO')}`;
+    const tabCupomCancelado = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_CANCELADO', 'TAB_CUPOM_CANCELADO')}`;
+    const tabCupomPdv = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_PDV', 'TAB_CUPOM_PDV')}`;
 
     // Busca mapeamentos dinâmicos
     const {
@@ -639,41 +628,29 @@ export class FrenteCaixaService {
     const cancelamentos = await OracleService.query<any>(sqlCancelamentos, params);
     const cancelamentosMap = new Map(cancelamentos.map(c => [c.DATA, c.TOTAL_CANCELAMENTOS]));
 
-    // Buscar estornos órfãos por dia - associados pelo operador que fez a venda mais próxima (por horário) no mesmo PDV
-    // FALLBACK: Se não houver vendas no PDV, busca quem fechou o caixa (tesouraria) naquele PDV no dia
+    // Buscar cancelamentos de cupom por dia (cupons finalizados que foram cancelados inteiros)
     let sqlEstornosOrfaos = `
       SELECT
-        TO_CHAR(e.${dataSaidaCol}, 'DD/MM/YYYY') as DATA,
-        SUM(e.${valorTotalCol}) as TOTAL_ESTORNOS_ORFAOS
-      FROM ${tabProdutoPdvEstorno} e
-      WHERE e.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND e.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-        ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
-        -- Somente estornos órfãos (sem match de cupom no mesmo PDV)
-        AND NOT EXISTS (
-          SELECT 1 FROM ${tabCupomFinalizadora} cf
-          WHERE cf.${numeroCupomCol} = e.${numeroCupomCol}
-          AND cf.${codLojaCol} = e.${codLojaCol}
-          AND cf.${codPdvCol} = e.${codPdvCol}
-        )
-        -- Associar ao operador: primeiro pela venda mais próxima, fallback pela tesouraria
-        AND :codOperador = NVL(
-          (
-            SELECT MIN(cf2.${codOperadorCol}) KEEP (DENSE_RANK FIRST ORDER BY ABS(TO_NUMBER(TO_CHAR(cf2.${dataVendaCol}, 'HH24MI')) - TO_NUMBER(NVL(e.${desHoraCol}, '0'))))
-            FROM ${tabCupomFinalizadora} cf2
-            WHERE cf2.${codPdvCol} = e.${codPdvCol}
-              AND cf2.${codLojaCol} = e.${codLojaCol}
-              AND TRUNC(cf2.${dataVendaCol}) = TRUNC(e.${dataSaidaCol})
-          ),
-          (
-            -- Fallback: quem estava na tesouraria (fechou caixa) nesse PDV no mesmo dia
-            SELECT MAX(th.${codOperadorCol}) FROM ${tabTesourariaHistorico} th
-            WHERE th.${codPdvCol} = e.${codPdvCol}
-              AND th.${codLojaCol} = e.${codLojaCol}
-              AND TRUNC(th.${dtaMovimentoCol}) = TRUNC(e.${dataSaidaCol})
-          )
-        )
-      GROUP BY TO_CHAR(e.${dataSaidaCol}, 'DD/MM/YYYY')`;
+        TO_CHAR(cc.DTA_SEQ, 'DD/MM/YYYY') as DATA,
+        NVL(SUM(cf.${valorLiquidoCol}), 0) as TOTAL_ESTORNOS_ORFAOS
+      FROM ${tabCupomCancelado} cc
+      JOIN ${tabCupomPdv} cp
+        ON cp.${numeroCupomCol} = cc.NUM_SEQ
+        AND cp.${codPdvCol} = cc.NUM_PDV
+        AND cp.COD_LOJA = cc.COD_LOJA
+        AND TRUNC(cp.${dataVendaCol}) = TRUNC(cc.DTA_SEQ)
+      JOIN ${tabCupomFinalizadora} cf
+        ON cf.${numeroCupomCol} = cc.NUM_SEQ
+        AND cf.${codPdvCol} = cc.NUM_PDV
+        AND cf.${codLojaCol} = cc.COD_LOJA
+        AND TRUNC(cf.${dataVendaCol}) = TRUNC(cc.DTA_SEQ)
+        AND cf.${codTipoCol} = 1110
+      WHERE cc.DTA_SEQ >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND cc.DTA_SEQ < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
+        AND cc.FLG_ESTORNO = 'S'
+        ${codLoja ? `AND cc.COD_LOJA = :codLoja` : ''}
+        AND cf.${codOperadorCol} = :codOperador
+      GROUP BY TO_CHAR(cc.DTA_SEQ, 'DD/MM/YYYY')`;
 
     const estornosOrfaos = await OracleService.query<any>(sqlEstornosOrfaos, params);
     const estornosOrfaosMap = new Map(estornosOrfaos.map(e => [e.DATA, e.TOTAL_ESTORNOS_ORFAOS]));
@@ -749,6 +726,8 @@ export class FrenteCaixaService {
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO')}`;
     const tabTesourariaHistorico = `${schema}.${await MappingService.getRealTableName('TAB_TESOURARIA_HISTORICO')}`;
+    const tabCupomCancelado = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_CANCELADO', 'TAB_CUPOM_CANCELADO')}`;
+    const tabCupomPdv = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_PDV', 'TAB_CUPOM_PDV')}`;
 
     // Busca mapeamentos dinâmicos
     const {
@@ -825,19 +804,25 @@ export class FrenteCaixaService {
     `;
     const cancelamentos = await OracleService.query<any>(sqlCancelamentos, params);
 
-    // Estornos órfãos = estornos onde NÃO existe cupom no mesmo PDV
+    // Cancelamento de cupom = cupons finalizados que foram cancelados inteiros (TAB_CUPOM_CANCELADO)
     const sqlEstornosOrfaos = `
-      SELECT SUM(${valorTotalCol}) as ESTORNOS_ORFAOS
-      FROM ${tabProdutoPdvEstorno} e
-      WHERE e.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND e.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
-        ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
-        AND NOT EXISTS (
-          SELECT 1 FROM ${tabCupomFinalizadora} cf
-          WHERE cf.${numeroCupomCol} = e.${numeroCupomCol}
-          AND cf.${codLojaCol} = e.${codLojaCol}
-          AND cf.${codPdvCol} = e.${codPdvCol}
-        )
+      SELECT NVL(SUM(cf.${valorLiquidoCol}), 0) as ESTORNOS_ORFAOS
+      FROM ${tabCupomCancelado} cc
+      JOIN ${tabCupomPdv} cp
+        ON cp.${numeroCupomCol} = cc.NUM_SEQ
+        AND cp.${codPdvCol} = cc.NUM_PDV
+        AND cp.COD_LOJA = cc.COD_LOJA
+        AND TRUNC(cp.${dataVendaCol}) = TRUNC(cc.DTA_SEQ)
+      JOIN ${tabCupomFinalizadora} cf
+        ON cf.${numeroCupomCol} = cc.NUM_SEQ
+        AND cf.${codPdvCol} = cc.NUM_PDV
+        AND cf.${codLojaCol} = cc.COD_LOJA
+        AND TRUNC(cf.${dataVendaCol}) = TRUNC(cc.DTA_SEQ)
+        AND cf.${codTipoCol} = 1110
+      WHERE cc.DTA_SEQ >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND cc.DTA_SEQ < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
+        AND cc.FLG_ESTORNO = 'S'
+        ${codLoja ? `AND cc.COD_LOJA = :codLoja` : ''}
     `;
     const estornosOrfaos = await OracleService.query<any>(sqlEstornosOrfaos, params);
 

@@ -65,6 +65,7 @@ export const MENU_SUBMENUS = {
 
   // PDV
   PDV_FRENTE_CAIXA: 'pdv-frente-caixa',
+  PDV_PREVENCAO_CAIXA: 'pdv-prevencao-caixa',
   PDV_GESTAO_TROCAS: 'pdv-gestao-trocas',
   PDV_CONTROLE_PDV: 'pdv-controle-pdv',
 
