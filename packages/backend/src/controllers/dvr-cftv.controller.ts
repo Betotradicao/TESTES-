@@ -68,16 +68,17 @@ export class DVRCFTVController {
    */
   static async getCupom(req: Request, res: Response) {
     try {
-      const { time, channel } = req.query;
+      const { time, channel, cupomNum } = req.query;
       if (!time) {
         return res.status(400).json({ error: 'Parâmetro "time" é obrigatório' });
       }
 
       const canalConfig3 = await DVRCFTVService.getCanaisConfig();
       const ch = channel !== undefined ? parseInt(channel as string) : canalConfig3.canalPadrao;
+      const cupomNumParsed = cupomNum ? parseInt(cupomNum as string) : undefined;
 
-      console.log(`[DVR] getCupom: time="${time}", channel=${ch}`);
-      const cupom = await DVRCFTVService.getCupomByTime(time as string, ch);
+      console.log(`[DVR] getCupom: time="${time}", channel=${ch}, cupomNum=${cupomNumParsed || 'auto'}`);
+      const cupom = await DVRCFTVService.getCupomByTime(time as string, ch, cupomNumParsed);
 
       if (!cupom) {
         return res.json({ success: true, found: false, message: 'Nenhum cupom encontrado neste horário' });

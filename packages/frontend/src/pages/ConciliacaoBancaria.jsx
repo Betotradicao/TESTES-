@@ -1378,7 +1378,7 @@ function ConciliacaoRow({ row, rowIndex, bankCols, sysCols, onOpenCandidates, on
                     content = <span className="text-[11px] text-gray-500">{item.numDocto || ''}</span>;
                     break;
                   case 'sys_subcategoria':
-                    content = null;
+                    content = item.desSubcategoria ? <span className="text-[11px] text-gray-500 truncate block max-w-[160px]" title={item.desSubcategoria}>{item.desSubcategoria}</span> : null;
                     break;
                   case 'sys_bordero':
                     content = null;

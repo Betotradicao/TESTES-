@@ -15,6 +15,9 @@ interface NotaComPrazo {
   PRAZO_MEDIO_NF: number;
   FORMA_PGTO: string;  // "BOLETO", "CARTAO", etc
   TIPO_NF: string;     // "REVENDA", "BONIFICAÇÃO", "OUTROS"
+  PAGO: boolean;
+  DTA_QUITADA: string; // data de pagamento
+  PRAZO_REAL: number | null;  // dias entre DTA_ENTRADA e DTA_QUITADA
 }
 
 export interface FornecedorPrazo {
@@ -109,6 +112,12 @@ export class PrazoFornecedoresService {
             THEN TRUNC(flx.DTA_VENCIMENTO) - TRUNC(flx.DTA_EMISSAO)
             ELSE NULL
           END as DIAS_PARCELA,
+          NVL(flx.FLG_QUITADO, 'N') as FLG_QUITADO,
+          TO_CHAR(flx.DTA_QUITADA, 'DD/MM/YYYY') as DTA_QUITADA_FMT,
+          CASE WHEN flx.DTA_QUITADA IS NOT NULL AND fn.DTA_ENTRADA IS NOT NULL
+            THEN TRUNC(flx.DTA_QUITADA) - TRUNC(fn.DTA_ENTRADA)
+            ELSE NULL
+          END as PRAZO_REAL,
           ROW_NUMBER() OVER (
             PARTITION BY fn.COD_FORNECEDOR, fn.NUM_NF_FORN, flx.NUM_PARCELA
             ORDER BY fn.DTA_ENTRADA DESC
@@ -199,7 +208,7 @@ export class PrazoFornecedoresService {
     // Agrupar: fornecedor → NF → parcelas
     const fornecedorMap = new Map<number, FornecedorPrazo>();
     // Track NFs por fornecedor para manter apenas 10 mais recentes
-    const fornNfMap = new Map<number, Map<string, { nota: any, parcelas: number[], formaPgto: string }>>();
+    const fornNfMap = new Map<number, Map<string, { nota: any, parcelas: number[], formaPgto: string, pago: boolean, dtaQuitada: string, prazoReal: number | null }>>();
 
     for (const row of rows as any[]) {
       const cod = row.COD_FORNECEDOR;
@@ -231,7 +240,18 @@ export class PrazoFornecedoresService {
           nota: row,
           parcelas: [],
           formaPgto: row.FORMA_PGTO || '',
+          pago: row.FLG_QUITADO === 'S',
+          dtaQuitada: row.DTA_QUITADA_FMT || '',
+          prazoReal: row.PRAZO_REAL != null ? Number(row.PRAZO_REAL) : null,
         });
+      } else {
+        // Se alguma parcela está quitada, atualizar (pegar a última quitação)
+        const existing = nfMap.get(nfKey)!;
+        if (row.FLG_QUITADO === 'S') {
+          existing.pago = true;
+          if (row.DTA_QUITADA_FMT) existing.dtaQuitada = row.DTA_QUITADA_FMT;
+          if (row.PRAZO_REAL != null) existing.prazoReal = Number(row.PRAZO_REAL);
+        }
       }
 
       // Adicionar parcela se existe
@@ -263,7 +283,7 @@ export class PrazoFornecedoresService {
         forn.DTA_ENTRADA_RECENTE = nfEntries[0][1].nota.DTA_ENTRADA_FMT || '';
       }
 
-      for (const [, { nota, parcelas, formaPgto }] of nfEntries) {
+      for (const [, { nota, parcelas, formaPgto, pago, dtaQuitada, prazoReal }] of nfEntries) {
         parcelas.sort((a, b) => a - b);
         // Remover duplicatas de parcelas
         const uniqueParcelas = [...new Set(parcelas)];
@@ -283,6 +303,9 @@ export class PrazoFornecedoresService {
           PRAZO_MEDIO_NF: Math.round(prazoMedioNf * 10) / 10,
           FORMA_PGTO: formaPgto,
           TIPO_NF: cfopMap.get(cfopKey) || '',
+          PAGO: pago || false,
+          DTA_QUITADA: dtaQuitada || '',
+          PRAZO_REAL: prazoReal,
         });
 
         forn.QTD_NFS++;

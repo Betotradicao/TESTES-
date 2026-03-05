@@ -5,7 +5,7 @@ import api from '../services/api';
 import { useLoja } from '../contexts/LojaContext';
 
 // IDs das colunas reordenáveis (expand fica fixo)
-const DEFAULT_COL_ORDER = ['fornecedor', 'contato', 'celular', 'nNota', 'valor', 'prazo', 'prazoSistema', 'combinado', 'formaPgto', 'tipoNf', 'classificacao', 'prazoMedio'];
+const DEFAULT_COL_ORDER = ['fornecedor', 'contato', 'celular', 'nNota', 'valor', 'prazo', 'prazoSistema', 'combinado', 'formaPgto', 'tipoNf', 'classificacao', 'prazoMedio', 'pago', 'prazoReal', 'dtaPago'];
 const COL_ORDER_KEY = 'prazo-fornecedores-col-order';
 
 const formatCurrency = (value) => {
@@ -705,6 +705,12 @@ export default function PrazoFornecedores() {
                         return <th {...thProps} className="px-4 py-3 text-center font-semibold cursor-pointer hover:bg-gray-500 select-none" onClick={() => handleSort('PRAZO_MEDIO')}>Classificação {sortIndicator('PRAZO_MEDIO')}</th>;
                       case 'prazoMedio':
                         return <th {...thProps} className="px-4 py-3 text-center font-semibold cursor-pointer hover:bg-gray-500 bg-orange-700 select-none" onClick={() => handleSort('PRAZO_MEDIO')}>Prazo Médio {sortIndicator('PRAZO_MEDIO')}</th>;
+                      case 'pago':
+                        return <th {...thProps} className="px-4 py-3 text-center font-semibold select-none">Pago?</th>;
+                      case 'prazoReal':
+                        return <th {...thProps} className="px-4 py-3 text-center font-semibold select-none">Prazo Real</th>;
+                      case 'dtaPago':
+                        return <th {...thProps} className="px-4 py-3 text-center font-semibold select-none">Data Pago</th>;
                       default: return null;
                     }
                   })}
@@ -762,6 +768,20 @@ export default function PrazoFornecedores() {
                         case 'tipoNf': return <td key={colId} className="px-4 py-3"></td>;
                         case 'classificacao': return <td key={colId} className="px-4 py-3 text-center"><span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${classif.bg} ${classif.text}`}>{classif.label}</span></td>;
                         case 'prazoMedio': return <td key={colId} className="px-4 py-3 text-center"><span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold ${forn.PRAZO_MEDIO > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-400'}`}>{forn.PRAZO_MEDIO > 0 ? `${forn.PRAZO_MEDIO} dias` : '-'}</span></td>;
+                        case 'pago': {
+                          const notasPagas = (forn.notas || []).filter(n => n.PAGO).length;
+                          const totalNotas = (forn.notas || []).length;
+                          return (
+                            <td key={colId} className="px-4 py-3 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                {notasPagas > 0 && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">{notasPagas} ✓</span>}
+                                {(totalNotas - notasPagas) > 0 && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">{totalNotas - notasPagas} ✗</span>}
+                              </div>
+                            </td>
+                          );
+                        }
+                        case 'prazoReal': return <td key={colId} className="px-4 py-3"></td>;
+                        case 'dtaPago': return <td key={colId} className="px-4 py-3"></td>;
                         default: return null;
                       }
                     };
@@ -811,6 +831,9 @@ export default function PrazoFornecedores() {
                               case 'tipoNf': return <td key={colId} className="px-4 py-2 text-center">{nota.TIPO_NF ? <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${nota.TIPO_NF === 'REVENDA' ? 'bg-green-100 text-green-700' : nota.TIPO_NF === 'BONIFICAÇÃO' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>{nota.TIPO_NF}</span> : <span className="text-gray-300 text-xs">-</span>}</td>;
                               case 'classificacao': return <td key={colId} className="px-4 py-2 text-center text-gray-400 text-xs">{nota.PRAZO_MEDIO_NF > 0 ? (() => { const c = getClassificacao(nota.PRAZO_MEDIO_NF); return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${c.bg} ${c.text}`}>{c.label}</span>; })() : ''}</td>;
                               case 'prazoMedio': return <td key={colId} className="px-4 py-2 text-center">{nota.PRAZO_MEDIO_NF > 0 ? <span className="font-semibold text-yellow-600">{nota.PRAZO_MEDIO_NF}</span> : ''}</td>;
+                              case 'pago': return <td key={colId} className="px-4 py-2 text-center"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${nota.PAGO ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{nota.PAGO ? 'Sim' : 'Não'}</span></td>;
+                              case 'prazoReal': return <td key={colId} className="px-4 py-2 text-center">{nota.PAGO && nota.PRAZO_REAL != null ? <span className="font-semibold text-blue-600">{nota.PRAZO_REAL}d</span> : <span className="text-gray-300">-</span>}</td>;
+                              case 'dtaPago': return <td key={colId} className="px-4 py-2 text-center">{nota.DTA_QUITADA ? <span className="text-xs text-gray-600">{nota.DTA_QUITADA}</span> : <span className="text-gray-300">-</span>}</td>;
                               default: return null;
                             }
                           };

@@ -30,6 +30,7 @@ interface FluxoItem {
   numDocto: string | null;
   tipoConta: number;
   flgCompensado: boolean;
+  desSubcategoria: string | null;
 }
 
 interface FluxoGroup {
@@ -310,6 +311,7 @@ export class ConciliacaoService {
         numDocto: row.NUM_DOCTO || null,
         tipoConta: Number(row.TIPO_CONTA),
         flgCompensado: compensado,
+        desSubcategoria: row.DES_SUBCATEGORIA || null,
       };
 
       if (numBordero) {

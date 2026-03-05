@@ -326,33 +326,28 @@ export class DVRCFTVService {
       console.log(`[DVR] Primeiros 3 Times:`, items.slice(0, 3).map(i => i.Time));
     }
 
-    // Enriquecer com número do cupom do Oracle e filtrar por texto
+    // O DVR já filtra por texto internamente (busca no texto completo do recibo POS)
+    // Então os resultados já vêm filtrados corretamente
+    // Só precisamos enriquecer com número do cupom do Oracle
     try {
       const pdv = this.channelToPdv(config, channel);
-      const enriched = await this.enrichWithCupomNumbers(items, pdv);
 
-      // Se tem texto de busca, filtrar via Oracle (DVR não filtra por texto)
+      // Se o DVR retornou resultados, usá-los (já filtrados por texto)
+      if (items.length > 0) {
+        const enriched = await this.enrichWithCupomNumbers(items, pdv);
+        console.log(`[DVR] ${enriched.length} resultados do DVR (filtrados por "${text || 'sem texto'}"), ${enriched.filter(i => i.cupom).length} com cupom Oracle`);
+        return { total: totalCount, items: enriched };
+      }
+
+      // Se DVR não retornou nada MAS tem texto, tentar buscar no Oracle como fallback
+      // (para casos onde o DVR não tem o recibo POS mas o Oracle tem os dados)
       if (text && text.trim()) {
+        console.log(`[DVR] DVR retornou 0 resultados, tentando fallback Oracle para "${text}"`);
         const oracleResults = await this.searchByOracleText(pdv, startTime, endTime, text.trim(), channel);
-        // Enriquecer resultados Oracle com dados do DVR (ID + Time exato com segundos)
-        const dvrTimeMap: Record<string, POSSearchResult> = {};
-        for (const item of enriched) {
-          if (item.Time) {
-            const hm = item.Time.split(' ')[1]?.substring(0, 5);
-            if (hm && !dvrTimeMap[hm]) dvrTimeMap[hm] = item;
-          }
-        }
-        for (const item of oracleResults) {
-          const hm = item.Time?.split(' ')[1]?.substring(0, 5);
-          if (hm && dvrTimeMap[hm]) {
-            item.ID = dvrTimeMap[hm].ID; // usar ID do DVR para gerar vídeo
-            item.Time = dvrTimeMap[hm].Time; // usar Time do DVR (com segundos exatos)
-          }
-        }
         return { total: oracleResults.length, items: oracleResults };
       }
 
-      return { total: totalCount, items: enriched };
+      return { total: 0, items: [] };
     } catch (err: any) {
       console.error('[DVR] Erro ao enriquecer com cupom:', err.message);
       return { total: totalCount, items };
@@ -493,9 +488,9 @@ export class DVRCFTVService {
   }
 
   /**
-   * Buscar itens do cupom no Oracle pelo timestamp da transação DVR
+   * Buscar itens do cupom no Oracle pelo número do cupom ou timestamp da transação DVR
    */
-  static async getCupomByTime(time: string, channel: number): Promise<any> {
+  static async getCupomByTime(time: string, channel: number, cupomNumDirect?: number): Promise<any> {
     try {
       const config = await this.getConfig();
       const pdv = this.channelToPdv(config, channel);
@@ -505,42 +500,54 @@ export class DVRCFTVService {
       const [hour, minute] = timePart.split(':');
       const dateStr = `${day}/${month}/${year}`;
 
-      // Buscar cupons no Oracle com +/- 1 minuto de tolerância
-      const minBefore = parseInt(minute) > 0 ? parseInt(minute) - 1 : 0;
-      const minAfter = parseInt(minute) < 59 ? parseInt(minute) + 1 : 59;
-      const hourPad = hour.padStart(2, '0');
-
       const schema = await MappingService.getSchema();
-      const sql = `
-        SELECT p.NUM_CUPOM_FISCAL, TO_CHAR(p.TIM_HORA, 'HH24:MI:SS') HORA,
-               p.COD_PRODUTO, pr.DES_PRODUTO, p.QTD_TOTAL_PRODUTO QTD,
-               p.VAL_PRECO_VENDA UNITARIO, p.VAL_TOTAL_PRODUTO TOTAL,
-               p.VAL_DESCONTO, p.FLG_CUPOM_CANCELADO,
-               p.COD_ENTIDADE, p.NUM_SEQ_ITEM
-        FROM ${schema}.TAB_PRODUTO_PDV p
-        LEFT JOIN ${schema}.TAB_PRODUTO pr ON p.COD_PRODUTO = pr.COD_PRODUTO
-        WHERE p.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
-          AND p.NUM_PDV = :pdv
-          AND TO_CHAR(p.TIM_HORA, 'HH24') = :hour
-          AND TO_NUMBER(TO_CHAR(p.TIM_HORA, 'MI')) BETWEEN :minBefore AND :minAfter
-          AND p.NUM_CUPOM_FISCAL > 0
-        ORDER BY p.NUM_CUPOM_FISCAL, p.NUM_SEQ_ITEM
-      `;
+      let rows: any[];
 
-      console.log(`[DVR] getCupomByTime: date=${dateStr}, pdv=${pdv}, hour=${hourPad}, minBefore=${minBefore}, minAfter=${minAfter}`);
+      if (cupomNumDirect) {
+        // Busca DIRETA por número do cupom (preciso e correto)
+        const sql = `
+          SELECT p.NUM_CUPOM_FISCAL, TO_CHAR(p.TIM_HORA, 'HH24:MI:SS') HORA,
+                 p.COD_PRODUTO, pr.DES_PRODUTO, p.QTD_TOTAL_PRODUTO QTD,
+                 p.VAL_PRECO_VENDA UNITARIO, p.VAL_TOTAL_PRODUTO TOTAL,
+                 p.VAL_DESCONTO, p.FLG_CUPOM_CANCELADO,
+                 p.COD_ENTIDADE, p.NUM_SEQ_ITEM
+          FROM ${schema}.TAB_PRODUTO_PDV p
+          LEFT JOIN ${schema}.TAB_PRODUTO pr ON p.COD_PRODUTO = pr.COD_PRODUTO
+          WHERE p.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
+            AND p.NUM_PDV = :pdv
+            AND p.NUM_CUPOM_FISCAL = :cupomNum
+          ORDER BY p.NUM_SEQ_ITEM
+        `;
+        console.log(`[DVR] getCupomDirect: date=${dateStr}, pdv=${pdv}, cupom=${cupomNumDirect}`);
+        rows = await OracleService.query(sql, { dateStr, pdv, cupomNum: cupomNumDirect });
+      } else {
+        // Fallback: busca por horário (±1 minuto de tolerância)
+        const minBefore = parseInt(minute) > 0 ? parseInt(minute) - 1 : 0;
+        const minAfter = parseInt(minute) < 59 ? parseInt(minute) + 1 : 59;
+        const hourPad = hour.padStart(2, '0');
 
-      const rows: any[] = await OracleService.query(sql, {
-        dateStr, pdv, hour: hourPad,
-        minBefore, minAfter
-      });
+        const sql = `
+          SELECT p.NUM_CUPOM_FISCAL, TO_CHAR(p.TIM_HORA, 'HH24:MI:SS') HORA,
+                 p.COD_PRODUTO, pr.DES_PRODUTO, p.QTD_TOTAL_PRODUTO QTD,
+                 p.VAL_PRECO_VENDA UNITARIO, p.VAL_TOTAL_PRODUTO TOTAL,
+                 p.VAL_DESCONTO, p.FLG_CUPOM_CANCELADO,
+                 p.COD_ENTIDADE, p.NUM_SEQ_ITEM
+          FROM ${schema}.TAB_PRODUTO_PDV p
+          LEFT JOIN ${schema}.TAB_PRODUTO pr ON p.COD_PRODUTO = pr.COD_PRODUTO
+          WHERE p.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
+            AND p.NUM_PDV = :pdv
+            AND TO_CHAR(p.TIM_HORA, 'HH24') = :hour
+            AND TO_NUMBER(TO_CHAR(p.TIM_HORA, 'MI')) BETWEEN :minBefore AND :minAfter
+            AND p.NUM_CUPOM_FISCAL > 0
+          ORDER BY p.NUM_CUPOM_FISCAL, p.NUM_SEQ_ITEM
+        `;
+        console.log(`[DVR] getCupomByTime: date=${dateStr}, pdv=${pdv}, hour=${hourPad}, minBefore=${minBefore}, minAfter=${minAfter}`);
+        rows = await OracleService.query(sql, { dateStr, pdv, hour: hourPad, minBefore, minAfter });
+      }
 
-      console.log(`[DVR] getCupomByTime: ${rows?.length || 0} rows encontrados`);
+      console.log(`[DVR] getCupom: ${rows?.length || 0} rows encontrados`);
 
       if (!rows || rows.length === 0) return null;
-
-      // Pegar o cupom mais próximo do horário
-      const targetMin = parseInt(minute);
-      const targetSec = parseInt(timePart.split(':')[2] || '0');
 
       // Agrupar por cupom
       const cupons: Record<number, any[]> = {};
@@ -550,8 +557,8 @@ export class DVRCFTVService {
         cupons[num].push(row);
       }
 
-      // Pegar o primeiro cupom (mais próximo)
-      const cupomNum = Object.keys(cupons).map(Number)[0];
+      // Se veio direto, usar esse. Se não, pegar o primeiro.
+      const cupomNum = cupomNumDirect || Object.keys(cupons).map(Number)[0];
       const cupomRows = cupons[cupomNum];
 
       const itens: POSItem[] = cupomRows.map((r: any) => ({
