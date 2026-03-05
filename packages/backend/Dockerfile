@@ -36,6 +36,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unzip \
     ca-certificates \
     openssh-client \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
     # Criar diretório para Oracle Instant Client
     && mkdir -p /opt/oracle \
