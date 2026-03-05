@@ -92,7 +92,40 @@ export class DVRCFTVService {
   }
 
   /**
-   * Buscar finalizadoras do Oracle (com cache)
+   * Mapa padrão de finalizadoras (fallback quando Oracle não tem TAB_FINALIZADORA)
+   */
+  private static readonly DEFAULT_FINALIZADORA_MAP: Record<number, string> = {
+    1: 'DINHEIRO',
+    2: 'CHEQUE',
+    3: 'CARTAO CREDITO',
+    4: 'CARTAO DEBITO',
+    5: 'CREDIARIO',
+    6: 'VALE COMPRA',
+    7: 'CONVENIO',
+    8: 'PIX',
+    9: 'TICKET',
+    10: 'BOLETO',
+    11: 'TRANSFERENCIA',
+    12: 'DEPOSITO',
+  };
+
+  /**
+   * Keywords comuns e seus sinônimos para busca de finalizadoras
+   */
+  private static readonly KEYWORD_SYNONYMS: Record<string, string[]> = {
+    'DINHEIRO': ['DINHEIRO', 'ESPECIE', 'CASH'],
+    'CHEQUE': ['CHEQUE'],
+    'CARTAO CREDITO': ['CARTAO CREDITO', 'CREDITO', 'CREDIT'],
+    'CARTAO DEBITO': ['CARTAO DEBITO', 'DEBITO', 'DEBIT'],
+    'CREDIARIO': ['CREDIARIO', 'FIADO'],
+    'VALE COMPRA': ['VALE COMPRA', 'VALE', 'VOUCHER'],
+    'CONVENIO': ['CONVENIO', 'CONVENIADO'],
+    'PIX': ['PIX'],
+    'TICKET': ['TICKET', 'VALE REFEICAO', 'VALE ALIMENTACAO', 'VR', 'VA'],
+  };
+
+  /**
+   * Buscar finalizadoras do Oracle (com cache e fallback)
    */
   private static finalizadoraCache: Record<number, string> | null = null;
   private static finalizadoraCacheTime = 0;
@@ -104,32 +137,85 @@ export class DVRCFTVService {
     }
     try {
       const schema = await MappingService.getSchema();
-      const sql = `SELECT COD_FINALIZADORA, DES_FINALIZADORA FROM ${schema}.TAB_FINALIZADORA ORDER BY COD_FINALIZADORA`;
-      const rows: any[] = await OracleService.query(sql, {});
-      const map: Record<number, string> = {};
-      for (const row of rows) {
-        map[row.COD_FINALIZADORA] = (row.DES_FINALIZADORA || '').trim().toUpperCase();
+      // Tentar TAB_FINALIZADORA primeiro (tem descrição)
+      try {
+        const sql = `SELECT COD_FINALIZADORA, DES_FINALIZADORA FROM ${schema}.TAB_FINALIZADORA ORDER BY COD_FINALIZADORA`;
+        const rows: any[] = await OracleService.query(sql, {});
+        if (rows && rows.length > 0) {
+          const map: Record<number, string> = {};
+          for (const row of rows) {
+            map[row.COD_FINALIZADORA] = (row.DES_FINALIZADORA || '').trim().toUpperCase();
+          }
+          this.finalizadoraCache = map;
+          this.finalizadoraCacheTime = Date.now();
+          console.log(`[DVR] Finalizadoras carregadas do Oracle (TAB_FINALIZADORA): ${Object.keys(map).length} itens`);
+          return map;
+        }
+      } catch {
+        // TAB_FINALIZADORA não existe, tentar pegar códigos distintos de TAB_CUPOM_FINALIZADORA
+        console.log('[DVR] TAB_FINALIZADORA não existe, usando códigos de TAB_CUPOM_FINALIZADORA + mapa padrão');
       }
-      this.finalizadoraCache = map;
+
+      // Fallback: buscar códigos distintos de TAB_CUPOM_FINALIZADORA e mapear com nomes padrão
+      try {
+        const sql2 = `SELECT DISTINCT COD_FINALIZADORA FROM ${schema}.TAB_CUPOM_FINALIZADORA ORDER BY COD_FINALIZADORA`;
+        const rows2: any[] = await OracleService.query(sql2, {});
+        if (rows2 && rows2.length > 0) {
+          const map: Record<number, string> = {};
+          for (const row of rows2) {
+            const cod = row.COD_FINALIZADORA;
+            map[cod] = this.DEFAULT_FINALIZADORA_MAP[cod] || `FINALIZADORA ${cod}`;
+          }
+          this.finalizadoraCache = map;
+          this.finalizadoraCacheTime = Date.now();
+          console.log(`[DVR] Finalizadoras mapeadas via TAB_CUPOM_FINALIZADORA + padrão: ${Object.keys(map).length} itens`, map);
+          return map;
+        }
+      } catch (e2: any) {
+        console.log('[DVR] TAB_CUPOM_FINALIZADORA DISTINCT também falhou:', e2.message);
+      }
+
+      // Último fallback: mapa padrão hardcoded
+      console.log('[DVR] Usando mapa padrão de finalizadoras (fallback)');
+      this.finalizadoraCache = { ...this.DEFAULT_FINALIZADORA_MAP };
       this.finalizadoraCacheTime = Date.now();
-      console.log(`[DVR] Finalizadoras carregadas do Oracle: ${Object.keys(map).length} itens`);
-      return map;
+      return this.finalizadoraCache;
     } catch (e: any) {
       console.error('[DVR] Erro ao carregar finalizadoras:', e.message);
-      // Retorna mapa vazio se falhar
-      return {};
+      // Retorna mapa padrão como último recurso
+      return { ...this.DEFAULT_FINALIZADORA_MAP };
     }
   }
 
   /**
-   * Encontra o código da finalizadora pelo nome (parcial)
+   * Encontra o código da finalizadora pelo nome (parcial), com suporte a sinônimos
    */
   private static async findFinalizadoraCod(keyword: string): Promise<number | null> {
     const map = await this.getFinalizadoraMap();
-    const upper = keyword.toUpperCase();
+    const upper = keyword.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    // Primeiro: buscar diretamente nas descrições do mapa
     for (const [cod, desc] of Object.entries(map)) {
-      if (desc.includes(upper)) return Number(cod);
+      const descNorm = desc.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if (descNorm.includes(upper)) return Number(cod);
     }
+
+    // Segundo: buscar via sinônimos
+    for (const [finName, synonyms] of Object.entries(this.KEYWORD_SYNONYMS)) {
+      const matched = synonyms.some(s => {
+        const sNorm = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return sNorm.includes(upper) || upper.includes(sNorm);
+      });
+      if (matched) {
+        // Encontrar código dessa finalizadora no mapa
+        for (const [cod, desc] of Object.entries(map)) {
+          const descNorm = desc.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const finNorm = finName.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          if (descNorm.includes(finNorm) || finNorm.includes(descNorm)) return Number(cod);
+        }
+      }
+    }
+
     return null;
   }
 
