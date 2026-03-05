@@ -75,6 +75,7 @@ import BoletoDDA from './pages/BoletoDDA';
 import ConciliacaoBancaria from './pages/ConciliacaoBancaria';
 import MetasRanking from './pages/MetasRanking';
 import MetasParametrizar from './pages/MetasParametrizar';
+import VisionPDV from './pages/VisionPDV';
 
 function App() {
   return (
@@ -584,6 +585,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <MetasParametrizar />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vision-pdv"
+              element={
+                <ProtectedRoute>
+                  <VisionPDV />
                 </ProtectedRoute>
               }
             />

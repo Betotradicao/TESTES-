@@ -61,6 +61,7 @@ export default function PrazoFornecedores() {
   const [filtroCombinado, setFiltroCombinado] = useState(null); // null, 'fora', 'dentro'
   const [filtroMelhorPrazo, setFiltroMelhorPrazo] = useState(false); // filtro card oportunidade
   const [mesesHistorico, setMesesHistorico] = useState(6); // Histórico de fornecedores alternativos
+  const [prazoSimulado, setPrazoSimulado] = useState(''); // Simulação de prazo
   const [altPopup, setAltPopup] = useState(null); // { codProduto, desProduto, data, loading }
 
   // Ordem das colunas (drag-and-drop) com persistência em localStorage
@@ -302,6 +303,16 @@ export default function PrazoFornecedores() {
     valorTotal: Math.round(filteredFornecedores.reduce((s, f) => s + (f.VAL_TOTAL || 0), 0) * 100) / 100,
   };
 
+  // Média diária: valor total / dias no período selecionado
+  const mediaDiaria = (() => {
+    if (!resumoFiltrado.valorTotal) return 0;
+    const inicio = new Date(dataInicio + 'T00:00:00');
+    const fim = new Date(dataFim + 'T00:00:00');
+    const diffMs = fim.getTime() - inicio.getTime();
+    const dias = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1);
+    return resumoFiltrado.valorTotal / dias;
+  })();
+
   // Ordenar
   const sortedFornecedores = [...filteredFornecedores].sort((a, b) => {
     if (maisRecentes) {
@@ -380,7 +391,7 @@ export default function PrazoFornecedores() {
         </div>
 
         {/* Cards de Resumo */}
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-4">
+        <div className="grid grid-cols-2 lg:grid-cols-7 gap-3 mb-4">
           <div className="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
             <div className="flex items-center justify-between">
               <div>
@@ -421,6 +432,16 @@ export default function PrazoFornecedores() {
             </div>
           </div>
 
+          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-teal-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 uppercase">Média Diária</p>
+                <p className="text-xl font-bold text-teal-600">{formatCurrency(mediaDiaria)}</p>
+              </div>
+              <span className="text-3xl">📊</span>
+            </div>
+          </div>
+
           <div
             onClick={() => setFiltroCombinado(filtroCombinado === 'fora' ? null : 'fora')}
             className={`bg-white rounded-lg shadow p-4 border-l-4 border-red-500 cursor-pointer transition-all ${filtroCombinado === 'fora' ? 'ring-2 ring-red-500 shadow-lg bg-red-50' : 'hover:shadow-md'}`}
@@ -444,6 +465,43 @@ export default function PrazoFornecedores() {
                 <p className="text-2xl font-bold text-cyan-600">{statsOportunidade}</p>
               </div>
               <span className="text-3xl">💡</span>
+            </div>
+          </div>
+
+          {/* Card Simulação de Prazo */}
+          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-indigo-500 col-span-2 lg:col-span-3">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🧮</span>
+              <div className="flex items-center gap-2 flex-1">
+                <p className="text-xs text-gray-500 uppercase whitespace-nowrap">Simular Prazo:</p>
+                <input
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={prazoSimulado}
+                  onChange={(e) => setPrazoSimulado(e.target.value)}
+                  placeholder={String(resumoFiltrado.prazoMedioGeral || 19)}
+                  className="w-16 px-2 py-1 border border-gray-300 rounded text-center text-sm font-bold focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                <span className="text-xs text-gray-500">dias</span>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-500">Pgto Diário Estimado</p>
+                <p className="text-xl font-bold text-indigo-600">
+                  {formatCurrency(
+                    prazoSimulado > 0 && mediaDiaria > 0 && resumoFiltrado.prazoMedioGeral > 0
+                      ? mediaDiaria * (resumoFiltrado.prazoMedioGeral / Number(prazoSimulado))
+                      : mediaDiaria
+                  )}
+                </p>
+                {prazoSimulado > 0 && resumoFiltrado.prazoMedioGeral > 0 && Number(prazoSimulado) !== resumoFiltrado.prazoMedioGeral && (
+                  <p className={`text-xs font-semibold ${Number(prazoSimulado) > resumoFiltrado.prazoMedioGeral ? 'text-green-600' : 'text-red-600'}`}>
+                    {Number(prazoSimulado) > resumoFiltrado.prazoMedioGeral ? '▼' : '▲'}{' '}
+                    {formatCurrency(Math.abs(mediaDiaria - mediaDiaria * (resumoFiltrado.prazoMedioGeral / Number(prazoSimulado))))}
+                    /dia
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -76,6 +76,7 @@ import garimpadorRouter from './routes/garimpador.routes';
 import analiseCotacaoRouter from './routes/analise-cotacao.routes';
 import prevencaoCaixaRouter from './routes/prevencao-caixa.routes';
 import metasRouter from './routes/metas.routes';
+import dvrCftvRouter from './routes/dvr-cftv.routes';
 import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
 import { MappingService } from './services/mapping.service';
@@ -185,6 +186,7 @@ app.use('/api/garimpador', garimpadorRouter);
 app.use('/api/analise-cotacao', analiseCotacaoRouter);
 app.use('/api/prevencao-caixa', prevencaoCaixaRouter);
 app.use('/api/metas', metasRouter);
+app.use('/api/dvr-cftv', dvrCftvRouter);
 
 // app.use('/api/user-security', userSecurityRouter);
 
