@@ -13,6 +13,7 @@ export default function DVRCFTVTab() {
     dvr_ip: '',
     dvr_usuario: 'admin',
     dvr_senha: '',
+    dvr_porta_http: '80',
     dvr_porta_rtsp: '554',
     dvr_canal_padrao: '0',
     dvr_antecedencia_segundos: '15',
@@ -35,6 +36,7 @@ export default function DVRCFTVTab() {
           dvr_ip: data.dvr_ip || '',
           dvr_usuario: data.dvr_usuario || 'admin',
           dvr_senha: data.dvr_senha || '',
+          dvr_porta_http: data.dvr_porta_http || '80',
           dvr_porta_rtsp: data.dvr_porta_rtsp || '554',
           dvr_canal_padrao: data.dvr_canal_padrao || '0',
           dvr_antecedencia_segundos: data.dvr_antecedencia_segundos || '15',
@@ -88,11 +90,13 @@ export default function DVRCFTVTab() {
   const handleDetectChannels = async () => {
     setIsDetecting(true);
     try {
-      // Salvar IP/user/senha primeiro para o backend usar
+      // Salvar IP/user/senha/portas primeiro para o backend usar
       await api.post('/config/configurations', {
         dvr_ip: config.dvr_ip,
         dvr_usuario: config.dvr_usuario,
-        dvr_senha: config.dvr_senha
+        dvr_senha: config.dvr_senha,
+        dvr_porta_http: config.dvr_porta_http,
+        dvr_porta_rtsp: config.dvr_porta_rtsp
       });
       const response = await api.post('/dvr-cftv/detect-channels');
       if (response.data.success && response.data.canais?.length > 0) {
@@ -147,19 +151,31 @@ export default function DVRCFTVTab() {
           Conexao DVR
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">IP do DVR</label>
             <input
               type="text"
               value={config.dvr_ip}
               onChange={(e) => setConfig({ ...config, dvr_ip: e.target.value })}
-              placeholder="Ex: 10.6.1.123"
+              placeholder="Ex: 10.6.1.123 ou localhost (VPS)"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
             />
+            <p className="text-xs text-gray-400 mt-1">Na VPS, use localhost com portas do tunel</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Porta RTSP</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Porta HTTP (API)</label>
+            <input
+              type="number"
+              value={config.dvr_porta_http}
+              onChange={(e) => setConfig({ ...config, dvr_porta_http: e.target.value })}
+              placeholder="80"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            />
+            <p className="text-xs text-gray-400 mt-1">Padrao: 80 (local) ou porta tunelada (VPS)</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Porta RTSP (Video)</label>
             <input
               type="number"
               value={config.dvr_porta_rtsp}
@@ -167,6 +183,7 @@ export default function DVRCFTVTab() {
               placeholder="554"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
             />
+            <p className="text-xs text-gray-400 mt-1">Padrao: 554 (local) ou porta tunelada (VPS)</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Usuario</label>

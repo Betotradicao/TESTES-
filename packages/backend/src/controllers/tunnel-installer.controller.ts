@@ -27,6 +27,8 @@ export class TunnelInstallerController {
       const tunnelOraclePort = process.env.TUNNEL_ORACLE_PORT || '';
       const tunnelMssqlPort = process.env.TUNNEL_MSSQL_PORT || '';
       const tunnelApiPort = process.env.TUNNEL_API_PORT || '';
+      const tunnelDvrHttpPort = process.env.TUNNEL_DVR_HTTP_PORT || '';
+      const tunnelDvrRtspPort = process.env.TUNNEL_DVR_RTSP_PORT || '';
       const hostIp = process.env.HOST_IP || '';
 
       return res.json({
@@ -36,7 +38,9 @@ export class TunnelInstallerController {
           tunnelPorts: {
             oracle: tunnelOraclePort,
             mssql: tunnelMssqlPort,
-            apiErp: tunnelApiPort
+            apiErp: tunnelApiPort,
+            dvrHttp: tunnelDvrHttpPort,
+            dvrRtsp: tunnelDvrRtspPort
           }
         }
       });
@@ -973,6 +977,8 @@ $ports = @(
     @{Port=3306; Name='MySQL'},
     @{Port=1433; Name='SQL Server'},
     @{Port=8888; Name='Zanthus PDV'},
+    @{Port=37777; Name='DVR Intelbras (HTTP/RPC2)'},
+    @{Port=554; Name='DVR RTSP (Video)'},
     @{Port=443; Name='HTTPS'},
     @{Port=22; Name='SSH'},
     @{Port=3389; Name='Acesso Remoto (RDP)'}

@@ -224,9 +224,14 @@ async function seedConfigurations() {
         description: 'Auto-iniciar monitor de email'
       },
       {
+        key: 'dvr_porta_http',
+        value: '80',
+        description: 'Porta HTTP do DVR para API RPC2 (padrão: 80, usar porta tunelada na VPS)'
+      },
+      {
         key: 'dvr_porta_rtsp',
         value: '554',
-        description: 'Porta RTSP do DVR (padrão: 554)'
+        description: 'Porta RTSP do DVR (padrão: 554, usar porta tunelada na VPS)'
       },
       {
         key: 'dvr_canais',

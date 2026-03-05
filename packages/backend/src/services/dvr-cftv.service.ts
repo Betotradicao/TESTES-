@@ -46,6 +46,7 @@ export class DVRCFTVService {
         { key: 'dvr_ip' },
         { key: 'dvr_usuario' },
         { key: 'dvr_senha' },
+        { key: 'dvr_porta_http' },
         { key: 'dvr_porta_rtsp' },
         { key: 'dvr_canais' },
         { key: 'dvr_canal_padrao' },
@@ -65,6 +66,7 @@ export class DVRCFTVService {
       ip: map.dvr_ip || '',
       user: map.dvr_usuario || 'admin',
       pass: map.dvr_senha || '',
+      httpPort: parseInt(map.dvr_porta_http || '80'),
       rtspPort: map.dvr_porta_rtsp || '554',
       canais,
       canalPadrao: parseInt(map.dvr_canal_padrao || '0'),
@@ -134,12 +136,12 @@ export class DVRCFTVService {
   /**
    * RPC2 HTTP call
    */
-  private static rpcCall(ip: string, urlPath: string, sessionId: string | null, method: string, params: any, id: number): Promise<any> {
+  private static rpcCall(ip: string, urlPath: string, sessionId: string | null, method: string, params: any, id: number, port: number = 80): Promise<any> {
     return new Promise((resolve, reject) => {
       const body = JSON.stringify({ method, params, id, session: sessionId || undefined });
       const req = http.request({
         hostname: ip,
-        port: 80,
+        port,
         path: urlPath,
         method: 'POST',
         headers: {
@@ -174,7 +176,7 @@ export class DVRCFTVService {
     // Step 1: Get challenge
     const s1 = await this.rpcCall(config.ip, '/RPC2_Login', null, 'global.login', {
       userName: config.user, password: '', clientType: 'Web3.0', loginType: 'Direct'
-    }, 1);
+    }, 1, config.httpPort);
 
     if (!s1.session || !s1.params?.realm || !s1.params?.random) {
       throw new Error('DVR login challenge failed');
@@ -192,7 +194,7 @@ export class DVRCFTVService {
     const s2 = await this.rpcCall(config.ip, '/RPC2_Login', sessionId, 'global.login', {
       userName: config.user, password: h2, clientType: 'Web3.0',
       loginType: 'Default', authorityType: 'Default'
-    }, 2);
+    }, 2, config.httpPort);
 
     if (!s2.result) {
       throw new Error('DVR login failed: invalid credentials');
@@ -213,7 +215,7 @@ export class DVRCFTVService {
     const findResult = await this.rpcCall(config.ip, '/RPC2', sessionId, 'POS.startFind', {
       channel,
       condition: { StartTime: startTime, EndTime: endTime, Text: text }
-    }, 10);
+    }, 10, config.httpPort);
 
     if (!findResult.result) {
       throw new Error('POS.startFind failed');
@@ -225,10 +227,10 @@ export class DVRCFTVService {
     // doFind - DVR retorna no máximo 100 resultados (paginação não funciona)
     const results = await this.rpcCall(config.ip, '/RPC2', sessionId, 'POS.doFind', {
       token, count: 100, offset: 0
-    }, 11);
+    }, 11, config.httpPort);
 
     // stopFind
-    await this.rpcCall(config.ip, '/RPC2', sessionId, 'POS.stopFind', { token }, 12);
+    await this.rpcCall(config.ip, '/RPC2', sessionId, 'POS.stopFind', { token }, 12, config.httpPort);
 
     const items: POSSearchResult[] = results.params?.info || [];
 
@@ -780,7 +782,7 @@ export class DVRCFTVService {
     try {
       const titleResult = await this.rpcCall(config.ip, '/RPC2', sessionId, 'configManager.getConfig', {
         name: 'ChannelTitle'
-      }, 20);
+      }, 20, config.httpPort);
       if (titleResult.params?.table) {
         titles = titleResult.params.table.map((t: any) => t.Name || '');
       }
@@ -791,12 +793,12 @@ export class DVRCFTVService {
     // Buscar quantidade de canais de vídeo
     let videoInputCount = 0;
     try {
-      const capsResult = await this.rpcCall(config.ip, '/RPC2', sessionId, 'magicBox.getDeviceType', {}, 21);
+      const capsResult = await this.rpcCall(config.ip, '/RPC2', sessionId, 'magicBox.getDeviceType', {}, 21, config.httpPort);
       console.log('[DVR] DeviceType:', JSON.stringify(capsResult));
     } catch { /* ignore */ }
 
     try {
-      const sysInfo = await this.rpcCall(config.ip, '/RPC2', sessionId, 'magicBox.getProductDefinition', {}, 22);
+      const sysInfo = await this.rpcCall(config.ip, '/RPC2', sessionId, 'magicBox.getProductDefinition', {}, 22, config.httpPort);
       if (sysInfo.params?.VideoInChannel) {
         videoInputCount = sysInfo.params.VideoInChannel;
       }
