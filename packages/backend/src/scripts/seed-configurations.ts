@@ -223,6 +223,26 @@ async function seedConfigurations() {
         value: 'false',
         description: 'Auto-iniciar monitor de email'
       },
+      {
+        key: 'dvr_porta_rtsp',
+        value: '554',
+        description: 'Porta RTSP do DVR (padrão: 554)'
+      },
+      {
+        key: 'dvr_canais',
+        value: '[]',
+        description: 'Mapeamento de canais DVR para PDV (JSON: [{channel, pdv, label}])'
+      },
+      {
+        key: 'dvr_canal_padrao',
+        value: '0',
+        description: 'Canal DVR padrão selecionado ao abrir Vision PDV'
+      },
+      {
+        key: 'dvr_antecedencia_segundos',
+        value: '15',
+        description: 'Segundos antes do evento POS para iniciar o vídeo (ajustar conforme relógio do DVR)'
+      },
 
       // Monitor de Email (Novo sistema)
       {

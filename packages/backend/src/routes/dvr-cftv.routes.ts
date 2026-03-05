@@ -36,4 +36,16 @@ router.get('/pos/cupom', authenticateToken, DVRCFTVController.getCupom);
 // Servir clipe MP4 já gerado (aceita token via query param para <video>)
 router.get('/pos/stream/:filename', authenticateTokenOrQuery, DVRCFTVController.streamClip);
 
+// Streaming RTSP direto do DVR (aceita token via query param para <video>)
+router.get('/pos/live-stream', authenticateTokenOrQuery, DVRCFTVController.liveStream);
+
+// Configuração de canais DVR
+router.get('/config/canais', authenticateToken, DVRCFTVController.getCanais);
+
+// Testar conexão com o DVR
+router.post('/test-connection', authenticateToken, DVRCFTVController.testConnection);
+
+// Detectar canais do DVR automaticamente
+router.post('/detect-channels', authenticateToken, DVRCFTVController.detectChannels);
+
 export default router;

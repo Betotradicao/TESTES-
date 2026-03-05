@@ -13,6 +13,7 @@ import EmailMonitorTab from '../components/configuracoes/EmailMonitorTab';
 import CronMonitorTab from '../components/configuracoes/CronMonitorTab';
 import BarcodeInstallerTab from '../components/configuracoes/BarcodeInstallerTab';
 import CadastroBancarioTab from '../components/configuracoes/CadastroBancarioTab';
+import DVRCFTVTab from '../components/configuracoes/DVRCFTVTab';
 
 export default function ConfiguracoesRede() {
   const { user, logout } = useAuth();
@@ -33,7 +34,7 @@ export default function ConfiguracoesRede() {
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && (tabFromUrl === 'modulos' || tabFromUrl === 'empresa' || tabFromUrl === 'apis' || tabFromUrl === 'whatsapp-groups' || tabFromUrl === 'security' || tabFromUrl === 'email' || tabFromUrl === 'email-monitor' || tabFromUrl === 'cron-monitor' || tabFromUrl === 'barcode-installer' || tabFromUrl === 'cadastro-bancario')) {
+    if (tabFromUrl && (tabFromUrl === 'modulos' || tabFromUrl === 'empresa' || tabFromUrl === 'apis' || tabFromUrl === 'whatsapp-groups' || tabFromUrl === 'security' || tabFromUrl === 'email' || tabFromUrl === 'email-monitor' || tabFromUrl === 'cron-monitor' || tabFromUrl === 'barcode-installer' || tabFromUrl === 'cadastro-bancario' || tabFromUrl === 'dvr-cftv')) {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -108,6 +109,7 @@ export default function ConfiguracoesRede() {
             {activeTab === 'cron-monitor' && <CronMonitorTab />}
             {activeTab === 'barcode-installer' && <BarcodeInstallerTab />}
             {activeTab === 'cadastro-bancario' && <CadastroBancarioTab />}
+            {activeTab === 'dvr-cftv' && <DVRCFTVTab />}
           </div>
         </div>
       </div>

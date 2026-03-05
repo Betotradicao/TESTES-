@@ -12,7 +12,8 @@ export class DVRCFTVController {
     try {
       const { text, channel, start, end } = req.query;
 
-      const ch = parseInt(channel as string) || 3;
+      const canalConfig = await DVRCFTVService.getCanaisConfig();
+      const ch = channel !== undefined ? parseInt(channel as string) : canalConfig.canalPadrao;
       const startTime = (start as string) || new Date().toISOString().slice(0, 10) + ' 00:00:00';
       const endTime = (end as string) || new Date().toISOString().slice(0, 10) + ' 23:59:59';
 
@@ -41,8 +42,9 @@ export class DVRCFTVController {
         return res.status(400).json({ error: 'Parâmetro "time" é obrigatório' });
       }
 
-      const ch = parseInt(channel as string) || 3;
-      const dur = parseInt(duration as string) || 15;
+      const canalConfig2 = await DVRCFTVService.getCanaisConfig();
+      const ch = channel !== undefined ? parseInt(channel as string) : canalConfig2.canalPadrao;
+      const dur = parseInt(duration as string) || 60;
 
       // Limpar clipes antigos
       DVRCFTVService.cleanOldClips().catch(() => {});
@@ -71,12 +73,11 @@ export class DVRCFTVController {
         return res.status(400).json({ error: 'Parâmetro "time" é obrigatório' });
       }
 
-      const ch = parseInt(channel as string) || 3;
-      // Canal DVR (0-based) + 1 = PDV number
-      const pdv = ch + 1;
+      const canalConfig3 = await DVRCFTVService.getCanaisConfig();
+      const ch = channel !== undefined ? parseInt(channel as string) : canalConfig3.canalPadrao;
 
-      console.log(`[DVR] getCupom: time="${time}", channel=${ch}, pdv=${pdv}`);
-      const cupom = await DVRCFTVService.getCupomByTime(time as string, pdv);
+      console.log(`[DVR] getCupom: time="${time}", channel=${ch}`);
+      const cupom = await DVRCFTVService.getCupomByTime(time as string, ch);
 
       if (!cupom) {
         return res.json({ success: true, found: false, message: 'Nenhum cupom encontrado neste horário' });
@@ -135,6 +136,101 @@ export class DVRCFTVController {
     } catch (error: any) {
       console.error('Erro ao servir clipe:', error.message);
       res.status(500).json({ error: 'Erro ao servir clipe', details: error.message });
+    }
+  }
+
+  /**
+   * Streaming RTSP direto do DVR → fragmented MP4
+   * GET /api/dvr-cftv/pos/live-stream?channel=3&time=2026-03-05 08:15:00
+   */
+  static async liveStream(req: Request, res: Response) {
+    try {
+      const { channel, time } = req.query;
+
+      if (!time) {
+        return res.status(400).json({ error: 'Parâmetro "time" é obrigatório' });
+      }
+
+      const canalConfig4 = await DVRCFTVService.getCanaisConfig();
+      const ch = channel !== undefined ? parseInt(channel as string) : canalConfig4.canalPadrao;
+
+      console.log(`[DVR] Live stream: canal=${ch}, time=${time}`);
+
+      const ffmpegProc = await DVRCFTVService.startRTSPStream(ch, time as string);
+
+      if (!ffmpegProc.stdout) {
+        return res.status(500).json({ error: 'Falha ao iniciar stream' });
+      }
+
+      // Headers para streaming MP4
+      res.setHeader('Content-Type', 'video/mp4');
+      res.setHeader('Cache-Control', 'no-cache, no-store');
+      res.setHeader('Connection', 'keep-alive');
+
+      // Pipe ffmpeg stdout → HTTP response
+      ffmpegProc.stdout.pipe(res);
+
+      // Quando o cliente desconectar, matar o ffmpeg
+      res.on('close', () => {
+        console.log('[DVR] Client disconnected, killing ffmpeg stream');
+        ffmpegProc.kill('SIGKILL');
+      });
+
+      // Quando ffmpeg terminar, finalizar response
+      ffmpegProc.on('close', (code) => {
+        console.log(`[DVR] ffmpeg stream ended (code ${code})`);
+        if (!res.writableEnded) {
+          res.end();
+        }
+      });
+
+    } catch (error: any) {
+      console.error('Erro ao iniciar live stream:', error.message);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Erro ao iniciar stream', details: error.message });
+      }
+    }
+  }
+
+  /**
+   * Retorna canais configurados e canal padrão
+   * GET /api/dvr-cftv/config/canais
+   */
+  static async getCanais(req: Request, res: Response) {
+    try {
+      const data = await DVRCFTVService.getCanaisConfig();
+      res.json({ success: true, ...data });
+    } catch (error: any) {
+      console.error('Erro ao buscar canais:', error.message);
+      res.status(500).json({ error: 'Erro ao buscar configuração de canais', details: error.message });
+    }
+  }
+
+  /**
+   * Testar conexão com o DVR
+   * POST /api/dvr-cftv/test-connection
+   */
+  static async testConnection(req: Request, res: Response) {
+    try {
+      const result = await DVRCFTVService.testConnection();
+      res.json(result);
+    } catch (error: any) {
+      console.error('Erro ao testar conexão DVR:', error.message);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  /**
+   * Detectar canais do DVR automaticamente via RPC2
+   * POST /api/dvr-cftv/detect-channels
+   */
+  static async detectChannels(req: Request, res: Response) {
+    try {
+      const result = await DVRCFTVService.detectChannels();
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error('Erro ao detectar canais DVR:', error.message);
+      res.status(500).json({ success: false, error: error.message });
     }
   }
 }

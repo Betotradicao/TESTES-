@@ -1,14 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { searchPOS, generateClip, getClipStreamUrl, getCupom } from '../services/dvr-cftv.service';
-
-const CANAIS = [
-  { value: 3, label: 'Canal 4 - PDV 4' },
-  { value: 0, label: 'Canal 1 - PDV 1' },
-  { value: 1, label: 'Canal 2 - PDV 2' },
-  { value: 2, label: 'Canal 3 - PDV 3' },
-  { value: 4, label: 'Canal 5 - PDV 5' },
-];
+import { searchPOS, getLiveStreamUrl, getCupom, getCanaisConfig } from '../services/dvr-cftv.service';
 
 const PERIODOS = [
   { value: 'hoje', label: 'Hoje' },
@@ -47,8 +39,9 @@ function getDateRange(periodo) {
 const formatCurrency = (v) => v == null ? '-' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export default function VisionPDV() {
+  const [canais, setCanais] = useState([]);
   const [text, setText] = useState('');
-  const [channel, setChannel] = useState(3);
+  const [channel, setChannel] = useState(0);
   const [periodo, setPeriodo] = useState('hoje');
   const [startDate, setStartDate] = useState(formatDate(new Date()));
   const [startTime, setStartTime] = useState('00:00');
@@ -65,6 +58,18 @@ export default function VisionPDV() {
   const [loadingCupom, setLoadingCupom] = useState(null);
   const [showCupom, setShowCupom] = useState(false);
   const videoRef = useRef(null);
+
+  // Carregar canais configurados do backend
+  useEffect(() => {
+    getCanaisConfig()
+      .then(data => {
+        if (data.canais && data.canais.length > 0) {
+          setCanais(data.canais.map(c => ({ value: c.channel, label: c.label })));
+          setChannel(data.canalPadrao ?? data.canais[0].channel);
+        }
+      })
+      .catch(err => console.error('Erro ao carregar canais:', err));
+  }, []);
 
   const handleSearch = async () => {
     setError('');
@@ -106,13 +111,26 @@ export default function VisionPDV() {
     setVideoTime(item.Time);
     setError('');
     try {
-      const result = await generateClip(item.Channel, item.Time, 15);
-      const url = getClipStreamUrl(result.filename);
+      // Streaming direto do DVR (sem esperar gerar clipe)
+      const url = getLiveStreamUrl(item.Channel, item.Time);
       setVideoUrl(url);
     } catch (err) {
-      setError('Erro ao gerar vídeo: ' + (err.response?.data?.error || err.message));
+      setError('Erro ao iniciar vídeo: ' + (err.response?.data?.error || err.message));
     } finally {
       setLoadingClip(null);
+    }
+
+    // Abrir cupom fiscal automaticamente junto com o vídeo
+    setCupomData(null);
+    setShowCupom(true);
+    setLoadingCupom(item.ID);
+    try {
+      const data = await getCupom(item.Channel, item.Time);
+      setCupomData(data);
+    } catch (err) {
+      setCupomData({ found: false, message: 'Erro ao buscar cupom' });
+    } finally {
+      setLoadingCupom(null);
     }
   };
 
@@ -132,7 +150,7 @@ export default function VisionPDV() {
   };
 
   const canalLabel = (ch) => {
-    const c = CANAIS.find(c => String(c.value) === String(ch));
+    const c = canais.find(c => String(c.value) === String(ch));
     return c ? c.label.split(' - ')[0] : `Canal ${parseInt(ch) + 1}`;
   };
 
@@ -173,7 +191,7 @@ export default function VisionPDV() {
                 onChange={(e) => setChannel(parseInt(e.target.value))}
                 className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               >
-                {CANAIS.map(c => (
+                {canais.map(c => (
                   <option key={c.value} value={c.value}>{c.label}</option>
                 ))}
               </select>

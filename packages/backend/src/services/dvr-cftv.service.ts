@@ -2,13 +2,12 @@ import * as http from 'http';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 import { AppDataSource } from '../config/database';
 import { Configuration } from '../entities/Configuration';
 import { OracleService } from './oracle.service';
+import { MappingService } from './mapping.service';
 
-const execPromise = promisify(exec);
 
 interface DVRSession {
   sessionId: string;
@@ -46,16 +45,90 @@ export class DVRCFTVService {
       where: [
         { key: 'dvr_ip' },
         { key: 'dvr_usuario' },
-        { key: 'dvr_senha' }
+        { key: 'dvr_senha' },
+        { key: 'dvr_porta_rtsp' },
+        { key: 'dvr_canais' },
+        { key: 'dvr_canal_padrao' },
+        { key: 'dvr_antecedencia_segundos' }
       ]
     });
     const map: Record<string, string> = {};
     configs.forEach(c => { map[c.key] = c.value || ''; });
+
+    // Parse canais JSON
+    let canais: { channel: number; pdv: number; label: string }[] = [];
+    try {
+      if (map.dvr_canais) canais = JSON.parse(map.dvr_canais);
+    } catch { /* ignore */ }
+
     return {
-      ip: map.dvr_ip || '10.6.1.123',
+      ip: map.dvr_ip || '',
       user: map.dvr_usuario || 'admin',
-      pass: map.dvr_senha || ''
+      pass: map.dvr_senha || '',
+      rtspPort: map.dvr_porta_rtsp || '554',
+      canais,
+      canalPadrao: parseInt(map.dvr_canal_padrao || '0'),
+      antecedenciaSegundos: parseInt(map.dvr_antecedencia_segundos || '15')
     };
+  }
+
+  /**
+   * Converte channel DVR para número do PDV usando mapeamento configurado
+   */
+  private static channelToPdv(config: Awaited<ReturnType<typeof DVRCFTVService.getConfig>>, channel: number): number {
+    const entry = config.canais.find(c => c.channel === channel);
+    if (entry) return entry.pdv;
+    // Fallback: channel + 1
+    return channel + 1;
+  }
+
+  /**
+   * Converte channel DVR para canal RTSP (1-based)
+   */
+  private static channelToRtsp(channel: number): number {
+    return channel + 1;
+  }
+
+  /**
+   * Buscar finalizadoras do Oracle (com cache)
+   */
+  private static finalizadoraCache: Record<number, string> | null = null;
+  private static finalizadoraCacheTime = 0;
+
+  private static async getFinalizadoraMap(): Promise<Record<number, string>> {
+    // Cache por 10 minutos
+    if (this.finalizadoraCache && (Date.now() - this.finalizadoraCacheTime) < 10 * 60 * 1000) {
+      return this.finalizadoraCache;
+    }
+    try {
+      const schema = await MappingService.getSchema();
+      const sql = `SELECT COD_FINALIZADORA, DES_FINALIZADORA FROM ${schema}.TAB_FINALIZADORA ORDER BY COD_FINALIZADORA`;
+      const rows: any[] = await OracleService.query(sql, {});
+      const map: Record<number, string> = {};
+      for (const row of rows) {
+        map[row.COD_FINALIZADORA] = (row.DES_FINALIZADORA || '').trim().toUpperCase();
+      }
+      this.finalizadoraCache = map;
+      this.finalizadoraCacheTime = Date.now();
+      console.log(`[DVR] Finalizadoras carregadas do Oracle: ${Object.keys(map).length} itens`);
+      return map;
+    } catch (e: any) {
+      console.error('[DVR] Erro ao carregar finalizadoras:', e.message);
+      // Retorna mapa vazio se falhar
+      return {};
+    }
+  }
+
+  /**
+   * Encontra o código da finalizadora pelo nome (parcial)
+   */
+  private static async findFinalizadoraCod(keyword: string): Promise<number | null> {
+    const map = await this.getFinalizadoraMap();
+    const upper = keyword.toUpperCase();
+    for (const [cod, desc] of Object.entries(map)) {
+      if (desc.includes(upper)) return Number(cod);
+    }
+    return null;
   }
 
   /**
@@ -159,15 +232,21 @@ export class DVRCFTVService {
 
     const items: POSSearchResult[] = results.params?.info || [];
 
+    // Debug: ver formato exato do Time retornado pelo DVR
+    if (items.length > 0) {
+      console.log(`[DVR] Primeiro item raw:`, JSON.stringify(items[0]));
+      console.log(`[DVR] Primeiros 3 Times:`, items.slice(0, 3).map(i => i.Time));
+    }
+
     // Enriquecer com número do cupom do Oracle e filtrar por texto
     try {
-      const pdv = channel + 1;
+      const pdv = this.channelToPdv(config, channel);
       const enriched = await this.enrichWithCupomNumbers(items, pdv);
 
       // Se tem texto de busca, filtrar via Oracle (DVR não filtra por texto)
       if (text && text.trim()) {
         const oracleResults = await this.searchByOracleText(pdv, startTime, endTime, text.trim(), channel);
-        // Enriquecer resultados Oracle com cupom do DVR quando disponível
+        // Enriquecer resultados Oracle com dados do DVR (ID + Time exato com segundos)
         const dvrTimeMap: Record<string, POSSearchResult> = {};
         for (const item of enriched) {
           if (item.Time) {
@@ -175,11 +254,11 @@ export class DVRCFTVService {
             if (hm && !dvrTimeMap[hm]) dvrTimeMap[hm] = item;
           }
         }
-        // Marcar quais resultados Oracle têm vídeo DVR correspondente
         for (const item of oracleResults) {
           const hm = item.Time?.split(' ')[1]?.substring(0, 5);
           if (hm && dvrTimeMap[hm]) {
             item.ID = dvrTimeMap[hm].ID; // usar ID do DVR para gerar vídeo
+            item.Time = dvrTimeMap[hm].Time; // usar Time do DVR (com segundos exatos)
           }
         }
         return { total: oracleResults.length, items: oracleResults };
@@ -201,24 +280,22 @@ export class DVRCFTVService {
     const dateStr = `${day}/${month}/${year}`;
     const textUpper = text.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-    // Palavras-chave especiais
-    const KEYWORDS: Record<string, string> = {
-      'CANCELAMENTO': 'cancelado',
-      'CANCELADO': 'cancelado',
-      'CANCEL': 'cancelado',
-      'DESCONTO': 'desconto',
-      'DINHEIRO': 'fin_1',
-      'PIX': 'fin_15',
-      'CREDITO': 'fin_6',
-      'CARTAO CREDITO': 'fin_6',
-      'DEBITO': 'fin_7',
-      'CARTAO DEBITO': 'fin_7',
-      'FUNCIONARIO': 'fin_4',
-      'VALE TROCA': 'fin_8',
-      'VALE COMPRA': 'fin_9',
-    };
+    const schema = await MappingService.getSchema();
 
-    const keyword = KEYWORDS[textUpper];
+    // Palavras-chave especiais - buscar finalizadoras dinamicamente
+    let keyword = '';
+    if (['CANCELAMENTO', 'CANCELADO', 'CANCEL'].includes(textUpper)) {
+      keyword = 'cancelado';
+    } else if (textUpper === 'DESCONTO') {
+      keyword = 'desconto';
+    } else {
+      // Tentar encontrar finalizadora pelo nome
+      const codFin = await this.findFinalizadoraCod(textUpper);
+      if (codFin !== null) {
+        keyword = `fin_${codFin}`;
+      }
+    }
+
     let whereExtra = '';
     let params: any = { dateStr, pdv };
 
@@ -226,10 +303,10 @@ export class DVRCFTVService {
       whereExtra = `AND p.FLG_CUPOM_CANCELADO = 'S'`;
     } else if (keyword === 'desconto') {
       whereExtra = `AND p.VAL_DESCONTO > 0`;
-    } else if (keyword?.startsWith('fin_')) {
+    } else if (keyword.startsWith('fin_')) {
       const codFin = parseInt(keyword.split('_')[1]);
       whereExtra = `AND EXISTS (
-        SELECT 1 FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
+        SELECT 1 FROM ${schema}.TAB_CUPOM_FINALIZADORA cf
         WHERE cf.DTA_VENDA = p.DTA_SAIDA AND cf.NUM_PDV = p.NUM_PDV
           AND cf.NUM_CUPOM_FISCAL = p.NUM_CUPOM_FISCAL AND cf.COD_FINALIZADORA = :codFin
       )`;
@@ -242,8 +319,8 @@ export class DVRCFTVService {
     const sql = `
       SELECT DISTINCT p.NUM_CUPOM_FISCAL, TO_CHAR(p.TIM_HORA, 'HH24:MI:SS') HORA,
              TO_CHAR(p.DTA_SAIDA, 'YYYY-MM-DD') DTA
-      FROM INTERSOLID.TAB_PRODUTO_PDV p
-      LEFT JOIN INTERSOLID.TAB_PRODUTO pr ON p.COD_PRODUTO = pr.COD_PRODUTO
+      FROM ${schema}.TAB_PRODUTO_PDV p
+      LEFT JOIN ${schema}.TAB_PRODUTO pr ON p.COD_PRODUTO = pr.COD_PRODUTO
       WHERE p.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
         AND p.NUM_PDV = :pdv
         AND p.NUM_CUPOM_FISCAL > 0
@@ -290,9 +367,10 @@ export class DVRCFTVService {
     const dateStr = `${day}/${month}/${year}`;
 
     // Buscar todos os cupons do período no Oracle (agrupados por hora:minuto)
+    const schema = await MappingService.getSchema();
     const sql = `
       SELECT DISTINCT NUM_CUPOM_FISCAL, TO_CHAR(TIM_HORA, 'HH24:MI:SS') HORA
-      FROM INTERSOLID.TAB_PRODUTO_PDV
+      FROM ${schema}.TAB_PRODUTO_PDV
       WHERE DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
         AND NUM_PDV = :pdv
         AND NUM_CUPOM_FISCAL > 0
@@ -329,8 +407,10 @@ export class DVRCFTVService {
   /**
    * Buscar itens do cupom no Oracle pelo timestamp da transação DVR
    */
-  static async getCupomByTime(time: string, pdv: number): Promise<any> {
+  static async getCupomByTime(time: string, channel: number): Promise<any> {
     try {
+      const config = await this.getConfig();
+      const pdv = this.channelToPdv(config, channel);
       // time = "2026-03-04 17:24:12"
       const [datePart, timePart] = time.split(' ');
       const [year, month, day] = datePart.split('-');
@@ -342,14 +422,15 @@ export class DVRCFTVService {
       const minAfter = parseInt(minute) < 59 ? parseInt(minute) + 1 : 59;
       const hourPad = hour.padStart(2, '0');
 
+      const schema = await MappingService.getSchema();
       const sql = `
         SELECT p.NUM_CUPOM_FISCAL, TO_CHAR(p.TIM_HORA, 'HH24:MI:SS') HORA,
                p.COD_PRODUTO, pr.DES_PRODUTO, p.QTD_TOTAL_PRODUTO QTD,
                p.VAL_PRECO_VENDA UNITARIO, p.VAL_TOTAL_PRODUTO TOTAL,
                p.VAL_DESCONTO, p.FLG_CUPOM_CANCELADO,
                p.COD_ENTIDADE, p.NUM_SEQ_ITEM
-        FROM INTERSOLID.TAB_PRODUTO_PDV p
-        LEFT JOIN INTERSOLID.TAB_PRODUTO pr ON p.COD_PRODUTO = pr.COD_PRODUTO
+        FROM ${schema}.TAB_PRODUTO_PDV p
+        LEFT JOIN ${schema}.TAB_PRODUTO pr ON p.COD_PRODUTO = pr.COD_PRODUTO
         WHERE p.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
           AND p.NUM_PDV = :pdv
           AND TO_CHAR(p.TIM_HORA, 'HH24') = :hour
@@ -400,7 +481,7 @@ export class DVRCFTVService {
       let nomeOperador = '';
       if (codOperador) {
         try {
-          const sqlOp = `SELECT NOM_OPERADOR FROM INTERSOLID.TAB_OPERADORES WHERE COD_OPERADOR = :cod`;
+          const sqlOp = `SELECT NOM_OPERADOR FROM ${schema}.TAB_OPERADORES WHERE COD_OPERADOR = :cod`;
           const opRows: any[] = await OracleService.query(sqlOp, { cod: codOperador });
           if (opRows && opRows.length > 0) {
             nomeOperador = (opRows[0].NOM_OPERADOR || '').trim();
@@ -411,19 +492,15 @@ export class DVRCFTVService {
       }
       const cancelado = cupomRows[0]?.FLG_CUPOM_CANCELADO === 'S';
 
-      // Buscar forma de pagamento (finalizadoras)
-      const FINALIZADORA_MAP: Record<number, string> = {
-        1: 'DINHEIRO', 4: 'FUNCIONÁRIO', 5: 'CARTÃO POS',
-        6: 'CARTÃO CRÉDITO', 7: 'CARTÃO DÉBITO', 15: 'PIX',
-        8: 'VALE TROCA', 9: 'VALE COMPRA', 10: 'CONVÊNIO',
-      };
+      // Buscar forma de pagamento (finalizadoras dinâmicas do Oracle)
+      const finalizadoraMap = await this.getFinalizadoraMap();
       let formaPgto = '';
       let valorRecebido = 0;
       let valorTroco = 0;
       try {
         const sqlFin = `
           SELECT COD_FINALIZADORA, VAL_RECEBIDO, VAL_TROCO
-          FROM INTERSOLID.TAB_CUPOM_FINALIZADORA
+          FROM ${schema}.TAB_CUPOM_FINALIZADORA
           WHERE DTA_VENDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
             AND NUM_PDV = :pdv
             AND NUM_CUPOM_FISCAL = :cupomNum
@@ -431,7 +508,7 @@ export class DVRCFTVService {
         const finRows: any[] = await OracleService.query(sqlFin, { dateStr, pdv, cupomNum });
         if (finRows && finRows.length > 0) {
           const formas = finRows.map((f: any) => {
-            const nome = FINALIZADORA_MAP[f.COD_FINALIZADORA] || `COD ${f.COD_FINALIZADORA}`;
+            const nome = finalizadoraMap[f.COD_FINALIZADORA] || `COD ${f.COD_FINALIZADORA}`;
             return `${nome} (R$ ${(Number(f.VAL_RECEBIDO) || 0).toFixed(2)})`;
           });
           formaPgto = formas.join(', ');
@@ -466,9 +543,60 @@ export class DVRCFTVService {
   }
 
   /**
+   * Consultar Oracle para descobrir duração real do cupom (primeiro ao último item)
+   */
+  static async getCupomTimeRange(time: string, channel: number): Promise<{ start: string; end: string; durationSec: number } | null> {
+    try {
+      const config = await this.getConfig();
+      const pdv = this.channelToPdv(config, channel);
+      const [datePart, timePart] = time.split(' ');
+      const [year, month, day] = datePart.split('-');
+      const [hour, minute] = timePart.split(':');
+      const dateStr = `${day}/${month}/${year}`;
+      const minBefore = parseInt(minute) > 0 ? parseInt(minute) - 1 : 0;
+      const minAfter = parseInt(minute) < 59 ? parseInt(minute) + 1 : 59;
+
+      const schema = await MappingService.getSchema();
+      const sql = `
+        SELECT NUM_CUPOM_FISCAL,
+               TO_CHAR(MIN(TIM_HORA), 'HH24:MI:SS') HORA_INICIO,
+               TO_CHAR(MAX(TIM_HORA), 'HH24:MI:SS') HORA_FIM,
+               (CAST(MAX(TIM_HORA) AS DATE) - CAST(MIN(TIM_HORA) AS DATE)) * 86400 DURACAO_SEG
+        FROM ${schema}.TAB_PRODUTO_PDV
+        WHERE DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
+          AND NUM_PDV = :pdv
+          AND TO_CHAR(TIM_HORA, 'HH24') = :hour
+          AND TO_NUMBER(TO_CHAR(TIM_HORA, 'MI')) BETWEEN :minBefore AND :minAfter
+          AND NUM_CUPOM_FISCAL > 0
+        GROUP BY NUM_CUPOM_FISCAL
+        ORDER BY NUM_CUPOM_FISCAL
+        FETCH FIRST 1 ROWS ONLY
+      `;
+
+      const rows: any[] = await OracleService.query(sql, {
+        dateStr, pdv, hour: hour.padStart(2, '0'), minBefore, minAfter
+      });
+
+      if (rows && rows.length > 0) {
+        const row = rows[0];
+        const duracaoSeg = Math.max(Number(row.DURACAO_SEG) || 0, 30); // mínimo 30s
+        console.log(`[DVR] Cupom ${row.NUM_CUPOM_FISCAL}: início=${row.HORA_INICIO}, fim=${row.HORA_FIM}, duração=${duracaoSeg}s`);
+        return {
+          start: `${datePart} ${row.HORA_INICIO}`,
+          end: `${datePart} ${row.HORA_FIM}`,
+          durationSec: duracaoSeg
+        };
+      }
+    } catch (e: any) {
+      console.log('[DVR] Não conseguiu buscar range do cupom:', e.message);
+    }
+    return null;
+  }
+
+  /**
    * Gerar clipe MP4 via RTSP/ffmpeg
    */
-  static async generateClip(channel: number, time: string, duration: number = 30): Promise<string> {
+  static async generateClip(channel: number, time: string, duration?: number): Promise<string> {
     const config = await this.getConfig();
 
     // Criar diretório para clipes
@@ -477,11 +605,12 @@ export class DVRCFTVService {
       fs.mkdirSync(clipsDir, { recursive: true });
     }
 
-    // Calcular startTime (15 seg antes) e endTime (15 seg depois)
+    // Usar o horário do DVR diretamente (relógio do DVR = relógio do RTSP)
+    // Começar a partir do Time do evento DVR e gravar 90s
     const transactionDate = new Date(time.replace(' ', 'T'));
-    const halfDuration = Math.floor(duration / 2);
-    const start = new Date(transactionDate.getTime() - halfDuration * 1000);
-    const end = new Date(transactionDate.getTime() + halfDuration * 1000);
+    const clipDuration = duration || 90;
+    const start = transactionDate;
+    const end = new Date(transactionDate.getTime() + clipDuration * 1000);
 
     const formatRTSP = (d: Date) => {
       const pad = (n: number) => String(n).padStart(2, '0');
@@ -489,27 +618,116 @@ export class DVRCFTVService {
     };
 
     // Canal DVR = channel + 1 (API usa 0-based, RTSP usa 1-based)
-    const dvrChannel = channel + 1;
+    const dvrChannel = this.channelToRtsp(channel);
     const passEncoded = encodeURIComponent(config.pass);
-    const rtspUrl = `rtsp://${config.user}:${passEncoded}@${config.ip}:554/cam/playback?channel=${dvrChannel}&starttime=${formatRTSP(start)}&endtime=${formatRTSP(end)}`;
+    const rtspUrl = `rtsp://${config.user}:${passEncoded}@${config.ip}:${config.rtspPort}/cam/playback?channel=${dvrChannel}&starttime=${formatRTSP(start)}&endtime=${formatRTSP(end)}`;
 
     // Nome único para o arquivo
     const filename = `clip_ch${dvrChannel}_${Date.now()}.mp4`;
     const outputPath = path.join(clipsDir, filename);
 
-    // ffmpeg: converter RTSP para MP4 (resolução reduzida para streaming rápido)
-    const cmd = `ffmpeg -y -rtsp_transport tcp -i "${rtspUrl}" -t ${duration} -c:v libx264 -preset ultrafast -crf 28 -vf scale=704:480 -movflags +faststart -an "${outputPath}"`;
+    console.log(`[DVR] Generating clip: channel=${dvrChannel}, start=${formatRTSP(start)}, end=${formatRTSP(end)}, duration=${clipDuration}s`);
 
-    try {
-      await execPromise(cmd, { timeout: 90000 });
-    } catch (error: any) {
-      // ffmpeg pode retornar exit code != 0 mas gerar arquivo válido
-      if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size < 1000) {
-        throw new Error('Falha ao gerar clipe de vídeo: ' + error.message);
-      }
-    }
+    // ffmpeg: converter RTSP para MP4
+    const ffmpegArgs = [
+      '-y', '-rtsp_transport', 'tcp',
+      '-i', rtspUrl,
+      '-t', String(clipDuration),
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28',
+      '-vf', 'scale=704:480',
+      '-movflags', '+faststart',
+      '-an', outputPath
+    ];
+
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn('ffmpeg', ffmpegArgs, {
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
+
+      let stderrData = '';
+      proc.stderr.on('data', (data: Buffer) => {
+        stderrData += data.toString();
+      });
+
+      const timeout = setTimeout(() => {
+        proc.kill('SIGKILL');
+        console.log(`[DVR] ffmpeg stderr (timeout):\n${stderrData.slice(-500)}`);
+        reject(new Error('ffmpeg timeout'));
+      }, 180000);
+
+      proc.on('close', (code) => {
+        clearTimeout(timeout);
+        console.log(`[DVR] ffmpeg exit code: ${code}`);
+        console.log(`[DVR] ffmpeg stderr (last 500 chars):\n${stderrData.slice(-500)}`);
+        if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 1000) {
+          const sizeMB = (fs.statSync(outputPath).size / 1024 / 1024).toFixed(2);
+          console.log(`[DVR] Clip generated: ${filename} (${sizeMB}MB)`);
+          resolve();
+        } else if (code !== 0) {
+          reject(new Error(`ffmpeg exit code ${code}`));
+        } else {
+          resolve();
+        }
+      });
+
+      proc.on('error', (err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+    });
 
     return filename;
+  }
+
+  /**
+   * Streaming RTSP → fragmented MP4 direto (sem salvar arquivo)
+   * Retorna o ChildProcess do ffmpeg para pipe no response HTTP
+   */
+  static async startRTSPStream(channel: number, time: string): Promise<import('child_process').ChildProcess> {
+    const config = await this.getConfig();
+
+    const transactionDate = new Date(time.replace(' ', 'T'));
+    // Começar N segundos antes do evento POS (configurável por cliente)
+    const start = new Date(transactionDate.getTime() - config.antecedenciaSegundos * 1000);
+    // Janela larga: 5 minutos (o usuário controla no player)
+    const end = new Date(start.getTime() + 5 * 60 * 1000);
+
+    const formatRTSP = (d: Date) => {
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}_${pad(d.getMonth() + 1)}_${pad(d.getDate())}_${pad(d.getHours())}_${pad(d.getMinutes())}_${pad(d.getSeconds())}`;
+    };
+
+    const dvrChannel = this.channelToRtsp(channel);
+    const passEncoded = encodeURIComponent(config.pass);
+    const rtspUrl = `rtsp://${config.user}:${passEncoded}@${config.ip}:${config.rtspPort}/cam/playback?channel=${dvrChannel}&starttime=${formatRTSP(start)}&endtime=${formatRTSP(end)}`;
+
+    console.log(`[DVR] Stream: channel=${dvrChannel}, start=${formatRTSP(start)}, end=${formatRTSP(end)}`);
+
+    // ffmpeg: RTSP → fragmented MP4 no stdout (streaming progressivo)
+    const proc = spawn('ffmpeg', [
+      '-rtsp_transport', 'tcp',
+      '-i', rtspUrl,
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-tune', 'zerolatency',
+      '-crf', '28', '-vf', 'scale=704:480',
+      '-movflags', 'frag_keyframe+empty_moov+faststart',
+      '-f', 'mp4',
+      '-an',
+      'pipe:1'
+    ], {
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    proc.stderr.on('data', (data: Buffer) => {
+      // Log apenas erros reais, ignorar progresso
+      const msg = data.toString();
+      if (msg.includes('error') || msg.includes('Error')) {
+        console.error(`[DVR] ffmpeg stream error: ${msg.slice(0, 200)}`);
+      }
+    });
+
+    return proc;
   }
 
   /**
@@ -517,6 +735,92 @@ export class DVRCFTVService {
    */
   static getClipPath(filename: string): string {
     return path.join(__dirname, '../../uploads/dvr-clips', filename);
+  }
+
+  /**
+   * Retorna canais configurados e canal padrão
+   */
+  static async getCanaisConfig(): Promise<{ canais: { channel: number; pdv: number; label: string }[]; canalPadrao: number }> {
+    const config = await this.getConfig();
+    return { canais: config.canais, canalPadrao: config.canalPadrao };
+  }
+
+  /**
+   * Testa conexão RPC2 com o DVR
+   */
+  static async testConnection(): Promise<{ success: boolean; message: string }> {
+    try {
+      const config = await this.getConfig();
+      if (!config.ip) {
+        return { success: false, message: 'IP do DVR não configurado' };
+      }
+      // Invalidar sessão para forçar novo login
+      this.session = null;
+      const sessionId = await this.login();
+      return { success: true, message: `Conectado com sucesso (sessão: ${sessionId.substring(0, 8)}...)` };
+    } catch (e: any) {
+      return { success: false, message: e.message || 'Falha na conexão' };
+    }
+  }
+
+  /**
+   * Detectar canais do DVR via RPC2
+   * Consulta configManager.getConfig para obter títulos dos canais e quantidade de entradas de vídeo
+   */
+  static async detectChannels(): Promise<{ canais: { channel: number; pdv: number; label: string }[] }> {
+    const config = await this.getConfig();
+    if (!config.ip) {
+      throw new Error('IP do DVR não configurado');
+    }
+
+    const sessionId = await this.login();
+
+    // Buscar títulos dos canais
+    let titles: string[] = [];
+    try {
+      const titleResult = await this.rpcCall(config.ip, '/RPC2', sessionId, 'configManager.getConfig', {
+        name: 'ChannelTitle'
+      }, 20);
+      if (titleResult.params?.table) {
+        titles = titleResult.params.table.map((t: any) => t.Name || '');
+      }
+    } catch (e: any) {
+      console.log('[DVR] Não conseguiu buscar ChannelTitle:', e.message);
+    }
+
+    // Buscar quantidade de canais de vídeo
+    let videoInputCount = 0;
+    try {
+      const capsResult = await this.rpcCall(config.ip, '/RPC2', sessionId, 'magicBox.getDeviceType', {}, 21);
+      console.log('[DVR] DeviceType:', JSON.stringify(capsResult));
+    } catch { /* ignore */ }
+
+    try {
+      const sysInfo = await this.rpcCall(config.ip, '/RPC2', sessionId, 'magicBox.getProductDefinition', {}, 22);
+      if (sysInfo.params?.VideoInChannel) {
+        videoInputCount = sysInfo.params.VideoInChannel;
+      }
+      console.log('[DVR] VideoInChannel:', videoInputCount);
+    } catch (e: any) {
+      console.log('[DVR] Não conseguiu buscar ProductDefinition:', e.message);
+    }
+
+    // Se não conseguiu pelo ProductDefinition, usar os títulos
+    const count = videoInputCount || titles.length || 16;
+    const canais: { channel: number; pdv: number; label: string }[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const title = titles[i] || '';
+      const label = title ? `Canal ${i + 1} - ${title}` : `Canal ${i + 1} - PDV ${i + 1}`;
+      canais.push({
+        channel: i,
+        pdv: i + 1,
+        label
+      });
+    }
+
+    console.log(`[DVR] Detectados ${canais.length} canais`);
+    return { canais };
   }
 
   /**

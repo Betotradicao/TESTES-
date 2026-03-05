@@ -10,7 +10,8 @@ export default function TabsNavigation({ activeTab, onChange, pageType = 'config
     { id: 'empresa', label: 'Empresa' },
     { id: 'modulos', label: 'Módulos' },
     { id: 'barcode-installer', label: 'Instalador Scanner' },
-    { id: 'cadastro-bancario', label: 'Cadastro Bancário' }
+    { id: 'cadastro-bancario', label: 'Cadastro Bancário' },
+    { id: 'dvr-cftv', label: 'DVR / CFTV' }
   ];
 
   // Abas para Configurações normais
