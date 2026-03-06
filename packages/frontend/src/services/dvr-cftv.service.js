@@ -40,6 +40,18 @@ export function getClipStreamUrl(filename) {
   return `${baseUrl}/dvr-cftv/pos/stream/${filename}?token=${token}`;
 }
 
+// Buscar câmeras configuradas para bipagens (açougue)
+export async function getCamerasBipagens() {
+  const response = await api.get('/dvr-cftv/config/cameras-bipagens');
+  return response.data; // { success, cameras: [{channel, label}] }
+}
+
+// Salvar câmeras de bipagens
+export async function saveCamerasBipagens(cameras) {
+  const response = await api.post('/dvr-cftv/config/cameras-bipagens', { cameras });
+  return response.data;
+}
+
 // Retorna URL de streaming direto do DVR (RTSP → MP4 em tempo real)
 export function getLiveStreamUrl(channel, time) {
   const baseUrl = getApiBaseUrl();

@@ -193,9 +193,9 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/gestao-ofertas/programacao-atual': 'gestao-radar',
       '/gestao-ofertas/analise-sugestao': 'gestao-radar',
       '/gestao-ofertas/simulador-venda': 'gestao-radar',
-      '/bipagens': 'prevencao-radar',
-      '/resultados-do-dia': 'prevencao-radar',
-      '/rankings': 'prevencao-radar',
+      '/bipagens': 'vision-360',
+      '/resultados-do-dia': 'vision-360',
+      '/rankings': 'vision-360',
       '/ruptura-lancador': 'prevencao-radar',
       '/ruptura-auditorias': 'prevencao-radar',
       '/etiquetas/lancar': 'prevencao-radar',
@@ -434,22 +434,6 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       ),
       expandable: true,
       items: [
-        {
-          id: 'bipagens',
-          moduleId: 'bipagens',
-          title: 'PREVENÇÃO DE BIPAGENS',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-            </svg>
-          ),
-          expandable: true,
-          subItems: [
-            { id: 'bipagens', submenuId: 'bipagens-ao-vivo', title: 'BIPAGENS', path: '/bipagens' },
-            { id: 'resultados-do-dia', submenuId: 'bipagens-resultados', title: 'RESULTADOS DO DIA', path: '/resultados-do-dia' },
-            { id: 'rankings', submenuId: 'bipagens-rankings', title: 'RANKINGS', path: '/rankings' }
-          ]
-        },
         {
           id: 'pdv',
           moduleId: 'pdv',
@@ -714,6 +698,36 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
             </svg>
           )
+        },
+        {
+          id: 'vision-facial',
+          moduleId: 'facial',
+          title: 'VISION FACIAL',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          ),
+          expandable: true,
+          subItems: [
+            { id: 'vision-facial-faciais', submenuId: 'vision-facial-faciais', title: 'FACIAIS', path: '/vision-facial' }
+          ]
+        },
+        {
+          id: 'bipagens',
+          moduleId: 'bipagens',
+          title: 'VISION BIPAGENS',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+            </svg>
+          ),
+          expandable: true,
+          subItems: [
+            { id: 'bipagens', submenuId: 'bipagens-ao-vivo', title: 'BIPAGENS', path: '/bipagens' },
+            { id: 'resultados-do-dia', submenuId: 'bipagens-resultados', title: 'RESULTADOS DO DIA', path: '/resultados-do-dia' },
+            { id: 'rankings', submenuId: 'bipagens-rankings', title: 'RANKINGS', path: '/rankings' }
+          ]
         }
       ]
     },

@@ -76,6 +76,7 @@ import ConciliacaoBancaria from './pages/ConciliacaoBancaria';
 import MetasRanking from './pages/MetasRanking';
 import MetasParametrizar from './pages/MetasParametrizar';
 import VisionPDV from './pages/VisionPDV';
+import VisionFacial from './pages/VisionFacial';
 
 function App() {
   return (
@@ -593,6 +594,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <VisionPDV />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vision-facial"
+              element={
+                <ProtectedRoute>
+                  <VisionFacial />
                 </ProtectedRoute>
               }
             />

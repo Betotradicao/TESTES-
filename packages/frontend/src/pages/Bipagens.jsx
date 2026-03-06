@@ -13,6 +13,7 @@ import Pagination from '../components/common/Pagination';
 import ScannerGunIcon from '../components/icons/ScannerGunIcon';
 import MotivoCancelamentoModal from '../components/bipagens/MotivoCancelamentoModal';
 import NumericKeypad from '../components/common/NumericKeypad';
+import { getCamerasBipagens, getLiveStreamUrl } from '../services/dvr-cftv.service';
 
 // Componente para exibir tempo pendente em tempo real
 function PendingTimeDisplay({ eventDate, status, timeUpdate }) {
@@ -99,6 +100,10 @@ export default function Bipagens() {
   // Estado para todos os funcionários ativos
   const [employees, setEmployees] = useState([]);
 
+  // Estado para modal de vídeo DVR
+  const [videoModalBip, setVideoModalBip] = useState(null);
+  const [camerasBipagens, setCamerasBipagens] = useState([]);
+
   // Função para verificar se auto-refresh deve estar ativo
   const shouldAutoRefresh = (dateToFilter) => {
     if (!dateToFilter) return false;
@@ -181,6 +186,10 @@ export default function Bipagens() {
     loadActiveSessions();
     loadEquipments();
     loadEmployees();
+    // Carregar câmeras de bipagens do DVR
+    getCamerasBipagens().then(r => {
+      if (r.success) setCamerasBipagens(r.cameras || []);
+    }).catch(() => {});
   }, [lojaSelecionada]); // Recarregar quando mudar a loja
 
   // Função para carregar setores
@@ -1016,6 +1025,11 @@ export default function Bipagens() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Tempo Pendente
                     </th>
+                    {camerasBipagens.length > 0 && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Vídeo
+                      </th>
+                    )}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Cancelados
                     </th>
@@ -1108,6 +1122,33 @@ export default function Bipagens() {
                           timeUpdate={timeUpdate}
                         />
                       </td>
+                      {camerasBipagens.length > 0 && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          {bip.status === 'pending' && (() => {
+                            const now = new Date();
+                            const eventTime = new Date(bip.event_date.replace('Z', ''));
+                            const diffMs = now - eventTime;
+                            const totalSeconds = Math.floor(diffMs / 1000);
+                            // Mostrar vídeo apenas se pendente há mais de 3 horas (10800 segundos)
+                            if (totalSeconds > 10800) {
+                              return (
+                                <button
+                                  onClick={() => setVideoModalBip(bip)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 transition-colors text-xs font-medium"
+                                  title="Ver vídeo do DVR"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                  </svg>
+                                  Vídeo
+                                </button>
+                              );
+                            }
+                            return <span className="text-gray-300">-</span>;
+                          })()}
+                          {bip.status !== 'pending' && <span className="text-gray-300">-</span>}
+                        </td>
+                      )}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {bip.status === 'cancelled' && bip.motivo_cancelamento ? (
                           <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-50 text-red-700">
@@ -1273,6 +1314,76 @@ export default function Bipagens() {
         onSubmit={handleNumericKeypadSubmit}
         title="Digite o código do produto"
       />
+
+      {/* Modal de Vídeo DVR */}
+      {videoModalBip && camerasBipagens.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setVideoModalBip(null)}>
+          <div
+            className="bg-white rounded-xl shadow-2xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Vídeo da Bipagem
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {videoModalBip.product_description} - {formatDateTime(videoModalBip.event_date)}
+                  {videoModalBip.employee?.name && ` | ${videoModalBip.employee.name}`}
+                </p>
+              </div>
+              <button
+                onClick={() => setVideoModalBip(null)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Video Grid */}
+            <div className={`p-6 grid gap-4 ${camerasBipagens.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
+              {camerasBipagens.map((cam) => {
+                // Converter event_date para formato do DVR: "YYYY-MM-DD HH:MM:SS"
+                const eventDate = new Date(videoModalBip.event_date.replace('Z', ''));
+                const yyyy = eventDate.getFullYear();
+                const mo = String(eventDate.getMonth() + 1).padStart(2, '0');
+                const dd = String(eventDate.getDate()).padStart(2, '0');
+                const hh = String(eventDate.getHours()).padStart(2, '0');
+                const mi = String(eventDate.getMinutes()).padStart(2, '0');
+                const ss = String(eventDate.getSeconds()).padStart(2, '0');
+                const timeStr = `${yyyy}-${mo}-${dd} ${hh}:${mi}:${ss}`;
+                const streamUrl = getLiveStreamUrl(cam.channel, timeStr);
+
+                return (
+                  <div key={cam.channel} className="bg-gray-900 rounded-lg overflow-hidden">
+                    <div className="px-3 py-2 bg-gray-800 text-white text-sm font-medium flex items-center gap-2">
+                      <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="5" />
+                      </svg>
+                      {cam.label || `Canal ${cam.channel}`}
+                    </div>
+                    <video
+                      src={streamUrl}
+                      autoPlay
+                      controls
+                      className="w-full aspect-video bg-black"
+                      onError={(e) => {
+                        console.error(`Erro no vídeo canal ${cam.channel}:`, e);
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

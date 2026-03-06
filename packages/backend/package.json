@@ -44,6 +44,7 @@
     "express-validator": "^7.0.1",
     "form-data": "^4.0.5",
     "jsonwebtoken": "^9.0.2",
+    "koffi": "^2.15.1",
     "mailparser": "^3.9.1",
     "minio": "^8.0.6",
     "multer": "^2.0.2",

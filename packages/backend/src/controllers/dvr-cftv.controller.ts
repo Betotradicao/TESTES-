@@ -222,6 +222,44 @@ export class DVRCFTVController {
   }
 
   /**
+   * Retorna câmeras configuradas para bipagens (açougue)
+   * GET /api/dvr-cftv/config/cameras-bipagens
+   */
+  static async getCamerasBipagens(req: Request, res: Response) {
+    try {
+      const { ConfigurationService } = await import('../services/configuration.service');
+      const raw = await ConfigurationService.get('dvr_cameras_bipagens');
+      let cameras: { channel: number; label: string }[] = [];
+      try {
+        cameras = JSON.parse(raw || '[]');
+      } catch { cameras = []; }
+      res.json({ success: true, cameras });
+    } catch (error: any) {
+      console.error('Erro ao buscar câmeras bipagens:', error.message);
+      res.status(500).json({ error: 'Erro ao buscar câmeras de bipagens', details: error.message });
+    }
+  }
+
+  /**
+   * Salvar câmeras configuradas para bipagens (açougue)
+   * POST /api/dvr-cftv/config/cameras-bipagens
+   */
+  static async saveCamerasBipagens(req: Request, res: Response) {
+    try {
+      const { cameras } = req.body;
+      if (!Array.isArray(cameras)) {
+        return res.status(400).json({ error: 'cameras deve ser um array' });
+      }
+      const { ConfigurationService } = await import('../services/configuration.service');
+      await ConfigurationService.set('dvr_cameras_bipagens', JSON.stringify(cameras));
+      res.json({ success: true, message: 'Câmeras de bipagens salvas com sucesso' });
+    } catch (error: any) {
+      console.error('Erro ao salvar câmeras bipagens:', error.message);
+      res.status(500).json({ error: 'Erro ao salvar câmeras de bipagens', details: error.message });
+    }
+  }
+
+  /**
    * Detectar canais do DVR automaticamente via RPC2
    * POST /api/dvr-cftv/detect-channels
    */

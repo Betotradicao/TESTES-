@@ -42,6 +42,10 @@ router.get('/pos/live-stream', authenticateTokenOrQuery, DVRCFTVController.liveS
 // Configuração de canais DVR
 router.get('/config/canais', authenticateToken, DVRCFTVController.getCanais);
 
+// Câmeras de bipagens (açougue)
+router.get('/config/cameras-bipagens', authenticateToken, DVRCFTVController.getCamerasBipagens);
+router.post('/config/cameras-bipagens', authenticateToken, DVRCFTVController.saveCamerasBipagens);
+
 // Testar conexão com o DVR
 router.post('/test-connection', authenticateToken, DVRCFTVController.testConnection);
 
