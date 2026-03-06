@@ -249,6 +249,11 @@ async function seedConfigurations() {
         description: 'Segundos antes do evento POS para iniciar o vídeo (ajustar conforme relógio do DVR)'
       },
       {
+        key: 'dvr_tempo_depois_segundos',
+        value: '120',
+        description: 'Segundos depois do evento para encerrar o vídeo (duração após o momento da bipagem/transação)'
+      },
+      {
         key: 'dvr_cameras_bipagens',
         value: '[]',
         description: 'Câmeras DVR que cobrem a área de bipagens/açougue (JSON: [{channel, label}])'

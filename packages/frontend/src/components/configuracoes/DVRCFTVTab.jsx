@@ -17,6 +17,7 @@ export default function DVRCFTVTab() {
     dvr_porta_rtsp: '554',
     dvr_canal_padrao: '0',
     dvr_antecedencia_segundos: '15',
+    dvr_tempo_depois_segundos: '120',
     dvr_canais: '[]'
   });
 
@@ -42,6 +43,7 @@ export default function DVRCFTVTab() {
           dvr_porta_rtsp: data.dvr_porta_rtsp || '554',
           dvr_canal_padrao: data.dvr_canal_padrao || '0',
           dvr_antecedencia_segundos: data.dvr_antecedencia_segundos || '15',
+          dvr_tempo_depois_segundos: data.dvr_tempo_depois_segundos || '120',
           dvr_canais: data.dvr_canais || '[]'
         }));
         try {
@@ -258,17 +260,30 @@ export default function DVRCFTVTab() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Antecedencia do Video (segundos)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tempo ANTES do evento (segundos)</label>
             <input
               type="number"
               value={config.dvr_antecedencia_segundos}
               onChange={(e) => setConfig({ ...config, dvr_antecedencia_segundos: e.target.value })}
               placeholder="15"
               min="0"
-              max="60"
+              max="300"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
             />
-            <p className="text-xs text-gray-500 mt-1">Quantos segundos antes do evento POS o video deve iniciar</p>
+            <p className="text-xs text-gray-500 mt-1">Segundos antes da bipagem/transação para iniciar o vídeo</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tempo DEPOIS do evento (segundos)</label>
+            <input
+              type="number"
+              value={config.dvr_tempo_depois_segundos}
+              onChange={(e) => setConfig({ ...config, dvr_tempo_depois_segundos: e.target.value })}
+              placeholder="120"
+              min="10"
+              max="600"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">Segundos depois da bipagem/transação para encerrar o vídeo</p>
           </div>
         </div>
 

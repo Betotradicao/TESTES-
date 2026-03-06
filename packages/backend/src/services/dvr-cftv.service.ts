@@ -50,7 +50,8 @@ export class DVRCFTVService {
         { key: 'dvr_porta_rtsp' },
         { key: 'dvr_canais' },
         { key: 'dvr_canal_padrao' },
-        { key: 'dvr_antecedencia_segundos' }
+        { key: 'dvr_antecedencia_segundos' },
+        { key: 'dvr_tempo_depois_segundos' }
       ]
     });
     const map: Record<string, string> = {};
@@ -82,7 +83,8 @@ export class DVRCFTVService {
       rtspPort,
       canais,
       canalPadrao: parseInt(map.dvr_canal_padrao || '3'),
-      antecedenciaSegundos: parseInt(map.dvr_antecedencia_segundos || '15')
+      antecedenciaSegundos: parseInt(map.dvr_antecedencia_segundos || '15'),
+      tempoDepoisSegundos: parseInt(map.dvr_tempo_depois_segundos || '120')
     };
   }
 
@@ -1028,10 +1030,10 @@ export class DVRCFTVService {
     const config = await this.getConfig();
 
     const transactionDate = new Date(time.replace(' ', 'T'));
-    // Começar N segundos antes do evento POS (configurável por cliente)
+    // Começar N segundos antes do evento (configurável)
     const start = new Date(transactionDate.getTime() - config.antecedenciaSegundos * 1000);
-    // Janela larga: 5 minutos (o usuário controla no player)
-    const end = new Date(start.getTime() + 5 * 60 * 1000);
+    // Terminar N segundos depois do evento (configurável)
+    const end = new Date(transactionDate.getTime() + config.tempoDepoisSegundos * 1000);
 
     const formatRTSP = (d: Date) => {
       const pad = (n: number) => String(n).padStart(2, '0');
@@ -1045,11 +1047,15 @@ export class DVRCFTVService {
     console.log(`[DVR] Stream: channel=${dvrChannel}, start=${formatRTSP(start)}, end=${formatRTSP(end)}`);
 
     // ffmpeg: RTSP → fragmented MP4 no stdout (streaming progressivo)
+    // Usa copy codec para início quase instantâneo (sem re-encoding)
     const proc = spawn('ffmpeg', [
       '-rtsp_transport', 'tcp',
+      '-fflags', '+genpts+nobuffer+discardcorrupt',
+      '-flags', 'low_delay',
+      '-analyzeduration', '500000',
+      '-probesize', '500000',
       '-i', rtspUrl,
-      '-c:v', 'libx264', '-preset', 'ultrafast', '-tune', 'zerolatency',
-      '-crf', '28', '-vf', 'scale=704:480',
+      '-c:v', 'copy',
       '-movflags', 'frag_keyframe+empty_moov+faststart',
       '-f', 'mp4',
       '-an',
