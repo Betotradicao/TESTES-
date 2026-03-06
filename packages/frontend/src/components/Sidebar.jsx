@@ -595,93 +595,6 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       ]
     },
     {
-      id: 'oferta-radar',
-      title: 'OFERTA NO RADAR',
-      titleComponent: (
-        <span>
-          <span className="text-gray-700">OFERTA NO </span>
-          <span className="text-orange-500 font-bold">RADAR</span>
-        </span>
-      ),
-      icon: (
-        <div className="w-5 h-5 bg-orange-500 rounded-md flex items-center justify-center">
-          <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M12 2L2 12l10 10 10-10L12 2z"/>
-            <path d="M12 8l-4 4 4 4 4-4-4-4z"/>
-          </svg>
-        </div>
-      ),
-      expandable: true,
-      items: [
-        {
-          id: 'garimpa-fornecedores',
-          moduleId: 'garimpa-fornecedores',
-          title: 'FORNECEDORES E CONCORRENTES',
-          path: '/garimpa-fornecedores',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-            </svg>
-          )
-        },
-        {
-          id: 'garimpador-ranking',
-          moduleId: 'garimpa-fornecedores',
-          title: 'RANKING FORNECEDORES',
-          path: '/garimpador-ranking',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-            </svg>
-          )
-        },
-        {
-          id: 'garimpador-ranking-concorrentes',
-          moduleId: 'garimpa-fornecedores',
-          title: 'RANKING CONCORRENTES',
-          path: '/garimpador-ranking-concorrentes',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-            </svg>
-          )
-        },
-        {
-          id: 'garimpador-projecao',
-          moduleId: 'garimpa-fornecedores',
-          title: 'PROJECAO DE PRECO',
-          path: '/garimpador-projecao',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
-            </svg>
-          )
-        },
-        {
-          id: 'garimpador-fora-mix',
-          moduleId: 'garimpa-fornecedores',
-          title: 'FORA DO MIX',
-          path: '/garimpador-fora-mix',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
-            </svg>
-          )
-        },
-        {
-          id: 'garimpador-produtos-pesquisar',
-          moduleId: 'garimpa-fornecedores',
-          title: 'PRODUTOS A ELIMINAR',
-          path: '/garimpador-produtos-pesquisar',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-            </svg>
-          )
-        }
-      ]
-    },
-    {
       id: 'financas-radar',
       title: 'FINANÇAS NO RADAR',
       titleComponent: (
@@ -799,6 +712,93 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+          )
+        }
+      ]
+    },
+    {
+      id: 'oferta-radar',
+      title: 'GARIMPADOR 360',
+      titleComponent: (
+        <span>
+          <span className="text-gray-700">GARIMPADOR </span>
+          <span className="text-purple-600 font-bold">360</span>
+        </span>
+      ),
+      icon: (
+        <div className="w-5 h-5 bg-purple-600 rounded-md flex items-center justify-center">
+          <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M12 2L2 12l10 10 10-10L12 2z"/>
+            <path d="M12 8l-4 4 4 4 4-4-4-4z"/>
+          </svg>
+        </div>
+      ),
+      expandable: true,
+      items: [
+        {
+          id: 'garimpa-fornecedores',
+          moduleId: 'garimpa-fornecedores',
+          title: 'FORNECEDORES E CONCORRENTES',
+          path: '/garimpa-fornecedores',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          )
+        },
+        {
+          id: 'garimpador-ranking',
+          moduleId: 'garimpa-fornecedores',
+          title: 'RANKING FORNECEDORES',
+          path: '/garimpador-ranking',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+          )
+        },
+        {
+          id: 'garimpador-ranking-concorrentes',
+          moduleId: 'garimpa-fornecedores',
+          title: 'RANKING CONCORRENTES',
+          path: '/garimpador-ranking-concorrentes',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+          )
+        },
+        {
+          id: 'garimpador-projecao',
+          moduleId: 'garimpa-fornecedores',
+          title: 'PROJECAO DE PRECO',
+          path: '/garimpador-projecao',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+            </svg>
+          )
+        },
+        {
+          id: 'garimpador-fora-mix',
+          moduleId: 'garimpa-fornecedores',
+          title: 'FORA DO MIX',
+          path: '/garimpador-fora-mix',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+            </svg>
+          )
+        },
+        {
+          id: 'garimpador-produtos-pesquisar',
+          moduleId: 'garimpa-fornecedores',
+          title: 'PRODUTOS A ELIMINAR',
+          path: '/garimpador-produtos-pesquisar',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
             </svg>
           )
         }
