@@ -22,8 +22,7 @@ export default function DVRCFTVTab() {
   });
 
   const [canais, setCanais] = useState([]);
-  const [camerasBipagens, setCamerasBipagens] = useState([]);
-  const [isSavingBipagens, setIsSavingBipagens] = useState(false);
+  const [bipagensChannels, setBipagensChannels] = useState(new Set());
 
   useEffect(() => {
     loadConfig();
@@ -54,9 +53,10 @@ export default function DVRCFTVTab() {
         }
         try {
           const parsedBip = JSON.parse(data.dvr_cameras_bipagens || '[]');
-          setCamerasBipagens(Array.isArray(parsedBip) ? parsedBip : []);
+          const bipSet = new Set((Array.isArray(parsedBip) ? parsedBip : []).map(c => c.channel));
+          setBipagensChannels(bipSet);
         } catch {
-          setCamerasBipagens([]);
+          setBipagensChannels(new Set());
         }
       }
     } catch (err) {
@@ -70,9 +70,14 @@ export default function DVRCFTVTab() {
     setIsSaving(true);
     try {
       const canaisJson = JSON.stringify(canais);
+      // Construir cameras bipagens a partir dos canais marcados
+      const camerasBip = canais
+        .filter(c => bipagensChannels.has(c.channel))
+        .map(c => ({ channel: c.channel, label: c.label }));
       const updates = {
         ...config,
-        dvr_canais: canaisJson
+        dvr_canais: canaisJson,
+        dvr_cameras_bipagens: JSON.stringify(camerasBip)
       };
       await api.post('/config/configurations', updates);
       setConfig(prev => ({ ...prev, dvr_canais: canaisJson }));
@@ -138,31 +143,16 @@ export default function DVRCFTVTab() {
     setCanais(updated);
   };
 
-  const addCameraBipagens = () => {
-    const nextChannel = camerasBipagens.length;
-    setCamerasBipagens([...camerasBipagens, { channel: nextChannel, label: `Açougue ${nextChannel + 1}` }]);
-  };
-
-  const removeCameraBipagens = (index) => {
-    setCamerasBipagens(camerasBipagens.filter((_, i) => i !== index));
-  };
-
-  const updateCameraBipagens = (index, field, value) => {
-    const updated = [...camerasBipagens];
-    updated[index] = { ...updated[index], [field]: field === 'label' ? value : parseInt(value) || 0 };
-    setCamerasBipagens(updated);
-  };
-
-  const handleSaveBipagens = async () => {
-    setIsSavingBipagens(true);
-    try {
-      await api.post('/dvr-cftv/config/cameras-bipagens', { cameras: camerasBipagens });
-      alert('Câmeras de bipagens salvas com sucesso!');
-    } catch (err) {
-      alert('Erro ao salvar: ' + (err.response?.data?.error || err.message));
-    } finally {
-      setIsSavingBipagens(false);
-    }
+  const toggleBipagem = (channel) => {
+    setBipagensChannels(prev => {
+      const next = new Set(prev);
+      if (next.has(channel)) {
+        next.delete(channel);
+      } else {
+        next.add(channel);
+      }
+      return next;
+    });
   };
 
   if (isLoading) {
@@ -367,6 +357,7 @@ export default function DVRCFTVTab() {
                 <tr>
                   <th className="px-3 py-2 text-left font-semibold text-gray-600">Canal DVR</th>
                   <th className="px-3 py-2 text-left font-semibold text-gray-600">Numero PDV</th>
+                  <th className="px-3 py-2 text-center font-semibold text-orange-600 w-20">Bipagem</th>
                   <th className="px-3 py-2 text-left font-semibold text-gray-600">Label (exibicao)</th>
                   <th className="px-3 py-2 text-center font-semibold text-gray-600 w-16">Acoes</th>
                 </tr>
@@ -390,6 +381,15 @@ export default function DVRCFTVTab() {
                         onChange={(e) => updateCanal(index, 'pdv', e.target.value)}
                         min="1"
                         className="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500"
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <input
+                        type="checkbox"
+                        checked={bipagensChannels.has(canal.channel)}
+                        onChange={() => toggleBipagem(canal.channel)}
+                        className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500 cursor-pointer"
+                        title="Marque para usar esta câmera na prevenção de bipagens"
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -432,111 +432,6 @@ export default function DVRCFTVTab() {
               ))}
             </select>
             <p className="text-xs text-gray-500 mt-1">Canal selecionado automaticamente ao abrir o Vision PDV</p>
-          </div>
-        )}
-      </div>
-
-      {/* Câmeras de Bipagens (Açougue) */}
-      <div className="bg-white rounded-lg shadow-sm border border-orange-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-            <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            Prevenção de Bipagens - Câmeras
-          </h3>
-          <button
-            onClick={addCameraBipagens}
-            className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Adicionar Câmera
-          </button>
-        </div>
-
-        <p className="text-sm text-gray-500 mb-4">
-          Selecione os canais do DVR que cobrem a área de bipagens (açougue). Os vídeos dessas câmeras serão exibidos
-          para bipagens pendentes com mais de 3 horas.
-        </p>
-
-        {camerasBipagens.length === 0 ? (
-          <div className="text-center py-6 text-gray-400">
-            <svg className="w-10 h-10 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            <p className="text-sm">Nenhuma câmera configurada para bipagens</p>
-            <p className="text-xs mt-1">Clique em "Adicionar Câmera" para selecionar câmeras do açougue</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-orange-50">
-                <tr>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Canal DVR</th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Label (exibição)</th>
-                  <th className="px-3 py-2 text-center font-semibold text-gray-600 w-16">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {camerasBipagens.map((cam, index) => (
-                  <tr key={index} className="hover:bg-orange-50/50">
-                    <td className="px-3 py-2">
-                      <input
-                        type="number"
-                        value={cam.channel}
-                        onChange={(e) => updateCameraBipagens(index, 'channel', e.target.value)}
-                        min="0"
-                        className="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-orange-500"
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <input
-                        type="text"
-                        value={cam.label}
-                        onChange={(e) => updateCameraBipagens(index, 'label', e.target.value)}
-                        placeholder="Ex: Açougue 1"
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-orange-500"
-                      />
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      <button
-                        onClick={() => removeCameraBipagens(index)}
-                        className="text-red-500 hover:text-red-700 transition-colors"
-                        title="Remover câmera"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {camerasBipagens.length > 0 && (
-          <div className="flex justify-end mt-4">
-            <button
-              onClick={handleSaveBipagens}
-              disabled={isSavingBipagens}
-              className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              {isSavingBipagens ? (
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-              Salvar Câmeras Bipagens
-            </button>
           </div>
         )}
       </div>
