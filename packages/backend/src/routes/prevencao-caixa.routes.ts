@@ -17,4 +17,10 @@ router.get('/resumo', PrevencaoCaixaController.getResumo);
 // Lista unificada de cancelamentos
 router.get('/cancelamentos', PrevencaoCaixaController.getCancelamentos);
 
+// Resumo de vendas com desconto
+router.get('/descontos', PrevencaoCaixaController.getDescontos);
+
+// Lista de itens vendidos com desconto
+router.get('/itens-desconto', PrevencaoCaixaController.getItensDesconto);
+
 export default router;

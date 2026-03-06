@@ -165,19 +165,19 @@ export class FrenteCaixaService {
       // Campos de TAB_TESOURARIA_HISTORICO
       MappingService.getColumnFromTable('TAB_TESOURARIA_HISTORICO', 'data_movimento'),
       // Campos de TAB_CUPOM_CANCELADO
-      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'numero_sequencia'),
-      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'numero_pdv'),
-      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'codigo_loja'),
-      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'data_sequencia'),
-      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'flag_estorno'),
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'numero_sequencia', 'NUM_SEQ'),
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'numero_pdv', 'NUM_PDV'),
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'codigo_loja', 'COD_LOJA'),
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'data_sequencia', 'DTA_SEQ'),
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'flag_estorno', 'FLG_ESTORNO'),
       // Campos de TAB_CUPOM_PDV
-      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'numero_cupom_fiscal'),
-      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'numero_pdv'),
-      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'codigo_loja'),
-      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'data_venda'),
+      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'numero_cupom_fiscal', 'NUM_CUPOM_FISCAL'),
+      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'numero_pdv', 'NUM_PDV'),
+      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'codigo_loja', 'COD_LOJA'),
+      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'data_venda', 'DTA_VENDA'),
       // Campos extras de TAB_OPERADORES
-      MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_operador'),
-      MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_loja')
+      MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_operador', 'COD_OPERADOR'),
+      MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_loja', 'COD_LOJA')
     ]);
     return {
       // Campos de cupom/venda

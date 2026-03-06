@@ -101,4 +101,82 @@ export class PrevencaoCaixaController {
       });
     }
   }
+
+  /**
+   * GET /prevencao-caixa/descontos
+   * Busca resumo de vendas com desconto
+   */
+  static async getDescontos(req: Request, res: Response) {
+    try {
+      const { dataInicio, dataFim, codLoja } = req.query;
+
+      if (!dataInicio || !dataFim) {
+        return res.status(400).json({
+          error: 'Parametros obrigatorios',
+          message: 'dataInicio e dataFim sao obrigatorios'
+        });
+      }
+
+      const filters: PrevencaoCaixaFilters = {
+        dataInicio: dataInicio as string,
+        dataFim: dataFim as string,
+        codLoja: codLoja ? Number(codLoja) : undefined
+      };
+
+      const descontos = await PrevencaoCaixaService.getResumoDescontos(filters);
+
+      return res.json({
+        success: true,
+        descontos,
+        filters
+      });
+    } catch (error: any) {
+      console.error('Erro ao buscar descontos:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao buscar descontos',
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * GET /prevencao-caixa/itens-desconto
+   * Busca lista de itens vendidos com desconto
+   */
+  static async getItensDesconto(req: Request, res: Response) {
+    try {
+      const { dataInicio, dataFim, codOperador, codLoja, numPdv } = req.query;
+
+      if (!dataInicio || !dataFim) {
+        return res.status(400).json({
+          error: 'Parametros obrigatorios',
+          message: 'dataInicio e dataFim sao obrigatorios'
+        });
+      }
+
+      const filters: PrevencaoCaixaFilters = {
+        dataInicio: dataInicio as string,
+        dataFim: dataFim as string,
+        codOperador: codOperador ? Number(codOperador) : undefined,
+        codLoja: codLoja ? Number(codLoja) : undefined,
+        numPdv: numPdv ? Number(numPdv) : undefined
+      };
+
+      const data = await PrevencaoCaixaService.getItensComDesconto(filters);
+
+      return res.json({
+        success: true,
+        data,
+        count: data.length
+      });
+    } catch (error: any) {
+      console.error('Erro ao buscar itens com desconto:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao buscar itens com desconto',
+        message: error.message
+      });
+    }
+  }
 }

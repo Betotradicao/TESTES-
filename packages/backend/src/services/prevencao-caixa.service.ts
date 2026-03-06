@@ -105,21 +105,21 @@ export class PrevencaoCaixaService {
       MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO'),
       MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO'),
       // TAB_OPERADORES
-      MappingService.getColumnFromTable('TAB_OPERADORES', 'nome_operador'),
+      MappingService.getColumnFromTable('TAB_OPERADORES', 'nome_operador', 'DES_OPERADOR'),
       // TAB_CUPOM_CANCELADO
-      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'numero_sequencia'),
-      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'numero_pdv'),
-      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'codigo_loja'),
-      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'data_sequencia'),
-      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'flag_estorno'),
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'numero_sequencia', 'NUM_SEQ'),
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'numero_pdv', 'NUM_PDV'),
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'codigo_loja', 'COD_LOJA'),
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'data_sequencia', 'DTA_SEQ'),
+      MappingService.getColumnFromTable('TAB_CUPOM_CANCELADO', 'flag_estorno', 'FLG_ESTORNO'),
       // TAB_CUPOM_PDV
-      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'numero_cupom_fiscal'),
-      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'numero_pdv'),
-      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'codigo_loja'),
-      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'data_venda'),
+      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'numero_cupom_fiscal', 'NUM_CUPOM_FISCAL'),
+      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'numero_pdv', 'NUM_PDV'),
+      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'codigo_loja', 'COD_LOJA'),
+      MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'data_venda', 'DTA_VENDA'),
       // TAB_OPERADORES (COD_OPERADOR e COD_LOJA)
-      MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_operador'),
-      MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_loja')
+      MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_operador', 'COD_OPERADOR'),
+      MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_loja', 'COD_LOJA')
     ]);
 
     return {
@@ -422,6 +422,126 @@ export class PrevencaoCaixaService {
   /**
    * Busca resumo de cancelamentos (totais por tipo)
    */
+  /**
+   * Busca resumo de vendas com desconto no periodo
+   */
+  static async getResumoDescontos(filters: PrevencaoCaixaFilters) {
+    const { dataInicio, dataFim, codLoja } = filters;
+    const tables = await this.getTableNames();
+    const params: any = { dataInicio, dataFim };
+    const lojaFilter = codLoja ? `AND pdv.COD_LOJA = :codLoja` : '';
+    if (codLoja) params.codLoja = codLoja;
+
+    const sql = `
+      SELECT
+        COUNT(*) as TOTAL_ITENS_DESC,
+        NVL(SUM(pdv.VAL_DESCONTO), 0) as VALOR_TOTAL_DESC,
+        COUNT(DISTINCT pdv.NUM_CUPOM_FISCAL || '-' || pdv.NUM_PDV) as TOTAL_CUPONS_DESC
+      FROM ${tables.tabProdutoPdv} pdv
+      WHERE pdv.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND pdv.DTA_SAIDA < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
+        AND pdv.VAL_DESCONTO > 0
+        ${lojaFilter}
+    `;
+
+    const rows = await OracleService.query<any>(sql, params);
+    const row = rows[0] || {};
+
+    return {
+      TOTAL_ITENS_DESC: Number(row.TOTAL_ITENS_DESC) || 0,
+      VALOR_TOTAL_DESC: Number(row.VALOR_TOTAL_DESC) || 0,
+      TOTAL_CUPONS_DESC: Number(row.TOTAL_CUPONS_DESC) || 0
+    };
+  }
+
+  /**
+   * Busca lista de itens vendidos com desconto no periodo
+   */
+  static async getItensComDesconto(filters: PrevencaoCaixaFilters) {
+    const { dataInicio, dataFim, codLoja, codOperador, numPdv } = filters;
+    const tables = await this.getTableNames();
+    const cols = await this.getMappings();
+    const params: any = { dataInicio, dataFim };
+
+    let extraFilters = '';
+    if (codLoja) { extraFilters += ` AND pdv.COD_LOJA = :codLoja`; params.codLoja = codLoja; }
+    if (numPdv) { extraFilters += ` AND pdv.NUM_PDV = :numPdv`; params.numPdv = numPdv; }
+
+    const sql = `
+      SELECT 'DESCONTO' as TIPO,
+        TO_CHAR(pdv.DTA_SAIDA, 'DD/MM/YYYY') as DATA,
+        CASE WHEN pdv.DES_HORA IS NOT NULL AND LENGTH(TRIM(TO_CHAR(pdv.DES_HORA))) >= 3
+          THEN SUBSTR(LPAD(TRIM(TO_CHAR(pdv.DES_HORA)), 4, '0'), 1, 2) || ':' || SUBSTR(LPAD(TRIM(TO_CHAR(pdv.DES_HORA)), 4, '0'), 3, 2)
+          ELSE '00:00' END as HORA,
+        pdv.NUM_CUPOM_FISCAL as COO,
+        pdv.NUM_PDV,
+        NVL(
+          (SELECT MAX(cf.${cols.cfCodOperadorCol}) FROM ${tables.tabCupomFinalizadora} cf
+           WHERE cf.${cols.cfNumCupomCol} = pdv.NUM_CUPOM_FISCAL
+           AND cf.${cols.cfNumPdvCol} = pdv.NUM_PDV
+           AND cf.${cols.cfCodLojaCol} = pdv.COD_LOJA
+           AND TRUNC(cf.${cols.cfDataVendaCol}) = TRUNC(pdv.DTA_SAIDA)),
+          NULL
+        ) as COD_OPERADOR,
+        NULL as COD_FISCAL,
+        pdv.COD_PRODUTO,
+        p.${cols.prodDesProdutoCol} as DES_PRODUTO,
+        pdv.VAL_DESCONTO as VALOR
+      FROM ${tables.tabProdutoPdv} pdv
+      LEFT JOIN ${tables.tabProduto} p ON p.${cols.prodCodProdutoCol} = pdv.COD_PRODUTO
+      WHERE pdv.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND pdv.DTA_SAIDA < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
+        AND pdv.VAL_DESCONTO > 0
+        ${extraFilters}
+      ORDER BY pdv.DTA_SAIDA DESC, pdv.DES_HORA DESC
+    `;
+
+    const rows = await OracleService.query<any>(sql, params);
+
+    // Buscar nomes dos operadores
+    const operadorIds = [...new Set(rows.filter((r: any) => r.COD_OPERADOR != null).map((r: any) => r.COD_OPERADOR))];
+    let operadoresMap: Map<number, string> = new Map();
+
+    if (operadorIds.length > 0) {
+      const placeholders = operadorIds.map((_: any, idx: number) => `:op${idx}`).join(',');
+      const opParams: any = {};
+      operadorIds.forEach((id: any, idx: number) => { opParams[`op${idx}`] = id; });
+
+      const opSql = `
+        SELECT DISTINCT ${cols.opCodOperadorCol} as COD_OPERADOR, ${cols.opNomeCol} as DES_OPERADOR
+        FROM ${tables.tabOperadores}
+        WHERE ${cols.opCodOperadorCol} IN (${placeholders})
+      `;
+      const opRows = await OracleService.query<any>(opSql, opParams);
+      opRows.forEach((r: any) => {
+        if (r.COD_OPERADOR != null && r.DES_OPERADOR) {
+          operadoresMap.set(r.COD_OPERADOR, r.DES_OPERADOR);
+        }
+      });
+    }
+
+    let result = rows.map((row: any) => ({
+      TIPO: 'DESCONTO',
+      DATA: row.DATA || '',
+      HORA: row.HORA || '00:00',
+      COO: row.COO,
+      NUM_PDV: row.NUM_PDV,
+      COD_OPERADOR: row.COD_OPERADOR || null,
+      DES_OPERADOR: operadoresMap.get(row.COD_OPERADOR) || null,
+      COD_FISCAL: null,
+      DES_FISCAL: null,
+      COD_PRODUTO: row.COD_PRODUTO || null,
+      DES_PRODUTO: row.DES_PRODUTO || null,
+      VALOR: Number(row.VALOR) || 0
+    }));
+
+    if (codOperador) {
+      result = result.filter((r: any) => r.COD_OPERADOR === codOperador);
+    }
+
+    return result;
+  }
+
   static async getResumoCancelamentos(filters: PrevencaoCaixaFilters): Promise<ResumoCancelamentos> {
     const { dataInicio, dataFim, codOperador, codLoja, numPdv } = filters;
 
