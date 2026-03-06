@@ -240,7 +240,7 @@ async function seedConfigurations() {
       },
       {
         key: 'dvr_canal_padrao',
-        value: '0',
+        value: '3',
         description: 'Canal DVR padrão selecionado ao abrir Vision PDV'
       },
       {

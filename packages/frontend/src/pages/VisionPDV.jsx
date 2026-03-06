@@ -42,7 +42,7 @@ export default function VisionPDV() {
   const [canais, setCanais] = useState([]);
   const [text, setText] = useState('');
   const [channel, setChannel] = useState(0);
-  const [periodo, setPeriodo] = useState('hoje');
+  const [periodo, setPeriodo] = useState('personalizado');
   const [startDate, setStartDate] = useState(formatDate(new Date()));
   const [startTime, setStartTime] = useState('00:00');
   const [endDate, setEndDate] = useState(formatDate(new Date()));
@@ -260,10 +260,10 @@ export default function VisionPDV() {
           <div className="flex flex-col gap-3" style={{ width: '480px', flexShrink: 0 }}>
             {/* Player de Vídeo */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-              <div className="px-3 py-1.5 bg-gray-50 border-b flex items-center justify-between">
+              <div className="px-3 py-1.5 bg-purple-100 border-b flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {videoUrl && <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>}
-                  <h2 className="text-sm font-semibold text-gray-700">Video</h2>
+                  <h2 className="text-sm font-semibold text-purple-700">Video</h2>
                 </div>
                 {videoTime && <span className="text-xs text-gray-500">{videoTime}</span>}
               </div>
@@ -372,8 +372,8 @@ export default function VisionPDV() {
 
           {/* Tabela de Resultados */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col">
-            <div className="px-3 py-1.5 bg-gray-50 border-b flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-700">Transações Encontradas</h2>
+            <div className="px-3 py-1.5 bg-purple-100 border-b flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-purple-700">Transações Encontradas</h2>
               {total > 0 && (
                 <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
                   {total} resultado{total !== 1 ? 's' : ''}
@@ -382,14 +382,14 @@ export default function VisionPDV() {
             </div>
             <div className="overflow-auto flex-1">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 sticky top-0">
+                <thead className="bg-purple-50 sticky top-0">
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 w-12">No.</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Horário</th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 w-24">N° Cupom</th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 w-16">Canal</th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 w-20">Nota</th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 w-24">Vídeo</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-purple-600 w-12">No.</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-purple-600">Horário</th>
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-24">N° Cupom</th>
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-16">Canal</th>
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-20">Nota</th>
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-24">Vídeo</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">

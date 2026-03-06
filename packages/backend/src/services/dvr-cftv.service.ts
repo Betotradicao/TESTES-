@@ -62,14 +62,22 @@ export class DVRCFTVService {
       if (map.dvr_canais) canais = JSON.parse(map.dvr_canais);
     } catch { /* ignore */ }
 
+    // Detectar se estamos rodando fora do Docker (dev local na rede da loja)
+    // Se sim, usar portas padrão do DVR (80/554) em vez das tuneladas (18080/18554)
+    const isDocker = process.env.IS_DOCKER === 'true' || require('fs').existsSync('/.dockerenv');
+    const rawHttpPort = parseInt(map.dvr_porta_http || '80');
+    const rawRtspPort = map.dvr_porta_rtsp || '554';
+    const httpPort = !isDocker && rawHttpPort > 10000 ? 80 : rawHttpPort;
+    const rtspPort = !isDocker && parseInt(rawRtspPort) > 10000 ? '554' : rawRtspPort;
+
     return {
       ip: map.dvr_ip || '',
       user: map.dvr_usuario || 'admin',
       pass: map.dvr_senha || '',
-      httpPort: parseInt(map.dvr_porta_http || '80'),
-      rtspPort: map.dvr_porta_rtsp || '554',
+      httpPort,
+      rtspPort,
       canais,
-      canalPadrao: parseInt(map.dvr_canal_padrao || '0'),
+      canalPadrao: parseInt(map.dvr_canal_padrao || '3'),
       antecedenciaSegundos: parseInt(map.dvr_antecedencia_segundos || '15')
     };
   }
@@ -291,67 +299,300 @@ export class DVRCFTVService {
   }
 
   /**
+   * Buscar TODOS os items POS do DVR dividindo em intervalos de 2h.
+   * O DVR Dahua tem limite de 1024 items por doFind e ignora o offset.
+   */
+  private static async fetchAllDVRItems(
+    config: Awaited<ReturnType<typeof DVRCFTVService.getConfig>>,
+    sessionId: string,
+    channel: number,
+    startTime: string,
+    endTime: string
+  ): Promise<POSSearchResult[]> {
+    // Extrair data base do startTime (ex: "2026-03-05 00:00:00" → "2026-03-05")
+    const dateBase = startTime.split(' ')[0];
+
+    // Dividir o dia em intervalos de 2h para ficar abaixo do limite de 1024
+    const timeChunks: [string, string][] = [];
+    for (let h = 0; h < 24; h += 2) {
+      const chStart = `${dateBase} ${String(h).padStart(2, '0')}:00:00`;
+      const chEnd = `${dateBase} ${String(h + 1).padStart(2, '0')}:59:59`;
+      timeChunks.push([chStart, chEnd]);
+    }
+
+    let allItems: POSSearchResult[] = [];
+
+    for (const [chStart, chEnd] of timeChunks) {
+      try {
+        const findResult = await this.rpcCall(config.ip, '/RPC2', sessionId, 'POS.startFind', {
+          channel,
+          condition: { StartTime: chStart, EndTime: chEnd, Text: '' }
+        }, 10, config.httpPort);
+
+        if (!findResult.result) {
+          continue;
+        }
+
+        const token = findResult.params.token;
+        const chunkCount = findResult.params.totalCount || 0;
+
+        if (chunkCount === 0) {
+          await this.rpcCall(config.ip, '/RPC2', sessionId, 'POS.stopFind', { token }, 12, config.httpPort);
+          continue;
+        }
+
+        // Buscar até 2000 items (bem acima do limite de 1024)
+        const results = await this.rpcCall(config.ip, '/RPC2', sessionId, 'POS.doFind', {
+          token, count: 2000, offset: 0
+        }, 11, config.httpPort);
+        const items = results.params?.info || [];
+
+        // Log sample para investigar campos do DVR
+        if (allItems.length === 0 && items.length > 0) {
+          console.log(`[DVR] Sample item keys:`, Object.keys(items[0]));
+          if (items[0].Data) console.log(`[DVR] Sample Data (first 300):`, items[0].Data.substring(0, 300));
+          if (items[0].Text) console.log(`[DVR] Sample Text (first 300):`, items[0].Text.substring(0, 300));
+        }
+
+        await this.rpcCall(config.ip, '/RPC2', sessionId, 'POS.stopFind', { token }, 12, config.httpPort);
+
+        allItems = allItems.concat(items);
+      } catch (err: any) {
+        console.log(`[DVR] Erro no chunk ${chStart}-${chEnd}: ${err.message}`);
+      }
+    }
+
+    return allItems;
+  }
+
+  /**
    * Buscar transações POS por texto
    */
   static async searchPOS(channel: number, startTime: string, endTime: string, text: string): Promise<{ total: number; items: POSSearchResult[] }> {
     const config = await this.getConfig();
     const sessionId = await this.login();
 
-    // startFind
-    const findResult = await this.rpcCall(config.ip, '/RPC2', sessionId, 'POS.startFind', {
-      channel,
-      condition: { StartTime: startTime, EndTime: endTime, Text: text }
-    }, 10, config.httpPort);
+    // O DVR Dahua tem limite de 1024 items por doFind e ignora o parâmetro offset.
+    // Solução: dividir a busca em intervalos de 2 horas para garantir < 1024 por chunk.
+    const allItems = await this.fetchAllDVRItems(config, sessionId, channel, startTime, endTime);
+    console.log(`[DVR] Total transações DVR: ${allItems.length}`);
 
-    if (!findResult.result) {
-      throw new Error('POS.startFind failed');
-    }
-
-    const token = findResult.params.token;
-    const totalCount = findResult.params.totalCount || 0;
-
-    // doFind - DVR retorna no máximo 100 resultados (paginação não funciona)
-    const results = await this.rpcCall(config.ip, '/RPC2', sessionId, 'POS.doFind', {
-      token, count: 100, offset: 0
-    }, 11, config.httpPort);
-
-    // stopFind
-    await this.rpcCall(config.ip, '/RPC2', sessionId, 'POS.stopFind', { token }, 12, config.httpPort);
-
-    const items: POSSearchResult[] = results.params?.info || [];
-
-    // Debug: ver formato exato do Time retornado pelo DVR
-    if (items.length > 0) {
-      console.log(`[DVR] Primeiro item raw:`, JSON.stringify(items[0]));
-      console.log(`[DVR] Primeiros 3 Times:`, items.slice(0, 3).map(i => i.Time));
-    }
-
-    // O DVR já filtra por texto internamente (busca no texto completo do recibo POS)
-    // Então os resultados já vêm filtrados corretamente
-    // Só precisamos enriquecer com número do cupom do Oracle
     try {
       const pdv = this.channelToPdv(config, channel);
 
-      // Se o DVR retornou resultados, usá-los (já filtrados por texto)
-      if (items.length > 0) {
-        const enriched = await this.enrichWithCupomNumbers(items, pdv);
-        console.log(`[DVR] ${enriched.length} resultados do DVR (filtrados por "${text || 'sem texto'}"), ${enriched.filter(i => i.cupom).length} com cupom Oracle`);
-        return { total: totalCount, items: enriched };
+      // Sem texto de busca → retornar tudo do DVR enriquecido com cupom
+      if (!text || !text.trim()) {
+        const enriched = await this.enrichWithCupomNumbers(allItems, pdv);
+        return { total: allItems.length, items: enriched };
       }
 
-      // Se DVR não retornou nada MAS tem texto, tentar buscar no Oracle como fallback
-      // (para casos onde o DVR não tem o recibo POS mas o Oracle tem os dados)
-      if (text && text.trim()) {
-        console.log(`[DVR] DVR retornou 0 resultados, tentando fallback Oracle para "${text}"`);
-        const oracleResults = await this.searchByOracleText(pdv, startTime, endTime, text.trim(), channel);
-        return { total: oracleResults.length, items: oracleResults };
+      // COM texto de busca → filtrar via Oracle (buscar cupons que contêm o produto/palavra)
+      console.log(`[DVR] Filtrando por "${text}" via Oracle...`);
+      const matchingLines = await this.findCupomsByText(pdv, startTime, endTime, text.trim());
+      console.log(`[DVR] Oracle encontrou ${matchingLines.length} linhas com "${text}"`);
+
+      if (matchingLines.length === 0) {
+        return { total: 0, items: [] };
       }
 
-      return { total: 0, items: [] };
+      // Cruzar timestamps DVR com linhas Oracle (±90s, match 1:1)
+      const filtered = this.matchDVRWithCupoms(allItems, matchingLines);
+      console.log(`[DVR] ${filtered.length} transações DVR correspondem a cupons com "${text}"`);
+
+      return { total: filtered.length, items: filtered };
     } catch (err: any) {
-      console.error('[DVR] Erro ao enriquecer com cupom:', err.message);
-      return { total: totalCount, items };
+      console.error('[DVR] Erro ao filtrar:', err.message);
+      // Fallback: retornar tudo sem filtro
+      return { total: allItems.length, items: allItems };
     }
+  }
+
+  /**
+   * Buscar no Oracle quais cupons contêm determinado texto (produto, finalizadora, cancelado, desconto)
+   * Retorna Map<cupomNum, { time: string, cupomNum: number }>
+   */
+  private static async findCupomsByText(pdv: number, startTime: string, _endTime: string, text: string): Promise<{ time: string; cupomNum: number; totalUnits: number }[]> {
+    const datePart = startTime.split(' ')[0];
+    const [year, month, day] = datePart.split('-');
+    const dateStr = `${day}/${month}/${year}`;
+    const textUpper = text.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const schema = await MappingService.getSchema();
+
+    // Detectar palavras-chave especiais
+    let keyword = '';
+    if (['CANCELAMENTO', 'CANCELADO', 'CANCEL', 'CANCELA', 'ESTORNO'].includes(textUpper)) {
+      keyword = 'cancelado';
+    } else if (textUpper === 'DESCONTO') {
+      keyword = 'desconto';
+    } else if (['BUSCA', 'BUSCA PRECO', 'CONSULTA', 'CONSULTA PRECO'].includes(textUpper)) {
+      keyword = 'busca_preco';
+    } else {
+      const codFin = await this.findFinalizadoraCod(textUpper);
+      if (codFin) keyword = `fin_${codFin}`;
+    }
+
+    const results: { time: string; cupomNum: number; totalUnits: number }[] = [];
+
+    // CANCELAMENTO/ESTORNO → buscar na TAB_PRODUTO_PDV_ESTORNO
+    if (keyword === 'cancelado') {
+      const sql = `
+        SELECT e.NUM_CUPOM_FISCAL,
+               TO_CHAR(e.DTA_SAIDA, 'YYYY-MM-DD') || ' ' || TO_CHAR(e.TIM_HORA, 'HH24:MI:SS') as HORA_CUPOM,
+               1 as TOTAL_UNITS
+        FROM ${schema}.TAB_PRODUTO_PDV_ESTORNO e
+        WHERE e.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
+          AND e.NUM_PDV = :pdv
+        ORDER BY e.TIM_HORA
+      `;
+      try {
+        const rows = await OracleService.query(sql, { dateStr, pdv });
+        for (const row of rows) {
+          results.push({
+            time: row.HORA_CUPOM || '',
+            cupomNum: Number(row.NUM_CUPOM_FISCAL),
+            totalUnits: 1
+          });
+        }
+      } catch (err: any) {
+        console.error('[DVR] Erro Oracle estornos:', err.message);
+      }
+      return results;
+    }
+
+    // BUSCA PREÇO → buscar itens com NUM_CUPOM_FISCAL = 0 (consultas de preço)
+    if (keyword === 'busca_preco') {
+      const sql = `
+        SELECT 0 as NUM_CUPOM_FISCAL,
+               TO_CHAR(p.DTA_SAIDA, 'YYYY-MM-DD') || ' ' || TO_CHAR(p.TIM_HORA, 'HH24:MI:SS') as HORA_CUPOM,
+               1 as TOTAL_UNITS
+        FROM ${schema}.TAB_PRODUTO_PDV p
+        WHERE p.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
+          AND p.NUM_PDV = :pdv
+          AND p.NUM_CUPOM_FISCAL = 0
+        ORDER BY p.TIM_HORA
+      `;
+      try {
+        const rows = await OracleService.query(sql, { dateStr, pdv });
+        for (const row of rows) {
+          results.push({
+            time: row.HORA_CUPOM || '',
+            cupomNum: 0,
+            totalUnits: 1
+          });
+        }
+      } catch (err: any) {
+        console.error('[DVR] Erro Oracle busca preco:', err.message);
+      }
+      return results;
+    }
+
+    // DESCONTO, FINALIZADORA ou PRODUTO → buscar na TAB_PRODUTO_PDV
+    let whereExtra = '';
+    let params: any = { dateStr, pdv };
+
+    if (keyword === 'desconto') {
+      whereExtra = `AND p.VAL_DESCONTO > 0`;
+    } else if (keyword.startsWith('fin_')) {
+      const codFin = parseInt(keyword.split('_')[1]);
+      whereExtra = `AND EXISTS (
+        SELECT 1 FROM ${schema}.TAB_CUPOM_FINALIZADORA cf
+        WHERE cf.DTA_VENDA = p.DTA_SAIDA AND cf.NUM_PDV = p.NUM_PDV
+          AND cf.NUM_CUPOM_FISCAL = p.NUM_CUPOM_FISCAL AND cf.COD_FINALIZADORA = :codFin
+      )`;
+      params.codFin = codFin;
+    } else {
+      // Buscar por nome de produto
+      whereExtra = `AND UPPER(pr.DES_PRODUTO) LIKE '%' || UPPER(:text) || '%'`;
+      params.text = text;
+    }
+
+    // Para busca por PRODUTO: somar QTD (DVR imprime 1 linha por unidade)
+    // Para finalizadora/desconto: 1 por cupom (a palavra aparece só 1x no recibo)
+    const isProductSearch = !keyword;
+    const unitsExpr = isProductSearch
+      ? `SUM(CASE WHEN p.QTD_TOTAL_PRODUTO >= 1 THEN FLOOR(p.QTD_TOTAL_PRODUTO) ELSE 1 END)`
+      : `1`;
+
+    const sql = `
+      SELECT p.NUM_CUPOM_FISCAL,
+             TO_CHAR(p.DTA_SAIDA, 'YYYY-MM-DD') || ' ' || TO_CHAR(MIN(p.TIM_HORA), 'HH24:MI:SS') as HORA_CUPOM,
+             ${unitsExpr} as TOTAL_UNITS
+      FROM ${schema}.TAB_PRODUTO_PDV p
+      LEFT JOIN ${schema}.TAB_PRODUTO pr ON p.COD_PRODUTO = pr.COD_PRODUTO
+      WHERE p.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
+        AND p.NUM_PDV = :pdv
+        AND p.NUM_CUPOM_FISCAL > 0
+        ${whereExtra}
+      GROUP BY p.NUM_CUPOM_FISCAL, p.DTA_SAIDA
+      ORDER BY MIN(p.TIM_HORA)
+    `;
+
+    try {
+      const rows = await OracleService.query(sql, params);
+      for (const row of rows) {
+        const cupomNum = Number(row.NUM_CUPOM_FISCAL);
+        if (cupomNum > 0) {
+          results.push({
+            time: row.HORA_CUPOM || '',
+            cupomNum,
+            totalUnits: Math.max(Number(row.TOTAL_UNITS) || 1, 1)
+          });
+        }
+      }
+    } catch (err: any) {
+      console.error('[DVR] Erro Oracle findCupomsByText:', err.message);
+    }
+
+    return results;
+  }
+
+  /**
+   * Cruzar transações DVR com cupons Oracle por janela de tempo.
+   * Para cada cupom, captura N items DVR mais próximos (N = totalUnits).
+   */
+  private static matchDVRWithCupoms(dvrItems: POSSearchResult[], oracleCupoms: { time: string; cupomNum: number; totalUnits: number }[]): POSSearchResult[] {
+    // Converter cupons Oracle em timestamps
+    const cupomEntries: { time: Date; cupomNum: number; totalUnits: number }[] = [];
+    for (const entry of oracleCupoms) {
+      try {
+        const t = new Date(entry.time.replace(' ', 'T'));
+        if (!isNaN(t.getTime())) {
+          cupomEntries.push({ time: t, cupomNum: entry.cupomNum, totalUnits: entry.totalUnits });
+        }
+      } catch { /* skip */ }
+    }
+
+    console.log(`[DVR] matchDVRWithCupoms: ${dvrItems.length} DVR items, ${cupomEntries.length} cupons Oracle`);
+
+    const matched: POSSearchResult[] = [];
+    const usedDVRIndices = new Set<number>();
+    const TOLERANCE = 120_000; // ±2 minutos
+
+    // Para cada cupom Oracle, pegar os N DVR items mais próximos
+    for (const ce of cupomEntries) {
+      // Encontrar DVR items próximos, ordenados por distância
+      const candidates: { idx: number; diff: number; item: POSSearchResult }[] = [];
+      for (let i = 0; i < dvrItems.length; i++) {
+        if (usedDVRIndices.has(i)) continue;
+        const dvrTime = new Date(dvrItems[i].Time.replace(' ', 'T'));
+        if (isNaN(dvrTime.getTime())) continue;
+        const diff = Math.abs(dvrTime.getTime() - ce.time.getTime());
+        if (diff <= TOLERANCE) {
+          candidates.push({ idx: i, diff, item: dvrItems[i] });
+        }
+      }
+
+      // Ordenar por proximidade e pegar os N mais próximos
+      candidates.sort((a, b) => a.diff - b.diff);
+      const toTake = Math.min(ce.totalUnits, candidates.length);
+
+      for (let j = 0; j < toTake; j++) {
+        usedDVRIndices.add(candidates[j].idx);
+        matched.push({ ...candidates[j].item, cupom: ce.cupomNum });
+      }
+    }
+
+    return matched;
   }
 
   /**

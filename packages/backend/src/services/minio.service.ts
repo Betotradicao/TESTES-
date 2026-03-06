@@ -9,60 +9,71 @@ export class MinioService {
   private accessKey: string = '';
   private secretKey: string = '';
   private useSSL: boolean = false;
+  private initialized: boolean = false;
 
   constructor() {
-    this.initializeClient();
+    // Inicializar com .env imediatamente (síncrono, sem dependência do banco)
+    this.initFromEnv();
   }
 
   /**
-   * Initializes or reinitializes the MinIO client with current configuration
-   * Loads from database first, falls back to .env if not found
+   * Inicializa com variáveis de ambiente (síncrono, sem erro)
    */
-  private async initializeClient() {
+  private initFromEnv() {
+    this.endpoint = process.env.MINIO_ENDPOINT || 'localhost';
+    this.port = process.env.MINIO_PORT || '9000';
+    this.accessKey = process.env.MINIO_ACCESS_KEY || 'minioadmin';
+    this.secretKey = process.env.MINIO_SECRET_KEY || 'minioadmin123';
+    this.useSSL = process.env.MINIO_USE_SSL === 'true';
+    this.bucketName = process.env.MINIO_BUCKET_NAME || 'employee-avatars';
+
+    this.s3Client = new S3Client({
+      endpoint: `${this.useSSL ? 'https' : 'http'}://${this.endpoint}:${this.port}`,
+      region: 'us-east-1',
+      credentials: {
+        accessKeyId: this.accessKey,
+        secretAccessKey: this.secretKey,
+      },
+      forcePathStyle: true,
+    });
+
+    console.log(`✅ MinIO client initialized: ${this.endpoint}:${this.port}`);
+  }
+
+  /**
+   * Atualiza configuração do MinIO a partir do banco (chamado após DB conectar)
+   */
+  private async initializeFromDatabase() {
+    if (this.initialized) return;
     try {
-      // Try to load from database first (allows dynamic updates)
       const configs = await ConfigurationService.getAll();
+      const newEndpoint = configs.minio_endpoint || this.endpoint;
+      const newPort = configs.minio_port || this.port;
 
-      // Internal connection (backend -> MinIO)
-      this.endpoint = configs.minio_endpoint || process.env.MINIO_ENDPOINT || 'localhost';
-      this.port = configs.minio_port || process.env.MINIO_PORT || '9000';
-      this.accessKey = configs.minio_access_key || process.env.MINIO_ACCESS_KEY || 'minioadmin';
-      this.secretKey = configs.minio_secret_key || process.env.MINIO_SECRET_KEY || 'minioadmin123';
-      this.useSSL = (configs.minio_use_ssl || process.env.MINIO_USE_SSL) === 'true';
-      this.bucketName = configs.minio_bucket_name || process.env.MINIO_BUCKET_NAME || 'employee-avatars';
+      // Só recria o client se a config do banco for diferente do .env
+      if (newEndpoint !== this.endpoint || newPort !== this.port) {
+        this.endpoint = newEndpoint;
+        this.port = newPort;
+        this.accessKey = configs.minio_access_key || this.accessKey;
+        this.secretKey = configs.minio_secret_key || this.secretKey;
+        this.useSSL = (configs.minio_use_ssl || String(this.useSSL)) === 'true';
+        this.bucketName = configs.minio_bucket_name || this.bucketName;
 
-      this.s3Client = new S3Client({
-        endpoint: `${this.useSSL ? 'https' : 'http'}://${this.endpoint}:${this.port}`,
-        region: 'us-east-1', // MinIO doesn't care about region, but SDK requires it
-        credentials: {
-          accessKeyId: this.accessKey,
-          secretAccessKey: this.secretKey,
-        },
-        forcePathStyle: true, // Required for MinIO
-      });
+        this.s3Client = new S3Client({
+          endpoint: `${this.useSSL ? 'https' : 'http'}://${this.endpoint}:${this.port}`,
+          region: 'us-east-1',
+          credentials: {
+            accessKeyId: this.accessKey,
+            secretAccessKey: this.secretKey,
+          },
+          forcePathStyle: true,
+        });
 
-      console.log(`✅ MinIO client initialized: ${this.endpoint}:${this.port}`);
+        console.log(`✅ MinIO client updated from database: ${this.endpoint}:${this.port}`);
+      }
+      this.initialized = true;
     } catch (error) {
-      console.error('❌ Error initializing MinIO client:', error);
-      // Fall back to .env only
-      this.endpoint = process.env.MINIO_ENDPOINT || 'localhost';
-      this.port = process.env.MINIO_PORT || '9000';
-      this.accessKey = process.env.MINIO_ACCESS_KEY || 'minioadmin';
-      this.secretKey = process.env.MINIO_SECRET_KEY || 'minioadmin123';
-      this.useSSL = process.env.MINIO_USE_SSL === 'true';
-      this.bucketName = process.env.MINIO_BUCKET_NAME || 'employee-avatars';
-
-      this.s3Client = new S3Client({
-        endpoint: `${this.useSSL ? 'https' : 'http'}://${this.endpoint}:${this.port}`,
-        region: 'us-east-1',
-        credentials: {
-          accessKeyId: this.accessKey,
-          secretAccessKey: this.secretKey,
-        },
-        forcePathStyle: true,
-      });
-
-      console.log(`⚠️ MinIO client initialized from .env (fallback): ${this.endpoint}:${this.port}`);
+      // Silencioso - já funciona com .env
     }
   }
 
@@ -72,7 +83,8 @@ export class MinioService {
    */
   async reinitialize(): Promise<void> {
     console.log('🔄 Reinitializing MinIO client with updated configuration...');
-    await this.initializeClient();
+    this.initialized = false;
+    await this.initializeFromDatabase();
     console.log('✅ MinIO client reinitialized successfully');
   }
 
@@ -82,6 +94,7 @@ export class MinioService {
    * Should be called on application startup
    */
   async ensureBucketExists(): Promise<void> {
+    await this.initializeFromDatabase();
     try {
       // Try to check if bucket exists
       await this.s3Client.send(new HeadBucketCommand({ Bucket: this.bucketName }));
@@ -134,6 +147,7 @@ export class MinioService {
    * @returns The URL of the uploaded file
    */
   async uploadFile(fileName: string, fileBuffer: Buffer, contentType: string): Promise<string> {
+    await this.initializeFromDatabase();
     try {
       console.log(`📤 MinIO: Enviando arquivo ${fileName} (${(fileBuffer.length / 1024).toFixed(2)} KB)`);
       console.log(`📤 MinIO: Bucket=${this.bucketName}, Endpoint=${this.endpoint}:${this.port}`);
