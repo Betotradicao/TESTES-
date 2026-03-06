@@ -46,6 +46,9 @@ router.get('/config/canais', authenticateToken, DVRCFTVController.getCanais);
 router.get('/config/cameras-bipagens', authenticateToken, DVRCFTVController.getCamerasBipagens);
 router.post('/config/cameras-bipagens', authenticateToken, DVRCFTVController.saveCamerasBipagens);
 
+// Câmeras de Prev. Risco (por PDV)
+router.get('/config/cameras-risco', authenticateToken, DVRCFTVController.getCamerasRisco);
+
 // Testar conexão com o DVR
 router.post('/test-connection', authenticateToken, DVRCFTVController.testConnection);
 

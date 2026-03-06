@@ -22,7 +22,10 @@ export default function DVRCFTVTab() {
   });
 
   const [canais, setCanais] = useState([]);
-  const [bipagensChannels, setBipagensChannels] = useState(new Set());
+  // { [channel]: { antes: 20, depois: 120 } }
+  const [bipagensConfig, setBipagensConfig] = useState({});
+  // { [channel]: { pdv: number } }
+  const [riscoConfig, setRiscoConfig] = useState({});
 
   useEffect(() => {
     loadConfig();
@@ -53,10 +56,23 @@ export default function DVRCFTVTab() {
         }
         try {
           const parsedBip = JSON.parse(data.dvr_cameras_bipagens || '[]');
-          const bipSet = new Set((Array.isArray(parsedBip) ? parsedBip : []).map(c => c.channel));
-          setBipagensChannels(bipSet);
+          const bipObj = {};
+          (Array.isArray(parsedBip) ? parsedBip : []).forEach(c => {
+            bipObj[c.channel] = { antes: c.antes ?? 20, depois: c.depois ?? 120 };
+          });
+          setBipagensConfig(bipObj);
         } catch {
-          setBipagensChannels(new Set());
+          setBipagensConfig({});
+        }
+        try {
+          const parsedRisco = JSON.parse(data.dvr_cameras_risco || '[]');
+          const riscoObj = {};
+          (Array.isArray(parsedRisco) ? parsedRisco : []).forEach(c => {
+            riscoObj[c.channel] = { pdv: c.pdv ?? 0, antes: c.antes ?? 20, depois: c.depois ?? 120 };
+          });
+          setRiscoConfig(riscoObj);
+        } catch {
+          setRiscoConfig({});
         }
       }
     } catch (err) {
@@ -70,14 +86,29 @@ export default function DVRCFTVTab() {
     setIsSaving(true);
     try {
       const canaisJson = JSON.stringify(canais);
-      // Construir cameras bipagens a partir dos canais marcados
+      // Construir cameras bipagens a partir dos canais marcados (com antes/depois individuais)
       const camerasBip = canais
-        .filter(c => bipagensChannels.has(c.channel))
-        .map(c => ({ channel: c.channel, label: c.label }));
+        .filter(c => bipagensConfig[c.channel])
+        .map(c => ({
+          channel: c.channel,
+          label: c.label,
+          antes: bipagensConfig[c.channel].antes,
+          depois: bipagensConfig[c.channel].depois
+        }));
+      const camerasRisco = canais
+        .filter(c => riscoConfig[c.channel])
+        .map(c => ({
+          channel: c.channel,
+          label: c.label,
+          pdv: riscoConfig[c.channel].pdv,
+          antes: riscoConfig[c.channel].antes,
+          depois: riscoConfig[c.channel].depois
+        }));
       const updates = {
         ...config,
         dvr_canais: canaisJson,
-        dvr_cameras_bipagens: JSON.stringify(camerasBip)
+        dvr_cameras_bipagens: JSON.stringify(camerasBip),
+        dvr_cameras_risco: JSON.stringify(camerasRisco)
       };
       await api.post('/config/configurations', updates);
       setConfig(prev => ({ ...prev, dvr_canais: canaisJson }));
@@ -144,15 +175,41 @@ export default function DVRCFTVTab() {
   };
 
   const toggleBipagem = (channel) => {
-    setBipagensChannels(prev => {
-      const next = new Set(prev);
-      if (next.has(channel)) {
-        next.delete(channel);
+    setBipagensConfig(prev => {
+      const next = { ...prev };
+      if (next[channel]) {
+        delete next[channel];
       } else {
-        next.add(channel);
+        next[channel] = { antes: 20, depois: 120 };
       }
       return next;
     });
+  };
+
+  const updateBipConfig = (channel, field, value) => {
+    setBipagensConfig(prev => ({
+      ...prev,
+      [channel]: { ...prev[channel], [field]: parseInt(value) || 0 }
+    }));
+  };
+
+  const toggleRisco = (channel) => {
+    setRiscoConfig(prev => {
+      const next = { ...prev };
+      if (next[channel]) {
+        delete next[channel];
+      } else {
+        next[channel] = { pdv: 0, antes: 20, depois: 120 };
+      }
+      return next;
+    });
+  };
+
+  const updateRiscoConfig = (channel, field, value) => {
+    setRiscoConfig(prev => ({
+      ...prev,
+      [channel]: { ...prev[channel], [field]: parseInt(value) || 0 }
+    }));
   };
 
   if (isLoading) {
@@ -260,7 +317,7 @@ export default function DVRCFTVTab() {
               max="300"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
             />
-            <p className="text-xs text-gray-500 mt-1">Segundos antes da bipagem/transação para iniciar o vídeo</p>
+            <p className="text-xs text-gray-500 mt-1">Padrao para Vision PDV. Bipagens usam config por camera abaixo.</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Tempo DEPOIS do evento (segundos)</label>
@@ -273,7 +330,7 @@ export default function DVRCFTVTab() {
               max="600"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
             />
-            <p className="text-xs text-gray-500 mt-1">Segundos depois da bipagem/transação para encerrar o vídeo</p>
+            <p className="text-xs text-gray-500 mt-1">Padrao para Vision PDV. Bipagens usam config por camera abaixo.</p>
           </div>
         </div>
 
@@ -357,7 +414,13 @@ export default function DVRCFTVTab() {
                 <tr>
                   <th className="px-3 py-2 text-left font-semibold text-gray-600">Canal DVR</th>
                   <th className="px-3 py-2 text-left font-semibold text-gray-600">Numero PDV</th>
-                  <th className="px-3 py-2 text-center font-semibold text-orange-600 w-20">Bipagem</th>
+                  <th className="px-3 py-2 text-center font-semibold text-orange-700 w-20 bg-orange-100 border-l-2 border-orange-300">Bipagem</th>
+                  <th className="px-3 py-2 text-center font-semibold text-orange-700 w-24 bg-orange-100">Antes (s)</th>
+                  <th className="px-3 py-2 text-center font-semibold text-orange-700 w-24 bg-orange-100 border-r-2 border-orange-300">Depois (s)</th>
+                  <th className="px-3 py-2 text-center font-semibold text-red-700 w-20 bg-red-100 border-l-2 border-red-300">Prev. Risco</th>
+                  <th className="px-3 py-2 text-center font-semibold text-red-700 w-20 bg-red-100">PDV</th>
+                  <th className="px-3 py-2 text-center font-semibold text-red-700 w-24 bg-red-100">Antes (s)</th>
+                  <th className="px-3 py-2 text-center font-semibold text-red-700 w-24 bg-red-100 border-r-2 border-red-300">Depois (s)</th>
                   <th className="px-3 py-2 text-left font-semibold text-gray-600">Label (exibicao)</th>
                   <th className="px-3 py-2 text-center font-semibold text-gray-600 w-16">Acoes</th>
                 </tr>
@@ -383,14 +446,92 @@ export default function DVRCFTVTab() {
                         className="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500"
                       />
                     </td>
-                    <td className="px-3 py-2 text-center">
+                    <td className="px-3 py-2 text-center bg-orange-50/60 border-l-2 border-orange-300">
                       <input
                         type="checkbox"
-                        checked={bipagensChannels.has(canal.channel)}
+                        checked={!!bipagensConfig[canal.channel]}
                         onChange={() => toggleBipagem(canal.channel)}
                         className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500 cursor-pointer"
                         title="Marque para usar esta câmera na prevenção de bipagens"
                       />
+                    </td>
+                    <td className="px-3 py-2 text-center bg-orange-50/60">
+                      {bipagensConfig[canal.channel] ? (
+                        <input
+                          type="number"
+                          value={bipagensConfig[canal.channel].antes}
+                          onChange={(e) => updateBipConfig(canal.channel, 'antes', e.target.value)}
+                          min="0"
+                          max="300"
+                          className="w-20 px-2 py-1 border border-orange-300 rounded text-sm text-center focus:ring-2 focus:ring-orange-500 bg-orange-50"
+                        />
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-center bg-orange-50/60 border-r-2 border-orange-300">
+                      {bipagensConfig[canal.channel] ? (
+                        <input
+                          type="number"
+                          value={bipagensConfig[canal.channel].depois}
+                          onChange={(e) => updateBipConfig(canal.channel, 'depois', e.target.value)}
+                          min="10"
+                          max="600"
+                          className="w-20 px-2 py-1 border border-orange-300 rounded text-sm text-center focus:ring-2 focus:ring-orange-500 bg-orange-50"
+                        />
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-center bg-red-50/60 border-l-2 border-red-300">
+                      <input
+                        type="checkbox"
+                        checked={!!riscoConfig[canal.channel]}
+                        onChange={() => toggleRisco(canal.channel)}
+                        className="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer"
+                        title="Marque para usar esta camera na Prevencao Operacoes de Risco"
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-center bg-red-50/60">
+                      {riscoConfig[canal.channel] ? (
+                        <input
+                          type="number"
+                          value={riscoConfig[canal.channel].pdv}
+                          onChange={(e) => updateRiscoConfig(canal.channel, 'pdv', e.target.value)}
+                          min="0"
+                          className="w-16 px-2 py-1 border border-red-300 rounded text-sm text-center focus:ring-2 focus:ring-red-500 bg-red-50"
+                        />
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-center bg-red-50/60">
+                      {riscoConfig[canal.channel] ? (
+                        <input
+                          type="number"
+                          value={riscoConfig[canal.channel].antes}
+                          onChange={(e) => updateRiscoConfig(canal.channel, 'antes', e.target.value)}
+                          min="0"
+                          max="300"
+                          className="w-20 px-2 py-1 border border-red-300 rounded text-sm text-center focus:ring-2 focus:ring-red-500 bg-red-50"
+                        />
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-center bg-red-50/60 border-r-2 border-red-300">
+                      {riscoConfig[canal.channel] ? (
+                        <input
+                          type="number"
+                          value={riscoConfig[canal.channel].depois}
+                          onChange={(e) => updateRiscoConfig(canal.channel, 'depois', e.target.value)}
+                          min="10"
+                          max="600"
+                          className="w-20 px-2 py-1 border border-red-300 rounded text-sm text-center focus:ring-2 focus:ring-red-500 bg-red-50"
+                        />
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
                     </td>
                     <td className="px-3 py-2">
                       <input

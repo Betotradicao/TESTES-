@@ -146,7 +146,7 @@ export class DVRCFTVController {
    */
   static async liveStream(req: Request, res: Response) {
     try {
-      const { channel, time } = req.query;
+      const { channel, time, antes, depois } = req.query;
 
       if (!time) {
         return res.status(400).json({ error: 'Parâmetro "time" é obrigatório' });
@@ -155,9 +155,13 @@ export class DVRCFTVController {
       const canalConfig4 = await DVRCFTVService.getCanaisConfig();
       const ch = channel !== undefined ? parseInt(channel as string) : canalConfig4.canalPadrao;
 
-      console.log(`[DVR] Live stream: canal=${ch}, time=${time}`);
+      // Per-camera override de antes/depois (usado por Bipagens)
+      const antesOverride = antes ? parseInt(antes as string) : undefined;
+      const depoisOverride = depois ? parseInt(depois as string) : undefined;
 
-      const ffmpegProc = await DVRCFTVService.startRTSPStream(ch, time as string);
+      console.log(`[DVR] Live stream: canal=${ch}, time=${time}, antes=${antesOverride ?? 'default'}, depois=${depoisOverride ?? 'default'}`);
+
+      const ffmpegProc = await DVRCFTVService.startRTSPStream(ch, time as string, antesOverride, depoisOverride);
 
       if (!ffmpegProc.stdout) {
         return res.status(500).json({ error: 'Falha ao iniciar stream' });
@@ -256,6 +260,25 @@ export class DVRCFTVController {
     } catch (error: any) {
       console.error('Erro ao salvar câmeras bipagens:', error.message);
       res.status(500).json({ error: 'Erro ao salvar câmeras de bipagens', details: error.message });
+    }
+  }
+
+  /**
+   * Buscar câmeras configuradas para Prev. Risco
+   * GET /api/dvr-cftv/config/cameras-risco
+   */
+  static async getCamerasRisco(req: Request, res: Response) {
+    try {
+      const { ConfigurationService } = await import('../services/configuration.service');
+      const raw = await ConfigurationService.get('dvr_cameras_risco');
+      let cameras: { channel: number; label: string; pdv: number; antes: number; depois: number }[] = [];
+      try {
+        cameras = JSON.parse(raw || '[]');
+      } catch { cameras = []; }
+      res.json({ success: true, cameras });
+    } catch (error: any) {
+      console.error('Erro ao buscar câmeras risco:', error.message);
+      res.status(500).json({ error: 'Erro ao buscar câmeras de risco', details: error.message });
     }
   }
 

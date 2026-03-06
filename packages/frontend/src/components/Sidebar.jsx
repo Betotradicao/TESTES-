@@ -171,6 +171,9 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/gestao-ofertas/simulador-venda': 'ofertas',
       // Vision 360
       '/vision-pdv': 'vision-pdv',
+      '/vision-operacoes-risco': 'vision-pdv',
+      '/reconhecimento-facial': 'vision-facial',
+      '/vision-facial': 'vision-facial',
     };
 
     // Mapear rotas para a seção principal (expandedSections)
@@ -229,6 +232,9 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/boletos-dda': 'financas-radar',
       '/conciliacao-bancaria': 'financas-radar',
       '/vision-pdv': 'vision-360',
+      '/vision-operacoes-risco': 'vision-360',
+      '/vision-facial': 'vision-360',
+      '/reconhecimento-facial': 'vision-360',
     };
 
     // Auto-expandir a seção principal
@@ -450,17 +456,6 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ]
         },
         {
-          id: 'facial',
-          moduleId: 'facial',
-          title: 'PREVENÇÃO FACIAL',
-          path: '/reconhecimento-facial',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-            </svg>
-          )
-        },
-        {
           id: 'ruptura',
           moduleId: 'ruptura',
           title: 'PREVENÇÃO RUPTURAS',
@@ -639,15 +634,15 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     },
     {
       id: 'ia-radar',
-      title: 'CONSULTOR DIGITAL',
+      title: 'CONSULTOR 360',
       titleComponent: (
         <span>
           <span className="text-gray-700">CONSULTOR </span>
-          <span className="text-orange-500 font-bold">DIGITAL</span>
+          <span className="text-purple-500 font-bold">360</span>
         </span>
       ),
       icon: (
-        <div className="w-5 h-5 bg-gradient-to-br from-orange-500 to-amber-500 rounded-md flex items-center justify-center">
+        <div className="w-5 h-5 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-md flex items-center justify-center">
           <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 2L2 7l10 5 10-5-10-5z"/>
             <path d="M2 17l10 5 10-5"/>
@@ -692,12 +687,16 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           id: 'vision-pdv',
           moduleId: 'vision-pdv',
           title: 'VISION PDV',
-          path: '/vision-pdv',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
             </svg>
-          )
+          ),
+          expandable: true,
+          subItems: [
+            { id: 'vision-palavra-chave', submenuId: 'vision-palavra-chave', title: 'VISION PALAVRA CHAVE', path: '/vision-pdv' },
+            { id: 'vision-operacoes-risco', submenuId: 'vision-operacoes-risco', title: 'OPERAÇÕES DE RISCO PDV', path: '/vision-operacoes-risco' }
+          ]
         },
         {
           id: 'vision-facial',
@@ -710,7 +709,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'vision-facial-faciais', submenuId: 'vision-facial-faciais', title: 'FACIAIS', path: '/vision-facial' }
+            { id: 'vision-facial-faciais', submenuId: 'vision-facial-faciais', title: 'FACIAIS', path: '/vision-facial' },
+            { id: 'vision-facial-identificados', submenuId: 'vision-facial-identificados', title: 'IDENTIFICADOS EM LOJA', path: '/reconhecimento-facial' }
           ]
         },
         {

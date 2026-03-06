@@ -57,6 +57,7 @@ export default function VisionPDV() {
   const [cupomData, setCupomData] = useState(null);
   const [loadingCupom, setLoadingCupom] = useState(null);
   const [showCupom, setShowCupom] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
   const videoRef = useRef(null);
 
   // Carregar canais configurados do backend
@@ -154,19 +155,121 @@ export default function VisionPDV() {
     return c ? c.label.split(' - ')[0] : `Canal ${parseInt(ch) + 1}`;
   };
 
+  const handleRowClick = (item) => {
+    setSelectedItem(item);
+  };
+
   return (
     <Layout>
-      <div className="p-3 md:p-4">
-        {/* Header compacto */}
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
+      {/* Modal Laranja de Detalhe */}
+      {selectedItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setSelectedItem(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* Header laranja */}
+            <div className="bg-gradient-to-r from-orange-600 to-orange-500 px-6 py-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-white font-bold text-lg">Detalhe da Transacao</h3>
+                  <p className="text-orange-200 text-sm">{selectedItem.Time}</p>
+                </div>
+                <button onClick={() => setSelectedItem(null)} className="text-white/80 hover:text-white transition-colors">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Valor destaque */}
+            {selectedItem.cupom && (
+              <div className="bg-orange-50 px-6 py-4 border-b border-orange-100">
+                <p className="text-xs text-orange-500 font-medium uppercase tracking-wider">Cupom Fiscal</p>
+                <p className="text-3xl font-bold text-orange-700 mt-1">#{selectedItem.cupom}</p>
+              </div>
+            )}
+
+            {/* Detalhes */}
+            <div className="px-6 py-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-xs text-gray-500 font-medium">Horario</span>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-800">{selectedItem.Time}</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-xs text-gray-500 font-medium">Canal</span>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-800">{canalLabel(selectedItem.Channel)}</p>
+                </div>
+              </div>
+
+              {selectedItem.Text && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span className="text-xs text-gray-500 font-medium">Texto POS</span>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-800 break-all">{selectedItem.Text}</p>
+                </div>
+              )}
+
+              {/* Botoes de acao */}
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => { handlePlayClip(selectedItem); setSelectedItem(null); }}
+                  className="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                  Reproduzir Video
+                </button>
+                <button
+                  onClick={() => { handleShowCupom(selectedItem); setSelectedItem(null); }}
+                  className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Ver Cupom
+                </button>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-3 bg-gray-50 border-t flex justify-end">
+              <button
+                onClick={() => setSelectedItem(null)}
+                className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg text-sm transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-gray-800">Vision PDV</h1>
-            <p className="text-xs text-gray-500">Busca de transações POS com vídeo do DVR</p>
+        </div>
+      )}
+
+      <div className="p-3 md:p-4">
+        {/* Header Banner Laranja */}
+        <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg p-4 mb-3 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold">Vision PDV</h1>
+              <p className="text-white/80 text-sm mt-0.5">Busca de transacoes POS com video do DVR</p>
+            </div>
+            <div className="bg-white/20 backdrop-blur-sm rounded-full p-2 sm:p-3 flex-shrink-0">
+              <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </div>
           </div>
         </div>
 
@@ -181,7 +284,7 @@ export default function VisionPDV() {
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="Ex: tang, cerveja, cigarro..."
-                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
               />
             </div>
             <div className="w-[150px]">
@@ -189,7 +292,7 @@ export default function VisionPDV() {
               <select
                 value={channel}
                 onChange={(e) => setChannel(parseInt(e.target.value))}
-                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
               >
                 {canais.map(c => (
                   <option key={c.value} value={c.value}>{c.label}</option>
@@ -201,7 +304,7 @@ export default function VisionPDV() {
               <select
                 value={periodo}
                 onChange={(e) => setPeriodo(e.target.value)}
-                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
               >
                 {PERIODOS.map(p => (
                   <option key={p.value} value={p.value}>{p.label}</option>
@@ -214,18 +317,18 @@ export default function VisionPDV() {
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Início</label>
                   <div className="flex gap-1">
                     <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                      className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-500" />
+                      className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-orange-500" />
                     <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}
-                      className="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-500" />
+                      className="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-orange-500" />
                   </div>
                 </div>
                 <div className="w-[220px]">
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Fim</label>
                   <div className="flex gap-1">
                     <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-                      className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-500" />
+                      className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-orange-500" />
                     <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)}
-                      className="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-500" />
+                      className="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-orange-500" />
                   </div>
                 </div>
               </>
@@ -260,10 +363,10 @@ export default function VisionPDV() {
           <div className="flex flex-col gap-3" style={{ width: '480px', flexShrink: 0 }}>
             {/* Player de Vídeo */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-              <div className="px-3 py-1.5 bg-purple-100 border-b flex items-center justify-between">
+              <div className="px-3 py-1.5 bg-orange-100 border-b flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {videoUrl && <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>}
-                  <h2 className="text-sm font-semibold text-purple-700">Video</h2>
+                  <h2 className="text-sm font-semibold text-orange-700">Video</h2>
                 </div>
                 {videoTime && <span className="text-xs text-gray-500">{videoTime}</span>}
               </div>
@@ -372,24 +475,24 @@ export default function VisionPDV() {
 
           {/* Tabela de Resultados */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col">
-            <div className="px-3 py-1.5 bg-purple-100 border-b flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-purple-700">Transações Encontradas</h2>
+            <div className="px-3 py-1.5 bg-orange-100 border-b flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-orange-700">Transações Encontradas</h2>
               {total > 0 && (
-                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+                <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
                   {total} resultado{total !== 1 ? 's' : ''}
                 </span>
               )}
             </div>
             <div className="overflow-auto flex-1">
               <table className="w-full text-sm">
-                <thead className="bg-purple-50 sticky top-0">
+                <thead className="bg-orange-50 sticky top-0">
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-purple-600 w-12">No.</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-purple-600">Horário</th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-24">N° Cupom</th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-16">Canal</th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-20">Nota</th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-24">Vídeo</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-orange-600 w-12">No.</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-orange-600">Horário</th>
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-orange-600 w-24">N° Cupom</th>
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-orange-600 w-16">Canal</th>
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-orange-600 w-20">Nota</th>
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-orange-600 w-24">Vídeo</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -401,7 +504,7 @@ export default function VisionPDV() {
                     </tr>
                   )}
                   {results.map((item, idx) => (
-                    <tr key={item.ID} className={`hover:bg-purple-50 cursor-pointer transition-colors ${videoTime === item.Time ? 'bg-purple-50 border-l-2 border-purple-500' : ''}`}>
+                    <tr key={item.ID} onClick={() => handleRowClick(item)} className={`hover:bg-orange-50 cursor-pointer transition-colors ${videoTime === item.Time ? 'bg-orange-50 border-l-2 border-orange-500' : ''}`}>
                       <td className="px-3 py-1.5 text-gray-500 text-xs">{idx + 1}</td>
                       <td className="px-3 py-1.5 font-medium text-gray-800 text-sm">{item.Time}</td>
                       <td className="px-3 py-1.5 text-center">
@@ -442,7 +545,7 @@ export default function VisionPDV() {
                         <button
                           onClick={() => handlePlayClip(item)}
                           disabled={loadingClip === item.ID}
-                          className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg transition-colors disabled:opacity-50 inline-flex items-center gap-1"
+                          className="px-2 py-1 bg-orange-600 hover:bg-orange-700 text-white text-xs rounded-lg transition-colors disabled:opacity-50 inline-flex items-center gap-1"
                         >
                           {loadingClip === item.ID ? (
                             <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">

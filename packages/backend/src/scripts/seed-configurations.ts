@@ -258,6 +258,11 @@ async function seedConfigurations() {
         value: '[]',
         description: 'Câmeras DVR que cobrem a área de bipagens/açougue (JSON: [{channel, label}])'
       },
+      {
+        key: 'dvr_cameras_risco',
+        value: '[]',
+        description: 'Câmeras DVR para Prevenção Operações de Risco PDV (JSON: [{channel, label, pdv, antes, depois}])'
+      },
 
       // Monitor de Email (Novo sistema)
       {

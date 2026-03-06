@@ -1026,14 +1026,15 @@ export class DVRCFTVService {
    * Streaming RTSP → fragmented MP4 direto (sem salvar arquivo)
    * Retorna o ChildProcess do ffmpeg para pipe no response HTTP
    */
-  static async startRTSPStream(channel: number, time: string): Promise<import('child_process').ChildProcess> {
+  static async startRTSPStream(channel: number, time: string, antesOverride?: number, depoisOverride?: number): Promise<import('child_process').ChildProcess> {
     const config = await this.getConfig();
 
     const transactionDate = new Date(time.replace(' ', 'T'));
-    // Começar N segundos antes do evento (configurável)
-    const start = new Date(transactionDate.getTime() - config.antecedenciaSegundos * 1000);
-    // Terminar N segundos depois do evento (configurável)
-    const end = new Date(transactionDate.getTime() + config.tempoDepoisSegundos * 1000);
+    // Per-camera override (Bipagens) ou config global (Vision PDV)
+    const antesSegundos = antesOverride ?? config.antecedenciaSegundos;
+    const depoisSegundos = depoisOverride ?? config.tempoDepoisSegundos;
+    const start = new Date(transactionDate.getTime() - antesSegundos * 1000);
+    const end = new Date(transactionDate.getTime() + depoisSegundos * 1000);
 
     const formatRTSP = (d: Date) => {
       const pad = (n: number) => String(n).padStart(2, '0');
@@ -1048,6 +1049,8 @@ export class DVRCFTVService {
 
     // ffmpeg: RTSP → fragmented MP4 no stdout (streaming progressivo)
     // Usa copy codec para início quase instantâneo (sem re-encoding)
+    const totalDuration = antesSegundos + depoisSegundos;
+    console.log(`[DVR] Stream duration: ${totalDuration}s (antes=${antesSegundos}, depois=${depoisSegundos})`);
     const proc = spawn('ffmpeg', [
       '-rtsp_transport', 'tcp',
       '-fflags', '+genpts+nobuffer+discardcorrupt',
@@ -1055,6 +1058,7 @@ export class DVRCFTVService {
       '-analyzeduration', '500000',
       '-probesize', '500000',
       '-i', rtspUrl,
+      '-t', String(totalDuration),
       '-c:v', 'copy',
       '-movflags', 'frag_keyframe+empty_moov+faststart',
       '-f', 'mp4',

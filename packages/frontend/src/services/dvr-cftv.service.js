@@ -52,10 +52,19 @@ export async function saveCamerasBipagens(cameras) {
   return response.data;
 }
 
+// Buscar câmeras configuradas para Prev. Risco (por PDV)
+export async function getCamerasRisco() {
+  const response = await api.get('/dvr-cftv/config/cameras-risco');
+  return response.data; // { success, cameras: [{channel, label, pdv, antes, depois}] }
+}
+
 // Retorna URL de streaming direto do DVR (RTSP → MP4 em tempo real)
-export function getLiveStreamUrl(channel, time) {
+// antes/depois: override per-camera (opcional, usado por Bipagens)
+export function getLiveStreamUrl(channel, time, antes, depois) {
   const baseUrl = getApiBaseUrl();
   const token = localStorage.getItem('token');
   const params = new URLSearchParams({ channel: String(channel), time, token });
+  if (antes !== undefined) params.append('antes', String(antes));
+  if (depois !== undefined) params.append('depois', String(depois));
   return `${baseUrl}/dvr-cftv/pos/live-stream?${params.toString()}`;
 }

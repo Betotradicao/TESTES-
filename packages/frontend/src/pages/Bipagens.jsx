@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { useLoja } from '../contexts/LojaContext';
@@ -45,6 +45,7 @@ function PendingTimeDisplay({ eventDate, status, timeUpdate }) {
 // Componente Modal de Vídeo - sincroniza múltiplas câmeras
 function VideoModal({ bip, cameras, onClose, formatDateTime }) {
   const videoRefs = useRef([]);
+  const readySetRef = useRef(new Set());
   const [readyCount, setReadyCount] = useState(0);
   const [allPlaying, setAllPlaying] = useState(false);
   const totalCameras = cameras.length;
@@ -59,28 +60,22 @@ function VideoModal({ bip, cameras, onClose, formatDateTime }) {
   const ss = String(eventDate.getSeconds()).padStart(2, '0');
   const timeStr = `${yyyy}-${mo}-${dd} ${hh}:${mi}:${ss}`;
 
-  // Gerar URLs para todas as câmeras de uma vez
-  const streamUrls = useRef(cameras.map(cam => getLiveStreamUrl(cam.channel, timeStr)));
+  // URLs diretas do live stream com antes/depois per-camera
+  const streamUrls = useRef(cameras.map(cam => getLiveStreamUrl(cam.channel, timeStr, cam.antes, cam.depois)));
 
-  // Quando um vídeo tem dados suficientes para tocar, incrementar contador
-  const handleCanPlay = useCallback(() => {
-    setReadyCount(prev => {
-      const newCount = prev + 1;
-      // Se todos prontos, iniciar todos sincronizados
-      if (newCount >= totalCameras && !allPlaying) {
-        setTimeout(() => {
-          videoRefs.current.forEach(v => {
-            if (v) {
-              v.currentTime = 0;
-              v.play().catch(() => {});
-            }
-          });
-          setAllPlaying(true);
-        }, 100);
-      }
-      return newCount;
-    });
-  }, [totalCameras, allPlaying]);
+  // Quando um vídeo tem dados suficientes para tocar
+  const handleCanPlay = (idx) => {
+    if (readySetRef.current.has(idx)) return;
+    readySetRef.current.add(idx);
+    setReadyCount(readySetRef.current.size);
+  };
+
+  // Botão "Iniciar": revela os vídeos (que já estão tocando por autoPlay)
+  const handleShowAll = () => {
+    setAllPlaying(true);
+  };
+
+  const allLoaded = readyCount >= totalCameras;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={onClose}>
@@ -112,14 +107,28 @@ function VideoModal({ bip, cameras, onClose, formatDateTime }) {
           </button>
         </div>
 
-        {/* Loading indicator */}
+        {/* Loading / Play button */}
         {!allPlaying && (
-          <div className="px-6 py-2 bg-yellow-50 text-yellow-700 text-sm flex items-center gap-2">
-            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            Carregando câmeras... {readyCount}/{totalCameras}
+          <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-center gap-3">
+            {!allLoaded ? (
+              <div className="flex items-center gap-2 text-yellow-700 text-sm">
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Carregando câmeras... {readyCount}/{totalCameras}
+              </div>
+            ) : (
+              <button
+                onClick={handleShowAll}
+                className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow transition-colors"
+              >
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+                Iniciar Todas as Câmeras
+              </button>
+            )}
           </div>
         )}
 
@@ -133,18 +142,36 @@ function VideoModal({ bip, cameras, onClose, formatDateTime }) {
                 </svg>
                 {cam.label || `Canal ${cam.channel}`}
               </div>
-              <video
-                ref={(el) => { videoRefs.current[idx] = el; }}
-                src={streamUrls.current[idx]}
-                preload="auto"
-                controls
-                className="w-full aspect-video bg-black"
-                onCanPlay={handleCanPlay}
-                onError={(e) => {
-                  console.error(`Erro no vídeo canal ${cam.channel}:`, e);
-                  handleCanPlay(); // Contar como "pronto" para não travar o sync
-                }}
-              />
+              <div className="relative">
+                <video
+                  ref={(el) => { videoRefs.current[idx] = el; }}
+                  src={streamUrls.current[idx]}
+                  autoPlay
+                  muted
+                  controls={allPlaying}
+                  className="w-full aspect-video bg-black"
+                  onCanPlay={() => handleCanPlay(idx)}
+                  onError={() => handleCanPlay(idx)}
+                />
+                {/* Cortina preta esconde o vídeo até o usuário clicar Iniciar */}
+                {!allPlaying && (
+                  <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
+                    {readySetRef.current.has(idx) ? (
+                      <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <div className="flex items-center gap-2 text-gray-400 text-sm">
+                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Carregando...
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
