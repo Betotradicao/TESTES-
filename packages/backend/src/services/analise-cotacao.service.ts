@@ -62,60 +62,19 @@ export class AnaliseCotacaoService {
 
   /**
    * Helper para buscar mapeamentos das tabelas de cotação
+   * TAB_COTA, TAB_COTA_PROD, TAB_COTA_FORN usam nomes reais Oracle (Intersolid)
+   * TAB_PRODUTO e TAB_FORNECEDOR usam MappingService pois já estão mapeadas
    */
   private static async getCotacaoMappings() {
     const schema = await MappingService.getSchema();
 
-    // Tabelas
-    const [tabCota, tabCotaProd, tabCotaForn, tabProduto, tabFornecedor] = await Promise.all([
-      MappingService.getRealTableName('TAB_COTA'),
-      MappingService.getRealTableName('TAB_COTA_PROD'),
-      MappingService.getRealTableName('TAB_COTA_FORN'),
+    // Tabelas mapeadas via MappingService
+    const [tabProduto, tabFornecedor] = await Promise.all([
       MappingService.getRealTableName('TAB_PRODUTO'),
       MappingService.getRealTableName('TAB_FORNECEDOR'),
     ]);
 
-    // Colunas TAB_COTA
-    const [cCodCota, cCodLoja, cDesCota, cDtaCota, cUsuario, cDtaAlteracao] = await Promise.all([
-      MappingService.getColumnFromTable('TAB_COTA', 'codigo_cota'),
-      MappingService.getColumnFromTable('TAB_COTA', 'codigo_loja'),
-      MappingService.getColumnFromTable('TAB_COTA', 'descricao_cota'),
-      MappingService.getColumnFromTable('TAB_COTA', 'data_cota'),
-      MappingService.getColumnFromTable('TAB_COTA', 'usuario'),
-      MappingService.getColumnFromTable('TAB_COTA', 'data_alteracao'),
-    ]);
-
-    // Colunas TAB_COTA_PROD
-    const [cpCodCota, cpCodLoja, cpCodProduto, cpQtdPedido, cpValCustoRep, cpValVenda,
-      cpQtdEstoque, cpQtdCobertura, cpDtaUltCompra, cpCodFornUltCompra, cpQtdVda30d] = await Promise.all([
-      MappingService.getColumnFromTable('TAB_COTA_PROD', 'codigo_cota'),
-      MappingService.getColumnFromTable('TAB_COTA_PROD', 'codigo_loja'),
-      MappingService.getColumnFromTable('TAB_COTA_PROD', 'codigo_produto'),
-      MappingService.getColumnFromTable('TAB_COTA_PROD', 'quantidade_pedido'),
-      MappingService.getColumnFromTable('TAB_COTA_PROD', 'valor_custo_rep'),
-      MappingService.getColumnFromTable('TAB_COTA_PROD', 'valor_venda'),
-      MappingService.getColumnFromTable('TAB_COTA_PROD', 'quantidade_estoque'),
-      MappingService.getColumnFromTable('TAB_COTA_PROD', 'quantidade_cobertura'),
-      MappingService.getColumnFromTable('TAB_COTA_PROD', 'data_ultima_compra'),
-      MappingService.getColumnFromTable('TAB_COTA_PROD', 'codigo_forn_ultima_compra'),
-      MappingService.getColumnFromTable('TAB_COTA_PROD', 'quantidade_venda_30d'),
-    ]);
-
-    // Colunas TAB_COTA_FORN
-    const [cfCodCota, cfCodLoja, cfCodProduto, cfCodFornecedor, cfValCustoTab, cfValCustoCalc,
-      cfPerDesconto, cfQtdPedido, cfNumPedido] = await Promise.all([
-      MappingService.getColumnFromTable('TAB_COTA_FORN', 'codigo_cota'),
-      MappingService.getColumnFromTable('TAB_COTA_FORN', 'codigo_loja'),
-      MappingService.getColumnFromTable('TAB_COTA_FORN', 'codigo_produto'),
-      MappingService.getColumnFromTable('TAB_COTA_FORN', 'codigo_fornecedor'),
-      MappingService.getColumnFromTable('TAB_COTA_FORN', 'valor_custo_tabela'),
-      MappingService.getColumnFromTable('TAB_COTA_FORN', 'valor_custo_calculado'),
-      MappingService.getColumnFromTable('TAB_COTA_FORN', 'percentual_desconto'),
-      MappingService.getColumnFromTable('TAB_COTA_FORN', 'quantidade_pedido'),
-      MappingService.getColumnFromTable('TAB_COTA_FORN', 'numero_pedido'),
-    ]);
-
-    // Colunas TAB_PRODUTO
+    // Colunas TAB_PRODUTO (mapeadas)
     const [pCodProduto, pDesProduto, pDesReduzida, pCodBarra, pDesUnidadeCompra, pQtdEmbCompra] = await Promise.all([
       MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto'),
       MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao'),
@@ -125,7 +84,7 @@ export class AnaliseCotacaoService {
       MappingService.getColumnFromTable('TAB_PRODUTO', 'qtd_embalagem_compra'),
     ]);
 
-    // Colunas TAB_FORNECEDOR
+    // Colunas TAB_FORNECEDOR (mapeadas)
     const [fCodFornecedor, fDesFornecedor, fNumPrazo, fPedMinVal] = await Promise.all([
       MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor'),
       MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social'),
@@ -135,20 +94,29 @@ export class AnaliseCotacaoService {
 
     return {
       schema,
-      tabCota: `${schema}.${tabCota}`, tabCotaProd: `${schema}.${tabCotaProd}`,
-      tabCotaForn: `${schema}.${tabCotaForn}`, tabProduto: `${schema}.${tabProduto}`,
+      // Tabelas de cotação: nomes reais Oracle (não mapeadas no MappingService)
+      tabCota: `${schema}.TAB_COTA`, tabCotaProd: `${schema}.TAB_COTA_PROD`,
+      tabCotaForn: `${schema}.TAB_COTA_FORN`,
+      // Tabelas mapeadas
+      tabProduto: `${schema}.${tabProduto}`,
       tabFornecedor: `${schema}.${tabFornecedor}`,
-      // TAB_COTA
-      cCodCota, cCodLoja, cDesCota, cDtaCota, cUsuario, cDtaAlteracao,
-      // TAB_COTA_PROD
-      cpCodCota, cpCodLoja, cpCodProduto, cpQtdPedido, cpValCustoRep, cpValVenda,
-      cpQtdEstoque, cpQtdCobertura, cpDtaUltCompra, cpCodFornUltCompra, cpQtdVda30d,
-      // TAB_COTA_FORN
-      cfCodCota, cfCodLoja, cfCodProduto, cfCodFornecedor, cfValCustoTab, cfValCustoCalc,
-      cfPerDesconto, cfQtdPedido, cfNumPedido,
-      // TAB_PRODUTO
+      // TAB_COTA - colunas reais Oracle
+      cCodCota: 'COD_COTA', cCodLoja: 'COD_LOJA', cDesCota: 'DES_COTA',
+      cDtaCota: 'DTA_COTA', cUsuario: 'USUARIO', cDtaAlteracao: 'DTA_ALTERACAO',
+      // TAB_COTA_PROD - colunas reais Oracle
+      cpCodCota: 'COD_COTA', cpCodLoja: 'COD_LOJA', cpCodProduto: 'COD_PRODUTO',
+      cpQtdPedido: 'QTD_PEDIDO', cpValCustoRep: 'VAL_CUSTO_REP', cpValVenda: 'VAL_VENDA',
+      cpQtdEstoque: 'QTD_ESTOQUE', cpQtdCobertura: 'QTD_COBERTURA',
+      cpDtaUltCompra: 'DTA_ULT_COMPRA', cpCodFornUltCompra: 'COD_FORN_ULT_COMPRA',
+      cpQtdVda30d: 'QTD_VDA_ULT_30D',
+      // TAB_COTA_FORN - colunas reais Oracle
+      cfCodCota: 'COD_COTA', cfCodLoja: 'COD_LOJA', cfCodProduto: 'COD_PRODUTO',
+      cfCodFornecedor: 'COD_FORNECEDOR', cfValCustoTab: 'VAL_CUSTO_TAB',
+      cfValCustoCalc: 'VAL_CUSTO_CALC', cfPerDesconto: 'PER_DESCONTO',
+      cfQtdPedido: 'QTD_PEDIDO', cfNumPedido: 'NUM_PEDIDO',
+      // TAB_PRODUTO (mapeadas)
       pCodProduto, pDesProduto, pDesReduzida, pCodBarra, pDesUnidadeCompra, pQtdEmbCompra,
-      // TAB_FORNECEDOR
+      // TAB_FORNECEDOR (mapeadas)
       fCodFornecedor, fDesFornecedor, fNumPrazo, fPedMinVal,
     };
   }
