@@ -45,6 +45,10 @@ let sdkInitialized = false;
 let loginHandle: any = null;
 let disconnectCb: any = null;
 
+// Cache de buffers de detecção para download de imagens
+// Key: filePath hash, Value: Buffer raw do MEDIAFILE_FACE_DETECTION_INFO
+const detectionBufferCache = new Map<string, Buffer>();
+
 // SDK Functions
 let CLIENT_Init: any;
 let CLIENT_Cleanup: any;
@@ -56,12 +60,22 @@ let CLIENT_OperateFaceRecognitionGroup: any;
 let CLIENT_StartFindFaceRecognition: any;
 let CLIENT_DoFindFaceRecognition: any;
 let CLIENT_StopFindFaceRecognition: any;
+let CLIENT_FindFileEx: any;
+let CLIENT_FindNextFileEx: any;
+let CLIENT_FindCloseEx: any;
+let CLIENT_DownloadMediaFile: any;
+let CLIENT_StopDownloadMediaFile: any;
+let downloadPosCb: any; // Callback registrado uma vez para download
 
 // Koffi struct types
 let NET_IN_OPERATE_FACERECONGNITIONDB: any;
 let NET_OUT_OPERATE_FACERECONGNITIONDB: any;
 let DH_PIC_INFO: any;
 let FACERECOGNITION_PERSON_INFO: any;
+let NET_TIME_FD: any;
+let NET_TIME_EX_FD: any;
+let MEDIAFILE_FACE_DETECTION_PARAM: any;
+let MEDIAFILE_FACE_DETECTION_INFO: any;
 
 export class FaceRecognitionService {
   private static rpcSession: { id: string; time: number } | null = null;
@@ -225,6 +239,56 @@ export class FaceRecognitionService {
     CLIENT_StartFindFaceRecognition = koffiLib.func('int32 CLIENT_StartFindFaceRecognition(int64, void*, void*, int32)');
     CLIENT_DoFindFaceRecognition = koffiLib.func('int32 CLIENT_DoFindFaceRecognition(void*, void*, int32)');
     CLIENT_StopFindFaceRecognition = koffiLib.func('int32 CLIENT_StopFindFaceRecognition(int64)');
+    // Face Detection structs (declared early so we can use them in function signatures)
+    NET_TIME_FD = koffiModule.struct('NET_TIME_FD', {
+      dwYear: 'uint32', dwMonth: 'uint32', dwDay: 'uint32',
+      dwHour: 'uint32', dwMinute: 'uint32', dwSecond: 'uint32',
+    });
+    NET_TIME_EX_FD = koffiModule.struct('NET_TIME_EX_FD', {
+      dwYear: 'uint32', dwMonth: 'uint32', dwDay: 'uint32',
+      dwHour: 'uint32', dwMinute: 'uint32', dwSecond: 'uint32',
+      dwMillisecond: 'uint32', dwUTC: 'uint32', dwReserved: koffiModule.array('uint32', 1),
+    });
+    const FACE_DETECTION_DETAIL_PARAM = koffiModule.struct('FACE_DETECTION_DETAIL_PARAM', {
+      dwSize: 'uint32', dwObjectId: 'uint32', dwFrameSequence: 'uint32', stTime: NET_TIME_EX_FD,
+    });
+    MEDIAFILE_FACE_DETECTION_PARAM = koffiModule.struct('MEDIAFILE_FACE_DETECTION_PARAM_FD', {
+      dwSize: 'uint32', nChannelID: 'int32',
+      stuStartTime: NET_TIME_FD, stuEndTime: NET_TIME_FD,
+      emPicType: 'int32', bDetailEnable: 'int32',
+      stuDetail: FACE_DETECTION_DETAIL_PARAM,
+      emSex: 'int32', bAgeEnable: 'int32',
+      nAgeRange: koffiModule.array('int32', 2),
+      nEmotionValidNum: 'int32',
+      emEmotion: koffiModule.array('int32', 32),
+      emGlasses: 'int32', emMask: 'int32', emBeard: 'int32',
+    });
+    MEDIAFILE_FACE_DETECTION_INFO = koffiModule.struct('MEDIAFILE_FACE_DETECTION_INFO_FD', {
+      dwSize: 'uint32', ch: 'uint32',
+      szFilePath: koffiModule.array('uint8', 128),
+      size: 'uint32', starttime: NET_TIME_FD, endtime: NET_TIME_FD,
+      nWorkDirSN: 'uint32',
+      nFileType: 'uint8', bHint: 'uint8', bDriveNo: 'uint8', byPictureType: 'uint8',
+      nCluster: 'uint32', emPicType: 'int32', dwObjectId: 'uint32',
+      dwFrameSequence: koffiModule.array('uint32', 2),
+      nFrameSequenceNum: 'int32',
+      stTimes: koffiModule.array(NET_TIME_EX_FD, 2),
+      nTimeStampNum: 'int32', nPicIndex: 'int32',
+      emSex: 'int32', nAge: 'int32', emEmotion: 'int32',
+      emGlasses: 'int32', sizeEx: 'int64',
+      emMask: 'int32', emBeard: 'int32', emRace: 'int32',
+      emEye: 'int32', emMouth: 'int32', nAttractive: 'int32',
+    });
+
+    CLIENT_FindFileEx = koffiLib.func('int64 CLIENT_FindFileEx(int64, int32, MEDIAFILE_FACE_DETECTION_PARAM_FD*, void*, int32)');
+    CLIENT_FindNextFileEx = koffiLib.func('int32 CLIENT_FindNextFileEx(int64, int32, void*, int32, void*, int32)');
+    CLIENT_FindCloseEx = koffiLib.func('int32 CLIENT_FindCloseEx(int64)');
+
+    // Download media file (face detection images)
+    const fDownLoadPosCallBackProto = koffiModule.proto('void fDownLoadPosCallBackFD(int64, uint32, uint32, uint64)');
+    CLIENT_DownloadMediaFile = koffiLib.func('int64 CLIENT_DownloadMediaFile(int64, int32, void*, const char*, void*, uint64, void*)');
+    CLIENT_StopDownloadMediaFile = koffiLib.func('int32 CLIENT_StopDownloadMediaFile(int64)');
+    downloadPosCb = koffiModule.register(() => {}, koffiModule.pointer(fDownLoadPosCallBackProto));
 
     disconnectCb = koffiModule.register(() => {}, koffiModule.pointer(fDisConnect));
     CLIENT_Init(disconnectCb, 0);
@@ -575,40 +639,391 @@ export class FaceRecognitionService {
     return { total: totalCount, persons };
   }
 
-  // ========== BUSCA DE RECONHECIMENTOS FACIAIS (via NetSDK) ==========
+  // ========== PESSOAS VIA RPC2 (com fotos) ==========
 
   /**
-   * Busca reconhecimentos faciais do DVR via NetSDK.
-   * Este DVR não suporta busca de eventos via RPC2, apenas via NetSDK binário.
-   * Retorna as pessoas cadastradas encontradas pelo sistema de reconhecimento.
+   * Lista pessoas de um grupo via RPC2 (retorna URLs de fotos)
+   */
+  static async findPersonsRPC(groupId: string, offset: number = 0, count: number = 20): Promise<{ total: number; persons: any[] }> {
+    const config = await this.getConfig();
+    const session = await this.rpcLogin();
+
+    // StartFind
+    const startResult = await this.rpcCall(config.ip, '/RPC2', session, 'faceRecognitionServer.startFind', {
+      condition: { GroupID: [groupId] }
+    }, 20, config.httpPort);
+
+    console.log('[FaceRecognition] RPC startFind result:', JSON.stringify(startResult));
+
+    if (!startResult?.params?.token && startResult?.params?.token !== 0) {
+      throw new Error('startFind falhou: ' + JSON.stringify(startResult));
+    }
+
+    const token = startResult.params.token;
+    const total = startResult.params.totalCount || 0;
+
+    if (total === 0) {
+      await this.rpcCall(config.ip, '/RPC2', session, 'faceRecognitionServer.stopFind', { token }, 22, config.httpPort);
+      return { total: 0, persons: [] };
+    }
+
+    // DoFind
+    const doResult = await this.rpcCall(config.ip, '/RPC2', session, 'faceRecognitionServer.doFind', {
+      token, count, offset
+    }, 21, config.httpPort);
+
+    console.log('[FaceRecognition] RPC doFind result keys:', doResult?.params ? Object.keys(doResult.params) : 'none');
+    if (doResult?.params?.PersonList?.[0]) {
+      console.log('[FaceRecognition] First person keys:', Object.keys(doResult.params.PersonList[0]));
+    }
+
+    // StopFind
+    await this.rpcCall(config.ip, '/RPC2', session, 'faceRecognitionServer.stopFind', { token }, 22, config.httpPort);
+
+    const personList = doResult?.params?.PersonList || [];
+    const persons = personList.map((p: any) => ({
+      name: p.PersonName || p.Name || '',
+      uid: p.UID || '',
+      id: p.ID || p.CertificateNo || '',
+      sex: p.Sex === 'Male' ? 1 : p.Sex === 'Female' ? 2 : (typeof p.Sex === 'number' ? p.Sex : 0),
+      age: p.Age || 0,
+      groupId: groupId,
+      photoUrl: p.Photo?.[0]?.PhotoURL || p.PhotoURL || '',
+      photoCount: p.Photo?.length || 0,
+    }));
+
+    return { total, persons };
+  }
+
+  /**
+   * Baixa uma foto de pessoa do DVR via RPC_Loadfile
+   */
+  static async getPersonPhoto(photoUrl: string): Promise<Buffer> {
+    const config = await this.getConfig();
+    const session = await this.rpcLogin();
+
+    // O DVR serve fotos via /RPC_Loadfile/<path>
+    // O photoUrl já contém o path relativo
+    const urlPath = photoUrl.startsWith('/') ? photoUrl : `/RPC_Loadfile/${photoUrl}`;
+
+    return new Promise((resolve, reject) => {
+      const req = http.request({
+        hostname: config.ip,
+        port: config.httpPort,
+        path: urlPath,
+        method: 'GET',
+        headers: {
+          'Cookie': 'DhWebClientSessionID=' + session
+        }
+      }, res => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => {
+          const buf = Buffer.concat(chunks);
+          if (buf.length < 100) {
+            // Pode ser erro JSON
+            const text = buf.toString('utf8');
+            console.log('[FaceRecognition] Photo response:', text);
+          }
+          resolve(buf);
+        });
+      });
+      req.on('error', reject);
+      req.setTimeout(15000, () => { req.destroy(); reject(new Error('timeout photo')); });
+      req.end();
+    });
+  }
+
+  /**
+   * Baixa uma imagem de deteccao facial do DVR via NetSDK CLIENT_DownloadMediaFile
+   * filePath: /IntelliStorage/mnt/0-165018-1-0-0-0:328431&E=FaceDetection&I=1249745.jpg
+   */
+  static async getDetectionImage(filePath: string): Promise<Buffer> {
+    await this.initSDK();
+
+    // Criar diretório temporário para imagens
+    const tmpDir = path.join(__dirname, '../../tmp-faces');
+    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+
+    // Gerar nome de arquivo único baseado no hash do filePath
+    const hash = crypto.createHash('md5').update(filePath).digest('hex');
+    const tmpFile = path.join(tmpDir, `face-${hash}.jpg`);
+
+    // Se já existe em cache de disco, retornar direto
+    if (fs.existsSync(tmpFile)) {
+      const cached = fs.readFileSync(tmpFile);
+      if (cached.length > 100) {
+        return cached;
+      }
+      fs.unlinkSync(tmpFile);
+    }
+
+    // Buscar o buffer raw da detecção no cache em memória
+    const cacheKey = hash;
+    const infoBuf = detectionBufferCache.get(cacheKey);
+
+    if (!infoBuf) {
+      console.error(`[FaceDetection] Buffer nao encontrado no cache para: ${filePath.slice(0, 80)}`);
+      throw new Error('Deteccao nao encontrada no cache. Execute a busca novamente.');
+    }
+
+    console.log(`[FaceDetection] Baixando imagem via NetSDK: ${filePath.slice(0, 80)}`);
+
+    // Usar Promise com callback que detecta quando download completa
+    return new Promise<Buffer>((resolve, reject) => {
+      let downloadComplete = false;
+      let dlHandle: any = null;
+
+      // Callback que monitora progresso do download
+      const progressCb = koffiModule.register(
+        (_handle: any, totalSize: number, downloadSize: number, _userData: any) => {
+          console.log(`[FaceDetection] Download progress: ${downloadSize}/${totalSize}`);
+          if (downloadSize >= totalSize && totalSize > 0) {
+            downloadComplete = true;
+          }
+        },
+        koffiModule.pointer(koffiModule.proto('void fDLProgCb_' + hash.slice(0, 8) + '(int64, uint32, uint32, uint64)'))
+      );
+
+      try {
+        dlHandle = CLIENT_DownloadMediaFile(loginHandle, 6, infoBuf, tmpFile, progressCb, 0, null);
+
+        if (!dlHandle || dlHandle === BigInt(0) || dlHandle === 0) {
+          const err = CLIENT_GetLastError();
+          return reject(new Error(`Download falhou: erro 0x${err.toString(16)}`));
+        }
+
+        // Polling: aguardar callback sinalizar conclusão
+        const maxWait = 20000;
+        const startMs = Date.now();
+        const poll = setInterval(() => {
+          if (downloadComplete || Date.now() - startMs > maxWait) {
+            clearInterval(poll);
+            // Dar tempo extra para flush do arquivo
+            setTimeout(() => {
+              try {
+                CLIENT_StopDownloadMediaFile(dlHandle);
+              } catch {}
+
+              if (fs.existsSync(tmpFile)) {
+                const imgData = fs.readFileSync(tmpFile);
+                // Verificar se é JPEG válido (ff d8 ff)
+                if (imgData.length > 100 && imgData[0] === 0xff && imgData[1] === 0xd8) {
+                  console.log(`[FaceDetection] Imagem JPEG baixada: ${imgData.length} bytes`);
+                  resolve(imgData);
+                } else if (imgData.length > 100) {
+                  console.log(`[FaceDetection] Arquivo baixado (${imgData.length} bytes) - hex: ${imgData.subarray(0, 10).toString('hex')}`);
+                  resolve(imgData);
+                } else {
+                  reject(new Error('Download completou mas arquivo vazio'));
+                }
+              } else {
+                reject(new Error('Arquivo de download nao encontrado'));
+              }
+            }, 1000);
+          }
+        }, 200);
+      } catch (err: any) {
+        reject(err);
+      }
+    });
+  }
+
+  // ========== BUSCA DE DETECCOES FACIAIS DO DIA (via NetSDK CLIENT_FindFileEx) ==========
+
+  private static readonly SEX_MAP: Record<number, string> = {
+    0: 'Desconhecido', 1: 'Masculino', 2: 'Feminino',
+  };
+  private static readonly EMOTION_MAP: Record<number, string> = {
+    0: 'Desconhecido', 1: 'Oculos', 2: 'Sorrindo', 3: 'Raiva',
+    4: 'Tristeza', 5: 'Nojo', 6: 'Medo', 7: 'Surpresa', 8: 'Neutro',
+  };
+  private static readonly GLASSES_MAP: Record<number, string> = {
+    0: 'Desconhecido', 1: 'Com oculos', 2: 'Sem oculos',
+  };
+  private static readonly MASK_MAP: Record<number, string> = {
+    0: 'Desconhecido', 1: 'Indistinto', 2: 'Sem mascara', 3: 'Com mascara',
+  };
+  private static readonly BEARD_MAP: Record<number, string> = {
+    0: 'Desconhecido', 1: 'Indistinto', 2: 'Sem barba', 3: 'Com barba',
+  };
+  private static readonly RACE_MAP: Record<number, string> = {
+    0: 'Desconhecido', 1: 'Indistinto', 2: 'Amarelo', 3: 'Negro', 4: 'Branco',
+  };
+  private static readonly EYE_MAP: Record<number, string> = {
+    0: 'Desconhecido', 1: 'Indistinto', 2: 'Fechados', 3: 'Abertos',
+  };
+  private static readonly MOUTH_MAP: Record<number, string> = {
+    0: 'Desconhecido', 1: 'Indistinto', 2: 'Fechada', 3: 'Aberta',
+  };
+
+  /**
+   * Busca detecções faciais do DVR via CLIENT_FindFileEx (DH_FILE_QUERY_FACE_DETECTION = 6)
+   * Retorna faces detectadas com atributos (idade, sexo, emoção, óculos, máscara, barba, etc.)
+   */
+  static async searchFaceDetections(params: {
+    startTime: string;
+    endTime: string;
+    channel?: number;
+    maxResults?: number;
+  }): Promise<{ total: number; detections: any[] }> {
+    await this.initSDK();
+
+    // Parse start/end times "YYYY-MM-DD HH:MM:SS"
+    const parseTime = (s: string) => {
+      const [date, time] = s.split(' ');
+      const [y, m, d] = (date || '').split('-').map(Number);
+      const [h, mi, sec] = (time || '00:00:00').split(':').map(Number);
+      return { dwYear: y || 2026, dwMonth: m || 1, dwDay: d || 1, dwHour: h || 0, dwMinute: mi || 0, dwSecond: sec || 0 };
+    };
+
+    const emptyTimeEx = { dwYear: 0, dwMonth: 0, dwDay: 0, dwHour: 0, dwMinute: 0, dwSecond: 0, dwMillisecond: 0, dwUTC: 0, dwReserved: [0] };
+
+    const queryParam = {
+      dwSize: koffiModule.sizeof(MEDIAFILE_FACE_DETECTION_PARAM),
+      nChannelID: params.channel ?? -1,
+      stuStartTime: parseTime(params.startTime),
+      stuEndTime: parseTime(params.endTime),
+      emPicType: 0,
+      bDetailEnable: 0,
+      stuDetail: { dwSize: 48, dwObjectId: 0, dwFrameSequence: 0, stTime: emptyTimeEx },
+      emSex: 0,
+      bAgeEnable: 0,
+      nAgeRange: [0, 0],
+      nEmotionValidNum: 0,
+      emEmotion: new Array(32).fill(0),
+      emGlasses: 0,
+      emMask: 0,
+      emBeard: 0,
+    };
+
+    console.log('[FaceDetection] Buscando deteccoes faciais:', JSON.stringify({
+      channel: queryParam.nChannelID,
+      start: params.startTime,
+      end: params.endTime,
+      paramSize: queryParam.dwSize,
+    }));
+
+    // FindFileEx: tipo 6 = DH_FILE_QUERY_FACE_DETECTION
+    const findHandle = CLIENT_FindFileEx(loginHandle, 6, queryParam, null, 10000);
+    console.log('[FaceDetection] FindFileEx handle:', findHandle?.toString());
+
+    if (!findHandle || findHandle === BigInt(0) || findHandle === 0) {
+      const err = CLIENT_GetLastError();
+      console.error(`[FaceDetection] FindFileEx falhou. Erro: 0x${err.toString(16)} (${err})`);
+      return { total: 0, detections: [] };
+    }
+
+    const maxResults = params.maxResults || 100;
+    const detections: any[] = [];
+    const INFO_SIZE = koffiModule.sizeof(MEDIAFILE_FACE_DETECTION_INFO);
+
+    console.log('[FaceDetection] INFO_SIZE:', INFO_SIZE, 'bytes por deteccao');
+
+    try {
+      let totalFetched = 0;
+      while (totalFetched < maxResults) {
+        // Usar Buffer raw para receber dados do SDK
+        const outBuf = Buffer.alloc(INFO_SIZE);
+        // Inicializar dwSize no inicio do buffer
+        outBuf.writeUInt32LE(INFO_SIZE, 0);
+
+        const count = CLIENT_FindNextFileEx(findHandle, 1, outBuf, INFO_SIZE, null, 10000);
+
+        if (count <= 0) break;
+
+        // Decode usando koffi.decode
+        const info: any = koffiModule.decode(outBuf, 0, MEDIAFILE_FACE_DETECTION_INFO);
+
+        // Parse filePath from uint8 array
+        const pathBytes: number[] = info.szFilePath;
+        let pathEnd = pathBytes.indexOf(0);
+        if (pathEnd < 0) pathEnd = pathBytes.length;
+        const filePath = Buffer.from(pathBytes.slice(0, pathEnd)).toString('utf8');
+
+        // Guardar buffer raw no cache para download posterior
+        if (filePath) {
+          const cacheKey = crypto.createHash('md5').update(filePath).digest('hex');
+          detectionBufferCache.set(cacheKey, Buffer.from(outBuf));
+        }
+
+        const st = info.starttime;
+        const startTime = `${st.dwYear}-${String(st.dwMonth).padStart(2, '0')}-${String(st.dwDay).padStart(2, '0')} ${String(st.dwHour).padStart(2, '0')}:${String(st.dwMinute).padStart(2, '0')}:${String(st.dwSecond).padStart(2, '0')}`;
+
+        if (totalFetched === 0) {
+          console.log('[FaceDetection] Primeira deteccao raw:', JSON.stringify({
+            ch: info.ch, filePath, size: info.size, startTime,
+            emSex: info.emSex, nAge: info.nAge, emEmotion: info.emEmotion,
+            emGlasses: info.emGlasses, emMask: info.emMask, emBeard: info.emBeard,
+          }));
+          // Debug: dump first 64 bytes as hex
+          console.log('[FaceDetection] Raw hex (first 64):', outBuf.slice(0, 64).toString('hex'));
+          console.log('[FaceDetection] Raw hex (140-200):', outBuf.slice(140, 200).toString('hex'));
+        }
+
+        detections.push({
+          channel: info.ch,
+          filePath,
+          fileSize: info.size,
+          startTime,
+          objectId: info.dwObjectId,
+          picType: info.emPicType,
+          pictureType: info.byPictureType,
+          sex: this.SEX_MAP[info.emSex] || 'Desconhecido',
+          sexCode: info.emSex,
+          age: info.nAge,
+          emotion: this.EMOTION_MAP[info.emEmotion] || 'Desconhecido',
+          emotionCode: info.emEmotion,
+          glasses: this.GLASSES_MAP[info.emGlasses] || 'Desconhecido',
+          glassesCode: info.emGlasses,
+          mask: this.MASK_MAP[info.emMask] || 'Desconhecido',
+          maskCode: info.emMask,
+          beard: this.BEARD_MAP[info.emBeard] || 'Desconhecido',
+          beardCode: info.emBeard,
+          race: this.RACE_MAP[info.emRace] || 'Desconhecido',
+          raceCode: info.emRace,
+          eye: this.EYE_MAP[info.emEye] || 'Desconhecido',
+          eyeCode: info.emEye,
+          mouth: this.MOUTH_MAP[info.emMouth] || 'Desconhecido',
+          mouthCode: info.emMouth,
+          attractive: info.nAttractive,
+        });
+
+        totalFetched++;
+      }
+    } finally {
+      CLIENT_FindCloseEx(findHandle);
+    }
+
+    console.log(`[FaceDetection] Total deteccoes encontradas: ${detections.length}`);
+    return { total: detections.length, detections };
+  }
+
+  /**
+   * Busca reconhecimentos faciais (wrapper que agora usa searchFaceDetections)
    */
   static async searchFaceEvents(params: {
     startTime: string;
     endTime: string;
     channel?: number;
   }): Promise<any[]> {
-    // Este DVR (iMHDX 5116) não suporta busca de eventos de detecção facial via RPC2.
-    // Os métodos mediaFileFind(FaceDetection), RecordFinder(FaceDetection),
-    // faceRecognitionServer.startFindDetectLog, etc. todos retornam "Method not found".
-    //
-    // O que funciona é CLIENT_StartFindFaceRecognition via NetSDK que lista
-    // as pessoas cadastradas nos grupos. As detecções em tempo real só são
-    // acessíveis via callback (CLIENT_RealLoadPicEx) que requer conexão permanente.
-    //
-    // Por isso, a aba "Eventos" na verdade mostra as pessoas cadastradas nos grupos.
-    // Para detecções em tempo real, seria necessário implementar um listener permanente.
-
-    const result = await this.findPersons(undefined, 0, 50);
-    return result.persons.map(p => ({
-      time: '-',
-      channel: params.channel ?? 0,
-      filePath: '',
-      type: 'Cadastrado',
-      name: p.name,
-      uid: p.uid,
-      id: p.id,
-      groupId: p.groupId,
-    }));
+    try {
+      const result = await this.searchFaceDetections(params);
+      return result.detections;
+    } catch (err: any) {
+      console.error('[FaceDetection] Erro na busca, fallback para pessoas:', err.message);
+      const result = await this.findPersons(undefined, 0, 50);
+      return result.persons.map(p => ({
+        time: '-',
+        channel: params.channel ?? 0,
+        filePath: '',
+        type: 'Cadastrado',
+        name: p.name,
+        uid: p.uid,
+        id: p.id,
+        groupId: p.groupId,
+      }));
+    }
   }
 
   // ========== CLEANUP ==========

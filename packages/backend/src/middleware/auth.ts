@@ -20,7 +20,7 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
   console.log('🔐 AUTHENTICATE TOKEN - Path:', req.path, 'Method:', req.method);
 
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const token = (authHeader && authHeader.split(' ')[1]) || (req.query.token as string);
 
   if (!token) {
     console.log('❌ AUTHENTICATE TOKEN - Token ausente!');

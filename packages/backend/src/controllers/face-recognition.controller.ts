@@ -20,10 +20,27 @@ export class FaceRecognitionController {
   /**
    * Listar pessoas cadastradas (com filtro opcional por grupo)
    * GET /api/face-recognition/persons?groupId=1&begin=0&count=20
+   * Usa RPC2 quando groupId fornecido (retorna URLs de fotos), senão NetSDK
    */
   static async listPersons(req: Request, res: Response) {
     try {
       const { groupId, begin, count } = req.query;
+
+      if (groupId) {
+        // RPC2 retorna fotos
+        try {
+          const result = await FaceRecognitionService.findPersonsRPC(
+            groupId as string,
+            parseInt(begin as string) || 0,
+            parseInt(count as string) || 20
+          );
+          return res.json({ success: true, total: result.total, persons: result.persons });
+        } catch (rpcErr: any) {
+          console.warn('[FaceRecognition] RPC fallback to NetSDK:', rpcErr.message);
+        }
+      }
+
+      // Fallback: NetSDK (sem fotos)
       const result = await FaceRecognitionService.findPersons(
         groupId as string,
         parseInt(begin as string) || 0,
@@ -33,6 +50,50 @@ export class FaceRecognitionController {
     } catch (error: any) {
       console.error('[FaceRecognition] Erro ao listar pessoas:', error.message);
       res.status(500).json({ error: 'Erro ao listar pessoas', details: error.message });
+    }
+  }
+
+  /**
+   * Proxy para foto de pessoa do DVR
+   * GET /api/face-recognition/person-photo?url=<photoUrl>
+   */
+  static async getPersonPhoto(req: Request, res: Response) {
+    try {
+      const photoUrl = req.query.url as string;
+      if (!photoUrl) {
+        return res.status(400).json({ error: 'URL da foto é obrigatória' });
+      }
+
+      const imgBuffer = await FaceRecognitionService.getPersonPhoto(photoUrl);
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Content-Length', imgBuffer.length.toString());
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.send(imgBuffer);
+    } catch (error: any) {
+      console.error('[FaceRecognition] Erro ao buscar foto:', error.message);
+      res.status(500).json({ error: 'Erro ao buscar foto', details: error.message });
+    }
+  }
+
+  /**
+   * Proxy para imagem de deteccao facial do DVR
+   * GET /api/face-recognition/detection-image?path=<filePath>
+   */
+  static async getDetectionImage(req: Request, res: Response) {
+    try {
+      const filePath = req.query.path as string;
+      if (!filePath) {
+        return res.status(400).json({ error: 'Path da imagem e obrigatorio' });
+      }
+
+      const imgBuffer = await FaceRecognitionService.getDetectionImage(filePath);
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Content-Length', imgBuffer.length.toString());
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.send(imgBuffer);
+    } catch (error: any) {
+      console.error('[FaceRecognition] Erro ao buscar imagem deteccao:', error.message);
+      res.status(500).json({ error: 'Erro ao buscar imagem', details: error.message });
     }
   }
 
@@ -96,8 +157,35 @@ export class FaceRecognitionController {
   }
 
   /**
-   * Buscar eventos de detecção facial
-   * GET /api/face-recognition/events?start=2026-03-06 00:00:00&end=2026-03-06 23:59:59&channel=0
+   * Buscar detecções faciais do dia
+   * GET /api/face-recognition/detections?start=2026-03-06 00:00:00&end=2026-03-06 23:59:59&channel=0&max=100
+   */
+  static async searchDetections(req: Request, res: Response) {
+    try {
+      const { start, end, channel, max } = req.query;
+
+      const startTime = (start as string) || new Date().toISOString().slice(0, 10) + ' 00:00:00';
+      const endTime = (end as string) || new Date().toISOString().slice(0, 10) + ' 23:59:59';
+      const ch = channel !== undefined && channel !== '' ? parseInt(channel as string) : undefined;
+      const maxResults = parseInt(max as string) || 100;
+
+      const result = await FaceRecognitionService.searchFaceDetections({
+        startTime,
+        endTime,
+        channel: ch,
+        maxResults,
+      });
+
+      res.json({ success: true, total: result.total, detections: result.detections });
+    } catch (error: any) {
+      console.error('[FaceRecognition] Erro ao buscar deteccoes:', error.message);
+      res.status(500).json({ error: 'Erro ao buscar deteccoes faciais', details: error.message });
+    }
+  }
+
+  /**
+   * Buscar eventos de detecção facial (legacy)
+   * GET /api/face-recognition/events
    */
   static async searchEvents(req: Request, res: Response) {
     try {
