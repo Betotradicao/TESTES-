@@ -84,14 +84,6 @@ export class AnaliseCotacaoService {
       MappingService.getColumnFromTable('TAB_PRODUTO', 'qtd_embalagem_compra'),
     ]);
 
-    // Colunas TAB_FORNECEDOR (mapeadas)
-    const [fCodFornecedor, fDesFornecedor, fNumPrazo, fPedMinVal] = await Promise.all([
-      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor'),
-      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social'),
-      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'prazo_entrega'),
-      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'pedido_minimo_valor'),
-    ]);
-
     return {
       schema,
       // Tabelas de cotação: nomes reais Oracle (não mapeadas no MappingService)
@@ -116,8 +108,9 @@ export class AnaliseCotacaoService {
       cfQtdPedido: 'QTD_PEDIDO', cfNumPedido: 'NUM_PEDIDO',
       // TAB_PRODUTO (mapeadas)
       pCodProduto, pDesProduto, pDesReduzida, pCodBarra, pDesUnidadeCompra, pQtdEmbCompra,
-      // TAB_FORNECEDOR (mapeadas)
-      fCodFornecedor, fDesFornecedor, fNumPrazo, fPedMinVal,
+      // TAB_FORNECEDOR - colunas reais Oracle (não mapeadas no MappingService)
+      fCodFornecedor: 'COD_FORNECEDOR', fDesFornecedor: 'DES_FORNECEDOR',
+      fNumPrazo: 'NUM_PRAZO', fPedMinVal: 'PED_MIN_VAL',
     };
   }
 
