@@ -31,6 +31,65 @@ export default function ExtratoSantander() {
     finalDate: ontem.toISOString().split('T')[0]
   });
 
+  // Dashboard mês independente dos filtros
+  const fmtDate = (d) => d.toISOString().split('T')[0];
+  const [dashStartDate, setDashStartDate] = useState(fmtDate(primeiroDiaMes));
+  const [dashEndDate, setDashEndDate] = useState(fmtDate(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)));
+  const [dashItems, setDashItems] = useState([]);
+  const [dashLoading, setDashLoading] = useState(false);
+
+  const fetchDashboardData = useCallback(async (startDate, endDate) => {
+    setDashLoading(true);
+    try {
+      if (selectedBankId === 'all') {
+        const results = await Promise.allSettled(
+          banks.map(bank => api.get('/santander/extrato-completo', {
+            params: { initialDate: startDate, finalDate: endDate, bankId: bank.id },
+            timeout: 300000
+          }))
+        );
+        let mergedItems = [];
+        results.forEach((result, idx) => {
+          if (result.status === 'fulfilled') {
+            const bankItems = (result.value.data.items || []).map(item => ({
+              ...item, _bankName: banks[idx].nome, _bankId: banks[idx].id
+            }));
+            mergedItems = [...mergedItems, ...bankItems];
+          }
+        });
+        setDashItems(mergedItems);
+      } else {
+        const res = await api.get('/santander/extrato-completo', {
+          params: { initialDate: startDate, finalDate: endDate, bankId: selectedBankId },
+          timeout: 300000
+        });
+        setDashItems(res.data.items || []);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar dados do dashboard:', err);
+      setDashItems([]);
+    } finally {
+      setDashLoading(false);
+    }
+  }, [selectedBankId, banks]);
+
+  const changeDashMonth = (delta) => {
+    const cur = new Date(dashStartDate + 'T00:00:00');
+    const nm = new Date(cur.getFullYear(), cur.getMonth() + delta, 1);
+    const ne = new Date(nm.getFullYear(), nm.getMonth() + 1, 0);
+    const newStart = fmtDate(nm);
+    const newEnd = fmtDate(ne);
+    setDashStartDate(newStart);
+    setDashEndDate(newEnd);
+    fetchDashboardData(newStart, newEnd);
+  };
+
+  const getDashMonthLabel = () => {
+    const d = new Date(dashStartDate + 'T00:00:00');
+    const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    return `${meses[d.getMonth()]} ${d.getFullYear()}`;
+  };
+
   // Carregar bancos cadastrados
   useEffect(() => {
     const fetchBanks = async () => {
@@ -174,6 +233,12 @@ export default function ExtratoSantander() {
   useEffect(() => {
     if (selectedBankId === 'all' ? banks.length > 0 : !!selectedBankId) { fetchExtrato(); fetchVendas(); }
   }, [fetchExtrato, fetchVendas, selectedBankId, banks]);
+  // Carregar dados do dashboard independente
+  useEffect(() => {
+    if (selectedBankId === 'all' ? banks.length > 0 : !!selectedBankId) {
+      fetchDashboardData(dashStartDate, dashEndDate);
+    }
+  }, [fetchDashboardData, selectedBankId, banks]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Separar entradas e saidas
   const entradas = useMemo(() => allItems.filter(i => i.creditDebitType === 'CREDITO'), [allItems]);
@@ -662,17 +727,40 @@ export default function ExtratoSantander() {
         </div>
 
         {/* Dashboards Semanais */}
-        {allItems.length > 0 && (
+        <div>
+          <div className="flex items-center justify-end mb-2">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => changeDashMonth(-1)}
+                disabled={dashLoading}
+                className="p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors disabled:opacity-50"
+                title="Mês anterior"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <span className="text-sm font-bold text-gray-700 min-w-[140px] text-center">
+                {dashLoading ? 'Carregando...' : getDashMonthLabel()}
+              </span>
+              <button
+                onClick={() => changeDashMonth(1)}
+                disabled={dashLoading}
+                className="p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors disabled:opacity-50"
+                title="Próximo mês"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              </button>
+            </div>
+          </div>
           <WeeklyDashboard
-            items={allItems}
+            items={dashItems}
             dateField="transactionDate"
             entradaFilter={(item) => item.creditDebitType === 'CREDITO'}
             saidaFilter={(item) => item.creditDebitType === 'DEBITO'}
             valueField="amount"
-            startDate={filters.initialDate}
-            endDate={filters.finalDate}
+            startDate={dashStartDate}
+            endDate={dashEndDate}
           />
-        )}
+        </div>
 
         {/* DUAS COLUNAS: Entradas | Saidas */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

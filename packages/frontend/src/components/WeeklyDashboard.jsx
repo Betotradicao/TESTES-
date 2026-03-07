@@ -152,10 +152,8 @@ export default function WeeklyDashboard({
       });
     }
 
-    // Filtrar semanas sem dados (ex: semana que passa do período selecionado)
-    return weeksList.filter(w =>
-      w.totalEntradas > 0 || w.totalSaidas > 0 || w.totalEntradasBco > 0 || w.totalSaidasBco > 0
-    );
+    // Mostrar todas as semanas do período (inclusive sem dados)
+    return weeksList;
   }, [items, dateField, entradaFilter, saidaFilter, valueField, startDate, endDate, aggregated]);
 
   if (!weeks.length) return null;

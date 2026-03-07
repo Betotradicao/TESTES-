@@ -120,11 +120,11 @@ export default function EntradasSaidas() {
   // Controle de race condition na busca
   const searchIdRef = useRef(0);
 
-  // Dashboard semanal - dados independentes (dia 1 até hoje)
+  // Dashboard semanal - usa as datas dos filtros (vencInicio/vencFim)
   const [dashboardData, setDashboardData] = useState([]);
   const [dashboardAbertosData, setDashboardAbertosData] = useState([]);
-  const dashboardStartDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-  const dashboardEndDate = new Date().toISOString().split('T')[0];
+  const [dashboardStartDate, setDashboardStartDate] = useState(filters.vencInicio);
+  const [dashboardEndDate, setDashboardEndDate] = useState(filters.vencFim);
 
   // Colunas visíveis (filtradas por hiddenColumns)
   const visibleColumns = columns.filter(c => !hiddenColumns.has(c.id));
@@ -149,27 +149,44 @@ export default function EntradasSaidas() {
     }
   };
 
-  const fetchDashboardData = async () => {
+  // Expande datas para cobrir o mês inteiro (início do mês de startDt até fim do mês de endDt)
+  const expandToFullMonth = (startDt, endDt) => {
+    const s = new Date(startDt + 'T00:00:00');
+    const e = new Date(endDt + 'T00:00:00');
+    const monthStart = new Date(s.getFullYear(), s.getMonth(), 1);
+    const monthEnd = new Date(e.getFullYear(), e.getMonth() + 1, 0); // último dia do mês
+    const fmt = (d) => d.toISOString().split('T')[0];
+    return { inicio: fmt(monthStart), fim: fmt(monthEnd) };
+  };
+
+  const fetchDashboardData = async (startDt, endDt) => {
     try {
+      const raw = { inicio: startDt || filters.vencInicio, fim: endDt || filters.vencFim };
+      const { inicio, fim } = expandToFullMonth(raw.inicio, raw.fim);
+      setDashboardStartDate(inicio);
+      setDashboardEndDate(fim);
+
       const params = new URLSearchParams();
-      params.append('vencInicio', dashboardStartDate);
-      params.append('vencFim', dashboardEndDate);
+      params.append('vencInicio', inicio);
+      params.append('vencFim', fim);
       if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
       params.append('incluirMovBanco', 'sim');
 
       const res = await api.get(`/financeiro/dashboard-diario?${params.toString()}`);
-      // Endpoint retorna: [{ DTA: date, ENTRADAS: number, SAIDAS: number }]
       setDashboardData(res.data?.data || []);
     } catch (error) {
       console.error('Erro ao buscar dados do dashboard:', error);
     }
   };
 
-  const fetchDashboardAbertos = async () => {
+  const fetchDashboardAbertos = async (startDt, endDt) => {
     try {
+      const raw = { inicio: startDt || filters.vencInicio, fim: endDt || filters.vencFim };
+      const { inicio, fim } = expandToFullMonth(raw.inicio, raw.fim);
+
       const params = new URLSearchParams();
-      params.append('vencInicio', dashboardStartDate);
-      params.append('vencFim', dashboardEndDate);
+      params.append('vencInicio', inicio);
+      params.append('vencFim', fim);
       if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
       params.append('incluirMovBanco', 'sim');
       params.append('quitado', 'N');
@@ -224,6 +241,7 @@ export default function EntradasSaidas() {
       if (f.parceiro) filtrosAtivos.push('Parceiro: ' + f.parceiro);
       const filtroTexto = filtrosAtivos.length > 0 ? ` | Filtros: ${filtrosAtivos.join(', ')}` : '';
       toast.success(`${dadosRes.data?.count || 0} registros encontrados${filtroTexto}`);
+
     } catch (error) {
       if (currentSearchId !== searchIdRef.current) return;
       console.error('Erro ao buscar dados:', error);
@@ -233,10 +251,30 @@ export default function EntradasSaidas() {
     }
   };
 
+  // Navegação de mês no dashboard
+  const changeDashboardMonth = (delta) => {
+    const current = new Date(dashboardStartDate + 'T00:00:00');
+    const newMonth = new Date(current.getFullYear(), current.getMonth() + delta, 1);
+    const newEnd = new Date(newMonth.getFullYear(), newMonth.getMonth() + 1, 0);
+    const fmt = (d) => d.toISOString().split('T')[0];
+    const newStart = fmt(newMonth);
+    const newEndStr = fmt(newEnd);
+    fetchDashboardData(newStart, newEndStr);
+    fetchDashboardAbertos(newStart, newEndStr);
+  };
+
+  const getDashboardMonthLabel = () => {
+    const d = new Date(dashboardStartDate + 'T00:00:00');
+    const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    return `${meses[d.getMonth()]} ${d.getFullYear()}`;
+  };
+
   const handleClear = () => {
+    const defaultStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+    const defaultEnd = new Date().toISOString().split('T')[0];
     setFilters({
-      vencInicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-      vencFim: new Date().toISOString().split('T')[0],
+      vencInicio: defaultStart,
+      vencFim: defaultEnd,
       entradaInicio: '',
       entradaFim: '',
       tipoConta: '0',
@@ -250,6 +288,8 @@ export default function EntradasSaidas() {
     setBorderoMode('separado');
     setData([]);
     setResumo({});
+    fetchDashboardData(defaultStart, defaultEnd);
+    fetchDashboardAbertos(defaultStart, defaultEnd);
   };
 
   const formatCurrency = (val) => {
@@ -652,29 +692,50 @@ export default function EntradasSaidas() {
           {/* Dashboards Semanais - tabs QUITADOS / ABERTOS */}
           {(dashboardData.length > 0 || dashboardAbertosData.length > 0) && (
             <div>
-              <div className="flex items-center gap-2 mb-3">
-                <button
-                  onClick={() => setDashboardTab('quitados')}
-                  className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wide transition-all cursor-pointer ${
-                    dashboardTab === 'quitados'
-                      ? 'bg-emerald-600 text-white shadow-md'
-                      : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  Quitados
-                </button>
-                <button
-                  onClick={() => setDashboardTab('abertos')}
-                  className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wide transition-all cursor-pointer ${
-                    dashboardTab === 'abertos'
-                      ? 'bg-yellow-500 text-white shadow-md'
-                      : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  Abertos
-                </button>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setDashboardTab('quitados')}
+                    className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wide transition-all cursor-pointer ${
+                      dashboardTab === 'quitados'
+                        ? 'bg-emerald-600 text-white shadow-md'
+                        : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Quitados
+                  </button>
+                  <button
+                    onClick={() => setDashboardTab('abertos')}
+                    className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wide transition-all cursor-pointer ${
+                      dashboardTab === 'abertos'
+                        ? 'bg-yellow-500 text-white shadow-md'
+                        : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Abertos
+                  </button>
+                </div>
+
+                {/* Navegação de mês */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => changeDashboardMonth(-1)}
+                    className="p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+                    title="Mês anterior"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  <span className="text-sm font-bold text-gray-700 min-w-[140px] text-center">{getDashboardMonthLabel()}</span>
+                  <button
+                    onClick={() => changeDashboardMonth(1)}
+                    className="p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+                    title="Próximo mês"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                </div>
               </div>
 
               {dashboardTab === 'quitados' && dashboardData.length > 0 && (
