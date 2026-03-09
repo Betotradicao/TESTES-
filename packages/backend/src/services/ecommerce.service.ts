@@ -50,11 +50,22 @@ export class EcommerceService {
 
       const $el = $(el);
 
-      // Titulo e link - extrair do HTML do item para garantir
+      // Titulo e link - extrair do HTML do item
       const itemHtml = $.html($el);
-      const hrefMatch = itemHtml.match(/href="(https:\/\/www\.mercadolivre\.com\.br\/[^"]+)"/);
-      const permalink = hrefMatch ? hrefMatch[1].replace(/&amp;/g, '&') : '';
-      const title = $el.find('a.poly-component__title, .ui-search-item__title, .poly-component__title, h2').first().text().trim();
+      // Capturar qualquer link do mercadolivre (www, produto, etc)
+      const hrefMatch = itemHtml.match(/href="(https?:\/\/[^"]*mercadolivre\.com\.br\/[^"]+)"/);
+      let permalink = hrefMatch ? hrefMatch[1].replace(/&amp;/g, '&') : '';
+      // Se nao achou, tentar qualquer link <a> do card
+      if (!permalink) {
+        const $link = $el.find('a[href*="mercadolivre"], a[href*="mercadolibre"], a.poly-component__title, a.ui-search-link').first();
+        permalink = $link.attr('href') || '';
+      }
+      // Ultimo recurso: qualquer <a> com href http
+      if (!permalink) {
+        const $anyLink = $el.find('a[href^="http"]').first();
+        permalink = $anyLink.attr('href') || '';
+      }
+      const title = $el.find('a.poly-component__title, .ui-search-item__title, .poly-component__title, h2, .poly-box .poly-component__title').first().text().trim();
 
       // Preco
       const priceWhole = $el.find('.andes-money-amount__fraction').first().text().replace(/\./g, '').trim();
@@ -72,9 +83,33 @@ export class EcommerceService {
       // Frete gratis
       const freeShipping = $el.find('.ui-search-item__shipping, .poly-component__shipping').text().toLowerCase().includes('gr');
 
-      // Vendedor - buscar em todos os textos do card
-      const sellerEl = $el.find('.poly-component__seller, .ui-search-official-store-label, [class*="seller"]').first();
-      const seller = sellerEl.text().trim() || null;
+      // Vendedor - buscar em seletores especificos
+      let seller: string | null = null;
+      // Palavras que NAO sao vendedores (textos genericos do ML)
+      const blacklist = /primeira compra|compra com|mercado pontos|off|cupom|desconto|frete|envio|chega|amanhã|entrega|disponível|estoque|vendido|avaliação|completo|no mínimo|parcelamento|parcela/i;
+
+      const sellerSelectors = [
+        '.poly-component__seller',
+        '.ui-search-official-store-label',
+        '.ui-search-item__brand-discoverability',
+        '.poly-component__brand',
+        '.ui-search-item__group--brand',
+      ];
+      for (const sel of sellerSelectors) {
+        const txt = $el.find(sel).first().text().trim();
+        if (txt && txt.length > 1 && txt.length < 50 && !blacklist.test(txt)) {
+          seller = txt.replace(/^por\s+/i, '');
+          break;
+        }
+      }
+      // Fallback: procurar "por <vendedor>" no texto do card
+      if (!seller) {
+        const textContent = $el.text();
+        const porMatch = textContent.match(/(?:Vendido por|Loja oficial de|por)\s+([A-Za-zÀ-ÿ0-9\s&._-]{2,35})/i);
+        if (porMatch && !blacklist.test(porMatch[1])) {
+          seller = porMatch[1].trim();
+        }
+      }
 
       // Vendas e avaliações - buscar no texto completo do item
       const fullText = $el.text();
