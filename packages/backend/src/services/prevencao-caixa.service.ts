@@ -259,8 +259,9 @@ export class PrevencaoCaixaService {
 
     // ----------------------------------------------------------
     // Type CUPOM: from TAB_CUPOM_CANCELADO (finalized sale then cancelled)
-    // NOTA: O Intersolid remove os itens/valores dos cupons cancelados do Oracle.
-    // Apenas a marcação de cancelamento fica em TAB_CUPOM_CANCELADO.
+    // O Intersolid cria um cupom sequencial (NUM_SEQ+1) com valor negativo ao cancelar.
+    // Ex: cupom 537835 cancelado → cupom 537836 criado com -19.49
+    // Buscamos o valor absoluto desse cupom seguinte na TAB_CUPOM_FINALIZADORA.
     // Operador e hora são obtidos do cupom mais próximo (mesma técnica do VENDA).
     // JOIN com TAB_CUPOM_PDV garante 1 registro por cancelamento (deduplica pares de COO).
     // ----------------------------------------------------------
@@ -284,7 +285,16 @@ export class PrevencaoCaixaService {
         NULL as COD_FISCAL,
         NULL as COD_PRODUTO,
         NULL as DES_PRODUTO,
-        0 as VALOR
+        NVL(
+          ABS(
+            (SELECT SUM(cf_val.${cols.cfValLiquidoCol})
+             FROM ${tables.tabCupomFinalizadora} cf_val
+             WHERE cf_val.${cols.cfNumCupomCol} = cc.${cols.ccNumSeqCol} + 1
+             AND cf_val.${cols.cfNumPdvCol} = cc.${cols.ccNumPdvCol}
+             AND cf_val.${cols.cfCodLojaCol} = cc.${cols.ccCodLojaCol}
+             AND TRUNC(cf_val.${cols.cfDataVendaCol}) = TRUNC(cc.${cols.ccDtaSeqCol}))
+          ),
+          0) as VALOR
       FROM ${tables.tabCupomCancelado} cc
       JOIN ${tables.tabCupomPdv} cp ON cp.${cols.cpNumCupomCol} = cc.${cols.ccNumSeqCol}
         AND cp.${cols.cpNumPdvCol} = cc.${cols.ccNumPdvCol}
