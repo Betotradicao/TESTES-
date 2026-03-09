@@ -61,12 +61,18 @@ REGRAS CRITICAS - O SISTEMA ERP USA ABREVIACOES PESADAS:
 - TETRA PAK = "TP", FARDO = "FD", PET = "PET"
 - O nome do produto NO SISTEMA pode estar TOTALMENTE abreviado: "CERV SKOL LT 350ML" = "CERVEJA SKOL LATA 350ML"
 
+PESOS DE IMPORTANCIA (use para decidir):
+- MARCA (30%): Criterio MAIS importante. NUNCA misture marcas. Bono!=Negresco, Peroba!=Destac, 88!=Coqueiro, Ducoco!=Kero Coco. Se a marca nao bate, retorne 0.
+- PRODUTO/CATEGORIA (25%): Biscoito, Macarrao, Molho, Sardinha, Lustra Movel, Agua de Coco, etc. Deve ser o mesmo tipo.
+- GRAMATURA (20%): 350ml=350ml, 1L=1LT, 500g=500gr, 200ml=200ml. Gramaturas diferentes = produto diferente.
+- TIPO/VARIANTE (10%): Recheado, Pilsen, Zero, Integral, etc. Deve ser compativel.
+- EMBALAGEM (10%): Lata, Long Neck, Pacote, Pote, Tetra Pak. Considerar abreviacoes.
+- SABOR/FRAGRANCIA (5%): Uva, Limao, Jasmin, Lavanda, Chocolate. Menor peso mas ainda relevante.
+
 REGRAS DE MATCHING:
-- A MARCA e o criterio MAIS importante - NUNCA misture marcas (Skol!=Brahma, Itaipava!=Heineken)
-- Se o produto buscado especifica uma marca e NENHUM candidato tem essa marca, retorne 0
-- O TIPO deve ser o MESMO considerando abreviacoes acima (CERV=CERVEJA, DET=DETERGENTE, etc)
-- O SUB-TIPO deve ser o MESMO: oleo de SOJA nao e oleo de MILHO, leite INTEGRAL nao e DESNATADO
-- A GRAMATURA deve ser compativel (350ml=350ml, 1L=1LT, 500g=500gr, 269ML=269 ML)
+- Se a MARCA do produto buscado NAO aparece em NENHUM candidato, retorne 0
+- Se a GRAMATURA e diferente, retorne 0 (ex: 200ml != 1L)
+- Se o TIPO/CATEGORIA e diferente, retorne 0 (ex: sardinha != atum)
 - Use Secao/Grupo/Fornecedor como contexto adicional para desambiguar
 - Se encontrar o produto, retorne APENAS o numero. Se NENHUM corresponder, retorne 0.
 - Retorne APENAS um numero, nada mais.`;
@@ -142,7 +148,7 @@ const ABREVIACOES_EMBALAGEM: Record<string, string[]> = {
   'REFIL': ['REF'],
 };
 
-const DEFAULT_PROMPT_MATCHING_FALLBACK = 'Voce e um comparador de produtos de supermercado brasileiro. Dado um produto buscado e uma lista de candidatos, retorne APENAS o numero do melhor match. Considere abreviacoes comuns (CERV=CERVEJA, DET=DETERGENTE, AG SANIT=AGUA SANITARIA, FEIJ=FEIJAO, etc). A MARCA deve ser a MESMA - se o produto buscado e de uma marca e nenhum candidato e da mesma marca, retorne 0. Se nenhum candidato for o mesmo tipo de produto, retorne 0.';
+const DEFAULT_PROMPT_MATCHING_FALLBACK = 'Voce e um comparador de produtos de supermercado brasileiro. Dado um produto buscado e uma lista de candidatos, retorne APENAS o numero do melhor match. Considere abreviacoes comuns (CERV=CERVEJA, DET=DETERGENTE, AG SANIT=AGUA SANITARIA, FEIJ=FEIJAO, etc). PESOS: MARCA(30%) > PRODUTO(25%) > GRAMATURA(20%) > TIPO(10%) > EMBALAGEM(10%) > SABOR(5%). A MARCA e o criterio MAIS importante - se a marca nao bate, retorne 0. Se a gramatura e diferente, retorne 0. Se nenhum candidato for o mesmo tipo de produto, retorne 0.';
 
 // Correcao de erros de digitacao comuns em produtos
 const CORRECAO_TYPOS: Record<string, string> = {
@@ -651,8 +657,13 @@ export class GarimpadorComparadorService {
       // Ler prompt customizado ou usar default
       const promptSql = (await ConfigurationService.get('garimpador_prompt_matching_sql')) || DEFAULT_PROMPT_MATCHING_SQL;
 
-      // User message com reforco de abreviacoes
+      // User message com decomposicao e reforco de abreviacoes
+      const marcaInfo = decomp.marcas.length > 0 ? `MARCA identificada: "${decomp.marcas.join(', ')}" - o candidato DEVE conter esta marca!` : '';
+      const gramInfo = decomp.gramaturas.length > 0 ? `GRAMATURA: ${decomp.gramaturas.map(g => g.textoOriginal).join(', ')}` : '';
+      const tipoInfo = decomp.descricao.length > 0 ? `TIPO: ${decomp.descricao.join(' ')}` : '';
+
       const userMsgSql = `Produto buscado: "${descricaoBusca}"
+${marcaInfo ? `\n${marcaInfo}` : ''}${gramInfo ? `\n${gramInfo}` : ''}${tipoInfo ? `\n${tipoInfo}` : ''}
 
 LEMBRETE: Os nomes no sistema ERP sao ABREVIADOS. Exemplos reais:
 - "CERVEJA" aparece como "CERV"
@@ -790,8 +801,14 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
       // Ler prompt customizado ou usar default
       const promptVetorial = (await ConfigurationService.get('garimpador_prompt_matching_vetorial')) || DEFAULT_PROMPT_MATCHING_VETORIAL;
 
-      // User message com reforco de abreviacoes para aumentar taxa de acerto
+      // User message com decomposicao e reforco de abreviacoes
+      const decompVet = await GarimpadorDecomposerService.decomporComIA(descricaoBusca);
+      const marcaInfoV = decompVet.marcas.length > 0 ? `MARCA identificada: "${decompVet.marcas.join(', ')}" - o candidato DEVE conter esta marca!` : '';
+      const gramInfoV = decompVet.gramaturas.length > 0 ? `GRAMATURA: ${decompVet.gramaturas.map(g => g.textoOriginal).join(', ')}` : '';
+      const tipoInfoV = decompVet.descricao.length > 0 ? `TIPO: ${decompVet.descricao.join(' ')}` : '';
+
       const userMessage = `Produto buscado: "${descricaoBusca}"
+${marcaInfoV ? `\n${marcaInfoV}` : ''}${gramInfoV ? `\n${gramInfoV}` : ''}${tipoInfoV ? `\n${tipoInfoV}` : ''}
 
 LEMBRETE: Os nomes no sistema ERP sao ABREVIADOS. Exemplos reais:
 - "CERVEJA" aparece como "CERV"

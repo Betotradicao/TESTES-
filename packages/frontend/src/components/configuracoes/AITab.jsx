@@ -25,11 +25,18 @@ REGRAS CRITICAS - O SISTEMA ERP USA ABREVIACOES PESADAS:
 - TETRA PAK = "TP", FARDO = "FD", PET = "PET"
 - O nome do produto NO SISTEMA pode estar TOTALMENTE abreviado: "CERV SKOL LT 350ML" = "CERVEJA SKOL LATA 350ML"
 
+PESOS DE IMPORTANCIA (use para decidir):
+- MARCA (30%): Criterio MAIS importante. NUNCA misture marcas. Bono!=Negresco, Peroba!=Destac, 88!=Coqueiro, Ducoco!=Kero Coco. Se a marca nao bate, retorne 0.
+- PRODUTO/CATEGORIA (25%): Biscoito, Macarrao, Molho, Sardinha, Lustra Movel, Agua de Coco, etc. Deve ser o mesmo tipo.
+- GRAMATURA (20%): 350ml=350ml, 1L=1LT, 500g=500gr, 200ml=200ml. Gramaturas diferentes = produto diferente.
+- TIPO/VARIANTE (10%): Recheado, Pilsen, Zero, Integral, etc. Deve ser compativel.
+- EMBALAGEM (10%): Lata, Long Neck, Pacote, Pote, Tetra Pak. Considerar abreviacoes.
+- SABOR/FRAGRANCIA (5%): Uva, Limao, Jasmin, Lavanda, Chocolate. Menor peso mas ainda relevante.
+
 REGRAS DE MATCHING:
-- A MARCA deve ser a MESMA (Skol=Skol, Itaipava=Itaipava, nao misturar)
-- O TIPO deve ser o MESMO considerando abreviacoes acima
-- O SUB-TIPO deve ser o MESMO: oleo de SOJA nao e oleo de MILHO, leite INTEGRAL nao e DESNATADO
-- A GRAMATURA deve ser compativel (350ml=350ml, 1L=1LT, 500g=500gr, 269ML=269 ML)
+- Se a MARCA do produto buscado NAO aparece em NENHUM candidato, retorne 0
+- Se a GRAMATURA e diferente, retorne 0 (ex: 200ml != 1L)
+- Se o TIPO/CATEGORIA e diferente, retorne 0 (ex: sardinha != atum)
 - Se encontrar o produto, retorne APENAS o numero. Se NENHUM corresponder, retorne 0.
 - Retorne APENAS um numero, nada mais.`,
 
@@ -45,12 +52,18 @@ REGRAS CRITICAS - O SISTEMA ERP USA ABREVIACOES PESADAS:
 - TETRA PAK = "TP", FARDO = "FD", PET = "PET"
 - O nome do produto NO SISTEMA pode estar TOTALMENTE abreviado: "CERV SKOL LT 350ML" = "CERVEJA SKOL LATA 350ML"
 
+PESOS DE IMPORTANCIA (use para decidir):
+- MARCA (30%): Criterio MAIS importante. NUNCA misture marcas. Bono!=Negresco, Peroba!=Destac, 88!=Coqueiro, Ducoco!=Kero Coco. Se a marca nao bate, retorne 0.
+- PRODUTO/CATEGORIA (25%): Biscoito, Macarrao, Molho, Sardinha, Lustra Movel, Agua de Coco, etc. Deve ser o mesmo tipo.
+- GRAMATURA (20%): 350ml=350ml, 1L=1LT, 500g=500gr, 200ml=200ml. Gramaturas diferentes = produto diferente.
+- TIPO/VARIANTE (10%): Recheado, Pilsen, Zero, Integral, etc. Deve ser compativel.
+- EMBALAGEM (10%): Lata, Long Neck, Pacote, Pote, Tetra Pak. Considerar abreviacoes.
+- SABOR/FRAGRANCIA (5%): Uva, Limao, Jasmin, Lavanda, Chocolate. Menor peso mas ainda relevante.
+
 REGRAS DE MATCHING:
-- A MARCA e o criterio MAIS importante - NUNCA misture marcas (Skol!=Brahma, Itaipava!=Heineken)
-- Se o produto buscado especifica uma marca e NENHUM candidato tem essa marca, retorne 0
-- O TIPO deve ser o MESMO considerando abreviacoes acima (CERV=CERVEJA, DET=DETERGENTE, etc)
-- O SUB-TIPO deve ser o MESMO: oleo de SOJA nao e oleo de MILHO, leite INTEGRAL nao e DESNATADO
-- A GRAMATURA deve ser compativel (350ml=350ml, 1L=1LT, 500g=500gr, 269ML=269 ML)
+- Se a MARCA do produto buscado NAO aparece em NENHUM candidato, retorne 0
+- Se a GRAMATURA e diferente, retorne 0 (ex: 200ml != 1L)
+- Se o TIPO/CATEGORIA e diferente, retorne 0 (ex: sardinha != atum)
 - Use Secao/Grupo/Fornecedor como contexto adicional para desambiguar
 - Se encontrar o produto, retorne APENAS o numero. Se NENHUM corresponder, retorne 0.
 - Retorne APENAS um numero, nada mais.`,
