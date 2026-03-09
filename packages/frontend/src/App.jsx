@@ -57,6 +57,7 @@ import GarimpadorRankingConcorrentes from './pages/GarimpadorRankingConcorrentes
 import GarimpadorProjecao from './pages/GarimpadorProjecao';
 import GarimpadorForaMix from './pages/GarimpadorForaMix';
 import GarimpadorProdutosPesquisar from './pages/GarimpadorProdutosPesquisar';
+import GarimpadorEcommerce from './pages/GarimpadorEcommerce';
 import RotaCrescimento from './pages/RotaCrescimento';
 import CalendarioAtendimento from './pages/CalendarioAtendimento';
 import CotacaoPublica from './pages/CotacaoPublica';
@@ -499,6 +500,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <GarimpadorProdutosPesquisar />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/garimpador-ecommerce"
+              element={
+                <ProtectedRoute>
+                  <GarimpadorEcommerce />
                 </ProtectedRoute>
               }
             />

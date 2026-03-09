@@ -80,13 +80,19 @@ export class GestaoInteligenteService {
       anoFimNovo--;
     }
 
+    // Ajustar dia para não ultrapassar o último dia do mês destino
+    const ultimoDiaIni = new Date(anoIniNovo, mesIniNovo, 0).getDate();
+    const ultimoDiaFim = new Date(anoFimNovo, mesFimNovo, 0).getDate();
+    const diaIniAjustado = Math.min(diaIni, ultimoDiaIni);
+    const diaFimAjustado = Math.min(diaFim, ultimoDiaFim);
+
     const formatDate = (dia: number, mes: number, ano: number) => {
       return `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}/${ano}`;
     };
 
     return {
-      inicio: formatDate(diaIni, mesIniNovo, anoIniNovo),
-      fim: formatDate(diaFim, mesFimNovo, anoFimNovo)
+      inicio: formatDate(diaIniAjustado, mesIniNovo, anoIniNovo),
+      fim: formatDate(diaFimAjustado, mesFimNovo, anoFimNovo)
     };
   }
 
@@ -99,13 +105,19 @@ export class GestaoInteligenteService {
     const [anoIni, mesIni, diaIni] = dataInicio.split('-').map(Number);
     const [anoFim, mesFim, diaFim] = dataFim.split('-').map(Number);
 
+    // Ajustar dia para não ultrapassar o último dia do mês no ano anterior (ex: 29/02 em ano não-bissexto)
+    const ultimoDiaIni = new Date(anoIni - 1, mesIni, 0).getDate();
+    const ultimoDiaFim = new Date(anoFim - 1, mesFim, 0).getDate();
+    const diaIniAjustado = Math.min(diaIni, ultimoDiaIni);
+    const diaFimAjustado = Math.min(diaFim, ultimoDiaFim);
+
     const formatDate = (dia: number, mes: number, ano: number) => {
       return `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}/${ano}`;
     };
 
     return {
-      inicio: formatDate(diaIni, mesIni, anoIni - 1),
-      fim: formatDate(diaFim, mesFim, anoFim - 1)
+      inicio: formatDate(diaIniAjustado, mesIni, anoIni - 1),
+      fim: formatDate(diaFimAjustado, mesFim, anoFim - 1)
     };
   }
 

@@ -156,7 +156,7 @@ const initialIndicadores = {
 export default function GestaoInteligente() {
   const [indicadores, setIndicadores] = useState(initialIndicadores);
   const [produtosRevenda, setProdutosRevenda] = useState({ qtdProdutos: 0, valorEstoque: 0, qtdProducao: 0 });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState(getDefaultDates());
   const [clearingCache, setClearingCache] = useState(false);
@@ -1665,23 +1665,14 @@ export default function GestaoInteligente() {
     return formatCurrency(v);
   };
 
-  // Carregar indicadores apenas 1x ao abrir a página (com datas padrão)
-  useEffect(() => {
-    fetchIndicadores();
-    fetchProdutosRevenda();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // NÃO carregar automaticamente ao abrir - só ao clicar "Buscar"
 
   // Carregar dados DEFESA apenas quando ativar o modo (sem reagir a filtros)
   useEffect(() => {
-    if (modoVisao === 'defesa') {
+    if (modoVisao === 'defesa' && indicadores.vendas.atual > 0) {
       fetchDefesaData();
     }
   }, [modoVisao]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-carregar Venda por Ano ao abrir a página
-  useEffect(() => {
-    fetchVendasPorAno(anoSelecionado);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Nenhum auto-fetch ao mudar filtros - tudo controlado pelo botão "Buscar"
 
