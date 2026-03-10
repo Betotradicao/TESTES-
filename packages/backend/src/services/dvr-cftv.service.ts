@@ -728,11 +728,11 @@ export class DVRCFTVService {
                TO_CHAR(e.DTA_SAIDA, 'YYYY-MM-DD') || ' ' || TO_CHAR(e.TIM_HORA, 'HH24:MI:SS') as HORA_CUPOM,
                pr.DES_PRODUTO,
                e.VAL_TOTAL_PRODUTO as VALOR,
-               (SELECT NVL(op2.DES_OPERADOR, 'Cod. ' || p2.COD_ENTIDADE)
-                FROM ${schema}.TAB_PRODUTO_PDV p2
-                LEFT JOIN ${schema}.TAB_OPERADORES op2 ON op2.COD_OPERADOR = p2.COD_ENTIDADE
-                WHERE p2.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL AND p2.NUM_PDV = e.NUM_PDV
-                  AND p2.DTA_SAIDA = e.DTA_SAIDA AND ROWNUM = 1) as NOM_OPERADOR
+               (SELECT op2.DES_OPERADOR
+                FROM ${schema}.TAB_CUPOM_FINALIZADORA cf2
+                LEFT JOIN ${schema}.TAB_OPERADORES op2 ON op2.COD_OPERADOR = cf2.COD_OPERADOR
+                WHERE cf2.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL AND cf2.NUM_PDV = e.NUM_PDV
+                  AND TRUNC(cf2.DTA_VENDA) = TRUNC(e.DTA_SAIDA) AND cf2.COD_OPERADOR IS NOT NULL AND ROWNUM = 1) as NOM_OPERADOR
         FROM ${schema}.TAB_PRODUTO_PDV_ESTORNO e
         LEFT JOIN ${schema}.TAB_PRODUTO pr ON e.COD_PRODUTO = pr.COD_PRODUTO
         WHERE e.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
@@ -841,11 +841,9 @@ export class DVRCFTVService {
         SELECT 0 as NUM_CUPOM_FISCAL, p.NUM_PDV,
                TO_CHAR(p.DTA_SAIDA, 'YYYY-MM-DD') || ' ' || TO_CHAR(p.TIM_HORA, 'HH24:MI:SS') as HORA_CUPOM,
                pr.DES_PRODUTO, p.VAL_TOTAL_PRODUTO as VALOR,
-               'BUSCA PRECO' as TIPO,
-               NVL(op.DES_OPERADOR, 'Cod. ' || p.COD_ENTIDADE) as NOM_OPERADOR
+               'BUSCA PRECO' as TIPO
         FROM ${schema}.TAB_PRODUTO_PDV p
         LEFT JOIN ${schema}.TAB_PRODUTO pr ON p.COD_PRODUTO = pr.COD_PRODUTO
-        LEFT JOIN ${schema}.TAB_OPERADORES op ON op.COD_OPERADOR = p.COD_ENTIDADE
         WHERE p.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
           AND p.NUM_CUPOM_FISCAL = 0
           ${pdvWhere}
@@ -884,13 +882,15 @@ export class DVRCFTVService {
 
     const sql = `
       SELECT sub.NUM_CUPOM_FISCAL, sub.NUM_PDV, sub.HORA_CUPOM, sub.VALOR, sub.QTD_ITENS,
-             sub.COD_OPERADOR, NVL(op.DES_OPERADOR, 'Cod. ' || sub.COD_OPERADOR) as NOM_OPERADOR
+             op.DES_OPERADOR as NOM_OPERADOR
       FROM (
-        SELECT p.NUM_CUPOM_FISCAL, p.NUM_PDV,
+        SELECT p.NUM_CUPOM_FISCAL, p.NUM_PDV, p.DTA_SAIDA,
                TO_CHAR(p.DTA_SAIDA, 'YYYY-MM-DD') || ' ' || TO_CHAR(MIN(p.TIM_HORA), 'HH24:MI:SS') as HORA_CUPOM,
                SUM(p.VAL_TOTAL_PRODUTO) as VALOR,
                COUNT(*) as QTD_ITENS,
-               MIN(p.COD_ENTIDADE) as COD_OPERADOR
+               (SELECT MAX(cf2.COD_OPERADOR) FROM ${schema}.TAB_CUPOM_FINALIZADORA cf2
+                WHERE cf2.NUM_CUPOM_FISCAL = p.NUM_CUPOM_FISCAL AND cf2.NUM_PDV = p.NUM_PDV
+                  AND TRUNC(cf2.DTA_VENDA) = TRUNC(p.DTA_SAIDA)) as COD_OPERADOR
         FROM ${schema}.TAB_PRODUTO_PDV p
         LEFT JOIN ${schema}.TAB_PRODUTO pr ON p.COD_PRODUTO = pr.COD_PRODUTO
         WHERE p.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
@@ -944,10 +944,12 @@ export class DVRCFTVService {
              pr.DES_PRODUTO, p.VAL_TOTAL_PRODUTO as VALOR,
              p.QTD_PRODUTO as QTD,
              'PRODUTO' as TIPO,
-             NVL(op.DES_OPERADOR, 'Cod. ' || p.COD_ENTIDADE) as NOM_OPERADOR
+             (SELECT op2.DES_OPERADOR FROM ${schema}.TAB_CUPOM_FINALIZADORA cf2
+              LEFT JOIN ${schema}.TAB_OPERADORES op2 ON op2.COD_OPERADOR = cf2.COD_OPERADOR
+              WHERE cf2.NUM_CUPOM_FISCAL = p.NUM_CUPOM_FISCAL AND cf2.NUM_PDV = p.NUM_PDV
+                AND TRUNC(cf2.DTA_VENDA) = TRUNC(p.DTA_SAIDA) AND cf2.COD_OPERADOR IS NOT NULL AND ROWNUM = 1) as NOM_OPERADOR
       FROM ${schema}.TAB_PRODUTO_PDV p
       JOIN ${schema}.TAB_PRODUTO pr ON p.COD_PRODUTO = pr.COD_PRODUTO
-      LEFT JOIN ${schema}.TAB_OPERADORES op ON op.COD_OPERADOR = p.COD_ENTIDADE
       WHERE p.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
         AND p.NUM_CUPOM_FISCAL > 0
         AND pr.COD_BARRA_PRINCIPAL = :barcode
@@ -1107,20 +1109,22 @@ export class DVRCFTVService {
       }));
 
       const totalCupom = itens.reduce((s, i) => s + i.total, 0);
-      const codOperador = cupomRows[0]?.COD_ENTIDADE || '';
 
-      // Buscar nome do operador
+      // Buscar nome do operador via TAB_CUPOM_FINALIZADORA (tem COD_OPERADOR)
       let nomeOperador = '';
-      if (codOperador) {
-        try {
-          const sqlOp = `SELECT DES_OPERADOR FROM ${schema}.TAB_OPERADORES WHERE COD_OPERADOR = :cod`;
-          const opRows: any[] = await OracleService.query(sqlOp, { cod: codOperador });
-          if (opRows && opRows.length > 0) {
-            nomeOperador = (opRows[0].DES_OPERADOR || '').trim();
-          }
-        } catch (e: any) {
-          console.log('[DVR] Operador não encontrado:', e.message);
+      try {
+        const sqlOp = `
+          SELECT op.DES_OPERADOR FROM ${schema}.TAB_CUPOM_FINALIZADORA cf
+          JOIN ${schema}.TAB_OPERADORES op ON op.COD_OPERADOR = cf.COD_OPERADOR
+          WHERE cf.NUM_CUPOM_FISCAL = :cupomNum AND cf.NUM_PDV = :pdv
+            AND TRUNC(cf.DTA_VENDA) = TO_DATE(:dateStr, 'DD/MM/YYYY')
+            AND cf.COD_OPERADOR IS NOT NULL AND ROWNUM = 1`;
+        const opRows: any[] = await OracleService.query(sqlOp, { cupomNum, pdv, dateStr });
+        if (opRows && opRows.length > 0) {
+          nomeOperador = (opRows[0].DES_OPERADOR || '').trim();
         }
+      } catch (e: any) {
+        console.log('[DVR] Operador não encontrado:', e.message);
       }
       const cancelado = cupomRows[0]?.FLG_CUPOM_CANCELADO === 'S';
 
@@ -1159,7 +1163,7 @@ export class DVRCFTVService {
         itens,
         total: Math.round(totalCupom * 100) / 100,
         qtdItens: itens.length,
-        operador: nomeOperador || (codOperador ? `Cód. ${codOperador}` : ''),
+        operador: nomeOperador || '',
         formaPgto,
         cancelado,
         hora: cupomRows[0]?.HORA || '',
