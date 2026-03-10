@@ -185,30 +185,32 @@ export default function WeeklyDashboard({
 
       <div className={`grid gap-3 ${weeks.length <= 4 ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-6'}`}>
         {weeks.map((week, idx) => (
-          <WeekChart key={idx} week={week} index={idx} label={formatWeekRange(week)} onBarClick={onBarClick} hasBancoData={hasBancoData} />
+          <WeekChart key={idx} week={week} index={idx} label={formatWeekRange(week)} onBarClick={onBarClick} mode="sistema" />
         ))}
-        <TotalCard weeks={weeks} hasBancoData={hasBancoData} />
+        <TotalCard weeks={weeks} mode="sistema" />
       </div>
     </div>
   );
 }
 
-function WeekChart({ week, index, label, onBarClick, hasBancoData }) {
+function WeekChart({ week, index, label, onBarClick, mode = 'sistema' }) {
+  const isBanco = mode === 'banco';
   const dayLabels = week.days.map((d, i) => {
     const dayNum = String(d.date.getDate());
     return [DAY_LABELS[i], dayNum];
   });
 
-  const hasData = week.totalEntradas > 0 || week.totalSaidas > 0 || week.totalEntradasBco > 0 || week.totalSaidasBco > 0;
-  const saldo = week.totalEntradas - week.totalSaidas;
-  const saldoBco = week.totalEntradasBco - week.totalSaidasBco;
+  const totalEnt = isBanco ? week.totalEntradasBco : week.totalEntradas;
+  const totalSai = isBanco ? week.totalSaidasBco : week.totalSaidas;
+  const hasData = totalEnt > 0 || totalSai > 0;
+  const saldo = totalEnt - totalSai;
 
   const data = {
     labels: dayLabels,
     datasets: [
       {
         label: 'Entradas',
-        data: week.days.map(d => d.entradas + d.entradasBco),
+        data: week.days.map(d => isBanco ? d.entradasBco : d.entradas),
         backgroundColor: 'rgba(34, 197, 94, 0.85)',
         borderRadius: 4,
         barPercentage: 0.8,
@@ -216,7 +218,7 @@ function WeekChart({ week, index, label, onBarClick, hasBancoData }) {
       },
       {
         label: 'Saídas',
-        data: week.days.map(d => d.saidas + d.saidasBco),
+        data: week.days.map(d => isBanco ? d.saidasBco : d.saidas),
         backgroundColor: 'rgba(239, 68, 68, 0.85)',
         borderRadius: 4,
         barPercentage: 0.8,
@@ -285,15 +287,18 @@ function WeekChart({ week, index, label, onBarClick, hasBancoData }) {
       </div>
       {/* Footer: Entradas / Saídas / Saldo */}
       <div className="mt-2">
+        {isBanco && (
+          <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">🏦 Extrato Bancário</div>
+        )}
         <table className="w-full text-xs">
           <tbody>
             <tr>
               <td className="text-green-600 font-bold py-0.5">Entradas</td>
-              <td className="text-green-700 font-black text-right py-0.5">{hasData ? formatCurrency(week.totalEntradas) : '-'}</td>
+              <td className="text-green-700 font-black text-right py-0.5">{hasData ? formatCurrency(totalEnt) : '-'}</td>
             </tr>
             <tr>
               <td className="text-red-600 font-bold py-0.5">Saídas</td>
-              <td className="text-red-700 font-black text-right py-0.5">{hasData ? formatCurrency(week.totalSaidas) : '-'}</td>
+              <td className="text-red-700 font-black text-right py-0.5">{hasData ? formatCurrency(totalSai) : '-'}</td>
             </tr>
             <tr className={`border-t ${saldo >= 0 ? 'border-green-200' : 'border-red-200'}`}>
               <td className={`font-bold py-0.5 ${saldo >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>Saldo</td>
@@ -301,46 +306,23 @@ function WeekChart({ week, index, label, onBarClick, hasBancoData }) {
             </tr>
           </tbody>
         </table>
-
-        {/* Banco */}
-        {hasBancoData && (
-          <table className="w-full text-xs mt-1 border-t border-gray-300 pt-1">
-            <tbody>
-              <tr>
-                <td colSpan={2} className="text-[10px] font-bold text-gray-500 uppercase tracking-wider pt-1 pb-0.5">Banco</td>
-              </tr>
-              <tr>
-                <td className="text-green-600 font-bold py-0.5">Entradas</td>
-                <td className="text-green-700 font-black text-right py-0.5">{formatCurrency(week.totalEntradasBco)}</td>
-              </tr>
-              <tr>
-                <td className="text-red-600 font-bold py-0.5">Saídas</td>
-                <td className="text-red-700 font-black text-right py-0.5">{formatCurrency(week.totalSaidasBco)}</td>
-              </tr>
-              <tr className={`border-t ${saldoBco >= 0 ? 'border-green-200' : 'border-red-200'}`}>
-                <td className={`font-bold py-0.5 ${saldoBco >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>Saldo</td>
-                <td className={`font-black text-right py-0.5 ${saldoBco >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>{formatCurrency(saldoBco)}</td>
-              </tr>
-            </tbody>
-          </table>
-        )}
       </div>
     </div>
   );
 }
 
-function TotalCard({ weeks, hasBancoData }) {
-  const totalEntradas = weeks.reduce((s, w) => s + w.totalEntradas, 0);
-  const totalSaidas = weeks.reduce((s, w) => s + w.totalSaidas, 0);
+function TotalCard({ weeks, mode = 'sistema' }) {
+  const isBanco = mode === 'banco';
+  const totalEntradas = weeks.reduce((s, w) => s + (isBanco ? w.totalEntradasBco : w.totalEntradas), 0);
+  const totalSaidas = weeks.reduce((s, w) => s + (isBanco ? w.totalSaidasBco : w.totalSaidas), 0);
   const saldo = totalEntradas - totalSaidas;
-
-  const totalEntradasBco = weeks.reduce((s, w) => s + w.totalEntradasBco, 0);
-  const totalSaidasBco = weeks.reduce((s, w) => s + w.totalSaidasBco, 0);
-  const saldoBco = totalEntradasBco - totalSaidasBco;
 
   return (
     <div className="border border-gray-200 rounded-xl p-4 shadow-sm bg-white flex flex-col justify-center gap-1.5">
       <div className="text-sm font-bold text-gray-700 text-center">Resumo do Mês</div>
+      {isBanco && (
+        <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">🏦 Extrato Bancário</div>
+      )}
       <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-1.5 text-center">
         <p className="text-[10px] text-green-600 font-semibold uppercase">Entradas</p>
         <p className="text-sm font-black text-green-700">{formatCurrency(totalEntradas)}</p>
@@ -353,27 +335,6 @@ function TotalCard({ weeks, hasBancoData }) {
         <p className={`text-[10px] font-semibold uppercase ${saldo >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>Resultado</p>
         <p className={`text-base font-black ${saldo >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>{formatCurrency(saldo)}</p>
       </div>
-
-      {/* Banco */}
-      {hasBancoData && (
-        <>
-          <div className="border-t border-gray-300 pt-1">
-            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Banco</p>
-          </div>
-          <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-1.5 text-center">
-            <p className="text-[10px] text-green-600 font-semibold uppercase">Entradas</p>
-            <p className="text-sm font-black text-green-700">{formatCurrency(totalEntradasBco)}</p>
-          </div>
-          <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-1.5 text-center">
-            <p className="text-[10px] text-red-600 font-semibold uppercase">Saídas</p>
-            <p className="text-sm font-black text-red-700">{formatCurrency(totalSaidasBco)}</p>
-          </div>
-          <div className={`${saldoBco >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'} border rounded-lg px-3 py-1.5 text-center`}>
-            <p className={`text-[10px] font-semibold uppercase ${saldoBco >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>Resultado</p>
-            <p className={`text-base font-black ${saldoBco >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>{formatCurrency(saldoBco)}</p>
-          </div>
-        </>
-      )}
     </div>
   );
 }

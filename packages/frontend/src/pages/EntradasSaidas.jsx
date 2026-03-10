@@ -126,10 +126,14 @@ export default function EntradasSaidas() {
   const [dashboardStartDate, setDashboardStartDate] = useState(filters.vencInicio);
   const [dashboardEndDate, setDashboardEndDate] = useState(filters.vencFim);
 
+  // Dashboard bancário (Extrato Santander) - independente dos tabs
+  const [bankAccounts, setBankAccounts] = useState([]);
+  const [dashBancoItems, setDashBancoItems] = useState([]);
+
   // Colunas visíveis (filtradas por hiddenColumns)
   const visibleColumns = columns.filter(c => !hiddenColumns.has(c.id));
 
-  useEffect(() => { loadFilterData(); handleSearch(); fetchDashboardData(); fetchDashboardAbertos(); }, []);
+  useEffect(() => { loadFilterData(); handleSearch(); fetchDashboardData(); fetchDashboardAbertos(); fetchBankDashboard(); }, []);
 
   const loadFilterData = async () => {
     setLoadingFilters(true);
@@ -170,7 +174,6 @@ export default function EntradasSaidas() {
       params.append('vencInicio', inicio);
       params.append('vencFim', fim);
       if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
-      params.append('incluirMovBanco', 'sim');
 
       const res = await api.get(`/financeiro/dashboard-diario?${params.toString()}`);
       setDashboardData(res.data?.data || []);
@@ -188,13 +191,45 @@ export default function EntradasSaidas() {
       params.append('vencInicio', inicio);
       params.append('vencFim', fim);
       if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
-      params.append('incluirMovBanco', 'sim');
       params.append('quitado', 'N');
 
       const res = await api.get(`/financeiro/dashboard-diario?${params.toString()}`);
       setDashboardAbertosData(res.data?.data || []);
     } catch (error) {
       console.error('Erro ao buscar dados do dashboard abertos:', error);
+    }
+  };
+
+  const fetchBankDashboard = async (startDt, endDt) => {
+    try {
+      // Buscar contas bancárias ativas (se ainda não carregou)
+      let accounts = bankAccounts;
+      if (!accounts.length) {
+        const bankRes = await api.get('/api/bank-accounts');
+        accounts = (bankRes.data.data || []).filter(b => b.ativo && b.certificate_path);
+        setBankAccounts(accounts);
+      }
+      if (!accounts.length) return;
+
+      const raw = { inicio: startDt || filters.vencInicio, fim: endDt || filters.vencFim };
+      const { inicio, fim } = expandToFullMonth(raw.inicio, raw.fim);
+
+      // Buscar extrato de todos os bancos em paralelo
+      const results = await Promise.allSettled(
+        accounts.map(bank => api.get('/santander/extrato-completo', {
+          params: { initialDate: inicio, finalDate: fim, bankId: bank.id },
+          timeout: 300000
+        }))
+      );
+      let mergedItems = [];
+      results.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          mergedItems = [...mergedItems, ...(result.value.data.items || [])];
+        }
+      });
+      setDashBancoItems(mergedItems);
+    } catch (error) {
+      console.error('Erro ao buscar dashboard bancário:', error);
     }
   };
 
@@ -261,6 +296,7 @@ export default function EntradasSaidas() {
     const newEndStr = fmt(newEnd);
     fetchDashboardData(newStart, newEndStr);
     fetchDashboardAbertos(newStart, newEndStr);
+    fetchBankDashboard(newStart, newEndStr);
   };
 
   const getDashboardMonthLabel = () => {
@@ -290,6 +326,7 @@ export default function EntradasSaidas() {
     setResumo({});
     fetchDashboardData(defaultStart, defaultEnd);
     fetchDashboardAbertos(defaultStart, defaultEnd);
+    fetchBankDashboard(defaultStart, defaultEnd);
   };
 
   const formatCurrency = (val) => {
@@ -690,7 +727,7 @@ export default function EntradasSaidas() {
           </div>
 
           {/* Dashboards Semanais - tabs QUITADOS / ABERTOS */}
-          {(dashboardData.length > 0 || dashboardAbertosData.length > 0) && (
+          {(dashboardData.length > 0 || dashboardAbertosData.length > 0 || dashBancoItems.length > 0) && (
             <div>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -784,6 +821,24 @@ export default function EntradasSaidas() {
                     handleSearch(newFilters);
                   }}
                 />
+              )}
+
+              {/* Dashboard Extrato Bancário (Santander) */}
+              {dashBancoItems.length > 0 && (
+                <div className="mt-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm font-bold text-gray-600">🏦 Extrato Bancário</span>
+                  </div>
+                  <WeeklyDashboard
+                    items={dashBancoItems}
+                    dateField="transactionDate"
+                    entradaFilter={(item) => item.creditDebitType === 'CREDITO'}
+                    saidaFilter={(item) => item.creditDebitType === 'DEBITO'}
+                    valueField="amount"
+                    startDate={dashboardStartDate}
+                    endDate={dashboardEndDate}
+                  />
+                </div>
               )}
             </div>
           )}
