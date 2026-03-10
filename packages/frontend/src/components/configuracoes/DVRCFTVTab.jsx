@@ -26,6 +26,8 @@ export default function DVRCFTVTab() {
   const [bipagensConfig, setBipagensConfig] = useState({});
   // { [channel]: { pdv: number } }
   const [riscoConfig, setRiscoConfig] = useState({});
+  // { [channel]: { pdv: number, antes: number, depois: number } }
+  const [pcConfig, setPcConfig] = useState({});
 
   useEffect(() => {
     loadConfig();
@@ -74,6 +76,16 @@ export default function DVRCFTVTab() {
         } catch {
           setRiscoConfig({});
         }
+        try {
+          const parsedPc = JSON.parse(data.dvr_cameras_pdv || '[]');
+          const pcObj = {};
+          (Array.isArray(parsedPc) ? parsedPc : []).forEach(c => {
+            pcObj[c.channel] = { pdv: c.pdv ?? 0, antes: c.antes ?? 20, depois: c.depois ?? 120 };
+          });
+          setPcConfig(pcObj);
+        } catch {
+          setPcConfig({});
+        }
       }
     } catch (err) {
       console.error('Erro ao carregar configurações DVR:', err);
@@ -104,11 +116,21 @@ export default function DVRCFTVTab() {
           antes: riscoConfig[c.channel].antes,
           depois: riscoConfig[c.channel].depois
         }));
+      const camerasPc = canais
+        .filter(c => pcConfig[c.channel])
+        .map(c => ({
+          channel: c.channel,
+          label: c.label,
+          pdv: pcConfig[c.channel].pdv,
+          antes: pcConfig[c.channel].antes,
+          depois: pcConfig[c.channel].depois
+        }));
       const updates = {
         ...config,
         dvr_canais: canaisJson,
         dvr_cameras_bipagens: JSON.stringify(camerasBip),
-        dvr_cameras_risco: JSON.stringify(camerasRisco)
+        dvr_cameras_risco: JSON.stringify(camerasRisco),
+        dvr_cameras_pdv: JSON.stringify(camerasPc)
       };
       await api.post('/config/configurations', updates);
       setConfig(prev => ({ ...prev, dvr_canais: canaisJson }));
@@ -207,6 +229,25 @@ export default function DVRCFTVTab() {
 
   const updateRiscoConfig = (channel, field, value) => {
     setRiscoConfig(prev => ({
+      ...prev,
+      [channel]: { ...prev[channel], [field]: parseInt(value) || 0 }
+    }));
+  };
+
+  const togglePc = (channel) => {
+    setPcConfig(prev => {
+      const next = { ...prev };
+      if (next[channel]) {
+        delete next[channel];
+      } else {
+        next[channel] = { pdv: 0, antes: 20, depois: 120 };
+      }
+      return next;
+    });
+  };
+
+  const updatePcConfig = (channel, field, value) => {
+    setPcConfig(prev => ({
       ...prev,
       [channel]: { ...prev[channel], [field]: parseInt(value) || 0 }
     }));
@@ -421,6 +462,10 @@ export default function DVRCFTVTab() {
                   <th className="px-3 py-2 text-center font-semibold text-red-700 w-20 bg-red-100">PDV</th>
                   <th className="px-3 py-2 text-center font-semibold text-red-700 w-24 bg-red-100">Antes (s)</th>
                   <th className="px-3 py-2 text-center font-semibold text-red-700 w-24 bg-red-100 border-r-2 border-red-300">Depois (s)</th>
+                  <th className="px-3 py-2 text-center font-semibold text-purple-700 w-20 bg-purple-100 border-l-2 border-purple-300">Pal. Chave 2</th>
+                  <th className="px-3 py-2 text-center font-semibold text-purple-700 w-20 bg-purple-100">PDV</th>
+                  <th className="px-3 py-2 text-center font-semibold text-purple-700 w-24 bg-purple-100">Antes (s)</th>
+                  <th className="px-3 py-2 text-center font-semibold text-purple-700 w-24 bg-purple-100 border-r-2 border-purple-300">Depois (s)</th>
                   <th className="px-3 py-2 text-left font-semibold text-gray-600">Label (exibicao)</th>
                   <th className="px-3 py-2 text-center font-semibold text-gray-600 w-16">Acoes</th>
                 </tr>
@@ -528,6 +573,56 @@ export default function DVRCFTVTab() {
                           min="10"
                           max="600"
                           className="w-20 px-2 py-1 border border-red-300 rounded text-sm text-center focus:ring-2 focus:ring-red-500 bg-red-50"
+                        />
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-center bg-purple-50/60 border-l-2 border-purple-300">
+                      <input
+                        type="checkbox"
+                        checked={!!pcConfig[canal.channel]}
+                        onChange={() => togglePc(canal.channel)}
+                        className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 cursor-pointer"
+                        title="Marque para usar esta camera na Vision Palavra Chave 2"
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-center bg-purple-50/60">
+                      {pcConfig[canal.channel] ? (
+                        <input
+                          type="number"
+                          value={pcConfig[canal.channel].pdv}
+                          onChange={(e) => updatePcConfig(canal.channel, 'pdv', e.target.value)}
+                          min="0"
+                          className="w-16 px-2 py-1 border border-purple-300 rounded text-sm text-center focus:ring-2 focus:ring-purple-500 bg-purple-50"
+                        />
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-center bg-purple-50/60">
+                      {pcConfig[canal.channel] ? (
+                        <input
+                          type="number"
+                          value={pcConfig[canal.channel].antes}
+                          onChange={(e) => updatePcConfig(canal.channel, 'antes', e.target.value)}
+                          min="0"
+                          max="300"
+                          className="w-20 px-2 py-1 border border-purple-300 rounded text-sm text-center focus:ring-2 focus:ring-purple-500 bg-purple-50"
+                        />
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-center bg-purple-50/60 border-r-2 border-purple-300">
+                      {pcConfig[canal.channel] ? (
+                        <input
+                          type="number"
+                          value={pcConfig[canal.channel].depois}
+                          onChange={(e) => updatePcConfig(canal.channel, 'depois', e.target.value)}
+                          min="10"
+                          max="600"
+                          className="w-20 px-2 py-1 border border-purple-300 rounded text-sm text-center focus:ring-2 focus:ring-purple-500 bg-purple-50"
                         />
                       ) : (
                         <span className="text-gray-300">-</span>

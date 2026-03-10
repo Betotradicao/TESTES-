@@ -263,6 +263,11 @@ async function seedConfigurations() {
         value: '[]',
         description: 'Câmeras DVR para Prevenção Operações de Risco PDV (JSON: [{channel, label, pdv, antes, depois}])'
       },
+      {
+        key: 'dvr_cameras_pdv',
+        value: '[]',
+        description: 'Câmeras DVR para Vision Palavra Chave 2 (JSON: [{channel, label, pdv, antes, depois}])'
+      },
 
       // Monitor de Email (Novo sistema)
       {
