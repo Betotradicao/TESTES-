@@ -682,6 +682,131 @@ export class DVRCFTVService {
   }
 
   /**
+   * Busca Oracle por palavra-chave em TODOS os PDVs (sem usar DVR POS).
+   * Retorna transações com PDV, horário, cupom, operador, valor e tipo.
+   */
+  static async searchOracleAllPdvs(startDate: string, endDate: string, text: string, pdvFilter?: number): Promise<{ total: number; items: any[] }> {
+    const [year, month, day] = startDate.split('-');
+    const dateStr = `${day}/${month}/${year}`;
+    const textUpper = text.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const schema = await MappingService.getSchema();
+
+    // Detectar palavras-chave especiais
+    let keyword = '';
+    if (['CANCELAMENTO', 'CANCELADO', 'CANCEL', 'CANCELA', 'ESTORNO'].includes(textUpper)) {
+      keyword = 'cancelado';
+    } else if (textUpper === 'DESCONTO') {
+      keyword = 'desconto';
+    } else if (['BUSCA', 'BUSCA PRECO', 'CONSULTA', 'CONSULTA PRECO'].includes(textUpper)) {
+      keyword = 'busca_preco';
+    } else {
+      const codFin = await this.findFinalizadoraCod(textUpper);
+      if (codFin !== null) keyword = `fin_${codFin}`;
+    }
+
+    const results: any[] = [];
+    let params: any = { dateStr };
+    if (pdvFilter) params.pdv = pdvFilter;
+    const pdvWhere = pdvFilter ? 'AND p.NUM_PDV = :pdv' : '';
+
+    // CANCELAMENTO → TAB_PRODUTO_PDV_ESTORNO
+    if (keyword === 'cancelado') {
+      const sql = `
+        SELECT e.NUM_CUPOM_FISCAL, e.NUM_PDV,
+               TO_CHAR(e.DTA_SAIDA, 'YYYY-MM-DD') || ' ' || TO_CHAR(e.TIM_HORA, 'HH24:MI:SS') as HORA_CUPOM,
+               pr.DES_PRODUTO,
+               e.VAL_TOTAL_PRODUTO as VALOR,
+               'CANCELAMENTO' as TIPO
+        FROM ${schema}.TAB_PRODUTO_PDV_ESTORNO e
+        LEFT JOIN ${schema}.TAB_PRODUTO pr ON e.COD_PRODUTO = pr.COD_PRODUTO
+        WHERE e.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
+          ${pdvFilter ? 'AND e.NUM_PDV = :pdv' : ''}
+        ORDER BY e.TIM_HORA
+      `;
+      const rows = await OracleService.query(sql, params);
+      for (const row of rows) {
+        results.push({
+          time: row.HORA_CUPOM, cupomNum: Number(row.NUM_CUPOM_FISCAL),
+          pdv: Number(row.NUM_PDV), produto: row.DES_PRODUTO || '',
+          valor: Number(row.VALOR) || 0, tipo: 'CANCELAMENTO'
+        });
+      }
+      return { total: results.length, items: results };
+    }
+
+    // BUSCA PREÇO
+    if (keyword === 'busca_preco') {
+      const sql = `
+        SELECT 0 as NUM_CUPOM_FISCAL, p.NUM_PDV,
+               TO_CHAR(p.DTA_SAIDA, 'YYYY-MM-DD') || ' ' || TO_CHAR(p.TIM_HORA, 'HH24:MI:SS') as HORA_CUPOM,
+               pr.DES_PRODUTO, p.VAL_TOTAL_PRODUTO as VALOR,
+               'BUSCA PRECO' as TIPO
+        FROM ${schema}.TAB_PRODUTO_PDV p
+        LEFT JOIN ${schema}.TAB_PRODUTO pr ON p.COD_PRODUTO = pr.COD_PRODUTO
+        WHERE p.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
+          AND p.NUM_CUPOM_FISCAL = 0
+          ${pdvWhere}
+        ORDER BY p.TIM_HORA
+      `;
+      const rows = await OracleService.query(sql, params);
+      for (const row of rows) {
+        results.push({
+          time: row.HORA_CUPOM, cupomNum: 0,
+          pdv: Number(row.NUM_PDV), produto: row.DES_PRODUTO || '',
+          valor: Number(row.VALOR) || 0, tipo: 'BUSCA PRECO'
+        });
+      }
+      return { total: results.length, items: results };
+    }
+
+    // DESCONTO, FINALIZADORA ou PRODUTO
+    let whereExtra = '';
+    if (keyword === 'desconto') {
+      whereExtra = `AND p.VAL_DESCONTO > 0`;
+    } else if (keyword.startsWith('fin_')) {
+      const codFin = parseInt(keyword.split('_')[1]);
+      whereExtra = `AND EXISTS (
+        SELECT 1 FROM ${schema}.TAB_CUPOM_FINALIZADORA cf
+        WHERE cf.DTA_VENDA = p.DTA_SAIDA AND cf.NUM_PDV = p.NUM_PDV
+          AND cf.NUM_CUPOM_FISCAL = p.NUM_CUPOM_FISCAL AND cf.COD_FINALIZADORA = :codFin
+      )`;
+      params.codFin = codFin;
+    } else {
+      whereExtra = `AND UPPER(pr.DES_PRODUTO) LIKE '%' || UPPER(:text) || '%'`;
+      params.text = text;
+    }
+
+    const tipoLabel = keyword === 'desconto' ? 'DESCONTO' : keyword.startsWith('fin_') ? 'FINALIZADORA' : 'PRODUTO';
+
+    const sql = `
+      SELECT p.NUM_CUPOM_FISCAL, p.NUM_PDV,
+             TO_CHAR(p.DTA_SAIDA, 'YYYY-MM-DD') || ' ' || TO_CHAR(MIN(p.TIM_HORA), 'HH24:MI:SS') as HORA_CUPOM,
+             SUM(p.VAL_TOTAL_PRODUTO) as VALOR,
+             COUNT(*) as QTD_ITENS
+      FROM ${schema}.TAB_PRODUTO_PDV p
+      LEFT JOIN ${schema}.TAB_PRODUTO pr ON p.COD_PRODUTO = pr.COD_PRODUTO
+      WHERE p.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
+        AND p.NUM_CUPOM_FISCAL > 0
+        ${pdvWhere}
+        ${whereExtra}
+      GROUP BY p.NUM_CUPOM_FISCAL, p.NUM_PDV, p.DTA_SAIDA
+      ORDER BY MIN(p.TIM_HORA)
+    `;
+
+    const rows = await OracleService.query(sql, params);
+    for (const row of rows) {
+      results.push({
+        time: row.HORA_CUPOM, cupomNum: Number(row.NUM_CUPOM_FISCAL),
+        pdv: Number(row.NUM_PDV), produto: '',
+        valor: Number(row.VALOR) || 0, tipo: tipoLabel,
+        qtdItens: Number(row.QTD_ITENS) || 0
+      });
+    }
+
+    return { total: results.length, items: results };
+  }
+
+  /**
    * Enriquecer resultados DVR com número do cupom do Oracle
    */
   private static async enrichWithCupomNumbers(items: POSSearchResult[], pdv: number): Promise<POSSearchResult[]> {

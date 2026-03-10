@@ -172,6 +172,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       // Vision 360
       '/vision-pdv': 'vision-pdv',
       '/vision-operacoes-risco': 'vision-pdv',
+      '/vision-palavra-chave-2': 'vision-pdv',
       '/reconhecimento-facial': 'vision-facial',
       '/vision-facial': 'vision-facial',
     };
@@ -234,6 +235,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/conciliacao-bancaria': 'financas-radar',
       '/vision-pdv': 'vision-360',
       '/vision-operacoes-risco': 'vision-360',
+      '/vision-palavra-chave-2': 'vision-360',
       '/vision-facial': 'vision-360',
       '/reconhecimento-facial': 'vision-360',
     };
@@ -696,7 +698,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           expandable: true,
           subItems: [
             { id: 'vision-palavra-chave', submenuId: 'vision-palavra-chave', title: 'VISION PALAVRA CHAVE', path: '/vision-pdv' },
-            { id: 'vision-operacoes-risco', submenuId: 'vision-operacoes-risco', title: 'OPERAÇÕES DE RISCO PDV', path: '/vision-operacoes-risco' }
+            { id: 'vision-operacoes-risco', submenuId: 'vision-operacoes-risco', title: 'OPERAÇÕES DE RISCO PDV', path: '/vision-operacoes-risco' },
+            { id: 'vision-palavra-chave-2', submenuId: 'vision-palavra-chave-2', title: 'VISION PALAVRA CHAVE 2', path: '/vision-palavra-chave-2' }
           ]
         },
         {

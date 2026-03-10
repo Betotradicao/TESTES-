@@ -283,6 +283,66 @@ export class DVRCFTVController {
   }
 
   /**
+   * Busca Oracle-only por palavra-chave (sem DVR POS)
+   * GET /api/dvr-cftv/pos/search-oracle?text=dinheiro&start=2026-03-10&end=2026-03-10&pdv=4
+   */
+  static async searchOracle(req: Request, res: Response) {
+    try {
+      const { text, start, end, pdv } = req.query;
+      if (!text || !(text as string).trim()) {
+        return res.status(400).json({ error: 'Parâmetro "text" é obrigatório' });
+      }
+      const startDate = (start as string) || new Date().toISOString().slice(0, 10);
+      const endDate = (end as string) || startDate;
+      const pdvNum = pdv ? parseInt(pdv as string) : undefined;
+
+      console.log(`[VISION-PC2] Busca Oracle: text="${text}", start=${startDate}, end=${endDate}, pdv=${pdvNum || 'TODOS'}`);
+      const result = await DVRCFTVService.searchOracleAllPdvs(startDate, endDate, (text as string).trim(), pdvNum);
+
+      res.json({ success: true, total: result.total, items: result.items });
+    } catch (error: any) {
+      console.error('Erro busca Oracle:', error.message);
+      res.status(500).json({ error: 'Erro ao buscar no Oracle', details: error.message });
+    }
+  }
+
+  /**
+   * Salvar configuração de câmeras por PDV para Vision Palavra Chave 2
+   * POST /api/dvr-cftv/config/cameras-pdv
+   */
+  static async saveCamerasPdv(req: Request, res: Response) {
+    try {
+      const { cameras } = req.body;
+      if (!Array.isArray(cameras)) {
+        return res.status(400).json({ error: 'cameras deve ser um array' });
+      }
+      const { ConfigurationService } = await import('../services/configuration.service');
+      await ConfigurationService.set('dvr_cameras_pdv', JSON.stringify(cameras));
+      res.json({ success: true, message: 'Configuração de câmeras por PDV salva' });
+    } catch (error: any) {
+      console.error('Erro ao salvar câmeras PDV:', error.message);
+      res.status(500).json({ error: 'Erro ao salvar câmeras PDV', details: error.message });
+    }
+  }
+
+  /**
+   * Buscar configuração de câmeras por PDV para Vision Palavra Chave 2
+   * GET /api/dvr-cftv/config/cameras-pdv
+   */
+  static async getCamerasPdv(req: Request, res: Response) {
+    try {
+      const { ConfigurationService } = await import('../services/configuration.service');
+      const raw = await ConfigurationService.get('dvr_cameras_pdv');
+      let cameras: { channel: number; label: string; pdv: number; antes: number; depois: number }[] = [];
+      try { cameras = JSON.parse(raw || '[]'); } catch { cameras = []; }
+      res.json({ success: true, cameras });
+    } catch (error: any) {
+      console.error('Erro ao buscar câmeras PDV:', error.message);
+      res.status(500).json({ error: 'Erro ao buscar câmeras PDV', details: error.message });
+    }
+  }
+
+  /**
    * Detectar canais do DVR automaticamente via RPC2
    * POST /api/dvr-cftv/detect-channels
    */

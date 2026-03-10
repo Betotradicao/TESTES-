@@ -78,6 +78,7 @@ import MetasRanking from './pages/MetasRanking';
 import MetasParametrizar from './pages/MetasParametrizar';
 import VisionPDV from './pages/VisionPDV';
 import VisionOperacoesRisco from './pages/VisionOperacoesRisco';
+import VisionPalavraChave2 from './pages/VisionPalavraChave2';
 import VisionFacial from './pages/VisionFacial';
 
 function App() {
@@ -612,6 +613,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <VisionOperacoesRisco />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vision-palavra-chave-2"
+              element={
+                <ProtectedRoute>
+                  <VisionPalavraChave2 />
                 </ProtectedRoute>
               }
             />

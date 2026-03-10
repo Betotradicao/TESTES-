@@ -49,6 +49,13 @@ router.post('/config/cameras-bipagens', authenticateToken, DVRCFTVController.sav
 // Câmeras de Prev. Risco (por PDV)
 router.get('/config/cameras-risco', authenticateToken, DVRCFTVController.getCamerasRisco);
 
+// Busca Oracle-only por palavra-chave (Vision Palavra Chave 2)
+router.get('/pos/search-oracle', authenticateToken, DVRCFTVController.searchOracle);
+
+// Câmeras por PDV (Vision Palavra Chave 2)
+router.get('/config/cameras-pdv', authenticateToken, DVRCFTVController.getCamerasPdv);
+router.post('/config/cameras-pdv', authenticateToken, DVRCFTVController.saveCamerasPdv);
+
 // Testar conexão com o DVR
 router.post('/test-connection', authenticateToken, DVRCFTVController.testConnection);
 
