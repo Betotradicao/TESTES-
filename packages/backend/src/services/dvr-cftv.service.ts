@@ -106,21 +106,22 @@ export class DVRCFTVService {
   }
 
   /**
-   * Mapa padrão de finalizadoras (fallback quando Oracle não tem TAB_FINALIZADORA)
+   * Mapa padrão de finalizadoras (fallback quando Oracle não tem TAB_ENTIDADE)
    */
   private static readonly DEFAULT_FINALIZADORA_MAP: Record<number, string> = {
     1: 'DINHEIRO',
-    2: 'CHEQUE',
-    3: 'CARTAO CREDITO',
-    4: 'CARTAO DEBITO',
-    5: 'CREDIARIO',
-    6: 'VALE COMPRA',
-    7: 'CONVENIO',
-    8: 'PIX',
-    9: 'TICKET',
-    10: 'BOLETO',
-    11: 'TRANSFERENCIA',
-    12: 'DEPOSITO',
+    2: 'CHEQUE A VISTA',
+    3: 'CHEQUE PRE',
+    4: 'FUNCIONARIO',
+    5: 'CARTAO POS',
+    6: 'CARTAO CREDITO',
+    7: 'CARTAO DEBITO',
+    8: 'BOLETO BANCARIO',
+    9: 'PIX / CARTEIRA DIGITAL',
+    10: 'SITEMERCADO / IFOOD',
+    11: 'VALE TROCA',
+    12: 'CARTAO PARCELADO',
+    20: 'VALE COMPRA',
   };
 
   /**
@@ -131,11 +132,12 @@ export class DVRCFTVService {
     'CHEQUE': ['CHEQUE'],
     'CARTAO CREDITO': ['CARTAO CREDITO', 'CREDITO', 'CREDIT'],
     'CARTAO DEBITO': ['CARTAO DEBITO', 'DEBITO', 'DEBIT'],
-    'CREDIARIO': ['CREDIARIO', 'FIADO'],
+    'CARTAO PARCELADO': ['CARTAO PARCELADO', 'PARCELADO'],
+    'CARTAO POS': ['CARTAO POS', 'POS'],
+    'FUNCIONARIO': ['FUNCIONARIO'],
     'VALE COMPRA': ['VALE COMPRA', 'VALE', 'VOUCHER'],
-    'CONVENIO': ['CONVENIO', 'CONVENIADO'],
-    'PIX': ['PIX'],
-    'TICKET': ['TICKET', 'VALE REFEICAO', 'VALE ALIMENTACAO', 'VR', 'VA'],
+    'CONVENIO': ['CONVENIO', 'CONVENIADO', 'FUNCIONARIO'],
+    'PIX / CARTEIRA DIGITAL': ['PIX', 'CARTEIRA DIGITAL'],
   };
 
   /**
@@ -151,7 +153,26 @@ export class DVRCFTVService {
     }
     try {
       const schema = await MappingService.getSchema();
-      // Tentar TAB_FINALIZADORA primeiro (tem descrição)
+
+      // 1) Tentar TAB_ENTIDADE (tem DES_ENTIDADE com nomes reais)
+      try {
+        const sql = `SELECT COD_ENTIDADE, DES_ENTIDADE FROM ${schema}.TAB_ENTIDADE ORDER BY COD_ENTIDADE`;
+        const rows: any[] = await OracleService.query(sql, {});
+        if (rows && rows.length > 0) {
+          const map: Record<number, string> = {};
+          for (const row of rows) {
+            map[row.COD_ENTIDADE] = (row.DES_ENTIDADE || '').trim().toUpperCase();
+          }
+          this.finalizadoraCache = map;
+          this.finalizadoraCacheTime = Date.now();
+          console.log(`[DVR] Finalizadoras carregadas do Oracle (TAB_ENTIDADE): ${Object.keys(map).length} itens`, JSON.stringify(map));
+          return map;
+        }
+      } catch {
+        console.log('[DVR] TAB_ENTIDADE não existe, tentando TAB_FINALIZADORA...');
+      }
+
+      // 2) Tentar TAB_FINALIZADORA (fallback)
       try {
         const sql = `SELECT COD_FINALIZADORA, DES_FINALIZADORA FROM ${schema}.TAB_FINALIZADORA ORDER BY COD_FINALIZADORA`;
         const rows: any[] = await OracleService.query(sql, {});
@@ -162,41 +183,20 @@ export class DVRCFTVService {
           }
           this.finalizadoraCache = map;
           this.finalizadoraCacheTime = Date.now();
-          console.log(`[DVR] Finalizadoras carregadas do Oracle (TAB_FINALIZADORA): ${Object.keys(map).length} itens`);
+          console.log(`[DVR] Finalizadoras carregadas do Oracle (TAB_FINALIZADORA): ${Object.keys(map).length} itens`, JSON.stringify(map));
           return map;
         }
       } catch {
-        // TAB_FINALIZADORA não existe, tentar pegar códigos distintos de TAB_CUPOM_FINALIZADORA
-        console.log('[DVR] TAB_FINALIZADORA não existe, usando códigos de TAB_CUPOM_FINALIZADORA + mapa padrão');
+        console.log('[DVR] TAB_FINALIZADORA não existe, usando mapa padrão');
       }
 
-      // Fallback: buscar códigos distintos de TAB_CUPOM_FINALIZADORA e mapear com nomes padrão
-      try {
-        const sql2 = `SELECT DISTINCT COD_FINALIZADORA FROM ${schema}.TAB_CUPOM_FINALIZADORA ORDER BY COD_FINALIZADORA`;
-        const rows2: any[] = await OracleService.query(sql2, {});
-        if (rows2 && rows2.length > 0) {
-          const map: Record<number, string> = {};
-          for (const row of rows2) {
-            const cod = row.COD_FINALIZADORA;
-            map[cod] = this.DEFAULT_FINALIZADORA_MAP[cod] || `FINALIZADORA ${cod}`;
-          }
-          this.finalizadoraCache = map;
-          this.finalizadoraCacheTime = Date.now();
-          console.log(`[DVR] Finalizadoras mapeadas via TAB_CUPOM_FINALIZADORA + padrão: ${Object.keys(map).length} itens`, map);
-          return map;
-        }
-      } catch (e2: any) {
-        console.log('[DVR] TAB_CUPOM_FINALIZADORA DISTINCT também falhou:', e2.message);
-      }
-
-      // Último fallback: mapa padrão hardcoded
+      // 3) Último fallback: mapa padrão hardcoded
       console.log('[DVR] Usando mapa padrão de finalizadoras (fallback)');
       this.finalizadoraCache = { ...this.DEFAULT_FINALIZADORA_MAP };
       this.finalizadoraCacheTime = Date.now();
       return this.finalizadoraCache;
     } catch (e: any) {
       console.error('[DVR] Erro ao carregar finalizadoras:', e.message);
-      // Retorna mapa padrão como último recurso
       return { ...this.DEFAULT_FINALIZADORA_MAP };
     }
   }
@@ -685,15 +685,26 @@ export class DVRCFTVService {
    * Busca Oracle por palavra-chave em TODOS os PDVs (sem usar DVR POS).
    * Retorna transações com PDV, horário, cupom, operador, valor e tipo.
    */
-  static async searchOracleAllPdvs(startDate: string, endDate: string, text: string, pdvFilter?: number): Promise<{ total: number; items: any[] }> {
+  static async searchOracleAllPdvs(startDate: string, endDate: string, text: string, pdvFilter?: number, barcode?: string): Promise<{ total: number; items: any[] }> {
     const [year, month, day] = startDate.split('-');
     const dateStr = `${day}/${month}/${year}`;
-    const textUpper = text.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const textUpper = text ? text.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') : '';
     const schema = await MappingService.getSchema();
+
+    // Se barcode fornecido, buscar vendas por código de barras
+    if (barcode) {
+      return this.searchByBarcode(schema, dateStr, barcode, pdvFilter);
+    }
 
     // Detectar palavras-chave especiais
     let keyword = '';
-    if (['CANCELAMENTO', 'CANCELADO', 'CANCEL', 'CANCELA', 'ESTORNO'].includes(textUpper)) {
+    if (['CANCELAMENTO ITEM', 'CANCELADO ITEM', 'CANC ITEM', 'CANC. ITEM'].includes(textUpper)) {
+      keyword = 'cancelado_item';
+    } else if (['CANCELAMENTO CUPOM', 'CANCELADO CUPOM', 'CANC CUPOM', 'CANC. CUPOM'].includes(textUpper)) {
+      keyword = 'cancelado_cupom';
+    } else if (['CANCELAMENTO VENDA', 'CANCELADO VENDA', 'CANC VENDA', 'CANC. VENDA'].includes(textUpper)) {
+      keyword = 'cancelado_venda';
+    } else if (['CANCELAMENTO', 'CANCELADO', 'CANCEL', 'CANCELA', 'ESTORNO'].includes(textUpper)) {
       keyword = 'cancelado';
     } else if (textUpper === 'DESCONTO') {
       keyword = 'desconto';
@@ -708,29 +719,119 @@ export class DVRCFTVService {
     let params: any = { dateStr };
     if (pdvFilter) params.pdv = pdvFilter;
     const pdvWhere = pdvFilter ? 'AND p.NUM_PDV = :pdv' : '';
+    const pdvWhereE = pdvFilter ? 'AND e.NUM_PDV = :pdv' : '';
 
-    // CANCELAMENTO → TAB_PRODUTO_PDV_ESTORNO
-    if (keyword === 'cancelado') {
-      const sql = `
+    // CANCELAMENTO DE ITEM → TAB_PRODUTO_PDV_ESTORNO com operador (venda finalizada, item cancelado)
+    if (keyword === 'cancelado_item' || keyword === 'cancelado') {
+      const sqlItem = `
         SELECT e.NUM_CUPOM_FISCAL, e.NUM_PDV,
                TO_CHAR(e.DTA_SAIDA, 'YYYY-MM-DD') || ' ' || TO_CHAR(e.TIM_HORA, 'HH24:MI:SS') as HORA_CUPOM,
                pr.DES_PRODUTO,
                e.VAL_TOTAL_PRODUTO as VALOR,
-               'CANCELAMENTO' as TIPO
+               (SELECT NVL(op2.DES_OPERADOR, 'Cod. ' || p2.COD_ENTIDADE)
+                FROM ${schema}.TAB_PRODUTO_PDV p2
+                LEFT JOIN ${schema}.TAB_OPERADORES op2 ON op2.COD_OPERADOR = p2.COD_ENTIDADE
+                WHERE p2.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL AND p2.NUM_PDV = e.NUM_PDV
+                  AND p2.DTA_SAIDA = e.DTA_SAIDA AND ROWNUM = 1) as NOM_OPERADOR
         FROM ${schema}.TAB_PRODUTO_PDV_ESTORNO e
         LEFT JOIN ${schema}.TAB_PRODUTO pr ON e.COD_PRODUTO = pr.COD_PRODUTO
         WHERE e.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
-          ${pdvFilter ? 'AND e.NUM_PDV = :pdv' : ''}
+          ${pdvWhereE}
+          AND EXISTS (
+            SELECT 1 FROM ${schema}.TAB_CUPOM_FINALIZADORA cf
+            WHERE cf.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
+              AND cf.NUM_PDV = e.NUM_PDV
+              AND TRUNC(cf.DTA_VENDA) = TRUNC(e.DTA_SAIDA)
+          )
         ORDER BY e.TIM_HORA
       `;
-      const rows = await OracleService.query(sql, params);
+      const rows = await OracleService.query(sqlItem, params);
       for (const row of rows) {
         results.push({
           time: row.HORA_CUPOM, cupomNum: Number(row.NUM_CUPOM_FISCAL),
           pdv: Number(row.NUM_PDV), produto: row.DES_PRODUTO || '',
-          valor: Number(row.VALOR) || 0, tipo: 'CANCELAMENTO'
+          valor: Number(row.VALOR) || 0, tipo: 'CANC. ITEM',
+          operador: (row.NOM_OPERADOR || '').trim()
         });
       }
+      if (keyword === 'cancelado_item') return { total: results.length, items: results };
+    }
+
+    // CANCELAMENTO DE CUPOM → TAB_CUPOM_CANCELADO (cupom inteiro cancelado após pagamento)
+    if (keyword === 'cancelado_cupom' || keyword === 'cancelado') {
+      const sqlCupom = `
+        SELECT cc.NUM_SEQ as NUM_CUPOM_FISCAL, cc.NUM_PDV,
+               TO_CHAR(cc.DTA_SEQ, 'YYYY-MM-DD') || ' ' ||
+               NVL(
+                 (SELECT TO_CHAR(MIN(cf_h.HORA_MOV), 'HH24:MI:SS')
+                  FROM ${schema}.TAB_CUPOM_FINALIZADORA cf_h
+                  WHERE cf_h.NUM_PDV = cc.NUM_PDV
+                    AND TRUNC(cf_h.DTA_VENDA) = TRUNC(cc.DTA_SEQ)
+                    AND ABS(cf_h.NUM_CUPOM_FISCAL - cc.NUM_SEQ) <= 1),
+                 '00:00:00') as HORA_CUPOM,
+               NULL as DES_PRODUTO,
+               NVL(ABS(
+                 (SELECT SUM(cf_val.VAL_LIQUIDO)
+                  FROM ${schema}.TAB_CUPOM_FINALIZADORA cf_val
+                  WHERE cf_val.NUM_CUPOM_FISCAL = cc.NUM_SEQ + 1
+                    AND cf_val.NUM_PDV = cc.NUM_PDV
+                    AND TRUNC(cf_val.DTA_VENDA) = TRUNC(cc.DTA_SEQ))
+               ), 0) as VALOR
+        FROM ${schema}.TAB_CUPOM_CANCELADO cc
+        WHERE cc.DTA_SEQ = TO_DATE(:dateStr, 'DD/MM/YYYY')
+          AND cc.FLG_ESTORNO = 'S'
+          ${pdvFilter ? 'AND cc.NUM_PDV = :pdv' : ''}
+      `;
+      try {
+        const rows = await OracleService.query(sqlCupom, params);
+        for (const row of rows) {
+          results.push({
+            time: row.HORA_CUPOM, cupomNum: Number(row.NUM_CUPOM_FISCAL),
+            pdv: Number(row.NUM_PDV), produto: '',
+            valor: Number(row.VALOR) || 0, tipo: 'CANC. CUPOM',
+            operador: ''
+          });
+        }
+      } catch (e: any) {
+        console.log(`[VISION-PC2] TAB_CUPOM_CANCELADO não disponível: ${e.message}`);
+      }
+      if (keyword === 'cancelado_cupom') return { total: results.length, items: results };
+    }
+
+    // CANCELAMENTO DE VENDA → TAB_PRODUTO_PDV_ESTORNO sem operador (venda cancelada antes do pagamento)
+    if (keyword === 'cancelado_venda' || keyword === 'cancelado') {
+      const sqlVenda = `
+        SELECT e.NUM_CUPOM_FISCAL, e.NUM_PDV,
+               TO_CHAR(e.DTA_SAIDA, 'YYYY-MM-DD') || ' ' || TO_CHAR(e.TIM_HORA, 'HH24:MI:SS') as HORA_CUPOM,
+               pr.DES_PRODUTO,
+               e.VAL_TOTAL_PRODUTO as VALOR
+        FROM ${schema}.TAB_PRODUTO_PDV_ESTORNO e
+        LEFT JOIN ${schema}.TAB_PRODUTO pr ON e.COD_PRODUTO = pr.COD_PRODUTO
+        WHERE e.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
+          ${pdvWhereE}
+          AND NOT EXISTS (
+            SELECT 1 FROM ${schema}.TAB_CUPOM_FINALIZADORA cf
+            WHERE cf.NUM_CUPOM_FISCAL = e.NUM_CUPOM_FISCAL
+              AND cf.NUM_PDV = e.NUM_PDV
+              AND TRUNC(cf.DTA_VENDA) = TRUNC(e.DTA_SAIDA)
+          )
+        ORDER BY e.TIM_HORA
+      `;
+      const rows = await OracleService.query(sqlVenda, params);
+      for (const row of rows) {
+        results.push({
+          time: row.HORA_CUPOM, cupomNum: Number(row.NUM_CUPOM_FISCAL),
+          pdv: Number(row.NUM_PDV), produto: row.DES_PRODUTO || '',
+          valor: Number(row.VALOR) || 0, tipo: 'CANC. VENDA',
+          operador: (row.NOM_OPERADOR || '').trim()
+        });
+      }
+      if (keyword === 'cancelado_venda') return { total: results.length, items: results };
+    }
+
+    // Se era 'cancelado' genérico, retorna todos os tipos juntos
+    if (keyword === 'cancelado') {
+      results.sort((a, b) => a.time.localeCompare(b.time));
       return { total: results.length, items: results };
     }
 
@@ -740,9 +841,11 @@ export class DVRCFTVService {
         SELECT 0 as NUM_CUPOM_FISCAL, p.NUM_PDV,
                TO_CHAR(p.DTA_SAIDA, 'YYYY-MM-DD') || ' ' || TO_CHAR(p.TIM_HORA, 'HH24:MI:SS') as HORA_CUPOM,
                pr.DES_PRODUTO, p.VAL_TOTAL_PRODUTO as VALOR,
-               'BUSCA PRECO' as TIPO
+               'BUSCA PRECO' as TIPO,
+               NVL(op.DES_OPERADOR, 'Cod. ' || p.COD_ENTIDADE) as NOM_OPERADOR
         FROM ${schema}.TAB_PRODUTO_PDV p
         LEFT JOIN ${schema}.TAB_PRODUTO pr ON p.COD_PRODUTO = pr.COD_PRODUTO
+        LEFT JOIN ${schema}.TAB_OPERADORES op ON op.COD_OPERADOR = p.COD_ENTIDADE
         WHERE p.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
           AND p.NUM_CUPOM_FISCAL = 0
           ${pdvWhere}
@@ -753,7 +856,8 @@ export class DVRCFTVService {
         results.push({
           time: row.HORA_CUPOM, cupomNum: 0,
           pdv: Number(row.NUM_PDV), produto: row.DES_PRODUTO || '',
-          valor: Number(row.VALOR) || 0, tipo: 'BUSCA PRECO'
+          valor: Number(row.VALOR) || 0, tipo: 'BUSCA PRECO',
+          operador: (row.NOM_OPERADOR || '').trim()
         });
       }
       return { total: results.length, items: results };
@@ -779,18 +883,24 @@ export class DVRCFTVService {
     const tipoLabel = keyword === 'desconto' ? 'DESCONTO' : keyword.startsWith('fin_') ? 'FINALIZADORA' : 'PRODUTO';
 
     const sql = `
-      SELECT p.NUM_CUPOM_FISCAL, p.NUM_PDV,
-             TO_CHAR(p.DTA_SAIDA, 'YYYY-MM-DD') || ' ' || TO_CHAR(MIN(p.TIM_HORA), 'HH24:MI:SS') as HORA_CUPOM,
-             SUM(p.VAL_TOTAL_PRODUTO) as VALOR,
-             COUNT(*) as QTD_ITENS
-      FROM ${schema}.TAB_PRODUTO_PDV p
-      LEFT JOIN ${schema}.TAB_PRODUTO pr ON p.COD_PRODUTO = pr.COD_PRODUTO
-      WHERE p.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
-        AND p.NUM_CUPOM_FISCAL > 0
-        ${pdvWhere}
-        ${whereExtra}
-      GROUP BY p.NUM_CUPOM_FISCAL, p.NUM_PDV, p.DTA_SAIDA
-      ORDER BY MIN(p.TIM_HORA)
+      SELECT sub.NUM_CUPOM_FISCAL, sub.NUM_PDV, sub.HORA_CUPOM, sub.VALOR, sub.QTD_ITENS,
+             sub.COD_OPERADOR, NVL(op.DES_OPERADOR, 'Cod. ' || sub.COD_OPERADOR) as NOM_OPERADOR
+      FROM (
+        SELECT p.NUM_CUPOM_FISCAL, p.NUM_PDV,
+               TO_CHAR(p.DTA_SAIDA, 'YYYY-MM-DD') || ' ' || TO_CHAR(MIN(p.TIM_HORA), 'HH24:MI:SS') as HORA_CUPOM,
+               SUM(p.VAL_TOTAL_PRODUTO) as VALOR,
+               COUNT(*) as QTD_ITENS,
+               MIN(p.COD_ENTIDADE) as COD_OPERADOR
+        FROM ${schema}.TAB_PRODUTO_PDV p
+        LEFT JOIN ${schema}.TAB_PRODUTO pr ON p.COD_PRODUTO = pr.COD_PRODUTO
+        WHERE p.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
+          AND p.NUM_CUPOM_FISCAL > 0
+          ${pdvWhere}
+          ${whereExtra}
+        GROUP BY p.NUM_CUPOM_FISCAL, p.NUM_PDV, p.DTA_SAIDA
+      ) sub
+      LEFT JOIN ${schema}.TAB_OPERADORES op ON op.COD_OPERADOR = sub.COD_OPERADOR
+      ORDER BY sub.HORA_CUPOM
     `;
 
     const rows = await OracleService.query(sql, params);
@@ -799,9 +909,64 @@ export class DVRCFTVService {
         time: row.HORA_CUPOM, cupomNum: Number(row.NUM_CUPOM_FISCAL),
         pdv: Number(row.NUM_PDV), produto: '',
         valor: Number(row.VALOR) || 0, tipo: tipoLabel,
-        qtdItens: Number(row.QTD_ITENS) || 0
+        qtdItens: Number(row.QTD_ITENS) || 0,
+        operador: (row.NOM_OPERADOR || '').trim()
       });
     }
+
+    return { total: results.length, items: results };
+  }
+
+  /**
+   * Buscar produto pelo código de barras (EAN)
+   */
+  static async findProductByBarcode(barcode: string): Promise<{ found: boolean; produto?: string; codProduto?: number }> {
+    const schema = await MappingService.getSchema();
+    const sql = `SELECT COD_PRODUTO, DES_PRODUTO FROM ${schema}.TAB_PRODUTO WHERE COD_BARRA_PRINCIPAL = :barcode AND ROWNUM = 1`;
+    const rows = await OracleService.query(sql, { barcode });
+    if (rows.length > 0) {
+      return { found: true, produto: rows[0].DES_PRODUTO, codProduto: Number(rows[0].COD_PRODUTO) };
+    }
+    return { found: false };
+  }
+
+  /**
+   * Buscar vendas por código de barras (EAN) do produto
+   */
+  private static async searchByBarcode(schema: string, dateStr: string, barcode: string, pdvFilter?: number): Promise<{ total: number; items: any[] }> {
+    const params: any = { dateStr, barcode };
+    if (pdvFilter) params.pdv = pdvFilter;
+    const pdvWhere = pdvFilter ? 'AND p.NUM_PDV = :pdv' : '';
+
+    const sql = `
+      SELECT p.NUM_CUPOM_FISCAL, p.NUM_PDV,
+             TO_CHAR(p.DTA_SAIDA, 'YYYY-MM-DD') || ' ' || TO_CHAR(p.TIM_HORA, 'HH24:MI:SS') as HORA_CUPOM,
+             pr.DES_PRODUTO, p.VAL_TOTAL_PRODUTO as VALOR,
+             p.QTD_PRODUTO as QTD,
+             'PRODUTO' as TIPO,
+             NVL(op.DES_OPERADOR, 'Cod. ' || p.COD_ENTIDADE) as NOM_OPERADOR
+      FROM ${schema}.TAB_PRODUTO_PDV p
+      JOIN ${schema}.TAB_PRODUTO pr ON p.COD_PRODUTO = pr.COD_PRODUTO
+      LEFT JOIN ${schema}.TAB_OPERADORES op ON op.COD_OPERADOR = p.COD_ENTIDADE
+      WHERE p.DTA_SAIDA = TO_DATE(:dateStr, 'DD/MM/YYYY')
+        AND p.NUM_CUPOM_FISCAL > 0
+        AND pr.COD_BARRA_PRINCIPAL = :barcode
+        ${pdvWhere}
+      ORDER BY p.TIM_HORA
+    `;
+
+    console.log(`[VISION-PC2] Busca por barcode: ${barcode}`);
+    const rows = await OracleService.query(sql, params);
+    const results = rows.map((row: any) => ({
+      time: row.HORA_CUPOM,
+      cupomNum: Number(row.NUM_CUPOM_FISCAL),
+      pdv: Number(row.NUM_PDV),
+      produto: row.DES_PRODUTO || '',
+      valor: Number(row.VALOR) || 0,
+      tipo: 'PRODUTO',
+      qtdItens: Number(row.QTD) || 1,
+      operador: (row.NOM_OPERADOR || '').trim()
+    }));
 
     return { total: results.length, items: results };
   }
@@ -948,10 +1113,10 @@ export class DVRCFTVService {
       let nomeOperador = '';
       if (codOperador) {
         try {
-          const sqlOp = `SELECT NOM_OPERADOR FROM ${schema}.TAB_OPERADORES WHERE COD_OPERADOR = :cod`;
+          const sqlOp = `SELECT DES_OPERADOR FROM ${schema}.TAB_OPERADORES WHERE COD_OPERADOR = :cod`;
           const opRows: any[] = await OracleService.query(sqlOp, { cod: codOperador });
           if (opRows && opRows.length > 0) {
-            nomeOperador = (opRows[0].NOM_OPERADOR || '').trim();
+            nomeOperador = (opRows[0].DES_OPERADOR || '').trim();
           }
         } catch (e: any) {
           console.log('[DVR] Operador não encontrado:', e.message);
@@ -1103,7 +1268,8 @@ export class DVRCFTVService {
       '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28',
       '-vf', 'scale=704:480',
       '-movflags', '+faststart',
-      '-an', outputPath
+      '-c:a', 'aac', '-b:a', '64k',
+      outputPath
     ];
 
     await new Promise<void>((resolve, reject) => {
@@ -1186,8 +1352,8 @@ export class DVRCFTVService {
       '-t', String(totalDuration),
       '-c:v', 'copy',
       '-movflags', 'frag_keyframe+empty_moov+faststart',
+      '-c:a', 'aac', '-b:a', '64k',
       '-f', 'mp4',
-      '-an',
       'pipe:1'
     ], {
       windowsHide: true,

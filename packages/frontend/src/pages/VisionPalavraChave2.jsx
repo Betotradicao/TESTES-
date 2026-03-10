@@ -46,6 +46,8 @@ function getLiveStreamUrl(channel, time, antes, depois) {
 
 export default function VisionPalavraChave2() {
   const [text, setText] = useState('');
+  const [barcode, setBarcode] = useState('');
+  const [barcodeProduct, setBarcodeProduct] = useState('');
   const [pdvFilter, setPdvFilter] = useState('');
   const [periodo, setPeriodo] = useState('personalizado');
   const [startDate, setStartDate] = useState(formatDate(new Date()));
@@ -68,8 +70,7 @@ export default function VisionPalavraChave2() {
   // Config cameras PDV
   const [camerasPdv, setCamerasPdv] = useState([]);
 
-  // Detail modal
-  const [selectedItem, setSelectedItem] = useState(null);
+
 
   // Carregar config cameras-pdv
   useEffect(() => {
@@ -82,9 +83,22 @@ export default function VisionPalavraChave2() {
     return camerasPdv.find(c => c.pdv === pdv);
   };
 
+  const handleBarcodeLookup = async (code) => {
+    if (!code.trim()) { setBarcodeProduct(''); return; }
+    try {
+      const res = await api.get('/dvr-cftv/pos/produto-by-barcode', { params: { barcode: code.trim() } });
+      if (res.data.found) {
+        setBarcodeProduct(res.data.produto);
+        setText(res.data.produto);
+      } else {
+        setBarcodeProduct('Produto nao encontrado');
+      }
+    } catch { setBarcodeProduct(''); }
+  };
+
   const handleSearch = async () => {
-    if (!text.trim()) {
-      setError('Digite uma palavra-chave para buscar');
+    if (!text.trim() && !barcode.trim()) {
+      setError('Digite uma palavra-chave ou codigo de barras');
       return;
     }
     setError('');
@@ -105,7 +119,9 @@ export default function VisionPalavraChave2() {
         end = range.end;
       }
 
-      const params = { text: text.trim(), start, end };
+      const params = { start, end };
+      if (text.trim()) params.text = text.trim();
+      if (barcode.trim()) params.barcode = barcode.trim();
       if (pdvFilter) params.pdv = pdvFilter;
 
       const res = await api.get('/dvr-cftv/pos/search-oracle', { params, timeout: 120000 });
@@ -169,66 +185,6 @@ export default function VisionPalavraChave2() {
 
   return (
     <Layout>
-      {/* Modal Detalhe */}
-      {selectedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setSelectedItem(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="bg-gradient-to-r from-purple-600 to-purple-500 px-6 py-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-white font-bold text-lg">Detalhe da Transacao</h3>
-                  <p className="text-purple-200 text-sm">{selectedItem.time}</p>
-                </div>
-                <button onClick={() => setSelectedItem(null)} className="text-white/80 hover:text-white">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div className="bg-purple-50 px-6 py-4 border-b border-purple-100">
-              <p className="text-xs text-purple-500 font-medium uppercase">Cupom Fiscal</p>
-              <p className="text-3xl font-bold text-purple-700 mt-1">#{selectedItem.cupomNum}</p>
-            </div>
-            <div className="px-6 py-4 space-y-3">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <span className="text-xs text-gray-500">PDV</span>
-                  <p className="text-sm font-semibold">{selectedItem.pdv}</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <span className="text-xs text-gray-500">Valor</span>
-                  <p className="text-sm font-semibold">{formatCurrency(selectedItem.valor)}</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <span className="text-xs text-gray-500">Tipo</span>
-                  <p className={`text-xs font-semibold px-2 py-0.5 rounded inline-block mt-0.5 ${tipoColor(selectedItem.tipo)}`}>{selectedItem.tipo}</p>
-                </div>
-              </div>
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={() => { handlePlayVideo(selectedItem); setSelectedItem(null); }}
-                  disabled={!getCameraForPdv(selectedItem.pdv)}
-                  className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg text-sm disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                  Reproduzir Video
-                </button>
-                <button
-                  onClick={() => { handleShowCupom(selectedItem); setSelectedItem(null); }}
-                  className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg text-sm flex items-center justify-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Ver Cupom
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="p-3 md:p-4">
         {/* Header */}
         <div className="bg-gradient-to-br from-purple-600 to-indigo-700 rounded-lg shadow-lg p-4 mb-3 text-white">
@@ -247,7 +203,27 @@ export default function VisionPalavraChave2() {
 
         {/* Filtros */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
-          <div className="flex flex-wrap items-end gap-3">
+          {/* Linha 1: Campos de busca */}
+          <div className="flex flex-wrap items-end gap-3 mb-2">
+            <div className="w-[180px]">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Codigo de Barras</label>
+              <input
+                type="text"
+                value={barcode}
+                onChange={(e) => { setBarcode(e.target.value); if (!e.target.value.trim()) { setBarcodeProduct(''); } }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Tab' && barcode.trim()) { e.preventDefault(); handleBarcodeLookup(barcode); }
+                  if (e.key === 'Enter') handleSearch();
+                }}
+                placeholder="EAN do produto"
+                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              />
+              {barcodeProduct && (
+                <p className={`text-xs mt-0.5 truncate ${barcodeProduct === 'Produto nao encontrado' ? 'text-red-500' : 'text-green-600 font-medium'}`}>
+                  {barcodeProduct}
+                </p>
+              )}
+            </div>
             <div className="flex-1 min-w-[180px]">
               <label className="block text-xs font-semibold text-gray-600 mb-1">Palavra-Chave</label>
               <input
@@ -269,12 +245,12 @@ export default function VisionPalavraChave2() {
                 className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               />
             </div>
-            <div className="w-[150px]">
+            <div className="w-[130px]">
               <label className="block text-xs font-semibold text-gray-600 mb-1">Periodo</label>
               <select
                 value={periodo}
                 onChange={(e) => setPeriodo(e.target.value)}
-                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               >
                 {PERIODOS.map(p => (
                   <option key={p.value} value={p.value}>{p.label}</option>
@@ -283,12 +259,12 @@ export default function VisionPalavraChave2() {
             </div>
             {periodo === 'personalizado' && (
               <>
-                <div className="w-[150px]">
+                <div className="w-[130px]">
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Inicio</label>
                   <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
                     className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-500" />
                 </div>
-                <div className="w-[150px]">
+                <div className="w-[130px]">
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Fim</label>
                   <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
                     className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-500" />
@@ -311,6 +287,50 @@ export default function VisionPalavraChave2() {
                 </svg>
               )}
               Buscar
+            </button>
+          </div>
+          {/* Linha 2: Atalhos */}
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <button onClick={() => { setBarcode(''); setBarcodeProduct(''); setText('dinheiro'); }}
+              className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${text === 'dinheiro' ? 'bg-green-100 border-green-400 text-green-800 ring-1 ring-green-300' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-green-50 hover:border-green-300 hover:text-green-700'}`}>
+              💵 Dinheiro
+            </button>
+            <button onClick={() => { setBarcode(''); setBarcodeProduct(''); setText('cartao credito'); }}
+              className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${text === 'cartao credito' ? 'bg-blue-100 border-blue-400 text-blue-800 ring-1 ring-blue-300' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700'}`}>
+              💳 Credito
+            </button>
+            <button onClick={() => { setBarcode(''); setBarcodeProduct(''); setText('cartao debito'); }}
+              className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${text === 'cartao debito' ? 'bg-indigo-100 border-indigo-400 text-indigo-800 ring-1 ring-indigo-300' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700'}`}>
+              💳 Debito
+            </button>
+            <button onClick={() => { setBarcode(''); setBarcodeProduct(''); setText('cartao parcelado'); }}
+              className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${text === 'cartao parcelado' ? 'bg-violet-100 border-violet-400 text-violet-800 ring-1 ring-violet-300' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700'}`}>
+              💳 Cred. Parcelado
+            </button>
+            <button onClick={() => { setBarcode(''); setBarcodeProduct(''); setText('pix'); }}
+              className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${text === 'pix' ? 'bg-teal-100 border-teal-400 text-teal-800 ring-1 ring-teal-300' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-teal-50 hover:border-teal-300 hover:text-teal-700'}`}>
+              📱 PIX
+            </button>
+            <button onClick={() => { setBarcode(''); setBarcodeProduct(''); setText('funcionario'); }}
+              className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${text === 'funcionario' ? 'bg-cyan-100 border-cyan-400 text-cyan-800 ring-1 ring-cyan-300' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-cyan-50 hover:border-cyan-300 hover:text-cyan-700'}`}>
+              🤝 Funcionario
+            </button>
+            <span className="border-l border-gray-300 h-6 mx-1" />
+            <button onClick={() => { setBarcode(''); setBarcodeProduct(''); setText('canc. item'); }}
+              className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${text === 'canc. item' ? 'bg-purple-100 border-purple-400 text-purple-800 ring-1 ring-purple-300' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-purple-50 hover:border-purple-300 hover:text-purple-700'}`}>
+              🏷️ Canc. Item
+            </button>
+            <button onClick={() => { setBarcode(''); setBarcodeProduct(''); setText('canc. cupom'); }}
+              className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${text === 'canc. cupom' ? 'bg-red-100 border-red-400 text-red-800 ring-1 ring-red-300' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-red-50 hover:border-red-300 hover:text-red-700'}`}>
+              🧾 Canc. Cupom
+            </button>
+            <button onClick={() => { setBarcode(''); setBarcodeProduct(''); setText('canc. venda'); }}
+              className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${text === 'canc. venda' ? 'bg-orange-100 border-orange-400 text-orange-800 ring-1 ring-orange-300' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-orange-50 hover:border-orange-300 hover:text-orange-700'}`}>
+              🛒 Canc. Venda
+            </button>
+            <button onClick={() => { setBarcode(''); setBarcodeProduct(''); setText('desconto'); }}
+              className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${text === 'desconto' ? 'bg-emerald-100 border-emerald-400 text-emerald-800 ring-1 ring-emerald-300' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700'}`}>
+              💰 Descontos
             </button>
           </div>
           {error && (
@@ -454,6 +474,7 @@ export default function VisionPalavraChave2() {
                   <tr>
                     <th className="px-3 py-2 text-left text-xs font-semibold text-purple-600 w-12">No.</th>
                     <th className="px-3 py-2 text-left text-xs font-semibold text-purple-600">Horario</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-purple-600">Operador(a)</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-16">PDV</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-24">Cupom</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-24">Tipo</th>
@@ -465,17 +486,18 @@ export default function VisionPalavraChave2() {
                 <tbody className="divide-y divide-gray-100">
                   {results.length === 0 && !loading && (
                     <tr>
-                      <td colSpan={8} className="px-3 py-8 text-center text-gray-400 text-sm">
+                      <td colSpan={9} className="px-3 py-8 text-center text-gray-400 text-sm">
                         {total === 0 ? 'Faca uma busca para ver os resultados' : 'Nenhum resultado'}
                       </td>
                     </tr>
                   )}
                   {results.map((item, idx) => (
                     <tr key={`${item.cupomNum}-${item.pdv}-${idx}`}
-                      onClick={() => setSelectedItem(item)}
+                      onClick={() => handlePlayVideo(item)}
                       className={`hover:bg-purple-50 cursor-pointer transition-colors ${videoTime === item.time ? 'bg-purple-50 border-l-2 border-purple-500' : ''}`}>
                       <td className="px-3 py-1.5 text-gray-500 text-xs">{idx + 1}</td>
                       <td className="px-3 py-1.5 font-medium text-gray-800 text-sm">{item.time}</td>
+                      <td className="px-3 py-1.5 text-sm text-gray-700 truncate max-w-[150px]" title={item.operador || '-'}>{item.operador || '-'}</td>
                       <td className="px-3 py-1.5 text-center">
                         <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-semibold">{item.pdv}</span>
                       </td>

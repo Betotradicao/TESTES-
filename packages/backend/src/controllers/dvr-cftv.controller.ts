@@ -288,16 +288,18 @@ export class DVRCFTVController {
    */
   static async searchOracle(req: Request, res: Response) {
     try {
-      const { text, start, end, pdv } = req.query;
-      if (!text || !(text as string).trim()) {
-        return res.status(400).json({ error: 'Parâmetro "text" é obrigatório' });
+      const { text, barcode, start, end, pdv } = req.query;
+      const textStr = text ? (text as string).trim() : '';
+      const barcodeStr = barcode ? (barcode as string).trim() : '';
+      if (!textStr && !barcodeStr) {
+        return res.status(400).json({ error: 'Parâmetro "text" ou "barcode" é obrigatório' });
       }
       const startDate = (start as string) || new Date().toISOString().slice(0, 10);
       const endDate = (end as string) || startDate;
       const pdvNum = pdv ? parseInt(pdv as string) : undefined;
 
-      console.log(`[VISION-PC2] Busca Oracle: text="${text}", start=${startDate}, end=${endDate}, pdv=${pdvNum || 'TODOS'}`);
-      const result = await DVRCFTVService.searchOracleAllPdvs(startDate, endDate, (text as string).trim(), pdvNum);
+      console.log(`[VISION-PC2] Busca Oracle: text="${textStr}", barcode="${barcodeStr}", start=${startDate}, end=${endDate}, pdv=${pdvNum || 'TODOS'}`);
+      const result = await DVRCFTVService.searchOracleAllPdvs(startDate, endDate, textStr, pdvNum, barcodeStr);
 
       res.json({ success: true, total: result.total, items: result.items });
     } catch (error: any) {
@@ -339,6 +341,24 @@ export class DVRCFTVController {
     } catch (error: any) {
       console.error('Erro ao buscar câmeras PDV:', error.message);
       res.status(500).json({ error: 'Erro ao buscar câmeras PDV', details: error.message });
+    }
+  }
+
+  /**
+   * Buscar produto pelo código de barras
+   * GET /api/dvr-cftv/pos/produto-by-barcode?barcode=7896584300031
+   */
+  static async produtoByBarcode(req: Request, res: Response) {
+    try {
+      const { barcode } = req.query;
+      if (!barcode || !(barcode as string).trim()) {
+        return res.status(400).json({ error: 'Parâmetro "barcode" é obrigatório' });
+      }
+      const result = await DVRCFTVService.findProductByBarcode((barcode as string).trim());
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error('Erro ao buscar produto por barcode:', error.message);
+      res.status(500).json({ error: 'Erro ao buscar produto', details: error.message });
     }
   }
 
