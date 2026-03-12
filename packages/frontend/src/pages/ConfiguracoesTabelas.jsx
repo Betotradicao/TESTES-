@@ -353,6 +353,15 @@ const TABLE_CATALOG = {
       { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'COD_PRODUTO' },
       { id: 'valor_total', name: 'Valor Total', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'VAL_TOTAL_PRODUTO' },
       { id: 'quantidade', name: 'Quantidade', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'QTD_TOTAL_PRODUTO' },
+      { id: 'data_saida', name: 'Data Saída', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'DTA_SAIDA' },
+      { id: 'des_hora', name: 'Hora (texto)', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'DES_HORA' },
+      { id: 'hora_venda', name: 'Hora da Venda', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'TIM_HORA' },
+      { id: 'numero_pdv', name: 'Número PDV', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'NUM_PDV' },
+      { id: 'codigo_loja', name: 'Código Loja', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'COD_LOJA' },
+      { id: 'codigo_ean', name: 'Código EAN', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'COD_EAN' },
+      { id: 'preco_venda', name: 'Preço Venda', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'VAL_PRECO_VENDA' },
+      { id: 'sequencia_item', name: 'Sequência Item', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'NUM_SEQ_ITEM' },
+      { id: 'numero_registro', name: 'Número Registro', defaultTable: 'TAB_PRODUTO_PDV_ESTORNO', defaultColumn: 'NUM_REGISTRO' },
     ]
   },
   TAB_INFO_NUTRICIONAL: {
@@ -398,6 +407,10 @@ const TABLE_CATALOG = {
     fields: [
       { id: 'codigo_produto', name: 'Código Produto', defaultTable: 'TAB_PRODUTO_HISTORICO', defaultColumn: 'COD_PRODUTO' },
       { id: 'codigo_loja', name: 'Código Loja', defaultTable: 'TAB_PRODUTO_HISTORICO', defaultColumn: 'COD_LOJA' },
+      { id: 'data_alt_preco_venda', name: 'Data Alteração Preço', defaultTable: 'TAB_PRODUTO_HISTORICO', defaultColumn: 'DTA_ULT_ALT_PRECO_VENDA' },
+      { id: 'valor_venda_anterior', name: 'Valor Venda Anterior', defaultTable: 'TAB_PRODUTO_HISTORICO', defaultColumn: 'VAL_VENDA_ANT' },
+      { id: 'valor_venda_pdv', name: 'Valor Venda PDV', defaultTable: 'TAB_PRODUTO_HISTORICO', defaultColumn: 'VAL_VENDA_PDV' },
+      { id: 'data_carga_pdv', name: 'Data Carga PDV', defaultTable: 'TAB_PRODUTO_HISTORICO', defaultColumn: 'DTA_CARGA_PDV' },
     ]
   },
   TAB_CUPOM_FINALIZADORA: {
@@ -578,11 +591,16 @@ const TABLE_CATALOG = {
     ]
   },
   TAB_ENTIDADE: {
-    name: 'Entidades (Centro de Custo)',
-    description: 'Cadastro de entidades / centros de custo',
+    name: 'Entidades (Formas de Pagamento)',
+    description: 'Cadastro de entidades / formas de pagamento / centros de custo',
     fields: [
       { id: 'cod_entidade', name: 'Código Entidade', defaultTable: 'TAB_ENTIDADE', defaultColumn: 'COD_ENTIDADE' },
       { id: 'des_entidade', name: 'Descrição Entidade', defaultTable: 'TAB_ENTIDADE', defaultColumn: 'DES_ENTIDADE' },
+      { id: 'flg_pdv', name: 'Flag PDV (S/N)', defaultTable: 'TAB_ENTIDADE', defaultColumn: 'FLG_PDV' },
+      { id: 'cod_entidade_pdv', name: 'Código Entidade PDV', defaultTable: 'TAB_ENTIDADE', defaultColumn: 'COD_ENTIDADE_PDV' },
+      { id: 'flg_debito', name: 'Flag Débito', defaultTable: 'TAB_ENTIDADE', defaultColumn: 'FLG_DEBITO' },
+      { id: 'flg_pix', name: 'Flag PIX', defaultTable: 'TAB_ENTIDADE', defaultColumn: 'FLG_PIX' },
+      { id: 'num_tipo', name: 'Número Tipo', defaultTable: 'TAB_ENTIDADE', defaultColumn: 'NUM_TIPO' },
     ]
   },
   TAB_BANCO: {
@@ -629,6 +647,9 @@ const TABLE_CATALOG = {
       { id: 'codigo_loja', name: 'Código da Loja', defaultTable: 'TAB_CUPOM_CANCELADO', defaultColumn: 'COD_LOJA' },
       { id: 'data_sequencia', name: 'Data da Sequência', defaultTable: 'TAB_CUPOM_CANCELADO', defaultColumn: 'DTA_SEQ' },
       { id: 'flag_estorno', name: 'Flag Estorno', defaultTable: 'TAB_CUPOM_CANCELADO', defaultColumn: 'FLG_ESTORNO' },
+      { id: 'data_cancelamento', name: 'Data Cancelamento', defaultTable: 'TAB_CUPOM_CANCELADO', defaultColumn: 'DTA_CANCELAMENTO' },
+      { id: 'valor_total', name: 'Valor Total', defaultTable: 'TAB_CUPOM_CANCELADO', defaultColumn: 'VAL_TOTAL' },
+      { id: 'numero_cupom_fiscal', name: 'Número Cupom Fiscal', defaultTable: 'TAB_CUPOM_CANCELADO', defaultColumn: 'NUM_CUPOM_FISCAL' },
     ]
   },
   TAB_CUPOM_PDV: {
@@ -695,6 +716,28 @@ const TABLE_CATALOG = {
       { id: 'percentual_desconto', name: 'Percentual Desconto', defaultTable: 'TAB_COTA_FORN', defaultColumn: 'PER_DESCONTO' },
       { id: 'quantidade_pedido', name: 'Quantidade Pedida', defaultTable: 'TAB_COTA_FORN', defaultColumn: 'QTD_PEDIDO' },
       { id: 'numero_pedido', name: 'Número do Pedido', defaultTable: 'TAB_COTA_FORN', defaultColumn: 'NUM_PEDIDO' },
+    ]
+  },
+  // ====================================================================================
+  // TABELAS FINANCEIRAS / BANCÁRIAS
+  // ====================================================================================
+  TAB_FINALIZADORA: {
+    name: 'Finalizadoras',
+    description: 'Cadastro de finalizadoras / formas de pagamento (alternativa a TAB_ENTIDADE)',
+    fields: [
+      { id: 'codigo_finalizadora', name: 'Código Finalizadora', defaultTable: 'TAB_FINALIZADORA', defaultColumn: 'COD_FINALIZADORA' },
+      { id: 'descricao_finalizadora', name: 'Descrição Finalizadora', defaultTable: 'TAB_FINALIZADORA', defaultColumn: 'DES_FINALIZADORA' },
+    ]
+  },
+  TAB_BANCO_CC: {
+    name: 'Contas Bancárias',
+    description: 'Contas correntes bancárias da empresa',
+    fields: [
+      { id: 'codigo_banco_cc', name: 'Código Conta', defaultTable: 'TAB_BANCO_CC', defaultColumn: 'COD_BANCO_CC' },
+      { id: 'descricao_banco_cc', name: 'Descrição Conta', defaultTable: 'TAB_BANCO_CC', defaultColumn: 'DES_BANCO_CC' },
+      { id: 'codigo_banco', name: 'Código Banco', defaultTable: 'TAB_BANCO_CC', defaultColumn: 'COD_BANCO' },
+      { id: 'numero_agencia', name: 'Número Agência', defaultTable: 'TAB_BANCO_CC', defaultColumn: 'NUM_AGENCIA' },
+      { id: 'numero_conta', name: 'Número Conta', defaultTable: 'TAB_BANCO_CC', defaultColumn: 'NUM_CONTA' },
     ]
   },
 };
