@@ -697,7 +697,6 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ),
           expandable: true,
           subItems: [
-            { id: 'vision-palavra-chave', submenuId: 'vision-palavra-chave', title: 'VISION PALAVRA CHAVE', path: '/vision-pdv' },
             { id: 'vision-operacoes-risco', submenuId: 'vision-operacoes-risco', title: 'OPERAÇÕES DE RISCO PDV', path: '/vision-operacoes-risco' },
             { id: 'vision-palavra-chave-2', submenuId: 'vision-palavra-chave-2', title: 'VISION PALAVRA CHAVE 2', path: '/vision-palavra-chave-2' }
           ]
