@@ -3593,8 +3593,13 @@ export default function GestaoInteligente() {
                                       {subExpanded?.data?.map((item, iIdx) => (
                                         <tr key={`ai-${item.codProduto || iIdx}`} className={`hover:bg-amber-100 ${iIdx % 2 === 0 ? 'bg-amber-50/50' : 'bg-amber-50'} border-b border-amber-100/50`}>
                                           <td className="px-4 py-1.5 text-xs text-gray-500 pl-24 sticky left-0 z-10 bg-amber-50/50">
-                                            <span className="flex items-center gap-2">
-                                              <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                                            <span className="flex items-center gap-2 whitespace-nowrap">
+                                              <span className="relative group cursor-pointer">
+                                                <span className="w-3 h-3 rounded-full bg-gray-400 hover:bg-gray-600 inline-block transition-colors"></span>
+                                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                                                  {item.fornecedor || 'Sem fornecedor'}
+                                                </span>
+                                              </span>
                                               {item.produto}
                                             </span>
                                           </td>

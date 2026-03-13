@@ -1193,10 +1193,12 @@ export class GestaoInteligenteService {
     // Merge todos os códigos de todos os períodos
     const todosNomes: Record<number, string> = {};
     [atual, mesPas, anoPas, anoInteiro].forEach((dados: any[]) => {
-      dados.forEach((r: any) => { if (!todosNomes[r.COD_SECAO]) todosNomes[r.COD_SECAO] = r.SETOR; });
+      dados.forEach((r: any) => {
+        if (r.COD_SECAO && r.SETOR && !todosNomes[r.COD_SECAO]) todosNomes[r.COD_SECAO] = r.SETOR;
+      });
     });
     Object.keys(mapNomesAtual).forEach(k => { todosNomes[Number(k)] = mapNomesAtual[Number(k)]; });
-    const todosCodigos = Object.keys(todosNomes).map(Number);
+    const todosCodigos = Object.keys(todosNomes).map(Number).filter(cod => todosNomes[cod]);
 
     // Montar resultado com TODOS os setores de todos os períodos
     const resultado = todosCodigos.map((cod: number) => {
@@ -1350,10 +1352,14 @@ export class GestaoInteligenteService {
     // Merge todos os códigos de todos os períodos
     const todosNomes: Record<number, string> = {};
     [atual, mesPas, anoPas, anoInteiro].forEach((dados: any[]) => {
-      dados.forEach((r: any) => { if (!todosNomes[r[codeField]]) todosNomes[r[codeField]] = r[nameField]; });
+      dados.forEach((r: any) => {
+        const cod = r[codeField];
+        const nome = r[nameField];
+        if (cod && nome && !todosNomes[cod]) todosNomes[cod] = nome;
+      });
     });
     Object.keys(mapNomesAtual).forEach(k => { todosNomes[Number(k)] = mapNomesAtual[Number(k)]; });
-    const todosCodigos = Object.keys(todosNomes).map(Number);
+    const todosCodigos = Object.keys(todosNomes).map(Number).filter(cod => todosNomes[cod]);
 
     // Montar resultado com TODOS os itens de todos os períodos
     const result = todosCodigos.map((cod: number) => {
@@ -1548,32 +1554,44 @@ export class GestaoInteligenteService {
     );
 
     // Buscar estoque atual dos produtos
-    try {
-      const codProdutos = result.map((r: any) => r.codProduto).filter(Boolean);
-      if (codProdutos.length > 0) {
-        const schema = await MappingService.getSchema();
+    const codProdutos = result.map((r: any) => r.codProduto).filter(Boolean);
+    if (codProdutos.length > 0) {
+      const schema = await MappingService.getSchema();
+      try {
         const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
         const plCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
         const plCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
         const estoqueAtualCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual');
-
-        let sql = `SELECT ${plCodProdutoCol} as COD_PRODUTO, NVL(SUM(${estoqueAtualCol}), 0) as ESTOQUE_ATUAL
-          FROM ${tabProdutoLoja}
-          WHERE ${plCodProdutoCol} IN (${codProdutos.join(',')})`;
-        const params: any = {};
-        if (filters.codLoja) {
-          sql += ` AND ${plCodLojaCol} = :codLoja`;
-          params.codLoja = filters.codLoja;
-        }
-        sql += ` GROUP BY ${plCodProdutoCol}`;
-
-        const estoques = await OracleService.query<any>(sql, params);
+        let sqlEstoque = `SELECT ${plCodProdutoCol} as COD_PRODUTO, NVL(SUM(${estoqueAtualCol}), 0) as ESTOQUE_ATUAL
+          FROM ${tabProdutoLoja} WHERE ${plCodProdutoCol} IN (${codProdutos.join(',')})`;
+        const paramsEstoque: any = {};
+        if (filters.codLoja) { sqlEstoque += ` AND ${plCodLojaCol} = :codLoja`; paramsEstoque.codLoja = filters.codLoja; }
+        sqlEstoque += ` GROUP BY ${plCodProdutoCol}`;
+        const estoques = await OracleService.query<any>(sqlEstoque, paramsEstoque);
         const mapaEstoque: Record<number, number> = {};
         estoques.forEach((e: any) => { mapaEstoque[e.COD_PRODUTO] = e.ESTOQUE_ATUAL || 0; });
         result.forEach((r: any) => { r.estoqueAtual = mapaEstoque[r.codProduto] || 0; });
+      } catch (err) {
+        console.error('Erro ao buscar estoque dos itens:', err);
       }
-    } catch (err) {
-      console.error('Erro ao buscar estoque dos itens:', err);
+
+      // Buscar fornecedor dos produtos (query separada para não quebrar estoque se falhar)
+      try {
+        const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+        const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
+        const sqlFornecedor = `SELECT p.COD_PRODUTO, NVL(NVL(f.DES_FANTASIA, f.DES_FORNECEDOR), 'Sem fornecedor') as FORNECEDOR
+          FROM ${tabProduto} p
+          LEFT JOIN ${tabFornecedor} f ON f.COD_FORNECEDOR = p.COD_FORNECEDOR
+          WHERE p.COD_PRODUTO IN (${codProdutos.join(',')})`;
+        const fornecedores = await OracleService.query<any>(sqlFornecedor, {});
+        const mapaFornecedor: Record<number, string> = {};
+        fornecedores.forEach((f: any) => { mapaFornecedor[f.COD_PRODUTO] = f.FORNECEDOR || 'Sem fornecedor'; });
+        result.forEach((r: any) => { r.fornecedor = mapaFornecedor[r.codProduto] || 'Sem fornecedor'; });
+        console.log(`📦 [ANALÍTICOS] Fornecedores: ${fornecedores.length} encontrados`);
+      } catch (err) {
+        console.error('Erro ao buscar fornecedor dos itens:', err);
+        result.forEach((r: any) => { r.fornecedor = 'Sem fornecedor'; });
+      }
     }
 
     console.log(`✅ [ANALÍTICOS] ${result.length} itens com comparativos`);
