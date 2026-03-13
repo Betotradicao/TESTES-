@@ -198,6 +198,62 @@ export default function GestaoInteligente() {
   const [expandedAnaliticaGrupos, setExpandedAnaliticaGrupos] = useState({});
   const [expandedAnaliticaSubgrupos, setExpandedAnaliticaSubgrupos] = useState({});
 
+  // Estado para filtro de oferta na Análise Comparativa: 'com' = todas as vendas, 'sem' = subtraindo ofertas
+  const [filtroOferta, setFiltroOferta] = useState('com');
+
+  // Dados da análise comparativa filtrados por oferta
+  const vendasAnaliticasFiltradas = useMemo(() => {
+    if (filtroOferta === 'com' || vendasAnaliticas.length === 0) return vendasAnaliticas;
+    // Sem oferta: subtrair vendasOferta de cada período e recalcular indicadores
+    return vendasAnaliticas.map(d => {
+      const va = (d.vendaAtual || 0) - (d.vendasOfertaAtual || 0);
+      const vml = (d.mediaLinear || 0) - (d.vendasOfertaMediaLinear || 0);
+      const vap = (d.vendaAnoPassado || 0) - (d.vendasOfertaAnoPassado || 0);
+      const vmp = (d.vendaMesPassado || 0) - (d.vendasOfertaMesPassado || 0);
+      // Proporção sem oferta para recalcular custo/lucro/impostos proporcionalmente
+      const propA = d.vendaAtual > 0 ? va / d.vendaAtual : 0;
+      const propML = d.mediaLinear > 0 ? vml / d.mediaLinear : 0;
+      const propAP = d.vendaAnoPassado > 0 ? vap / d.vendaAnoPassado : 0;
+      const propMP = d.vendaMesPassado > 0 ? vmp / d.vendaMesPassado : 0;
+      const custoA = (d.custoAtual || 0) * propA;
+      const custoML = (d.custoMediaLinear || 0) * propML;
+      const custoAP = (d.custoAnoPassado || 0) * propAP;
+      const custoMP = (d.custoMesPassado || 0) * propMP;
+      const impA = (d.impostosAtual || 0) * propA;
+      const impML = (d.impostosMediaLinear || 0) * propML;
+      const impAP = (d.impostosAnoPassado || 0) * propAP;
+      const impMP = (d.impostosMesPassado || 0) * propMP;
+      return {
+        ...d,
+        vendaAtual: parseFloat(va.toFixed(2)), mediaLinear: parseFloat(vml.toFixed(2)),
+        vendaAnoPassado: parseFloat(vap.toFixed(2)), vendaMesPassado: parseFloat(vmp.toFixed(2)),
+        custoAtual: parseFloat(custoA.toFixed(2)), custoMediaLinear: parseFloat(custoML.toFixed(2)),
+        custoAnoPassado: parseFloat(custoAP.toFixed(2)), custoMesPassado: parseFloat(custoMP.toFixed(2)),
+        lucroAtual: parseFloat((va - custoA).toFixed(2)), lucroMediaLinear: parseFloat((vml - custoML).toFixed(2)),
+        lucroAnoPassado: parseFloat((vap - custoAP).toFixed(2)), lucroMesPassado: parseFloat((vmp - custoMP).toFixed(2)),
+        markdownAtual: va > 0 ? parseFloat((((va - custoA) / va) * 100).toFixed(2)) : 0,
+        markdownMediaLinear: vml > 0 ? parseFloat((((vml - custoML) / vml) * 100).toFixed(2)) : 0,
+        markdownAnoPassado: vap > 0 ? parseFloat((((vap - custoAP) / vap) * 100).toFixed(2)) : 0,
+        markdownMesPassado: vmp > 0 ? parseFloat((((vmp - custoMP) / vmp) * 100).toFixed(2)) : 0,
+        margemLimpaAtual: va > 0 ? parseFloat((((va - custoA - impA) / va) * 100).toFixed(2)) : 0,
+        margemLimpaMediaLinear: vml > 0 ? parseFloat((((vml - custoML - impML) / vml) * 100).toFixed(2)) : 0,
+        margemLimpaAnoPassado: vap > 0 ? parseFloat((((vap - custoAP - impAP) / vap) * 100).toFixed(2)) : 0,
+        margemLimpaMesPassado: vmp > 0 ? parseFloat((((vmp - custoMP - impMP) / vmp) * 100).toFixed(2)) : 0,
+        impostosAtual: parseFloat(impA.toFixed(2)), impostosMediaLinear: parseFloat(impML.toFixed(2)),
+        impostosAnoPassado: parseFloat(impAP.toFixed(2)), impostosMesPassado: parseFloat(impMP.toFixed(2)),
+        vendasOfertaAtual: 0, vendasOfertaMediaLinear: 0, vendasOfertaAnoPassado: 0, vendasOfertaMesPassado: 0,
+        pctOfertaAtual: 0, pctOfertaMediaLinear: 0, pctOfertaAnoPassado: 0, pctOfertaMesPassado: 0,
+      };
+    });
+  }, [vendasAnaliticas, filtroOferta]);
+
+  // Atualizar gráfico quando filtro de oferta muda
+  useEffect(() => {
+    if (vendasAnaliticasFiltradas.length > 0 && graficoAnaliticaDrill.level === 'secoes') {
+      setGraficoAnaliticaDrill({ level: 'secoes', data: vendasAnaliticasFiltradas, breadcrumb: [{ label: 'Seções' }] });
+    }
+  }, [filtroOferta, vendasAnaliticasFiltradas]);
+
   // Estado para gráfico das Vendas Analíticas
   const [showGraficoAnalitica, setShowGraficoAnalitica] = useState(true);
   const [graficoAnaliticaMetrica, setGraficoAnaliticaMetrica] = useState('vendaAtual');
@@ -1414,7 +1470,7 @@ export default function GestaoInteligente() {
       setExpandedAnaliticaSecoes(prev => { const n = { ...prev }; delete n[codSecao]; return n; });
       // Se o gráfico estava mostrando os grupos dessa seção, voltar pra seções
       if (graficoAnaliticaDrill.level === 'grupos' && graficoAnaliticaDrill.breadcrumb[1]?.codSecao === codSecao) {
-        setGraficoAnaliticaDrill({ level: 'secoes', data: vendasAnaliticas, breadcrumb: [{ label: 'Seções' }] });
+        setGraficoAnaliticaDrill({ level: 'secoes', data: vendasAnaliticasFiltradas, breadcrumb: [{ label: 'Seções' }] });
       }
       return;
     }
@@ -3052,8 +3108,20 @@ export default function GestaoInteligente() {
               {analiseAtiva === 'vendas-analiticas' && (
                 <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
                   <div className="bg-orange-500 px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
-                    <h3 className="text-white font-semibold text-sm sm:text-base">Analise Comparativa - {formatPeriodo()}</h3>
-                    {vendasAnaliticas.length > 0 && (
+                    <div className="flex items-center gap-4">
+                      <h3 className="text-white font-semibold text-sm sm:text-base">Analise Comparativa - {formatPeriodo()}</h3>
+                      <div className="flex items-center gap-3 bg-white/20 rounded-lg px-3 py-1">
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input type="radio" name="filtroOferta" value="com" checked={filtroOferta === 'com'} onChange={() => setFiltroOferta('com')} className="accent-orange-600" />
+                          <span className="text-white text-xs font-medium">Com Oferta</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input type="radio" name="filtroOferta" value="sem" checked={filtroOferta === 'sem'} onChange={() => setFiltroOferta('sem')} className="accent-orange-600" />
+                          <span className="text-white text-xs font-medium">Sem Oferta</span>
+                        </label>
+                      </div>
+                    </div>
+                    {vendasAnaliticasFiltradas.length > 0 && (
                       <button onClick={() => setShowGraficoAnalitica(prev => !prev)} className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                         {showGraficoAnalitica ? 'Ocultar Gráfico' : 'Gráfico'}
@@ -3062,7 +3130,7 @@ export default function GestaoInteligente() {
                   </div>
 
                   {/* Gráfico Vendas Analíticas com drill-down */}
-                  {showGraficoAnalitica && vendasAnaliticas.length > 0 && !loadingVendasAnaliticas && (() => {
+                  {showGraficoAnalitica && vendasAnaliticasFiltradas.length > 0 && !loadingVendasAnaliticas && (() => {
                     const drill = graficoAnaliticaDrill;
                     const allData = drill.data || [];
                     if (allData.length === 0) return null;
@@ -3157,7 +3225,7 @@ export default function GestaoInteligente() {
                     // Breadcrumb click handler
                     const handleBreadcrumbClick = (bcIdx) => {
                       if (bcIdx === 0) {
-                        setGraficoAnaliticaDrill({ level: 'secoes', data: vendasAnaliticas, breadcrumb: [{ label: 'Seções' }] });
+                        setGraficoAnaliticaDrill({ level: 'secoes', data: vendasAnaliticasFiltradas, breadcrumb: [{ label: 'Seções' }] });
                         setFiltroSetoresAnalitica(null);
                       } else {
                         const bc = drill.breadcrumb.slice(0, bcIdx + 1);
@@ -3355,7 +3423,7 @@ export default function GestaoInteligente() {
 
                   {loadingVendasAnaliticas ? (
                     <RadarLoading size="sm" message="" />
-                  ) : vendasAnaliticas.length > 0 ? (
+                  ) : vendasAnaliticasFiltradas.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="w-full">
                         <thead>
@@ -3388,7 +3456,7 @@ export default function GestaoInteligente() {
                           </tr>
                         </thead>
                         <tbody>
-                          {vendasAnaliticas.map((setor, index) => {
+                          {vendasAnaliticasFiltradas.map((setor, index) => {
                             const secExpanded = expandedAnaliticaSecoes[setor.codSecao];
                             const cc = (a, b) => a >= b ? 'text-green-600' : 'text-red-600';
                             const renderAnaliticaCells = (d, sz = 'text-sm') => {
@@ -3538,7 +3606,7 @@ export default function GestaoInteligente() {
                         </tbody>
                         <tfoot className="bg-gray-200">
                           {(() => {
-                            const sum = (key) => vendasAnaliticas.reduce((acc, s) => acc + (s[key] || 0), 0);
+                            const sum = (key) => vendasAnaliticasFiltradas.reduce((acc, s) => acc + (s[key] || 0), 0);
                             const cc = (a, b) => a >= b ? 'text-green-700' : 'text-red-700';
                             const calcMkd = (vendaKey, lucroKey) => {
                               const v = sum(vendaKey); const c = sum(vendaKey) - sum(lucroKey);
@@ -3548,7 +3616,7 @@ export default function GestaoInteligente() {
                               const v = sum(vendaKey);
                               if (v <= 0) return 0;
                               const mlKey = vendaKey === 'mediaLinear' ? 'margemLimpaMediaLinear' : vendaKey.replace('venda', 'margemLimpa');
-                              const wSum = vendasAnaliticas.reduce((a, d) => a + ((d[mlKey] || 0) * (d[vendaKey] || 0)), 0);
+                              const wSum = vendasAnaliticasFiltradas.reduce((a, d) => a + ((d[mlKey] || 0) * (d[vendaKey] || 0)), 0);
                               return wSum / v;
                             };
                             const calcPctOferta = (ofertaKey, vendaKey) => {
