@@ -82,6 +82,7 @@ const SECTION_COLORS = {
   purple: { bg: 'bg-purple-600', bgLight: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-800', ring: 'ring-purple-500' },
   green: { bg: 'bg-green-600', bgLight: 'bg-green-50', border: 'border-green-200', text: 'text-green-800', ring: 'ring-green-500' },
   orange: { bg: 'bg-orange-600', bgLight: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-800', ring: 'ring-orange-500' },
+  amber: { bg: 'bg-amber-600', bgLight: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800', ring: 'ring-amber-500' },
 };
 
 export default function ModulosTab() {
