@@ -243,7 +243,7 @@ echo       OK
 
 echo.
 echo [2/4] Removendo tarefas agendadas...
-schtasks /Delete /TN "Scanner Service" /F >nul 2>&1
+C:\\Windows\\System32\\schtasks.exe /Delete /TN "Scanner Service" /F >nul 2>&1
 timeout /t 1 /nobreak >nul
 echo       OK
 
@@ -721,15 +721,18 @@ LOG_MAX_SIZE=10485760
                 time.sleep(1)
             except:
                 pass
+            schtasks_exe = r'C:\\Windows\\System32\\schtasks.exe'
             try:
-                subprocess.run(['schtasks', '/Delete', '/TN', 'Scanner Service', '/F'], capture_output=True, timeout=5)
+                subprocess.run([schtasks_exe, '/Delete', '/TN', 'Scanner Service', '/F'], capture_output=True, timeout=5)
             except:
                 pass
 
             self.atualizar_status("Configurando inicio automatico...", "info")
             self.root.update()
-            bat_path = str(Path.cwd() / "INICIAR-SCANNER.bat")
-            subprocess.run(['schtasks', '/Create', '/TN', 'Scanner Service', '/TR', f'"{bat_path}"', '/SC', 'ONLOGON', '/RL', 'HIGHEST', '/F'], capture_output=True, timeout=10, check=True)
+            install_dir = str(Path.cwd())
+            tr_cmd = f'cmd /c cd /d "{install_dir}" && INICIAR-SCANNER.bat'
+            user = os.environ.get('USERNAME', os.environ.get('USER', ''))
+            subprocess.run([schtasks_exe, '/Create', '/TN', 'Scanner Service', '/TR', tr_cmd, '/SC', 'ONSTART', '/RU', user, '/RL', 'HIGHEST', '/F'], capture_output=True, timeout=10, check=True)
 
             self.atualizar_status("Iniciando Scanner Service...", "info")
             self.root.update()
