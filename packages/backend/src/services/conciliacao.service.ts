@@ -68,7 +68,7 @@ async function resolveMapping() {
   const tabFluxo = `${schema}.${await MappingService.getRealTableName('TAB_FLUXO')}`;
   const tabBanco = `${schema}.${await MappingService.getRealTableName('TAB_BANCO')}`;
   const tabCategoria = `${schema}.${await MappingService.getRealTableName('TAB_CATEGORIA')}`;
-  const tabSubcategoria = `${schema}.TAB_SUBCATEGORIA`;
+  const tabSubcategoria = `${schema}.${await MappingService.getRealTableName('TAB_SUBCATEGORIA', 'TAB_SUBCATEGORIA')}`;
 
   // TAB_FLUXO columns
   const flxNumRegistro = await MappingService.getColumnFromTable('TAB_FLUXO', 'num_registro');
@@ -93,25 +93,41 @@ async function resolveMapping() {
   const flxFlgQuitado = await MappingService.getColumnFromTable('TAB_FLUXO', 'flg_quitado');
   const flxCodCategoria = await MappingService.getColumnFromTable('TAB_FLUXO', 'cod_categoria');
   const flxCodSubcategoria = await MappingService.getColumnFromTable('TAB_FLUXO', 'cod_subcategoria');
+  const flxDesCc = await MappingService.getColumnFromTable('TAB_FLUXO', 'des_cc', 'DES_CC');
 
   // TAB_BANCO columns
   const bcoCodBanco = await MappingService.getColumnFromTable('TAB_BANCO', 'cod_banco');
   const bcoDesBanco = await MappingService.getColumnFromTable('TAB_BANCO', 'des_banco');
 
-  // TAB_BANCO_CC (contas correntes) - tabela fixa, sem mapping
-  const tabBancoCc = `${schema}.TAB_BANCO_CC`;
+  // TAB_BANCO_CC (contas correntes)
+  const tabBancoCc = `${schema}.${await MappingService.getRealTableName('TAB_BANCO_CC', 'TAB_BANCO_CC')}`;
 
   // TAB_CATEGORIA columns
   const catCodCategoria = await MappingService.getColumnFromTable('TAB_CATEGORIA', 'cod_categoria');
   const catDesCategoria = await MappingService.getColumnFromTable('TAB_CATEGORIA', 'des_categoria');
 
+  // TAB_SUBCATEGORIA columns
+  const scCodSubcategoria = await MappingService.getColumnFromTable('TAB_SUBCATEGORIA', 'cod_subcategoria', 'COD_SUBCATEGORIA');
+  const scDesSubcategoria = await MappingService.getColumnFromTable('TAB_SUBCATEGORIA', 'des_subcategoria', 'DES_SUBCATEGORIA');
+  const scCodCategoria = await MappingService.getColumnFromTable('TAB_SUBCATEGORIA', 'cod_categoria', 'COD_CATEGORIA');
+
+  // TAB_BANCO_CC columns
+  const ccCodBanco = await MappingService.getColumnFromTable('TAB_BANCO_CC', 'cod_banco', 'COD_BANCO');
+  const ccDesCc = await MappingService.getColumnFromTable('TAB_BANCO_CC', 'descricao_banco_cc', 'DES_CC');
+  const ccDesAgencia = await MappingService.getColumnFromTable('TAB_BANCO_CC', 'num_agencia', 'DES_AGENCIA');
+  const ccDesApelido = await MappingService.getColumnFromTable('TAB_BANCO_CC', 'des_apelido', 'DES_APELIDO');
+  const ccInativo = await MappingService.getColumnFromTable('TAB_BANCO_CC', 'inativo', 'INATIVO');
+  const ccIdConta = await MappingService.getColumnFromTable('TAB_BANCO_CC', 'id_conta', 'ID_CONTA');
+
   return {
     tabFluxo, tabBanco, tabBancoCc, tabCategoria, tabSubcategoria,
     flxNumRegistro, flxCodLoja, flxTipoConta, flxDesParceiro,
     flxDtaQuitada, flxDtaVencimento, flxValParcela, flxValJuros, flxValDesconto, flxValCredito, flxValDevolucao, flxValOutros, flxValRetencao, flxValTaxaAdm, flxValDifQuitacao, flxNumDocto,
-    flxCodBancoPgto, flxNumBordero, flxFlgCompensado, flxFlgQuitado, flxCodCategoria, flxCodSubcategoria,
+    flxCodBancoPgto, flxNumBordero, flxFlgCompensado, flxFlgQuitado, flxCodCategoria, flxCodSubcategoria, flxDesCc,
     bcoCodBanco, bcoDesBanco,
     catCodCategoria, catDesCategoria,
+    ccCodBanco, ccDesCc, ccDesAgencia, ccDesApelido, ccInativo, ccIdConta,
+    scCodSubcategoria, scDesSubcategoria, scCodCategoria,
   };
 }
 
@@ -274,14 +290,14 @@ export class ConciliacaoService {
         f.${m.flxNumBordero} AS NUM_BORDERO,
         f.${m.flxFlgCompensado} AS FLG_COMPENSADO,
         (SELECT c.${m.catDesCategoria} FROM ${m.tabCategoria} c WHERE c.${m.catCodCategoria} = f.${m.flxCodCategoria} AND ROWNUM = 1) AS DES_CATEGORIA,
-        (SELECT sc.DES_SUBCATEGORIA FROM ${m.tabSubcategoria} sc WHERE sc.COD_SUBCATEGORIA = f.${m.flxCodSubcategoria} AND sc.COD_CATEGORIA = f.${m.flxCodCategoria} AND ROWNUM = 1) AS DES_SUBCATEGORIA
+        (SELECT sc.${m.scDesSubcategoria} FROM ${m.tabSubcategoria} sc WHERE sc.${m.scCodSubcategoria} = f.${m.flxCodSubcategoria} AND sc.${m.scCodCategoria} = f.${m.flxCodCategoria} AND ROWNUM = 1) AS DES_SUBCATEGORIA
       FROM ${m.tabFluxo} f
       WHERE f.${m.flxFlgQuitado} = 'S'
         AND f.${m.flxCodLoja} = :codLoja
         AND f.${m.flxCodBancoPgto} = :codBanco
         AND f.${m.flxDtaQuitada} >= TO_DATE(:dtaInicio, 'YYYY-MM-DD')
         AND f.${m.flxDtaQuitada} <= TO_DATE(:dtaFim, 'YYYY-MM-DD') + 0.99999
-        ${filters.desCc ? `AND f.DES_CC = :desCc` : ''}
+        ${filters.desCc ? `AND f.${m.flxDesCc} = :desCc` : ''}
       ORDER BY f.${m.flxDtaQuitada}, f.${m.flxNumRegistro}
     `;
     const flxParams: any = { codLoja, codBanco: codBancoSistema, dtaInicio, dtaFim };
@@ -598,10 +614,10 @@ export class ConciliacaoService {
   static async getContasCorrentes(codBanco: number): Promise<any[]> {
     const m = await resolveMapping();
     const sql = `
-      SELECT cc.COD_BANCO, cc.DES_CC, cc.DES_AGENCIA, cc.DES_APELIDO, cc.INATIVO, cc.ID_CONTA
+      SELECT cc.${m.ccCodBanco} AS COD_BANCO, cc.${m.ccDesCc} AS DES_CC, cc.${m.ccDesAgencia} AS DES_AGENCIA, cc.${m.ccDesApelido} AS DES_APELIDO, cc.${m.ccInativo} AS INATIVO, cc.${m.ccIdConta} AS ID_CONTA
       FROM ${m.tabBancoCc} cc
-      WHERE cc.COD_BANCO = :codBanco AND NVL(cc.INATIVO, 'N') = 'N'
-      ORDER BY cc.DES_APELIDO
+      WHERE cc.${m.ccCodBanco} = :codBanco AND NVL(cc.${m.ccInativo}, 'N') = 'N'
+      ORDER BY cc.${m.ccDesApelido}
     `;
     return OracleService.query(sql, { codBanco });
   }

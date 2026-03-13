@@ -58,22 +58,79 @@ export class PrazoFornecedoresService {
       tabEntidade = `${schema}.TAB_ENTIDADE`;
     }
 
+    // Resolver colunas via MappingService
+    // TAB_FORNECEDOR columns
+    const [
+      fCodFornecedor, fDesFantasia, fDesFornecedor, fNumCgc,
+      fDesContato, fNumCelular, fNumFone, fNumMedCpgto,
+    ] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_fantasia', 'DES_FANTASIA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_fornecedor', 'DES_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_cgc', 'NUM_CGC'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_contato', 'DES_CONTATO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_celular', 'NUM_CELULAR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_fone', 'NUM_FONE'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_med_cpgto', 'NUM_MED_CPGTO'),
+    ]);
+
+    // TAB_FORNECEDOR_NOTA columns
+    const [
+      fnCodFornecedor, fnNumNfForn, fnDtaEmissao, fnDtaEntrada,
+      fnValTotalNf, fnFlgCancelado, fnCodLoja, fnNumPedido,
+    ] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'num_nf_forn', 'NUM_NF_FORN'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'dta_emissao', 'DTA_EMISSAO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'dta_entrada', 'DTA_ENTRADA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'val_total_nf', 'VAL_TOTAL_NF'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'flg_cancelado', 'FLG_CANCELADO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'cod_loja', 'COD_LOJA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'num_pedido', 'NUM_PEDIDO'),
+    ]);
+
+    // TAB_FLUXO columns
+    const [
+      flxDtaVencimento, flxDtaEmissao, flxValParcela, flxNumParcela,
+      flxQtdParcela, flxCodEntidade, flxFlgQuitado, flxDtaQuitada,
+      flxTipoConta, flxTipoParceiro, flxCodParceiro, flxValTotalNf,
+    ] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_FLUXO', 'dta_vencimento', 'DTA_VENCIMENTO'),
+      MappingService.getColumnFromTable('TAB_FLUXO', 'dta_emissao', 'DTA_EMISSAO'),
+      MappingService.getColumnFromTable('TAB_FLUXO', 'val_parcela', 'VAL_PARCELA'),
+      MappingService.getColumnFromTable('TAB_FLUXO', 'num_parcela', 'NUM_PARCELA'),
+      MappingService.getColumnFromTable('TAB_FLUXO', 'qtd_parcela', 'QTD_PARCELA'),
+      MappingService.getColumnFromTable('TAB_FLUXO', 'cod_entidade', 'COD_ENTIDADE'),
+      MappingService.getColumnFromTable('TAB_FLUXO', 'flg_quitado', 'FLG_QUITADO'),
+      MappingService.getColumnFromTable('TAB_FLUXO', 'dta_quitada', 'DTA_QUITADA'),
+      MappingService.getColumnFromTable('TAB_FLUXO', 'tipo_conta', 'TIPO_CONTA'),
+      MappingService.getColumnFromTable('TAB_FLUXO', 'tipo_parceiro', 'TIPO_PARCEIRO'),
+      MappingService.getColumnFromTable('TAB_FLUXO', 'cod_parceiro', 'COD_PARCEIRO'),
+      MappingService.getColumnFromTable('TAB_FLUXO', 'val_total_nf', 'VAL_TOTAL_NF'),
+    ]);
+
+    // TAB_ENTIDADE columns
+    const [entCodEntidade, entDesEntidade] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_ENTIDADE', 'cod_entidade', 'COD_ENTIDADE'),
+      MappingService.getColumnFromTable('TAB_ENTIDADE', 'des_entidade', 'DES_ENTIDADE'),
+    ]);
+
     const params: any = {};
     let lojaFilterNota = '';
     let dateFilter = '';
 
     if (codLoja) {
-      lojaFilterNota = 'AND fn.COD_LOJA = :codLoja';
+      lojaFilterNota = `AND fn.${fnCodLoja} = :codLoja`;
       params.codLoja = codLoja;
     }
 
     // Filtro de data: usa dataInicio/dataFim ou padrão 180 dias
     if (dataInicio && dataFim) {
-      dateFilter = "AND fn.DTA_ENTRADA >= TO_DATE(:dataInicio, 'YYYY-MM-DD') AND fn.DTA_ENTRADA <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 1";
+      dateFilter = `AND fn.${fnDtaEntrada} >= TO_DATE(:dataInicio, 'YYYY-MM-DD') AND fn.${fnDtaEntrada} <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 1`;
       params.dataInicio = dataInicio;
       params.dataFim = dataFim;
     } else {
-      dateFilter = 'AND fn.DTA_ENTRADA >= SYSDATE - 180';
+      dateFilter = `AND fn.${fnDtaEntrada} >= SYSDATE - 180`;
     }
 
     // Query única: Notas com parcelas de pagamento via JOIN
@@ -82,56 +139,56 @@ export class PrazoFornecedoresService {
     const query = `
       SELECT * FROM (
         SELECT
-          fn.COD_FORNECEDOR,
-          NVL(f.DES_FANTASIA, f.DES_FORNECEDOR) as DES_FANTASIA,
-          f.DES_FORNECEDOR,
-          f.NUM_CGC,
-          f.DES_CONTATO,
-          f.NUM_CELULAR,
-          f.NUM_FONE,
-          NVL(f.NUM_MED_CPGTO, 0) as COND_PGTO_SISTEMA,
-          fn.NUM_NF_FORN,
-          TO_CHAR(fn.DTA_EMISSAO, 'DD/MM/YYYY') as DTA_EMISSAO_FMT,
-          TO_CHAR(fn.DTA_ENTRADA, 'DD/MM/YYYY') as DTA_ENTRADA_FMT,
-          NVL(fn.VAL_TOTAL_NF, 0) as VAL_TOTAL_NF,
-          flx.DTA_VENCIMENTO as FLX_DTA_VENCIMENTO,
-          flx.DTA_EMISSAO as FLX_DTA_EMISSAO,
-          NVL(flx.VAL_PARCELA, 0) as FLX_VAL_PARCELA,
-          flx.NUM_PARCELA as FLX_NUM_PARCELA,
-          flx.QTD_PARCELA as FLX_QTD_PARCELA,
-          NVL(ent.DES_ENTIDADE,
-            CASE flx.COD_ENTIDADE
+          fn.${fnCodFornecedor} as COD_FORNECEDOR,
+          NVL(f.${fDesFantasia}, f.${fDesFornecedor}) as DES_FANTASIA,
+          f.${fDesFornecedor} as DES_FORNECEDOR,
+          f.${fNumCgc} as NUM_CGC,
+          f.${fDesContato} as DES_CONTATO,
+          f.${fNumCelular} as NUM_CELULAR,
+          f.${fNumFone} as NUM_FONE,
+          NVL(f.${fNumMedCpgto}, 0) as COND_PGTO_SISTEMA,
+          fn.${fnNumNfForn} as NUM_NF_FORN,
+          TO_CHAR(fn.${fnDtaEmissao}, 'DD/MM/YYYY') as DTA_EMISSAO_FMT,
+          TO_CHAR(fn.${fnDtaEntrada}, 'DD/MM/YYYY') as DTA_ENTRADA_FMT,
+          NVL(fn.${fnValTotalNf}, 0) as VAL_TOTAL_NF,
+          flx.${flxDtaVencimento} as FLX_DTA_VENCIMENTO,
+          flx.${flxDtaEmissao} as FLX_DTA_EMISSAO,
+          NVL(flx.${flxValParcela}, 0) as FLX_VAL_PARCELA,
+          flx.${flxNumParcela} as FLX_NUM_PARCELA,
+          flx.${flxQtdParcela} as FLX_QTD_PARCELA,
+          NVL(ent.${entDesEntidade},
+            CASE flx.${flxCodEntidade}
               WHEN 1 THEN 'DINHEIRO'
               WHEN 2 THEN 'CHEQUE'
               WHEN 3 THEN 'CARTAO'
               WHEN 8 THEN 'BOLETO'
-              ELSE TO_CHAR(flx.COD_ENTIDADE)
+              ELSE TO_CHAR(flx.${flxCodEntidade})
             END
           ) as FORMA_PGTO,
-          CASE WHEN flx.DTA_VENCIMENTO IS NOT NULL AND flx.DTA_EMISSAO IS NOT NULL
-            THEN TRUNC(flx.DTA_VENCIMENTO) - TRUNC(flx.DTA_EMISSAO)
+          CASE WHEN flx.${flxDtaVencimento} IS NOT NULL AND flx.${flxDtaEmissao} IS NOT NULL
+            THEN TRUNC(flx.${flxDtaVencimento}) - TRUNC(flx.${flxDtaEmissao})
             ELSE NULL
           END as DIAS_PARCELA,
-          NVL(flx.FLG_QUITADO, 'N') as FLG_QUITADO,
-          TO_CHAR(flx.DTA_QUITADA, 'DD/MM/YYYY') as DTA_QUITADA_FMT,
-          CASE WHEN flx.DTA_QUITADA IS NOT NULL AND fn.DTA_ENTRADA IS NOT NULL
-            THEN TRUNC(flx.DTA_QUITADA) - TRUNC(fn.DTA_ENTRADA)
+          NVL(flx.${flxFlgQuitado}, 'N') as FLG_QUITADO,
+          TO_CHAR(flx.${flxDtaQuitada}, 'DD/MM/YYYY') as DTA_QUITADA_FMT,
+          CASE WHEN flx.${flxDtaQuitada} IS NOT NULL AND fn.${fnDtaEntrada} IS NOT NULL
+            THEN TRUNC(flx.${flxDtaQuitada}) - TRUNC(fn.${fnDtaEntrada})
             ELSE NULL
           END as PRAZO_REAL,
           ROW_NUMBER() OVER (
-            PARTITION BY fn.COD_FORNECEDOR, fn.NUM_NF_FORN, flx.NUM_PARCELA
-            ORDER BY fn.DTA_ENTRADA DESC
+            PARTITION BY fn.${fnCodFornecedor}, fn.${fnNumNfForn}, flx.${flxNumParcela}
+            ORDER BY fn.${fnDtaEntrada} DESC
           ) as RN_DEDUP
         FROM ${tabFornecedorNota} fn
-        JOIN ${tabFornecedor} f ON f.COD_FORNECEDOR = fn.COD_FORNECEDOR
+        JOIN ${tabFornecedor} f ON f.${fCodFornecedor} = fn.${fnCodFornecedor}
         LEFT JOIN ${tabFluxo} flx
-          ON flx.COD_PARCEIRO = fn.COD_FORNECEDOR
-          AND TRUNC(flx.DTA_EMISSAO) = TRUNC(fn.DTA_EMISSAO)
-          AND ABS(NVL(flx.VAL_TOTAL_NF, 0) - NVL(fn.VAL_TOTAL_NF, 0)) < 1
-          AND flx.TIPO_CONTA = 0
-          AND flx.TIPO_PARCEIRO = 1
-        LEFT JOIN ${tabEntidade} ent ON ent.COD_ENTIDADE = flx.COD_ENTIDADE
-        WHERE NVL(fn.FLG_CANCELADO, 'N') = 'N'
+          ON flx.${flxCodParceiro} = fn.${fnCodFornecedor}
+          AND TRUNC(flx.${flxDtaEmissao}) = TRUNC(fn.${fnDtaEmissao})
+          AND ABS(NVL(flx.${flxValTotalNf}, 0) - NVL(fn.${fnValTotalNf}, 0)) < 1
+          AND flx.${flxTipoConta} = 0
+          AND flx.${flxTipoParceiro} = 1
+        LEFT JOIN ${tabEntidade} ent ON ent.${entCodEntidade} = flx.${flxCodEntidade}
+        WHERE NVL(fn.${fnFlgCancelado}, 'N') = 'N'
         ${dateFilter}
         ${lojaFilterNota}
       ) WHERE RN_DEDUP = 1
@@ -175,16 +232,16 @@ export class PrazoFornecedoresService {
         }
 
         const cfopDateFilter = dataInicio && dataFim
-          ? `AND fn2.DTA_ENTRADA >= TO_DATE('${dataInicio}', 'YYYY-MM-DD') AND fn2.DTA_ENTRADA <= TO_DATE('${dataFim}', 'YYYY-MM-DD') + 1`
-          : 'AND fn2.DTA_ENTRADA >= SYSDATE - 180';
+          ? `AND fn2.${fnDtaEntrada} >= TO_DATE('${dataInicio}', 'YYYY-MM-DD') AND fn2.${fnDtaEntrada} <= TO_DATE('${dataFim}', 'YYYY-MM-DD') + 1`
+          : `AND fn2.${fnDtaEntrada} >= SYSDATE - 180`;
 
         const cfopQuery = `
           SELECT fp.${nfCodFornecedorCol} as COD_FORN, fp.${nfNumeroNfCol} as NUM_NF, TRIM(fp.${colCfop}) as CFOP_VAL, COUNT(*) as QTD
           FROM ${tabFornecedorProduto} fp
-          JOIN ${tabFornecedorNota} fn2 ON fn2.COD_FORNECEDOR = fp.${nfCodFornecedorCol} AND fn2.NUM_NF_FORN = fp.${nfNumeroNfCol}
-          WHERE NVL(fn2.FLG_CANCELADO, 'N') = 'N'
+          JOIN ${tabFornecedorNota} fn2 ON fn2.${fnCodFornecedor} = fp.${nfCodFornecedorCol} AND fn2.${fnNumNfForn} = fp.${nfNumeroNfCol}
+          WHERE NVL(fn2.${fnFlgCancelado}, 'N') = 'N'
           ${cfopDateFilter}
-          ${codLoja ? 'AND fn2.COD_LOJA = :codLoja' : ''}
+          ${codLoja ? `AND fn2.${fnCodLoja} = :codLoja` : ''}
           AND fp.${colCfop} IS NOT NULL
           GROUP BY fp.${nfCodFornecedorCol}, fp.${nfNumeroNfCol}, TRIM(fp.${colCfop})
           ORDER BY fp.${nfCodFornecedorCol}, fp.${nfNumeroNfCol}, QTD DESC
@@ -344,6 +401,23 @@ export class PrazoFornecedoresService {
     const nfNumeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf');
     const nfCodFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor');
 
+    // TAB_FORNECEDOR columns
+    const [fCodFornecedor, fDesFantasia, fDesFornecedor, fNumMedCpgto] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_fantasia', 'DES_FANTASIA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_fornecedor', 'DES_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_med_cpgto', 'NUM_MED_CPGTO'),
+    ]);
+
+    // TAB_FORNECEDOR_NOTA columns
+    const [fnCodFornecedor, fnNumNfForn, fnFlgCancelado, fnDtaEntrada, fnCodLoja] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'num_nf_forn', 'NUM_NF_FORN'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'flg_cancelado', 'FLG_CANCELADO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'dta_entrada', 'DTA_ENTRADA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'cod_loja', 'COD_LOJA'),
+    ]);
+
     const numNfNum = Number(numNf) || 0;
     const params: any = { codFornecedor, numNf: numNfNum };
 
@@ -384,21 +458,21 @@ export class PrazoFornecedoresService {
 
           let lojaFilterAlt = '';
           if (codLoja) {
-            lojaFilterAlt = 'AND fn2.COD_LOJA = :codLojaAlt';
+            lojaFilterAlt = `AND fn2.${fnCodLoja} = :codLojaAlt`;
             inBinds.codLojaAlt = codLoja;
           }
 
           const altQuery = `
             SELECT DISTINCT fp2.COD_PRODUTO
             FROM ${tabFornecedorProduto} fp2
-            JOIN ${tabFornecedor} f2 ON f2.COD_FORNECEDOR = fp2.${nfCodFornecedorCol}
-            JOIN ${tabFornecedorNota} fn2 ON fn2.COD_FORNECEDOR = fp2.${nfCodFornecedorCol}
-              AND fn2.NUM_NF_FORN = fp2.${nfNumeroNfCol}
+            JOIN ${tabFornecedor} f2 ON f2.${fCodFornecedor} = fp2.${nfCodFornecedorCol}
+            JOIN ${tabFornecedorNota} fn2 ON fn2.${fnCodFornecedor} = fp2.${nfCodFornecedorCol}
+              AND fn2.${fnNumNfForn} = fp2.${nfNumeroNfCol}
             WHERE fp2.COD_PRODUTO IN (${inParts.join(',')})
             AND fp2.${nfCodFornecedorCol} <> :codFornExcl
-            AND NVL(fn2.FLG_CANCELADO, 'N') = 'N'
-            AND fn2.DTA_ENTRADA >= SYSDATE - :diasHist
-            AND NVL(f2.NUM_MED_CPGTO, 0) > :prazoMin
+            AND NVL(fn2.${fnFlgCancelado}, 'N') = 'N'
+            AND fn2.${fnDtaEntrada} >= SYSDATE - :diasHist
+            AND NVL(f2.${fNumMedCpgto}, 0) > :prazoMin
             ${lojaFilterAlt}
           `;
 
@@ -438,45 +512,60 @@ export class PrazoFornecedoresService {
     const nfNumeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf');
     const nfCodFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor');
 
+    // TAB_FORNECEDOR columns
+    const [fCodFornecedor, fNumMedCpgto] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_med_cpgto', 'NUM_MED_CPGTO'),
+    ]);
+
+    // TAB_FORNECEDOR_NOTA columns
+    const [fnCodFornecedor, fnNumNfForn, fnFlgCancelado, fnDtaEntrada, fnCodLoja] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'num_nf_forn', 'NUM_NF_FORN'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'flg_cancelado', 'FLG_CANCELADO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'dta_entrada', 'DTA_ENTRADA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'cod_loja', 'COD_LOJA'),
+    ]);
+
     const params: any = { diasHist: mesesHistorico * 30 };
     let lojaFilter1 = '';
     let lojaFilter2 = '';
     let dateFilter = '';
 
     if (codLoja) {
-      lojaFilter1 = 'AND fn1.COD_LOJA = :codLoja';
-      lojaFilter2 = 'AND fn2.COD_LOJA = :codLoja';
+      lojaFilter1 = `AND fn1.${fnCodLoja} = :codLoja`;
+      lojaFilter2 = `AND fn2.${fnCodLoja} = :codLoja`;
       params.codLoja = codLoja;
     }
 
     if (dataInicio && dataFim) {
-      dateFilter = "AND fn1.DTA_ENTRADA >= TO_DATE(:dataInicio, 'YYYY-MM-DD') AND fn1.DTA_ENTRADA <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 1";
+      dateFilter = `AND fn1.${fnDtaEntrada} >= TO_DATE(:dataInicio, 'YYYY-MM-DD') AND fn1.${fnDtaEntrada} <= TO_DATE(:dataFim, 'YYYY-MM-DD') + 1`;
       params.dataInicio = dataInicio;
       params.dataFim = dataFim;
     } else {
-      dateFilter = 'AND fn1.DTA_ENTRADA >= SYSDATE - 180';
+      dateFilter = `AND fn1.${fnDtaEntrada} >= SYSDATE - 180`;
     }
 
     const query = `
       SELECT DISTINCT fp1.${nfCodFornecedorCol} as COD_FORN_ORIG
       FROM ${tabFornecedorProduto} fp1
-      JOIN ${tabFornecedorNota} fn1 ON fn1.COD_FORNECEDOR = fp1.${nfCodFornecedorCol}
-        AND fn1.NUM_NF_FORN = fp1.${nfNumeroNfCol}
-      JOIN ${tabFornecedor} f1 ON f1.COD_FORNECEDOR = fp1.${nfCodFornecedorCol}
-      WHERE NVL(fn1.FLG_CANCELADO, 'N') = 'N'
+      JOIN ${tabFornecedorNota} fn1 ON fn1.${fnCodFornecedor} = fp1.${nfCodFornecedorCol}
+        AND fn1.${fnNumNfForn} = fp1.${nfNumeroNfCol}
+      JOIN ${tabFornecedor} f1 ON f1.${fCodFornecedor} = fp1.${nfCodFornecedorCol}
+      WHERE NVL(fn1.${fnFlgCancelado}, 'N') = 'N'
       ${dateFilter}
       ${lojaFilter1}
       AND EXISTS (
         SELECT 1
         FROM ${tabFornecedorProduto} fp2
-        JOIN ${tabFornecedor} f2 ON f2.COD_FORNECEDOR = fp2.${nfCodFornecedorCol}
-        JOIN ${tabFornecedorNota} fn2 ON fn2.COD_FORNECEDOR = fp2.${nfCodFornecedorCol}
-          AND fn2.NUM_NF_FORN = fp2.${nfNumeroNfCol}
+        JOIN ${tabFornecedor} f2 ON f2.${fCodFornecedor} = fp2.${nfCodFornecedorCol}
+        JOIN ${tabFornecedorNota} fn2 ON fn2.${fnCodFornecedor} = fp2.${nfCodFornecedorCol}
+          AND fn2.${fnNumNfForn} = fp2.${nfNumeroNfCol}
         WHERE fp2.COD_PRODUTO = fp1.COD_PRODUTO
         AND fp2.${nfCodFornecedorCol} <> fp1.${nfCodFornecedorCol}
-        AND NVL(fn2.FLG_CANCELADO, 'N') = 'N'
-        AND fn2.DTA_ENTRADA >= SYSDATE - :diasHist
-        AND NVL(f2.NUM_MED_CPGTO, 0) > NVL(f1.NUM_MED_CPGTO, 0)
+        AND NVL(fn2.${fnFlgCancelado}, 'N') = 'N'
+        AND fn2.${fnDtaEntrada} >= SYSDATE - :diasHist
+        AND NVL(f2.${fNumMedCpgto}, 0) > NVL(f1.${fNumMedCpgto}, 0)
         ${lojaFilter2}
       )
     `;
@@ -505,10 +594,27 @@ export class PrazoFornecedoresService {
     const nfNumeroNfCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf');
     const nfCodFornecedorCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor');
 
+    // TAB_FORNECEDOR columns
+    const [fCodFornecedor, fDesFantasia, fDesFornecedor, fNumMedCpgto] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_fantasia', 'DES_FANTASIA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_fornecedor', 'DES_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_med_cpgto', 'NUM_MED_CPGTO'),
+    ]);
+
+    // TAB_FORNECEDOR_NOTA columns
+    const [fnCodFornecedor, fnNumNfForn, fnFlgCancelado, fnDtaEntrada, fnCodLoja] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'num_nf_forn', 'NUM_NF_FORN'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'flg_cancelado', 'FLG_CANCELADO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'dta_entrada', 'DTA_ENTRADA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'cod_loja', 'COD_LOJA'),
+    ]);
+
     const params: any = { codProduto, codFornecedorAtual, diasHistorico: mesesHistorico * 30 };
     let lojaFilter = '';
     if (codLoja) {
-      lojaFilter = 'AND fn.COD_LOJA = :codLoja';
+      lojaFilter = `AND fn.${fnCodLoja} = :codLoja`;
       params.codLoja = codLoja;
     }
 
@@ -516,19 +622,19 @@ export class PrazoFornecedoresService {
       SELECT * FROM (
         SELECT
           fp.${nfCodFornecedorCol} as COD_FORNECEDOR,
-          NVL(f.DES_FANTASIA, f.DES_FORNECEDOR) as DES_FANTASIA,
+          NVL(f.${fDesFantasia}, f.${fDesFornecedor}) as DES_FANTASIA,
           NVL(fp.VAL_TABELA, 0) as VAL_CUSTO,
-          NVL(f.NUM_MED_CPGTO, 0) as PRAZO_MEDIO,
-          TO_CHAR(fn.DTA_ENTRADA, 'DD/MM/YYYY') as DTA_ULT_COMPRA,
-          ROW_NUMBER() OVER (PARTITION BY fp.${nfCodFornecedorCol} ORDER BY fn.DTA_ENTRADA DESC) as RN
+          NVL(f.${fNumMedCpgto}, 0) as PRAZO_MEDIO,
+          TO_CHAR(fn.${fnDtaEntrada}, 'DD/MM/YYYY') as DTA_ULT_COMPRA,
+          ROW_NUMBER() OVER (PARTITION BY fp.${nfCodFornecedorCol} ORDER BY fn.${fnDtaEntrada} DESC) as RN
         FROM ${tabFornecedorProduto} fp
-        JOIN ${tabFornecedor} f ON f.COD_FORNECEDOR = fp.${nfCodFornecedorCol}
-        JOIN ${tabFornecedorNota} fn ON fn.COD_FORNECEDOR = fp.${nfCodFornecedorCol}
-          AND fn.NUM_NF_FORN = fp.${nfNumeroNfCol}
+        JOIN ${tabFornecedor} f ON f.${fCodFornecedor} = fp.${nfCodFornecedorCol}
+        JOIN ${tabFornecedorNota} fn ON fn.${fnCodFornecedor} = fp.${nfCodFornecedorCol}
+          AND fn.${fnNumNfForn} = fp.${nfNumeroNfCol}
         WHERE fp.COD_PRODUTO = :codProduto
         AND fp.${nfCodFornecedorCol} <> :codFornecedorAtual
-        AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
-        AND fn.DTA_ENTRADA >= SYSDATE - :diasHistorico
+        AND NVL(fn.${fnFlgCancelado}, 'N') = 'N'
+        AND fn.${fnDtaEntrada} >= SYSDATE - :diasHistorico
         ${lojaFilter}
       ) WHERE RN = 1
       ORDER BY PRAZO_MEDIO DESC

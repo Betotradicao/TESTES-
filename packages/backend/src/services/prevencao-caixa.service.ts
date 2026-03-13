@@ -83,7 +83,15 @@ export class PrevencaoCaixaService {
       cpDtaVendaCol,
       // TAB_OPERADORES extras
       opCodOperadorCol,
-      opCodLojaCol
+      opCodLojaCol,
+      // TAB_PRODUTO_PDV (para descontos)
+      pdvCodLojaCol,
+      pdvDtaSaidaCol,
+      pdvValDescontoCol,
+      pdvNumCupomCol,
+      pdvNumPdvCol,
+      pdvDesHoraCol,
+      pdvCodProdutoCol
     ] = await Promise.all([
       // TAB_PRODUTO_PDV_ESTORNO
       MappingService.getColumnFromTable('TAB_PRODUTO_PDV_ESTORNO', 'data_venda', 'DTA_SAIDA'),
@@ -119,7 +127,15 @@ export class PrevencaoCaixaService {
       MappingService.getColumnFromTable('TAB_CUPOM_PDV', 'data_venda', 'DTA_VENDA'),
       // TAB_OPERADORES (COD_OPERADOR e COD_LOJA)
       MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_operador', 'COD_OPERADOR'),
-      MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_loja', 'COD_LOJA')
+      MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_loja', 'COD_LOJA'),
+      // TAB_PRODUTO_PDV (para descontos)
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_loja', 'COD_LOJA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda', 'DTA_SAIDA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_desconto', 'VAL_DESCONTO'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_cupom', 'NUM_CUPOM_FISCAL'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_pdv', 'NUM_PDV'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'hora_venda_des', 'DES_HORA'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto', 'COD_PRODUTO')
     ]);
 
     return {
@@ -157,7 +173,15 @@ export class PrevencaoCaixaService {
       cpDtaVendaCol,
       // TAB_OPERADORES extras
       opCodOperadorCol,
-      opCodLojaCol
+      opCodLojaCol,
+      // TAB_PRODUTO_PDV (para descontos)
+      pdvCodLojaCol,
+      pdvDtaSaidaCol,
+      pdvValDescontoCol,
+      pdvNumCupomCol,
+      pdvNumPdvCol,
+      pdvDesHoraCol,
+      pdvCodProdutoCol
     };
   }
 
@@ -438,19 +462,20 @@ export class PrevencaoCaixaService {
   static async getResumoDescontos(filters: PrevencaoCaixaFilters) {
     const { dataInicio, dataFim, codLoja } = filters;
     const tables = await this.getTableNames();
+    const cols = await this.getMappings();
     const params: any = { dataInicio, dataFim };
-    const lojaFilter = codLoja ? `AND pdv.COD_LOJA = :codLoja` : '';
+    const lojaFilter = codLoja ? `AND pdv.${cols.pdvCodLojaCol} = :codLoja` : '';
     if (codLoja) params.codLoja = codLoja;
 
     const sql = `
       SELECT
         COUNT(*) as TOTAL_ITENS_DESC,
-        NVL(SUM(pdv.VAL_DESCONTO), 0) as VALOR_TOTAL_DESC,
-        COUNT(DISTINCT pdv.NUM_CUPOM_FISCAL || '-' || pdv.NUM_PDV) as TOTAL_CUPONS_DESC
+        NVL(SUM(pdv.${cols.pdvValDescontoCol}), 0) as VALOR_TOTAL_DESC,
+        COUNT(DISTINCT pdv.${cols.pdvNumCupomCol} || '-' || pdv.${cols.pdvNumPdvCol}) as TOTAL_CUPONS_DESC
       FROM ${tables.tabProdutoPdv} pdv
-      WHERE pdv.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND pdv.DTA_SAIDA < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
-        AND pdv.VAL_DESCONTO > 0
+      WHERE pdv.${cols.pdvDtaSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND pdv.${cols.pdvDtaSaidaCol} < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
+        AND pdv.${cols.pdvValDescontoCol} > 0
         ${lojaFilter}
     `;
 
@@ -474,36 +499,36 @@ export class PrevencaoCaixaService {
     const params: any = { dataInicio, dataFim };
 
     let extraFilters = '';
-    if (codLoja) { extraFilters += ` AND pdv.COD_LOJA = :codLoja`; params.codLoja = codLoja; }
-    if (numPdv) { extraFilters += ` AND pdv.NUM_PDV = :numPdv`; params.numPdv = numPdv; }
+    if (codLoja) { extraFilters += ` AND pdv.${cols.pdvCodLojaCol} = :codLoja`; params.codLoja = codLoja; }
+    if (numPdv) { extraFilters += ` AND pdv.${cols.pdvNumPdvCol} = :numPdv`; params.numPdv = numPdv; }
 
     const sql = `
       SELECT 'DESCONTO' as TIPO,
-        TO_CHAR(pdv.DTA_SAIDA, 'DD/MM/YYYY') as DATA,
-        CASE WHEN pdv.DES_HORA IS NOT NULL AND LENGTH(TRIM(TO_CHAR(pdv.DES_HORA))) >= 3
-          THEN SUBSTR(LPAD(TRIM(TO_CHAR(pdv.DES_HORA)), 4, '0'), 1, 2) || ':' || SUBSTR(LPAD(TRIM(TO_CHAR(pdv.DES_HORA)), 4, '0'), 3, 2)
+        TO_CHAR(pdv.${cols.pdvDtaSaidaCol}, 'DD/MM/YYYY') as DATA,
+        CASE WHEN pdv.${cols.pdvDesHoraCol} IS NOT NULL AND LENGTH(TRIM(TO_CHAR(pdv.${cols.pdvDesHoraCol}))) >= 3
+          THEN SUBSTR(LPAD(TRIM(TO_CHAR(pdv.${cols.pdvDesHoraCol})), 4, '0'), 1, 2) || ':' || SUBSTR(LPAD(TRIM(TO_CHAR(pdv.${cols.pdvDesHoraCol})), 4, '0'), 3, 2)
           ELSE '00:00' END as HORA,
-        pdv.NUM_CUPOM_FISCAL as COO,
-        pdv.NUM_PDV,
+        pdv.${cols.pdvNumCupomCol} as COO,
+        pdv.${cols.pdvNumPdvCol} as NUM_PDV,
         NVL(
           (SELECT MAX(cf.${cols.cfCodOperadorCol}) FROM ${tables.tabCupomFinalizadora} cf
-           WHERE cf.${cols.cfNumCupomCol} = pdv.NUM_CUPOM_FISCAL
-           AND cf.${cols.cfNumPdvCol} = pdv.NUM_PDV
-           AND cf.${cols.cfCodLojaCol} = pdv.COD_LOJA
-           AND TRUNC(cf.${cols.cfDataVendaCol}) = TRUNC(pdv.DTA_SAIDA)),
+           WHERE cf.${cols.cfNumCupomCol} = pdv.${cols.pdvNumCupomCol}
+           AND cf.${cols.cfNumPdvCol} = pdv.${cols.pdvNumPdvCol}
+           AND cf.${cols.cfCodLojaCol} = pdv.${cols.pdvCodLojaCol}
+           AND TRUNC(cf.${cols.cfDataVendaCol}) = TRUNC(pdv.${cols.pdvDtaSaidaCol})),
           NULL
         ) as COD_OPERADOR,
         NULL as COD_FISCAL,
-        pdv.COD_PRODUTO,
+        pdv.${cols.pdvCodProdutoCol} as COD_PRODUTO,
         p.${cols.prodDesProdutoCol} as DES_PRODUTO,
-        pdv.VAL_DESCONTO as VALOR
+        pdv.${cols.pdvValDescontoCol} as VALOR
       FROM ${tables.tabProdutoPdv} pdv
-      LEFT JOIN ${tables.tabProduto} p ON p.${cols.prodCodProdutoCol} = pdv.COD_PRODUTO
-      WHERE pdv.DTA_SAIDA >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
-        AND pdv.DTA_SAIDA < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
-        AND pdv.VAL_DESCONTO > 0
+      LEFT JOIN ${tables.tabProduto} p ON p.${cols.prodCodProdutoCol} = pdv.${cols.pdvCodProdutoCol}
+      WHERE pdv.${cols.pdvDtaSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND pdv.${cols.pdvDtaSaidaCol} < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
+        AND pdv.${cols.pdvValDescontoCol} > 0
         ${extraFilters}
-      ORDER BY pdv.DTA_SAIDA DESC, pdv.DES_HORA DESC
+      ORDER BY pdv.${cols.pdvDtaSaidaCol} DESC, pdv.${cols.pdvDesHoraCol} DESC
     `;
 
     const rows = await OracleService.query<any>(sql, params);

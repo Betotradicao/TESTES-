@@ -172,6 +172,8 @@ export class GestaoInteligenteService {
     const colValTotalItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total');
     let colCfopNi = 'CFOP';
     try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'cfop'); if (v) colCfopNi = v; } catch {}
+    const colImpostoDebito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito', 'VAL_IMPOSTO_DEBITO');
+    const colImpostoCredito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito', 'VAL_IMPOSTO_CREDITO');
     // CFOPs de compra para comercialização (mesmo filtro padrão da tela Compra e Venda)
     const cfopCompras = "('1101','1102','2101','2102','1401','1403','2403')";
 
@@ -179,8 +181,8 @@ export class GestaoInteligenteService {
       SELECT
         NVL(SUM(pv.${colValTotalProduto}), 0) as VENDAS,
         NVL(SUM(pv.${colValCustoRep} * pv.${colQtdTotalProduto}), 0) as CUSTO_VENDAS,
-        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
-        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
+        NVL(SUM(pv.${colImpostoDebito}), 0) as IMPOSTOS,
+        NVL(SUM(pv.${colImpostoCredito}), 0) as IMPOSTO_CREDITO,
         NVL(SUM(pv.${colQtdTotalProduto}), 0) as QTD_ITENS,
         NVL(SUM(CASE WHEN pv.${colFlgOferta} = 'S' THEN pv.${colValTotalProduto} ELSE 0 END), 0) as VENDAS_OFERTA,
         NVL(SUM(CASE WHEN pv.${colFlgOferta} = 'S' THEN pv.${colValCustoRep} * pv.${colQtdTotalProduto} ELSE 0 END), 0) as CUSTO_OFERTA,
@@ -391,6 +393,8 @@ export class GestaoInteligenteService {
     const colValTotalItem = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'valor_total');
     let colCfopNi = 'CFOP';
     try { const v = await MappingService.getColumnFromTable('TAB_NF_ITEM', 'cfop'); if (v) colCfopNi = v; } catch {}
+    const colImpostoDebito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito', 'VAL_IMPOSTO_DEBITO');
+    const colImpostoCredito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito', 'VAL_IMPOSTO_CREDITO');
     const cfopCompras = "('1101','1102','2101','2102','1401','1403','2403')";
 
     const dataInicioAnoAnt = `01/01/${anoAnterior}`;
@@ -402,8 +406,8 @@ export class GestaoInteligenteService {
         TRUNC(pv.${colDtaSaida}) as DIA,
         NVL(SUM(pv.${colValTotalProduto}), 0) as VENDAS,
         NVL(SUM(pv.${colValCustoRep} * pv.${colQtdTotalProduto}), 0) as CUSTO,
-        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
-        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
+        NVL(SUM(pv.${colImpostoDebito}), 0) as IMPOSTOS,
+        NVL(SUM(pv.${colImpostoCredito}), 0) as IMPOSTO_CREDITO,
         NVL(SUM(pv.${colQtdTotalProduto}), 0) as QTD_ITENS,
         NVL(SUM(CASE WHEN pv.${colFlgOferta} = 'S' THEN pv.${colValTotalProduto} ELSE 0 END), 0) as VENDAS_OFERTA,
         NVL(SUM(CASE WHEN pv.${colFlgOferta} = 'S' THEN pv.${colValCustoRep} * pv.${colQtdTotalProduto} ELSE 0 END), 0) as CUSTO_OFERTA,
@@ -683,6 +687,8 @@ export class GestaoInteligenteService {
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
     const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO')}`;
+    const colImpostoDebito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito', 'VAL_IMPOSTO_DEBITO');
+    const colImpostoCredito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito', 'VAL_IMPOSTO_CREDITO');
 
     let sql = `
       SELECT
@@ -690,8 +696,8 @@ export class GestaoInteligenteService {
         s.DES_SECAO as SETOR,
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
-        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
-        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
+        NVL(SUM(pv.${colImpostoDebito}), 0) as IMPOSTOS,
+        NVL(SUM(pv.${colImpostoCredito}), 0) as IMPOSTO_CREDITO,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
         COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS,
@@ -775,6 +781,8 @@ export class GestaoInteligenteService {
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
     const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO')}`;
+    const colImpostoDebito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito', 'VAL_IMPOSTO_DEBITO');
+    const colImpostoCredito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito', 'VAL_IMPOSTO_CREDITO');
 
     // Buscar grupos que pertencem diretamente à seção (via TAB_GRUPO.COD_SECAO)
     // E que tiveram vendas no período
@@ -784,8 +792,8 @@ export class GestaoInteligenteService {
         g.DES_GRUPO as GRUPO,
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
-        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
-        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
+        NVL(SUM(pv.${colImpostoDebito}), 0) as IMPOSTOS,
+        NVL(SUM(pv.${colImpostoCredito}), 0) as IMPOSTO_CREDITO,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
         COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS,
@@ -867,6 +875,8 @@ export class GestaoInteligenteService {
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
     const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO')}`;
+    const colImpostoDebito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito', 'VAL_IMPOSTO_DEBITO');
+    const colImpostoCredito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito', 'VAL_IMPOSTO_CREDITO');
 
     // Buscar subgrupos através dos produtos que pertencem ao grupo
     // IMPORTANTE: Colunas são COD_SUB_GRUPO e DES_SUB_GRUPO (com underscore)
@@ -877,8 +887,8 @@ export class GestaoInteligenteService {
         sg.DES_SUB_GRUPO as SUBGRUPO,
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
-        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
-        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
+        NVL(SUM(pv.${colImpostoDebito}), 0) as IMPOSTOS,
+        NVL(SUM(pv.${colImpostoCredito}), 0) as IMPOSTO_CREDITO,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
         COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS,
@@ -967,6 +977,8 @@ export class GestaoInteligenteService {
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    const colImpostoDebito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito', 'VAL_IMPOSTO_DEBITO');
+    const colImpostoCredito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito', 'VAL_IMPOSTO_CREDITO');
 
     // Buscar produtos que pertencem ao subgrupo, grupo e seção corretos
     // IMPORTANTE: Coluna é COD_SUB_GRUPO (com underscore)
@@ -976,8 +988,8 @@ export class GestaoInteligenteService {
         p.DES_PRODUTO as PRODUTO,
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
-        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
-        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
+        NVL(SUM(pv.${colImpostoDebito}), 0) as IMPOSTOS,
+        NVL(SUM(pv.${colImpostoCredito}), 0) as IMPOSTO_CREDITO,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
         NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA
@@ -1070,6 +1082,8 @@ export class GestaoInteligenteService {
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
     const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO')}`;
+    const colImpostoDebito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito', 'VAL_IMPOSTO_DEBITO');
+    const colImpostoCredito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito', 'VAL_IMPOSTO_CREDITO');
 
     let sql = `
       SELECT
@@ -1077,8 +1091,8 @@ export class GestaoInteligenteService {
         s.DES_SECAO as SETOR,
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
-        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
-        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
+        NVL(SUM(pv.${colImpostoDebito}), 0) as IMPOSTOS,
+        NVL(SUM(pv.${colImpostoCredito}), 0) as IMPOSTO_CREDITO,
         NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
@@ -1396,13 +1410,15 @@ export class GestaoInteligenteService {
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
     const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO')}`;
+    const colImpostoDebito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito', 'VAL_IMPOSTO_DEBITO');
+    const colImpostoCredito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito', 'VAL_IMPOSTO_CREDITO');
 
     let sql = `
       SELECT g.COD_GRUPO, g.DES_GRUPO as GRUPO,
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
-        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
-        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
+        NVL(SUM(pv.${colImpostoDebito}), 0) as IMPOSTOS,
+        NVL(SUM(pv.${colImpostoCredito}), 0) as IMPOSTO_CREDITO,
         NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
@@ -1426,13 +1442,15 @@ export class GestaoInteligenteService {
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
     const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO')}`;
+    const colImpostoDebito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito', 'VAL_IMPOSTO_DEBITO');
+    const colImpostoCredito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito', 'VAL_IMPOSTO_CREDITO');
 
     let sql = `
       SELECT p.COD_SUB_GRUPO, sg.DES_SUB_GRUPO as SUBGRUPO,
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
-        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
-        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
+        NVL(SUM(pv.${colImpostoDebito}), 0) as IMPOSTOS,
+        NVL(SUM(pv.${colImpostoCredito}), 0) as IMPOSTO_CREDITO,
         NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
@@ -1455,13 +1473,15 @@ export class GestaoInteligenteService {
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    const colImpostoDebito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito', 'VAL_IMPOSTO_DEBITO');
+    const colImpostoCredito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito', 'VAL_IMPOSTO_CREDITO');
 
     let sql = `
       SELECT p.COD_PRODUTO, p.DES_PRODUTO as PRODUTO,
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
-        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
-        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
+        NVL(SUM(pv.${colImpostoDebito}), 0) as IMPOSTOS,
+        NVL(SUM(pv.${colImpostoCredito}), 0) as IMPOSTO_CREDITO,
         NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
@@ -2172,6 +2192,8 @@ export class GestaoInteligenteService {
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    const colImpostoDebito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito', 'VAL_IMPOSTO_DEBITO');
+    const colImpostoCredito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito', 'VAL_IMPOSTO_CREDITO');
 
     let sql = `
       SELECT
@@ -2180,8 +2202,8 @@ export class GestaoInteligenteService {
         EXTRACT(MONTH FROM pv.DTA_SAIDA) as MES,
         NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
         NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
-        NVL(SUM(pv.VAL_IMPOSTO_DEBITO), 0) as IMPOSTOS,
-        NVL(SUM(pv.VAL_IMPOSTO_CREDITO), 0) as IMPOSTO_CREDITO,
+        NVL(SUM(pv.${colImpostoDebito}), 0) as IMPOSTOS,
+        NVL(SUM(pv.${colImpostoCredito}), 0) as IMPOSTO_CREDITO,
         NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
         COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
         COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS,

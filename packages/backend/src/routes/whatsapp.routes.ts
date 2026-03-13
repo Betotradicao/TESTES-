@@ -264,27 +264,32 @@ router.post('/send-losses-now', async (req, res) => {
     const colCodSecaoP = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
     const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
     const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
+    const colCodBarraPrincipal = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras', 'COD_BARRA_PRINCIPAL');
+    const colDesAjuste = await MappingService.getColumnFromTable('TAB_TIPO_AJUSTE', 'descricao_ajuste', 'DES_AJUSTE');
+    const colCodAjuste = await MappingService.getColumnFromTable('TAB_TIPO_AJUSTE', 'codigo_ajuste', 'COD_AJUSTE');
+    const colValCustoRep = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'valor_custo_reposicao', 'VAL_CUSTO_REP');
+    const colFlgCancelado = await MappingService.getColumnFromTable('TAB_AJUSTE_ESTOQUE', 'flag_cancelado', 'FLG_CANCELADO');
 
     const itensQuery = `
       SELECT
         ae.${colCodProdutoAe},
         p.${colDesProduto} as DESCRICAO,
-        p.COD_BARRA_PRINCIPAL as CODIGO_BARRAS,
-        ta.DES_AJUSTE as MOTIVO,
+        p.${colCodBarraPrincipal} as CODIGO_BARRAS,
+        ta.${colDesAjuste} as MOTIVO,
         NVL(ae.${colQtdAjuste}, 0) as QUANTIDADE,
-        NVL(ae.VAL_CUSTO_REP, 0) as CUSTO_REPOSICAO,
-        NVL(ae.${colQtdAjuste}, 0) * NVL(ae.VAL_CUSTO_REP, 0) as VALOR_TOTAL,
+        NVL(ae.${colValCustoRep}, 0) as CUSTO_REPOSICAO,
+        NVL(ae.${colQtdAjuste}, 0) * NVL(ae.${colValCustoRep}, 0) as VALOR_TOTAL,
         s.${colCodSecao},
         s.${colDesSecao} as SECAO
       FROM ${tabAjusteEstoque} ae
       JOIN ${tabProduto} p ON ae.${colCodProdutoAe} = p.${colCodProdutoP}
-      LEFT JOIN ${tabTipoAjuste} ta ON ae.${colTipoAjuste} = ta.COD_AJUSTE
+      LEFT JOIN ${tabTipoAjuste} ta ON ae.${colTipoAjuste} = ta.${colCodAjuste}
       LEFT JOIN ${tabSecao} s ON p.${colCodSecaoP} = s.${colCodSecao}
       WHERE ae.${colCodLojaAe} = :loja
       AND ae.${colDtaAjuste} >= TO_DATE(:data_inicio, 'YYYY-MM-DD')
       AND ae.${colDtaAjuste} < TO_DATE(:data_fim, 'YYYY-MM-DD') + 1
-      AND (ae.FLG_CANCELADO IS NULL OR ae.FLG_CANCELADO != 'S')
-      ORDER BY ta.DES_AJUSTE ASC, p.${colDesProduto} ASC
+      AND (ae.${colFlgCancelado} IS NULL OR ae.${colFlgCancelado} != 'S')
+      ORDER BY ta.${colDesAjuste} ASC, p.${colDesProduto} ASC
     `;
 
     const params = {
@@ -545,6 +550,8 @@ router.post('/send-cortes-now', async (req, res) => {
     const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
     const fornRazaoSocialCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social');
     const fornCnpjCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cnpj');
+    const ppDesUnidadeCol = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'descricao_unidade', 'DES_UNIDADE');
+    const pedDtaPedidoCanceladoCol = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_pedido_cancelado', 'DTA_PEDIDO_CANCELADO');
 
     // Query: buscar pedidos cancelados ontem com itens cortados, agrupados por fornecedor
     const query = `
@@ -556,7 +563,7 @@ router.post('/send-cortes-now', async (req, res) => {
         f.${fornCnpjCol} as CNPJ,
         pp.${ppCodProdutoCol} as COD_PRODUTO,
         pr.${prDesProdutoCol} as DES_PRODUTO,
-        pp.DES_UNIDADE,
+        pp.${ppDesUnidadeCol} as DES_UNIDADE,
         pp.${ppQtdPedidoCol} as QTD_PEDIDO,
         NVL(pp.${ppQtdRecebidaCol}, 0) as QTD_RECEBIDA,
         (pp.${ppQtdPedidoCol} - NVL(pp.${ppQtdRecebidaCol}, 0)) as QTD_CORTADA,
@@ -571,7 +578,7 @@ router.post('/send-cortes-now', async (req, res) => {
       LEFT JOIN ${tabFornecedor} f ON f.${fornCodigoCol} = p.${pedCodParceiroCol}
       WHERE p.${pedTipoParceiroCol} = 1
       AND p.${pedTipoRecebimentoCol} = 3
-      AND TRUNC(p.DTA_PEDIDO_CANCELADO) = TO_DATE(:dataCancelamento, 'YYYY-MM-DD')
+      AND TRUNC(p.${pedDtaPedidoCanceladoCol}) = TO_DATE(:dataCancelamento, 'YYYY-MM-DD')
       AND NVL(pp.${ppQtdRecebidaCol}, 0) < pp.${ppQtdPedidoCol}
       ORDER BY f.${fornRazaoSocialCol}, p.${pedNumPedidoCol}, (pp.${ppQtdPedidoCol} - NVL(pp.${ppQtdRecebidaCol}, 0)) * NVL(pp.${ppValTabelaCol}, 0) DESC
     `;
@@ -712,6 +719,7 @@ router.post('/send-atrasos-now', async (req, res) => {
     const fornCodigoCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
     const fornRazaoSocialCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social');
     const fornCnpjCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cnpj');
+    const ppDesUnidadeColAtrasos = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'descricao_unidade', 'DES_UNIDADE');
 
     // Query: buscar pedidos pendentes/parciais com data de entrega no passado
     const query = `
@@ -725,7 +733,7 @@ router.post('/send-atrasos-now', async (req, res) => {
         f.${fornCnpjCol} as CNPJ,
         pp.${ppCodProdutoCol} as COD_PRODUTO,
         pr.${prDesProdutoCol} as DES_PRODUTO,
-        pp.DES_UNIDADE,
+        pp.${ppDesUnidadeColAtrasos} as DES_UNIDADE,
         pp.${ppQtdPedidoCol} as QTD_PEDIDO,
         NVL(pp.${ppQtdRecebidaCol}, 0) as QTD_RECEBIDA,
         (pp.${ppQtdPedidoCol} - NVL(pp.${ppQtdRecebidaCol}, 0)) as QTD_PENDENTE,

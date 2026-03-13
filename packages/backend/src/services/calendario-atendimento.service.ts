@@ -77,18 +77,54 @@ export class CalendarioAtendimentoService {
     const tabCondicao = `${schema}.${await MappingService.getRealTableName('TAB_CONDICAO')}`;
     const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO')}`;
 
+    // Resolve column names via MappingService
+    const [
+      fCodFornecedor, fDesFornecedor, fDesFantasia, fNumCgc, fDesContato,
+      fNumFone, fNumCelular, fDesEmail, fNumPrazo, fNumFreqVisita,
+      fNumMedCpgto, fValCredito, fValDebito, fPedMinVal, fCodClassif,
+      fnCodFornecedor, fnDtaEntrada, fnNumNfForn, fnValTotalNf, fnNumPedido,
+      fnFlgCancelado, fnCodLoja,
+      pedNumPedido, pedTipoParceiro, pedDtaEmissao
+    ] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_fornecedor', 'DES_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_fantasia', 'DES_FANTASIA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_cgc', 'NUM_CGC'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_contato', 'DES_CONTATO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_fone', 'NUM_FONE'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_celular', 'NUM_CELULAR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_email', 'DES_EMAIL'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_prazo', 'NUM_PRAZO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_freq_visita', 'NUM_FREQ_VISITA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_med_cpgto', 'NUM_MED_CPGTO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'val_credito', 'VAL_CREDITO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'val_debito', 'VAL_DEBITO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'ped_min_val', 'PED_MIN_VAL'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cod_classif', 'COD_CLASSIF'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'dta_entrada', 'DTA_ENTRADA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'num_nf_forn', 'NUM_NF_FORN'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'val_total_nf', 'VAL_TOTAL_NF'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'num_pedido', 'NUM_PEDIDO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'flg_cancelado', 'FLG_CANCELADO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'cod_loja', 'COD_LOJA'),
+      MappingService.getColumnFromTable('TAB_PEDIDO', 'num_pedido', 'NUM_PEDIDO'),
+      MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro', 'TIPO_PARCEIRO'),
+      MappingService.getColumnFromTable('TAB_PEDIDO', 'dta_emissao', 'DTA_EMISSAO'),
+    ]);
+
     const conditions: string[] = [];
     const params: any = {};
 
     // Filtro por status de NFs nos últimos 12 meses
     if (filtros.statusNF === 'com_nf') {
-      conditions.push(`EXISTS (SELECT 1 FROM ${tabFornecedorNota} fn_ativo WHERE fn_ativo.COD_FORNECEDOR = f.COD_FORNECEDOR AND fn_ativo.DTA_ENTRADA >= SYSDATE - 365)`);
+      conditions.push(`EXISTS (SELECT 1 FROM ${tabFornecedorNota} fn_ativo WHERE fn_ativo.${fnCodFornecedor} = f.${fCodFornecedor} AND fn_ativo.${fnDtaEntrada} >= SYSDATE - 365)`);
     } else if (filtros.statusNF === 'sem_nf') {
-      conditions.push(`NOT EXISTS (SELECT 1 FROM ${tabFornecedorNota} fn_ativo WHERE fn_ativo.COD_FORNECEDOR = f.COD_FORNECEDOR AND fn_ativo.DTA_ENTRADA >= SYSDATE - 365)`);
+      conditions.push(`NOT EXISTS (SELECT 1 FROM ${tabFornecedorNota} fn_ativo WHERE fn_ativo.${fnCodFornecedor} = f.${fCodFornecedor} AND fn_ativo.${fnDtaEntrada} >= SYSDATE - 365)`);
     }
 
     if (filtros.busca) {
-      conditions.push(`(UPPER(f.DES_FORNECEDOR) LIKE UPPER(:busca) OR UPPER(f.DES_FANTASIA) LIKE UPPER(:busca) OR f.NUM_CGC LIKE :busca)`);
+      conditions.push(`(UPPER(f.${fDesFornecedor}) LIKE UPPER(:busca) OR UPPER(f.${fDesFantasia}) LIKE UPPER(:busca) OR f.${fNumCgc} LIKE :busca)`);
       params.busca = `%${filtros.busca}%`;
     }
 
@@ -99,12 +135,12 @@ export class CalendarioAtendimentoService {
 
       if (comClassif.length > 0) {
         const binds = comClassif.map((_, i) => `:classif${i}`).join(', ');
-        partes.push(`f.COD_CLASSIF IN (${binds})`);
+        partes.push(`f.${fCodClassif} IN (${binds})`);
         comClassif.forEach((c, i) => { params[`classif${i}`] = c; });
       }
 
       if (temSemClassif) {
-        partes.push(`(f.COD_CLASSIF IS NULL OR f.COD_CLASSIF = 0)`);
+        partes.push(`(f.${fCodClassif} IS NULL OR f.${fCodClassif} = 0)`);
       }
 
       conditions.push(`(${partes.join(' OR ')})`);
@@ -129,31 +165,31 @@ export class CalendarioAtendimentoService {
     const query = `
       SELECT * FROM (
         SELECT
-          f.COD_FORNECEDOR,
-          f.DES_FORNECEDOR,
-          NVL(f.DES_FANTASIA, f.DES_FORNECEDOR) as DES_FANTASIA,
-          f.NUM_CGC,
-          f.DES_CONTATO,
-          f.NUM_FONE,
-          f.NUM_CELULAR,
-          f.DES_EMAIL,
-          NVL(f.NUM_PRAZO, 0) as NUM_PRAZO,
-          NVL(f.NUM_FREQ_VISITA, 0) as NUM_FREQ_VISITA,
-          NVL(f.NUM_MED_CPGTO, 0) as NUM_MED_CPGTO,
+          f.${fCodFornecedor} as COD_FORNECEDOR,
+          f.${fDesFornecedor} as DES_FORNECEDOR,
+          NVL(f.${fDesFantasia}, f.${fDesFornecedor}) as DES_FANTASIA,
+          f.${fNumCgc} as NUM_CGC,
+          f.${fDesContato} as DES_CONTATO,
+          f.${fNumFone} as NUM_FONE,
+          f.${fNumCelular} as NUM_CELULAR,
+          f.${fDesEmail} as DES_EMAIL,
+          NVL(f.${fNumPrazo}, 0) as NUM_PRAZO,
+          NVL(f.${fNumFreqVisita}, 0) as NUM_FREQ_VISITA,
+          NVL(f.${fNumMedCpgto}, 0) as NUM_MED_CPGTO,
           NVL(conds.CONDICOES_PGTO, '') as CONDICOES_PGTO,
           NVL(conds.TIPO_CONDICAO, '') as TIPO_CONDICAO,
-          NVL(f.VAL_CREDITO, 0) as VAL_CREDITO,
-          NVL(f.VAL_DEBITO, 0) as VAL_DEBITO,
+          NVL(f.${fValCredito}, 0) as VAL_CREDITO,
+          NVL(f.${fValDebito}, 0) as VAL_DEBITO,
           NVL(pm.PRAZO_MEDIO_REAL, 0) as PRAZO_MEDIO_REAL,
           NVL(pm.QTD_NFS_PRAZO, 0) as QTD_NFS_PRAZO,
-          NVL(f.PED_MIN_VAL, 0) as PED_MIN_VAL,
+          NVL(f.${fPedMinVal}, 0) as PED_MIN_VAL,
           NVL(c.DES_CLASSIF, 'SEM CLASSIFICAÇÃO') as DES_CLASSIFICACAO,
-          f.COD_CLASSIF,
+          f.${fCodClassif} as COD_CLASSIF,
           NVL(ult.QTD_NFS_180D, 0) as QTD_NFS_90D,
           ult.ULTIMO_ATENDIMENTO,
-          ROW_NUMBER() OVER (ORDER BY NVL(ult.QTD_NFS_180D, 0) DESC, f.DES_FANTASIA) as RN
+          ROW_NUMBER() OVER (ORDER BY NVL(ult.QTD_NFS_180D, 0) DESC, f.${fDesFantasia}) as RN
         FROM ${tabFornecedor} f
-        LEFT JOIN ${tabClassificacao} c ON c.COD_CLASSIF = f.COD_CLASSIF
+        LEFT JOIN ${tabClassificacao} c ON c.COD_CLASSIF = f.${fCodClassif}
         LEFT JOIN (
           SELECT
             cf.COD_FORNECEDOR,
@@ -162,30 +198,30 @@ export class CalendarioAtendimentoService {
           FROM ${tabCondicaoFornecedor} cf
           LEFT JOIN ${tabCondicao} co ON co.COD_CONDICAO = cf.COD_CONDICAO
           GROUP BY cf.COD_FORNECEDOR
-        ) conds ON conds.COD_FORNECEDOR = f.COD_FORNECEDOR
+        ) conds ON conds.COD_FORNECEDOR = f.${fCodFornecedor}
         LEFT JOIN (
           SELECT
-            fn.COD_FORNECEDOR,
+            fn.${fnCodFornecedor} as COD_FORNECEDOR,
             COUNT(*) as QTD_NFS_180D,
-            MAX(fn.DTA_ENTRADA) as ULTIMO_ATENDIMENTO
+            MAX(fn.${fnDtaEntrada}) as ULTIMO_ATENDIMENTO
           FROM ${tabFornecedorNota} fn
-          WHERE fn.DTA_ENTRADA >= SYSDATE - 180
-          AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
-          GROUP BY fn.COD_FORNECEDOR
-        ) ult ON ult.COD_FORNECEDOR = f.COD_FORNECEDOR
+          WHERE fn.${fnDtaEntrada} >= SYSDATE - 180
+          AND NVL(fn.${fnFlgCancelado}, 'N') = 'N'
+          GROUP BY fn.${fnCodFornecedor}
+        ) ult ON ult.COD_FORNECEDOR = f.${fCodFornecedor}
         LEFT JOIN (
           SELECT
-            fn.COD_FORNECEDOR,
-            ROUND(AVG(TRUNC(fn.DTA_ENTRADA) - TRUNC(ped.DTA_EMISSAO)), 1) as PRAZO_MEDIO_REAL,
-            COUNT(DISTINCT fn.NUM_NF_FORN) as QTD_NFS_PRAZO
+            fn.${fnCodFornecedor} as COD_FORNECEDOR,
+            ROUND(AVG(TRUNC(fn.${fnDtaEntrada}) - TRUNC(ped.${pedDtaEmissao})), 1) as PRAZO_MEDIO_REAL,
+            COUNT(DISTINCT fn.${fnNumNfForn}) as QTD_NFS_PRAZO
           FROM ${tabFornecedorNota} fn
-          JOIN ${tabPedido} ped ON ped.NUM_PEDIDO = fn.NUM_PEDIDO AND ped.TIPO_PARCEIRO = 1
-          WHERE fn.DTA_ENTRADA >= SYSDATE - 180
-          AND fn.NUM_PEDIDO IS NOT NULL
-          AND fn.NUM_PEDIDO > 0
-          AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
-          GROUP BY fn.COD_FORNECEDOR
-        ) pm ON pm.COD_FORNECEDOR = f.COD_FORNECEDOR
+          JOIN ${tabPedido} ped ON ped.${pedNumPedido} = fn.${fnNumPedido} AND ped.${pedTipoParceiro} = 1
+          WHERE fn.${fnDtaEntrada} >= SYSDATE - 180
+          AND fn.${fnNumPedido} IS NOT NULL
+          AND fn.${fnNumPedido} > 0
+          AND NVL(fn.${fnFlgCancelado}, 'N') = 'N'
+          GROUP BY fn.${fnCodFornecedor}
+        ) pm ON pm.COD_FORNECEDOR = f.${fCodFornecedor}
         ${whereClause}
       ) WHERE RN > :offset AND RN <= :maxRow
     `;
@@ -206,29 +242,44 @@ export class CalendarioAtendimentoService {
     const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA')}`;
     const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
 
+    // Resolve column names via MappingService
+    const [
+      fnCodFornecedor, fnDtaEntrada, fnValTotalNf, fnFlgCancelado, fnCodLoja,
+      fCodFornecedor, fDesFantasia, fDesFornecedor
+    ] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'dta_entrada', 'DTA_ENTRADA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'val_total_nf', 'VAL_TOTAL_NF'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'flg_cancelado', 'FLG_CANCELADO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'cod_loja', 'COD_LOJA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_fantasia', 'DES_FANTASIA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_fornecedor', 'DES_FORNECEDOR'),
+    ]);
+
     const params: any = { ano, mes };
     let lojaFilter = '';
 
     if (codLoja) {
-      lojaFilter = 'AND fn.COD_LOJA = :codLoja';
+      lojaFilter = `AND fn.${fnCodLoja} = :codLoja`;
       params.codLoja = codLoja;
     }
 
     const query = `
       SELECT
-        EXTRACT(DAY FROM fn.DTA_ENTRADA) as DIA,
-        TO_CHAR(fn.DTA_ENTRADA, 'DY', 'NLS_DATE_LANGUAGE=PORTUGUESE') as DIA_SEMANA,
-        COUNT(DISTINCT fn.COD_FORNECEDOR) as QTD_FORNECEDORES,
+        EXTRACT(DAY FROM fn.${fnDtaEntrada}) as DIA,
+        TO_CHAR(fn.${fnDtaEntrada}, 'DY', 'NLS_DATE_LANGUAGE=PORTUGUESE') as DIA_SEMANA,
+        COUNT(DISTINCT fn.${fnCodFornecedor}) as QTD_FORNECEDORES,
         COUNT(*) as QTD_NFS,
-        NVL(SUM(fn.VAL_TOTAL_NF), 0) as VAL_TOTAL,
-        LISTAGG(DISTINCT NVL(f.DES_FANTASIA, f.DES_FORNECEDOR), ', ') WITHIN GROUP (ORDER BY NVL(f.DES_FANTASIA, f.DES_FORNECEDOR)) as FORNECEDORES
+        NVL(SUM(fn.${fnValTotalNf}), 0) as VAL_TOTAL,
+        LISTAGG(DISTINCT NVL(f.${fDesFantasia}, f.${fDesFornecedor}), ', ') WITHIN GROUP (ORDER BY NVL(f.${fDesFantasia}, f.${fDesFornecedor})) as FORNECEDORES
       FROM ${tabFornecedorNota} fn
-      LEFT JOIN ${tabFornecedor} f ON f.COD_FORNECEDOR = fn.COD_FORNECEDOR
-      WHERE EXTRACT(YEAR FROM fn.DTA_ENTRADA) = :ano
-      AND EXTRACT(MONTH FROM fn.DTA_ENTRADA) = :mes
-      AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
+      LEFT JOIN ${tabFornecedor} f ON f.${fCodFornecedor} = fn.${fnCodFornecedor}
+      WHERE EXTRACT(YEAR FROM fn.${fnDtaEntrada}) = :ano
+      AND EXTRACT(MONTH FROM fn.${fnDtaEntrada}) = :mes
+      AND NVL(fn.${fnFlgCancelado}, 'N') = 'N'
       ${lojaFilter}
-      GROUP BY EXTRACT(DAY FROM fn.DTA_ENTRADA), TO_CHAR(fn.DTA_ENTRADA, 'DY', 'NLS_DATE_LANGUAGE=PORTUGUESE')
+      GROUP BY EXTRACT(DAY FROM fn.${fnDtaEntrada}), TO_CHAR(fn.${fnDtaEntrada}, 'DY', 'NLS_DATE_LANGUAGE=PORTUGUESE')
       ORDER BY DIA
     `;
 
@@ -244,36 +295,56 @@ export class CalendarioAtendimentoService {
     const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
     const tabClassificacao = `${schema}.${await MappingService.getRealTableName('TAB_CLASSIFICACAO')}`;
 
+    // Resolve column names via MappingService
+    const [
+      fnCodFornecedor, fnDtaEntrada, fnDtaEmissao, fnNumNfForn, fnValTotalNf,
+      fnNumPedido, fnFlgCancelado, fnCodLoja,
+      fCodFornecedor, fDesFantasia, fDesFornecedor, fCodClassif
+    ] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'dta_entrada', 'DTA_ENTRADA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'dta_emissao', 'DTA_EMISSAO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'num_nf_forn', 'NUM_NF_FORN'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'val_total_nf', 'VAL_TOTAL_NF'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'num_pedido', 'NUM_PEDIDO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'flg_cancelado', 'FLG_CANCELADO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'cod_loja', 'COD_LOJA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_fantasia', 'DES_FANTASIA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_fornecedor', 'DES_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cod_classif', 'COD_CLASSIF'),
+    ]);
+
     const params: any = { data };
     let lojaFilter = '';
 
     if (codLoja) {
-      lojaFilter = 'AND fn.COD_LOJA = :codLoja';
+      lojaFilter = `AND fn.${fnCodLoja} = :codLoja`;
       params.codLoja = codLoja;
     }
 
     const query = `
       SELECT
-        fn.COD_FORNECEDOR,
-        NVL(f.DES_FANTASIA, f.DES_FORNECEDOR) as DES_FANTASIA,
-        f.DES_FORNECEDOR,
-        fn.NUM_NF_FORN,
-        TO_CHAR(fn.DTA_ENTRADA, 'DD/MM/YYYY HH24:MI') as DTA_ENTRADA,
-        TO_CHAR(fn.DTA_EMISSAO, 'DD/MM/YYYY') as DTA_EMISSAO,
-        NVL(fn.VAL_TOTAL_NF, 0) as VAL_TOTAL_NF,
-        fn.NUM_PEDIDO,
-        CASE WHEN fn.NUM_PEDIDO IS NOT NULL AND fn.NUM_PEDIDO > 0
-          THEN TRUNC(fn.DTA_ENTRADA) - TRUNC(fn.DTA_EMISSAO)
+        fn.${fnCodFornecedor} as COD_FORNECEDOR,
+        NVL(f.${fDesFantasia}, f.${fDesFornecedor}) as DES_FANTASIA,
+        f.${fDesFornecedor} as DES_FORNECEDOR,
+        fn.${fnNumNfForn} as NUM_NF_FORN,
+        TO_CHAR(fn.${fnDtaEntrada}, 'DD/MM/YYYY HH24:MI') as DTA_ENTRADA,
+        TO_CHAR(fn.${fnDtaEmissao}, 'DD/MM/YYYY') as DTA_EMISSAO,
+        NVL(fn.${fnValTotalNf}, 0) as VAL_TOTAL_NF,
+        fn.${fnNumPedido} as NUM_PEDIDO,
+        CASE WHEN fn.${fnNumPedido} IS NOT NULL AND fn.${fnNumPedido} > 0
+          THEN TRUNC(fn.${fnDtaEntrada}) - TRUNC(fn.${fnDtaEmissao})
           ELSE NULL
         END as PRAZO_DIAS,
         NVL(c.DES_CLASSIF, 'SEM CLASSIFICAÇÃO') as DES_CLASSIFICACAO
       FROM ${tabFornecedorNota} fn
-      LEFT JOIN ${tabFornecedor} f ON f.COD_FORNECEDOR = fn.COD_FORNECEDOR
-      LEFT JOIN ${tabClassificacao} c ON c.COD_CLASSIF = f.COD_CLASSIF
-      WHERE TRUNC(fn.DTA_ENTRADA) = TO_DATE(:data, 'YYYY-MM-DD')
-      AND NVL(fn.FLG_CANCELADO, 'N') = 'N'
+      LEFT JOIN ${tabFornecedor} f ON f.${fCodFornecedor} = fn.${fnCodFornecedor}
+      LEFT JOIN ${tabClassificacao} c ON c.COD_CLASSIF = f.${fCodClassif}
+      WHERE TRUNC(fn.${fnDtaEntrada}) = TO_DATE(:data, 'YYYY-MM-DD')
+      AND NVL(fn.${fnFlgCancelado}, 'N') = 'N'
       ${lojaFilter}
-      ORDER BY fn.DTA_ENTRADA DESC
+      ORDER BY fn.${fnDtaEntrada} DESC
     `;
 
     return await OracleService.query(query, params);
@@ -287,23 +358,43 @@ export class CalendarioAtendimentoService {
     const tabPedido = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO')}`;
     const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
 
+    // Resolve column names via MappingService
+    const [
+      pedNumPedido, pedCodParceiro, pedTipoParceiro, pedValPedido,
+      pedDtaEntrega, pedDtaEmissao, pedFlgCancelado,
+      fCodFornecedor, fDesFantasia, fDesFornecedor, fNumCelular, fNumFone
+    ] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_PEDIDO', 'num_pedido', 'NUM_PEDIDO'),
+      MappingService.getColumnFromTable('TAB_PEDIDO', 'cod_parceiro', 'COD_PARCEIRO'),
+      MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro', 'TIPO_PARCEIRO'),
+      MappingService.getColumnFromTable('TAB_PEDIDO', 'val_pedido', 'VAL_PEDIDO'),
+      MappingService.getColumnFromTable('TAB_PEDIDO', 'dta_entrega', 'DTA_ENTREGA'),
+      MappingService.getColumnFromTable('TAB_PEDIDO', 'dta_emissao', 'DTA_EMISSAO'),
+      MappingService.getColumnFromTable('TAB_PEDIDO', 'flag_cancelado', 'FLG_CANCELADO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_fantasia', 'DES_FANTASIA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_fornecedor', 'DES_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_celular', 'NUM_CELULAR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_fone', 'NUM_FONE'),
+    ]);
+
     const params: any = { data };
 
     const query = `
       SELECT
-        p.NUM_PEDIDO,
-        p.COD_PARCEIRO as COD_FORNECEDOR,
-        NVL(f.DES_FANTASIA, f.DES_FORNECEDOR) as DES_FANTASIA,
-        f.NUM_CELULAR,
-        f.NUM_FONE,
-        NVL(p.VAL_PEDIDO, 0) as VAL_TOTAL_PEDIDO,
-        TO_CHAR(p.DTA_ENTREGA, 'DD/MM/YYYY') as DTA_ENTREGA
+        p.${pedNumPedido} as NUM_PEDIDO,
+        p.${pedCodParceiro} as COD_FORNECEDOR,
+        NVL(f.${fDesFantasia}, f.${fDesFornecedor}) as DES_FANTASIA,
+        f.${fNumCelular} as NUM_CELULAR,
+        f.${fNumFone} as NUM_FONE,
+        NVL(p.${pedValPedido}, 0) as VAL_TOTAL_PEDIDO,
+        TO_CHAR(p.${pedDtaEntrega}, 'DD/MM/YYYY') as DTA_ENTREGA
       FROM ${tabPedido} p
-      LEFT JOIN ${tabFornecedor} f ON f.COD_FORNECEDOR = p.COD_PARCEIRO
-      WHERE p.TIPO_PARCEIRO = 1
-      AND TRUNC(p.DTA_EMISSAO) = TO_DATE(:data, 'YYYY-MM-DD')
-      AND (p.FLG_CANCELADO IS NULL OR p.FLG_CANCELADO = 'N')
-      ORDER BY p.COD_PARCEIRO, p.NUM_PEDIDO
+      LEFT JOIN ${tabFornecedor} f ON f.${fCodFornecedor} = p.${pedCodParceiro}
+      WHERE p.${pedTipoParceiro} = 1
+      AND TRUNC(p.${pedDtaEmissao}) = TO_DATE(:data, 'YYYY-MM-DD')
+      AND (p.${pedFlgCancelado} IS NULL OR p.${pedFlgCancelado} = 'N')
+      ORDER BY p.${pedCodParceiro}, p.${pedNumPedido}
     `;
 
     return await OracleService.query(query, params);
@@ -317,15 +408,21 @@ export class CalendarioAtendimentoService {
     const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
     const tabClassificacao = `${schema}.${await MappingService.getRealTableName('TAB_CLASSIFICACAO')}`;
 
+    // Resolve column names via MappingService
+    const [fCodFornecedor, fCodClassif] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cod_classif', 'COD_CLASSIF'),
+    ]);
+
     const query = `
       SELECT
         c.COD_CLASSIF,
         c.DES_CLASSIF,
-        COUNT(f.COD_FORNECEDOR) as QTD_FORNECEDORES
+        COUNT(f.${fCodFornecedor}) as QTD_FORNECEDORES
       FROM ${tabClassificacao} c
-      LEFT JOIN ${tabFornecedor} f ON f.COD_CLASSIF = c.COD_CLASSIF
+      LEFT JOIN ${tabFornecedor} f ON f.${fCodClassif} = c.COD_CLASSIF
       GROUP BY c.COD_CLASSIF, c.DES_CLASSIF
-      HAVING COUNT(f.COD_FORNECEDOR) > 0
+      HAVING COUNT(f.${fCodFornecedor}) > 0
       ORDER BY c.DES_CLASSIF
     `;
 
@@ -426,40 +523,62 @@ export class CalendarioAtendimentoService {
     const tabCondicaoFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_CONDICAO_FORNECEDOR')}`;
     const tabClassificacao = `${schema}.${await MappingService.getRealTableName('TAB_CLASSIFICACAO')}`;
 
+    // Resolve column names via MappingService
+    const [
+      fCodFornecedor, fDesFantasia, fDesFornecedor, fDesContato, fNumCelular,
+      fNumFone, fDesEmail, fNumMedCpgto, fNumPrazo, fValDebito, fCodClassif,
+      fnCodFornecedor, fnDtaEntrada, fnFlgCancelado
+    ] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_fantasia', 'DES_FANTASIA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_fornecedor', 'DES_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_contato', 'DES_CONTATO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_celular', 'NUM_CELULAR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_fone', 'NUM_FONE'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_email', 'DES_EMAIL'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_med_cpgto', 'NUM_MED_CPGTO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'num_prazo', 'NUM_PRAZO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'val_debito', 'VAL_DEBITO'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cod_classif', 'COD_CLASSIF'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'dta_entrada', 'DTA_ENTRADA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'flg_cancelado', 'FLG_CANCELADO'),
+    ]);
+
     const query = `
       SELECT
-        f.COD_FORNECEDOR,
-        NVL(f.DES_FANTASIA, f.DES_FORNECEDOR) as DES_FANTASIA,
-        f.DES_CONTATO,
-        f.NUM_CELULAR,
-        f.NUM_FONE,
-        f.DES_EMAIL,
-        NVL(f.NUM_MED_CPGTO, 0) as NUM_MED_CPGTO,
-        NVL(f.NUM_PRAZO, 0) as NUM_PRAZO,
-        NVL(f.VAL_DEBITO, 0) as VAL_DEBITO,
+        f.${fCodFornecedor} as COD_FORNECEDOR,
+        NVL(f.${fDesFantasia}, f.${fDesFornecedor}) as DES_FANTASIA,
+        f.${fDesContato} as DES_CONTATO,
+        f.${fNumCelular} as NUM_CELULAR,
+        f.${fNumFone} as NUM_FONE,
+        f.${fDesEmail} as DES_EMAIL,
+        NVL(f.${fNumMedCpgto}, 0) as NUM_MED_CPGTO,
+        NVL(f.${fNumPrazo}, 0) as NUM_PRAZO,
+        NVL(f.${fValDebito}, 0) as VAL_DEBITO,
         NVL(conds.CONDICOES_PGTO, '') as CONDICOES_PGTO,
         NVL(c.DES_CLASSIF, 'SEM CLASSIFICAÇÃO') as DES_CLASSIFICACAO,
         ult.ULTIMO_ATENDIMENTO,
         ult.DIAS_DESDE_ULTIMO
       FROM ${tabFornecedor} f
-      LEFT JOIN ${tabClassificacao} c ON c.COD_CLASSIF = f.COD_CLASSIF
+      LEFT JOIN ${tabClassificacao} c ON c.COD_CLASSIF = f.${fCodClassif}
       LEFT JOIN (
         SELECT
           cf.COD_FORNECEDOR,
           LISTAGG(cf.NUM_CONDICAO, '/') WITHIN GROUP (ORDER BY cf.NUM_CONDICAO) as CONDICOES_PGTO
         FROM ${tabCondicaoFornecedor} cf
         GROUP BY cf.COD_FORNECEDOR
-      ) conds ON conds.COD_FORNECEDOR = f.COD_FORNECEDOR
+      ) conds ON conds.COD_FORNECEDOR = f.${fCodFornecedor}
       LEFT JOIN (
         SELECT
-          fn.COD_FORNECEDOR,
-          MAX(fn.DTA_ENTRADA) as ULTIMO_ATENDIMENTO,
-          ROUND(SYSDATE - MAX(fn.DTA_ENTRADA)) as DIAS_DESDE_ULTIMO
+          fn.${fnCodFornecedor} as COD_FORNECEDOR,
+          MAX(fn.${fnDtaEntrada}) as ULTIMO_ATENDIMENTO,
+          ROUND(SYSDATE - MAX(fn.${fnDtaEntrada})) as DIAS_DESDE_ULTIMO
         FROM ${tabFornecedorNota} fn
-        WHERE NVL(fn.FLG_CANCELADO, 'N') = 'N'
-        GROUP BY fn.COD_FORNECEDOR
-      ) ult ON ult.COD_FORNECEDOR = f.COD_FORNECEDOR
-      WHERE EXISTS (SELECT 1 FROM ${tabFornecedorNota} fn2 WHERE fn2.COD_FORNECEDOR = f.COD_FORNECEDOR AND fn2.DTA_ENTRADA >= SYSDATE - 365)
+        WHERE NVL(fn.${fnFlgCancelado}, 'N') = 'N'
+        GROUP BY fn.${fnCodFornecedor}
+      ) ult ON ult.COD_FORNECEDOR = f.${fCodFornecedor}
+      WHERE EXISTS (SELECT 1 FROM ${tabFornecedorNota} fn2 WHERE fn2.${fnCodFornecedor} = f.${fCodFornecedor} AND fn2.${fnDtaEntrada} >= SYSDATE - 365)
     `;
 
     const rows = await OracleService.query(query, {});
@@ -478,10 +597,19 @@ export class CalendarioAtendimentoService {
     const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
     const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA')}`;
 
+    // Resolve column names via MappingService
+    const [fCodFornecedor, fDesFantasia, fDesFornecedor, fnCodFornecedor, fnDtaEntrada] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_fantasia', 'DES_FANTASIA'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR', 'des_fornecedor', 'DES_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'cod_fornecedor', 'COD_FORNECEDOR'),
+      MappingService.getColumnFromTable('TAB_FORNECEDOR_NOTA', 'dta_entrada', 'DTA_ENTRADA'),
+    ]);
+
     const query = `
-      SELECT f.COD_FORNECEDOR, NVL(f.DES_FANTASIA, f.DES_FORNECEDOR) as DES_FANTASIA
+      SELECT f.${fCodFornecedor} as COD_FORNECEDOR, NVL(f.${fDesFantasia}, f.${fDesFornecedor}) as DES_FANTASIA
       FROM ${tabFornecedor} f
-      WHERE EXISTS (SELECT 1 FROM ${tabFornecedorNota} fn WHERE fn.COD_FORNECEDOR = f.COD_FORNECEDOR AND fn.DTA_ENTRADA >= SYSDATE - 365)
+      WHERE EXISTS (SELECT 1 FROM ${tabFornecedorNota} fn WHERE fn.${fnCodFornecedor} = f.${fCodFornecedor} AND fn.${fnDtaEntrada} >= SYSDATE - 365)
     `;
 
     const rows = await OracleService.query(query, {});
