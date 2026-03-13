@@ -1185,13 +1185,23 @@ export class GestaoInteligenteService {
       };
     };
 
-    // Montar resultado
-    const resultado = atual.map((row: any) => {
-      const cod = row.COD_SECAO;
-      const rowData = { venda: row.VENDA || 0, custo: row.CUSTO || 0, impostos: row.IMPOSTOS || 0,
-        impostoCredito: row.IMPOSTO_CREDITO || 0,
-        vendasOferta: row.VENDAS_OFERTA || 0, qtd: row.QTD || 0, qtdCupons: row.QTD_CUPONS || 0, qtdSkus: row.QTD_SKUS || 0 };
-      const atualData = calcPeriodo(rowData);
+    // Criar mapa do período atual
+    const mapAtual = criarMapa(atual);
+    const mapNomesAtual: Record<number, string> = {};
+    atual.forEach((r: any) => { mapNomesAtual[r.COD_SECAO] = r.SETOR; });
+
+    // Merge todos os códigos de todos os períodos
+    const todosNomes: Record<number, string> = {};
+    [atual, mesPas, anoPas, anoInteiro].forEach((dados: any[]) => {
+      dados.forEach((r: any) => { if (!todosNomes[r.COD_SECAO]) todosNomes[r.COD_SECAO] = r.SETOR; });
+    });
+    Object.keys(mapNomesAtual).forEach(k => { todosNomes[Number(k)] = mapNomesAtual[Number(k)]; });
+    const todosCodigos = Object.keys(todosNomes).map(Number);
+
+    // Montar resultado com TODOS os setores de todos os períodos
+    const resultado = todosCodigos.map((cod: number) => {
+      const atualRow = mapAtual[cod] || defaultRow;
+      const atualData = calcPeriodo(atualRow);
 
       const mp = mapMesPas[cod] || defaultRow;
       const mesPasData = calcPeriodo(mp);
@@ -1209,7 +1219,7 @@ export class GestaoInteligenteService {
       });
 
       return {
-        codSecao: cod, setor: row.SETOR,
+        codSecao: cod, setor: todosNomes[cod],
         vendaAtual: atualData.venda, vendaMesPassado: mesPasData.venda,
         vendaAnoPassado: anoPasData.venda, mediaLinear: mlData.venda,
         lucroAtual: atualData.lucro, lucroMesPassado: mesPasData.lucro,
@@ -1332,14 +1342,22 @@ export class GestaoInteligenteService {
       };
     };
 
-    const result = atual.map((row: any) => {
-      const cod = row[codeField];
-      const atualRow = {
-        venda: row.VENDA || 0, custo: row.CUSTO || 0, impostos: row.IMPOSTOS || 0,
-        impostoCredito: row.IMPOSTO_CREDITO || 0,
-        vendasOferta: row.VENDAS_OFERTA || 0, qtd: row.QTD || 0,
-        qtdCupons: row.QTD_CUPONS || 0, qtdSkus: row.QTD_SKUS || 0
-      };
+    // Criar mapa do período atual
+    const mapAtual = criarMapa(atual);
+    const mapNomesAtual: Record<number, string> = {};
+    atual.forEach((r: any) => { mapNomesAtual[r[codeField]] = r[nameField]; });
+
+    // Merge todos os códigos de todos os períodos
+    const todosNomes: Record<number, string> = {};
+    [atual, mesPas, anoPas, anoInteiro].forEach((dados: any[]) => {
+      dados.forEach((r: any) => { if (!todosNomes[r[codeField]]) todosNomes[r[codeField]] = r[nameField]; });
+    });
+    Object.keys(mapNomesAtual).forEach(k => { todosNomes[Number(k)] = mapNomesAtual[Number(k)]; });
+    const todosCodigos = Object.keys(todosNomes).map(Number);
+
+    // Montar resultado com TODOS os itens de todos os períodos
+    const result = todosCodigos.map((cod: number) => {
+      const atualRow = mapAtual[cod] || defaultRow;
       const atualData = calcPeriodo(atualRow);
 
       const mp = mapMesPas[cod] || defaultRow;
@@ -1359,7 +1377,7 @@ export class GestaoInteligenteService {
 
       return {
         [outCodeKey]: cod,
-        [outNameKey]: row[nameField],
+        [outNameKey]: todosNomes[cod],
         vendaAtual: atualData.venda, vendaMesPassado: mesPasData.venda,
         vendaAnoPassado: anoPasData.venda, mediaLinear: mlData.venda,
         lucroAtual: atualData.lucro, lucroMesPassado: mesPasData.lucro,
