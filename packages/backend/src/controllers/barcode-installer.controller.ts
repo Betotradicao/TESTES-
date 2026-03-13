@@ -732,7 +732,7 @@ LOG_MAX_SIZE=10485760
             install_dir = str(Path.cwd())
             tr_cmd = f'cmd /c cd /d "{install_dir}" && INICIAR-SCANNER.bat'
             user = os.environ.get('USERNAME', os.environ.get('USER', ''))
-            subprocess.run([schtasks_exe, '/Create', '/TN', 'Scanner Service', '/TR', tr_cmd, '/SC', 'ONSTART', '/RU', user, '/RL', 'HIGHEST', '/F'], capture_output=True, timeout=10, check=True)
+            subprocess.run([schtasks_exe, '/Create', '/TN', 'Scanner Service', '/TR', tr_cmd, '/SC', 'ONLOGON', '/RU', user, '/RL', 'HIGHEST', '/F'], capture_output=True, timeout=10, check=True)
 
             self.atualizar_status("Iniciando Scanner Service...", "info")
             self.root.update()
