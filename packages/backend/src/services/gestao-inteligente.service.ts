@@ -1546,6 +1546,36 @@ export class GestaoInteligenteService {
       (ini, fim) => this.buscarVendasPorItemPeriodo(ini, fim, filters.codLoja, filters.codSecao, filters.codGrupo, filters.codSubgrupo),
       'COD_PRODUTO', 'PRODUTO', 'codProduto', 'produto'
     );
+
+    // Buscar estoque atual dos produtos
+    try {
+      const codProdutos = result.map((r: any) => r.codProduto).filter(Boolean);
+      if (codProdutos.length > 0) {
+        const schema = await MappingService.getSchema();
+        const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
+        const plCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
+        const plCodLojaCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
+        const estoqueAtualCol = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual');
+
+        let sql = `SELECT ${plCodProdutoCol} as COD_PRODUTO, NVL(SUM(${estoqueAtualCol}), 0) as ESTOQUE_ATUAL
+          FROM ${tabProdutoLoja}
+          WHERE ${plCodProdutoCol} IN (${codProdutos.join(',')})`;
+        const params: any = {};
+        if (filters.codLoja) {
+          sql += ` AND ${plCodLojaCol} = :codLoja`;
+          params.codLoja = filters.codLoja;
+        }
+        sql += ` GROUP BY ${plCodProdutoCol}`;
+
+        const estoques = await OracleService.query<any>(sql, params);
+        const mapaEstoque: Record<number, number> = {};
+        estoques.forEach((e: any) => { mapaEstoque[e.COD_PRODUTO] = e.ESTOQUE_ATUAL || 0; });
+        result.forEach((r: any) => { r.estoqueAtual = mapaEstoque[r.codProduto] || 0; });
+      }
+    } catch (err) {
+      console.error('Erro ao buscar estoque dos itens:', err);
+    }
+
     console.log(`✅ [ANALÍTICOS] ${result.length} itens com comparativos`);
     return result;
   }

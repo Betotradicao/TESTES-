@@ -3429,6 +3429,7 @@ export default function GestaoInteligente() {
                         <thead>
                           <tr className="bg-gray-200">
                             <th rowSpan={2} className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase border-b border-r border-gray-300 min-w-[200px] sticky left-0 bg-gray-200 z-10">Setor / Grupo / Subgrupo / Item</th>
+                            <th rowSpan={2} className="px-3 py-2 text-center text-xs font-bold text-sky-700 uppercase border-b border-r border-gray-300 bg-sky-50 min-w-[80px]">Estoque<br/>Atual</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-gray-700 uppercase border-b border-r border-gray-300 bg-orange-50">Vendas</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-blue-700 uppercase border-b border-r border-gray-300 bg-blue-50">% Repr.</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-cyan-700 uppercase border-b border-r border-gray-300 bg-cyan-50">Lucro</th>
@@ -3539,13 +3540,14 @@ export default function GestaoInteligente() {
                               {/* Nível 1: Seção */}
                               <tr className={`hover:bg-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} border-b border-gray-100`}>
                                 <td className="px-4 py-2 text-sm font-semibold text-gray-800 sticky left-0 z-10" style={{ backgroundColor: index % 2 === 0 ? '#f9fafb' : '#fff' }}>
-                                  <button onClick={() => toggleAnaliticaSecao(setor.codSecao)} className="flex items-center gap-2 font-semibold text-gray-800">
-                                    <span className={`w-5 h-5 flex items-center justify-center rounded text-xs font-bold transition-colors ${secExpanded ? 'bg-orange-500 text-white' : 'bg-gray-300 text-gray-700'}`}>
+                                  <button onClick={() => toggleAnaliticaSecao(setor.codSecao)} className="flex items-center gap-2 font-semibold text-gray-800 whitespace-nowrap">
+                                    <span className={`w-5 h-5 flex-shrink-0 flex items-center justify-center rounded text-xs font-bold transition-colors ${secExpanded ? 'bg-orange-500 text-white' : 'bg-gray-300 text-gray-700'}`}>
                                       {secExpanded?.loading ? '...' : secExpanded ? '−' : '+'}
                                     </span>
                                     {setor.setor}
                                   </button>
                                 </td>
+                                <td className="px-3 py-2 text-center text-sm text-gray-400">—</td>
                                 {renderAnaliticaCells(setor)}
                               </tr>
 
@@ -3557,13 +3559,14 @@ export default function GestaoInteligente() {
                                 <Fragment key={`ag-${grupoKey}`}>
                                   <tr className={`hover:bg-gray-100 ${gIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b border-gray-100`}>
                                     <td className="px-4 py-2 text-sm text-gray-700 pl-10 sticky left-0 z-10 bg-white">
-                                      <button onClick={() => toggleAnaliticaGrupo(grupo.codGrupo, setor.codSecao)} className="flex items-center gap-2 font-medium text-gray-700">
-                                        <span className={`w-4 h-4 flex items-center justify-center rounded text-xs font-bold transition-colors ${grpExpanded ? 'bg-orange-500 text-white' : 'bg-gray-300 text-gray-700'}`}>
+                                      <button onClick={() => toggleAnaliticaGrupo(grupo.codGrupo, setor.codSecao)} className="flex items-center gap-2 font-medium text-gray-700 whitespace-nowrap">
+                                        <span className={`w-4 h-4 flex-shrink-0 flex items-center justify-center rounded text-xs font-bold transition-colors ${grpExpanded ? 'bg-orange-500 text-white' : 'bg-gray-300 text-gray-700'}`}>
                                           {grpExpanded?.loading ? '.' : grpExpanded ? '−' : '+'}
                                         </span>
                                         {grupo.grupo}
                                       </button>
                                     </td>
+                                    <td className="px-3 py-2 text-center text-sm text-gray-400">—</td>
                                     {renderAnaliticaCells(grupo)}
                                   </tr>
 
@@ -3575,13 +3578,14 @@ export default function GestaoInteligente() {
                                     <Fragment key={`asg-${subKey}`}>
                                       <tr className={`hover:bg-gray-100 ${sgIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b border-gray-100`}>
                                         <td className="px-4 py-2 text-sm text-gray-600 pl-16 sticky left-0 z-10 bg-white">
-                                          <button onClick={() => toggleAnaliticaSubgrupo(sub.codSubgrupo, grupo.codGrupo, setor.codSecao)} className="flex items-center gap-2 text-gray-600">
-                                            <span className={`w-4 h-4 flex items-center justify-center rounded text-xs font-bold transition-colors ${subExpanded ? 'bg-orange-500 text-white' : 'bg-gray-300 text-gray-700'}`}>
+                                          <button onClick={() => toggleAnaliticaSubgrupo(sub.codSubgrupo, grupo.codGrupo, setor.codSecao)} className="flex items-center gap-2 text-gray-600 whitespace-nowrap">
+                                            <span className={`w-4 h-4 flex-shrink-0 flex items-center justify-center rounded text-xs font-bold transition-colors ${subExpanded ? 'bg-orange-500 text-white' : 'bg-gray-300 text-gray-700'}`}>
                                               {subExpanded?.loading ? '.' : subExpanded ? '−' : '+'}
                                             </span>
                                             {sub.subgrupo}
                                           </button>
                                         </td>
+                                        <td className="px-3 py-2 text-center text-sm text-gray-400">—</td>
                                         {renderAnaliticaCells(sub)}
                                       </tr>
 
@@ -3594,6 +3598,7 @@ export default function GestaoInteligente() {
                                               {item.produto}
                                             </span>
                                           </td>
+                                          <td className="px-3 py-1.5 text-center text-xs font-bold text-sky-700 bg-sky-50/50">{formatNumber(item.estoqueAtual)}</td>
                                           {renderAnaliticaCells(item, 'text-xs')}
                                         </tr>
                                       ))}
@@ -3651,6 +3656,7 @@ export default function GestaoInteligente() {
                             return (
                           <tr>
                             <td className="px-4 py-2 text-sm font-bold text-gray-800 sticky left-0 bg-gray-200 z-10">TOTAL</td>
+                            <td className="px-3 py-2 text-center text-sm text-gray-400 bg-gray-200">—</td>
                             {td4([vAt,vML,vAP,vMP],'$',true)}
                             {td4([100,100,100,100],'%',true)}
                             {td4([lAt,lML,lAP,lMP],'$',true)}
