@@ -16,6 +16,11 @@ export class AddCodLojaToRemainingTables1781900000000 implements MigrationInterf
     ];
 
     for (const table of tables) {
+      const tableExists = await queryRunner.query(
+        `SELECT table_name FROM information_schema.tables WHERE table_name = '${table}' AND table_schema = 'public'`
+      );
+      if (tableExists.length === 0) continue;
+
       const hasColumn = await queryRunner.query(
         `SELECT column_name FROM information_schema.columns WHERE table_name = '${table}' AND column_name = 'cod_loja'`
       );
@@ -41,6 +46,11 @@ export class AddCodLojaToRemainingTables1781900000000 implements MigrationInterf
     ];
 
     for (const table of tables) {
+      const tableExists = await queryRunner.query(
+        `SELECT table_name FROM information_schema.tables WHERE table_name = '${table}' AND table_schema = 'public'`
+      );
+      if (tableExists.length === 0) continue;
+
       const hasColumn = await queryRunner.query(
         `SELECT column_name FROM information_schema.columns WHERE table_name = '${table}' AND column_name = 'cod_loja'`
       );
