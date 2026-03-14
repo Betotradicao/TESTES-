@@ -1579,10 +1579,15 @@ export class GestaoInteligenteService {
       try {
         const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
         const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
-        const sqlFornecedor = `SELECT p.COD_PRODUTO, NVL(NVL(f.DES_FANTASIA, f.DES_FORNECEDOR), 'Sem fornecedor') as FORNECEDOR
+        const pCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+        const pCodFornecedorCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_fornecedor');
+        const fCodFornecedorCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
+        const fNomeFantasiaCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'nome_fantasia');
+        const fRazaoSocialCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social');
+        const sqlFornecedor = `SELECT p.${pCodProdutoCol} as COD_PRODUTO, NVL(NVL(f.${fNomeFantasiaCol}, f.${fRazaoSocialCol}), 'Sem fornecedor') as FORNECEDOR
           FROM ${tabProduto} p
-          LEFT JOIN ${tabFornecedor} f ON f.COD_FORNECEDOR = p.COD_FORNECEDOR
-          WHERE p.COD_PRODUTO IN (${codProdutos.join(',')})`;
+          LEFT JOIN ${tabFornecedor} f ON f.${fCodFornecedorCol} = p.${pCodFornecedorCol}
+          WHERE p.${pCodProdutoCol} IN (${codProdutos.join(',')})`;
         const fornecedores = await OracleService.query<any>(sqlFornecedor, {});
         const mapaFornecedor: Record<number, string> = {};
         fornecedores.forEach((f: any) => { mapaFornecedor[f.COD_PRODUTO] = f.FORNECEDOR || 'Sem fornecedor'; });
