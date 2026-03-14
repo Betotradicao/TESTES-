@@ -1044,6 +1044,7 @@ cat > "$CLIENT_DIR/INSTALACAO_INFO.txt" << EOF
 # ============================================
 
 URLs:
+- Primeiro acesso: https://$CLIENT_SUBDOMAIN/first-setup
 - Frontend: https://$CLIENT_SUBDOMAIN
 - API: https://$CLIENT_SUBDOMAIN/api
 
@@ -1110,8 +1111,8 @@ echo "════════════════════════�
 echo "📝 PRÓXIMOS PASSOS"
 echo "═══════════════════════════════════════════════════════════"
 echo ""
-echo "1. Acessar: https://$CLIENT_SUBDOMAIN"
-echo "2. Primeiro acesso: Criar Empresa via /first-setup"
+echo "1. Primeiro acesso: https://$CLIENT_SUBDOMAIN/first-setup"
+echo "2. Acessos seguintes: https://$CLIENT_SUBDOMAIN"
 echo "3. Configurar túnel SSH para Oracle (se necessário)"
 echo "4. Configurar DVR (se necessário)"
 echo ""
