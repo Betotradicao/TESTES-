@@ -3430,19 +3430,19 @@ export default function GestaoInteligente() {
                           <tr className="bg-gray-200">
                             <th rowSpan={2} className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase border-b border-r border-gray-300 min-w-[200px] sticky left-0 bg-gray-200 z-10">Setor / Grupo / Subgrupo / Item</th>
                             <th rowSpan={2} className="px-3 py-2 text-center text-xs font-bold text-sky-700 uppercase border-b border-r border-gray-300 bg-sky-50 min-w-[80px]">Estoque<br/>Atual</th>
-                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-gray-700 uppercase border-b border-r border-gray-300 bg-orange-50">Vendas</th>
+                            <th colSpan={7} className="px-2 py-2 text-center text-xs font-bold text-gray-700 uppercase border-b border-r border-gray-300 bg-orange-50">Vendas</th>
+                            <th colSpan={7} className="px-2 py-2 text-center text-xs font-bold text-cyan-700 uppercase border-b border-r border-gray-300 bg-cyan-50">Lucro</th>
+                            <th colSpan={7} className="px-2 py-2 text-center text-xs font-bold text-purple-700 uppercase border-b border-r border-gray-300 bg-purple-50">Markdown</th>
+                            <th colSpan={7} className="px-2 py-2 text-center text-xs font-bold text-emerald-700 uppercase border-b border-r border-gray-300 bg-emerald-50">Margem Limpa</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-blue-700 uppercase border-b border-r border-gray-300 bg-blue-50">% Repr.</th>
-                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-cyan-700 uppercase border-b border-r border-gray-300 bg-cyan-50">Lucro</th>
-                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-purple-700 uppercase border-b border-r border-gray-300 bg-purple-50">Markdown</th>
-                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-emerald-700 uppercase border-b border-r border-gray-300 bg-emerald-50">Margem Limpa</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-red-700 uppercase border-b border-r border-gray-300 bg-red-50">Custo</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-orange-700 uppercase border-b border-r border-gray-300 bg-orange-50">Impostos</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-amber-700 uppercase border-b border-r border-gray-300 bg-amber-50">Vendas Oferta R$</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-pink-700 uppercase border-b border-r border-gray-300 bg-pink-50">% Oferta</th>
-                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-indigo-700 uppercase border-b border-r border-gray-300 bg-indigo-50">Ticket Médio</th>
-                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-teal-700 uppercase border-b border-r border-gray-300 bg-teal-50">Cupons</th>
-                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-violet-700 uppercase border-b border-r border-gray-300 bg-violet-50">QTD Itens</th>
-                            <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-slate-700 uppercase border-b border-gray-300 bg-slate-50">SKUs</th>
+                            <th colSpan={7} className="px-2 py-2 text-center text-xs font-bold text-indigo-700 uppercase border-b border-r border-gray-300 bg-indigo-50">Ticket Médio</th>
+                            <th colSpan={7} className="px-2 py-2 text-center text-xs font-bold text-teal-700 uppercase border-b border-r border-gray-300 bg-teal-50">Cupons</th>
+                            <th colSpan={7} className="px-2 py-2 text-center text-xs font-bold text-violet-700 uppercase border-b border-r border-gray-300 bg-violet-50">QTD Itens</th>
+                            <th colSpan={7} className="px-2 py-2 text-center text-xs font-bold text-slate-700 uppercase border-b border-gray-300 bg-slate-50">SKUs</th>
                           </tr>
                           <tr className="bg-gray-100">
                             {/* Sub-headers repetidos para cada grupo: Atual, ML, Ano Ant, Mês Ant */}
@@ -3450,8 +3450,11 @@ export default function GestaoInteligente() {
                               <Fragment key={`sh-${gi}`}>
                                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-green-700 uppercase border-b border-gray-200 min-w-[100px] bg-green-50">Atual</th>
                                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-purple-700 uppercase border-b border-gray-200 min-w-[100px]">Méd.Lin</th>
+                                {(gi <= 3 || gi >= 9) && <th className="px-2 py-2 text-center text-[10px] font-semibold text-purple-700 uppercase border-b border-gray-200 min-w-[55px] bg-orange-100">%</th>}
                                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-blue-700 uppercase border-b border-gray-200 min-w-[100px]">Ano Ant</th>
-                                <th className={`px-3 py-2 text-right text-[10px] font-semibold text-amber-700 uppercase border-b min-w-[100px] ${gi < 12 ? 'border-r border-gray-300' : 'border-gray-200'}`}>Mês Ant</th>
+                                {(gi <= 3 || gi >= 9) && <th className="px-2 py-2 text-center text-[10px] font-semibold text-blue-700 uppercase border-b border-gray-200 min-w-[55px] bg-orange-100">%</th>}
+                                <th className={`px-3 py-2 text-right text-[10px] font-semibold text-amber-700 uppercase border-b min-w-[100px] ${(gi > 3 && gi < 9) && gi < 12 ? 'border-r border-gray-300' : 'border-gray-200'}`}>Mês Ant</th>
+                                {(gi <= 3 || gi >= 9) && <th className="px-2 py-2 text-center text-[10px] font-semibold text-amber-700 uppercase border-b border-r border-gray-300 min-w-[55px] bg-orange-100">%</th>}
                               </Fragment>
                             ))}
                           </tr>
@@ -3467,32 +3470,56 @@ export default function GestaoInteligente() {
                             const aaCls = (a, b) => `${base} ${cc(a, b)}`;
                             const maCls = (a, b, br) => `${base} ${cc(a, b)} ${br ? 'border-r border-gray-200' : ''}`;
                             const fmtN = (v) => Math.round(v || 0).toLocaleString('pt-BR');
+                            const calcVar = (atual, ref) => ref > 0 ? ((atual - ref) / ref * 100) : (atual > 0 ? 100 : 0);
+                            const fmtVar = (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
+                            const varCls = (v, br) => `${base} font-bold ${v > 0 ? 'text-green-600 bg-green-50' : v < 0 ? 'text-red-600 bg-red-50' : 'text-gray-500'} ${br ? 'border-r border-gray-300' : ''}`;
+                            const varML = calcVar(d.vendaAtual, d.mediaLinear);
+                            const varAP = calcVar(d.vendaAtual, d.vendaAnoPassado);
+                            const varMP = calcVar(d.vendaAtual, d.vendaMesPassado);
                             return (<>
                               {/* Vendas */}
                               <td className={atCls}>{formatCurrency(d.vendaAtual)}</td>
                               <td className={mlCls(d.vendaAtual, d.mediaLinear)}>{formatCurrency(d.mediaLinear)}</td>
+                              <td className={varCls(varML, false)}>{fmtVar(varML)}</td>
                               <td className={aaCls(d.vendaAtual, d.vendaAnoPassado)}>{formatCurrency(d.vendaAnoPassado)}</td>
-                              <td className={maCls(d.vendaAtual, d.vendaMesPassado, true)}>{formatCurrency(d.vendaMesPassado)}</td>
+                              <td className={varCls(varAP, false)}>{fmtVar(varAP)}</td>
+                              <td className={maCls(d.vendaAtual, d.vendaMesPassado, false)}>{formatCurrency(d.vendaMesPassado)}</td>
+                              <td className={varCls(varMP, true)}>{fmtVar(varMP)}</td>
+                              {/* Lucro */}
+                              {(() => { const lML = calcVar(d.lucroAtual, d.lucroMediaLinear), lAP = calcVar(d.lucroAtual, d.lucroAnoPassado), lMP = calcVar(d.lucroAtual, d.lucroMesPassado); return <>
+                              <td className={atCls}>{formatCurrency(d.lucroAtual)}</td>
+                              <td className={mlCls(d.lucroAtual, d.lucroMediaLinear)}>{formatCurrency(d.lucroMediaLinear)}</td>
+                              <td className={varCls(lML, false)}>{fmtVar(lML)}</td>
+                              <td className={aaCls(d.lucroAtual, d.lucroAnoPassado)}>{formatCurrency(d.lucroAnoPassado)}</td>
+                              <td className={varCls(lAP, false)}>{fmtVar(lAP)}</td>
+                              <td className={maCls(d.lucroAtual, d.lucroMesPassado, false)}>{formatCurrency(d.lucroMesPassado)}</td>
+                              <td className={varCls(lMP, true)}>{fmtVar(lMP)}</td>
+                              </>; })()}
+                              {/* Markdown */}
+                              {(() => { const mML = calcVar(d.markdownAtual, d.markdownMediaLinear), mAP = calcVar(d.markdownAtual, d.markdownAnoPassado), mMP = calcVar(d.markdownAtual, d.markdownMesPassado); return <>
+                              <td className={atCls}>{formatPercent(d.markdownAtual)}</td>
+                              <td className={mlCls(d.markdownAtual, d.markdownMediaLinear)}>{formatPercent(d.markdownMediaLinear)}</td>
+                              <td className={varCls(mML, false)}>{fmtVar(mML)}</td>
+                              <td className={aaCls(d.markdownAtual, d.markdownAnoPassado)}>{formatPercent(d.markdownAnoPassado)}</td>
+                              <td className={varCls(mAP, false)}>{fmtVar(mAP)}</td>
+                              <td className={maCls(d.markdownAtual, d.markdownMesPassado, false)}>{formatPercent(d.markdownMesPassado)}</td>
+                              <td className={varCls(mMP, true)}>{fmtVar(mMP)}</td>
+                              </>; })()}
+                              {/* Margem Limpa */}
+                              {(() => { const mlVarML = calcVar(d.margemLimpaAtual, d.margemLimpaMediaLinear), mlVarAP = calcVar(d.margemLimpaAtual, d.margemLimpaAnoPassado), mlVarMP = calcVar(d.margemLimpaAtual, d.margemLimpaMesPassado); return <>
+                              <td className={atCls}>{formatPercent(d.margemLimpaAtual)}</td>
+                              <td className={mlCls(d.margemLimpaAtual, d.margemLimpaMediaLinear)}>{formatPercent(d.margemLimpaMediaLinear)}</td>
+                              <td className={varCls(mlVarML, false)}>{fmtVar(mlVarML)}</td>
+                              <td className={aaCls(d.margemLimpaAtual, d.margemLimpaAnoPassado)}>{formatPercent(d.margemLimpaAnoPassado)}</td>
+                              <td className={varCls(mlVarAP, false)}>{fmtVar(mlVarAP)}</td>
+                              <td className={maCls(d.margemLimpaAtual, d.margemLimpaMesPassado, false)}>{formatPercent(d.margemLimpaMesPassado)}</td>
+                              <td className={varCls(mlVarMP, true)}>{fmtVar(mlVarMP)}</td>
+                              </>; })()}
                               {/* % Repr. */}
                               <td className={atCls}>{formatPercent(d.reprAtual)}</td>
                               <td className={mlCls(d.reprAtual, d.reprMediaLinear)}>{formatPercent(d.reprMediaLinear)}</td>
                               <td className={aaCls(d.reprAtual, d.reprAnoPassado)}>{formatPercent(d.reprAnoPassado)}</td>
                               <td className={maCls(d.reprAtual, d.reprMesPassado, true)}>{formatPercent(d.reprMesPassado)}</td>
-                              {/* Lucro */}
-                              <td className={atCls}>{formatCurrency(d.lucroAtual)}</td>
-                              <td className={mlCls(d.lucroAtual, d.lucroMediaLinear)}>{formatCurrency(d.lucroMediaLinear)}</td>
-                              <td className={aaCls(d.lucroAtual, d.lucroAnoPassado)}>{formatCurrency(d.lucroAnoPassado)}</td>
-                              <td className={maCls(d.lucroAtual, d.lucroMesPassado, true)}>{formatCurrency(d.lucroMesPassado)}</td>
-                              {/* Markdown */}
-                              <td className={atCls}>{formatPercent(d.markdownAtual)}</td>
-                              <td className={mlCls(d.markdownAtual, d.markdownMediaLinear)}>{formatPercent(d.markdownMediaLinear)}</td>
-                              <td className={aaCls(d.markdownAtual, d.markdownAnoPassado)}>{formatPercent(d.markdownAnoPassado)}</td>
-                              <td className={maCls(d.markdownAtual, d.markdownMesPassado, true)}>{formatPercent(d.markdownMesPassado)}</td>
-                              {/* Margem Limpa */}
-                              <td className={atCls}>{formatPercent(d.margemLimpaAtual)}</td>
-                              <td className={mlCls(d.margemLimpaAtual, d.margemLimpaMediaLinear)}>{formatPercent(d.margemLimpaMediaLinear)}</td>
-                              <td className={aaCls(d.margemLimpaAtual, d.margemLimpaAnoPassado)}>{formatPercent(d.margemLimpaAnoPassado)}</td>
-                              <td className={maCls(d.margemLimpaAtual, d.margemLimpaMesPassado, true)}>{formatPercent(d.margemLimpaMesPassado)}</td>
                               {/* Custo (invertido: menor = melhor) */}
                               <td className={atCls}>{formatCurrency(d.custoAtual)}</td>
                               <td className={mlCls(d.custoMediaLinear, d.custoAtual)}>{formatCurrency(d.custoMediaLinear)}</td>
@@ -3514,25 +3541,45 @@ export default function GestaoInteligente() {
                               <td className={aaCls(d.pctOfertaAtual, d.pctOfertaAnoPassado)}>{formatPercent(d.pctOfertaAnoPassado)}</td>
                               <td className={maCls(d.pctOfertaAtual, d.pctOfertaMesPassado, true)}>{formatPercent(d.pctOfertaMesPassado)}</td>
                               {/* Ticket Médio */}
+                              {(() => { const tML = calcVar(d.ticketMedioAtual, d.ticketMedioMediaLinear), tAP = calcVar(d.ticketMedioAtual, d.ticketMedioAnoPassado), tMP = calcVar(d.ticketMedioAtual, d.ticketMedioMesPassado); return <>
                               <td className={atCls}>{formatCurrency(d.ticketMedioAtual)}</td>
                               <td className={mlCls(d.ticketMedioAtual, d.ticketMedioMediaLinear)}>{formatCurrency(d.ticketMedioMediaLinear)}</td>
+                              <td className={varCls(tML, false)}>{fmtVar(tML)}</td>
                               <td className={aaCls(d.ticketMedioAtual, d.ticketMedioAnoPassado)}>{formatCurrency(d.ticketMedioAnoPassado)}</td>
-                              <td className={maCls(d.ticketMedioAtual, d.ticketMedioMesPassado, true)}>{formatCurrency(d.ticketMedioMesPassado)}</td>
+                              <td className={varCls(tAP, false)}>{fmtVar(tAP)}</td>
+                              <td className={maCls(d.ticketMedioAtual, d.ticketMedioMesPassado, false)}>{formatCurrency(d.ticketMedioMesPassado)}</td>
+                              <td className={varCls(tMP, true)}>{fmtVar(tMP)}</td>
+                              </>; })()}
                               {/* Cupons */}
+                              {(() => { const cML = calcVar(d.cuponsAtual, d.cuponsMediaLinear), cAP = calcVar(d.cuponsAtual, d.cuponsAnoPassado), cMP = calcVar(d.cuponsAtual, d.cuponsMesPassado); return <>
                               <td className={atCls}>{fmtN(d.cuponsAtual)}</td>
                               <td className={mlCls(d.cuponsAtual, d.cuponsMediaLinear)}>{fmtN(d.cuponsMediaLinear)}</td>
+                              <td className={varCls(cML, false)}>{fmtVar(cML)}</td>
                               <td className={aaCls(d.cuponsAtual, d.cuponsAnoPassado)}>{fmtN(d.cuponsAnoPassado)}</td>
-                              <td className={maCls(d.cuponsAtual, d.cuponsMesPassado, true)}>{fmtN(d.cuponsMesPassado)}</td>
+                              <td className={varCls(cAP, false)}>{fmtVar(cAP)}</td>
+                              <td className={maCls(d.cuponsAtual, d.cuponsMesPassado, false)}>{fmtN(d.cuponsMesPassado)}</td>
+                              <td className={varCls(cMP, true)}>{fmtVar(cMP)}</td>
+                              </>; })()}
                               {/* QTD Itens */}
+                              {(() => { const qML = calcVar(d.qtdItensAtual, d.qtdItensMediaLinear), qAP = calcVar(d.qtdItensAtual, d.qtdItensAnoPassado), qMP = calcVar(d.qtdItensAtual, d.qtdItensMesPassado); return <>
                               <td className={atCls}>{fmtN(d.qtdItensAtual)}</td>
                               <td className={mlCls(d.qtdItensAtual, d.qtdItensMediaLinear)}>{fmtN(d.qtdItensMediaLinear)}</td>
+                              <td className={varCls(qML, false)}>{fmtVar(qML)}</td>
                               <td className={aaCls(d.qtdItensAtual, d.qtdItensAnoPassado)}>{fmtN(d.qtdItensAnoPassado)}</td>
-                              <td className={maCls(d.qtdItensAtual, d.qtdItensMesPassado, true)}>{fmtN(d.qtdItensMesPassado)}</td>
+                              <td className={varCls(qAP, false)}>{fmtVar(qAP)}</td>
+                              <td className={maCls(d.qtdItensAtual, d.qtdItensMesPassado, false)}>{fmtN(d.qtdItensMesPassado)}</td>
+                              <td className={varCls(qMP, true)}>{fmtVar(qMP)}</td>
+                              </>; })()}
                               {/* SKUs */}
+                              {(() => { const sML = calcVar(d.skusAtual, d.skusMediaLinear), sAP = calcVar(d.skusAtual, d.skusAnoPassado), sMP = calcVar(d.skusAtual, d.skusMesPassado); return <>
                               <td className={atCls}>{fmtN(d.skusAtual)}</td>
                               <td className={mlCls(d.skusAtual, d.skusMediaLinear)}>{fmtN(d.skusMediaLinear)}</td>
+                              <td className={varCls(sML, false)}>{fmtVar(sML)}</td>
                               <td className={aaCls(d.skusAtual, d.skusAnoPassado)}>{fmtN(d.skusAnoPassado)}</td>
+                              <td className={varCls(sAP, false)}>{fmtVar(sAP)}</td>
                               <td className={maCls(d.skusAtual, d.skusMesPassado, false)}>{fmtN(d.skusMesPassado)}</td>
+                              <td className={varCls(sMP, true)}>{fmtVar(sMP)}</td>
+                              </>; })()}
                             </>);
                             };
                             return (
@@ -3662,11 +3709,67 @@ export default function GestaoInteligente() {
                           <tr>
                             <td className="px-4 py-2 text-sm font-bold text-gray-800 sticky left-0 bg-gray-200 z-10">TOTAL</td>
                             <td className="px-3 py-2 text-center text-sm text-gray-400 bg-gray-200">—</td>
-                            {td4([vAt,vML,vAP,vMP],'$',true)}
+                            {(() => {
+                              const cv = (a, r) => r > 0 ? ((a - r) / r * 100) : (a > 0 ? 100 : 0);
+                              const fv = (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
+                              const vc = (v, br) => `px-3 py-2 text-sm text-right font-bold ${v > 0 ? 'text-green-600 bg-green-50' : v < 0 ? 'text-red-600 bg-red-50' : 'text-gray-500'} ${br ? 'border-r border-gray-300' : ''}`;
+                              const vm = cv(vAt, vML), va = cv(vAt, vAP), vmp = cv(vAt, vMP);
+                              return <>
+                                <td className={`px-3 py-2 text-sm text-right font-bold bg-green-50 text-green-700`}>{formatCurrency(vAt)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold ${cc(vAt, vML)}`}>{formatCurrency(vML)}</td>
+                                <td className={vc(vm,false)}>{fv(vm)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold ${cc(vAt, vAP)}`}>{formatCurrency(vAP)}</td>
+                                <td className={vc(va,false)}>{fv(va)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold ${cc(vAt, vMP)}`}>{formatCurrency(vMP)}</td>
+                                <td className={vc(vmp,true)}>{fv(vmp)}</td>
+                              </>;
+                            })()}
+                            {(() => {
+                              const cv = (a, r) => r > 0 ? ((a - r) / r * 100) : (a > 0 ? 100 : 0);
+                              const fv = (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
+                              const vc2 = (v, br) => `px-3 py-2 text-sm text-right font-bold ${v > 0 ? 'text-green-600 bg-green-50' : v < 0 ? 'text-red-600 bg-red-50' : 'text-gray-500'} ${br ? 'border-r border-gray-300' : ''}`;
+                              const lm = cv(lAt, lML), la = cv(lAt, lAP), lp = cv(lAt, lMP);
+                              return <>
+                                <td className={`px-3 py-2 text-sm text-right font-bold bg-green-50 text-green-700`}>{formatCurrency(lAt)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold ${cc(lAt, lML)}`}>{formatCurrency(lML)}</td>
+                                <td className={vc2(lm,false)}>{fv(lm)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold ${cc(lAt, lAP)}`}>{formatCurrency(lAP)}</td>
+                                <td className={vc2(la,false)}>{fv(la)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold ${cc(lAt, lMP)}`}>{formatCurrency(lMP)}</td>
+                                <td className={vc2(lp,true)}>{fv(lp)}</td>
+                              </>;
+                            })()}
+                            {(() => {
+                              const cv3 = (a, r) => r > 0 ? ((a - r) / r * 100) : (a > 0 ? 100 : 0);
+                              const fv3 = (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
+                              const vc3 = (v, br) => `px-3 py-2 text-sm text-right font-bold ${v > 0 ? 'text-green-600 bg-green-50' : v < 0 ? 'text-red-600 bg-red-50' : 'text-gray-500'} ${br ? 'border-r border-gray-300' : ''}`;
+                              const mm = cv3(mkdAt, mkdML), ma = cv3(mkdAt, mkdAP), mp = cv3(mkdAt, mkdMP);
+                              return <>
+                                <td className={`px-3 py-2 text-sm text-right font-bold bg-green-50 text-green-700`}>{formatPercent(mkdAt)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold ${cc(mkdAt, mkdML)}`}>{formatPercent(mkdML)}</td>
+                                <td className={vc3(mm,false)}>{fv3(mm)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold ${cc(mkdAt, mkdAP)}`}>{formatPercent(mkdAP)}</td>
+                                <td className={vc3(ma,false)}>{fv3(ma)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold ${cc(mkdAt, mkdMP)}`}>{formatPercent(mkdMP)}</td>
+                                <td className={vc3(mp,true)}>{fv3(mp)}</td>
+                              </>;
+                            })()}
+                            {(() => {
+                              const cv4 = (a, r) => r > 0 ? ((a - r) / r * 100) : (a > 0 ? 100 : 0);
+                              const fv4 = (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
+                              const vc4 = (v, br) => `px-3 py-2 text-sm text-right font-bold ${v > 0 ? 'text-green-600 bg-green-50' : v < 0 ? 'text-red-600 bg-red-50' : 'text-gray-500'} ${br ? 'border-r border-gray-300' : ''}`;
+                              const mm2 = cv4(mlAt, mlML), ma2 = cv4(mlAt, mlAP), mp2 = cv4(mlAt, mlMP);
+                              return <>
+                                <td className={`px-3 py-2 text-sm text-right font-bold bg-green-50 text-green-700`}>{formatPercent(mlAt)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold ${cc(mlAt, mlML)}`}>{formatPercent(mlML)}</td>
+                                <td className={vc4(mm2,false)}>{fv4(mm2)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold ${cc(mlAt, mlAP)}`}>{formatPercent(mlAP)}</td>
+                                <td className={vc4(ma2,false)}>{fv4(ma2)}</td>
+                                <td className={`px-3 py-2 text-sm text-right font-bold ${cc(mlAt, mlMP)}`}>{formatPercent(mlMP)}</td>
+                                <td className={vc4(mp2,true)}>{fv4(mp2)}</td>
+                              </>;
+                            })()}
                             {td4([100,100,100,100],'%',true)}
-                            {td4([lAt,lML,lAP,lMP],'$',true)}
-                            {td4([mkdAt,mkdML,mkdAP,mkdMP],'%',true)}
-                            {td4([mlAt,mlML,mlAP,mlMP],'%',true)}
                             {/* Custo: invertido - menor é melhor */}
                             {[cAt,cML,cAP,cMP].map((v, i) => (
                               <td key={`c${i}`} className={`px-3 py-2 text-sm text-right font-bold ${colBg[i]} ${i === 0 ? colTxt[0] : cc(v, cAt)} ${i === 3 ? 'border-r border-gray-300' : ''}`}>{formatCurrency(v)}</td>
@@ -3677,10 +3780,30 @@ export default function GestaoInteligente() {
                             ))}
                             {td4([oAt,oML,oAP,oMP],'$',true)}
                             {td4([poAt,poML,poAP,poMP],'%',true)}
-                            {td4([tAt,tML,tAP,tMP],'$',true)}
-                            {td4([cupAt,cupML,cupAP,cupMP],'#',true)}
-                            {td4([qAt,qML,qAP,qMP],'#',true)}
-                            {td4([sAt,sML,sAP,sMP],'#',false)}
+                            {(() => {
+                              const cv5 = (a, r) => r > 0 ? ((a - r) / r * 100) : (a > 0 ? 100 : 0);
+                              const fv5 = (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
+                              const vc5 = (v, br) => `px-3 py-2 text-sm text-right font-bold ${v > 0 ? 'text-green-600 bg-green-50' : v < 0 ? 'text-red-600 bg-red-50' : 'text-gray-500'} ${br ? 'border-r border-gray-300' : ''}`;
+                              const td7 = (at, ml, ap, mp, f, br) => {
+                                const fmt2 = (v) => f === '$' ? formatCurrency(v) : f === '%' ? formatPercent(v) : Math.round(v).toLocaleString('pt-BR');
+                                const vm = cv5(at, ml), va = cv5(at, ap), vp = cv5(at, mp);
+                                return <>
+                                  <td className={`px-3 py-2 text-sm text-right font-bold bg-green-50 text-green-700`}>{fmt2(at)}</td>
+                                  <td className={`px-3 py-2 text-sm text-right font-bold ${cc(at, ml)}`}>{fmt2(ml)}</td>
+                                  <td className={vc5(vm,false)}>{fv5(vm)}</td>
+                                  <td className={`px-3 py-2 text-sm text-right font-bold ${cc(at, ap)}`}>{fmt2(ap)}</td>
+                                  <td className={vc5(va,false)}>{fv5(va)}</td>
+                                  <td className={`px-3 py-2 text-sm text-right font-bold ${cc(at, mp)}`}>{fmt2(mp)}</td>
+                                  <td className={vc5(vp,br)}>{fv5(vp)}</td>
+                                </>;
+                              };
+                              return <>
+                                {td7(tAt,tML,tAP,tMP,'$',true)}
+                                {td7(cupAt,cupML,cupAP,cupMP,'#',true)}
+                                {td7(qAt,qML,qAP,qMP,'#',true)}
+                                {td7(sAt,sML,sAP,sMP,'#',false)}
+                              </>;
+                            })()}
                           </tr>
                             );
                           })()}
