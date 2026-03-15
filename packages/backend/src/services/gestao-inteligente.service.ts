@@ -1546,12 +1546,17 @@ export class GestaoInteligenteService {
 
   /** Itens analíticos com comparativos (cascata nível 4) */
   static async getItensAnaliticos(filters: IndicadoresFilters & { codSecao: number; codGrupo: number; codSubgrupo: number }): Promise<any[]> {
-    console.log(`📊 [ANALÍTICOS] Buscando itens analíticos do subgrupo ${filters.codSubgrupo}...`);
+    console.log(`📊 [ANALÍTICOS] Buscando itens analíticos do subgrupo ${filters.codSubgrupo} grupo ${filters.codGrupo} secao ${filters.codSecao}...`);
     const result = await this.buildAnaliticos(
       filters,
-      (ini, fim) => this.buscarVendasPorItemPeriodo(ini, fim, filters.codLoja, filters.codSecao, filters.codGrupo, filters.codSubgrupo),
+      async (ini, fim) => {
+        const r = await this.buscarVendasPorItemPeriodo(ini, fim, filters.codLoja, filters.codSecao, filters.codGrupo, filters.codSubgrupo);
+        console.log(`  📦 Período ${ini}-${fim}: ${r.length} itens encontrados`, r.length > 0 ? r.map((x: any) => `${x.COD_PRODUTO}:${x.PRODUTO}`).slice(0, 5) : '(vazio)');
+        return r;
+      },
       'COD_PRODUTO', 'PRODUTO', 'codProduto', 'produto'
     );
+    console.log(`📊 [ANALÍTICOS] buildAnaliticos retornou ${result.length} itens`);
 
     // Buscar estoque atual dos produtos
     const codProdutos = result.map((r: any) => r.codProduto).filter(Boolean);
