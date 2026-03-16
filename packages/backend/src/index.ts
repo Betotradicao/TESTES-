@@ -217,12 +217,100 @@ app.post('/api/marketing/whatsapp/test-connection', async (req: any, res: any) =
   }
 });
 
+// Marketing WhatsApp - helper para buscar config
+async function getMarketingConfig() {
+  const ConfigService = require('./services/configuration.service').ConfigurationService;
+  const url = await ConfigService.get('disparo_whats_url');
+  const token = await ConfigService.get('disparo_whats_token');
+  const instancia = await ConfigService.get('disparo_whats_instancia');
+  return { url, token, instancia };
+}
+
 // Marketing WhatsApp - stats de entregas
 app.get('/api/marketing/whatsapp/stats', async (req: any, res: any) => {
   try {
-    // TODO: implementar busca real de stats da Evolution API
-    return res.json({ enviadas: 0, entregues: 0, lidas: 0, falharam: 0 });
+    const { url, token, instancia } = await getMarketingConfig();
+    if (!url || !token || !instancia) {
+      return res.json(null);
+    }
+    const axios = require('axios');
+
+    // Buscar instância pra pegar o instanceId
+    const instResp = await axios.get(`${url}/instance/fetchInstances`, {
+      headers: { apikey: token }, timeout: 10000
+    });
+    const inst = instResp.data?.find((i: any) => i.name === instancia);
+    if (!inst) return res.json(null);
+
+    // Buscar mensagens enviadas (broadcast) via API
+    const msgsResp = await axios.post(`${url}/chat/findMessages/${encodeURIComponent(instancia)}`, {
+      where: { key: { fromMe: true } },
+      limit: 1000
+    }, { headers: { apikey: token }, timeout: 30000 }).catch(() => ({ data: { messages: { records: [] } } }));
+
+    const msgs = msgsResp.data?.messages?.records || [];
+
+    // Se API não retorna, usar contagem da instância
+    const totalMsgs = inst._count?.Message || 0;
+
+    // Contar por status
+    let enviadas = 0, entregues = 0, lidas = 0, falharam = 0;
+
+    if (msgs.length > 0) {
+      msgs.forEach((m: any) => {
+        const fromMe = m.key?.fromMe;
+        if (!fromMe) return;
+        enviadas++;
+        if (m.status === 'READ') lidas++;
+        else if (m.status === 'DELIVERY_ACK' || m.status === 'DELIVERED') entregues++;
+        else if (m.status === 'ERROR' || m.status === 'FAILED') falharam++;
+      });
+    } else {
+      // Fallback: usar dados da instância
+      enviadas = totalMsgs;
+    }
+
+    return res.json({ enviadas, entregues, lidas, falharam, totalMsgs });
   } catch (err: any) {
+    console.error('Erro marketing stats:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Marketing WhatsApp - listar mensagens enviadas com detalhes de contatos
+app.get('/api/marketing/whatsapp/messages', async (req: any, res: any) => {
+  try {
+    const { url, token, instancia } = await getMarketingConfig();
+    if (!url || !token || !instancia) {
+      return res.json({ messages: [] });
+    }
+    const axios = require('axios');
+
+    // Buscar mensagens via API
+    const msgsResp = await axios.post(`${url}/chat/findMessages/${encodeURIComponent(instancia)}`, {
+      where: {},
+      limit: 500
+    }, { headers: { apikey: token }, timeout: 30000 }).catch(() => ({ data: { messages: { records: [] } } }));
+
+    const msgs = msgsResp.data?.messages?.records || [];
+
+    // Formatar mensagens
+    const formatted = msgs.map((m: any) => ({
+      id: m.key?.id,
+      fromMe: m.key?.fromMe || false,
+      remoteJid: m.key?.remoteJid,
+      participant: m.key?.participant,
+      remoteJidAlt: m.key?.remoteJidAlt,
+      pushName: m.pushName,
+      status: m.status,
+      messageType: m.messageType,
+      timestamp: m.messageTimestamp,
+      caption: m.message?.imageMessage?.caption || m.message?.videoMessage?.caption || m.message?.conversation || '',
+    }));
+
+    return res.json({ messages: formatted });
+  } catch (err: any) {
+    console.error('Erro marketing messages:', err.message);
     return res.status(500).json({ error: err.message });
   }
 });

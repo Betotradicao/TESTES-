@@ -7,7 +7,9 @@ export default function MarketingWhatsapp() {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [stats, setStats] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showMessages, setShowMessages] = useState(false);
   const [dateRange, setDateRange] = useState({
     inicio: new Date().toISOString().split('T')[0],
     fim: new Date().toISOString().split('T')[0]
@@ -20,14 +22,42 @@ export default function MarketingWhatsapp() {
   const loadStats = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/marketing/whatsapp/stats', { params: dateRange });
-      setStats(res.data);
+      const [statsRes, msgsRes] = await Promise.all([
+        api.get('/marketing/whatsapp/stats', { params: dateRange }),
+        api.get('/marketing/whatsapp/messages', { params: dateRange })
+      ]);
+      setStats(statsRes.data);
+      setMessages(msgsRes.data?.messages || []);
     } catch (err) {
       console.error('Erro ao carregar stats:', err);
       setStats(null);
+      setMessages([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatPhone = (jid) => {
+    if (!jid) return '';
+    const num = jid.replace('@s.whatsapp.net', '').replace('@lid', '');
+    if (num.length > 10) return `(${num.slice(2,4)}) ${num.slice(4,9)}-${num.slice(9)}`;
+    return num;
+  };
+
+  const getStatusBadge = (status) => {
+    switch(status) {
+      case 'READ': return <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">Lida</span>;
+      case 'DELIVERY_ACK': return <span className="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700">Entregue</span>;
+      case 'SERVER_ACK': return <span className="px-2 py-0.5 text-xs rounded-full bg-yellow-100 text-yellow-700">Enviada</span>;
+      case 'ERROR': case 'FAILED': return <span className="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-700">Falhou</span>;
+      default: return <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-700">{status}</span>;
+    }
+  };
+
+  const formatTime = (ts) => {
+    if (!ts) return '';
+    const d = new Date(ts * 1000);
+    return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   };
 
   return (
@@ -170,6 +200,59 @@ export default function MarketingWhatsapp() {
                 </svg>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tabela de mensagens */}
+      {messages.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border mt-6">
+          <div className="p-4 border-b flex items-center justify-between">
+            <h3 className="font-semibold text-gray-700">Mensagens Capturadas</h3>
+            <span className="text-sm text-gray-400">{messages.length} mensagens</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="text-left px-4 py-2 text-xs text-gray-500">Contato / Numero</th>
+                  <th className="text-left px-4 py-2 text-xs text-gray-500">Tipo</th>
+                  <th className="text-left px-4 py-2 text-xs text-gray-500">Mensagem</th>
+                  <th className="text-left px-4 py-2 text-xs text-gray-500">Status</th>
+                  <th className="text-left px-4 py-2 text-xs text-gray-500">Horario</th>
+                  <th className="text-left px-4 py-2 text-xs text-gray-500">Enviado/Recebido</th>
+                </tr>
+              </thead>
+              <tbody>
+                {messages.map((msg, i) => (
+                  <tr key={msg.id || i} className="border-t hover:bg-gray-50">
+                    <td className="px-4 py-2">
+                      <div className="font-medium text-gray-800">{msg.pushName || 'Desconhecido'}</div>
+                      <div className="text-xs text-gray-400">{formatPhone(msg.remoteJidAlt || msg.remoteJid)}</div>
+                    </td>
+                    <td className="px-4 py-2 text-xs text-gray-600">
+                      {msg.messageType === 'imageMessage' ? 'Imagem' :
+                       msg.messageType === 'videoMessage' ? 'Video' :
+                       msg.messageType === 'conversation' ? 'Texto' :
+                       msg.messageType === 'audioMessage' ? 'Audio' :
+                       msg.messageType || '-'}
+                    </td>
+                    <td className="px-4 py-2 text-xs text-gray-600 max-w-xs truncate">
+                      {msg.caption || '-'}
+                    </td>
+                    <td className="px-4 py-2">{getStatusBadge(msg.status)}</td>
+                    <td className="px-4 py-2 text-xs text-gray-500">{formatTime(msg.timestamp)}</td>
+                    <td className="px-4 py-2">
+                      {msg.fromMe ? (
+                        <span className="text-xs text-green-600 font-medium">Enviado</span>
+                      ) : (
+                        <span className="text-xs text-blue-600 font-medium">Recebido</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
