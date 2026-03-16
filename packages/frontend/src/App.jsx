@@ -59,6 +59,7 @@ import GarimpadorForaMix from './pages/GarimpadorForaMix';
 import GarimpadorProdutosPesquisar from './pages/GarimpadorProdutosPesquisar';
 import GarimpadorEcommerce from './pages/GarimpadorEcommerce';
 import RotaCrescimento from './pages/RotaCrescimento';
+import MarketingWhatsapp from './pages/MarketingWhatsapp';
 import CalendarioAtendimento from './pages/CalendarioAtendimento';
 import CotacaoPublica from './pages/CotacaoPublica';
 import AnaliseCotacao from './pages/AnaliseCotacao';
@@ -76,7 +77,6 @@ import BoletoDDA from './pages/BoletoDDA';
 import ConciliacaoBancaria from './pages/ConciliacaoBancaria';
 import MetasRanking from './pages/MetasRanking';
 import MetasParametrizar from './pages/MetasParametrizar';
-import VisionPDV from './pages/VisionPDV';
 import VisionOperacoesRisco from './pages/VisionOperacoesRisco';
 import VisionPalavraChave2 from './pages/VisionPalavraChave2';
 import VisionFacial from './pages/VisionFacial';
@@ -521,6 +521,14 @@ function App() {
               }
             />
             <Route
+              path="/marketing-whatsapp"
+              element={
+                <ProtectedRoute>
+                  <MarketingWhatsapp />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/calendario-atendimento"
               element={
                 <ProtectedRoute>
@@ -597,14 +605,6 @@ function App() {
               element={
                 <ProtectedRoute>
                   <MetasParametrizar />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/vision-pdv"
-              element={
-                <ProtectedRoute>
-                  <VisionPDV />
                 </ProtectedRoute>
               }
             />

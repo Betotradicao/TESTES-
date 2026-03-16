@@ -16,6 +16,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       'gestao-radar': false,
       'prevencao-radar': false,
       'financas-radar': false,
+      'marketing-radar': false,
       'ia-radar': false,
       'vision-360': false
     };
@@ -224,6 +225,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/garimpador-fora-mix': 'oferta-radar',
       '/garimpador-produtos-pesquisar': 'oferta-radar',
       '/garimpador-ecommerce': 'oferta-radar',
+      '/marketing-whatsapp': 'marketing-radar',
       '/nota-fiscal-recebimento': 'financas-radar',
       '/notas-a-chegar': 'financas-radar',
       '/demonstrativo-caixa': 'financas-radar',
@@ -632,6 +634,37 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             { id: 'boletos-dda', submenuId: 'boletos-dda', title: 'BOLETOS DDA', path: '/boletos-dda' },
             { id: 'conciliacao-bancaria', submenuId: 'conciliacao-bancaria', title: 'CONCILIAÇÃO BANCÁRIA', path: '/conciliacao-bancaria' }
           ]
+        }
+      ]
+    },
+    {
+      id: 'marketing-radar',
+      title: 'MARKETING NO RADAR',
+      titleComponent: (
+        <span>
+          <span className="text-gray-700">MARKETING NO </span>
+          <span className="text-green-500 font-bold">RADAR</span>
+        </span>
+      ),
+      icon: (
+        <div className="w-5 h-5 bg-green-500 rounded-md flex items-center justify-center">
+          <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+          </svg>
+        </div>
+      ),
+      expandable: true,
+      items: [
+        {
+          id: 'marketing-whatsapp',
+          moduleId: 'marketing-whatsapp',
+          title: 'RESULTADO DE ENTREGA WHATSAPP',
+          path: '/marketing-whatsapp',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+            </svg>
+          )
         }
       ]
     },

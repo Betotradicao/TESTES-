@@ -194,6 +194,39 @@ app.use('/api/face-recognition', faceRecognitionRouter);
 
 // app.use('/api/user-security', userSecurityRouter);
 
+// Marketing WhatsApp - teste de conexão com Evolution API
+app.post('/api/marketing/whatsapp/test-connection', async (req: any, res: any) => {
+  try {
+    const { url, token, instancia } = req.body;
+    if (!url || !token || !instancia) {
+      return res.status(400).json({ error: 'URL, Token e Instância são obrigatórios' });
+    }
+    const axios = require('axios');
+    const response = await axios.get(`${url}/instance/connectionState/${instancia}`, {
+      headers: { apikey: token },
+      timeout: 10000
+    });
+    const state = response.data?.instance?.state || response.data?.state || 'unknown';
+    if (state === 'open' || state === 'connected') {
+      return res.json({ success: true, message: `Conectado! Estado: ${state}` });
+    } else {
+      return res.json({ success: true, message: `Instância encontrada. Estado: ${state}` });
+    }
+  } catch (err: any) {
+    return res.status(500).json({ error: err.response?.data?.message || err.message || 'Falha na conexão' });
+  }
+});
+
+// Marketing WhatsApp - stats de entregas
+app.get('/api/marketing/whatsapp/stats', async (req: any, res: any) => {
+  try {
+    // TODO: implementar busca real de stats da Evolution API
+    return res.json({ enviadas: 0, entregues: 0, lidas: 0, falharam: 0 });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 const startServer = async () => {
   try {
     await AppDataSource.initialize();

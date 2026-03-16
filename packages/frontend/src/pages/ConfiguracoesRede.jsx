@@ -14,6 +14,7 @@ import CronMonitorTab from '../components/configuracoes/CronMonitorTab';
 import BarcodeInstallerTab from '../components/configuracoes/BarcodeInstallerTab';
 import CadastroBancarioTab from '../components/configuracoes/CadastroBancarioTab';
 import DVRCFTVTab from '../components/configuracoes/DVRCFTVTab';
+import DisparoWhatsTab from '../components/configuracoes/DisparoWhatsTab';
 
 export default function ConfiguracoesRede() {
   const { user, logout } = useAuth();
@@ -110,6 +111,7 @@ export default function ConfiguracoesRede() {
             {activeTab === 'barcode-installer' && <BarcodeInstallerTab />}
             {activeTab === 'cadastro-bancario' && <CadastroBancarioTab />}
             {activeTab === 'dvr-cftv' && <DVRCFTVTab />}
+            {activeTab === 'disparo-whats' && <DisparoWhatsTab />}
           </div>
         </div>
       </div>
