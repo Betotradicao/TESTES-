@@ -9,7 +9,7 @@ export default function MarketingWhatsapp() {
   const [stats, setStats] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showMessages, setShowMessages] = useState(false);
+  const [selectedMsg, setSelectedMsg] = useState(null);
   const [dateRange, setDateRange] = useState({
     inicio: new Date().toISOString().split('T')[0],
     fim: new Date().toISOString().split('T')[0]
@@ -218,9 +218,12 @@ export default function MarketingWhatsapp() {
                   <th className="text-left px-4 py-2 text-xs text-gray-500">Contato / Numero</th>
                   <th className="text-left px-4 py-2 text-xs text-gray-500">Tipo</th>
                   <th className="text-left px-4 py-2 text-xs text-gray-500">Mensagem</th>
-                  <th className="text-left px-4 py-2 text-xs text-gray-500">Status</th>
+                  <th className="text-center px-3 py-2 text-xs text-gray-500">Enviado</th>
+                  <th className="text-center px-3 py-2 text-xs text-gray-500">Recebido</th>
+                  <th className="text-center px-3 py-2 text-xs text-gray-500">Visualizado</th>
+                  <th className="text-center px-3 py-2 text-xs text-gray-500">Falhou</th>
                   <th className="text-left px-4 py-2 text-xs text-gray-500">Horario</th>
-                  <th className="text-left px-4 py-2 text-xs text-gray-500">Enviado/Recebido</th>
+                  <th className="text-left px-4 py-2 text-xs text-gray-500">Ver</th>
                 </tr>
               </thead>
               <tbody>
@@ -240,19 +243,130 @@ export default function MarketingWhatsapp() {
                     <td className="px-4 py-2 text-xs text-gray-600 max-w-xs truncate">
                       {msg.caption || '-'}
                     </td>
-                    <td className="px-4 py-2">{getStatusBadge(msg.status)}</td>
+                    <td className="px-3 py-2 text-center">
+                      {(msg.status === 'SERVER_ACK' || msg.status === 'DELIVERY_ACK' || msg.status === 'READ' || msg.status === 'PENDING') ? (
+                        <span className="text-green-500">✔</span>
+                      ) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      {(msg.status === 'DELIVERY_ACK' || msg.status === 'READ') ? (
+                        <span className="text-blue-500">✔✔</span>
+                      ) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      {msg.status === 'READ' ? (
+                        <span className="text-blue-600">✔✔</span>
+                      ) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      {(msg.status === 'ERROR' || msg.status === 'FAILED') ? (
+                        <span className="text-red-500">✘</span>
+                      ) : <span className="text-gray-300">—</span>}
+                    </td>
                     <td className="px-4 py-2 text-xs text-gray-500">{formatTime(msg.timestamp)}</td>
                     <td className="px-4 py-2">
-                      {msg.fromMe ? (
-                        <span className="text-xs text-green-600 font-medium">Enviado</span>
-                      ) : (
-                        <span className="text-xs text-blue-600 font-medium">Recebido</span>
-                      )}
+                      <button
+                        onClick={() => setSelectedMsg(msg)}
+                        className="p-1 text-gray-400 hover:text-gray-700 transition"
+                        title="Ver mensagem"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+      {/* Modal de mensagem */}
+      {selectedMsg && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedMsg(null)}>
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b flex items-center justify-between">
+              <h3 className="font-semibold text-gray-700">Detalhes da Mensagem</h3>
+              <button onClick={() => setSelectedMsg(null)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-3 pb-3 border-b">
+                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                  </svg>
+                </div>
+                <div>
+                  <div className="font-medium text-gray-800">{selectedMsg.pushName || 'Desconhecido'}</div>
+                  <div className="text-xs text-gray-400">{formatPhone(selectedMsg.remoteJidAlt || selectedMsg.remoteJid)}</div>
+                </div>
+                <div className="ml-auto">
+                  {selectedMsg.fromMe ? (
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Enviado</span>
+                  ) : (
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Recebido</span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-500">Tipo</label>
+                <p className="text-sm text-gray-700">
+                  {selectedMsg.messageType === 'imageMessage' ? 'Imagem' :
+                   selectedMsg.messageType === 'videoMessage' ? 'Video' :
+                   selectedMsg.messageType === 'conversation' ? 'Texto' :
+                   selectedMsg.messageType === 'audioMessage' ? 'Audio' :
+                   selectedMsg.messageType || '-'}
+                </p>
+              </div>
+
+              {selectedMsg.imageUrl && (
+                <div>
+                  <label className="text-xs text-gray-500">Imagem</label>
+                  <div className="mt-1">
+                    <img src={selectedMsg.imageUrl} alt="Mensagem" className="max-w-full rounded-lg border max-h-64 object-contain" onError={e => e.target.style.display='none'} />
+                  </div>
+                </div>
+              )}
+
+              {selectedMsg.videoUrl && (
+                <div>
+                  <label className="text-xs text-gray-500">Video</label>
+                  <div className="mt-1">
+                    <video src={selectedMsg.videoUrl} controls className="max-w-full rounded-lg border max-h-64" onError={e => e.target.style.display='none'} />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs text-gray-500">Conteudo</label>
+                <div className="mt-1 p-3 bg-gray-50 rounded-lg text-sm text-gray-800 whitespace-pre-wrap">
+                  {selectedMsg.caption || '(sem texto)'}
+                </div>
+              </div>
+
+              <div className="flex gap-6">
+                <div>
+                  <label className="text-xs text-gray-500">Status</label>
+                  <div className="mt-1">{getStatusBadge(selectedMsg.status)}</div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Horario</label>
+                  <p className="text-sm text-gray-700 mt-1">{formatTime(selectedMsg.timestamp)}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-500">Destino</label>
+                <p className="text-sm text-gray-700">{selectedMsg.remoteJid}</p>
+              </div>
+            </div>
           </div>
         </div>
       )}

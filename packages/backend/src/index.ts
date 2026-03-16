@@ -226,6 +226,39 @@ async function getMarketingConfig() {
   return { url, token, instancia };
 }
 
+// Marketing WhatsApp - helper para buscar dados da Evolution via API
+async function fetchEvolutionData(url: string, token: string, instancia: string) {
+  const axios = require('axios');
+
+  // Buscar instanceId
+  const instResp = await axios.get(`${url}/instance/fetchInstances`, {
+    headers: { apikey: token }, timeout: 10000
+  });
+  const inst = instResp.data?.find((i: any) => i.name === instancia);
+  if (!inst) return null;
+
+  // Buscar todas as mensagens (excluindo stories/status)
+  const msgsResp = await axios.post(`${url}/chat/findMessages/${encodeURIComponent(instancia)}`, {
+    where: {},
+    limit: 1000
+  }, { headers: { apikey: token }, timeout: 30000 }).catch(() => ({ data: { messages: { records: [] } } }));
+
+  let msgs = msgsResp.data?.messages?.records || [];
+
+  // Se API retorna vazio, tentar buscar de outra forma
+  if (msgs.length === 0) {
+    // Tentar endpoint alternativo
+    try {
+      const altResp = await axios.get(`${url}/chat/findContacts/${encodeURIComponent(instancia)}`, {
+        headers: { apikey: token }, timeout: 10000
+      });
+      // Buscar mensagens por contato
+    } catch {}
+  }
+
+  return { instance: inst, messages: msgs };
+}
+
 // Marketing WhatsApp - stats de entregas
 app.get('/api/marketing/whatsapp/stats', async (req: any, res: any) => {
   try {
@@ -235,38 +268,59 @@ app.get('/api/marketing/whatsapp/stats', async (req: any, res: any) => {
     }
     const axios = require('axios');
 
-    // Buscar instância pra pegar o instanceId
+    // Buscar instância
     const instResp = await axios.get(`${url}/instance/fetchInstances`, {
       headers: { apikey: token }, timeout: 10000
     });
     const inst = instResp.data?.find((i: any) => i.name === instancia);
     if (!inst) return res.json(null);
 
-    // Buscar mensagens enviadas (broadcast) via API
-    const msgsResp = await axios.post(`${url}/chat/findMessages/${encodeURIComponent(instancia)}`, {
-      where: { key: { fromMe: true } },
-      limit: 1000
-    }, { headers: { apikey: token }, timeout: 30000 }).catch(() => ({ data: { messages: { records: [] } } }));
-
-    const msgs = msgsResp.data?.messages?.records || [];
-
-    // Se API não retorna, usar contagem da instância
     const totalMsgs = inst._count?.Message || 0;
 
-    // Contar por status
-    let enviadas = 0, entregues = 0, lidas = 0, falharam = 0;
+    // 1. Buscar chats pra descobrir broadcast IDs
+    const chatsResp = await axios.post(`${url}/chat/findChats/${encodeURIComponent(instancia)}`, {},
+      { headers: { apikey: token }, timeout: 10000 }
+    ).catch(() => ({ data: [] }));
+    const chats = chatsResp.data || [];
+    const broadcastIds = chats
+      .map((c: any) => c.remoteJid)
+      .filter((jid: string) => jid?.includes('@broadcast') && jid !== 'status@broadcast');
 
-    if (msgs.length > 0) {
-      msgs.forEach((m: any) => {
-        const fromMe = m.key?.fromMe;
-        if (!fromMe) return;
-        enviadas++;
-        if (m.status === 'READ') lidas++;
-        else if (m.status === 'DELIVERY_ACK' || m.status === 'DELIVERED') entregues++;
-        else if (m.status === 'ERROR' || m.status === 'FAILED') falharam++;
-      });
-    } else {
-      // Fallback: usar dados da instância
+    // 2. Buscar mensagens enviadas (fromMe)
+    const fromMeResp = await axios.post(`${url}/chat/findMessages/${encodeURIComponent(instancia)}`, {
+      where: { key: { fromMe: true } }, limit: 1000
+    }, { headers: { apikey: token }, timeout: 30000 }).catch(() => ({ data: { messages: { records: [] } } }));
+    let msgs = fromMeResp.data?.messages?.records || [];
+
+    // 3. Buscar mensagens de cada broadcast
+    for (const bId of broadcastIds) {
+      const bResp = await axios.post(`${url}/chat/findMessages/${encodeURIComponent(instancia)}`, {
+        where: { key: { remoteJid: bId } }, limit: 500
+      }, { headers: { apikey: token }, timeout: 15000 }).catch(() => ({ data: { messages: { records: [] } } }));
+      const bMsgs = bResp.data?.messages?.records || [];
+      const existingIds = new Set(msgs.map((m: any) => m.key?.id));
+      bMsgs.forEach((m: any) => { if (!existingIds.has(m.key?.id)) msgs.push(m); });
+    }
+
+    let enviadas = 0, entregues = 0, lidas = 0, falharam = 0;
+    msgs.forEach((m: any) => {
+      const fromMe = m.key?.fromMe;
+      const jid = m.key?.remoteJid || '';
+      const isBroadcast = jid.includes('@broadcast') && jid !== 'status@broadcast';
+      if (!fromMe && !isBroadcast) return;
+      enviadas++;
+      // Usar MessageUpdate pra status mais preciso
+      const updates = m.MessageUpdate || [];
+      const hasRead = updates.some((u: any) => u.status === 'READ');
+      const hasDelivery = updates.some((u: any) => u.status === 'DELIVERY_ACK');
+      const hasError = updates.some((u: any) => u.status === 'ERROR' || u.status === 'FAILED');
+      if (hasRead) lidas++;
+      else if (hasDelivery) entregues++;
+      else if (hasError) falharam++;
+    });
+
+    // Se API não retorna msgs enviadas, usar total da instância como fallback
+    if (enviadas === 0 && totalMsgs > 0) {
       enviadas = totalMsgs;
     }
 
@@ -277,7 +331,7 @@ app.get('/api/marketing/whatsapp/stats', async (req: any, res: any) => {
   }
 });
 
-// Marketing WhatsApp - listar mensagens enviadas com detalhes de contatos
+// Marketing WhatsApp - listar mensagens com detalhes
 app.get('/api/marketing/whatsapp/messages', async (req: any, res: any) => {
   try {
     const { url, token, instancia } = await getMarketingConfig();
@@ -286,16 +340,35 @@ app.get('/api/marketing/whatsapp/messages', async (req: any, res: any) => {
     }
     const axios = require('axios');
 
-    // Buscar mensagens via API
-    const msgsResp = await axios.post(`${url}/chat/findMessages/${encodeURIComponent(instancia)}`, {
-      where: {},
-      limit: 500
-    }, { headers: { apikey: token }, timeout: 30000 }).catch(() => ({ data: { messages: { records: [] } } }));
+    // 1. Buscar chats pra descobrir broadcast IDs
+    const chatsResp = await axios.post(`${url}/chat/findChats/${encodeURIComponent(instancia)}`, {},
+      { headers: { apikey: token }, timeout: 10000 }
+    ).catch(() => ({ data: [] }));
+    const chats = chatsResp.data || [];
+    const broadcastIds = chats
+      .map((c: any) => c.remoteJid)
+      .filter((jid: string) => jid?.includes('@broadcast') && jid !== 'status@broadcast');
 
-    const msgs = msgsResp.data?.messages?.records || [];
+    // 2. Buscar mensagens enviadas por nós (fromMe)
+    const fromMeResp = await axios.post(`${url}/chat/findMessages/${encodeURIComponent(instancia)}`, {
+      where: { key: { fromMe: true } }, limit: 500
+    }, { headers: { apikey: token }, timeout: 30000 }).catch(() => ({ data: { messages: { records: [] } } }));
+    let allMsgs = fromMeResp.data?.messages?.records || [];
+
+    // 3. Buscar mensagens de cada broadcast (lista de transmissão)
+    for (const bId of broadcastIds) {
+      const bResp = await axios.post(`${url}/chat/findMessages/${encodeURIComponent(instancia)}`, {
+        where: { key: { remoteJid: bId } }, limit: 100
+      }, { headers: { apikey: token }, timeout: 15000 }).catch(() => ({ data: { messages: { records: [] } } }));
+      const bMsgs = bResp.data?.messages?.records || [];
+      const existingIds = new Set(allMsgs.map((m: any) => m.key?.id));
+      bMsgs.forEach((m: any) => { if (!existingIds.has(m.key?.id)) allMsgs.push(m); });
+    }
+
+    const filtered = allMsgs;
 
     // Formatar mensagens
-    const formatted = msgs.map((m: any) => ({
+    const formatted = filtered.map((m: any) => ({
       id: m.key?.id,
       fromMe: m.key?.fromMe || false,
       remoteJid: m.key?.remoteJid,
@@ -306,6 +379,19 @@ app.get('/api/marketing/whatsapp/messages', async (req: any, res: any) => {
       messageType: m.messageType,
       timestamp: m.messageTimestamp,
       caption: m.message?.imageMessage?.caption || m.message?.videoMessage?.caption || m.message?.conversation || '',
+      imageUrl: m.message?.imageMessage?.url || null,
+      videoUrl: m.message?.videoMessage?.url || null,
+      status: (() => {
+        const updates = m.MessageUpdate || [];
+        if (updates.length > 0) {
+          // Prioridade: READ > DELIVERY_ACK > SERVER_ACK
+          if (updates.some((u: any) => u.status === 'READ')) return 'READ';
+          if (updates.some((u: any) => u.status === 'DELIVERY_ACK')) return 'DELIVERY_ACK';
+          if (updates.some((u: any) => u.status === 'SERVER_ACK')) return 'SERVER_ACK';
+          return updates[updates.length - 1].status;
+        }
+        return m.status || 'PENDING';
+      })(),
     }));
 
     return res.json({ messages: formatted });
