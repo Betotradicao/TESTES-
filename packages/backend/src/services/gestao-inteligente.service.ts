@@ -1308,9 +1308,10 @@ export class GestaoInteligenteService {
     const defaultRow = { venda: 0, custo: 0, impostos: 0, impostoCredito: 0, vendasOferta: 0, qtd: 0, qtdCupons: 0, qtdSkus: 0 };
 
     const criarMapa = (dados: any[]) => {
-      const mapa: Record<number, typeof defaultRow> = {};
+      const mapa: Record<string, typeof defaultRow> = {};
       dados.forEach((r: any) => {
-        mapa[r[codeField]] = {
+        const key = String(r[codeField]);
+        mapa[key] = {
           venda: r.VENDA || 0, custo: r.CUSTO || 0, impostos: r.IMPOSTOS || 0,
           impostoCredito: r.IMPOSTO_CREDITO || 0,
           vendasOferta: r.VENDAS_OFERTA || 0, qtd: r.QTD || 0,
@@ -1346,33 +1347,35 @@ export class GestaoInteligenteService {
 
     // Criar mapa do período atual
     const mapAtual = criarMapa(atual);
-    const mapNomesAtual: Record<number, string> = {};
-    atual.forEach((r: any) => { mapNomesAtual[r[codeField]] = r[nameField]; });
+    const mapNomesAtual: Record<string, string> = {};
+    atual.forEach((r: any) => { mapNomesAtual[String(r[codeField])] = r[nameField]; });
 
     // Merge todos os códigos de todos os períodos
-    const todosNomes: Record<number, string> = {};
+    const todosNomes: Record<string, string> = {};
     [atual, mesPas, anoPas, anoInteiro].forEach((dados: any[]) => {
       dados.forEach((r: any) => {
         const cod = r[codeField];
         const nome = r[nameField];
-        if (cod && nome && !todosNomes[cod]) todosNomes[cod] = nome;
+        if (cod && nome && !todosNomes[String(cod)]) todosNomes[String(cod)] = nome;
       });
     });
-    Object.keys(mapNomesAtual).forEach(k => { todosNomes[Number(k)] = mapNomesAtual[Number(k)]; });
-    const todosCodigos = Object.keys(todosNomes).map(Number).filter(cod => todosNomes[cod]);
+    Object.keys(mapNomesAtual).forEach(k => { todosNomes[k] = mapNomesAtual[k]; });
+    const todosCodigos = Object.keys(todosNomes).filter(cod => todosNomes[cod]);
+    console.log(`  🔗 [MERGE] todosNomes tem ${Object.keys(todosNomes).length} entries, todosCodigos tem ${todosCodigos.length}, sample keys:`, Object.keys(todosNomes).slice(0, 5));
 
     // Montar resultado com TODOS os itens de todos os períodos
-    const result = todosCodigos.map((cod: number) => {
-      const atualRow = mapAtual[cod] || defaultRow;
+    const result = todosCodigos.map((codStr: string) => {
+      const cod = Number(codStr) || codStr as any;
+      const atualRow = mapAtual[codStr] || defaultRow;
       const atualData = calcPeriodo(atualRow);
 
-      const mp = mapMesPas[cod] || defaultRow;
+      const mp = mapMesPas[codStr] || defaultRow;
       const mesPasData = calcPeriodo(mp);
 
-      const ap = mapAnoPas[cod] || defaultRow;
+      const ap = mapAnoPas[codStr] || defaultRow;
       const anoPasData = calcPeriodo(ap);
 
-      const ai = mapAnoInteiro[cod] || defaultRow;
+      const ai = mapAnoInteiro[codStr] || defaultRow;
       const fator = diasAnoAnt > 0 ? diasPeriodoAtual / diasAnoAnt : 0;
       const mlData = calcPeriodo({
         venda: ai.venda * fator, custo: ai.custo * fator, impostos: ai.impostos * fator,
@@ -1383,7 +1386,7 @@ export class GestaoInteligenteService {
 
       return {
         [outCodeKey]: cod,
-        [outNameKey]: todosNomes[cod],
+        [outNameKey]: todosNomes[codStr],
         vendaAtual: atualData.venda, vendaMesPassado: mesPasData.venda,
         vendaAnoPassado: anoPasData.venda, mediaLinear: mlData.venda,
         lucroAtual: atualData.lucro, lucroMesPassado: mesPasData.lucro,
@@ -1517,7 +1520,10 @@ export class GestaoInteligenteService {
     const params: any = { dataInicio, dataFim, codSecao, codGrupo, codSubgrupo };
     if (codLoja) { sql += ` AND pv.COD_LOJA = :codLoja`; params.codLoja = codLoja; }
     sql += ` GROUP BY p.COD_PRODUTO, p.DES_PRODUTO ORDER BY VENDA DESC`;
-    return OracleService.query<any>(sql, params);
+    console.log(`  🔍 [ITEM QUERY] secao=${codSecao} grupo=${codGrupo} subgrupo=${codSubgrupo} periodo=${dataInicio}-${dataFim}`);
+    const result = await OracleService.query<any>(sql, params);
+    console.log(`  🔍 [ITEM QUERY] Retornou ${result.length} itens, total vendas: R$ ${result.reduce((a: number, r: any) => a + (r.VENDA || 0), 0).toFixed(2)}`);
+    return result;
   }
 
   /** Grupos analíticos com comparativos (cascata nível 2) */
