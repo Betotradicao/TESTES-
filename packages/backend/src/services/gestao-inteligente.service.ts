@@ -1493,9 +1493,42 @@ export class GestaoInteligenteService {
     return OracleService.query<any>(sql, params);
   }
 
+  /** Helper: vendas por segmento num período (para analíticos) */
+  private static async buscarVendasPorSegmentoPeriodo(
+    dataInicio: string, dataFim: string, codLoja?: number, codSecao?: number, codGrupo?: number, codSubgrupo?: number
+  ): Promise<any[]> {
+    const schema = await MappingService.getSchema();
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    let tabSegmento = `${schema}.TAB_SEGMENTO`;
+    try { tabSegmento = `${schema}.${await MappingService.getRealTableName('TAB_SEGMENTO')}`; } catch(e) {}
+    const colImpostoDebito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito', 'VAL_IMPOSTO_DEBITO');
+    const colImpostoCredito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito', 'VAL_IMPOSTO_CREDITO');
+
+    let sql = `
+      SELECT p.COD_SEGMENTO, sg.DES_SEGMENTO as SEGMENTO,
+        NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
+        NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
+        NVL(SUM(pv.${colImpostoDebito}), 0) as IMPOSTOS,
+        NVL(SUM(pv.${colImpostoCredito}), 0) as IMPOSTO_CREDITO,
+        NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA,
+        NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
+        COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
+        COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS
+      FROM ${tabProdutoPdv} pv
+      JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.COD_PRODUTO
+      LEFT JOIN ${tabSegmento} sg ON sg.COD_SEGMENTO = p.COD_SEGMENTO
+      WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        AND p.COD_SUB_GRUPO = :codSubgrupo AND p.COD_GRUPO = :codGrupo AND p.COD_SECAO = :codSecao`;
+    const params: any = { dataInicio, dataFim, codSecao, codGrupo, codSubgrupo };
+    if (codLoja) { sql += ` AND pv.COD_LOJA = :codLoja`; params.codLoja = codLoja; }
+    sql += ` GROUP BY p.COD_SEGMENTO, sg.DES_SEGMENTO ORDER BY VENDA DESC`;
+    return OracleService.query<any>(sql, params);
+  }
+
   /** Helper: vendas por item num período (para analíticos) */
   private static async buscarVendasPorItemPeriodo(
-    dataInicio: string, dataFim: string, codLoja?: number, codSecao?: number, codGrupo?: number, codSubgrupo?: number
+    dataInicio: string, dataFim: string, codLoja?: number, codSecao?: number, codGrupo?: number, codSubgrupo?: number, codSegmento?: number
   ): Promise<any[]> {
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
@@ -1518,12 +1551,10 @@ export class GestaoInteligenteService {
         AND p.COD_SUB_GRUPO = :codSubgrupo AND p.COD_GRUPO = :codGrupo AND p.COD_SECAO = :codSecao
       WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')`;
     const params: any = { dataInicio, dataFim, codSecao, codGrupo, codSubgrupo };
+    if (codSegmento !== undefined) { sql += ` AND p.COD_SEGMENTO = :codSegmento`; params.codSegmento = codSegmento; }
     if (codLoja) { sql += ` AND pv.COD_LOJA = :codLoja`; params.codLoja = codLoja; }
     sql += ` GROUP BY p.COD_PRODUTO, p.DES_PRODUTO ORDER BY VENDA DESC`;
-    console.log(`  🔍 [ITEM QUERY] secao=${codSecao} grupo=${codGrupo} subgrupo=${codSubgrupo} periodo=${dataInicio}-${dataFim}`);
-    const result = await OracleService.query<any>(sql, params);
-    console.log(`  🔍 [ITEM QUERY] Retornou ${result.length} itens, total vendas: R$ ${result.reduce((a: number, r: any) => a + (r.VENDA || 0), 0).toFixed(2)}`);
-    return result;
+    return OracleService.query<any>(sql, params);
   }
 
   /** Grupos analíticos com comparativos (cascata nível 2) */
@@ -1550,16 +1581,24 @@ export class GestaoInteligenteService {
     return result;
   }
 
-  /** Itens analíticos com comparativos (cascata nível 4) */
-  static async getItensAnaliticos(filters: IndicadoresFilters & { codSecao: number; codGrupo: number; codSubgrupo: number }): Promise<any[]> {
-    console.log(`📊 [ANALÍTICOS] Buscando itens analíticos do subgrupo ${filters.codSubgrupo} grupo ${filters.codGrupo} secao ${filters.codSecao}...`);
+  /** Segmentos analíticos com comparativos (cascata nível 4) */
+  static async getSegmentosAnaliticos(filters: IndicadoresFilters & { codSecao: number; codGrupo: number; codSubgrupo: number }): Promise<any[]> {
+    console.log(`📊 [ANALÍTICOS] Buscando segmentos analíticos do subgrupo ${filters.codSubgrupo}...`);
     const result = await this.buildAnaliticos(
       filters,
-      async (ini, fim) => {
-        const r = await this.buscarVendasPorItemPeriodo(ini, fim, filters.codLoja, filters.codSecao, filters.codGrupo, filters.codSubgrupo);
-        console.log(`  📦 Período ${ini}-${fim}: ${r.length} itens encontrados`, r.length > 0 ? r.map((x: any) => `${x.COD_PRODUTO}:${x.PRODUTO}`).slice(0, 5) : '(vazio)');
-        return r;
-      },
+      (ini, fim) => this.buscarVendasPorSegmentoPeriodo(ini, fim, filters.codLoja, filters.codSecao, filters.codGrupo, filters.codSubgrupo),
+      'COD_SEGMENTO', 'SEGMENTO', 'codSegmento', 'segmento'
+    );
+    console.log(`✅ [ANALÍTICOS] ${result.length} segmentos com comparativos`);
+    return result;
+  }
+
+  /** Itens analíticos com comparativos (cascata nível 5) */
+  static async getItensAnaliticos(filters: IndicadoresFilters & { codSecao: number; codGrupo: number; codSubgrupo: number; codSegmento?: number }): Promise<any[]> {
+    console.log(`📊 [ANALÍTICOS] Buscando itens analíticos do subgrupo ${filters.codSubgrupo} segmento ${filters.codSegmento || 'todos'}...`);
+    const result = await this.buildAnaliticos(
+      filters,
+      (ini, fim) => this.buscarVendasPorItemPeriodo(ini, fim, filters.codLoja, filters.codSecao, filters.codGrupo, filters.codSubgrupo, filters.codSegmento),
       'COD_PRODUTO', 'PRODUTO', 'codProduto', 'produto'
     );
     console.log(`📊 [ANALÍTICOS] buildAnaliticos retornou ${result.length} itens`);

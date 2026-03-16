@@ -197,6 +197,7 @@ export default function GestaoInteligente() {
   const [expandedAnaliticaSecoes, setExpandedAnaliticaSecoes] = useState({});
   const [expandedAnaliticaGrupos, setExpandedAnaliticaGrupos] = useState({});
   const [expandedAnaliticaSubgrupos, setExpandedAnaliticaSubgrupos] = useState({});
+  const [expandedAnaliticaSegmentos, setExpandedAnaliticaSegmentos] = useState({});
 
   // Estado para filtro de oferta na Análise Comparativa: 'com' = todas as vendas, 'sem' = subtraindo ofertas
   const [filtroOferta, setFiltroOferta] = useState('com');
@@ -1531,15 +1532,14 @@ export default function GestaoInteligente() {
     }
   };
 
-  // Cascata analítica: Expandir/Recolher subgrupo → itens
+  // Cascata analítica: Expandir/Recolher subgrupo → segmentos
   const toggleAnaliticaSubgrupo = async (codSubgrupo, codGrupo, codSecao) => {
     const key = `${codSecao}_${codGrupo}_${codSubgrupo}`;
     if (expandedAnaliticaSubgrupos[key]) {
       setExpandedAnaliticaSubgrupos(prev => { const n = { ...prev }; delete n[key]; return n; });
-      // Voltar gráfico pra subgrupos se estava nos itens
       const grpKey = `${codSecao}_${codGrupo}`;
       const grpExp = expandedAnaliticaGrupos[grpKey];
-      if (graficoAnaliticaDrill.level === 'itens' && grpExp?.data) {
+      if ((graficoAnaliticaDrill.level === 'segmentos' || graficoAnaliticaDrill.level === 'itens') && grpExp?.data) {
         const secaoInfo = vendasAnaliticas.find(s => s.codSecao === codSecao);
         const grupoInfo = expandedAnaliticaSecoes[codSecao]?.data?.find(g => g.codGrupo === codGrupo);
         setGraficoAnaliticaDrill({
@@ -1553,18 +1553,26 @@ export default function GestaoInteligente() {
       }
       return;
     }
-    setExpandedAnaliticaSubgrupos(prev => ({ ...prev, [key]: { data: [], loading: true } }));
+    setExpandedAnaliticaSubgrupos(prev => ({ ...prev, [key]: { data: [], loading: true, type: null } }));
     try {
       const params = { dataInicio: filters.dataInicio, dataFim: filters.dataFim, codSecao, codGrupo, codSubgrupo };
       if (lojaSelecionada) params.codLoja = lojaSelecionada;
-      const response = await api.get('/gestao-inteligente/itens-analiticos', { params });
-      setExpandedAnaliticaSubgrupos(prev => ({ ...prev, [key]: { data: response.data, loading: false } }));
-      // Atualizar gráfico para mostrar itens
+      // Tentar buscar segmentos primeiro
+      const segResponse = await api.get('/gestao-inteligente/segmentos-analiticos', { params });
+      const segmentos = segResponse.data.filter(s => s.codSegmento != null);
+      if (segmentos.length > 0) {
+        // Tem segmentos — mostrar nível de segmentos
+        setExpandedAnaliticaSubgrupos(prev => ({ ...prev, [key]: { data: segmentos, loading: false, type: 'segmentos' } }));
+      } else {
+        // Sem segmentos — buscar itens diretamente
+        const itensResponse = await api.get('/gestao-inteligente/itens-analiticos', { params });
+        setExpandedAnaliticaSubgrupos(prev => ({ ...prev, [key]: { data: itensResponse.data, loading: false, type: 'itens' } }));
+      }
       const secaoInfo = vendasAnaliticas.find(s => s.codSecao === codSecao);
       const grupoInfo = expandedAnaliticaSecoes[codSecao]?.data?.find(g => g.codGrupo === codGrupo);
       const subInfo = expandedAnaliticaGrupos[`${codSecao}_${codGrupo}`]?.data?.find(s => s.codSubgrupo === codSubgrupo);
       setGraficoAnaliticaDrill({
-        level: 'itens', data: response.data,
+        level: segmentos.length > 0 ? 'segmentos' : 'itens', data: segmentos.length > 0 ? segmentos : segResponse.data,
         breadcrumb: [
           { label: 'Seções' },
           { label: secaoInfo?.setor || `Seção ${codSecao}`, codSecao },
@@ -1573,8 +1581,27 @@ export default function GestaoInteligente() {
         ]
       });
     } catch (err) {
-      console.error('Erro ao buscar itens analíticos:', err);
-      setExpandedAnaliticaSubgrupos(prev => ({ ...prev, [key]: { data: [], loading: false } }));
+      console.error('Erro ao buscar segmentos/itens analíticos:', err);
+      setExpandedAnaliticaSubgrupos(prev => ({ ...prev, [key]: { data: [], loading: false, type: null } }));
+    }
+  };
+
+  // Cascata analítica: Expandir/Recolher segmento → itens
+  const toggleAnaliticaSegmento = async (codSegmento, codSubgrupo, codGrupo, codSecao) => {
+    const key = `${codSecao}_${codGrupo}_${codSubgrupo}_${codSegmento}`;
+    if (expandedAnaliticaSegmentos[key]) {
+      setExpandedAnaliticaSegmentos(prev => { const n = { ...prev }; delete n[key]; return n; });
+      return;
+    }
+    setExpandedAnaliticaSegmentos(prev => ({ ...prev, [key]: { data: [], loading: true } }));
+    try {
+      const params = { dataInicio: filters.dataInicio, dataFim: filters.dataFim, codSecao, codGrupo, codSubgrupo, codSegmento };
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
+      const response = await api.get('/gestao-inteligente/itens-analiticos', { params });
+      setExpandedAnaliticaSegmentos(prev => ({ ...prev, [key]: { data: response.data, loading: false } }));
+    } catch (err) {
+      console.error('Erro ao buscar itens do segmento:', err);
+      setExpandedAnaliticaSegmentos(prev => ({ ...prev, [key]: { data: [], loading: false } }));
     }
   };
 
@@ -3636,24 +3663,67 @@ export default function GestaoInteligente() {
                                         {renderAnaliticaCells(sub)}
                                       </tr>
 
-                                      {/* Nível 4: Itens */}
-                                      {subExpanded?.data?.map((item, iIdx) => (
-                                        <tr key={`ai-${item.codProduto || iIdx}`} className={`hover:bg-amber-100 ${iIdx % 2 === 0 ? 'bg-amber-50/50' : 'bg-amber-50'} border-b border-amber-100/50`}>
-                                          <td className="px-4 py-1.5 text-xs text-gray-500 pl-24 sticky left-0 z-10 bg-amber-50/50">
-                                            <span className="flex items-center gap-2 whitespace-nowrap">
-                                              <span className="relative group cursor-pointer">
-                                                <span className="w-3 h-3 rounded-full bg-gray-400 hover:bg-gray-600 inline-block transition-colors"></span>
-                                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
-                                                  {item.fornecedor || 'Sem fornecedor'}
+                                      {/* Nível 4: Segmentos ou Itens diretos */}
+                                      {subExpanded?.type === 'itens' ? (
+                                        /* Sem segmentos — mostrar itens diretamente */
+                                        subExpanded?.data?.map((item, iIdx) => (
+                                          <tr key={`ai-${item.codProduto || iIdx}`} className={`hover:bg-amber-100 ${iIdx % 2 === 0 ? 'bg-amber-50/50' : 'bg-amber-50'} border-b border-amber-100/50`}>
+                                            <td className="px-4 py-1.5 text-xs text-gray-500 pl-24 sticky left-0 z-10 bg-amber-50/50">
+                                              <span className="flex items-center gap-2 whitespace-nowrap">
+                                                <span className="relative group cursor-pointer">
+                                                  <span className="w-3 h-3 rounded-full bg-gray-400 hover:bg-gray-600 inline-block transition-colors"></span>
+                                                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                                                    {item.fornecedor || 'Sem fornecedor'}
+                                                  </span>
                                                 </span>
+                                                {item.produto}
                                               </span>
-                                              {item.produto}
-                                            </span>
-                                          </td>
-                                          <td className="px-3 py-1.5 text-center text-xs font-bold text-sky-700 bg-sky-50/50">{formatNumber(item.estoqueAtual)}</td>
-                                          {renderAnaliticaCells(item, 'text-xs')}
-                                        </tr>
-                                      ))}
+                                            </td>
+                                            <td className="px-3 py-1.5 text-center text-xs font-bold text-sky-700 bg-sky-50/50">{formatNumber(item.estoqueAtual)}</td>
+                                            {renderAnaliticaCells(item, 'text-xs')}
+                                          </tr>
+                                        ))
+                                      ) : (
+                                        /* Com segmentos */
+                                        subExpanded?.data?.map((seg, segIdx) => {
+                                          const segKey = `${setor.codSecao}_${grupo.codGrupo}_${sub.codSubgrupo}_${seg.codSegmento}`;
+                                          const segExpanded = expandedAnaliticaSegmentos[segKey];
+                                          return (
+                                          <Fragment key={`aseg-${segKey}`}>
+                                            <tr className={`hover:bg-purple-100 ${segIdx % 2 === 0 ? 'bg-purple-50/30' : 'bg-purple-50/50'} border-b border-purple-100/50`}>
+                                              <td className="px-4 py-2 text-xs text-purple-700 pl-20 sticky left-0 z-10 bg-white">
+                                                <button onClick={() => toggleAnaliticaSegmento(seg.codSegmento, sub.codSubgrupo, grupo.codGrupo, setor.codSecao)} className="flex items-center gap-2 text-purple-700 whitespace-nowrap">
+                                                  <span className={`w-3.5 h-3.5 flex-shrink-0 flex items-center justify-center rounded text-[10px] font-bold transition-colors ${segExpanded ? 'bg-purple-500 text-white' : 'bg-purple-200 text-purple-700'}`}>
+                                                    {segExpanded?.loading ? '.' : segExpanded ? '−' : '+'}
+                                                  </span>
+                                                  {seg.segmento || `Segmento ${seg.codSegmento}`}
+                                                </button>
+                                              </td>
+                                              <td className="px-3 py-2 text-center text-xs text-gray-400">—</td>
+                                              {renderAnaliticaCells(seg, 'text-xs')}
+                                            </tr>
+
+                                            {/* Nível 5: Itens dentro do Segmento */}
+                                            {segExpanded?.data?.map((item, iIdx) => (
+                                              <tr key={`ai-${item.codProduto || iIdx}`} className={`hover:bg-amber-100 ${iIdx % 2 === 0 ? 'bg-amber-50/50' : 'bg-amber-50'} border-b border-amber-100/50`}>
+                                                <td className="px-4 py-1.5 text-xs text-gray-500 pl-28 sticky left-0 z-10 bg-amber-50/50">
+                                                  <span className="flex items-center gap-2 whitespace-nowrap">
+                                                    <span className="relative group cursor-pointer">
+                                                      <span className="w-3 h-3 rounded-full bg-gray-400 hover:bg-gray-600 inline-block transition-colors"></span>
+                                                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                                                        {item.fornecedor || 'Sem fornecedor'}
+                                                      </span>
+                                                    </span>
+                                                    {item.produto}
+                                                  </span>
+                                                </td>
+                                                <td className="px-3 py-1.5 text-center text-xs font-bold text-sky-700 bg-sky-50/50">{formatNumber(item.estoqueAtual)}</td>
+                                                {renderAnaliticaCells(item, 'text-xs')}
+                                              </tr>
+                                            ))}
+                                          </Fragment>);
+                                        })
+                                      )}
                                     </Fragment>);
                                   })}
                                 </Fragment>);

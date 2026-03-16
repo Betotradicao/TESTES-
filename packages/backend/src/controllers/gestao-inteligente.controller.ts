@@ -286,8 +286,8 @@ export class GestaoInteligenteController {
     }
   }
 
-  /** GET /api/gestao-inteligente/itens-analiticos */
-  static async getItensAnaliticos(req: AuthRequest, res: Response) {
+  /** GET /api/gestao-inteligente/segmentos-analiticos */
+  static async getSegmentosAnaliticos(req: AuthRequest, res: Response) {
     try {
       const { dataInicio, dataFim, codSecao, codGrupo, codSubgrupo, codLoja } = req.query;
       if (!dataInicio || !dataFim || !codSecao || !codGrupo || !codSubgrupo) {
@@ -297,6 +297,28 @@ export class GestaoInteligenteController {
         dataInicio: String(dataInicio), dataFim: String(dataFim),
         codSecao: parseInt(String(codSecao)), codGrupo: parseInt(String(codGrupo)),
         codSubgrupo: parseInt(String(codSubgrupo)),
+        codLoja: codLoja ? parseInt(String(codLoja)) : undefined
+      };
+      const resultado = await GestaoInteligenteService.getSegmentosAnaliticos(filters);
+      res.json(resultado);
+    } catch (error: any) {
+      console.error('Erro ao buscar segmentos analíticos:', error);
+      res.status(500).json({ error: error.message || 'Erro interno do servidor' });
+    }
+  }
+
+  /** GET /api/gestao-inteligente/itens-analiticos */
+  static async getItensAnaliticos(req: AuthRequest, res: Response) {
+    try {
+      const { dataInicio, dataFim, codSecao, codGrupo, codSubgrupo, codSegmento, codLoja } = req.query;
+      if (!dataInicio || !dataFim || !codSecao || !codGrupo || !codSubgrupo) {
+        return res.status(400).json({ error: 'Parâmetros dataInicio, dataFim, codSecao, codGrupo e codSubgrupo são obrigatórios' });
+      }
+      const filters = {
+        dataInicio: String(dataInicio), dataFim: String(dataFim),
+        codSecao: parseInt(String(codSecao)), codGrupo: parseInt(String(codGrupo)),
+        codSubgrupo: parseInt(String(codSubgrupo)),
+        codSegmento: codSegmento ? parseInt(String(codSegmento)) : undefined,
         codLoja: codLoja ? parseInt(String(codLoja)) : undefined
       };
       const resultado = await GestaoInteligenteService.getItensAnaliticos(filters);
