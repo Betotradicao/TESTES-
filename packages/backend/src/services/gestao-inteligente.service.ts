@@ -1586,23 +1586,22 @@ export class GestaoInteligenteService {
         console.error('Erro ao buscar estoque dos itens:', err);
       }
 
-      // Buscar fornecedor dos produtos (query separada para não quebrar estoque se falhar)
+      // Buscar fornecedor dos produtos via TAB_PRODUTO_LOJA (cod_forn_ult_compra) + TAB_FORNECEDOR
       try {
-        const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+        const tabProdutoLoja2 = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
         const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
-        const pCodProdutoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
-        const pCodFornecedorCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_fornecedor');
+        const plCodProdutoCol2 = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
+        const plCodFornUltCompra = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra');
         const fCodFornecedorCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
-        const fNomeFantasiaCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'nome_fantasia');
         const fRazaoSocialCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social');
-        const sqlFornecedor = `SELECT p.${pCodProdutoCol} as COD_PRODUTO, NVL(NVL(f.${fNomeFantasiaCol}, f.${fRazaoSocialCol}), 'Sem fornecedor') as FORNECEDOR
-          FROM ${tabProduto} p
-          LEFT JOIN ${tabFornecedor} f ON f.${fCodFornecedorCol} = p.${pCodFornecedorCol}
-          WHERE p.${pCodProdutoCol} IN (${codProdutos.join(',')})`;
+        const sqlFornecedor = `SELECT pl.${plCodProdutoCol2} as COD_PRODUTO, NVL(f.${fRazaoSocialCol}, 'Sem fornecedor') as FORNECEDOR
+          FROM ${tabProdutoLoja2} pl
+          LEFT JOIN ${tabFornecedor} f ON f.${fCodFornecedorCol} = pl.${plCodFornUltCompra}
+          WHERE pl.${plCodProdutoCol2} IN (${codProdutos.join(',')})`;
         const fornecedores = await OracleService.query<any>(sqlFornecedor, {});
-        const mapaFornecedor: Record<number, string> = {};
-        fornecedores.forEach((f: any) => { mapaFornecedor[f.COD_PRODUTO] = f.FORNECEDOR || 'Sem fornecedor'; });
-        result.forEach((r: any) => { r.fornecedor = mapaFornecedor[r.codProduto] || 'Sem fornecedor'; });
+        const mapaFornecedor: Record<string, string> = {};
+        fornecedores.forEach((f: any) => { mapaFornecedor[String(Number(f.COD_PRODUTO))] = f.FORNECEDOR || 'Sem fornecedor'; });
+        result.forEach((r: any) => { r.fornecedor = mapaFornecedor[String(r.codProduto)] || 'Sem fornecedor'; });
         console.log(`📦 [ANALÍTICOS] Fornecedores: ${fornecedores.length} encontrados`);
       } catch (err) {
         console.error('Erro ao buscar fornecedor dos itens:', err);
