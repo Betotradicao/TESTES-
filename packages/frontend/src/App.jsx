@@ -47,6 +47,7 @@ import CompetitividadeConcorrencia from './pages/CompetitividadeConcorrencia';
 import AncoragemPreco from './pages/AncoragemPreco';
 import FrenteCaixa from './pages/FrenteCaixa';
 import PrevencaoCaixa from './pages/PrevencaoCaixa';
+import PrevcaoTributaria from './pages/PrevcaoTributaria';
 import PrevencaoPedidos from './pages/PrevencaoPedidos';
 import RupturaIndustria from './pages/RupturaIndustria';
 import PrazoFornecedores from './pages/PrazoFornecedores';
@@ -421,6 +422,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PrevencaoPedidos />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/prevencao-tributaria"
+              element={
+                <ProtectedRoute>
+                  <PrevcaoTributaria />
                 </ProtectedRoute>
               }
             />

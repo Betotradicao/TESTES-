@@ -50,6 +50,7 @@ import frenteCaixaRouter from './routes/frente-caixa.routes';
 import pedidosCompraRouter from './routes/pedidos-compra.routes';
 import rupturaIndustriaRouter from './routes/ruptura-industria.routes';
 import gestaoInteligenteRouter from './routes/gestao-inteligente.routes';
+import tributacaoRouter from './routes/tributacao.routes';
 import databaseConnectionsRouter from './routes/database-connections.routes';
 import erpTemplatesRouter from './routes/erp-templates.routes';
 import tunnelInstallerRouter from './routes/tunnel-installer.routes';
@@ -162,6 +163,7 @@ app.use('/api/frente-caixa', frenteCaixaRouter);
 app.use('/api/pedidos-compra', pedidosCompraRouter);
 app.use('/api/ruptura-industria', rupturaIndustriaRouter);
 app.use('/api/gestao-inteligente', gestaoInteligenteRouter);
+app.use('/api/tributacao', tributacaoRouter);
 app.use('/api/database-connections', databaseConnectionsRouter);
 app.use('/api/erp-templates', erpTemplatesRouter);
 app.use('/api/tunnel-installer', tunnelInstallerRouter);
@@ -399,6 +401,7 @@ app.get('/api/marketing/whatsapp/messages', async (req: any, res: any) => {
     return res.status(500).json({ error: err.message });
   }
 });
+
 
 const startServer = async () => {
   try {
