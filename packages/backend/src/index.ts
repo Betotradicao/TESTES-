@@ -375,7 +375,6 @@ app.get('/api/marketing/whatsapp/messages', async (req: any, res: any) => {
       participant: m.key?.participant,
       remoteJidAlt: m.key?.remoteJidAlt,
       pushName: m.pushName,
-      status: m.status,
       messageType: m.messageType,
       timestamp: m.messageTimestamp,
       caption: m.message?.imageMessage?.caption || m.message?.videoMessage?.caption || m.message?.conversation || '',
