@@ -50,42 +50,26 @@ function classifyTax(
   perAliqOutorg: number,
   flgNaoIcms: string
 ): { status: 'OK' | 'ATENCAO' | 'ALERTA'; motivo: string } {
-  // Produto isento de ICMS em ambas as pontas
   if (flgNaoIcms === 'S' || (perIcmsEntrada === 0 && perIcmsSaida === 0)) {
     return { status: 'OK', motivo: '' };
   }
 
-  const diff = Math.abs(perIcmsEntrada - perIcmsSaida);
-
-  // Taxas iguais
-  if (diff < 0.01) {
+  if (Math.abs(perIcmsEntrada - perIcmsSaida) < 0.01) {
     return { status: 'OK', motivo: '' };
   }
 
-  // Entrada = 0 mas saída > 0 → está debitando sem creditar → ALERTA
   if (perIcmsEntrada === 0 && perIcmsSaida > 0) {
-    return {
-      status: 'ALERTA',
-      motivo: `Entrada 0% e saída ${perIcmsSaida}% — sem crédito de ICMS`
-    };
+    return { status: 'ALERTA', motivo: `Entrada 0% e saída ${perIcmsSaida}% — sem crédito de ICMS` };
   }
 
-  // Entrada > 0 e saída = 0 → pode ser isento na saída
   if (perIcmsEntrada > 0 && perIcmsSaida === 0) {
-    return {
-      status: 'ATENCAO',
-      motivo: `Entrada ${perIcmsEntrada}% e saída isenta/0%`
-    };
+    return { status: 'ATENCAO', motivo: `Entrada ${perIcmsEntrada}% e saída isenta/0%` };
   }
 
-  // Ambos > 0 mas diferentes
   if (perIcmsEntrada !== perIcmsSaida) {
-    // Alíquota outorgada explica a diferença? (outorgado ≈ saída)
     if (perAliqOutorg > 0 && Math.abs(perAliqOutorg - perIcmsSaida) < 0.01) {
       return { status: 'OK', motivo: `Redução BC aplicada — outorgado ${perAliqOutorg}%` };
     }
-    // Também: se a diferença se justifica por uma redução típica (33,33% ou 20%)
-    // ex: 18 * (1 - 1/3) = 12  →  OK com redução de 1/3
     const reductions = [1/3, 0.2, 0.25, 0.4, 0.5];
     for (const r of reductions) {
       const effective = Math.round(perIcmsEntrada * (1 - r) * 100) / 100;
@@ -93,18 +77,10 @@ function classifyTax(
         return { status: 'OK', motivo: `Redução de BC de ${Math.round(r * 100)}% — ${perIcmsEntrada}% → ${perIcmsSaida}%` };
       }
     }
-    // Entrada < saída → pagando mais imposto do que credita → ALERTA
     if (perIcmsEntrada < perIcmsSaida) {
-      return {
-        status: 'ALERTA',
-        motivo: `Entrada ${perIcmsEntrada}% < Saída ${perIcmsSaida}% — débito maior que crédito`
-      };
+      return { status: 'ALERTA', motivo: `Entrada ${perIcmsEntrada}% < Saída ${perIcmsSaida}% — débito maior que crédito` };
     }
-    // Entrada > saída sem redução justificada → ATENÇÃO
-    return {
-      status: 'ATENCAO',
-      motivo: `Entrada ${perIcmsEntrada}% ≠ Saída ${perIcmsSaida}% sem redução de BC cadastrada`
-    };
+    return { status: 'ATENCAO', motivo: `Entrada ${perIcmsEntrada}% ≠ Saída ${perIcmsSaida}% sem redução de BC cadastrada` };
   }
 
   return { status: 'OK', motivo: '' };
@@ -112,127 +88,171 @@ function classifyTax(
 
 export class TributacaoService {
   static async getProdutosTributacao(filters: TributacaoFilters): Promise<TributacaoItem[]> {
-    const schema = await MappingService.getSchema();
-    const tabProduto    = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
-    const tabProdLoja   = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
-    const tabSecao      = `${schema}.${await MappingService.getRealTableName('TAB_SECAO')}`;
-    const tabGrupo      = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO')}`;
-    const tabSubgrupo   = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO')}`;
-    let tabSegmento     = `${schema}.TAB_SEGMENTO`;
-    try { tabSegmento   = `${schema}.${await MappingService.getRealTableName('TAB_SEGMENTO')}`; } catch {}
+    const schema       = await MappingService.getSchema();
+    const tabProduto   = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    const tabProdLoja  = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
+    const tabSecao     = `${schema}.${await MappingService.getRealTableName('TAB_SECAO')}`;
+    const tabGrupo     = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO')}`;
+    const tabSubgrupo  = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO')}`;
+    let   tabSegmento  = `${schema}.TAB_SEGMENTO`;
+    try { tabSegmento  = `${schema}.${await MappingService.getRealTableName('TAB_SEGMENTO')}`; } catch {}
+
+    // ── TAB_PRODUTO ──────────────────────────────────────────────────────────
+    const colCodProd        = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+    const colDesProd        = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+    const colCodSecao       = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
+    const colCodGrupo       = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo');
+    const colCodSubGrupo    = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo');
+    const colCodSegmento    = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_segmento');
+    const colStatusProd     = await MappingService.getColumnFromTable('TAB_PRODUTO', 'status_produto');
+    const colCodNbm         = await MappingService.getColumnFromTable('TAB_PRODUTO', 'cod_nbm');
+    const colCstPisCofEnt   = await MappingService.getColumnFromTable('TAB_PRODUTO', 'cst_pis_cofins_entrada');
+    const colCstPisCofSai   = await MappingService.getColumnFromTable('TAB_PRODUTO', 'cst_pis_cofins_saida');
+    const colFlgNaoIcms     = await MappingService.getColumnFromTable('TAB_PRODUTO', 'flag_nao_icms');
+    const colFlgNaoPisCof   = await MappingService.getColumnFromTable('TAB_PRODUTO', 'flag_nao_pis_cofins');
+
+    // ── TAB_SECAO / TAB_GRUPO / TAB_SUBGRUPO ─────────────────────────────────
+    const colDesSecao       = await MappingService.getColumnFromTable('TAB_SECAO',    'descricao_secao');
+    const colCodSecaoSec    = await MappingService.getColumnFromTable('TAB_SECAO',    'codigo_secao');
+    const colDesGrupo       = await MappingService.getColumnFromTable('TAB_GRUPO',    'descricao_grupo');
+    const colCodGrupoGrp    = await MappingService.getColumnFromTable('TAB_GRUPO',    'codigo_grupo');
+    const colCodSecaoGrp    = await MappingService.getColumnFromTable('TAB_SECAO',    'codigo_secao');
+    const colDesSubGrupo    = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo');
+    const colCodSubGrupoSg  = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo');
+    const colCodGrupoSg     = await MappingService.getColumnFromTable('TAB_GRUPO',    'codigo_grupo');
+    const colCodSecaoSg     = await MappingService.getColumnFromTable('TAB_SECAO',    'codigo_secao');
+
+    // ── TAB_PRODUTO_LOJA ─────────────────────────────────────────────────────
+    const colCodProdLoja    = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
+    const colCodLojaLoja    = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
+    const colCodNcm         = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_ncm');
+    const colCodTribSai     = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_tributacao_saida');
+    const colCodTribEnt     = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_tributacao_entrada');
+    const colPerIcmsEnt     = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'icms_aliquota_entrada');
+    const colPerIcmsSai     = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'icms_aliquota_saida');
+    const colPerAliqOut     = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'icms_aliq_outorgada');
+    const colPerPisEnt      = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pis_aliquota_entrada');
+    const colPerPisSai      = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pis_aliquota_saida');
+    const colPerCofEnt      = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cofins_aliquota_entrada');
+    const colPerCofSai      = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cofins_aliquota_saida');
+    const colValImpIcms     = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'valor_imposto_icms');
+    const colValImpPis      = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'valor_imposto_pis');
+    const colValImpCofins   = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'valor_imposto_cofins');
+    const colValImpCred     = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'valor_imposto_credito_loja');
+    const colValVenda       = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda');
+    const colValCusto       = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo');
 
     const params: any = { codLoja: filters.codLoja || 1 };
 
     let whereExtra = '';
-    if (filters.codSecao)    { whereExtra += ` AND p.COD_SECAO = :codSecao`;       params.codSecao    = filters.codSecao;    }
-    if (filters.codGrupo)    { whereExtra += ` AND p.COD_GRUPO = :codGrupo`;       params.codGrupo    = filters.codGrupo;    }
-    if (filters.codSubGrupo) { whereExtra += ` AND p.COD_SUB_GRUPO = :codSubGrupo`; params.codSubGrupo = filters.codSubGrupo; }
-    if (filters.codSegmento) { whereExtra += ` AND p.COD_SEGMENTO = :codSegmento`; params.codSegmento = filters.codSegmento; }
+    if (filters.codSecao)    { whereExtra += ` AND p.${colCodSecao} = :codSecao`;       params.codSecao    = filters.codSecao;    }
+    if (filters.codGrupo)    { whereExtra += ` AND p.${colCodGrupo} = :codGrupo`;       params.codGrupo    = filters.codGrupo;    }
+    if (filters.codSubGrupo) { whereExtra += ` AND p.${colCodSubGrupo} = :codSubGrupo`; params.codSubGrupo = filters.codSubGrupo; }
+    if (filters.codSegmento) { whereExtra += ` AND p.${colCodSegmento} = :codSegmento`; params.codSegmento = filters.codSegmento; }
 
     const sql = `
       SELECT
-        p.COD_PRODUTO,
-        p.DES_PRODUTO,
-        p.COD_SECAO,
-        sec.DES_SECAO,
-        p.COD_GRUPO,
-        grp.DES_GRUPO,
-        p.COD_SUB_GRUPO,
-        sg.DES_SUB_GRUPO,
-        p.COD_SEGMENTO,
+        p.${colCodProd}                                   AS COD_PRODUTO,
+        p.${colDesProd}                                   AS DES_PRODUTO,
+        p.${colCodSecao}                                  AS COD_SECAO,
+        sec.${colDesSecao}                                AS DES_SECAO,
+        p.${colCodGrupo}                                  AS COD_GRUPO,
+        grp.${colDesGrupo}                                AS DES_GRUPO,
+        p.${colCodSubGrupo}                               AS COD_SUB_GRUPO,
+        sg.${colDesSubGrupo}                              AS DES_SUB_GRUPO,
+        p.${colCodSegmento}                               AS COD_SEGMENTO,
         seg.DES_SEGMENTO,
-        NVL(TO_CHAR(pl.COD_NCM), p.COD_NBM) AS NCM,
-        NVL(pl.COD_TRIBUTACAO, 0)       AS COD_TRIBUTACAO,
-        NVL(pl.COD_TRIB_ENTRADA, 0)     AS COD_TRIB_ENTRADA,
-        NVL(pl.PER_ICMS_ENTRADA, 0)     AS PER_ICMS_ENTRADA,
-        NVL(pl.PER_ICMS_SAIDA, 0)       AS PER_ICMS_SAIDA,
-        NVL(pl.PER_ALIQ_OUTORG, 0)      AS PER_ALIQ_OUTORG,
+        NVL(TO_CHAR(pl.${colCodNcm}), p.${colCodNbm})   AS NCM,
+        NVL(pl.${colCodTribSai}, 0)                      AS COD_TRIBUTACAO,
+        NVL(pl.${colCodTribEnt}, 0)                      AS COD_TRIB_ENTRADA,
+        NVL(pl.${colPerIcmsEnt}, 0)                      AS PER_ICMS_ENTRADA,
+        NVL(pl.${colPerIcmsSai}, 0)                      AS PER_ICMS_SAIDA,
+        NVL(pl.${colPerAliqOut}, 0)                      AS PER_ALIQ_OUTORG,
         CASE
-          WHEN NVL(pl.PER_ICMS_ENTRADA, 0) > 0 AND NVL(pl.PER_ALIQ_OUTORG, 0) > 0
-            THEN ROUND((1 - pl.PER_ALIQ_OUTORG / pl.PER_ICMS_ENTRADA) * 100, 2)
+          WHEN NVL(pl.${colPerIcmsEnt}, 0) > 0 AND NVL(pl.${colPerAliqOut}, 0) > 0
+            THEN ROUND((1 - pl.${colPerAliqOut} / pl.${colPerIcmsEnt}) * 100, 2)
           ELSE 0
-        END                             AS PER_REDUCAO_BC,
-        NVL(pl.PER_PIS_ENTRADA, 0)      AS PER_PIS_ENTRADA,
-        NVL(pl.PER_PIS, 0)              AS PER_PIS_SAIDA,
-        NVL(pl.PER_COFINS_ENTRADA, 0)   AS PER_COFINS_ENTRADA,
-        NVL(pl.PER_COFINS, 0)           AS PER_COFINS_SAIDA,
-        NVL(p.CST_PIS_COF_ENTRADA, '')  AS CST_PIS_COF_ENTRADA,
-        NVL(p.CST_PIS_COF_SAIDA, '')    AS CST_PIS_COF_SAIDA,
-        NVL(p.FLG_NAO_ICMS, 'N')        AS FLG_NAO_ICMS,
-        NVL(p.FLG_NAO_PIS_COFINS, 'N')  AS FLG_NAO_PIS_COFINS,
-        NVL(pl.VAL_VENDA, 0)            AS VAL_VENDA,
-        NVL(pl.VAL_CUSTO_REP, 0)        AS VAL_CUSTO_REP,
-        CASE WHEN NVL(pl.VAL_VENDA, 0) > 0
-          THEN ROUND((NVL(pl.VAL_VENDA,0) - NVL(pl.VAL_CUSTO_REP,0)) / pl.VAL_VENDA * 100, 2)
-          ELSE 0 END                    AS MARKDOWN_PCT,
-        CASE WHEN NVL(pl.VAL_VENDA, 0) > 0
+        END                                               AS PER_REDUCAO_BC,
+        NVL(pl.${colPerPisEnt}, 0)                       AS PER_PIS_ENTRADA,
+        NVL(pl.${colPerPisSai}, 0)                       AS PER_PIS_SAIDA,
+        NVL(pl.${colPerCofEnt}, 0)                       AS PER_COFINS_ENTRADA,
+        NVL(pl.${colPerCofSai}, 0)                       AS PER_COFINS_SAIDA,
+        NVL(p.${colCstPisCofEnt}, '')                    AS CST_PIS_COF_ENTRADA,
+        NVL(p.${colCstPisCofSai}, '')                    AS CST_PIS_COF_SAIDA,
+        NVL(p.${colFlgNaoIcms}, 'N')                     AS FLG_NAO_ICMS,
+        NVL(p.${colFlgNaoPisCof}, 'N')                   AS FLG_NAO_PIS_COFINS,
+        NVL(pl.${colValVenda}, 0)                        AS VAL_VENDA,
+        NVL(pl.${colValCusto}, 0)                        AS VAL_CUSTO_REP,
+        CASE WHEN NVL(pl.${colValVenda}, 0) > 0
+          THEN ROUND((NVL(pl.${colValVenda},0) - NVL(pl.${colValCusto},0)) / pl.${colValVenda} * 100, 2)
+          ELSE 0 END                                      AS MARKDOWN_PCT,
+        CASE WHEN NVL(pl.${colValVenda}, 0) > 0
           THEN ROUND(
-            (NVL(pl.VAL_VENDA,0)
-              - NVL(pl.VAL_CUSTO_REP,0)
-              - (NVL(pl.VAL_IMP_ICMS,0) + NVL(pl.VAL_IMP_PIS,0) + NVL(pl.VAL_IMP_COFINS,0))
-              + NVL(pl.VAL_IMPOSTO_CREDITO,0)
-            ) / pl.VAL_VENDA * 100, 2)
-          ELSE 0 END                    AS MG_LIQUIDA_PCT
+            (NVL(pl.${colValVenda},0)
+              - NVL(pl.${colValCusto},0)
+              - (NVL(pl.${colValImpIcms},0) + NVL(pl.${colValImpPis},0) + NVL(pl.${colValImpCofins},0))
+              + NVL(pl.${colValImpCred},0)
+            ) / pl.${colValVenda} * 100, 2)
+          ELSE 0 END                                      AS MG_LIQUIDA_PCT
       FROM ${tabProduto} p
       JOIN ${tabProdLoja} pl
-        ON pl.COD_PRODUTO = p.COD_PRODUTO
-        AND pl.COD_LOJA = :codLoja
-      LEFT JOIN ${tabSecao}    sec ON sec.COD_SECAO    = p.COD_SECAO
-      LEFT JOIN ${tabGrupo}    grp ON grp.COD_GRUPO    = p.COD_GRUPO    AND grp.COD_SECAO   = p.COD_SECAO
-      LEFT JOIN ${tabSubgrupo} sg  ON sg.COD_SUB_GRUPO = p.COD_SUB_GRUPO AND sg.COD_GRUPO   = p.COD_GRUPO AND sg.COD_SECAO = p.COD_SECAO
-      LEFT JOIN ${tabSegmento} seg ON seg.COD_SEGMENTO = p.COD_SEGMENTO
-      WHERE p.STATUS = 0
-        AND TRIM(p.DES_PRODUTO) IS NOT NULL
+        ON pl.${colCodProdLoja} = p.${colCodProd}
+        AND pl.${colCodLojaLoja} = :codLoja
+      LEFT JOIN ${tabSecao}    sec ON sec.${colCodSecaoSec}  = p.${colCodSecao}
+      LEFT JOIN ${tabGrupo}    grp ON grp.${colCodGrupoGrp}  = p.${colCodGrupo}   AND grp.${colCodSecaoGrp} = p.${colCodSecao}
+      LEFT JOIN ${tabSubgrupo} sg  ON sg.${colCodSubGrupoSg} = p.${colCodSubGrupo} AND sg.${colCodGrupoSg}  = p.${colCodGrupo} AND sg.${colCodSecaoSg} = p.${colCodSecao}
+      LEFT JOIN ${tabSegmento} seg ON seg.COD_SEGMENTO = p.${colCodSegmento}
+      WHERE p.${colStatusProd} = 0
+        AND TRIM(p.${colDesProd}) IS NOT NULL
         ${whereExtra}
-      ORDER BY sec.DES_SECAO, grp.DES_GRUPO, sg.DES_SUB_GRUPO, p.DES_PRODUTO
+      ORDER BY sec.${colDesSecao}, grp.${colDesGrupo}, sg.${colDesSubGrupo}, p.${colDesProd}
     `;
 
     const rows = await OracleService.query<any>(sql, params);
 
     const items: TributacaoItem[] = rows.map((r: any) => {
-      const perIcmsEntrada  = parseFloat(r.PER_ICMS_ENTRADA)  || 0;
-      const perIcmsSaida    = parseFloat(r.PER_ICMS_SAIDA)    || 0;
-      const perAliqOutorg   = parseFloat(r.PER_ALIQ_OUTORG)   || 0;
-      const flgNaoIcms      = r.FLG_NAO_ICMS || 'N';
+      const perIcmsEntrada = parseFloat(r.PER_ICMS_ENTRADA) || 0;
+      const perIcmsSaida   = parseFloat(r.PER_ICMS_SAIDA)   || 0;
+      const perAliqOutorg  = parseFloat(r.PER_ALIQ_OUTORG)  || 0;
+      const flgNaoIcms     = r.FLG_NAO_ICMS || 'N';
 
       const { status, motivo } = classifyTax(perIcmsEntrada, perIcmsSaida, perAliqOutorg, flgNaoIcms);
 
       return {
-        cod_produto:       r.COD_PRODUTO,
-        des_produto:       r.DES_PRODUTO || '',
-        cod_secao:         r.COD_SECAO,
-        des_secao:         r.DES_SECAO  || '',
-        cod_grupo:         r.COD_GRUPO,
-        des_grupo:         r.DES_GRUPO  || '',
-        cod_sub_grupo:     r.COD_SUB_GRUPO,
-        des_sub_grupo:     r.DES_SUB_GRUPO || '',
-        cod_segmento:      r.COD_SEGMENTO,
-        des_segmento:      r.DES_SEGMENTO || '',
-        ncm:               r.NCM || '',
-        cod_tributacao:    r.COD_TRIBUTACAO,
-        cod_trib_entrada:  r.COD_TRIB_ENTRADA,
-        per_icms_entrada:  perIcmsEntrada,
-        per_icms_saida:    perIcmsSaida,
-        per_aliq_outorg:   perAliqOutorg,
-        per_reducao_bc:    parseFloat(r.PER_REDUCAO_BC) || 0,
-        per_pis_entrada:   parseFloat(r.PER_PIS_ENTRADA)  || 0,
-        per_pis_saida:     parseFloat(r.PER_PIS_SAIDA)    || 0,
+        cod_produto:        r.COD_PRODUTO,
+        des_produto:        r.DES_PRODUTO || '',
+        cod_secao:          r.COD_SECAO,
+        des_secao:          r.DES_SECAO       || '',
+        cod_grupo:          r.COD_GRUPO,
+        des_grupo:          r.DES_GRUPO        || '',
+        cod_sub_grupo:      r.COD_SUB_GRUPO,
+        des_sub_grupo:      r.DES_SUB_GRUPO   || '',
+        cod_segmento:       r.COD_SEGMENTO,
+        des_segmento:       r.DES_SEGMENTO    || '',
+        ncm:                r.NCM             || '',
+        cod_tributacao:     r.COD_TRIBUTACAO,
+        cod_trib_entrada:   r.COD_TRIB_ENTRADA,
+        per_icms_entrada:   perIcmsEntrada,
+        per_icms_saida:     perIcmsSaida,
+        per_aliq_outorg:    perAliqOutorg,
+        per_reducao_bc:     parseFloat(r.PER_REDUCAO_BC)    || 0,
+        per_pis_entrada:    parseFloat(r.PER_PIS_ENTRADA)   || 0,
+        per_pis_saida:      parseFloat(r.PER_PIS_SAIDA)     || 0,
         per_cofins_entrada: parseFloat(r.PER_COFINS_ENTRADA) || 0,
-        per_cofins_saida:  parseFloat(r.PER_COFINS_SAIDA) || 0,
+        per_cofins_saida:   parseFloat(r.PER_COFINS_SAIDA)  || 0,
         cst_pis_cof_entrada: (r.CST_PIS_COF_ENTRADA || '').trim(),
         cst_pis_cof_saida:   (r.CST_PIS_COF_SAIDA   || '').trim(),
-        flg_nao_icms:      flgNaoIcms,
+        flg_nao_icms:       flgNaoIcms,
         flg_nao_pis_cofins: r.FLG_NAO_PIS_COFINS || 'N',
-        val_venda:         parseFloat(r.VAL_VENDA)       || 0,
-        val_custo_rep:     parseFloat(r.VAL_CUSTO_REP)   || 0,
-        markdown_pct:      parseFloat(r.MARKDOWN_PCT)    || 0,
-        mg_liquida_pct:    parseFloat(r.MG_LIQUIDA_PCT)  || 0,
+        val_venda:          parseFloat(r.VAL_VENDA)      || 0,
+        val_custo_rep:      parseFloat(r.VAL_CUSTO_REP)  || 0,
+        markdown_pct:       parseFloat(r.MARKDOWN_PCT)   || 0,
+        mg_liquida_pct:     parseFloat(r.MG_LIQUIDA_PCT) || 0,
         status,
         motivo
       };
     });
 
-    // Filtro de status no backend
     if (!filters.statusFilter || filters.statusFilter === 'TODOS') return items;
     if (filters.statusFilter === 'DIVERGENTES') return items.filter(i => i.status !== 'OK');
     return items.filter(i => i.status === filters.statusFilter);

@@ -45,6 +45,12 @@ const TABLE_CATALOG = {
       { id: 'peso', name: 'Peso', defaultTable: 'TAB_PRODUTO', defaultColumn: 'VAL_PESO' },
       { id: 'codigo_segmento', name: 'Código Segmento', defaultTable: 'TAB_PRODUTO', defaultColumn: 'COD_SEGMENTO' },
       { id: 'codigo_marca', name: 'Código Marca', defaultTable: 'TAB_PRODUTO', defaultColumn: 'COD_MARCA' },
+      { id: 'status_produto', name: 'Status Produto', defaultTable: 'TAB_PRODUTO', defaultColumn: 'STATUS' },
+      { id: 'cod_nbm', name: 'Código NBM/NCM (produto)', defaultTable: 'TAB_PRODUTO', defaultColumn: 'COD_NBM' },
+      { id: 'cst_pis_cofins_entrada', name: 'CST PIS/COFINS Entrada', defaultTable: 'TAB_PRODUTO', defaultColumn: 'CST_PIS_COF_ENTRADA' },
+      { id: 'cst_pis_cofins_saida', name: 'CST PIS/COFINS Saída', defaultTable: 'TAB_PRODUTO', defaultColumn: 'CST_PIS_COF_SAIDA' },
+      { id: 'flag_nao_icms', name: 'Flag Não ICMS', defaultTable: 'TAB_PRODUTO', defaultColumn: 'FLG_NAO_ICMS' },
+      { id: 'flag_nao_pis_cofins', name: 'Flag Não PIS/COFINS', defaultTable: 'TAB_PRODUTO', defaultColumn: 'FLG_NAO_PIS_COFINS' },
     ]
   },
   TAB_PRODUTO_LOJA: {
@@ -79,6 +85,20 @@ const TABLE_CATALOG = {
       { id: 'pesquisa_concorrente', name: 'Nome Concorrente', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'DES_PESQUISA_CONCORRENTE' },
       { id: 'tipo_relevancia', name: 'Tipo Relevância', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'TIPO_RELEVANCIA' },
       { id: 'codigo_associado', name: 'Código Associado', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'COD_ASSOCIADO' },
+      { id: 'cod_ncm', name: 'Código NCM (loja)', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'COD_NCM' },
+      { id: 'codigo_tributacao_saida', name: 'Código Tributação Saída', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'COD_TRIBUTACAO' },
+      { id: 'codigo_tributacao_entrada', name: 'Código Tributação Entrada', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'COD_TRIB_ENTRADA' },
+      { id: 'icms_aliquota_entrada', name: 'ICMS % Entrada', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'PER_ICMS_ENTRADA' },
+      { id: 'icms_aliquota_saida', name: 'ICMS % Saída', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'PER_ICMS_SAIDA' },
+      { id: 'icms_aliq_outorgada', name: 'ICMS Alíq. Outorgada %', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'PER_ALIQ_OUTORG' },
+      { id: 'pis_aliquota_entrada', name: 'PIS % Entrada', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'PER_PIS_ENTRADA' },
+      { id: 'pis_aliquota_saida', name: 'PIS % Saída', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'PER_PIS' },
+      { id: 'cofins_aliquota_entrada', name: 'COFINS % Entrada', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'PER_COFINS_ENTRADA' },
+      { id: 'cofins_aliquota_saida', name: 'COFINS % Saída', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'PER_COFINS' },
+      { id: 'valor_imposto_icms', name: 'Valor Imposto ICMS', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'VAL_IMP_ICMS' },
+      { id: 'valor_imposto_pis', name: 'Valor Imposto PIS', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'VAL_IMP_PIS' },
+      { id: 'valor_imposto_cofins', name: 'Valor Imposto COFINS', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'VAL_IMP_COFINS' },
+      { id: 'valor_imposto_credito_loja', name: 'Valor Imposto Crédito (loja)', defaultTable: 'TAB_PRODUTO_LOJA', defaultColumn: 'VAL_IMPOSTO_CREDITO' },
     ]
   },
   TAB_PRODUTO_PDV: {
@@ -761,6 +781,7 @@ const BUSINESS_MODULES = [
       { id: 'producao', name: 'Produção', icon: '🏭', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_DECOMPOSICAO', 'TAB_INFO_NUTRICIONAL', 'TAB_INFO_RECEITA', 'TAB_AJUSTE_ESTOQUE', 'TAB_AJUSTE_ITENS', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO'] },
       { id: 'hortfruti', name: 'Hort Fruti', icon: '🥬', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA'] },
       { id: 'prevencao_recebimento', name: 'Prevenção Recebimento', icon: '📋', tables: ['TAB_FORNECEDOR', 'TAB_NOTA_FISCAL', 'TAB_NF', 'TAB_NF_ITEM'] },
+      { id: 'prevencao_tributaria', name: 'Prevenção Tributária', icon: '🧾', tables: ['TAB_PRODUTO', 'TAB_PRODUTO_LOJA', 'TAB_SECAO', 'TAB_GRUPO', 'TAB_SUBGRUPO', 'TAB_SEGMENTO'] },
     ]
   },
   {
