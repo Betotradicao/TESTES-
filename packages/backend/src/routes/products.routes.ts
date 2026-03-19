@@ -240,6 +240,9 @@ router.get('/for-label-audit', authenticateToken, ProductsController.getProducts
 // Buscar TODOS os produtos do Oracle (para Prevenção Estoque e Margem)
 router.get('/oracle', authenticateToken, ProductsController.getProductsOracle);
 
+// Buscar queda de vendas (comparativo mês atual vs ano passado)
+router.get('/queda-vendas', authenticateToken, ProductsController.getQuedaVendas);
+
 // Buscar DANFE (PDF da Nota Fiscal) pela número da NF
 // IMPORTANTE: Esta rota específica deve vir ANTES de rotas com /:id
 router.get('/nf/:numNf/danfe', authenticateToken, ProductsController.getDanfe);

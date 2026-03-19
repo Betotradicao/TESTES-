@@ -33,6 +33,7 @@ const AVAILABLE_COLUMNS = [
   { id: 'tipoEspecie', label: 'Tipo Espécie', visible: false },
   { id: 'dtaCadastro', label: 'Data Cadastro', visible: false },
   { id: 'diasSemVenda', label: 'Dias s/ Venda', visible: true },
+  { id: 'quedaMesAnt', label: '% Queda M Ant', visible: true },
   { id: 'valPesquisaMedia', label: 'Conc. Barato', visible: false },
   { id: 'desPesquisaConcorrente', label: 'Concorrente', visible: false },
 ];
@@ -52,6 +53,7 @@ const CARD_CONFIG = {
   margem_excessiva: { emoji: '📈', label: 'Margem Excessiva', textColor: 'text-emerald-600', borderColor: 'border-emerald-500', statKey: 'margemExcessiva', specialRanges: true },
   estoque_excessivo: { emoji: '📦', label: 'Estoque Excessivo', textColor: 'text-amber-600', borderColor: 'border-amber-500', statKey: 'estoqueExcessivo', specialRanges: true },
   trocas: { emoji: '🔄', label: 'Trocas', subtitle: 'Fornecedor', textColor: 'text-orange-600', borderColor: 'border-orange-500', statKey: 'trocas' },
+  queda_vendas: { emoji: '📉', label: 'Queda de Vendas', subtitle: 'vs Mês Passado', textColor: 'text-red-600', borderColor: 'border-red-500', statKey: 'quedaVendas' },
   valor_estoque: { emoji: '💲', label: 'Valor em Estoque', textColor: 'text-green-600', borderColor: 'border-green-500', statKey: 'valorEstoque', isValorEstoque: true },
 };
 const DEFAULT_CARD_ORDER = ['zerado', 'negativo', 'sem_venda', 'pre_ruptura', 'margem_negativa', 'margem_baixa', 'margem_excessiva', 'estoque_excessivo', 'custo_zerado', 'preco_venda_zerado', 'curva_x', 'conc_barato'];
@@ -61,7 +63,7 @@ const CARD_SECTIONS = [
   {
     id: 'gestao-estoque',
     title: 'GESTÃO ESTOQUE',
-    cards: ['zerado', 'sem_venda', 'pre_ruptura', 'negativo', 'estoque_excessivo', 'trocas', 'curva_x', 'valor_estoque'],
+    cards: ['zerado', 'sem_venda', 'pre_ruptura', 'negativo', 'estoque_excessivo', 'trocas', 'queda_vendas', 'curva_x', 'valor_estoque'],
   },
 ];
 
@@ -101,6 +103,11 @@ export default function EstoqueSaude() {
   const [error, setError] = useState('');
   const [trocasProductCodes, setTrocasProductCodes] = useState(new Set());
   const [trocasTotalCusto, setTrocasTotalCusto] = useState(0);
+  const [quedaVendasData, setQuedaVendasData] = useState({});
+  const [quedaVendasThreshold, setQuedaVendasThreshold] = useState(() => {
+    const saved = localStorage.getItem('estoque_queda_vendas_threshold');
+    return saved ? parseInt(saved) : 30;
+  });
 
   // Configuração de colunas - merge inteligente com versão salva
   const [showColumnSelector, setShowColumnSelector] = useState(false);
@@ -199,6 +206,7 @@ export default function EstoqueSaude() {
     { id: 'pontosPreRuptura', label: '📉 Pré Ruptura', type: 'pontos', bg: 'bg-amber-600' },
     { id: 'pontosEstoqueExcessivo', label: '📦 Est. Excessivo', type: 'pontos', bg: 'bg-amber-700' },
     { id: 'pontosTrocas', label: '🔄 Trocas', type: 'pontos', bg: 'bg-orange-600' },
+    { id: 'pontosQuedaVendas', label: '📉 Queda Vendas', type: 'pontos', bg: 'bg-red-600' },
     { id: 'totalPontosEstoque', label: 'TOTAL', type: 'total', bg: 'bg-gray-800' },
     { id: 'nivelRisco', label: 'NÍVEL', type: 'risco', bg: 'bg-gray-700' },
   ];
@@ -230,6 +238,7 @@ export default function EstoqueSaude() {
     { id: 'pontosMargemExcessiva', label: '📈 Mg. Excessiva', type: 'pontos', bg: 'bg-emerald-600' },
     { id: 'pontosEstoqueExcessivo', label: '📦 Est. Excessivo', type: 'pontos', bg: 'bg-amber-600' },
     { id: 'pontosTrocas', label: '🔄 Trocas', type: 'pontos', bg: 'bg-orange-600' },
+    { id: 'pontosQuedaVendas', label: '📉 Queda Vendas', type: 'pontos', bg: 'bg-red-600' },
     { id: 'totalPontos', label: 'TOTAL', type: 'total', bg: 'bg-gray-800' },
     { id: 'nivelRisco', label: 'NÍVEL', type: 'risco', bg: 'bg-gray-700' },
   ];
@@ -518,6 +527,7 @@ export default function EstoqueSaude() {
       margem_excessiva: { ate5: 50, de5a10: 35, de10a15: 25, de15a20: 15, de20a30: 10, acima30: 5 },
       estoque_excessivo: { ate20: 5, de21a30: 10, de31a60: 15, de61a120: 25, de121a180: 35, acima180: 50, nunca: 50 },
       trocas: { ...curvaDefault },
+      queda_vendas: { ...curvaDefault },
     };
     const saved = localStorage.getItem('estoque_saude_pontuacao');
     if (saved) {
@@ -764,9 +774,23 @@ export default function EstoqueSaude() {
     }
   };
 
+  // Buscar queda de vendas (comparativo mês atual vs ano passado)
+  const fetchQuedaVendas = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+      const res = await api.get(`/products/queda-vendas?${params.toString()}`);
+      setQuedaVendasData(res.data?.produtos || {});
+    } catch (err) {
+      console.error('Erro ao buscar queda de vendas:', err);
+      setQuedaVendasData({});
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
     fetchTrocasProdutos();
+    fetchQuedaVendas();
   }, [lojaSelecionada]);
 
   // Função para ordenar produtos
@@ -883,6 +907,11 @@ export default function EstoqueSaude() {
       });
     } else if (activeCardFilter === 'trocas') {
       filtered = filtered.filter(p => trocasProductCodes.has(p.codigo));
+    } else if (activeCardFilter === 'queda_vendas') {
+      filtered = filtered.filter(p => {
+        const q = quedaVendasData[p.codigo];
+        return q && q.percentualQueda >= quedaVendasThreshold;
+      });
     }
 
     // Filtro de curva específica dentro do card (ou faixa especial)
@@ -954,7 +983,7 @@ export default function EstoqueSaude() {
     }
 
     return filtered;
-  }, [products, filterTipoEspecie, filterTipoEvento, filterSecao, filterGrupo, filterSubGrupo, filterCurva, activeCardFilter, activeCardCurva, sortColumn, sortDirection, pontuacaoConfig.sem_venda, trocasProductCodes]);
+  }, [products, filterTipoEspecie, filterTipoEvento, filterSecao, filterGrupo, filterSubGrupo, filterCurva, activeCardFilter, activeCardCurva, sortColumn, sortDirection, pontuacaoConfig.sem_venda, trocasProductCodes, quedaVendasData, quedaVendasThreshold]);
 
   // Resetar filtros dependentes quando filtro pai muda
   useEffect(() => {
@@ -1120,6 +1149,12 @@ export default function EstoqueSaude() {
     // Trocas: produtos com trocas pendentes no fornecedor
     const produtosTrocas = filtered.filter(p => trocasProductCodes.has(p.codigo));
 
+    // Queda de Vendas: produtos com queda >= threshold% comparado ao ano passado
+    const produtosQuedaVendas = filtered.filter(p => {
+      const q = quedaVendasData[p.codigo];
+      return q && q.percentualQueda >= quedaVendasThreshold;
+    });
+
     return {
       estoqueZerado: produtosZerado.length,
       estoqueNegativo: produtosNegativo.length,
@@ -1134,6 +1169,7 @@ export default function EstoqueSaude() {
       margemExcessiva: produtosMargemExcessiva.length,
       estoqueExcessivo: produtosEstoqueExcessivo.length,
       trocas: produtosTrocas.length,
+      quedaVendas: produtosQuedaVendas.length,
       total: filtered.length,
       valorTotalEstoque,
       valorEstoque: valorTotalEstoque,
@@ -1153,9 +1189,10 @@ export default function EstoqueSaude() {
         margem_excessiva: margemExcessivaPorFaixa,
         estoque_excessivo: estoqueExcessivoPorFaixa,
         trocas: contarPorCurva(produtosTrocas),
+        queda_vendas: contarPorCurva(produtosQuedaVendas),
       }
     };
-  }, [products, filterTipoEspecie, filterTipoEvento, pontuacaoConfig.sem_venda, trocasProductCodes]);
+  }, [products, filterTipoEspecie, filterTipoEvento, pontuacaoConfig.sem_venda, trocasProductCodes, quedaVendasData, quedaVendasThreshold]);
 
   // Calcular pontos para cada produto (para a visualização de pontuação)
   const produtosComPontuacao = useMemo(() => {
@@ -1217,8 +1254,12 @@ export default function EstoqueSaude() {
       // Trocas: pontos se o produto está em troca com fornecedor
       const pontosTrocas = trocasProductCodes.has(p.codigo) ? (pontuacaoConfig.trocas?.[curvaKey] || 0) : 0;
 
+      // Queda de vendas: pontos se produto caiu >= threshold%
+      const qv = quedaVendasData[p.codigo];
+      const pontosQuedaVendas = (qv && qv.percentualQueda >= quedaVendasThreshold) ? (pontuacaoConfig.queda_vendas?.[curvaKey] || 0) : 0;
+
       // Totais separados por categoria
-      const totalPontosEstoque = pontosZerado + pontosNegativo + pontosSemVenda + pontosPreRuptura + pontosEstoqueExcessivo + pontosTrocas;
+      const totalPontosEstoque = pontosZerado + pontosNegativo + pontosSemVenda + pontosPreRuptura + pontosEstoqueExcessivo + pontosTrocas + pontosQuedaVendas;
       const totalPontosMargem = pontosMargemNegativa + pontosMargemBaixa + pontosCustoZerado + pontosPrecoZerado + pontosConcBarato + pontosMargemExcessiva;
       const totalPontos = totalPontosEstoque + totalPontosMargem;
 
@@ -1236,6 +1277,7 @@ export default function EstoqueSaude() {
         pontosMargemExcessiva,
         pontosEstoqueExcessivo,
         pontosTrocas,
+        pontosQuedaVendas,
         totalPontos,
         totalPontosEstoque,
         totalPontosMargem
@@ -1260,7 +1302,7 @@ export default function EstoqueSaude() {
       bVal = bVal || 0;
       return direction === 'asc' ? aVal - bVal : bVal - aVal;
     });
-  }, [filteredProducts, pontuacaoConfig, sortPontuacao, trocasProductCodes]);
+  }, [filteredProducts, pontuacaoConfig, sortPontuacao, trocasProductCodes, quedaVendasData, quedaVendasThreshold]);
 
   // Função para alternar ordenação da tabela de pontuação
   const handleSortPontuacao = (column) => {
@@ -1450,6 +1492,8 @@ export default function EstoqueSaude() {
         return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosPreRuptura > 0 ? 'text-amber-600 bg-amber-50' : 'text-gray-400'}`}>{product.pontosPreRuptura > 0 ? product.pontosPreRuptura : '-'}</td>;
       case 'pontosTrocas':
         return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosTrocas > 0 ? 'text-orange-600 bg-orange-50' : 'text-gray-400'}`}>{product.pontosTrocas > 0 ? product.pontosTrocas : '-'}</td>;
+      case 'pontosQuedaVendas':
+        return <td key={col.id} className={`px-3 py-2 text-center text-sm font-bold ${product.pontosQuedaVendas > 0 ? 'text-red-600 bg-red-50' : 'text-gray-400'}`}>{product.pontosQuedaVendas > 0 ? product.pontosQuedaVendas : '-'}</td>;
       case 'totalPontos':
         return <td key={col.id} className="px-3 py-2 text-center text-sm font-bold text-white bg-gray-800">{product.totalPontos}</td>;
       case 'totalPontosEstoque':
@@ -1554,6 +1598,16 @@ export default function EstoqueSaude() {
         if (value === 1) return '1 dia';
         return `${value} dias`;
 
+      // Queda de vendas vs mês anterior
+      case 'quedaMesAnt': {
+        const qv = quedaVendasData[product.codigo];
+        if (!qv || qv.vendasPassado === 0) return '-';
+        const pct = qv.percentualQueda;
+        if (pct <= 0) return <span className="text-green-600 font-bold">+{Math.abs(pct).toFixed(1)}%</span>;
+        if (pct >= quedaVendasThreshold) return <span className="text-red-600 font-bold">-{pct.toFixed(1)}%</span>;
+        return <span className="text-orange-500 font-semibold">-{pct.toFixed(1)}%</span>;
+      }
+
       // Curva
       case 'curva':
         if (!value || value === '') return 'X';
@@ -1644,6 +1698,7 @@ export default function EstoqueSaude() {
             case 'pontosEstoqueExcessivo': return product.pontosEstoqueExcessivo > 0 ? product.pontosEstoqueExcessivo.toString() : '-';
             case 'pontosPreRuptura': return (product.pontosPreRuptura || 0) > 0 ? product.pontosPreRuptura.toString() : '-';
             case 'pontosTrocas': return (product.pontosTrocas || 0) > 0 ? product.pontosTrocas.toString() : '-';
+            case 'pontosQuedaVendas': return (product.pontosQuedaVendas || 0) > 0 ? product.pontosQuedaVendas.toString() : '-';
             case 'totalPontos': return product.totalPontos.toString();
             case 'totalPontosEstoque': return (product.totalPontosEstoque || 0).toString();
             case 'totalPontosMargem': return (product.totalPontosMargem || 0).toString();
@@ -3253,6 +3308,7 @@ export default function EstoqueSaude() {
                   {configModalOpen === 'conc_barato' && '🏪 Pontuação - Concorrente + Barato'}
                   {configModalOpen === 'pre_ruptura' && '📉 Pontuação - Estoque Mínimo'}
                   {configModalOpen === 'margem_excessiva' && '📈 Pontuação - Margem Excessiva'}
+                  {configModalOpen === 'queda_vendas' && '📉 Configuração - Queda de Vendas'}
                 </h2>
                 <button
                   onClick={() => setConfigModalOpen(null)}
@@ -3268,12 +3324,70 @@ export default function EstoqueSaude() {
                   ? 'Defina dias sem venda e pontos para cada curva'
                   : configModalOpen === 'margem_excessiva'
                   ? 'Defina a pontuação para cada faixa de margem acima da meta'
+                  : configModalOpen === 'queda_vendas'
+                  ? 'Defina o % mínimo de queda e pontos por curva'
                   : 'Defina a pontuação para cada curva'}
               </p>
             </div>
 
             <div className="p-6">
-              {configModalOpen === 'sem_venda' ? (
+              {configModalOpen === 'queda_vendas' ? (
+                <>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Produtos com queda de vendas acima do percentual configurado (comparando mês atual vs mesmo período do mês passado):
+                  </p>
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Percentual mínimo de queda</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={quedaVendasThreshold}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 30;
+                          setQuedaVendasThreshold(val);
+                          localStorage.setItem('estoque_queda_vendas_threshold', String(val));
+                        }}
+                        className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-center text-lg font-bold"
+                      />
+                      <span className="text-lg font-bold text-red-600">%</span>
+                      <span className="text-sm text-gray-500 ml-2">de queda para aparecer no card</span>
+                    </div>
+                  </div>
+                  <p className="text-sm font-medium text-gray-700 mb-3">Pontuação por curva:</p>
+                  <div className="space-y-3">
+                    {['A', 'B', 'C', 'D', 'E', 'X'].map((curva) => (
+                      <div key={curva} className="flex items-center gap-2">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${
+                          curva === 'A' ? 'bg-green-500' :
+                          curva === 'B' ? 'bg-blue-500' :
+                          curva === 'C' ? 'bg-yellow-500' :
+                          curva === 'D' ? 'bg-orange-500' :
+                          curva === 'E' ? 'bg-red-500' :
+                          'bg-gray-500'
+                        }`}>
+                          {curva}
+                        </div>
+                        <label className="flex-1 text-sm font-medium text-gray-700">
+                          Curva {curva}
+                        </label>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={pontuacaoConfig.queda_vendas?.[curva] || 0}
+                            onChange={(e) => updatePontuacao('queda_vendas', curva, e.target.value)}
+                            className="w-16 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-center text-sm"
+                          />
+                          <span className="text-xs text-gray-500">pts</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : configModalOpen === 'sem_venda' ? (
                 <>
                   <p className="text-sm text-gray-600 mb-4">
                     Informe quantos dias sem venda e quantos pontos cada produto recebe, por curva:

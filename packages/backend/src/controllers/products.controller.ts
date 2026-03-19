@@ -2538,4 +2538,109 @@ export class ProductsController {
       res.status(500).json({ error: error.message || 'Erro ao buscar grupos similares' });
     }
   }
+
+  /**
+   * Buscar produtos com queda de vendas comparando período atual vs ano passado
+   * GET /api/products/queda-vendas?codLoja=1
+   *
+   * Compara vendas do dia 1 até hoje do mês atual com o mesmo período do mês passado.
+   * Retorna mapa de código produto → { vendasAtual, vendasPassado, percentualQueda }
+   */
+  static async getQuedaVendas(req: AuthRequest, res: Response) {
+    try {
+      const { codLoja } = req.query;
+      const loja = codLoja ? parseInt(codLoja as string) : 1;
+
+      // Calcular períodos
+      const hoje = new Date();
+      const diaHoje = hoje.getDate();
+      const mesAtual = hoje.getMonth() + 1;
+      const anoAtual = hoje.getFullYear();
+
+      // Mês passado
+      const mesPassado = mesAtual === 1 ? 12 : mesAtual - 1;
+      const anoMesPassado = mesAtual === 1 ? anoAtual - 1 : anoAtual;
+
+      // Ajustar dia para não ultrapassar último dia do mês passado
+      const ultimoDiaMesPassado = new Date(anoMesPassado, mesPassado, 0).getDate();
+      const diaAjustado = Math.min(diaHoje, ultimoDiaMesPassado);
+
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const iniAtual = `01/${pad(mesAtual)}/${anoAtual}`;
+      const fimAtual = `${pad(diaHoje)}/${pad(mesAtual)}/${anoAtual}`;
+      const iniPassado = `01/${pad(mesPassado)}/${anoMesPassado}`;
+      const fimPassado = `${pad(diaAjustado)}/${pad(mesPassado)}/${anoMesPassado}`;
+
+      console.log(`📉 [QUEDA VENDAS] Período atual: ${iniAtual} a ${fimAtual}`);
+      console.log(`📉 [QUEDA VENDAS] Período passado: ${iniPassado} a ${fimPassado}`);
+
+      // Obter mapeamentos via MappingService
+      const schema = await MappingService.getSchema();
+      const [
+        tabProdutoPdv,
+        colCodProdutoPdv,
+        colDtaSaida,
+        colValTotalProduto,
+        colCodLojaPdv
+      ] = await Promise.all([
+        MappingService.getRealTableName('TAB_PRODUTO_PDV'),
+        MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto'),
+        MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda'),
+        MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total'),
+        MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_loja')
+      ]);
+
+      const sql = `
+        SELECT
+          pv.${colCodProdutoPdv} as COD_PRODUTO,
+          SUM(CASE WHEN pv.${colDtaSaida} BETWEEN TO_DATE(:iniAtual, 'DD/MM/YYYY') AND TO_DATE(:fimAtual, 'DD/MM/YYYY')
+               THEN pv.${colValTotalProduto} ELSE 0 END) as VENDAS_ATUAL,
+          SUM(CASE WHEN pv.${colDtaSaida} BETWEEN TO_DATE(:iniPassado, 'DD/MM/YYYY') AND TO_DATE(:fimPassado, 'DD/MM/YYYY')
+               THEN pv.${colValTotalProduto} ELSE 0 END) as VENDAS_PASSADO
+        FROM ${schema}.${tabProdutoPdv} pv
+        WHERE (
+          pv.${colDtaSaida} BETWEEN TO_DATE(:iniAtual2, 'DD/MM/YYYY') AND TO_DATE(:fimAtual2, 'DD/MM/YYYY')
+          OR pv.${colDtaSaida} BETWEEN TO_DATE(:iniPassado2, 'DD/MM/YYYY') AND TO_DATE(:fimPassado2, 'DD/MM/YYYY')
+        )
+        AND pv.${colCodLojaPdv} = :codLoja
+        GROUP BY pv.${colCodProdutoPdv}
+        HAVING SUM(CASE WHEN pv.${colDtaSaida} BETWEEN TO_DATE(:iniPassado3, 'DD/MM/YYYY') AND TO_DATE(:fimPassado3, 'DD/MM/YYYY')
+                    THEN pv.${colValTotalProduto} ELSE 0 END) > 0
+      `;
+
+      const rows = await OracleService.query(sql, {
+        iniAtual, fimAtual, iniPassado, fimPassado,
+        iniAtual2: iniAtual, fimAtual2: fimAtual, iniPassado2: iniPassado, fimPassado2: fimPassado,
+        iniPassado3: iniPassado, fimPassado3: fimPassado,
+        codLoja: loja
+      });
+
+      // Montar mapa de resultados
+      const resultado: Record<string, { vendasAtual: number; vendasPassado: number; percentualQueda: number }> = {};
+      for (const row of rows as any[]) {
+        const cod = String(row.COD_PRODUTO).trim();
+        const atual = parseFloat(row.VENDAS_ATUAL) || 0;
+        const passado = parseFloat(row.VENDAS_PASSADO) || 0;
+        const queda = passado > 0 ? ((passado - atual) / passado) * 100 : 0;
+        resultado[cod] = {
+          vendasAtual: Math.round(atual * 100) / 100,
+          vendasPassado: Math.round(passado * 100) / 100,
+          percentualQueda: Math.round(queda * 10) / 10
+        };
+      }
+
+      const totalComQueda = Object.values(resultado).filter(r => r.percentualQueda > 0).length;
+      console.log(`📉 [QUEDA VENDAS] ${rows.length} produtos comparados, ${totalComQueda} com queda`);
+
+      res.json({
+        periodoAtual: { inicio: iniAtual, fim: fimAtual },
+        periodoPassado: { inicio: iniPassado, fim: fimPassado },
+        produtos: resultado
+      });
+
+    } catch (error: any) {
+      console.error('Get queda vendas error:', error);
+      res.status(500).json({ error: error.message || 'Erro ao buscar queda de vendas' });
+    }
+  }
 }
