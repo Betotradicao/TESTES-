@@ -80,6 +80,8 @@ import metasRouter from './routes/metas.routes';
 import dvrCftvRouter from './routes/dvr-cftv.routes';
 import faceRecognitionRouter from './routes/face-recognition.routes';
 import ecommerceRouter from './routes/ecommerce.routes';
+import margensCategoriaRouter from './routes/margens-categoria.routes';
+import disparoWhatsappRouter from './routes/disparo-whatsapp.routes';
 import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
 import { MappingService } from './services/mapping.service';
@@ -189,10 +191,12 @@ app.use('/api/prazo-fornecedores', prazoFornecedoresRouter);
 app.use('/api/garimpador', garimpadorRouter);
 app.use('/api/analise-cotacao', analiseCotacaoRouter);
 app.use('/api/ecommerce', ecommerceRouter);
+app.use('/api/margens-categoria', margensCategoriaRouter);
 app.use('/api/prevencao-caixa', prevencaoCaixaRouter);
 app.use('/api/metas', metasRouter);
 app.use('/api/dvr-cftv', dvrCftvRouter);
 app.use('/api/face-recognition', faceRecognitionRouter);
+app.use('/api/disparo-whatsapp', disparoWhatsappRouter);
 
 // app.use('/api/user-security', userSecurityRouter);
 
@@ -1312,6 +1316,17 @@ const startServer = async () => {
     }
   }, { timezone: 'America/Sao_Paulo' });
   console.log('📦 VectorStore sync cron job started (configurable schedule)');
+
+  // Disparo WhatsApp - atualizar scores de contatos diariamente às 3h
+  cron.schedule('0 3 * * *', async () => {
+    try {
+      const { DisparoWhatsAppService } = await import('./services/disparo-whatsapp.service');
+      await DisparoWhatsAppService.updateContactScores();
+    } catch (error) {
+      console.error('❌ [DISPARO] Erro ao atualizar scores:', error);
+    }
+  }, { timezone: 'America/Sao_Paulo' });
+  console.log('📊 Disparo WhatsApp score cron started (daily 3AM)');
 };
 
 startServer();

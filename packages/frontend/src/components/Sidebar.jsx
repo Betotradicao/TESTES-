@@ -155,6 +155,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/estoque-saude': 'gestao-estoque-margem',
       '/pricing-ponderacao': 'gestao-estoque-margem',
       '/analise-relevancia': 'pricing',
+      '/margens-categoria': 'pricing',
       // Gestão de Compras
       '/compra-venda-analise': 'compras',
       '/prevencao-pedidos': 'compras',
@@ -227,6 +228,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/garimpador-produtos-pesquisar': 'oferta-radar',
       '/garimpador-ecommerce': 'oferta-radar',
       '/marketing-whatsapp': 'marketing-radar',
+      '/disparo-whatsapp': 'marketing-radar',
       '/nota-fiscal-recebimento': 'financas-radar',
       '/notas-a-chegar': 'financas-radar',
       '/demonstrativo-caixa': 'financas-radar',
@@ -405,7 +407,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             { id: 'saude-margens', submenuId: 'saude-margens', title: 'SAÚDE DE MARGENS', path: '/saude-margens' },
             { id: 'pricing-ancoragem', submenuId: 'pricing-ancoragem', title: 'ANCORAGEM DE PREÇO', path: '/pricing-ancoragem' },
             { id: 'pricing-competitividade', submenuId: 'pricing-competitividade', title: 'COMPETITIVIDADE E CONCORRÊNCIA', path: '/pricing-competitividade' },
-            { id: 'analise-relevancia', submenuId: 'analise-relevancia', title: 'ANÁLISE RELEVÂNCIA', path: '/analise-relevancia' }
+            { id: 'analise-relevancia', submenuId: 'analise-relevancia', title: 'ANÁLISE RELEVÂNCIA', path: '/analise-relevancia' },
+            { id: 'margens-categoria', submenuId: 'margens-categoria', title: 'MARGENS POR CATEGORIA', path: '/margens-categoria' }
           ]
         },
         {
@@ -668,9 +671,20 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       expandable: true,
       items: [
         {
+          id: 'disparo-whatsapp',
+          moduleId: 'disparo-whatsapp',
+          title: 'DISPARO EM MASSA',
+          path: '/disparo-whatsapp',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+            </svg>
+          )
+        },
+        {
           id: 'marketing-whatsapp',
           moduleId: 'marketing-whatsapp',
-          title: 'RESULTADO DE ENTREGA WHATSAPP',
+          title: 'RESULTADO DE ENTREGA',
           path: '/marketing-whatsapp',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

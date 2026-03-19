@@ -61,6 +61,7 @@ import GarimpadorProdutosPesquisar from './pages/GarimpadorProdutosPesquisar';
 import GarimpadorEcommerce from './pages/GarimpadorEcommerce';
 import RotaCrescimento from './pages/RotaCrescimento';
 import MarketingWhatsapp from './pages/MarketingWhatsapp';
+import DisparoWhatsapp from './pages/DisparoWhatsapp';
 import CalendarioAtendimento from './pages/CalendarioAtendimento';
 import CotacaoPublica from './pages/CotacaoPublica';
 import AnaliseCotacao from './pages/AnaliseCotacao';
@@ -81,6 +82,7 @@ import MetasParametrizar from './pages/MetasParametrizar';
 import VisionOperacoesRisco from './pages/VisionOperacoesRisco';
 import VisionPalavraChave2 from './pages/VisionPalavraChave2';
 import VisionFacial from './pages/VisionFacial';
+import MargensCategoria from './pages/MargensCategoria';
 
 function App() {
   return (
@@ -386,6 +388,14 @@ function App() {
               }
             />
             <Route
+              path="/margens-categoria"
+              element={
+                <ProtectedRoute>
+                  <MargensCategoria />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/pricing-competitividade"
               element={
                 <ProtectedRoute>
@@ -534,6 +544,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <MarketingWhatsapp />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/disparo-whatsapp"
+              element={
+                <ProtectedRoute>
+                  <DisparoWhatsapp />
                 </ProtectedRoute>
               }
             />
