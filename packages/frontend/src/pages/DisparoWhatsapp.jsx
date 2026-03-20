@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../contexts/AuthContext';
+import { api } from '../utils/api';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -51,6 +52,16 @@ function DisparoWhatsapp() {
   const [mensagensPage, setMensagensPage] = useState(1);
   const [mensagensStatusFilter, setMensagensStatusFilter] = useState('');
 
+  // Entregas
+  const [entregasStats, setEntregasStats] = useState(null);
+  const [entregasMsgs, setEntregasMsgs] = useState([]);
+  const [entregasLoading, setEntregasLoading] = useState(false);
+  const [entregasDateRange, setEntregasDateRange] = useState({
+    inicio: new Date().toISOString().split('T')[0],
+    fim: new Date().toISOString().split('T')[0]
+  });
+  const [selectedEntregaMsg, setSelectedEntregaMsg] = useState(null);
+
   const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
 
   // ========== FETCH ==========
@@ -61,6 +72,23 @@ function DisparoWhatsapp() {
       if (r.ok) setListas(await r.json());
     } catch (e) { console.error(e); }
   }, [token]);
+
+  const fetchEntregas = useCallback(async () => {
+    setEntregasLoading(true);
+    try {
+      const [statsRes, msgsRes] = await Promise.all([
+        api.get('/marketing/whatsapp/stats', { params: entregasDateRange }),
+        api.get('/marketing/whatsapp/messages', { params: entregasDateRange })
+      ]);
+      setEntregasStats(statsRes.data);
+      setEntregasMsgs(msgsRes.data?.messages || []);
+    } catch (e) {
+      setEntregasStats(null);
+      setEntregasMsgs([]);
+    } finally {
+      setEntregasLoading(false);
+    }
+  }, [entregasDateRange]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -107,6 +135,7 @@ function DisparoWhatsapp() {
     if (tab === 'contatos') fetchContatos();
     if (tab === 'campanhas') fetchCampanhas();
     if (tab === 'historico') { fetchCampanhas(); fetchMensagens(); }
+    if (tab === 'entregas') fetchEntregas();
   }, [tab, fetchStats, fetchContatos, fetchCampanhas, fetchMensagens]);
 
   // Auto-refresh stats e campanhas a cada 10s
@@ -261,6 +290,7 @@ function DisparoWhatsapp() {
     { id: 'contatos', label: 'Contatos', icon: '👥' },
     { id: 'campanhas', label: 'Campanhas', icon: '📤' },
     { id: 'historico', label: 'Histórico', icon: '📋' },
+    { id: 'entregas', label: 'Entregas', icon: '✅' },
   ];
 
   return (
@@ -584,6 +614,116 @@ function DisparoWhatsapp() {
                       <span className="px-3 py-1 text-sm">Página {mensagensPage} de {Math.ceil(mensagensTotal / 50)}</span>
                       <button disabled={mensagensPage >= Math.ceil(mensagensTotal / 50)} onClick={() => setMensagensPage(p => p + 1)}
                         className="px-3 py-1 border rounded text-sm disabled:opacity-50">Próxima</button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+          {/* ========== ENTREGAS ========== */}
+          {tab === 'entregas' && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-xl shadow-sm border p-4 flex items-center gap-4">
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Data Inicio</label>
+                  <input type="date" value={entregasDateRange.inicio}
+                    onChange={e => setEntregasDateRange(prev => ({ ...prev, inicio: e.target.value }))}
+                    className="border rounded px-3 py-1.5 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Data Fim</label>
+                  <input type="date" value={entregasDateRange.fim}
+                    onChange={e => setEntregasDateRange(prev => ({ ...prev, fim: e.target.value }))}
+                    className="border rounded px-3 py-1.5 text-sm" />
+                </div>
+                <button onClick={fetchEntregas} className="bg-green-600 text-white px-4 py-1.5 rounded text-sm hover:bg-green-700 mt-4">Atualizar</button>
+              </div>
+
+              {entregasLoading ? (
+                <div className="text-center py-12 text-gray-400">Carregando...</div>
+              ) : !entregasStats ? (
+                <div className="text-center py-12 text-gray-400">Configure a instância do WhatsApp em Configurações</div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-white rounded-xl shadow-sm border p-5">
+                      <p className="text-xs text-gray-500 uppercase">Total Enviadas</p>
+                      <p className="text-3xl font-bold text-blue-600">{entregasStats.enviadas || 0}</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border p-5">
+                      <p className="text-xs text-gray-500 uppercase">Entregues</p>
+                      <p className="text-3xl font-bold text-green-600">{entregasStats.entregues || 0}</p>
+                      {entregasStats.enviadas > 0 && <p className="text-xs text-green-500">{((entregasStats.entregues / entregasStats.enviadas) * 100).toFixed(1)}%</p>}
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border p-5">
+                      <p className="text-xs text-gray-500 uppercase">Lidas</p>
+                      <p className="text-3xl font-bold text-purple-600">{entregasStats.lidas || 0}</p>
+                      {entregasStats.enviadas > 0 && <p className="text-xs text-purple-500">{((entregasStats.lidas / entregasStats.enviadas) * 100).toFixed(1)}%</p>}
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border p-5">
+                      <p className="text-xs text-gray-500 uppercase">Falharam</p>
+                      <p className="text-3xl font-bold text-red-600">{entregasStats.falharam || 0}</p>
+                      {entregasStats.enviadas > 0 && <p className="text-xs text-red-500">{((entregasStats.falharam / entregasStats.enviadas) * 100).toFixed(1)}%</p>}
+                    </div>
+                  </div>
+
+                  {entregasMsgs.length > 0 && (
+                    <div className="bg-white rounded-xl shadow-sm border">
+                      <div className="p-4 border-b flex justify-between">
+                        <h3 className="font-semibold text-gray-700">Mensagens Capturadas</h3>
+                        <span className="text-sm text-gray-400">{entregasMsgs.length} mensagens</span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="text-left px-4 py-2 text-xs text-gray-500">Contato</th>
+                              <th className="text-left px-4 py-2 text-xs text-gray-500">Tipo</th>
+                              <th className="text-left px-4 py-2 text-xs text-gray-500">Mensagem</th>
+                              <th className="text-center px-3 py-2 text-xs text-gray-500">Enviado</th>
+                              <th className="text-center px-3 py-2 text-xs text-gray-500">Recebido</th>
+                              <th className="text-center px-3 py-2 text-xs text-gray-500">Visualizado</th>
+                              <th className="text-center px-3 py-2 text-xs text-gray-500">Falhou</th>
+                              <th className="text-left px-4 py-2 text-xs text-gray-500">Horário</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {entregasMsgs.map((msg, i) => {
+                              const phone = (msg.remoteJidAlt || msg.remoteJid || '').replace('@s.whatsapp.net', '').replace('@lid', '');
+                              const fmtPhone = phone.length > 10 ? `(${phone.slice(2,4)}) ${phone.slice(4,9)}-${phone.slice(9)}` : phone;
+                              return (
+                                <tr key={msg.id || i} className="border-t hover:bg-gray-50">
+                                  <td className="px-4 py-2">
+                                    <div className="font-medium text-gray-800 text-xs">{msg.pushName || '-'}</div>
+                                    <div className="text-xs text-gray-400">{fmtPhone}</div>
+                                  </td>
+                                  <td className="px-4 py-2 text-xs text-gray-600">
+                                    {msg.messageType === 'imageMessage' ? 'Imagem' : msg.messageType === 'videoMessage' ? 'Video' : msg.messageType === 'conversation' ? 'Texto' : msg.messageType || '-'}
+                                  </td>
+                                  <td className="px-4 py-2 text-xs text-gray-600 max-w-xs truncate">{msg.caption || '-'}</td>
+                                  <td className="px-3 py-2 text-center">
+                                    {['SERVER_ACK','DELIVERY_ACK','READ','PENDING'].includes(msg.status) ? <span className="text-green-500">✔</span> : <span className="text-gray-300">—</span>}
+                                  </td>
+                                  <td className="px-3 py-2 text-center">
+                                    {['DELIVERY_ACK','READ'].includes(msg.status) ? <span className="text-blue-500">✔✔</span> : <span className="text-gray-300">—</span>}
+                                  </td>
+                                  <td className="px-3 py-2 text-center">
+                                    {msg.status === 'READ' ? <span className="text-blue-600">✔✔</span> : <span className="text-gray-300">—</span>}
+                                  </td>
+                                  <td className="px-3 py-2 text-center">
+                                    {['ERROR','FAILED'].includes(msg.status) ? <span className="text-red-500">✘</span> : <span className="text-gray-300">—</span>}
+                                  </td>
+                                  <td className="px-4 py-2 text-xs text-gray-500">
+                                    {msg.timestamp ? new Date(msg.timestamp * 1000).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   )}
                 </>
