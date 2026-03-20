@@ -87,8 +87,10 @@ export class DisparoWhatsAppService {
     if (!campanha) throw new Error('Campanha não encontrada');
     if (campanha.status === 'running') throw new Error('Campanha já está em execução');
 
-    // Buscar contatos ativos que ainda não receberam nesta campanha
-    const contatosAtivos = await contatoRepo.find({ where: { status: 'active' } });
+    // Buscar contatos ativos da lista (ou todos se não tiver lista)
+    const where: any = { status: 'active' };
+    if (campanha.lista_id) where.lista_id = campanha.lista_id;
+    const contatosAtivos = await contatoRepo.find({ where });
     const jaEnviados = await msgRepo.find({ where: { campanha_id: campanhaId }, select: ['contato_id'] });
     const jaEnviadosIds = new Set(jaEnviados.map(m => m.contato_id));
     const contatos = contatosAtivos.filter(c => !jaEnviadosIds.has(c.id));
@@ -135,10 +137,18 @@ export class DisparoWhatsAppService {
       const contato = contatos[i];
       const telefone = contato.telefone.replace(/\D/g, '');
 
-      // Enviar mensagem
+      // Enviar mensagem(ns)
       let result;
-      if (campanha.imagem_base64) {
-        result = await this.sendMedia(telefone, campanha.mensagem_texto || '', campanha.imagem_base64);
+      const imagens = campanha.imagens_base64 || (campanha.imagem_base64 ? [campanha.imagem_base64] : []);
+
+      if (imagens.length > 0) {
+        // Primeira imagem com o texto como caption
+        result = await this.sendMedia(telefone, campanha.mensagem_texto || '', imagens[0]);
+        // Imagens adicionais sem caption
+        for (let j = 1; j < imagens.length && result.success; j++) {
+          await new Promise(r => setTimeout(r, 1500)); // delay entre imagens
+          result = await this.sendMedia(telefone, '', imagens[j]);
+        }
       } else {
         result = await this.sendText(telefone, campanha.mensagem_texto || '');
       }
@@ -377,47 +387,54 @@ export class DisparoWhatsAppService {
     }
 
     console.log(`📱 WhatsApp retornou ${contacts.length} contatos/chats`);
-    // Log amostra para debug
-    if (contacts.length > 0) {
-      const sample = contacts.slice(0, 3).map((c: any) => ({ id: c.id, jid: c.jid, remoteJid: c.remoteJid, name: c.pushName || c.name, phone: c.phone }));
-      console.log('📱 Amostra:', JSON.stringify(sample));
+    // Contar tipos
+    let countWhatsapp = 0, countLid = 0, countGroup = 0, countOther = 0;
+    for (const c of contacts) {
+      const jid = c.remoteJid || c.id || c.jid || '';
+      if (jid.includes('@s.whatsapp.net')) countWhatsapp++;
+      else if (jid.includes('@lid')) countLid++;
+      else if (jid.includes('@g.us')) countGroup++;
+      else countOther++;
     }
+    console.log(`📱 Tipos: ${countWhatsapp} números, ${countLid} LID (ocultos), ${countGroup} grupos, ${countOther} outros`);
 
     let imported = 0;
     let duplicates = 0;
 
     for (const c of contacts) {
-      // Extrair telefone do JID ou campo id/phone
-      let phone = c.id || c.jid || c.remoteJid || c.phone || c.number || '';
-      phone = phone.replace('@s.whatsapp.net', '').replace('@c.us', '').replace(/\D/g, '');
+      // Usar remoteJid como fonte principal do número
+      const rawJid = c.remoteJid || c.jid || '';
 
-      // Ignorar grupos, status, broadcasts
-      // Ignorar grupos, status, broadcasts e números inválidos
-      if (!phone || phone === 'status' || phone === 'broadcast') continue;
-      // Grupos têm '-' no JID original
-      const rawId = c.id || c.jid || c.remoteJid || '';
-      if (rawId.includes('@g.us') || rawId.includes('@broadcast') || rawId.includes('-')) continue;
-      // Número muito curto
-      if (phone.length < 10) continue;
+      // Ignorar grupos, LID, status, broadcasts
+      if (!rawJid || rawJid.includes('@g.us') || rawJid.includes('@broadcast') || rawJid.includes('@lid')) continue;
+
+      // Extrair telefone do JID
+      let phone = rawJid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace(/\D/g, '');
+
+      if (!phone || phone.length < 10) continue;
 
       const nome = c.pushName || c.name || c.notify || c.contactName || c.verifiedName || null;
 
-      const existing = await repo.findOne({ where: { telefone: phone } });
-      if (existing) {
-        // Atualizar nome se veio e não tinha
-        if (nome && !existing.nome) {
-          existing.nome = nome;
-          await repo.save(existing);
+      try {
+        const existing = await repo.findOne({ where: { telefone: phone } });
+        if (existing) {
+          if (nome && !existing.nome) {
+            existing.nome = nome;
+            await repo.save(existing);
+          }
+          duplicates++;
+          continue;
         }
-        duplicates++;
-        continue;
-      }
 
-      const contato = new DisparoContato();
-      contato.telefone = phone;
-      contato.nome = nome;
-      await repo.save(contato);
-      imported++;
+        const contato = new DisparoContato();
+        contato.telefone = phone;
+        contato.nome = nome;
+        await repo.save(contato);
+        imported++;
+      } catch (e) {
+        // Duplicate key - skip
+        duplicates++;
+      }
     }
 
     return { total: contacts.length, imported, duplicates };

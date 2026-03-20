@@ -36,6 +36,9 @@ export class DisparoContato {
   @Column({ type: 'timestamp', nullable: true })
   last_interaction_at: Date | null;
 
+  @Column({ type: 'int', nullable: true })
+  lista_id: number | null;
+
   @Column({ type: 'timestamp', nullable: true })
   inactivated_at: Date | null;
 

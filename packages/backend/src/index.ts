@@ -200,6 +200,67 @@ app.use('/api/disparo-whatsapp', disparoWhatsappRouter);
 
 // app.use('/api/user-security', userSecurityRouter);
 
+// Disparo WhatsApp - configurar webhook na Evolution API
+app.post('/api/disparo-whatsapp/setup-webhook', async (req: any, res: any) => {
+  try {
+    const ConfigService = require('./services/configuration.service').ConfigurationService;
+    const url = await ConfigService.get('disparo_whats_url');
+    const token = await ConfigService.get('disparo_whats_token');
+    const instancia = await ConfigService.get('disparo_whats_instancia');
+    if (!url || !token || !instancia) {
+      return res.status(400).json({ error: 'Config de disparo não encontrada' });
+    }
+
+    const webhookUrl = req.body.webhook_url || 'https://tradicao.prevencaonoradar.com.br/api/disparo-whatsapp/webhook';
+    const axios = require('axios');
+
+    // Tentar diferentes endpoints da Evolution API
+    let response;
+    const headers = { apikey: token, 'Content-Type': 'application/json' };
+    const payload = {
+      url: webhookUrl,
+      webhook_by_events: false,
+      webhook_base64: false,
+      events: ['MESSAGES_UPDATE', 'MESSAGES_UPSERT', 'MESSAGE_RECEIPT_UPDATE']
+    };
+
+    // Tentar v1
+    try {
+      response = await axios.put(`${url}/webhook/set/${encodeURIComponent(instancia)}`, payload, { headers, timeout: 10000 });
+      return res.json({ success: true, data: response.data, webhook_url: webhookUrl, method: 'PUT v1' });
+    } catch (e1: any) {
+      console.log('Webhook v1 PUT falhou:', e1.response?.status, e1.response?.data);
+    }
+
+    // Tentar v2
+    try {
+      response = await axios.post(`${url}/webhook/instance/${encodeURIComponent(instancia)}`, { webhook: payload }, { headers, timeout: 10000 });
+      return res.json({ success: true, data: response.data, webhook_url: webhookUrl, method: 'POST v2' });
+    } catch (e2: any) {
+      console.log('Webhook v2 POST falhou:', e2.response?.status, e2.response?.data);
+    }
+
+    // Tentar buscar webhook atual
+    try {
+      response = await axios.get(`${url}/webhook/find/${encodeURIComponent(instancia)}`, { headers, timeout: 10000 });
+      return res.json({ success: false, current_webhook: response.data, message: 'Não conseguiu configurar, mostrando webhook atual' });
+    } catch (e3: any) {
+      console.log('Webhook find falhou:', e3.response?.status, e3.response?.data);
+    }
+
+    // Listar instâncias pra debug
+    try {
+      response = await axios.get(`${url}/instance/fetchInstances`, { headers, timeout: 10000 });
+      return res.json({ success: false, instances: response.data?.map((i: any) => i.name), message: 'Webhook não configurado, instâncias listadas' });
+    } catch (e4: any) {
+      return res.status(500).json({ error: 'Todas as tentativas falharam', details: e4.response?.data || e4.message });
+    }
+  } catch (err: any) {
+    console.error('Erro setup webhook:', err.response?.data || err.message);
+    return res.status(500).json({ error: err.response?.data?.message || err.message });
+  }
+});
+
 // Marketing WhatsApp - teste de conexão com Evolution API
 app.post('/api/marketing/whatsapp/test-connection', async (req: any, res: any) => {
   try {

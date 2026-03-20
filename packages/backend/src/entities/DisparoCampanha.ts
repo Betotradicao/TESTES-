@@ -18,6 +18,12 @@ export class DisparoCampanha {
   @Column({ type: 'text', nullable: true })
   imagem_base64: string | null;
 
+  @Column({ type: 'text', array: true, nullable: true })
+  imagens_base64: string[] | null;
+
+  @Column({ type: 'int', nullable: true })
+  lista_id: number | null;
+
   @Column({ type: 'varchar', length: 20, default: 'draft' })
   status: string; // draft, running, paused, completed, cancelled
 

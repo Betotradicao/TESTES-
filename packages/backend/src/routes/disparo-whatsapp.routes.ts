@@ -10,6 +10,13 @@ router.post('/webhook', DisparoWhatsAppController.webhook);
 // Stats
 router.get('/stats', authenticateToken, DisparoWhatsAppController.getStats);
 
+// Listas
+router.get('/listas', authenticateToken, DisparoWhatsAppController.listListas);
+router.post('/listas', authenticateToken, DisparoWhatsAppController.createLista);
+router.delete('/listas/:id', authenticateToken, DisparoWhatsAppController.deleteLista);
+router.post('/contatos/move-to-list', authenticateToken, DisparoWhatsAppController.moveContactsToList);
+router.post('/contatos/auto-classify', authenticateToken, DisparoWhatsAppController.autoClassifyContacts);
+
 // Contatos
 router.get('/contatos', authenticateToken, DisparoWhatsAppController.listContacts);
 router.post('/contatos', authenticateToken, DisparoWhatsAppController.createContact);
@@ -19,6 +26,7 @@ router.post('/contatos/delete-multiple', authenticateToken, DisparoWhatsAppContr
 router.post('/contatos/import', authenticateToken, DisparoWhatsAppController.importContacts);
 router.post('/contatos/sync-whatsapp', authenticateToken, DisparoWhatsAppController.syncFromWhatsApp);
 router.post('/contatos/:id/reactivate', authenticateToken, DisparoWhatsAppController.reactivateContact);
+router.post('/contatos/clear-all', authenticateToken, DisparoWhatsAppController.clearAllContacts);
 
 // Campanhas
 router.get('/campanhas', authenticateToken, DisparoWhatsAppController.listCampaigns);

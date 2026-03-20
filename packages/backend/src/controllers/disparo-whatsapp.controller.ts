@@ -23,6 +23,67 @@ export class DisparoWhatsAppController {
     }
   }
 
+  // ========== LISTAS ==========
+
+  static async listListas(req: AuthRequest, res: Response) {
+    try {
+      const result = await AppDataSource.query(`
+        SELECT l.*, (SELECT count(*) FROM disparo_contatos c WHERE c.lista_id = l.id) as total_contatos
+        FROM disparo_listas l ORDER BY l.nome
+      `);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+
+  static async createLista(req: AuthRequest, res: Response) {
+    try {
+      const { nome, cor } = req.body;
+      if (!nome) return res.status(400).json({ error: 'Nome obrigatório' });
+      const result = await AppDataSource.query(
+        `INSERT INTO disparo_listas (nome, cor) VALUES ($1, $2) RETURNING *`, [nome, cor || '#3b82f6']
+      );
+      res.json(result[0]);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+
+  static async deleteLista(req: AuthRequest, res: Response) {
+    try {
+      await AppDataSource.query(`UPDATE disparo_contatos SET lista_id = NULL WHERE lista_id = $1`, [req.params.id]);
+      await AppDataSource.query(`DELETE FROM disparo_listas WHERE id = $1`, [req.params.id]);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+
+  static async moveContactsToList(req: AuthRequest, res: Response) {
+    try {
+      const { ids, lista_id } = req.body;
+      if (!ids || !Array.isArray(ids)) return res.status(400).json({ error: 'IDs obrigatórios' });
+      const repo = AppDataSource.getRepository(DisparoContato);
+      await repo.createQueryBuilder().update().set({ lista_id: lista_id || null }).whereInIds(ids).execute();
+      res.json({ success: true, moved: ids.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+
+  static async autoClassifyContacts(req: AuthRequest, res: Response) {
+    try {
+      // Nome só números = Clientes (lista 1), Nome com letras = Outros (lista 2)
+      const r1 = await AppDataSource.query(`UPDATE disparo_contatos SET lista_id = 1 WHERE nome ~ '^[0-9]+$'`);
+      const r2 = await AppDataSource.query(`UPDATE disparo_contatos SET lista_id = 2 WHERE nome ~ '[a-zA-Z]'`);
+      const r3 = await AppDataSource.query(`UPDATE disparo_contatos SET lista_id = 1 WHERE lista_id IS NULL`);
+      res.json({ clientes: r1[1], outros: r2[1], semNome: r3[1] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+
   // ========== CONTATOS ==========
 
   static async listContacts(req: AuthRequest, res: Response) {
@@ -32,6 +93,9 @@ export class DisparoWhatsAppController {
       const limit = parseInt(req.query.limit as string) || 50;
       const search = (req.query.search as string) || '';
       const status = (req.query.status as string) || '';
+      const sortCol = (req.query.sortCol as string) || 'nome';
+      const sortDir = ((req.query.sortDir as string) || 'asc').toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+      const listaId = (req.query.lista_id as string) || '';
 
       const qb = repo.createQueryBuilder('c');
 
@@ -41,9 +105,17 @@ export class DisparoWhatsAppController {
       if (status) {
         qb.andWhere('c.status = :status', { status });
       }
+      if (listaId) {
+        qb.andWhere('c.lista_id = :listaId', { listaId: parseInt(listaId) });
+      }
 
-      qb.orderBy('c.score', 'DESC')
-        .addOrderBy('c.nome', 'ASC')
+      const allowedCols: Record<string, string> = {
+        nome: 'c.nome', telefone: 'c.telefone', score: 'c.score', status: 'c.status',
+        enviadas: 'c.total_enviados', lidas: 'c.total_lidos', falhas: 'c.total_falhas',
+        ultima_interacao: 'c.last_interaction_at'
+      };
+      const orderCol = allowedCols[sortCol] || 'c.nome';
+      qb.orderBy(orderCol, sortDir as 'ASC' | 'DESC', 'NULLS LAST')
         .skip((page - 1) * limit)
         .take(limit);
 
@@ -142,6 +214,17 @@ export class DisparoWhatsAppController {
     }
   }
 
+  static async clearAllContacts(req: AuthRequest, res: Response) {
+    try {
+      const repo = AppDataSource.getRepository(DisparoContato);
+      await AppDataSource.query('TRUNCATE TABLE "disparo_mensagens"');
+      await AppDataSource.query('TRUNCATE TABLE "disparo_contatos" CASCADE');
+      res.json({ success: true, message: 'Todos os contatos removidos' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+
   static async reactivateContact(req: AuthRequest, res: Response) {
     try {
       const repo = AppDataSource.getRepository(DisparoContato);
@@ -177,7 +260,7 @@ export class DisparoWhatsAppController {
 
   static async createCampaign(req: AuthRequest, res: Response) {
     try {
-      const { nome, mensagem_texto, imagem_base64 } = req.body;
+      const { nome, mensagem_texto, imagem_base64, imagens_base64, lista_id } = req.body;
       if (!nome) return res.status(400).json({ error: 'Nome é obrigatório' });
 
       const repo = AppDataSource.getRepository(DisparoCampanha);
@@ -185,6 +268,8 @@ export class DisparoWhatsAppController {
       campanha.nome = nome;
       campanha.mensagem_texto = mensagem_texto || null;
       campanha.imagem_base64 = imagem_base64 || null;
+      campanha.imagens_base64 = imagens_base64 || null;
+      campanha.lista_id = lista_id || null;
       await repo.save(campanha);
 
       res.json(campanha);

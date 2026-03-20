@@ -12,6 +12,10 @@ function DisparoWhatsapp() {
   // Dashboard
   const [stats, setStats] = useState(null);
 
+  // Listas
+  const [listas, setListas] = useState([]);
+  const [listaFilter, setListaFilter] = useState('');
+
   // Contatos
   const [contatos, setContatos] = useState([]);
   const [contatosTotal, setContatosTotal] = useState(0);
@@ -24,14 +28,21 @@ function DisparoWhatsapp() {
   const [addNome, setAddNome] = useState('');
   const [addTelefone, setAddTelefone] = useState('');
   const [selectedContatos, setSelectedContatos] = useState(new Set());
+  const [sortCol, setSortCol] = useState('nome');
+  const [sortDir, setSortDir] = useState('asc');
+  const handleSort = (col) => {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortCol(col); setSortDir('asc'); }
+    setContatosPage(1);
+  };
 
   // Campanhas
   const [campanhas, setCampanhas] = useState([]);
   const [showCampanhaModal, setShowCampanhaModal] = useState(false);
   const [campNome, setCampNome] = useState('');
   const [campTexto, setCampTexto] = useState('');
-  const [campImagem, setCampImagem] = useState(null);
-  const [campImagemPreview, setCampImagemPreview] = useState(null);
+  const [campImagens, setCampImagens] = useState([]);
+  const [campListaId, setCampListaId] = useState('');
 
   // Histórico
   const [selectedCampanha, setSelectedCampanha] = useState('');
@@ -44,6 +55,13 @@ function DisparoWhatsapp() {
 
   // ========== FETCH ==========
 
+  const fetchListas = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/disparo-whatsapp/listas`, { headers });
+      if (r.ok) setListas(await r.json());
+    } catch (e) { console.error(e); }
+  }, [token]);
+
   const fetchStats = useCallback(async () => {
     try {
       const r = await fetch(`${API}/disparo-whatsapp/stats`, { headers });
@@ -53,7 +71,7 @@ function DisparoWhatsapp() {
 
   const fetchContatos = useCallback(async () => {
     try {
-      const params = new URLSearchParams({ page: contatosPage, limit: 50, search: contatosSearch, status: contatosStatusFilter });
+      const params = new URLSearchParams({ page: contatosPage, limit: 50, search: contatosSearch, status: contatosStatusFilter, sortCol, sortDir, lista_id: listaFilter });
       const r = await fetch(`${API}/disparo-whatsapp/contatos?${params}`, { headers });
       if (r.ok) {
         const data = await r.json();
@@ -61,7 +79,7 @@ function DisparoWhatsapp() {
         setContatosTotal(data.total);
       }
     } catch (e) { console.error(e); }
-  }, [token, contatosPage, contatosSearch, contatosStatusFilter]);
+  }, [token, contatosPage, contatosSearch, contatosStatusFilter, sortCol, sortDir, listaFilter]);
 
   const fetchCampanhas = useCallback(async () => {
     try {
@@ -84,6 +102,7 @@ function DisparoWhatsapp() {
   }, [token, selectedCampanha, mensagensPage, mensagensStatusFilter]);
 
   useEffect(() => {
+    fetchListas();
     if (tab === 'dashboard') fetchStats();
     if (tab === 'contatos') fetchContatos();
     if (tab === 'campanhas') fetchCampanhas();
@@ -154,26 +173,29 @@ function DisparoWhatsapp() {
 
   const handleCreateCampanha = async () => {
     if (!campNome) return;
-    const body = { nome: campNome, mensagem_texto: campTexto, imagem_base64: campImagem };
+    const imagens_base64 = campImagens.map(i => i.base64);
+    const body = { nome: campNome, mensagem_texto: campTexto, imagem_base64: imagens_base64.length === 1 ? imagens_base64[0] : null, imagens_base64: imagens_base64.length > 0 ? imagens_base64 : null, lista_id: campListaId ? parseInt(campListaId) : null };
     const r = await fetch(`${API}/disparo-whatsapp/campanhas`, {
       method: 'POST', headers, body: JSON.stringify(body)
     });
     if (r.ok) {
-      setShowCampanhaModal(false); setCampNome(''); setCampTexto(''); setCampImagem(null); setCampImagemPreview(null);
+      setShowCampanhaModal(false); setCampNome(''); setCampTexto(''); setCampImagens([]); setCampListaId('');
       fetchCampanhas();
     }
   };
 
   const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const base64 = ev.target.result.split(',')[1];
-      setCampImagem(base64);
-      setCampImagemPreview(ev.target.result);
-    };
-    reader.readAsDataURL(file);
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const base64 = ev.target.result.split(',')[1];
+        setCampImagens(prev => [...prev, { base64, preview: ev.target.result, name: file.name }]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
   };
 
   const campaignAction = async (id, action) => {
@@ -224,9 +246,10 @@ function DisparoWhatsapp() {
   const formatPhone = (t) => {
     if (!t) return '-';
     const d = t.replace(/\D/g, '');
-    if (d.length === 13) return `+${d.slice(0,2)} (${d.slice(2,4)}) ${d.slice(4,9)}-${d.slice(9)}`;
+    if (d.length >= 12) return `+${d.slice(0,2)} (${d.slice(2,4)}) ${d.slice(4,d.length-4)}-${d.slice(-4)}`;
     if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
-    return t;
+    if (d.length === 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`;
+    return d;
   };
 
   const formatDate = (d) => d ? new Date(d).toLocaleString('pt-BR') : '-';
@@ -294,9 +317,14 @@ function DisparoWhatsapp() {
               <div className="flex flex-wrap items-center gap-3">
                 <input type="text" value={contatosSearch} onChange={e => { setContatosSearch(e.target.value); setContatosPage(1); }}
                   placeholder="Buscar por nome ou telefone..." className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-[200px]" />
+                <select value={listaFilter} onChange={e => { setListaFilter(e.target.value); setContatosPage(1); }}
+                  className="border rounded-lg px-3 py-2 text-sm">
+                  <option value="">Todas as Listas</option>
+                  {listas.map(l => <option key={l.id} value={l.id}>{l.nome} ({l.total_contatos})</option>)}
+                </select>
                 <select value={contatosStatusFilter} onChange={e => { setContatosStatusFilter(e.target.value); setContatosPage(1); }}
                   className="border rounded-lg px-3 py-2 text-sm">
-                  <option value="">Todos</option>
+                  <option value="">Todos Status</option>
                   <option value="active">Ativos</option>
                   <option value="inactive">Inativos</option>
                   <option value="invalid">Inválidos</option>
@@ -321,9 +349,23 @@ function DisparoWhatsapp() {
                 <button onClick={() => setShowImportModal(true)} className="bg-gray-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-600">Importar Manual</button>
                 <button onClick={() => setShowAddModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">+ Adicionar</button>
                 {selectedContatos.size > 0 && (
-                  <button onClick={handleDeleteSelected} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700">
-                    Excluir ({selectedContatos.size})
-                  </button>
+                  <>
+                    <select onChange={async e => {
+                      if (!e.target.value) return;
+                      await fetch(`${API}/disparo-whatsapp/contatos/move-to-list`, {
+                        method: 'POST', headers, body: JSON.stringify({ ids: [...selectedContatos], lista_id: parseInt(e.target.value) })
+                      });
+                      setSelectedContatos(new Set());
+                      fetchContatos(); fetchListas();
+                      e.target.value = '';
+                    }} className="border rounded-lg px-3 py-2 text-sm bg-purple-50">
+                      <option value="">Mover {selectedContatos.size} para...</option>
+                      {listas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
+                    </select>
+                    <button onClick={handleDeleteSelected} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700">
+                      Excluir ({selectedContatos.size})
+                    </button>
+                  </>
                 )}
               </div>
 
@@ -337,13 +379,13 @@ function DisparoWhatsapp() {
                         if (e.target.checked) setSelectedContatos(new Set(contatos.map(c => c.id)));
                         else setSelectedContatos(new Set());
                       }} /></th>
-                      <th className="p-3 text-left">Nome</th>
-                      <th className="p-3 text-left">Telefone</th>
-                      <th className="p-3 text-center">Score</th>
-                      <th className="p-3 text-center">Status</th>
-                      <th className="p-3 text-center">Enviadas</th>
-                      <th className="p-3 text-center">Lidas</th>
-                      <th className="p-3 text-center">Falhas</th>
+                      <Th col="nome" label="Nome" align="left" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                      <Th col="telefone" label="Telefone" align="left" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                      <Th col="score" label="Score" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                      <Th col="status" label="Status" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                      <Th col="enviadas" label="Enviadas" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                      <Th col="lidas" label="Lidas" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                      <Th col="falhas" label="Falhas" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <th className="p-3 text-left">Última Interação</th>
                       <th className="p-3 text-center">Ações</th>
                     </tr>
@@ -408,7 +450,14 @@ function DisparoWhatsapp() {
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <h3 className="font-bold text-gray-800">{c.nome}</h3>
-                        <p className="text-xs text-gray-500">Criada: {formatDate(c.created_at)}</p>
+                        <p className="text-xs text-gray-500">
+                          Criada: {formatDate(c.created_at)}
+                          {c.lista_id && listas.find(l => l.id === c.lista_id) && (
+                            <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                              {listas.find(l => l.id === c.lista_id)?.nome}
+                            </span>
+                          )}
+                        </p>
                       </div>
                       <div className="flex items-center gap-2">
                         {statusBadge(c.status)}
@@ -583,13 +632,29 @@ function DisparoWhatsapp() {
             <div className="space-y-3">
               <input type="text" value={campNome} onChange={e => setCampNome(e.target.value)}
                 className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Nome da campanha (ex: Oferta Terça 19/03)" />
+              <div>
+                <label className="text-sm text-gray-600 block mb-1">Enviar para lista</label>
+                <select value={campListaId} onChange={e => setCampListaId(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm">
+                  <option value="">Todos os contatos</option>
+                  {listas.map(l => <option key={l.id} value={l.id}>{l.nome} ({l.total_contatos} contatos)</option>)}
+                </select>
+              </div>
               <textarea value={campTexto} onChange={e => setCampTexto(e.target.value)}
                 className="w-full border rounded-lg p-3 text-sm h-32" placeholder="Texto da mensagem..." />
               <div>
-                <label className="text-sm text-gray-600 block mb-1">Imagem (opcional)</label>
-                <input type="file" accept="image/*" onChange={handleImageUpload} className="text-sm" />
-                {campImagemPreview && (
-                  <img src={campImagemPreview} alt="preview" className="mt-2 max-h-32 rounded border" />
+                <label className="text-sm text-gray-600 block mb-1">Imagens (opcional — pode selecionar várias)</label>
+                <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="text-sm" />
+                {campImagens.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {campImagens.map((img, i) => (
+                      <div key={i} className="relative">
+                        <img src={img.preview} alt={img.name} className="h-20 rounded border" />
+                        <button onClick={() => setCampImagens(prev => prev.filter((_, j) => j !== i))}
+                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">&times;</button>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
@@ -605,6 +670,18 @@ function DisparoWhatsapp() {
 }
 
 // ========== COMPONENTES ==========
+
+function Th({ col, label, align = 'center', sortCol, sortDir, onSort }) {
+  const active = sortCol === col;
+  return (
+    <th className={`p-3 text-${align} cursor-pointer select-none hover:bg-gray-100 transition`}
+      onClick={() => onSort(col)}>
+      <span className={active ? 'text-orange-600 font-bold' : ''}>
+        {label} {active ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
+      </span>
+    </th>
+  );
+}
 
 function Card({ title, value, sub, color }) {
   const colors = {
