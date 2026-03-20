@@ -161,6 +161,14 @@ export default function GestaoInteligente() {
   const [filters, setFilters] = useState(getDefaultDates());
   const [clearingCache, setClearingCache] = useState(false);
   const [modoVisao, setModoVisao] = useState('ataque'); // 'ataque' | 'defesa'
+  const [tipoVenda, setTipoVenda] = useState({
+    pdv: true,
+    combustivel: true,
+    vendaBalcao: true,
+    ecommerce: true,
+    nfCliente: true,
+    nfTransferencia: false
+  });
   const [defesaData, setDefesaData] = useState({
     naoBipados: { valor: 0, pct: 0, total: 0 },
     furtos: { valor: 0, qtd: 0 },
@@ -950,13 +958,25 @@ export default function GestaoInteligente() {
   };
 
   // Buscar indicadores
+  const buildTiposSaida = () => {
+    const t = [];
+    if (tipoVenda.pdv) t.push(0);
+    if (tipoVenda.combustivel) t.push(1);
+    if (tipoVenda.vendaBalcao) t.push(2);
+    if (tipoVenda.ecommerce) t.push(3);
+    if (tipoVenda.nfCliente) t.push(4);
+    if (tipoVenda.nfTransferencia) t.push(8);
+    return t.join(',');
+  };
+
   const fetchIndicadores = async () => {
     setLoading(true);
     setError(null);
     try {
       const params = {
         dataInicio: filters.dataInicio,
-        dataFim: filters.dataFim
+        dataFim: filters.dataFim,
+        tiposSaida: buildTiposSaida()
       };
       if (lojaSelecionada) {
         params.codLoja = lojaSelecionada;
@@ -2268,6 +2288,25 @@ export default function GestaoInteligente() {
                 </svg>
                 DEFESA
               </button>
+            </div>
+
+            {/* Tipo Venda */}
+            <div className="flex flex-wrap items-center gap-1.5 ml-2">
+              {[
+                { key: 'pdv', label: 'PDV' },
+                { key: 'combustivel', label: 'Combustível' },
+                { key: 'vendaBalcao', label: 'Vda Balcão' },
+                { key: 'ecommerce', label: 'e-Commerce' },
+                { key: 'nfCliente', label: 'NF Cliente' },
+                { key: 'nfTransferencia', label: 'NF Transf.' },
+              ].map(t => (
+                <label key={t.key} className="flex items-center gap-0.5 text-[9px] sm:text-[10px] text-white cursor-pointer select-none">
+                  <input type="checkbox" checked={tipoVenda[t.key]}
+                    onChange={e => setTipoVenda(prev => ({ ...prev, [t.key]: e.target.checked }))}
+                    className="w-3 h-3 rounded accent-white" />
+                  {t.label}
+                </label>
+              ))}
             </div>
 
             {/* Filtros de data */}

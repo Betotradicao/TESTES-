@@ -165,6 +165,11 @@ async function seedConfigurations() {
         description: 'URL da Evolution API (WhatsApp)'
       },
       {
+        key: 'bip_price_tolerance',
+        value: '0.03',
+        description: 'Tolerância de preço (R$) para cruzamento de bipagens com vendas'
+      },
+      {
         key: 'evolution_api_token',
         value: 'F0A82E6394D6-4D5A-845A-FC0413873588',
         description: 'Token de autenticação Evolution API'

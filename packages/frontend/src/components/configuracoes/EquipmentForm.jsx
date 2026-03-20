@@ -8,7 +8,8 @@ export default function EquipmentForm({ equipment, onSave, onCancel }) {
     sector_id: '',
     color_hash: '#3B82F6',
     description: '',
-    cod_loja: null
+    cod_loja: null,
+    ean_digits: 5
   });
   const [sectors, setSectors] = useState([]);
   const [stores, setStores] = useState([]);
@@ -28,7 +29,8 @@ export default function EquipmentForm({ equipment, onSave, onCancel }) {
         sector_id: equipment.sector_id ?? '',
         color_hash: equipment.color_hash || '#3B82F6',
         description: equipment.description || '',
-        cod_loja: equipment.cod_loja ?? null
+        cod_loja: equipment.cod_loja ?? null,
+        ean_digits: equipment.ean_digits || 5
       });
     }
   }, [equipment]);
@@ -171,6 +173,24 @@ export default function EquipmentForm({ equipment, onSave, onCancel }) {
               )}
               <p className="text-xs text-gray-500 mt-1">
                 Selecione a loja específica ou "Todas" para bipagens de qualquer loja
+              </p>
+            </div>
+
+            {/* Padrão EAN */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Padrão EAN (Dígitos PLU)
+              </label>
+              <select
+                value={formData.ean_digits}
+                onChange={(e) => setFormData({ ...formData, ean_digits: parseInt(e.target.value) })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+              >
+                <option value={5}>5 dígitos (padrão)</option>
+                <option value={6}>6 dígitos</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Quantidade de dígitos do código do produto no EAN-13 da etiqueta
               </p>
             </div>
 

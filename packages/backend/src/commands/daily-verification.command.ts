@@ -166,7 +166,7 @@ export class DailyVerificationCommand {
       bip => bip.status === 'pending' && bip.notified_at === null
     );
 
-    const verificationResult = BipVerificationService.processVerificationAndNotification(
+    const verificationResult = await BipVerificationService.processVerificationAndNotification(
       pendingBipages,
       sales
     );

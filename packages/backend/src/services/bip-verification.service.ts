@@ -1,12 +1,32 @@
 import { Bip } from '../entities/Bip';
 import { SaleData, VerificationResult } from '../types/verification.types';
+import { ConfigurationService } from './configuration.service';
 
 export class BipVerificationService {
+  private static toleranceCache: number | null = null;
+  private static toleranceCacheTime: number = 0;
+
+  private static async getTolerance(): Promise<number> {
+    // Cache por 5 minutos
+    if (this.toleranceCache !== null && Date.now() - this.toleranceCacheTime < 300000) {
+      return this.toleranceCache;
+    }
+    try {
+      const val = await ConfigurationService.get('bip_price_tolerance', '0.03');
+      this.toleranceCache = parseFloat(val) || 0.03;
+      this.toleranceCacheTime = Date.now();
+    } catch {
+      this.toleranceCache = 0.03;
+    }
+    return this.toleranceCache;
+  }
+
   /**
    * Implementa a lógica de matching do N8N
    * Compara bipagens com vendas para determinar quais verificar e quais notificar
    */
-  static processVerificationAndNotification(bips: Bip[], vendas: SaleData[]): VerificationResult {
+  static async processVerificationAndNotification(bips: Bip[], vendas: SaleData[]): Promise<VerificationResult> {
+    const tolerance = await this.getTolerance();
     const to_verify: Array<{ bip: Bip; venda: SaleData }> = [];
     const to_notify: Bip[] = [];
 
@@ -18,8 +38,7 @@ export class BipVerificationService {
         const codProdutoInt = parseInt(venda.codProduto, 10);
         const valProduto = Number(venda.valTotalProduto);
 
-        // Tolerance of R$ 0.03 as specified in the N8N code
-        const precoOk = Math.abs(valProduto - precoBip) <= 0.03;
+        const precoOk = Math.abs(valProduto - precoBip) <= tolerance;
 
         return productIdInt === codProdutoInt && precoOk;
       });

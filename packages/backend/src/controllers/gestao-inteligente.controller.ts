@@ -15,7 +15,7 @@ export class GestaoInteligenteController {
    */
   static async getIndicadores(req: AuthRequest, res: Response) {
     try {
-      const { dataInicio, dataFim, codLoja } = req.query;
+      const { dataInicio, dataFim, codLoja, tiposSaida } = req.query;
 
       if (!dataInicio || !dataFim) {
         return res.status(400).json({
@@ -26,7 +26,8 @@ export class GestaoInteligenteController {
       const filters = {
         dataInicio: String(dataInicio),
         dataFim: String(dataFim),
-        codLoja: codLoja ? parseInt(String(codLoja)) : undefined
+        codLoja: codLoja ? parseInt(String(codLoja)) : undefined,
+        tiposSaida: tiposSaida ? String(tiposSaida) : undefined
       };
 
       const indicadores = await GestaoInteligenteService.getIndicadores(filters);

@@ -34,6 +34,9 @@ export class Equipment {
   @Column({ type: 'int', nullable: true })
   cod_loja: number | null;
 
+  @Column({ type: 'int', default: 5 })
+  ean_digits: number; // 5 ou 6 dígitos para extração do PLU do EAN-13
+
   @CreateDateColumn()
   created_at: Date;
 

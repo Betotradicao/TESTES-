@@ -165,9 +165,18 @@ export class BipagesController {
         return;
       }
 
+      // FASE 0.5: Buscar equipamento pra saber eanDigits
+      let eanDigits = 5;
+      if (payload.scanner_id && payload.machine_id) {
+        try {
+          const eq = await EquipmentsService.findOrCreateByScannerId(payload.scanner_id, payload.machine_id, payload.device_path);
+          eanDigits = eq.ean_digits || 5;
+        } catch {}
+      }
+
       // FASE 1: Formatação e validação do EAN (para produtos, não colaboradores)
       console.log('\n=== FASE 1: FORMATANDO EAN ===');
-      const formatResult = EanFormatterService.formatEan(payload);
+      const formatResult = EanFormatterService.formatEan(payload, eanDigits);
 
       if (!formatResult.parse_ok) {
         console.log(`❌ EAN inválido: ${formatResult.erro}`);

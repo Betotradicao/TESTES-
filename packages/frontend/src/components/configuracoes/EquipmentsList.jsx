@@ -55,6 +55,9 @@ export default function EquipmentsList({ equipments, activeSessions = [], onEdit
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Apelido
             </th>
+            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              EAN Dígitos
+            </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Setor
             </th>
@@ -107,6 +110,11 @@ export default function EquipmentsList({ equipments, activeSessions = [], onEdit
               </td>
               <td className="px-6 py-4 text-sm text-gray-900">
                 {equipment.loja_apelido || '-'}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-center">
+                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${equipment.ean_digits === 6 ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'}`}>
+                  {equipment.ean_digits || 5} dígitos
+                </span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 {equipment.sector ? (

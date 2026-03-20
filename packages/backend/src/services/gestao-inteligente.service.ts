@@ -45,6 +45,7 @@ export interface IndicadoresFilters {
   dataInicio: string; // YYYY-MM-DD
   dataFim: string;    // YYYY-MM-DD
   codLoja?: number;
+  tiposSaida?: string; // ex: "0,1,2,3,4" (comma-separated TIPO_SAIDA values)
 }
 
 export class GestaoInteligenteService {
@@ -127,7 +128,8 @@ export class GestaoInteligenteService {
   private static async buscarIndicadoresPeriodo(
     dataInicio: string,
     dataFim: string,
-    codLoja?: number
+    codLoja?: number,
+    tiposSaida?: string
   ): Promise<{
     vendas: number;
     custoVendas: number;
@@ -194,6 +196,15 @@ export class GestaoInteligenteService {
     if (codLoja) {
       vendasQuery += ` AND pv.${colCodLojaPdv} = :codLoja`;
       vendasParams.codLoja = codLoja;
+    }
+
+    // Filtro por tipo de saída (PDV, Combustível, Transferência, etc)
+    const colTipoSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'tipo_saida');
+    if (tiposSaida && tiposSaida.length > 0) {
+      const tipos = tiposSaida.split(',').map((t: string) => parseInt(t.trim())).filter((t: number) => !isNaN(t));
+      if (tipos.length > 0) {
+        vendasQuery += ` AND pv.${colTipoSaida} IN (${tipos.join(',')})`;
+      }
     }
 
     let cuponsQuery = `
@@ -299,7 +310,8 @@ export class GestaoInteligenteService {
   private static async calcularMediaLinear(
     dataInicio: string, // YYYY-MM-DD
     dataFim: string,    // YYYY-MM-DD
-    codLoja?: number
+    codLoja?: number,
+    tiposSaida?: string
   ): Promise<{
     vendas: number;
     custoVendas: number;
@@ -419,6 +431,14 @@ export class GestaoInteligenteService {
     if (codLoja) {
       vendasSql += ` AND pv.${colCodLojaPdv} = :codLoja`;
       vendasParams.codLoja = codLoja;
+    }
+    // Filtro tipo saída na média linear
+    const colTipoSaidaML = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'tipo_saida');
+    if (tiposSaida && tiposSaida.length > 0) {
+      const tipos = tiposSaida.split(',').map((t: string) => parseInt(t.trim())).filter((t: number) => !isNaN(t));
+      if (tipos.length > 0) {
+        vendasSql += ` AND pv.${colTipoSaidaML} IN (${tipos.join(',')})`;
+      }
     }
     vendasSql += ` GROUP BY TRUNC(pv.${colDtaSaida})`;
 
@@ -603,7 +623,7 @@ export class GestaoInteligenteService {
    * Busca indicadores consolidados de vendas com comparativos (cache de 5 minutos)
    */
   static async getIndicadores(filters: IndicadoresFilters): Promise<IndicadoresGestao> {
-    const cacheKey = `${CACHE_KEY}-${filters.dataInicio}-${filters.dataFim}-${filters.codLoja || 'all'}`;
+    const cacheKey = `${CACHE_KEY}-${filters.dataInicio}-${filters.dataFim}-${filters.codLoja || 'all'}-${filters.tiposSaida || 'all'}`;
 
     return CacheService.executeWithCache(
       cacheKey,
@@ -619,13 +639,14 @@ export class GestaoInteligenteService {
         console.log(`   Atual: ${dataInicio} a ${dataFim}`);
         console.log(`   Mês Passado: ${mesPassado.inicio} a ${mesPassado.fim}`);
         console.log(`   Ano Passado: ${anoPassado.inicio} a ${anoPassado.fim}`);
+        if (filters.tiposSaida) console.log(`   Tipos Saída: ${filters.tiposSaida}`);
 
         // Buscar dados de todos os períodos em paralelo (incluindo média linear)
         const [dadosAtual, dadosMesPassado, dadosAnoPassado, dadosMediaLinear] = await Promise.all([
-          this.buscarIndicadoresPeriodo(dataInicio, dataFim, filters.codLoja),
-          this.buscarIndicadoresPeriodo(mesPassado.inicio, mesPassado.fim, filters.codLoja),
-          this.buscarIndicadoresPeriodo(anoPassado.inicio, anoPassado.fim, filters.codLoja),
-          this.calcularMediaLinear(filters.dataInicio, filters.dataFim, filters.codLoja)
+          this.buscarIndicadoresPeriodo(dataInicio, dataFim, filters.codLoja, filters.tiposSaida),
+          this.buscarIndicadoresPeriodo(mesPassado.inicio, mesPassado.fim, filters.codLoja, filters.tiposSaida),
+          this.buscarIndicadoresPeriodo(anoPassado.inicio, anoPassado.fim, filters.codLoja, filters.tiposSaida),
+          this.calcularMediaLinear(filters.dataInicio, filters.dataFim, filters.codLoja, filters.tiposSaida)
         ]);
 
         // Calcular indicadores de cada período

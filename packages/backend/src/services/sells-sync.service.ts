@@ -304,7 +304,7 @@ export class SellsSyncService {
 
     if (pendingBipages.length === 0) return;
 
-    const verificationResult = BipVerificationService.processVerificationAndNotification(
+    const verificationResult = await BipVerificationService.processVerificationAndNotification(
       pendingBipages,
       sales
     );

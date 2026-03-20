@@ -8,6 +8,10 @@ export default function CronMonitorTab() {
   const [restarting, setRestarting] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
+  // Tolerância de preço para cruzamento de bipagens
+  const [tolerance, setTolerance] = useState('0.03');
+  const [toleranceSaving, setToleranceSaving] = useState(false);
+
   // Estados para logs de webhook
   const [webhookLogs, setWebhookLogs] = useState([]);
   const [logsSummary, setLogsSummary] = useState({ ok: 0, rejected: 0, error: 0 });
@@ -74,6 +78,10 @@ export default function CronMonitorTab() {
   useEffect(() => {
     fetchStatus();
     fetchWebhookLogs();
+    // Carregar tolerância
+    api.get('/configurations/bip_price_tolerance').then(r => {
+      if (r.data?.value) setTolerance(r.data.value);
+    }).catch(() => {});
 
     // Atualizar a cada 30 segundos
     const interval = setInterval(() => {
@@ -311,6 +319,51 @@ export default function CronMonitorTab() {
             Nenhuma informação disponível
           </div>
         )}
+      </div>
+
+      {/* Tolerância de Preço */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+          <svg className="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Tolerância de Preço (Cruzamento de Bipagens)
+        </h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Define a margem de diferença aceita ao cruzar bipagens com vendas (arredondamento de preço).
+          Ex: R$ 0,03 = aceita diferença de até 3 centavos.
+        </p>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-600">R$</span>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            max="1"
+            value={tolerance}
+            onChange={e => setTolerance(e.target.value)}
+            className="border rounded-lg px-3 py-2 w-32 text-sm"
+          />
+          <button
+            onClick={async () => {
+              setToleranceSaving(true);
+              try {
+                await api.put('/configurations/bip_price_tolerance', { value: tolerance });
+                alert('Tolerância salva com sucesso!');
+              } catch (e) {
+                alert('Erro ao salvar');
+              }
+              setToleranceSaving(false);
+            }}
+            disabled={toleranceSaving}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+          >
+            {toleranceSaving ? 'Salvando...' : 'Salvar'}
+          </button>
+          <span className="text-xs text-gray-400 ml-2">
+            Tradição: 0.03 | Vital: 0.06
+          </span>
+        </div>
       </div>
 
       {/* Logs de Webhook */}
