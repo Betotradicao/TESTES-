@@ -323,7 +323,8 @@ export class CompraVendaController {
       const {
         dataInicio, dataFim, codSecao, codGrupo, codSubGrupo, codLoja, codComprador,
         tipoCompras, tipoOutras, tipoBonificacao, produtosBonificados, decomposicao,
-        tipoEmprestimoProducao, tipoEmprestimoAssociacao, tipoEmprestimoDecomposicao
+        tipoEmprestimoProducao, tipoEmprestimoAssociacao, tipoEmprestimoDecomposicao,
+        tipoVendaPdv, tipoVendaNfCliente, tipoVendaBalcao, tipoVendaNfTransferencia
       } = req.query;
 
       // Validação de datas obrigatórias
@@ -352,7 +353,13 @@ export class CompraVendaController {
         // Tipos de empréstimo - default true se não especificado
         tipoEmprestimoProducao: tipoEmprestimoProducao === undefined ? true : tipoEmprestimoProducao === 'true',
         tipoEmprestimoAssociacao: tipoEmprestimoAssociacao === undefined ? true : tipoEmprestimoAssociacao === 'true',
-        tipoEmprestimoDecomposicao: tipoEmprestimoDecomposicao === undefined ? true : tipoEmprestimoDecomposicao === 'true'
+        tipoEmprestimoDecomposicao: tipoEmprestimoDecomposicao === undefined ? true : tipoEmprestimoDecomposicao === 'true',
+        tipoVenda: {
+          pdv: tipoVendaPdv === undefined ? true : tipoVendaPdv === 'true',
+          nfCliente: tipoVendaNfCliente === undefined ? true : tipoVendaNfCliente === 'true',
+          vendaBalcao: tipoVendaBalcao === undefined ? true : tipoVendaBalcao === 'true',
+          nfTransferencia: tipoVendaNfTransferencia === undefined ? false : tipoVendaNfTransferencia === 'true'
+        }
       };
 
       console.log('📊 Buscando Compra x Venda:', {
@@ -511,7 +518,8 @@ export class CompraVendaController {
       const {
         dataInicio, dataFim, codSecao, codLoja, tipoCompras, tipoOutras, tipoBonificacao,
         produtosBonificados, decomposicao,
-        tipoEmprestimoProducao, tipoEmprestimoAssociacao, tipoEmprestimoDecomposicao
+        tipoEmprestimoProducao, tipoEmprestimoAssociacao, tipoEmprestimoDecomposicao,
+        tipoVendaPdv, tipoVendaNfCliente, tipoVendaBalcao, tipoVendaNfTransferencia
       } = req.query;
 
       if (!dataInicio || !dataFim || !codSecao) {
@@ -535,7 +543,13 @@ export class CompraVendaController {
         decomposicao: (decomposicao as 'ambos' | 'pai' | 'filhos') || 'pai',
         tipoEmprestimoProducao: tipoEmprestimoProducao === undefined ? true : tipoEmprestimoProducao === 'true',
         tipoEmprestimoAssociacao: tipoEmprestimoAssociacao === undefined ? true : tipoEmprestimoAssociacao === 'true',
-        tipoEmprestimoDecomposicao: tipoEmprestimoDecomposicao === undefined ? true : tipoEmprestimoDecomposicao === 'true'
+        tipoEmprestimoDecomposicao: tipoEmprestimoDecomposicao === undefined ? true : tipoEmprestimoDecomposicao === 'true',
+        tipoVenda: {
+          pdv: tipoVendaPdv === undefined ? true : tipoVendaPdv === 'true',
+          nfCliente: tipoVendaNfCliente === undefined ? true : tipoVendaNfCliente === 'true',
+          vendaBalcao: tipoVendaBalcao === undefined ? true : tipoVendaBalcao === 'true',
+          nfTransferencia: tipoVendaNfTransferencia === undefined ? false : tipoVendaNfTransferencia === 'true'
+        }
       };
 
       console.log('📊 Drill-down GRUPOS da seção:', codSecao, 'decomposicao:', decomposicao);
@@ -565,7 +579,8 @@ export class CompraVendaController {
       const {
         dataInicio, dataFim, codSecao, codGrupo, codLoja, tipoCompras, tipoOutras, tipoBonificacao,
         produtosBonificados, decomposicao,
-        tipoEmprestimoProducao, tipoEmprestimoAssociacao, tipoEmprestimoDecomposicao
+        tipoEmprestimoProducao, tipoEmprestimoAssociacao, tipoEmprestimoDecomposicao,
+        tipoVendaPdv, tipoVendaNfCliente, tipoVendaBalcao, tipoVendaNfTransferencia
       } = req.query;
 
       if (!dataInicio || !dataFim || !codSecao || !codGrupo) {
@@ -590,7 +605,13 @@ export class CompraVendaController {
         decomposicao: (decomposicao as 'ambos' | 'pai' | 'filhos') || 'pai',
         tipoEmprestimoProducao: tipoEmprestimoProducao === undefined ? true : tipoEmprestimoProducao === 'true',
         tipoEmprestimoAssociacao: tipoEmprestimoAssociacao === undefined ? true : tipoEmprestimoAssociacao === 'true',
-        tipoEmprestimoDecomposicao: tipoEmprestimoDecomposicao === undefined ? true : tipoEmprestimoDecomposicao === 'true'
+        tipoEmprestimoDecomposicao: tipoEmprestimoDecomposicao === undefined ? true : tipoEmprestimoDecomposicao === 'true',
+        tipoVenda: {
+          pdv: tipoVendaPdv === undefined ? true : tipoVendaPdv === 'true',
+          nfCliente: tipoVendaNfCliente === undefined ? true : tipoVendaNfCliente === 'true',
+          vendaBalcao: tipoVendaBalcao === undefined ? true : tipoVendaBalcao === 'true',
+          nfTransferencia: tipoVendaNfTransferencia === undefined ? false : tipoVendaNfTransferencia === 'true'
+        }
       };
 
       console.log('📊 Drill-down SUBGRUPOS do grupo:', codGrupo, 'decomposicao:', decomposicao);
@@ -620,7 +641,8 @@ export class CompraVendaController {
       const {
         dataInicio, dataFim, codSecao, codGrupo, codSubGrupo, codLoja, tipoCompras, tipoOutras, tipoBonificacao,
         produtosBonificados, decomposicao,
-        tipoEmprestimoProducao, tipoEmprestimoAssociacao, tipoEmprestimoDecomposicao
+        tipoEmprestimoProducao, tipoEmprestimoAssociacao, tipoEmprestimoDecomposicao,
+        tipoVendaPdv, tipoVendaNfCliente, tipoVendaBalcao, tipoVendaNfTransferencia
       } = req.query;
 
       if (!dataInicio || !dataFim || !codSecao || !codGrupo || !codSubGrupo) {
@@ -646,7 +668,13 @@ export class CompraVendaController {
         decomposicao: (decomposicao as 'ambos' | 'pai' | 'filhos') || 'pai',
         tipoEmprestimoProducao: tipoEmprestimoProducao === undefined ? true : tipoEmprestimoProducao === 'true',
         tipoEmprestimoAssociacao: tipoEmprestimoAssociacao === undefined ? true : tipoEmprestimoAssociacao === 'true',
-        tipoEmprestimoDecomposicao: tipoEmprestimoDecomposicao === undefined ? true : tipoEmprestimoDecomposicao === 'true'
+        tipoEmprestimoDecomposicao: tipoEmprestimoDecomposicao === undefined ? true : tipoEmprestimoDecomposicao === 'true',
+        tipoVenda: {
+          pdv: tipoVendaPdv === undefined ? true : tipoVendaPdv === 'true',
+          nfCliente: tipoVendaNfCliente === undefined ? true : tipoVendaNfCliente === 'true',
+          vendaBalcao: tipoVendaBalcao === undefined ? true : tipoVendaBalcao === 'true',
+          nfTransferencia: tipoVendaNfTransferencia === undefined ? false : tipoVendaNfTransferencia === 'true'
+        }
       };
 
       console.log('📊 Drill-down ITENS do subgrupo:', codSubGrupo, 'decomposicao:', decomposicao);

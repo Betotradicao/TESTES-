@@ -290,6 +290,12 @@ export default function CompraVendaAnalise() {
       params.append('tipoOutras', String(filters.tipoOutras));
       params.append('tipoBonificacao', String(filters.tipoBonificacao));
 
+      // Filtros de Tipo de Venda (TIPO_SAIDA)
+      params.append('tipoVendaPdv', String(filters.tipoVendaPdv !== false));
+      params.append('tipoVendaNfCliente', String(filters.tipoVendaNfCliente !== false));
+      params.append('tipoVendaBalcao', String(filters.tipoVendaBalcao !== false));
+      params.append('tipoVendaNfTransferencia', String(filters.tipoNfTransferencia === true));
+
       // Filtro de Decomposição (pai/filhos)
       params.append('decomposicao', filters.decomposicao);
 
@@ -552,6 +558,11 @@ export default function CompraVendaAnalise() {
       params.append('tipoEmprestimoAssociacao', String(filters.tipoEmprestimoAssociacao));
       params.append('tipoEmprestimoDecomposicao', String(filters.tipoEmprestimoDecomposicao));
     }
+    // Filtros de Tipo de Venda
+    params.append('tipoVendaPdv', String(filters.tipoVendaPdv !== false));
+    params.append('tipoVendaNfCliente', String(filters.tipoVendaNfCliente !== false));
+    params.append('tipoVendaBalcao', String(filters.tipoVendaBalcao !== false));
+    params.append('tipoVendaNfTransferencia', String(filters.tipoNfTransferencia === true));
     return params;
   };
 
