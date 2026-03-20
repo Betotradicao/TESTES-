@@ -12,6 +12,7 @@ import autoTable from 'jspdf-autotable';
 
 // Configuração inicial das colunas
 const INITIAL_COLUMNS = [
+  { id: 'INATIVA', header: '⬜', align: 'center', width: '40px' },
   { id: 'LOJA', header: '🏪 Loja', align: 'left' },
   { id: 'VENDA_PCT', header: '📊 % Setor', align: 'right' },
   { id: 'SECAO', header: '📦 Seção', align: 'left', smallFont: true },
@@ -87,6 +88,7 @@ export default function CompraVendaAnalise() {
   const [lojas, setLojas] = useState([]);
   const [loadingFilters, setLoadingFilters] = useState(true);
   const [oracleStatus, setOracleStatus] = useState({ connected: false, message: '' });
+  const [secoesInativas, setSecoesInativas] = useState([]);
 
   // Filtros - Valores selecionados (persistidos no localStorage)
   const defaultFilters = {
@@ -195,6 +197,53 @@ export default function CompraVendaAnalise() {
     }
   }, [filters.codGrupo]);
 
+  // Recalcular totais quando seções inativas mudam
+  const recalcTotais = (allData, inativas) => {
+    if (!allData || allData.length === 0) return;
+    const totalData = allData.filter(row => !inativas.includes(String(row.COD_SECAO)));
+    const totaisSoma = totalData.reduce((acc, row) => ({
+      QTD_COMPRA: acc.QTD_COMPRA + (row.QTD_COMPRA || 0),
+      QTD_VENDA: acc.QTD_VENDA + (row.QTD_VENDA || 0),
+      COMPRAS: acc.COMPRAS + (row.COMPRAS || 0),
+      CUSTO_VENDA: acc.CUSTO_VENDA + (row.CUSTO_VENDA || 0),
+      VENDAS: acc.VENDAS + (row.VENDAS || 0),
+      DIFERENCA_RS: acc.DIFERENCA_RS + (row.DIFERENCA_RS || 0),
+      TOTAL_IMPOSTO: acc.TOTAL_IMPOSTO + (row.TOTAL_IMPOSTO || 0),
+      TOTAL_IMPOSTO_CREDITO: acc.TOTAL_IMPOSTO_CREDITO + (row.TOTAL_IMPOSTO_CREDITO || 0),
+      EMPRESTEI: acc.EMPRESTEI + (row.EMPRESTEI || 0),
+      EMPRESTADO: acc.EMPRESTADO + (row.EMPRESTADO || 0),
+      COMPRA_FINAL: acc.COMPRA_FINAL + (row.COMPRA_FINAL || 0),
+      DIF_ANUAL_RS: acc.DIF_ANUAL_RS + (row.DIF_ANUAL_RS || 0)
+    }), { QTD_COMPRA: 0, QTD_VENDA: 0, COMPRAS: 0, CUSTO_VENDA: 0, VENDAS: 0, DIFERENCA_RS: 0, TOTAL_IMPOSTO: 0, TOTAL_IMPOSTO_CREDITO: 0, EMPRESTEI: 0, EMPRESTADO: 0, COMPRA_FINAL: 0, DIF_ANUAL_RS: 0 });
+    const vendaLiquida = totaisSoma.VENDAS - totaisSoma.TOTAL_IMPOSTO;
+    const lucroLiquido = totaisSoma.VENDAS - totaisSoma.CUSTO_VENDA - totaisSoma.TOTAL_IMPOSTO + totaisSoma.TOTAL_IMPOSTO_CREDITO;
+    const mgLucroTotal = totaisSoma.VENDAS > 0 ? (lucroLiquido / totaisSoma.VENDAS) * 100 : 0;
+    const mgLiquidaTotal = vendaLiquida > 0 ? (lucroLiquido / vendaLiquida) * 100 : 0;
+    setTotais({ ...totaisSoma, MG_LUCRO_PCT: Math.round(mgLucroTotal * 100) / 100, MG_LIQUIDA_PCT: Math.round(mgLiquidaTotal * 100) / 100 });
+  };
+
+  useEffect(() => {
+    if (data.length > 0) recalcTotais(data, secoesInativas);
+  }, [secoesInativas]);
+
+  const toggleSecaoInativa = async (codSecao) => {
+    const isInativa = secoesInativas.includes(String(codSecao));
+    try {
+      await api.post('/compra-venda/secoes-inativas/toggle', {
+        codSecao: String(codSecao),
+        codLoja: filters.codLoja || null,
+        ativa: isInativa // se está inativa, vai ativar (remover)
+      });
+      if (isInativa) {
+        setSecoesInativas(prev => prev.filter(s => s !== String(codSecao)));
+      } else {
+        setSecoesInativas(prev => [...prev, String(codSecao)]);
+      }
+    } catch (err) {
+      console.error('Erro ao toggle seção inativa:', err);
+    }
+  };
+
   const loadFilterData = async () => {
     setLoadingFilters(true);
     try {
@@ -204,10 +253,11 @@ export default function CompraVendaAnalise() {
       if (testRes.data?.success) {
         setOracleStatus({ connected: true, message: 'Conectado ao Oracle' });
 
-        const [secoesRes, compradoresRes, lojasRes] = await Promise.all([
+        const [secoesRes, compradoresRes, lojasRes, inativasRes] = await Promise.all([
           api.get('/compra-venda/secoes'),
           api.get('/compra-venda/compradores').catch(() => ({ data: [] })),
-          api.get('/compra-venda/lojas').catch(() => ({ data: [] }))
+          api.get('/compra-venda/lojas').catch(() => ({ data: [] })),
+          api.get(`/compra-venda/secoes-inativas?codLoja=${filters.codLoja || ''}`).catch(() => ({ data: { data: [] } }))
         ]);
 
         console.log('Seções carregadas:', secoesRes.data);
@@ -215,6 +265,7 @@ export default function CompraVendaAnalise() {
         console.log('Lojas carregadas:', lojasRes.data);
 
         setSecoes(secoesRes.data || []);
+        setSecoesInativas(inativasRes.data?.data || []);
         setCompradores(compradoresRes.data || []);
         setLojas(lojasRes.data || []);
 
@@ -336,8 +387,8 @@ export default function CompraVendaAnalise() {
 
         setData(mergedData);
 
-        // Calcular totais (usar mergedData que tem os dados anuais)
-        const totalData = mergedData;
+        // Calcular totais (excluir seções inativas)
+        const totalData = mergedData.filter(row => !secoesInativas.includes(String(row.COD_SECAO)));
         const totaisSoma = totalData.reduce((acc, row) => ({
           QTD_COMPRA: acc.QTD_COMPRA + (row.QTD_COMPRA || 0),
           QTD_VENDA: acc.QTD_VENDA + (row.QTD_VENDA || 0),
@@ -786,12 +837,26 @@ export default function CompraVendaAnalise() {
   // Função para renderizar valor da célula baseado no ID da coluna
   // context: { nivel: 'secao'|'grupo'|'subgrupo'|'item', codSecao, codGrupo, codSubGrupo, codProduto }
   const renderCellValue = (row, columnId, isTotal = false, context = null) => {
+    if (isTotal && columnId === 'INATIVA') return '';
     if (isTotal && columnId === 'LOJA') return '-';
     if (isTotal && columnId === 'VENDA_PCT') return '100%';
     if (isTotal && columnId === 'SECAO') return 'TOTAIS';
     if (isTotal && columnId === 'COMPRA_PCT') return '100%';
 
     switch (columnId) {
+      case 'INATIVA': {
+        const codSecao = String(row.COD_SECAO);
+        const isInativa = secoesInativas.includes(codSecao);
+        return (
+          <input
+            type="checkbox"
+            checked={isInativa}
+            onChange={(e) => { e.stopPropagation(); toggleSecaoInativa(codSecao); }}
+            title={isInativa ? 'Clique para ativar esta seção nos totais' : 'Clique para excluir esta seção dos totais'}
+            className="w-4 h-4 accent-red-500 cursor-pointer"
+          />
+        );
+      }
       case 'LOJA':
         return row.LOJA || 1;
       case 'VENDA_PCT':
@@ -1523,10 +1588,12 @@ export default function CompraVendaAnalise() {
                           const isSecaoExpanded = expandedSecoes[secaoKey];
                           const isLoadingGrupos = loadingDrillDown[`secao-${secaoKey}`];
 
+                          const isSecaoInativa = secoesInativas.includes(String(codSecao));
+
                           return (
                             <React.Fragment key={`secao-${codSecao}`}>
                               {/* LINHA DA SEÇÃO */}
-                              <tr className="hover:bg-gray-50 bg-orange-50/30">
+                              <tr className={`hover:bg-gray-50 ${isSecaoInativa ? 'bg-red-50/40 opacity-50 line-through' : 'bg-orange-50/30'}`}>
                                 {columns.map((col) => (
                                   <td
                                     key={col.id}

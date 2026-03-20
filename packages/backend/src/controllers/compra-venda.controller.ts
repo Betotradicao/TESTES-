@@ -772,4 +772,45 @@ export class CompraVendaController {
       });
     }
   }
+
+  // ========== SEÇÕES INATIVAS ==========
+
+  static async getSecoesInativas(req: Request, res: Response) {
+    try {
+      const { codLoja } = req.query;
+      const { AppDataSource } = require('../config/database');
+      const rows = await AppDataSource.query(
+        `SELECT cod_secao, cod_loja FROM secoes_inativas WHERE cod_loja = $1 OR cod_loja IS NULL`,
+        [codLoja || null]
+      );
+      return res.json({ success: true, data: rows.map((r: any) => r.cod_secao) });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async toggleSecaoInativa(req: Request, res: Response) {
+    try {
+      const { codSecao, codLoja, ativa } = req.body;
+      const { AppDataSource } = require('../config/database');
+
+      if (ativa) {
+        // Remover da lista de inativas (ativar)
+        await AppDataSource.query(
+          `DELETE FROM secoes_inativas WHERE cod_secao = $1 AND (cod_loja = $2 OR ($2 IS NULL AND cod_loja IS NULL))`,
+          [String(codSecao), codLoja || null]
+        );
+      } else {
+        // Adicionar à lista de inativas (desativar)
+        await AppDataSource.query(
+          `INSERT INTO secoes_inativas (cod_secao, cod_loja) VALUES ($1, $2) ON CONFLICT (cod_secao, cod_loja) DO NOTHING`,
+          [String(codSecao), codLoja || null]
+        );
+      }
+
+      return res.json({ success: true });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  }
 }

@@ -1282,6 +1282,9 @@ export class GestaoInteligenteService {
       r.reprMediaLinear = totalML > 0 ? parseFloat(((r.mediaLinear / totalML) * 100).toFixed(2)) : 0;
     });
 
+    // Ordenar por venda atual (maior para menor)
+    resultado.sort((a: any, b: any) => (b.vendaAtual || 0) - (a.vendaAtual || 0));
+
     console.log(`✅ [VENDAS ANALÍTICAS] ${resultado.length} setores com comparativos`);
     return resultado;
   }

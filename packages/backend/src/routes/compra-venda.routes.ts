@@ -44,4 +44,8 @@ router.get('/detalhe-emprestimo', CompraVendaController.getDetalheEmprestimo);
 // Receita de produção de um produto
 router.get('/receita/:codProduto', CompraVendaController.getReceitaProduto);
 
+// Seções inativas
+router.get('/secoes-inativas', CompraVendaController.getSecoesInativas);
+router.post('/secoes-inativas/toggle', CompraVendaController.toggleSecaoInativa);
+
 export default router;

@@ -22,7 +22,7 @@ export class RuptureSurveyService {
    * @param codigoProduto Código do produto no ERP
    * @returns Informações do pedido (status e data de entrega)
    */
-  static async getPedidoInfoFromOracle(codigoProduto: string): Promise<PedidoInfo | null> {
+  static async getPedidoInfoFromOracle(codigoProduto: string, codLoja?: number): Promise<PedidoInfo | null> {
     try {
       const schema = await MappingService.getSchema();
       const tabPedidoProduto = `${schema}.${await MappingService.getRealTableName('TAB_PEDIDO_PRODUTO')}`;
@@ -36,8 +36,13 @@ export class RuptureSurveyService {
       const colFlgCancel = await MappingService.getColumnFromTable('TAB_PEDIDO', 'flag_cancelado');
       const colTipoParceiro = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro');
       const colDtaEmissao = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_emissao');
+      const colCodLojaPed = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_loja');
       const colCodProdutoPp = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'codigo_produto');
       const colNumPedidoPp = await MappingService.getColumnFromTable('TAB_PEDIDO_PRODUTO', 'numero_pedido');
+
+      const lojaFilter = codLoja ? `AND p.${colCodLojaPed} = :codLoja` : '';
+      const params: any = { codigoProduto };
+      if (codLoja) params.codLoja = codLoja;
 
       const result = await OracleService.query<any>(`
         SELECT
@@ -52,8 +57,9 @@ export class RuptureSurveyService {
         AND p.${colTipoParceiro} = 1
         AND (p.${colFlgCancel} IS NULL OR p.${colFlgCancel} = 'N')
         AND p.${colTipoFinaliz} != 2
+        ${lojaFilter}
         ORDER BY p.${colDtaEmissao} DESC
-      `, { codigoProduto });
+      `, params);
 
       if (result.length === 0) {
         return null;
@@ -102,7 +108,7 @@ export class RuptureSurveyService {
    * @param codigosProdutos Array de códigos de produtos
    * @returns Map com código do produto -> PedidoInfo
    */
-  static async getPedidosInfoFromOracle(codigosProdutos: string[]): Promise<Map<string, PedidoInfo>> {
+  static async getPedidosInfoFromOracle(codigosProdutos: string[], codLoja?: number): Promise<Map<string, PedidoInfo>> {
     const pedidosMap = new Map<string, PedidoInfo>();
 
     if (codigosProdutos.length === 0) return pedidosMap;
@@ -132,6 +138,10 @@ export class RuptureSurveyService {
       const colFlgCancel = await MappingService.getColumnFromTable('TAB_PEDIDO', 'flag_cancelado');
       const colTipoParceiro = await MappingService.getColumnFromTable('TAB_PEDIDO', 'tipo_parceiro');
       const colDtaEmissao = await MappingService.getColumnFromTable('TAB_PEDIDO', 'data_emissao');
+      const colCodLojaPed = await MappingService.getColumnFromTable('TAB_PEDIDO', 'codigo_loja');
+
+      const lojaFilter = codLoja ? `AND p.${colCodLojaPed} = :codLoja` : '';
+      if (codLoja) params.codLoja = codLoja;
 
       const result = await OracleService.query<any>(`
         SELECT
@@ -147,6 +157,7 @@ export class RuptureSurveyService {
         AND (p.${colFlgCancel} IS NULL OR p.${colFlgCancel} = 'N')
         AND p.${colTipoFinaliz} = -1
         AND p.${colTipoReceb} < 2
+        ${lojaFilter}
         ORDER BY pp.${colCodProdutoPp}, p.${colDtaEmissao} DESC
       `, params);
 

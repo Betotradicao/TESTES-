@@ -5,7 +5,7 @@ import { SalesService } from '../services/sales.service';
 export class SalesController {
   static async getSales(req: AuthRequest, res: Response) {
     try {
-      const { from, to } = req.query;
+      const { from, to, codLoja } = req.query;
 
       // Validate required parameters
       if (!from || !to) {
@@ -26,7 +26,7 @@ export class SalesController {
       const toFormatted = SalesService.formatDateToERP(to as string);
 
       // Fetch sales from ERP using service
-      const erpSales = await SalesService.fetchSalesFromERP(fromFormatted, toFormatted);
+      const erpSales = await SalesService.fetchSalesFromOracle(fromFormatted, toFormatted, codLoja ? Number(codLoja) : undefined);
 
       res.json({
         data: erpSales,
