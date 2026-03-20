@@ -9,7 +9,7 @@ export default function EquipmentForm({ equipment, onSave, onCancel }) {
     color_hash: '#3B82F6',
     description: '',
     cod_loja: null,
-    ean_digits: 5
+    ean_digits: 6
   });
   const [sectors, setSectors] = useState([]);
   const [stores, setStores] = useState([]);
@@ -186,8 +186,8 @@ export default function EquipmentForm({ equipment, onSave, onCancel }) {
                 onChange={(e) => setFormData({ ...formData, ean_digits: parseInt(e.target.value) })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
               >
-                <option value={5}>5 dígitos (padrão)</option>
-                <option value={6}>6 dígitos</option>
+                <option value={6}>6 dígitos (padrão)</option>
+                <option value={5}>5 dígitos</option>
               </select>
               <p className="text-xs text-gray-500 mt-1">
                 Quantidade de dígitos do código do produto no EAN-13 da etiqueta

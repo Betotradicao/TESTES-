@@ -12,8 +12,8 @@ export class BipVerificationService {
       return this.toleranceCache;
     }
     try {
-      const val = await ConfigurationService.get('bip_price_tolerance', '0.03');
-      this.toleranceCache = parseFloat(val) || 0.03;
+      const val: any = await ConfigurationService.get('bip_price_tolerance', '0.03');
+      this.toleranceCache = parseFloat(String(val || '0.03')) || 0.03;
       this.toleranceCacheTime = Date.now();
     } catch {
       this.toleranceCache = 0.03;

@@ -3,6 +3,7 @@ export interface UpdateEquipmentDto {
   color_hash?: string;
   description?: string;
   cod_loja?: number | null;
+  ean_digits?: number;
 }
 
 export function validateUpdateEquipment(data: any): { valid: boolean; errors?: string[] } {

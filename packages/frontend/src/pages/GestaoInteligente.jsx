@@ -2291,7 +2291,7 @@ export default function GestaoInteligente() {
             </div>
 
             {/* Tipo Venda */}
-            <div className="flex flex-wrap items-center gap-1.5 ml-2">
+            <div className="flex flex-wrap items-center gap-2 ml-2">
               {[
                 { key: 'pdv', label: 'PDV' },
                 { key: 'combustivel', label: 'Combustível' },
@@ -2300,10 +2300,10 @@ export default function GestaoInteligente() {
                 { key: 'nfCliente', label: 'NF Cliente' },
                 { key: 'nfTransferencia', label: 'NF Transf.' },
               ].map(t => (
-                <label key={t.key} className="flex items-center gap-0.5 text-[9px] sm:text-[10px] text-white cursor-pointer select-none">
+                <label key={t.key} className="flex items-center gap-1 text-xs sm:text-sm text-white cursor-pointer select-none">
                   <input type="checkbox" checked={tipoVenda[t.key]}
                     onChange={e => setTipoVenda(prev => ({ ...prev, [t.key]: e.target.checked }))}
-                    className="w-3 h-3 rounded accent-white" />
+                    className="w-4 h-4 rounded border-2 border-white bg-white/20 checked:bg-white checked:text-orange-600 accent-orange-500" />
                   {t.label}
                 </label>
               ))}

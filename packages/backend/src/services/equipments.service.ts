@@ -84,6 +84,10 @@ export class EquipmentsService {
       equipment.cod_loja = data.cod_loja;
     }
 
+    if (data.ean_digits !== undefined) {
+      equipment.ean_digits = data.ean_digits;
+    }
+
     console.log(`   Equipamento depois:`, JSON.stringify({
       sector_id: equipment.sector_id,
       color_hash: equipment.color_hash,

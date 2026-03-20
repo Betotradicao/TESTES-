@@ -5,7 +5,7 @@ export class EanFormatterService {
    * Formata e valida EAN-13 extraindo informações do código
    * Replica exatamente a lógica do N8N
    */
-  static formatEan(payload: WebhookPayload, eanDigits: number = 5): EanFormatResult {
+  static formatEan(payload: WebhookPayload, eanDigits: number = 6): EanFormatResult {
     const ean = String(payload.raw || '').replace(/\D+/g, '');
 
     // Validação do comprimento
