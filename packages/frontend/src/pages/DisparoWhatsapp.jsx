@@ -620,7 +620,6 @@ function DisparoWhatsapp() {
               )}
             </div>
           )}
-        </div>
 
           {/* ========== ENTREGAS ========== */}
           {tab === 'entregas' && (
