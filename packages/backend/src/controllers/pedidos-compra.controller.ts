@@ -231,6 +231,10 @@ export class PedidosCompraController {
         statsDateConditions.push(`TRUNC(${pedDtaEmissaoCol}) <= TO_DATE(:statsDataFim, 'YYYY-MM-DD')`);
         statsParams.statsDataFim = dataFim;
       }
+      if (codLoja) {
+        statsDateConditions.push(`${pedCodLojaCol} = :statscodLoja`);
+        statsParams.statscodLoja = parseInt(codLoja as string, 10);
+      }
       const statsDateFilter = statsDateConditions.length > 0 ? ' AND ' + statsDateConditions.join(' AND ') : '';
 
       // Query para estatísticas básicas (com filtro de data opcional)
@@ -256,6 +260,10 @@ export class PedidosCompraController {
       if (dataFim) {
         joinDateConditions.push(`TRUNC(p.${pedDtaEmissaoCol}) <= TO_DATE(:joinDataFim, 'YYYY-MM-DD')`);
         joinParams.joinDataFim = dataFim;
+      }
+      if (codLoja) {
+        joinDateConditions.push(`p.${pedCodLojaCol} = :joincodLoja`);
+        joinParams.joincodLoja = parseInt(codLoja as string, 10);
       }
       const joinDateFilter = joinDateConditions.length > 0 ? ' AND ' + joinDateConditions.join(' AND ') : '';
 
@@ -313,6 +321,11 @@ export class PedidosCompraController {
       if (dataFim) {
         nfDateConditions.push(`TRUNC(fn.${dataEntradaCol}) <= TO_DATE(:nfDataFim, 'YYYY-MM-DD')`);
         nfParams.nfDataFim = dataFim;
+      }
+      if (codLoja) {
+        const nfCodLojaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_loja');
+        nfDateConditions.push(`fn.${nfCodLojaCol} = :nfcodLoja`);
+        nfParams.nfcodLoja = parseInt(codLoja as string, 10);
       }
       const nfDateFilter = nfDateConditions.join(' AND ');
 
