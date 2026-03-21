@@ -219,7 +219,16 @@ export default function CompraVendaAnalise() {
     const lucroLiquido = totaisSoma.VENDAS - totaisSoma.CUSTO_VENDA - totaisSoma.TOTAL_IMPOSTO + totaisSoma.TOTAL_IMPOSTO_CREDITO;
     const mgLucroTotal = totaisSoma.VENDAS > 0 ? (lucroLiquido / totaisSoma.VENDAS) * 100 : 0;
     const mgLiquidaTotal = vendaLiquida > 0 ? (lucroLiquido / vendaLiquida) * 100 : 0;
-    setTotais({ ...totaisSoma, MG_LUCRO_PCT: Math.round(mgLucroTotal * 100) / 100, MG_LIQUIDA_PCT: Math.round(mgLiquidaTotal * 100) / 100 });
+    // Manter DIF_ANUAL_PCT e DIF_ANUAL_RS dos totais anteriores recalculando apenas com seções ativas
+    // Usar os dados anuais já embutidos nos rows (DIF_ANUAL_PCT ponderado por VENDAS da seção)
+    let somaWeightedPct = 0, somaVendasAnual = 0;
+    for (const row of totalData) {
+      const vendaRow = Math.abs(row.VENDAS || 0);
+      somaWeightedPct += (row.DIF_ANUAL_PCT || 0) * vendaRow;
+      somaVendasAnual += vendaRow;
+    }
+    const difAnualPctRecalc = somaVendasAnual > 0 ? Math.round((somaWeightedPct / somaVendasAnual) * 100) / 100 : 0;
+    setTotais({ ...totaisSoma, MG_LUCRO_PCT: Math.round(mgLucroTotal * 100) / 100, MG_LIQUIDA_PCT: Math.round(mgLiquidaTotal * 100) / 100, DIF_ANUAL_PCT: difAnualPctRecalc, DIF_ANUAL_RS: totaisSoma.DIF_ANUAL_RS });
   };
 
   useEffect(() => {
@@ -357,10 +366,15 @@ export default function CompraVendaAnalise() {
         params.append('tipoEmprestimoDecomposicao', String(filters.tipoEmprestimoDecomposicao));
       }
 
-      // Params anuais (01/01/YYYY ate mesma dataFim selecionada) - mesmos filtros, so muda dataInicio
+      // Params anuais (01/01/YYYY ate ONTEM) - dia fechado, independente da data selecionada
       const paramsAnual = new URLSearchParams(params.toString());
-      const anoAtual = new Date().getFullYear();
+      const ontem = new Date();
+      ontem.setDate(ontem.getDate() - 1);
+      const anoAtual = ontem.getFullYear();
+      const diaOntem = String(ontem.getDate()).padStart(2, '0');
+      const mesOntem = String(ontem.getMonth() + 1).padStart(2, '0');
       paramsAnual.set('dataInicio', `01/01/${anoAtual}`);
+      paramsAnual.set('dataFim', `${diaOntem}/${mesOntem}/${anoAtual}`);
 
       // Buscar periodo selecionado + anual em paralelo
       const [response, responseAnual] = await Promise.all([
@@ -371,13 +385,19 @@ export default function CompraVendaAnalise() {
       if (response.data.success) {
         // Montar mapa anual por COD_SECAO+COD_LOJA
         const anualMap = {};
+        let totalComprasAnual = 0, totalVendasAnual = 0, totalCompraFinalAnual = 0, totalCustoVendaAnual = 0;
         if (responseAnual.data.success) {
           for (const r of (responseAnual.data.data || [])) {
             const key = `${r.COD_SECAO}_${r.COD_LOJA || r.LOJA}`;
             anualMap[key] = { DIF_ANUAL_PCT: r.DIFERENCA_PCT || 0, DIF_ANUAL_RS: r.DIFERENCA_RS || 0 };
+            totalComprasAnual += (r.COMPRAS || 0);
+            totalVendasAnual += (r.VENDAS || 0);
+            totalCustoVendaAnual += (r.CUSTO_VENDA || 0);
+            totalCompraFinalAnual += (r.COMPRA_FINAL || ((r.COMPRAS || 0) - (r.EMPRESTEI || 0) + (r.EMPRESTADO || 0)));
           }
         }
 
+        console.log('📊 ANUAL DEBUG:', { totalComprasAnual, totalVendasAnual, totalCompraFinalAnual, anualMapSize: Object.keys(anualMap).length, paramsAnualStr: paramsAnual.toString() });
         // Juntar dados anuais nos dados do periodo
         const mergedData = (response.data.data || []).map(row => {
           const key = `${row.COD_SECAO}_${row.COD_LOJA || row.LOJA}`;
@@ -427,10 +447,28 @@ export default function CompraVendaAnalise() {
         // MG_LIQUIDA_PCT = Lucro / (Vendas - Imposto) * 100
         const mgLiquidaTotal = vendaLiquida > 0 ? (lucroLiquido / vendaLiquida) * 100 : 0;
 
+        // DIF_ANUAL_PCT total: recalcular excluindo seções inativas
+        let totalComprasAnualFilt = 0, totalVendasAnualFilt = 0, totalCompraFinalAnualFilt = 0, totalCustoVendaAnualFilt = 0, totalDifAnualRSFilt = 0;
+        if (responseAnual.data.success) {
+          for (const r of (responseAnual.data.data || [])) {
+            if (secoesInativas.includes(String(r.COD_SECAO))) continue;
+            totalComprasAnualFilt += (r.COMPRAS || 0);
+            totalVendasAnualFilt += (r.VENDAS || 0);
+            totalCustoVendaAnualFilt += (r.CUSTO_VENDA || 0);
+            totalCompraFinalAnualFilt += (r.COMPRA_FINAL || ((r.COMPRAS || 0) - (r.EMPRESTEI || 0) + (r.EMPRESTADO || 0)));
+            totalDifAnualRSFilt += (r.DIFERENCA_RS || 0);
+          }
+        }
+        const metaPctAnual = totalVendasAnualFilt > 0 ? (totalCustoVendaAnualFilt / totalVendasAnualFilt) * 100 : 0;
+        const pctAnual = totalVendasAnualFilt > 0 ? (totalCompraFinalAnualFilt / totalVendasAnualFilt) * 100 : 0;
+        const difAnualPctTotal = Math.round((metaPctAnual - pctAnual) * 100) / 100;
+
         setTotais({
           ...totaisSoma,
           MG_LUCRO_PCT: Math.round(mgLucroTotal * 100) / 100,
-          MG_LIQUIDA_PCT: Math.round(mgLiquidaTotal * 100) / 100
+          MG_LIQUIDA_PCT: Math.round(mgLiquidaTotal * 100) / 100,
+          DIF_ANUAL_PCT: difAnualPctTotal,
+          DIF_ANUAL_RS: totalDifAnualRSFilt
         });
 
         toast.success(`${response.data.count} registros encontrados`);
@@ -634,7 +672,9 @@ export default function CompraVendaAnalise() {
           const params = buildDrillDownParams();
           params.append('codSecao', secaoKey);
           const paramsAnual = new URLSearchParams(params.toString());
-          paramsAnual.set('dataInicio', `01/01/${new Date().getFullYear()}`);
+          const ontemG = new Date(); ontemG.setDate(ontemG.getDate() - 1);
+          paramsAnual.set('dataInicio', `01/01/${ontemG.getFullYear()}`);
+          paramsAnual.set('dataFim', `${String(ontemG.getDate()).padStart(2,'0')}/${String(ontemG.getMonth()+1).padStart(2,'0')}/${ontemG.getFullYear()}`);
           console.log('📊 Buscando grupos da seção:', secaoKey);
           const [response, responseAnual] = await Promise.all([
             api.get(`/compra-venda/drill-down/grupos?${params.toString()}`),
@@ -685,7 +725,9 @@ export default function CompraVendaAnalise() {
           params.append('codSecao', secaoKey);
           params.append('codGrupo', grupoKey);
           const paramsAnual = new URLSearchParams(params.toString());
-          paramsAnual.set('dataInicio', `01/01/${new Date().getFullYear()}`);
+          const ontemSG = new Date(); ontemSG.setDate(ontemSG.getDate() - 1);
+          paramsAnual.set('dataInicio', `01/01/${ontemSG.getFullYear()}`);
+          paramsAnual.set('dataFim', `${String(ontemSG.getDate()).padStart(2,'0')}/${String(ontemSG.getMonth()+1).padStart(2,'0')}/${ontemSG.getFullYear()}`);
           console.log('📊 Buscando subgrupos do grupo:', grupoKey, 'seção:', secaoKey);
           const [response, responseAnual] = await Promise.all([
             api.get(`/compra-venda/drill-down/subgrupos?${params.toString()}`),
@@ -907,10 +949,8 @@ export default function CompraVendaAnalise() {
         return formatCurrency(isTotal ? totais?.DIFERENCA_RS : row.DIFERENCA_RS);
       case 'DIF_ANUAL_PCT':
         if (isTotal && totais) {
-          // Somar todos os DIF_ANUAL_PCT ponderado nao faz sentido, calcular do total anual
-          const totalAnualRS = totais?.DIF_ANUAL_RS || 0;
-          const totalVendas = totais?.VENDAS || 0;
-          return formatPercent(totalVendas > 0 ? (totalAnualRS / totalVendas) * 100 : 0);
+          // Usar DIF_ANUAL_PCT já calculado com totais anuais (não do período)
+          return formatPercent(totais?.DIF_ANUAL_PCT || 0);
         }
         return formatPercent(row.DIF_ANUAL_PCT);
       case 'DIF_ANUAL_RS':
