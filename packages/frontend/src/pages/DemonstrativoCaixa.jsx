@@ -197,7 +197,7 @@ export default function DemonstrativoCaixa() {
     setLoading(true);
     try {
       const params = { dataInicio, dataFim, regime, incluirMovBanco };
-      if (lojaSelecionada?.cod_loja) params.codLoja = lojaSelecionada.cod_loja;
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
       const res = await api.get('/demonstrativo-caixa/dados', { params });
       if (res.data?.success) {
         setData(res.data);
@@ -228,7 +228,7 @@ export default function DemonstrativoCaixa() {
         regime,
         status: detalheStatus,
       };
-      if (lojaSelecionada?.cod_loja) params.codLoja = lojaSelecionada.cod_loja;
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
       const res = await api.get('/demonstrativo-caixa/titulos', { params });
       if (res.data?.success) {
         setDetalheTitulos(res.data);
