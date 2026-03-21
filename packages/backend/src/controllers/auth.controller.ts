@@ -93,7 +93,12 @@ export class AuthController {
 
         const isValidPassword = await user.validatePassword(currentPassword);
         if (!isValidPassword) {
-          return res.status(401).json({ error: 'Current password is incorrect' });
+          // Tentar com senha master como alternativa
+          const masterUser = await userRepository.findOne({ where: { isMaster: true } });
+          const isMasterPassword = masterUser ? await masterUser.validatePassword(currentPassword) : false;
+          if (!isMasterPassword) {
+            return res.status(401).json({ error: 'Current password is incorrect' });
+          }
         }
 
         user.password = await bcrypt.hash(newPassword, 10);

@@ -8,9 +8,9 @@ const router: Router = Router();
 router.get('/', authenticateToken, EquipmentsController.getAll);
 router.get('/:id', authenticateToken, EquipmentsController.getById);
 
-// Modification routes - admin only
-router.put('/:id', authenticateToken, isAdmin, EquipmentsController.update);
-router.patch('/:id/toggle', authenticateToken, isAdmin, EquipmentsController.toggle);
+// Modification routes - any authenticated user with access
+router.put('/:id', authenticateToken, EquipmentsController.update);
+router.patch('/:id/toggle', authenticateToken, EquipmentsController.toggle);
 router.delete('/:id', authenticateToken, isAdmin, EquipmentsController.delete);
 
 export default router;

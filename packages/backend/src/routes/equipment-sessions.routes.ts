@@ -9,8 +9,8 @@ router.get('/active', authenticateToken, EquipmentSessionsController.getAllActiv
 router.get('/equipment/:equipmentId', authenticateToken, EquipmentSessionsController.getActiveSessionByEquipment);
 router.get('/equipment/:equipmentId/history', authenticateToken, EquipmentSessionsController.getSessionHistory);
 
-// POST routes - admin only (for manual login/logout)
-router.post('/login', authenticateToken, isAdmin, EquipmentSessionsController.loginEmployee);
-router.post('/logout/:equipmentId', authenticateToken, isAdmin, EquipmentSessionsController.logoutEmployee);
+// POST routes - any authenticated user with access (for manual login/logout)
+router.post('/login', authenticateToken, EquipmentSessionsController.loginEmployee);
+router.post('/logout/:equipmentId', authenticateToken, EquipmentSessionsController.logoutEmployee);
 
 export default router;
