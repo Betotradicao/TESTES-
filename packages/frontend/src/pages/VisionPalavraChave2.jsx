@@ -190,7 +190,7 @@ export default function VisionPalavraChave2() {
         <div className="bg-gradient-to-br from-purple-600 to-indigo-700 rounded-lg shadow-lg p-4 mb-3 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold">Vision Palavra Chave 2</h1>
+              <h1 className="text-xl sm:text-2xl font-bold">Vision Palavra Chave</h1>
               <p className="text-white/80 text-sm mt-0.5">Busca por palavra-chave no ERP com video do DVR</p>
             </div>
             <div className="bg-white/20 backdrop-blur-sm rounded-full p-2 sm:p-3 flex-shrink-0">
