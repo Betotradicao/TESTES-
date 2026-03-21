@@ -33,7 +33,10 @@ export interface OperadorResumo {
   VALE_DESCONTO: number;
   OUTROS: number;
   TOTAL_DESCONTOS: number;
-  CANCELAMENTOS: number;     // Cancelamentos (estornos de itens/cupons)
+  CANCELAMENTOS: number;     // Cancelamentos totais (item + cupom + venda)
+  CANC_ITEM: number;         // Cancelamento de itens individuais
+  CANC_CUPOM: number;        // Cancelamento de cupom inteiro
+  CANC_VENDA: number;        // Cancelamento de venda (estorno sem operador)
   ESTORNOS_ORFAOS: number;   // Estornos órfãos associados por PDV + horário
   VAL_SOBRA: number;
   VAL_QUEBRA: number;
@@ -59,7 +62,10 @@ export interface OperadorPorDia {
   VALE_DESCONTO: number;
   OUTROS: number;
   TOTAL_DESCONTOS: number;
-  CANCELAMENTOS: number;     // Cancelamentos (estornos de itens/cupons)
+  CANCELAMENTOS: number;     // Cancelamentos totais (item + cupom + venda)
+  CANC_ITEM: number;         // Cancelamento de itens individuais
+  CANC_CUPOM: number;        // Cancelamento de cupom inteiro
+  CANC_VENDA: number;        // Cancelamento de venda (estorno sem operador)
   ESTORNOS_ORFAOS: number;   // Estornos órfãos associados por PDV + horário
   VAL_SOBRA: number;
   VAL_QUEBRA: number;
@@ -415,31 +421,55 @@ export class FrenteCaixaService {
         ${codOperador ? 'AND sub.COD_OPERADOR = :codOperador' : ''}
       GROUP BY sub.COD_OPERADOR`;
 
-    // Buscar cancelamentos de cupom (cupons finalizados que foram cancelados inteiros)
-    // Usa TAB_CUPOM_CANCELADO JOIN TAB_CUPOM_PDV (identifica venda original)
-    // JOIN TAB_CUPOM_FINALIZADORA (valor e operador)
+    // Buscar cancelamentos de cupom (cupons cancelados inteiros)
+    // Valor vem do cupom SEGUINTE (NUM_SEQ + 1) na TAB_CUPOM_FINALIZADORA
+    // Operador vem do cupom mais próximo na finalizadora
     let sqlEstornosOrfaos = `
       SELECT
-        cf.${codOperadorCol} as COD_OPERADOR,
-        NVL(SUM(cf.${valorLiquidoCol}), 0) as TOTAL_ESTORNOS_ORFAOS
+        NVL(
+          (SELECT MIN(cf_op.${codOperadorCol}) KEEP (DENSE_RANK FIRST ORDER BY ABS(cf_op.${numeroCupomCol} - cc.${ccNumSeqCol}))
+           FROM ${tabCupomFinalizadora} cf_op
+           WHERE cf_op.${codPdvCol} = cc.${ccNumPdvCol}
+           AND cf_op.${codLojaCol} = cc.${ccCodLojaCol}
+           AND TRUNC(cf_op.${dataVendaCol}) = TRUNC(cc.${ccDtaSeqCol})),
+          0) as COD_OPERADOR,
+        NVL(ABS(
+          (SELECT SUM(cf_val.${valorLiquidoCol})
+           FROM ${tabCupomFinalizadora} cf_val
+           WHERE cf_val.${numeroCupomCol} = cc.${ccNumSeqCol} + 1
+           AND cf_val.${codPdvCol} = cc.${ccNumPdvCol}
+           AND cf_val.${codLojaCol} = cc.${ccCodLojaCol}
+           AND TRUNC(cf_val.${dataVendaCol}) = TRUNC(cc.${ccDtaSeqCol}))
+        ), 0) as VALOR_CUPOM
       FROM ${tabCupomCancelado} cc
-      JOIN ${tabCupomPdv} cp
-        ON cp.${numeroCupomCol} = cc.${ccNumSeqCol}
-        AND cp.${codPdvCol} = cc.${ccNumPdvCol}
-        AND cp.${cpCodLojaCol} = cc.${ccCodLojaCol}
-        AND TRUNC(cp.${dataVendaCol}) = TRUNC(cc.${ccDtaSeqCol})
-      JOIN ${tabCupomFinalizadora} cf
-        ON cf.${numeroCupomCol} = cc.${ccNumSeqCol}
-        AND cf.${codPdvCol} = cc.${ccNumPdvCol}
-        AND cf.${codLojaCol} = cc.${ccCodLojaCol}
-        AND TRUNC(cf.${dataVendaCol}) = TRUNC(cc.${ccDtaSeqCol})
-        AND cf.${codTipoCol} = 1110
       WHERE cc.${ccDtaSeqCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
         AND cc.${ccDtaSeqCol} < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
         AND cc.${ccFlgEstornoCol} = 'S'
-        ${codLoja ? `AND cc.${ccCodLojaCol} = :codLoja` : ''}
-        ${codOperador ? `AND cf.${codOperadorCol} = :codOperador` : ''}
-      GROUP BY cf.${codOperadorCol}`;
+        ${codLoja ? `AND cc.${ccCodLojaCol} = :codLoja` : ''}`;
+
+    // Buscar cancelamentos de venda (TAB_PRODUTO_PDV_ESTORNO sem cupom na finalizadora)
+    // Operador: busca pelo cupom mais próximo (mesmo PDV/dia) na finalizadora
+    let sqlCancVenda = `
+      SELECT
+        NVL(
+          (SELECT MIN(cf_near.${codOperadorCol}) KEEP (DENSE_RANK FIRST ORDER BY ABS(cf_near.${numeroCupomCol} - e.${numeroCupomCol}))
+           FROM ${tabCupomFinalizadora} cf_near
+           WHERE cf_near.${codPdvCol} = e.${codPdvCol}
+           AND cf_near.${codLojaCol} = e.${codLojaCol}
+           AND TRUNC(cf_near.${dataVendaCol}) = TRUNC(e.${dataSaidaCol})),
+          0) as COD_OPERADOR,
+        e.${valorTotalCol} as VALOR_VENDA
+      FROM ${tabProdutoPdvEstorno} e
+      WHERE e.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND e.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
+        AND NOT EXISTS (
+          SELECT 1 FROM ${tabCupomFinalizadora} cf4
+          WHERE cf4.${numeroCupomCol} = e.${numeroCupomCol}
+          AND cf4.${codPdvCol} = e.${codPdvCol}
+          AND cf4.${codLojaCol} = e.${codLojaCol}
+          AND TRUNC(cf4.${dataVendaCol}) = TRUNC(e.${dataSaidaCol})
+        )`;
 
     // Buscar sobra/quebra de caixa
     let sqlTesouraria = `
@@ -480,25 +510,41 @@ export class FrenteCaixaService {
     console.log(`  📊 Lote 1 OK (${((Date.now() - startTime) / 1000).toFixed(1)}s) - Vendas: ${vendas.length}, Itens: ${itens.length}, Descontos: ${descontos.length}`);
 
     const startTime2 = Date.now();
-    const [cancelamentos, estornosOrfaos, tesouraria] = await Promise.all([
+    const [cancelamentos, estornosOrfaosRaw, cancVendaRaw, tesouraria] = await Promise.all([
       OracleService.query<any>(sqlCancelamentos, params),
       OracleService.query<any>(sqlEstornosOrfaos, params),
+      OracleService.query<any>(sqlCancVenda, params),
       OracleService.query<any>(sqlTesouraria, params)
     ]);
-    console.log(`  📊 Lote 2 OK (${((Date.now() - startTime2) / 1000).toFixed(1)}s) - Cancel: ${cancelamentos.length}, Estornos: ${estornosOrfaos.length}, Tesouraria: ${tesouraria.length}`);
+    console.log(`  📊 Lote 2 OK (${((Date.now() - startTime2) / 1000).toFixed(1)}s) - CancItem: ${cancelamentos.length}, CancCupom: ${estornosOrfaosRaw.length}, CancVenda: ${cancVendaRaw.length}, Tesouraria: ${tesouraria.length}`);
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`✅ [Frente Caixa] Total: ${elapsed}s`);
 
     const itensMap = new Map(itens.map(i => [i.COD_OPERADOR, i.TOTAL_ITENS]));
     const descontosMap = new Map(descontos.map(d => [d.COD_OPERADOR, d.TOTAL_DESCONTOS]));
+    // Canc. Item = TAB_PRODUTO_PDV_ESTORNO (com operador na finalizadora)
     const cancelamentosMap = new Map(cancelamentos.map(c => [c.COD_OPERADOR, c.TOTAL_CANCELAMENTOS]));
-    const estornosOrfaosMap = new Map(estornosOrfaos.map(e => [e.COD_OPERADOR, e.TOTAL_ESTORNOS_ORFAOS]));
+    // Canc. Cupom = TAB_CUPOM_CANCELADO (valor do cupom seguinte)
+    const cancCupomMap = new Map<number, number>();
+    for (const row of estornosOrfaosRaw) {
+      const op = row.COD_OPERADOR || 0;
+      cancCupomMap.set(op, (cancCupomMap.get(op) || 0) + (Number(row.VALOR_CUPOM) || 0));
+    }
+    // Canc. Venda = TAB_PRODUTO_PDV_ESTORNO (sem cupom na finalizadora)
+    const cancVendaMap = new Map<number, number>();
+    for (const row of cancVendaRaw) {
+      const op = row.COD_OPERADOR || 0;
+      cancVendaMap.set(op, (cancVendaMap.get(op) || 0) + (Number(row.VALOR_VENDA) || 0));
+    }
     const tesourariaMap = new Map(tesouraria.map(t => [t.COD_OPERADOR, { sobra: t.VAL_SOBRA || 0, quebra: t.VAL_QUEBRA || 0 }]));
 
     // Combinar resultados
     return vendas.map(v => {
       const tes = tesourariaMap.get(v.COD_OPERADOR) || { sobra: 0, quebra: 0 };
+      const cancItem = cancelamentosMap.get(v.COD_OPERADOR) || 0;
+      const cancCupom = cancCupomMap.get(v.COD_OPERADOR) || 0;
+      const cancVenda = cancVendaMap.get(v.COD_OPERADOR) || 0;
       return {
         COD_OPERADOR: v.COD_OPERADOR,
         DES_OPERADOR: v.DES_OPERADOR || 'N/A',
@@ -516,8 +562,11 @@ export class FrenteCaixaService {
         VALE_DESCONTO: v.VALE_DESCONTO || 0,
         OUTROS: v.OUTROS || 0,
         TOTAL_DESCONTOS: descontosMap.get(v.COD_OPERADOR) || 0,
-        CANCELAMENTOS: cancelamentosMap.get(v.COD_OPERADOR) || 0,
-        ESTORNOS_ORFAOS: estornosOrfaosMap.get(v.COD_OPERADOR) || 0,
+        CANCELAMENTOS: cancItem + cancCupom + cancVenda,
+        CANC_ITEM: cancItem,
+        CANC_CUPOM: cancCupom,
+        CANC_VENDA: cancVenda,
+        ESTORNOS_ORFAOS: 0, // Agora incluído em CANC_CUPOM
         VAL_SOBRA: tes.sobra,
         VAL_QUEBRA: tes.quebra,
         VAL_DIFERENCA: tes.sobra - tes.quebra
@@ -768,8 +817,11 @@ export class FrenteCaixaService {
         VALE_DESCONTO: v.VALE_DESCONTO || 0,
         OUTROS: v.OUTROS || 0,
         TOTAL_DESCONTOS: descontosMap.get(v.DATA) || 0,
-        CANCELAMENTOS: cancelamentosMap.get(v.DATA) || 0,
-        ESTORNOS_ORFAOS: estornosOrfaosMap.get(v.DATA) || 0,
+        CANCELAMENTOS: (cancelamentosMap.get(v.DATA) || 0) + (estornosOrfaosMap.get(v.DATA) || 0),
+        CANC_ITEM: cancelamentosMap.get(v.DATA) || 0,
+        CANC_CUPOM: estornosOrfaosMap.get(v.DATA) || 0,
+        CANC_VENDA: 0,
+        ESTORNOS_ORFAOS: 0,
         VAL_SOBRA: tes.sobra,
         VAL_QUEBRA: tes.quebra,
         VAL_DIFERENCA: tes.sobra - tes.quebra
@@ -873,27 +925,40 @@ export class FrenteCaixaService {
     `;
     const cancelamentos = await OracleService.query<any>(sqlCancelamentos, params);
 
-    // Cancelamento de cupom = cupons finalizados que foram cancelados inteiros (TAB_CUPOM_CANCELADO)
-    const sqlEstornosOrfaos = `
-      SELECT NVL(SUM(cf.${valorLiquidoCol}), 0) as ESTORNOS_ORFAOS
+    // Cancelamento de cupom = TAB_CUPOM_CANCELADO (valor do cupom seguinte NUM_SEQ+1)
+    const sqlCancCupomTotal = `
+      SELECT NVL(SUM(ABS(
+        (SELECT SUM(cf_val.${valorLiquidoCol})
+         FROM ${tabCupomFinalizadora} cf_val
+         WHERE cf_val.${numeroCupomCol} = cc.${ccNumSeqCol} + 1
+         AND cf_val.${codPdvCol} = cc.${ccNumPdvCol}
+         AND cf_val.${codLojaCol} = cc.${ccCodLojaCol}
+         AND TRUNC(cf_val.${dataVendaCol}) = TRUNC(cc.${ccDtaSeqCol}))
+      )), 0) as CANC_CUPOM
       FROM ${tabCupomCancelado} cc
-      JOIN ${tabCupomPdv} cp
-        ON cp.${numeroCupomCol} = cc.${ccNumSeqCol}
-        AND cp.${codPdvCol} = cc.${ccNumPdvCol}
-        AND cp.${cpCodLojaCol} = cc.${ccCodLojaCol}
-        AND TRUNC(cp.${dataVendaCol}) = TRUNC(cc.${ccDtaSeqCol})
-      JOIN ${tabCupomFinalizadora} cf
-        ON cf.${numeroCupomCol} = cc.${ccNumSeqCol}
-        AND cf.${codPdvCol} = cc.${ccNumPdvCol}
-        AND cf.${codLojaCol} = cc.${ccCodLojaCol}
-        AND TRUNC(cf.${dataVendaCol}) = TRUNC(cc.${ccDtaSeqCol})
-        AND cf.${codTipoCol} = 1110
       WHERE cc.${ccDtaSeqCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
         AND cc.${ccDtaSeqCol} < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
         AND cc.${ccFlgEstornoCol} = 'S'
         ${codLoja ? `AND cc.${ccCodLojaCol} = :codLoja` : ''}
     `;
-    const estornosOrfaos = await OracleService.query<any>(sqlEstornosOrfaos, params);
+    const cancCupomTotal = await OracleService.query<any>(sqlCancCupomTotal, params);
+
+    // Cancelamento de venda = estornos SEM cupom na finalizadora
+    const sqlCancVendaTotal = `
+      SELECT NVL(SUM(e.${valorTotalCol}), 0) as CANC_VENDA
+      FROM ${tabProdutoPdvEstorno} e
+      WHERE e.${dataSaidaCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
+        AND e.${dataSaidaCol} <= TO_DATE(:dataFim, 'DD/MM/YYYY')
+        ${codLoja ? `AND e.${codLojaCol} = :codLoja` : ''}
+        AND NOT EXISTS (
+          SELECT 1 FROM ${tabCupomFinalizadora} cf4
+          WHERE cf4.${numeroCupomCol} = e.${numeroCupomCol}
+          AND cf4.${codPdvCol} = e.${codPdvCol}
+          AND cf4.${codLojaCol} = e.${codLojaCol}
+          AND TRUNC(cf4.${dataVendaCol}) = TRUNC(e.${dataSaidaCol})
+        )
+    `;
+    const cancVendaTotal = await OracleService.query<any>(sqlCancVendaTotal, params);
 
     // Buscar totais de sobra/quebra (pegando apenas o último registro de cada combinação)
     const sqlTesouraria = `
@@ -934,8 +999,11 @@ export class FrenteCaixaService {
       VALE_DESCONTO: totais[0]?.VALE_DESCONTO || 0,
       OUTROS: totais[0]?.OUTROS || 0,
       TOTAL_DESCONTOS: descontos[0]?.TOTAL_DESCONTOS || 0,
-      CANCELAMENTOS: cancelamentos[0]?.CANCELAMENTOS || 0,
-      ESTORNOS_ORFAOS: estornosOrfaos[0]?.ESTORNOS_ORFAOS || 0,
+      CANCELAMENTOS: (cancelamentos[0]?.CANCELAMENTOS || 0) + (cancCupomTotal[0]?.CANC_CUPOM || 0) + (cancVendaTotal[0]?.CANC_VENDA || 0),
+      CANC_ITEM: cancelamentos[0]?.CANCELAMENTOS || 0,
+      CANC_CUPOM: cancCupomTotal[0]?.CANC_CUPOM || 0,
+      CANC_VENDA: cancVendaTotal[0]?.CANC_VENDA || 0,
+      ESTORNOS_ORFAOS: 0,
       TOTAL_SOBRA: tesouraria[0]?.TOTAL_SOBRA || 0,
       TOTAL_QUEBRA: tesouraria[0]?.TOTAL_QUEBRA || 0,
       TOTAL_DIFERENCA: (tesouraria[0]?.TOTAL_SOBRA || 0) - (tesouraria[0]?.TOTAL_QUEBRA || 0)

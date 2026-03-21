@@ -25,8 +25,9 @@ const INITIAL_COLUMNS = [
   { id: 'PCT_DESCONTO', header: '% Desc.', align: 'right', sortable: true, highlight: 'yellow', calculated: true },
   { id: 'CANCELAMENTOS', header: 'Cancelamentos', align: 'right', sortable: true, highlight: 'red' },
   { id: 'PCT_CANCELAMENTOS', header: '% Cancel.', align: 'right', sortable: true, highlight: 'red', calculated: true },
-  { id: 'ESTORNOS_ORFAOS', header: 'Canc. Cupom', align: 'right', sortable: true, highlight: 'orange' },
-  { id: 'PCT_ESTORNOS_ORFAOS', header: '% Cupom', align: 'right', sortable: true, highlight: 'orange', calculated: true },
+  { id: 'CANC_ITEM', header: 'Canc. Item', align: 'right', sortable: true, highlight: 'purple' },
+  { id: 'CANC_CUPOM', header: 'Canc. Cupom', align: 'right', sortable: true, highlight: 'purple' },
+  { id: 'CANC_VENDA', header: 'Canc. Venda', align: 'right', sortable: true, highlight: 'purple' },
   { id: 'VAL_SOBRA', header: 'Sobra Caixa', align: 'right', sortable: true, highlight: 'green' },
   { id: 'VAL_QUEBRA', header: 'Falta Caixa', align: 'right', sortable: true, highlight: 'red' },
 ];
@@ -601,8 +602,7 @@ export default function FrenteCaixa() {
 
   const calcPctCancelamentos = (row) => {
     if (!row.TOTAL_VENDAS || row.TOTAL_VENDAS === 0) return 0;
-    // Soma Cancelamentos + Canc. Cupom (estornos órfãos)
-    return (((row.CANCELAMENTOS || 0) + (row.ESTORNOS_ORFAOS || 0)) / row.TOTAL_VENDAS) * 100;
+    return ((row.CANCELAMENTOS || 0) / row.TOTAL_VENDAS) * 100;
   };
 
   const calcPctValeTroca = (row) => {
@@ -967,8 +967,10 @@ export default function FrenteCaixa() {
         return formatPercent(calcPctDesconto(row));
       case 'PCT_CANCELAMENTOS':
         return formatPercent(calcPctCancelamentos(row));
-      case 'PCT_ESTORNOS_ORFAOS':
-        return formatPercent(calcPctEstornosOrfaos(row));
+      case 'CANC_ITEM':
+      case 'CANC_CUPOM':
+      case 'CANC_VENDA':
+        return formatCurrency(value);
       case 'PCT_VALE_TROCA':
         return formatPercent(calcPctValeTroca(row));
       case 'PCT_ITENS':
@@ -1006,6 +1008,8 @@ export default function FrenteCaixa() {
     if (column.highlight === 'yellow' && value > 0) return 'text-yellow-600 font-medium';
     if (column.highlight === 'orange' && value > 0) return 'text-orange-600 font-medium';
     if (column.highlight === 'blue' && value > 0) return 'text-blue-600 font-medium';
+    if (column.highlight === 'purple' && value > 0) return 'text-purple-600 font-medium';
+    if (column.highlight === 'amber' && value > 0) return 'text-amber-600 font-medium';
     return 'text-gray-900';
   };
 
@@ -1023,8 +1027,10 @@ export default function FrenteCaixa() {
         return formatPercent(calcPctDesconto(row));
       case 'PCT_CANCELAMENTOS':
         return formatPercent(calcPctCancelamentos(row));
-      case 'PCT_ESTORNOS_ORFAOS':
-        return formatPercent(calcPctEstornosOrfaos(row));
+      case 'CANC_ITEM':
+      case 'CANC_CUPOM':
+      case 'CANC_VENDA':
+        return formatCurrency(value);
       case 'PCT_VALE_TROCA':
         return formatPercent(calcPctValeTroca(row));
       case 'PCT_ITENS':
