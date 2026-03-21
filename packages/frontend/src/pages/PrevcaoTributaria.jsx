@@ -11,7 +11,7 @@ const STATUS_CONFIG = {
 };
 
 export default function PrevcaoTributaria() {
-  const { lojaAtual } = useLoja();
+  const { lojaSelecionada } = useLoja();
 
   // Filtros de classificação mercadológica
   const [secoes,    setSecoes]    = useState([]);
@@ -70,7 +70,7 @@ export default function PrevcaoTributaria() {
     setError('');
     try {
       const params = new URLSearchParams({ statusFilter });
-      if (lojaAtual?.id) params.append('codLoja', lojaAtual.id);
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
       if (codSecao)    params.append('codSecao',    codSecao);
       if (codGrupo)    params.append('codGrupo',    codGrupo);
       if (codSubGrupo) params.append('codSubGrupo', codSubGrupo);
@@ -85,7 +85,7 @@ export default function PrevcaoTributaria() {
     }
   };
 
-  useEffect(() => { buscarDados(); }, [lojaAtual, codSecao, codGrupo, codSubGrupo, codSegmento, statusFilter]);
+  useEffect(() => { buscarDados(); }, [lojaSelecionada, codSecao, codGrupo, codSubGrupo, codSegmento, statusFilter]);
 
   const handleSort = (col) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
