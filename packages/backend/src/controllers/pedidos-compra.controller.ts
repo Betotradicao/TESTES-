@@ -23,6 +23,7 @@ export class PedidosCompraController {
         fornecedor,
         numPedido,
         comprador,
+        codLoja,
         apenasAtrasados,
         parciaisFinalizadas,
         canceladasTotais,
@@ -102,6 +103,11 @@ export class PedidosCompraController {
       if (comprador) {
         conditions.push('UPPER(p.USUARIO) LIKE UPPER(:comprador)');
         params.comprador = `%${comprador}%`;
+      }
+
+      if (codLoja) {
+        conditions.push(`p.${pedCodLojaCol} = :codLoja`);
+        params.codLoja = parseInt(codLoja as string, 10);
       }
 
       if (apenasAtrasados === 'true') {
@@ -489,7 +495,8 @@ export class PedidosCompraController {
         dataFim,
         fornecedor,
         classificacoes,
-        contato
+        contato,
+        codLoja
       } = req.query;
 
       const pageNum = parseInt(page as string, 10);
@@ -545,6 +552,12 @@ export class PedidosCompraController {
       if (fornecedor) {
         conditions.push(`UPPER(f.${fornFantasiaCol}) LIKE UPPER(:fornecedor)`);
         params.fornecedor = `%${fornecedor}%`;
+      }
+
+      if (codLoja) {
+        const nfCodLojaCol = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_loja');
+        conditions.push(`fn.${nfCodLojaCol} = :codLoja`);
+        params.codLoja = parseInt(codLoja as string, 10);
       }
 
       // Filtro por contato
