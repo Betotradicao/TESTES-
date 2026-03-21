@@ -192,6 +192,11 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
     'prevencao-trocas': '🔄',
     'abastecimento': '🚚',
     'metas': '🎯',
+    'prevencao-tributaria': '🧾',
+    'disparo-whatsapp': '📱',
+    'vision-pdv': '🖥️',
+    'vision-facial': '👤',
+    'vision-bipagens': '📡',
   };
 
   // Separar módulos por seção
@@ -200,6 +205,8 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
   const prevencaoModules = MENU_STRUCTURE.filter(m => m.section === 'prevencao' && m.submenus.length > 0);
   const garimpaModules = MENU_STRUCTURE.filter(m => m.section === 'garimpa' && m.submenus.length > 0);
   const financasModules = MENU_STRUCTURE.filter(m => m.section === 'financas' && m.submenus.length > 0);
+  const marketingModules = MENU_STRUCTURE.filter(m => m.section === 'marketing' && m.submenus.length > 0);
+  const visionModules = MENU_STRUCTURE.filter(m => m.section === 'vision' && m.submenus.length > 0);
   const iaModules = MENU_STRUCTURE.filter(m => m.section === 'ia' && m.submenus.length > 0);
 
   const renderModuleCard = (module) => {
@@ -376,6 +383,34 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
             <div className="flex-1 border-t border-emerald-200"></div>
           </div>
           {financasModules.map(module => renderModuleCard(module))}
+        </>
+      )}
+
+      {/* Seção MARKETING NO RADAR */}
+      {marketingModules.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 mt-6 mb-3">
+            <div className="w-6 h-6 bg-green-600 rounded-md flex items-center justify-center">
+              <span className="text-white text-xs font-bold">MK</span>
+            </div>
+            <h4 className="text-sm font-bold text-green-800 uppercase tracking-wide">Marketing no Radar</h4>
+            <div className="flex-1 border-t border-green-200"></div>
+          </div>
+          {marketingModules.map(module => renderModuleCard(module))}
+        </>
+      )}
+
+      {/* Seção VISION 360 */}
+      {visionModules.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 mt-6 mb-3">
+            <div className="w-6 h-6 bg-indigo-600 rounded-md flex items-center justify-center">
+              <span className="text-white text-xs font-bold">V</span>
+            </div>
+            <h4 className="text-sm font-bold text-indigo-800 uppercase tracking-wide">Vision 360</h4>
+            <div className="flex-1 border-t border-indigo-200"></div>
+          </div>
+          {visionModules.map(module => renderModuleCard(module))}
         </>
       )}
 

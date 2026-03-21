@@ -27,8 +27,16 @@ export const MENU_MODULES = {
   BANCOS: 'bancos',
   ENTRADAS_SAIDAS: 'entradas-saidas',
   DEMONSTRATIVO_CAIXA: 'demonstrativo-caixa',
+  // Prevenção Tributária
+  PREVENCAO_TRIBUTARIA: 'prevencao-tributaria',
+  // Marketing no Radar
+  DISPARO_WHATSAPP: 'disparo-whatsapp',
   // Consultor Digital
   ROTA_CRESCIMENTO: 'rota-crescimento',
+  // Vision 360
+  VISION_PDV: 'vision-pdv',
+  VISION_FACIAL: 'vision-facial',
+  VISION_BIPAGENS: 'vision-bipagens',
 };
 
 // IDs dos sub-menus
@@ -126,6 +134,28 @@ export const MENU_SUBMENUS = {
   SIMULADOR_VENDA: 'simulador-venda',
   ENTRADAS_SAIDAS: 'entradas-saidas',
   DEMONSTRATIVO_CAIXA: 'demonstrativo-caixa',
+
+  // Prevenção Tributária
+  PREVENCAO_TRIBUTARIA_PAINEL: 'prevencao-tributaria-painel',
+
+  // Marketing no Radar
+  DISPARO_WHATSAPP_PAINEL: 'disparo-whatsapp-painel',
+
+  // Pricing extras
+  ANALISE_RELEVANCIA: 'analise-relevancia',
+  MARGENS_CATEGORIA: 'margens-categoria',
+
+  // Vision 360
+  VISION_RISCO: 'vision-risco',
+  VISION_PALAVRA_CHAVE: 'vision-palavra-chave',
+  VISION_FACIAIS: 'vision-faciais',
+  VISION_IDENTIFICADOS: 'vision-identificados',
+  VISION_BIPAGENS_LISTA: 'vision-bipagens-lista',
+  VISION_RESULTADOS_DIA: 'vision-resultados-dia',
+  VISION_RANKINGS: 'vision-rankings',
+
+  // Ecommerce
+  GARIMPA_ECOMMERCE: 'garimpa-ecommerce',
 
   // Consultor Digital
   ROTA_CRESCIMENTO_DASHBOARD: 'rota-crescimento-dashboard',
@@ -242,6 +272,16 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.PRICING_COMPETITIVIDADE,
         title: 'Competitividade e Concorrência',
         path: '/pricing-competitividade'
+      },
+      {
+        id: MENU_SUBMENUS.ANALISE_RELEVANCIA,
+        title: 'Análise Relevância',
+        path: '/analise-relevancia'
+      },
+      {
+        id: MENU_SUBMENUS.MARGENS_CATEGORIA,
+        title: 'Margens por Categoria',
+        path: '/margens-categoria'
       }
     ]
   },
@@ -477,6 +517,33 @@ export const MENU_STRUCTURE = [
       }
     ]
   },
+  {
+    id: MENU_MODULES.PREVENCAO_TRIBUTARIA,
+    title: 'Prevenção Tributária',
+    icon: 'receipt',
+    section: 'prevencao',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.PREVENCAO_TRIBUTARIA_PAINEL,
+        title: 'Painel Tributário',
+        path: '/prevencao-tributaria'
+      }
+    ]
+  },
+  // ========== MARKETING NO RADAR ==========
+  {
+    id: MENU_MODULES.DISPARO_WHATSAPP,
+    title: 'Disparo em Massa',
+    icon: 'phone',
+    section: 'marketing',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.DISPARO_WHATSAPP_PAINEL,
+        title: 'Disparo WhatsApp',
+        path: '/disparo-whatsapp'
+      }
+    ]
+  },
   // ========== GARIMPA FÁCIL ==========
   {
     id: MENU_MODULES.GARIMPA_FORNECEDORES,
@@ -513,6 +580,71 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.GARIMPA_PRODUTOS_PESQUISAR,
         title: 'Produtos a Pesquisar',
         path: '/garimpador-produtos-pesquisar'
+      },
+      {
+        id: MENU_SUBMENUS.GARIMPA_ECOMMERCE,
+        title: 'Ecommerce',
+        path: '/garimpador-ecommerce'
+      }
+    ]
+  },
+  // ========== VISION 360 ==========
+  {
+    id: MENU_MODULES.VISION_PDV,
+    title: 'Vision PDV',
+    icon: 'monitor',
+    section: 'vision',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.VISION_RISCO,
+        title: 'Operações de Risco PDV',
+        path: '/vision-risco'
+      },
+      {
+        id: MENU_SUBMENUS.VISION_PALAVRA_CHAVE,
+        title: 'Vision Palavra Chave',
+        path: '/vision-palavra-chave-2'
+      }
+    ]
+  },
+  {
+    id: MENU_MODULES.VISION_FACIAL,
+    title: 'Vision Facial',
+    icon: 'face',
+    section: 'vision',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.VISION_FACIAIS,
+        title: 'Faciais',
+        path: '/vision-facial'
+      },
+      {
+        id: MENU_SUBMENUS.VISION_IDENTIFICADOS,
+        title: 'Identificados em Loja',
+        path: '/suspect-identifications'
+      }
+    ]
+  },
+  {
+    id: MENU_MODULES.VISION_BIPAGENS,
+    title: 'Vision Bipagens',
+    icon: 'tag',
+    section: 'vision',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.VISION_BIPAGENS_LISTA,
+        title: 'Bipagens',
+        path: '/bipagens'
+      },
+      {
+        id: MENU_SUBMENUS.VISION_RESULTADOS_DIA,
+        title: 'Resultados do Dia',
+        path: '/resultados-do-dia'
+      },
+      {
+        id: MENU_SUBMENUS.VISION_RANKINGS,
+        title: 'Rankings',
+        path: '/rankings'
       }
     ]
   },
