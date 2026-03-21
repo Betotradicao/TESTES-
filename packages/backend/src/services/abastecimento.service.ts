@@ -20,7 +20,7 @@ export class AbastecimentoService {
    * Busca produtos que entraram via NF na data informada,
    * classifica prioridade de abastecimento.
    */
-  static async getPrioridadeReposicao(codLoja: string, dataEntrada?: string): Promise<any> {
+  static async getPrioridadeReposicao(codLoja?: string, dataEntrada?: string): Promise<any> {
     // Calcular data (horário Brasil)
     const now = new Date();
     const brDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
@@ -140,23 +140,22 @@ export class AbastecimentoService {
         AND nf.${nfSerieNf} = ni.${niSerieNf}
         AND nf.${nfCodParceiro} = ni.${niCodParceiro}
       INNER JOIN ${tabProduto} p ON ni.${niCodItem} = p.${prCodProduto}
-      INNER JOIN ${tabProdutoLoja} pl ON p.${prCodProduto} = pl.${plCodProduto} AND pl.${plCodLoja} = :codLoja
+      INNER JOIN ${tabProdutoLoja} pl ON p.${prCodProduto} = pl.${plCodProduto} ${codLoja ? `AND pl.${plCodLoja} = :codLoja` : ''}
       LEFT JOIN ${tabSecao} s ON p.${prCodSecao} = s.${secCodSecao}
       LEFT JOIN ${tabGrupo} g ON p.${prCodSecao} = g.${grCodSecao} AND p.${prCodGrupo} = g.${grCodGrupo}
       LEFT JOIN ${tabSubGrupo} sg ON p.${prCodSecao} = sg.${sgCodSecao} AND p.${prCodGrupo} = sg.${sgCodGrupo} AND p.${prCodSubGrupo} = sg.${sgCodSubGrupo}
       LEFT JOIN ${tabFornecedor} f ON pl.${plCodFornUlt} = f.${fornCodForn}
       WHERE nf.${nfTipoOperacao} = 0
-      AND nf.${nfCodLoja} = :codLoja
+      ${codLoja ? `AND nf.${nfCodLoja} = :codLoja` : ''}
       AND nf.${nfDtaEntrada} >= TO_DATE(:dataFiltro, 'YYYY-MM-DD')
       AND nf.${nfDtaEntrada} < TO_DATE(:dataFiltro, 'YYYY-MM-DD') + 1
       ORDER BY NVL(pl.${plVendaMedia}, 0) DESC
     `;
 
+    const queryParams: any = { dataFiltro };
+    if (codLoja) queryParams.codLoja = codLoja;
 
-    const produtosNf = await OracleService.query<any>(query, {
-      codLoja,
-      dataFiltro,
-    });
+    const produtosNf = await OracleService.query<any>(query, queryParams);
 
     console.log(`📦 [ABASTECIMENTO] Encontrados ${produtosNf.length} produtos via NF`);
 

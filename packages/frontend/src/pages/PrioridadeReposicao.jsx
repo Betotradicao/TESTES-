@@ -57,10 +57,12 @@ export default function PrioridadeReposicao() {
   const dragOverCol = useRef(null);
 
   const fetchData = useCallback(async () => {
-    const codLoja = lojaSelecionada || (lojas.length > 0 ? lojas[0].COD_LOJA : '1');
     setLoading(true);
     try {
-      const res = await api.get(`/abastecimento/prioridade-reposicao?codLoja=${codLoja}&data=${dataEntrada}`);
+      const params = new URLSearchParams();
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+      params.append('data', dataEntrada);
+      const res = await api.get(`/abastecimento/prioridade-reposicao?${params.toString()}`);
       setItens(res.data.itens || []);
       setResumo(res.data.resumo || { total: 0, prioridade1: 0, prioridade2: 0, prioridade3: 0, prioridade4: 0 });
     } catch (err) {

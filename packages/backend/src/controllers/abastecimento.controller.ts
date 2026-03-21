@@ -14,7 +14,7 @@ export class AbastecimentoController {
   static async getPrioridadeReposicao(req: AuthRequest, res: Response) {
     try {
       const { codLoja, data } = req.query;
-      const results = await AbastecimentoService.getPrioridadeReposicao(codLoja as string || '1', data as string);
+      const results = await AbastecimentoService.getPrioridadeReposicao(codLoja as string || undefined, data as string);
       return res.json(results);
     } catch (error: any) {
       console.error('❌ Erro ao buscar prioridade reposição:', error);
