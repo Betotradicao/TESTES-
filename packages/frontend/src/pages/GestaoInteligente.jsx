@@ -167,7 +167,7 @@ export default function GestaoInteligente() {
     vendaBalcao: true,
     ecommerce: true,
     nfCliente: true,
-    nfTransferencia: false
+    nfTransferencia: true
   });
   const [defesaData, setDefesaData] = useState({
     naoBipados: { valor: 0, pct: 0, total: 0 },
@@ -209,6 +209,64 @@ export default function GestaoInteligente() {
 
   // Estado para filtro de oferta na Análise Comparativa: 'com' = todas as vendas, 'sem' = subtraindo ofertas
   const [filtroOferta, setFiltroOferta] = useState('com');
+
+  // Seções inativas na Análise Comparativa (excluídas dos totais/cards)
+  const [secoesInativasGI, setSecoesInativasGI] = useState([]);
+  const [indicadoresOriginais, setIndicadoresOriginais] = useState(null); // backup dos indicadores originais do backend
+
+  // Recalcular indicadores quando seções inativas mudam
+  useEffect(() => {
+    if (!indicadoresOriginais || vendasAnaliticas.length === 0 || secoesInativasGI.length === 0) {
+      // Sem inativas: restaurar originais
+      if (indicadoresOriginais && secoesInativasGI.length === 0) {
+        setIndicadores(indicadoresOriginais);
+      }
+      return;
+    }
+    // Somar valores APENAS das seções ATIVAS (não inativas)
+    let vAt = 0, vMP = 0, vAP = 0, vML = 0;
+    let cAt = 0, cMP = 0, cAP = 0, cML = 0;
+    let iAt = 0, iMP = 0, iAP = 0, iML = 0;
+    let oAt = 0, oMP = 0, oAP = 0, oML = 0;
+    for (const s of vendasAnaliticas) {
+      if (secoesInativasGI.includes(String(s.codSecao))) continue; // pular inativas
+      vAt += s.vendaAtual || 0; vMP += s.vendaMesPassado || 0;
+      vAP += s.vendaAnoPassado || 0; vML += s.mediaLinear || 0;
+      cAt += s.custoAtual || 0; cMP += s.custoMesPassado || 0;
+      cAP += s.custoAnoPassado || 0; cML += s.custoMediaLinear || 0;
+      iAt += s.impostosAtual || 0; iMP += s.impostosMesPassado || 0;
+      iAP += s.impostosAnoPassado || 0; iML += s.impostosMediaLinear || 0;
+      oAt += s.vendasOfertaAtual || 0; oMP += s.vendasOfertaMesPassado || 0;
+      oAP += s.vendasOfertaAnoPassado || 0; oML += s.vendasOfertaMediaLinear || 0;
+    }
+    const lucroAt = vAt - cAt; const lucroMP = vMP - cMP;
+    const lucroAP = vAP - cAP; const lucroML = vML - cML;
+    const mkdAt = vAt > 0 ? (lucroAt / vAt) * 100 : 0;
+    const mkdMP = vMP > 0 ? (lucroMP / vMP) * 100 : 0;
+    const mkdAP = vAP > 0 ? (lucroAP / vAP) * 100 : 0;
+    const mkdML = vML > 0 ? (lucroML / vML) * 100 : 0;
+    // Margem Limpa = (Vendas - Custo - ImpostosLiquidos) / Vendas * 100
+    const mlAt = vAt > 0 ? ((vAt - cAt - iAt) / vAt) * 100 : 0;
+    const mlMP = vMP > 0 ? ((vMP - cMP - iMP) / vMP) * 100 : 0;
+    const mlAP = vAP > 0 ? ((vAP - cAP - iAP) / vAP) * 100 : 0;
+    const mlML = vML > 0 ? ((vML - cML - iML) / vML) * 100 : 0;
+    // % Vendas em Oferta
+    const poAt = vAt > 0 ? (oAt / vAt) * 100 : 0;
+    const poMP = vMP > 0 ? (oMP / vMP) * 100 : 0;
+    const poAP = vAP > 0 ? (oAP / vAP) * 100 : 0;
+    const poML = vML > 0 ? (oML / vML) * 100 : 0;
+    setIndicadores(prev => ({
+      ...prev,
+      vendas: { atual: vAt, mesPassado: vMP, anoPassado: vAP, mediaLinear: vML },
+      lucro: { atual: lucroAt, mesPassado: lucroMP, anoPassado: lucroAP, mediaLinear: lucroML },
+      custoVendas: { atual: cAt, mesPassado: cMP, anoPassado: cAP, mediaLinear: cML },
+      impostos: { atual: iAt, mesPassado: iMP, anoPassado: iAP, mediaLinear: iML },
+      markdown: { atual: mkdAt, mesPassado: mkdMP, anoPassado: mkdAP, mediaLinear: mkdML },
+      margemLimpa: { atual: mlAt, mesPassado: mlMP, anoPassado: mlAP, mediaLinear: mlML },
+      vendasOferta: { atual: oAt, mesPassado: oMP, anoPassado: oAP, mediaLinear: oML },
+      pctVendasOferta: { atual: poAt, mesPassado: poMP, anoPassado: poAP, mediaLinear: poML },
+    }));
+  }, [secoesInativasGI, vendasAnaliticas, indicadoresOriginais]);
 
   // Dados da análise comparativa filtrados por oferta
   const vendasAnaliticasFiltradas = useMemo(() => {
@@ -1005,6 +1063,7 @@ export default function GestaoInteligente() {
         mediaLinear: calcMargemCV(data.markdown?.mediaLinear, exML.pct)
       };
       setIndicadores(data);
+      setIndicadoresOriginais(JSON.parse(JSON.stringify(data))); // backup para recalcular com seções inativas
     } catch (err) {
       console.error('Erro ao buscar indicadores:', err);
       setError(err.response?.data?.error || 'Erro ao carregar indicadores');
@@ -1464,8 +1523,12 @@ export default function GestaoInteligente() {
       if (lojaSelecionada) {
         params.codLoja = lojaSelecionada;
       }
-      const response = await api.get('/gestao-inteligente/vendas-analiticas-setor', { params });
+      const [response, inativasRes] = await Promise.all([
+        api.get('/gestao-inteligente/vendas-analiticas-setor', { params }),
+        api.get(`/compra-venda/secoes-inativas?codLoja=${lojaSelecionada || ''}`).catch(() => ({ data: { data: [] } }))
+      ]);
       setVendasAnaliticas(response.data);
+      setSecoesInativasGI(inativasRes.data?.data || []);
       setGraficoAnaliticaDrill({ level: 'secoes', data: response.data, breadcrumb: [{ label: 'Seções' }] });
     } catch (err) {
       console.error('Erro ao buscar vendas analíticas:', err);
@@ -1482,6 +1545,26 @@ export default function GestaoInteligente() {
       setVendasAnaliticas([]);
     } else {
       fetchVendasAnaliticas();
+    }
+  };
+
+  // Toggle seção inativa na Análise Comparativa
+  const toggleSecaoInativaGI = async (codSecao) => {
+    const cod = String(codSecao);
+    const isInativa = secoesInativasGI.includes(cod);
+    try {
+      await api.post('/compra-venda/secoes-inativas/toggle', {
+        codSecao: cod,
+        codLoja: lojaSelecionada || null,
+        ativa: isInativa
+      });
+      if (isInativa) {
+        setSecoesInativasGI(prev => prev.filter(s => s !== cod));
+      } else {
+        setSecoesInativasGI(prev => [...prev, cod]);
+      }
+    } catch (err) {
+      console.error('Erro ao toggle seção inativa:', err);
     }
   };
 
@@ -3651,18 +3734,29 @@ export default function GestaoInteligente() {
                             return (
                             <Fragment key={`analitica-${setor.codSecao || index}`}>
                               {/* Nível 1: Seção */}
-                              <tr className={`hover:bg-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} border-b border-gray-100`}>
-                                <td className="px-4 py-2 text-sm font-semibold text-gray-800 sticky left-0 z-10" style={{ backgroundColor: index % 2 === 0 ? '#f9fafb' : '#fff' }}>
+                              {(() => { const isInativaGI = secoesInativasGI.includes(String(setor.codSecao)); return (
+                              <tr className={`hover:bg-gray-100 border-b border-gray-100 ${isInativaGI ? 'bg-gray-200 opacity-50 line-through' : index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
+                                <td className={`px-4 py-2 text-sm font-semibold text-gray-800 sticky left-0 z-10 ${isInativaGI ? 'bg-gray-200' : ''}`} style={!isInativaGI ? { backgroundColor: index % 2 === 0 ? '#f9fafb' : '#fff' } : {}}>
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="checkbox"
+                                      checked={isInativaGI}
+                                      onChange={(e) => { e.stopPropagation(); toggleSecaoInativaGI(setor.codSecao); }}
+                                      title={isInativaGI ? 'Ativar seção' : 'Inativar seção (excluir dos totais)'}
+                                      className="w-3.5 h-3.5 accent-gray-500 cursor-pointer flex-shrink-0"
+                                    />
                                   <button onClick={() => toggleAnaliticaSecao(setor.codSecao)} className="flex items-center gap-2 font-semibold text-gray-800 whitespace-nowrap">
                                     <span className={`w-5 h-5 flex-shrink-0 flex items-center justify-center rounded text-xs font-bold transition-colors ${secExpanded ? 'bg-orange-500 text-white' : 'bg-gray-300 text-gray-700'}`}>
                                       {secExpanded?.loading ? '...' : secExpanded ? '−' : '+'}
                                     </span>
                                     {setor.setor}
                                   </button>
+                                  </div>
                                 </td>
                                 <td className="px-3 py-2 text-center text-sm text-gray-400">—</td>
                                 {renderAnaliticaCells(setor)}
                               </tr>
+                              ); })()}
 
                               {/* Nível 2: Grupos */}
                               {secExpanded?.data?.map((grupo, gIdx) => {
@@ -3772,7 +3866,7 @@ export default function GestaoInteligente() {
                         </tbody>
                         <tfoot className="bg-gray-200">
                           {(() => {
-                            const sum = (key) => vendasAnaliticasFiltradas.reduce((acc, s) => acc + (s[key] || 0), 0);
+                            const sum = (key) => vendasAnaliticasFiltradas.filter(s => !secoesInativasGI.includes(String(s.codSecao))).reduce((acc, s) => acc + (s[key] || 0), 0);
                             const cc = (a, b) => a >= b ? 'text-green-700' : 'text-red-700';
                             const calcMkd = (vendaKey, lucroKey) => {
                               const v = sum(vendaKey); const c = sum(vendaKey) - sum(lucroKey);
@@ -3782,7 +3876,7 @@ export default function GestaoInteligente() {
                               const v = sum(vendaKey);
                               if (v <= 0) return 0;
                               const mlKey = vendaKey === 'mediaLinear' ? 'margemLimpaMediaLinear' : vendaKey.replace('venda', 'margemLimpa');
-                              const wSum = vendasAnaliticasFiltradas.reduce((a, d) => a + ((d[mlKey] || 0) * (d[vendaKey] || 0)), 0);
+                              const wSum = vendasAnaliticasFiltradas.filter(s => !secoesInativasGI.includes(String(s.codSecao))).reduce((a, d) => a + ((d[mlKey] || 0) * (d[vendaKey] || 0)), 0);
                               return wSum / v;
                             };
                             const calcPctOferta = (ofertaKey, vendaKey) => {
