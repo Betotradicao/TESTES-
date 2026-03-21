@@ -7,7 +7,10 @@ const SECTIONS = [
     icon: '🎯',
     color: 'amber',
     modules: [
-      { id: 'metas', name: 'Metas', icon: '🎯' },
+      { id: 'metas', name: 'Metas', icon: '🎯', subs: [
+        { id: 'metas-ranking', name: 'Ranking de Metas' },
+        { id: 'metas-parametrizar', name: 'Parametrizar' },
+      ]},
     ]
   },
   {
@@ -17,10 +20,30 @@ const SECTIONS = [
     color: 'blue',
     modules: [
       { id: 'gestao-inteligente', name: 'Gestão Inteligente', icon: '📊' },
-      { id: 'estoque-margem', name: 'Gestão de Estoque', icon: '📦' },
-      { id: 'compras', name: 'Gestão de Compras', icon: '🛒' },
-      { id: 'pricing', name: 'Gestão de Pricing', icon: '🏷️' },
-      { id: 'ofertas', name: 'Gestão de Ofertas', icon: '🎁' },
+      { id: 'estoque-margem', name: 'Gestão de Estoque', icon: '📦', subs: [
+        { id: 'estoque-saude', name: 'Saúde do Estoque' },
+        { id: 'estoque-corte', name: 'Análise de Corte' },
+      ]},
+      { id: 'compras', name: 'Gestão de Compras', icon: '🛒', subs: [
+        { id: 'compra-venda', name: 'Compra x Venda' },
+        { id: 'pedidos-compra', name: 'Pedidos de Compras' },
+        { id: 'calendario-atendimento', name: 'Calendário de Atendimento' },
+        { id: 'ruptura-industria', name: 'Ruptura Indústria' },
+        { id: 'prazo-fornecedores', name: 'Prazo Fornecedores' },
+        { id: 'analise-cotacao', name: 'Análise de Cotação' },
+      ]},
+      { id: 'pricing', name: 'Gestão de Pricing', icon: '🏷️', subs: [
+        { id: 'saude-margens', name: 'Saúde de Margens' },
+        { id: 'ancoragem-preco', name: 'Ancoragem de Preço' },
+        { id: 'competitividade', name: 'Competitividade e Concorrência' },
+        { id: 'analise-relevancia', name: 'Análise Relevância' },
+        { id: 'margens-categoria', name: 'Margens por Categoria' },
+      ]},
+      { id: 'ofertas', name: 'Gestão de Ofertas', icon: '🎁', subs: [
+        { id: 'ofertas-programacao', name: 'Programação Atual' },
+        { id: 'ofertas-analise', name: 'Análise e Sugestão' },
+        { id: 'ofertas-simulador', name: 'Simulador de Venda' },
+      ]},
     ]
   },
   {
@@ -30,25 +53,39 @@ const SECTIONS = [
     color: 'red',
     modules: [
       { id: 'bipagens', name: 'Prevenção de Bipagens', icon: '🔍' },
-      { id: 'pdv', name: 'Prevenção PDV', icon: '💳' },
+      { id: 'pdv', name: 'Prevenção PDV', icon: '💳', subs: [
+        { id: 'pdv-frente-caixa', name: 'Gestão Frente de Caixa' },
+        { id: 'pdv-prevencao-caixa', name: 'Prevenção de Caixa' },
+      ]},
       { id: 'facial', name: 'Prevenção Facial', icon: '👤' },
-      { id: 'ruptura', name: 'Prevenção Rupturas', icon: '📋' },
-      { id: 'etiquetas', name: 'Prevenção Etiquetas', icon: '🔖' },
-      { id: 'perdas', name: 'Prevenção Quebras', icon: '📉' },
+      { id: 'ruptura', name: 'Prevenção Rupturas', icon: '📋', subs: [
+        { id: 'ruptura-lancar', name: 'Lançar Auditoria' },
+        { id: 'ruptura-resultados', name: 'Resultados Auditorias' },
+      ]},
+      { id: 'etiquetas', name: 'Prevenção Etiquetas', icon: '🔖', subs: [
+        { id: 'etiquetas-lancar', name: 'Lançar Auditoria' },
+        { id: 'etiquetas-resultados', name: 'Resultados Auditorias' },
+      ]},
+      { id: 'perdas', name: 'Prevenção Quebras', icon: '📉', subs: [
+        { id: 'perdas-lancar', name: 'Lançar Quebras' },
+        { id: 'perdas-resultados', name: 'Resultados Quebras' },
+      ]},
       { id: 'prevencao-trocas', name: 'Prevenção Trocas', icon: '🔄' },
-      { id: 'producao', name: 'Prevenção Produção', icon: '🥖' },
-      { id: 'hortfrut', name: 'Prevenção HortFruti', icon: '🥬' },
-      { id: 'controle-recebimento', name: 'Prevenção Recebimento', icon: '📄' },
+      { id: 'producao', name: 'Prevenção Produção', icon: '🥖', subs: [
+        { id: 'producao-lancar', name: 'Lançar Produção' },
+        { id: 'producao-sugestao', name: 'Sugestão de Produção' },
+        { id: 'producao-resultados', name: 'Resultados' },
+      ]},
+      { id: 'hortfrut', name: 'Prevenção HortFruti', icon: '🥬', subs: [
+        { id: 'hortfrut-lancar', name: 'Lançar HortFruti' },
+        { id: 'hortfrut-resultados', name: 'Resultados' },
+      ]},
+      { id: 'controle-recebimento', name: 'Prevenção Recebimento', icon: '📄', subs: [
+        { id: 'recebimento-chegar', name: 'Notas a Chegar' },
+        { id: 'recebimento-entregue', name: 'Notas Entregue' },
+      ]},
       { id: 'abastecimento', name: 'Prevenção Abastecimento', icon: '🚚' },
-    ]
-  },
-  {
-    id: 'oferta-radar',
-    name: 'Oferta no Radar',
-    icon: '💎',
-    color: 'purple',
-    modules: [
-      { id: 'garimpa-fornecedores', name: 'Fornecedores e Concorrentes', icon: '🔎' },
+      { id: 'prevencao-tributaria', name: 'Prevenção Tributária', icon: '🧾' },
     ]
   },
   {
@@ -59,22 +96,72 @@ const SECTIONS = [
     modules: [
       { id: 'demonstrativo-caixa', name: 'Demonstrativo de Caixa', icon: '📊' },
       { id: 'entradas-saidas', name: 'Entradas e Saídas', icon: '↕️' },
-      { id: 'bancos', name: 'Bancos', icon: '🏦' },
+      { id: 'bancos', name: 'Bancos', icon: '🏦', subs: [
+        { id: 'bancos-extrato', name: 'Extrato Bancário' },
+        { id: 'bancos-24h', name: 'Banco 24Horas' },
+        { id: 'bancos-dda', name: 'Boletos DDA' },
+        { id: 'bancos-conciliacao', name: 'Conciliação Bancária' },
+      ]},
+    ]
+  },
+  {
+    id: 'marketing-radar',
+    name: 'Marketing no Radar',
+    icon: '📢',
+    color: 'green',
+    modules: [
+      { id: 'disparo-whatsapp', name: 'Disparo em Massa', icon: '📱' },
     ]
   },
   {
     id: 'consultor-digital',
-    name: 'Consultor Digital',
+    name: 'Consultor 360',
     icon: '🤖',
     color: 'orange',
     modules: [
       { id: 'rota-crescimento', name: 'Rota do Crescimento', icon: '🚀' },
     ]
   },
+  {
+    id: 'vision-360',
+    name: 'Vision 360',
+    icon: '👁️',
+    color: 'purple',
+    modules: [
+      { id: 'vision-pdv', name: 'Vision PDV', icon: '🖥️', subs: [
+        { id: 'vision-risco', name: 'Operações de Risco PDV' },
+        { id: 'vision-palavra-chave', name: 'Vision Palavra Chave' },
+      ]},
+      { id: 'vision-facial', name: 'Vision Facial', icon: '👤', subs: [
+        { id: 'vision-faciais', name: 'Faciais' },
+        { id: 'vision-identificados', name: 'Identificados em Loja' },
+      ]},
+      { id: 'vision-bipagens', name: 'Vision Bipagens', icon: '📡', subs: [
+        { id: 'vision-bipagens-lista', name: 'Bipagens' },
+        { id: 'vision-resultados-dia', name: 'Resultados do Dia' },
+        { id: 'vision-rankings', name: 'Rankings' },
+      ]},
+    ]
+  },
+  {
+    id: 'garimpador-360',
+    name: 'Garimpador 360',
+    icon: '💎',
+    color: 'purple',
+    modules: [
+      { id: 'garimpa-fornecedores', name: 'Fornecedores e Concorrentes', icon: '🔎' },
+      { id: 'garimpa-ranking-forn', name: 'Ranking Fornecedores', icon: '📊' },
+      { id: 'garimpa-ranking-conc', name: 'Ranking Concorrentes', icon: '📈' },
+      { id: 'garimpa-projecao', name: 'Projeção de Preço', icon: '📉' },
+      { id: 'garimpa-fora-mix', name: 'Fora do Mix', icon: '🚫' },
+      { id: 'garimpa-pesquisar', name: 'Produtos a Pesquisar', icon: '🔍' },
+      { id: 'garimpa-ecommerce', name: 'Ecommerce', icon: '🛍️' },
+    ]
+  },
 ];
 
-// Flatten all modules for initial state
-const ALL_MODULES = SECTIONS.flatMap(s => s.modules);
+// Flatten all modules + submodules for initial state
+const ALL_MODULES = SECTIONS.flatMap(s => s.modules.flatMap(m => [m, ...(m.subs || []).map(sub => ({ ...sub, icon: m.icon }))]));
 
 const SECTION_COLORS = {
   blue: { bg: 'bg-blue-600', bgLight: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-800', ring: 'ring-blue-500' },
@@ -225,40 +312,72 @@ export default function ModulosTab() {
                       const isActive = moduleState?.active ?? true;
 
                       return (
-                        <div
-                          key={mod.id}
-                          className={`
-                            flex items-center justify-between px-4 py-3 rounded-lg border transition-all
-                            ${isActive
-                              ? 'border-gray-200 bg-white hover:bg-gray-50'
-                              : 'border-gray-200 bg-gray-100'
-                            }
-                          `}
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className={`text-xl ${!isActive && 'opacity-40 grayscale'}`}>
-                              {mod.icon}
-                            </span>
-                            <span className={`font-medium ${isActive ? 'text-gray-800' : 'text-gray-400'}`}>
-                              {mod.name}
-                            </span>
+                        <div key={mod.id}>
+                          <div
+                            className={`
+                              flex items-center justify-between px-4 py-3 rounded-lg border transition-all
+                              ${isActive
+                                ? 'border-gray-200 bg-white hover:bg-gray-50'
+                                : 'border-gray-200 bg-gray-100'
+                              }
+                              ${mod.subs ? 'rounded-b-none' : ''}
+                            `}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className={`text-xl ${!isActive && 'opacity-40 grayscale'}`}>
+                                {mod.icon}
+                              </span>
+                              <span className={`font-medium ${isActive ? 'text-gray-800' : 'text-gray-400'}`}>
+                                {mod.name}
+                              </span>
+                              {mod.subs && (
+                                <span className="text-xs text-gray-400">({mod.subs.length} sub)</span>
+                              )}
+                            </div>
+
+                            <button
+                              onClick={() => handleToggleModule(mod.id)}
+                              className={`
+                                relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                                ${isActive ? 'bg-green-500' : 'bg-gray-300'}
+                              `}
+                              title={isActive ? 'Desativar módulo' : 'Ativar módulo'}
+                            >
+                              <span
+                                className={`
+                                  inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm
+                                  ${isActive ? 'translate-x-6' : 'translate-x-1'}
+                                `}
+                              />
+                            </button>
                           </div>
 
-                          <button
-                            onClick={() => handleToggleModule(mod.id)}
-                            className={`
-                              relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-                              ${isActive ? 'bg-green-500' : 'bg-gray-300'}
-                            `}
-                            title={isActive ? 'Desativar módulo' : 'Ativar módulo'}
-                          >
-                            <span
-                              className={`
-                                inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm
-                                ${isActive ? 'translate-x-6' : 'translate-x-1'}
-                              `}
-                            />
-                          </button>
+                          {/* Submenus */}
+                          {mod.subs && isActive && (
+                            <div className="border border-t-0 border-gray-200 rounded-b-lg bg-gray-50 px-4 py-2 space-y-1">
+                              {mod.subs.map(sub => {
+                                const subState = modules.find(m => m.id === sub.id);
+                                const isSubActive = subState?.active ?? true;
+                                return (
+                                  <div key={sub.id} className="flex items-center justify-between py-1.5 pl-8">
+                                    <span className={`text-sm ${isSubActive ? 'text-gray-700' : 'text-gray-400'}`}>
+                                      {sub.name}
+                                    </span>
+                                    <button
+                                      onClick={() => handleToggleModule(sub.id)}
+                                      className={`
+                                        relative inline-flex h-5 w-9 items-center rounded-full transition-colors
+                                        ${isSubActive ? 'bg-green-400' : 'bg-gray-300'}
+                                      `}
+                                      title={isSubActive ? 'Desativar' : 'Ativar'}
+                                    >
+                                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm ${isSubActive ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
