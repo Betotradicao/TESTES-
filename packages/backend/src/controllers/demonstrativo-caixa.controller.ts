@@ -19,7 +19,6 @@ export class DemonstrativoCaixaController {
         incluirMovBanco: (req.query.incluirMovBanco as string) || 'sim',
       };
 
-      console.log('📊 [Demonstrativo] filters:', JSON.stringify(filters));
       const result = await DemonstrativoCaixaService.getDados(filters);
       return res.json(result);
     } catch (error: any) {
