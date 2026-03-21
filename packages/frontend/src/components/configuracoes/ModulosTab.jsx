@@ -22,11 +22,11 @@ const SECTIONS = [
       { id: 'gestao-inteligente', name: 'Gestão Inteligente', icon: '📊' },
       { id: 'estoque-margem', name: 'Gestão de Estoque', icon: '📦', subs: [
         { id: 'estoque-saude', name: 'Saúde do Estoque' },
-        { id: 'estoque-corte', name: 'Análise de Corte' },
+        { id: 'analise-corte', name: 'Análise de Corte' },
       ]},
       { id: 'compras', name: 'Gestão de Compras', icon: '🛒', subs: [
         { id: 'compra-venda', name: 'Compra x Venda' },
-        { id: 'pedidos-compra', name: 'Pedidos de Compras' },
+        { id: 'pedidos', name: 'Pedidos de Compras' },
         { id: 'calendario-atendimento', name: 'Calendário de Atendimento' },
         { id: 'ruptura-industria', name: 'Ruptura Indústria' },
         { id: 'prazo-fornecedores', name: 'Prazo Fornecedores' },
@@ -34,15 +34,15 @@ const SECTIONS = [
       ]},
       { id: 'pricing', name: 'Gestão de Pricing', icon: '🏷️', subs: [
         { id: 'saude-margens', name: 'Saúde de Margens' },
-        { id: 'ancoragem-preco', name: 'Ancoragem de Preço' },
-        { id: 'competitividade', name: 'Competitividade e Concorrência' },
+        { id: 'pricing-ancoragem', name: 'Ancoragem de Preço' },
+        { id: 'pricing-competitividade', name: 'Competitividade e Concorrência' },
         { id: 'analise-relevancia', name: 'Análise Relevância' },
         { id: 'margens-categoria', name: 'Margens por Categoria' },
       ]},
       { id: 'ofertas', name: 'Gestão de Ofertas', icon: '🎁', subs: [
-        { id: 'ofertas-programacao', name: 'Programação Atual' },
-        { id: 'ofertas-analise', name: 'Análise e Sugestão' },
-        { id: 'ofertas-simulador', name: 'Simulador de Venda' },
+        { id: 'programacao-atual', name: 'Programação Atual' },
+        { id: 'analise-oferta', name: 'Análise e Sugestão' },
+        { id: 'simulador-venda', name: 'Simulador de Venda' },
       ]},
     ]
   },
@@ -59,30 +59,30 @@ const SECTIONS = [
       ]},
       { id: 'facial', name: 'Prevenção Facial', icon: '👤' },
       { id: 'ruptura', name: 'Prevenção Rupturas', icon: '📋', subs: [
-        { id: 'ruptura-lancar', name: 'Lançar Auditoria' },
-        { id: 'ruptura-resultados', name: 'Resultados Auditorias' },
+        { id: 'ruptura-lancador', name: 'Lançar Auditoria' },
+        { id: 'ruptura-auditorias', name: 'Resultados Auditorias' },
       ]},
       { id: 'etiquetas', name: 'Prevenção Etiquetas', icon: '🔖', subs: [
         { id: 'etiquetas-lancar', name: 'Lançar Auditoria' },
         { id: 'etiquetas-resultados', name: 'Resultados Auditorias' },
       ]},
       { id: 'perdas', name: 'Prevenção Quebras', icon: '📉', subs: [
-        { id: 'perdas-lancar', name: 'Lançar Quebras' },
+        { id: 'perdas-lancador', name: 'Lançar Quebras' },
         { id: 'perdas-resultados', name: 'Resultados Quebras' },
       ]},
       { id: 'prevencao-trocas', name: 'Prevenção Trocas', icon: '🔄' },
       { id: 'producao', name: 'Prevenção Produção', icon: '🥖', subs: [
-        { id: 'producao-lancar', name: 'Lançar Produção' },
+        { id: 'producao-lancador', name: 'Lançar Produção' },
         { id: 'producao-sugestao', name: 'Sugestão de Produção' },
         { id: 'producao-resultados', name: 'Resultados' },
       ]},
       { id: 'hortfrut', name: 'Prevenção HortFruti', icon: '🥬', subs: [
-        { id: 'hortfrut-lancar', name: 'Lançar HortFruti' },
+        { id: 'hortfrut-lancador', name: 'Lançar HortFruti' },
         { id: 'hortfrut-resultados', name: 'Resultados' },
       ]},
       { id: 'controle-recebimento', name: 'Prevenção Recebimento', icon: '📄', subs: [
-        { id: 'recebimento-chegar', name: 'Notas a Chegar' },
-        { id: 'recebimento-entregue', name: 'Notas Entregue' },
+        { id: 'nf-a-chegar', name: 'Notas a Chegar' },
+        { id: 'nf-recebimento', name: 'Notas Entregue' },
       ]},
       { id: 'abastecimento', name: 'Prevenção Abastecimento', icon: '🚚' },
       { id: 'prevencao-tributaria', name: 'Prevenção Tributária', icon: '🧾' },
@@ -97,10 +97,10 @@ const SECTIONS = [
       { id: 'demonstrativo-caixa', name: 'Demonstrativo de Caixa', icon: '📊' },
       { id: 'entradas-saidas', name: 'Entradas e Saídas', icon: '↕️' },
       { id: 'bancos', name: 'Bancos', icon: '🏦', subs: [
-        { id: 'bancos-extrato', name: 'Extrato Bancário' },
-        { id: 'bancos-24h', name: 'Banco 24Horas' },
-        { id: 'bancos-dda', name: 'Boletos DDA' },
-        { id: 'bancos-conciliacao', name: 'Conciliação Bancária' },
+        { id: 'extrato-santander', name: 'Extrato Bancário' },
+        { id: 'extrato-banco24h', name: 'Banco 24Horas' },
+        { id: 'boletos-dda', name: 'Boletos DDA' },
+        { id: 'conciliacao-bancaria', name: 'Conciliação Bancária' },
       ]},
     ]
   },
@@ -129,17 +129,17 @@ const SECTIONS = [
     color: 'purple',
     modules: [
       { id: 'vision-pdv', name: 'Vision PDV', icon: '🖥️', subs: [
-        { id: 'vision-risco', name: 'Operações de Risco PDV' },
-        { id: 'vision-palavra-chave', name: 'Vision Palavra Chave' },
+        { id: 'vision-operacoes-risco', name: 'Operações de Risco PDV' },
+        { id: 'vision-palavra-chave-2', name: 'Vision Palavra Chave' },
       ]},
       { id: 'vision-facial', name: 'Vision Facial', icon: '👤', subs: [
-        { id: 'vision-faciais', name: 'Faciais' },
-        { id: 'vision-identificados', name: 'Identificados em Loja' },
+        { id: 'vision-facial-faciais', name: 'Faciais' },
+        { id: 'vision-facial-identificados', name: 'Identificados em Loja' },
       ]},
       { id: 'vision-bipagens', name: 'Vision Bipagens', icon: '📡', subs: [
-        { id: 'vision-bipagens-lista', name: 'Bipagens' },
-        { id: 'vision-resultados-dia', name: 'Resultados do Dia' },
-        { id: 'vision-rankings', name: 'Rankings' },
+        { id: 'bipagens-ao-vivo', name: 'Bipagens' },
+        { id: 'bipagens-resultados', name: 'Resultados do Dia' },
+        { id: 'bipagens-rankings', name: 'Rankings' },
       ]},
     ]
   },

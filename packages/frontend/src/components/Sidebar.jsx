@@ -1107,7 +1107,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             {!isCollapsed && item.expandable && expandedSections[item.id] && (
               <div className="pl-14 pr-6 pb-2">
                 {filteredItems.map((subItem, index) => {
-                  const subModuleActive = subItem.moduleId ? isModuleActive(subItem.moduleId) : moduleActive;
+                  const subModuleActive = subItem.moduleId ? isModuleActive(subItem.moduleId) : (subItem.submenuId ? isModuleActive(subItem.submenuId) : (subItem.id ? isModuleActive(subItem.id) : moduleActive));
                   return (
                   <div key={index}>
                     <button
@@ -1155,7 +1155,10 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
                     {/* Sub-submenus */}
                     {subItem.expandable && subItem.subItems && expandedItems[subItem.id] && (
                       <div className="pl-7 pb-1">
-                        {subItem.subItems.map((subSubItem, subIndex) => (
+                        {subItem.subItems.filter(ssi => {
+                          const ssiActive = isModuleActive(ssi.submenuId || ssi.id);
+                          return ssiActive;
+                        }).map((subSubItem, subIndex) => (
                           <button
                             key={subIndex}
                             onClick={() => {
