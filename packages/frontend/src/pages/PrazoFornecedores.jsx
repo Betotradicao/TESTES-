@@ -108,7 +108,7 @@ export default function PrazoFornecedores() {
         setLoading(true);
         setError(null);
         const params = {};
-        if (lojaSelecionada?.codigo) params.codLoja = lojaSelecionada.codigo;
+        if (lojaSelecionada) params.codLoja = lojaSelecionada;
         if (dataInicio) params.dataInicio = dataInicio;
         if (dataFim) params.dataFim = dataFim;
         if (mesesHistorico) params.meses = mesesHistorico;
@@ -147,7 +147,7 @@ export default function PrazoFornecedores() {
     try {
       setLoadingItens((prev) => ({ ...prev, [notaKey]: true }));
       const params = { codFornecedor, numNf, prazoAtual: prazoMedio || 0, meses: mesesHistorico };
-      if (lojaSelecionada?.codigo) params.codLoja = lojaSelecionada.codigo;
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
       const response = await api.get('/prazo-fornecedores/itens-nota', { params });
       setNotaItens((prev) => ({ ...prev, [notaKey]: response.data.itens || [] }));
     } catch (err) {
@@ -167,7 +167,7 @@ export default function PrazoFornecedores() {
     setAltPopup({ codProduto, desProduto, codFornecedor, prazoAtual, data: [], loading: true });
     try {
       const params = { codProduto, codFornecedorAtual: codFornecedor, meses: mesesHistorico };
-      if (lojaSelecionada?.codigo) params.codLoja = lojaSelecionada.codigo;
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
       const response = await api.get('/prazo-fornecedores/fornecedores-alternativos', { params });
       const alts = (response.data.fornecedores || []).filter(f => f.PRAZO_MEDIO > prazoAtual);
       setAltPopup(prev => prev ? { ...prev, data: alts, loading: false } : null);

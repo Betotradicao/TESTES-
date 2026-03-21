@@ -1164,7 +1164,58 @@ export class DVRCFTVService {
 
       console.log(`[DVR] getCupom: ${rows?.length || 0} rows encontrados`);
 
-      if (!rows || rows.length === 0) return null;
+      // Se não encontrou rows, verificar se é um cupom cancelado (TAB_CUPOM_CANCELADO)
+      if (!rows || rows.length === 0) {
+        if (cupomNumDirect && pdv) {
+          try {
+            const sqlCheckCancel = `SELECT NUM_SEQ FROM ${n.schema}.TAB_CUPOM_CANCELADO WHERE NUM_SEQ = :cupomNum AND NUM_PDV = :pdv AND TRUNC(DTA_SEQ) = TO_DATE(:dateStr, 'DD/MM/YYYY') AND FLG_ESTORNO = 'S'`;
+            const cancelRows = await OracleService.query(sqlCheckCancel, { cupomNum: cupomNumDirect, pdv, dateStr });
+            if (cancelRows.length > 0) {
+              console.log(`[DVR] Cupom ${cupomNumDirect} é cancelado, buscando itens do cupom seguinte ${cupomNumDirect + 1}`);
+              const sqlNext = `
+                SELECT p.${n.C_PDV_COD_PROD} as COD_PRODUTO, pr.${n.C_PROD_DESC} as DES_PRODUTO,
+                       p.${n.C_PDV_QTD} QTD, p.${n.C_PDV_PRECO} UNITARIO, p.${n.C_PDV_VALOR} TOTAL,
+                       p.${n.C_PDV_DESCONTO} as VAL_DESCONTO
+                FROM ${n.schema}.${n.T_PRODUTO_PDV} p
+                LEFT JOIN ${n.schema}.${n.T_PRODUTO} pr ON p.${n.C_PDV_COD_PROD} = pr.${n.C_PROD_COD}
+                WHERE p.${n.C_PDV_DATA} = TO_DATE(:dateStr, 'DD/MM/YYYY')
+                  AND p.${n.C_PDV_NUM_PDV} = :pdv
+                  AND p.${n.C_PDV_CUPOM} = :nextCupom
+                ORDER BY p.${n.C_PDV_SEQ}`;
+              const nextRows = await OracleService.query(sqlNext, { dateStr, pdv, nextCupom: cupomNumDirect + 1 });
+              if (nextRows.length > 0) {
+                const itens = nextRows.map((r: any) => ({
+                  cod: r.COD_PRODUTO,
+                  descricao: (r.DES_PRODUTO || 'PRODUTO').trim(),
+                  qtd: Number(r.QTD) || 0,
+                  unitario: Number(r.UNITARIO) || 0,
+                  total: Number(r.TOTAL) || 0,
+                }));
+                const totalCupom = itens.reduce((s: number, i: any) => s + i.total, 0);
+                const totalDesconto = nextRows.reduce((s: number, r: any) => s + (Number(r.VAL_DESCONTO) || 0), 0);
+                // Buscar operador do cupom seguinte
+                let nomeOperador = '';
+                try {
+                  const sqlOp = `SELECT op.${n.C_OP_NOME} as DES_OPERADOR FROM ${n.schema}.${n.T_CUPOM_FINALIZADORA} cf JOIN ${n.schema}.${n.T_OPERADORES} op ON op.${n.C_OP_COD} = cf.${n.C_CF_OPERADOR} WHERE cf.${n.C_CF_CUPOM} = :cupomNum AND cf.${n.C_CF_PDV} = :pdv AND TRUNC(cf.${n.C_CF_DATA}) = TO_DATE(:dateStr, 'DD/MM/YYYY') AND cf.${n.C_CF_OPERADOR} IS NOT NULL AND ROWNUM = 1`;
+                  const opRows: any[] = await OracleService.query(sqlOp, { cupomNum: cupomNumDirect + 1, pdv, dateStr });
+                  if (opRows.length > 0) nomeOperador = (opRows[0].DES_OPERADOR || '').trim();
+                } catch (e) {}
+                return {
+                  found: true, cupom: cupomNumDirect, pdv, itens,
+                  total: Math.round(totalCupom * 100) / 100,
+                  qtdItens: itens.length, operador: nomeOperador,
+                  cancelado: true, hora: '',
+                  desconto: Math.round(totalDesconto * 100) / 100,
+                  formaPgto: '', valorRecebido: 0, troco: 0
+                };
+              }
+            }
+          } catch (e: any) {
+            console.log('[DVR] Erro verificando cancelamento:', e.message);
+          }
+        }
+        return null;
+      }
 
       // Agrupar por cupom
       const cupons: Record<number, any[]> = {};
@@ -1204,7 +1255,46 @@ export class DVRCFTVService {
       } catch (e: any) {
         console.log('[DVR] Operador não encontrado:', e.message);
       }
-      const cancelado = cupomRows[0]?.FLG_CUPOM_CANCELADO === 'S';
+      let cancelado = cupomRows[0]?.FLG_CUPOM_CANCELADO === 'S';
+
+      // Se cupom cancelado e sem itens (ou itens vazios), buscar do cupom seguinte (re-passagem)
+      // Também verificar na TAB_CUPOM_CANCELADO se é um cancelamento de cupom inteiro
+      if (itens.length === 0 || (itens.length === 1 && itens[0].total === 0)) {
+        try {
+          const sqlCheckCancel = `SELECT NUM_SEQ FROM ${n.schema}.TAB_CUPOM_CANCELADO WHERE NUM_SEQ = :cupomNum AND NUM_PDV = :pdv AND TRUNC(DTA_SEQ) = TO_DATE(:dateStr, 'DD/MM/YYYY') AND FLG_ESTORNO = 'S'`;
+          const cancelRows = await OracleService.query(sqlCheckCancel, { cupomNum, pdv, dateStr });
+          if (cancelRows.length > 0) {
+            cancelado = true;
+            // Buscar itens do cupom seguinte
+            const sqlNext = `
+              SELECT p.${n.C_PDV_COD_PROD} as COD_PRODUTO, pr.${n.C_PROD_DESC} as DES_PRODUTO,
+                     p.${n.C_PDV_QTD} QTD, p.${n.C_PDV_PRECO} UNITARIO, p.${n.C_PDV_VALOR} TOTAL
+              FROM ${n.schema}.${n.T_PRODUTO_PDV} p
+              LEFT JOIN ${n.schema}.${n.T_PRODUTO} pr ON p.${n.C_PDV_COD_PROD} = pr.${n.C_PROD_COD}
+              WHERE p.${n.C_PDV_DATA} = TO_DATE(:dateStr, 'DD/MM/YYYY')
+                AND p.${n.C_PDV_NUM_PDV} = :pdv
+                AND p.${n.C_PDV_CUPOM} = :nextCupom
+              ORDER BY p.${n.C_PDV_SEQ}`;
+            const nextRows = await OracleService.query(sqlNext, { dateStr, pdv, nextCupom: cupomNum + 1 });
+            if (nextRows.length > 0) {
+              itens.length = 0;
+              for (const r of nextRows) {
+                itens.push({
+                  cod: r.COD_PRODUTO,
+                  descricao: (r.DES_PRODUTO || 'PRODUTO').trim(),
+                  qtd: Number(r.QTD) || 0,
+                  unitario: Number(r.UNITARIO) || 0,
+                  total: Number(r.TOTAL) || 0,
+                });
+              }
+            }
+          }
+        } catch (e: any) {
+          console.log('[DVR] Erro ao buscar itens do cupom cancelado:', e.message);
+        }
+      }
+
+      const totalCupomFinal = itens.reduce((s, i) => s + i.total, 0);
 
       // Buscar forma de pagamento (finalizadoras dinâmicas do Oracle)
       const finalizadoraMap = await this.getFinalizadoraMap();
@@ -1239,7 +1329,7 @@ export class DVRCFTVService {
       return {
         cupom: cupomNum,
         itens,
-        total: Math.round(totalCupom * 100) / 100,
+        total: Math.round((typeof totalCupomFinal !== 'undefined' ? totalCupomFinal : totalCupom) * 100) / 100,
         qtdItens: itens.length,
         operador: nomeOperador || '',
         formaPgto,

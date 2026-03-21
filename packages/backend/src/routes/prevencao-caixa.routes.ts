@@ -17,6 +17,9 @@ router.get('/resumo', PrevencaoCaixaController.getResumo);
 // Lista unificada de cancelamentos
 router.get('/cancelamentos', PrevencaoCaixaController.getCancelamentos);
 
+// Itens de um cupom cancelado (via cupom seguinte)
+router.get('/cupom-itens/:numCupom', PrevencaoCaixaController.getCupomItens);
+
 // Resumo de vendas com desconto
 router.get('/descontos', PrevencaoCaixaController.getDescontos);
 

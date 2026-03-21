@@ -145,6 +145,32 @@ export default function VisionOperacoesRisco() {
 
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [expandedGroups, setExpandedGroups] = useState({});
+  const [expandedCupomItens, setExpandedCupomItens] = useState(null); // key do cupom expandido
+  const [cupomItensData, setCupomItensData] = useState([]);
+  const [loadingCupomItens, setLoadingCupomItens] = useState(false);
+
+  const toggleCupomItens = async (item, key) => {
+    if (expandedCupomItens === key) {
+      setExpandedCupomItens(null);
+      setCupomItensData([]);
+      return;
+    }
+    setExpandedCupomItens(key);
+    setLoadingCupomItens(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('numPdv', item.NUM_PDV);
+      params.append('data', item.DATA);
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+      const res = await api.get(`/prevencao-caixa/cupom-itens/${item.COO || item.NUM_CUPOM_FISCAL}?${params.toString()}`);
+      setCupomItensData(res.data?.itens || []);
+    } catch (err) {
+      console.error('Erro ao buscar itens do cupom:', err);
+      setCupomItensData([]);
+    } finally {
+      setLoadingCupomItens(false);
+    }
+  };
   const [dragCol, setDragCol] = useState(null);
   const [columnOrder, setColumnOrder] = useState([
     'TIPO', 'DATA', 'HORA', 'COO', 'NUM_PDV', 'DES_OPERADOR', 'DES_FISCAL', 'COD_PRODUTO', 'DES_PRODUTO', 'VALOR'
@@ -809,8 +835,12 @@ export default function VisionOperacoesRisco() {
                         <React.Fragment key={key}>
                           {/* Linha principal do grupo */}
                           <tr
-                            onClick={() => isMultiple ? toggleGroup(key, { stopPropagation: () => {} }) : setSelectedItem(first)}
-                            className={`hover:bg-orange-50 transition-colors cursor-pointer ${gIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} ${isMultiple && isExpanded ? 'bg-orange-50/50' : ''}`}
+                            onClick={() => {
+                              if (tipo === 'CUPOM') { toggleCupomItens(first, key); }
+                              else if (isMultiple) { toggleGroup(key, { stopPropagation: () => {} }); }
+                              else { setSelectedItem(first); }
+                            }}
+                            className={`hover:bg-orange-50 transition-colors cursor-pointer ${gIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} ${isMultiple && isExpanded ? 'bg-orange-50/50' : ''} ${tipo === 'CUPOM' && expandedCupomItens === key ? 'bg-blue-50' : ''}`}
                           >
                             {columnOrder.map(colId => (
                               <td key={colId} className={getMainCellClass(colId)}>
@@ -866,6 +896,42 @@ export default function VisionOperacoesRisco() {
                               </tr>
                             );
                           })}
+
+                          {/* Itens expandidos do cupom cancelado */}
+                          {tipo === 'CUPOM' && expandedCupomItens === key && (
+                            <tr>
+                              <td colSpan={columnOrder.length + (camerasRisco.length > 0 ? 1 : 0)} className="px-0 py-0">
+                                <div className="bg-blue-50 border-l-4 border-blue-400 px-8 py-3">
+                                  {loadingCupomItens ? (
+                                    <p className="text-sm text-gray-500">Carregando itens...</p>
+                                  ) : cupomItensData.length > 0 ? (
+                                    <table className="w-full text-sm">
+                                      <thead>
+                                        <tr className="text-xs text-gray-500 uppercase">
+                                          <th className="text-left py-1 px-2">Código</th>
+                                          <th className="text-left py-1 px-2">Produto</th>
+                                          <th className="text-right py-1 px-2">Qtd</th>
+                                          <th className="text-right py-1 px-2">Valor</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {cupomItensData.map((it, i) => (
+                                          <tr key={i} className="border-t border-blue-200">
+                                            <td className="py-1 px-2 font-mono text-gray-600">{it.COD_PRODUTO}</td>
+                                            <td className="py-1 px-2 text-gray-800">{it.DES_PRODUTO}</td>
+                                            <td className="py-1 px-2 text-right text-gray-600">{it.QTD}</td>
+                                            <td className="py-1 px-2 text-right font-medium text-gray-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(it.VALOR)}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  ) : (
+                                    <p className="text-sm text-gray-500">Nenhum item encontrado</p>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
                         </React.Fragment>
                       );
                     })}

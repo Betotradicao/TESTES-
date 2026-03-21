@@ -509,7 +509,7 @@ export default function VisionPalavraChave2() {
                         )}
                       </td>
                       <td className="px-3 py-1.5 text-center">
-                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${tipoColor(item.tipo)}`}>{item.tipo}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded font-medium whitespace-nowrap ${tipoColor(item.tipo)}`}>{item.tipo}</span>
                       </td>
                       <td className="px-3 py-1.5 text-right text-sm font-medium">{formatCurrency(item.valor)}</td>
                       <td className="px-3 py-1.5 text-center">

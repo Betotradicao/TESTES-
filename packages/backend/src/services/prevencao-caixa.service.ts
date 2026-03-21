@@ -320,10 +320,6 @@ export class PrevencaoCaixaService {
           ),
           0) as VALOR
       FROM ${tables.tabCupomCancelado} cc
-      JOIN ${tables.tabCupomPdv} cp ON cp.${cols.cpNumCupomCol} = cc.${cols.ccNumSeqCol}
-        AND cp.${cols.cpNumPdvCol} = cc.${cols.ccNumPdvCol}
-        AND cp.${cols.cpCodLojaCol} = cc.${cols.ccCodLojaCol}
-        AND TRUNC(cp.${cols.cpDtaVendaCol}) = TRUNC(cc.${cols.ccDtaSeqCol})
       WHERE cc.${cols.ccDtaSeqCol} >= TO_DATE(:dataInicio, 'DD/MM/YYYY')
         AND cc.${cols.ccDtaSeqCol} < TO_DATE(:dataFim, 'DD/MM/YYYY') + 1
         AND cc.${cols.ccFlgEstornoCol} = 'S'
@@ -595,5 +591,41 @@ export class PrevencaoCaixaService {
       TOTAL_VENDAS: vendas.length,
       VALOR_VENDAS: vendas.reduce((sum, c) => sum + c.VALOR, 0)
     };
+  }
+
+  /**
+   * Busca itens de um cupom cancelado (via cupom seguinte NUM_SEQ+1)
+   */
+  static async getItensCupomCancelado(numCupom: number, numPdv: number, data: string, codLoja?: number): Promise<any[]> {
+    const schema = await MappingService.getSchema();
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto');
+    const colValTotal = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total');
+    const colQtd = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade');
+    const colDtaSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda');
+    const colNumCupom = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_cupom');
+    const colNumPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_pdv');
+    const colProdCod = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+    const colProdDesc = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+
+    // Buscar itens do cupom seguinte (NUM_SEQ + 1 = re-passagem)
+    const sql = `
+      SELECT pv.${colCodProduto} as COD_PRODUTO,
+             p.${colProdDesc} as DES_PRODUTO,
+             pv.${colQtd} as QTD,
+             pv.${colValTotal} as VALOR
+      FROM ${tabProdutoPdv} pv
+      LEFT JOIN ${tabProduto} p ON p.${colProdCod} = pv.${colCodProduto}
+      WHERE pv.${colNumCupom} = :numCupomSeguinte
+        AND pv.${colNumPdv} = :numPdv
+        AND TRUNC(pv.${colDtaSaida}) = TO_DATE(:data, 'DD/MM/YYYY')
+      ORDER BY pv.${colValTotal} DESC
+    `;
+    return await OracleService.query(sql, {
+      numCupomSeguinte: numCupom + 1,
+      numPdv,
+      data
+    });
   }
 }

@@ -75,6 +75,13 @@ export default function PrevencaoCaixa() {
     loadOperadores();
   }, [lojaSelecionada]);
 
+  // Re-buscar quando tipo muda via card
+  useEffect(() => {
+    if (cancelamentos.length > 0 || resumo.TOTAL_ITENS > 0 || resumo.TOTAL_CUPONS > 0 || resumo.TOTAL_VENDAS > 0) {
+      handleSearch();
+    }
+  }, [filters.tipo]);
+
   // Fetch summary + cancelamentos
   const handleSearch = async () => {
     setLoading(true);
@@ -120,6 +127,40 @@ export default function PrevencaoCaixa() {
   };
 
   // Sort handler
+  const [expandedCupom, setExpandedCupom] = useState(null); // 'COO-NUM_PDV-DATA'
+  const [cupomItens, setCupomItens] = useState([]);
+  const [loadingItens, setLoadingItens] = useState(false);
+
+  const toggleCupomExpand = async (row) => {
+    const key = `${row.COO}-${row.NUM_PDV}-${row.DATA}`;
+    if (expandedCupom === key) {
+      setExpandedCupom(null);
+      setCupomItens([]);
+      return;
+    }
+    setExpandedCupom(key);
+    // VENDA: itens já estão em _itens, não precisa chamar API
+    if ((row.TIPO || '').toUpperCase() === 'VENDA' && row._itens) {
+      setCupomItens([]);
+      return;
+    }
+    // CUPOM: buscar itens via API (cupom seguinte)
+    setLoadingItens(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('numPdv', row.NUM_PDV);
+      params.append('data', row.DATA);
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+      const res = await api.get(`/prevencao-caixa/cupom-itens/${row.COO}?${params.toString()}`);
+      setCupomItens(res.data?.itens || []);
+    } catch (err) {
+      console.error('Erro ao buscar itens:', err);
+      setCupomItens([]);
+    } finally {
+      setLoadingItens(false);
+    }
+  };
+
   const handleSort = (key) => {
     setSortConfig(prev => {
       if (prev.key === key) {
@@ -129,10 +170,31 @@ export default function PrevencaoCaixa() {
     });
   };
 
+  // Agrupar vendas do mesmo cupom (TIPO=VENDA com mesmo COO+NUM_PDV+DATA)
+  const cancelamentosAgrupados = React.useMemo(() => {
+    const grupos = {};
+    const resultado = [];
+    for (const item of cancelamentos) {
+      if ((item.TIPO || '').toUpperCase() === 'VENDA') {
+        const key = `${item.COO}-${item.NUM_PDV}-${item.DATA}`;
+        if (!grupos[key]) {
+          grupos[key] = { ...item, _itens: [{ COD_PRODUTO: item.COD_PRODUTO, DES_PRODUTO: item.DES_PRODUTO, QTD: item.QTD || 1, VALOR: item.VALOR }], VALOR: item.VALOR };
+          resultado.push(grupos[key]);
+        } else {
+          grupos[key]._itens.push({ COD_PRODUTO: item.COD_PRODUTO, DES_PRODUTO: item.DES_PRODUTO, QTD: item.QTD || 1, VALOR: item.VALOR });
+          grupos[key].VALOR += item.VALOR;
+        }
+      } else {
+        resultado.push(item);
+      }
+    }
+    return resultado;
+  }, [cancelamentos]);
+
   // Sorted data
   const sortedCancelamentos = React.useMemo(() => {
-    if (!sortConfig.key) return cancelamentos;
-    const sorted = [...cancelamentos].sort((a, b) => {
+    if (!sortConfig.key) return cancelamentosAgrupados;
+    const sorted = [...cancelamentosAgrupados].sort((a, b) => {
       let aVal = a[sortConfig.key];
       let bVal = b[sortConfig.key];
       if (aVal == null) aVal = '';
@@ -229,7 +291,7 @@ export default function PrevencaoCaixa() {
         <div className="px-4 md:px-6 py-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Total Cancelamentos */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+            <div onClick={() => setFilters(prev => ({ ...prev, tipo: '' }))} className={`bg-white rounded-xl shadow-sm border p-4 hover:shadow-md transition-shadow cursor-pointer ${filters.tipo === '' ? 'border-gray-400 ring-2 ring-gray-300' : 'border-gray-200'}`}>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-500">Total Cancelamentos</span>
                 <div className="bg-gray-100 rounded-full p-2">
@@ -243,7 +305,7 @@ export default function PrevencaoCaixa() {
             </div>
 
             {/* Canc. Item */}
-            <div className="bg-white rounded-xl shadow-sm border border-yellow-200 p-4 hover:shadow-md transition-shadow">
+            <div onClick={() => setFilters(prev => ({ ...prev, tipo: prev.tipo === 'ITEM' ? '' : 'ITEM' }))} className={`bg-white rounded-xl shadow-sm border p-4 hover:shadow-md transition-shadow cursor-pointer ${filters.tipo === 'ITEM' ? 'border-yellow-400 ring-2 ring-yellow-300' : 'border-yellow-200'}`}>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-yellow-700">Canc. Item</span>
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-300">
@@ -255,7 +317,7 @@ export default function PrevencaoCaixa() {
             </div>
 
             {/* Canc. Cupom */}
-            <div className="bg-white rounded-xl shadow-sm border border-red-200 p-4 hover:shadow-md transition-shadow">
+            <div onClick={() => setFilters(prev => ({ ...prev, tipo: prev.tipo === 'CUPOM' ? '' : 'CUPOM' }))} className={`bg-white rounded-xl shadow-sm border p-4 hover:shadow-md transition-shadow cursor-pointer ${filters.tipo === 'CUPOM' ? 'border-red-400 ring-2 ring-red-300' : 'border-red-200'}`}>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-red-700">Canc. Cupom</span>
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800 border border-red-300">
@@ -267,7 +329,7 @@ export default function PrevencaoCaixa() {
             </div>
 
             {/* Canc. Venda */}
-            <div className="bg-white rounded-xl shadow-sm border border-orange-200 p-4 hover:shadow-md transition-shadow">
+            <div onClick={() => setFilters(prev => ({ ...prev, tipo: prev.tipo === 'VENDA' ? '' : 'VENDA' }))} className={`bg-white rounded-xl shadow-sm border p-4 hover:shadow-md transition-shadow cursor-pointer ${filters.tipo === 'VENDA' ? 'border-orange-400 ring-2 ring-orange-300' : 'border-orange-200'}`}>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-orange-700">Canc. Venda</span>
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-800 border border-orange-300">
@@ -433,10 +495,24 @@ export default function PrevencaoCaixa() {
                   <tbody className="divide-y divide-gray-100">
                     {sortedCancelamentos.map((item, idx) => {
                       const tipo = (item.TIPO || '').toUpperCase();
+                      const isExpandable = tipo === 'CUPOM' || (tipo === 'VENDA' && item._itens);
+                      const rowKey = `${item.COO}-${item.NUM_PDV}-${item.DATA}`;
+                      const isExpanded = expandedCupom === rowKey;
                       return (
-                        <tr key={idx} className={`hover:bg-gray-50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                        <React.Fragment key={idx}>
+                        <tr
+                          onClick={() => isExpandable && toggleCupomExpand(item)}
+                          className={`hover:bg-gray-50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} ${isExpandable ? 'cursor-pointer' : ''} ${isExpanded ? 'bg-blue-50' : ''}`}
+                        >
                           <td className="px-4 py-3 whitespace-nowrap">
-                            {renderTipoBadge(item.TIPO)}
+                            <div className="flex items-center gap-1">
+                              {isExpandable && (
+                                <svg className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
+                                </svg>
+                              )}
+                              {renderTipoBadge(item.TIPO)}
+                            </div>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-gray-700">
                             {item.DATA || '-'}
@@ -459,13 +535,51 @@ export default function PrevencaoCaixa() {
                           <td className="px-4 py-3 text-gray-700 max-w-[300px] truncate">
                             {(tipo === 'ITEM' || tipo === 'VENDA')
                               ? `${item.COD_PRODUTO || ''} ${item.DES_PRODUTO || ''}`.trim() || '-'
-                              : '-'
+                              : isExpandable ? <span className="text-blue-500 text-xs">clique para ver itens</span> : '-'
                             }
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-right font-medium text-gray-900">
                             {formatCurrency(item.VALOR)}
                           </td>
                         </tr>
+                        {isExpanded && (
+                          <tr>
+                            <td colSpan={9} className="px-0 py-0">
+                              <div className="bg-blue-50 border-l-4 border-blue-400 px-8 py-3">
+                                {(() => {
+                                  // VENDA: itens já agrupados em _itens
+                                  const itensToShow = tipo === 'VENDA' && item._itens ? item._itens : cupomItens;
+                                  const isLoading = tipo === 'CUPOM' && loadingItens;
+                                  if (isLoading) return <p className="text-sm text-gray-500">Carregando itens...</p>;
+                                  if (itensToShow.length === 0) return <p className="text-sm text-gray-500">Nenhum item encontrado</p>;
+                                  return (
+                                    <table className="w-full text-sm">
+                                      <thead>
+                                        <tr className="text-xs text-gray-500 uppercase">
+                                          <th className="text-left py-1 px-2">Código</th>
+                                          <th className="text-left py-1 px-2">Produto</th>
+                                          <th className="text-right py-1 px-2">Qtd</th>
+                                          <th className="text-right py-1 px-2">Valor</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {itensToShow.map((it, i) => (
+                                          <tr key={i} className="border-t border-blue-200">
+                                            <td className="py-1 px-2 font-mono text-gray-600">{it.COD_PRODUTO}</td>
+                                            <td className="py-1 px-2 text-gray-800">{it.DES_PRODUTO}</td>
+                                            <td className="py-1 px-2 text-right text-gray-600">{it.QTD}</td>
+                                            <td className="py-1 px-2 text-right font-medium text-gray-900">{formatCurrency(it.VALOR)}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  );
+                                })()}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        </React.Fragment>
                       );
                     })}
                   </tbody>

@@ -103,6 +103,27 @@ export class PrevencaoCaixaController {
   }
 
   /**
+   * GET /prevencao-caixa/cupom-itens/:numCupom
+   * Busca itens de um cupom cancelado (via cupom seguinte NUM_SEQ+1)
+   */
+  static async getCupomItens(req: Request, res: Response) {
+    try {
+      const { numCupom } = req.params;
+      const { numPdv, data, codLoja } = req.query;
+      const itens = await PrevencaoCaixaService.getItensCupomCancelado(
+        parseInt(numCupom),
+        parseInt(numPdv as string),
+        data as string,
+        codLoja ? parseInt(codLoja as string) : undefined
+      );
+      return res.json({ success: true, itens });
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar itens do cupom cancelado:', error);
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
    * GET /prevencao-caixa/descontos
    * Busca resumo de vendas com desconto
    */
