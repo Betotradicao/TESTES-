@@ -133,7 +133,7 @@ export default function EntradasSaidas() {
   // Colunas visíveis (filtradas por hiddenColumns)
   const visibleColumns = columns.filter(c => !hiddenColumns.has(c.id));
 
-  useEffect(() => { loadFilterData(); handleSearch(); fetchDashboardData(); fetchDashboardAbertos(); fetchBankDashboard(); }, []);
+  useEffect(() => { loadFilterData(); handleSearch(); fetchDashboardData(); fetchDashboardAbertos(); fetchBankDashboard(); }, [lojaSelecionada]);
 
   const loadFilterData = async () => {
     setLoadingFilters(true);
