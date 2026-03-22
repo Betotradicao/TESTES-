@@ -46,7 +46,11 @@ RUN npm install --production && npm cache clean --force
 COPY --from=builder /app/dist ./dist
 
 # Criar arquivo de cron com tarefas unificadas (Debian cron format)
-RUN echo "# Verificação diária completa às 8h (vendas + bipagens + notificações do dia anterior)" > /etc/cron.d/prevencao && \
+RUN echo "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" > /etc/cron.d/prevencao && \
+    echo "LD_LIBRARY_PATH=/opt/oracle/instantclient_23_4" >> /etc/cron.d/prevencao && \
+    echo "ORACLE_HOME=/opt/oracle/instantclient_23_4" >> /etc/cron.d/prevencao && \
+    echo "" >> /etc/cron.d/prevencao && \
+    echo "# Verificação diária completa às 8h (vendas + bipagens + notificações do dia anterior)" >> /etc/cron.d/prevencao && \
     echo "0 8 * * * root cd /app && npm run run:daily:verification:prod -- --runYesterday >> /var/log/cron.log 2>&1" >> /etc/cron.d/prevencao && \
     echo "" >> /etc/cron.d/prevencao && \
     echo "# Monitoramento contínuo a cada 2 minutos (dia atual, sem notificações)" >> /etc/cron.d/prevencao && \
