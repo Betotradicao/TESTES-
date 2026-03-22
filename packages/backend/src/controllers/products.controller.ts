@@ -278,9 +278,9 @@ export class ProductsController {
   static async getProducts(req: AuthRequest, res: Response) {
     try {
       const { codLoja } = req.query;
-      const loja = codLoja ? parseInt(codLoja as string) : 1;
+      const loja = codLoja ? parseInt(codLoja as string) : null;
 
-      console.log('📦 [ORACLE] Buscando produtos do Oracle para loja:', loja);
+      console.log('📦 [ORACLE] Buscando produtos do Oracle para loja:', loja || 'TODAS');
 
       // Busca mapeamentos dinâmicos para os campos
       const {
@@ -337,7 +337,7 @@ export class ProductsController {
 
       // Query completa para buscar produtos com todas as informações necessárias
       // Usa cache de 5 minutos para melhorar performance
-      const cacheKey = `oracle-products-loja-${loja}`;
+      const cacheKey = `oracle-products-loja-${loja || 'todas'}`;
 
       const rows = await CacheService.executeWithCache(
         cacheKey,
@@ -394,12 +394,11 @@ export class ProductsController {
             LEFT JOIN ${schema}.${tabGrupo} g ON p.${codSecaoCol} = g.${codSecaoCol} AND p.${codGrupoCol} = g.${codGrupoCol}
             LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.${codSecaoCol} = sg.${codSecaoCol} AND p.${codGrupoCol} = sg.${codGrupoCol} AND p.${codSubGrupoCol} = sg.${codSubGrupoCol}
             LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${codFornUltCompraCol} = f.${codFornecedorCol}
-            WHERE pl.${codLojaCol} = :codLoja
-            AND NVL(pl.${inativoCol}, 'N') = 'N'
+            WHERE ${loja ? `pl.${codLojaCol} = :codLoja AND` : ''} NVL(pl.${inativoCol}, 'N') = 'N'
             ORDER BY p.${descricaoCol}
           `;
 
-          return await OracleService.query(sql, { codLoja: loja });
+          return await OracleService.query(sql, loja ? { codLoja: loja } : {});
         }
       );
 
