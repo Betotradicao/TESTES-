@@ -3573,9 +3573,9 @@ export default function GestaoInteligente() {
                   {loadingVendasAnaliticas ? (
                     <RadarLoading size="sm" message="" />
                   ) : vendasAnaliticasFiltradas.length > 0 ? (
-                    <div className="overflow-x-auto">
+                    <div className="overflow-auto max-h-[80vh]">
                       <table className="w-full border-collapse">
-                        <thead className="[&_th]:sticky [&_th]:top-0">
+                        <thead className="[&_th]:sticky [&_th]:top-0 [&_th]:z-20">
                           <tr className="bg-gray-200">
                             <th rowSpan={2} className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase border-b border-r border-gray-300 min-w-[200px] sticky left-0 top-0 bg-gray-200 z-40">Setor / Grupo / Subgrupo / Item</th>
                             <th rowSpan={2} className="px-3 py-2 text-center text-xs font-bold text-sky-700 uppercase border-b border-r border-gray-300 bg-sky-50 min-w-[80px]">Estoque<br/>Atual</th>
