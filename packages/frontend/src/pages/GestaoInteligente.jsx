@@ -3574,10 +3574,10 @@ export default function GestaoInteligente() {
                     <RadarLoading size="sm" message="" />
                   ) : vendasAnaliticasFiltradas.length > 0 ? (
                     <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
+                      <table className="w-full border-collapse">
+                        <thead className="[&_th]:sticky [&_th]:top-0">
                           <tr className="bg-gray-200">
-                            <th rowSpan={2} className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase border-b border-r border-gray-300 min-w-[200px] sticky left-0 bg-gray-200 z-10">Setor / Grupo / Subgrupo / Item</th>
+                            <th rowSpan={2} className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase border-b border-r border-gray-300 min-w-[200px] sticky left-0 top-0 bg-gray-200 z-40">Setor / Grupo / Subgrupo / Item</th>
                             <th rowSpan={2} className="px-3 py-2 text-center text-xs font-bold text-sky-700 uppercase border-b border-r border-gray-300 bg-sky-50 min-w-[80px]">Estoque<br/>Atual</th>
                             <th colSpan={7} className="px-2 py-2 text-center text-xs font-bold text-gray-700 uppercase border-b border-r border-gray-300 bg-orange-50">Vendas</th>
                             <th colSpan={7} className="px-2 py-2 text-center text-xs font-bold text-cyan-700 uppercase border-b border-r border-gray-300 bg-cyan-50">Lucro</th>
@@ -3598,11 +3598,11 @@ export default function GestaoInteligente() {
                             {[...Array(13)].map((_, gi) => (
                               <Fragment key={`sh-${gi}`}>
                                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-green-700 uppercase border-b border-gray-200 min-w-[100px] bg-green-50">Atual</th>
-                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-purple-700 uppercase border-b border-gray-200 min-w-[100px]">Méd.Lin</th>
+                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-purple-700 uppercase border-b border-gray-200 min-w-[100px] bg-gray-100">Méd.Lin</th>
                                 {(gi <= 3 || gi >= 9) && <th className="px-2 py-2 text-center text-[10px] font-semibold text-purple-700 uppercase border-b border-gray-200 min-w-[55px] bg-orange-100">%</th>}
-                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-blue-700 uppercase border-b border-gray-200 min-w-[100px]">Ano Ant</th>
+                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-blue-700 uppercase border-b border-gray-200 min-w-[100px] bg-gray-100">Ano Ant</th>
                                 {(gi <= 3 || gi >= 9) && <th className="px-2 py-2 text-center text-[10px] font-semibold text-blue-700 uppercase border-b border-gray-200 min-w-[55px] bg-orange-100">%</th>}
-                                <th className={`px-3 py-2 text-right text-[10px] font-semibold text-amber-700 uppercase border-b min-w-[100px] ${(gi > 3 && gi < 9) && gi < 12 ? 'border-r border-gray-300' : 'border-gray-200'}`}>Mês Ant</th>
+                                <th className={`px-3 py-2 text-right text-[10px] font-semibold text-amber-700 uppercase border-b min-w-[100px] bg-gray-100 ${(gi > 3 && gi < 9) && gi < 12 ? 'border-r border-gray-300' : 'border-gray-200'}`}>Mês Ant</th>
                                 {(gi <= 3 || gi >= 9) && <th className="px-2 py-2 text-center text-[10px] font-semibold text-amber-700 uppercase border-b border-r border-gray-300 min-w-[55px] bg-orange-100">%</th>}
                               </Fragment>
                             ))}
@@ -3800,8 +3800,8 @@ export default function GestaoInteligente() {
                                       {subExpanded?.type === 'itens' ? (
                                         /* Sem segmentos — mostrar itens diretamente */
                                         subExpanded?.data?.map((item, iIdx) => (
-                                          <tr key={`ai-${item.codProduto || iIdx}`} className={`hover:bg-amber-100 ${iIdx % 2 === 0 ? 'bg-amber-50/50' : 'bg-amber-50'} border-b border-amber-100/50`}>
-                                            <td className="px-4 py-1.5 text-xs text-gray-500 pl-24 sticky left-0 z-10 bg-amber-50/50">
+                                          <tr key={`ai-${item.codProduto || iIdx}`} className={`hover:bg-amber-100 ${iIdx % 2 === 0 ? 'bg-amber-50' : 'bg-amber-50'} border-b border-amber-100/50`}>
+                                            <td className="px-4 py-1.5 text-xs text-gray-500 pl-24 sticky left-0 z-10 bg-amber-50">
                                               <span className="flex items-center gap-2 whitespace-nowrap">
                                                 <span className="relative group cursor-pointer">
                                                   <span className="w-3 h-3 rounded-full bg-gray-400 hover:bg-gray-600 inline-block transition-colors"></span>
@@ -3838,8 +3838,8 @@ export default function GestaoInteligente() {
 
                                             {/* Nível 5: Itens dentro do Segmento */}
                                             {segExpanded?.data?.map((item, iIdx) => (
-                                              <tr key={`ai-${item.codProduto || iIdx}`} className={`hover:bg-amber-100 ${iIdx % 2 === 0 ? 'bg-amber-50/50' : 'bg-amber-50'} border-b border-amber-100/50`}>
-                                                <td className="px-4 py-1.5 text-xs text-gray-500 pl-28 sticky left-0 z-10 bg-amber-50/50">
+                                              <tr key={`ai-${item.codProduto || iIdx}`} className={`hover:bg-amber-100 ${iIdx % 2 === 0 ? 'bg-amber-50' : 'bg-amber-50'} border-b border-amber-100/50`}>
+                                                <td className="px-4 py-1.5 text-xs text-gray-500 pl-28 sticky left-0 z-10 bg-amber-50">
                                                   <span className="flex items-center gap-2 whitespace-nowrap">
                                                     <span className="relative group cursor-pointer">
                                                       <span className="w-3 h-3 rounded-full bg-gray-400 hover:bg-gray-600 inline-block transition-colors"></span>
@@ -4121,7 +4121,7 @@ export default function GestaoInteligente() {
 
                                     {/* Linhas dos Itens (Nível 4) */}
                                     {expandedSubgrupos[subgrupo.codSubgrupo]?.itens?.map((item, iIndex) => (
-                                      <tr key={`item-${item.codProduto || iIndex}`} className={`hover:bg-amber-100 ${iIndex % 2 === 0 ? 'bg-amber-50/50' : 'bg-amber-50'} border-b border-amber-100/50`}>
+                                      <tr key={`item-${item.codProduto || iIndex}`} className={`hover:bg-amber-100 ${iIndex % 2 === 0 ? 'bg-amber-50' : 'bg-amber-50'} border-b border-amber-100/50`}>
                                         <td className="px-4 py-1.5 text-xs text-gray-500 pl-24">
                                           <span className="flex items-center gap-2">
                                             <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
@@ -4636,8 +4636,8 @@ export default function GestaoInteligente() {
                                           {isExpSub && !isExpSub.loading && isExpSub.data.map((item) => {
                                             const isSel = produtoSelecionadoGrafico?.cod === item.cod;
                                             return (
-                                              <tr key={`pa-i-${item.cod}`} className={`border-b border-gray-50 cursor-pointer transition-colors ${isSel ? 'bg-orange-100 ring-1 ring-orange-300' : 'bg-green-50/20 hover:bg-green-50/50'}`} onClick={() => setProdutoSelecionadoGrafico(isSel ? null : item)}>
-                                                <td className={`px-3 py-1.5 text-xs sticky left-0 z-10 pl-20 ${isSel ? 'bg-orange-100 font-bold text-orange-700' : 'bg-green-50/20 text-green-800'}`}>
+                                              <tr key={`pa-i-${item.cod}`} className={`border-b border-gray-50 cursor-pointer transition-colors ${isSel ? 'bg-orange-100 ring-1 ring-orange-300' : 'bg-green-50 hover:bg-green-50/50'}`} onClick={() => setProdutoSelecionadoGrafico(isSel ? null : item)}>
+                                                <td className={`px-3 py-1.5 text-xs sticky left-0 z-10 pl-20 ${isSel ? 'bg-orange-100 font-bold text-orange-700' : 'bg-green-50 text-green-800'}`}>
                                                   {isSel ? '>> ' : ''}{item.nome}
                                                 </td>
                                                 {mesesCompletos.map((mes) => {
