@@ -68,5 +68,10 @@ RUN echo "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" > /
 # Criar diretório de logs
 RUN mkdir -p /var/log && touch /var/log/cron.log
 
-# Comando para executar cron em foreground
-CMD ["cron", "-f"]
+# Script de inicialização que exporta env vars pro cron
+RUN echo '#!/bin/bash' > /start-cron.sh && \
+    echo 'printenv | grep -v "no_proxy" >> /etc/environment' >> /start-cron.sh && \
+    echo 'cron -f' >> /start-cron.sh && \
+    chmod +x /start-cron.sh
+
+CMD ["/start-cron.sh"]
