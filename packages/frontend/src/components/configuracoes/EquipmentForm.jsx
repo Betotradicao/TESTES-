@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import ColorPicker from './ColorPicker';
 import { fetchSectors } from '../../services/sectors.service';
 import { fetchStores } from '../../services/companies.service';
+import { useLoja } from '../../contexts/LojaContext';
 
 export default function EquipmentForm({ equipment, onSave, onCancel }) {
+  const { lojas } = useLoja();
   const [formData, setFormData] = useState({
     sector_id: '',
     color_hash: '#3B82F6',
@@ -164,9 +166,9 @@ export default function EquipmentForm({ equipment, onSave, onCancel }) {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
                   <option value="">Todas as Lojas</option>
-                  {stores.map(store => (
-                    <option key={store.cod_loja} value={store.cod_loja}>
-                      {store.label}
+                  {(lojas || []).map(loja => (
+                    <option key={loja.COD_LOJA} value={loja.COD_LOJA}>
+                      {loja.DES_LOJA || `Loja ${loja.COD_LOJA}`}
                     </option>
                   ))}
                 </select>

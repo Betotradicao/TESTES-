@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLoja } from '../contexts/LojaContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 
 export default function AtivarProdutos({ embedded = false }) {
   const { user, logout } = useAuth();
+  const { lojaSelecionada } = useLoja();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -66,7 +68,9 @@ export default function AtivarProdutos({ embedded = false }) {
       setLoading(true);
       setError('');
 
-      const response = await api.get('/products');
+      const params = {};
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
+      const response = await api.get('/products', { params });
       setProducts(response.data.data || response.data);
 
     } catch (err) {
@@ -319,10 +323,10 @@ export default function AtivarProdutos({ embedded = false }) {
     handleClearSelection();
   }, [searchTerm, filterActive, filterSecao, filterGrupo, filterSubGrupo, filterTipoEspecie, filterTipoEvento, currentPage]);
 
-  // Carregar produtos ao montar componente
+  // Carregar produtos ao montar componente ou mudar loja
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [lojaSelecionada]);
 
   // Auto-clear success messages after 3 seconds
   useEffect(() => {

@@ -284,7 +284,7 @@ export default function SuppliersTab() {
                   <option value="">Selecione uma loja</option>
                   {lojas.map((loja) => (
                     <option key={loja.COD_LOJA} value={loja.COD_LOJA}>
-                      {loja.APELIDO || `Loja ${loja.COD_LOJA}`}
+                      {loja.DES_LOJA || loja.APELIDO || `Loja ${loja.COD_LOJA}`}
                     </option>
                   ))}
                 </select>

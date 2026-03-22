@@ -185,7 +185,7 @@ export default function HolidaysTab() {
               {lojas.length > 0 ? (
                 lojas.map(loja => (
                   <option key={loja.COD_LOJA} value={loja.COD_LOJA}>
-                    Loja {loja.COD_LOJA} - {loja.APELIDO || loja.FANTASIA || 'Sem nome'}
+                    {loja.DES_LOJA || `Loja ${loja.COD_LOJA} - ${loja.APELIDO || loja.FANTASIA || 'Sem nome'}`}
                   </option>
                 ))
               ) : (

@@ -362,7 +362,7 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
                 <option value="">Selecione uma loja</option>
                 {lojas.map((loja) => (
                   <option key={loja.COD_LOJA} value={loja.COD_LOJA}>
-                    {loja.APELIDO || `Loja ${loja.COD_LOJA}`}
+                    {loja.DES_LOJA || loja.APELIDO || `Loja ${loja.COD_LOJA}`}
                   </option>
                 ))}
               </select>
