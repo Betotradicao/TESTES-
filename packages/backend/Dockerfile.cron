@@ -1,5 +1,5 @@
 # Dockerfile para Serviço de Cron em Produção
-FROM node:22-alpine AS builder
+FROM node:18-slim AS builder
 
 WORKDIR /app
 
@@ -14,10 +14,27 @@ COPY . .
 RUN npm run build
 
 # Imagem final
-FROM node:22-alpine AS production
+FROM node:18-slim AS production
 
-# Instalar cron
-RUN apk add --no-cache dcron
+# Instalar cron e dependências Oracle
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cron \
+    libaio1 \
+    curl \
+    unzip \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /opt/oracle \
+    && cd /opt/oracle \
+    && curl -o instantclient.zip https://download.oracle.com/otn_software/linux/instantclient/2340000/instantclient-basiclite-linux.x64-23.4.0.24.05.zip \
+    && unzip instantclient.zip \
+    && rm instantclient.zip \
+    && echo /opt/oracle/instantclient_23_4 > /etc/ld.so.conf.d/oracle-instantclient.conf \
+    && ldconfig
+
+# Oracle environment
+ENV LD_LIBRARY_PATH=/opt/oracle/instantclient_23_4:$LD_LIBRARY_PATH
+ENV ORACLE_HOME=/opt/oracle/instantclient_23_4
 
 WORKDIR /app
 
@@ -28,34 +45,24 @@ RUN npm install --production && npm cache clean --force
 # Copiar aplicação compilada
 COPY --from=builder /app/dist ./dist
 
-# Criar usuário não-root
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
-
-# Criar arquivo de cron com tarefas unificadas
-RUN echo "# Verificação diária completa às 5h (vendas + bipagens + notificações do dia anterior)" > /etc/crontabs/root && \
-    echo "0 8 * * * cd /app && npm run run:daily:verification:prod -- --runYesterday >> /var/log/cron.log 2>&1" >> /etc/crontabs/root && \
-    echo "" >> /etc/crontabs/root && \
-    echo "# Monitoramento contínuo a cada 2 minutos (dia atual, sem notificações)" >> /etc/crontabs/root && \
-    echo "*/2 * * * * cd /app && node dist/commands/daily-verification.command.js >> /var/log/cron.log 2>&1" >> /etc/crontabs/root && \
-    echo "" >> /etc/crontabs/root && \
-    echo "# Monitoramento de última bipagem - alerta se não receber bipagens por mais de 1h (a cada 1h)" >> /etc/crontabs/root && \
-    echo "0 * * * * cd /app && node dist/commands/check-last-bip.command.js >> /var/log/cron.log 2>&1" >> /etc/crontabs/root && \
-    echo "" >> /etc/crontabs/root && \
-    echo "# Monitoramento de emails DVR - verifica novos emails a cada 1 minuto" >> /etc/crontabs/root && \
-    echo "*/1 * * * * cd /app && node dist/commands/email-monitor.command.js >> /var/log/cron.log 2>&1" >> /etc/crontabs/root
+# Criar arquivo de cron com tarefas unificadas (Debian cron format)
+RUN echo "# Verificação diária completa às 8h (vendas + bipagens + notificações do dia anterior)" > /etc/cron.d/prevencao && \
+    echo "0 8 * * * root cd /app && npm run run:daily:verification:prod -- --runYesterday >> /var/log/cron.log 2>&1" >> /etc/cron.d/prevencao && \
+    echo "" >> /etc/cron.d/prevencao && \
+    echo "# Monitoramento contínuo a cada 2 minutos (dia atual, sem notificações)" >> /etc/cron.d/prevencao && \
+    echo "*/2 * * * * root cd /app && node dist/commands/daily-verification.command.js >> /var/log/cron.log 2>&1" >> /etc/cron.d/prevencao && \
+    echo "" >> /etc/cron.d/prevencao && \
+    echo "# Monitoramento de última bipagem - alerta se não receber bipagens por mais de 1h (a cada 1h)" >> /etc/cron.d/prevencao && \
+    echo "0 * * * * root cd /app && node dist/commands/check-last-bip.command.js >> /var/log/cron.log 2>&1" >> /etc/cron.d/prevencao && \
+    echo "" >> /etc/cron.d/prevencao && \
+    echo "# Monitoramento de emails DVR - verifica novos emails a cada 1 minuto" >> /etc/cron.d/prevencao && \
+    echo "*/1 * * * * root cd /app && node dist/commands/email-monitor.command.js >> /var/log/cron.log 2>&1" >> /etc/cron.d/prevencao && \
+    echo "" >> /etc/cron.d/prevencao && \
+    chmod 0644 /etc/cron.d/prevencao && \
+    crontab /etc/cron.d/prevencao
 
 # Criar diretório de logs
 RUN mkdir -p /var/log && touch /var/log/cron.log
 
-# Alterar ownership dos arquivos
-RUN chown -R nodejs:nodejs /app
-
-# Script de inicialização
-RUN echo '#!/bin/sh' > /start-cron.sh && \
-    echo 'echo "Starting cron service..."' >> /start-cron.sh && \
-    echo 'crond -f -d 8' >> /start-cron.sh && \
-    chmod +x /start-cron.sh
-
-# Comando para executar cron
-CMD ["/start-cron.sh"]
+# Comando para executar cron em foreground
+CMD ["cron", "-f"]
