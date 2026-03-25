@@ -563,7 +563,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           expandable: true,
           subItems: [
             { id: 'nf-a-chegar', submenuId: 'nf-a-chegar', title: 'NOTAS A CHEGAR', path: '/notas-a-chegar' },
-            { id: 'nf-recebimento', submenuId: 'nf-recebimento', title: 'NOTAS ENTREGUE', path: '/nota-fiscal-recebimento' }
+            { id: 'nf-recebimento', submenuId: 'nf-recebimento', title: 'NOTAS ENTREGUE', path: '/nota-fiscal-recebimento' },
+            { id: 'pendencias-notas', submenuId: 'pendencias-notas', title: 'PENDÊNCIAS DE NOTAS', path: '/pendencias-notas' }
           ]
         },
         {

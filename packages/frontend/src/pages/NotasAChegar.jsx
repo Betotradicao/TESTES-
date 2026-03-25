@@ -63,7 +63,8 @@ export default function NotasAChegar() {
     data_ate: new Date().toISOString().split('T')[0],
     fornecedor: '',
     efetivadas: 'com',
-    validadas: 'todos'
+    validadas: 'todos',
+    manifesto: 'todos'
   });
 
   // Column order and sort state (persisted)
@@ -95,6 +96,7 @@ export default function NotasAChegar() {
       if (filters.fornecedor) params.append('fornecedor', filters.fornecedor);
       if (filters.efetivadas) params.append('efetivadas', filters.efetivadas);
       if (filters.validadas) params.append('validadas', filters.validadas);
+      if (filters.manifesto && filters.manifesto !== 'todos') params.append('manifesto', filters.manifesto);
       if (lojaSelecionada) params.append('cod_loja', lojaSelecionada);
 
       const res = await api.get(`/nota-fiscal-recebimento/notas-a-chegar?${params.toString()}`);
@@ -547,6 +549,26 @@ export default function NotasAChegar() {
                   <span className="text-sm text-gray-700">Todos</span>
                 </label>
               </div>
+            </div>
+
+            {/* Separador */}
+            <div className="hidden lg:block w-px h-10 bg-gray-200"></div>
+
+            {/* Filtro Manifesto */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Manifesto:</label>
+              <select
+                value={filters.manifesto || 'todos'}
+                onChange={(e) => setFilters({ ...filters, manifesto: e.target.value })}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              >
+                <option value="todos">Todos</option>
+                <option value="pendente">Pendente</option>
+                <option value="confirmada">Confirmada</option>
+                <option value="ciencia">Ciencia</option>
+                <option value="desconhecida">Desconhecida</option>
+                <option value="nao_realizada">Nao Realizada</option>
+              </select>
             </div>
           </div>
         </div>

@@ -696,6 +696,22 @@ export class NotaFiscalRecebimentoController {
       }
       // 'todos' = sem filtro adicional
 
+      // Filtro Manifesto
+      const { manifesto } = req.query;
+      if (manifesto && manifesto !== 'todos') {
+        if (manifesto === 'pendente') {
+          where += ` AND NVL(m.FG_CIENCIA, 'N') = 'N' AND NVL(m.FG_CONFIRMACAO, 'N') = 'N' AND NVL(m.FG_DESCONHEC, 'N') = 'N' AND NVL(m.FG_OPNAOREALIZ, 'N') = 'N'`;
+        } else if (manifesto === 'confirmada') {
+          where += ` AND m.FG_CONFIRMACAO = 'S'`;
+        } else if (manifesto === 'ciencia') {
+          where += ` AND m.FG_CIENCIA = 'S' AND NVL(m.FG_CONFIRMACAO, 'N') != 'S'`;
+        } else if (manifesto === 'desconhecida') {
+          where += ` AND m.FG_DESCONHEC = 'S'`;
+        } else if (manifesto === 'nao_realizada') {
+          where += ` AND m.FG_OPNAOREALIZ = 'S'`;
+        }
+      }
+
       // Ordenacao baseada no tipo de data
       const campoOrdem = tipo_data === 'processada' ? 'n.DT_PROC' : 'n.DT_EMISSAO';
 
@@ -739,9 +755,9 @@ export class NotaFiscalRecebimentoController {
       // Determine manifesto label from SNFETNM flags
       const getManifestoLabel = (r: any) => {
         if (r.FG_CONFIRMACAO === 'S') return 'Confirmacao';
-        if (r.FG_CIENCIA === 'S') return 'Ciencia';
         if (r.FG_DESCONHEC === 'S') return 'Desconhecimento';
         if (r.FG_OPNAOREALIZ === 'S') return 'Op. Nao Realiz.';
+        if (r.FG_CIENCIA === 'S') return 'Ciencia';
         return '';
       };
 

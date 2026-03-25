@@ -48,6 +48,7 @@ import AncoragemPreco from './pages/AncoragemPreco';
 import FrenteCaixa from './pages/FrenteCaixa';
 import PrevencaoCaixa from './pages/PrevencaoCaixa';
 import PrevcaoTributaria from './pages/PrevcaoTributaria';
+import PendenciasNotas from './pages/PendenciasNotas';
 import PrevencaoPedidos from './pages/PrevencaoPedidos';
 import RupturaIndustria from './pages/RupturaIndustria';
 import PrazoFornecedores from './pages/PrazoFornecedores';
@@ -440,6 +441,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PrevcaoTributaria />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/pendencias-notas"
+              element={
+                <ProtectedRoute>
+                  <PendenciasNotas />
                 </ProtectedRoute>
               }
             />
