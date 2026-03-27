@@ -71,6 +71,27 @@ router.get(
   LossController.getTrocasProdutos
 );
 
+// Notas bonificadas por fornecedor (agrupado por perfil)
+router.get(
+  '/oracle/notas-bonificadas',
+  authenticateToken,
+  LossController.getNotasBonificadas
+);
+
+// Notas de um fornecedor por perfil (drill-down)
+router.get(
+  '/oracle/notas-bonificadas/:codFornecedor/:codPerfil',
+  authenticateToken,
+  LossController.getNotasBonificadasDetalhe
+);
+
+// Itens de uma nota bonificada
+router.get(
+  '/oracle/notas-bonificadas/:codFornecedor/nota/:numNf/itens',
+  authenticateToken,
+  LossController.getNotaBonificadaItens
+);
+
 // Buscar perdas mensais por produto (mês anterior e mês atual)
 router.get(
   '/oracle/perdas-mensais',

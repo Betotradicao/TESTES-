@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Layout from '../components/Layout';
 import RadarLoading from '../components/RadarLoading';
 import { api } from '../utils/api';
@@ -45,6 +45,7 @@ const DEFAULT_COLUMNS = [
 
 export default function PrevencaoTrocas() {
   const { lojaSelecionada } = useLoja();
+  const [activeTab, setActiveTab] = useState('produtos');
   const [resultados, setResultados] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -56,6 +57,15 @@ export default function PrevencaoTrocas() {
   const [busca, setBusca] = useState('');
   const dragCol = useRef(null);
   const dragOverCol = useRef(null);
+  // Notas Bonificadas
+  const [bonifData, setBonifData] = useState([]);
+  const [bonifPerfis, setBonifPerfis] = useState([]);
+  const [bonifLoading, setBonifLoading] = useState(false);
+  const [bonifExpanded, setBonifExpanded] = useState({});
+  const [bonifNotas, setBonifNotas] = useState({});
+  const [bonifItens, setBonifItens] = useState({});
+  const [bonifDataInicio, setBonifDataInicio] = useState(`${new Date().getFullYear()}-01-01`);
+  const [bonifDataFim, setBonifDataFim] = useState(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
     carregarTrocas();
@@ -76,6 +86,114 @@ export default function PrevencaoTrocas() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Notas Bonificadas
+  const carregarBonificadas = async () => {
+    setBonifLoading(true);
+    setBonifExpanded({});
+    setBonifNotas({});
+    setBonifItens({});
+    try {
+      const paramsBonif = new URLSearchParams();
+      if (lojaSelecionada) paramsBonif.append('loja', lojaSelecionada);
+      if (bonifDataInicio) paramsBonif.append('dataInicio', bonifDataInicio);
+      if (bonifDataFim) paramsBonif.append('dataFim', bonifDataFim);
+
+      const paramsTrocas = new URLSearchParams({ tipo: 'saldo' });
+      if (lojaSelecionada) paramsTrocas.append('loja', lojaSelecionada);
+
+      const [resBonif, resTrocas] = await Promise.all([
+        api.get(`/losses/oracle/notas-bonificadas?${paramsBonif}`),
+        api.get(`/losses/oracle/trocas?${paramsTrocas}`)
+      ]);
+
+      const trocasMap = {};
+      if (resTrocas.data?.fornecedores) {
+        for (const f of resTrocas.data.fornecedores) {
+          trocasMap[f.codFornecedor] = { totalCusto: f.totalCusto || 0, totalVenda: f.totalVenda || 0, qtdItens: f.qtdItens || 0 };
+        }
+      }
+
+      // Juntar fornecedores das bonificadas + trocas
+      const bonifMap = {};
+      for (const f of (resBonif.data.data || [])) {
+        bonifMap[f.codFornecedor] = {
+          ...f,
+          trocaPendente: trocasMap[f.codFornecedor]?.totalCusto || 0,
+          trocaVenda: trocasMap[f.codFornecedor]?.totalVenda || 0,
+          trocaQtd: trocasMap[f.codFornecedor]?.qtdItens || 0
+        };
+      }
+      // Adicionar fornecedores que têm trocas mas não têm bonificação
+      if (resTrocas.data?.fornecedores) {
+        for (const f of resTrocas.data.fornecedores) {
+          if (!bonifMap[f.codFornecedor]) {
+            bonifMap[f.codFornecedor] = {
+              codFornecedor: f.codFornecedor,
+              fantasia: f.fantasia || f.fornecedor,
+              razaoSocial: f.fornecedor,
+              perfis: {},
+              totalGeral: 0,
+              trocaPendente: f.totalCusto || 0,
+              trocaVenda: f.totalVenda || 0,
+              trocaQtd: f.qtdItens || 0
+            };
+          }
+        }
+      }
+
+      const data = Object.values(bonifMap).sort((a, b) => (b.trocaPendente || 0) - (a.trocaPendente || 0));
+      setBonifData(data);
+      setBonifPerfis(resBonif.data.perfisDisponiveis || []);
+    } catch (err) {
+      console.error('Erro bonificadas:', err);
+    } finally {
+      setBonifLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'bonificadas') carregarBonificadas();
+  }, [activeTab, lojaSelecionada]);
+
+  const toggleBonifFornecedor = async (codFornecedor, codPerfil) => {
+    const key = `${codFornecedor}_${codPerfil}`;
+    if (bonifExpanded[key]) {
+      setBonifExpanded(prev => ({ ...prev, [key]: false }));
+      return;
+    }
+    if (!bonifNotas[key]) {
+      try {
+        const params = new URLSearchParams();
+        if (lojaSelecionada) params.append('loja', lojaSelecionada);
+        const res = await api.get(`/losses/oracle/notas-bonificadas/${codFornecedor}/${codPerfil}?${params}`);
+        setBonifNotas(prev => ({ ...prev, [key]: res.data.data || [] }));
+      } catch (err) { console.error(err); }
+    }
+    setBonifExpanded(prev => ({ ...prev, [key]: true }));
+  };
+
+  const toggleBonifNota = async (codFornecedor, numNf) => {
+    const key = `nota_${numNf}_${codFornecedor}`;
+    if (bonifItens[key]) {
+      setBonifItens(prev => ({ ...prev, [key]: null }));
+      return;
+    }
+    try {
+      const res = await api.get(`/losses/oracle/notas-bonificadas/${codFornecedor}/nota/${numNf}/itens`);
+      setBonifItens(prev => ({ ...prev, [key]: res.data.data || [] }));
+    } catch (err) { console.error(err); }
+  };
+
+  const perfilLabel = (cod) => {
+    const labels = { 5: 'Rebaixa Preço', 10: 'Outras Entradas', 27: 'Amostra Gratis', 41: 'Troca', 43: 'Brindes', 88: 'Acordo Comercial' };
+    return labels[cod] || `Perfil ${cod}`;
+  };
+
+  const perfilColor = (cod) => {
+    const colors = { 5: 'text-purple-700 bg-purple-50', 10: 'text-gray-700 bg-gray-50', 27: 'text-cyan-700 bg-cyan-50', 41: 'text-orange-700 bg-orange-50', 43: 'text-pink-700 bg-pink-50', 88: 'text-blue-700 bg-blue-50' };
+    return colors[cod] || 'text-gray-700 bg-gray-50';
   };
 
   const toggleFornecedor = async (codFornecedor) => {
@@ -206,6 +324,19 @@ export default function PrevencaoTrocas() {
           </div>
         </div>
 
+        {/* Abas principais */}
+        <div className="flex gap-2 mb-4">
+          <button onClick={() => setActiveTab('produtos')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'produtos' ? 'bg-orange-500 text-white shadow-md' : 'bg-white text-gray-600 border hover:bg-gray-50'}`}>
+            Produtos
+          </button>
+          <button onClick={() => setActiveTab('bonificadas')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'bonificadas' ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-gray-600 border hover:bg-gray-50'}`}>
+            Notas Bonificadas
+          </button>
+        </div>
+
+        {activeTab === 'produtos' && <>
         {/* Filtros: Abas + Busca */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 p-3">
           {/* Abas de tipo */}
@@ -464,6 +595,158 @@ export default function PrevencaoTrocas() {
               )}
             </div>
           </>
+        )}
+        </>}
+
+        {/* Aba Notas Bonificadas */}
+        {activeTab === 'bonificadas' && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">Notas Bonificadas por Fornecedor</h2>
+                <div className="flex items-center gap-3 mt-2">
+                  <div>
+                    <label className="text-xs text-gray-500">De</label>
+                    <input type="date" value={bonifDataInicio} onChange={e => setBonifDataInicio(e.target.value)}
+                      className="ml-1 border rounded px-2 py-1 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">Até</label>
+                    <input type="date" value={bonifDataFim} onChange={e => setBonifDataFim(e.target.value)}
+                      className="ml-1 border rounded px-2 py-1 text-sm" />
+                  </div>
+                  <button onClick={carregarBonificadas}
+                    className="bg-blue-600 text-white px-4 py-1.5 rounded text-sm font-semibold hover:bg-blue-700">
+                    Buscar
+                  </button>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-500">Total Geral</p>
+                <p className="text-xl font-bold text-red-600">{formatCurrency(bonifData.reduce((s, f) => s + (f.trocaPendente || 0), 0))}</p>
+              </div>
+            </div>
+
+            {bonifLoading ? (
+              <div className="text-center py-8 text-gray-400">Carregando...</div>
+            ) : bonifData.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">Nenhuma nota bonificada encontrada</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
+                  <colgroup>
+                    <col style={{ width: '40px' }} />
+                    <col style={{ width: '220px' }} />
+                    <col style={{ width: '130px' }} />
+                    {bonifPerfis.map(p => <col key={p} style={{ width: '140px' }} />)}
+                  </colgroup>
+                  <thead className="bg-blue-600 text-white">
+                    <tr>
+                      <th className="px-3 py-2 text-center text-xs font-semibold">#</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold">Fornecedor</th>
+                      <th className="px-3 py-2 text-right text-xs font-semibold">Total Custo Trocas</th>
+                      {bonifPerfis.map(p => (
+                        <th key={p} className="px-3 py-2 text-right text-xs font-semibold whitespace-nowrap">{perfilLabel(p)}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bonifData.map((forn, idx) => (
+                      <React.Fragment key={forn.codFornecedor}>
+                        <tr className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`}>
+                          <td className="px-3 py-2 text-center text-xs text-gray-400">{idx + 1}</td>
+                          <td className="px-3 py-2 text-sm font-medium text-gray-800 truncate">{forn.fantasia || forn.razaoSocial}</td>
+                          <td className="px-3 py-2 text-right text-sm font-bold text-red-600">{formatCurrency(forn.trocaPendente)}</td>
+                          {bonifPerfis.map(p => {
+                            const perfil = forn.perfis[p];
+                            const valor = perfil?.valor || 0;
+                            return (
+                              <td key={p} className="px-3 py-2 text-right text-sm">
+                                {valor > 0 ? (
+                                  <button onClick={() => toggleBonifFornecedor(forn.codFornecedor, p)}
+                                    className={`px-2 py-0.5 rounded text-xs font-semibold hover:opacity-80 ${perfilColor(p)}`}>
+                                    {formatCurrency(valor)} ({perfil.qtdNotas})
+                                  </button>
+                                ) : (
+                                  <span className="text-gray-300">-</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                        {/* Drill-down: Notas do perfil */}
+                        {bonifPerfis.map(p => {
+                          const key = `${forn.codFornecedor}_${p}`;
+                          if (!bonifExpanded[key]) return null;
+                          const notas = bonifNotas[key] || [];
+                          return (
+                            <tr key={key}>
+                              <td colSpan={3 + bonifPerfis.length} className="bg-blue-50 px-8 py-3">
+                                <p className="text-xs font-bold text-blue-700 mb-2">{perfilLabel(p)} — {notas.length} notas</p>
+                                {notas.length === 0 ? <p className="text-xs text-gray-400">Carregando...</p> : (
+                                  <table className="w-full bg-white rounded shadow-sm text-xs">
+                                    <thead className="bg-blue-100">
+                                      <tr>
+                                        <th className="px-3 py-1.5 text-left font-semibold text-blue-800">NF</th>
+                                        <th className="px-3 py-1.5 text-left font-semibold text-blue-800">Série</th>
+                                        <th className="px-3 py-1.5 text-left font-semibold text-blue-800">Data Entrada</th>
+                                        <th className="px-3 py-1.5 text-right font-semibold text-blue-800">Valor</th>
+                                        <th className="px-3 py-1.5 text-center font-semibold text-blue-800">Loja</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {notas.map((nota, ni) => {
+                                        const notaKey = `nota_${nota.numNf}_${forn.codFornecedor}`;
+                                        const itens = bonifItens[notaKey];
+                                        return (
+                                          <React.Fragment key={ni}>
+                                            <tr className="border-b hover:bg-blue-50 cursor-pointer" onClick={() => toggleBonifNota(forn.codFornecedor, nota.numNf)}>
+                                              <td className="px-3 py-1.5 font-medium">{nota.numNf}</td>
+                                              <td className="px-3 py-1.5">{nota.serie || '-'}</td>
+                                              <td className="px-3 py-1.5">{nota.dtaEntrada ? new Date(nota.dtaEntrada).toLocaleDateString('pt-BR') : '-'}</td>
+                                              <td className="px-3 py-1.5 text-right font-semibold text-green-700">{formatCurrency(nota.valorTotal)}</td>
+                                              <td className="px-3 py-1.5 text-center">{nota.codLoja || '-'}</td>
+                                            </tr>
+                                            {itens && (
+                                              <tr><td colSpan={5} className="bg-yellow-50 px-6 py-2">
+                                                <p className="text-xs font-bold text-yellow-700 mb-1">Itens ({itens.length})</p>
+                                                <table className="w-full text-xs">
+                                                  <thead><tr className="text-yellow-800">
+                                                    <th className="px-2 py-1 text-left">Código</th>
+                                                    <th className="px-2 py-1 text-left">Descrição</th>
+                                                    <th className="px-2 py-1 text-right">Qtd</th>
+                                                    <th className="px-2 py-1 text-right">Valor</th>
+                                                  </tr></thead>
+                                                  <tbody>
+                                                    {itens.map((it, ii) => (
+                                                      <tr key={ii} className="border-b border-yellow-200">
+                                                        <td className="px-2 py-1">{it.codProduto}</td>
+                                                        <td className="px-2 py-1">{it.descricao}</td>
+                                                        <td className="px-2 py-1 text-right">{Number(it.qtdEntrada).toLocaleString('pt-BR')}</td>
+                                                        <td className="px-2 py-1 text-right font-semibold">{formatCurrency(it.valorTabela)}</td>
+                                                      </tr>
+                                                    ))}
+                                                  </tbody>
+                                                </table>
+                                              </td></tr>
+                                            )}
+                                          </React.Fragment>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </Layout>

@@ -1149,4 +1149,202 @@ export class LossController {
       res.status(500).json({ error: error.message });
     }
   }
+
+  /**
+   * Notas bonificadas por fornecedor (agrupado por perfil)
+   * Período: 01/01 do ano até hoje
+   */
+  static async getNotasBonificadas(req: AuthRequest, res: Response) {
+    try {
+      const { loja, dataInicio, dataFim } = req.query;
+      const codigoLoja = loja ? parseInt(loja as string) : undefined;
+      const schema = await MappingService.getSchema();
+      const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA')}`;
+      const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
+      const fnCodFornecedor = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor');
+      const fnValorTotal = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'valor_total');
+      const fnDtaEntrada = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada');
+      const fnFlgCancelado = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado');
+      const fnCodLoja = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_loja');
+      const fCodFornecedor = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
+      const fRazaoSocial = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'razao_social');
+      const fFantasia = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'nome_fantasia');
+
+      const perfis = [5, 10, 41, 43, 88, 27];
+      let lojaFilter = '';
+      const anoAtual = new Date().getFullYear();
+      const params: any = {
+        dataIni: (dataInicio as string) || `${anoAtual}-01-01`,
+        dataFi: (dataFim as string) || new Date().toISOString().split('T')[0]
+      };
+      if (codigoLoja) {
+        lojaFilter = `AND fn.${fnCodLoja} = :loja`;
+        params.loja = codigoLoja;
+      }
+
+      const sql = `
+        SELECT
+          fn.${fnCodFornecedor} as COD_FORNECEDOR,
+          f.${fFantasia} as FANTASIA,
+          f.${fRazaoSocial} as RAZAO_SOCIAL,
+          fn.COD_PERFIL,
+          p.DES_PERFIL,
+          COUNT(*) as QTD_NOTAS,
+          SUM(fn.${fnValorTotal}) as VALOR_TOTAL
+        FROM ${tabFornecedorNota} fn
+        JOIN ${tabFornecedor} f ON f.${fCodFornecedor} = fn.${fnCodFornecedor}
+        JOIN ${schema}.TAB_PERFIL p ON p.COD_PERFIL = fn.COD_PERFIL
+        WHERE fn.${fnDtaEntrada} >= TO_DATE(:dataIni, 'YYYY-MM-DD')
+        AND fn.${fnDtaEntrada} <= TO_DATE(:dataFi, 'YYYY-MM-DD')
+        AND fn.COD_PERFIL IN (${perfis.join(',')})
+        AND NVL(fn.${fnFlgCancelado}, 'N') != 'S'
+        ${lojaFilter}
+        GROUP BY fn.${fnCodFornecedor}, f.${fFantasia}, f.${fRazaoSocial}, fn.COD_PERFIL, p.DES_PERFIL
+        ORDER BY fn.${fnCodFornecedor}, fn.COD_PERFIL
+      `;
+
+      const rows = await OracleService.query<any>(sql, params);
+
+      // Agrupar por fornecedor
+      const fornecedoresMap: any = {};
+      for (const r of rows) {
+        const cod = r.COD_FORNECEDOR;
+        if (!fornecedoresMap[cod]) {
+          fornecedoresMap[cod] = {
+            codFornecedor: cod,
+            fantasia: r.FANTASIA || r.RAZAO_SOCIAL,
+            razaoSocial: r.RAZAO_SOCIAL,
+            perfis: {},
+            totalGeral: 0
+          };
+        }
+        fornecedoresMap[cod].perfis[r.COD_PERFIL] = {
+          codPerfil: r.COD_PERFIL,
+          descricao: r.DES_PERFIL,
+          qtdNotas: r.QTD_NOTAS,
+          valor: r.VALOR_TOTAL || 0
+        };
+        fornecedoresMap[cod].totalGeral += r.VALOR_TOTAL || 0;
+      }
+
+      const fornecedores = Object.values(fornecedoresMap).sort((a: any, b: any) => b.totalGeral - a.totalGeral);
+
+      res.json({ success: true, perfisDisponiveis: perfis, data: fornecedores });
+    } catch (error: any) {
+      console.error('❌ Erro notas bonificadas:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * Notas de um fornecedor por perfil (drill-down nível 2)
+   */
+  static async getNotasBonificadasDetalhe(req: AuthRequest, res: Response) {
+    try {
+      const { codFornecedor, codPerfil } = req.params;
+      const { loja } = req.query;
+      const schema = await MappingService.getSchema();
+      const tabFornecedorNota = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_NOTA')}`;
+      const fnNumNf = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'numero_nf');
+      const fnSerie = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'serie');
+      const fnCodFornecedor = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_fornecedor');
+      const fnValorTotal = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'valor_total');
+      const fnDtaEntrada = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'data_entrada');
+      const fnFlgCancelado = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'flag_cancelado');
+      const fnCodLoja = await MappingService.getColumnFromTable('TAB_NOTA_FISCAL', 'codigo_loja');
+
+      let lojaFilter = '';
+      const params: any = {
+        codFornecedor: parseInt(codFornecedor, 10),
+        codPerfil: parseInt(codPerfil, 10)
+      };
+      if (loja) {
+        lojaFilter = `AND fn.${fnCodLoja} = :loja`;
+        params.loja = parseInt(loja as string, 10);
+      }
+
+      const sql = `
+        SELECT
+          fn.${fnNumNf} as NUM_NF,
+          fn.${fnSerie} as SERIE,
+          fn.${fnDtaEntrada} as DTA_ENTRADA,
+          fn.${fnValorTotal} as VALOR_TOTAL,
+          fn.${fnCodLoja} as COD_LOJA
+        FROM ${tabFornecedorNota} fn
+        WHERE fn.${fnCodFornecedor} = :codFornecedor
+        AND fn.COD_PERFIL = :codPerfil
+        AND fn.${fnDtaEntrada} >= TRUNC(SYSDATE, 'YEAR')
+        AND NVL(fn.${fnFlgCancelado}, 'N') != 'S'
+        ${lojaFilter}
+        ORDER BY fn.${fnDtaEntrada} DESC
+      `;
+
+      const rows = await OracleService.query<any>(sql, params);
+
+      res.json({
+        success: true,
+        data: rows.map(r => ({
+          numNf: r.NUM_NF,
+          serie: r.SERIE,
+          dtaEntrada: r.DTA_ENTRADA,
+          valorTotal: r.VALOR_TOTAL || 0,
+          codLoja: r.COD_LOJA
+        }))
+      });
+    } catch (error: any) {
+      console.error('❌ Erro detalhe notas bonificadas:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * Itens de uma nota de bonificação (drill-down nível 3)
+   */
+  static async getNotaBonificadaItens(req: AuthRequest, res: Response) {
+    try {
+      const { numNf, codFornecedor } = req.params;
+      const { loja } = req.query;
+      const schema = await MappingService.getSchema();
+      const tabFornecedorProduto = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR_PRODUTO')}`;
+      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+      const fpNumNf = await MappingService.getColumnFromTable('TAB_FORNECEDOR_PRODUTO', 'numero_nf');
+      const fpCodFornecedor = await MappingService.getColumnFromTable('TAB_FORNECEDOR_PRODUTO', 'codigo_fornecedor');
+      const fpCodProduto = await MappingService.getColumnFromTable('TAB_FORNECEDOR_PRODUTO', 'codigo_produto');
+      const fpQtdEntrada = await MappingService.getColumnFromTable('TAB_FORNECEDOR_PRODUTO', 'quantidade_entrada');
+      const fpValTabela = await MappingService.getColumnFromTable('TAB_FORNECEDOR_PRODUTO', 'valor_tabela');
+      const pCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const pDescricao = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+
+      const sql = `
+        SELECT
+          fp.${fpCodProduto} as COD_PRODUTO,
+          p.${pDescricao} as DESCRICAO,
+          fp.${fpQtdEntrada} as QTD_ENTRADA,
+          fp.${fpValTabela} as VALOR_TABELA
+        FROM ${tabFornecedorProduto} fp
+        LEFT JOIN ${tabProduto} p ON p.${pCodProduto} = fp.${fpCodProduto}
+        WHERE fp.${fpNumNf} = :numNf
+        AND fp.${fpCodFornecedor} = :codFornecedor
+        ORDER BY p.${pDescricao}
+      `;
+
+      const rows = await OracleService.query<any>(sql, {
+        numNf: parseInt(numNf, 10),
+        codFornecedor: parseInt(codFornecedor, 10)
+      });
+
+      res.json({
+        success: true,
+        data: rows.map(r => ({
+          codProduto: r.COD_PRODUTO,
+          descricao: r.DESCRICAO,
+          qtdEntrada: r.QTD_ENTRADA || 0,
+          valorTabela: r.VALOR_TABELA || 0
+        }))
+      });
+    } catch (error: any) {
+      console.error('❌ Erro itens nota bonificada:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  }
 }
