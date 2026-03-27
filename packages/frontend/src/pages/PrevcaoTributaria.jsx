@@ -32,6 +32,8 @@ export default function PrevcaoTributaria() {
   const [busca,   setBusca]   = useState('');
   const [sortCol, setSortCol] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
+  const [filtroNcm, setFiltroNcm] = useState('');
+  const [filtroCodTrib, setFiltroCodTrib] = useState('');
 
   // ─── Carregar seções ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -93,15 +95,27 @@ export default function PrevcaoTributaria() {
   };
 
   // ─── Filtro por busca + card + ordenação ─────────────────────────────────────
+  // NCMs e CodTribs disponíveis
+  const ncmsDisponiveis = useMemo(() => [...new Set(data.map(i => i.ncm_completo).filter(Boolean))].sort(), [data]);
+  const codTribsDisponiveis = useMemo(() => {
+    let lista = data;
+    if (filtroNcm) lista = lista.filter(i => i.ncm_completo === filtroNcm);
+    return [...new Set(lista.map(i => String(i.ncm)).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
+  }, [data, filtroNcm]);
+
   const filtrados = useMemo(() => {
     let list = data;
+    if (filtroNcm) list = list.filter(i => i.ncm_completo === filtroNcm);
+    if (filtroCodTrib) list = list.filter(i => String(i.ncm) === filtroCodTrib);
     if (cardFilter) list = list.filter(i => i.status === cardFilter);
     if (busca.trim()) {
       const q = busca.toLowerCase();
       list = list.filter(i =>
         i.des_produto?.toLowerCase().includes(q) ||
         i.cod_produto?.toLowerCase().includes(q) ||
-        i.ncm?.toLowerCase().includes(q)
+        i.ncm?.toLowerCase().includes(q) ||
+        i.ncm_completo?.toLowerCase().includes(q) ||
+        i.des_fornecedor?.toLowerCase().includes(q)
       );
     }
     if (sortCol) {
@@ -255,6 +269,26 @@ export default function PrevcaoTributaria() {
               </select>
             </div>
 
+            {/* NCM */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">NCM</label>
+              <select value={filtroNcm} onChange={e => { setFiltroNcm(e.target.value); setFiltroCodTrib(''); }}
+                className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-orange-400">
+                <option value="">Todos</option>
+                {ncmsDisponiveis.map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+
+            {/* Cod Trib */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Cod.Trib</label>
+              <select value={filtroCodTrib} onChange={e => setFiltroCodTrib(e.target.value)}
+                className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-orange-400">
+                <option value="">Todos</option>
+                {codTribsDisponiveis.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+
             {/* Busca */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Buscar produto</label>
@@ -283,8 +317,10 @@ export default function PrevcaoTributaria() {
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <Th col="des_produto"        label="Produto"     className="min-w-[220px]" />
-                    <Th col="ncm"                label="NCM"         center />
+                    <Th col="ncm_completo"       label="NCM"         center className="min-w-[100px]" />
+                    <Th col="ncm"                label="Cod.Trib"    center />
                     <Th col="des_sub_grupo"      label="Subgrupo"    />
+                    <Th col="des_fornecedor"     label="Fornecedor"  className="min-w-[180px]" />
                     <Th col="per_icms_entrada"   label="ICMS"        sub="Entrada"   center className="bg-blue-50 border-l border-blue-100" />
                     <Th col="per_icms_saida"     label="ICMS"        sub="Saída"     center className="bg-orange-50 border-l border-orange-100" />
                     <Th col="per_aliq_outorg"    label="Alíq."       sub="Outorgada" center className="bg-purple-50 border-l border-purple-100" />
@@ -301,7 +337,7 @@ export default function PrevcaoTributaria() {
                 <tbody className="divide-y divide-gray-100">
                   {filtrados.length === 0 && (
                     <tr>
-                      <td colSpan={11} className="text-center py-12 text-gray-400 text-sm">
+                      <td colSpan={14} className="text-center py-12 text-gray-400 text-sm">
                         {loading ? '' : 'Nenhum produto encontrado com os filtros selecionados'}
                       </td>
                     </tr>
@@ -321,11 +357,17 @@ export default function PrevcaoTributaria() {
                           </div>
                           <div className="text-gray-400 text-xs">{item.cod_produto}</div>
                         </td>
-                        {/* NCM */}
-                        <td className="px-3 py-2 text-gray-600 font-mono text-sm">{item.ncm || '—'}</td>
+                        {/* NCM Completo */}
+                        <td className="px-3 py-2 text-gray-600 font-mono text-sm">{item.ncm_completo || '—'}</td>
+                        {/* Cod Tributação */}
+                        <td className="px-3 py-2 text-gray-500 font-mono text-xs text-center">{item.ncm || '—'}</td>
                         {/* Subgrupo */}
                         <td className="px-3 py-2 text-gray-500 text-xs max-w-[140px] truncate" title={`${item.des_secao} › ${item.des_grupo} › ${item.des_sub_grupo}`}>
                           {item.des_sub_grupo || '—'}
+                        </td>
+                        {/* Fornecedor */}
+                        <td className="px-3 py-2 text-gray-600 text-xs max-w-[180px] truncate" title={item.des_fornecedor}>
+                          {item.des_fornecedor || '—'}
                         </td>
                         {/* ICMS Entrada */}
                         <td className="px-3 py-2 text-center bg-blue-50/40 border-l border-blue-100 font-mono text-sm">

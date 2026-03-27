@@ -13,6 +13,7 @@ export interface TributacaoItem {
   cod_segmento: number;
   des_segmento: string;
   ncm: string;
+  ncm_completo: string;
   cod_tributacao: number;
   cod_trib_entrada: number;
   per_icms_entrada: number;
@@ -31,6 +32,8 @@ export interface TributacaoItem {
   val_custo_rep: number;
   markdown_pct: number;
   mg_liquida_pct: number;
+  cod_fornecedor: number;
+  des_fornecedor: string;
   status: 'OK' | 'ATENCAO' | 'ALERTA';
   motivo: string;
 }
@@ -96,6 +99,11 @@ export class TributacaoService {
     const tabSubgrupo  = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO')}`;
     let   tabSegmento  = `${schema}.TAB_SEGMENTO`;
     try { tabSegmento  = `${schema}.${await MappingService.getRealTableName('TAB_SEGMENTO')}`; } catch {}
+    const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
+    const tabNcm = `${schema}.TAB_NCM`;
+    const colFornCodigo = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
+    const colFornFantasia = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'nome_fantasia');
+    const colFornUltCompra = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra');
 
     // ── TAB_PRODUTO ──────────────────────────────────────────────────────────
     const colCodProd        = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
@@ -193,17 +201,23 @@ export class TributacaoService {
               - (NVL(pl.${colValImpIcms},0) + NVL(pl.${colValImpPis},0) + NVL(pl.${colValImpCofins},0))
               + NVL(pl.${colValImpCred},0)
             ) / pl.${colValVenda} * 100, 2)
-          ELSE 0 END                                      AS MG_LIQUIDA_PCT
+          ELSE 0 END                                      AS MG_LIQUIDA_PCT,
+        NVL(pl.${colFornUltCompra}, 0)                    AS COD_FORNECEDOR,
+        NVL(forn.${colFornFantasia}, '')                  AS DES_FORNECEDOR,
+        ncm_tab.NUM_NCM                                   AS NCM_COMPLETO
       FROM ${tabProduto} p
       JOIN ${tabProdLoja} pl
         ON pl.${colCodProdLoja} = p.${colCodProd}
         AND pl.${colCodLojaLoja} = :codLoja
+      LEFT JOIN ${tabFornecedor} forn ON forn.${colFornCodigo} = pl.${colFornUltCompra}
+      LEFT JOIN ${tabNcm} ncm_tab ON ncm_tab.COD_NCM = pl.${colCodNcm}
       LEFT JOIN ${tabSecao}    sec ON sec.${colCodSecaoSec}  = p.${colCodSecao}
       LEFT JOIN ${tabGrupo}    grp ON grp.${colCodGrupoGrp}  = p.${colCodGrupo}   AND grp.${colCodSecaoGrp} = p.${colCodSecao}
       LEFT JOIN ${tabSubgrupo} sg  ON sg.${colCodSubGrupoSg} = p.${colCodSubGrupo} AND sg.${colCodGrupoSg}  = p.${colCodGrupo} AND sg.${colCodSecaoSg} = p.${colCodSecao}
       LEFT JOIN ${tabSegmento} seg ON seg.COD_SEGMENTO = p.${colCodSegmento}
       WHERE p.${colStatusProd} = 0
         AND TRIM(p.${colDesProd}) IS NOT NULL
+        AND NVL(pl.INATIVO, 'N') = 'N'
         ${whereExtra}
       ORDER BY sec.${colDesSecao}, grp.${colDesGrupo}, sg.${colDesSubGrupo}, p.${colDesProd}
     `;
@@ -230,6 +244,7 @@ export class TributacaoService {
         cod_segmento:       r.COD_SEGMENTO,
         des_segmento:       r.DES_SEGMENTO    || '',
         ncm:                r.NCM             || '',
+        ncm_completo:       r.NCM_COMPLETO    || '',
         cod_tributacao:     r.COD_TRIBUTACAO,
         cod_trib_entrada:   r.COD_TRIB_ENTRADA,
         per_icms_entrada:   perIcmsEntrada,
@@ -248,6 +263,8 @@ export class TributacaoService {
         val_custo_rep:      parseFloat(r.VAL_CUSTO_REP)  || 0,
         markdown_pct:       parseFloat(r.MARKDOWN_PCT)   || 0,
         mg_liquida_pct:     parseFloat(r.MG_LIQUIDA_PCT) || 0,
+        cod_fornecedor:     parseInt(r.COD_FORNECEDOR)   || 0,
+        des_fornecedor:     r.DES_FORNECEDOR             || '',
         status,
         motivo
       };
