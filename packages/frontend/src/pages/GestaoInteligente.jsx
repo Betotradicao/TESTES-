@@ -2297,7 +2297,21 @@ export default function GestaoInteligente() {
         <div className="space-y-1 pt-2 border-t border-gray-100">
           <Comparativo label="Mes Passado" valor={indicador?.mesPassado} valorAtual={indicador?.atual} tipo={config.tipo} invertido={config.invertido} />
           <Comparativo label="Ano Passado" valor={indicador?.anoPassado} valorAtual={indicador?.atual} tipo={config.tipo} invertido={config.invertido} />
-          <Comparativo label="Media Linear" valor={indicador?.mediaLinear} valorAtual={indicador?.atual} tipo={config.tipo} invertido={config.invertido} />
+          <Comparativo label="Média Projetada" valor={indicador?.mediaLinear} valorAtual={indicador?.atual} tipo={config.tipo} invertido={config.invertido} />
+          {indicador?.atual != null && ['vendas', 'custoVendas', 'lucro'].includes(config.indicador) && (() => {
+            const dtIni = new Date(filters.dataInicio + 'T00:00:00');
+            const dtFim = new Date(filters.dataFim + 'T00:00:00');
+            const diasPassados = Math.max(1, Math.round((dtFim - dtIni) / 86400000) + 1);
+            const diasDoMes = new Date(dtFim.getFullYear(), dtFim.getMonth() + 1, 0).getDate();
+            const mediaLinearCalc = (indicador.atual / diasPassados) * diasDoMes;
+            const formatVal = config.tipo === 'currency' ? formatCurrency(mediaLinearCalc) : config.tipo === 'number' ? Math.round(mediaLinearCalc).toLocaleString('pt-BR') : formatPercent(mediaLinearCalc);
+            return (
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-400">Média Linear:</span>
+                <span className="font-semibold text-gray-700">{formatVal}</span>
+              </div>
+            );
+          })()}
           {config.getFooterExtra && (() => {
             const info = config.getFooterExtra();
             if (!info) return null;
@@ -3598,7 +3612,7 @@ export default function GestaoInteligente() {
                             {[...Array(13)].map((_, gi) => (
                               <Fragment key={`sh-${gi}`}>
                                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-green-700 uppercase border-b border-gray-200 min-w-[100px] bg-green-50">Atual</th>
-                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-purple-700 uppercase border-b border-gray-200 min-w-[100px] bg-gray-100">Méd.Lin</th>
+                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-purple-700 uppercase border-b border-gray-200 min-w-[100px] bg-gray-100">Méd.Proj</th>
                                 {(gi <= 3 || gi >= 9) && <th className="px-2 py-2 text-center text-[10px] font-semibold text-purple-700 uppercase border-b border-gray-200 min-w-[55px] bg-orange-100">%</th>}
                                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-blue-700 uppercase border-b border-gray-200 min-w-[100px] bg-gray-100">Ano Ant</th>
                                 {(gi <= 3 || gi >= 9) && <th className="px-2 py-2 text-center text-[10px] font-semibold text-blue-700 uppercase border-b border-gray-200 min-w-[55px] bg-orange-100">%</th>}

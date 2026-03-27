@@ -71,7 +71,7 @@ export default function PrevcaoTributaria() {
     setLoading(true);
     setError('');
     try {
-      const params = new URLSearchParams({ statusFilter });
+      const params = new URLSearchParams({ statusFilter: 'TODOS' });
       if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
       if (codSecao)    params.append('codSecao',    codSecao);
       if (codGrupo)    params.append('codGrupo',    codGrupo);
@@ -87,7 +87,7 @@ export default function PrevcaoTributaria() {
     }
   };
 
-  useEffect(() => { buscarDados(); }, [lojaSelecionada, codSecao, codGrupo, codSubGrupo, codSegmento, statusFilter]);
+  useEffect(() => { buscarDados(); }, [lojaSelecionada, codSecao, codGrupo, codSubGrupo, codSegmento]);
 
   const handleSort = (col) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -103,10 +103,20 @@ export default function PrevcaoTributaria() {
     return [...new Set(lista.map(i => String(i.ncm)).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
   }, [data, filtroNcm]);
 
+  // Limpar CodTrib se não existe nos disponíveis
+  useEffect(() => {
+    if (filtroCodTrib && codTribsDisponiveis.length > 0 && !codTribsDisponiveis.includes(filtroCodTrib)) {
+      setFiltroCodTrib('');
+    }
+  }, [codTribsDisponiveis]);
+
   const filtrados = useMemo(() => {
     let list = data;
-    if (filtroNcm) list = list.filter(i => i.ncm_completo === filtroNcm);
-    if (filtroCodTrib) list = list.filter(i => String(i.ncm) === filtroCodTrib);
+    // Filtro de status (agora local)
+    if (statusFilter === 'DIVERGENTES') list = list.filter(i => i.status !== 'OK');
+    else if (statusFilter !== 'TODOS') list = list.filter(i => i.status === statusFilter);
+    if (filtroNcm) list = list.filter(i => String(i.ncm_completo || '').trim() === filtroNcm);
+    if (filtroCodTrib) list = list.filter(i => String(i.ncm || '').trim() === filtroCodTrib);
     if (cardFilter) list = list.filter(i => i.status === cardFilter);
     if (busca.trim()) {
       const q = busca.toLowerCase();
