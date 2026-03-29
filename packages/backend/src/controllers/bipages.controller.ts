@@ -269,10 +269,28 @@ export class BipagesController {
       const erpProduct = await BipWebhookService.getProductFromERP(formatResult.produto_id!, equipmentCodLoja);
 
       if (!erpProduct) {
-        console.log(`❌ Produto não encontrado no ERP: PLU ${formatResult.produto_id}`);
+        console.log(`⚠️ Produto não encontrado no ERP: PLU ${formatResult.produto_id} — salvando bipagem mesmo assim`);
+        // Salvar bipagem mesmo sem produto (ERP offline ou produto não cadastrado)
+        const bipRepo = AppDataSource.getRepository(Bip);
+        const bipSemProduto = bipRepo.create({
+          ean: formatResult.ean,
+          event_date: new Date(payload.event_date || Date.now()),
+          bip_price_cents: formatResult.sell_price ? Math.round(parseFloat(formatResult.sell_price) * 100) : 0,
+          product_id: formatResult.produto_id || '',
+          product_description: `[NÃO ENCONTRADO] PLU ${formatResult.produto_id}`,
+          product_full_price_cents_kg: 0,
+          product_discount_price_cents_kg: 0,
+          bip_weight: formatResult.peso ? parseFloat(formatResult.peso) : 0,
+          status: 'pending' as any,
+          equipment_id: equipmentId || undefined,
+          employee_id: activeSession?.employee_id || undefined,
+          cod_loja: equipmentCodLoja || undefined
+        });
+        const savedBip = await bipRepo.save(bipSemProduto);
+        console.log(`✅ Bipagem salva SEM produto: ID ${savedBip.id}`);
         await saveWebhookLog({
-          status: WebhookLogStatus.REJECTED,
-          reason: WebhookLogReason.PRODUCT_NOT_FOUND,
+          status: WebhookLogStatus.OK,
+          reason: 'product_not_found_saved' as any,
           raw_payload: JSON.stringify(payload),
           ean: formatResult.ean,
           plu: formatResult.produto_id,
@@ -280,13 +298,10 @@ export class BipagesController {
           machine_id: payload.machine_id,
           equipment_id: equipmentId || undefined,
           cod_loja: equipmentCodLoja || undefined,
-          error_message: `Produto PLU ${formatResult.produto_id} não encontrado no Oracle`
+          bip_id: savedBip.id,
+          error_message: `Produto PLU ${formatResult.produto_id} não encontrado no Oracle — bipagem salva`
         });
-        res.status(200).json({
-          success: false,
-          error: 'Produto não encontrado no ERP',
-          plu: formatResult.produto_id
-        });
+        res.status(200).json({ success: true, bipId: savedBip.id, warning: 'Produto não encontrado no ERP' });
         return;
       }
 
