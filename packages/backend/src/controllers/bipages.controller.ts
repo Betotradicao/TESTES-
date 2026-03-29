@@ -283,7 +283,7 @@ export class BipagesController {
           bip_weight: formatResult.peso ? parseFloat(formatResult.peso) : 0,
           status: 'pending' as any,
           equipment_id: equipmentId || undefined,
-          employee_id: activeSession?.employee_id || undefined,
+          employee_id: equipmentId ? (await EquipmentSessionsService.getActiveSession(equipmentId))?.employee_id : undefined,
           cod_loja: equipmentCodLoja || undefined
         });
         const savedBip = await bipRepo.save(bipSemProduto);
