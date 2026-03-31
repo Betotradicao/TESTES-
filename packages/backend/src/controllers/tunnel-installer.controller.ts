@@ -643,44 +643,53 @@ function Test-TunnelConnection {
     return ($proc -ne $null -and -not $proc.HasExited)
 }
 
+function Test-SSHPort {
+    param($Port)
+    # Testa com SSH real (nao apenas TCP) - executa "echo ok" e verifica resposta
+    try {
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = "ssh"
+        $psi.Arguments = "-i $SSH_KEY -p $Port -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10 root@\${VPS_IP} echo ok"
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $proc = [System.Diagnostics.Process]::Start($psi)
+        $output = $proc.StandardOutput.ReadToEnd()
+        $proc.WaitForExit(15000)
+        if ($proc.ExitCode -eq 0 -and $output.Trim() -eq "ok") {
+            return $true
+        }
+        return $false
+    } catch {
+        return $false
+    }
+}
+
 function Find-SSHPort {
     # Se ja tem porta salva e funciona, usar ela
     if (Test-Path $PORT_FILE) {
         $savedPort = Get-Content $PORT_FILE -ErrorAction SilentlyContinue
         if ($savedPort) {
-            try {
-                $tcp = New-Object System.Net.Sockets.TcpClient
-                $result = $tcp.BeginConnect($VPS_IP, [int]$savedPort, $null, $null)
-                $wait = $result.AsyncWaitHandle.WaitOne(5000, $false)
-                if ($wait -and $tcp.Connected) {
-                    $tcp.Close()
-                    Write-Log "Porta SSH salva OK: $savedPort"
-                    return [int]$savedPort
-                }
-                $tcp.Close()
-            } catch {}
+            $savedPort = [int]($savedPort.Trim())
+            if (Test-SSHPort $savedPort) {
+                Write-Log "Porta SSH salva OK: $savedPort"
+                return $savedPort
+            }
+            Write-Log "Porta SSH salva $savedPort FALHOU no teste SSH real"
         }
     }
 
-    # Testar cada porta
+    # Testar cada porta com SSH real
     foreach ($port in $SSH_PORTS) {
-        Write-Log "Testando conexao SSH na porta $port..."
-        try {
-            $tcp = New-Object System.Net.Sockets.TcpClient
-            $result = $tcp.BeginConnect($VPS_IP, $port, $null, $null)
-            $wait = $result.AsyncWaitHandle.WaitOne(5000, $false)
-            if ($wait -and $tcp.Connected) {
-                $tcp.Close()
-                Write-Log "Porta SSH $($port): CONECTOU!"
-                # Salvar porta que funcionou
-                $port | Out-File -FilePath $PORT_FILE -Encoding UTF8
-                return $port
-            }
-            $tcp.Close()
-            Write-Log "Porta SSH $($port): sem resposta"
-        } catch {
-            Write-Log "Porta SSH $($port): erro - $_"
+        Write-Log "Testando conexao SSH REAL na porta $port..."
+        if (Test-SSHPort $port) {
+            Write-Log "Porta SSH $($port): SSH OK!"
+            # Salvar porta que funcionou
+            $port | Out-File -FilePath $PORT_FILE -Encoding UTF8 -NoNewline
+            return $port
         }
+        Write-Log "Porta SSH $($port): falhou"
     }
 
     Write-Log "ERRO: Nenhuma porta SSH disponivel (testou: $($SSH_PORTS -join ', '))"
@@ -875,24 +884,28 @@ echo Set WshShell = CreateObject("WScript.Shell") > "C:\\ProgramData\\SSHTunnels
 echo WshShell.Run "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File ""C:\\ProgramData\\SSHTunnels\\tunnel-service.ps1""", 0, False >> "C:\\ProgramData\\SSHTunnels\\start-tunnel-service.vbs"
 echo     start-tunnel-service.vbs criado!
 
-echo [7/9] Testando conectividade SSH com a VPS...
-echo     Testando porta 22...
-powershell -Command "try { $tcp = New-Object System.Net.Sockets.TcpClient; $r = $tcp.BeginConnect('${vpsIp}', 22, $null, $null); $w = $r.AsyncWaitHandle.WaitOne(5000, $false); if ($w -and $tcp.Connected) { $tcp.Close(); '22' | Out-File '%TEMP%\\ssh-port-test.txt' -NoNewline } else { $tcp.Close() } } catch {}"
-if exist "%TEMP%\\ssh-port-test.txt" (
-    echo     Porta 22: OK!
+echo [7/9] Testando conectividade SSH REAL com a VPS...
+echo     Testando SSH na porta 22...
+ssh -i "C:\\ProgramData\\SSHTunnels\\tunnel_key" -p 22 -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10 root@${vpsIp} echo ok > "%TEMP%\\ssh-port-test.txt" 2>nul
+findstr /c:"ok" "%TEMP%\\ssh-port-test.txt" >nul 2>&1
+if %errorLevel% equ 0 (
+    echo     Porta 22: SSH OK!
     set SSH_PORT=22
     del "%TEMP%\\ssh-port-test.txt" 2>nul
     goto :port_found
 )
+del "%TEMP%\\ssh-port-test.txt" 2>nul
 
-echo     Porta 22 bloqueada. Testando porta 443...
-powershell -Command "try { $tcp = New-Object System.Net.Sockets.TcpClient; $r = $tcp.BeginConnect('${vpsIp}', 443, $null, $null); $w = $r.AsyncWaitHandle.WaitOne(5000, $false); if ($w -and $tcp.Connected) { $tcp.Close(); '443' | Out-File '%TEMP%\\ssh-port-test.txt' -NoNewline } else { $tcp.Close() } } catch {}"
-if exist "%TEMP%\\ssh-port-test.txt" (
-    echo     Porta 443: OK!
+echo     Porta 22 falhou. Testando SSH na porta 443...
+ssh -i "C:\\ProgramData\\SSHTunnels\\tunnel_key" -p 443 -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10 root@${vpsIp} echo ok > "%TEMP%\\ssh-port-test.txt" 2>nul
+findstr /c:"ok" "%TEMP%\\ssh-port-test.txt" >nul 2>&1
+if %errorLevel% equ 0 (
+    echo     Porta 443: SSH OK!
     set SSH_PORT=443
     del "%TEMP%\\ssh-port-test.txt" 2>nul
     goto :port_found
 )
+del "%TEMP%\\ssh-port-test.txt" 2>nul
 
 echo.
 echo     AVISO: Nenhuma porta SSH acessivel (22 e 443 bloqueadas)

@@ -252,6 +252,9 @@ export class DisparoWhatsAppService {
 
   static async handleWebhook(data: any): Promise<void> {
     try {
+      // Log para debug
+      console.log(`📩 [WEBHOOK DISPARO] event=${data.event}, keys=${JSON.stringify(Object.keys(data))}`);
+
       // Evolution API webhook payload
       const event = data.event;
       const msgData = data.data;

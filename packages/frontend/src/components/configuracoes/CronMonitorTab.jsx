@@ -472,7 +472,7 @@ export default function CronMonitorTab() {
                       {log.product_description || log.employee_name || '-'}
                     </td>
                     <td className="px-3 py-2 text-sm text-gray-600">
-                      {log.scanner_id ? `${log.scanner_id.slice(0, 8)}...` : '-'}
+                      {log.scanner_id || '-'}
                     </td>
                     <td className="px-3 py-2 text-sm text-red-600 max-w-xs truncate" title={log.error_message}>
                       {log.error_message || '-'}

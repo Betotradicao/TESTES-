@@ -148,6 +148,9 @@ export default function DemonstrativoCaixa() {
   // Tabs removidas - sempre Geral
   const [regime, setRegime] = useState('caixa');
   const [incluirMovBanco, setIncluirMovBanco] = useState('sim');
+  const [considerarEntradaBancos, setConsiderarEntradaBancos] = useState(false);
+  const [entradaBancosTotal, setEntradaBancosTotal] = useState(0);
+  const [loadingBancos, setLoadingBancos] = useState(false);
 
   // Datas livres
   const now = new Date();
@@ -214,6 +217,51 @@ export default function DemonstrativoCaixa() {
   };
 
   useEffect(() => { fetchData(); }, [dataInicio, dataFim, regime, lojaSelecionada, incluirMovBanco]);
+
+  // Buscar entradas dos bancos quando flag ativada
+  const fetchEntradaBancos = async () => {
+    setLoadingBancos(true);
+    try {
+      const ini = dataInicio.replace(/-/g, '');
+      const fim = dataFim.replace(/-/g, '');
+      // Buscar lista de bancos cadastrados
+      const banksRes = await api.get('/bank-accounts');
+      const banks = banksRes.data || [];
+      let totalCredito = 0;
+      // Buscar extrato de cada banco
+      const promises = banks.map(async (bank) => {
+        try {
+          const res = await api.get('/santander/extrato-completo', { params: { initialDate: ini, finalDate: fim, bankId: bank.id } });
+          const items = res.data?.items || res.data?.data || [];
+          return items
+            .filter(i => i.creditDebitType === 'CREDITO')
+            .reduce((acc, i) => acc + (parseFloat(i.amount) || 0), 0);
+        } catch { return 0; }
+      });
+      if (banks.length > 0) {
+        const results = await Promise.all(promises);
+        totalCredito = results.reduce((acc, v) => acc + v, 0);
+      } else {
+        // Fallback: buscar sem bankId (conta padrão)
+        const res = await api.get('/santander/extrato-completo', { params: { initialDate: ini, finalDate: fim } });
+        const items = res.data?.items || res.data?.data || [];
+        totalCredito = items
+          .filter(i => i.creditDebitType === 'CREDITO')
+          .reduce((acc, i) => acc + (parseFloat(i.amount) || 0), 0);
+      }
+      setEntradaBancosTotal(Math.round(totalCredito * 100) / 100);
+    } catch (err) {
+      console.error('Erro ao buscar entradas bancos:', err);
+      setEntradaBancosTotal(0);
+    } finally {
+      setLoadingBancos(false);
+    }
+  };
+
+  useEffect(() => {
+    if (considerarEntradaBancos) fetchEntradaBancos();
+    else setEntradaBancosTotal(0);
+  }, [considerarEntradaBancos, dataInicio, dataFim]);
 
   // Buscar títulos do painel lateral
   const fetchTitulos = async () => {
@@ -544,6 +592,14 @@ export default function DemonstrativoCaixa() {
                   <button onClick={() => setIncluirMovBanco('nao')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${incluirMovBanco === 'nao' ? 'bg-white shadow text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>Sem</button>
                 </div>
               </div>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" checked={considerarEntradaBancos} onChange={e => setConsiderarEntradaBancos(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                  <span className="text-sm font-medium text-blue-700">Considerar Entrada Bancos</span>
+                  {loadingBancos && <span className="text-xs text-gray-400">carregando...</span>}
+                </label>
+              </div>
             </div>
           </div>
 
@@ -643,13 +699,35 @@ export default function DemonstrativoCaixa() {
                     return (
                       <>
                         {/* Receitas */}
-                        {receitas.map(renderCat)}
+                        {!considerarEntradaBancos && receitas.map(renderCat)}
+
+                        {/* Receita Bancos (quando flag ativa) */}
+                        {considerarEntradaBancos && (
+                          <tr className="bg-blue-100 text-blue-900 font-semibold border-b border-blue-200">
+                            <td className="py-2 px-3 sticky left-0 bg-blue-100 z-10 flex items-center gap-2">
+                              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                              RECEITA BANCOS
+                            </td>
+                            {columns.map(col => (
+                              <td key={col.id} className={`text-right py-1.5 px-2 ${realColClass(col.id)}`}>
+                                {col.id === 'VAL_QUITADO' || col.id === 'VAL_REALIZADO' ? formatCurrency(entradaBancosTotal) :
+                                 col.id === 'PCT_QUIT' || col.id === 'PCT_REAL' ? '100,00%' : '-'}
+                              </td>
+                            ))}
+                            <td className="bg-blue-100"></td>
+                          </tr>
+                        )}
 
                         {/* Subtotal Receitas (entre receitas e despesas) */}
-                        {data && receitas.length > 0 && (
+                        {data && (receitas.length > 0 || considerarEntradaBancos) && (
                           <tr className="bg-green-200 text-green-950 font-bold border-t-2 border-green-300">
                             <td className="py-2 px-3 sticky left-0 bg-green-200 z-10">TOTAL RECEITAS</td>
                             {columns.map(col => {
+                              if (considerarEntradaBancos) {
+                                if (col.id === 'VAL_QUITADO' || col.id === 'VAL_REALIZADO') return <td key={col.id} className={`text-right py-1.5 px-2 font-bold ${realColClass(col.id)}`}>{formatCurrency(entradaBancosTotal)}</td>;
+                                if (col.id === 'PCT_QUIT' || col.id === 'PCT_REAL') return <td key={col.id} className={`text-right py-1.5 px-2 ${realColClass(col.id)}`}>100,00%</td>;
+                                return <td key={col.id} className={`text-right py-1.5 px-2 ${realColClass(col.id)}`}>-</td>;
+                              }
                               const difRec = (totais.totalMetaReceitas || 0) - (totais.totalReceitas || 0);
                               const difClass = col.id === 'VAL_DIFERENCA' ? (difRec < 0 ? 'text-red-600' : difRec > 0 ? 'text-green-800' : '') : '';
                               return <td key={col.id} className={`text-right py-1.5 px-2 ${difClass} ${realColClass(col.id)}`}>{getTotalCellValue(col.id, totais, 'receitas')}</td>;
