@@ -14,6 +14,10 @@ export interface TributacaoItem {
   des_segmento: string;
   ncm: string;
   ncm_completo: string;
+  beneficio_fiscal: string;
+  des_beneficio: string;
+  des_tributacao: string;
+  cst_icms: string;
   cod_tributacao: number;
   cod_trib_entrada: number;
   per_icms_entrada: number;
@@ -45,6 +49,7 @@ export interface TributacaoFilters {
   codSubGrupo?: number;
   codSegmento?: number;
   statusFilter?: 'TODOS' | 'OK' | 'ATENCAO' | 'ALERTA' | 'DIVERGENTES';
+  uf?: string;
 }
 
 function classifyTax(
@@ -101,6 +106,9 @@ export class TributacaoService {
     try { tabSegmento  = `${schema}.${await MappingService.getRealTableName('TAB_SEGMENTO')}`; } catch {}
     const tabFornecedor = `${schema}.${await MappingService.getRealTableName('TAB_FORNECEDOR')}`;
     const tabNcm = `${schema}.TAB_NCM`;
+    const tabNcmUf = `${schema}.TAB_NCM_UF`;
+    const tabBenefFiscal = `${schema}.TAB_BENEFICIO_FISCAL`;
+    const tabTributacao = `${schema}.TAB_TRIBUTACAO`;
     const colFornCodigo = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
     const colFornFantasia = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'nome_fantasia');
     const colFornUltCompra = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra');
@@ -150,7 +158,7 @@ export class TributacaoService {
     const colValVenda       = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda');
     const colValCusto       = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo');
 
-    const params: any = { codLoja: filters.codLoja || 1 };
+    const params: any = { codLoja: filters.codLoja || 1, uf: filters.uf || 'SP' };
 
     let whereExtra = '';
     if (filters.codSecao)    { whereExtra += ` AND p.${colCodSecao} = :codSecao`;       params.codSecao    = filters.codSecao;    }
@@ -204,13 +212,20 @@ export class TributacaoService {
           ELSE 0 END                                      AS MG_LIQUIDA_PCT,
         NVL(pl.${colFornUltCompra}, 0)                    AS COD_FORNECEDOR,
         NVL(forn.${colFornFantasia}, '')                  AS DES_FORNECEDOR,
-        ncm_tab.NUM_NCM                                   AS NCM_COMPLETO
+        ncm_tab.NUM_NCM                                   AS NCM_COMPLETO,
+        bf.NUM_BENEFICIO_FISCAL                            AS BENEFICIO_FISCAL,
+        bf.DES_BENEFICIO                                   AS DES_BENEFICIO,
+        trib.DES_TRIBUTACAO                                AS DES_TRIBUTACAO,
+        trib.COD_SIT_TRIBUTARIA                            AS CST_ICMS
       FROM ${tabProduto} p
       JOIN ${tabProdLoja} pl
         ON pl.${colCodProdLoja} = p.${colCodProd}
         AND pl.${colCodLojaLoja} = :codLoja
       LEFT JOIN ${tabFornecedor} forn ON forn.${colFornCodigo} = pl.${colFornUltCompra}
       LEFT JOIN ${tabNcm} ncm_tab ON ncm_tab.COD_NCM = pl.${colCodNcm}
+      LEFT JOIN ${tabNcmUf} ncm_uf ON ncm_uf.COD_NCM = pl.${colCodNcm} AND ncm_uf.DES_SIGLA = :uf
+      LEFT JOIN ${tabBenefFiscal} bf ON bf.COD_BENEFICIO_FISCAL = ncm_uf.COD_BENEFICIO_FISCAL
+      LEFT JOIN ${tabTributacao} trib ON trib.COD_TRIBUTACAO = pl.${colCodTribSai}
       LEFT JOIN ${tabSecao}    sec ON sec.${colCodSecaoSec}  = p.${colCodSecao}
       LEFT JOIN ${tabGrupo}    grp ON grp.${colCodGrupoGrp}  = p.${colCodGrupo}   AND grp.${colCodSecaoGrp} = p.${colCodSecao}
       LEFT JOIN ${tabSubgrupo} sg  ON sg.${colCodSubGrupoSg} = p.${colCodSubGrupo} AND sg.${colCodGrupoSg}  = p.${colCodGrupo} AND sg.${colCodSecaoSg} = p.${colCodSecao}
@@ -245,6 +260,10 @@ export class TributacaoService {
         des_segmento:       r.DES_SEGMENTO    || '',
         ncm:                r.NCM             || '',
         ncm_completo:       r.NCM_COMPLETO    || '',
+        beneficio_fiscal:   r.BENEFICIO_FISCAL || '',
+        des_beneficio:      r.DES_BENEFICIO   || '',
+        des_tributacao:     r.DES_TRIBUTACAO   || '',
+        cst_icms:           r.CST_ICMS        || '',
         cod_tributacao:     r.COD_TRIBUTACAO,
         cod_trib_entrada:   r.COD_TRIB_ENTRADA,
         per_icms_entrada:   perIcmsEntrada,

@@ -34,6 +34,9 @@ export default function PrevcaoTributaria() {
   const [sortDir, setSortDir] = useState('asc');
   const [filtroNcm, setFiltroNcm] = useState('');
   const [filtroCodTrib, setFiltroCodTrib] = useState('');
+  const [filtroBeneficio, setFiltroBeneficio] = useState('');
+  const [filtroTribSaida, setFiltroTribSaida] = useState('');
+  const [filtroUf, setFiltroUf] = useState('SP');
 
   // ─── Carregar seções ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -71,7 +74,7 @@ export default function PrevcaoTributaria() {
     setLoading(true);
     setError('');
     try {
-      const params = new URLSearchParams({ statusFilter: 'TODOS' });
+      const params = new URLSearchParams({ statusFilter: 'TODOS', uf: filtroUf });
       if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
       if (codSecao)    params.append('codSecao',    codSecao);
       if (codGrupo)    params.append('codGrupo',    codGrupo);
@@ -97,6 +100,8 @@ export default function PrevcaoTributaria() {
   // ─── Filtro por busca + card + ordenação ─────────────────────────────────────
   // NCMs e CodTribs disponíveis
   const ncmsDisponiveis = useMemo(() => [...new Set(data.map(i => i.ncm_completo).filter(Boolean))].sort(), [data]);
+  const beneficiosDisponiveis = useMemo(() => [...new Set(data.map(i => i.beneficio_fiscal).filter(Boolean))].sort(), [data]);
+  const tribSaidaDisponiveis = useMemo(() => [...new Set(data.map(i => i.des_tributacao ? `${i.des_tributacao}${i.cst_icms ? ' - ' + i.cst_icms : ''}` : '').filter(Boolean))].sort(), [data]);
   const codTribsDisponiveis = useMemo(() => {
     let lista = data;
     if (filtroNcm) lista = lista.filter(i => i.ncm_completo === filtroNcm);
@@ -116,6 +121,8 @@ export default function PrevcaoTributaria() {
     if (statusFilter === 'DIVERGENTES') list = list.filter(i => i.status !== 'OK');
     else if (statusFilter !== 'TODOS') list = list.filter(i => i.status === statusFilter);
     if (filtroNcm) list = list.filter(i => String(i.ncm_completo || '').trim() === filtroNcm);
+    if (filtroBeneficio) list = list.filter(i => String(i.beneficio_fiscal || '').trim() === filtroBeneficio);
+    if (filtroTribSaida) list = list.filter(i => `${i.des_tributacao}${i.cst_icms ? ' - ' + i.cst_icms : ''}` === filtroTribSaida);
     if (filtroCodTrib) list = list.filter(i => String(i.ncm || '').trim() === filtroCodTrib);
     if (cardFilter) list = list.filter(i => i.status === cardFilter);
     if (busca.trim()) {
@@ -279,6 +286,44 @@ export default function PrevcaoTributaria() {
               </select>
             </div>
 
+            {/* UF */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">UF</label>
+              <select value={filtroUf} onChange={e => setFiltroUf(e.target.value)}
+                className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-orange-400">
+                <option value="SP">SP</option>
+                <option value="MG">MG</option>
+                <option value="RJ">RJ</option>
+                <option value="PR">PR</option>
+                <option value="SC">SC</option>
+                <option value="RS">RS</option>
+                <option value="BA">BA</option>
+                <option value="GO">GO</option>
+                <option value="MT">MT</option>
+                <option value="MS">MS</option>
+              </select>
+            </div>
+
+            {/* Benef. Fiscal */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Benef. Fiscal</label>
+              <select value={filtroBeneficio} onChange={e => setFiltroBeneficio(e.target.value)}
+                className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-orange-400">
+                <option value="">Todos</option>
+                {beneficiosDisponiveis.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+
+            {/* Trib. Saída */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Trib. Saída</label>
+              <select value={filtroTribSaida} onChange={e => setFiltroTribSaida(e.target.value)}
+                className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-orange-400">
+                <option value="">Todos</option>
+                {tribSaidaDisponiveis.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+
             {/* NCM */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">NCM</label>
@@ -311,6 +356,32 @@ export default function PrevcaoTributaria() {
               />
             </div>
           </div>
+          {/* Botões */}
+          <div className="flex gap-2 mt-3">
+            <button onClick={buscarDados}
+              className="px-4 py-2 bg-orange-500 text-white rounded-lg text-xs font-semibold hover:bg-orange-600 transition">
+              Atualizar
+            </button>
+            <button onClick={() => {
+              const headers = ['Produto', 'Codigo', 'NCM', 'Benef.Fiscal', 'Desc.Beneficio', 'Cod.Trib', 'Subgrupo', 'Fornecedor', 'ICMS Entrada', 'ICMS Saida', 'Aliq.Outorgada', 'Red.BC %', 'PIS Ent', 'PIS Sai', 'COFINS Ent', 'COFINS Sai', 'CST PIS/COF Ent', 'CST PIS/COF Sai', 'Markdown %', 'Mg.Liquida %', 'Status', 'Motivo'];
+              const rows = filtrados.map(i => [
+                i.des_produto, i.cod_produto, i.ncm_completo, i.beneficio_fiscal, i.des_beneficio, i.ncm, i.des_sub_grupo, i.des_fornecedor,
+                i.per_icms_entrada, i.per_icms_saida, i.per_aliq_outorg, i.per_reducao_bc,
+                i.per_pis_entrada, i.per_pis_saida, i.per_cofins_entrada, i.per_cofins_saida,
+                i.cst_pis_cof_entrada, i.cst_pis_cof_saida, i.markdown_pct, i.mg_liquida_pct, i.status, i.motivo
+              ]);
+              const csv = [headers.join(';'), ...rows.map(r => r.map(v => `"${v ?? ''}"`).join(';'))].join('\n');
+              const BOM = '\uFEFF';
+              const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a'); a.href = url; a.download = `prevencao_tributaria_${new Date().toISOString().split('T')[0]}.csv`; a.click();
+              URL.revokeObjectURL(url);
+            }}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition flex items-center gap-1">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              Exportar Excel
+            </button>
+          </div>
         </div>
 
         {/* ── Tabela ── */}
@@ -328,6 +399,8 @@ export default function PrevcaoTributaria() {
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <Th col="des_produto"        label="Produto"     className="min-w-[220px]" />
                     <Th col="ncm_completo"       label="NCM"         center className="min-w-[100px]" />
+                    <Th col="beneficio_fiscal"   label="Benef.Fiscal" center className="min-w-[110px]" />
+                    <Th col="des_tributacao"     label="Trib. Saída" center className="min-w-[120px]" />
                     <Th col="ncm"                label="Cod.Trib"    center />
                     <Th col="des_sub_grupo"      label="Subgrupo"    />
                     <Th col="des_fornecedor"     label="Fornecedor"  className="min-w-[180px]" />
@@ -347,7 +420,7 @@ export default function PrevcaoTributaria() {
                 <tbody className="divide-y divide-gray-100">
                   {filtrados.length === 0 && (
                     <tr>
-                      <td colSpan={14} className="text-center py-12 text-gray-400 text-sm">
+                      <td colSpan={16} className="text-center py-12 text-gray-400 text-sm">
                         {loading ? '' : 'Nenhum produto encontrado com os filtros selecionados'}
                       </td>
                     </tr>
@@ -369,6 +442,20 @@ export default function PrevcaoTributaria() {
                         </td>
                         {/* NCM Completo */}
                         <td className="px-3 py-2 text-gray-600 font-mono text-sm">{item.ncm_completo || '—'}</td>
+                        {/* Benefício Fiscal */}
+                        <td className="px-3 py-2 text-center text-xs">
+                          {item.beneficio_fiscal ? (
+                            <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-semibold" title={item.des_beneficio}>
+                              {item.beneficio_fiscal}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        {/* Trib. Saída */}
+                        <td className="px-3 py-2 text-center text-xs">
+                          {item.des_tributacao ? (
+                            <span title={`CST: ${item.cst_icms}`}>{item.des_tributacao}{item.cst_icms ? ` - ${item.cst_icms}` : ''}</span>
+                          ) : '—'}
+                        </td>
                         {/* Cod Tributação */}
                         <td className="px-3 py-2 text-gray-500 font-mono text-xs text-center">{item.ncm || '—'}</td>
                         {/* Subgrupo */}

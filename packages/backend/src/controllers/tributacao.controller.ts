@@ -10,7 +10,8 @@ export class TributacaoController {
         codGrupo,
         codSubGrupo,
         codSegmento,
-        statusFilter
+        statusFilter,
+        uf
       } = req.query as Record<string, string>;
 
       const data = await TributacaoService.getProdutosTributacao({
@@ -19,7 +20,8 @@ export class TributacaoController {
         codGrupo:     codGrupo     ? parseInt(codGrupo)     : undefined,
         codSubGrupo:  codSubGrupo  ? parseInt(codSubGrupo)  : undefined,
         codSegmento:  codSegmento  ? parseInt(codSegmento)  : undefined,
-        statusFilter: (statusFilter as any) || 'DIVERGENTES'
+        statusFilter: (statusFilter as any) || 'DIVERGENTES',
+        uf: uf || 'SP'
       });
 
       return res.json({ data, total: data.length });
