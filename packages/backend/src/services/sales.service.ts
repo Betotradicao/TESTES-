@@ -221,13 +221,12 @@ export class SalesService {
         let dataHoraVenda = '';
         if (row.TIM_HORA) {
           const hora = new Date(row.TIM_HORA);
-          // Usar UTC pra preservar horário original do Oracle (já em Brasília)
-          const hh = String(hora.getUTCHours()).padStart(2, '0');
-          const mi = String(hora.getUTCMinutes()).padStart(2, '0');
-          const ss = String(hora.getUTCSeconds()).padStart(2, '0');
-          const yy = hora.getUTCFullYear();
-          const mm = String(hora.getUTCMonth() + 1).padStart(2, '0');
-          const dd = String(hora.getUTCDate()).padStart(2, '0');
+          const hh = String(hora.getHours()).padStart(2, '0');
+          const mi = String(hora.getMinutes()).padStart(2, '0');
+          const ss = String(hora.getSeconds()).padStart(2, '0');
+          const yy = hora.getFullYear();
+          const mm = String(hora.getMonth() + 1).padStart(2, '0');
+          const dd = String(hora.getDate()).padStart(2, '0');
           dataHoraVenda = `${yy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
         }
 

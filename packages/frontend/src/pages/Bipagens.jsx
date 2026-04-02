@@ -479,8 +479,11 @@ export default function Bipagens() {
   const formatDateTime = (dateString) => {
     if (!dateString) return '-';
 
-    // O banco salva em UTC, o navegador converte pra horário local automaticamente
-    const date = new Date(dateString);
+    // O banco PostgreSQL (timezone Sao_Paulo) salva em horário local
+    // TypeORM adiciona 'Z' (UTC) na serialização mas o valor real já é Brasília
+    // Remover Z pra o navegador tratar como horário local
+    const dateStr = String(dateString).replace('Z', '').replace(/[+-]\d{2}:\d{2}$/, '');
+    const date = new Date(dateStr);
 
     // Formata usando horário local (não UTC)
     const day = date.getDate().toString().padStart(2, '0');
