@@ -2492,4 +2492,127 @@ export class GestaoInteligenteService {
       { codSubgrupo, codGrupo, codSecao }
     );
   }
+
+  /**
+   * Venda Dia a Dia: vendas por setor por dia do mês
+   */
+  static async getVendasDiaDia(ano: number, mes: number, codLoja?: number, tipoVenda?: number[]): Promise<any> {
+    const schema = await MappingService.getSchema();
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO')}`;
+    const colValTotal = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total');
+    const colDtaSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda');
+    const colCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_loja');
+    const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto');
+    const colTipoSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'tipo_saida');
+    const colCodSecao = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
+    const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
+    const colCodSecaoSec = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
+
+    const hoje = new Date();
+    const anoAtual = hoje.getFullYear();
+    const mesAtual = hoje.getMonth() + 1;
+    let ultimoDia: number;
+    if (ano === anoAtual && mes === mesAtual) {
+      ultimoDia = hoje.getDate();
+    } else {
+      ultimoDia = new Date(ano, mes, 0).getDate();
+    }
+    const diasNoMes = new Date(ano, mes, 0).getDate();
+
+    const dataInicio = `01/${String(mes).padStart(2, '0')}/${ano}`;
+    const dataFim = `${String(ultimoDia).padStart(2, '0')}/${String(mes).padStart(2, '0')}/${ano}`;
+
+    let tipoVendaFilter = '';
+    if (tipoVenda && tipoVenda.length > 0) {
+      tipoVendaFilter = `AND pv.${colTipoSaida} IN (${tipoVenda.join(',')})`;
+    }
+
+    let lojaFilter = '';
+    const params: any = { dataInicio, dataFim };
+    if (codLoja) {
+      lojaFilter = `AND pv.${colCodLoja} = :codLoja`;
+      params.codLoja = codLoja;
+    }
+
+    const colValCusto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao');
+    const colQtd = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade');
+    const colImpDebito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito');
+    const colImpCredito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito');
+    const colNumCupom = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_cupom');
+    const colFlagOferta = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'flag_oferta');
+
+    const sql = `
+      SELECT
+        s.${colDesSecao} as SECAO,
+        s.${colCodSecaoSec} as COD_SECAO,
+        EXTRACT(DAY FROM pv.${colDtaSaida}) as DIA,
+        NVL(SUM(pv.${colValTotal}), 0) as VENDA,
+        NVL(SUM(pv.${colValCusto} * pv.${colQtd}), 0) as CUSTO,
+        NVL(SUM(NVL(pv.${colImpDebito}, 0)), 0) as IMPOSTOS,
+        NVL(SUM(NVL(pv.${colImpCredito}, 0)), 0) as IMP_CREDITO,
+        NVL(SUM(pv.${colQtd}), 0) as QTD,
+        COUNT(DISTINCT pv.${colNumCupom} || '-' || pv.${colCodLoja}) as CUPONS,
+        COUNT(DISTINCT pv.${colCodProduto}) as SKUS,
+        NVL(SUM(CASE WHEN NVL(pv.${colFlagOferta}, 'N') = 'S' THEN pv.${colValTotal} ELSE 0 END), 0) as VENDA_OFERTA,
+        NVL(SUM(CASE WHEN NVL(pv.${colFlagOferta}, 'N') = 'S' THEN pv.${colValCusto} * pv.${colQtd} ELSE 0 END), 0) as CUSTO_OFERTA
+      FROM ${tabProdutoPdv} pv
+      JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.${colCodProduto}
+      JOIN ${tabSecao} s ON s.${colCodSecaoSec} = p.${colCodSecao}
+      WHERE pv.${colDtaSaida} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+      ${lojaFilter}
+      ${tipoVendaFilter}
+      GROUP BY s.${colDesSecao}, s.${colCodSecaoSec}, EXTRACT(DAY FROM pv.${colDtaSaida})
+      ORDER BY s.${colDesSecao}, EXTRACT(DAY FROM pv.${colDtaSaida})
+    `;
+
+    const rows = await OracleService.query<any>(sql, params);
+
+    // Montar estrutura: setores com vendas por dia
+    const setoresMap: Record<string, { codSecao: number; secao: string; dias: Record<number, any> }> = {};
+    for (const r of rows) {
+      const key = r.COD_SECAO;
+      if (!setoresMap[key]) {
+        setoresMap[key] = { codSecao: r.COD_SECAO, secao: r.SECAO, dias: {} };
+      }
+      const venda = Math.round((r.VENDA || 0) * 100) / 100;
+      const custo = Math.round((r.CUSTO || 0) * 100) / 100;
+      const impostos = Math.round((r.IMPOSTOS || 0) * 100) / 100;
+      const impCredito = Math.round((r.IMP_CREDITO || 0) * 100) / 100;
+      const lucro = Math.round((venda - custo) * 100) / 100;
+      const markdown = venda > 0 ? Math.round((lucro / venda) * 10000) / 100 : 0;
+      const mgLimpa = venda > 0 ? Math.round(((venda - custo - impostos + impCredito) / venda) * 10000) / 100 : 0;
+      const ticketMedio = (r.CUPONS || 0) > 0 ? Math.round((venda / r.CUPONS) * 100) / 100 : 0;
+      const pctOferta = venda > 0 ? Math.round(((r.VENDA_OFERTA || 0) / venda) * 10000) / 100 : 0;
+      setoresMap[key].dias[r.DIA] = {
+        venda, custo, lucro, markdown, mgLimpa, impostos: Math.round((impostos - impCredito) * 100) / 100,
+        ticketMedio, vendaOferta: Math.round((r.VENDA_OFERTA || 0) * 100) / 100, pctOferta,
+        cupons: r.CUPONS || 0, skus: r.SKUS || 0, qtd: Math.round((r.QTD || 0) * 100) / 100
+      };
+    }
+
+    // Gerar nomes dos dias da semana pra cada dia do mês
+    const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const diasInfo = [];
+    for (let d = 1; d <= diasNoMes; d++) {
+      const date = new Date(ano, mes - 1, d);
+      diasInfo.push({ dia: d, diaSemana: diasSemana[date.getDay()] });
+    }
+
+    const setores = Object.values(setoresMap).sort((a, b) => {
+      const totalA = Object.values(a.dias).reduce((s, v) => s + v, 0);
+      const totalB = Object.values(b.dias).reduce((s, v) => s + v, 0);
+      return totalB - totalA;
+    });
+
+    return {
+      ano,
+      mes,
+      diasNoMes,
+      ultimoDia,
+      diasInfo,
+      setores
+    };
+  }
 }

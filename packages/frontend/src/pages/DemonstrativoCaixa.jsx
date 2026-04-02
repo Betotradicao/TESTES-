@@ -150,7 +150,9 @@ export default function DemonstrativoCaixa() {
   const [incluirMovBanco, setIncluirMovBanco] = useState('sim');
   const [considerarEntradaBancos, setConsiderarEntradaBancos] = useState(false);
   const [entradaBancosTotal, setEntradaBancosTotal] = useState(0);
+  const [entradaBancosList, setEntradaBancosList] = useState([]);
   const [loadingBancos, setLoadingBancos] = useState(false);
+  const [expandedBancos, setExpandedBancos] = useState(false);
 
   // Datas livres
   const now = new Date();
@@ -222,11 +224,13 @@ export default function DemonstrativoCaixa() {
   const fetchEntradaBancos = async () => {
     setLoadingBancos(true);
     try {
-      const ini = dataInicio.replace(/-/g, '');
-      const fim = dataFim.replace(/-/g, '');
+      const ini = dataInicio; // YYYY-MM-DD
+      const fim = dataFim;   // YYYY-MM-DD
+      console.log('[DemostrativoCaixa] Buscando entradas bancos:', ini, 'a', fim);
       // Buscar lista de bancos cadastrados
       const banksRes = await api.get('/bank-accounts');
-      const banks = banksRes.data || [];
+      const banks = Array.isArray(banksRes.data) ? banksRes.data : (banksRes.data?.banks || banksRes.data?.data || []);
+      console.log('[DemostrativoCaixa] Bancos:', banks.length, JSON.stringify(banks.map(b => ({ id: b.id, name: b.name }))));
       let totalCredito = 0;
       // Buscar extrato de cada banco
       const promises = banks.map(async (bank) => {
@@ -241,6 +245,7 @@ export default function DemonstrativoCaixa() {
       if (banks.length > 0) {
         const results = await Promise.all(promises);
         totalCredito = results.reduce((acc, v) => acc + v, 0);
+        setEntradaBancosList(banks.map((b, i) => ({ id: b.id, name: b.name || b.bank_name || `Banco ${i+1}`, valor: results[i] })));
       } else {
         // Fallback: buscar sem bankId (conta padrão)
         const res = await api.get('/santander/extrato-completo', { params: { initialDate: ini, finalDate: fim } });
@@ -703,10 +708,14 @@ export default function DemonstrativoCaixa() {
 
                         {/* Receita Bancos (quando flag ativa) */}
                         {considerarEntradaBancos && (
-                          <tr className="bg-blue-100 text-blue-900 font-semibold border-b border-blue-200">
-                            <td className="py-2 px-3 sticky left-0 bg-blue-100 z-10 flex items-center gap-2">
-                              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-                              RECEITA BANCOS
+                          <>
+                          <tr className="bg-blue-100 text-blue-900 font-semibold border-b border-blue-200 cursor-pointer hover:bg-blue-200" onClick={() => setExpandedBancos(!expandedBancos)}>
+                            <td className="py-2 px-3 sticky left-0 bg-blue-100 z-10">
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">{expandedBancos ? '−' : '+'}</span>
+                                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                                RECEITA BANCOS
+                              </div>
                             </td>
                             {columns.map(col => (
                               <td key={col.id} className={`text-right py-1.5 px-2 ${realColClass(col.id)}`}>
@@ -716,6 +725,19 @@ export default function DemonstrativoCaixa() {
                             ))}
                             <td className="bg-blue-100"></td>
                           </tr>
+                          {expandedBancos && entradaBancosList.map(bank => (
+                            <tr key={bank.id} className="bg-blue-50 text-blue-800 border-b border-blue-100">
+                              <td className="py-1.5 px-3 pl-10 sticky left-0 bg-blue-50 z-10 text-sm">{bank.name}</td>
+                              {columns.map(col => (
+                                <td key={col.id} className={`text-right py-1.5 px-2 text-sm ${realColClass(col.id)}`}>
+                                  {col.id === 'VAL_QUITADO' || col.id === 'VAL_REALIZADO' ? formatCurrency(bank.valor) :
+                                   col.id === 'PCT_QUIT' || col.id === 'PCT_REAL' ? (entradaBancosTotal > 0 ? ((bank.valor / entradaBancosTotal) * 100).toFixed(2) + '%' : '-') : '-'}
+                                </td>
+                              ))}
+                              <td className="bg-blue-50"></td>
+                            </tr>
+                          ))}
+                          </>
                         )}
 
                         {/* Subtotal Receitas (entre receitas e despesas) */}

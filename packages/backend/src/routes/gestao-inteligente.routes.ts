@@ -51,6 +51,9 @@ router.get('/vendas-por-setor-anual', GestaoInteligenteController.getVendasPorSe
 // Vendas por Dia da Semana (mensal, com feriados)
 router.get('/vendas-por-dia-semana', GestaoInteligenteController.getVendasPorDiaSemana);
 
+// Venda Dia a Dia (por setor por dia do mês)
+router.get('/vendas-dia-dia', GestaoInteligenteController.getVendasDiaDia);
+
 // Produtos Revenda + Valor Estoque
 router.get('/produtos-revenda-estoque', GestaoInteligenteController.getProdutosRevendaEstoque);
 

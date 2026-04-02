@@ -197,6 +197,14 @@ export default function GestaoInteligente() {
   const [loadingVendasDiaSemana, setLoadingVendasDiaSemana] = useState(false);
   const [anoDiaSemana, setAnoDiaSemana] = useState(new Date().getFullYear());
 
+  // Estado para vendas dia a dia
+  const [vendasDiaDia, setVendasDiaDia] = useState(null);
+  const [loadingDiaDia, setLoadingDiaDia] = useState(false);
+  const [mesDiaDia, setMesDiaDia] = useState(new Date().getMonth() + 1);
+  const [anoDiaDia, setAnoDiaDia] = useState(new Date().getFullYear());
+  const [metricaDiaDia, setMetricaDiaDia] = useState('venda');
+  const [modoDiaDia, setModoDiaDia] = useState('corrente'); // 'corrente' ou 'semana'
+
   // Estado para vendas analíticas por setor
   const [vendasAnaliticas, setVendasAnaliticas] = useState([]);
   const [loadingVendasAnaliticas, setLoadingVendasAnaliticas] = useState(false);
@@ -587,7 +595,7 @@ export default function GestaoInteligente() {
   const [draggedDefesaRow, setDraggedDefesaRow] = useState(null);
 
   // Estado para ordem dos cards de análise (drag and drop)
-  const defaultAnaliseOrder = ['vendas-analiticas', 'vendas-setor-anual', 'vendas-ano', 'vendas-setor', 'vendas-dia-semana', 'produto-anual'];
+  const defaultAnaliseOrder = ['vendas-analiticas', 'vendas-setor-anual', 'vendas-ano', 'vendas-setor', 'vendas-dia-semana', 'vendas-dia-dia', 'produto-anual'];
   const [analiseCardOrder, setAnaliseCardOrder] = useState(() => {
     const saved = localStorage.getItem('gestao_analise_card_order');
     if (saved) {
@@ -728,6 +736,9 @@ export default function GestaoInteligente() {
     'produto-anual': { label: 'Analise Produtos Anual', desc: 'Evolucao mensal por produto', emoji: '📦', onClick: () => toggleProdutoAnual(),
       active: 'bg-rose-100 border-rose-400 ring-2 ring-rose-400', inactive: 'bg-rose-50 border-rose-200 hover:border-rose-400',
       icon: 'bg-rose-200', title: 'text-rose-800', sub: 'text-rose-600' },
+    'vendas-dia-dia': { label: 'Venda Dia a Dia', desc: 'Vendas diarias por setor', emoji: '📆', onClick: () => toggleVendasDiaDia(),
+      active: 'bg-orange-100 border-teal-400 ring-2 ring-teal-400', inactive: 'bg-orange-50 border-orange-200 hover:border-teal-400',
+      icon: 'bg-orange-200', title: 'text-orange-800', sub: 'text-orange-600' },
   };
 
   // Definição das colunas da tabela de vendas por setor
@@ -787,15 +798,15 @@ export default function GestaoInteligente() {
     },
     ticketMedio: {
       label: 'Ticket Medio',
-      headerClass: 'text-teal-600',
-      renderSetor: (d) => ({ cls: 'font-semibold text-teal-600', val: formatCurrency(d.ticketMedio) }),
-      renderGrupo: (d) => ({ cls: 'text-teal-600', val: formatCurrency(d.ticketMedio) }),
-      renderSub: (d) => ({ cls: 'text-teal-600', val: formatCurrency(d.ticketMedio) }),
-      renderItem: (d) => ({ cls: 'text-teal-600', val: formatCurrency(d.ticketMedio) }),
+      headerClass: 'text-orange-600',
+      renderSetor: (d) => ({ cls: 'font-semibold text-orange-600', val: formatCurrency(d.ticketMedio) }),
+      renderGrupo: (d) => ({ cls: 'text-orange-600', val: formatCurrency(d.ticketMedio) }),
+      renderSub: (d) => ({ cls: 'text-orange-600', val: formatCurrency(d.ticketMedio) }),
+      renderItem: (d) => ({ cls: 'text-orange-600', val: formatCurrency(d.ticketMedio) }),
       renderTotal: (dados) => {
         const totalVenda = dados.reduce((a, i) => a + i.venda, 0);
         const totalCupons = dados.reduce((a, i) => a + (i.qtdCupons || 0), 0);
-        return { cls: 'font-bold text-teal-600', val: formatCurrency(totalCupons > 0 ? totalVenda / totalCupons : 0) };
+        return { cls: 'font-bold text-orange-600', val: formatCurrency(totalCupons > 0 ? totalVenda / totalCupons : 0) };
       },
     },
     vendasOferta: {
@@ -1500,6 +1511,49 @@ export default function GestaoInteligente() {
     }
   };
 
+  // Toggle vendas dia a dia
+  const toggleVendasDiaDia = () => {
+    if (analiseAtiva === 'vendas-dia-dia') {
+      setAnaliseAtiva(null);
+      setVendasDiaDia(null);
+    } else {
+      fetchVendasDiaDia(anoDiaDia, mesDiaDia);
+    }
+  };
+
+  const fetchVendasDiaDia = async (ano = anoDiaDia, mes = mesDiaDia) => {
+    setLoadingDiaDia(true);
+    setAnaliseAtiva('vendas-dia-dia');
+    try {
+      const params = { ano, mes };
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
+      const tiposAtivos = [];
+      if (tipoVenda.pdv) tiposAtivos.push(0);
+      if (tipoVenda.nfCliente) tiposAtivos.push(1);
+      if (tipoVenda.vendaBalcao) tiposAtivos.push(2);
+      if (tipoVenda.nfTransferencia) tiposAtivos.push(8);
+      if (tiposAtivos.length > 0 && tiposAtivos.length < 4) params.tipoVenda = tiposAtivos.join(',');
+      const res = await api.get('/gestao-inteligente/vendas-dia-dia', { params });
+      setVendasDiaDia(res.data);
+      setAnoDiaDia(ano);
+      setMesDiaDia(mes);
+    } catch (err) {
+      console.error('Erro vendas dia a dia:', err);
+    } finally {
+      setLoadingDiaDia(false);
+    }
+  };
+
+  const mudarMesDiaDia = (delta) => {
+    let novoMes = mesDiaDia + delta;
+    let novoAno = anoDiaDia;
+    if (novoMes < 1) { novoMes = 12; novoAno--; }
+    if (novoMes > 12) { novoMes = 1; novoAno++; }
+    setMesDiaDia(novoMes);
+    setAnoDiaDia(novoAno);
+    if (analiseAtiva === 'vendas-dia-dia') fetchVendasDiaDia(novoAno, novoMes);
+  };
+
   // Buscar vendas analíticas por setor
   const fetchVendasAnaliticas = async () => {
     setLoadingVendasAnaliticas(true);
@@ -1943,10 +1997,10 @@ export default function GestaoInteligente() {
       },
     },
     pctCompraVenda: {
-      borderColor: 'border-teal-500',
-      bgColor: 'bg-teal-100',
-      iconColor: 'text-teal-600',
-      icon: <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>,
+      borderColor: 'border-orange-500',
+      bgColor: 'bg-orange-100',
+      iconColor: 'text-orange-600',
+      icon: <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>,
       label: 'Compras',
       title: '% COMPRA E VENDA',
       getValue: () => formatPercent(indicadores.pctCompraVenda?.atual),
@@ -2504,7 +2558,7 @@ export default function GestaoInteligente() {
           </div>
 
           {/* Linha de Cards de Análise - Sempre visível */}
-          <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
+          <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2">
             {analiseCardOrder.map((cardId) => {
               const cfg = analiseCardConfig[cardId];
               if (!cfg) return null;
@@ -2517,17 +2571,17 @@ export default function GestaoInteligente() {
                   onDragOver={handleAnaliseCardDragOver}
                   onDrop={(e) => handleAnaliseCardDrop(e, cardId)}
                   onClick={cfg.onClick}
-                  className={`rounded-xl shadow-md p-3 sm:p-4 border hover:shadow-lg transition-all cursor-pointer select-none ${
+                  className={`rounded-lg shadow-sm p-2 sm:p-3 border hover:shadow-md transition-all cursor-pointer select-none ${
                     analiseAtiva === cardId ? cfg.active : cfg.inactive
                   } ${draggedAnaliseCard === cardId ? 'opacity-50' : ''}`}
                 >
-                  <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-                    <div className={`w-8 h-8 sm:w-9 sm:h-9 ${cfg.icon} rounded-lg flex items-center justify-center`}>
-                      <span className="text-base sm:text-lg">{cfg.emoji}</span>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className={`w-7 h-7 ${cfg.icon} rounded flex items-center justify-center`}>
+                      <span className="text-base">{cfg.emoji}</span>
                     </div>
+                    <p className={`text-xs sm:text-sm font-bold ${cfg.title} leading-tight`}>{cfg.label}</p>
                   </div>
-                  <p className={`text-xs sm:text-sm font-bold ${cfg.title}`}>{cfg.label}</p>
-                  <p className={`text-[9px] sm:text-[10px] ${cfg.sub} mt-0.5 sm:mt-1`}>{cfg.desc}</p>
+                  <p className={`text-[9px] sm:text-xs ${cfg.sub}`}>{cfg.desc}</p>
                 </div>
               );
             })}
@@ -2683,6 +2737,181 @@ export default function GestaoInteligente() {
                       </tbody>
                     </table>
                   </div>
+                  )}
+                </div>
+              )}
+
+              {/* Venda Dia a Dia */}
+              {analiseAtiva === 'vendas-dia-dia' && (
+                <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+                  <div className="bg-orange-500 px-4 py-3 flex items-center justify-between">
+                    <h3 className="text-white font-semibold text-sm sm:text-base">Venda Dia a Dia</h3>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => mudarMesDiaDia(-1)} className="text-white hover:bg-orange-600 rounded px-2 py-1 text-sm">◀</button>
+                      <span className="text-white font-bold text-sm">
+                        {['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][mesDiaDia]} {anoDiaDia}
+                      </span>
+                      <button onClick={() => mudarMesDiaDia(1)} className="text-white hover:bg-orange-600 rounded px-2 py-1 text-sm">▶</button>
+                    </div>
+                  </div>
+                  <div className="bg-white px-4 py-2 flex flex-wrap gap-1 border-b">
+                    {[
+                      { key: 'venda', label: 'Vendas' }, { key: 'custo', label: 'Custo' }, { key: 'lucro', label: 'Lucro' },
+                      { key: 'markdown', label: 'Markdown %' }, { key: 'mgLimpa', label: 'MG Limpa %' }, { key: 'impostos', label: 'Impostos' },
+                      { key: 'ticketMedio', label: 'Ticket Medio' }, { key: 'vendaOferta', label: 'Vendas Oferta' }, { key: 'pctOferta', label: '% Oferta' },
+                      { key: 'cupons', label: 'Cupons' }, { key: 'skus', label: 'SKUs' }, { key: 'qtd', label: 'Qtd' }
+                    ].map(m => (
+                      <button key={m.key} onClick={() => setMetricaDiaDia(m.key)}
+                        className={`px-3 py-1 rounded-full text-xs font-semibold transition ${metricaDiaDia === m.key ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                  {(() => {
+                    // Reordenar dias por dia da semana quando modo = 'semana'
+                    if (vendasDiaDia?.diasInfo && modoDiaDia === 'semana') {
+                      const ordem = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+                      vendasDiaDia._diasOrdenados = [...vendasDiaDia.diasInfo].sort((a, b) => ordem.indexOf(a.diaSemana) - ordem.indexOf(b.diaSemana));
+                    } else if (vendasDiaDia?.diasInfo) {
+                      vendasDiaDia._diasOrdenados = vendasDiaDia.diasInfo;
+                    }
+                    return null;
+                  })()}
+                  {loadingDiaDia ? (
+                    <div className="p-8 text-center text-gray-400">Carregando...</div>
+                  ) : vendasDiaDia && vendasDiaDia.setores?.length > 0 ? (
+                    <div className="overflow-auto max-h-[70vh]">
+                      <table className="w-full text-xs border-collapse">
+                        <thead className="[&_th]:sticky [&_th]:top-0 [&_th]:z-20">
+                          <tr className="bg-orange-100">
+                            <th rowSpan={2} className="px-3 py-2 text-left font-bold text-orange-800 border-b border-r border-orange-200 min-w-[180px] sticky left-0 bg-orange-100 z-30">
+                              <div>SETOR</div>
+                              <div className="flex gap-2 mt-1">
+                                <label className="flex items-center gap-1 cursor-pointer">
+                                  <input type="radio" name="modoDiaDia" checked={modoDiaDia === 'corrente'} onChange={() => setModoDiaDia('corrente')} className="w-3 h-3" />
+                                  <span className="text-[9px] font-normal">Dia Corrente</span>
+                                </label>
+                                <label className="flex items-center gap-1 cursor-pointer">
+                                  <input type="radio" name="modoDiaDia" checked={modoDiaDia === 'semana'} onChange={() => setModoDiaDia('semana')} className="w-3 h-3" />
+                                  <span className="text-[9px] font-normal">Dia da Semana</span>
+                                </label>
+                              </div>
+                            </th>
+                            {vendasDiaDia._diasOrdenados.map(d => (
+                              <th key={d.dia} className={`px-2 py-1 text-center font-bold text-orange-700 border-b border-orange-200 min-w-[85px] ${d.dia > vendasDiaDia.ultimoDia ? 'opacity-30' : ''}`}>
+                                Dia {d.dia}
+                              </th>
+                            ))}
+                            <th rowSpan={2} className="px-3 py-2 text-right font-bold text-orange-900 border-b border-l-2 border-orange-300 min-w-[110px] bg-orange-200">TOTAL</th>
+                          </tr>
+                          <tr className="bg-orange-50">
+                            {vendasDiaDia._diasOrdenados.map(d => (
+                              <th key={`ds-${d.dia}`} className={`px-2 py-1 text-center text-[10px] text-orange-600 border-b border-orange-200 ${d.diaSemana === 'Dom' ? 'text-red-500' : ''} ${d.dia > vendasDiaDia.ultimoDia ? 'opacity-30' : ''}`}>
+                                {d.diaSemana}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(() => {
+                            const isPct = ['markdown', 'mgLimpa', 'pctOferta'].includes(metricaDiaDia);
+                            const isInt = ['cupons', 'skus'].includes(metricaDiaDia);
+                            const fmtVal = (v) => {
+                              if (!v && v !== 0) return '-';
+                              if (isPct) return v.toFixed(2) + '%';
+                              if (isInt) return Math.round(v).toLocaleString('pt-BR');
+                              return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            };
+                            const getVal = (diaObj) => diaObj ? (diaObj[metricaDiaDia] || 0) : 0;
+                            return vendasDiaDia.setores.map((setor, idx) => {
+                              const total = Object.values(setor.dias).reduce((s, d) => s + getVal(d), 0);
+                              let totalForPct = total;
+                              if (isPct) {
+                                const tV = Object.values(setor.dias).reduce((s, d) => s + (d?.venda || 0), 0);
+                                const tC = Object.values(setor.dias).reduce((s, d) => s + (d?.custo || 0), 0);
+                                const tI = Object.values(setor.dias).reduce((s, d) => s + (d?.impostos || 0), 0);
+                                const tO = Object.values(setor.dias).reduce((s, d) => s + (d?.vendaOferta || 0), 0);
+                                if (metricaDiaDia === 'markdown') totalForPct = tV > 0 ? ((tV - tC) / tV) * 100 : 0;
+                                else if (metricaDiaDia === 'mgLimpa') totalForPct = tV > 0 ? ((tV - tC - tI) / tV) * 100 : 0;
+                                else if (metricaDiaDia === 'pctOferta') totalForPct = tV > 0 ? (tO / tV) * 100 : 0;
+                              }
+                              return (
+                                <tr key={setor.codSecao} className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-orange-50`}>
+                                  <td className={`px-3 py-2 font-semibold text-gray-800 sticky left-0 z-10 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>{setor.secao}</td>
+                                  {vendasDiaDia._diasOrdenados.map(d => {
+                                    const val = getVal(setor.dias[d.dia]);
+                                    return (
+                                      <td key={d.dia} className={`px-2 py-2 text-right font-mono ${val > 0 ? 'text-gray-700' : val < 0 ? 'text-red-600' : 'text-gray-300'} ${d.dia > vendasDiaDia.ultimoDia ? 'opacity-30' : ''}`}>
+                                        {val !== 0 ? fmtVal(val) : '-'}
+                                      </td>
+                                    );
+                                  })}
+                                  <td className="px-3 py-2 text-right font-bold text-orange-700 border-l-2 border-orange-200 font-mono">
+                                    {fmtVal(isPct ? totalForPct : total)}
+                                  </td>
+                                </tr>
+                              );
+                            });
+                          })()}
+                          {/* Linha TOTAL */}
+                          {/* Linha TOTAL */}
+                          <tr className="bg-orange-200 font-bold border-t-2 border-orange-300">
+                            <td className="px-3 py-2 text-orange-900 sticky left-0 bg-orange-200 z-10">TOTAL</td>
+                            {(() => {
+                              const isPct = ['markdown', 'mgLimpa', 'pctOferta'].includes(metricaDiaDia);
+                              const isInt = ['cupons', 'skus'].includes(metricaDiaDia);
+                              const fmtVal = (v) => {
+                                if (!v && v !== 0) return '-';
+                                if (isPct) return v.toFixed(2) + '%';
+                                if (isInt) return Math.round(v).toLocaleString('pt-BR');
+                                return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                              };
+                              return vendasDiaDia._diasOrdenados.map(d => {
+                                let val = 0;
+                                if (isPct) {
+                                  const tV = vendasDiaDia.setores.reduce((s, st) => s + (st.dias[d.dia]?.venda || 0), 0);
+                                  const tC = vendasDiaDia.setores.reduce((s, st) => s + (st.dias[d.dia]?.custo || 0), 0);
+                                  const tI = vendasDiaDia.setores.reduce((s, st) => s + (st.dias[d.dia]?.impostos || 0), 0);
+                                  const tO = vendasDiaDia.setores.reduce((s, st) => s + (st.dias[d.dia]?.vendaOferta || 0), 0);
+                                  if (metricaDiaDia === 'markdown') val = tV > 0 ? ((tV - tC) / tV) * 100 : 0;
+                                  else if (metricaDiaDia === 'mgLimpa') val = tV > 0 ? ((tV - tC - tI) / tV) * 100 : 0;
+                                  else if (metricaDiaDia === 'pctOferta') val = tV > 0 ? (tO / tV) * 100 : 0;
+                                } else {
+                                  val = vendasDiaDia.setores.reduce((s, st) => s + (st.dias[d.dia] ? (st.dias[d.dia][metricaDiaDia] || 0) : 0), 0);
+                                }
+                                return (
+                                  <td key={`t-${d.dia}`} className={`px-2 py-2 text-right font-mono text-orange-900 ${d.dia > vendasDiaDia.ultimoDia ? 'opacity-30' : ''}`}>
+                                    {val !== 0 ? fmtVal(val) : '-'}
+                                  </td>
+                                );
+                              });
+                            })()}
+                            <td className="px-3 py-2 text-right font-mono text-orange-900 border-l-2 border-orange-300">
+                              {(() => {
+                                const isPct = ['markdown', 'mgLimpa', 'pctOferta'].includes(metricaDiaDia);
+                                const isInt = ['cupons', 'skus'].includes(metricaDiaDia);
+                                if (isPct) {
+                                  const tV = vendasDiaDia.setores.reduce((s, st) => s + Object.values(st.dias).reduce((a, d) => a + (d?.venda || 0), 0), 0);
+                                  const tC = vendasDiaDia.setores.reduce((s, st) => s + Object.values(st.dias).reduce((a, d) => a + (d?.custo || 0), 0), 0);
+                                  const tI = vendasDiaDia.setores.reduce((s, st) => s + Object.values(st.dias).reduce((a, d) => a + (d?.impostos || 0), 0), 0);
+                                  const tO = vendasDiaDia.setores.reduce((s, st) => s + Object.values(st.dias).reduce((a, d) => a + (d?.vendaOferta || 0), 0), 0);
+                                  let val = 0;
+                                  if (metricaDiaDia === 'markdown') val = tV > 0 ? ((tV - tC) / tV) * 100 : 0;
+                                  else if (metricaDiaDia === 'mgLimpa') val = tV > 0 ? ((tV - tC - tI) / tV) * 100 : 0;
+                                  else if (metricaDiaDia === 'pctOferta') val = tV > 0 ? (tO / tV) * 100 : 0;
+                                  return val.toFixed(2) + '%';
+                                }
+                                const total = vendasDiaDia.setores.reduce((s, st) => s + Object.values(st.dias).reduce((a, d) => a + (d ? (d[metricaDiaDia] || 0) : 0), 0), 0);
+                                if (isInt) return Math.round(total).toLocaleString('pt-BR');
+                                return total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                              })()}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center text-gray-400">Nenhum dado encontrado</div>
                   )}
                 </div>
               )}
@@ -3603,7 +3832,7 @@ export default function GestaoInteligente() {
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-amber-700 uppercase border-b border-r border-gray-300 bg-amber-50">Vendas Oferta R$</th>
                             <th colSpan={4} className="px-2 py-2 text-center text-xs font-bold text-pink-700 uppercase border-b border-r border-gray-300 bg-pink-50">% Oferta</th>
                             <th colSpan={7} className="px-2 py-2 text-center text-xs font-bold text-indigo-700 uppercase border-b border-r border-gray-300 bg-indigo-50">Ticket Médio</th>
-                            <th colSpan={7} className="px-2 py-2 text-center text-xs font-bold text-teal-700 uppercase border-b border-r border-gray-300 bg-teal-50">Cupons</th>
+                            <th colSpan={7} className="px-2 py-2 text-center text-xs font-bold text-orange-700 uppercase border-b border-r border-gray-300 bg-orange-50">Cupons</th>
                             <th colSpan={7} className="px-2 py-2 text-center text-xs font-bold text-violet-700 uppercase border-b border-r border-gray-300 bg-violet-50">QTD Itens</th>
                             <th colSpan={7} className="px-2 py-2 text-center text-xs font-bold text-slate-700 uppercase border-b border-gray-300 bg-slate-50">SKUs</th>
                           </tr>
@@ -4415,7 +4644,7 @@ export default function GestaoInteligente() {
                                 { key: 'ticket', label: 'Ticket Médio', field: 'ticketMedio', color: 'text-amber-600', fmt: formatCurrency },
                                 { key: 'skus', label: 'SKUs', field: 'skus', color: 'text-blue-600', fmt: (v) => v?.toLocaleString('pt-BR') || '0' },
                                 { key: 'cupons', label: 'Cupons', field: 'cupons', color: 'text-indigo-600', fmt: (v) => v?.toLocaleString('pt-BR') || '0' },
-                                { key: 'itens', label: 'Itens Vendidos', field: 'itensVendidos', color: 'text-teal-600', fmt: (v) => v?.toLocaleString('pt-BR') || '0' },
+                                { key: 'itens', label: 'Itens Vendidos', field: 'itensVendidos', color: 'text-orange-600', fmt: (v) => v?.toLocaleString('pt-BR') || '0' },
                               ].map((sub) => (
                                 <tr key={`sa-sub-${s.codSecao}-${sub.key}`} className={`border-b border-gray-50 cursor-pointer transition-colors ${graficoMetrica === sub.field && showGraficoSetorAnual ? 'bg-orange-100/70' : 'bg-gray-50/50 hover:bg-orange-50/50'}`} onClick={() => { setGraficoMetrica(sub.field); if (!showGraficoSetorAnual) setShowGraficoSetorAnual(true); }}>
                                   <td className={`px-3 py-1.5 text-xs sticky left-0 pl-8 ${graficoMetrica === sub.field && showGraficoSetorAnual ? 'bg-orange-100/70 font-semibold text-orange-700' : 'bg-gray-50/50 text-gray-500'}`}>
@@ -4699,7 +4928,7 @@ export default function GestaoInteligente() {
                 rupturaPerdaVenda: { border: 'border-emerald-500', bg: 'bg-emerald-100', ic: 'text-emerald-600', lb: 'PERDA VENDA', val: () => formatCurrency(defesaData.rupturaPerdaVenda?.atual), title: 'PERDA DE VENDA IDENTIFICADA', tipo: 'currency', d: defesaData.rupturaPerdaVenda, inv: true, svg: 'M13 17h8m0 0V9m0 8l-8-8-4 4-6-6' },
                 rupturaPerdaLucro: { border: 'border-indigo-500', bg: 'bg-indigo-100', ic: 'text-indigo-600', lb: 'PERDA LUCRO', val: () => formatCurrency(defesaData.rupturaPerdaLucro?.atual), title: 'PERDA DE LUCRO IDENTIFICADA', tipo: 'currency', d: defesaData.rupturaPerdaLucro, inv: true, svg: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
                 etiquetaTaxa: { border: 'border-sky-500', bg: 'bg-sky-100', ic: 'text-sky-600', lb: 'ETIQ. DESCONF.', val: () => formatPercent(defesaData.etiquetaTaxa?.atual), title: 'TAXA ETIQUETAS DESCONFORMES', tipo: 'percent', d: defesaData.etiquetaTaxa, inv: true, svg: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
-                fluxoCaixa: { border: 'border-teal-500', bg: 'bg-teal-100', ic: 'text-teal-600', lb: 'FLUXO DE CAIXA', val: () => formatCurrency(defesaData.fluxoCaixa?.atual), title: 'RESULTADO DO PERIODO', tipo: 'currency', d: defesaData.fluxoCaixa, svg: 'M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
+                fluxoCaixa: { border: 'border-orange-500', bg: 'bg-orange-100', ic: 'text-orange-600', lb: 'FLUXO DE CAIXA', val: () => formatCurrency(defesaData.fluxoCaixa?.atual), title: 'RESULTADO DO PERIODO', tipo: 'currency', d: defesaData.fluxoCaixa, svg: 'M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
                 perdasEstoque: { border: 'border-rose-500', bg: 'bg-rose-100', ic: 'text-rose-600', lb: 'PERDAS ESTOQUE', val: () => formatCurrency(defesaData.perdasEstoque?.atual), extra: () => <span className="text-2xl font-bold text-rose-600">{formatPercent(defesaData.perdasEstoque?.pct)}</span>, title: 'PERDAS DE ESTOQUE IDENTIFICADAS', tipo: 'currency', d: defesaData.perdasEstoque, inv: true, svg: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
                 mediaPerformColab: { border: 'border-cyan-500', bg: 'bg-cyan-100', ic: 'text-cyan-600', lb: 'MEDIA COLAB.', val: () => formatCurrency(mediaPerformColab.media), extra: () => mediaPerformColab.configurado ? <span className="text-xs text-gray-400 ml-1">({mediaPerformColab.totalPonderado.toFixed(1)} colab.)</span> : <span className="text-xs text-orange-500 ml-1">Configurar</span>, title: 'MEDIA PERFORMANCE COLABORADORES', tipo: 'currency', d: { atual: mediaPerformColab.media, mesPassado: mediaPerformColab.mesPassado, anoPassado: mediaPerformColab.anoPassado }, hasGear: true, svg: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
                 trocasFornecedor: { border: 'border-orange-400', bg: 'bg-orange-50', ic: 'text-orange-500', lb: 'TROCAS FORN.', val: () => formatCurrency(defesaData.trocasFornecedor?.atual), extra: () => <span className="text-sm font-semibold text-orange-500">({defesaData.trocasFornecedor?.fornecedores || 0} forn.)</span>, title: 'TROCAS PENDENTES FORNECEDORES', tipo: 'currency', d: defesaData.trocasFornecedor, inv: true, svg: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4' },
@@ -5106,7 +5335,7 @@ export default function GestaoInteligente() {
                   <span className="text-right">TICKET MEDIO</span>
                 </div>
                 {(() => {
-                  const ticketRowColors = ['bg-orange-50 border-orange-200','bg-amber-50 border-amber-200','bg-yellow-50 border-yellow-200','bg-lime-50 border-lime-200','bg-green-50 border-green-200','bg-emerald-50 border-emerald-200','bg-teal-50 border-teal-200','bg-cyan-50 border-cyan-200','bg-sky-50 border-sky-200','bg-blue-50 border-blue-200'];
+                  const ticketRowColors = ['bg-orange-50 border-orange-200','bg-amber-50 border-amber-200','bg-yellow-50 border-yellow-200','bg-lime-50 border-lime-200','bg-green-50 border-green-200','bg-emerald-50 border-emerald-200','bg-orange-50 border-orange-200','bg-cyan-50 border-cyan-200','bg-sky-50 border-sky-200','bg-blue-50 border-blue-200'];
                   return ticketFaixasTemp.map((f, i) => (
                     <div key={i} className={`flex items-center gap-2 p-2 rounded-lg border ${ticketRowColors[i % ticketRowColors.length]}`}>
                       <div className="flex-1 flex items-center gap-1 text-sm">

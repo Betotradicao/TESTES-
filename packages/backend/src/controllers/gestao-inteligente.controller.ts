@@ -367,6 +367,22 @@ export class GestaoInteligenteController {
     }
   }
 
+  static async getVendasDiaDia(req: AuthRequest, res: Response) {
+    try {
+      const { ano, mes, codLoja, tipoVenda } = req.query;
+      const anoNum = parseInt(String(ano || new Date().getFullYear()));
+      const mesNum = parseInt(String(mes || new Date().getMonth() + 1));
+      const codLojaNum = codLoja ? parseInt(String(codLoja)) : undefined;
+      const tipoVendaArr = tipoVenda ? String(tipoVenda).split(',').map(Number) : undefined;
+
+      const resultado = await GestaoInteligenteService.getVendasDiaDia(anoNum, mesNum, codLojaNum, tipoVendaArr);
+      res.json(resultado);
+    } catch (error: any) {
+      console.error('Erro ao buscar vendas dia a dia:', error);
+      res.status(500).json({ error: error.message || 'Erro interno' });
+    }
+  }
+
   static async getProdutosRevendaEstoque(req: AuthRequest, res: Response) {
     try {
       const { codLoja } = req.query;
