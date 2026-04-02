@@ -2615,4 +2615,128 @@ export class GestaoInteligenteService {
       setores
     };
   }
+
+  /**
+   * Venda Dia a Dia - drill-down por grupo/subgrupo/item
+   */
+  static async getVendasDiaDiaDrill(params: {
+    ano: number; mes: number; codLoja?: number; tipoVenda?: number[];
+    nivel: 'grupo' | 'subgrupo' | 'item';
+    codSecao?: number; codGrupo?: number; codSubGrupo?: number;
+  }): Promise<any> {
+    const { ano, mes, codLoja, tipoVenda, nivel, codSecao, codGrupo, codSubGrupo } = params;
+    const schema = await MappingService.getSchema();
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+    const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO')}`;
+    const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO')}`;
+    const colValTotal = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total');
+    const colValCusto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao');
+    const colDtaSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda');
+    const colCodLojaPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_loja');
+    const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto');
+    const colTipoSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'tipo_saida');
+    const colQtd = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade');
+    const colImpDebito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito');
+    const colImpCredito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito');
+    const colFlagOferta = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'flag_oferta');
+    const colNumCupom = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_cupom');
+    const colCodSecao = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
+    const colCodGrupo = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo');
+    const colCodSubGrupo = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo');
+    const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+    const colDesGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo');
+    const colDesSubgrupo = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'descricao_subgrupo');
+    const colCodGrupoGrp = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo');
+    const colCodSecaoGrp = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_secao');
+    const colCodSubGrupoSg = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_subgrupo');
+    const colCodGrupoSg = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_grupo');
+    const colCodSecaoSg = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_secao');
+
+    const hoje = new Date();
+    const anoAtual = hoje.getFullYear();
+    const mesAtual = hoje.getMonth() + 1;
+    const ultimoDia = (ano === anoAtual && mes === mesAtual) ? hoje.getDate() : new Date(ano, mes, 0).getDate();
+    const dataInicio = `01/${String(mes).padStart(2, '0')}/${ano}`;
+    const dataFim = `${String(ultimoDia).padStart(2, '0')}/${String(mes).padStart(2, '0')}/${ano}`;
+
+    let tipoVendaFilter = '';
+    if (tipoVenda && tipoVenda.length > 0) tipoVendaFilter = `AND pv.${colTipoSaida} IN (${tipoVenda.join(',')})`;
+    let lojaFilter = '';
+    const queryParams: any = { dataInicio, dataFim };
+    if (codLoja) { lojaFilter = `AND pv.${colCodLojaPdv} = :codLoja`; queryParams.codLoja = codLoja; }
+
+    let selectCols = '', joinCols = '', groupCols = '', whereExtra = '', orderCols = '';
+
+    if (nivel === 'grupo') {
+      selectCols = `g.${colDesGrupo} as NOME, p.${colCodGrupo} as COD`;
+      joinCols = `JOIN ${tabGrupo} g ON g.${colCodGrupoGrp} = p.${colCodGrupo} AND g.${colCodSecaoGrp} = p.${colCodSecao}`;
+      groupCols = `g.${colDesGrupo}, p.${colCodGrupo}`;
+      whereExtra = `AND p.${colCodSecao} = :codSecao`;
+      queryParams.codSecao = codSecao;
+      orderCols = `g.${colDesGrupo}`;
+    } else if (nivel === 'subgrupo') {
+      selectCols = `sg.${colDesSubgrupo} as NOME, p.${colCodSubGrupo} as COD`;
+      joinCols = `JOIN ${tabSubgrupo} sg ON sg.${colCodSubGrupoSg} = p.${colCodSubGrupo} AND sg.${colCodGrupoSg} = p.${colCodGrupo} AND sg.${colCodSecaoSg} = p.${colCodSecao}`;
+      groupCols = `sg.${colDesSubgrupo}, p.${colCodSubGrupo}`;
+      whereExtra = `AND p.${colCodSecao} = :codSecao AND p.${colCodGrupo} = :codGrupo`;
+      queryParams.codSecao = codSecao; queryParams.codGrupo = codGrupo;
+      orderCols = `sg.${colDesSubgrupo}`;
+    } else {
+      selectCols = `p.${colDesProduto} as NOME, p.COD_PRODUTO as COD`;
+      joinCols = '';
+      groupCols = `p.${colDesProduto}, p.COD_PRODUTO`;
+      whereExtra = `AND p.${colCodSecao} = :codSecao AND p.${colCodGrupo} = :codGrupo AND p.${colCodSubGrupo} = :codSubGrupo`;
+      queryParams.codSecao = codSecao; queryParams.codGrupo = codGrupo; queryParams.codSubGrupo = codSubGrupo;
+      orderCols = `p.${colDesProduto}`;
+    }
+
+    const sql = `
+      SELECT ${selectCols},
+        EXTRACT(DAY FROM pv.${colDtaSaida}) as DIA,
+        NVL(SUM(pv.${colValTotal}), 0) as VENDA,
+        NVL(SUM(pv.${colValCusto} * pv.${colQtd}), 0) as CUSTO,
+        NVL(SUM(NVL(pv.${colImpDebito}, 0)), 0) as IMPOSTOS,
+        NVL(SUM(NVL(pv.${colImpCredito}, 0)), 0) as IMP_CREDITO,
+        NVL(SUM(pv.${colQtd}), 0) as QTD,
+        COUNT(DISTINCT pv.${colNumCupom} || '-' || pv.${colCodLojaPdv}) as CUPONS,
+        COUNT(DISTINCT pv.${colCodProduto}) as SKUS,
+        NVL(SUM(CASE WHEN NVL(pv.${colFlagOferta}, 'N') = 'S' THEN pv.${colValTotal} ELSE 0 END), 0) as VENDA_OFERTA
+      FROM ${tabProdutoPdv} pv
+      JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.${colCodProduto}
+      ${joinCols}
+      WHERE pv.${colDtaSaida} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+      ${lojaFilter} ${tipoVendaFilter} ${whereExtra}
+      GROUP BY ${groupCols}, EXTRACT(DAY FROM pv.${colDtaSaida})
+      ORDER BY ${orderCols}, EXTRACT(DAY FROM pv.${colDtaSaida})
+    `;
+
+    const rows = await OracleService.query<any>(sql, queryParams);
+
+    const itensMap: Record<string, { cod: any; nome: string; dias: Record<number, any> }> = {};
+    for (const r of rows) {
+      const key = String(r.COD);
+      if (!itensMap[key]) itensMap[key] = { cod: r.COD, nome: r.NOME, dias: {} };
+      const venda = Math.round((r.VENDA || 0) * 100) / 100;
+      const custo = Math.round((r.CUSTO || 0) * 100) / 100;
+      const impostos = Math.round((r.IMPOSTOS || 0) * 100) / 100;
+      const impCredito = Math.round((r.IMP_CREDITO || 0) * 100) / 100;
+      const lucro = Math.round((venda - custo) * 100) / 100;
+      const markdown = venda > 0 ? Math.round(((venda - custo) / venda) * 10000) / 100 : 0;
+      const mgLimpa = venda > 0 ? Math.round(((venda - custo - impostos + impCredito) / venda) * 10000) / 100 : 0;
+      const ticketMedio = (r.CUPONS || 0) > 0 ? Math.round((venda / r.CUPONS) * 100) / 100 : 0;
+      const pctOferta = venda > 0 ? Math.round(((r.VENDA_OFERTA || 0) / venda) * 10000) / 100 : 0;
+      itensMap[key].dias[r.DIA] = {
+        venda, custo, lucro, markdown, mgLimpa, impostos: Math.round((impostos - impCredito) * 100) / 100,
+        ticketMedio, vendaOferta: Math.round((r.VENDA_OFERTA || 0) * 100) / 100, pctOferta,
+        cupons: r.CUPONS || 0, skus: r.SKUS || 0, qtd: Math.round((r.QTD || 0) * 100) / 100
+      };
+    }
+
+    return Object.values(itensMap).sort((a, b) => {
+      const totalA = Object.values(a.dias).reduce((s: number, d: any) => s + (d?.venda || 0), 0);
+      const totalB = Object.values(b.dias).reduce((s: number, d: any) => s + (d?.venda || 0), 0);
+      return totalB - totalA;
+    });
+  }
 }

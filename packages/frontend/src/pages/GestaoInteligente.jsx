@@ -204,6 +204,7 @@ export default function GestaoInteligente() {
   const [anoDiaDia, setAnoDiaDia] = useState(new Date().getFullYear());
   const [metricaDiaDia, setMetricaDiaDia] = useState('venda');
   const [modoDiaDia, setModoDiaDia] = useState('corrente'); // 'corrente' ou 'semana'
+  const [expandedDiaDia, setExpandedDiaDia] = useState({}); // { 'setor_1': [...], 'grupo_1_2': [...] }
 
   // Estado para vendas analíticas por setor
   const [vendasAnaliticas, setVendasAnaliticas] = useState([]);
@@ -1544,6 +1545,24 @@ export default function GestaoInteligente() {
     }
   };
 
+  const toggleDiaDiaDrill = async (nivel, codSecao, codGrupo, codSubGrupo) => {
+    const key = `${nivel}_${codSecao}_${codGrupo || ''}_${codSubGrupo || ''}`;
+    if (expandedDiaDia[key]) {
+      setExpandedDiaDia(prev => { const n = { ...prev }; delete n[key]; return n; });
+      return;
+    }
+    try {
+      const params = { ano: anoDiaDia, mes: mesDiaDia, nivel, codSecao };
+      if (codGrupo) params.codGrupo = codGrupo;
+      if (codSubGrupo) params.codSubGrupo = codSubGrupo;
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
+      const res = await api.get('/gestao-inteligente/vendas-dia-dia-drill', { params });
+      setExpandedDiaDia(prev => ({ ...prev, [key]: res.data }));
+    } catch (err) {
+      console.error('Erro drill dia a dia:', err);
+    }
+  };
+
   const mudarMesDiaDia = (delta) => {
     let novoMes = mesDiaDia + delta;
     let novoAno = anoDiaDia;
@@ -2830,23 +2849,37 @@ export default function GestaoInteligente() {
                               return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                             };
                             const getVal = (diaObj) => diaObj ? (diaObj[metricaDiaDia] || 0) : 0;
-                            return vendasDiaDia.setores.map((setor, idx) => {
-                              const total = Object.values(setor.dias).reduce((s, d) => s + getVal(d), 0);
-                              let totalForPct = total;
-                              if (isPct) {
-                                const tV = Object.values(setor.dias).reduce((s, d) => s + (d?.venda || 0), 0);
-                                const tC = Object.values(setor.dias).reduce((s, d) => s + (d?.custo || 0), 0);
-                                const tI = Object.values(setor.dias).reduce((s, d) => s + (d?.impostos || 0), 0);
-                                const tO = Object.values(setor.dias).reduce((s, d) => s + (d?.vendaOferta || 0), 0);
-                                if (metricaDiaDia === 'markdown') totalForPct = tV > 0 ? ((tV - tC) / tV) * 100 : 0;
-                                else if (metricaDiaDia === 'mgLimpa') totalForPct = tV > 0 ? ((tV - tC - tI) / tV) * 100 : 0;
-                                else if (metricaDiaDia === 'pctOferta') totalForPct = tV > 0 ? (tO / tV) * 100 : 0;
-                              }
+                            const calcPctTotal = (dias) => {
+                              const tV = Object.values(dias).reduce((s, d) => s + (d?.venda || 0), 0);
+                              const tC = Object.values(dias).reduce((s, d) => s + (d?.custo || 0), 0);
+                              const tI = Object.values(dias).reduce((s, d) => s + (d?.impostos || 0), 0);
+                              const tO = Object.values(dias).reduce((s, d) => s + (d?.vendaOferta || 0), 0);
+                              if (metricaDiaDia === 'markdown') return tV > 0 ? ((tV - tC) / tV) * 100 : 0;
+                              if (metricaDiaDia === 'mgLimpa') return tV > 0 ? ((tV - tC - tI) / tV) * 100 : 0;
+                              if (metricaDiaDia === 'pctOferta') return tV > 0 ? (tO / tV) * 100 : 0;
+                              return 0;
+                            };
+                            const renderDiaDiaRow = (item, nivel, bgClass, pl, codSecao, codGrupo) => {
+                              const total = Object.values(item.dias).reduce((s, d) => s + getVal(d), 0);
+                              const totalForPct = isPct ? calcPctTotal(item.dias) : total;
+                              const key = `${nivel}_${codSecao || item.codSecao}_${codGrupo || item.cod}_${nivel === 'item' ? item.cod : ''}`;
+                              const isExp = !!expandedDiaDia[key.replace(/_$/, '')];
+                              const canExpand = nivel !== 'item';
                               return (
-                                <tr key={setor.codSecao} className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-orange-50`}>
-                                  <td className={`px-3 py-2 font-semibold text-gray-800 sticky left-0 z-10 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>{setor.secao}</td>
+                                <tr key={`${nivel}-${item.cod || item.codSecao}`} className={`border-b ${bgClass} hover:bg-orange-50 ${canExpand ? 'cursor-pointer' : ''}`}
+                                  onClick={() => canExpand && toggleDiaDiaDrill(
+                                    nivel === 'setor' ? 'grupo' : nivel === 'grupo' ? 'subgrupo' : 'item',
+                                    codSecao || item.codSecao,
+                                    nivel === 'setor' ? undefined : (nivel === 'grupo' ? item.cod : codGrupo),
+                                    nivel === 'subgrupo' ? item.cod : undefined
+                                  )}>
+                                  <td className={`px-3 py-2 font-semibold text-gray-800 sticky left-0 z-10 ${bgClass}`} style={{ paddingLeft: pl }}>
+                                    {canExpand && <span className="inline-block w-4 text-center mr-1">{isExp ? '−' : '+'}</span>}
+                                    {!canExpand && <span className="inline-block w-4 text-center mr-1 text-gray-400">•</span>}
+                                    {item.secao || item.nome}
+                                  </td>
                                   {vendasDiaDia._diasOrdenados.map(d => {
-                                    const val = getVal(setor.dias[d.dia]);
+                                    const val = getVal(item.dias[d.dia]);
                                     return (
                                       <td key={d.dia} className={`px-2 py-2 text-right font-mono ${vendasDiaDia._corDia?.[d.diaSemana] || ''} ${val > 0 ? 'text-gray-700' : val < 0 ? 'text-red-600' : 'text-gray-300'} ${d.dia > vendasDiaDia.ultimoDia ? 'opacity-30' : ''}`}>
                                         {val !== 0 ? fmtVal(val) : '-'}
@@ -2858,7 +2891,33 @@ export default function GestaoInteligente() {
                                   </td>
                                 </tr>
                               );
+                            };
+                            const rows = [];
+                            vendasDiaDia.setores.forEach((setor, idx) => {
+                              rows.push(renderDiaDiaRow(setor, 'setor', idx % 2 === 0 ? 'bg-white' : 'bg-gray-50', '12px', setor.codSecao));
+                              const grupoKey = `grupo_${setor.codSecao}__`;
+                              const grupos = expandedDiaDia[grupoKey];
+                              if (grupos) {
+                                grupos.forEach((grupo, gi) => {
+                                  rows.push(renderDiaDiaRow(grupo, 'grupo', 'bg-orange-50/50', '32px', setor.codSecao, grupo.cod));
+                                  const subKey = `subgrupo_${setor.codSecao}_${grupo.cod}_`;
+                                  const subs = expandedDiaDia[subKey];
+                                  if (subs) {
+                                    subs.forEach((sub) => {
+                                      rows.push(renderDiaDiaRow(sub, 'subgrupo', 'bg-yellow-50/50', '52px', setor.codSecao, grupo.cod));
+                                      const itemKey = `item_${setor.codSecao}_${grupo.cod}_${sub.cod}`;
+                                      const itens = expandedDiaDia[itemKey];
+                                      if (itens) {
+                                        itens.forEach((item) => {
+                                          rows.push(renderDiaDiaRow(item, 'item', 'bg-green-50/30', '72px', setor.codSecao, grupo.cod));
+                                        });
+                                      }
+                                    });
+                                  }
+                                });
+                              }
                             });
+                            return rows;
                           })()}
                           {/* Linha TOTAL */}
                           {/* Linha TOTAL */}

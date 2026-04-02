@@ -383,6 +383,26 @@ export class GestaoInteligenteController {
     }
   }
 
+  static async getVendasDiaDiaDrill(req: AuthRequest, res: Response) {
+    try {
+      const { ano, mes, codLoja, tipoVenda, nivel, codSecao, codGrupo, codSubGrupo } = req.query;
+      const result = await GestaoInteligenteService.getVendasDiaDiaDrill({
+        ano: parseInt(String(ano || new Date().getFullYear())),
+        mes: parseInt(String(mes || new Date().getMonth() + 1)),
+        codLoja: codLoja ? parseInt(String(codLoja)) : undefined,
+        tipoVenda: tipoVenda ? String(tipoVenda).split(',').map(Number) : undefined,
+        nivel: String(nivel || 'grupo') as any,
+        codSecao: codSecao ? parseInt(String(codSecao)) : undefined,
+        codGrupo: codGrupo ? parseInt(String(codGrupo)) : undefined,
+        codSubGrupo: codSubGrupo ? parseInt(String(codSubGrupo)) : undefined
+      });
+      res.json(result);
+    } catch (error: any) {
+      console.error('Erro vendas dia a dia drill:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
   static async getProdutosRevendaEstoque(req: AuthRequest, res: Response) {
     try {
       const { codLoja } = req.query;

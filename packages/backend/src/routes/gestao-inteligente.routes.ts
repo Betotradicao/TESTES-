@@ -53,6 +53,7 @@ router.get('/vendas-por-dia-semana', GestaoInteligenteController.getVendasPorDia
 
 // Venda Dia a Dia (por setor por dia do mês)
 router.get('/vendas-dia-dia', GestaoInteligenteController.getVendasDiaDia);
+router.get('/vendas-dia-dia-drill', GestaoInteligenteController.getVendasDiaDiaDrill);
 
 // Produtos Revenda + Valor Estoque
 router.get('/produtos-revenda-estoque', GestaoInteligenteController.getProdutosRevendaEstoque);
