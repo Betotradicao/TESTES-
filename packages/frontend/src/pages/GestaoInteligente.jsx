@@ -2768,6 +2768,13 @@ export default function GestaoInteligente() {
                     ))}
                   </div>
                   {(() => {
+                    // Cores por dia da semana
+                    const corDia = { 'Dom': 'bg-red-50', 'Seg': 'bg-blue-50', 'Ter': 'bg-green-50', 'Qua': 'bg-yellow-50', 'Qui': 'bg-purple-50', 'Sex': 'bg-orange-50', 'Sáb': 'bg-pink-50' };
+                    const corDiaHeader = { 'Dom': 'bg-red-100 text-red-700', 'Seg': 'bg-blue-100 text-blue-700', 'Ter': 'bg-green-100 text-green-700', 'Qua': 'bg-yellow-100 text-yellow-700', 'Qui': 'bg-purple-100 text-purple-700', 'Sex': 'bg-orange-100 text-orange-700', 'Sáb': 'bg-pink-100 text-pink-700' };
+                    if (vendasDiaDia) { vendasDiaDia._corDia = corDia; vendasDiaDia._corDiaHeader = corDiaHeader; }
+                    return null;
+                  })()}
+                  {(() => {
                     // Reordenar dias por dia da semana quando modo = 'semana'
                     if (vendasDiaDia?.diasInfo && modoDiaDia === 'semana') {
                       const ordem = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -2798,7 +2805,7 @@ export default function GestaoInteligente() {
                               </div>
                             </th>
                             {vendasDiaDia._diasOrdenados.map(d => (
-                              <th key={d.dia} className={`px-2 py-1 text-center font-bold text-orange-700 border-b border-orange-200 min-w-[85px] ${d.dia > vendasDiaDia.ultimoDia ? 'opacity-30' : ''}`}>
+                              <th key={d.dia} className={`px-2 py-1 text-center font-bold border-b border-orange-200 min-w-[85px] ${vendasDiaDia._corDiaHeader?.[d.diaSemana] || 'text-orange-700'} ${d.dia > vendasDiaDia.ultimoDia ? 'opacity-30' : ''}`}>
                                 Dia {d.dia}
                               </th>
                             ))}
@@ -2806,7 +2813,7 @@ export default function GestaoInteligente() {
                           </tr>
                           <tr className="bg-orange-50">
                             {vendasDiaDia._diasOrdenados.map(d => (
-                              <th key={`ds-${d.dia}`} className={`px-2 py-1 text-center text-[10px] text-orange-600 border-b border-orange-200 ${d.diaSemana === 'Dom' ? 'text-red-500' : ''} ${d.dia > vendasDiaDia.ultimoDia ? 'opacity-30' : ''}`}>
+                              <th key={`ds-${d.dia}`} className={`px-2 py-1 text-center text-[10px] font-bold border-b border-orange-200 ${vendasDiaDia._corDiaHeader?.[d.diaSemana] || 'text-orange-600'} ${d.dia > vendasDiaDia.ultimoDia ? 'opacity-30' : ''}`}>
                                 {d.diaSemana}
                               </th>
                             ))}
@@ -2841,7 +2848,7 @@ export default function GestaoInteligente() {
                                   {vendasDiaDia._diasOrdenados.map(d => {
                                     const val = getVal(setor.dias[d.dia]);
                                     return (
-                                      <td key={d.dia} className={`px-2 py-2 text-right font-mono ${val > 0 ? 'text-gray-700' : val < 0 ? 'text-red-600' : 'text-gray-300'} ${d.dia > vendasDiaDia.ultimoDia ? 'opacity-30' : ''}`}>
+                                      <td key={d.dia} className={`px-2 py-2 text-right font-mono ${vendasDiaDia._corDia?.[d.diaSemana] || ''} ${val > 0 ? 'text-gray-700' : val < 0 ? 'text-red-600' : 'text-gray-300'} ${d.dia > vendasDiaDia.ultimoDia ? 'opacity-30' : ''}`}>
                                         {val !== 0 ? fmtVal(val) : '-'}
                                       </td>
                                     );
