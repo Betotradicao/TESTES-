@@ -205,6 +205,7 @@ export default function GestaoInteligente() {
   const [metricaDiaDia, setMetricaDiaDia] = useState('venda');
   const [modoDiaDia, setModoDiaDia] = useState('corrente'); // 'corrente' ou 'semana'
   const [expandedDiaDia, setExpandedDiaDia] = useState({}); // { 'setor_1': [...], 'grupo_1_2': [...] }
+  const [secoesInativasDiaDia, setSecoesInativasDiaDia] = useState([]); // codSecao[] excluidos dos totais
 
   // Estado para vendas analíticas por setor
   const [vendasAnaliticas, setVendasAnaliticas] = useState([]);
@@ -2859,67 +2860,112 @@ export default function GestaoInteligente() {
                               if (metricaDiaDia === 'pctOferta') return tV > 0 ? (tO / tV) * 100 : 0;
                               return 0;
                             };
-                            const renderDiaDiaRow = (item, nivel, bgClass, pl, codSecao, codGrupo) => {
+                            const renderDiaCells = (item) => vendasDiaDia._diasOrdenados.map(d => {
+                              const val = getVal(item.dias[d.dia]);
+                              return (
+                                <td key={d.dia} className={`px-2 py-2 text-right text-xs font-semibold font-mono ${vendasDiaDia._corDia?.[d.diaSemana] || ''} ${val > 0 ? 'text-gray-700' : val < 0 ? 'text-red-600' : 'text-gray-300'} ${d.dia > vendasDiaDia.ultimoDia ? 'opacity-30' : ''}`}>
+                                  {val !== 0 ? fmtVal(val) : '-'}
+                                </td>
+                              );
+                            });
+                            const renderTotal = (item) => {
                               const total = Object.values(item.dias).reduce((s, d) => s + getVal(d), 0);
                               const totalForPct = isPct ? calcPctTotal(item.dias) : total;
-                              const key = `${nivel}_${codSecao || item.codSecao}_${codGrupo || item.cod}_${nivel === 'item' ? item.cod : ''}`;
-                              const isExp = !!expandedDiaDia[key.replace(/_$/, '')];
-                              const canExpand = nivel !== 'item';
-                              return (
-                                <tr key={`${nivel}-${item.cod || item.codSecao}`} className={`border-b ${bgClass} hover:bg-orange-50 ${canExpand ? 'cursor-pointer' : ''}`}
-                                  onClick={() => canExpand && toggleDiaDiaDrill(
-                                    nivel === 'setor' ? 'grupo' : nivel === 'grupo' ? 'subgrupo' : 'item',
-                                    codSecao || item.codSecao,
-                                    nivel === 'setor' ? undefined : (nivel === 'grupo' ? item.cod : codGrupo),
-                                    nivel === 'subgrupo' ? item.cod : undefined
-                                  )}>
-                                  <td className={`px-3 py-2 font-semibold text-gray-800 sticky left-0 z-10 ${bgClass}`} style={{ paddingLeft: pl }}>
-                                    {canExpand && <span className="inline-block w-4 text-center mr-1">{isExp ? '−' : '+'}</span>}
-                                    {!canExpand && <span className="inline-block w-4 text-center mr-1 text-gray-400">•</span>}
-                                    {item.secao || item.nome}
-                                  </td>
-                                  {vendasDiaDia._diasOrdenados.map(d => {
-                                    const val = getVal(item.dias[d.dia]);
-                                    return (
-                                      <td key={d.dia} className={`px-2 py-2 text-right font-mono ${vendasDiaDia._corDia?.[d.diaSemana] || ''} ${val > 0 ? 'text-gray-700' : val < 0 ? 'text-red-600' : 'text-gray-300'} ${d.dia > vendasDiaDia.ultimoDia ? 'opacity-30' : ''}`}>
-                                        {val !== 0 ? fmtVal(val) : '-'}
-                                      </td>
-                                    );
-                                  })}
-                                  <td className="px-3 py-2 text-right font-bold text-orange-700 border-l-2 border-orange-200 font-mono">
-                                    {fmtVal(isPct ? totalForPct : total)}
-                                  </td>
-                                </tr>
-                              );
+                              return <td className="px-3 py-2 text-right font-bold text-orange-700 border-l-2 border-orange-200 font-mono text-xs">{fmtVal(isPct ? totalForPct : total)}</td>;
                             };
-                            const rows = [];
-                            vendasDiaDia.setores.forEach((setor, idx) => {
-                              rows.push(renderDiaDiaRow(setor, 'setor', idx % 2 === 0 ? 'bg-white' : 'bg-gray-50', '12px', setor.codSecao));
-                              const grupoKey = `grupo_${setor.codSecao}__`;
-                              const grupos = expandedDiaDia[grupoKey];
-                              if (grupos) {
-                                grupos.forEach((grupo, gi) => {
-                                  rows.push(renderDiaDiaRow(grupo, 'grupo', 'bg-orange-50/50', '32px', setor.codSecao, grupo.cod));
-                                  const subKey = `subgrupo_${setor.codSecao}_${grupo.cod}_`;
-                                  const subs = expandedDiaDia[subKey];
-                                  if (subs) {
-                                    subs.forEach((sub) => {
-                                      rows.push(renderDiaDiaRow(sub, 'subgrupo', 'bg-yellow-50/50', '52px', setor.codSecao, grupo.cod));
-                                      const itemKey = `item_${setor.codSecao}_${grupo.cod}_${sub.cod}`;
-                                      const itens = expandedDiaDia[itemKey];
-                                      if (itens) {
-                                        itens.forEach((item) => {
-                                          rows.push(renderDiaDiaRow(item, 'item', 'bg-green-50/30', '72px', setor.codSecao, grupo.cod));
-                                        });
-                                      }
-                                    });
-                                  }
-                                });
-                              }
+                            const toggleInativaDiaDia = (codSecao) => {
+                              setSecoesInativasDiaDia(prev => {
+                                const key = String(codSecao);
+                                return prev.includes(key) ? prev.filter(s => s !== key) : [...prev, key];
+                              });
+                            };
+                            return vendasDiaDia.setores.map((setor, index) => {
+                              const secKey = `grupo_${setor.codSecao}__`;
+                              const secExpanded = expandedDiaDia[secKey];
+                              const isInativa = secoesInativasDiaDia.includes(String(setor.codSecao));
+                              return (
+                              <Fragment key={`dd-${setor.codSecao || index}`}>
+                                {/* Nivel 1: Secao */}
+                                <tr className={`hover:bg-gray-100 border-b border-gray-100 ${isInativa ? 'bg-gray-200 opacity-50 line-through' : index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
+                                  <td className={`px-4 py-2 text-sm font-semibold text-gray-800 sticky left-0 z-10 ${isInativa ? 'bg-gray-200' : ''}`} style={!isInativa ? { backgroundColor: index % 2 === 0 ? '#f9fafb' : '#fff' } : {}}>
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        type="checkbox"
+                                        checked={isInativa}
+                                        onChange={(e) => { e.stopPropagation(); toggleInativaDiaDia(setor.codSecao); }}
+                                        title={isInativa ? 'Ativar secao' : 'Inativar secao (excluir dos totais)'}
+                                        className="w-3.5 h-3.5 accent-gray-500 cursor-pointer flex-shrink-0"
+                                      />
+                                      <button onClick={() => toggleDiaDiaDrill('grupo', setor.codSecao)} className="flex items-center gap-2 font-semibold text-gray-800 whitespace-nowrap">
+                                        <span className={`w-5 h-5 flex-shrink-0 flex items-center justify-center rounded text-xs font-bold transition-colors ${secExpanded ? 'bg-orange-500 text-white' : 'bg-gray-300 text-gray-700'}`}>
+                                          {secExpanded ? '−' : '+'}
+                                        </span>
+                                        {setor.secao}
+                                      </button>
+                                    </div>
+                                  </td>
+                                  {renderDiaCells(setor)}
+                                  {renderTotal(setor)}
+                                </tr>
+
+                                {/* Nivel 2: Grupos */}
+                                {secExpanded?.map((grupo, gIdx) => {
+                                  const grupoKey = `subgrupo_${setor.codSecao}_${grupo.cod}_`;
+                                  const grpExpanded = expandedDiaDia[grupoKey];
+                                  return (
+                                  <Fragment key={`ddg-${setor.codSecao}_${grupo.cod}`}>
+                                    <tr className={`hover:bg-gray-100 ${gIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b border-gray-100`}>
+                                      <td className="px-4 py-2 text-sm text-gray-700 pl-10 sticky left-0 z-10 bg-white">
+                                        <button onClick={() => toggleDiaDiaDrill('subgrupo', setor.codSecao, grupo.cod)} className="flex items-center gap-2 font-medium text-gray-700 whitespace-nowrap">
+                                          <span className={`w-4 h-4 flex-shrink-0 flex items-center justify-center rounded text-xs font-bold transition-colors ${grpExpanded ? 'bg-orange-500 text-white' : 'bg-gray-300 text-gray-700'}`}>
+                                            {grpExpanded ? '−' : '+'}
+                                          </span>
+                                          {grupo.nome}
+                                        </button>
+                                      </td>
+                                      {renderDiaCells(grupo)}
+                                      {renderTotal(grupo)}
+                                    </tr>
+
+                                    {/* Nivel 3: Subgrupos */}
+                                    {grpExpanded?.map((sub, sgIdx) => {
+                                      const subKey = `item_${setor.codSecao}_${grupo.cod}_${sub.cod}`;
+                                      const subExpanded = expandedDiaDia[subKey];
+                                      return (
+                                      <Fragment key={`dds-${setor.codSecao}_${grupo.cod}_${sub.cod}`}>
+                                        <tr className={`hover:bg-gray-100 ${sgIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b border-gray-100`}>
+                                          <td className="px-4 py-2 text-sm text-gray-600 pl-16 sticky left-0 z-10 bg-white">
+                                            <button onClick={() => toggleDiaDiaDrill('item', setor.codSecao, grupo.cod, sub.cod)} className="flex items-center gap-2 text-gray-600 whitespace-nowrap">
+                                              <span className={`w-4 h-4 flex-shrink-0 flex items-center justify-center rounded text-xs font-bold transition-colors ${subExpanded ? 'bg-orange-500 text-white' : 'bg-gray-300 text-gray-700'}`}>
+                                                {subExpanded ? '−' : '+'}
+                                              </span>
+                                              {sub.nome}
+                                            </button>
+                                          </td>
+                                          {renderDiaCells(sub)}
+                                          {renderTotal(sub)}
+                                        </tr>
+
+                                        {/* Nivel 4: Itens */}
+                                        {subExpanded?.map((item, iIdx) => (
+                                          <tr key={`ddi-${item.cod || iIdx}`} className={`hover:bg-amber-100 bg-amber-50 border-b border-amber-100/50`}>
+                                            <td className="px-4 py-1.5 text-xs text-gray-500 pl-24 sticky left-0 z-10 bg-amber-50">
+                                              <span className="flex items-center gap-2 whitespace-nowrap">
+                                                <span className="w-3 h-3 rounded-full bg-gray-400 inline-block"></span>
+                                                {item.nome}
+                                              </span>
+                                            </td>
+                                            {renderDiaCells(item)}
+                                            {renderTotal(item)}
+                                          </tr>
+                                        ))}
+                                      </Fragment>);
+                                    })}
+                                  </Fragment>);
+                                })}
+                              </Fragment>);
                             });
-                            return rows;
                           })()}
-                          {/* Linha TOTAL */}
                           {/* Linha TOTAL */}
                           <tr className="bg-orange-200 font-bold border-t-2 border-orange-300">
                             <td className="px-3 py-2 text-orange-900 sticky left-0 bg-orange-200 z-10">TOTAL</td>
@@ -2932,18 +2978,19 @@ export default function GestaoInteligente() {
                                 if (isInt) return Math.round(v).toLocaleString('pt-BR');
                                 return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                               };
+                              const ativosDD = vendasDiaDia.setores.filter(st => !secoesInativasDiaDia.includes(String(st.codSecao)));
                               return vendasDiaDia._diasOrdenados.map(d => {
                                 let val = 0;
                                 if (isPct) {
-                                  const tV = vendasDiaDia.setores.reduce((s, st) => s + (st.dias[d.dia]?.venda || 0), 0);
-                                  const tC = vendasDiaDia.setores.reduce((s, st) => s + (st.dias[d.dia]?.custo || 0), 0);
-                                  const tI = vendasDiaDia.setores.reduce((s, st) => s + (st.dias[d.dia]?.impostos || 0), 0);
-                                  const tO = vendasDiaDia.setores.reduce((s, st) => s + (st.dias[d.dia]?.vendaOferta || 0), 0);
+                                  const tV = ativosDD.reduce((s, st) => s + (st.dias[d.dia]?.venda || 0), 0);
+                                  const tC = ativosDD.reduce((s, st) => s + (st.dias[d.dia]?.custo || 0), 0);
+                                  const tI = ativosDD.reduce((s, st) => s + (st.dias[d.dia]?.impostos || 0), 0);
+                                  const tO = ativosDD.reduce((s, st) => s + (st.dias[d.dia]?.vendaOferta || 0), 0);
                                   if (metricaDiaDia === 'markdown') val = tV > 0 ? ((tV - tC) / tV) * 100 : 0;
                                   else if (metricaDiaDia === 'mgLimpa') val = tV > 0 ? ((tV - tC - tI) / tV) * 100 : 0;
                                   else if (metricaDiaDia === 'pctOferta') val = tV > 0 ? (tO / tV) * 100 : 0;
                                 } else {
-                                  val = vendasDiaDia.setores.reduce((s, st) => s + (st.dias[d.dia] ? (st.dias[d.dia][metricaDiaDia] || 0) : 0), 0);
+                                  val = ativosDD.reduce((s, st) => s + (st.dias[d.dia] ? (st.dias[d.dia][metricaDiaDia] || 0) : 0), 0);
                                 }
                                 return (
                                   <td key={`t-${d.dia}`} className={`px-2 py-2 text-right font-mono text-orange-900 ${d.dia > vendasDiaDia.ultimoDia ? 'opacity-30' : ''}`}>
@@ -2956,18 +3003,19 @@ export default function GestaoInteligente() {
                               {(() => {
                                 const isPct = ['markdown', 'mgLimpa', 'pctOferta'].includes(metricaDiaDia);
                                 const isInt = ['cupons', 'skus'].includes(metricaDiaDia);
+                                const ativosDD = vendasDiaDia.setores.filter(st => !secoesInativasDiaDia.includes(String(st.codSecao)));
                                 if (isPct) {
-                                  const tV = vendasDiaDia.setores.reduce((s, st) => s + Object.values(st.dias).reduce((a, d) => a + (d?.venda || 0), 0), 0);
-                                  const tC = vendasDiaDia.setores.reduce((s, st) => s + Object.values(st.dias).reduce((a, d) => a + (d?.custo || 0), 0), 0);
-                                  const tI = vendasDiaDia.setores.reduce((s, st) => s + Object.values(st.dias).reduce((a, d) => a + (d?.impostos || 0), 0), 0);
-                                  const tO = vendasDiaDia.setores.reduce((s, st) => s + Object.values(st.dias).reduce((a, d) => a + (d?.vendaOferta || 0), 0), 0);
+                                  const tV = ativosDD.reduce((s, st) => s + Object.values(st.dias).reduce((a, d) => a + (d?.venda || 0), 0), 0);
+                                  const tC = ativosDD.reduce((s, st) => s + Object.values(st.dias).reduce((a, d) => a + (d?.custo || 0), 0), 0);
+                                  const tI = ativosDD.reduce((s, st) => s + Object.values(st.dias).reduce((a, d) => a + (d?.impostos || 0), 0), 0);
+                                  const tO = ativosDD.reduce((s, st) => s + Object.values(st.dias).reduce((a, d) => a + (d?.vendaOferta || 0), 0), 0);
                                   let val = 0;
                                   if (metricaDiaDia === 'markdown') val = tV > 0 ? ((tV - tC) / tV) * 100 : 0;
                                   else if (metricaDiaDia === 'mgLimpa') val = tV > 0 ? ((tV - tC - tI) / tV) * 100 : 0;
                                   else if (metricaDiaDia === 'pctOferta') val = tV > 0 ? (tO / tV) * 100 : 0;
                                   return val.toFixed(2) + '%';
                                 }
-                                const total = vendasDiaDia.setores.reduce((s, st) => s + Object.values(st.dias).reduce((a, d) => a + (d ? (d[metricaDiaDia] || 0) : 0), 0), 0);
+                                const total = ativosDD.reduce((s, st) => s + Object.values(st.dias).reduce((a, d) => a + (d ? (d[metricaDiaDia] || 0) : 0), 0), 0);
                                 if (isInt) return Math.round(total).toLocaleString('pt-BR');
                                 return total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                               })()}
