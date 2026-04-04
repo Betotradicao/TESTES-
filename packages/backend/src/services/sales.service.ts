@@ -217,25 +217,24 @@ export class SalesService {
 
       // Converter para formato Sale
       const sales: Sale[] = result.map((row: any) => {
-        // Formatar data/hora usando UTC para preservar horário original do Oracle/BRT
-        // TIM_HORA vem como timestamp UTC mas representa horário Brasília
+        // Formatar data/hora (usar getters locais - containers estao em BRT -03)
         let dataHoraVenda = '';
         if (row.TIM_HORA) {
           const hora = new Date(row.TIM_HORA);
-          const hh = String(hora.getUTCHours()).padStart(2, '0');
-          const mi = String(hora.getUTCMinutes()).padStart(2, '0');
-          const ss = String(hora.getUTCSeconds()).padStart(2, '0');
-          const yy = hora.getUTCFullYear();
-          const mm = String(hora.getUTCMonth() + 1).padStart(2, '0');
-          const dd = String(hora.getUTCDate()).padStart(2, '0');
+          const hh = String(hora.getHours()).padStart(2, '0');
+          const mi = String(hora.getMinutes()).padStart(2, '0');
+          const ss = String(hora.getSeconds()).padStart(2, '0');
+          const yy = hora.getFullYear();
+          const mm = String(hora.getMonth() + 1).padStart(2, '0');
+          const dd = String(hora.getDate()).padStart(2, '0');
           dataHoraVenda = `${yy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
         }
 
-        // Formatar data saída para YYYYMMDD (usar UTC para preservar data original)
+        // Formatar data saída para YYYYMMDD
         let dtaSaida = '';
         if (row.DTA_SAIDA) {
           const data = new Date(row.DTA_SAIDA);
-          dtaSaida = `${data.getUTCFullYear()}${String(data.getUTCMonth() + 1).padStart(2, '0')}${String(data.getUTCDate()).padStart(2, '0')}`;
+          dtaSaida = `${data.getFullYear()}${String(data.getMonth() + 1).padStart(2, '0')}${String(data.getDate()).padStart(2, '0')}`;
         }
 
         return {
