@@ -1184,7 +1184,7 @@ export default function Bipagens() {
                   {bipages.map((bip) => (
                     <tr key={bip.id} className="hover:bg-gray-50">
                       <td className="px-2 py-4 text-center whitespace-nowrap">
-                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold text-white ${bip.cod_loja === 2 ? 'bg-purple-500' : 'bg-blue-500'}`}>
+                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold text-white ${bip.cod_loja === 2 ? 'bg-purple-500' : 'bg-orange-400'}`}>
                           {bip.cod_loja || 1}
                         </span>
                       </td>
@@ -1339,7 +1339,7 @@ export default function Bipagens() {
                 <div key={bip.id} className="border-b border-gray-200 p-4">
                   {/* Loja */}
                   <div className="flex items-center gap-2 mb-2">
-                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white ${bip.cod_loja === 2 ? 'bg-purple-500' : 'bg-blue-500'}`}>
+                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white ${bip.cod_loja === 2 ? 'bg-purple-500' : 'bg-orange-400'}`}>
                       {bip.cod_loja || 1}
                     </span>
                     <span className="text-xs text-gray-500">Loja {bip.cod_loja || 1}</span>
