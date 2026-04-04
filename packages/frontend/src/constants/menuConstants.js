@@ -37,6 +37,15 @@ export const MENU_MODULES = {
   VISION_PDV: 'vision-pdv',
   VISION_FACIAL: 'vision-facial',
   VISION_BIPAGENS: 'vision-bipagens',
+  // RH no Radar
+  RH_COLABORADORES: 'rh-colaboradores',
+  RH_SAUDE: 'rh-saude',
+  RH_PONTO: 'rh-ponto',
+  RH_RECRUTAMENTO: 'rh-recrutamento',
+  RH_TREINAMENTOS: 'rh-treinamentos',
+  RH_FINANCEIRO: 'rh-financeiro',
+  RH_INDICADORES: 'rh-indicadores',
+  RH_CONFIGURACOES: 'rh-configuracoes',
 };
 
 // IDs dos sub-menus
@@ -159,6 +168,41 @@ export const MENU_SUBMENUS = {
 
   // Consultor Digital
   ROTA_CRESCIMENTO_DASHBOARD: 'rota-crescimento-dashboard',
+
+  // RH no Radar - Colaboradores
+  RH_DASHBOARD: 'rh-dashboard',
+  RH_RESULTADOS: 'rh-resultados',
+  RH_CADASTRO_GERAL: 'rh-cadastro-geral',
+  RH_ADMISSOES: 'rh-admissoes',
+  RH_DESLIGAMENTOS: 'rh-desligamentos',
+  RH_DOCUMENTACAO: 'rh-documentacao',
+  // RH - Saúde Ocupacional
+  RH_CONTROLE_ASO: 'rh-controle-aso',
+  RH_EXAMES_PERIODICOS: 'rh-exames-periodicos',
+  RH_VENCIMENTOS: 'rh-vencimentos',
+  // RH - Ponto e Ausências
+  RH_JORNADAS: 'rh-jornadas',
+  RH_AUSENCIAS: 'rh-ausencias',
+  RH_FERIAS: 'rh-ferias',
+  RH_ABSENTEISMO: 'rh-absenteismo',
+  // RH - Recrutamento
+  RH_VAGAS: 'rh-vagas',
+  RH_CANDIDATOS: 'rh-candidatos',
+  RH_PROCESSO_SELETIVO: 'rh-processo-seletivo',
+  // RH - Treinamentos
+  RH_CADASTRO_TREINAMENTO: 'rh-cadastro-treinamento',
+  RH_PRESENCA: 'rh-presenca',
+  RH_CERTIFICADOS: 'rh-certificados',
+  // RH - Financeiro
+  RH_LANCAMENTOS: 'rh-lancamentos',
+  RH_FOLHA: 'rh-folha',
+  RH_BENEFICIOS: 'rh-beneficios',
+  // RH - Indicadores
+  RH_DASHBOARD_EXECUTIVO: 'rh-dashboard-executivo',
+  RH_ROTATIVIDADE: 'rh-rotatividade',
+  RH_PERFIL_DEMOGRAFICO: 'rh-perfil-demografico',
+  // RH - Configurações
+  RH_CONFIG_GERAL: 'rh-config-geral',
 };
 
 // Estrutura completa do menu
@@ -706,6 +750,97 @@ export const MENU_STRUCTURE = [
         title: 'Conciliação Bancária',
         path: '/conciliacao-bancaria'
       }
+    ]
+  },
+  // ========== RH NO RADAR ==========
+  {
+    id: MENU_MODULES.RH_COLABORADORES,
+    title: 'Colaboradores',
+    icon: 'users',
+    section: 'rh',
+    submenus: [
+      { id: MENU_SUBMENUS.RH_DASHBOARD, title: 'Dashboard RH', path: '/rh/dashboard' },
+      { id: MENU_SUBMENUS.RH_RESULTADOS, title: 'Resultados', path: '/rh/resultados' },
+      { id: MENU_SUBMENUS.RH_CADASTRO_GERAL, title: 'Cadastro Geral', path: '/rh/cadastro' },
+      { id: MENU_SUBMENUS.RH_ADMISSOES, title: 'Admissões', path: '/rh/admissoes' },
+      { id: MENU_SUBMENUS.RH_DESLIGAMENTOS, title: 'Desligamentos', path: '/rh/desligamentos' },
+      { id: MENU_SUBMENUS.RH_DOCUMENTACAO, title: 'Documentação', path: '/rh/documentacao' },
+    ]
+  },
+  {
+    id: MENU_MODULES.RH_SAUDE,
+    title: 'Saúde Ocupacional',
+    icon: 'heart',
+    section: 'rh',
+    submenus: [
+      { id: MENU_SUBMENUS.RH_CONTROLE_ASO, title: 'Controle de ASO', path: '/rh/aso' },
+      { id: MENU_SUBMENUS.RH_EXAMES_PERIODICOS, title: 'Exames Periódicos', path: '/rh/exames' },
+      { id: MENU_SUBMENUS.RH_VENCIMENTOS, title: 'Relatório de Vencimentos', path: '/rh/vencimentos' },
+    ]
+  },
+  {
+    id: MENU_MODULES.RH_PONTO,
+    title: 'Ponto e Ausências',
+    icon: 'clock',
+    section: 'rh',
+    submenus: [
+      { id: MENU_SUBMENUS.RH_JORNADAS, title: 'Jornadas de Trabalho', path: '/rh/jornadas' },
+      { id: MENU_SUBMENUS.RH_AUSENCIAS, title: 'Lançar Ausências', path: '/rh/ausencias' },
+      { id: MENU_SUBMENUS.RH_FERIAS, title: 'Controle de Férias', path: '/rh/ferias' },
+      { id: MENU_SUBMENUS.RH_ABSENTEISMO, title: 'Análise de Absenteísmo', path: '/rh/absenteismo' },
+    ]
+  },
+  {
+    id: MENU_MODULES.RH_RECRUTAMENTO,
+    title: 'Recrutamento',
+    icon: 'briefcase',
+    section: 'rh',
+    submenus: [
+      { id: MENU_SUBMENUS.RH_VAGAS, title: 'Vagas Abertas', path: '/rh/vagas' },
+      { id: MENU_SUBMENUS.RH_CANDIDATOS, title: 'Cadastro de Candidatos', path: '/rh/candidatos' },
+      { id: MENU_SUBMENUS.RH_PROCESSO_SELETIVO, title: 'Processo Seletivo', path: '/rh/processo-seletivo' },
+    ]
+  },
+  {
+    id: MENU_MODULES.RH_TREINAMENTOS,
+    title: 'Treinamentos',
+    icon: 'book',
+    section: 'rh',
+    submenus: [
+      { id: MENU_SUBMENUS.RH_CADASTRO_TREINAMENTO, title: 'Cadastrar Treinamento', path: '/rh/treinamentos' },
+      { id: MENU_SUBMENUS.RH_PRESENCA, title: 'Controle de Presença', path: '/rh/presenca' },
+      { id: MENU_SUBMENUS.RH_CERTIFICADOS, title: 'Certificados', path: '/rh/certificados' },
+    ]
+  },
+  {
+    id: MENU_MODULES.RH_FINANCEIRO,
+    title: 'Financeiro RH',
+    icon: 'dollar',
+    section: 'rh',
+    submenus: [
+      { id: MENU_SUBMENUS.RH_LANCAMENTOS, title: 'Lançamentos', path: '/rh/lancamentos' },
+      { id: MENU_SUBMENUS.RH_FOLHA, title: 'Folha de Pagamento', path: '/rh/folha' },
+      { id: MENU_SUBMENUS.RH_BENEFICIOS, title: 'Benefícios', path: '/rh/beneficios' },
+    ]
+  },
+  {
+    id: MENU_MODULES.RH_INDICADORES,
+    title: 'Indicadores RH',
+    icon: 'chart',
+    section: 'rh',
+    submenus: [
+      { id: MENU_SUBMENUS.RH_DASHBOARD_EXECUTIVO, title: 'Dashboard Executivo', path: '/rh/indicadores' },
+      { id: MENU_SUBMENUS.RH_ROTATIVIDADE, title: 'Rotatividade (Turnover)', path: '/rh/rotatividade' },
+      { id: MENU_SUBMENUS.RH_PERFIL_DEMOGRAFICO, title: 'Perfil Demográfico', path: '/rh/perfil' },
+    ]
+  },
+  {
+    id: MENU_MODULES.RH_CONFIGURACOES,
+    title: 'Configurações RH',
+    icon: 'settings',
+    section: 'rh',
+    submenus: [
+      { id: MENU_SUBMENUS.RH_CONFIG_GERAL, title: 'Configurações Gerais', path: '/rh/configuracoes' },
     ]
   },
   // ========== CONSULTOR DIGITAL ==========
