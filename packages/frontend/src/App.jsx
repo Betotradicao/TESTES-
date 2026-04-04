@@ -63,6 +63,7 @@ import GarimpadorEcommerce from './pages/GarimpadorEcommerce';
 import RotaCrescimento from './pages/RotaCrescimento';
 import MarketingWhatsapp from './pages/MarketingWhatsapp';
 import DisparoWhatsapp from './pages/DisparoWhatsapp';
+import RhDashboard from './pages/RhDashboard';
 import CalendarioAtendimento from './pages/CalendarioAtendimento';
 import CotacaoPublica from './pages/CotacaoPublica';
 import AnaliseCotacao from './pages/AnaliseCotacao';
@@ -561,6 +562,15 @@ function App() {
               element={
                 <ProtectedRoute>
                   <DisparoWhatsapp />
+                </ProtectedRoute>
+              }
+            />
+            {/* RH no Radar */}
+            <Route
+              path="/rh/dashboard"
+              element={
+                <ProtectedRoute>
+                  <RhDashboard />
                 </ProtectedRoute>
               }
             />
