@@ -9,19 +9,21 @@ main() {
 # INSTALADOR MULTI-TENANT - VPS LINUX
 # Sistema: Prevenção no Radar
 # Suporte a múltiplos clientes com subdomínios
-# VERSÃO 5.0: Atualizado Mar/2026
+# VERSÃO 5.1: Atualizado Abr/2026
 #   - Sem Tailscale (usa túnel SSH direto)
 #   - Dockerfiles lidos do repo (não sobrescreve)
 #   - pgvector/pgvector:pg15 (suporte a vectors)
 #   - Volume de certificates para PIX/boletos
 #   - Docker compose v2 (docker compose)
+#   - Multi-loja: cod_loja em bips e sells
+#   - Extensao pg_trgm para busca fuzzy
 # ============================================
 
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║                                                            ║"
 echo "║   INSTALADOR MULTI-TENANT - PREVENÇÃO NO RADAR            ║"
 echo "║   Sistema com subdomínios por cliente                      ║"
-echo "║   VERSÃO: 5.0 (Março 2026)                                ║"
+echo "║   VERSÃO: 5.1 (Abril 2026)                                 ║"
 echo "║                                                            ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
@@ -816,6 +818,11 @@ fi
 echo "🗄️  Criando tabelas adicionais..."
 
 docker exec -i ${CONTAINER_PREFIX}-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB_NAME << 'EOSQL' 2>/dev/null || true
+
+-- Extensoes adicionais
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+-- Tabela suspect_identifications
 CREATE TABLE IF NOT EXISTS suspect_identifications (
   id SERIAL PRIMARY KEY,
   identification_number VARCHAR(255) NOT NULL,
@@ -826,7 +833,26 @@ CREATE TABLE IF NOT EXISTS suspect_identifications (
 );
 CREATE INDEX IF NOT EXISTS idx_suspect_identifications_bip_id ON suspect_identifications(bip_id);
 ALTER TABLE suspect_identifications ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+
+-- Coluna mappings em database_connections
 ALTER TABLE database_connections ADD COLUMN IF NOT EXISTS mappings text;
+
+-- Colunas multi-loja e operador em sells
+ALTER TABLE sells ADD COLUMN IF NOT EXISTS operator_code INTEGER;
+ALTER TABLE sells ADD COLUMN IF NOT EXISTS operator_name VARCHAR(100);
+ALTER TABLE sells ADD COLUMN IF NOT EXISTS cod_loja INTEGER;
+
+-- Coluna multi-loja em bips
+ALTER TABLE bips ADD COLUMN IF NOT EXISTS cod_loja INTEGER;
+
+-- Tabela secoes_inativas (Venda Dia a Dia)
+CREATE TABLE IF NOT EXISTS secoes_inativas (
+  id SERIAL PRIMARY KEY,
+  cod_secao INTEGER NOT NULL,
+  user_id UUID,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
 EOSQL
 
 echo "✅ Tabelas adicionais criadas"
