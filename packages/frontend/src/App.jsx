@@ -64,6 +64,8 @@ import RotaCrescimento from './pages/RotaCrescimento';
 import MarketingWhatsapp from './pages/MarketingWhatsapp';
 import DisparoWhatsapp from './pages/DisparoWhatsapp';
 import RhDashboard from './pages/RhDashboard';
+import RhConfiguracoes from './pages/RhConfiguracoes';
+import RhCadastroGeral from './pages/RhCadastroGeral';
 import CalendarioAtendimento from './pages/CalendarioAtendimento';
 import CotacaoPublica from './pages/CotacaoPublica';
 import AnaliseCotacao from './pages/AnaliseCotacao';
@@ -571,6 +573,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <RhDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/rh/configuracoes"
+              element={
+                <ProtectedRoute>
+                  <RhConfiguracoes />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/rh/cadastro"
+              element={
+                <ProtectedRoute>
+                  <RhCadastroGeral />
                 </ProtectedRoute>
               }
             />

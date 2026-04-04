@@ -261,6 +261,220 @@ export class RhController {
     }
   }
 
+  // =============================================
+  // CONFIG TABLES - Generic CRUD helpers
+  // =============================================
+
+  private static async listarConfig(req: AuthRequest, res: Response, table: string, orderBy = 'nome') {
+    try {
+      const rows = await AppDataSource.query(
+        `SELECT * FROM ${table} WHERE ativo = true ORDER BY ${orderBy} ASC`
+      );
+      res.json(rows);
+    } catch (error) {
+      console.error(`List ${table} error:`, error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  private static async criarConfig(req: AuthRequest, res: Response, table: string, fields: string[]) {
+    try {
+      const values = fields.map(f => req.body[f] ?? null);
+      const cols = fields.join(', ');
+      const placeholders = fields.map((_, i) => `$${i + 1}`).join(', ');
+      const result = await AppDataSource.query(
+        `INSERT INTO ${table} (${cols}) VALUES (${placeholders}) RETURNING *`,
+        values
+      );
+      res.status(201).json(result[0]);
+    } catch (error: any) {
+      console.error(`Create ${table} error:`, error);
+      if (error.code === '23505') {
+        return res.status(409).json({ error: 'Registro duplicado' });
+      }
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  private static async atualizarConfig(req: AuthRequest, res: Response, table: string, fields: string[]) {
+    try {
+      const { id } = req.params;
+      const values = fields.map(f => req.body[f] ?? null);
+      const setClause = fields.map((f, i) => `${f} = $${i + 1}`).join(', ');
+      const result = await AppDataSource.query(
+        `UPDATE ${table} SET ${setClause}, updated_at = NOW() WHERE id = $${fields.length + 1} RETURNING *`,
+        [...values, id]
+      );
+      if (result.length === 0) {
+        return res.status(404).json({ error: 'Registro nao encontrado' });
+      }
+      res.json(result[0]);
+    } catch (error: any) {
+      console.error(`Update ${table} error:`, error);
+      if (error.code === '23505') {
+        return res.status(409).json({ error: 'Registro duplicado' });
+      }
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  private static async deletarConfig(req: AuthRequest, res: Response, table: string) {
+    try {
+      const { id } = req.params;
+      const result = await AppDataSource.query(
+        `UPDATE ${table} SET ativo = false, updated_at = NOW() WHERE id = $1 RETURNING *`,
+        [id]
+      );
+      if (result.length === 0) {
+        return res.status(404).json({ error: 'Registro nao encontrado' });
+      }
+      res.json(result[0]);
+    } catch (error) {
+      console.error(`Delete ${table} error:`, error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  // --- Cargos ---
+  static async listarCargos(req: AuthRequest, res: Response) {
+    return RhController.listarConfig(req, res, 'rh_cargos');
+  }
+  static async criarCargo(req: AuthRequest, res: Response) {
+    return RhController.criarConfig(req, res, 'rh_cargos', ['nome', 'descricao']);
+  }
+  static async atualizarCargo(req: AuthRequest, res: Response) {
+    return RhController.atualizarConfig(req, res, 'rh_cargos', ['nome', 'descricao']);
+  }
+  static async deletarCargo(req: AuthRequest, res: Response) {
+    return RhController.deletarConfig(req, res, 'rh_cargos');
+  }
+
+  // --- Empresas ---
+  static async listarEmpresas(req: AuthRequest, res: Response) {
+    return RhController.listarConfig(req, res, 'rh_empresas');
+  }
+  static async criarEmpresa(req: AuthRequest, res: Response) {
+    return RhController.criarConfig(req, res, 'rh_empresas', ['nome', 'cnpj', 'endereco']);
+  }
+  static async atualizarEmpresa(req: AuthRequest, res: Response) {
+    return RhController.atualizarConfig(req, res, 'rh_empresas', ['nome', 'cnpj', 'endereco']);
+  }
+  static async deletarEmpresa(req: AuthRequest, res: Response) {
+    return RhController.deletarConfig(req, res, 'rh_empresas');
+  }
+
+  // --- Jornadas ---
+  static async listarJornadas(req: AuthRequest, res: Response) {
+    return RhController.listarConfig(req, res, 'rh_jornadas');
+  }
+  static async criarJornada(req: AuthRequest, res: Response) {
+    return RhController.criarConfig(req, res, 'rh_jornadas', ['nome', 'carga_horaria', 'descricao']);
+  }
+  static async atualizarJornada(req: AuthRequest, res: Response) {
+    return RhController.atualizarConfig(req, res, 'rh_jornadas', ['nome', 'carga_horaria', 'descricao']);
+  }
+  static async deletarJornada(req: AuthRequest, res: Response) {
+    return RhController.deletarConfig(req, res, 'rh_jornadas');
+  }
+
+  // --- Escolaridades ---
+  static async listarEscolaridades(req: AuthRequest, res: Response) {
+    return RhController.listarConfig(req, res, 'rh_escolaridades');
+  }
+  static async criarEscolaridade(req: AuthRequest, res: Response) {
+    return RhController.criarConfig(req, res, 'rh_escolaridades', ['nome']);
+  }
+  static async atualizarEscolaridade(req: AuthRequest, res: Response) {
+    return RhController.atualizarConfig(req, res, 'rh_escolaridades', ['nome']);
+  }
+  static async deletarEscolaridade(req: AuthRequest, res: Response) {
+    return RhController.deletarConfig(req, res, 'rh_escolaridades');
+  }
+
+  // --- Escalas ---
+  static async listarEscalas(req: AuthRequest, res: Response) {
+    return RhController.listarConfig(req, res, 'rh_escalas');
+  }
+  static async criarEscala(req: AuthRequest, res: Response) {
+    return RhController.criarConfig(req, res, 'rh_escalas', ['nome', 'descricao']);
+  }
+  static async atualizarEscala(req: AuthRequest, res: Response) {
+    return RhController.atualizarConfig(req, res, 'rh_escalas', ['nome', 'descricao']);
+  }
+  static async deletarEscala(req: AuthRequest, res: Response) {
+    return RhController.deletarConfig(req, res, 'rh_escalas');
+  }
+
+  // --- Regimes de Trabalho ---
+  static async listarRegimesTrabalho(req: AuthRequest, res: Response) {
+    return RhController.listarConfig(req, res, 'rh_regimes_trabalho');
+  }
+  static async criarRegimeTrabalho(req: AuthRequest, res: Response) {
+    return RhController.criarConfig(req, res, 'rh_regimes_trabalho', ['nome', 'descricao']);
+  }
+  static async atualizarRegimeTrabalho(req: AuthRequest, res: Response) {
+    return RhController.atualizarConfig(req, res, 'rh_regimes_trabalho', ['nome', 'descricao']);
+  }
+  static async deletarRegimeTrabalho(req: AuthRequest, res: Response) {
+    return RhController.deletarConfig(req, res, 'rh_regimes_trabalho');
+  }
+
+  // --- Formas de Pagamento ---
+  static async listarFormasPagamento(req: AuthRequest, res: Response) {
+    return RhController.listarConfig(req, res, 'rh_formas_pagamento');
+  }
+  static async criarFormaPagamento(req: AuthRequest, res: Response) {
+    return RhController.criarConfig(req, res, 'rh_formas_pagamento', ['nome', 'descricao']);
+  }
+  static async atualizarFormaPagamento(req: AuthRequest, res: Response) {
+    return RhController.atualizarConfig(req, res, 'rh_formas_pagamento', ['nome', 'descricao']);
+  }
+  static async deletarFormaPagamento(req: AuthRequest, res: Response) {
+    return RhController.deletarConfig(req, res, 'rh_formas_pagamento');
+  }
+
+  // --- Prazos de Experiencia ---
+  static async listarPrazosExperiencia(req: AuthRequest, res: Response) {
+    return RhController.listarConfig(req, res, 'rh_prazos_experiencia');
+  }
+  static async criarPrazoExperiencia(req: AuthRequest, res: Response) {
+    return RhController.criarConfig(req, res, 'rh_prazos_experiencia', ['nome', 'dias', 'descricao']);
+  }
+  static async atualizarPrazoExperiencia(req: AuthRequest, res: Response) {
+    return RhController.atualizarConfig(req, res, 'rh_prazos_experiencia', ['nome', 'dias', 'descricao']);
+  }
+  static async deletarPrazoExperiencia(req: AuthRequest, res: Response) {
+    return RhController.deletarConfig(req, res, 'rh_prazos_experiencia');
+  }
+
+  // --- Tipos de Desligamento ---
+  static async listarTiposDesligamento(req: AuthRequest, res: Response) {
+    return RhController.listarConfig(req, res, 'rh_tipos_desligamento');
+  }
+  static async criarTipoDesligamento(req: AuthRequest, res: Response) {
+    return RhController.criarConfig(req, res, 'rh_tipos_desligamento', ['nome', 'descricao']);
+  }
+  static async atualizarTipoDesligamento(req: AuthRequest, res: Response) {
+    return RhController.atualizarConfig(req, res, 'rh_tipos_desligamento', ['nome', 'descricao']);
+  }
+  static async deletarTipoDesligamento(req: AuthRequest, res: Response) {
+    return RhController.deletarConfig(req, res, 'rh_tipos_desligamento');
+  }
+
+  // --- Motivos de Desligamento ---
+  static async listarMotivosDesligamento(req: AuthRequest, res: Response) {
+    return RhController.listarConfig(req, res, 'rh_motivos_desligamento');
+  }
+  static async criarMotivoDesligamento(req: AuthRequest, res: Response) {
+    return RhController.criarConfig(req, res, 'rh_motivos_desligamento', ['nome', 'descricao']);
+  }
+  static async atualizarMotivoDesligamento(req: AuthRequest, res: Response) {
+    return RhController.atualizarConfig(req, res, 'rh_motivos_desligamento', ['nome', 'descricao']);
+  }
+  static async deletarMotivoDesligamento(req: AuthRequest, res: Response) {
+    return RhController.deletarConfig(req, res, 'rh_motivos_desligamento');
+  }
+
   static async getStats(req: AuthRequest, res: Response) {
     try {
       const empresa_id = req.query.empresa_id ? parseInt(req.query.empresa_id as string) : undefined;
