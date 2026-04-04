@@ -2863,7 +2863,7 @@ export default function GestaoInteligente() {
                             const renderDiaCells = (item) => vendasDiaDia._diasOrdenados.map(d => {
                               const val = getVal(item.dias[d.dia]);
                               return (
-                                <td key={d.dia} className={`px-2 py-2 text-right text-xs font-semibold font-mono ${vendasDiaDia._corDia?.[d.diaSemana] || ''} ${val > 0 ? 'text-gray-700' : val < 0 ? 'text-red-600' : 'text-gray-300'} ${d.dia > vendasDiaDia.ultimoDia ? 'opacity-30' : ''}`}>
+                                <td key={d.dia} className={`px-2 py-2 text-right text-sm font-semibold font-mono ${vendasDiaDia._corDia?.[d.diaSemana] || ''} ${val > 0 ? 'text-gray-700' : val < 0 ? 'text-red-600' : 'text-gray-300'} ${d.dia > vendasDiaDia.ultimoDia ? 'opacity-30' : ''}`}>
                                   {val !== 0 ? fmtVal(val) : '-'}
                                 </td>
                               );
@@ -2871,7 +2871,7 @@ export default function GestaoInteligente() {
                             const renderTotal = (item) => {
                               const total = Object.values(item.dias).reduce((s, d) => s + getVal(d), 0);
                               const totalForPct = isPct ? calcPctTotal(item.dias) : total;
-                              return <td className="px-3 py-2 text-right font-bold text-orange-700 border-l-2 border-orange-200 font-mono text-xs">{fmtVal(isPct ? totalForPct : total)}</td>;
+                              return <td className="px-3 py-2 text-right font-bold text-orange-700 border-l-2 border-orange-200 font-mono text-sm">{fmtVal(isPct ? totalForPct : total)}</td>;
                             };
                             const toggleInativaDiaDia = (codSecao) => {
                               setSecoesInativasDiaDia(prev => {

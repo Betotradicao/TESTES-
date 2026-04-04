@@ -1137,6 +1137,9 @@ export default function Bipagens() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
+                    <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                      Loja
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Vendedor
                     </th>
@@ -1180,6 +1183,11 @@ export default function Bipagens() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {bipages.map((bip) => (
                     <tr key={bip.id} className="hover:bg-gray-50">
+                      <td className="px-2 py-4 text-center whitespace-nowrap">
+                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold text-white ${bip.cod_loja === 2 ? 'bg-purple-500' : 'bg-blue-500'}`}>
+                          {bip.cod_loja || 1}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {bip.employee ? (
                           <div className="flex items-center gap-2">
@@ -1329,6 +1337,13 @@ export default function Bipagens() {
             <div className="lg:hidden">
               {bipages.map((bip) => (
                 <div key={bip.id} className="border-b border-gray-200 p-4">
+                  {/* Loja */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white ${bip.cod_loja === 2 ? 'bg-purple-500' : 'bg-blue-500'}`}>
+                      {bip.cod_loja || 1}
+                    </span>
+                    <span className="text-xs text-gray-500">Loja {bip.cod_loja || 1}</span>
+                  </div>
                   {/* Vendedor */}
                   {bip.employee && (
                     <div className="flex items-center gap-2 mb-3 pb-3 border-b border-gray-100">

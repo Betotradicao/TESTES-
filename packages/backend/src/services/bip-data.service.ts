@@ -14,7 +14,11 @@ export class BipDataService {
 
       const sales = await SalesService.fetchSalesFromERP(formattedDate, formattedDate);
 
-      return sales;
+      // Garantir que codLoja está presente no SaleData para matching por loja
+      return sales.map(s => ({
+        ...s,
+        codLoja: (s as any).codLoja || undefined,
+      }));
     } catch (error) {
       console.error('❌ Erro ao buscar vendas:', error);
       throw error;

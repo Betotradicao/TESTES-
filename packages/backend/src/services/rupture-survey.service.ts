@@ -430,11 +430,11 @@ export class RuptureSurveyService {
           secao: item.secao || null,
           subgrupo: item.subgrupo || null,
           fornecedor: item.fornecedor || null,
-          margem_lucro: item.margem_lucro || null,
+          margem_lucro: item.margem_lucro != null ? Number(item.margem_lucro) : null,
           qtd_embalagem: item.qtd_embalagem || null,
-          valor_venda: item.valor_venda || null,
-          custo_com_imposto: item.custo_com_imposto || null,
-          venda_media_dia: item.venda_media_dia || null,
+          valor_venda: item.valor_venda != null ? Number(item.valor_venda) : null,
+          custo_com_imposto: item.custo_com_imposto != null ? Number(item.custo_com_imposto) : null,
+          venda_media_dia: item.venda_media_dia != null ? Number(item.venda_media_dia) : null,
           tem_pedido: item.tem_pedido || null,
           status_pedido: item.status_pedido || null,
           data_entrega: item.data_entrega || null,
@@ -442,6 +442,14 @@ export class RuptureSurveyService {
         });
 
         surveyItems.push(surveyItem);
+      }
+
+      // Debug: log primeiro item para verificar valores
+      if (items.length > 0) {
+        const first = items[0];
+        console.log(`🔍 [DEBUG] Primeiro item recebido: valor_venda=${first.valor_venda}, venda_media_dia=${first.venda_media_dia}, margem_lucro=${first.margem_lucro}`);
+        const firstSaved = surveyItems[0];
+        console.log(`🔍 [DEBUG] Primeiro item salvo: valor_venda=${firstSaved.valor_venda}, venda_media_dia=${firstSaved.venda_media_dia}, margem_lucro=${firstSaved.margem_lucro}`);
       }
 
       await itemRepository.save(surveyItems);

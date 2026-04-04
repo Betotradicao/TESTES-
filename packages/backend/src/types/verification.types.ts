@@ -11,6 +11,7 @@ export interface SaleData {
   codCaixa?: number;
   codOperador?: number;
   desOperador?: string;
+  codLoja?: number;
 }
 
 export interface VerificationResult {

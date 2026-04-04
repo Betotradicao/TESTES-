@@ -40,7 +40,10 @@ export class BipVerificationService {
 
         const precoOk = Math.abs(valProduto - precoBip) <= tolerance;
 
-        return productIdInt === codProdutoInt && precoOk;
+        // Filtro por loja: se a bipagem tem cod_loja, só aceita venda da mesma loja
+        const lojaOk = !bip.cod_loja || !venda.codLoja || bip.cod_loja === venda.codLoja;
+
+        return productIdInt === codProdutoInt && precoOk && lojaOk;
       });
 
       if (match) {
