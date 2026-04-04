@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLoja } from '../contexts/LojaContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import { fetchSectors } from '../services/sectors.service';
@@ -8,6 +9,7 @@ import NumericKeypad from '../components/common/NumericKeypad';
 
 export default function ResultadosDoDia() {
   const { user, logout } = useAuth();
+  const { lojaSelecionada } = useLoja();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [sells, setSells] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -84,6 +86,7 @@ export default function ResultadosDoDia() {
       if (filters.search && filters.search.trim()) params.product = filters.search.trim();
       if (filters.sector_id) params.sector_id = filters.sector_id;
       if (filters.employee_id) params.employee_id = filters.employee_id;
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
 
       const response = await api.get('/sells', { params });
       const data = response.data;
@@ -144,7 +147,7 @@ export default function ResultadosDoDia() {
   // Carregar vendas ao montar componente e quando filtros mudam
   useEffect(() => {
     fetchSells(1);
-  }, [filters.date_from, filters.date_to, filters.status, filters.search, filters.sector_id, filters.employee_id]);
+  }, [filters.date_from, filters.date_to, filters.status, filters.search, filters.sector_id, filters.employee_id, lojaSelecionada]);
 
   // Auto-refresh: atualiza vendas a cada 2 minutos
   useEffect(() => {

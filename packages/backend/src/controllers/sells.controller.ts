@@ -15,7 +15,8 @@ export class SellsController {
         status,
         product,
         sector_id,
-        employee_id
+        employee_id,
+        codLoja
       } = req.query;
 
       // Validate pagination parameters
@@ -95,6 +96,11 @@ export class SellsController {
       // Filter by employee
       if (employee_id) {
         query = query.andWhere('bip.employee_id = :employee_id', { employee_id });
+      }
+
+      // Filter by loja (multi-loja)
+      if (codLoja) {
+        query = query.andWhere('sell.codLoja = :codLoja', { codLoja: parseInt(codLoja as string) });
       }
 
       // Get total count
