@@ -11,9 +11,8 @@ RUN npm install && npm cache clean --force
 # Copiar source code
 COPY src ./src
 
-# Build da aplicação (instalar TS global para garantir versao 5.x compativel)
-RUN npm install -g typescript && \
-    tsc && \
+# Build da aplicação (usar tsc local do node_modules)
+RUN npx tsc && \
     find src -name "*.js" -exec sh -c 'mkdir -p dist/$(dirname ${1#src/}) && cp "$1" dist/${1#src/}' _ {} \;
 
 # Imagem final
