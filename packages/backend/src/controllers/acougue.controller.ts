@@ -1,8 +1,58 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { AppDataSource } from '../config/database';
+import { OracleService } from '../services/oracle.service';
+import { MappingService } from '../services/mapping.service';
 
 export class AcougueController {
+
+  // Busca rapida de produtos no Oracle por codigo ou nome
+  static async buscarProdutos(req: AuthRequest, res: Response) {
+    try {
+      const search = (req.query.search as string || '').trim();
+      if (search.length < 2) return res.json([]);
+
+      const schema = await MappingService.getSchema();
+      const codProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const desProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+      const tabProduto = await MappingService.getRealTableName('TAB_PRODUTO');
+      const tabProdutoLoja = await MappingService.getRealTableName('TAB_PRODUTO_LOJA');
+      const plCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
+      const plValVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda');
+      const plCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
+      const plInativo = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'inativo');
+
+      // Buscar por codigo (numerico) ou nome (texto)
+      const isNumeric = /^\d+$/.test(search);
+      const whereClause = isNumeric
+        ? `WHERE p.${codProduto} = :search`
+        : `WHERE UPPER(p.${desProduto}) LIKE UPPER(:search)`;
+      const params = isNumeric ? { search: parseInt(search) } : { search: `%${search}%` };
+
+      const sql = `
+        SELECT p.${codProduto} AS CODIGO, p.${desProduto} AS DESCRICAO,
+               NVL(pl.${plValVenda}, 0) AS VAL_VENDA
+        FROM ${schema}.${tabProduto} p
+        LEFT JOIN ${schema}.${tabProdutoLoja} pl ON p.${codProduto} = pl.${plCodProduto} AND pl.${plCodLoja} = 1
+        ${whereClause}
+        AND NVL(pl.${plInativo}, 'N') = 'N'
+        AND ROWNUM <= 15
+        ORDER BY p.${desProduto}
+      `;
+
+      const rows = await OracleService.query(sql, params);
+      const produtos = rows.map((r: any) => ({
+        codigo: String(r.CODIGO),
+        descricao: r.DESCRICAO || '',
+        preco_venda: parseFloat(r.VAL_VENDA) || 0,
+      }));
+
+      res.json(produtos);
+    } catch (error) {
+      console.error('Buscar produtos error:', error);
+      res.status(500).json({ error: 'Erro ao buscar produtos' });
+    }
+  }
   // === TEMPLATES DE RENDIMENTO ===
 
   static async listarTemplates(req: AuthRequest, res: Response) {

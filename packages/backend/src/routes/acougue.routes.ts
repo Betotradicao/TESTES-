@@ -4,6 +4,9 @@ import { AcougueController } from '../controllers/acougue.controller';
 
 const router: ReturnType<typeof Router> = Router();
 
+// Busca de produtos Oracle
+router.get('/buscar-produtos', authenticateToken, AcougueController.buscarProdutos);
+
 // Templates de Rendimento
 router.get('/templates', authenticateToken, AcougueController.listarTemplates);
 router.get('/templates/:id', authenticateToken, AcougueController.getTemplate);

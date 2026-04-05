@@ -7,6 +7,68 @@ import RadarLoading from '../components/RadarLoading';
 
 const emptyItem = () => ({ nome_corte: '', codigo_produto: '', percentual: '', preco_venda: '', vende: true });
 
+// Componente de busca de produto com autocomplete
+function ProductSearch({ value, codigoValue, onSelect, onChangeCodigo }) {
+  const [search, setSearch] = useState(codigoValue || '');
+  const [results, setResults] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const timeoutRef = React.useRef(null);
+
+  const doSearch = async (term) => {
+    if (!term || term.length < 2) { setResults([]); return; }
+    setSearching(true);
+    try {
+      const res = await api.get(`/acougue/buscar-produtos?search=${encodeURIComponent(term)}`);
+      const produtos = res.data || [];
+      setResults(Array.isArray(produtos) ? produtos : []);
+      setShowDropdown(true);
+    } catch { setResults([]); }
+    setSearching(false);
+  };
+
+  const handleChange = (e) => {
+    const val = e.target.value;
+    setSearch(val);
+    onChangeCodigo(val);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => doSearch(val), 400);
+  };
+
+  const handleSelect = (prod) => {
+    setSearch(String(prod.codigo));
+    setShowDropdown(false);
+    onSelect({ codigo_produto: String(prod.codigo), nome_corte: prod.descricao || '', preco_venda: prod.preco_venda || '' });
+  };
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={search}
+        onChange={handleChange}
+        onFocus={() => results.length > 0 && setShowDropdown(true)}
+        onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+        placeholder="Codigo ou nome"
+        className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-white text-sm focus:border-orange-500 focus:outline-none"
+      />
+      {searching && <span className="absolute right-2 top-2 text-xs text-gray-400">...</span>}
+      {showDropdown && results.length > 0 && (
+        <div className="absolute z-50 left-0 right-0 mt-1 bg-gray-800 border border-gray-600 rounded shadow-lg max-h-48 overflow-y-auto">
+          {results.map((p, i) => (
+            <button key={i} type="button" onMouseDown={() => handleSelect(p)}
+              className="w-full px-3 py-2 text-left text-sm text-white hover:bg-orange-600 flex gap-2">
+              <span className="font-mono text-orange-300 flex-shrink-0">{p.codigo}</span>
+              <span className="truncate">{p.descricao}</span>
+              {p.preco_venda > 0 && <span className="text-green-400 flex-shrink-0 ml-auto">R$ {Number(p.preco_venda).toFixed(2)}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AcougueCadastroRendimento() {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -253,22 +315,25 @@ export default function AcougueCadastroRendimento() {
                       <tbody>
                         {itens.map((item, idx) => (
                           <tr key={idx} className="border-b border-gray-700">
-                            <td className="px-2 py-1">
-                              <input
-                                type="text"
+                            <td className="px-2 py-1" style={{ minWidth: 180 }}>
+                              <ProductSearch
                                 value={item.nome_corte}
-                                onChange={(e) => updateItem(idx, 'nome_corte', e.target.value)}
-                                placeholder="Ex: PICANHA"
-                                className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-white text-sm focus:border-orange-500 focus:outline-none"
+                                codigoValue={item.codigo_produto}
+                                onChangeCodigo={(val) => updateItem(idx, 'codigo_produto', val)}
+                                onSelect={(prod) => {
+                                  const updated = [...itens];
+                                  updated[idx] = { ...updated[idx], codigo_produto: prod.codigo_produto, nome_corte: prod.nome_corte, preco_venda: prod.preco_venda || updated[idx].preco_venda };
+                                  setItens(updated);
+                                }}
                               />
                             </td>
                             <td className="px-2 py-1">
                               <input
                                 type="text"
-                                value={item.codigo_produto}
-                                onChange={(e) => updateItem(idx, 'codigo_produto', e.target.value)}
-                                placeholder="Opcional"
-                                className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-white text-sm focus:border-orange-500 focus:outline-none"
+                                value={item.nome_corte}
+                                readOnly
+                                placeholder="Busque pelo codigo"
+                                className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-gray-300 text-sm cursor-not-allowed"
                               />
                             </td>
                             <td className="px-2 py-1">
