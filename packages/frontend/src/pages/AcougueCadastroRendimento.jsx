@@ -50,14 +50,14 @@ function ProductSearch({ value, codigoValue, onSelect, onChangeCodigo }) {
         onFocus={() => results.length > 0 && setShowDropdown(true)}
         onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
         placeholder="Codigo ou nome"
-        className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-white text-sm focus:border-orange-500 focus:outline-none"
+        className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-900 text-sm focus:border-orange-500 focus:outline-none"
       />
       {searching && <span className="absolute right-2 top-2 text-xs text-gray-400">...</span>}
       {showDropdown && results.length > 0 && (
-        <div className="absolute z-50 left-0 right-0 mt-1 bg-gray-800 border border-gray-600 rounded shadow-lg max-h-48 overflow-y-auto">
+        <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
           {results.map((p, i) => (
             <button key={i} type="button" onMouseDown={() => handleSelect(p)}
-              className="w-full px-3 py-2 text-left text-sm text-white hover:bg-orange-600 flex gap-2">
+              className="w-full px-3 py-2 text-left text-sm text-gray-900 hover:bg-orange-100 flex gap-2">
               <span className="font-mono text-orange-300 flex-shrink-0">{p.codigo}</span>
               <span className="truncate">{p.descricao}</span>
               {p.preco_venda > 0 && <span className="text-green-400 flex-shrink-0 ml-auto">R$ {Number(p.preco_venda).toFixed(2)}</span>}
@@ -192,7 +192,7 @@ export default function AcougueCadastroRendimento() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-900 text-white">
+    <div className="flex h-screen bg-gray-100">
       <Sidebar user={user} onLogout={logout} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
       <div className="flex-1 overflow-auto">
         {/* Header */}
@@ -225,10 +225,10 @@ export default function AcougueCadastroRendimento() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {templates.map((t) => (
-                <div key={t.id} className="bg-gray-800 rounded-xl p-5 border border-gray-700 hover:border-orange-500 transition cursor-pointer" onClick={() => openEdit(t.id)}>
+                <div key={t.id} className="bg-white rounded-xl p-5 border border-gray-200 hover:border-orange-500 shadow-sm transition cursor-pointer" onClick={() => openEdit(t.id)}>
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="text-lg font-bold text-white">{t.nome}</h3>
+                      <h3 className="text-lg font-bold text-gray-900">{t.nome}</h3>
                       {t.descricao && <p className="text-gray-400 text-sm mt-1">{t.descricao}</p>}
                     </div>
                     <button
@@ -240,11 +240,11 @@ export default function AcougueCadastroRendimento() {
                     </button>
                   </div>
                   <div className="flex gap-4 mt-4 text-sm">
-                    <div className="bg-gray-700 rounded-lg px-3 py-2 text-center flex-1">
+                    <div className="bg-gray-50 rounded-lg px-3 py-2 text-center flex-1 border border-gray-200">
                       <p className="text-gray-400">Cortes</p>
                       <p className="text-white font-bold text-lg">{t.total_cortes}</p>
                     </div>
-                    <div className="bg-gray-700 rounded-lg px-3 py-2 text-center flex-1">
+                    <div className="bg-gray-50 rounded-lg px-3 py-2 text-center flex-1 border border-gray-200">
                       <p className="text-gray-400">Total %</p>
                       <p className={`font-bold text-lg ${Math.abs(parseFloat(t.total_percentual || 0) - 100) < 0.5 ? 'text-green-400' : 'text-red-400'}`}>
                         {parseFloat(t.total_percentual || 0).toFixed(2)}%
@@ -260,11 +260,11 @@ export default function AcougueCadastroRendimento() {
         {/* Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 p-4 overflow-auto">
-            <div className="bg-gray-800 rounded-xl w-full max-w-4xl my-8 border border-gray-700 shadow-2xl">
+            <div className="bg-white rounded-xl w-full max-w-4xl my-8 border border-gray-200 shadow-2xl">
               {/* Modal header */}
-              <div className="flex items-center justify-between p-5 border-b border-gray-700">
-                <h2 className="text-xl font-bold text-white">{editingId ? 'Editar Template' : 'Novo Template'}</h2>
-                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white">
+              <div className="flex items-center justify-between p-5 border-b border-gray-200">
+                <h2 className="text-xl font-bold text-gray-900">{editingId ? 'Editar Template' : 'Novo Template'}</h2>
+                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-700">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
@@ -279,7 +279,7 @@ export default function AcougueCadastroRendimento() {
                       value={nome}
                       onChange={(e) => setNome(e.target.value)}
                       placeholder="Ex: BOI CASADA"
-                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:border-orange-500 focus:outline-none"
+                      className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:border-orange-500 focus:ring-orange-500 focus:outline-none"
                     />
                   </div>
                   <div>
@@ -289,7 +289,7 @@ export default function AcougueCadastroRendimento() {
                       value={descricao}
                       onChange={(e) => setDescricao(e.target.value)}
                       placeholder="Descricao do template"
-                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:border-orange-500 focus:outline-none"
+                      className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:border-orange-500 focus:ring-orange-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -314,7 +314,7 @@ export default function AcougueCadastroRendimento() {
                       </thead>
                       <tbody>
                         {itens.map((item, idx) => (
-                          <tr key={idx} className="border-b border-gray-700">
+                          <tr key={idx} className="border-b border-gray-200">
                             <td className="px-2 py-1" style={{ minWidth: 180 }}>
                               <ProductSearch
                                 value={item.nome_corte}
@@ -333,7 +333,7 @@ export default function AcougueCadastroRendimento() {
                                 value={item.nome_corte}
                                 readOnly
                                 placeholder="Busque pelo codigo"
-                                className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-gray-300 text-sm cursor-not-allowed"
+                                className="w-full bg-gray-100 border border-gray-300 rounded px-2 py-1.5 text-gray-600 text-sm cursor-not-allowed"
                               />
                             </td>
                             <td className="px-2 py-1">
@@ -398,7 +398,7 @@ export default function AcougueCadastroRendimento() {
 
               {/* Modal footer */}
               <div className="flex justify-end gap-3 p-5 border-t border-gray-700">
-                <button onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 transition">
+                <button onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition">
                   Cancelar
                 </button>
                 <button
