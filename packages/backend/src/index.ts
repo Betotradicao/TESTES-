@@ -84,6 +84,7 @@ import margensCategoriaRouter from './routes/margens-categoria.routes';
 import disparoWhatsappRouter from './routes/disparo-whatsapp.routes';
 import pendenciasNotasRouter from './routes/pendencias-notas.routes';
 import rhRouter from './routes/rh.routes';
+import acougueRouter from './routes/acougue.routes';
 import { minioService } from './services/minio.service';
 import { OracleService } from './services/oracle.service';
 import { MappingService } from './services/mapping.service';
@@ -201,6 +202,7 @@ app.use('/api/face-recognition', faceRecognitionRouter);
 app.use('/api/disparo-whatsapp', disparoWhatsappRouter);
 app.use('/api/pendencias-notas', pendenciasNotasRouter);
 app.use('/api/rh', rhRouter);
+app.use('/api/acougue', acougueRouter);
 
 // app.use('/api/user-security', userSecurityRouter);
 

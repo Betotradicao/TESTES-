@@ -37,6 +37,8 @@ export const MENU_MODULES = {
   VISION_PDV: 'vision-pdv',
   VISION_FACIAL: 'vision-facial',
   VISION_BIPAGENS: 'vision-bipagens',
+  // Prevenção Açougue
+  ACOUGUE: 'acougue',
   // RH no Radar
   RH_COLABORADORES: 'rh-colaboradores',
   RH_SAUDE: 'rh-saude',
@@ -168,6 +170,10 @@ export const MENU_SUBMENUS = {
 
   // Consultor Digital
   ROTA_CRESCIMENTO_DASHBOARD: 'rota-crescimento-dashboard',
+
+  // Prevenção Açougue
+  ACOUGUE_DESMEMBRAMENTO: 'acougue-desmembramento',
+  ACOUGUE_CADASTRO_RENDIMENTO: 'acougue-cadastro-rendimento',
 
   // RH no Radar - Colaboradores
   RH_DASHBOARD: 'rh-dashboard',
@@ -573,6 +579,16 @@ export const MENU_STRUCTURE = [
         title: 'Painel Tributário',
         path: '/prevencao-tributaria'
       }
+    ]
+  },
+  {
+    id: MENU_MODULES.ACOUGUE,
+    title: 'Prevenção Açougue',
+    icon: 'meat',
+    section: 'prevencao',
+    submenus: [
+      { id: MENU_SUBMENUS.ACOUGUE_DESMEMBRAMENTO, title: 'Desmembramento', path: '/acougue/desmembramento' },
+      { id: MENU_SUBMENUS.ACOUGUE_CADASTRO_RENDIMENTO, title: 'Cadastro de Rendimento', path: '/acougue/cadastro-rendimento' },
     ]
   },
   // ========== MARKETING NO RADAR ==========

@@ -392,6 +392,49 @@ CREATE TABLE IF NOT EXISTS rh_disc_resultados (
 CREATE INDEX IF NOT EXISTS idx_rh_disc_nome ON rh_disc_resultados(nome);
 
 -- ============================================
+-- PREVENCAO ACOUGUE - DESMEMBRAMENTO
+-- ============================================
+
+-- Templates de Rendimento (ex: BOI CASADA, BOI TRASEIRO, etc)
+CREATE TABLE IF NOT EXISTS acougue_rendimento_templates (
+  id SERIAL PRIMARY KEY,
+  nome VARCHAR(255) NOT NULL,
+  descricao TEXT,
+  ativo BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Itens do Template (cada corte com seu percentual e preco de venda)
+CREATE TABLE IF NOT EXISTS acougue_rendimento_itens (
+  id SERIAL PRIMARY KEY,
+  template_id INT REFERENCES acougue_rendimento_templates(id) ON DELETE CASCADE,
+  nome_corte VARCHAR(255) NOT NULL,
+  codigo_produto VARCHAR(20),
+  percentual DECIMAL(6,4) NOT NULL,
+  preco_venda DECIMAL(10,2),
+  vende BOOLEAN DEFAULT true,
+  ordem INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_acougue_itens_template ON acougue_rendimento_itens(template_id);
+
+-- Historico de Desmembramentos realizados
+CREATE TABLE IF NOT EXISTS acougue_desmembramentos (
+  id SERIAL PRIMARY KEY,
+  template_id INT REFERENCES acougue_rendimento_templates(id),
+  template_nome VARCHAR(255),
+  peso_total DECIMAL(10,3) NOT NULL,
+  custo_kg DECIMAL(10,2) NOT NULL,
+  custo_total DECIMAL(12,2) NOT NULL,
+  receita_total DECIMAL(12,2) NOT NULL,
+  lucro_total DECIMAL(12,2) NOT NULL,
+  margem_pct DECIMAL(6,2) NOT NULL,
+  itens JSONB NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================
 -- DADOS INICIAIS
 -- ============================================
 
@@ -447,3 +490,84 @@ INSERT INTO rh_status_treinamento (nome, cor) VALUES
   ('CANCELADO', '#EF4444'),
   ('PENDENTE', '#F59E0B')
 ON CONFLICT DO NOTHING;
+
+-- ============================================
+-- TEMPLATES ACOUGUE - DADOS INICIAIS
+-- ============================================
+
+-- Template 1: BOI CASADO CAPOTE (Inteiro)
+INSERT INTO acougue_rendimento_templates (nome, descricao) VALUES
+  ('BOI CASADO CAPOTE (INTEIRO)', 'Boi inteiro com todos os cortes dianteiro + traseiro')
+ON CONFLICT DO NOTHING;
+
+DO $$
+DECLARE tid INT;
+BEGIN
+  SELECT id INTO tid FROM acougue_rendimento_templates WHERE nome = 'BOI CASADO CAPOTE (INTEIRO)' LIMIT 1;
+  IF tid IS NOT NULL AND NOT EXISTS (SELECT 1 FROM acougue_rendimento_itens WHERE template_id = tid) THEN
+    INSERT INTO acougue_rendimento_itens (template_id, nome_corte, codigo_produto, percentual, preco_venda, vende, ordem) VALUES
+      (tid, 'ALCATRA COM MAMINHA', '00003759', 3.9240, 56.99, true, 1),
+      (tid, 'CONTRA FILE', '00003674', 7.4390, 58.99, true, 2),
+      (tid, 'COXAO DURO', '00003698', 4.4520, 44.99, true, 3),
+      (tid, 'COXAO MOLE', '00003704', 6.3840, 46.99, true, 4),
+      (tid, 'FILE MIGNON', '00003711', 1.4640, 65.99, true, 5),
+      (tid, 'LAGARTO', '00003728', 2.4010, 40.99, true, 6),
+      (tid, 'PATINHO', '00003735', 3.6310, 46.99, true, 7),
+      (tid, 'PICANHA', '00003742', 0.9370, 65.99, true, 8),
+      (tid, 'ACEM', '00003773', 17.4690, 35.99, true, 9),
+      (tid, 'CARNE MOIDA BDJ', '00003780', 2.5160, 32.99, true, 10),
+      (tid, 'COSTELA RIPA BOVINA', '00003803', 14.4550, 29.99, true, 11),
+      (tid, 'FRALDINHA', '00003810', 2.0830, 45.99, true, 12),
+      (tid, 'MUSCULO', '00003827', 4.2730, 33.99, true, 13),
+      (tid, 'PALETA', '00003841', 8.1280, 36.99, true, 14),
+      (tid, 'OSSO/SEBO BOVINO', '00006910', 20.4440, 0, false, 15);
+  END IF;
+END $$;
+
+-- Template 2: TRASEIRO (BOI CASADO CAPOTE)
+INSERT INTO acougue_rendimento_templates (nome, descricao) VALUES
+  ('TRASEIRO (BOI CASADO CAPOTE)', 'Traseiro do boi casado capote')
+ON CONFLICT DO NOTHING;
+
+DO $$
+DECLARE tid INT;
+BEGIN
+  SELECT id INTO tid FROM acougue_rendimento_templates WHERE nome = 'TRASEIRO (BOI CASADO CAPOTE)' LIMIT 1;
+  IF tid IS NOT NULL AND NOT EXISTS (SELECT 1 FROM acougue_rendimento_itens WHERE template_id = tid) THEN
+    INSERT INTO acougue_rendimento_itens (template_id, nome_corte, codigo_produto, percentual, preco_venda, vende, ordem) VALUES
+      (tid, 'ALCATRA COM MAMINHA', '00003759', 5.5500, 56.99, true, 1),
+      (tid, 'CONTRA FILE', '00003674', 11.4000, 58.99, true, 2),
+      (tid, 'COXAO DURO', '00003698', 5.7000, 44.99, true, 3),
+      (tid, 'COXAO MOLE', '00003704', 9.6700, 46.99, true, 4),
+      (tid, 'FILE MIGNON', '00003711', 2.2900, 65.99, true, 5),
+      (tid, 'LAGARTO', '00003728', 3.0500, 40.99, true, 6),
+      (tid, 'PATINHO', '00003735', 5.9000, 46.99, true, 7),
+      (tid, 'PICANHA', '00003742', 1.2400, 65.99, true, 8),
+      (tid, 'ACEM', '00003773', 1.3900, 35.99, true, 9),
+      (tid, 'CARNE MOIDA BDJ', '00003780', 3.2600, 32.99, true, 10),
+      (tid, 'COSTELA RIPA BOVINA', '00003803', 18.8400, 29.99, true, 11),
+      (tid, 'FRALDINHA', '00003810', 4.0600, 45.99, true, 12),
+      (tid, 'MUSCULO', '00003827', 4.8000, 33.99, true, 13),
+      (tid, 'OSSO/SEBO BOVINO', '00006910', 22.8500, 0, false, 14);
+  END IF;
+END $$;
+
+-- Template 3: DIANTEIRO (BOI CASADO CAPOTE)
+INSERT INTO acougue_rendimento_templates (nome, descricao) VALUES
+  ('DIANTEIRO (BOI CASADO CAPOTE)', 'Dianteiro do boi casado capote')
+ON CONFLICT DO NOTHING;
+
+DO $$
+DECLARE tid INT;
+BEGIN
+  SELECT id INTO tid FROM acougue_rendimento_templates WHERE nome = 'DIANTEIRO (BOI CASADO CAPOTE)' LIMIT 1;
+  IF tid IS NOT NULL AND NOT EXISTS (SELECT 1 FROM acougue_rendimento_itens WHERE template_id = tid) THEN
+    INSERT INTO acougue_rendimento_itens (template_id, nome_corte, codigo_produto, percentual, preco_venda, vende, ordem) VALUES
+      (tid, 'ACEM', '00003773', 32.4200, 35.99, true, 1),
+      (tid, 'CARNE MOIDA BDJ', '00003780', 3.2000, 32.99, true, 2),
+      (tid, 'COSTELA CHULETA GAUCHA', '00003797', 8.6900, 29.99, true, 3),
+      (tid, 'MUSCULO', '00003827', 7.1800, 33.99, true, 4),
+      (tid, 'PALETA', '00003841', 19.2000, 36.99, true, 5),
+      (tid, 'OSSO/SEBO BOVINO', '00006910', 29.3100, 0, false, 6);
+  END IF;
+END $$;

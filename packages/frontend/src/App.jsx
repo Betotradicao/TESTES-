@@ -76,6 +76,8 @@ import RhTreinamentos from './pages/RhTreinamentos';
 import RhIndicadores from './pages/RhIndicadores';
 import RhMetodoDisc from './pages/RhMetodoDisc';
 import RhPlaceholder from './pages/RhPlaceholder';
+import AcougueDesmembramento from './pages/AcougueDesmembramento';
+import AcougueCadastroRendimento from './pages/AcougueCadastroRendimento';
 import CalendarioAtendimento from './pages/CalendarioAtendimento';
 import CotacaoPublica from './pages/CotacaoPublica';
 import AnaliseCotacao from './pages/AnaliseCotacao';
@@ -630,6 +632,9 @@ function App() {
             <Route path="/rh/desligamentos" element={<ProtectedRoute><RhDesligamentos /></ProtectedRoute>} />
             <Route path="/rh/vagas" element={<ProtectedRoute><RhVagas /></ProtectedRoute>} />
             <Route path="/rh/metodo-disc" element={<ProtectedRoute><RhMetodoDisc /></ProtectedRoute>} />
+            {/* Prevenção Açougue */}
+            <Route path="/acougue/desmembramento" element={<ProtectedRoute><AcougueDesmembramento /></ProtectedRoute>} />
+            <Route path="/acougue/cadastro-rendimento" element={<ProtectedRoute><AcougueCadastroRendimento /></ProtectedRoute>} />
             <Route path="/rh/treinamentos" element={<ProtectedRoute><RhTreinamentos /></ProtectedRoute>} />
             <Route path="/rh/indicadores" element={<ProtectedRoute><RhIndicadores /></ProtectedRoute>} />
             {/* RH Placeholder pages */}
