@@ -1191,4 +1191,71 @@ export class RhController {
       res.status(500).json({ error: 'Internal server error' });
     }
   }
+
+  // =============================================
+  // DISC - Perfil Comportamental
+  // =============================================
+  static async salvarDiscResultado(req: AuthRequest, res: Response) {
+    try {
+      const { nome, colaborador_id, scores, perfil_primario, perfil_secundario, respostas } = req.body;
+      if (!nome || !perfil_primario || !scores) {
+        return res.status(400).json({ error: 'Dados incompletos' });
+      }
+      const result = await AppDataSource.query(
+        `INSERT INTO rh_disc_resultados (nome, colaborador_id, score_d, score_i, score_s, score_c, perfil_primario, perfil_secundario, respostas, avaliador_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+        [nome, colaborador_id || null, scores.D || 0, scores.I || 0, scores.S || 0, scores.C || 0, perfil_primario, perfil_secundario || null, JSON.stringify(respostas || {}), req.user?.id || null]
+      );
+      res.status(201).json(result[0]);
+    } catch (error) {
+      console.error('Save DISC result error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async listarDiscResultados(req: AuthRequest, res: Response) {
+    try {
+      const rows = await AppDataSource.query(
+        `SELECT r.*, c.matricula AS colaborador_matricula
+         FROM rh_disc_resultados r
+         LEFT JOIN rh_colaboradores c ON c.id = r.colaborador_id
+         ORDER BY r.created_at DESC
+         LIMIT 100`
+      );
+      res.json(rows);
+    } catch (error) {
+      console.error('List DISC results error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async getDiscResultado(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await AppDataSource.query(
+        `SELECT r.*, c.matricula AS colaborador_matricula
+         FROM rh_disc_resultados r
+         LEFT JOIN rh_colaboradores c ON c.id = r.colaborador_id
+         WHERE r.id = $1`,
+        [id]
+      );
+      if (result.length === 0) return res.status(404).json({ error: 'Resultado nao encontrado' });
+      res.json(result[0]);
+    } catch (error) {
+      console.error('Get DISC result error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async deletarDiscResultado(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await AppDataSource.query('DELETE FROM rh_disc_resultados WHERE id = $1 RETURNING id', [id]);
+      if (result.length === 0) return res.status(404).json({ error: 'Resultado nao encontrado' });
+      res.json({ message: 'Resultado DISC deletado com sucesso' });
+    } catch (error) {
+      console.error('Delete DISC result error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
 }

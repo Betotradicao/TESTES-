@@ -948,7 +948,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           subItems: [
             { id: 'rh-vagas', submenuId: 'rh-vagas', title: 'VAGAS ABERTAS', path: '/rh/vagas' },
             { id: 'rh-candidatos', submenuId: 'rh-candidatos', title: 'CANDIDATOS', path: '/rh/candidatos' },
-            { id: 'rh-processo', submenuId: 'rh-processo-seletivo', title: 'PROCESSO SELETIVO', path: '/rh/processo-seletivo' }
+            { id: 'rh-processo', submenuId: 'rh-processo-seletivo', title: 'PROCESSO SELETIVO', path: '/rh/processo-seletivo' },
+            { id: 'rh-metodo-disc', submenuId: 'rh-metodo-disc', title: 'METODO DISC', path: '/rh/metodo-disc' }
           ]
         },
         {

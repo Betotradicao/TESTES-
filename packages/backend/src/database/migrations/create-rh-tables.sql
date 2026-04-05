@@ -374,6 +374,23 @@ CREATE TABLE IF NOT EXISTS rh_historico_alteracoes (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Resultados DISC
+CREATE TABLE IF NOT EXISTS rh_disc_resultados (
+  id SERIAL PRIMARY KEY,
+  nome VARCHAR(255) NOT NULL,
+  colaborador_id INT REFERENCES rh_colaboradores(id) ON DELETE SET NULL,
+  score_d INT DEFAULT 0,
+  score_i INT DEFAULT 0,
+  score_s INT DEFAULT 0,
+  score_c INT DEFAULT 0,
+  perfil_primario VARCHAR(1) NOT NULL,
+  perfil_secundario VARCHAR(1),
+  respostas JSONB,
+  avaliador_id UUID,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_rh_disc_nome ON rh_disc_resultados(nome);
+
 -- ============================================
 -- DADOS INICIAIS
 -- ============================================

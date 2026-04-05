@@ -74,6 +74,7 @@ import RhDesligamentos from './pages/RhDesligamentos';
 import RhVagas from './pages/RhVagas';
 import RhTreinamentos from './pages/RhTreinamentos';
 import RhIndicadores from './pages/RhIndicadores';
+import RhMetodoDisc from './pages/RhMetodoDisc';
 import RhPlaceholder from './pages/RhPlaceholder';
 import CalendarioAtendimento from './pages/CalendarioAtendimento';
 import CotacaoPublica from './pages/CotacaoPublica';
@@ -628,6 +629,7 @@ function App() {
             <Route path="/rh/admissoes" element={<ProtectedRoute><RhAdmissoes /></ProtectedRoute>} />
             <Route path="/rh/desligamentos" element={<ProtectedRoute><RhDesligamentos /></ProtectedRoute>} />
             <Route path="/rh/vagas" element={<ProtectedRoute><RhVagas /></ProtectedRoute>} />
+            <Route path="/rh/metodo-disc" element={<ProtectedRoute><RhMetodoDisc /></ProtectedRoute>} />
             <Route path="/rh/treinamentos" element={<ProtectedRoute><RhTreinamentos /></ProtectedRoute>} />
             <Route path="/rh/indicadores" element={<ProtectedRoute><RhIndicadores /></ProtectedRoute>} />
             {/* RH Placeholder pages */}

@@ -189,6 +189,7 @@ export const MENU_SUBMENUS = {
   RH_VAGAS: 'rh-vagas',
   RH_CANDIDATOS: 'rh-candidatos',
   RH_PROCESSO_SELETIVO: 'rh-processo-seletivo',
+  RH_METODO_DISC: 'rh-metodo-disc',
   // RH - Treinamentos
   RH_CADASTRO_TREINAMENTO: 'rh-cadastro-treinamento',
   RH_PRESENCA: 'rh-presenca',
@@ -799,6 +800,7 @@ export const MENU_STRUCTURE = [
       { id: MENU_SUBMENUS.RH_VAGAS, title: 'Vagas Abertas', path: '/rh/vagas' },
       { id: MENU_SUBMENUS.RH_CANDIDATOS, title: 'Cadastro de Candidatos', path: '/rh/candidatos' },
       { id: MENU_SUBMENUS.RH_PROCESSO_SELETIVO, title: 'Processo Seletivo', path: '/rh/processo-seletivo' },
+      { id: MENU_SUBMENUS.RH_METODO_DISC, title: 'Metodo DISC', path: '/rh/metodo-disc' },
     ]
   },
   {

@@ -149,4 +149,10 @@ router.post('/historico-alteracoes', authenticateToken, RhController.criarHistor
 router.put('/historico-alteracoes/:id', authenticateToken, RhController.atualizarHistoricoAlteracao);
 router.delete('/historico-alteracoes/:id', authenticateToken, RhController.deletarHistoricoAlteracao);
 
+// DISC
+router.get('/disc-results', authenticateToken, RhController.listarDiscResultados);
+router.get('/disc-results/:id', authenticateToken, RhController.getDiscResultado);
+router.post('/disc-results', authenticateToken, RhController.salvarDiscResultado);
+router.delete('/disc-results/:id', authenticateToken, RhController.deletarDiscResultado);
+
 export default router;
