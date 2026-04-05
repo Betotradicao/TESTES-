@@ -197,6 +197,183 @@ CREATE INDEX IF NOT EXISTS idx_rh_colaboradores_status ON rh_colaboradores(statu
 CREATE INDEX IF NOT EXISTS idx_rh_colaboradores_cargo ON rh_colaboradores(cargo_id);
 CREATE INDEX IF NOT EXISTS idx_rh_colaboradores_empresa ON rh_colaboradores(empresa_id);
 
+-- ASO - Atestado de Saude Ocupacional
+CREATE TABLE IF NOT EXISTS rh_aso (
+  id SERIAL PRIMARY KEY,
+  colaborador_id INT REFERENCES rh_colaboradores(id) ON DELETE CASCADE,
+  data_emissao DATE NOT NULL,
+  data_vencimento DATE NOT NULL,
+  validade_dias INT DEFAULT 365,
+  tipo VARCHAR(50),
+  medico_responsavel VARCHAR(255),
+  crm VARCHAR(50),
+  clinica VARCHAR(255),
+  apto BOOLEAN DEFAULT true,
+  observacoes TEXT,
+  arquivo_url VARCHAR(500),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_rh_aso_colaborador ON rh_aso(colaborador_id);
+CREATE INDEX IF NOT EXISTS idx_rh_aso_vencimento ON rh_aso(data_vencimento);
+
+-- Tipos de Ausencia
+CREATE TABLE IF NOT EXISTS rh_tipos_ausencia (
+  id SERIAL PRIMARY KEY,
+  nome VARCHAR(255) NOT NULL,
+  cor VARCHAR(20),
+  ativo BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Motivos de Ausencia
+CREATE TABLE IF NOT EXISTS rh_motivos_ausencia (
+  id SERIAL PRIMARY KEY,
+  tipo_id INT REFERENCES rh_tipos_ausencia(id),
+  nome VARCHAR(255) NOT NULL,
+  descontar_salario BOOLEAN DEFAULT false,
+  ativo BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Ausencias
+CREATE TABLE IF NOT EXISTS rh_ausencias (
+  id SERIAL PRIMARY KEY,
+  colaborador_id INT REFERENCES rh_colaboradores(id) ON DELETE CASCADE,
+  data_ausencia DATE NOT NULL,
+  data_inicio DATE,
+  data_fim DATE,
+  tipo_ausencia_id INT REFERENCES rh_tipos_ausencia(id),
+  motivo_ausencia_id INT REFERENCES rh_motivos_ausencia(id),
+  justificativa TEXT,
+  arquivo_comprovante VARCHAR(500),
+  horas_ausentes DECIMAL(5,2),
+  descontar_salario BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_rh_ausencias_colaborador ON rh_ausencias(colaborador_id);
+CREATE INDEX IF NOT EXISTS idx_rh_ausencias_data ON rh_ausencias(data_ausencia);
+
+-- Treinamentos
+CREATE TABLE IF NOT EXISTS rh_tipos_treinamento (
+  id SERIAL PRIMARY KEY,
+  nome VARCHAR(255) NOT NULL,
+  categoria VARCHAR(100),
+  ativo BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS rh_status_treinamento (
+  id SERIAL PRIMARY KEY,
+  nome VARCHAR(100) NOT NULL,
+  cor VARCHAR(20),
+  ativo BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS rh_treinamentos (
+  id SERIAL PRIMARY KEY,
+  colaborador_id INT REFERENCES rh_colaboradores(id) ON DELETE CASCADE,
+  tipo_treinamento_id INT REFERENCES rh_tipos_treinamento(id),
+  nome_treinamento VARCHAR(255) NOT NULL,
+  instrutor VARCHAR(255),
+  instituicao VARCHAR(255),
+  local VARCHAR(255),
+  carga_horaria DECIMAL(6,2),
+  data_inicio DATE,
+  data_fim DATE,
+  custo DECIMAL(10,2),
+  status_id INT REFERENCES rh_status_treinamento(id),
+  certificado_url VARCHAR(500),
+  observacoes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_rh_treinamentos_colaborador ON rh_treinamentos(colaborador_id);
+
+-- Vagas (Recrutamento)
+CREATE TABLE IF NOT EXISTS rh_vagas (
+  id SERIAL PRIMARY KEY,
+  cargo_id INT REFERENCES rh_cargos(id),
+  departamento_id INT REFERENCES rh_departamentos(id),
+  titulo VARCHAR(255) NOT NULL,
+  descricao TEXT,
+  quantidade_vagas INT DEFAULT 1,
+  salario_min DECIMAL(10,2),
+  salario_max DECIMAL(10,2),
+  data_abertura DATE,
+  data_fechamento DATE,
+  status VARCHAR(50) DEFAULT 'Aberta',
+  motivo_fechamento VARCHAR(255),
+  requisitos TEXT,
+  beneficios TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Candidatos
+CREATE TABLE IF NOT EXISTS rh_candidatos (
+  id SERIAL PRIMARY KEY,
+  vaga_id INT REFERENCES rh_vagas(id) ON DELETE CASCADE,
+  nome VARCHAR(255) NOT NULL,
+  cpf VARCHAR(14),
+  email VARCHAR(255),
+  telefone VARCHAR(20),
+  data_nascimento DATE,
+  escolaridade_id INT REFERENCES rh_escolaridades(id),
+  curriculo_url VARCHAR(500),
+  status VARCHAR(50) DEFAULT 'Triagem',
+  data_status TIMESTAMP,
+  pontuacao DECIMAL(5,2),
+  observacoes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Lancamentos Financeiros (Folha)
+CREATE TABLE IF NOT EXISTS rh_lancamentos_financeiros (
+  id SERIAL PRIMARY KEY,
+  mes INT NOT NULL,
+  ano INT NOT NULL,
+  receita_bruta DECIMAL(12,2),
+  folha_salario DECIMAL(12,2),
+  folha_estagiarios DECIMAL(12,2),
+  folha_familia DECIMAL(12,2),
+  beneficios_vt DECIMAL(12,2),
+  beneficios_vr DECIMAL(12,2),
+  beneficios_saude DECIMAL(12,2),
+  outros_custos DECIMAL(12,2),
+  observacoes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(mes, ano)
+);
+
+-- Dependentes
+CREATE TABLE IF NOT EXISTS rh_dependentes (
+  id SERIAL PRIMARY KEY,
+  colaborador_id INT REFERENCES rh_colaboradores(id) ON DELETE CASCADE,
+  nome VARCHAR(255) NOT NULL,
+  sexo VARCHAR(1),
+  parentesco_id INT,
+  data_nascimento DATE,
+  cpf VARCHAR(14),
+  dependente_ir BOOLEAN DEFAULT false,
+  dependente_sf BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Historico de Alteracoes
+CREATE TABLE IF NOT EXISTS rh_historico_alteracoes (
+  id SERIAL PRIMARY KEY,
+  colaborador_id INT REFERENCES rh_colaboradores(id) ON DELETE CASCADE,
+  data_inicio DATE NOT NULL,
+  data_fim DATE,
+  cargo_id INT REFERENCES rh_cargos(id),
+  jornada_id INT REFERENCES rh_jornadas(id),
+  salario DECIMAL(10,2),
+  motivo VARCHAR(255),
+  observacoes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ============================================
 -- DADOS INICIAIS
 -- ============================================
@@ -238,4 +415,18 @@ INSERT INTO rh_prazos_experiencia (nome, dias) VALUES
   ('45 dias', 45),
   ('60 dias', 60),
   ('90 dias', 90)
+ON CONFLICT DO NOTHING;
+
+-- Tipos de Ausencia
+INSERT INTO rh_tipos_ausencia (nome, cor) VALUES
+  ('Planejada', '#3B82F6'),
+  ('Não Planejada', '#EF4444')
+ON CONFLICT DO NOTHING;
+
+-- Status de Treinamento
+INSERT INTO rh_status_treinamento (nome, cor) VALUES
+  ('CONCLUÍDO', '#22C55E'),
+  ('EM ANDAMENTO', '#3B82F6'),
+  ('CANCELADO', '#EF4444'),
+  ('PENDENTE', '#F59E0B')
 ON CONFLICT DO NOTHING;

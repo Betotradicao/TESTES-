@@ -66,6 +66,9 @@ import DisparoWhatsapp from './pages/DisparoWhatsapp';
 import RhDashboard from './pages/RhDashboard';
 import RhConfiguracoes from './pages/RhConfiguracoes';
 import RhCadastroGeral from './pages/RhCadastroGeral';
+import RhResultados from './pages/RhResultados';
+import RhControleASO from './pages/RhControleASO';
+import RhAusencias from './pages/RhAusencias';
 import CalendarioAtendimento from './pages/CalendarioAtendimento';
 import CotacaoPublica from './pages/CotacaoPublica';
 import AnaliseCotacao from './pages/AnaliseCotacao';
@@ -589,6 +592,30 @@ function App() {
               element={
                 <ProtectedRoute>
                   <RhCadastroGeral />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/rh/resultados"
+              element={
+                <ProtectedRoute>
+                  <RhResultados />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/rh/aso"
+              element={
+                <ProtectedRoute>
+                  <RhControleASO />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/rh/ausencias"
+              element={
+                <ProtectedRoute>
+                  <RhAusencias />
                 </ProtectedRoute>
               }
             />

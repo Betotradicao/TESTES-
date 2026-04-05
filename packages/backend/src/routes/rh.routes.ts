@@ -71,4 +71,82 @@ router.post('/configuracoes/motivos-desligamento', authenticateToken, RhControll
 router.put('/configuracoes/motivos-desligamento/:id', authenticateToken, RhController.atualizarMotivoDesligamento);
 router.delete('/configuracoes/motivos-desligamento/:id', authenticateToken, RhController.deletarMotivoDesligamento);
 
+// Configuracoes - Departamentos
+router.get('/configuracoes/departamentos', authenticateToken, RhController.listarDepartamentos);
+router.post('/configuracoes/departamentos', authenticateToken, RhController.criarDepartamento);
+router.put('/configuracoes/departamentos/:id', authenticateToken, RhController.atualizarDepartamento);
+router.delete('/configuracoes/departamentos/:id', authenticateToken, RhController.deletarDepartamento);
+
+// Configuracoes - Tipos de Ausencia
+router.get('/configuracoes/tipos-ausencia', authenticateToken, RhController.listarTiposAusencia);
+router.post('/configuracoes/tipos-ausencia', authenticateToken, RhController.criarTipoAusencia);
+router.put('/configuracoes/tipos-ausencia/:id', authenticateToken, RhController.atualizarTipoAusencia);
+router.delete('/configuracoes/tipos-ausencia/:id', authenticateToken, RhController.deletarTipoAusencia);
+
+// Configuracoes - Motivos de Ausencia
+router.get('/configuracoes/motivos-ausencia', authenticateToken, RhController.listarMotivosAusencia);
+router.post('/configuracoes/motivos-ausencia', authenticateToken, RhController.criarMotivoAusencia);
+router.put('/configuracoes/motivos-ausencia/:id', authenticateToken, RhController.atualizarMotivoAusencia);
+router.delete('/configuracoes/motivos-ausencia/:id', authenticateToken, RhController.deletarMotivoAusencia);
+
+// Configuracoes - Tipos de Treinamento
+router.get('/configuracoes/tipos-treinamento', authenticateToken, RhController.listarTiposTreinamento);
+router.post('/configuracoes/tipos-treinamento', authenticateToken, RhController.criarTipoTreinamento);
+router.put('/configuracoes/tipos-treinamento/:id', authenticateToken, RhController.atualizarTipoTreinamento);
+router.delete('/configuracoes/tipos-treinamento/:id', authenticateToken, RhController.deletarTipoTreinamento);
+
+// Configuracoes - Status de Treinamento
+router.get('/configuracoes/status-treinamento', authenticateToken, RhController.listarStatusTreinamento);
+router.post('/configuracoes/status-treinamento', authenticateToken, RhController.criarStatusTreinamento);
+router.put('/configuracoes/status-treinamento/:id', authenticateToken, RhController.atualizarStatusTreinamento);
+router.delete('/configuracoes/status-treinamento/:id', authenticateToken, RhController.deletarStatusTreinamento);
+
+// ASO
+router.get('/aso', authenticateToken, RhController.listarAso);
+router.post('/aso', authenticateToken, RhController.criarAso);
+router.put('/aso/:id', authenticateToken, RhController.atualizarAso);
+router.delete('/aso/:id', authenticateToken, RhController.deletarAso);
+
+// Ausencias
+router.get('/ausencias', authenticateToken, RhController.listarAusencias);
+router.post('/ausencias', authenticateToken, RhController.criarAusencia);
+router.put('/ausencias/:id', authenticateToken, RhController.atualizarAusencia);
+router.delete('/ausencias/:id', authenticateToken, RhController.deletarAusencia);
+
+// Treinamentos
+router.get('/treinamentos', authenticateToken, RhController.listarTreinamentos);
+router.post('/treinamentos', authenticateToken, RhController.criarTreinamento);
+router.put('/treinamentos/:id', authenticateToken, RhController.atualizarTreinamento);
+router.delete('/treinamentos/:id', authenticateToken, RhController.deletarTreinamento);
+
+// Vagas (Recrutamento)
+router.get('/vagas', authenticateToken, RhController.listarVagas);
+router.post('/vagas', authenticateToken, RhController.criarVaga);
+router.put('/vagas/:id', authenticateToken, RhController.atualizarVaga);
+router.delete('/vagas/:id', authenticateToken, RhController.deletarVaga);
+
+// Candidatos
+router.get('/candidatos', authenticateToken, RhController.listarCandidatos);
+router.post('/candidatos', authenticateToken, RhController.criarCandidato);
+router.put('/candidatos/:id', authenticateToken, RhController.atualizarCandidato);
+router.delete('/candidatos/:id', authenticateToken, RhController.deletarCandidato);
+
+// Lancamentos Financeiros (Folha)
+router.get('/lancamentos-financeiros', authenticateToken, RhController.listarLancamentosFinanceiros);
+router.post('/lancamentos-financeiros', authenticateToken, RhController.criarLancamentoFinanceiro);
+router.put('/lancamentos-financeiros/:id', authenticateToken, RhController.atualizarLancamentoFinanceiro);
+router.delete('/lancamentos-financeiros/:id', authenticateToken, RhController.deletarLancamentoFinanceiro);
+
+// Dependentes
+router.get('/dependentes', authenticateToken, RhController.listarDependentes);
+router.post('/dependentes', authenticateToken, RhController.criarDependente);
+router.put('/dependentes/:id', authenticateToken, RhController.atualizarDependente);
+router.delete('/dependentes/:id', authenticateToken, RhController.deletarDependente);
+
+// Historico de Alteracoes
+router.get('/historico-alteracoes', authenticateToken, RhController.listarHistoricoAlteracoes);
+router.post('/historico-alteracoes', authenticateToken, RhController.criarHistoricoAlteracao);
+router.put('/historico-alteracoes/:id', authenticateToken, RhController.atualizarHistoricoAlteracao);
+router.delete('/historico-alteracoes/:id', authenticateToken, RhController.deletarHistoricoAlteracao);
+
 export default router;

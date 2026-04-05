@@ -475,6 +475,672 @@ export class RhController {
     return RhController.deletarConfig(req, res, 'rh_motivos_desligamento');
   }
 
+  // =============================================
+  // ASO
+  // =============================================
+  static async listarAso(req: AuthRequest, res: Response) {
+    try {
+      const colaborador_id = req.query.colaborador_id ? parseInt(req.query.colaborador_id as string) : undefined;
+      let where = '';
+      const params: any[] = [];
+      if (colaborador_id) {
+        where = 'WHERE a.colaborador_id = $1';
+        params.push(colaborador_id);
+      }
+      const rows = await AppDataSource.query(
+        `SELECT a.*, c.nome AS colaborador_nome
+         FROM rh_aso a
+         LEFT JOIN rh_colaboradores c ON c.id = a.colaborador_id
+         ${where}
+         ORDER BY a.data_vencimento DESC`,
+        params
+      );
+      res.json(rows);
+    } catch (error) {
+      console.error('List ASO error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async criarAso(req: AuthRequest, res: Response) {
+    try {
+      const { colaborador_id, data_emissao, data_vencimento, validade_dias, tipo, medico_responsavel, crm, clinica, apto, observacoes, arquivo_url } = req.body;
+      const result = await AppDataSource.query(
+        `INSERT INTO rh_aso (colaborador_id, data_emissao, data_vencimento, validade_dias, tipo, medico_responsavel, crm, clinica, apto, observacoes, arquivo_url)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+        [colaborador_id, data_emissao, data_vencimento, validade_dias || 365, tipo, medico_responsavel, crm, clinica, apto ?? true, observacoes, arquivo_url]
+      );
+      res.status(201).json(result[0]);
+    } catch (error) {
+      console.error('Create ASO error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async atualizarAso(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const { colaborador_id, data_emissao, data_vencimento, validade_dias, tipo, medico_responsavel, crm, clinica, apto, observacoes, arquivo_url } = req.body;
+      const result = await AppDataSource.query(
+        `UPDATE rh_aso SET colaborador_id=$1, data_emissao=$2, data_vencimento=$3, validade_dias=$4, tipo=$5, medico_responsavel=$6, crm=$7, clinica=$8, apto=$9, observacoes=$10, arquivo_url=$11, updated_at=NOW()
+         WHERE id=$12 RETURNING *`,
+        [colaborador_id, data_emissao, data_vencimento, validade_dias, tipo, medico_responsavel, crm, clinica, apto, observacoes, arquivo_url, id]
+      );
+      if (result.length === 0) return res.status(404).json({ error: 'ASO nao encontrado' });
+      res.json(result[0]);
+    } catch (error) {
+      console.error('Update ASO error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async deletarAso(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await AppDataSource.query('DELETE FROM rh_aso WHERE id = $1 RETURNING id', [id]);
+      if (result.length === 0) return res.status(404).json({ error: 'ASO nao encontrado' });
+      res.json({ message: 'ASO deletado com sucesso' });
+    } catch (error) {
+      console.error('Delete ASO error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  // =============================================
+  // AUSENCIAS
+  // =============================================
+  static async listarAusencias(req: AuthRequest, res: Response) {
+    try {
+      const colaborador_id = req.query.colaborador_id ? parseInt(req.query.colaborador_id as string) : undefined;
+      const mes = req.query.mes ? parseInt(req.query.mes as string) : undefined;
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : undefined;
+
+      let where = 'WHERE 1=1';
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      if (colaborador_id) {
+        where += ` AND a.colaborador_id = $${paramIndex++}`;
+        params.push(colaborador_id);
+      }
+      if (mes && ano) {
+        where += ` AND EXTRACT(MONTH FROM a.data_ausencia) = $${paramIndex++} AND EXTRACT(YEAR FROM a.data_ausencia) = $${paramIndex++}`;
+        params.push(mes, ano);
+      }
+
+      const rows = await AppDataSource.query(
+        `SELECT a.*, c.nome AS colaborador_nome, ta.nome AS tipo_ausencia_nome, ta.cor AS tipo_ausencia_cor, ma.nome AS motivo_ausencia_nome
+         FROM rh_ausencias a
+         LEFT JOIN rh_colaboradores c ON c.id = a.colaborador_id
+         LEFT JOIN rh_tipos_ausencia ta ON ta.id = a.tipo_ausencia_id
+         LEFT JOIN rh_motivos_ausencia ma ON ma.id = a.motivo_ausencia_id
+         ${where}
+         ORDER BY a.data_ausencia DESC`,
+        params
+      );
+      res.json(rows);
+    } catch (error) {
+      console.error('List ausencias error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async criarAusencia(req: AuthRequest, res: Response) {
+    try {
+      const { colaborador_id, data_ausencia, data_inicio, data_fim, tipo_ausencia_id, motivo_ausencia_id, justificativa, arquivo_comprovante, horas_ausentes, descontar_salario } = req.body;
+      const result = await AppDataSource.query(
+        `INSERT INTO rh_ausencias (colaborador_id, data_ausencia, data_inicio, data_fim, tipo_ausencia_id, motivo_ausencia_id, justificativa, arquivo_comprovante, horas_ausentes, descontar_salario)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+        [colaborador_id, data_ausencia, data_inicio, data_fim, tipo_ausencia_id, motivo_ausencia_id, justificativa, arquivo_comprovante, horas_ausentes, descontar_salario || false]
+      );
+      res.status(201).json(result[0]);
+    } catch (error) {
+      console.error('Create ausencia error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async atualizarAusencia(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const { colaborador_id, data_ausencia, data_inicio, data_fim, tipo_ausencia_id, motivo_ausencia_id, justificativa, arquivo_comprovante, horas_ausentes, descontar_salario } = req.body;
+      const result = await AppDataSource.query(
+        `UPDATE rh_ausencias SET colaborador_id=$1, data_ausencia=$2, data_inicio=$3, data_fim=$4, tipo_ausencia_id=$5, motivo_ausencia_id=$6, justificativa=$7, arquivo_comprovante=$8, horas_ausentes=$9, descontar_salario=$10
+         WHERE id=$11 RETURNING *`,
+        [colaborador_id, data_ausencia, data_inicio, data_fim, tipo_ausencia_id, motivo_ausencia_id, justificativa, arquivo_comprovante, horas_ausentes, descontar_salario, id]
+      );
+      if (result.length === 0) return res.status(404).json({ error: 'Ausencia nao encontrada' });
+      res.json(result[0]);
+    } catch (error) {
+      console.error('Update ausencia error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async deletarAusencia(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await AppDataSource.query('DELETE FROM rh_ausencias WHERE id = $1 RETURNING id', [id]);
+      if (result.length === 0) return res.status(404).json({ error: 'Ausencia nao encontrada' });
+      res.json({ message: 'Ausencia deletada com sucesso' });
+    } catch (error) {
+      console.error('Delete ausencia error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  // Tipos de Ausencia
+  static async listarTiposAusencia(req: AuthRequest, res: Response) {
+    return RhController.listarConfig(req, res, 'rh_tipos_ausencia');
+  }
+  static async criarTipoAusencia(req: AuthRequest, res: Response) {
+    return RhController.criarConfig(req, res, 'rh_tipos_ausencia', ['nome', 'cor']);
+  }
+  static async atualizarTipoAusencia(req: AuthRequest, res: Response) {
+    return RhController.atualizarConfig(req, res, 'rh_tipos_ausencia', ['nome', 'cor']);
+  }
+  static async deletarTipoAusencia(req: AuthRequest, res: Response) {
+    return RhController.deletarConfig(req, res, 'rh_tipos_ausencia');
+  }
+
+  // Motivos de Ausencia
+  static async listarMotivosAusencia(req: AuthRequest, res: Response) {
+    try {
+      const rows = await AppDataSource.query(
+        `SELECT ma.*, ta.nome AS tipo_nome FROM rh_motivos_ausencia ma
+         LEFT JOIN rh_tipos_ausencia ta ON ta.id = ma.tipo_id
+         WHERE ma.ativo = true ORDER BY ma.nome ASC`
+      );
+      res.json(rows);
+    } catch (error) {
+      console.error('List motivos ausencia error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+  static async criarMotivoAusencia(req: AuthRequest, res: Response) {
+    return RhController.criarConfig(req, res, 'rh_motivos_ausencia', ['tipo_id', 'nome', 'descontar_salario']);
+  }
+  static async atualizarMotivoAusencia(req: AuthRequest, res: Response) {
+    return RhController.atualizarConfig(req, res, 'rh_motivos_ausencia', ['tipo_id', 'nome', 'descontar_salario']);
+  }
+  static async deletarMotivoAusencia(req: AuthRequest, res: Response) {
+    return RhController.deletarConfig(req, res, 'rh_motivos_ausencia');
+  }
+
+  // =============================================
+  // TREINAMENTOS
+  // =============================================
+  static async listarTreinamentos(req: AuthRequest, res: Response) {
+    try {
+      const colaborador_id = req.query.colaborador_id ? parseInt(req.query.colaborador_id as string) : undefined;
+      let where = '';
+      const params: any[] = [];
+      if (colaborador_id) {
+        where = 'WHERE t.colaborador_id = $1';
+        params.push(colaborador_id);
+      }
+      const rows = await AppDataSource.query(
+        `SELECT t.*, c.nome AS colaborador_nome, tt.nome AS tipo_treinamento_nome, st.nome AS status_nome, st.cor AS status_cor
+         FROM rh_treinamentos t
+         LEFT JOIN rh_colaboradores c ON c.id = t.colaborador_id
+         LEFT JOIN rh_tipos_treinamento tt ON tt.id = t.tipo_treinamento_id
+         LEFT JOIN rh_status_treinamento st ON st.id = t.status_id
+         ${where}
+         ORDER BY t.data_inicio DESC`,
+        params
+      );
+      res.json(rows);
+    } catch (error) {
+      console.error('List treinamentos error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async criarTreinamento(req: AuthRequest, res: Response) {
+    try {
+      const { colaborador_id, tipo_treinamento_id, nome_treinamento, instrutor, instituicao, local, carga_horaria, data_inicio, data_fim, custo, status_id, certificado_url, observacoes } = req.body;
+      const result = await AppDataSource.query(
+        `INSERT INTO rh_treinamentos (colaborador_id, tipo_treinamento_id, nome_treinamento, instrutor, instituicao, local, carga_horaria, data_inicio, data_fim, custo, status_id, certificado_url, observacoes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
+        [colaborador_id, tipo_treinamento_id, nome_treinamento, instrutor, instituicao, local, carga_horaria, data_inicio, data_fim, custo, status_id, certificado_url, observacoes]
+      );
+      res.status(201).json(result[0]);
+    } catch (error) {
+      console.error('Create treinamento error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async atualizarTreinamento(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const { colaborador_id, tipo_treinamento_id, nome_treinamento, instrutor, instituicao, local, carga_horaria, data_inicio, data_fim, custo, status_id, certificado_url, observacoes } = req.body;
+      const result = await AppDataSource.query(
+        `UPDATE rh_treinamentos SET colaborador_id=$1, tipo_treinamento_id=$2, nome_treinamento=$3, instrutor=$4, instituicao=$5, local=$6, carga_horaria=$7, data_inicio=$8, data_fim=$9, custo=$10, status_id=$11, certificado_url=$12, observacoes=$13
+         WHERE id=$14 RETURNING *`,
+        [colaborador_id, tipo_treinamento_id, nome_treinamento, instrutor, instituicao, local, carga_horaria, data_inicio, data_fim, custo, status_id, certificado_url, observacoes, id]
+      );
+      if (result.length === 0) return res.status(404).json({ error: 'Treinamento nao encontrado' });
+      res.json(result[0]);
+    } catch (error) {
+      console.error('Update treinamento error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async deletarTreinamento(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await AppDataSource.query('DELETE FROM rh_treinamentos WHERE id = $1 RETURNING id', [id]);
+      if (result.length === 0) return res.status(404).json({ error: 'Treinamento nao encontrado' });
+      res.json({ message: 'Treinamento deletado com sucesso' });
+    } catch (error) {
+      console.error('Delete treinamento error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  // Tipos de Treinamento
+  static async listarTiposTreinamento(req: AuthRequest, res: Response) {
+    return RhController.listarConfig(req, res, 'rh_tipos_treinamento');
+  }
+  static async criarTipoTreinamento(req: AuthRequest, res: Response) {
+    return RhController.criarConfig(req, res, 'rh_tipos_treinamento', ['nome', 'categoria']);
+  }
+  static async atualizarTipoTreinamento(req: AuthRequest, res: Response) {
+    return RhController.atualizarConfig(req, res, 'rh_tipos_treinamento', ['nome', 'categoria']);
+  }
+  static async deletarTipoTreinamento(req: AuthRequest, res: Response) {
+    return RhController.deletarConfig(req, res, 'rh_tipos_treinamento');
+  }
+
+  // Status de Treinamento
+  static async listarStatusTreinamento(req: AuthRequest, res: Response) {
+    return RhController.listarConfig(req, res, 'rh_status_treinamento');
+  }
+  static async criarStatusTreinamento(req: AuthRequest, res: Response) {
+    return RhController.criarConfig(req, res, 'rh_status_treinamento', ['nome', 'cor']);
+  }
+  static async atualizarStatusTreinamento(req: AuthRequest, res: Response) {
+    return RhController.atualizarConfig(req, res, 'rh_status_treinamento', ['nome', 'cor']);
+  }
+  static async deletarStatusTreinamento(req: AuthRequest, res: Response) {
+    return RhController.deletarConfig(req, res, 'rh_status_treinamento');
+  }
+
+  // =============================================
+  // VAGAS (Recrutamento)
+  // =============================================
+  static async listarVagas(req: AuthRequest, res: Response) {
+    try {
+      const status = req.query.status as string | undefined;
+      let where = '';
+      const params: any[] = [];
+      if (status) {
+        where = 'WHERE v.status = $1';
+        params.push(status);
+      }
+      const rows = await AppDataSource.query(
+        `SELECT v.*, ca.nome AS cargo_nome, d.nome AS departamento_nome
+         FROM rh_vagas v
+         LEFT JOIN rh_cargos ca ON ca.id = v.cargo_id
+         LEFT JOIN rh_departamentos d ON d.id = v.departamento_id
+         ${where}
+         ORDER BY v.data_abertura DESC`,
+        params
+      );
+      res.json(rows);
+    } catch (error) {
+      console.error('List vagas error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async criarVaga(req: AuthRequest, res: Response) {
+    try {
+      const { cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios } = req.body;
+      const result = await AppDataSource.query(
+        `INSERT INTO rh_vagas (cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
+        [cargo_id, departamento_id, titulo, descricao, quantidade_vagas || 1, salario_min, salario_max, data_abertura, data_fechamento, status || 'Aberta', motivo_fechamento, requisitos, beneficios]
+      );
+      res.status(201).json(result[0]);
+    } catch (error) {
+      console.error('Create vaga error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async atualizarVaga(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const { cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios } = req.body;
+      const result = await AppDataSource.query(
+        `UPDATE rh_vagas SET cargo_id=$1, departamento_id=$2, titulo=$3, descricao=$4, quantidade_vagas=$5, salario_min=$6, salario_max=$7, data_abertura=$8, data_fechamento=$9, status=$10, motivo_fechamento=$11, requisitos=$12, beneficios=$13
+         WHERE id=$14 RETURNING *`,
+        [cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios, id]
+      );
+      if (result.length === 0) return res.status(404).json({ error: 'Vaga nao encontrada' });
+      res.json(result[0]);
+    } catch (error) {
+      console.error('Update vaga error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async deletarVaga(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await AppDataSource.query('DELETE FROM rh_vagas WHERE id = $1 RETURNING id', [id]);
+      if (result.length === 0) return res.status(404).json({ error: 'Vaga nao encontrada' });
+      res.json({ message: 'Vaga deletada com sucesso' });
+    } catch (error) {
+      console.error('Delete vaga error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  // =============================================
+  // CANDIDATOS
+  // =============================================
+  static async listarCandidatos(req: AuthRequest, res: Response) {
+    try {
+      const vaga_id = req.query.vaga_id ? parseInt(req.query.vaga_id as string) : undefined;
+      let where = '';
+      const params: any[] = [];
+      if (vaga_id) {
+        where = 'WHERE cd.vaga_id = $1';
+        params.push(vaga_id);
+      }
+      const rows = await AppDataSource.query(
+        `SELECT cd.*, v.titulo AS vaga_titulo, es.nome AS escolaridade_nome
+         FROM rh_candidatos cd
+         LEFT JOIN rh_vagas v ON v.id = cd.vaga_id
+         LEFT JOIN rh_escolaridades es ON es.id = cd.escolaridade_id
+         ${where}
+         ORDER BY cd.created_at DESC`,
+        params
+      );
+      res.json(rows);
+    } catch (error) {
+      console.error('List candidatos error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async criarCandidato(req: AuthRequest, res: Response) {
+    try {
+      const { vaga_id, nome, cpf, email, telefone, data_nascimento, escolaridade_id, curriculo_url, status, pontuacao, observacoes } = req.body;
+      const result = await AppDataSource.query(
+        `INSERT INTO rh_candidatos (vaga_id, nome, cpf, email, telefone, data_nascimento, escolaridade_id, curriculo_url, status, pontuacao, observacoes, data_status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW()) RETURNING *`,
+        [vaga_id, nome, cpf, email, telefone, data_nascimento, escolaridade_id, curriculo_url, status || 'Triagem', pontuacao, observacoes]
+      );
+      res.status(201).json(result[0]);
+    } catch (error) {
+      console.error('Create candidato error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async atualizarCandidato(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const { vaga_id, nome, cpf, email, telefone, data_nascimento, escolaridade_id, curriculo_url, status, pontuacao, observacoes } = req.body;
+      const result = await AppDataSource.query(
+        `UPDATE rh_candidatos SET vaga_id=$1, nome=$2, cpf=$3, email=$4, telefone=$5, data_nascimento=$6, escolaridade_id=$7, curriculo_url=$8, status=$9, pontuacao=$10, observacoes=$11, data_status=NOW()
+         WHERE id=$12 RETURNING *`,
+        [vaga_id, nome, cpf, email, telefone, data_nascimento, escolaridade_id, curriculo_url, status, pontuacao, observacoes, id]
+      );
+      if (result.length === 0) return res.status(404).json({ error: 'Candidato nao encontrado' });
+      res.json(result[0]);
+    } catch (error) {
+      console.error('Update candidato error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async deletarCandidato(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await AppDataSource.query('DELETE FROM rh_candidatos WHERE id = $1 RETURNING id', [id]);
+      if (result.length === 0) return res.status(404).json({ error: 'Candidato nao encontrado' });
+      res.json({ message: 'Candidato deletado com sucesso' });
+    } catch (error) {
+      console.error('Delete candidato error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  // =============================================
+  // LANCAMENTOS FINANCEIROS (Folha)
+  // =============================================
+  static async listarLancamentosFinanceiros(req: AuthRequest, res: Response) {
+    try {
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : undefined;
+      let where = '';
+      const params: any[] = [];
+      if (ano) {
+        where = 'WHERE ano = $1';
+        params.push(ano);
+      }
+      const rows = await AppDataSource.query(
+        `SELECT * FROM rh_lancamentos_financeiros ${where} ORDER BY ano DESC, mes DESC`,
+        params
+      );
+      res.json(rows);
+    } catch (error) {
+      console.error('List lancamentos financeiros error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async criarLancamentoFinanceiro(req: AuthRequest, res: Response) {
+    try {
+      const { mes, ano, receita_bruta, folha_salario, folha_estagiarios, folha_familia, beneficios_vt, beneficios_vr, beneficios_saude, outros_custos, observacoes } = req.body;
+      const result = await AppDataSource.query(
+        `INSERT INTO rh_lancamentos_financeiros (mes, ano, receita_bruta, folha_salario, folha_estagiarios, folha_familia, beneficios_vt, beneficios_vr, beneficios_saude, outros_custos, observacoes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+        [mes, ano, receita_bruta, folha_salario, folha_estagiarios, folha_familia, beneficios_vt, beneficios_vr, beneficios_saude, outros_custos, observacoes]
+      );
+      res.status(201).json(result[0]);
+    } catch (error: any) {
+      console.error('Create lancamento financeiro error:', error);
+      if (error.code === '23505') return res.status(409).json({ error: 'Lancamento para este mes/ano ja existe' });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async atualizarLancamentoFinanceiro(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const { mes, ano, receita_bruta, folha_salario, folha_estagiarios, folha_familia, beneficios_vt, beneficios_vr, beneficios_saude, outros_custos, observacoes } = req.body;
+      const result = await AppDataSource.query(
+        `UPDATE rh_lancamentos_financeiros SET mes=$1, ano=$2, receita_bruta=$3, folha_salario=$4, folha_estagiarios=$5, folha_familia=$6, beneficios_vt=$7, beneficios_vr=$8, beneficios_saude=$9, outros_custos=$10, observacoes=$11
+         WHERE id=$12 RETURNING *`,
+        [mes, ano, receita_bruta, folha_salario, folha_estagiarios, folha_familia, beneficios_vt, beneficios_vr, beneficios_saude, outros_custos, observacoes, id]
+      );
+      if (result.length === 0) return res.status(404).json({ error: 'Lancamento nao encontrado' });
+      res.json(result[0]);
+    } catch (error: any) {
+      console.error('Update lancamento financeiro error:', error);
+      if (error.code === '23505') return res.status(409).json({ error: 'Lancamento para este mes/ano ja existe' });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async deletarLancamentoFinanceiro(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await AppDataSource.query('DELETE FROM rh_lancamentos_financeiros WHERE id = $1 RETURNING id', [id]);
+      if (result.length === 0) return res.status(404).json({ error: 'Lancamento nao encontrado' });
+      res.json({ message: 'Lancamento deletado com sucesso' });
+    } catch (error) {
+      console.error('Delete lancamento financeiro error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  // =============================================
+  // DEPENDENTES
+  // =============================================
+  static async listarDependentes(req: AuthRequest, res: Response) {
+    try {
+      const colaborador_id = req.query.colaborador_id ? parseInt(req.query.colaborador_id as string) : undefined;
+      let where = '';
+      const params: any[] = [];
+      if (colaborador_id) {
+        where = 'WHERE d.colaborador_id = $1';
+        params.push(colaborador_id);
+      }
+      const rows = await AppDataSource.query(
+        `SELECT d.*, c.nome AS colaborador_nome
+         FROM rh_dependentes d
+         LEFT JOIN rh_colaboradores c ON c.id = d.colaborador_id
+         ${where}
+         ORDER BY d.nome ASC`,
+        params
+      );
+      res.json(rows);
+    } catch (error) {
+      console.error('List dependentes error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async criarDependente(req: AuthRequest, res: Response) {
+    try {
+      const { colaborador_id, nome, sexo, parentesco_id, data_nascimento, cpf, dependente_ir, dependente_sf } = req.body;
+      const result = await AppDataSource.query(
+        `INSERT INTO rh_dependentes (colaborador_id, nome, sexo, parentesco_id, data_nascimento, cpf, dependente_ir, dependente_sf)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        [colaborador_id, nome, sexo, parentesco_id, data_nascimento, cpf, dependente_ir || false, dependente_sf || false]
+      );
+      res.status(201).json(result[0]);
+    } catch (error) {
+      console.error('Create dependente error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async atualizarDependente(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const { colaborador_id, nome, sexo, parentesco_id, data_nascimento, cpf, dependente_ir, dependente_sf } = req.body;
+      const result = await AppDataSource.query(
+        `UPDATE rh_dependentes SET colaborador_id=$1, nome=$2, sexo=$3, parentesco_id=$4, data_nascimento=$5, cpf=$6, dependente_ir=$7, dependente_sf=$8, updated_at=NOW()
+         WHERE id=$9 RETURNING *`,
+        [colaborador_id, nome, sexo, parentesco_id, data_nascimento, cpf, dependente_ir, dependente_sf, id]
+      );
+      if (result.length === 0) return res.status(404).json({ error: 'Dependente nao encontrado' });
+      res.json(result[0]);
+    } catch (error) {
+      console.error('Update dependente error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async deletarDependente(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await AppDataSource.query('DELETE FROM rh_dependentes WHERE id = $1 RETURNING id', [id]);
+      if (result.length === 0) return res.status(404).json({ error: 'Dependente nao encontrado' });
+      res.json({ message: 'Dependente deletado com sucesso' });
+    } catch (error) {
+      console.error('Delete dependente error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  // =============================================
+  // HISTORICO DE ALTERACOES
+  // =============================================
+  static async listarHistoricoAlteracoes(req: AuthRequest, res: Response) {
+    try {
+      const colaborador_id = req.query.colaborador_id ? parseInt(req.query.colaborador_id as string) : undefined;
+      let where = '';
+      const params: any[] = [];
+      if (colaborador_id) {
+        where = 'WHERE h.colaborador_id = $1';
+        params.push(colaborador_id);
+      }
+      const rows = await AppDataSource.query(
+        `SELECT h.*, c.nome AS colaborador_nome, ca.nome AS cargo_nome, j.nome AS jornada_nome
+         FROM rh_historico_alteracoes h
+         LEFT JOIN rh_colaboradores c ON c.id = h.colaborador_id
+         LEFT JOIN rh_cargos ca ON ca.id = h.cargo_id
+         LEFT JOIN rh_jornadas j ON j.id = h.jornada_id
+         ${where}
+         ORDER BY h.data_inicio DESC`,
+        params
+      );
+      res.json(rows);
+    } catch (error) {
+      console.error('List historico alteracoes error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async criarHistoricoAlteracao(req: AuthRequest, res: Response) {
+    try {
+      const { colaborador_id, data_inicio, data_fim, cargo_id, jornada_id, salario, motivo, observacoes } = req.body;
+      const result = await AppDataSource.query(
+        `INSERT INTO rh_historico_alteracoes (colaborador_id, data_inicio, data_fim, cargo_id, jornada_id, salario, motivo, observacoes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        [colaborador_id, data_inicio, data_fim, cargo_id, jornada_id, salario, motivo, observacoes]
+      );
+      res.status(201).json(result[0]);
+    } catch (error) {
+      console.error('Create historico alteracao error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async atualizarHistoricoAlteracao(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const { colaborador_id, data_inicio, data_fim, cargo_id, jornada_id, salario, motivo, observacoes } = req.body;
+      const result = await AppDataSource.query(
+        `UPDATE rh_historico_alteracoes SET colaborador_id=$1, data_inicio=$2, data_fim=$3, cargo_id=$4, jornada_id=$5, salario=$6, motivo=$7, observacoes=$8
+         WHERE id=$9 RETURNING *`,
+        [colaborador_id, data_inicio, data_fim, cargo_id, jornada_id, salario, motivo, observacoes, id]
+      );
+      if (result.length === 0) return res.status(404).json({ error: 'Historico nao encontrado' });
+      res.json(result[0]);
+    } catch (error) {
+      console.error('Update historico alteracao error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async deletarHistoricoAlteracao(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await AppDataSource.query('DELETE FROM rh_historico_alteracoes WHERE id = $1 RETURNING id', [id]);
+      if (result.length === 0) return res.status(404).json({ error: 'Historico nao encontrado' });
+      res.json({ message: 'Historico deletado com sucesso' });
+    } catch (error) {
+      console.error('Delete historico alteracao error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  // =============================================
+  // DEPARTAMENTOS
+  // =============================================
+  static async listarDepartamentos(req: AuthRequest, res: Response) {
+    return RhController.listarConfig(req, res, 'rh_departamentos');
+  }
+  static async criarDepartamento(req: AuthRequest, res: Response) {
+    return RhController.criarConfig(req, res, 'rh_departamentos', ['nome', 'descricao']);
+  }
+  static async atualizarDepartamento(req: AuthRequest, res: Response) {
+    return RhController.atualizarConfig(req, res, 'rh_departamentos', ['nome', 'descricao']);
+  }
+  static async deletarDepartamento(req: AuthRequest, res: Response) {
+    return RhController.deletarConfig(req, res, 'rh_departamentos');
+  }
+
   static async getStats(req: AuthRequest, res: Response) {
     try {
       const empresa_id = req.query.empresa_id ? parseInt(req.query.empresa_id as string) : undefined;
