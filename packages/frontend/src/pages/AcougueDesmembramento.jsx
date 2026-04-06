@@ -127,7 +127,7 @@ export default function AcougueDesmembramento() {
   } : null;
 
   return (
-    <div className="flex h-screen bg-gray-900 text-white">
+    <div className="flex h-screen bg-gray-100">
       <Sidebar user={user} onLogout={logout} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
       <div className="flex-1 overflow-auto">
         {/* Header */}
@@ -146,8 +146,8 @@ export default function AcougueDesmembramento() {
 
         <div className="p-6 space-y-6">
           {/* Input Card */}
-          <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-            <h2 className="text-lg font-semibold text-white mb-4">Dados do Desmembramento</h2>
+          <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Dados do Desmembramento</h2>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Template de Rendimento *</label>
@@ -157,7 +157,7 @@ export default function AcougueDesmembramento() {
                   <select
                     value={templateId}
                     onChange={(e) => { setTemplateId(e.target.value); setResultado(null); }}
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:border-orange-500 focus:outline-none"
+                    className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:border-orange-500 focus:ring-orange-500 focus:outline-none"
                   >
                     <option value="">Selecione...</option>
                     {templates.map((t) => (
@@ -175,7 +175,7 @@ export default function AcougueDesmembramento() {
                   value={pesoTotal}
                   onChange={(e) => setPesoTotal(e.target.value)}
                   placeholder="Ex: 250.000"
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:border-orange-500 focus:outline-none"
+                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:border-orange-500 focus:ring-orange-500 focus:outline-none"
                 />
               </div>
               <div>
@@ -187,7 +187,7 @@ export default function AcougueDesmembramento() {
                   value={custoKg}
                   onChange={(e) => setCustoKg(e.target.value)}
                   placeholder="Ex: 22.50"
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:border-orange-500 focus:outline-none"
+                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:border-orange-500 focus:ring-orange-500 focus:outline-none"
                 />
               </div>
               <div>
@@ -207,29 +207,29 @@ export default function AcougueDesmembramento() {
             <div ref={printRef}>
               {/* Summary cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 text-center">
-                  <p className="text-gray-400 text-sm">Custo Total</p>
+                <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm text-center">
+                  <p className="text-gray-500 text-sm">Custo Total</p>
                   <p className="text-xl font-bold text-red-400">{fmt(resultado.custo_total)}</p>
                   <p className="text-xs text-gray-500">{fmtKg(resultado.peso_total)} KG x {fmt(resultado.custo_kg)}/KG</p>
                 </div>
-                <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 text-center">
-                  <p className="text-gray-400 text-sm">Receita Total</p>
+                <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm text-center">
+                  <p className="text-gray-500 text-sm">Receita Total</p>
                   <p className="text-xl font-bold text-blue-400">{fmt(resultado.receita_total)}</p>
                 </div>
-                <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 text-center">
-                  <p className="text-gray-400 text-sm">Lucro Bruto</p>
+                <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm text-center">
+                  <p className="text-gray-500 text-sm">Lucro Bruto</p>
                   <p className={`text-xl font-bold ${resultado.lucro_total >= 0 ? 'text-green-400' : 'text-red-400'}`}>{fmt(resultado.lucro_total)}</p>
                 </div>
-                <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 text-center">
-                  <p className="text-gray-400 text-sm">Margem %</p>
+                <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm text-center">
+                  <p className="text-gray-500 text-sm">Margem %</p>
                   <p className={`text-xl font-bold ${resultado.margem_pct >= 0 ? 'text-green-400' : 'text-red-400'}`}>{fmtPct(resultado.margem_pct)}</p>
                 </div>
               </div>
 
               {/* Results table */}
-              <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-                <div className="flex items-center justify-between p-4 border-b border-gray-700">
-                  <h3 className="text-lg font-semibold text-white">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">
                     Detalhamento - {resultado.template_nome}
                   </h3>
                   <div className="flex gap-2">
@@ -242,7 +242,7 @@ export default function AcougueDesmembramento() {
                     </button>
                     <button
                       onClick={handlePrint}
-                      className="bg-gray-700 text-gray-200 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-600 transition"
+                      className="bg-gray-200 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-300 transition"
                     >
                       Imprimir
                     </button>
@@ -269,9 +269,9 @@ export default function AcougueDesmembramento() {
                         return (
                           <tr
                             key={idx}
-                            className={`border-b border-gray-700 ${isNonSale ? 'opacity-50' : 'hover:bg-gray-750'}`}
+                            className={`border-b border-gray-200 ${isNonSale ? 'opacity-50' : 'hover:bg-gray-750'}`}
                           >
-                            <td className={`px-4 py-2 font-medium ${isNonSale ? 'line-through text-gray-500' : 'text-white'}`}>
+                            <td className={`px-4 py-2 font-medium ${isNonSale ? 'line-through text-gray-400' : 'text-gray-900'}`}>
                               {item.nome_corte}
                               {item.codigo_produto && <span className="text-gray-500 text-xs ml-1">({item.codigo_produto})</span>}
                             </td>
@@ -291,7 +291,7 @@ export default function AcougueDesmembramento() {
                         );
                       })}
                       {/* Totals row */}
-                      <tr className="bg-gray-700/50 font-bold text-orange-400">
+                      <tr className="bg-orange-50 font-bold text-orange-700">
                         <td className="px-4 py-3">TOTAIS</td>
                         <td className="px-3 py-3 text-right">
                           {fmtPct(resultado.itens.reduce((s, i) => s + (i.percentual || 0), 0))}
