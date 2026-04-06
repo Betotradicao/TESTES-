@@ -504,7 +504,7 @@ export class DatabaseConnectionsController {
         user: conn.username,
         password: conn.password,
         database: conn.database || 'postgres',
-        connectionTimeoutMillis: 10000
+        connectionTimeoutMillis: 30000
       });
 
       await client.connect();
@@ -584,7 +584,7 @@ export class DatabaseConnectionsController {
           encrypt: false,
           trustServerCertificate: true
         },
-        connectionTimeout: 10000
+        connectionTimeout: 30000
       };
 
       pool = await mssql.connect(config);
@@ -1088,7 +1088,7 @@ export class DatabaseConnectionsController {
           encrypt: false,
           trustServerCertificate: true
         },
-        connectionTimeout: 10000
+        connectionTimeout: 30000
       };
 
       console.log(`🔌 Connecting to SQL Server: ${conn.host}:${conn.port}`);
@@ -1172,7 +1172,7 @@ export class DatabaseConnectionsController {
         user: conn.username,
         password: conn.password,
         database: conn.database || 'postgres',
-        connectionTimeoutMillis: 10000
+        connectionTimeoutMillis: 30000
       });
 
       await client.connect();
