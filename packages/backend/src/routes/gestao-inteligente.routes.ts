@@ -64,4 +64,8 @@ router.get('/produto-anual-grupos', GestaoInteligenteController.getProdutoAnualG
 router.get('/produto-anual-subgrupos', GestaoInteligenteController.getProdutoAnualSubgrupos);
 router.get('/produto-anual-itens', GestaoInteligenteController.getProdutoAnualItens);
 
+// Metas de crescimento
+router.get('/metas', GestaoInteligenteController.getMetas);
+router.post('/metas', GestaoInteligenteController.saveMetas);
+
 export default router;

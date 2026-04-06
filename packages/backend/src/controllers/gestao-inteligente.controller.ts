@@ -6,6 +6,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { GestaoInteligenteService } from '../services/gestao-inteligente.service';
+import { AppDataSource } from '../config/database';
 
 export class GestaoInteligenteController {
   /**
@@ -471,4 +472,59 @@ export class GestaoInteligenteController {
       res.status(500).json({ error: error.message });
     }
   };
+
+  // GET /gestao-inteligente/metas?ano=2026
+  static async getMetas(req: AuthRequest, res: Response) {
+    try {
+      const ano = parseInt(req.query.ano as string) || new Date().getFullYear();
+      const codLoja = req.query.codLoja ? parseInt(req.query.codLoja as string) : null;
+
+      let whereClause = 'WHERE ano = $1';
+      const params: any[] = [ano];
+      if (codLoja) {
+        whereClause += ' AND (cod_loja = $2 OR cod_loja IS NULL)';
+        params.push(codLoja);
+      } else {
+        whereClause += ' AND cod_loja IS NULL';
+      }
+
+      const rows = await AppDataSource.query(
+        `SELECT * FROM metas_crescimento ${whereClause} ORDER BY mes`, params
+      );
+
+      // Return array of 12 months with meta_pct (0 if not set)
+      const metas = [];
+      for (let m = 1; m <= 12; m++) {
+        const found = rows.find((r: any) => r.mes === m);
+        metas.push({ mes: m, meta_pct: found ? parseFloat(found.meta_pct) : 0 });
+      }
+
+      res.json({ ano, metas });
+    } catch (error) {
+      console.error('Get metas error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  // POST /gestao-inteligente/metas
+  static async saveMetas(req: AuthRequest, res: Response) {
+    try {
+      const { ano, metas, codLoja } = req.body;
+      // metas = [{ mes: 1, meta_pct: 5 }, { mes: 2, meta_pct: 3 }, ...]
+
+      for (const meta of metas) {
+        await AppDataSource.query(
+          `INSERT INTO metas_crescimento (ano, mes, meta_pct, cod_loja, updated_at)
+           VALUES ($1, $2, $3, $4, NOW())
+           ON CONFLICT (ano, mes, cod_loja) DO UPDATE SET meta_pct = $3, updated_at = NOW()`,
+          [ano, meta.mes, meta.meta_pct || 0, codLoja || null]
+        );
+      }
+
+      res.json({ message: 'Metas salvas com sucesso' });
+    } catch (error) {
+      console.error('Save metas error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
 }

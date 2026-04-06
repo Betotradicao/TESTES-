@@ -435,6 +435,20 @@ CREATE TABLE IF NOT EXISTS acougue_desmembramentos (
 );
 
 -- ============================================
+-- METAS DE VENDA - GESTAO INTELIGENTE
+-- ============================================
+CREATE TABLE IF NOT EXISTS metas_crescimento (
+  id SERIAL PRIMARY KEY,
+  ano INT NOT NULL,
+  mes INT NOT NULL,
+  meta_pct DECIMAL(6,2) NOT NULL DEFAULT 0,
+  cod_loja INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(ano, mes, cod_loja)
+);
+
+-- ============================================
 -- DADOS INICIAIS
 -- ============================================
 

@@ -3,6 +3,7 @@ import Layout from '../components/Layout';
 import RadarLoading from '../components/RadarLoading';
 import api from '../services/api';
 import { useLoja } from '../contexts/LojaContext';
+import toast from 'react-hot-toast';
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
@@ -219,6 +220,12 @@ export default function GestaoInteligente() {
 
   // Estado para filtro de oferta na Análise Comparativa: 'com' = todas as vendas, 'sem' = subtraindo ofertas
   const [filtroOferta, setFiltroOferta] = useState('com');
+
+  // Estado para metas de crescimento
+  const [showMetasModal, setShowMetasModal] = useState(false);
+  const [metasAno, setMetasAno] = useState(new Date().getFullYear());
+  const [metasMensais, setMetasMensais] = useState(Array.from({length: 12}, (_, i) => ({ mes: i + 1, meta_pct: 0 })));
+  const [savingMetas, setSavingMetas] = useState(false);
 
   // Seções inativas na Análise Comparativa (excluídas dos totais/cards)
   const [secoesInativasGI, setSecoesInativasGI] = useState([]);
@@ -1574,6 +1581,32 @@ export default function GestaoInteligente() {
     if (analiseAtiva === 'vendas-dia-dia') fetchVendasDiaDia(novoAno, novoMes);
   };
 
+  // Carregar/salvar metas de crescimento
+  const loadMetas = async (ano) => {
+    try {
+      const params = new URLSearchParams({ ano: String(ano) });
+      if (lojaSelecionada) params.append('codLoja', String(lojaSelecionada));
+      const res = await api.get(`/gestao-inteligente/metas?${params}`);
+      setMetasMensais(res.data.metas);
+    } catch (err) { console.error('Erro ao carregar metas:', err); }
+  };
+
+  const saveMetas = async () => {
+    setSavingMetas(true);
+    try {
+      await api.post('/gestao-inteligente/metas', {
+        ano: metasAno,
+        metas: metasMensais,
+        codLoja: lojaSelecionada || null
+      });
+      toast.success('Metas salvas com sucesso!');
+      setShowMetasModal(false);
+    } catch (err) {
+      toast.error('Erro ao salvar metas');
+    }
+    setSavingMetas(false);
+  };
+
   // Buscar vendas analíticas por setor
   const fetchVendasAnaliticas = async () => {
     setLoadingVendasAnaliticas(true);
@@ -2765,7 +2798,12 @@ export default function GestaoInteligente() {
               {analiseAtiva === 'vendas-dia-dia' && (
                 <div className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
                   <div className="bg-orange-500 px-4 py-3 flex items-center justify-between">
-                    <h3 className="text-white font-semibold text-sm sm:text-base">Venda Dia a Dia</h3>
+                    <div className="flex items-center">
+                      <h3 className="text-white font-semibold text-sm sm:text-base">Venda Dia a Dia</h3>
+                      <button onClick={() => { loadMetas(metasAno); setShowMetasModal(true); }} className="ml-2 text-white/70 hover:text-white" title="Configurar Metas">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      </button>
+                    </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => mudarMesDiaDia(-1)} className="text-white hover:bg-orange-600 rounded px-2 py-1 text-sm">◀</button>
                       <span className="text-white font-bold text-sm">
@@ -5543,6 +5581,76 @@ export default function GestaoInteligente() {
                 <div className="px-4 py-3 bg-gray-50 flex justify-end gap-2 border-t">
                   <button onClick={() => setShowColabModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-200">Cancelar</button>
                   <button onClick={() => saveColabConfig(colabConfigTemp)} className="px-4 py-2 text-sm bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 font-semibold">Salvar</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Modal de Metas de Crescimento */}
+        {showMetasModal && (() => {
+          const mesesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+          return (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+              <div className="bg-white rounded-xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                <div className="bg-gradient-to-r from-orange-600 to-orange-500 text-white px-6 py-4 rounded-t-xl flex items-center justify-between">
+                  <h2 className="text-lg font-bold">Meta de Crescimento {metasAno}</h2>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => { const a = metasAno - 1; setMetasAno(a); loadMetas(a); }} className="hover:bg-orange-700 rounded px-2 py-1 text-sm font-bold">◀</button>
+                    <span className="font-bold text-lg">{metasAno}</span>
+                    <button onClick={() => { const a = metasAno + 1; setMetasAno(a); loadMetas(a); }} className="hover:bg-orange-700 rounded px-2 py-1 text-sm font-bold">▶</button>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-600 text-white">
+                        <th className="px-3 py-2 text-left rounded-tl-lg">Mes</th>
+                        <th className="px-3 py-2 text-right">Projecao Vendas</th>
+                        <th className="px-3 py-2 text-right">Projecao Lucro</th>
+                        <th className="px-3 py-2 text-center">Meta %</th>
+                        <th className="px-3 py-2 text-right">Meta Vendas R$</th>
+                        <th className="px-3 py-2 text-right rounded-tr-lg">Meta Lucro R$</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {metasMensais.map((meta, idx) => {
+                        const projecaoVendas = 0; // placeholder - will be filled later with media linear data
+                        const projecaoLucro = 0; // placeholder
+                        const metaVendas = projecaoVendas * (1 + (meta.meta_pct || 0) / 100);
+                        const metaLucro = projecaoLucro * (1 + (meta.meta_pct || 0) / 100);
+                        return (
+                          <tr key={meta.mes} className={idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                            <td className="px-3 py-2 font-semibold text-gray-700">{mesesNomes[idx]}</td>
+                            <td className="px-3 py-2 text-right text-gray-500">{formatCurrency(projecaoVendas)}</td>
+                            <td className="px-3 py-2 text-right text-gray-500">{formatCurrency(projecaoLucro)}</td>
+                            <td className="px-3 py-2 text-center">
+                              <input
+                                type="number"
+                                step="0.1"
+                                value={meta.meta_pct}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  setMetasMensais(prev => prev.map((m, i) => i === idx ? { ...m, meta_pct: val } : m));
+                                }}
+                                className="w-20 text-center border border-gray-300 rounded px-2 py-1 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                              />
+                            </td>
+                            <td className="px-3 py-2 text-right text-gray-500">{formatCurrency(metaVendas)}</td>
+                            <td className="px-3 py-2 text-right text-gray-500">{formatCurrency(metaLucro)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="px-6 py-4 bg-gray-50 flex justify-end gap-3 border-t rounded-b-xl">
+                  <button onClick={() => setShowMetasModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-200">
+                    Cancelar
+                  </button>
+                  <button onClick={saveMetas} disabled={savingMetas} className="px-6 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-semibold disabled:opacity-50">
+                    {savingMetas ? 'Salvando...' : 'Salvar'}
+                  </button>
                 </div>
               </div>
             </div>
