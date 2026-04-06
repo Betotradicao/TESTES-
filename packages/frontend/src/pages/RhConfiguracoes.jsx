@@ -16,6 +16,10 @@ const TABS = [
   { key: 'prazos', label: 'Prazos Exp.', endpoint: '/rh/configuracoes/prazos-experiencia', fields: ['nome', 'dias', 'descricao'] },
   { key: 'tipos_desligamento', label: 'Tipos Deslig.', endpoint: '/rh/configuracoes/tipos-desligamento', fields: ['nome', 'descricao'] },
   { key: 'motivos_desligamento', label: 'Motivos Deslig.', endpoint: '/rh/configuracoes/motivos-desligamento', fields: ['nome', 'descricao'] },
+  { key: 'departamentos', label: 'Departamentos', endpoint: '/rh/configuracoes/departamentos', fields: ['nome', 'descricao'] },
+  { key: 'tipos_ausencia', label: 'Tipos Ausencia', endpoint: '/rh/configuracoes/tipos-ausencia', fields: ['nome', 'cor'] },
+  { key: 'tipos_treinamento', label: 'Tipos Trein.', endpoint: '/rh/configuracoes/tipos-treinamento', fields: ['nome', 'categoria'] },
+  { key: 'status_treinamento', label: 'Status Trein.', endpoint: '/rh/configuracoes/status-treinamento', fields: ['nome', 'cor'] },
 ];
 
 const FIELD_LABELS = {
@@ -25,6 +29,8 @@ const FIELD_LABELS = {
   endereco: 'Endereco',
   carga_horaria: 'Carga Horaria',
   dias: 'Dias',
+  cor: 'Cor',
+  categoria: 'Categoria',
 };
 
 export default function RhConfiguracoes() {
