@@ -12,6 +12,20 @@ const fmt = (v) => {
 const fmtKg = (v) => (v != null ? parseFloat(v).toFixed(3) : '0.000');
 const fmtPct = (v) => (v != null ? parseFloat(v).toFixed(2) + '%' : '0.00%');
 
+const ALL_COLUMNS = [
+  { id: 'corte', label: 'Corte', fixed: true },
+  { id: 'pct_rend', label: '% Rend' },
+  { id: 'peso_kg', label: 'Peso (KG)' },
+  { id: 'custo_kg', label: 'Custo/KG' },
+  { id: 'custo_total', label: 'Custo Total' },
+  { id: 'preco_venda', label: 'Preco Venda/KG' },
+  { id: 'receita', label: 'Receita' },
+  { id: 'lucro', label: 'Lucro' },
+  { id: 'margem', label: 'Margem %' },
+  { id: 'preco_conc', label: 'Preco Concorrente' },
+  { id: 'meta_margem', label: 'Meta Margem %' },
+];
+
 export default function AcougueDesmembramento() {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -26,6 +40,35 @@ export default function AcougueDesmembramento() {
 
   // Result
   const [resultado, setResultado] = useState(null);
+
+  // Colunas visiveis (drag & drop + visibilidade)
+  const [columns, setColumns] = useState(() => {
+    const saved = localStorage.getItem('acougue_desm_columns');
+    if (saved) { try { return JSON.parse(saved); } catch {} }
+    return ALL_COLUMNS.map(c => c.id);
+  });
+  const [hiddenCols, setHiddenCols] = useState(() => {
+    const saved = localStorage.getItem('acougue_desm_hidden');
+    if (saved) { try { return JSON.parse(saved); } catch {} }
+    return [];
+  });
+  const [showColMenu, setShowColMenu] = useState(false);
+  const [dragCol, setDragCol] = useState(null);
+
+  const visibleCols = columns.filter(c => !hiddenCols.includes(c));
+  const toggleCol = (colId) => {
+    const next = hiddenCols.includes(colId) ? hiddenCols.filter(c => c !== colId) : [...hiddenCols, colId];
+    setHiddenCols(next);
+    localStorage.setItem('acougue_desm_hidden', JSON.stringify(next));
+  };
+  const handleDragStart = (colId) => setDragCol(colId);
+  const handleDragOver = (e, colId) => { e.preventDefault(); if (dragCol && dragCol !== colId) {
+    const newCols = [...columns]; const from = newCols.indexOf(dragCol); const to = newCols.indexOf(colId);
+    newCols.splice(from, 1); newCols.splice(to, 0, dragCol); setColumns(newCols);
+    localStorage.setItem('acougue_desm_columns', JSON.stringify(newCols));
+  }};
+  const handleDragEnd = () => setDragCol(null);
+  const getColDef = (id) => ALL_COLUMNS.find(c => c.id === id);
   const [saving, setSaving] = useState(false);
   const printRef = useRef();
 
@@ -232,18 +275,27 @@ export default function AcougueDesmembramento() {
                   <h3 className="text-lg font-semibold text-gray-900">
                     Detalhamento - {resultado.template_nome}
                   </h3>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleSalvar}
-                      disabled={saving}
-                      className="bg-orange-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-orange-500 disabled:opacity-50 transition"
-                    >
+                  <div className="flex gap-2 items-center">
+                    {/* Engrenagem de colunas */}
+                    <div className="relative">
+                      <button onClick={() => setShowColMenu(!showColMenu)} className="text-gray-400 hover:text-gray-600 p-1" title="Colunas">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      </button>
+                      {showColMenu && (
+                        <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-2 w-52">
+                          {ALL_COLUMNS.filter(c => !c.fixed).map(col => (
+                            <label key={col.id} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer text-sm">
+                              <input type="checkbox" checked={!hiddenCols.includes(col.id)} onChange={() => toggleCol(col.id)} className="accent-orange-500" />
+                              {col.label}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={handleSalvar} disabled={saving} className="bg-orange-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-orange-500 disabled:opacity-50 transition">
                       {saving ? 'Salvando...' : 'Salvar Resultado'}
                     </button>
-                    <button
-                      onClick={handlePrint}
-                      className="bg-gray-200 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-300 transition"
-                    >
+                    <button onClick={handlePrint} className="bg-gray-200 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-300 transition">
                       Imprimir
                     </button>
                   </div>
@@ -251,58 +303,67 @@ export default function AcougueDesmembramento() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-gray-600 text-gray-200">
-                        <th className="px-4 py-3 text-left">Corte</th>
-                        <th className="px-3 py-3 text-right">% Rend</th>
-                        <th className="px-3 py-3 text-right">Peso (KG)</th>
-                        <th className="px-3 py-3 text-right">Custo/KG</th>
-                        <th className="px-3 py-3 text-right">Custo Total</th>
-                        <th className="px-3 py-3 text-right">Preco Venda/KG</th>
-                        <th className="px-3 py-3 text-right">Receita</th>
-                        <th className="px-3 py-3 text-right">Lucro</th>
-                        <th className="px-3 py-3 text-right">Margem %</th>
+                      <tr className="bg-gray-600 text-white">
+                        {visibleCols.map(colId => {
+                          const col = getColDef(colId);
+                          return (
+                            <th key={colId} className={`px-3 py-3 whitespace-nowrap ${colId === 'corte' ? 'text-left' : 'text-right'} ${!col?.fixed ? 'cursor-grab' : ''}`}
+                              draggable={!col?.fixed} onDragStart={() => handleDragStart(colId)} onDragOver={(e) => handleDragOver(e, colId)} onDragEnd={handleDragEnd}>
+                              <span className={`flex items-center gap-1 ${colId === 'corte' ? '' : 'justify-end'}`}>
+                                {!col?.fixed && <span className="text-gray-400 text-xs">⠿</span>}
+                                {col?.label}
+                              </span>
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody>
                       {resultado.itens.map((item, idx) => {
-                        const isNonSale = !item.vende;
+                        const ns = !item.vende;
+                        const cellVal = (colId) => {
+                          switch(colId) {
+                            case 'corte': return <><span className={ns ? 'line-through text-gray-400' : 'text-gray-900 font-medium'}>{item.nome_corte}</span>{item.codigo_produto && <span className="text-gray-400 text-xs ml-1">({item.codigo_produto})</span>}</>;
+                            case 'pct_rend': return <span className={ns ? 'line-through text-gray-400' : ''}>{fmtPct(item.percentual)}</span>;
+                            case 'peso_kg': return <span className={ns ? 'line-through text-gray-400' : ''}>{fmtKg(item.peso_kg)}</span>;
+                            case 'custo_kg': return ns ? '-' : fmt(item.custo_kg);
+                            case 'custo_total': return ns ? '-' : fmt(item.custo_total);
+                            case 'preco_venda': return ns ? '-' : fmt(item.preco_venda_kg);
+                            case 'receita': return ns ? '-' : fmt(item.receita);
+                            case 'lucro': return ns ? '-' : <span className={item.lucro >= 0 ? 'text-green-600' : 'text-red-600'}>{fmt(item.lucro)}</span>;
+                            case 'margem': return ns ? '-' : <span className={item.margem_pct >= 0 ? 'text-green-600' : 'text-red-600'}>{fmtPct(item.margem_pct)}</span>;
+                            case 'preco_conc': return ns ? '-' : (item.preco_concorrente > 0 ? fmt(item.preco_concorrente) : <span className="text-gray-300">-</span>);
+                            case 'meta_margem': return ns ? '-' : (item.meta_margem > 0 ? fmtPct(item.meta_margem) : <span className="text-gray-300">-</span>);
+                            default: return '-';
+                          }
+                        };
                         return (
-                          <tr
-                            key={idx}
-                            className={`border-b border-gray-200 ${isNonSale ? 'opacity-50' : 'hover:bg-gray-750'}`}
-                          >
-                            <td className={`px-4 py-2 font-medium ${isNonSale ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-                              {item.nome_corte}
-                              {item.codigo_produto && <span className="text-gray-500 text-xs ml-1">({item.codigo_produto})</span>}
-                            </td>
-                            <td className={`px-3 py-2 text-right ${isNonSale ? 'line-through text-gray-500' : ''}`}>{fmtPct(item.percentual)}</td>
-                            <td className={`px-3 py-2 text-right ${isNonSale ? 'line-through text-gray-500' : ''}`}>{fmtKg(item.peso_kg)}</td>
-                            <td className={`px-3 py-2 text-right ${isNonSale ? 'text-gray-500' : ''}`}>{isNonSale ? '-' : fmt(item.custo_kg)}</td>
-                            <td className={`px-3 py-2 text-right ${isNonSale ? 'text-gray-500' : ''}`}>{isNonSale ? '-' : fmt(item.custo_total)}</td>
-                            <td className={`px-3 py-2 text-right ${isNonSale ? 'text-gray-500' : ''}`}>{isNonSale ? '-' : fmt(item.preco_venda_kg)}</td>
-                            <td className={`px-3 py-2 text-right ${isNonSale ? 'text-gray-500' : ''}`}>{isNonSale ? '-' : fmt(item.receita)}</td>
-                            <td className={`px-3 py-2 text-right ${isNonSale ? 'text-gray-500' : item.lucro >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                              {isNonSale ? '-' : fmt(item.lucro)}
-                            </td>
-                            <td className={`px-3 py-2 text-right ${isNonSale ? 'text-gray-500' : item.margem_pct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                              {isNonSale ? '-' : fmtPct(item.margem_pct)}
-                            </td>
+                          <tr key={idx} className={`border-b border-gray-100 ${ns ? 'opacity-50' : 'hover:bg-gray-50'}`}>
+                            {visibleCols.map(colId => (
+                              <td key={colId} className={`px-3 py-2 ${colId === 'corte' ? 'text-left' : 'text-right'} ${ns ? 'text-gray-400' : ''}`}>{cellVal(colId)}</td>
+                            ))}
                           </tr>
                         );
                       })}
                       {/* Totals row */}
                       <tr className="bg-orange-50 font-bold text-orange-700">
-                        <td className="px-4 py-3">TOTAIS</td>
-                        <td className="px-3 py-3 text-right">
-                          {fmtPct(resultado.itens.reduce((s, i) => s + (i.percentual || 0), 0))}
-                        </td>
-                        <td className="px-3 py-3 text-right">{fmtKg(totals.peso)}</td>
-                        <td className="px-3 py-3 text-right">{fmt(resultado.custo_kg)}</td>
-                        <td className="px-3 py-3 text-right">{fmt(totals.custoTotal)}</td>
-                        <td className="px-3 py-3 text-right">-</td>
-                        <td className="px-3 py-3 text-right">{fmt(totals.receita)}</td>
-                        <td className={`px-3 py-3 text-right ${totals.lucro >= 0 ? 'text-green-400' : 'text-red-400'}`}>{fmt(totals.lucro)}</td>
-                        <td className={`px-3 py-3 text-right ${resultado.margem_pct >= 0 ? 'text-green-400' : 'text-red-400'}`}>{fmtPct(resultado.margem_pct)}</td>
+                        {visibleCols.map(colId => {
+                          const totVal = () => {
+                            switch(colId) {
+                              case 'corte': return 'TOTAIS';
+                              case 'pct_rend': return fmtPct(resultado.itens.reduce((s, i) => s + (i.percentual || 0), 0));
+                              case 'peso_kg': return fmtKg(resultado.itens.reduce((s, i) => s + (i.peso_kg || 0), 0));
+                              case 'custo_kg': return <span className="text-red-600">{fmt(resultado.custo_kg)}</span>;
+                              case 'custo_total': return <span className="text-red-600">{fmt(resultado.custo_total)}</span>;
+                              case 'preco_venda': return '-';
+                              case 'receita': return fmt(resultado.receita_total);
+                              case 'lucro': return <span className={resultado.lucro_total >= 0 ? 'text-green-600' : 'text-red-600'}>{fmt(resultado.lucro_total)}</span>;
+                              case 'margem': return <span className={resultado.margem_pct >= 0 ? 'text-green-600' : 'text-red-600'}>{fmtPct(resultado.margem_pct)}</span>;
+                              default: return '-';
+                            }
+                          };
+                          return <td key={colId} className={`px-3 py-3 ${colId === 'corte' ? 'text-left' : 'text-right'}`}>{totVal()}</td>;
+                        })}
                       </tr>
                     </tbody>
                   </table>

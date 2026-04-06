@@ -21,6 +21,9 @@ export class AcougueController {
       const plValVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda');
       const plCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
       const plInativo = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'inativo');
+      const plPesquisaMedia = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pesquisa_media');
+      const plPesquisaConc = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pesquisa_concorrente');
+      const plMargemFixa = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem_fixa');
 
       // Buscar por codigo (numerico) ou nome (texto)
       const isNumeric = /^\d+$/.test(search);
@@ -31,7 +34,10 @@ export class AcougueController {
 
       const sql = `
         SELECT p.${codProduto} AS CODIGO, p.${desProduto} AS DESCRICAO,
-               NVL(pl.${plValVenda}, 0) AS VAL_VENDA
+               NVL(pl.${plValVenda}, 0) AS VAL_VENDA,
+               NVL(pl.${plPesquisaMedia}, 0) AS PRECO_CONCORRENTE,
+               pl.${plPesquisaConc} AS NOME_CONCORRENTE,
+               NVL(pl.${plMargemFixa}, 0) AS META_MARGEM
         FROM ${schema}.${tabProduto} p
         LEFT JOIN ${schema}.${tabProdutoLoja} pl ON p.${codProduto} = pl.${plCodProduto} AND pl.${plCodLoja} = 1
         ${whereClause}
@@ -45,6 +51,9 @@ export class AcougueController {
         codigo: String(r.CODIGO),
         descricao: r.DESCRICAO || '',
         preco_venda: parseFloat(r.VAL_VENDA) || 0,
+        preco_concorrente: parseFloat(r.PRECO_CONCORRENTE) || 0,
+        nome_concorrente: r.NOME_CONCORRENTE || '',
+        meta_margem: parseFloat(r.META_MARGEM) || 0,
       }));
 
       res.json(produtos);
@@ -191,6 +200,32 @@ export class AcougueController {
         'SELECT * FROM acougue_rendimento_itens WHERE template_id = $1 ORDER BY ordem ASC', [template_id]
       );
 
+      // Buscar dados extras do Oracle (preco concorrente, meta margem)
+      let oracleData: Map<string, any> = new Map();
+      try {
+        const codigos = itens.filter((i: any) => i.codigo_produto).map((i: any) => i.codigo_produto.replace(/^0+/, ''));
+        if (codigos.length > 0) {
+          const schema = await MappingService.getSchema();
+          const plCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
+          const plCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
+          const plPesquisaMedia = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pesquisa_media');
+          const plPesquisaConc = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pesquisa_concorrente');
+          const plMargemFixa = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem_fixa');
+          const tabProdutoLoja = await MappingService.getRealTableName('TAB_PRODUTO_LOJA');
+
+          const inList = codigos.map((_: any, i: number) => `:cod${i}`).join(',');
+          const params: any = {};
+          codigos.forEach((cod: string, i: number) => { params[`cod${i}`] = parseInt(cod); });
+          params.codLoja = 1;
+
+          const rows = await OracleService.query(
+            `SELECT ${plCodProduto} AS COD, NVL(${plPesquisaMedia}, 0) AS PRECO_CONC, ${plPesquisaConc} AS NOME_CONC, NVL(${plMargemFixa}, 0) AS META_MG
+             FROM ${schema}.${tabProdutoLoja} WHERE ${plCodProduto} IN (${inList}) AND ${plCodLoja} = :codLoja`, params
+          );
+          rows.forEach((r: any) => oracleData.set(String(r.COD), { preco_concorrente: parseFloat(r.PRECO_CONC) || 0, nome_concorrente: r.NOME_CONC || '', meta_margem: parseFloat(r.META_MG) || 0 }));
+        }
+      } catch (e: any) { console.log('⚠️ Dados Oracle extras nao disponiveis:', e.message); }
+
       const custoTotal = peso_total * custo_kg;
       let receitaTotal = 0;
 
@@ -198,6 +233,8 @@ export class AcougueController {
         const pesoCorte = (peso_total * item.percentual) / 100;
         const receita = item.vende && item.preco_venda ? pesoCorte * item.preco_venda : 0;
         receitaTotal += receita;
+        const codNorm = item.codigo_produto ? item.codigo_produto.replace(/^0+/, '') : '';
+        const extra = oracleData.get(codNorm) || { preco_concorrente: 0, nome_concorrente: '', meta_margem: 0 };
         return {
           nome_corte: item.nome_corte,
           codigo_produto: item.codigo_produto,
@@ -206,6 +243,9 @@ export class AcougueController {
           preco_venda_kg: item.preco_venda ? parseFloat(item.preco_venda) : 0,
           vende: item.vende,
           receita: Math.round(receita * 100) / 100,
+          preco_concorrente: extra.preco_concorrente,
+          nome_concorrente: extra.nome_concorrente,
+          meta_margem: extra.meta_margem,
         };
       });
 
