@@ -70,6 +70,9 @@ export class DatabaseConnection {
   @Column({ nullable: true, type: 'text' })
   mappings: string; // JSON com mapeamentos de tabelas/colunas por módulo
 
+  @Column({ nullable: true, type: 'varchar', length: 50 })
+  erp_type: string; // intersolid, rpinfo, hipcon, custom, etc - usado pra carregar template
+
   @CreateDateColumn()
   created_at: Date;
 
