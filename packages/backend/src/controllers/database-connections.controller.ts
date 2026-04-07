@@ -498,8 +498,12 @@ export class DatabaseConnectionsController {
     try {
       const { Client } = require('pg');
 
+      // Detecta se esta na VPS/Docker e usa host_vps
+      const isVps = process.env.NODE_ENV === 'production' || process.env.DOCKER_CONTAINER === 'true';
+      const hostToUse = isVps && conn.host_vps ? conn.host_vps : conn.host;
+
       client = new Client({
-        host: conn.host,
+        host: hostToUse,
         port: conn.port,
         user: conn.username,
         password: conn.password,
@@ -1164,10 +1168,14 @@ export class DatabaseConnectionsController {
       // Importar pg dinamicamente (pode não estar instalado)
       const { Client } = require('pg');
 
-      console.log(`🔌 Connecting to PostgreSQL: ${conn.host}:${conn.port}`);
+      // Detecta se esta na VPS/Docker e usa host_vps
+      const isVps = process.env.NODE_ENV === 'production' || process.env.DOCKER_CONTAINER === 'true';
+      const hostToUse = isVps && conn.host_vps ? conn.host_vps : conn.host;
+
+      console.log(`🔌 Connecting to PostgreSQL: ${hostToUse}:${conn.port}`);
 
       const client = new Client({
-        host: conn.host,
+        host: hostToUse,
         port: conn.port,
         user: conn.username,
         password: conn.password,
