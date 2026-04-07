@@ -11,6 +11,8 @@ import { AppDataSource } from '../config/database';
 import { Company } from '../entities/Company';
 import { Holiday } from '../entities/Holiday';
 import { MappingService } from './mapping.service';
+import { DatabaseConnection, DatabaseType, ConnectionStatus } from '../entities/DatabaseConnection';
+import { PostgresErpService } from './postgres-erp.service';
 
 const CACHE_KEY = 'gestao-inteligente-indicadores';
 const CACHE_TTL_MINUTES = 5; // 5 minutos de cache
@@ -1680,8 +1682,67 @@ export class GestaoInteligenteService {
    * Busca lojas disponíveis (Oracle) com apelidos (PostgreSQL)
    */
   static async getLojas(): Promise<any[]> {
-    // Primeiro tentar buscar do Oracle (ERP externo)
+    // Detecta tipo do banco ativo (Oracle ou PostgreSQL)
+    let dbType: 'oracle' | 'postgresql' | 'other' = 'oracle';
     try {
+      if (AppDataSource.isInitialized) {
+        const repo = AppDataSource.getRepository(DatabaseConnection);
+        let conn = await repo.findOne({ where: { is_default: true, status: ConnectionStatus.ACTIVE } });
+        if (!conn) conn = await repo.findOne({ where: { status: ConnectionStatus.ACTIVE } });
+        if (!conn) conn = await repo.findOne({ where: {}, order: { id: 'ASC' } });
+        if (conn?.type === DatabaseType.POSTGRESQL) dbType = 'postgresql';
+        else if (conn?.type === DatabaseType.ORACLE) dbType = 'oracle';
+      }
+    } catch { /* fallback pra oracle */ }
+
+    // Caminho PostgreSQL ERP (Nunes / RP INFO)
+    if (dbType === 'postgresql') {
+      try {
+        const schema = await MappingService.getSchema();
+        const tabLoja = await MappingService.getRealTableName('TAB_LOJA');
+        const codLojaCol = await MappingService.getColumnFromTable('TAB_LOJA', 'codigo_loja');
+        const desLojaCol = await MappingService.getColumnFromTable('TAB_LOJA', 'descricao_loja');
+
+        const sql = `
+          SELECT ${codLojaCol} as cod_loja, ${desLojaCol} as des_loja
+          FROM ${schema}.${tabLoja}
+          ORDER BY ${codLojaCol}
+        `;
+
+        console.log('📍 [GESTAO INTELIGENTE] Buscando lojas do PostgreSQL ERP...');
+        const rows = await PostgresErpService.query<any>(sql);
+        console.log('📍 [GESTAO INTELIGENTE] Lojas PostgreSQL ERP encontradas:', rows?.length || 0);
+
+        if (rows && rows.length > 0) {
+          // Buscar apelidos das companies no banco local
+          const apelidos: Map<number, string> = new Map();
+          try {
+            if (AppDataSource.isInitialized) {
+              const companyRepository = AppDataSource.getRepository(Company);
+              const companies = await companyRepository.find({
+                where: { active: true },
+                select: ['codLoja', 'apelido']
+              });
+              companies.forEach(c => {
+                if (c.codLoja && c.apelido) apelidos.set(c.codLoja, c.apelido);
+              });
+            }
+          } catch { /* ignore */ }
+
+          return rows.map((loja: any) => ({
+            COD_LOJA: Number(loja.cod_loja),
+            DES_LOJA: loja.des_loja,
+            APELIDO: apelidos.get(Number(loja.cod_loja)) || null
+          }));
+        }
+      } catch (err) {
+        console.error('❌ [GESTAO INTELIGENTE] Erro buscando lojas PostgreSQL ERP:', err);
+      }
+      // Se nao retornou nada, cai no fallback companies abaixo
+    }
+
+    // Primeiro tentar buscar do Oracle (ERP externo) - Tradicao/SuperVital
+    if (dbType === 'oracle') try {
       const schema = await MappingService.getSchema();
       const tabLoja = `${schema}.${await MappingService.getRealTableName('TAB_LOJA')}`;
 
