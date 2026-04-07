@@ -478,7 +478,9 @@ export class GestaoInteligenteController {
     try {
       const ano = parseInt(req.query.ano as string) || new Date().getFullYear();
       const codLoja = req.query.codLoja ? parseInt(req.query.codLoja as string) : null;
+      const tiposSaida = req.query.tiposSaida as string || undefined;
 
+      // 1. Buscar metas salvas
       let whereClause = 'WHERE ano = $1';
       const params: any[] = [ano];
       if (codLoja) {
@@ -492,11 +494,28 @@ export class GestaoInteligenteController {
         `SELECT * FROM metas_crescimento ${whereClause} ORDER BY mes`, params
       );
 
-      // Return array of 12 months with meta_pct (0 if not set)
+      // 2. Buscar projecao mensal (media linear por mes) do ano anterior
+      const anoAnterior = ano - 1;
+      let projecoesMensais: any[] = [];
+      try {
+        projecoesMensais = await GestaoInteligenteService.calcularProjecaoMensal(anoAnterior, codLoja || undefined, tiposSaida);
+      } catch (e: any) {
+        console.error('Erro ao calcular projecao mensal:', e.message);
+      }
+
+      // 3. Montar resposta com metas + projecoes
       const metas = [];
       for (let m = 1; m <= 12; m++) {
         const found = rows.find((r: any) => r.mes === m);
-        metas.push({ mes: m, meta_pct: found ? parseFloat(found.meta_pct) : 0 });
+        const proj = projecoesMensais.find((p: any) => p.mes === m);
+        metas.push({
+          mes: m,
+          meta_pct: found ? parseFloat(found.meta_pct) : 0,
+          projecao_vendas: proj?.vendas || 0,
+          projecao_lucro: proj?.lucro || 0,
+          projecao_custo: proj?.custo || 0,
+          projecao_margem: proj?.vendas > 0 ? parseFloat(((proj.lucro / proj.vendas) * 100).toFixed(2)) : 0,
+        });
       }
 
       res.json({ ano, metas });

@@ -2739,4 +2739,134 @@ export class GestaoInteligenteService {
       return totalB - totalA;
     });
   }
+
+  /**
+   * Calcula projecao mensal baseada na media linear (mesma logica de dias da semana + feriados)
+   * Retorna vendas e lucro projetados pra cada mes do ano
+   */
+  static async calcularProjecaoMensal(
+    anoBase: number,
+    codLoja?: number,
+    tiposSaida?: string
+  ): Promise<Array<{ mes: number; vendas: number; lucro: number; custo: number }>> {
+    console.log(`📐 [PROJECAO MENSAL] Calculando projecao pra ${anoBase + 1} baseado em ${anoBase}`);
+
+    // 1. Carregar feriados
+    const diasDaSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+    let holidayDates = new Set<string>();
+    try {
+      if (AppDataSource.isInitialized) {
+        const holidayRepository = AppDataSource.getRepository(Holiday);
+        const holidays = codLoja
+          ? await holidayRepository.find({ where: [{ active: true, type: 'national' as any }, { active: true, cod_loja: codLoja as any }] })
+          : await holidayRepository.find({ where: { active: true } });
+        holidays.forEach(h => holidayDates.add(h.date));
+      }
+    } catch (err) { /* ignore */ }
+
+    // 2. Buscar vendas diarias do ano base agrupadas por dia da semana
+    const schema = await MappingService.getSchema();
+    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+    const colValTotal = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total');
+    const colValCusto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao');
+    const colDtaSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda');
+    const colCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_loja');
+    const colTipoSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'tipo_saida');
+    const colValImpDebito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito');
+    const colValImpCredito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito');
+
+    let filtroLoja = '';
+    if (codLoja) filtroLoja = `AND pv.${colCodLoja} = ${codLoja}`;
+    let filtroTipo = '';
+    if (tiposSaida) {
+      const tipos = tiposSaida.split(',').map(t => t.trim());
+      filtroTipo = `AND pv.${colTipoSaida} IN (${tipos.join(',')})`;
+    }
+
+    // Buscar totais diarios do ano base
+    const colQtd = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade');
+    const sqlDiario = `
+      SELECT TRUNC(pv.${colDtaSaida}) AS DIA,
+             SUM(NVL(pv.${colValTotal}, 0)) AS VENDAS,
+             SUM(NVL(pv.${colValCusto}, 0) * NVL(pv.${colQtd}, 0)) AS CUSTO,
+             SUM(NVL(pv.${colValImpDebito}, 0)) AS IMP_DEBITO,
+             SUM(NVL(pv.${colValImpCredito}, 0)) AS IMP_CREDITO
+      FROM ${tabProdutoPdv} pv
+      WHERE pv.${colDtaSaida} BETWEEN TO_DATE('${anoBase}-01-01', 'YYYY-MM-DD') AND TO_DATE('${anoBase}-12-31', 'YYYY-MM-DD')
+      ${filtroLoja} ${filtroTipo}
+      GROUP BY TRUNC(pv.${colDtaSaida})
+      ORDER BY 1
+    `;
+
+    const dadosDiarios = await OracleService.query(sqlDiario);
+
+    // 3. Calcular media por dia da semana (incluindo feriados como categoria separada)
+    const mediaPorTipo: Record<string, { totalVendas: number; totalCusto: number; totalImpDeb: number; totalImpCred: number; dias: number }> = {};
+    for (const dia of [...diasDaSemana, 'Feriado']) {
+      mediaPorTipo[dia] = { totalVendas: 0, totalCusto: 0, totalImpDeb: 0, totalImpCred: 0, dias: 0 };
+    }
+
+    for (const row of dadosDiarios) {
+      const data = new Date(row.DIA);
+      const m = data.getMonth() + 1;
+      const d = data.getDate();
+      const mmdd = `${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const dayOfWeek = data.getDay();
+      const tipo = holidayDates.has(mmdd) ? 'Feriado' : diasDaSemana[dayOfWeek];
+
+      mediaPorTipo[tipo].totalVendas += parseFloat(row.VENDAS) || 0;
+      mediaPorTipo[tipo].totalCusto += parseFloat(row.CUSTO) || 0;
+      mediaPorTipo[tipo].totalImpDeb += parseFloat(row.IMP_DEBITO) || 0;
+      mediaPorTipo[tipo].totalImpCred += parseFloat(row.IMP_CREDITO) || 0;
+      mediaPorTipo[tipo].dias++;
+    }
+
+    // Calcular medias
+    const mediaDiaria: Record<string, { vendas: number; custo: number; lucro: number }> = {};
+    for (const [tipo, dados] of Object.entries(mediaPorTipo)) {
+      if (dados.dias > 0) {
+        const vendaMedia = dados.totalVendas / dados.dias;
+        const custoMedia = dados.totalCusto / dados.dias;
+        const impMedia = (dados.totalImpDeb - dados.totalImpCred) / dados.dias;
+        mediaDiaria[tipo] = {
+          vendas: vendaMedia,
+          custo: custoMedia,
+          lucro: vendaMedia - custoMedia,
+        };
+      } else {
+        mediaDiaria[tipo] = { vendas: 0, custo: 0, lucro: 0 };
+      }
+    }
+
+    // 4. Projetar cada mes do ano seguinte
+    const anoProjecao = anoBase + 1;
+    const resultado: Array<{ mes: number; vendas: number; lucro: number; custo: number }> = [];
+
+    for (let mes = 1; mes <= 12; mes++) {
+      const diasNoMes = new Date(anoProjecao, mes, 0).getDate();
+      let vendasMes = 0, custoMes = 0, lucroMes = 0;
+
+      for (let d = 1; d <= diasNoMes; d++) {
+        const data = new Date(anoProjecao, mes - 1, d);
+        const mmdd = `${String(mes).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const dayOfWeek = data.getDay();
+        const tipo = holidayDates.has(mmdd) ? 'Feriado' : diasDaSemana[dayOfWeek];
+
+        const media = mediaDiaria[tipo] || { vendas: 0, custo: 0, lucro: 0 };
+        vendasMes += media.vendas;
+        custoMes += media.custo;
+        lucroMes += media.lucro;
+      }
+
+      resultado.push({
+        mes,
+        vendas: Math.round(vendasMes * 100) / 100,
+        lucro: Math.round(lucroMes * 100) / 100,
+        custo: Math.round(custoMes * 100) / 100,
+      });
+    }
+
+    console.log(`✅ [PROJECAO MENSAL] Projecao calculada pra 12 meses`);
+    return resultado;
+  }
 }

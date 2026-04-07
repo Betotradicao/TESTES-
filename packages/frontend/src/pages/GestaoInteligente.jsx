@@ -5604,27 +5604,33 @@ export default function GestaoInteligente() {
                 <div className="p-4">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-gray-600 text-white">
+                      <tr className="bg-gray-600 text-white text-xs">
                         <th className="px-3 py-2 text-left rounded-tl-lg">Mes</th>
-                        <th className="px-3 py-2 text-right">Projecao Vendas</th>
-                        <th className="px-3 py-2 text-right">Projecao Lucro</th>
-                        <th className="px-3 py-2 text-center">Meta %</th>
-                        <th className="px-3 py-2 text-right">Meta Vendas R$</th>
-                        <th className="px-3 py-2 text-right rounded-tr-lg">Meta Lucro R$</th>
+                        <th className="px-3 py-2 text-right">Proj. Vendas</th>
+                        <th className="px-3 py-2 text-right">Proj. Lucro</th>
+                        <th className="px-3 py-2 text-right">Proj. Margem</th>
+                        <th className="px-3 py-2 text-center bg-orange-700">Meta %</th>
+                        <th className="px-3 py-2 text-right bg-green-700">Meta Vendas</th>
+                        <th className="px-3 py-2 text-right bg-green-700">Meta Lucro</th>
+                        <th className="px-3 py-2 text-right bg-green-700 rounded-tr-lg">Meta Margem</th>
                       </tr>
                     </thead>
                     <tbody>
                       {metasMensais.map((meta, idx) => {
-                        const projecaoVendas = 0; // placeholder - will be filled later with media linear data
-                        const projecaoLucro = 0; // placeholder
-                        const metaVendas = projecaoVendas * (1 + (meta.meta_pct || 0) / 100);
-                        const metaLucro = projecaoLucro * (1 + (meta.meta_pct || 0) / 100);
+                        const pV = meta.projecao_vendas || 0;
+                        const pL = meta.projecao_lucro || 0;
+                        const pM = meta.projecao_margem || (pV > 0 ? (pL / pV) * 100 : 0);
+                        const mPct = meta.meta_pct || 0;
+                        const mV = pV * (1 + mPct / 100);
+                        const mL = pL * (1 + mPct / 100);
+                        const mM = mV > 0 ? (mL / mV) * 100 : 0;
                         return (
                           <tr key={meta.mes} className={idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
                             <td className="px-3 py-2 font-semibold text-gray-700">{mesesNomes[idx]}</td>
-                            <td className="px-3 py-2 text-right text-gray-500">{formatCurrency(projecaoVendas)}</td>
-                            <td className="px-3 py-2 text-right text-gray-500">{formatCurrency(projecaoLucro)}</td>
-                            <td className="px-3 py-2 text-center">
+                            <td className="px-3 py-2 text-right text-gray-600 text-xs">{formatCurrency(pV)}</td>
+                            <td className="px-3 py-2 text-right text-gray-600 text-xs">{formatCurrency(pL)}</td>
+                            <td className="px-3 py-2 text-right text-gray-600 text-xs">{pM.toFixed(2)}%</td>
+                            <td className="px-3 py-2 text-center bg-orange-50">
                               <input
                                 type="number"
                                 step="0.1"
@@ -5633,11 +5639,12 @@ export default function GestaoInteligente() {
                                   const val = parseFloat(e.target.value) || 0;
                                   setMetasMensais(prev => prev.map((m, i) => i === idx ? { ...m, meta_pct: val } : m));
                                 }}
-                                className="w-20 text-center border border-gray-300 rounded px-2 py-1 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                className="w-16 text-center border border-orange-300 rounded px-1 py-1 text-sm font-bold text-orange-700 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                               />
                             </td>
-                            <td className="px-3 py-2 text-right text-gray-500">{formatCurrency(metaVendas)}</td>
-                            <td className="px-3 py-2 text-right text-gray-500">{formatCurrency(metaLucro)}</td>
+                            <td className="px-3 py-2 text-right text-green-700 font-semibold text-xs">{formatCurrency(mV)}</td>
+                            <td className="px-3 py-2 text-right text-green-700 font-semibold text-xs">{formatCurrency(mL)}</td>
+                            <td className="px-3 py-2 text-right text-green-700 font-semibold text-xs">{mM.toFixed(2)}%</td>
                           </tr>
                         );
                       })}

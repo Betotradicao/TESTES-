@@ -150,9 +150,9 @@ export default function RhCadastroGeral() {
       if (statusFiltro !== 'todos') params.append('status', statusFiltro);
 
       const response = await api.get(`/rh/colaboradores?${params.toString()}`);
-      setColaboradores(response.data?.colaboradores || []);
-      setTotalPaginas(response.data?.totalPages || 1);
-      setTotalRegistros(response.data?.total || 0);
+      setColaboradores(response.data?.data || response.data?.colaboradores || []);
+      setTotalPaginas(response.data?.pagination?.totalPages || response.data?.totalPages || 1);
+      setTotalRegistros(response.data?.pagination?.total || response.data?.total || 0);
     } catch (error) {
       console.error('Erro ao carregar colaboradores:', error);
       toast.error('Erro ao carregar colaboradores');
