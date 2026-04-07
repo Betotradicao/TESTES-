@@ -296,6 +296,100 @@ export class ProductsController {
   }
 
   /**
+   * Helper PostgreSQL: busca um ou varios produtos do ERP PostgreSQL (RP INFO etc)
+   * Retorna no MESMO formato que as queries Oracle (chaves COD_PRODUTO, DES_PRODUTO, etc)
+   * pra permitir reuso direto pelos metodos activate/peso-medio/bulk-activate.
+   *
+   * RP INFO so tem 2 niveis (departamento+grupo), entao COD_SUB_GRUPO/DES_SUB_GRUPO vem null.
+   */
+  private static async fetchProductsFromPostgresErp(productIds: string[], loja: number): Promise<Map<string, any>> {
+    const result = new Map<string, any>();
+    if (productIds.length === 0) return result;
+
+    // Resolver tabelas e colunas
+    const schema = await MappingService.getSchema();
+    const tabProduto = await MappingService.getRealTableName('TAB_PRODUTO');
+    const tabProdutoLoja = await MappingService.getRealTableName('TAB_PRODUTO_LOJA');
+    const tabSecao = await MappingService.getRealTableName('TAB_SECAO');
+    const tabGrupo = await MappingService.getRealTableName('TAB_GRUPO');
+    const tabFornecedor = await MappingService.getRealTableName('TAB_FORNECEDOR');
+
+    const codigoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+    const eanCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras');
+    const descricaoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+    const descReduzidaCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_reduzida');
+    const pesavelCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'pesavel');
+    const codSecaoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
+    const codGrupoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo');
+
+    const plCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
+    const plCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
+    const plCodFornUlt = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra');
+
+    const desSecaoCol = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
+    const secaoCodCol = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
+    const desGrupoCol = await MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo');
+    const grupoCodCol = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo');
+
+    const desFornecedorCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'nome_fantasia');
+    const codFornecedorCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
+
+    // Em batches de 500 (limite IN do Postgres tambem)
+    const BATCH = 500;
+    for (let i = 0; i < productIds.length; i += BATCH) {
+      const batchIds = productIds.slice(i, i + BATCH);
+      const placeholders = batchIds.map((_, idx) => `$${idx + 2}`).join(', ');
+      const params: any[] = [loja, ...batchIds];
+
+      const sql = `
+        SELECT
+          p.${codigoCol} as cod_produto,
+          p.${eanCol} as ean,
+          p.${descricaoCol} as des_produto,
+          p.${descReduzidaCol} as des_reduzida,
+          p.${codSecaoCol} as cod_secao,
+          s.${desSecaoCol} as des_secao,
+          p.${codGrupoCol} as cod_grupo,
+          g.${desGrupoCol} as des_grupo,
+          null as cod_sub_grupo,
+          null as des_sub_grupo,
+          pl.${plCodFornUlt} as cod_forn,
+          f.${desFornecedorCol} as razao_forn,
+          CASE WHEN p.${pesavelCol} = 'S' THEN 'S' ELSE 'N' END as pesavel
+        FROM ${schema}.${tabProduto} p
+        INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.${codigoCol} = pl.${plCodProduto}
+        LEFT JOIN ${schema}.${tabSecao} s ON p.${codSecaoCol} = s.${secaoCodCol}
+        LEFT JOIN ${schema}.${tabGrupo} g ON p.${codGrupoCol} = g.${grupoCodCol}
+        LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${plCodFornUlt} = f.${codFornecedorCol}
+        WHERE pl.${plCodLoja} = $1
+        AND p.${codigoCol}::text IN (${placeholders})
+      `;
+
+      const rows = await PostgresErpService.query<any>(sql, params);
+      rows.forEach((row: any) => {
+        // Normaliza pra chaves UPPERCASE igual ao retorno do Oracle
+        result.set(String(row.cod_produto), {
+          COD_PRODUTO: row.cod_produto,
+          EAN: row.ean,
+          DES_PRODUTO: row.des_produto,
+          DES_REDUZIDA: row.des_reduzida,
+          COD_SECAO: row.cod_secao,
+          DES_SECAO: row.des_secao,
+          COD_GRUPO: row.cod_grupo,
+          DES_GRUPO: row.des_grupo,
+          COD_SUB_GRUPO: row.cod_sub_grupo,
+          DES_SUB_GRUPO: row.des_sub_grupo,
+          COD_FORN: row.cod_forn,
+          RAZAO_FORN: row.razao_forn,
+          PESAVEL: row.pesavel
+        });
+      });
+    }
+
+    return result;
+  }
+
+  /**
    * Buscar produtos diretamente do Oracle/PostgreSQL
    * MIGRADO: Antes usava API Intersolid, agora busca direto do banco
    * Oracle: Tradicao, SuperVital (Intersolid)
@@ -525,57 +619,72 @@ export class ProductsController {
       });
 
       if (!product) {
-        // Buscar produto do Oracle
-        console.log(`[ACTIVATE] Buscando produto ${id} do Oracle...`);
+        // Detecta tipo do banco (Oracle ou PostgreSQL)
+        const dbType = await ProductsController.detectActiveDbType();
+        let erpProduct: any = null;
 
-        // Obter mapeamentos dinâmicos
-        const m = await ProductsController.getBasicProductMappings();
+        if (dbType === 'postgresql') {
+          // Caminho PostgreSQL (Nunes / RP INFO)
+          console.log(`[ACTIVATE] Buscando produto ${id} do PostgreSQL ERP...`);
+          const map = await ProductsController.fetchProductsFromPostgresErp([id], loja);
+          erpProduct = map.get(String(id)) || null;
+          if (!erpProduct) {
+            console.error(`[ACTIVATE] Product ${id} not found in PostgreSQL ERP`);
+            return res.status(404).json({ error: 'Product not found in ERP' });
+          }
+        } else {
+          // Caminho Oracle (Tradicao / SuperVital / Intersolid) - codigo original
+          console.log(`[ACTIVATE] Buscando produto ${id} do Oracle...`);
 
-        // Obter schema e tabelas dinamicamente
-        const schema = await MappingService.getSchema();
-        const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
-          MappingService.getRealTableName('TAB_PRODUTO'),
-          MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
-          MappingService.getRealTableName('TAB_SECAO'),
-          MappingService.getRealTableName('TAB_GRUPO'),
-          MappingService.getRealTableName('TAB_SUBGRUPO'),
-          MappingService.getRealTableName('TAB_FORNECEDOR')
-        ]);
+          // Obter mapeamentos dinâmicos
+          const m = await ProductsController.getBasicProductMappings();
 
-        const sql = `
-          SELECT
-            p.${m.codigoCol} as COD_PRODUTO,
-            p.${m.eanCol} as EAN,
-            p.${m.descricaoCol} as DES_PRODUTO,
-            p.${m.descReduzidaCol} as DES_REDUZIDA,
-            p.${m.codSecaoCol} as COD_SECAO,
-            s.${m.desSecaoCol} as DES_SECAO,
-            p.${m.codGrupoCol} as COD_GRUPO,
-            g.${m.desGrupoCol} as DES_GRUPO,
-            p.${m.codSubGrupoCol} as COD_SUB_GRUPO,
-            sg.${m.desSubGrupoCol} as DES_SUB_GRUPO,
-            pl.${m.codFornUltCompraCol} as COD_FORN,
-            f.${m.desFornecedorCol} as RAZAO_FORN,
-            CASE WHEN p.${m.pesavelCol} = 'S' THEN 'S' ELSE 'N' END as PESAVEL
-          FROM ${schema}.${tabProduto} p
-          INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.${m.codigoCol} = pl.${m.codigoCol}
-          LEFT JOIN ${schema}.${tabSecao} s ON p.${m.codSecaoCol} = s.${m.codSecaoCol}
-          LEFT JOIN ${schema}.${tabGrupo} g ON p.${m.codSecaoCol} = g.${m.codSecaoCol} AND p.${m.codGrupoCol} = g.${m.codGrupoCol}
-          LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.${m.codSecaoCol} = sg.${m.codSecaoCol} AND p.${m.codGrupoCol} = sg.${m.codGrupoCol} AND p.${m.codSubGrupoCol} = sg.${m.codSubGrupoCol}
-          LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${m.codFornUltCompraCol} = f.${m.codFornecedorCol}
-          WHERE p.${m.codigoCol} = :codProduto
-          AND pl.${m.codLojaCol} = :codLoja
-          AND ROWNUM = 1
-        `;
+          // Obter schema e tabelas dinamicamente
+          const schema = await MappingService.getSchema();
+          const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
+            MappingService.getRealTableName('TAB_PRODUTO'),
+            MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
+            MappingService.getRealTableName('TAB_SECAO'),
+            MappingService.getRealTableName('TAB_GRUPO'),
+            MappingService.getRealTableName('TAB_SUBGRUPO'),
+            MappingService.getRealTableName('TAB_FORNECEDOR')
+          ]);
 
-        const rows = await OracleService.query(sql, { codProduto: id, codLoja: loja });
+          const sql = `
+            SELECT
+              p.${m.codigoCol} as COD_PRODUTO,
+              p.${m.eanCol} as EAN,
+              p.${m.descricaoCol} as DES_PRODUTO,
+              p.${m.descReduzidaCol} as DES_REDUZIDA,
+              p.${m.codSecaoCol} as COD_SECAO,
+              s.${m.desSecaoCol} as DES_SECAO,
+              p.${m.codGrupoCol} as COD_GRUPO,
+              g.${m.desGrupoCol} as DES_GRUPO,
+              p.${m.codSubGrupoCol} as COD_SUB_GRUPO,
+              sg.${m.desSubGrupoCol} as DES_SUB_GRUPO,
+              pl.${m.codFornUltCompraCol} as COD_FORN,
+              f.${m.desFornecedorCol} as RAZAO_FORN,
+              CASE WHEN p.${m.pesavelCol} = 'S' THEN 'S' ELSE 'N' END as PESAVEL
+            FROM ${schema}.${tabProduto} p
+            INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.${m.codigoCol} = pl.${m.codigoCol}
+            LEFT JOIN ${schema}.${tabSecao} s ON p.${m.codSecaoCol} = s.${m.codSecaoCol}
+            LEFT JOIN ${schema}.${tabGrupo} g ON p.${m.codSecaoCol} = g.${m.codSecaoCol} AND p.${m.codGrupoCol} = g.${m.codGrupoCol}
+            LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.${m.codSecaoCol} = sg.${m.codSecaoCol} AND p.${m.codGrupoCol} = sg.${m.codGrupoCol} AND p.${m.codSubGrupoCol} = sg.${m.codSubGrupoCol}
+            LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${m.codFornUltCompraCol} = f.${m.codFornecedorCol}
+            WHERE p.${m.codigoCol} = :codProduto
+            AND pl.${m.codLojaCol} = :codLoja
+            AND ROWNUM = 1
+          `;
 
-        if (rows.length === 0) {
-          console.error(`[ACTIVATE] Product ${id} not found in Oracle`);
-          return res.status(404).json({ error: 'Product not found in Oracle' });
+          const rows = await OracleService.query(sql, { codProduto: id, codLoja: loja });
+
+          if (rows.length === 0) {
+            console.error(`[ACTIVATE] Product ${id} not found in Oracle`);
+            return res.status(404).json({ error: 'Product not found in Oracle' });
+          }
+
+          erpProduct = rows[0];
         }
-
-        const erpProduct = rows[0];
 
         // Create new product
         product = productRepository.create({
@@ -650,56 +759,70 @@ export class ProductsController {
       });
 
       if (!product) {
-        // Buscar produto do Oracle
-        console.log(`[PESO_MEDIO] Buscando produto ${id} do Oracle...`);
+        // Detecta tipo do banco
+        const dbType = await ProductsController.detectActiveDbType();
+        let erpProduct: any = null;
 
-        // Obter mapeamentos dinâmicos
-        const m = await ProductsController.getBasicProductMappings();
+        if (dbType === 'postgresql') {
+          // Caminho PostgreSQL (Nunes / RP INFO)
+          console.log(`[PESO_MEDIO] Buscando produto ${id} do PostgreSQL ERP...`);
+          const map = await ProductsController.fetchProductsFromPostgresErp([id], loja);
+          erpProduct = map.get(String(id)) || null;
+          if (!erpProduct) {
+            return res.status(404).json({ error: 'Product not found in ERP' });
+          }
+        } else {
+          // Caminho Oracle - codigo original
+          console.log(`[PESO_MEDIO] Buscando produto ${id} do Oracle...`);
 
-        // Obter schema e tabelas dinamicamente
-        const schema = await MappingService.getSchema();
-        const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
-          MappingService.getRealTableName('TAB_PRODUTO'),
-          MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
-          MappingService.getRealTableName('TAB_SECAO'),
-          MappingService.getRealTableName('TAB_GRUPO'),
-          MappingService.getRealTableName('TAB_SUBGRUPO'),
-          MappingService.getRealTableName('TAB_FORNECEDOR')
-        ]);
+          // Obter mapeamentos dinâmicos
+          const m = await ProductsController.getBasicProductMappings();
 
-        const sql = `
-          SELECT
-            p.${m.codigoCol} as COD_PRODUTO,
-            p.${m.eanCol} as EAN,
-            p.${m.descricaoCol} as DES_PRODUTO,
-            p.${m.descReduzidaCol} as DES_REDUZIDA,
-            p.${m.codSecaoCol} as COD_SECAO,
-            s.${m.desSecaoCol} as DES_SECAO,
-            p.${m.codGrupoCol} as COD_GRUPO,
-            g.${m.desGrupoCol} as DES_GRUPO,
-            p.${m.codSubGrupoCol} as COD_SUB_GRUPO,
-            sg.${m.desSubGrupoCol} as DES_SUB_GRUPO,
-            pl.${m.codFornUltCompraCol} as COD_FORN,
-            f.${m.desFornecedorCol} as RAZAO_FORN,
-            CASE WHEN p.${m.pesavelCol} = 'S' THEN 'S' ELSE 'N' END as PESAVEL
-          FROM ${schema}.${tabProduto} p
-          INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.${m.codigoCol} = pl.${m.codigoCol}
-          LEFT JOIN ${schema}.${tabSecao} s ON p.${m.codSecaoCol} = s.${m.codSecaoCol}
-          LEFT JOIN ${schema}.${tabGrupo} g ON p.${m.codSecaoCol} = g.${m.codSecaoCol} AND p.${m.codGrupoCol} = g.${m.codGrupoCol}
-          LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.${m.codSecaoCol} = sg.${m.codSecaoCol} AND p.${m.codGrupoCol} = sg.${m.codGrupoCol} AND p.${m.codSubGrupoCol} = sg.${m.codSubGrupoCol}
-          LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${m.codFornUltCompraCol} = f.${m.codFornecedorCol}
-          WHERE p.${m.codigoCol} = :codProduto
-          AND pl.${m.codLojaCol} = :codLoja
-          AND ROWNUM = 1
-        `;
+          // Obter schema e tabelas dinamicamente
+          const schema = await MappingService.getSchema();
+          const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
+            MappingService.getRealTableName('TAB_PRODUTO'),
+            MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
+            MappingService.getRealTableName('TAB_SECAO'),
+            MappingService.getRealTableName('TAB_GRUPO'),
+            MappingService.getRealTableName('TAB_SUBGRUPO'),
+            MappingService.getRealTableName('TAB_FORNECEDOR')
+          ]);
 
-        const rows = await OracleService.query(sql, { codProduto: id, codLoja: loja });
+          const sql = `
+            SELECT
+              p.${m.codigoCol} as COD_PRODUTO,
+              p.${m.eanCol} as EAN,
+              p.${m.descricaoCol} as DES_PRODUTO,
+              p.${m.descReduzidaCol} as DES_REDUZIDA,
+              p.${m.codSecaoCol} as COD_SECAO,
+              s.${m.desSecaoCol} as DES_SECAO,
+              p.${m.codGrupoCol} as COD_GRUPO,
+              g.${m.desGrupoCol} as DES_GRUPO,
+              p.${m.codSubGrupoCol} as COD_SUB_GRUPO,
+              sg.${m.desSubGrupoCol} as DES_SUB_GRUPO,
+              pl.${m.codFornUltCompraCol} as COD_FORN,
+              f.${m.desFornecedorCol} as RAZAO_FORN,
+              CASE WHEN p.${m.pesavelCol} = 'S' THEN 'S' ELSE 'N' END as PESAVEL
+            FROM ${schema}.${tabProduto} p
+            INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.${m.codigoCol} = pl.${m.codigoCol}
+            LEFT JOIN ${schema}.${tabSecao} s ON p.${m.codSecaoCol} = s.${m.codSecaoCol}
+            LEFT JOIN ${schema}.${tabGrupo} g ON p.${m.codSecaoCol} = g.${m.codSecaoCol} AND p.${m.codGrupoCol} = g.${m.codGrupoCol}
+            LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.${m.codSecaoCol} = sg.${m.codSecaoCol} AND p.${m.codGrupoCol} = sg.${m.codGrupoCol} AND p.${m.codSubGrupoCol} = sg.${m.codSubGrupoCol}
+            LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${m.codFornUltCompraCol} = f.${m.codFornecedorCol}
+            WHERE p.${m.codigoCol} = :codProduto
+            AND pl.${m.codLojaCol} = :codLoja
+            AND ROWNUM = 1
+          `;
 
-        if (rows.length === 0) {
-          return res.status(404).json({ error: 'Product not found in Oracle' });
+          const rows = await OracleService.query(sql, { codProduto: id, codLoja: loja });
+
+          if (rows.length === 0) {
+            return res.status(404).json({ error: 'Product not found in Oracle' });
+          }
+
+          erpProduct = rows[0];
         }
-
-        const erpProduct = rows[0];
 
         // Create new product
         product = productRepository.create({
@@ -821,62 +944,73 @@ export class ProductsController {
       let oracleProductsMap = new Map<string, any>();
 
       if (missingIds.length > 0) {
-        // Obter mapeamentos dinâmicos
-        const m = await ProductsController.getBasicProductMappings();
+        // Detecta tipo do banco
+        const dbType = await ProductsController.detectActiveDbType();
 
-        // Obter schema e tabelas dinamicamente
-        const schema = await MappingService.getSchema();
-        const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
-          MappingService.getRealTableName('TAB_PRODUTO'),
-          MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
-          MappingService.getRealTableName('TAB_SECAO'),
-          MappingService.getRealTableName('TAB_GRUPO'),
-          MappingService.getRealTableName('TAB_SUBGRUPO'),
-          MappingService.getRealTableName('TAB_FORNECEDOR')
-        ]);
+        if (dbType === 'postgresql') {
+          // Caminho PostgreSQL (Nunes / RP INFO) - usa helper
+          console.log(`[BULK-PG] Buscando ${missingIds.length} produtos do PostgreSQL ERP...`);
+          oracleProductsMap = await ProductsController.fetchProductsFromPostgresErp(missingIds, loja);
+          console.log(`[BULK-PG] ${oracleProductsMap.size} produtos encontrados no PostgreSQL ERP`);
+        } else {
+          // Caminho Oracle - codigo original
+          // Obter mapeamentos dinâmicos
+          const m = await ProductsController.getBasicProductMappings();
 
-        // Dividir em batches de 500 para evitar limite do Oracle IN clause
-        const ORACLE_BATCH_SIZE = 500;
-        for (let i = 0; i < missingIds.length; i += ORACLE_BATCH_SIZE) {
-          const batchIds = missingIds.slice(i, i + ORACLE_BATCH_SIZE);
+          // Obter schema e tabelas dinamicamente
+          const schema = await MappingService.getSchema();
+          const [tabProduto, tabProdutoLoja, tabSecao, tabGrupo, tabSubGrupo, tabFornecedor] = await Promise.all([
+            MappingService.getRealTableName('TAB_PRODUTO'),
+            MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
+            MappingService.getRealTableName('TAB_SECAO'),
+            MappingService.getRealTableName('TAB_GRUPO'),
+            MappingService.getRealTableName('TAB_SUBGRUPO'),
+            MappingService.getRealTableName('TAB_FORNECEDOR')
+          ]);
 
-          // Construir placeholders para a query
-          const placeholders = batchIds.map((_, idx) => `:id${idx}`).join(', ');
-          const params: any = { codLoja: loja };
-          batchIds.forEach((id, idx) => { params[`id${idx}`] = id; });
+          // Dividir em batches de 500 para evitar limite do Oracle IN clause
+          const ORACLE_BATCH_SIZE = 500;
+          for (let i = 0; i < missingIds.length; i += ORACLE_BATCH_SIZE) {
+            const batchIds = missingIds.slice(i, i + ORACLE_BATCH_SIZE);
 
-          const sql = `
-            SELECT
-              p.${m.codigoCol} as COD_PRODUTO,
-              p.${m.eanCol} as EAN,
-              p.${m.descricaoCol} as DES_PRODUTO,
-              p.${m.descReduzidaCol} as DES_REDUZIDA,
-              p.${m.codSecaoCol} as COD_SECAO,
-              s.${m.desSecaoCol} as DES_SECAO,
-              p.${m.codGrupoCol} as COD_GRUPO,
-              g.${m.desGrupoCol} as DES_GRUPO,
-              p.${m.codSubGrupoCol} as COD_SUB_GRUPO,
-              sg.${m.desSubGrupoCol} as DES_SUB_GRUPO,
-              pl.${m.codFornUltCompraCol} as COD_FORN,
-              f.${m.desFornecedorCol} as RAZAO_FORN,
-              CASE WHEN p.${m.pesavelCol} = 'S' THEN 'S' ELSE 'N' END as PESAVEL
-            FROM ${schema}.${tabProduto} p
-            INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.${m.codigoCol} = pl.${m.codigoCol}
-            LEFT JOIN ${schema}.${tabSecao} s ON p.${m.codSecaoCol} = s.${m.codSecaoCol}
-            LEFT JOIN ${schema}.${tabGrupo} g ON p.${m.codSecaoCol} = g.${m.codSecaoCol} AND p.${m.codGrupoCol} = g.${m.codGrupoCol}
-            LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.${m.codSecaoCol} = sg.${m.codSecaoCol} AND p.${m.codGrupoCol} = sg.${m.codGrupoCol} AND p.${m.codSubGrupoCol} = sg.${m.codSubGrupoCol}
-            LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${m.codFornUltCompraCol} = f.${m.codFornecedorCol}
-            WHERE p.${m.codigoCol} IN (${placeholders})
-            AND pl.${m.codLojaCol} = :codLoja
-          `;
+            // Construir placeholders para a query
+            const placeholders = batchIds.map((_, idx) => `:id${idx}`).join(', ');
+            const params: any = { codLoja: loja };
+            batchIds.forEach((id, idx) => { params[`id${idx}`] = id; });
 
-          const rows = await OracleService.query(sql, params);
-          rows.forEach((row: any) => {
-            oracleProductsMap.set(String(row.COD_PRODUTO), row);
-          });
+            const sql = `
+              SELECT
+                p.${m.codigoCol} as COD_PRODUTO,
+                p.${m.eanCol} as EAN,
+                p.${m.descricaoCol} as DES_PRODUTO,
+                p.${m.descReduzidaCol} as DES_REDUZIDA,
+                p.${m.codSecaoCol} as COD_SECAO,
+                s.${m.desSecaoCol} as DES_SECAO,
+                p.${m.codGrupoCol} as COD_GRUPO,
+                g.${m.desGrupoCol} as DES_GRUPO,
+                p.${m.codSubGrupoCol} as COD_SUB_GRUPO,
+                sg.${m.desSubGrupoCol} as DES_SUB_GRUPO,
+                pl.${m.codFornUltCompraCol} as COD_FORN,
+                f.${m.desFornecedorCol} as RAZAO_FORN,
+                CASE WHEN p.${m.pesavelCol} = 'S' THEN 'S' ELSE 'N' END as PESAVEL
+              FROM ${schema}.${tabProduto} p
+              INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.${m.codigoCol} = pl.${m.codigoCol}
+              LEFT JOIN ${schema}.${tabSecao} s ON p.${m.codSecaoCol} = s.${m.codSecaoCol}
+              LEFT JOIN ${schema}.${tabGrupo} g ON p.${m.codSecaoCol} = g.${m.codSecaoCol} AND p.${m.codGrupoCol} = g.${m.codGrupoCol}
+              LEFT JOIN ${schema}.${tabSubGrupo} sg ON p.${m.codSecaoCol} = sg.${m.codSecaoCol} AND p.${m.codGrupoCol} = sg.${m.codGrupoCol} AND p.${m.codSubGrupoCol} = sg.${m.codSubGrupoCol}
+              LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${m.codFornUltCompraCol} = f.${m.codFornecedorCol}
+              WHERE p.${m.codigoCol} IN (${placeholders})
+              AND pl.${m.codLojaCol} = :codLoja
+            `;
+
+            const rows = await OracleService.query(sql, params);
+            rows.forEach((row: any) => {
+              oracleProductsMap.set(String(row.COD_PRODUTO), row);
+            });
+          }
+
+          console.log(`[BULK-ORACLE] ${oracleProductsMap.size} produtos encontrados no Oracle`);
         }
-
-        console.log(`[BULK-ORACLE] ${oracleProductsMap.size} produtos encontrados no Oracle`);
       }
 
       // 3. Processar todos os produtos
