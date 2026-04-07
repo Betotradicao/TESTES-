@@ -1,5 +1,8 @@
 import { OracleService } from './oracle.service';
 import { MappingService } from './mapping.service';
+import { AppDataSource } from '../config/database';
+import { DatabaseConnection, DatabaseType, ConnectionStatus } from '../entities/DatabaseConnection';
+import { PostgresErpService } from './postgres-erp.service';
 
 export interface Sale {
   codLoja: number;
@@ -135,11 +138,29 @@ export class SalesService {
   }
 
   /**
-   * Busca vendas do ERP - SEMPRE usa Oracle Intersolid
+   * Detecta tipo do banco ativo (oracle/postgresql)
+   * Usado pra bifurcar entre fetchSalesFromOracle e fetchSalesFromPostgresErp
+   */
+  private static async detectActiveDbType(): Promise<'oracle' | 'postgresql' | 'other'> {
+    try {
+      if (!AppDataSource.isInitialized) return 'oracle';
+      const repo = AppDataSource.getRepository(DatabaseConnection);
+      let conn = await repo.findOne({ where: { is_default: true, status: ConnectionStatus.ACTIVE } });
+      if (!conn) conn = await repo.findOne({ where: { status: ConnectionStatus.ACTIVE } });
+      if (!conn) conn = await repo.findOne({ where: {}, order: { id: 'ASC' } });
+      if (!conn) return 'oracle';
+      if (conn.type === DatabaseType.POSTGRESQL) return 'postgresql';
+      if (conn.type === DatabaseType.ORACLE) return 'oracle';
+      return 'other';
+    } catch {
+      return 'oracle';
+    }
+  }
+
+  /**
+   * Busca vendas do ERP - bifurca Oracle (Tradicao/SuperVital) ou PostgreSQL (Nunes/RP INFO)
    */
   static async fetchSalesFromERP(fromDate: string, toDate: string): Promise<Sale[]> {
-    console.log('📊 [SALES] Buscando vendas do Oracle Intersolid');
-
     // Converter fromDate de YYYYMMDD para YYYY-MM-DD se necessário
     const fromDateFormatted = fromDate.length === 8
       ? `${fromDate.slice(0, 4)}-${fromDate.slice(4, 6)}-${fromDate.slice(6, 8)}`
@@ -148,6 +169,13 @@ export class SalesService {
       ? `${toDate.slice(0, 4)}-${toDate.slice(4, 6)}-${toDate.slice(6, 8)}`
       : toDate;
 
+    const dbType = await this.detectActiveDbType();
+    if (dbType === 'postgresql') {
+      console.log('📊 [SALES] Buscando vendas do PostgreSQL ERP (RP INFO)');
+      return this.fetchSalesFromPostgresErp(fromDateFormatted, toDateFormatted);
+    }
+
+    console.log('📊 [SALES] Buscando vendas do Oracle Intersolid');
     return this.fetchSalesFromOracle(fromDateFormatted, toDateFormatted);
   }
 
@@ -390,5 +418,125 @@ export class SalesService {
     const today = new Date();
     const todayString = today.toISOString().split('T')[0];
     return date === todayString;
+  }
+
+  /**
+   * Busca vendas do PostgreSQL ERP (RP INFO Nunes)
+   * Usa a tabela vdonlineprod (venda online produto - tempo real)
+   * Mapeada via TAB_PRODUTO_PDV no MappingService
+   *
+   * @param fromDate YYYY-MM-DD
+   * @param toDate YYYY-MM-DD
+   * @param codLoja opcional
+   */
+  static async fetchSalesFromPostgresErp(fromDate: string, toDate: string, codLoja?: number): Promise<Sale[]> {
+    try {
+      console.log(`📊 [PG ERP] Buscando vendas de ${fromDate} a ${toDate}...`);
+
+      const m = await this.getMappings();
+
+      // Colunas extras especificas do PG (mapeadas via TAB_PRODUTO_PDV)
+      const colHoraVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'hora_venda');
+      const colValorUnit = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_unitario');
+      const colCodOper = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_operador');
+      const colFlagOferta = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'flag_oferta');
+      const colCodBarras = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_barras');
+      const colTipoReg = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'tipo_registro');
+      const colMotCanc = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'motivo_cancelamento');
+
+      // Tabela operadores (vendedores no RP INFO)
+      const tabOperadores = await MappingService.getRealTableName('TAB_OPERADORES');
+      const colCodOpVend = await MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_operador');
+      const colNomeOpVend = await MappingService.getColumnFromTable('TAB_OPERADORES', 'nome_operador');
+
+      console.log(`📊 [PG ERP] Schema: ${m.schema}, tabela: ${m.tabProdutoPdv}`);
+
+      // RP INFO: vopr_valor e unitario, multiplica por qtde pra ter valor total
+      // vopr_hora e varchar HHMMSS (sem separador)
+      // vopr_unid_codigo e varchar zero-padded ('001'), cast pra int pra comparar com codLoja
+      let sql = `
+        SELECT
+          pv.${m.colNumCupomFiscal} AS num_cupom_fiscal,
+          pv.${m.colNumSeqItem} AS num_seq_item,
+          pv.${m.colCodProdutoPdv} AS cod_produto,
+          p.${m.colDesProduto} AS des_produto,
+          pv.${colCodBarras} AS cod_barra_principal,
+          (pv.${colValorUnit} * pv.${m.colQtdTotalProduto}) AS val_total_produto,
+          pv.${m.colQtdTotalProduto} AS qtd_total_produto,
+          COALESCE(pv.${m.colValCustoRep}, 0) AS val_custo_rep,
+          pv.${m.colDtaSaida} AS dta_saida,
+          pv.${colHoraVenda} AS tim_hora,
+          pv.${m.colNumPdv} AS num_pdv,
+          pv.${m.colCodLojaPdv} AS cod_loja,
+          CASE WHEN COALESCE(pv.${colFlagOferta}, 0) > 0 THEN 'S' ELSE 'N' END AS flg_oferta,
+          pv.${colCodOper} AS cod_operador,
+          o.${colNomeOpVend} AS des_operador
+        FROM ${m.schema}.${m.tabProdutoPdv} pv
+        INNER JOIN ${m.schema}.${m.tabProduto} p ON p.${m.colCodProduto} = pv.${m.colCodProdutoPdv}
+        LEFT JOIN ${m.schema}.${tabOperadores} o
+          ON o.${colCodOpVend} = pv.${colCodOper}
+         AND o.vend_unid_codigo = pv.${m.colCodLojaPdv}
+        WHERE pv.${m.colDtaSaida} BETWEEN $1::date AND $2::date
+          AND pv.${colTipoReg} = 'IT'
+          AND COALESCE(pv.${colMotCanc}, '') = ''
+      `;
+
+      const params: any[] = [fromDate, toDate];
+      if (codLoja) {
+        sql += ` AND pv.${m.colCodLojaPdv}::int = $3::int`;
+        params.push(codLoja);
+      }
+      sql += ` ORDER BY pv.${m.colDtaSaida} DESC, pv.${colHoraVenda} DESC`;
+
+      const result = await PostgresErpService.query<any>(sql, params);
+
+      const sales: Sale[] = result.map((row: any) => {
+        // Monta data/hora a partir de date + varchar HHMMSS
+        let dataHoraVenda = '';
+        if (row.dta_saida) {
+          const data = new Date(row.dta_saida);
+          const yy = data.getFullYear();
+          const mm = String(data.getMonth() + 1).padStart(2, '0');
+          const dd = String(data.getDate()).padStart(2, '0');
+          if (row.tim_hora) {
+            const hora = String(row.tim_hora).padStart(6, '0');
+            dataHoraVenda = `${yy}-${mm}-${dd} ${hora.substring(0, 2)}:${hora.substring(2, 4)}:${hora.substring(4, 6)}`;
+          } else {
+            dataHoraVenda = `${yy}-${mm}-${dd} 00:00:00`;
+          }
+        }
+
+        let dtaSaida = '';
+        if (row.dta_saida) {
+          const data = new Date(row.dta_saida);
+          dtaSaida = `${data.getFullYear()}${String(data.getMonth() + 1).padStart(2, '0')}${String(data.getDate()).padStart(2, '0')}`;
+        }
+
+        return {
+          codLoja: parseInt(String(row.cod_loja || '1'), 10) || 1,
+          desProduto: row.des_produto || '',
+          codProduto: String(row.cod_produto || ''),
+          codBarraPrincipal: String(row.cod_barra_principal || row.cod_produto || '').padStart(13, '0'),
+          dtaSaida,
+          numCupomFiscal: parseInt(String(row.num_cupom_fiscal || '0'), 10) || 0,
+          codCaixa: parseInt(String(row.num_pdv || '0'), 10) || 0,
+          valVenda: parseFloat(row.val_total_produto) || 0,
+          qtdTotalProduto: parseFloat(row.qtd_total_produto) || 0,
+          valTotalProduto: parseFloat(row.val_total_produto) || 0,
+          totalCusto: parseFloat(row.val_custo_rep) || 0,
+          descontoAplicado: undefined,
+          dataHoraVenda,
+          numSeqItem: parseInt(String(row.num_seq_item || '0'), 10) || undefined,
+          codOperador: row.cod_operador ? parseInt(String(row.cod_operador), 10) : undefined,
+          desOperador: row.des_operador || undefined,
+        } as Sale;
+      });
+
+      console.log(`✅ [PG ERP] ${sales.length} vendas encontradas`);
+      return sales;
+    } catch (error) {
+      console.error('❌ [PG ERP] Erro ao buscar vendas:', error);
+      throw error;
+    }
   }
 }
