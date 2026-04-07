@@ -361,7 +361,7 @@ export class ProductsController {
         LEFT JOIN ${schema}.${tabSecao} s ON p.${codSecaoCol} = s.${secaoCodCol}
         LEFT JOIN ${schema}.${tabGrupo} g ON p.${codGrupoCol} = g.${grupoCodCol}
         LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${plCodFornUlt} = f.${codFornecedorCol}
-        WHERE pl.${plCodLoja} = $1
+        WHERE pl.${plCodLoja}::int = $1::int
         AND p.${codigoCol}::text IN (${placeholders})
       `;
 
@@ -2923,7 +2923,9 @@ export class ProductsController {
 
           const params: any[] = [];
           if (loja) {
-            sql += ` AND pl.${plCodLoja} = $1`;
+            // RP INFO armazena codigo_loja como varchar zero-padded ('001', '002'),
+            // entao cast pra int dos dois lados pra comparar com o int vindo do frontend.
+            sql += ` AND pl.${plCodLoja}::int = $1::int`;
             params.push(loja);
           }
           // ORDER BY tem que comecar com p.codigo pra DISTINCT ON funcionar.
