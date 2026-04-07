@@ -6,6 +6,8 @@ import { AuthRequest } from '../middleware/auth';
 import { CacheService } from '../services/cache.service';
 import { OracleService } from '../services/oracle.service';
 import { MappingService } from '../services/mapping.service';
+import { DatabaseConnection, DatabaseType, ConnectionStatus } from '../entities/DatabaseConnection';
+import { PostgresErpService } from '../services/postgres-erp.service';
 import * as path from 'path';
 
 // MIGRAÇÃO COMPLETA: Todos os métodos que buscavam da API Intersolid
@@ -271,12 +273,44 @@ export class ProductsController {
     };
   }
   /**
-   * Buscar produtos diretamente do Oracle
-   * MIGRADO: Antes usava API Intersolid, agora busca direto do banco Oracle
+   * Detecta o tipo do banco da conexao ativa
+   * Retorna 'oracle' (default) ou 'postgresql'
+   */
+  private static async detectActiveDbType(): Promise<'oracle' | 'postgresql' | 'other'> {
+    try {
+      const repo = AppDataSource.getRepository(DatabaseConnection);
+      let conn = await repo.findOne({ where: { is_default: true, status: ConnectionStatus.ACTIVE } });
+      if (!conn) {
+        conn = await repo.findOne({ where: { status: ConnectionStatus.ACTIVE } });
+      }
+      if (!conn) {
+        conn = await repo.findOne({ where: {}, order: { id: 'ASC' } });
+      }
+      if (!conn) return 'oracle';
+      if (conn.type === DatabaseType.POSTGRESQL) return 'postgresql';
+      if (conn.type === DatabaseType.ORACLE) return 'oracle';
+      return 'other';
+    } catch {
+      return 'oracle';
+    }
+  }
+
+  /**
+   * Buscar produtos diretamente do Oracle/PostgreSQL
+   * MIGRADO: Antes usava API Intersolid, agora busca direto do banco
+   * Oracle: Tradicao, SuperVital (Intersolid)
+   * PostgreSQL: Nunes (RP INFO)
    * GET /api/products?codLoja=1
    */
   static async getProducts(req: AuthRequest, res: Response) {
     try {
+      // Detecta tipo do banco e bifurca caminho
+      const dbType = await ProductsController.detectActiveDbType();
+      if (dbType === 'postgresql') {
+        return await ProductsController.getProductsPostgres(req, res);
+      }
+      // Caminho Oracle (default) - codigo original sem alteracoes
+
       const { codLoja } = req.query;
       const loja = codLoja ? parseInt(codLoja as string) : null;
 
@@ -2640,6 +2674,191 @@ export class ProductsController {
     } catch (error: any) {
       console.error('Get queda vendas error:', error);
       res.status(500).json({ error: error.message || 'Erro ao buscar queda de vendas' });
+    }
+  }
+
+  // ============================================================
+  // POSTGRESQL ERP IMPLEMENTATION
+  // Caminho separado pra ERPs em PostgreSQL (ex: RP INFO no Nunes)
+  // Nao afeta o caminho Oracle (Tradicao/SuperVital).
+  // ============================================================
+
+  /**
+   * Buscar produtos diretamente do PostgreSQL ERP (ex: RP INFO)
+   * Usado pra clientes com banco PostgreSQL como Nunes
+   */
+  static async getProductsPostgres(req: AuthRequest, res: Response) {
+    try {
+      const { codLoja } = req.query;
+      const loja = codLoja ? parseInt(codLoja as string) : null;
+
+      console.log('📦 [POSTGRES] Buscando produtos do PostgreSQL ERP para loja:', loja || 'TODAS');
+
+      // Resolver tabelas e colunas via MappingService
+      const schema = await MappingService.getSchema();
+      const tabProduto = await MappingService.getRealTableName('TAB_PRODUTO');
+      const tabProdutoLoja = await MappingService.getRealTableName('TAB_PRODUTO_LOJA');
+      const tabSecao = await MappingService.getRealTableName('TAB_SECAO');
+      const tabGrupo = await MappingService.getRealTableName('TAB_GRUPO');
+      const tabFornecedor = await MappingService.getRealTableName('TAB_FORNECEDOR');
+
+      // Colunas TAB_PRODUTO
+      const codigoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const eanCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras');
+      const descricaoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+      const descReduzidaCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao_reduzida');
+      const embalagemCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'embalagem');
+      const qtdEmbalagemVendaCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'qtd_embalagem_venda');
+      const pesavelCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'pesavel');
+      const codSecaoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
+      const codGrupoCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo');
+      const dataCadastroCol = await MappingService.getColumnFromTable('TAB_PRODUTO', 'data_cadastro');
+
+      // Colunas TAB_PRODUTO_LOJA
+      const plCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
+      const plCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
+      const plPrecoVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda');
+      const plPrecoCusto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo');
+      const plEstoqueAtual = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual');
+      const plMargem = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem');
+      const plCurva = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva');
+      const plInativo = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'inativo');
+      const plCodFornUlt = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra');
+
+      // Colunas TAB_SECAO e TAB_GRUPO
+      const desSecaoCol = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
+      const secaoCodCol = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
+      const desGrupoCol = await MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo');
+      const grupoCodCol = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo');
+
+      // Colunas TAB_FORNECEDOR
+      const desFornecedorCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'nome_fantasia');
+      const codFornecedorCol = await MappingService.getColumnFromTable('TAB_FORNECEDOR', 'codigo_fornecedor');
+
+      // Cache de 5 minutos
+      const cacheKey = `pg-products-loja-${loja || 'todas'}`;
+
+      const rows = await CacheService.executeWithCache(
+        cacheKey,
+        async () => {
+          console.log('📊 [POSTGRES] Cache miss - executando query no PostgreSQL ERP...');
+
+          // Query PostgreSQL com COALESCE em vez de NVL, $1 em vez de :codLoja, LIMIT em vez de ROWNUM
+          // RP INFO so tem 2 niveis (departamento + grupo), nao tem subgrupo
+          let sql = `
+            SELECT
+              p.${codigoCol} as codigo,
+              p.${eanCol} as ean,
+              p.${descricaoCol} as descricao,
+              p.${descReduzidaCol} as des_reduzida,
+              COALESCE(pl.${plPrecoCusto}, 0) as val_custo_rep,
+              COALESCE(pl.${plPrecoVenda}, 0) as val_venda,
+              COALESCE(pl.${plPrecoVenda}, 0) as val_venda_loja,
+              0 as val_oferta,
+              COALESCE(pl.${plEstoqueAtual}, 0) as estoque,
+              s.${desSecaoCol} as des_secao,
+              g.${desGrupoCol} as des_grupo,
+              '' as des_subgrupo,
+              f.${desFornecedorCol} as fantasia_forn,
+              COALESCE(pl.${plMargem}, 0) as margem_ref,
+              COALESCE(pl.${plMargem}, 0) as val_margem,
+              0 as venda_media,
+              0 as dias_cobertura,
+              0 as qtd_pedido_compra,
+              null as dta_ult_compra,
+              0 as qtd_ult_compra,
+              0 as qtd_est_minimo,
+              null as dta_ult_mov_venda,
+              COALESCE(NULLIF(TRIM(pl.${plCurva}::text), ''), 'X') as curva,
+              'MERCADORIA' as tipo_especie,
+              'Direta' as tipo_evento,
+              p.${dataCadastroCol} as dta_cadastro,
+              COALESCE(p.${qtdEmbalagemVendaCol}, 1) as qtd_embalagem_venda,
+              p.${embalagemCol} as des_embalagem,
+              1 as qtd_embalagem_compra,
+              CASE WHEN p.${pesavelCol} = 'S' THEN 'S' ELSE 'N' END as pesavel
+            FROM ${schema}.${tabProduto} p
+            INNER JOIN ${schema}.${tabProdutoLoja} pl ON p.${codigoCol} = pl.${plCodProduto}
+            LEFT JOIN ${schema}.${tabSecao} s ON p.${codSecaoCol} = s.${secaoCodCol}
+            LEFT JOIN ${schema}.${tabGrupo} g ON p.${codGrupoCol} = g.${grupoCodCol}
+            LEFT JOIN ${schema}.${tabFornecedor} f ON pl.${plCodFornUlt} = f.${codFornecedorCol}
+            WHERE COALESCE(pl.${plInativo}, 'N') = 'N'
+          `;
+
+          const params: any[] = [];
+          if (loja) {
+            sql += ` AND pl.${plCodLoja} = $1`;
+            params.push(loja);
+          }
+          sql += ` ORDER BY p.${descricaoCol} LIMIT 10000`;
+
+          return await PostgresErpService.query(sql, params);
+        }
+      );
+
+      // Buscar produtos ativos do banco local pra enriquecer
+      const productRepository = AppDataSource.getRepository(Product);
+      const activeProducts = await productRepository.find({
+        select: ['erp_product_id', 'active', 'peso_medio_kg', 'production_days', 'foto_referencia']
+      });
+
+      const productsMap = new Map(
+        activeProducts.map(p => [p.erp_product_id, {
+          active: p.active,
+          peso_medio_kg: p.peso_medio_kg,
+          production_days: p.production_days,
+          foto_referencia: p.foto_referencia
+        }])
+      );
+
+      // Mapear pro formato esperado pelo frontend (mesmo do Oracle)
+      const enrichedProducts = rows.map((row: any) => {
+        const dbProduct = productsMap.get(String(row.codigo));
+        return {
+          codigo: String(row.codigo),
+          ean: row.ean || '',
+          descricao: row.descricao || '',
+          desReduzida: row.des_reduzida || '',
+          valCustoRep: parseFloat(row.val_custo_rep) || 0,
+          valvendaloja: parseFloat(row.val_venda_loja) || 0,
+          valvenda: parseFloat(row.val_venda) || 0,
+          valOferta: parseFloat(row.val_oferta) || 0,
+          estoque: parseFloat(row.estoque) || 0,
+          desSecao: row.des_secao || '',
+          desGrupo: row.des_grupo || '',
+          desSubGrupo: row.des_subgrupo || '',
+          fantasiaForn: row.fantasia_forn || '',
+          margemRef: parseFloat(row.margem_ref) || 0,
+          vendaMedia: parseFloat(row.venda_media) || 0,
+          diasCobertura: parseInt(row.dias_cobertura) || 0,
+          dtaUltCompra: row.dta_ult_compra || null,
+          qtdUltCompra: parseFloat(row.qtd_ult_compra) || 0,
+          qtdPedidoCompra: parseFloat(row.qtd_pedido_compra) || 0,
+          estoqueMinimo: parseFloat(row.qtd_est_minimo) || 0,
+          dtaUltMovVenda: row.dta_ult_mov_venda || null,
+          curva: row.curva || 'X',
+          tipoEspecie: row.tipo_especie || 'MERCADORIA',
+          tipoEvento: row.tipo_evento || 'Direta',
+          dtaCadastro: row.dta_cadastro || null,
+          pesavel: row.pesavel || 'N',
+          // Campos do banco local PostgreSQL (do nosso sistema)
+          active: dbProduct?.active || false,
+          peso_medio_kg: dbProduct?.peso_medio_kg || null,
+          production_days: dbProduct?.production_days || 1,
+          foto_referencia: dbProduct?.foto_referencia || null
+        };
+      });
+
+      console.log(`✅ [POSTGRES] ${enrichedProducts.length} produtos encontrados`);
+
+      res.json({
+        data: enrichedProducts,
+        total: enrichedProducts.length
+      });
+
+    } catch (error: any) {
+      console.error('❌ [POSTGRES] Get products error:', error);
+      res.status(500).json({ error: error.message || 'Internal server error' });
     }
   }
 }
