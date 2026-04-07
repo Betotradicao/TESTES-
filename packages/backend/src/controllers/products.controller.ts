@@ -2877,10 +2877,12 @@ export class ProductsController {
         async () => {
           console.log('📊 [POSTGRES] Cache miss - executando query no PostgreSQL ERP...');
 
-          // Query PostgreSQL com COALESCE em vez de NVL, $1 em vez de :codLoja, LIMIT em vez de ROWNUM
+          // Query PostgreSQL com COALESCE em vez de NVL, $1 em vez de :codLoja
           // RP INFO so tem 2 niveis (departamento + grupo), nao tem subgrupo
+          // DISTINCT ON garante 1 linha por produto mesmo quando ha multiplas lojas
+          // (sem filtro de loja, o INNER JOIN com tab_produto_loja produziria N linhas por produto)
           let sql = `
-            SELECT
+            SELECT DISTINCT ON (p.${codigoCol})
               p.${codigoCol} as codigo,
               p.${eanCol} as ean,
               p.${descricaoCol} as descricao,
@@ -2924,7 +2926,9 @@ export class ProductsController {
             sql += ` AND pl.${plCodLoja} = $1`;
             params.push(loja);
           }
-          sql += ` ORDER BY p.${descricaoCol} LIMIT 10000`;
+          // ORDER BY tem que comecar com p.codigo pra DISTINCT ON funcionar.
+          // Ordena depois por descricao na camada Node se necessario.
+          sql += ` ORDER BY p.${codigoCol}, p.${descricaoCol}`;
 
           return await PostgresErpService.query(sql, params);
         }
@@ -2982,6 +2986,9 @@ export class ProductsController {
           foto_referencia: dbProduct?.foto_referencia || null
         };
       });
+
+      // Re-ordena por descricao (DISTINCT ON forcou ORDER BY codigo no SQL)
+      enrichedProducts.sort((a, b) => (a.descricao || '').localeCompare(b.descricao || ''));
 
       console.log(`✅ [POSTGRES] ${enrichedProducts.length} produtos encontrados`);
 
