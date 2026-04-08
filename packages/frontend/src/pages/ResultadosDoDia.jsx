@@ -33,10 +33,19 @@ export default function ResultadosDoDia() {
   // Estado para controlar o teclado numérico
   const [showNumericKeypad, setShowNumericKeypad] = useState(false);
 
+  // Helper: data "hoje" no timezone LOCAL (nao UTC) - evita o bug de virada do dia depois das 21h BRT
+  const getTodayLocal = () => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
   // Filtros
   const [filters, setFilters] = useState({
-    date_from: new Date().toISOString().split('T')[0], // Hoje por padrão
-    date_to: new Date().toISOString().split('T')[0], // Hoje por padrão
+    date_from: getTodayLocal(), // Hoje por padrão (timezone local)
+    date_to: getTodayLocal(), // Hoje por padrão (timezone local)
     status: 'all',
     search: '',
     sector_id: '',
