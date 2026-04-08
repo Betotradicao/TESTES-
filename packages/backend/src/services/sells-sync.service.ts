@@ -248,7 +248,8 @@ export class SellsSyncService {
         operator_code: (sale as any).codOperador || null,
         operator_name: (sale as any).desOperador || null,
         status: status,
-        discount_cents: sale.descontoAplicado ? Math.round(sale.descontoAplicado * 100) : 0
+        discount_cents: sale.descontoAplicado ? Math.round(sale.descontoAplicado * 100) : 0,
+        cod_loja: sale.codLoja || null
       };
 
       sellsToInsert.push(sellRecord);
@@ -266,11 +267,11 @@ export class SellsSyncService {
       const dedupedSells = Array.from(uniqueSells.values());
 
       const values = dedupedSells.map(record =>
-        `(${record.activated_product_id || 'NULL'}, '${record.product_id}', '${record.product_description.replace(/'/g, "''")}', '${record.sell_date}', ${record.sell_value_cents}, ${record.product_weight}, ${record.bip_id || 'NULL'}, '${record.num_cupom_fiscal}', ${record.point_of_sale_code || 'NULL'}, ${record.operator_code || 'NULL'}, ${record.operator_name ? `'${record.operator_name.replace(/'/g, "''")}'` : 'NULL'}, '${record.status}', ${record.discount_cents})`
+        `(${record.activated_product_id || 'NULL'}, '${record.product_id}', '${record.product_description.replace(/'/g, "''")}', '${record.sell_date}', ${record.sell_value_cents}, ${record.product_weight}, ${record.bip_id || 'NULL'}, '${record.num_cupom_fiscal}', ${record.point_of_sale_code || 'NULL'}, ${record.operator_code || 'NULL'}, ${record.operator_name ? `'${record.operator_name.replace(/'/g, "''")}'` : 'NULL'}, '${record.status}', ${record.discount_cents}, ${record.cod_loja || 'NULL'})`
       ).join(',');
 
       await AppDataSource.query(`
-          INSERT INTO sells (activated_product_id, product_id, product_description, sell_date, sell_value_cents, product_weight, bip_id, num_cupom_fiscal, point_of_sale_code, operator_code, operator_name, status, discount_cents)
+          INSERT INTO sells (activated_product_id, product_id, product_description, sell_date, sell_value_cents, product_weight, bip_id, num_cupom_fiscal, point_of_sale_code, operator_code, operator_name, status, discount_cents, cod_loja)
           VALUES ${values}
           ON CONFLICT (product_id, product_weight, num_cupom_fiscal) DO UPDATE SET
             sell_date = EXCLUDED.sell_date,
@@ -278,6 +279,7 @@ export class SellsSyncService {
             operator_name = COALESCE(EXCLUDED.operator_name, sells.operator_name),
             point_of_sale_code = COALESCE(EXCLUDED.point_of_sale_code, sells.point_of_sale_code),
             bip_id = COALESCE(EXCLUDED.bip_id, sells.bip_id),
+            cod_loja = COALESCE(EXCLUDED.cod_loja, sells.cod_loja),
             status = CASE WHEN EXCLUDED.bip_id IS NOT NULL THEN 'verified' ELSE sells.status END
         `);
     }
