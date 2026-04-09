@@ -402,6 +402,7 @@ export default function GestaoInteligente() {
       const migrated = parsed.map(id => {
         if (id === 'emBreveA') return 'produtosProducao';
         if (id === 'emBreveB') return 'produtosLojaTodos';
+        if (id === 'emBreveC') return 'lucroLiquido';
         return id;
       });
       // Se mudou, salvar
