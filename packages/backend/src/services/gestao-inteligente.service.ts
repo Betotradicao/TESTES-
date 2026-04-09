@@ -786,46 +786,9 @@ export class GestaoInteligenteService {
     const dataInicio = this.formatDateToOracle(filters.dataInicio);
     const dataFim = this.formatDateToOracle(filters.dataFim);
 
-    // Obter schema e nomes reais das tabelas via MappingService
-    const schema = await MappingService.getSchema();
-    const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
-    const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
-    const tabSecao = `${schema}.${await MappingService.getRealTableName('TAB_SECAO')}`;
-    const colImpostoDebito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_debito', 'VAL_IMPOSTO_DEBITO');
-    const colImpostoCredito = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_imposto_credito', 'VAL_IMPOSTO_CREDITO');
-
-    let sql = `
-      SELECT
-        s.COD_SECAO,
-        s.DES_SECAO as SETOR,
-        NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
-        NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
-        NVL(SUM(pv.${colImpostoDebito}), 0) as IMPOSTOS,
-        NVL(SUM(pv.${colImpostoCredito}), 0) as IMPOSTO_CREDITO,
-        NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD,
-        COUNT(DISTINCT pv.NUM_CUPOM_FISCAL) as QTD_CUPONS,
-        COUNT(DISTINCT pv.COD_PRODUTO) as QTD_SKUS,
-        NVL(SUM(CASE WHEN NVL(pv.FLG_OFERTA, 'N') = 'S' THEN pv.VAL_TOTAL_PRODUTO ELSE 0 END), 0) as VENDAS_OFERTA
-      FROM ${tabProdutoPdv} pv
-      JOIN ${tabProduto} p ON p.COD_PRODUTO = pv.COD_PRODUTO
-      JOIN ${tabSecao} s ON s.COD_SECAO = p.COD_SECAO
-      WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-    `;
-
-    const params: any = { dataInicio, dataFim };
-
-    if (filters.codLoja) {
-      sql += ` AND pv.COD_LOJA = :codLoja`;
-      params.codLoja = filters.codLoja;
-    }
-
-    sql += `
-      GROUP BY s.COD_SECAO, s.DES_SECAO
-      ORDER BY VENDA DESC
-    `;
-
+    // Reusa helper bifurcado (Oracle ou PostgreSQL ERP)
     console.log('📊 [GESTAO INTELIGENTE] Buscando vendas por setor...');
-    const result = await OracleService.query<any>(sql, params);
+    const result = await this.buscarVendasPorSetorPeriodo(dataInicio, dataFim, filters.codLoja);
 
     // Calcular total de vendas para % representatividade
     const totalVendas = result.reduce((acc: number, row: any) => acc + (row.VENDA || 0), 0);
@@ -1183,6 +1146,46 @@ export class GestaoInteligenteService {
     });
   }
 
+  /** Versao PG do buscarVendasPorSetorPeriodo - usa vdonlineprod */
+  private static async buscarVendasPorSetorPeriodoPostgresErp(
+    dataInicio: string, dataFim: string, codLoja?: number
+  ): Promise<any[]> {
+    const toIso = (d: string) => { const [dd, mm, yyyy] = d.split('/'); return `${yyyy}-${mm}-${dd}`; };
+    const dtIni = toIso(dataInicio);
+    const dtFim = toIso(dataFim);
+    const schema = await MappingService.getSchema();
+    const colCodProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+    const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
+    const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
+    const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
+    const tabProduto = await MappingService.getRealTableName('TAB_PRODUTO');
+    const tabSecao = await MappingService.getRealTableName('TAB_SECAO');
+
+    let sql = `
+      SELECT
+        s.${colCodSecao}::int AS "COD_SECAO",
+        s.${colDesSecao} AS "SETOR",
+        COALESCE(SUM(v.vopr_valor - COALESCE(v.vopr_desconto,0) + COALESCE(v.vopr_acrescimo,0)), 0)::float AS "VENDA",
+        COALESCE(SUM(COALESCE(pn.prun_ctmedio, v.vopr_custoentrada, 0) * v.vopr_qtde), 0)::float AS "CUSTO",
+        COALESCE(SUM(COALESCE(v.vopr_icmsvalor,0) + COALESCE(v.vopr_pisvalor,0) + COALESCE(v.vopr_cofinsvalor,0) + COALESCE(v.vopr_fcpvalor,0)), 0)::float AS "IMPOSTOS",
+        0::float AS "IMPOSTO_CREDITO",
+        COALESCE(SUM(CASE WHEN COALESCE(v.vopr_agof_codigo,0) > 0 THEN v.vopr_valor - COALESCE(v.vopr_desconto,0) + COALESCE(v.vopr_acrescimo,0) ELSE 0 END), 0)::float AS "VENDAS_OFERTA",
+        COALESCE(SUM(v.vopr_qtde), 0)::float AS "QTD",
+        COUNT(DISTINCT v.vopr_cupom || '-' || v.vopr_pdvs_codigo || '-' || v.vopr_unid_codigo)::int AS "QTD_CUPONS",
+        COUNT(DISTINCT v.vopr_prod_codigo)::int AS "QTD_SKUS"
+      FROM ${schema}.vdonlineprod v
+      LEFT JOIN ${schema}.produn pn ON pn.prun_prod_codigo = v.vopr_prod_codigo AND pn.prun_unid_codigo = v.vopr_unid_codigo
+      JOIN ${schema}.${tabProduto} p ON p.${colCodProd} = v.vopr_prod_codigo
+      JOIN ${schema}.${tabSecao} s ON s.${colCodSecao} = p.${colCodSecaoProd}
+      WHERE v.vopr_datamvto BETWEEN $1::date AND $2::date
+        AND v.vopr_tiporeg = 'IT' AND COALESCE(v.vopr_cancmotivo, '') = ''
+    `;
+    const params: any[] = [dtIni, dtFim];
+    if (codLoja) { sql += ` AND v.vopr_unid_codigo::int = $${params.length+1}::int`; params.push(codLoja); }
+    sql += ` GROUP BY s.${colCodSecao}, s.${colDesSecao} ORDER BY "VENDA" DESC`;
+    return PostgresErpService.query<any>(sql, params);
+  }
+
   /**
    * Busca vendas por setor de um período específico (auxiliar para analíticas)
    */
@@ -1191,6 +1194,10 @@ export class GestaoInteligenteService {
     dataFim: string,    // DD/MM/YYYY
     codLoja?: number
   ): Promise<any[]> {
+    const dbType = await this.detectActiveDbType();
+    if (dbType === 'postgresql') {
+      return this.buscarVendasPorSetorPeriodoPostgresErp(dataInicio, dataFim, codLoja);
+    }
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
@@ -1231,8 +1238,7 @@ export class GestaoInteligenteService {
    * Vendas Analíticas por Setor: vendas atuais, mês passado, ano passado, média linear
    */
   static async getVendasAnaliticasPorSetor(filters: IndicadoresFilters): Promise<any[]> {
-    const dbType = await this.detectActiveDbType();
-    if (dbType === 'postgresql') { return []; } // TODO: implementar PG
+    // Bifurcacao acontece dentro do helper buscarVendasPorSetorPeriodo
     const dataInicio = this.formatDateToOracle(filters.dataInicio);
     const dataFim = this.formatDateToOracle(filters.dataFim);
     const mesPassado = this.calcularMesPassado(filters.dataInicio, filters.dataFim);
@@ -1251,15 +1257,16 @@ export class GestaoInteligenteService {
     const diasAnoAnt = ((anoAnt % 4 === 0 && anoAnt % 100 !== 0) || anoAnt % 400 === 0) ? 366 : 365;
 
     console.log('📊 [VENDAS ANALÍTICAS] Buscando 4 períodos (2+2 para não sobrecarregar Oracle)...');
+    const dbType = await this.detectActiveDbType();
+    const skipML = dbType === 'postgresql'; // Nunes nao tem historico completo pra media linear
 
-    // Rodar em 2 lotes de 2 para não sobrecarregar Oracle com 4 queries pesadas simultâneas
     const [atual, mesPas] = await Promise.all([
       this.buscarVendasPorSetorPeriodo(dataInicio, dataFim, filters.codLoja),
       this.buscarVendasPorSetorPeriodo(mesPassado.inicio, mesPassado.fim, filters.codLoja)
     ]);
     const [anoPas, anoInteiro] = await Promise.all([
       this.buscarVendasPorSetorPeriodo(anoPassado.inicio, anoPassado.fim, filters.codLoja),
-      this.buscarVendasPorSetorPeriodo(mlInicio, mlFim, filters.codLoja)
+      skipML ? Promise.resolve([] as any[]) : this.buscarVendasPorSetorPeriodo(mlInicio, mlFim, filters.codLoja)
     ]);
 
     // Criar mapas por COD_SECAO com todos os campos
@@ -1414,13 +1421,16 @@ export class GestaoInteligenteService {
     const diasPeriodoAtual = Math.round((d2.getTime() - d1.getTime()) / 86400000) + 1;
     const diasAnoAnt = ((anoAnt % 4 === 0 && anoAnt % 100 !== 0) || anoAnt % 400 === 0) ? 366 : 365;
 
+    const dbType = await this.detectActiveDbType();
+    const skipML = dbType === 'postgresql';
+
     const [atual, mesPas] = await Promise.all([
       queryFn(dataInicio, dataFim),
       queryFn(mesPassado.inicio, mesPassado.fim)
     ]);
     const [anoPas, anoInteiro] = await Promise.all([
       queryFn(anoPassado.inicio, anoPassado.fim),
-      queryFn(mlInicio, mlFim)
+      skipML ? Promise.resolve([] as any[]) : queryFn(mlInicio, mlFim)
     ]);
 
     const defaultRow = { venda: 0, custo: 0, impostos: 0, impostoCredito: 0, vendasOferta: 0, qtd: 0, qtdCupons: 0, qtdSkus: 0 };
