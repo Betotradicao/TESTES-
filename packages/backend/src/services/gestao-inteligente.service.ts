@@ -1603,6 +1603,36 @@ export class GestaoInteligenteService {
   private static async buscarVendasPorGrupoPeriodo(
     dataInicio: string, dataFim: string, codLoja?: number, codSecao?: number
   ): Promise<any[]> {
+    const dbType = await this.detectActiveDbType();
+    if (dbType === 'postgresql') {
+      const toIso = (d: string) => { const [dd, mm, yyyy] = d.split('/'); return `${yyyy}-${mm}-${dd}`; };
+      const dtIni = toIso(dataInicio); const dtFim = toIso(dataFim);
+      const schema = await MappingService.getSchema();
+      const vendasUnion = this.buildVendasUnionSql(dtIni, dtFim);
+      const colCodProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const colCodGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo');
+      const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
+      const colCodGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo');
+      const colDesGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo');
+      const tabProduto = await MappingService.getRealTableName('TAB_PRODUTO');
+      const tabGrupo = await MappingService.getRealTableName('TAB_GRUPO');
+      let sql = `SELECT g.${colCodGrupo}::int AS "COD_GRUPO", g.${colDesGrupo} AS "GRUPO",
+        COALESCE(SUM(pv.valor_total),0)::float AS "VENDA", COALESCE(SUM(pv.custo_total),0)::float AS "CUSTO",
+        COALESCE(SUM(pv.imposto_total),0)::float AS "IMPOSTOS", 0::float AS "IMPOSTO_CREDITO",
+        COALESCE(SUM(CASE WHEN pv.oferta_flag=1 THEN pv.valor_total ELSE 0 END),0)::float AS "VENDAS_OFERTA",
+        COALESCE(SUM(pv.qtde),0)::float AS "QTD",
+        COUNT(DISTINCT pv.cupom||'-'||pv.pdv||'-'||pv.loja)::int AS "QTD_CUPONS",
+        COUNT(DISTINCT pv.prod_codigo)::int AS "QTD_SKUS"
+      FROM ${vendasUnion}
+      JOIN ${schema}.${tabProduto} p ON p.${colCodProd} = pv.prod_codigo
+      JOIN ${schema}.${tabGrupo} g ON g.${colCodGrupo} = p.${colCodGrupoProd}
+      WHERE 1=1 AND p.${colCodSecaoProd}::int = ${Number(codSecao)}`;
+      const params: any[] = [dtIni, dtFim];
+      if (codLoja) { sql += ` AND pv.loja::int = $${params.length+1}::int`; params.push(codLoja); }
+      sql += ` GROUP BY g.${colCodGrupo}, g.${colDesGrupo} ORDER BY "VENDA" DESC`;
+      return PostgresErpService.query<any>(sql, params);
+    }
+
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
@@ -1636,7 +1666,32 @@ export class GestaoInteligenteService {
     dataInicio: string, dataFim: string, codLoja?: number, codSecao?: number, codGrupo?: number
   ): Promise<any[]> {
     const __dbType = await (this as any).detectActiveDbType();
-    if (__dbType === "postgresql") return [] as any;
+    if (__dbType === "postgresql") {
+      // RP INFO nao tem subgrupo — retorna PRODUTOS direto (achatamento)
+      const toIso = (d: string) => { const [dd, mm, yyyy] = d.split('/'); return `${yyyy}-${mm}-${dd}`; };
+      const dtIni = toIso(dataInicio); const dtFim = toIso(dataFim);
+      const schema = await MappingService.getSchema();
+      const vendasUnion = this.buildVendasUnionSql(dtIni, dtFim);
+      const colCodProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const colDesProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+      const colCodGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo');
+      const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
+      const tabProduto = await MappingService.getRealTableName('TAB_PRODUTO');
+      let sql = `SELECT pv.prod_codigo::int AS "COD_SUB_GRUPO", p.${colDesProd} AS "SUBGRUPO",
+        COALESCE(SUM(pv.valor_total),0)::float AS "VENDA", COALESCE(SUM(pv.custo_total),0)::float AS "CUSTO",
+        COALESCE(SUM(pv.imposto_total),0)::float AS "IMPOSTOS", 0::float AS "IMPOSTO_CREDITO",
+        COALESCE(SUM(CASE WHEN pv.oferta_flag=1 THEN pv.valor_total ELSE 0 END),0)::float AS "VENDAS_OFERTA",
+        COALESCE(SUM(pv.qtde),0)::float AS "QTD",
+        COUNT(DISTINCT pv.cupom||'-'||pv.pdv||'-'||pv.loja)::int AS "QTD_CUPONS",
+        COUNT(DISTINCT pv.prod_codigo)::int AS "QTD_SKUS"
+      FROM ${vendasUnion}
+      JOIN ${schema}.${tabProduto} p ON p.${colCodProd} = pv.prod_codigo
+      WHERE 1=1 AND p.${colCodSecaoProd}::int = ${Number(codSecao)} AND p.${colCodGrupoProd}::int = ${Number(codGrupo)}`;
+      const params: any[] = [dtIni, dtFim];
+      if (codLoja) { sql += ` AND pv.loja::int = $${params.length+1}::int`; params.push(codLoja); }
+      sql += ` GROUP BY pv.prod_codigo, p.${colDesProd} ORDER BY "VENDA" DESC`;
+      return PostgresErpService.query<any>(sql, params);
+    }
 
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
