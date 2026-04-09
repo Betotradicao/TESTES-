@@ -451,7 +451,9 @@ export class SalesService {
 
       console.log(`📊 [PG ERP] Schema: ${m.schema}, tabela: ${m.tabProdutoPdv}`);
 
-      // RP INFO: vopr_valor e unitario, multiplica por qtde pra ter valor total
+      // RP INFO: vopr_valor JA E O TOTAL DO ITEM (nao unitario)
+      //   - Pesavel: preco/kg * qtde = total
+      //   - Unitario: preco unit (qtde=1) = total
       // vopr_hora e varchar HHMMSS (sem separador)
       // vopr_unid_codigo e varchar zero-padded ('001'), cast pra int pra comparar com codLoja
       let sql = `
@@ -461,7 +463,7 @@ export class SalesService {
           pv.${m.colCodProdutoPdv} AS cod_produto,
           p.${m.colDesProduto} AS des_produto,
           pv.${colCodBarras} AS cod_barra_principal,
-          (pv.${colValorUnit} * pv.${m.colQtdTotalProduto}) AS val_total_produto,
+          pv.${colValorUnit} AS val_total_produto,
           pv.${m.colQtdTotalProduto} AS qtd_total_produto,
           COALESCE(pv.${m.colValCustoRep}, 0) AS val_custo_rep,
           pv.${m.colDtaSaida} AS dta_saida,

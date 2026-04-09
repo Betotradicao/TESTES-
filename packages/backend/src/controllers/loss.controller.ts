@@ -5,9 +5,29 @@ import { AppDataSource } from '../config/database';
 import { User } from '../entities/User';
 import { OracleService } from '../services/oracle.service';
 import { MappingService } from '../services/mapping.service';
+import { DatabaseConnection, DatabaseType, ConnectionStatus } from '../entities/DatabaseConnection';
 import * as fs from 'fs';
 
 export class LossController {
+  /**
+   * Detecta tipo do banco ativo (oracle/postgresql) - usado pra bifurcacao multi-ERP
+   */
+  private static async detectActiveDbType(): Promise<'oracle' | 'postgresql' | 'other'> {
+    try {
+      if (!AppDataSource.isInitialized) return 'oracle';
+      const repo = AppDataSource.getRepository(DatabaseConnection);
+      let conn = await repo.findOne({ where: { is_default: true, status: ConnectionStatus.ACTIVE } });
+      if (!conn) conn = await repo.findOne({ where: { status: ConnectionStatus.ACTIVE } });
+      if (!conn) conn = await repo.findOne({ where: {}, order: { id: 'ASC' } });
+      if (!conn) return 'oracle';
+      if (conn.type === DatabaseType.POSTGRESQL) return 'postgresql';
+      if (conn.type === DatabaseType.ORACLE) return 'oracle';
+      return 'other';
+    } catch {
+      return 'oracle';
+    }
+  }
+
   /**
    * Helper para obter company_id do usuário logado
    * Busca no banco se não estiver no token JWT
@@ -563,6 +583,12 @@ export class LossController {
    */
   static async getTrocasFornecedor(req: AuthRequest, res: Response) {
     try {
+      // PostgreSQL ERP (Nunes/RP INFO) nao tem TAB_AJUSTE_ESTOQUE/TAB_TIPO_AJUSTE - retorna vazio
+      const dbType = await LossController.detectActiveDbType();
+      if (dbType === 'postgresql') {
+        return res.json({ fornecedores: [], total: 0 });
+      }
+
       const { loja, tipo } = req.query;
 
       const codigoLoja = loja ? parseInt(loja as string) : 1;
@@ -948,6 +974,12 @@ export class LossController {
    */
   static async getTrocasItensFornecedor(req: AuthRequest, res: Response) {
     try {
+      // PostgreSQL ERP (Nunes) nao tem TAB_AJUSTE_ESTOQUE - retorna vazio
+      const dbType = await LossController.detectActiveDbType();
+      if (dbType === 'postgresql') {
+        return res.json({ itens: [] });
+      }
+
       const { loja, cod_fornecedor, tipo } = req.query;
 
       const codigoLoja = loja ? parseInt(loja as string) : 1;
@@ -1104,6 +1136,13 @@ export class LossController {
    */
   static async getTrocasProdutos(req: AuthRequest, res: Response) {
     try {
+      // PostgreSQL ERP (Nunes/RP INFO) nao tem o conceito de "trocas com fornecedor"
+      // implementado nas mesmas tabelas que Intersolid. Retorna vazio pra nao bloquear a tela.
+      const dbType = await LossController.detectActiveDbType();
+      if (dbType === 'postgresql') {
+        return res.json({ produtos: [] });
+      }
+
       const { loja } = req.query;
       const codigoLoja = loja ? parseInt(loja as string) : 1;
 

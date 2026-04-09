@@ -28,6 +28,7 @@ export interface IndicadorComparativo {
 export interface IndicadoresGestao {
   vendas: IndicadorComparativo;
   lucro: IndicadorComparativo;
+  lucroLiquido: IndicadorComparativo;
   custoVendas: IndicadorComparativo;
   compras: IndicadorComparativo;
   impostos: IndicadorComparativo;
@@ -124,8 +125,72 @@ export class GestaoInteligenteService {
     };
   }
 
+  /** Detecta tipo do banco ativo (oracle/postgresql) */
+  private static async detectActiveDbType(): Promise<'oracle' | 'postgresql' | 'other'> {
+    try {
+      if (!AppDataSource.isInitialized) return 'oracle';
+      const repo = AppDataSource.getRepository(DatabaseConnection);
+      let conn = await repo.findOne({ where: { is_default: true, status: ConnectionStatus.ACTIVE } });
+      if (!conn) conn = await repo.findOne({ where: { status: ConnectionStatus.ACTIVE } });
+      if (!conn) conn = await repo.findOne({ where: {}, order: { id: 'ASC' } });
+      if (!conn) return 'oracle';
+      if (conn.type === DatabaseType.POSTGRESQL) return 'postgresql';
+      if (conn.type === DatabaseType.ORACLE) return 'oracle';
+      return 'other';
+    } catch { return 'oracle'; }
+  }
+
+  /** Busca indicadores via PostgreSQL ERP (Nunes/RP INFO) - vdonlineprod */
+  private static async buscarIndicadoresPeriodoPostgresErp(
+    dataInicio: string, dataFim: string, codLoja?: number, _tiposSaida?: string
+  ): Promise<{ vendas: number; custoVendas: number; impostos: number; impostoCredito: number; qtdItens: number; qtdCupons: number; compras: number; vendasOferta: number; custoOferta: number; qtdSkus: number; }> {
+    const toIso = (d: string) => { const [dd, mm, yyyy] = d.split('/'); return `${yyyy}-${mm}-${dd}`; };
+    const dtIni = toIso(dataInicio);
+    const dtFim = toIso(dataFim);
+    const schema = await MappingService.getSchema();
+
+    let vendasSql = `
+      SELECT
+        COALESCE(SUM(v.vopr_valor - COALESCE(v.vopr_desconto,0) + COALESCE(v.vopr_acrescimo,0)), 0)::float AS vendas,
+        COALESCE(SUM(COALESCE(pn.prun_ctmedio, v.vopr_custoentrada, 0) * v.vopr_qtde), 0)::float AS custo_vendas,
+        COALESCE(SUM(COALESCE(v.vopr_icmsvalor,0) + COALESCE(v.vopr_pisvalor,0) + COALESCE(v.vopr_cofinsvalor,0) + COALESCE(v.vopr_fcpvalor,0)), 0)::float AS impostos,
+        0::float AS imposto_credito,
+        COALESCE(SUM(v.vopr_qtde), 0)::float AS qtd_itens,
+        COALESCE(SUM(CASE WHEN COALESCE(v.vopr_agof_codigo,0) > 0 THEN v.vopr_valor - COALESCE(v.vopr_desconto,0) + COALESCE(v.vopr_acrescimo,0) ELSE 0 END), 0)::float AS vendas_oferta,
+        COALESCE(SUM(CASE WHEN COALESCE(v.vopr_agof_codigo,0) > 0 THEN COALESCE(pn.prun_ctmedio, v.vopr_custoentrada, 0) * v.vopr_qtde ELSE 0 END), 0)::float AS custo_oferta,
+        COUNT(DISTINCT v.vopr_prod_codigo)::int AS qtd_skus
+      FROM ${schema}.vdonlineprod v
+      LEFT JOIN ${schema}.produn pn ON pn.prun_prod_codigo = v.vopr_prod_codigo AND pn.prun_unid_codigo = v.vopr_unid_codigo
+      WHERE v.vopr_datamvto BETWEEN $1::date AND $2::date
+        AND v.vopr_tiporeg = 'IT' AND COALESCE(v.vopr_cancmotivo, '') = ''
+    `;
+    const vendasParams: any[] = [dtIni, dtFim];
+    if (codLoja) { vendasSql += ` AND v.vopr_unid_codigo::int = $${vendasParams.length+1}::int`; vendasParams.push(codLoja); }
+
+    let cuponsSql = `SELECT COUNT(DISTINCT (vopc_cupom || '-' || vopc_pdvs_codigo || '-' || vopc_unid_codigo))::int AS qtd_cupons FROM ${schema}.vdonlinec WHERE vopc_datamvto BETWEEN $1::date AND $2::date`;
+    const cuponsParams: any[] = [dtIni, dtFim];
+    if (codLoja) { cuponsSql += ` AND vopc_unid_codigo::int = $${cuponsParams.length+1}::int`; cuponsParams.push(codLoja); }
+
+    let comprasSql = `SELECT COALESCE(SUM(pcpc_valor), 0)::float AS compras FROM ${schema}.pedcomprac WHERE pcpc_status = 'B' AND pcpc_datamvto BETWEEN $1::date AND $2::date`;
+    const comprasParams: any[] = [dtIni, dtFim];
+    if (codLoja) { comprasSql += ` AND pcpc_unid_dest::int = $${comprasParams.length+1}::int`; comprasParams.push(codLoja); }
+
+    const [vR, cR, coR] = await Promise.all([
+      PostgresErpService.query<any>(vendasSql, vendasParams),
+      PostgresErpService.query<any>(cuponsSql, cuponsParams),
+      PostgresErpService.query<any>(comprasSql, comprasParams)
+    ]);
+    return {
+      vendas: Number(vR[0]?.vendas) || 0, custoVendas: Number(vR[0]?.custo_vendas) || 0,
+      impostos: Number(vR[0]?.impostos) || 0, impostoCredito: 0,
+      qtdItens: Number(vR[0]?.qtd_itens) || 0, qtdCupons: Number(cR[0]?.qtd_cupons) || 0,
+      compras: Number(coR[0]?.compras) || 0, vendasOferta: Number(vR[0]?.vendas_oferta) || 0,
+      custoOferta: Number(vR[0]?.custo_oferta) || 0, qtdSkus: Number(vR[0]?.qtd_skus) || 0
+    };
+  }
+
   /**
-   * Busca indicadores de um período específico (função auxiliar)
+   * Busca indicadores de um período específico - BIFURCA Oracle/PG
    */
   private static async buscarIndicadoresPeriodo(
     dataInicio: string,
@@ -144,7 +209,13 @@ export class GestaoInteligenteService {
     custoOferta: number;
     qtdSkus: number;
   }> {
-    // Obter schema e nomes reais das tabelas via MappingService
+    // Bifurca: PostgreSQL ERP (Nunes) ou Oracle (Tradicao/SuperVital)
+    const dbType = await this.detectActiveDbType();
+    if (dbType === 'postgresql') {
+      return this.buscarIndicadoresPeriodoPostgresErp(dataInicio, dataFim, codLoja, tiposSaida);
+    }
+
+    // Caminho Oracle (codigo original)
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA')}`;
@@ -275,6 +346,8 @@ export class GestaoInteligenteService {
     const { vendas, custoVendas, impostos, impostoCredito = 0, qtdItens, qtdCupons, compras, vendasOferta, custoOferta, qtdSkus = 0 } = dados;
 
     const lucro = vendas - custoVendas;
+    // Lucro Liquido = vendas - custo - impostos (apos imposto efetivo)
+    const lucroLiquido = vendas - custoVendas - impostos + impostoCredito;
     const markdown = vendas > 0 ? ((vendas - custoVendas) / vendas) * 100 : 0;
     // MG LUCRO = ((VENDAS - CUSTO - IMPOSTO_DEBITO + IMPOSTO_CREDITO) / VENDAS) * 100
     // Mesma fórmula usada na tela de Compra e Venda Análise
@@ -287,6 +360,7 @@ export class GestaoInteligenteService {
     return {
       vendas,
       lucro: parseFloat(lucro.toFixed(2)),
+      lucroLiquido: parseFloat(lucroLiquido.toFixed(2)),
       custoVendas,
       compras,
       impostos: parseFloat((impostos - impostoCredito).toFixed(2)),
@@ -326,6 +400,12 @@ export class GestaoInteligenteService {
     custoOferta: number;
     qtdSkus: number;
   }> {
+    // PG: Nunes nao tem historico completo do ano anterior - retorna zeros
+    const dbType = await this.detectActiveDbType();
+    if (dbType === 'postgresql') {
+      return { vendas: 0, custoVendas: 0, impostos: 0, impostoCredito: 0, qtdItens: 0, qtdCupons: 0, compras: 0, vendasOferta: 0, custoOferta: 0, qtdSkus: 0 };
+    }
+
     const [anoIni, mesIni, diaIni] = dataInicio.split('-').map(Number);
     const [anoFim, mesFim, diaFim] = dataFim.split('-').map(Number);
     const anoAnterior = anoIni - 1;
@@ -670,6 +750,7 @@ export class GestaoInteligenteService {
         return {
           vendas: criarComparativo('vendas'),
           lucro: criarComparativo('lucro'),
+          lucroLiquido: criarComparativo('lucroLiquido'),
           custoVendas: criarComparativo('custoVendas'),
           compras: criarComparativo('compras'),
           impostos: criarComparativo('impostos'),
@@ -796,6 +877,9 @@ export class GestaoInteligenteService {
    * Busca grupos de uma seção (nível 2 da hierarquia)
    */
   static async getGruposPorSecao(filters: IndicadoresFilters & { codSecao: number }): Promise<any[]> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === "postgresql") return [] as any;
+
     const dataInicio = this.formatDateToOracle(filters.dataInicio);
     const dataFim = this.formatDateToOracle(filters.dataFim);
 
@@ -890,6 +974,9 @@ export class GestaoInteligenteService {
    * Busca subgrupos de um grupo (nível 3 da hierarquia)
    */
   static async getSubgruposPorGrupo(filters: IndicadoresFilters & { codGrupo: number; codSecao?: number }): Promise<any[]> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === "postgresql") return [] as any;
+
     const dataInicio = this.formatDateToOracle(filters.dataInicio);
     const dataFim = this.formatDateToOracle(filters.dataFim);
 
@@ -993,6 +1080,9 @@ export class GestaoInteligenteService {
    * Busca itens de um subgrupo (nível 4 da hierarquia)
    */
   static async getItensPorSubgrupo(filters: IndicadoresFilters & { codSubgrupo: number; codGrupo?: number; codSecao?: number }): Promise<any[]> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === "postgresql") return [] as any;
+
     const dataInicio = this.formatDateToOracle(filters.dataInicio);
     const dataFim = this.formatDateToOracle(filters.dataFim);
 
@@ -1141,6 +1231,8 @@ export class GestaoInteligenteService {
    * Vendas Analíticas por Setor: vendas atuais, mês passado, ano passado, média linear
    */
   static async getVendasAnaliticasPorSetor(filters: IndicadoresFilters): Promise<any[]> {
+    const dbType = await this.detectActiveDbType();
+    if (dbType === 'postgresql') { return []; } // TODO: implementar PG
     const dataInicio = this.formatDateToOracle(filters.dataInicio);
     const dataFim = this.formatDateToOracle(filters.dataFim);
     const mesPassado = this.calcularMesPassado(filters.dataInicio, filters.dataFim);
@@ -1491,6 +1583,9 @@ export class GestaoInteligenteService {
   private static async buscarVendasPorSubgrupoPeriodo(
     dataInicio: string, dataFim: string, codLoja?: number, codSecao?: number, codGrupo?: number
   ): Promise<any[]> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === "postgresql") return [] as any;
+
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
@@ -1523,6 +1618,9 @@ export class GestaoInteligenteService {
   private static async buscarVendasPorSegmentoPeriodo(
     dataInicio: string, dataFim: string, codLoja?: number, codSecao?: number, codGrupo?: number, codSubgrupo?: number
   ): Promise<any[]> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === "postgresql") return [] as any;
+
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
@@ -1556,6 +1654,9 @@ export class GestaoInteligenteService {
   private static async buscarVendasPorItemPeriodo(
     dataInicio: string, dataFim: string, codLoja?: number, codSecao?: number, codGrupo?: number, codSubgrupo?: number, codSegmento?: number
   ): Promise<any[]> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === "postgresql") return [] as any;
+
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
@@ -1585,6 +1686,9 @@ export class GestaoInteligenteService {
 
   /** Grupos analíticos com comparativos (cascata nível 2) */
   static async getGruposAnaliticos(filters: IndicadoresFilters & { codSecao: number }): Promise<any[]> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === "postgresql") return [] as any;
+
     console.log(`📊 [ANALÍTICOS] Buscando grupos analíticos da seção ${filters.codSecao}...`);
     const result = await this.buildAnaliticos(
       filters,
@@ -1597,6 +1701,9 @@ export class GestaoInteligenteService {
 
   /** Subgrupos analíticos com comparativos (cascata nível 3) */
   static async getSubgruposAnaliticos(filters: IndicadoresFilters & { codSecao: number; codGrupo: number }): Promise<any[]> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === "postgresql") return [] as any;
+
     console.log(`📊 [ANALÍTICOS] Buscando subgrupos analíticos do grupo ${filters.codGrupo}...`);
     const result = await this.buildAnaliticos(
       filters,
@@ -1609,6 +1716,9 @@ export class GestaoInteligenteService {
 
   /** Segmentos analíticos com comparativos (cascata nível 4) */
   static async getSegmentosAnaliticos(filters: IndicadoresFilters & { codSecao: number; codGrupo: number; codSubgrupo: number }): Promise<any[]> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === "postgresql") return [] as any;
+
     console.log(`📊 [ANALÍTICOS] Buscando segmentos analíticos do subgrupo ${filters.codSubgrupo}...`);
     const result = await this.buildAnaliticos(
       filters,
@@ -1621,6 +1731,9 @@ export class GestaoInteligenteService {
 
   /** Itens analíticos com comparativos (cascata nível 5) */
   static async getItensAnaliticos(filters: IndicadoresFilters & { codSecao: number; codGrupo: number; codSubgrupo: number; codSegmento?: number }): Promise<any[]> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === "postgresql") return [] as any;
+
     console.log(`📊 [ANALÍTICOS] Buscando itens analíticos do subgrupo ${filters.codSubgrupo} segmento ${filters.codSegmento || 'todos'}...`);
     const result = await this.buildAnaliticos(
       filters,
@@ -1832,6 +1945,9 @@ export class GestaoInteligenteService {
       pctOferta: number;
     };
   }> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === "postgresql") return { meses: [] } as any;
+
     const meses = [
       { num: 1, nome: 'JANEIRO' },
       { num: 2, nome: 'FEVEREIRO' },
@@ -2155,6 +2271,9 @@ export class GestaoInteligenteService {
    * Retorna dados agrupados por dia da semana com feriados separados
    */
   static async getVendasPorDiaSemana(ano: number, codLoja?: number): Promise<{ meses: any[] }> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === "postgresql") return { meses: [] } as any;
+
     console.log(`📊 [GESTAO INTELIGENTE] Buscando vendas por dia da semana ${ano}...`);
 
     // 1. Buscar feriados cadastrados na tela de Configurações (apenas os cadastrados)
@@ -2311,6 +2430,17 @@ export class GestaoInteligenteService {
     valorEstoque: number;
     qtdProducao: number;
   }> {
+    // PG: conta produtos ativos com estoque > 0
+    const dbType = await this.detectActiveDbType();
+    if (dbType === 'postgresql') {
+      const schemaPg = await MappingService.getSchema();
+      let sqlPg = `SELECT COUNT(*)::int AS qtd, COALESCE(SUM(prun_estoque1 * prun_ctmedio), 0)::float AS val FROM ${schemaPg}.produn WHERE prun_bloqueado = 'N' AND prun_ativo = 'S' AND prun_estoque1 > 0`;
+      const pPg: any[] = [];
+      if (codLoja) { sqlPg += ` AND prun_unid_codigo::int = $1::int`; pPg.push(codLoja); }
+      const r = await PostgresErpService.query<any>(sqlPg, pPg);
+      return { qtdProdutos: Number(r[0]?.qtd) || 0, valorEstoque: Number(r[0]?.val) || 0, qtdProducao: 0 };
+    }
+
     const schema = await MappingService.getSchema();
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
     const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
@@ -2376,6 +2506,9 @@ export class GestaoInteligenteService {
     whereClause: string,
     extraParams: Record<string, any> = {}
   ): Promise<any[]> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === "postgresql") return [] as any;
+
     const mesAtual = new Date().getMonth() + 1;
     const diaAtual = new Date().getDate();
     const anoAtual = new Date().getFullYear();
@@ -2515,6 +2648,9 @@ export class GestaoInteligenteService {
    * Grupos mensais de uma seção
    */
   static async getProdutoAnualGrupos(ano: number, codSecao: number, codLoja?: number): Promise<any[]> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === "postgresql") return [] as any;
+
     const schema = await MappingService.getSchema();
     const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO')}`;
     return this.buscarHierarquiaMensal(
@@ -2530,6 +2666,9 @@ export class GestaoInteligenteService {
    * Subgrupos mensais de um grupo
    */
   static async getProdutoAnualSubgrupos(ano: number, codGrupo: number, codSecao: number, codLoja?: number): Promise<any[]> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === "postgresql") return [] as any;
+
     const schema = await MappingService.getSchema();
     const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO')}`;
     return this.buscarHierarquiaMensal(
@@ -2545,6 +2684,9 @@ export class GestaoInteligenteService {
    * Produtos mensais de um subgrupo
    */
   static async getProdutoAnualItens(ano: number, codSubgrupo: number, codGrupo: number, codSecao: number, codLoja?: number): Promise<any[]> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === "postgresql") return [] as any;
+
     return this.buscarHierarquiaMensal(
       ano, codLoja,
       'p.COD_PRODUTO', 'p.DES_PRODUTO',
@@ -2558,6 +2700,9 @@ export class GestaoInteligenteService {
    * Venda Dia a Dia: vendas por setor por dia do mês
    */
   static async getVendasDiaDia(ano: number, mes: number, codLoja?: number, tipoVenda?: number[]): Promise<any> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === "postgresql") return [] as any;
+
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
@@ -2685,6 +2830,9 @@ export class GestaoInteligenteService {
     nivel: 'grupo' | 'subgrupo' | 'item';
     codSecao?: number; codGrupo?: number; codSubGrupo?: number;
   }): Promise<any> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === "postgresql") return [] as any;
+
     const { ano, mes, codLoja, tipoVenda, nivel, codSecao, codGrupo, codSubGrupo } = params;
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;

@@ -1904,6 +1904,12 @@ export class ProductsController {
    */
   static async getProductsOracle(req: AuthRequest, res: Response) {
     try {
+      // Bifurca: PostgreSQL ERP (Nunes) usa o mesmo getProductsPostgres do endpoint /products
+      const dbType = await ProductsController.detectActiveDbType();
+      if (dbType === 'postgresql') {
+        return await ProductsController.getProductsPostgres(req, res);
+      }
+
       const { codLoja } = req.query;
       const loja = codLoja ? parseInt(codLoja as string) : 1;
 
@@ -2715,6 +2721,12 @@ export class ProductsController {
    */
   static async getQuedaVendas(req: AuthRequest, res: Response) {
     try {
+      // PostgreSQL ERP (Nunes): nao implementado ainda - retorna vazio pra nao quebrar a tela
+      const dbType = await ProductsController.detectActiveDbType();
+      if (dbType === 'postgresql') {
+        return res.json({ produtos: [], total: 0 });
+      }
+
       const { codLoja } = req.query;
       const loja = codLoja ? parseInt(codLoja as string) : 1;
 

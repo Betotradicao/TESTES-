@@ -368,7 +368,7 @@ export default function GestaoInteligente() {
   const defaultCardOrder = ['vendas', 'lucro', 'markdown', 'margemLimpa', 'ticketMedio', 'pctCompraVenda'];
   const defaultCardOrder2 = ['pctVendasOferta', 'qtdSkus', 'qtdCupons', 'qtdItens', 'vendasOfertaValor', 'valorEstoque'];
   const defaultCardOrder3 = ['custoVendas', 'markdownOferta', 'impostoPrevisto', 'produtosRevenda', 'excessoCompras', 'margemCV'];
-  const defaultCardOrder4 = ['vendasPorMetro', 'skuPorMetro', 'skuVendidoPorMetro', 'produtosProducao', 'produtosLojaTodos', 'emBreveC'];
+  const defaultCardOrder4 = ['vendasPorMetro', 'skuPorMetro', 'skuVendidoPorMetro', 'produtosProducao', 'produtosLojaTodos', 'lucroLiquido'];
 
   const migrateCardIds = (ids) => ids.map(id => {
     if (id === 'emBreve1') return 'vendasOfertaValor';
@@ -1995,7 +1995,7 @@ export default function GestaoInteligente() {
       iconColor: 'text-cyan-600',
       icon: <svg className="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>,
       label: 'Lucro Bruto',
-      title: 'LUCRO',
+      title: 'LUCRO BRUTO',
       getValue: () => formatCurrency(indicadores.lucro?.atual),
       tipo: 'currency',
       indicador: 'lucro'
@@ -2237,6 +2237,13 @@ export default function GestaoInteligente() {
       icon: <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>,
       label: 'Novo', title: 'EM BREVE',
       emBreve: true,
+    },
+    lucroLiquido: {
+      borderColor: 'border-emerald-500', bgColor: 'bg-emerald-100', iconColor: 'text-emerald-600',
+      icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>,
+      label: 'Lucro Líquido', title: 'LUCRO LÍQUIDO',
+      getValue: () => formatCurrency(indicadores.lucroLiquido?.atual || 0),
+      tipo: 'currency', indicador: 'lucroLiquido'
     }
   };
 
