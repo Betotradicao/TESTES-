@@ -141,6 +141,48 @@ export class GestaoInteligenteService {
   }
 
   /** Busca indicadores via PostgreSQL ERP (Nunes/RP INFO) - vdonlineprod */
+  /**
+   * RP INFO: vdonlineprod so tem ~13 dias. Pra periodos anteriores, usa vdadet{MM}{YY}.
+   * Este helper monta UNION ALL normalizando ambas as fontes.
+   * vdadet nao se sobrepoe com vdonlineprod (filtro datamvto < MIN(vopr_datamvto)).
+   */
+  private static buildVendasUnionSql(dtIni: string, dtFim: string): string {
+    const partes: string[] = [];
+    // vdonlineprod (tempo real)
+    partes.push(`
+      SELECT v.vopr_datamvto AS data, v.vopr_unid_codigo AS loja, v.vopr_prod_codigo AS prod_codigo, v.vopr_qtde AS qtde,
+        (v.vopr_valor - COALESCE(v.vopr_desconto,0) + COALESCE(v.vopr_acrescimo,0)) AS valor_total,
+        (COALESCE(pn.prun_ctmedio, v.vopr_custoentrada, 0) * v.vopr_qtde) AS custo_total,
+        (COALESCE(v.vopr_icmsvalor,0)+COALESCE(v.vopr_pisvalor,0)+COALESCE(v.vopr_cofinsvalor,0)+COALESCE(v.vopr_fcpvalor,0)) AS imposto_total,
+        v.vopr_cupom AS cupom, v.vopr_pdvs_codigo AS pdv,
+        CASE WHEN COALESCE(v.vopr_agof_codigo,0) > 0 THEN 1 ELSE 0 END AS oferta_flag
+      FROM public.vdonlineprod v
+      LEFT JOIN public.produn pn ON pn.prun_prod_codigo = v.vopr_prod_codigo AND pn.prun_unid_codigo = v.vopr_unid_codigo
+      WHERE v.vopr_datamvto BETWEEN $1::date AND $2::date AND v.vopr_tiporeg = 'IT' AND COALESCE(v.vopr_cancmotivo,'') = ''
+    `);
+    // vdadet por mes (historico)
+    const [yI, mI] = dtIni.split('-').map(Number);
+    const [yF, mF] = dtFim.split('-').map(Number);
+    let cy = yI, cm = mI;
+    while (cy < yF || (cy === yF && cm <= mF)) {
+      const t = `vdadet${String(cm).padStart(2,'0')}${String(cy).slice(-2)}`;
+      partes.push(`
+        SELECT d.vdet_datamvto AS data, d.vdet_unid_codigo AS loja, d.vdet_prod_codigo AS prod_codigo, d.vdet_qtde AS qtde,
+          (d.vdet_valor - COALESCE(d.vdet_valordesc,0) + COALESCE(d.vdet_valoracfin,0)) AS valor_total,
+          (COALESCE(pn.prun_ctmedio, d.vdet_custounit, 0) * d.vdet_qtde) AS custo_total,
+          (COALESCE(d.vdet_valoricms,0)+COALESCE(d.vdet_valorfcp,0)) AS imposto_total,
+          d.vdet_cupom AS cupom, d.vdet_pdv AS pdv,
+          CASE WHEN d.vdet_oferta = 'S' THEN 1 ELSE 0 END AS oferta_flag
+        FROM public.${t} d
+        LEFT JOIN public.produn pn ON pn.prun_prod_codigo = d.vdet_prod_codigo AND pn.prun_unid_codigo = d.vdet_unid_codigo
+        WHERE d.vdet_datamvto BETWEEN $1::date AND $2::date
+          AND d.vdet_datamvto < COALESCE((SELECT MIN(vopr_datamvto) FROM public.vdonlineprod),'9999-12-31'::date)
+      `);
+      cm++; if (cm > 12) { cm = 1; cy++; }
+    }
+    return `(${partes.join(' UNION ALL ')}) pv`;
+  }
+
   private static async buscarIndicadoresPeriodoPostgresErp(
     dataInicio: string, dataFim: string, codLoja?: number, _tiposSaida?: string
   ): Promise<{ vendas: number; custoVendas: number; impostos: number; impostoCredito: number; qtdItens: number; qtdCupons: number; compras: number; vendasOferta: number; custoOferta: number; qtdSkus: number; }> {
@@ -149,27 +191,27 @@ export class GestaoInteligenteService {
     const dtFim = toIso(dataFim);
     const schema = await MappingService.getSchema();
 
+    // UNION vdonlineprod + vdadet (historico) pra cobrir mes passado/ano passado
+    const vendasUnion = this.buildVendasUnionSql(dtIni, dtFim);
     let vendasSql = `
       SELECT
-        COALESCE(SUM(v.vopr_valor - COALESCE(v.vopr_desconto,0) + COALESCE(v.vopr_acrescimo,0)), 0)::float AS vendas,
-        COALESCE(SUM(COALESCE(pn.prun_ctmedio, v.vopr_custoentrada, 0) * v.vopr_qtde), 0)::float AS custo_vendas,
-        COALESCE(SUM(COALESCE(v.vopr_icmsvalor,0) + COALESCE(v.vopr_pisvalor,0) + COALESCE(v.vopr_cofinsvalor,0) + COALESCE(v.vopr_fcpvalor,0)), 0)::float AS impostos,
+        COALESCE(SUM(valor_total), 0)::float AS vendas,
+        COALESCE(SUM(custo_total), 0)::float AS custo_vendas,
+        COALESCE(SUM(imposto_total), 0)::float AS impostos,
         0::float AS imposto_credito,
-        COALESCE(SUM(v.vopr_qtde), 0)::float AS qtd_itens,
-        COALESCE(SUM(CASE WHEN COALESCE(v.vopr_agof_codigo,0) > 0 THEN v.vopr_valor - COALESCE(v.vopr_desconto,0) + COALESCE(v.vopr_acrescimo,0) ELSE 0 END), 0)::float AS vendas_oferta,
-        COALESCE(SUM(CASE WHEN COALESCE(v.vopr_agof_codigo,0) > 0 THEN COALESCE(pn.prun_ctmedio, v.vopr_custoentrada, 0) * v.vopr_qtde ELSE 0 END), 0)::float AS custo_oferta,
-        COUNT(DISTINCT v.vopr_prod_codigo)::int AS qtd_skus
-      FROM ${schema}.vdonlineprod v
-      LEFT JOIN ${schema}.produn pn ON pn.prun_prod_codigo = v.vopr_prod_codigo AND pn.prun_unid_codigo = v.vopr_unid_codigo
-      WHERE v.vopr_datamvto BETWEEN $1::date AND $2::date
-        AND v.vopr_tiporeg = 'IT' AND COALESCE(v.vopr_cancmotivo, '') = ''
+        COALESCE(SUM(qtde), 0)::float AS qtd_itens,
+        COALESCE(SUM(CASE WHEN oferta_flag = 1 THEN valor_total ELSE 0 END), 0)::float AS vendas_oferta,
+        COALESCE(SUM(CASE WHEN oferta_flag = 1 THEN custo_total ELSE 0 END), 0)::float AS custo_oferta,
+        COUNT(DISTINCT prod_codigo)::int AS qtd_skus
+      FROM ${vendasUnion} WHERE 1=1
     `;
     const vendasParams: any[] = [dtIni, dtFim];
-    if (codLoja) { vendasSql += ` AND v.vopr_unid_codigo::int = $${vendasParams.length+1}::int`; vendasParams.push(codLoja); }
+    if (codLoja) { vendasSql += ` AND loja::int = $${vendasParams.length+1}::int`; vendasParams.push(codLoja); }
 
-    let cuponsSql = `SELECT COUNT(DISTINCT (vopc_cupom || '-' || vopc_pdvs_codigo || '-' || vopc_unid_codigo))::int AS qtd_cupons FROM ${schema}.vdonlinec WHERE vopc_datamvto BETWEEN $1::date AND $2::date`;
+    // Cupons do UNION
+    let cuponsSql = `SELECT COUNT(DISTINCT (cupom || '-' || pdv || '-' || loja))::int AS qtd_cupons FROM ${vendasUnion} WHERE 1=1`;
     const cuponsParams: any[] = [dtIni, dtFim];
-    if (codLoja) { cuponsSql += ` AND vopc_unid_codigo::int = $${cuponsParams.length+1}::int`; cuponsParams.push(codLoja); }
+    if (codLoja) { cuponsSql += ` AND loja::int = $${cuponsParams.length+1}::int`; cuponsParams.push(codLoja); }
 
     let comprasSql = `SELECT COALESCE(SUM(pcpc_valor), 0)::float AS compras FROM ${schema}.pedcomprac WHERE pcpc_status = 'B' AND pcpc_datamvto BETWEEN $1::date AND $2::date`;
     const comprasParams: any[] = [dtIni, dtFim];
@@ -1146,7 +1188,7 @@ export class GestaoInteligenteService {
     });
   }
 
-  /** Versao PG do buscarVendasPorSetorPeriodo - usa vdonlineprod */
+  /** Versao PG do buscarVendasPorSetorPeriodo - usa UNION vdonlineprod + vdadet */
   private static async buscarVendasPorSetorPeriodoPostgresErp(
     dataInicio: string, dataFim: string, codLoja?: number
   ): Promise<any[]> {
@@ -1161,27 +1203,27 @@ export class GestaoInteligenteService {
     const tabProduto = await MappingService.getRealTableName('TAB_PRODUTO');
     const tabSecao = await MappingService.getRealTableName('TAB_SECAO');
 
+    // UNION vdonlineprod + vdadet (historico)
+    const vendasUnion = this.buildVendasUnionSql(dtIni, dtFim);
     let sql = `
       SELECT
         s.${colCodSecao}::int AS "COD_SECAO",
         s.${colDesSecao} AS "SETOR",
-        COALESCE(SUM(v.vopr_valor - COALESCE(v.vopr_desconto,0) + COALESCE(v.vopr_acrescimo,0)), 0)::float AS "VENDA",
-        COALESCE(SUM(COALESCE(pn.prun_ctmedio, v.vopr_custoentrada, 0) * v.vopr_qtde), 0)::float AS "CUSTO",
-        COALESCE(SUM(COALESCE(v.vopr_icmsvalor,0) + COALESCE(v.vopr_pisvalor,0) + COALESCE(v.vopr_cofinsvalor,0) + COALESCE(v.vopr_fcpvalor,0)), 0)::float AS "IMPOSTOS",
+        COALESCE(SUM(pv.valor_total), 0)::float AS "VENDA",
+        COALESCE(SUM(pv.custo_total), 0)::float AS "CUSTO",
+        COALESCE(SUM(pv.imposto_total), 0)::float AS "IMPOSTOS",
         0::float AS "IMPOSTO_CREDITO",
-        COALESCE(SUM(CASE WHEN COALESCE(v.vopr_agof_codigo,0) > 0 THEN v.vopr_valor - COALESCE(v.vopr_desconto,0) + COALESCE(v.vopr_acrescimo,0) ELSE 0 END), 0)::float AS "VENDAS_OFERTA",
-        COALESCE(SUM(v.vopr_qtde), 0)::float AS "QTD",
-        COUNT(DISTINCT v.vopr_cupom || '-' || v.vopr_pdvs_codigo || '-' || v.vopr_unid_codigo)::int AS "QTD_CUPONS",
-        COUNT(DISTINCT v.vopr_prod_codigo)::int AS "QTD_SKUS"
-      FROM ${schema}.vdonlineprod v
-      LEFT JOIN ${schema}.produn pn ON pn.prun_prod_codigo = v.vopr_prod_codigo AND pn.prun_unid_codigo = v.vopr_unid_codigo
-      JOIN ${schema}.${tabProduto} p ON p.${colCodProd} = v.vopr_prod_codigo
+        COALESCE(SUM(CASE WHEN pv.oferta_flag = 1 THEN pv.valor_total ELSE 0 END), 0)::float AS "VENDAS_OFERTA",
+        COALESCE(SUM(pv.qtde), 0)::float AS "QTD",
+        COUNT(DISTINCT pv.cupom || '-' || pv.pdv || '-' || pv.loja)::int AS "QTD_CUPONS",
+        COUNT(DISTINCT pv.prod_codigo)::int AS "QTD_SKUS"
+      FROM ${vendasUnion}
+      JOIN ${schema}.${tabProduto} p ON p.${colCodProd} = pv.prod_codigo
       JOIN ${schema}.${tabSecao} s ON s.${colCodSecao} = p.${colCodSecaoProd}
-      WHERE v.vopr_datamvto BETWEEN $1::date AND $2::date
-        AND v.vopr_tiporeg = 'IT' AND COALESCE(v.vopr_cancmotivo, '') = ''
+      WHERE 1=1
     `;
     const params: any[] = [dtIni, dtFim];
-    if (codLoja) { sql += ` AND v.vopr_unid_codigo::int = $${params.length+1}::int`; params.push(codLoja); }
+    if (codLoja) { sql += ` AND pv.loja::int = $${params.length+1}::int`; params.push(codLoja); }
     sql += ` GROUP BY s.${colCodSecao}, s.${colDesSecao} ORDER BY "VENDA" DESC`;
     return PostgresErpService.query<any>(sql, params);
   }
