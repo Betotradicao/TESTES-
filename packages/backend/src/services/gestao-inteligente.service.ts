@@ -1793,9 +1793,7 @@ export class GestaoInteligenteService {
 
   /** Grupos analíticos com comparativos (cascata nível 2) */
   static async getGruposAnaliticos(filters: IndicadoresFilters & { codSecao: number }): Promise<any[]> {
-    const __dbType = await (this as any).detectActiveDbType();
-    if (__dbType === "postgresql") return [] as any;
-
+    // Bifurcacao PG acontece dentro do helper buscarVendasPorGrupoPeriodo
     console.log(`📊 [ANALÍTICOS] Buscando grupos analíticos da seção ${filters.codSecao}...`);
     const result = await this.buildAnaliticos(
       filters,
@@ -1808,9 +1806,7 @@ export class GestaoInteligenteService {
 
   /** Subgrupos analíticos com comparativos (cascata nível 3) */
   static async getSubgruposAnaliticos(filters: IndicadoresFilters & { codSecao: number; codGrupo: number }): Promise<any[]> {
-    const __dbType = await (this as any).detectActiveDbType();
-    if (__dbType === "postgresql") return [] as any;
-
+    // Bifurcacao PG acontece dentro do helper buscarVendasPorSubgrupoPeriodo
     console.log(`📊 [ANALÍTICOS] Buscando subgrupos analíticos do grupo ${filters.codGrupo}...`);
     const result = await this.buildAnaliticos(
       filters,
@@ -1823,6 +1819,7 @@ export class GestaoInteligenteService {
 
   /** Segmentos analíticos com comparativos (cascata nível 4) */
   static async getSegmentosAnaliticos(filters: IndicadoresFilters & { codSecao: number; codGrupo: number; codSubgrupo: number }): Promise<any[]> {
+    // PG: segmento retorna vazio (RP INFO nao tem), drill para no nivel subgrupo/produto
     const __dbType = await (this as any).detectActiveDbType();
     if (__dbType === "postgresql") return [] as any;
 
@@ -1838,9 +1835,7 @@ export class GestaoInteligenteService {
 
   /** Itens analíticos com comparativos (cascata nível 5) */
   static async getItensAnaliticos(filters: IndicadoresFilters & { codSecao: number; codGrupo: number; codSubgrupo: number; codSegmento?: number }): Promise<any[]> {
-    const __dbType = await (this as any).detectActiveDbType();
-    if (__dbType === "postgresql") return [] as any;
-
+    // Bifurcacao PG acontece dentro do helper buscarVendasPorItemPeriodo
     console.log(`📊 [ANALÍTICOS] Buscando itens analíticos do subgrupo ${filters.codSubgrupo} segmento ${filters.codSegmento || 'todos'}...`);
     const result = await this.buildAnaliticos(
       filters,
