@@ -39,12 +39,7 @@ const AVAILABLE_MODULES = [
     description: 'Cadastrar e buscar eventos de prevenção no PDV',
     icon: '💻'
   },
-  {
-    id: 'facial',
-    name: 'Prevenção Facial',
-    description: 'Sistema de reconhecimento facial',
-    icon: '👤'
-  },
+  // { id: 'facial', name: 'Prevenção Facial', ... }, // desativado
   {
     id: 'ruptura',
     name: 'Prevenção Rupturas',
@@ -102,12 +97,7 @@ const AVAILABLE_MODULES = [
     icon: '🏦'
   },
   // Consultor Digital
-  {
-    id: 'rota-crescimento',
-    name: 'Rota do Crescimento',
-    description: 'Dashboard de crescimento com inteligência artificial',
-    icon: '🚀'
-  }
+  // { id: 'rota-crescimento', name: 'Rota do Crescimento', ... }, // desativado
 ];
 
 export default function ModulesTab() {

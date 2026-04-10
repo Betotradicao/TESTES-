@@ -1,18 +1,11 @@
 import { useState, useEffect } from 'react';
 
 const SECTIONS = [
-  {
-    id: 'metas-radar',
-    name: 'Metas no Radar',
-    icon: '🎯',
-    color: 'amber',
-    modules: [
-      { id: 'metas', name: 'Metas', icon: '🎯', subs: [
-        { id: 'metas-ranking', name: 'Ranking de Metas' },
-        { id: 'metas-parametrizar', name: 'Parametrizar' },
-      ]},
-    ]
-  },
+  // METAS NO RADAR - desativado
+  // {
+  //   id: 'metas-radar', name: 'Metas no Radar', icon: '🎯', color: 'amber',
+  //   modules: [{ id: 'metas', name: 'Metas', icon: '🎯', subs: [...] }]
+  // },
   {
     id: 'gestao-radar',
     name: 'Gestão no Radar',
@@ -57,7 +50,7 @@ const SECTIONS = [
         { id: 'pdv-frente-caixa', name: 'Gestão Frente de Caixa' },
         { id: 'pdv-prevencao-caixa', name: 'Prevenção de Caixa' },
       ]},
-      { id: 'facial', name: 'Prevenção Facial', icon: '👤' },
+      // { id: 'facial', name: 'Prevenção Facial', icon: '👤' }, // desativado
       { id: 'ruptura', name: 'Prevenção Rupturas', icon: '📋', subs: [
         { id: 'ruptura-lancador', name: 'Lançar Auditoria' },
         { id: 'ruptura-auditorias', name: 'Resultados Auditorias' },
@@ -113,15 +106,11 @@ const SECTIONS = [
       { id: 'disparo-whatsapp', name: 'Disparo em Massa', icon: '📱' },
     ]
   },
-  {
-    id: 'consultor-digital',
-    name: 'Consultor 360',
-    icon: '🤖',
-    color: 'orange',
-    modules: [
-      { id: 'rota-crescimento', name: 'Rota do Crescimento', icon: '🚀' },
-    ]
-  },
+  // CONSULTOR 360 - desativado
+  // {
+  //   id: 'consultor-digital', name: 'Consultor 360', icon: '🤖', color: 'orange',
+  //   modules: [{ id: 'rota-crescimento', name: 'Rota do Crescimento', icon: '🚀' }]
+  // },
   {
     id: 'vision-360',
     name: 'Vision 360',
@@ -132,10 +121,7 @@ const SECTIONS = [
         { id: 'vision-operacoes-risco', name: 'Operações de Risco PDV' },
         { id: 'vision-palavra-chave-2', name: 'Vision Palavra Chave' },
       ]},
-      { id: 'vision-facial', name: 'Vision Facial', icon: '👤', subs: [
-        { id: 'vision-facial-faciais', name: 'Faciais' },
-        { id: 'vision-facial-identificados', name: 'Identificados em Loja' },
-      ]},
+      // { id: 'vision-facial', ... }, // desativado
       { id: 'vision-bipagens', name: 'Vision Bipagens', icon: '📡', subs: [
         { id: 'bipagens-ao-vivo', name: 'Bipagens' },
         { id: 'bipagens-resultados', name: 'Resultados do Dia' },
