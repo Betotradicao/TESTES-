@@ -8,6 +8,8 @@ if (process.platform === 'win32') {
 import 'reflect-metadata';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
 import swaggerUi from 'swagger-ui-express';
@@ -142,6 +144,25 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Private-Network', 'true');
   next();
 });
+
+// Helmet: headers de segurança HTTP (previne XSS, clickjacking, MIME sniffing)
+app.use(helmet({
+  contentSecurityPolicy: false, // desabilitado pra nao quebrar frontend inline scripts
+  crossOriginEmbedderPolicy: false, // desabilitado pra nao quebrar imagens externas
+}));
+
+// Rate limit global: max 200 requests por minuto por IP (protege contra DDoS simples)
+app.use(rateLimit({
+  windowMs: 60 * 1000, // 1 minuto
+  max: 200, // max 200 requests por IP por minuto
+  message: { error: 'Muitas requisições. Tente novamente em alguns instantes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    // Nao limita health check (usado por Docker healthcheck)
+    return req.path === '/api/health';
+  }
+}));
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));

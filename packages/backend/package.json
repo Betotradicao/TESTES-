@@ -45,6 +45,7 @@
     "express-rate-limit": "^8.3.2",
     "express-validator": "^7.0.1",
     "form-data": "^4.0.5",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "koffi": "^2.15.1",
     "mailparser": "^3.9.1",
