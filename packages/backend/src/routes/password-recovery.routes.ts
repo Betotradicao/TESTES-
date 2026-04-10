@@ -1,5 +1,15 @@
 import { Router } from 'express';
 import { PasswordRecoveryController } from '../controllers/password-recovery.controller';
+import rateLimit from 'express-rate-limit';
+
+// Rate limiting: max 5 tentativas de recuperação de senha por IP a cada 1 hora
+const passwordResetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { error: 'Muitas tentativas de recuperação de senha. Tente novamente em 1 hora.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const router: Router = Router();
 
@@ -27,7 +37,7 @@ const router: Router = Router();
  *       400:
  *         description: Email inválido
  */
-router.post('/request', PasswordRecoveryController.requestPasswordRecovery);
+router.post('/request', passwordResetLimiter, PasswordRecoveryController.requestPasswordRecovery);
 
 /**
  * @swagger
@@ -76,6 +86,6 @@ router.get('/validate', PasswordRecoveryController.validateResetToken);
  *       400:
  *         description: Token inválido ou senha inválida
  */
-router.post('/reset', PasswordRecoveryController.resetPassword);
+router.post('/reset', passwordResetLimiter, PasswordRecoveryController.resetPassword);
 
 export default router;

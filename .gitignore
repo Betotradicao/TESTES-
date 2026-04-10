@@ -78,3 +78,20 @@ BACKUPS-E-APRENDIZADOS/
 tmpclaude-*.cwd
 **/tmpclaude-*.cwd
 tmpclaude-*
+
+# Certificados e chaves privadas (NUNCA subir pro GitHub)
+*.pfx
+*.pem
+*.key
+*.p12
+*.cert
+packages/backend/certificates/
+packages/backend/netsdk/
+
+# Arquivos temporários sensíveis
+*.tmp
+packages/backend/tmp-faces/
+packages/backend/test-snapshot-*.jpg
+
+# Scripts de debug/investigação (não são do sistema)
+check-*.sh

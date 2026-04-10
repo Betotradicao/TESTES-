@@ -1,6 +1,17 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/auth.controller';
 import { authenticateToken } from '../middleware/auth';
+import rateLimit from 'express-rate-limit';
+
+// Rate limiting: max 10 tentativas de login por IP a cada 15 minutos
+// Após 10 tentativas erradas, bloqueia por 15 min (protege contra brute force)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 10, // max 10 tentativas
+  message: { error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const router: Router = Router();
 
@@ -74,7 +85,7 @@ const router: Router = Router();
  *       401:
  *         description: Invalid credentials
  */
-router.post('/login', AuthController.login);
+router.post('/login', loginLimiter, AuthController.login);
 router.get('/me', authenticateToken, AuthController.me);
 router.put('/update-profile', authenticateToken, AuthController.updateProfile);
 

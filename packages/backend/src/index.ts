@@ -100,10 +100,38 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Configuração CORS para permitir acesso via Ngrok e rede local
+// Configuração CORS - restringe origens permitidas
 app.use(cors({
-  origin: true, // Permite qualquer origem
-  credentials: true, // Permite cookies e autenticação
+  origin: (origin, callback) => {
+    // Permite requests sem origin (apps mobile, curl, server-to-server)
+    if (!origin) return callback(null, true);
+
+    const allowed = [
+      // Domínios de produção
+      /\.prevencaonoradar\.com\.br$/,
+      /\.prevencaonoradar\.com$/,
+      // Rede local (desenvolvimento)
+      /^https?:\/\/10\.\d+\.\d+\.\d+/,
+      /^https?:\/\/192\.168\.\d+\.\d+/,
+      /^https?:\/\/172\.\d+\.\d+\.\d+/,
+      /^https?:\/\/localhost/,
+      /^https?:\/\/127\.0\.0\.1/,
+      // Ngrok (desenvolvimento remoto)
+      /\.ngrok\.io$/,
+      /\.ngrok-free\.app$/,
+      // Cloudflare tunnels
+      /\.trycloudflare\.com$/,
+    ];
+
+    const isAllowed = allowed.some(pattern => pattern.test(origin));
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.warn(`⚠️ CORS bloqueado: ${origin}`);
+      callback(null, false);
+    }
+  },
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   exposedHeaders: ['Content-Range', 'X-Content-Range']
