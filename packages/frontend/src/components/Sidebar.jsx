@@ -1066,13 +1066,11 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
       {/* Logo Section */}
-      <div className={`${isCollapsed ? 'p-2' : 'p-6'} border-b border-gray-200 flex justify-center relative`}>
+      <div className={`${isCollapsed ? 'p-2' : 'px-4 py-5'} border-b border-gray-200 flex justify-center relative`}>
         {isCollapsed ? (
-          <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">PR</span>
-          </div>
+          <Logo size="small" collapsed={true} />
         ) : (
-          <Logo size="medium" />
+          <Logo size="large" />
         )}
 
         {/* Botão de Toggle - Desktop only */}

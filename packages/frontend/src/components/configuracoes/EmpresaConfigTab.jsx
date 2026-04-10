@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { fetchMyCompany, updateMyCompany, fetchAllCompanies, createCompany, updateCompany, deleteCompany } from '../../services/companies.service';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
+import Logo from '../Logo';
 
 export default function EmpresaConfigTab() {
   const { user, updateUser } = useAuth();
@@ -308,6 +309,24 @@ export default function EmpresaConfigTab() {
     setSecuritySuccess(null);
   };
 
+  // Estado para personalização White Label (hooks ANTES de qualquer return condicional)
+  const [brandName, setBrandName] = useState('');
+  const [brandNameSaved, setBrandNameSaved] = useState('');
+  const [brandLogo, setBrandLogo] = useState('');
+  const [brandLogoSaved, setBrandLogoSaved] = useState('');
+  const [isSavingBrand, setIsSavingBrand] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
+  useEffect(() => {
+    api.get('/config/configurations')
+      .then(res => {
+        const configs = res.data?.data || res.data || {};
+        if (configs.client_brand_name) { setBrandName(configs.client_brand_name); setBrandNameSaved(configs.client_brand_name); }
+        if (configs.client_logo_url) { setBrandLogo(configs.client_logo_url); setBrandLogoSaved(configs.client_logo_url); }
+      })
+      .catch(() => {});
+  }, []);
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -315,6 +334,41 @@ export default function EmpresaConfigTab() {
       </div>
     );
   }
+
+  const saveBrandName = async () => {
+    setIsSavingBrand(true);
+    try {
+      await api.post('/config/configurations', { client_brand_name: brandName || '', client_logo_url: brandLogo || '' });
+      setBrandNameSaved(brandName);
+      setBrandLogoSaved(brandLogo);
+      if (Logo.clearCache) Logo.clearCache();
+      setSuccess('Personalização salva! A página vai recarregar...');
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err) {
+      setError('Erro ao salvar nome da marca');
+      setTimeout(() => setError(null), 3000);
+    }
+    setIsSavingBrand(false);
+  };
+
+  const restoreLogo = async () => {
+    setBrandName('');
+    setBrandLogo('');
+    setIsSavingBrand(true);
+    try {
+      await api.post('/config/configurations', { client_brand_name: '', client_logo_url: '' });
+      setBrandNameSaved('');
+      setBrandLogoSaved('');
+      // Limpar cache do Logo pra nao piscar o antigo
+      if (Logo.clearCache) Logo.clearCache();
+      setSuccess('Logo restaurado para Radar 360! A página vai recarregar...');
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err) {
+      setError('Erro ao restaurar');
+      setTimeout(() => setError(null), 3000);
+    }
+    setIsSavingBrand(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -329,6 +383,114 @@ export default function EmpresaConfigTab() {
           {success}
         </div>
       )}
+
+      {/* Seção: Personalização White Label */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Personalização do Sistema</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Personalize o logo e nome que aparecem no menu lateral. Deixe vazio para usar o padrão (Radar 360).
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Logo Upload */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Logo da Empresa</label>
+            <div className="flex items-center gap-4">
+              {/* Preview */}
+              <div className="w-16 h-16 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden bg-gray-50">
+                {brandLogo ? (
+                  <img src={brandLogo} alt="Logo" className="w-full h-full object-contain" />
+                ) : (
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                )}
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition text-sm font-medium inline-block text-center">
+                  {isUploadingLogo ? 'Enviando...' : 'Enviar Logo'}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                    className="hidden"
+                    disabled={isUploadingLogo}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 500 * 1024) { setError('Imagem muito grande (max 500KB)'); setTimeout(() => setError(null), 3000); return; }
+                      setIsUploadingLogo(true);
+                      try {
+                        // Converte pra base64 e salva direto na config (sem MinIO)
+                        const reader = new FileReader();
+                        reader.onload = async () => {
+                          const base64 = reader.result;
+                          setBrandLogo(base64);
+                          setIsUploadingLogo(false);
+                          setSuccess('Logo carregado! Clique em Salvar para aplicar.');
+                          setTimeout(() => setSuccess(null), 3000);
+                        };
+                        reader.onerror = () => {
+                          setError('Erro ao ler imagem');
+                          setTimeout(() => setError(null), 3000);
+                          setIsUploadingLogo(false);
+                        };
+                        reader.readAsDataURL(file);
+                      } catch (err) {
+                        setError('Erro ao processar logo');
+                        setTimeout(() => setError(null), 3000);
+                        setIsUploadingLogo(false);
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+                <p className="text-xs text-gray-400">PNG, JPG ou SVG. Max 500KB.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Nome da Marca */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Nome da Empresa / Marca</label>
+            <input
+              type="text"
+              value={brandName}
+              onChange={(e) => setBrandName(e.target.value)}
+              placeholder="Ex: SUPERMERCADO NUNES"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              maxLength={50}
+            />
+            <p className="text-xs text-gray-400 mt-1">Aparece embaixo do logo no menu lateral</p>
+          </div>
+        </div>
+
+        {/* Botões */}
+        <div className="flex items-center gap-3 mt-6 pt-4 border-t border-gray-100">
+          <button
+            onClick={saveBrandName}
+            disabled={isSavingBrand || (brandName === brandNameSaved && brandLogo === brandLogoSaved)}
+            className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white px-6 py-2 rounded-lg transition font-medium"
+          >
+            {isSavingBrand ? 'Salvando...' : 'Salvar'}
+          </button>
+          {(brandNameSaved || brandLogoSaved) && (
+            <button
+              onClick={restoreLogo}
+              disabled={isSavingBrand}
+              className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg transition text-sm flex items-center gap-2"
+              title="Restaurar logo e nome originais (Radar 360)"
+            >
+              <div className="w-6 h-6 bg-orange-500 rounded flex items-center justify-center">
+                <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                  <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="4"/>
+                  <path d="M12 12l7-7"/><circle cx="12" cy="12" r="1" fill="currentColor"/>
+                </svg>
+              </div>
+              Restaurar Logo Original (Radar 360)
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Seção: Cadastrar Nova Loja */}
       {user?.isMaster && (
