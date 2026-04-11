@@ -289,12 +289,12 @@ export class EmailMonitorService {
       console.log(`📧 Processando email: ${subject} de ${from}`);
       console.log(`🔍 Filtro configurado: "${config.subject_filter}"`);
 
-      // Check if subject matches filter (se filtro vazio, processa todos)
+      // Check if subject matches filter (match exato case-insensitive; filtro vazio ignora tudo)
       const hasFilter = config.subject_filter && config.subject_filter.trim() !== '';
-      const matchesFilter = !hasFilter || subject.toLowerCase().includes(config.subject_filter.toLowerCase());
+      const matchesFilter = hasFilter && subject.trim().toLowerCase() === config.subject_filter.trim().toLowerCase();
 
       if (!matchesFilter) {
-        console.log(`⏭️  Email ignorado - assunto "${subject}" não contém "${config.subject_filter}"`);
+        console.log(`⏭️  Email ignorado - assunto "${subject}" nao e igual a "${config.subject_filter}"`);
 
         await logRepository.save({
           email_subject: subject,

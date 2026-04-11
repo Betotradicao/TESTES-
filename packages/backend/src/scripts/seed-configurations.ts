@@ -287,8 +287,8 @@ async function seedConfigurations() {
       },
       {
         key: 'email_monitor_subject_filter',
-        value: 'ALERTA',
-        description: 'Filtro de assunto dos emails'
+        value: '',
+        description: 'Filtro de assunto dos emails (ex: ALERTA TRADICAO, ALERTA NUNES) - configurar por cliente'
       },
       {
         key: 'email_monitor_check_interval',
@@ -307,8 +307,8 @@ async function seedConfigurations() {
       },
       {
         key: 'email_monitor_enabled',
-        value: 'true',
-        description: 'Monitor habilitado (true/false)'
+        value: 'false',
+        description: 'Monitor habilitado (true/false) - deixar false ate configurar filtro especifico do cliente'
       },
 
       // WhatsApp - Grupos por Módulo
