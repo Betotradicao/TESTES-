@@ -883,7 +883,7 @@ export class GestaoInteligenteService {
    */
   static async getGruposPorSecao(filters: IndicadoresFilters & { codSecao: number }): Promise<any[]> {
     const __dbType = await (this as any).detectActiveDbType();
-    if (__dbType === "postgresql") return [] as any;
+    // bifurcacao PG dentro do buscarHierarquiaMensal
 
     const dataInicio = this.formatDateToOracle(filters.dataInicio);
     const dataFim = this.formatDateToOracle(filters.dataFim);
@@ -980,7 +980,7 @@ export class GestaoInteligenteService {
    */
   static async getSubgruposPorGrupo(filters: IndicadoresFilters & { codGrupo: number; codSecao?: number }): Promise<any[]> {
     const __dbType = await (this as any).detectActiveDbType();
-    if (__dbType === "postgresql") return [] as any;
+    // bifurcacao PG dentro do buscarHierarquiaMensal
 
     const dataInicio = this.formatDateToOracle(filters.dataInicio);
     const dataFim = this.formatDateToOracle(filters.dataFim);
@@ -1086,7 +1086,7 @@ export class GestaoInteligenteService {
    */
   static async getItensPorSubgrupo(filters: IndicadoresFilters & { codSubgrupo: number; codGrupo?: number; codSecao?: number }): Promise<any[]> {
     const __dbType = await (this as any).detectActiveDbType();
-    if (__dbType === "postgresql") return [] as any;
+    // bifurcacao PG dentro do buscarHierarquiaMensal
 
     const dataInicio = this.formatDateToOracle(filters.dataInicio);
     const dataFim = this.formatDateToOracle(filters.dataFim);
@@ -1726,7 +1726,7 @@ export class GestaoInteligenteService {
     dataInicio: string, dataFim: string, codLoja?: number, codSecao?: number, codGrupo?: number, codSubgrupo?: number
   ): Promise<any[]> {
     const __dbType = await (this as any).detectActiveDbType();
-    if (__dbType === "postgresql") return [] as any;
+    // bifurcacao PG dentro do buscarHierarquiaMensal
 
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
@@ -1762,7 +1762,7 @@ export class GestaoInteligenteService {
     dataInicio: string, dataFim: string, codLoja?: number, codSecao?: number, codGrupo?: number, codSubgrupo?: number, codSegmento?: number
   ): Promise<any[]> {
     const __dbType = await (this as any).detectActiveDbType();
-    if (__dbType === "postgresql") return [] as any;
+    // bifurcacao PG dentro do buscarHierarquiaMensal
 
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
@@ -1821,7 +1821,7 @@ export class GestaoInteligenteService {
   static async getSegmentosAnaliticos(filters: IndicadoresFilters & { codSecao: number; codGrupo: number; codSubgrupo: number }): Promise<any[]> {
     // PG: segmento retorna vazio (RP INFO nao tem), drill para no nivel subgrupo/produto
     const __dbType = await (this as any).detectActiveDbType();
-    if (__dbType === "postgresql") return [] as any;
+    // bifurcacao PG dentro do buscarHierarquiaMensal
 
     console.log(`📊 [ANALÍTICOS] Buscando segmentos analíticos do subgrupo ${filters.codSubgrupo}...`);
     const result = await this.buildAnaliticos(
@@ -2047,9 +2047,7 @@ export class GestaoInteligenteService {
       pctOferta: number;
     };
   }> {
-    const __dbType = await (this as any).detectActiveDbType();
-    if (__dbType === "postgresql") return { meses: [] } as any;
-
+    // buscarIndicadoresPeriodo ja bifurca Oracle/PG internamente
     const meses = [
       { num: 1, nome: 'JANEIRO' },
       { num: 2, nome: 'FEVEREIRO' },
@@ -2207,7 +2205,134 @@ export class GestaoInteligenteService {
   /**
    * Busca vendas por setor anual (mês a mês, agrupado por setor)
    */
+  /** Versao PG do getVendasPorSetorAnual — usa UNION vdonlineprod + vdadet por mês */
+  private static async getVendasPorSetorAnualPg(ano: number, codLoja?: number): Promise<any> {
+    console.log(`📊 [GI PG] Buscando vendas por setor anual ${ano}...`);
+    const mesAtual = new Date().getMonth() + 1;
+    const diaAtual = new Date().getDate();
+    const anoAtual = new Date().getFullYear();
+    let ultimoMes = 12;
+    if (ano === anoAtual) ultimoMes = mesAtual;
+    if (ano > anoAtual) return { setores: [] };
+    const dataFimDia = (ano === anoAtual && ultimoMes === mesAtual) ? diaAtual : new Date(ano, ultimoMes, 0).getDate();
+    const dtIni = `${ano}-01-01`;
+    const dtFim = `${ano}-${String(ultimoMes).padStart(2,'0')}-${String(dataFimDia).padStart(2,'0')}`;
+
+    const schema = await MappingService.getSchema();
+    const vendasUnion = this.buildVendasUnionSql(dtIni, dtFim);
+    const colCodProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+    const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
+    const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
+    const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
+    const tabProduto = await MappingService.getRealTableName('TAB_PRODUTO');
+    const tabSecao = await MappingService.getRealTableName('TAB_SECAO');
+
+    let sql = `SELECT s.${colCodSecao}::int AS "COD_SECAO", s.${colDesSecao} AS "SETOR",
+      EXTRACT(MONTH FROM pv.data) AS "MES",
+      COALESCE(SUM(pv.valor_total),0)::float AS "VENDA",
+      COALESCE(SUM(pv.custo_total),0)::float AS "CUSTO",
+      COALESCE(SUM(pv.qtde),0)::float AS "QTD",
+      COUNT(DISTINCT pv.cupom||'-'||pv.pdv||'-'||pv.loja)::int AS "QTD_CUPONS",
+      COUNT(DISTINCT pv.prod_codigo)::int AS "QTD_SKUS",
+      COALESCE(SUM(CASE WHEN pv.oferta_flag=1 THEN pv.valor_total ELSE 0 END),0)::float AS "VENDAS_OFERTA"
+    FROM ${vendasUnion}
+    JOIN ${schema}.${tabProduto} p ON p.${colCodProd} = pv.prod_codigo
+    JOIN ${schema}.${tabSecao} s ON s.${colCodSecao} = p.${colCodSecaoProd}
+    WHERE 1=1`;
+    const params: any[] = [dtIni, dtFim];
+    if (codLoja) { sql += ` AND pv.loja::int = $${params.length+1}::int`; params.push(codLoja); }
+    sql += ` GROUP BY s.${colCodSecao}, s.${colDesSecao}, EXTRACT(MONTH FROM pv.data)`;
+
+    const result = await PostgresErpService.query<any>(sql, params);
+
+    // Ano anterior
+    const anoAnt = ano - 1;
+    const dtIniAnt = `${anoAnt}-01-01`;
+    const dtFimAnt = `${anoAnt}-${String(ultimoMes).padStart(2,'0')}-${String(dataFimDia).padStart(2,'0')}`;
+    const vendasUnionAnt = this.buildVendasUnionSql(dtIniAnt, dtFimAnt);
+    let sqlAnt = `SELECT s.${colCodSecao}::int AS "COD_SECAO", s.${colDesSecao} AS "SETOR",
+      COALESCE(SUM(pv.valor_total),0)::float AS "VENDA",
+      COALESCE(SUM(pv.custo_total),0)::float AS "CUSTO",
+      COALESCE(SUM(pv.qtde),0)::float AS "QTD",
+      COUNT(DISTINCT pv.cupom||'-'||pv.pdv||'-'||pv.loja)::int AS "QTD_CUPONS",
+      COUNT(DISTINCT pv.prod_codigo)::int AS "QTD_SKUS",
+      COALESCE(SUM(CASE WHEN pv.oferta_flag=1 THEN pv.valor_total ELSE 0 END),0)::float AS "VENDAS_OFERTA"
+    FROM ${vendasUnionAnt}
+    JOIN ${schema}.${tabProduto} p ON p.${colCodProd} = pv.prod_codigo
+    JOIN ${schema}.${tabSecao} s ON s.${colCodSecao} = p.${colCodSecaoProd}
+    WHERE 1=1`;
+    const paramsAnt: any[] = [dtIniAnt, dtFimAnt];
+    if (codLoja) { sqlAnt += ` AND pv.loja::int = $${paramsAnt.length+1}::int`; paramsAnt.push(codLoja); }
+    sqlAnt += ` GROUP BY s.${colCodSecao}, s.${colDesSecao}`;
+
+    let resultAnt: any[] = [];
+    try { resultAnt = await PostgresErpService.query<any>(sqlAnt, paramsAnt); } catch { /* ano ant pode nao existir */ }
+
+    // Montar resultado no mesmo formato do Oracle
+    const mapAnt: Record<number, any> = {};
+    resultAnt.forEach((r: any) => { mapAnt[r.COD_SECAO] = r; });
+
+    const nomesMeses = ['', 'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
+    const setoresMap: Record<number, any> = {};
+
+    result.forEach((row: any) => {
+      const cod = row.COD_SECAO;
+      if (!setoresMap[cod]) {
+        setoresMap[cod] = { codSecao: cod, setor: row.SETOR, meses: [], total: { venda: 0, custo: 0, qtd: 0, cupons: 0, skus: 0, oferta: 0 } };
+        for (let m = 1; m <= 12; m++) setoresMap[cod].meses.push({ mes: m, nome: nomesMeses[m], venda: 0, custo: 0, lucro: 0, margem: 0, qtd: 0, cupons: 0, skus: 0, oferta: 0 });
+      }
+      const mesIdx = Number(row.MES) - 1;
+      if (mesIdx >= 0 && mesIdx < 12) {
+        const m = setoresMap[cod].meses[mesIdx];
+        m.venda = row.VENDA; m.custo = row.CUSTO; m.qtd = row.QTD; m.cupons = row.QTD_CUPONS; m.skus = row.QTD_SKUS; m.oferta = row.VENDAS_OFERTA;
+        m.vendasOferta = parseFloat((row.VENDAS_OFERTA || 0).toFixed(2));
+        m.lucro = parseFloat((m.venda - m.custo).toFixed(2));
+        m.margem = m.venda > 0 ? parseFloat(((m.venda - m.custo) / m.venda * 100).toFixed(2)) : 0;
+        m.ticketMedio = m.cupons > 0 ? parseFloat((m.venda / m.cupons).toFixed(2)) : 0;
+        m.markdownOferta = m.vendasOferta > 0 ? parseFloat(((m.vendasOferta - (m.custo * m.vendasOferta / m.venda)) / m.vendasOferta * 100).toFixed(2)) : 0;
+        m.pctOferta = m.venda > 0 ? parseFloat((m.vendasOferta / m.venda * 100).toFixed(2)) : 0;
+        m.itensVendidos = parseFloat(m.qtd.toFixed(2));
+        setoresMap[cod].total.venda += m.venda; setoresMap[cod].total.custo += m.custo;
+        setoresMap[cod].total.qtd += m.qtd; setoresMap[cod].total.cupons += m.cupons;
+        setoresMap[cod].total.oferta += m.oferta;
+        setoresMap[cod].total.skus = Math.max(setoresMap[cod].total.skus, m.skus);
+      }
+    });
+
+    const setores = Object.values(setoresMap).map((s: any) => {
+      const t = s.total;
+      const ant = mapAnt[s.codSecao];
+      return {
+        ...s,
+        total: {
+          ...t,
+          lucro: parseFloat((t.venda - t.custo).toFixed(2)),
+          margem: t.venda > 0 ? parseFloat(((t.venda - t.custo) / t.venda * 100).toFixed(2)) : 0,
+          itensVendidos: t.qtd, vendasOferta: t.oferta,
+          pctOferta: t.venda > 0 ? parseFloat((t.oferta / t.venda * 100).toFixed(2)) : 0
+        },
+        anoAnterior: {
+          venda: ant?.VENDA || 0, custo: ant?.CUSTO || 0,
+          lucro: ant ? parseFloat(((ant.VENDA || 0) - (ant.CUSTO || 0)).toFixed(2)) : 0,
+          margem: ant && ant.VENDA > 0 ? parseFloat(((ant.VENDA - ant.CUSTO) / ant.VENDA * 100).toFixed(2)) : 0,
+          ticketMedio: ant && ant.QTD_CUPONS > 0 ? parseFloat((ant.VENDA / ant.QTD_CUPONS).toFixed(2)) : 0,
+          cupons: ant?.QTD_CUPONS || 0, skus: ant?.QTD_SKUS || 0,
+          itensVendidos: ant?.QTD || 0, vendasOferta: ant?.VENDAS_OFERTA || 0,
+          pctOferta: ant && ant.VENDA > 0 ? parseFloat((ant.VENDAS_OFERTA / ant.VENDA * 100).toFixed(2)) : 0
+        }
+      };
+    });
+    setores.sort((a, b) => b.total.venda - a.total.venda);
+    console.log(`✅ [GI PG] ${setores.length} setores processados para ${ano}`);
+    return { setores };
+  }
+
   static async getVendasPorSetorAnual(ano: number, codLoja?: number): Promise<any> {
+    const __dbType = await (this as any).detectActiveDbType();
+    if (__dbType === 'postgresql') {
+      return this.getVendasPorSetorAnualPg(ano, codLoja);
+    }
+
     console.log(`📊 [GESTAO INTELIGENTE] Buscando vendas por setor anual ${ano}...`);
 
     const mesAtual = new Date().getMonth() + 1;
@@ -2374,7 +2499,86 @@ export class GestaoInteligenteService {
    */
   static async getVendasPorDiaSemana(ano: number, codLoja?: number): Promise<{ meses: any[] }> {
     const __dbType = await (this as any).detectActiveDbType();
-    if (__dbType === "postgresql") return { meses: [] } as any;
+    if (__dbType === "postgresql") {
+      // PG: busca vendas diárias por mês individual (evita UNION pesado)
+      console.log(`📊 [GI PG] Buscando vendas por dia da semana ${ano}...`);
+      const mesAtual = new Date().getMonth() + 1;
+      const anoAtual = new Date().getFullYear();
+      let ultimoMes = 12;
+      if (ano === anoAtual) ultimoMes = mesAtual;
+      if (ano > anoAtual) return { meses: [] };
+
+      // Feriados
+      let holidayDates = new Set<string>();
+      try {
+        if (AppDataSource.isInitialized) {
+          const holidayRepository = AppDataSource.getRepository(Holiday);
+          const holidays = await holidayRepository.find({ where: { active: true } });
+          holidays.forEach(h => holidayDates.add(h.date));
+        }
+      } catch {}
+
+      const nomesDia = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+      const nomesMes = ['', 'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
+      const meses = [];
+
+      for (let m = 1; m <= ultimoMes; m++) {
+        const ultimoDia = (ano === anoAtual && m === mesAtual) ? new Date().getDate() : new Date(ano, m, 0).getDate();
+        const dtIni = `${ano}-${String(m).padStart(2,'0')}-01`;
+        const dtFim = `${ano}-${String(m).padStart(2,'0')}-${String(ultimoDia).padStart(2,'0')}`;
+        const tabVda = `vdadet${String(m).padStart(2,'0')}${String(ano).slice(-2)}`;
+
+        // Query simples na tabela do mês (sem UNION)
+        let sql = `SELECT vdet_datamvto AS dia, COALESCE(SUM(vdet_valor - COALESCE(vdet_valordesc,0) + COALESCE(vdet_valoracfin,0)),0)::float AS venda
+          FROM public.${tabVda}
+          WHERE vdet_datamvto BETWEEN $1::date AND $2::date`;
+        const params: any[] = [dtIni, dtFim];
+        if (codLoja) { sql += ` AND vdet_unid_codigo::int = $3::int`; params.push(codLoja); }
+        sql += ` GROUP BY vdet_datamvto ORDER BY vdet_datamvto`;
+
+        let result: any[] = [];
+        try { result = await PostgresErpService.query<any>(sql, params); } catch { /* tabela pode nao existir */ }
+
+        // Complementar com vdonlineprod (dados recentes que nao estao no vdadet)
+        try {
+          let sqlOnline = `SELECT vopr_datamvto AS dia, COALESCE(SUM(vopr_valor - COALESCE(vopr_desconto,0) + COALESCE(vopr_acrescimo,0)),0)::float AS venda
+            FROM public.vdonlineprod
+            WHERE vopr_datamvto BETWEEN $1::date AND $2::date AND vopr_tiporeg = 'IT' AND COALESCE(vopr_cancmotivo,'') = ''
+            AND vopr_datamvto >= COALESCE((SELECT MIN(vopr_datamvto) FROM public.vdonlineprod),'9999-12-31'::date)`;
+          const paramsOnl: any[] = [dtIni, dtFim];
+          if (codLoja) { sqlOnline += ` AND vopr_unid_codigo::int = $3::int`; paramsOnl.push(codLoja); }
+          sqlOnline += ` GROUP BY vopr_datamvto`;
+          const onlineResult = await PostgresErpService.query<any>(sqlOnline, paramsOnl);
+          // Merge: dias do vdonlineprod que nao estao no vdadet
+          const vdaDias = new Set(result.map((r: any) => String(r.dia).substring(0, 10)));
+          onlineResult.forEach((r: any) => {
+            if (!vdaDias.has(String(r.dia).substring(0, 10))) result.push(r);
+          });
+        } catch {}
+
+        // Agrupar por dia da semana
+        const mData: Record<string, { dias: number; vendas: number }> = {};
+        nomesDia.forEach(d => { mData[d] = { dias: 0, vendas: 0 }; });
+        mData['Feriado'] = { dias: 0, vendas: 0 };
+
+        result.forEach((row: any) => {
+          const d = new Date(row.dia);
+          const mmdd = `${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          const isHoliday = holidayDates.has(mmdd);
+          const key = isHoliday ? 'Feriado' : nomesDia[d.getDay()];
+          if (mData[key]) { mData[key].dias++; mData[key].vendas += Number(row.venda) || 0; }
+        });
+
+        const diasSemana = [...nomesDia, 'Feriado'].map(nome => ({
+          dia: nome,
+          totalDias: mData[nome]?.dias || 0,
+          totalVendas: parseFloat((mData[nome]?.vendas || 0).toFixed(2)),
+          media: mData[nome]?.dias > 0 ? parseFloat((mData[nome].vendas / mData[nome].dias).toFixed(2)) : 0
+        }));
+        meses.push({ mes: nomesMes[m], mesNum: m, dias: diasSemana });
+      }
+      return { meses };
+    }
 
     console.log(`📊 [GESTAO INTELIGENTE] Buscando vendas por dia da semana ${ano}...`);
 
@@ -2609,7 +2813,120 @@ export class GestaoInteligenteService {
     extraParams: Record<string, any> = {}
   ): Promise<any[]> {
     const __dbType = await (this as any).detectActiveDbType();
-    if (__dbType === "postgresql") return [] as any;
+    if (__dbType === "postgresql") {
+      // PG: busca setor/grupo/produto por mês usando vdadet individual
+      console.log(`📊 [GI PG] buscarHierarquiaMensal ${ano}...`);
+      const schema = await MappingService.getSchema();
+      const colCodProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
+      const colCodGrupoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_grupo');
+      const colDesProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+      const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
+      const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
+      const colCodGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'codigo_grupo');
+      const colDesGrupo = await MappingService.getColumnFromTable('TAB_GRUPO', 'descricao_grupo');
+      const tabProduto = await MappingService.getRealTableName('TAB_PRODUTO');
+      const tabSecao = await MappingService.getRealTableName('TAB_SECAO');
+      const tabGrupo = await MappingService.getRealTableName('TAB_GRUPO');
+
+      // Detectar nivel pela presença de codSecao/codGrupo nos extraParams
+      let selectField: string, nameFieldPg: string, joinPg: string, wherePg: string;
+      const codSecao = extraParams.codSecao;
+      const codGrupo = extraParams.codGrupo;
+
+      if (codGrupo) {
+        // Nível produto (drill 3)
+        selectField = `d.vdet_prod_codigo::int AS cod`; nameFieldPg = `p.${colDesProd} AS nome`;
+        joinPg = ''; wherePg = ` AND p.${colCodGrupoProd}::int = ${Number(codGrupo)} AND p.${colCodSecaoProd}::int = ${Number(codSecao)}`;
+      } else if (codSecao) {
+        // Nível grupo (drill 2)
+        selectField = `g.${colCodGrupo}::int AS cod`; nameFieldPg = `g.${colDesGrupo} AS nome`;
+        joinPg = `JOIN ${schema}.${tabGrupo} g ON g.${colCodGrupo} = p.${colCodGrupoProd}`;
+        wherePg = ` AND p.${colCodSecaoProd}::int = ${Number(codSecao)}`;
+      } else {
+        // Nível setor (drill 1)
+        selectField = `s.${colCodSecao}::int AS cod`; nameFieldPg = `s.${colDesSecao} AS nome`;
+        joinPg = `JOIN ${schema}.${tabSecao} s ON s.${colCodSecao} = p.${colCodSecaoProd}`;
+        wherePg = '';
+      }
+
+      const mesAtual = new Date().getMonth() + 1;
+      const anoAtual = new Date().getFullYear();
+      let ultimoMes = ano < anoAtual ? 12 : (ano === anoAtual ? mesAtual : 0);
+      if (ultimoMes === 0) return [];
+
+      const itemsMap: Record<string, { cod: number; nome: string; meses: Record<number, { venda: number; custo: number; imp: number; oferta: number; cupons: number; skus: number; qtd: number }> }> = {};
+
+      for (let m = 1; m <= ultimoMes; m++) {
+        const ultimoDia = (ano === anoAtual && m === mesAtual) ? new Date().getDate() : new Date(ano, m, 0).getDate();
+        const dtIni = `${ano}-${String(m).padStart(2,'0')}-01`;
+        const dtFim = `${ano}-${String(m).padStart(2,'0')}-${String(ultimoDia).padStart(2,'0')}`;
+        const tabVda = `vdadet${String(m).padStart(2,'0')}${String(ano).slice(-2)}`;
+
+        let sql = `SELECT ${selectField}, ${nameFieldPg},
+          COALESCE(SUM(d.vdet_valor - COALESCE(d.vdet_valordesc,0) + COALESCE(d.vdet_valoracfin,0)),0)::float AS venda,
+          COALESCE(SUM(COALESCE(pn.prun_ctmedio, d.vdet_custounit, 0) * d.vdet_qtde),0)::float AS custo,
+          COALESCE(SUM(COALESCE(d.vdet_valoricms,0) + COALESCE(d.vdet_valorfcp,0)),0)::float AS imp,
+          COALESCE(SUM(CASE WHEN d.vdet_oferta = 'S' THEN d.vdet_valor - COALESCE(d.vdet_valordesc,0) + COALESCE(d.vdet_valoracfin,0) ELSE 0 END),0)::float AS oferta,
+          COUNT(DISTINCT d.vdet_cupom || '-' || d.vdet_pdv || '-' || d.vdet_unid_codigo)::int AS cupons,
+          COUNT(DISTINCT d.vdet_prod_codigo)::int AS skus,
+          COALESCE(SUM(d.vdet_qtde),0)::float AS qtd
+          FROM public.${tabVda} d
+          JOIN ${schema}.${tabProduto} p ON p.${colCodProd} = d.vdet_prod_codigo
+          LEFT JOIN public.produn pn ON pn.prun_prod_codigo = d.vdet_prod_codigo AND pn.prun_unid_codigo = d.vdet_unid_codigo
+          ${joinPg}
+          WHERE d.vdet_datamvto BETWEEN $1::date AND $2::date ${wherePg}`;
+        const params: any[] = [dtIni, dtFim];
+        if (codLoja) { sql += ` AND d.vdet_unid_codigo::int = $${params.length+1}::int`; params.push(codLoja); }
+        sql += ` GROUP BY 1, 2`;
+
+        try {
+          const rows = await PostgresErpService.query<any>(sql, params);
+          rows.forEach((r: any) => {
+            const key = String(r.cod);
+            if (!itemsMap[key]) itemsMap[key] = { cod: r.cod, nome: r.nome, meses: {} };
+            if (!itemsMap[key].meses[m]) itemsMap[key].meses[m] = { venda: 0, custo: 0, imp: 0, oferta: 0, cupons: 0, skus: 0, qtd: 0 };
+            const im = itemsMap[key].meses[m];
+            im.venda += Number(r.venda); im.custo += Number(r.custo); im.imp += Number(r.imp);
+            im.oferta += Number(r.oferta); im.cupons += Number(r.cupons); im.skus = Math.max(im.skus, Number(r.skus)); im.qtd += Number(r.qtd);
+          });
+        } catch {}
+      }
+
+      return Object.values(itemsMap).map((item: any) => {
+        const mesesObj: Record<number, any> = {};
+        const t = { venda: 0, custo: 0, imp: 0, oferta: 0, cupons: 0, skus: 0, qtd: 0 };
+        for (let m = 1; m <= 12; m++) {
+          const d = item.meses[m] || { venda: 0, custo: 0, imp: 0, oferta: 0, cupons: 0, skus: 0, qtd: 0 };
+          const lucro = d.venda - d.custo;
+          mesesObj[m] = {
+            venda: parseFloat(d.venda.toFixed(2)), custo: parseFloat(d.custo.toFixed(2)),
+            lucro: parseFloat(lucro.toFixed(2)),
+            margem: d.venda > 0 ? parseFloat((lucro / d.venda * 100).toFixed(2)) : 0,
+            margemLimpa: d.venda > 0 ? parseFloat(((lucro - d.imp) / d.venda * 100).toFixed(2)) : 0,
+            impostos: parseFloat(d.imp.toFixed(2)),
+            vendasOferta: parseFloat(d.oferta.toFixed(2)),
+            pctOferta: d.venda > 0 ? parseFloat((d.oferta / d.venda * 100).toFixed(2)) : 0,
+            ticketMedio: d.cupons > 0 ? parseFloat((d.venda / d.cupons).toFixed(2)) : 0,
+            cupons: d.cupons, skus: d.skus, qtd: parseFloat(d.qtd.toFixed(2))
+          };
+          t.venda += d.venda; t.custo += d.custo; t.imp += d.imp; t.oferta += d.oferta; t.cupons += d.cupons; t.skus = Math.max(t.skus, d.skus); t.qtd += d.qtd;
+        }
+        const tLucro = t.venda - t.custo;
+        const total = {
+          venda: parseFloat(t.venda.toFixed(2)), custo: parseFloat(t.custo.toFixed(2)),
+          lucro: parseFloat(tLucro.toFixed(2)),
+          margem: t.venda > 0 ? parseFloat((tLucro / t.venda * 100).toFixed(2)) : 0,
+          margemLimpa: t.venda > 0 ? parseFloat(((tLucro - t.imp) / t.venda * 100).toFixed(2)) : 0,
+          impostos: parseFloat(t.imp.toFixed(2)),
+          vendasOferta: parseFloat(t.oferta.toFixed(2)),
+          pctOferta: t.venda > 0 ? parseFloat((t.oferta / t.venda * 100).toFixed(2)) : 0,
+          ticketMedio: t.cupons > 0 ? parseFloat((t.venda / t.cupons).toFixed(2)) : 0,
+          cupons: t.cupons, skus: t.skus, qtd: parseFloat(t.qtd.toFixed(2))
+        };
+        return { cod: item.cod, nome: item.nome, meses: mesesObj, total };
+      }).sort((a, b) => b.total.venda - a.total.venda);
+    }
 
     const mesAtual = new Date().getMonth() + 1;
     const diaAtual = new Date().getDate();
@@ -2751,7 +3068,7 @@ export class GestaoInteligenteService {
    */
   static async getProdutoAnualGrupos(ano: number, codSecao: number, codLoja?: number): Promise<any[]> {
     const __dbType = await (this as any).detectActiveDbType();
-    if (__dbType === "postgresql") return [] as any;
+    // bifurcacao PG dentro do buscarHierarquiaMensal
 
     const schema = await MappingService.getSchema();
     const tabGrupo = `${schema}.${await MappingService.getRealTableName('TAB_GRUPO')}`;
@@ -2769,7 +3086,7 @@ export class GestaoInteligenteService {
    */
   static async getProdutoAnualSubgrupos(ano: number, codGrupo: number, codSecao: number, codLoja?: number): Promise<any[]> {
     const __dbType = await (this as any).detectActiveDbType();
-    if (__dbType === "postgresql") return [] as any;
+    // bifurcacao PG dentro do buscarHierarquiaMensal
 
     const schema = await MappingService.getSchema();
     const tabSubgrupo = `${schema}.${await MappingService.getRealTableName('TAB_SUBGRUPO')}`;
@@ -2787,7 +3104,7 @@ export class GestaoInteligenteService {
    */
   static async getProdutoAnualItens(ano: number, codSubgrupo: number, codGrupo: number, codSecao: number, codLoja?: number): Promise<any[]> {
     const __dbType = await (this as any).detectActiveDbType();
-    if (__dbType === "postgresql") return [] as any;
+    // bifurcacao PG dentro do buscarHierarquiaMensal
 
     return this.buscarHierarquiaMensal(
       ano, codLoja,
@@ -2803,7 +3120,83 @@ export class GestaoInteligenteService {
    */
   static async getVendasDiaDia(ano: number, mes: number, codLoja?: number, tipoVenda?: number[]): Promise<any> {
     const __dbType = await (this as any).detectActiveDbType();
-    if (__dbType === "postgresql") return [] as any;
+    if (__dbType === "postgresql") {
+      // PG: vendas por dia + setor do mês
+      console.log(`📊 [GI PG] Buscando vendas dia a dia ${mes}/${ano}...`);
+      const schema = await MappingService.getSchema();
+      const colCodProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const colCodSecaoProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
+      const colCodSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'codigo_secao');
+      const colDesSecao = await MappingService.getColumnFromTable('TAB_SECAO', 'descricao_secao');
+      const tabProduto = await MappingService.getRealTableName('TAB_PRODUTO');
+      const tabSecao = await MappingService.getRealTableName('TAB_SECAO');
+
+      const anoAtual = new Date().getFullYear();
+      const mesAtual = new Date().getMonth() + 1;
+      const ultimoDia = (ano === anoAtual && mes === mesAtual) ? new Date().getDate() : new Date(ano, mes, 0).getDate();
+      const dtIni = `${ano}-${String(mes).padStart(2,'0')}-01`;
+      const dtFim = `${ano}-${String(mes).padStart(2,'0')}-${String(ultimoDia).padStart(2,'0')}`;
+      const tabVda = `vdadet${String(mes).padStart(2,'0')}${String(ano).slice(-2)}`;
+
+      // Query por vdadet do mês + complemento vdonlineprod
+      let sql = `SELECT d.vdet_datamvto AS dia, s.${colCodSecao}::int AS cod_secao, s.${colDesSecao} AS setor,
+        COALESCE(SUM(d.vdet_valor - COALESCE(d.vdet_valordesc,0) + COALESCE(d.vdet_valoracfin,0)),0)::float AS venda
+        FROM public.${tabVda} d
+        JOIN ${schema}.${tabProduto} p ON p.${colCodProd} = d.vdet_prod_codigo
+        JOIN ${schema}.${tabSecao} s ON s.${colCodSecao} = p.${colCodSecaoProd}
+        WHERE d.vdet_datamvto BETWEEN $1::date AND $2::date`;
+      const params: any[] = [dtIni, dtFim];
+      if (codLoja) { sql += ` AND d.vdet_unid_codigo::int = $3::int`; params.push(codLoja); }
+      sql += ` GROUP BY d.vdet_datamvto, s.${colCodSecao}, s.${colDesSecao}`;
+
+      let result: any[] = [];
+      try { result = await PostgresErpService.query<any>(sql, params); } catch {}
+
+      // Complementar com vdonlineprod
+      try {
+        let sqlOnl = `SELECT v.vopr_datamvto AS dia, s.${colCodSecao}::int AS cod_secao, s.${colDesSecao} AS setor,
+          COALESCE(SUM(v.vopr_valor - COALESCE(v.vopr_desconto,0) + COALESCE(v.vopr_acrescimo,0)),0)::float AS venda
+          FROM public.vdonlineprod v
+          JOIN ${schema}.${tabProduto} p ON p.${colCodProd} = v.vopr_prod_codigo
+          JOIN ${schema}.${tabSecao} s ON s.${colCodSecao} = p.${colCodSecaoProd}
+          WHERE v.vopr_datamvto BETWEEN $1::date AND $2::date AND v.vopr_tiporeg = 'IT' AND COALESCE(v.vopr_cancmotivo,'') = ''
+          AND v.vopr_datamvto >= COALESCE((SELECT MIN(vopr_datamvto) FROM public.vdonlineprod),'9999-12-31'::date)`;
+        const pOnl: any[] = [dtIni, dtFim];
+        if (codLoja) { sqlOnl += ` AND v.vopr_unid_codigo::int = $3::int`; pOnl.push(codLoja); }
+        sqlOnl += ` GROUP BY v.vopr_datamvto, s.${colCodSecao}, s.${colDesSecao}`;
+        const onlResult = await PostgresErpService.query<any>(sqlOnl, pOnl);
+        const vdaDias = new Set(result.map((r: any) => `${r.dia}-${r.cod_secao}`));
+        onlResult.forEach((r: any) => { if (!vdaDias.has(`${r.dia}-${r.cod_secao}`)) result.push(r); });
+      } catch {}
+
+      // Agrupar: setores com array de dias
+      const setoresMap: Record<number, { codSecao: number; setor: string; dias: Record<number, number> }> = {};
+      result.forEach((r: any) => {
+        const cod = r.cod_secao;
+        if (!setoresMap[cod]) setoresMap[cod] = { codSecao: cod, setor: r.setor, dias: {} };
+        const d = new Date(r.dia).getDate();
+        setoresMap[cod].dias[d] = (setoresMap[cod].dias[d] || 0) + Number(r.venda);
+      });
+
+      const setores = Object.values(setoresMap).map((s: any) => {
+        const diasArr: any[] = [];
+        for (let d = 1; d <= ultimoDia; d++) diasArr.push({ dia: d, venda: parseFloat((s.dias[d] || 0).toFixed(2)) });
+        const totalVenda = diasArr.reduce((a, d) => a + d.venda, 0);
+        return { codSecao: s.codSecao, secao: s.setor, dias: diasArr, total: parseFloat(totalVenda.toFixed(2)) };
+      });
+      setores.sort((a, b) => b.total - a.total);
+
+      // Gerar diasInfo (mesmo formato do Oracle)
+      const diasNoMes = new Date(ano, mes, 0).getDate();
+      const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+      const diasInfo: any[] = [];
+      for (let d = 1; d <= diasNoMes; d++) {
+        const date = new Date(ano, mes - 1, d);
+        diasInfo.push({ dia: d, diaSemana: diasSemana[date.getDay()] });
+      }
+
+      return { ano, mes, diasNoMes, ultimoDia, diasInfo, setores };
+    }
 
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
@@ -2933,7 +3326,7 @@ export class GestaoInteligenteService {
     codSecao?: number; codGrupo?: number; codSubGrupo?: number;
   }): Promise<any> {
     const __dbType = await (this as any).detectActiveDbType();
-    if (__dbType === "postgresql") return [] as any;
+    // bifurcacao PG dentro do buscarHierarquiaMensal
 
     const { ano, mes, codLoja, tipoVenda, nivel, codSecao, codGrupo, codSubGrupo } = params;
     const schema = await MappingService.getSchema();
