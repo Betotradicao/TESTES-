@@ -215,15 +215,36 @@ export class GestaoInteligenteService {
     const comprasParams: any[] = [dtIni, dtFim];
     if (codLoja) { comprasSql += ` AND pcpc_unid_dest::int = $${comprasParams.length+1}::int`; comprasParams.push(codLoja); }
 
-    const [vR, cR, coR] = await Promise.all([
+    // Venda Flex (Venda Direta) via movprodd - dcto_tipo EVD
+    // movprodd e particionado por mes: movprodd{MMYY}
+    const flexParts: string[] = [];
+    let cy2 = parseInt(dtIni.split('-')[0]), cm2 = parseInt(dtIni.split('-')[1]);
+    const yF2 = parseInt(dtFim.split('-')[0]), mF2 = parseInt(dtFim.split('-')[1]);
+    while (cy2 < yF2 || (cy2 === yF2 && cm2 <= mF2)) {
+      flexParts.push(`SELECT mprd_valor, mprd_ctcompra, COALESCE(mprd_icmsvalor,0) + COALESCE(mprd_valorpis,0) + COALESCE(mprd_valorcofins,0) AS imp FROM public.movprodd${String(cm2).padStart(2,'0')}${String(cy2).slice(-2)} WHERE mprd_datamvto BETWEEN $1::date AND $2::date AND mprd_dcto_tipo = 'EVD'`);
+      cm2++; if (cm2 > 12) { cm2 = 1; cy2++; }
+    }
+    let flexSql = `SELECT COALESCE(SUM(mprd_valor),0)::float AS venda_flex, COALESCE(SUM(mprd_ctcompra + imp),0)::float AS custo_flex FROM (${flexParts.join(' UNION ALL ')}) fx WHERE 1=1`;
+    const flexParams: any[] = [dtIni, dtFim];
+    if (codLoja) { flexSql = `SELECT COALESCE(SUM(mprd_valor),0)::float AS venda_flex, COALESCE(SUM(mprd_ctcompra + imp),0)::float AS custo_flex FROM (${flexParts.map(p => p + ` AND mprd_unid_codigo = $3`).join(' UNION ALL ')}) fx WHERE 1=1`; flexParams.push(codLoja); }
+
+    const [vR, cR, coR, fR] = await Promise.all([
       PostgresErpService.query<any>(vendasSql, vendasParams),
       PostgresErpService.query<any>(cuponsSql, cuponsParams),
-      PostgresErpService.query<any>(comprasSql, comprasParams)
+      PostgresErpService.query<any>(comprasSql, comprasParams),
+      PostgresErpService.query<any>(flexSql, flexParams).catch(() => [{ venda_flex: 0, custo_flex: 0 }])
     ]);
+
+    const vendasPdv = Number(vR[0]?.vendas) || 0;
+    const vendaFlex = Number(fR[0]?.venda_flex) || 0;
+    const custoPdv = Number(vR[0]?.custo_vendas) || 0;
+    const custoFlex = Number(fR[0]?.custo_flex) || 0;
+
     // PG: custo_total ja inclui impostos (custoentrada + icms+pis+cofins+fcp)
+    // Venda total = PDV + Flex (Venda Direta)
     // Retornar impostos=0 para nao duplicar no calculo de lucro liquido
     return {
-      vendas: Number(vR[0]?.vendas) || 0, custoVendas: Number(vR[0]?.custo_vendas) || 0,
+      vendas: vendasPdv + vendaFlex, custoVendas: custoPdv + custoFlex,
       impostos: 0, impostoCredito: 0,
       qtdItens: Number(vR[0]?.qtd_itens) || 0, qtdCupons: Number(cR[0]?.qtd_cupons) || 0,
       compras: Number(coR[0]?.compras) || 0, vendasOferta: Number(vR[0]?.vendas_oferta) || 0,
