@@ -152,7 +152,7 @@ export class GestaoInteligenteService {
     partes.push(`
       SELECT v.vopr_datamvto AS data, v.vopr_unid_codigo AS loja, v.vopr_prod_codigo AS prod_codigo, v.vopr_qtde AS qtde,
         (v.vopr_valor - COALESCE(v.vopr_desconto,0) + COALESCE(v.vopr_acrescimo,0)) AS valor_total,
-        (v.vopr_custoentrada * v.vopr_qtde) AS custo_total,
+        (v.vopr_custoentrada * v.vopr_qtde + COALESCE(v.vopr_icmsvalor,0) + COALESCE(v.vopr_pisvalor,0) + COALESCE(v.vopr_cofinsvalor,0) + COALESCE(v.vopr_fcpvalor,0)) AS custo_total,
         (COALESCE(v.vopr_icmsvalor,0)+COALESCE(v.vopr_pisvalor,0)+COALESCE(v.vopr_cofinsvalor,0)+COALESCE(v.vopr_fcpvalor,0)) AS imposto_total,
         v.vopr_cupom AS cupom, v.vopr_pdvs_codigo AS pdv,
         CASE WHEN COALESCE(v.vopr_agof_codigo,0) > 0 THEN 1 ELSE 0 END AS oferta_flag
@@ -168,7 +168,7 @@ export class GestaoInteligenteService {
       partes.push(`
         SELECT d.vdet_datamvto AS data, d.vdet_unid_codigo AS loja, d.vdet_prod_codigo AS prod_codigo, d.vdet_qtde AS qtde,
           (d.vdet_valor - COALESCE(d.vdet_valordesc,0) + COALESCE(d.vdet_valoracfin,0)) AS valor_total,
-          (d.vdet_custounit * d.vdet_qtde) AS custo_total,
+          (d.vdet_custounit * d.vdet_qtde + COALESCE(d.vdet_valoricms,0) + COALESCE(d.vdet_valorfcp,0)) AS custo_total,
           (COALESCE(d.vdet_valoricms,0)+COALESCE(d.vdet_valorfcp,0)) AS imposto_total,
           d.vdet_cupom AS cupom, d.vdet_pdv AS pdv,
           CASE WHEN d.vdet_oferta = 'S' THEN 1 ELSE 0 END AS oferta_flag
@@ -220,9 +220,11 @@ export class GestaoInteligenteService {
       PostgresErpService.query<any>(cuponsSql, cuponsParams),
       PostgresErpService.query<any>(comprasSql, comprasParams)
     ]);
+    // PG: custo_total ja inclui impostos (custoentrada + icms+pis+cofins+fcp)
+    // Retornar impostos=0 para nao duplicar no calculo de lucro liquido
     return {
       vendas: Number(vR[0]?.vendas) || 0, custoVendas: Number(vR[0]?.custo_vendas) || 0,
-      impostos: Number(vR[0]?.impostos) || 0, impostoCredito: 0,
+      impostos: 0, impostoCredito: 0,
       qtdItens: Number(vR[0]?.qtd_itens) || 0, qtdCupons: Number(cR[0]?.qtd_cupons) || 0,
       compras: Number(coR[0]?.compras) || 0, vendasOferta: Number(vR[0]?.vendas_oferta) || 0,
       custoOferta: Number(vR[0]?.custo_oferta) || 0, qtdSkus: Number(vR[0]?.qtd_skus) || 0
@@ -2863,7 +2865,7 @@ export class GestaoInteligenteService {
 
         let sql = `SELECT ${selectField}, ${nameFieldPg},
           COALESCE(SUM(d.vdet_valor - COALESCE(d.vdet_valordesc,0) + COALESCE(d.vdet_valoracfin,0)),0)::float AS venda,
-          COALESCE(SUM(d.vdet_custounit * d.vdet_qtde),0)::float AS custo,
+          COALESCE(SUM(d.vdet_custounit * d.vdet_qtde + COALESCE(d.vdet_valoricms,0) + COALESCE(d.vdet_valorfcp,0)),0)::float AS custo,
           COALESCE(SUM(COALESCE(d.vdet_valoricms,0) + COALESCE(d.vdet_valorfcp,0)),0)::float AS imp,
           COALESCE(SUM(CASE WHEN d.vdet_oferta = 'S' THEN d.vdet_valor - COALESCE(d.vdet_valordesc,0) + COALESCE(d.vdet_valoracfin,0) ELSE 0 END),0)::float AS oferta,
           COUNT(DISTINCT d.vdet_cupom || '-' || d.vdet_pdv || '-' || d.vdet_unid_codigo)::int AS cupons,
