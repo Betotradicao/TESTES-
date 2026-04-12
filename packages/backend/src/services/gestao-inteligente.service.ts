@@ -240,7 +240,9 @@ export class GestaoInteligenteService {
     const custoPdv = Number(vR[0]?.custo_vendas) || 0;
     const custoFlex = Number(fR[0]?.custo_flex) || 0;
 
-    // PG: custo_total ja inclui impostos (custoentrada + icms+pis+cofins+fcp)
+    console.log(`📊 [GI PG] Vendas PDV=${vendasPdv.toFixed(2)} Flex=${vendaFlex.toFixed(2)} Total=${(vendasPdv+vendaFlex).toFixed(2)} | Custo PDV=${custoPdv.toFixed(2)} Flex=${custoFlex.toFixed(2)}`);
+
+    // PG: custo_total ja inclui impostos (custoentrada + icms)
     // Venda total = PDV + Flex (Venda Direta)
     // Retornar impostos=0 para nao duplicar no calculo de lucro liquido
     return {
