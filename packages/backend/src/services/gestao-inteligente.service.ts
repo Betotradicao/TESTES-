@@ -152,7 +152,7 @@ export class GestaoInteligenteService {
     partes.push(`
       SELECT v.vopr_datamvto AS data, v.vopr_unid_codigo AS loja, v.vopr_prod_codigo AS prod_codigo, v.vopr_qtde AS qtde,
         (v.vopr_valor - COALESCE(v.vopr_desconto,0) + COALESCE(v.vopr_acrescimo,0)) AS valor_total,
-        (v.vopr_custoentrada * v.vopr_qtde + COALESCE(v.vopr_icmsvalor,0) + COALESCE(v.vopr_pisvalor,0) + COALESCE(v.vopr_cofinsvalor,0) + COALESCE(v.vopr_fcpvalor,0)) AS custo_total,
+        (v.vopr_custoentrada * v.vopr_qtde + COALESCE(v.vopr_icmsvalor,0)) AS custo_total,
         (COALESCE(v.vopr_icmsvalor,0)+COALESCE(v.vopr_pisvalor,0)+COALESCE(v.vopr_cofinsvalor,0)+COALESCE(v.vopr_fcpvalor,0)) AS imposto_total,
         v.vopr_cupom AS cupom, v.vopr_pdvs_codigo AS pdv,
         CASE WHEN COALESCE(v.vopr_agof_codigo,0) > 0 THEN 1 ELSE 0 END AS oferta_flag
@@ -232,7 +232,7 @@ export class GestaoInteligenteService {
       PostgresErpService.query<any>(vendasSql, vendasParams),
       PostgresErpService.query<any>(cuponsSql, cuponsParams),
       PostgresErpService.query<any>(comprasSql, comprasParams),
-      PostgresErpService.query<any>(flexSql, flexParams).catch(() => [{ venda_flex: 0, custo_flex: 0 }])
+      PostgresErpService.query<any>(flexSql, flexParams).catch((e) => { console.error('❌ [GI] Flex query error:', e.message); return [{ venda_flex: 0, custo_flex: 0 }]; })
     ]);
 
     const vendasPdv = Number(vR[0]?.vendas) || 0;
