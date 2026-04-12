@@ -152,12 +152,11 @@ export class GestaoInteligenteService {
     partes.push(`
       SELECT v.vopr_datamvto AS data, v.vopr_unid_codigo AS loja, v.vopr_prod_codigo AS prod_codigo, v.vopr_qtde AS qtde,
         (v.vopr_valor - COALESCE(v.vopr_desconto,0) + COALESCE(v.vopr_acrescimo,0)) AS valor_total,
-        (COALESCE(pn.prun_ctmedio, v.vopr_custoentrada, 0) * v.vopr_qtde) AS custo_total,
+        (v.vopr_custoentrada * v.vopr_qtde) AS custo_total,
         (COALESCE(v.vopr_icmsvalor,0)+COALESCE(v.vopr_pisvalor,0)+COALESCE(v.vopr_cofinsvalor,0)+COALESCE(v.vopr_fcpvalor,0)) AS imposto_total,
         v.vopr_cupom AS cupom, v.vopr_pdvs_codigo AS pdv,
         CASE WHEN COALESCE(v.vopr_agof_codigo,0) > 0 THEN 1 ELSE 0 END AS oferta_flag
       FROM public.vdonlineprod v
-      LEFT JOIN public.produn pn ON pn.prun_prod_codigo = v.vopr_prod_codigo AND pn.prun_unid_codigo = v.vopr_unid_codigo
       WHERE v.vopr_datamvto BETWEEN $1::date AND $2::date AND v.vopr_tiporeg = 'IT' AND COALESCE(v.vopr_cancmotivo,'') = ''
     `);
     // vdadet por mes (historico)
@@ -169,12 +168,11 @@ export class GestaoInteligenteService {
       partes.push(`
         SELECT d.vdet_datamvto AS data, d.vdet_unid_codigo AS loja, d.vdet_prod_codigo AS prod_codigo, d.vdet_qtde AS qtde,
           (d.vdet_valor - COALESCE(d.vdet_valordesc,0) + COALESCE(d.vdet_valoracfin,0)) AS valor_total,
-          (COALESCE(pn.prun_ctmedio, d.vdet_custounit, 0) * d.vdet_qtde) AS custo_total,
+          (d.vdet_custounit * d.vdet_qtde) AS custo_total,
           (COALESCE(d.vdet_valoricms,0)+COALESCE(d.vdet_valorfcp,0)) AS imposto_total,
           d.vdet_cupom AS cupom, d.vdet_pdv AS pdv,
           CASE WHEN d.vdet_oferta = 'S' THEN 1 ELSE 0 END AS oferta_flag
         FROM public.${t} d
-        LEFT JOIN public.produn pn ON pn.prun_prod_codigo = d.vdet_prod_codigo AND pn.prun_unid_codigo = d.vdet_unid_codigo
         WHERE d.vdet_datamvto BETWEEN $1::date AND $2::date
           AND d.vdet_datamvto < COALESCE((SELECT MIN(vopr_datamvto) FROM public.vdonlineprod),'9999-12-31'::date)
       `);
@@ -2865,7 +2863,7 @@ export class GestaoInteligenteService {
 
         let sql = `SELECT ${selectField}, ${nameFieldPg},
           COALESCE(SUM(d.vdet_valor - COALESCE(d.vdet_valordesc,0) + COALESCE(d.vdet_valoracfin,0)),0)::float AS venda,
-          COALESCE(SUM(COALESCE(pn.prun_ctmedio, d.vdet_custounit, 0) * d.vdet_qtde),0)::float AS custo,
+          COALESCE(SUM(d.vdet_custounit * d.vdet_qtde),0)::float AS custo,
           COALESCE(SUM(COALESCE(d.vdet_valoricms,0) + COALESCE(d.vdet_valorfcp,0)),0)::float AS imp,
           COALESCE(SUM(CASE WHEN d.vdet_oferta = 'S' THEN d.vdet_valor - COALESCE(d.vdet_valordesc,0) + COALESCE(d.vdet_valoracfin,0) ELSE 0 END),0)::float AS oferta,
           COUNT(DISTINCT d.vdet_cupom || '-' || d.vdet_pdv || '-' || d.vdet_unid_codigo)::int AS cupons,
@@ -2873,7 +2871,6 @@ export class GestaoInteligenteService {
           COALESCE(SUM(d.vdet_qtde),0)::float AS qtd
           FROM public.${tabVda} d
           JOIN ${schema}.${tabProduto} p ON p.${colCodProd} = d.vdet_prod_codigo
-          LEFT JOIN public.produn pn ON pn.prun_prod_codigo = d.vdet_prod_codigo AND pn.prun_unid_codigo = d.vdet_unid_codigo
           ${joinPg}
           WHERE d.vdet_datamvto BETWEEN $1::date AND $2::date ${wherePg}`;
         const params: any[] = [dtIni, dtFim];
