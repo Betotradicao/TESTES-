@@ -420,31 +420,41 @@ export class EmailMonitorService {
   }
 
   /**
-   * Formata o texto do email com emojis para WhatsApp
+   * Formata o texto do email extraindo apenas as informacoes essenciais para WhatsApp
    */
   private static formatEmailText(text: string): string {
-    // Adicionar emojis mantendo a formatação original do email
-    let formattedText = text
-      .replace(/Evento de alarme:/gi, '🧠 Evento de alarme:')
-      .replace(/Alarme no Canal No\.:/gi, '📡 Alarme no Canal No.:')
-      .replace(/^Nome: FACIAL/gmi, '📱 Nome: FACIAL')
-      .replace(/Hor[aá]rio do inicio do alarme\(D\/M\/A H:M:S\):/gi, '🕐 Horário do inicio do alarme(D/M/A H:M:S):')
-      .replace(/Nome do dispositivo de alarme:/gi, '📷 Nome do dispositivo de alarme:')
-      .replace(/^Nome: Reconhecimento Facial/gmi, '🧑 Nome: Reconhecimento Facial')
-      .replace(/End\. IP DVR:/gi, '🌐 End. IP DVR:')
-      .replace(/Detalhes do alarme:/gi, '📋 Detalhes do alarme:')
-      .replace(/^\s*Modo Comum/gmi, '⚙️ Modo Comum')
-      .replace(/^\s*Banco de imagens:/gmi, '📂 Banco de imagens:')
-      .replace(/^\s*Nome: (?!FACIAL|Reconhecimento)/gmi, '🧑 Nome: ')
-      .replace(/^\s*Similaridade:/gmi, '📊 Similaridade:')
-      .replace(/^\s*Idade:/gmi, '🧓 Idade:')
-      .replace(/^\s*G[eê]nero:/gmi, '⚧️ Gênero:')
-      .replace(/^\s*Express[aã]o:/gmi, '👁️ Expressão:')
-      .replace(/^\s*[ÓO]culos:/gmi, '😎 Óculos:')
-      .replace(/^\s*M[aá]scara:/gmi, '😷 Máscara:')
-      .replace(/^\s*Barba:/gmi, '🧔 Barba:');
+    const lines = text.split(/\r?\n/);
+    const parts: string[] = [];
 
-    return formattedText;
+    // Extrair: Evento de alarme
+    const eventoLine = lines.find(l => /evento de alarme/i.test(l));
+    if (eventoLine) parts.push('🧠 ' + eventoLine.trim());
+
+    // Extrair: Horario do alarme
+    const horarioLine = lines.find(l => /hor[aá]rio do inicio do alarme/i.test(l));
+    if (horarioLine) parts.push('🕐 ' + horarioLine.trim());
+
+    // Extrair: Banco de imagens
+    const bancoLine = lines.find(l => /banco de imagens/i.test(l));
+    if (bancoLine) parts.push('\n📂 ' + bancoLine.trim());
+
+    // Extrair: Nome da pessoa (a linha "Nome:" logo apos "Banco de imagens")
+    if (bancoLine) {
+      const bancoIdx = lines.indexOf(bancoLine);
+      for (let i = bancoIdx + 1; i < lines.length; i++) {
+        const trimmed = lines[i].trim();
+        if (/^nome:/i.test(trimmed)) {
+          parts.push('🧑 ' + trimmed);
+          break;
+        }
+        if (trimmed.length > 0) break; // parar se achou outra linha nao vazia que nao e Nome
+      }
+    }
+
+    // Se nao conseguiu extrair nada, retorna texto original resumido
+    if (parts.length === 0) return text.substring(0, 500);
+
+    return parts.join('\n');
   }
 
   /**
