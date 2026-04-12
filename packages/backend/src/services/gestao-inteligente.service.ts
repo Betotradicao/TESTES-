@@ -174,7 +174,7 @@ export class GestaoInteligenteService {
           CASE WHEN d.vdet_oferta = 'S' THEN 1 ELSE 0 END AS oferta_flag
         FROM public.${t} d
         WHERE d.vdet_datamvto BETWEEN $1::date AND $2::date
-          AND d.vdet_datamvto < COALESCE((SELECT MIN(vopr_datamvto) FROM public.vdonlineprod),'9999-12-31'::date)
+          AND d.vdet_datamvto < COALESCE((SELECT MIN(vopr_datamvto) FROM public.vdonlineprod WHERE vopr_unid_codigo = d.vdet_unid_codigo),'9999-12-31'::date)
       `);
       cm++; if (cm > 12) { cm = 1; cy++; }
     }
