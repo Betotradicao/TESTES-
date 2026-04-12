@@ -2570,10 +2570,10 @@ export class GestaoInteligenteService {
         });
 
         const diasSemana = [...nomesDia, 'Feriado'].map(nome => ({
-          dia: nome,
+          diaSemana: nome,
           totalDias: mData[nome]?.dias || 0,
           totalVendas: parseFloat((mData[nome]?.vendas || 0).toFixed(2)),
-          media: mData[nome]?.dias > 0 ? parseFloat((mData[nome].vendas / mData[nome].dias).toFixed(2)) : 0
+          mediaVendas: mData[nome]?.dias > 0 ? parseFloat((mData[nome].vendas / mData[nome].dias).toFixed(2)) : 0
         }));
         meses.push({ mes: nomesMes[m], mesNum: m, dias: diasSemana });
       }
