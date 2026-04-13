@@ -7,6 +7,8 @@ import { AppDataSource } from '../config/database';
 import { Configuration } from '../entities/Configuration';
 import { OracleService } from './oracle.service';
 import { MappingService } from './mapping.service';
+import { PostgresErpService } from './postgres-erp.service';
+import { DatabaseConnection, DatabaseType, ConnectionStatus } from '../entities/DatabaseConnection';
 
 
 interface DVRSession {
@@ -764,6 +766,18 @@ export class DVRCFTVService {
    * Retorna transações com PDV, horário, cupom, operador, valor e tipo.
    */
   static async searchOracleAllPdvs(startDate: string, endDate: string, text: string, pdvFilter?: number, barcode?: string): Promise<{ total: number; items: any[] }> {
+    // Bifurcar Oracle/PG
+    try {
+      if (AppDataSource.isInitialized) {
+        const repo = AppDataSource.getRepository(DatabaseConnection);
+        let conn = await repo.findOne({ where: { is_default: true, status: ConnectionStatus.ACTIVE } });
+        if (!conn) conn = await repo.findOne({ where: { status: ConnectionStatus.ACTIVE } });
+        if (conn?.type === DatabaseType.POSTGRESQL) {
+          return this.searchPostgresAllPdvs(startDate, endDate, text, pdvFilter, barcode);
+        }
+      }
+    } catch {}
+
     const [year, month, day] = startDate.split('-');
     const dateStr = `${day}/${month}/${year}`;
     const textUpper = text ? text.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') : '';
@@ -993,6 +1007,161 @@ export class DVRCFTVService {
     }
 
     return { total: results.length, items: results };
+  }
+
+  /**
+   * Versao PG do searchOracleAllPdvs - busca em vdonlineprod, vdonlinec, vdonlinefi
+   */
+  private static async searchPostgresAllPdvs(startDate: string, endDate: string, text: string, pdvFilter?: number, barcode?: string): Promise<{ total: number; items: any[] }> {
+    const textUpper = text ? text.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') : '';
+    const schema = await MappingService.getSchema();
+    const results: any[] = [];
+
+    // Detectar keyword
+    let keyword = '';
+    if (['CANCELAMENTO ITEM', 'CANCELADO ITEM', 'CANC ITEM', 'CANC. ITEM'].includes(textUpper)) keyword = 'cancelado_item';
+    else if (['CANCELAMENTO CUPOM', 'CANCELADO CUPOM', 'CANC CUPOM', 'CANC. CUPOM'].includes(textUpper)) keyword = 'cancelado_cupom';
+    else if (['CANCELAMENTO VENDA', 'CANCELADO VENDA', 'CANC VENDA', 'CANC. VENDA'].includes(textUpper)) keyword = 'cancelado_venda';
+    else if (['CANCELAMENTO', 'CANCELADO', 'CANCEL', 'CANCELA', 'ESTORNO'].includes(textUpper)) keyword = 'cancelado';
+    else if (textUpper === 'DESCONTO') keyword = 'desconto';
+    else if (['DINHEIRO'].includes(textUpper)) keyword = 'fin_01';
+    else if (['CREDITO', 'CARTAO CREDITO', 'CRED'].includes(textUpper)) keyword = 'fin_05';
+    else if (['DEBITO', 'CARTAO DEBITO', 'DEB'].includes(textUpper)) keyword = 'fin_04';
+    else if (['PIX'].includes(textUpper)) keyword = 'fin_16';
+    else if (['CRED PARCELADO', 'CREDITO PARCELADO', 'PARCELADO'].includes(textUpper)) keyword = 'fin_06';
+    else if (['FUNCIONARIO', 'CONVENIO'].includes(textUpper)) keyword = 'fin_10';
+
+    const pdvWhere = pdvFilter ? ` AND vopr_pdvs_codigo::int = $3::int` : '';
+    const params: any[] = [startDate, endDate];
+    if (pdvFilter) params.push(pdvFilter);
+
+    // BARCODE: buscar por codigo de barras
+    if (barcode) {
+      const colBarras = await MappingService.getColumnFromTable('TAB_PRODUTO', 'ean');
+      const tabProd = await MappingService.getRealTableName('TAB_PRODUTO');
+      const colCodProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const colDesc = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+      const barcodeParams = [...params, barcode];
+      const sql = `SELECT v.vopr_cupom as cupom, v.vopr_pdvs_codigo as pdv,
+        v.vopr_datamvto::text || ' ' || v.vopr_hora as hora,
+        p.${colDesc} as produto, v.vopr_valor::float as valor, v.vopr_operador as operador
+        FROM public.vdonlineprod v
+        JOIN ${schema}.${tabProd} p ON p.${colCodProd} = v.vopr_prod_codigo
+        WHERE v.vopr_datamvto BETWEEN $1 AND $2 AND v.vopr_tiporeg = 'IT'
+        AND COALESCE(v.vopr_cancmotivo,'') = ''
+        AND p.${colBarras} = $${barcodeParams.length}
+        ${pdvWhere} ORDER BY v.vopr_hora`;
+      const rows = await PostgresErpService.query<any>(sql, barcodeParams);
+      for (const r of rows) {
+        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: r.produto || '', valor: Number(r.valor) || 0, tipo: 'PRODUTO', operador: r.operador || '' });
+      }
+      return { total: results.length, items: results };
+    }
+
+    // CANCELAMENTO DE ITEM: vdonlineprod com cancmotivo preenchido
+    if (keyword === 'cancelado_item' || keyword === 'cancelado') {
+      const sql = `SELECT vopr_cupom as cupom, vopr_pdvs_codigo as pdv,
+        vopr_datamvto::text || ' ' || vopr_hora as hora,
+        vopr_prod_codigo as cod_prod, vopr_valor::float as valor,
+        vopr_cancmotivo as motivo, vopr_cancsupervnome as supervisor, vopr_operador as operador
+        FROM public.vdonlineprod
+        WHERE vopr_datamvto BETWEEN $1 AND $2 AND vopr_tiporeg = 'IT'
+        AND vopr_cancmotivo IS NOT NULL AND vopr_cancmotivo != ''
+        ${pdvWhere} ORDER BY vopr_hora`;
+      const rows = await PostgresErpService.query<any>(sql, params);
+      for (const r of rows) {
+        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: r.motivo || '', valor: Number(r.valor) || 0, tipo: 'CANC. ITEM', operador: r.supervisor || r.operador || '' });
+      }
+      if (keyword === 'cancelado_item') return { total: results.length, items: results };
+    }
+
+    // CANCELAMENTO DE CUPOM: vdonlinec com cancmotivo preenchido
+    if (keyword === 'cancelado_cupom' || keyword === 'cancelado') {
+      const sql = `SELECT c.vopc_cupom as cupom, c.vopc_pdvs_codigo as pdv,
+        c.vopc_datamvto::text || ' ' || COALESCE(c.vopc_datahoraabertura::text, '') as hora,
+        c.vopc_cancmotivo as motivo, c.vopc_cancsupervnome as supervisor,
+        COALESCE((SELECT SUM(p.vopr_valor)::float FROM public.vdonlineprod p WHERE p.vopr_cupom = c.vopc_cupom AND p.vopr_unid_codigo = c.vopc_unid_codigo AND p.vopr_datamvto = c.vopc_datamvto AND p.vopr_tiporeg = 'IT'), 0) as valor
+        FROM public.vdonlinec c
+        WHERE c.vopc_datamvto BETWEEN $1 AND $2
+        AND c.vopc_cancmotivo IS NOT NULL AND c.vopc_cancmotivo != ''
+        ${pdvFilter ? ' AND c.vopc_pdvs_codigo::int = $3::int' : ''}
+        ORDER BY c.vopc_cupom`;
+      const rows = await PostgresErpService.query<any>(sql, params);
+      for (const r of rows) {
+        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: '', valor: Number(r.valor) || 0, tipo: 'CANC. CUPOM', operador: r.supervisor || '' });
+      }
+      if (keyword === 'cancelado_cupom') return { total: results.length, items: results };
+    }
+
+    // CANCELAMENTO generico: retorna todos juntos
+    if (keyword === 'cancelado') {
+      results.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+      return { total: results.length, items: results };
+    }
+
+    // DESCONTO: itens com desconto > 0
+    if (keyword === 'desconto') {
+      const sql = `SELECT vopr_cupom as cupom, vopr_pdvs_codigo as pdv,
+        vopr_datamvto::text || ' ' || vopr_hora as hora,
+        vopr_desconto::float as valor, vopr_operador as operador,
+        vopr_descsupervnome as supervisor, vopr_descmotivo as motivo
+        FROM public.vdonlineprod
+        WHERE vopr_datamvto BETWEEN $1 AND $2 AND vopr_tiporeg = 'IT'
+        AND COALESCE(vopr_cancmotivo,'') = '' AND vopr_desconto > 0
+        ${pdvWhere} ORDER BY vopr_hora`;
+      const rows = await PostgresErpService.query<any>(sql, params);
+      for (const r of rows) {
+        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: r.motivo || '', valor: Number(r.valor) || 0, tipo: 'DESCONTO', operador: r.supervisor || r.operador || '' });
+      }
+      return { total: results.length, items: results };
+    }
+
+    // FINALIZADORA (Dinheiro, Credito, Debito, PIX, etc)
+    if (keyword.startsWith('fin_')) {
+      const codFin = keyword.split('_')[1];
+      const finParams = [...params, codFin];
+      const sql = `SELECT f.vofi_cupom as cupom, f.vofi_pdvs_codigo as pdv,
+        f.vofi_datamvto::text || ' ' || f.vofi_hora as hora,
+        f.vofi_valor::float as valor, f.vofi_finalizadora as finalizadora
+        FROM public.vdonlinefi f
+        WHERE f.vofi_datamvto BETWEEN $1 AND $2 AND f.vofi_tiporeg = 'FI'
+        AND f.vofi_finalizadora = $${finParams.length}
+        ${pdvFilter ? ' AND f.vofi_pdvs_codigo::int = $' + (finParams.length + 1) + '::int' : ''}
+        ORDER BY f.vofi_hora`;
+      if (pdvFilter) finParams.push(pdvFilter);
+      const rows = await PostgresErpService.query<any>(sql, finParams);
+      for (const r of rows) {
+        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: '', valor: Number(r.valor) || 0, tipo: textUpper || 'FINALIZADORA', operador: '' });
+      }
+      return { total: results.length, items: results };
+    }
+
+    // PRODUTO: busca por texto na descricao
+    if (text) {
+      const colDesc = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+      const colCodProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const tabProd = await MappingService.getRealTableName('TAB_PRODUTO');
+      const textParams = [...params, '%' + text.toUpperCase() + '%'];
+      const sql = `SELECT v.vopr_cupom as cupom, v.vopr_pdvs_codigo as pdv,
+        v.vopr_datamvto::text || ' ' || MIN(v.vopr_hora) as hora,
+        SUM(v.vopr_valor - COALESCE(v.vopr_desconto,0) + COALESCE(v.vopr_acrescimo,0))::float as valor,
+        COUNT(*)::int as qtd_itens, v.vopr_operador as operador
+        FROM public.vdonlineprod v
+        JOIN ${schema}.${tabProd} p ON p.${colCodProd} = v.vopr_prod_codigo
+        WHERE v.vopr_datamvto BETWEEN $1 AND $2 AND v.vopr_tiporeg = 'IT'
+        AND COALESCE(v.vopr_cancmotivo,'') = ''
+        AND UPPER(p.${colDesc}) LIKE $${textParams.length}
+        ${pdvWhere}
+        GROUP BY v.vopr_cupom, v.vopr_pdvs_codigo, v.vopr_datamvto, v.vopr_operador
+        ORDER BY MIN(v.vopr_hora)`;
+      const rows = await PostgresErpService.query<any>(sql, textParams);
+      for (const r of rows) {
+        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: '', valor: Number(r.valor) || 0, tipo: 'PRODUTO', qtdItens: Number(r.qtd_itens) || 0, operador: r.operador || '' });
+      }
+      return { total: results.length, items: results };
+    }
+
+    return { total: 0, items: [] };
   }
 
   /**
