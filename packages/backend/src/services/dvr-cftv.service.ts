@@ -1181,7 +1181,7 @@ export class DVRCFTVService {
         v.vopr_sequencial::int as "NUM_SEQ_ITEM"
         FROM public.vdonlineprod v
         LEFT JOIN ${schema}.${tabProd} p ON p.${colCodProd} = v.vopr_prod_codigo
-        WHERE v.vopr_datamvto = $1::date AND v.vopr_cupom = $2::text AND v.vopr_tiporeg = 'IT'
+        WHERE v.vopr_datamvto = $1::date AND v.vopr_cupom::int = $2::int AND v.vopr_tiporeg = 'IT'
         ORDER BY v.vopr_sequencial`;
       const rows = await PostgresErpService.query<any>(sql, [datePart, String(cupomNum)]);
 

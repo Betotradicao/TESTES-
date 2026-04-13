@@ -1328,7 +1328,7 @@ export class FrenteCaixaService {
         v.vopr_hora as "HORA"
         FROM public.vdonlineprod v
         LEFT JOIN ${schema}.${tabProd} p ON p.${colCodProd} = v.vopr_prod_codigo
-        WHERE v.vopr_cupom = $1::text AND v.vopr_unid_codigo::int = $2::int
+        WHERE v.vopr_cupom::int = $1::int AND v.vopr_unid_codigo::int = $2::int
         AND v.vopr_tiporeg = 'IT' ${dateWhere}
         ORDER BY v.vopr_hora`;
       return PostgresErpService.query<any>(sql, params);
