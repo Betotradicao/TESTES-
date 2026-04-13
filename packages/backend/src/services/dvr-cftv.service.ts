@@ -1099,31 +1099,39 @@ export class DVRCFTVService {
       return { total: results.length, items: results };
     }
 
-    // DESCONTO: itens com desconto > 0
+    // DESCONTO: itens com desconto > 0, mostra produto + valor desconto + operador nome
     if (keyword === 'desconto') {
-      const sql = `SELECT vopr_cupom as cupom, vopr_pdvs_codigo as pdv,
-        vopr_datamvto::text || ' ' || vopr_hora as hora,
-        vopr_desconto::float as valor, vopr_operador as operador,
-        vopr_descsupervnome as supervisor, vopr_descmotivo as motivo
-        FROM public.vdonlineprod
-        WHERE vopr_datamvto BETWEEN $1 AND $2 AND vopr_tiporeg = 'IT'
-        AND COALESCE(vopr_cancmotivo,'') = '' AND vopr_desconto > 0
-        ${pdvWhere} ORDER BY vopr_hora`;
+      const colDesc = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+      const colCodProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const tabProd = await MappingService.getRealTableName('TAB_PRODUTO');
+      const sql = `SELECT v.vopr_cupom as cupom, v.vopr_pdvs_codigo as pdv,
+        v.vopr_datamvto::text || ' ' || v.vopr_hora as hora,
+        v.vopr_desconto::float as valor, p.${colDesc} as produto,
+        COALESCE(f.func_nome, v.vopr_operador::text) as operador
+        FROM public.vdonlineprod v
+        LEFT JOIN ${schema}.${tabProd} p ON p.${colCodProd} = v.vopr_prod_codigo
+        LEFT JOIN public.funcionarios f ON f.func_codigo::int = v.vopr_operador::int
+        WHERE v.vopr_datamvto BETWEEN $1 AND $2 AND v.vopr_tiporeg = 'IT'
+        AND COALESCE(v.vopr_cancmotivo,'') = '' AND v.vopr_desconto > 0
+        ${pdvWhere} ORDER BY v.vopr_hora`;
       const rows = await PostgresErpService.query<any>(sql, params);
       for (const r of rows) {
-        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: r.motivo || '', valor: Number(r.valor) || 0, tipo: 'DESCONTO', operador: r.supervisor || r.operador || '' });
+        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: (r.produto || '').trim(), valor: Number(r.valor) || 0, tipo: 'DESCONTO', operador: (r.operador || '').trim() });
       }
       return { total: results.length, items: results };
     }
 
-    // FINALIZADORA (Dinheiro, Credito, Debito, PIX, etc)
+    // FINALIZADORA (Dinheiro, Credito, Debito, PIX, etc) com operador
     if (keyword.startsWith('fin_')) {
       const codFin = keyword.split('_')[1];
       const finParams = [...params, codFin];
       const sql = `SELECT f.vofi_cupom as cupom, f.vofi_pdvs_codigo as pdv,
         f.vofi_datamvto::text || ' ' || f.vofi_hora as hora,
-        f.vofi_valor::float as valor, f.vofi_finalizadora as finalizadora
+        (f.vofi_valor - COALESCE(f.vofi_troco,0))::float as valor,
+        COALESCE(fn.func_nome, vp.vopr_operador::text, '') as operador
         FROM public.vdonlinefi f
+        LEFT JOIN public.vdonlineprod vp ON vp.vopr_cupom = f.vofi_cupom AND vp.vopr_pdvs_codigo = f.vofi_pdvs_codigo AND vp.vopr_datamvto = f.vofi_datamvto AND vp.vopr_tiporeg = 'IT' AND vp.vopr_sequencial = (SELECT MIN(v2.vopr_sequencial) FROM public.vdonlineprod v2 WHERE v2.vopr_cupom = f.vofi_cupom AND v2.vopr_pdvs_codigo = f.vofi_pdvs_codigo AND v2.vopr_datamvto = f.vofi_datamvto AND v2.vopr_tiporeg = 'IT')
+        LEFT JOIN public.funcionarios fn ON fn.func_codigo::int = vp.vopr_operador::int
         WHERE f.vofi_datamvto BETWEEN $1 AND $2 AND f.vofi_tiporeg = 'FI'
         AND f.vofi_finalizadora = $${finParams.length}
         ${pdvFilter ? ' AND f.vofi_pdvs_codigo::int = $' + (finParams.length + 1) + '::int' : ''}
@@ -1131,7 +1139,7 @@ export class DVRCFTVService {
       if (pdvFilter) finParams.push(pdvFilter);
       const rows = await PostgresErpService.query<any>(sql, finParams);
       for (const r of rows) {
-        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: '', valor: Number(r.valor) || 0, tipo: textUpper || 'FINALIZADORA', operador: '' });
+        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: '', valor: Number(r.valor) || 0, tipo: textUpper || 'FINALIZADORA', operador: (r.operador || '').trim() });
       }
       return { total: results.length, items: results };
     }
