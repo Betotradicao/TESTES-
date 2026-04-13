@@ -103,6 +103,12 @@ export class SellsController {
         query = query.andWhere('sell.codLoja = :codLoja', { codLoja: parseInt(codLoja as string) });
       }
 
+      // Filtrar APENAS vendas de produtos ativados OU com bipagem vinculada
+      // Produtos nao ativados sem bipagem nao devem aparecer no Resultados do Dia
+      query = query.andWhere(
+        '(sell.activatedProductId IS NOT NULL OR sell.bipId IS NOT NULL)'
+      );
+
       // Get total count
       const total = await query.getCount();
 
