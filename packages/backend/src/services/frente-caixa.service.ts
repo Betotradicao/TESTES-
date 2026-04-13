@@ -268,13 +268,16 @@ export class FrenteCaixaService {
     return OracleService.query<Operador>(sql, params);
   }
 
-  /** PG: lista operadores a partir dos cupons do vdonlineprod */
+  /** PG: lista operadores com nomes da tabela funcionarios */
   private static async getOperadoresPg(codLoja?: number): Promise<Operador[]> {
-    let sql = `SELECT DISTINCT vopr_operador::int as "COD_OPERADOR", vopr_operador::text as "DES_OPERADOR"
-      FROM public.vdonlineprod WHERE vopr_tiporeg = 'IT' AND vopr_operador IS NOT NULL`;
+    let sql = `SELECT DISTINCT v.vopr_operador::int as "COD_OPERADOR",
+      COALESCE(f.func_nome, 'Operador ' || v.vopr_operador) as "DES_OPERADOR"
+      FROM public.vdonlineprod v
+      LEFT JOIN public.funcionarios f ON f.func_codigo::int = v.vopr_operador::int
+      WHERE v.vopr_tiporeg = 'IT' AND v.vopr_operador IS NOT NULL`;
     const params: any[] = [];
-    if (codLoja) { sql += ` AND vopr_unid_codigo::int = $1::int`; params.push(codLoja); }
-    sql += ` ORDER BY vopr_operador::int`;
+    if (codLoja) { sql += ` AND v.vopr_unid_codigo::int = $1::int`; params.push(codLoja); }
+    sql += ` ORDER BY "DES_OPERADOR"`;
     return PostgresErpService.query<Operador>(sql, params);
   }
 
@@ -303,13 +306,15 @@ export class FrenteCaixaService {
 
     console.log('📊 [Frente Caixa PG] Buscando resumo operadores...');
 
-    // 1. Vendas + itens + descontos por operador (vdonlineprod)
+    // 1. Vendas + itens + descontos por operador (vdonlineprod + funcionarios)
     const sqlVendas = `SELECT v.vopr_operador::int as cod_op,
+      COALESCE(MAX(f.func_nome), 'Operador ' || v.vopr_operador) as nome_op,
       COALESCE(SUM(v.vopr_valor - COALESCE(v.vopr_desconto,0) + COALESCE(v.vopr_acrescimo,0)),0)::float as vendas,
       COUNT(*)::int as itens,
       COUNT(DISTINCT v.vopr_cupom || '-' || v.vopr_pdvs_codigo)::int as cupons,
       COALESCE(SUM(COALESCE(v.vopr_desconto,0)),0)::float as descontos
       FROM public.vdonlineprod v
+      LEFT JOIN public.funcionarios f ON f.func_codigo::int = v.vopr_operador::int
       WHERE v.vopr_datamvto BETWEEN $1 AND $2 AND v.vopr_tiporeg = 'IT'
       AND COALESCE(v.vopr_cancmotivo,'') = '' AND v.vopr_operador IS NOT NULL
       ${lojaWhere} ${opWhere}
@@ -365,7 +370,7 @@ export class FrenteCaixaService {
         const cancTotal = Number(c.cancelamentos || 0) + Number(c.devolucoes || 0);
         return {
           COD_OPERADOR: v.cod_op,
-          DES_OPERADOR: String(v.cod_op),
+          DES_OPERADOR: v.nome_op || String(v.cod_op),
           TOTAL_VENDAS: v.vendas,
           TOTAL_ITENS: v.itens,
           TOTAL_CUPONS: v.cupons,

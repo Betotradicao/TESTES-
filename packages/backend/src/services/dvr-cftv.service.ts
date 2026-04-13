@@ -1164,6 +1164,43 @@ export class DVRCFTVService {
     return { total: 0, items: [] };
   }
 
+  /** PG: buscar itens de um cupom pelo numero */
+  private static async getCupomByTimePg(time: string, cupomNum: number): Promise<any> {
+    try {
+      const [datePart] = time.split(' ');
+      const schema = await MappingService.getSchema();
+      const colCodProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const colDesc = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+      const tabProd = await MappingService.getRealTableName('TAB_PRODUTO');
+
+      const sql = `SELECT v.vopr_cupom::int as "NUM_CUPOM_FISCAL", v.vopr_hora as "HORA",
+        v.vopr_prod_codigo as "COD_PRODUTO", p.${colDesc} as "DES_PRODUTO",
+        v.vopr_qtde::float as "QTD", (v.vopr_valor / NULLIF(v.vopr_qtde,0))::float as "UNITARIO",
+        v.vopr_valor::float as "TOTAL", COALESCE(v.vopr_desconto,0)::float as "VAL_DESCONTO",
+        CASE WHEN v.vopr_cancmotivo IS NOT NULL AND v.vopr_cancmotivo != '' THEN 'S' ELSE 'N' END as "FLG_CUPOM_CANCELADO",
+        v.vopr_sequencial::int as "NUM_SEQ_ITEM"
+        FROM public.vdonlineprod v
+        LEFT JOIN ${schema}.${tabProd} p ON p.${colCodProd} = v.vopr_prod_codigo
+        WHERE v.vopr_datamvto = $1::date AND v.vopr_cupom = $2::text AND v.vopr_tiporeg = 'IT'
+        ORDER BY v.vopr_sequencial`;
+      const rows = await PostgresErpService.query<any>(sql, [datePart, String(cupomNum)]);
+
+      if (rows.length === 0) return { cupom: cupomNum, itens: [], total: 0, qtdItens: 0 };
+
+      const itens = rows.map((r: any) => ({
+        cod: r.COD_PRODUTO, descricao: (r.DES_PRODUTO || '').trim(),
+        qtd: r.QTD || 1, unitario: r.UNITARIO || 0, total: r.TOTAL || 0,
+        desconto: r.VAL_DESCONTO || 0, cancelado: r.FLG_CUPOM_CANCELADO === 'S',
+        seq: r.NUM_SEQ_ITEM
+      }));
+      const total = itens.reduce((s: number, i: any) => s + (i.cancelado ? 0 : i.total), 0);
+      return { cupom: cupomNum, itens, total, qtdItens: itens.length, hora: rows[0].HORA };
+    } catch (e: any) {
+      console.error('[DVR] getCupomByTimePg erro:', e.message);
+      return { cupom: cupomNum, itens: [], total: 0, qtdItens: 0, error: e.message };
+    }
+  }
+
   /**
    * Buscar produto pelo código de barras (EAN)
    */
@@ -1278,9 +1315,23 @@ export class DVRCFTVService {
    */
   static async getCupomByTime(time: string, channel: number, cupomNumDirect?: number): Promise<any> {
     try {
+      // Bifurcar PG
+      let isPg = false;
+      try {
+        if (AppDataSource.isInitialized) {
+          const repo = AppDataSource.getRepository(DatabaseConnection);
+          let conn = await repo.findOne({ where: { is_default: true, status: ConnectionStatus.ACTIVE } });
+          if (!conn) conn = await repo.findOne({ where: { status: ConnectionStatus.ACTIVE } });
+          if (conn?.type === DatabaseType.POSTGRESQL) isPg = true;
+        }
+      } catch {}
+
+      if (isPg && cupomNumDirect) {
+        return this.getCupomByTimePg(time, cupomNumDirect);
+      }
+
       const config = await this.getConfig();
       const pdv = this.channelToPdv(config, channel);
-      // time = "2026-03-04 17:24:12"
       const [datePart, timePart] = time.split(' ');
       const [year, month, day] = datePart.split('-');
       const [hour, minute] = timePart.split(':');
