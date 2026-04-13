@@ -7,6 +7,9 @@
 
 import { OracleService } from './oracle.service';
 import { MappingService } from './mapping.service';
+import { PostgresErpService } from './postgres-erp.service';
+import { AppDataSource } from '../config/database';
+import { DatabaseConnection, DatabaseType, ConnectionStatus } from '../entities/DatabaseConnection';
 
 // Interfaces
 export interface FrenteCaixaFilters {
@@ -78,6 +81,18 @@ export interface Operador {
 }
 
 export class FrenteCaixaService {
+  /** Detecta tipo de banco ativo */
+  private static async detectDbType(): Promise<'oracle' | 'postgresql'> {
+    try {
+      if (!AppDataSource.isInitialized) return 'oracle';
+      const repo = AppDataSource.getRepository(DatabaseConnection);
+      let conn = await repo.findOne({ where: { is_default: true, status: ConnectionStatus.ACTIVE } });
+      if (!conn) conn = await repo.findOne({ where: { status: ConnectionStatus.ACTIVE } });
+      if (conn?.type === DatabaseType.POSTGRESQL) return 'postgresql';
+    } catch {}
+    return 'oracle';
+  }
+
   /**
    * Mapeamento de finalizadoras (CORRIGIDO)
    * 1 = Dinheiro
@@ -237,42 +252,156 @@ export class FrenteCaixaService {
    * NOTA: TAB_OPERADORES sempre usa COD_OPERADOR e DES_OPERADOR (não usar mapeamento de vendas)
    */
   static async getOperadores(codLoja?: number): Promise<Operador[]> {
-    // Busca schema e nomes reais das tabelas dinamicamente
+    if (await this.detectDbType() === 'postgresql') return this.getOperadoresPg(codLoja);
+
     const schema = await MappingService.getSchema();
     const tabOperadores = `${schema}.${await MappingService.getRealTableName('TAB_OPERADORES')}`;
-
-    // Mapeamento dinâmico das colunas de TAB_OPERADORES
     const opCodOperador = await MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_operador');
     const opDesOperador = await MappingService.getColumnFromTable('TAB_OPERADORES', 'nome_operador');
     const opCodLoja = await MappingService.getColumnFromTable('TAB_OPERADORES', 'codigo_loja');
 
-    let sql = `
-      SELECT DISTINCT
-        o.${opCodOperador} as COD_OPERADOR,
-        o.${opDesOperador} as DES_OPERADOR
-      FROM ${tabOperadores} o
-      WHERE o.${opDesOperador} IS NOT NULL
-    `;
-
+    let sql = `SELECT DISTINCT o.${opCodOperador} as COD_OPERADOR, o.${opDesOperador} as DES_OPERADOR
+      FROM ${tabOperadores} o WHERE o.${opDesOperador} IS NOT NULL`;
     const params: any = {};
+    if (codLoja) { sql += ` AND o.${opCodLoja} = :codLoja`; params.codLoja = codLoja; }
+    sql += ` ORDER BY o.${opDesOperador}`;
+    return OracleService.query<Operador>(sql, params);
+  }
 
-    if (codLoja) {
-      sql += ` AND o.${opCodLoja} = :codLoja`;
-      params.codLoja = codLoja;
+  /** PG: lista operadores a partir dos cupons do vdonlineprod */
+  private static async getOperadoresPg(codLoja?: number): Promise<Operador[]> {
+    let sql = `SELECT DISTINCT vopr_operador::int as "COD_OPERADOR", vopr_operador::text as "DES_OPERADOR"
+      FROM public.vdonlineprod WHERE vopr_tiporeg = 'IT' AND vopr_operador IS NOT NULL`;
+    const params: any[] = [];
+    if (codLoja) { sql += ` AND vopr_unid_codigo::int = $1::int`; params.push(codLoja); }
+    sql += ` ORDER BY vopr_operador::int`;
+    return PostgresErpService.query<Operador>(sql, params);
+  }
+
+  /** PG: resumo por operador usando vdonlineprod + vdonlinefi + movfpdvc */
+  private static async getResumoOperadoresPg(filters: FrenteCaixaFilters): Promise<OperadorResumo[]> {
+    const toIso = (d: string) => { const [dd, mm, yyyy] = d.split('/'); return `${yyyy}-${mm}-${dd}`; };
+    const dtIni = toIso(filters.dataInicio);
+    const dtFim = toIso(filters.dataFim);
+    const params: any[] = [dtIni, dtFim];
+    let lojaWhere = '';
+    let lojaWhereF = '';
+    let lojaWhereM = '';
+    if (filters.codLoja) {
+      lojaWhere = ` AND v.vopr_unid_codigo::int = $3::int`;
+      lojaWhereF = ` AND f.vofi_unid_codigo::int = $3::int`;
+      lojaWhereM = ` AND mpdc_unid_codigo::int = $3::int`;
+      params.push(filters.codLoja);
+    }
+    let opWhere = '';
+    let opWhereF = '';
+    if (filters.codOperador) {
+      opWhere = ` AND v.vopr_operador::int = $${params.length + 1}::int`;
+      opWhereF = ` AND f.vofi_pdvs_codigo IS NOT NULL`; // vdonlinefi nao tem operador, filtrar depois
+      params.push(filters.codOperador);
     }
 
-    sql += ` ORDER BY o.${opDesOperador}`;
+    console.log('📊 [Frente Caixa PG] Buscando resumo operadores...');
 
-    return OracleService.query<Operador>(sql, params);
+    // 1. Vendas + itens + descontos por operador (vdonlineprod)
+    const sqlVendas = `SELECT v.vopr_operador::int as cod_op,
+      COALESCE(SUM(v.vopr_valor - COALESCE(v.vopr_desconto,0) + COALESCE(v.vopr_acrescimo,0)),0)::float as vendas,
+      COUNT(*)::int as itens,
+      COUNT(DISTINCT v.vopr_cupom || '-' || v.vopr_pdvs_codigo)::int as cupons,
+      COALESCE(SUM(COALESCE(v.vopr_desconto,0)),0)::float as descontos
+      FROM public.vdonlineprod v
+      WHERE v.vopr_datamvto BETWEEN $1 AND $2 AND v.vopr_tiporeg = 'IT'
+      AND COALESCE(v.vopr_cancmotivo,'') = '' AND v.vopr_operador IS NOT NULL
+      ${lojaWhere} ${opWhere}
+      GROUP BY v.vopr_operador ORDER BY vendas DESC`;
+
+    // 2. Finalizadoras por operador — vdonlinefi nao tem operador direto,
+    //    entao cruzar cupom vdonlinefi com vdonlineprod pra pegar operador
+    const sqlFin = `SELECT op::int as cod_op,
+      COALESCE(SUM(CASE WHEN fin = '01' THEN val ELSE 0 END),0)::float as dinheiro,
+      COALESCE(SUM(CASE WHEN fin = '04' THEN val ELSE 0 END),0)::float as debito,
+      COALESCE(SUM(CASE WHEN fin = '05' THEN val ELSE 0 END),0)::float as credito,
+      COALESCE(SUM(CASE WHEN fin IN ('16','29') THEN val ELSE 0 END),0)::float as pix,
+      COALESCE(SUM(CASE WHEN fin IN ('10','15') THEN val ELSE 0 END),0)::float as funcionario,
+      COALESCE(SUM(CASE WHEN fin = '06' THEN val ELSE 0 END),0)::float as parcelado,
+      COALESCE(SUM(CASE WHEN fin NOT IN ('01','04','05','06','10','15','16','29') THEN val ELSE 0 END),0)::float as outros
+      FROM (
+        SELECT DISTINCT ON (f.vofi_cupom, f.vofi_pdvs_codigo, f.vofi_sequencial)
+          (SELECT MIN(vp.vopr_operador) FROM public.vdonlineprod vp
+           WHERE vp.vopr_cupom = f.vofi_cupom AND vp.vopr_pdvs_codigo = f.vofi_pdvs_codigo
+           AND vp.vopr_datamvto = f.vofi_datamvto AND vp.vopr_tiporeg = 'IT') as op,
+          f.vofi_finalizadora as fin, f.vofi_valor::float as val
+        FROM public.vdonlinefi f
+        WHERE f.vofi_datamvto BETWEEN $1 AND $2 AND f.vofi_tiporeg = 'FI'
+        ${lojaWhereF}
+      ) sub WHERE op IS NOT NULL
+      GROUP BY op`;
+
+    // 3. Cancelamentos (movfpdvc)
+    const sqlCanc = `SELECT mpdc_func_codigo::int as cod_op,
+      COALESCE(SUM(mpdc_cancelamentos),0)::float as cancelamentos,
+      COALESCE(SUM(mpdc_devolucoes),0)::float as devolucoes
+      FROM public.movfpdvc
+      WHERE mpdc_datamvto BETWEEN $1 AND $2
+      ${lojaWhereM}
+      GROUP BY mpdc_func_codigo`;
+
+    try {
+      const [vendas, fins, cancs] = await Promise.all([
+        PostgresErpService.query<any>(sqlVendas, params),
+        PostgresErpService.query<any>(sqlFin, params.slice(0, filters.codLoja ? 3 : 2)),
+        PostgresErpService.query<any>(sqlCanc, params.slice(0, filters.codLoja ? 3 : 2))
+      ]);
+
+      console.log(`✅ [Frente Caixa PG] Vendas: ${vendas.length} ops, Fins: ${fins.length}, Cancs: ${cancs.length}`);
+
+      const finMap = new Map(fins.map((f: any) => [f.cod_op, f]));
+      const cancMap = new Map(cancs.map((c: any) => [c.cod_op, c]));
+
+      return vendas.map((v: any) => {
+        const f = finMap.get(v.cod_op) || {};
+        const c = cancMap.get(v.cod_op) || {};
+        const cancTotal = Number(c.cancelamentos || 0) + Number(c.devolucoes || 0);
+        return {
+          COD_OPERADOR: v.cod_op,
+          DES_OPERADOR: String(v.cod_op),
+          TOTAL_VENDAS: v.vendas,
+          TOTAL_ITENS: v.itens,
+          TOTAL_CUPONS: v.cupons,
+          DINHEIRO: f.dinheiro || 0,
+          CARTAO_DEBITO: f.debito || 0,
+          CARTAO_CREDITO: f.credito || 0,
+          PIX: f.pix || 0,
+          FUNCIONARIO: f.funcionario || 0,
+          CARTAO_POS: 0,
+          TRICARD_PARCELADO: f.parcelado || 0,
+          VALE_TROCA: 0,
+          VALE_DESCONTO: 0,
+          OUTROS: f.outros || 0,
+          TOTAL_DESCONTOS: v.descontos,
+          CANCELAMENTOS: cancTotal,
+          CANC_ITEM: Number(c.cancelamentos || 0),
+          CANC_CUPOM: 0,
+          CANC_VENDA: Number(c.devolucoes || 0),
+          ESTORNOS_ORFAOS: 0,
+          VAL_SOBRA: 0,
+          VAL_QUEBRA: 0,
+          VAL_DIFERENCA: 0
+        } as OperadorResumo;
+      });
+    } catch (e: any) {
+      console.error('❌ [Frente Caixa PG] Erro:', e.message);
+      return [];
+    }
   }
 
   /**
    * Busca resumo consolidado por operador
    */
   static async getResumoOperadores(filters: FrenteCaixaFilters): Promise<OperadorResumo[]> {
-    const { dataInicio, dataFim, codOperador, codLoja } = filters;
+    if (await this.detectDbType() === 'postgresql') return this.getResumoOperadoresPg(filters);
 
-    // Busca schema e nomes reais das tabelas dinamicamente
+    const { dataInicio, dataFim, codOperador, codLoja } = filters;
     const schema = await MappingService.getSchema();
     const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA')}`;
     const tabOperadores = `${schema}.${await MappingService.getRealTableName('TAB_OPERADORES')}`;
@@ -578,13 +707,10 @@ export class FrenteCaixaService {
    * Busca detalhamento por dia de um operador
    */
   static async getDetalheOperadorPorDia(filters: FrenteCaixaFilters): Promise<OperadorPorDia[]> {
+    if (await this.detectDbType() === 'postgresql') return this.getDetalheOperadorPorDiaPg(filters);
+
     const { dataInicio, dataFim, codOperador, codLoja } = filters;
-
-    if (!codOperador) {
-      throw new Error('codOperador é obrigatório para detalhe por dia');
-    }
-
-    // Busca schema e nomes reais das tabelas dinamicamente
+    if (!codOperador) throw new Error('codOperador é obrigatório para detalhe por dia');
     const schema = await MappingService.getSchema();
     const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA')}`;
     const tabOperadores = `${schema}.${await MappingService.getRealTableName('TAB_OPERADORES')}`;
@@ -829,10 +955,67 @@ export class FrenteCaixaService {
     });
   }
 
+  /** PG: detalhe por dia de um operador */
+  private static async getDetalheOperadorPorDiaPg(filters: FrenteCaixaFilters): Promise<OperadorPorDia[]> {
+    if (!filters.codOperador) throw new Error('codOperador é obrigatório');
+    const toIso = (d: string) => { const [dd, mm, yyyy] = d.split('/'); return `${yyyy}-${mm}-${dd}`; };
+    const dtIni = toIso(filters.dataInicio);
+    const dtFim = toIso(filters.dataFim);
+    const params: any[] = [dtIni, dtFim, filters.codOperador];
+    let lojaWhere = '';
+    if (filters.codLoja) { lojaWhere = ` AND v.vopr_unid_codigo::int = $4::int`; params.push(filters.codLoja); }
+
+    const sql = `SELECT v.vopr_datamvto::text as data, EXTRACT(DAY FROM v.vopr_datamvto)::int as dia,
+      v.vopr_operador::int as cod_op,
+      COALESCE(SUM(v.vopr_valor - COALESCE(v.vopr_desconto,0) + COALESCE(v.vopr_acrescimo,0)),0)::float as vendas,
+      COUNT(*)::int as itens,
+      COUNT(DISTINCT v.vopr_cupom || '-' || v.vopr_pdvs_codigo)::int as cupons,
+      COALESCE(SUM(COALESCE(v.vopr_desconto,0)),0)::float as descontos
+      FROM public.vdonlineprod v
+      WHERE v.vopr_datamvto BETWEEN $1 AND $2 AND v.vopr_tiporeg = 'IT'
+      AND COALESCE(v.vopr_cancmotivo,'') = '' AND v.vopr_operador::int = $3::int
+      ${lojaWhere}
+      GROUP BY v.vopr_datamvto, v.vopr_operador ORDER BY v.vopr_datamvto`;
+
+    try {
+      const rows = await PostgresErpService.query<any>(sql, params);
+      return rows.map((r: any) => ({
+        COD_OPERADOR: r.cod_op, DES_OPERADOR: String(r.cod_op),
+        DATA: r.data, DIA: r.dia,
+        TOTAL_VENDAS: r.vendas, TOTAL_ITENS: r.itens, TOTAL_CUPONS: r.cupons,
+        DINHEIRO: 0, CARTAO_DEBITO: 0, CARTAO_CREDITO: 0, PIX: 0,
+        FUNCIONARIO: 0, CARTAO_POS: 0, TRICARD_PARCELADO: 0,
+        VALE_TROCA: 0, VALE_DESCONTO: 0, OUTROS: 0,
+        TOTAL_DESCONTOS: r.descontos, CANCELAMENTOS: 0,
+        CANC_ITEM: 0, CANC_CUPOM: 0, CANC_VENDA: 0, ESTORNOS_ORFAOS: 0,
+        VAL_SOBRA: 0, VAL_QUEBRA: 0, VAL_DIFERENCA: 0
+      } as OperadorPorDia));
+    } catch (e: any) {
+      console.error('❌ [Frente Caixa PG] Detalhe por dia erro:', e.message);
+      return [];
+    }
+  }
+
   /**
    * Busca totais gerais do período
    */
   static async getTotais(filters: FrenteCaixaFilters): Promise<any> {
+    if (await this.detectDbType() === 'postgresql') {
+      // PG: usar o resumo como base
+      const resumo = await this.getResumoOperadoresPg(filters);
+      const totais = resumo.reduce((acc, r) => ({
+        TOTAL_VENDAS: acc.TOTAL_VENDAS + r.TOTAL_VENDAS,
+        TOTAL_ITENS: acc.TOTAL_ITENS + r.TOTAL_ITENS,
+        TOTAL_CUPONS: acc.TOTAL_CUPONS + r.TOTAL_CUPONS,
+        TOTAL_DESCONTOS: acc.TOTAL_DESCONTOS + r.TOTAL_DESCONTOS,
+        CANCELAMENTOS: acc.CANCELAMENTOS + r.CANCELAMENTOS,
+        DINHEIRO: acc.DINHEIRO + r.DINHEIRO,
+        CARTAO_DEBITO: acc.CARTAO_DEBITO + r.CARTAO_DEBITO,
+        CARTAO_CREDITO: acc.CARTAO_CREDITO + r.CARTAO_CREDITO,
+        PIX: acc.PIX + r.PIX,
+      }), { TOTAL_VENDAS: 0, TOTAL_ITENS: 0, TOTAL_CUPONS: 0, TOTAL_DESCONTOS: 0, CANCELAMENTOS: 0, DINHEIRO: 0, CARTAO_DEBITO: 0, CARTAO_CREDITO: 0, PIX: 0 });
+      return totais;
+    }
     const { dataInicio, dataFim, codLoja } = filters;
 
     // Busca schema e nomes reais das tabelas dinamicamente
@@ -1014,7 +1197,27 @@ export class FrenteCaixaService {
    * Busca cupons de um operador em uma data específica
    */
   static async getCuponsPorDia(codOperador: number, data: string, codLoja?: number): Promise<any[]> {
-    // Busca schema e nomes reais das tabelas dinamicamente
+    if (await this.detectDbType() === 'postgresql') {
+      const toIso = (d: string) => { const [dd, mm, yyyy] = d.split('/'); return `${yyyy}-${mm}-${dd}`; };
+      const dia = toIso(data);
+      const params: any[] = [dia, codOperador];
+      let lojaWhere = '';
+      if (codLoja) { lojaWhere = ` AND vopr_unid_codigo::int = $3::int`; params.push(codLoja); }
+      const sql = `SELECT vopr_cupom as "NUM_CUPOM_FISCAL", vopr_unid_codigo as "COD_LOJA",
+        vopr_datamvto::text || ' ' || MIN(vopr_hora) as "DATA_HORA",
+        SUM(vopr_valor - COALESCE(vopr_desconto,0) + COALESCE(vopr_acrescimo,0))::float as "VALOR_CUPOM",
+        SUM(COALESCE(vopr_desconto,0))::float as "TOTAL_DESCONTO",
+        SUM(CASE WHEN vopr_desconto > 0 THEN 1 ELSE 0 END)::int as "QTD_ITENS_DESCONTO",
+        0::float as "TOTAL_CANCELADO", 0::int as "QTD_ITENS_CANCELADOS",
+        COUNT(*)::int as "QTD_ITENS_TOTAL", 'N' as "FLG_CANCELADO"
+        FROM public.vdonlineprod
+        WHERE vopr_datamvto = $1 AND vopr_tiporeg = 'IT' AND vopr_operador::int = $2::int
+        AND COALESCE(vopr_cancmotivo,'') = '' ${lojaWhere}
+        GROUP BY vopr_cupom, vopr_unid_codigo, vopr_datamvto
+        ORDER BY MIN(vopr_hora)`;
+      return PostgresErpService.query<any>(sql, params);
+    }
+
     const schema = await MappingService.getSchema();
     const tabCupomFinalizadora = `${schema}.${await MappingService.getRealTableName('TAB_CUPOM_FINALIZADORA')}`;
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
@@ -1103,7 +1306,27 @@ export class FrenteCaixaService {
    * @param data - Data opcional para filtrar itens apenas dessa data
    */
   static async getItensPorCupom(numCupom: number, codLoja: number, data?: string): Promise<any[]> {
-    // Busca schema e nomes reais das tabelas dinamicamente
+    if (await this.detectDbType() === 'postgresql') {
+      const schema = await MappingService.getSchema();
+      const colCodProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const colDesc = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+      const tabProd = await MappingService.getRealTableName('TAB_PRODUTO');
+      const params: any[] = [numCupom, codLoja];
+      let dateWhere = '';
+      if (data) { const [dd, mm, yyyy] = data.split('/'); dateWhere = ` AND v.vopr_datamvto = $3::date`; params.push(`${yyyy}-${mm}-${dd}`); }
+      const sql = `SELECT v.vopr_prod_codigo as "COD_PRODUTO", p.${colDesc} as "DES_PRODUTO",
+        v.vopr_qtde::float as "QTD_TOTAL_PRODUTO", v.vopr_valor::float as "VAL_TOTAL_PRODUTO",
+        COALESCE(v.vopr_desconto,0)::float as "VAL_DESCONTO",
+        CASE WHEN v.vopr_cancmotivo IS NOT NULL AND v.vopr_cancmotivo != '' THEN 'S' ELSE 'N' END as "FLG_CANCELADO",
+        v.vopr_hora as "HORA"
+        FROM public.vdonlineprod v
+        LEFT JOIN ${schema}.${tabProd} p ON p.${colCodProd} = v.vopr_prod_codigo
+        WHERE v.vopr_cupom = $1::text AND v.vopr_unid_codigo::int = $2::int
+        AND v.vopr_tiporeg = 'IT' ${dateWhere}
+        ORDER BY v.vopr_hora`;
+      return PostgresErpService.query<any>(sql, params);
+    }
+
     const schema = await MappingService.getSchema();
     const tabProdutoPdv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
     const tabProdutoPdvEstorno = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV_ESTORNO')}`;
