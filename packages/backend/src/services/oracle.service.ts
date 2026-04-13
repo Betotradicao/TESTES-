@@ -237,29 +237,43 @@ export class OracleService {
     }
 
     let connection: oracledb.Connection | null = null;
+    const isConnectionError = (err: any) => {
+      const code = err?.errorNum || 0;
+      const msg = (err?.message || '').toLowerCase();
+      return code === 12541 || code === 12170 || code === 12514 || code === 3114 || code === 3113
+        || msg.includes('not available') || msg.includes('not connected') || msg.includes('no listener')
+        || msg.includes('connection lost') || msg.includes('socket') || msg.includes('timeout');
+    };
 
-    try {
-      connection = await this.getConnection();
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        connection = await this.getConnection();
+        connection.callTimeout = 300000;
+        const result = await connection.execute(sql, params, {
+          outFormat: oracledb.OUT_FORMAT_OBJECT,
+          maxRows: 50000
+        });
+        return (result.rows || []) as T[];
+      } catch (error: any) {
+        if (connection) { try { await connection.close(); } catch {} connection = null; }
 
-      connection.callTimeout = 300000; // 300s (5min) max por query (analíticas com JOINs pesados)
-      const result = await connection.execute(sql, params, {
-        outFormat: oracledb.OUT_FORMAT_OBJECT,
-        maxRows: 50000 // Limite de segurança
-      });
-
-      return (result.rows || []) as T[];
-    } catch (error: any) {
-      console.error('Oracle query error:', error.message);
-      throw error;
-    } finally {
-      if (connection) {
-        try {
-          await connection.close();
-        } catch (err) {
-          console.error('Error closing Oracle connection:', err);
+        if (attempt === 1 && isConnectionError(error)) {
+          console.warn(`⚠️ Oracle connection error (attempt ${attempt}), reconnecting: ${error.message}`);
+          // Fechar pool antigo e reinicializar
+          try { if (this.pool) { await this.pool.close(0); } } catch {}
+          this.pool = null;
+          this.configLoaded = false;
+          await new Promise(r => setTimeout(r, 2000)); // Esperar 2s
+          continue; // Tenta de novo
         }
+
+        console.error('Oracle query error:', error.message);
+        throw error;
+      } finally {
+        if (connection) { try { await connection.close(); } catch {} }
       }
     }
+    throw new Error('Oracle query failed after retry');
   }
 
   /**
