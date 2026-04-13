@@ -318,19 +318,20 @@ export class FrenteCaixaService {
     // 2. Finalizadoras por operador — vdonlinefi nao tem operador direto,
     //    entao cruzar cupom vdonlinefi com vdonlineprod pra pegar operador
     const sqlFin = `SELECT op::int as cod_op,
-      COALESCE(SUM(CASE WHEN fin = '01' THEN val ELSE 0 END),0)::float as dinheiro,
-      COALESCE(SUM(CASE WHEN fin = '04' THEN val ELSE 0 END),0)::float as debito,
-      COALESCE(SUM(CASE WHEN fin = '05' THEN val ELSE 0 END),0)::float as credito,
+      COALESCE(SUM(CASE WHEN fin = '01' THEN val - troco ELSE 0 END),0)::float as dinheiro,
+      COALESCE(SUM(CASE WHEN fin = '04' THEN val ELSE 0 END),0)::float as credito,
+      COALESCE(SUM(CASE WHEN fin = '05' THEN val ELSE 0 END),0)::float as debito,
       COALESCE(SUM(CASE WHEN fin IN ('16','29') THEN val ELSE 0 END),0)::float as pix,
-      COALESCE(SUM(CASE WHEN fin IN ('10','15') THEN val ELSE 0 END),0)::float as funcionario,
-      COALESCE(SUM(CASE WHEN fin = '06' THEN val ELSE 0 END),0)::float as parcelado,
-      COALESCE(SUM(CASE WHEN fin NOT IN ('01','04','05','06','10','15','16','29') THEN val ELSE 0 END),0)::float as outros
+      COALESCE(SUM(CASE WHEN fin = '09' THEN val ELSE 0 END),0)::float as cartao_pos,
+      COALESCE(SUM(CASE WHEN fin = '06' THEN val ELSE 0 END),0)::float as convenio_cli,
+      COALESCE(SUM(CASE WHEN fin = '10' THEN val ELSE 0 END),0)::float as funcionario,
+      COALESCE(SUM(CASE WHEN fin NOT IN ('01','04','05','06','09','10','16','29') THEN val ELSE 0 END),0)::float as outros
       FROM (
         SELECT DISTINCT ON (f.vofi_cupom, f.vofi_pdvs_codigo, f.vofi_sequencial)
           (SELECT MIN(vp.vopr_operador) FROM public.vdonlineprod vp
            WHERE vp.vopr_cupom = f.vofi_cupom AND vp.vopr_pdvs_codigo = f.vofi_pdvs_codigo
            AND vp.vopr_datamvto = f.vofi_datamvto AND vp.vopr_tiporeg = 'IT') as op,
-          f.vofi_finalizadora as fin, f.vofi_valor::float as val
+          f.vofi_finalizadora as fin, f.vofi_valor::float as val, COALESCE(f.vofi_troco,0)::float as troco
         FROM public.vdonlinefi f
         WHERE f.vofi_datamvto BETWEEN $1 AND $2 AND f.vofi_tiporeg = 'FI'
         ${lojaWhereF}
@@ -373,8 +374,8 @@ export class FrenteCaixaService {
           CARTAO_CREDITO: f.credito || 0,
           PIX: f.pix || 0,
           FUNCIONARIO: f.funcionario || 0,
-          CARTAO_POS: 0,
-          TRICARD_PARCELADO: f.parcelado || 0,
+          CARTAO_POS: f.cartao_pos || 0,
+          TRICARD_PARCELADO: f.convenio_cli || 0, // Convenio Clientes no campo tricard
           VALE_TROCA: 0,
           VALE_DESCONTO: 0,
           OUTROS: f.outros || 0,
