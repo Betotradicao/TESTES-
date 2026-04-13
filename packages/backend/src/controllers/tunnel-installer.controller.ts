@@ -462,11 +462,11 @@ if %errorlevel% equ 0 (
 
 echo.
 echo [3/4] Removendo arquivos do tunel...
-if exist "C:\\ProgramData\\SSHTunnels\\tunnel_key" del /f "C:\\ProgramData\\SSHTunnels\\tunnel_key" 2>nul
-if exist "C:\\ProgramData\\SSHTunnels\\tunnel-service.ps1" del /f "C:\\ProgramData\\SSHTunnels\\tunnel-service.ps1" 2>nul
-if exist "C:\\ProgramData\\SSHTunnels\\tunnel-service.log" del /f "C:\\ProgramData\\SSHTunnels\\tunnel-service.log" 2>nul
-if exist "C:\\ProgramData\\SSHTunnels\\start-tunnel-service.vbs" del /f "C:\\ProgramData\\SSHTunnels\\start-tunnel-service.vbs" 2>nul
-if exist "C:\\ProgramData\\SSHTunnels\\ssh-port.txt" del /f "C:\\ProgramData\\SSHTunnels\\ssh-port.txt" 2>nul
+if exist "C:\\ProgramData\\SSHTunnels-${sanitized}\\tunnel_key" del /f "C:\\ProgramData\\SSHTunnels-${sanitized}\\tunnel_key" 2>nul
+if exist "C:\\ProgramData\\SSHTunnels-${sanitized}\\tunnel-service.ps1" del /f "C:\\ProgramData\\SSHTunnels-${sanitized}\\tunnel-service.ps1" 2>nul
+if exist "C:\\ProgramData\\SSHTunnels-${sanitized}\\tunnel-service.log" del /f "C:\\ProgramData\\SSHTunnels-${sanitized}\\tunnel-service.log" 2>nul
+if exist "C:\\ProgramData\\SSHTunnels-${sanitized}\\start-tunnel-service.vbs" del /f "C:\\ProgramData\\SSHTunnels-${sanitized}\\start-tunnel-service.vbs" 2>nul
+if exist "C:\\ProgramData\\SSHTunnels-${sanitized}\\ssh-port.txt" del /f "C:\\ProgramData\\SSHTunnels-${sanitized}\\ssh-port.txt" 2>nul
 echo       Arquivos removidos.
 
 echo.
@@ -595,6 +595,8 @@ pause
   private generateScripts(clientName: string, vpsIp: string, tunnels: any[], privateKey: string) {
     const sanitizedName = clientName.replace(/[^a-zA-Z0-9]/g, '');
     const taskName = `SSH-Tunnel-${sanitizedName}`;
+    // Cada cliente usa pasta separada pra nao sobrescrever tuneis existentes
+    const tunnelDir = `SSHTunnels-${sanitizedName}`;
 
     // Gerar linhas de variáveis para cada túnel
     const tunnelVars = tunnels.map((t, i) =>
@@ -622,13 +624,13 @@ pause
 $VPS_IP = "${vpsIp}"
 $SSH_PORTS = @(22, 443)  # Tenta 22 primeiro, fallback para 443
 $ACTIVE_SSH_PORT = $null
-$SSH_KEY = "C:\\ProgramData\\SSHTunnels\\tunnel_key"
+$SSH_KEY = "C:\\ProgramData\\${tunnelDir}\\tunnel_key"
 
 # Configuracao dos Tuneis
 ${tunnelVars}
 
-$LOG_FILE = "C:\\ProgramData\\SSHTunnels\\tunnel-service.log"
-$PORT_FILE = "C:\\ProgramData\\SSHTunnels\\ssh-port.txt"
+$LOG_FILE = "C:\\ProgramData\\${tunnelDir}\\tunnel-service.log"
+$PORT_FILE = "C:\\ProgramData\\${tunnelDir}\\ssh-port.txt"
 
 function Write-Log {
     param($Message)
@@ -838,25 +840,25 @@ REM Parar servico existente
 powershell -Command "Get-Process ssh -ErrorAction SilentlyContinue | Stop-Process -Force" 2>nul
 schtasks /delete /tn "${taskName}" /f 2>nul
 REM Resetar permissoes e apagar arquivos antigos
-if exist "C:\\ProgramData\\SSHTunnels\\tunnel_key" (
-    icacls "C:\\ProgramData\\SSHTunnels\\tunnel_key" /reset >nul 2>&1
-    del /f "C:\\ProgramData\\SSHTunnels\\tunnel_key" 2>nul
+if exist "C:\\ProgramData\\${tunnelDir}\\tunnel_key" (
+    icacls "C:\\ProgramData\\${tunnelDir}\\tunnel_key" /reset >nul 2>&1
+    del /f "C:\\ProgramData\\${tunnelDir}\\tunnel_key" 2>nul
 )
-del /f "C:\\ProgramData\\SSHTunnels\\tunnel-service.ps1" 2>nul
-del /f "C:\\ProgramData\\SSHTunnels\\start-tunnel-service.vbs" 2>nul
-del /f "C:\\ProgramData\\SSHTunnels\\tunnel-service.log" 2>nul
-del /f "C:\\ProgramData\\SSHTunnels\\ssh-port.txt" 2>nul
+del /f "C:\\ProgramData\\${tunnelDir}\\tunnel-service.ps1" 2>nul
+del /f "C:\\ProgramData\\${tunnelDir}\\start-tunnel-service.vbs" 2>nul
+del /f "C:\\ProgramData\\${tunnelDir}\\tunnel-service.log" 2>nul
+del /f "C:\\ProgramData\\${tunnelDir}\\ssh-port.txt" 2>nul
 echo     Limpeza concluida!
 
 echo [2/9] Criando pasta de instalacao...
-mkdir "C:\\ProgramData\\SSHTunnels" 2>nul
+mkdir "C:\\ProgramData\\${tunnelDir}" 2>nul
 
 echo [3/9] Gravando chave privada SSH...
 ${keyEchoLines}
-powershell -Command "$b64 = (Get-Content '%TEMP%\\tunnel-key.b64' -Raw) -replace '\\s',''; [System.IO.File]::WriteAllText('C:\\ProgramData\\SSHTunnels\\tunnel_key', [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b64)))"
+powershell -Command "$b64 = (Get-Content '%TEMP%\\tunnel-key.b64' -Raw) -replace '\\s',''; [System.IO.File]::WriteAllText('C:\\ProgramData\\${tunnelDir}\\tunnel_key', [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b64)))"
 del "%TEMP%\\tunnel-key.b64" 2>nul
 
-if not exist "C:\\ProgramData\\SSHTunnels\\tunnel_key" (
+if not exist "C:\\ProgramData\\${tunnelDir}\\tunnel_key" (
     echo     ERRO: Falha ao criar chave privada!
     pause
     exit /b 1
@@ -864,15 +866,15 @@ if not exist "C:\\ProgramData\\SSHTunnels\\tunnel_key" (
 echo     Chave privada criada!
 
 echo [4/9] Configurando permissoes da chave...
-icacls "C:\\ProgramData\\SSHTunnels\\tunnel_key" /inheritance:r /grant:r "%USERNAME%":R >nul 2>&1
+icacls "C:\\ProgramData\\${tunnelDir}\\tunnel_key" /inheritance:r /grant:r "%USERNAME%":R >nul 2>&1
 echo     Permissoes configuradas!
 
 echo [5/9] Criando script do servico de tunel...
 ${ps1EchoLines}
-powershell -Command "$b64 = (Get-Content '%TEMP%\\tunnel-ps1.b64' -Raw) -replace '\\s',''; [System.IO.File]::WriteAllText('C:\\ProgramData\\SSHTunnels\\tunnel-service.ps1', [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b64)))"
+powershell -Command "$b64 = (Get-Content '%TEMP%\\tunnel-ps1.b64' -Raw) -replace '\\s',''; [System.IO.File]::WriteAllText('C:\\ProgramData\\${tunnelDir}\\tunnel-service.ps1', [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b64)))"
 del "%TEMP%\\tunnel-ps1.b64" 2>nul
 
-if not exist "C:\\ProgramData\\SSHTunnels\\tunnel-service.ps1" (
+if not exist "C:\\ProgramData\\${tunnelDir}\\tunnel-service.ps1" (
     echo     ERRO: Falha ao criar script do servico!
     pause
     exit /b 1
@@ -880,13 +882,13 @@ if not exist "C:\\ProgramData\\SSHTunnels\\tunnel-service.ps1" (
 echo     tunnel-service.ps1 criado!
 
 echo [6/9] Criando iniciador invisivel...
-echo Set WshShell = CreateObject("WScript.Shell") > "C:\\ProgramData\\SSHTunnels\\start-tunnel-service.vbs"
-echo WshShell.Run "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File ""C:\\ProgramData\\SSHTunnels\\tunnel-service.ps1""", 0, False >> "C:\\ProgramData\\SSHTunnels\\start-tunnel-service.vbs"
+echo Set WshShell = CreateObject("WScript.Shell") > "C:\\ProgramData\\${tunnelDir}\\start-tunnel-service.vbs"
+echo WshShell.Run "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File ""C:\\ProgramData\\${tunnelDir}\\tunnel-service.ps1""", 0, False >> "C:\\ProgramData\\${tunnelDir}\\start-tunnel-service.vbs"
 echo     start-tunnel-service.vbs criado!
 
 echo [7/9] Testando conectividade SSH REAL com a VPS...
 echo     Testando SSH na porta 22...
-ssh -i "C:\\ProgramData\\SSHTunnels\\tunnel_key" -p 22 -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10 root@${vpsIp} echo ok > "%TEMP%\\ssh-port-test.txt" 2>nul
+ssh -i "C:\\ProgramData\\${tunnelDir}\\tunnel_key" -p 22 -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10 root@${vpsIp} echo ok > "%TEMP%\\ssh-port-test.txt" 2>nul
 findstr /c:"ok" "%TEMP%\\ssh-port-test.txt" >nul 2>&1
 if %errorLevel% equ 0 (
     echo     Porta 22: SSH OK!
@@ -897,7 +899,7 @@ if %errorLevel% equ 0 (
 del "%TEMP%\\ssh-port-test.txt" 2>nul
 
 echo     Porta 22 falhou. Testando SSH na porta 443...
-ssh -i "C:\\ProgramData\\SSHTunnels\\tunnel_key" -p 443 -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10 root@${vpsIp} echo ok > "%TEMP%\\ssh-port-test.txt" 2>nul
+ssh -i "C:\\ProgramData\\${tunnelDir}\\tunnel_key" -p 443 -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10 root@${vpsIp} echo ok > "%TEMP%\\ssh-port-test.txt" 2>nul
 findstr /c:"ok" "%TEMP%\\ssh-port-test.txt" >nul 2>&1
 if %errorLevel% equ 0 (
     echo     Porta 443: SSH OK!
@@ -916,11 +918,11 @@ set SSH_PORT=22
 
 :port_found
 echo     Porta SSH selecionada: %SSH_PORT%
-echo %SSH_PORT% > "C:\\ProgramData\\SSHTunnels\\ssh-port.txt"
+echo %SSH_PORT% > "C:\\ProgramData\\${tunnelDir}\\ssh-port.txt"
 
 echo [8/9] Criando tarefa agendada (inicia com Windows)...
 schtasks /delete /tn "${taskName}" /f 2>nul
-schtasks /create /tn "${taskName}" /tr "wscript.exe \\"C:\\ProgramData\\SSHTunnels\\start-tunnel-service.vbs\\"" /sc onstart /delay 0001:00 /rl highest /f
+schtasks /create /tn "${taskName}" /tr "wscript.exe \\"C:\\ProgramData\\${tunnelDir}\\start-tunnel-service.vbs\\"" /sc onstart /delay 0001:00 /rl highest /f
 
 if %errorLevel% neq 0 (
     echo ERRO: Falha ao criar tarefa agendada!
@@ -929,14 +931,14 @@ if %errorLevel% neq 0 (
 )
 
 echo [9/9] Iniciando servico...
-wscript.exe "C:\\ProgramData\\SSHTunnels\\start-tunnel-service.vbs"
+wscript.exe "C:\\ProgramData\\${tunnelDir}\\start-tunnel-service.vbs"
 
 echo.
 echo ============================================================
 echo    INSTALACAO CONCLUIDA!
 echo ============================================================
 echo.
-echo Tudo instalado em: C:\\ProgramData\\SSHTunnels\\
+echo Tudo instalado em: C:\\ProgramData\\${tunnelDir}\\
 echo   - tunnel_key                 (chave privada SSH)
 echo   - tunnel-service.ps1         (servico do tunel)
 echo   - start-tunnel-service.vbs   (iniciador invisivel)
@@ -947,7 +949,7 @@ echo Porta SSH: %SSH_PORT% (fallback automatico se mudar)
 echo.
 echo Para verificar se esta funcionando:
 echo   powershell Get-Process ssh
-echo   powershell Get-Content "C:\\ProgramData\\SSHTunnels\\tunnel-service.log" -Tail 10
+echo   powershell Get-Content "C:\\ProgramData\\${tunnelDir}\\tunnel-service.log" -Tail 10
 echo.
 pause
 `;

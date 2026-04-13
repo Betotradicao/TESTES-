@@ -6,6 +6,7 @@ import RadarLoading from '../components/RadarLoading';
 import { api } from '../utils/api';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import TunnelDvrTab from '../components/configuracoes/TunnelDvrTab';
 
 // Tipos de banco de dados suportados
 const DATABASE_TYPES = [
@@ -3462,6 +3463,16 @@ export default function ConfiguracoesTabelas() {
             >
               📊 Template de Tabelas
             </button>
+            <button
+              onClick={() => setActiveTab('tunnel-dvr')}
+              className={`px-6 py-3 font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
+                activeTab === 'tunnel-dvr'
+                  ? 'text-orange-600 border-orange-500'
+                  : 'text-gray-500 border-transparent hover:text-gray-700'
+              }`}
+            >
+              📹 Túnel DVR
+            </button>
           </div>
 
           {/* Conteúdo das Tabs */}
@@ -3470,6 +3481,7 @@ export default function ConfiguracoesTabelas() {
           {activeTab === 'conexoes' && renderConnectionsTab()}
           {activeTab === 'mapeamento' && renderMappingTab()}
           {activeTab === 'template' && renderTemplateTab()}
+          {activeTab === 'tunnel-dvr' && <TunnelDvrTab />}
         </main>
       </div>
 
