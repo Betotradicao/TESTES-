@@ -1128,7 +1128,13 @@ export class DVRCFTVService {
     // FINALIZADORA (Dinheiro, Credito, Debito, PIX, etc) com operador
     if (keyword.startsWith('fin_')) {
       const codFin = keyword.split('_')[1];
-      const finParams = [...params, codFin];
+      // Params limpos: só date + finalizadora + loja + pdv (sem codLoja do params principal)
+      const fp: any[] = [startDate, endDate, codFin];
+      let fpNext = 4;
+      let fpLojaWhere = '';
+      let fpPdvWhere = '';
+      if (codLoja) { fpLojaWhere = ` AND f.vofi_unid_codigo::int = $${fpNext}::int`; fp.push(codLoja); fpNext++; }
+      if (pdvFilter) { fpPdvWhere = ` AND f.vofi_pdvs_codigo::int = $${fpNext}::int`; fp.push(pdvFilter); fpNext++; }
       const sql = `SELECT f.vofi_cupom as cupom, f.vofi_pdvs_codigo as pdv,
         f.vofi_datamvto::text || ' ' || f.vofi_hora as hora,
         (f.vofi_valor - COALESCE(f.vofi_troco,0))::float as valor,
@@ -1137,13 +1143,10 @@ export class DVRCFTVService {
         LEFT JOIN public.vdonlineprod vp ON vp.vopr_cupom = f.vofi_cupom AND vp.vopr_pdvs_codigo = f.vofi_pdvs_codigo AND vp.vopr_datamvto = f.vofi_datamvto AND vp.vopr_tiporeg = 'IT' AND vp.vopr_sequencial = (SELECT MIN(v2.vopr_sequencial) FROM public.vdonlineprod v2 WHERE v2.vopr_cupom = f.vofi_cupom AND v2.vopr_pdvs_codigo = f.vofi_pdvs_codigo AND v2.vopr_datamvto = f.vofi_datamvto AND v2.vopr_tiporeg = 'IT')
         LEFT JOIN public.funcionarios fn ON fn.func_codigo::int = vp.vopr_operador::int
         WHERE f.vofi_datamvto BETWEEN $1 AND $2 AND f.vofi_tiporeg = 'FI'
-        AND f.vofi_finalizadora = $${finParams.length}
-        ${codLoja ? ` AND f.vofi_unid_codigo::int = $${finParams.length + 1}::int` : ''}
-        ${pdvFilter ? ` AND f.vofi_pdvs_codigo::int = $${finParams.length + (codLoja ? 2 : 1)}::int` : ''}
+        AND f.vofi_finalizadora = $3
+        ${fpLojaWhere} ${fpPdvWhere}
         ORDER BY f.vofi_hora`;
-      if (codLoja) finParams.push(codLoja);
-      if (pdvFilter) finParams.push(pdvFilter);
-      const rows = await PostgresErpService.query<any>(sql, finParams);
+      const rows = await PostgresErpService.query<any>(sql, fp);
       for (const r of rows) {
         results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: '', valor: Number(r.valor) || 0, tipo: textUpper || 'FINALIZADORA', operador: (r.operador || '').trim() });
       }
