@@ -375,10 +375,11 @@ export class FrenteCaixaService {
           PIX: f.pix || 0,
           FUNCIONARIO: f.funcionario || 0,
           CARTAO_POS: f.cartao_pos || 0,
-          TRICARD_PARCELADO: f.convenio_cli || 0, // Convenio Clientes no campo tricard
+          TRICARD_PARCELADO: 0,
           VALE_TROCA: 0,
           VALE_DESCONTO: 0,
           OUTROS: f.outros || 0,
+          CONVENIO_CLIENTES: f.convenio_cli || 0,
           TOTAL_DESCONTOS: v.descontos,
           CANCELAMENTOS: cancTotal,
           CANC_ITEM: Number(c.cancelamentos || 0),
