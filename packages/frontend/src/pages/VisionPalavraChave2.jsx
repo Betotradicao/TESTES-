@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Layout from '../components/Layout';
 import api, { getApiBaseUrl } from '../utils/api';
+import { useLoja } from '../contexts/LojaContext';
 
 const PERIODOS = [
   { value: 'hoje', label: 'Hoje' },
@@ -45,6 +46,7 @@ function getLiveStreamUrl(channel, time, antes, depois) {
 }
 
 export default function VisionPalavraChave2() {
+  const { lojaSelecionada } = useLoja();
   const [text, setText] = useState('');
   const [barcode, setBarcode] = useState('');
   const [barcodeProduct, setBarcodeProduct] = useState('');
@@ -123,6 +125,7 @@ export default function VisionPalavraChave2() {
       if (text.trim()) params.text = text.trim();
       if (barcode.trim()) params.barcode = barcode.trim();
       if (pdvFilter) params.pdv = pdvFilter;
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
 
       const res = await api.get('/dvr-cftv/pos/search-oracle', { params, timeout: 120000 });
       setResults(res.data.items || []);

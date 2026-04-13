@@ -288,7 +288,7 @@ export class DVRCFTVController {
    */
   static async searchOracle(req: Request, res: Response) {
     try {
-      const { text, barcode, start, end, pdv } = req.query;
+      const { text, barcode, start, end, pdv, codLoja } = req.query;
       const textStr = text ? (text as string).trim() : '';
       const barcodeStr = barcode ? (barcode as string).trim() : '';
       if (!textStr && !barcodeStr) {
@@ -297,9 +297,10 @@ export class DVRCFTVController {
       const startDate = (start as string) || new Date().toISOString().slice(0, 10);
       const endDate = (end as string) || startDate;
       const pdvNum = pdv ? parseInt(pdv as string) : undefined;
+      const codLojaNum = codLoja ? parseInt(codLoja as string) : undefined;
 
-      console.log(`[VISION-PC2] Busca Oracle: text="${textStr}", barcode="${barcodeStr}", start=${startDate}, end=${endDate}, pdv=${pdvNum || 'TODOS'}`);
-      const result = await DVRCFTVService.searchOracleAllPdvs(startDate, endDate, textStr, pdvNum, barcodeStr);
+      console.log(`[VISION-PC2] Busca Oracle: text="${textStr}", barcode="${barcodeStr}", start=${startDate}, end=${endDate}, pdv=${pdvNum || 'TODOS'}, loja=${codLojaNum || 'TODAS'}`);
+      const result = await DVRCFTVService.searchOracleAllPdvs(startDate, endDate, textStr, pdvNum, barcodeStr, codLojaNum);
 
       res.json({ success: true, total: result.total, items: result.items });
     } catch (error: any) {

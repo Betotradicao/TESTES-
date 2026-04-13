@@ -765,7 +765,7 @@ export class DVRCFTVService {
    * Busca Oracle por palavra-chave em TODOS os PDVs (sem usar DVR POS).
    * Retorna transações com PDV, horário, cupom, operador, valor e tipo.
    */
-  static async searchOracleAllPdvs(startDate: string, endDate: string, text: string, pdvFilter?: number, barcode?: string): Promise<{ total: number; items: any[] }> {
+  static async searchOracleAllPdvs(startDate: string, endDate: string, text: string, pdvFilter?: number, barcode?: string, codLoja?: number): Promise<{ total: number; items: any[] }> {
     // Bifurcar Oracle/PG
     try {
       if (AppDataSource.isInitialized) {
@@ -773,7 +773,7 @@ export class DVRCFTVService {
         let conn = await repo.findOne({ where: { is_default: true, status: ConnectionStatus.ACTIVE } });
         if (!conn) conn = await repo.findOne({ where: { status: ConnectionStatus.ACTIVE } });
         if (conn?.type === DatabaseType.POSTGRESQL) {
-          return this.searchPostgresAllPdvs(startDate, endDate, text, pdvFilter, barcode);
+          return this.searchPostgresAllPdvs(startDate, endDate, text, pdvFilter, barcode, codLoja);
         }
       }
     } catch {}
@@ -1012,7 +1012,7 @@ export class DVRCFTVService {
   /**
    * Versao PG do searchOracleAllPdvs - busca em vdonlineprod, vdonlinec, vdonlinefi
    */
-  private static async searchPostgresAllPdvs(startDate: string, endDate: string, text: string, pdvFilter?: number, barcode?: string): Promise<{ total: number; items: any[] }> {
+  private static async searchPostgresAllPdvs(startDate: string, endDate: string, text: string, pdvFilter?: number, barcode?: string, codLoja?: number): Promise<{ total: number; items: any[] }> {
     const textUpper = text ? text.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') : '';
     const schema = await MappingService.getSchema();
     const results: any[] = [];
@@ -1031,9 +1031,12 @@ export class DVRCFTVService {
     else if (['CRED PARCELADO', 'CREDITO PARCELADO', 'PARCELADO'].includes(textUpper)) keyword = 'fin_06';
     else if (['FUNCIONARIO', 'CONVENIO'].includes(textUpper)) keyword = 'fin_10';
 
-    const pdvWhere = pdvFilter ? ` AND vopr_pdvs_codigo::int = $3::int` : '';
     const params: any[] = [startDate, endDate];
-    if (pdvFilter) params.push(pdvFilter);
+    let nextParam = 3;
+    let pdvWhere = '';
+    let lojaWhere = '';
+    if (codLoja) { lojaWhere = ` AND vopr_unid_codigo::int = $${nextParam}::int`; params.push(codLoja); nextParam++; }
+    if (pdvFilter) { pdvWhere = ` AND vopr_pdvs_codigo::int = $${nextParam}::int`; params.push(pdvFilter); nextParam++; }
 
     // BARCODE: buscar por codigo de barras
     if (barcode) {
@@ -1050,7 +1053,7 @@ export class DVRCFTVService {
         WHERE v.vopr_datamvto BETWEEN $1 AND $2 AND v.vopr_tiporeg = 'IT'
         AND COALESCE(v.vopr_cancmotivo,'') = ''
         AND p.${colBarras} = $${barcodeParams.length}
-        ${pdvWhere} ORDER BY v.vopr_hora`;
+        ${lojaWhere} ${pdvWhere} ORDER BY v.vopr_hora`;
       const rows = await PostgresErpService.query<any>(sql, barcodeParams);
       for (const r of rows) {
         results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: r.produto || '', valor: Number(r.valor) || 0, tipo: 'PRODUTO', operador: r.operador || '' });
@@ -1067,7 +1070,7 @@ export class DVRCFTVService {
         FROM public.vdonlineprod
         WHERE vopr_datamvto BETWEEN $1 AND $2 AND vopr_tiporeg = 'IT'
         AND vopr_cancmotivo IS NOT NULL AND vopr_cancmotivo != ''
-        ${pdvWhere} ORDER BY vopr_hora`;
+        ${lojaWhere} ${pdvWhere} ORDER BY vopr_hora`;
       const rows = await PostgresErpService.query<any>(sql, params);
       for (const r of rows) {
         results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: r.motivo || '', valor: Number(r.valor) || 0, tipo: 'CANC. ITEM', operador: r.supervisor || r.operador || '' });
@@ -1084,7 +1087,8 @@ export class DVRCFTVService {
         FROM public.vdonlinec c
         WHERE c.vopc_datamvto BETWEEN $1 AND $2
         AND c.vopc_cancmotivo IS NOT NULL AND c.vopc_cancmotivo != ''
-        ${pdvFilter ? ' AND c.vopc_pdvs_codigo::int = $3::int' : ''}
+        ${codLoja ? ` AND c.vopc_unid_codigo::int = $${params.indexOf(codLoja) + 1}::int` : ''}
+        ${pdvFilter ? ` AND c.vopc_pdvs_codigo::int = $${params.indexOf(pdvFilter) + 1}::int` : ''}
         ORDER BY c.vopc_cupom`;
       const rows = await PostgresErpService.query<any>(sql, params);
       for (const r of rows) {
@@ -1113,7 +1117,7 @@ export class DVRCFTVService {
         LEFT JOIN public.funcionarios f ON f.func_codigo::int = v.vopr_operador::int
         WHERE v.vopr_datamvto BETWEEN $1 AND $2 AND v.vopr_tiporeg = 'IT'
         AND COALESCE(v.vopr_cancmotivo,'') = '' AND v.vopr_desconto > 0
-        ${pdvWhere} ORDER BY v.vopr_hora`;
+        ${lojaWhere} ${pdvWhere} ORDER BY v.vopr_hora`;
       const rows = await PostgresErpService.query<any>(sql, params);
       for (const r of rows) {
         results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: (r.produto || '').trim(), valor: Number(r.valor) || 0, tipo: 'DESCONTO', operador: (r.operador || '').trim() });
@@ -1134,8 +1138,10 @@ export class DVRCFTVService {
         LEFT JOIN public.funcionarios fn ON fn.func_codigo::int = vp.vopr_operador::int
         WHERE f.vofi_datamvto BETWEEN $1 AND $2 AND f.vofi_tiporeg = 'FI'
         AND f.vofi_finalizadora = $${finParams.length}
-        ${pdvFilter ? ' AND f.vofi_pdvs_codigo::int = $' + (finParams.length + 1) + '::int' : ''}
+        ${codLoja ? ` AND f.vofi_unid_codigo::int = $${finParams.length + 1}::int` : ''}
+        ${pdvFilter ? ` AND f.vofi_pdvs_codigo::int = $${finParams.length + (codLoja ? 2 : 1)}::int` : ''}
         ORDER BY f.vofi_hora`;
+      if (codLoja) finParams.push(codLoja);
       if (pdvFilter) finParams.push(pdvFilter);
       const rows = await PostgresErpService.query<any>(sql, finParams);
       for (const r of rows) {
@@ -1159,7 +1165,7 @@ export class DVRCFTVService {
         WHERE v.vopr_datamvto BETWEEN $1 AND $2 AND v.vopr_tiporeg = 'IT'
         AND COALESCE(v.vopr_cancmotivo,'') = ''
         AND UPPER(p.${colDesc}) LIKE $${textParams.length}
-        ${pdvWhere}
+        ${lojaWhere} ${pdvWhere}
         GROUP BY v.vopr_cupom, v.vopr_pdvs_codigo, v.vopr_datamvto, v.vopr_operador
         ORDER BY MIN(v.vopr_hora)`;
       const rows = await PostgresErpService.query<any>(sql, textParams);
