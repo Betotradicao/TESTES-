@@ -226,16 +226,13 @@ export class GestaoInteligenteService {
     }
     let flexSql = `SELECT COALESCE(SUM(mprd_valor),0)::float AS venda_flex, COALESCE(SUM(mprd_ctcompra + imp),0)::float AS custo_flex FROM (${flexParts.join(' UNION ALL ')}) fx WHERE 1=1`;
     const flexParams: any[] = [dtIni, dtFim];
-    if (codLoja) { flexSql = `SELECT COALESCE(SUM(mprd_valor),0)::float AS venda_flex, COALESCE(SUM(mprd_ctcompra + imp),0)::float AS custo_flex FROM (${flexParts.map(p => p + ` AND mprd_unid_codigo = $3`).join(' UNION ALL ')}) fx WHERE 1=1`; flexParams.push(codLoja); }
-
-    console.log(`📊 [GI PG FLEX] SQL: ${flexSql.substring(0, 200)}`);
-    console.log(`📊 [GI PG FLEX] Params: ${JSON.stringify(flexParams)} | codLoja=${codLoja} | flexParts=${flexParts.length}`);
+    if (codLoja) { flexSql = `SELECT COALESCE(SUM(mprd_valor),0)::float AS venda_flex, COALESCE(SUM(mprd_ctcompra + imp),0)::float AS custo_flex FROM (${flexParts.map(p => p + ` AND mprd_unid_codigo::int = $3::int`).join(' UNION ALL ')}) fx WHERE 1=1`; flexParams.push(codLoja); }
 
     const [vR, cR, coR, fR] = await Promise.all([
       PostgresErpService.query<any>(vendasSql, vendasParams),
       PostgresErpService.query<any>(cuponsSql, cuponsParams),
       PostgresErpService.query<any>(comprasSql, comprasParams),
-      PostgresErpService.query<any>(flexSql, flexParams).then(r => { console.log(`📊 [GI PG FLEX] Result: ${JSON.stringify(r)}`); return r; }).catch((e) => { console.error('❌ [GI] Flex query error:', e.message, e.stack?.substring(0, 200)); return [{ venda_flex: 0, custo_flex: 0 }]; })
+      PostgresErpService.query<any>(flexSql, flexParams).catch((e) => { console.error('❌ [GI] Flex query error:', e.message); return [{ venda_flex: 0, custo_flex: 0 }]; })
     ]);
 
     const vendasPdv = Number(vR[0]?.vendas) || 0;
