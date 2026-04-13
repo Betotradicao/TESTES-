@@ -304,8 +304,8 @@ export class DVRCFTVController {
 
       res.json({ success: true, total: result.total, items: result.items });
     } catch (error: any) {
-      console.error('Erro busca Oracle:', error.message);
-      res.status(500).json({ error: 'Erro ao buscar no Oracle', details: error.message });
+      console.error('Erro busca Oracle/PG:', error.message);
+      res.status(500).json({ error: 'Erro ao buscar: ' + error.message, details: error.message });
     }
   }
 
