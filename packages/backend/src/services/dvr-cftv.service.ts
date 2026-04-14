@@ -1753,27 +1753,11 @@ export class DVRCFTVService {
     console.log(`[DVR] Stream: channel=${dvrChannel}, start=${formatRTSP(start)}, end=${formatRTSP(end)}`);
 
     // ffmpeg: RTSP → fragmented MP4 no stdout (streaming progressivo)
-    // Detectar codec: H.264 usa copy (rapido), H.265 converte pra H.264 (browser nao suporta HEVC)
+    // Sempre converte pra H.264 via libx264: normaliza GOP/perfil/timestamps
+    // e garante compatibilidade com browser HTML5 tanto pra DVRs H.264 quanto H.265
     const totalDuration = antesSegundos + depoisSegundos;
     console.log(`[DVR] Stream duration: ${totalDuration}s (antes=${antesSegundos}, depois=${depoisSegundos})`);
-
-    // Probe rapido pra detectar codec (1s)
-    let videoCodec: string[] = ['-c:v', 'copy'];
-    try {
-      const probeResult = await new Promise<string>((resolve) => {
-        const probe = spawn('ffprobe', ['-rtsp_transport', 'tcp', '-v', 'quiet', '-show_entries', 'stream=codec_name', '-of', 'csv=p=0', '-i', rtspUrl]);
-        let out = '';
-        probe.stdout.on('data', (d: Buffer) => { out += d.toString(); });
-        probe.on('close', () => resolve(out.trim()));
-        setTimeout(() => { probe.kill(); resolve(''); }, 5000);
-      });
-      if (probeResult.includes('hevc') || probeResult.includes('h265')) {
-        console.log('[DVR] Codec H.265 detectado, convertendo pra H.264');
-        videoCodec = ['-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28'];
-      } else {
-        console.log('[DVR] Codec H.264, usando copy (rapido)');
-      }
-    } catch { /* fallback: copy */ }
+    const videoCodec = ['-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28'];
 
     const proc = spawn('ffmpeg', [
       '-rtsp_transport', 'tcp',
