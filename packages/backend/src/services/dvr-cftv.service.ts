@@ -1759,7 +1759,7 @@ export class DVRCFTVService {
       '-probesize', '500000',
       '-i', rtspUrl,
       '-t', String(totalDuration),
-      '-c:v', 'copy',
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28',
       '-movflags', 'frag_keyframe+empty_moov+faststart',
       '-c:a', 'aac', '-b:a', '64k',
       '-f', 'mp4',
