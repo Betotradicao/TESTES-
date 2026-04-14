@@ -1729,7 +1729,12 @@ export class DVRCFTVService {
   static async startRTSPStream(channel: number, time: string, antesOverride?: number, depoisOverride?: number): Promise<import('child_process').ChildProcess> {
     const config = await this.getConfig();
 
-    const transactionDate = new Date(time.replace(' ', 'T'));
+    // Parse flexivel: aceita "2026-04-13 06:38:25" ou "2026-04-13 063825" (PG sem :)
+    let timeParsed = time.replace(' ', 'T');
+    if (/T\d{6}$/.test(timeParsed)) {
+      timeParsed = timeParsed.replace(/T(\d{2})(\d{2})(\d{2})$/, 'T$1:$2:$3');
+    }
+    const transactionDate = new Date(timeParsed);
     // Per-camera override (Bipagens) ou config global (Vision PDV)
     const antesSegundos = antesOverride ?? config.antecedenciaSegundos;
     const depoisSegundos = depoisOverride ?? config.tempoDepoisSegundos;
