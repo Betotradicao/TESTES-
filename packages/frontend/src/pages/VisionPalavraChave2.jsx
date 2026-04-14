@@ -82,7 +82,7 @@ export default function VisionPalavraChave2() {
   }, []);
 
   const getCameraForPdv = (pdv) => {
-    return camerasPdv.find(c => c.pdv === pdv);
+    return camerasPdv.find(c => String(c.pdv) === String(pdv));
   };
 
   const handleBarcodeLookup = async (code) => {
