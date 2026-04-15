@@ -778,8 +778,11 @@ export class DVRCFTVService {
       }
     } catch {}
 
-    const [year, month, day] = startDate.split('-');
-    const dateStr = `${day}/${month}/${year}`;
+    const [sy, sm, sd] = startDate.split('-');
+    const [ey, em, ed] = (endDate || startDate).split('-');
+    const dateStr = `${sd}/${sm}/${sy}`;       // retrocompat (fallback de 1 dia)
+    const dateStrStart = `${sd}/${sm}/${sy}`;
+    const dateStrEnd = `${ed}/${em}/${ey}`;
     const textUpper = text ? text.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') : '';
     const n = await this.getOracleNames();
 
@@ -808,7 +811,7 @@ export class DVRCFTVService {
     }
 
     const results: any[] = [];
-    let params: any = { dateStr };
+    let params: any = { dateStr, dateStrStart, dateStrEnd };
     if (pdvFilter) params.pdv = pdvFilter;
     const pdvWhere = pdvFilter ? `AND p.${n.C_PDV_NUM_PDV} = :pdv` : '';
     const pdvWhereE = pdvFilter ? `AND e.${n.C_EST_NUM_PDV} = :pdv` : '';
@@ -827,7 +830,7 @@ export class DVRCFTVService {
                   AND TRUNC(cf2.${n.C_CF_DATA}) = TRUNC(e.${n.C_EST_DATA}) AND cf2.${n.C_CF_OPERADOR} IS NOT NULL AND ROWNUM = 1) as NOM_OPERADOR
         FROM ${n.schema}.${n.T_PRODUTO_PDV_ESTORNO} e
         LEFT JOIN ${n.schema}.${n.T_PRODUTO} pr ON e.${n.C_EST_COD_PROD} = pr.${n.C_PROD_COD}
-        WHERE e.${n.C_EST_DATA} = TO_DATE(:dateStr, 'DD/MM/YYYY')
+        WHERE e.${n.C_EST_DATA} BETWEEN TO_DATE(:dateStrStart, 'DD/MM/YYYY') AND TO_DATE(:dateStrEnd, 'DD/MM/YYYY')
           ${pdvWhereE}
           AND EXISTS (
             SELECT 1 FROM ${n.schema}.${n.T_CUPOM_FINALIZADORA} cf
@@ -870,7 +873,7 @@ export class DVRCFTVService {
                     AND TRUNC(cf_val.${n.C_CF_DATA}) = TRUNC(cc.${n.C_CC_DATA}))
                ), 0) as VALOR
         FROM ${n.schema}.${n.T_CUPOM_CANCELADO} cc
-        WHERE cc.${n.C_CC_DATA} = TO_DATE(:dateStr, 'DD/MM/YYYY')
+        WHERE cc.${n.C_CC_DATA} BETWEEN TO_DATE(:dateStrStart, 'DD/MM/YYYY') AND TO_DATE(:dateStrEnd, 'DD/MM/YYYY')
           AND cc.${n.C_CC_ESTORNO} = 'S'
           ${pdvFilter ? `AND cc.${n.C_CC_PDV} = :pdv` : ''}
       `;
@@ -899,7 +902,7 @@ export class DVRCFTVService {
                e.${n.C_EST_VALOR} as VALOR
         FROM ${n.schema}.${n.T_PRODUTO_PDV_ESTORNO} e
         LEFT JOIN ${n.schema}.${n.T_PRODUTO} pr ON e.${n.C_EST_COD_PROD} = pr.${n.C_PROD_COD}
-        WHERE e.${n.C_EST_DATA} = TO_DATE(:dateStr, 'DD/MM/YYYY')
+        WHERE e.${n.C_EST_DATA} BETWEEN TO_DATE(:dateStrStart, 'DD/MM/YYYY') AND TO_DATE(:dateStrEnd, 'DD/MM/YYYY')
           ${pdvWhereE}
           AND NOT EXISTS (
             SELECT 1 FROM ${n.schema}.${n.T_CUPOM_FINALIZADORA} cf
@@ -936,7 +939,7 @@ export class DVRCFTVService {
                'BUSCA PRECO' as TIPO
         FROM ${n.schema}.${n.T_PRODUTO_PDV} p
         LEFT JOIN ${n.schema}.${n.T_PRODUTO} pr ON p.${n.C_PDV_COD_PROD} = pr.${n.C_PROD_COD}
-        WHERE p.${n.C_PDV_DATA} = TO_DATE(:dateStr, 'DD/MM/YYYY')
+        WHERE p.${n.C_PDV_DATA} BETWEEN TO_DATE(:dateStrStart, 'DD/MM/YYYY') AND TO_DATE(:dateStrEnd, 'DD/MM/YYYY')
           AND p.${n.C_PDV_CUPOM} = 0
           ${pdvWhere}
         ORDER BY p.${n.C_PDV_HORA}
@@ -985,7 +988,7 @@ export class DVRCFTVService {
                   AND TRUNC(cf2.${n.C_CF_DATA}) = TRUNC(p.${n.C_PDV_DATA})) as COD_OPERADOR
         FROM ${n.schema}.${n.T_PRODUTO_PDV} p
         LEFT JOIN ${n.schema}.${n.T_PRODUTO} pr ON p.${n.C_PDV_COD_PROD} = pr.${n.C_PROD_COD}
-        WHERE p.${n.C_PDV_DATA} = TO_DATE(:dateStr, 'DD/MM/YYYY')
+        WHERE p.${n.C_PDV_DATA} BETWEEN TO_DATE(:dateStrStart, 'DD/MM/YYYY') AND TO_DATE(:dateStrEnd, 'DD/MM/YYYY')
           AND p.${n.C_PDV_CUPOM} > 0
           ${pdvWhere}
           ${whereExtra}
