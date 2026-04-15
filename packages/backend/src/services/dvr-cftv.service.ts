@@ -811,7 +811,7 @@ export class DVRCFTVService {
     }
 
     const results: any[] = [];
-    let params: any = { dateStr, dateStrStart, dateStrEnd };
+    let params: any = { dateStrStart, dateStrEnd };
     if (pdvFilter) params.pdv = pdvFilter;
     const pdvWhere = pdvFilter ? `AND p.${n.C_PDV_NUM_PDV} = :pdv` : '';
     const pdvWhereE = pdvFilter ? `AND e.${n.C_EST_NUM_PDV} = :pdv` : '';
