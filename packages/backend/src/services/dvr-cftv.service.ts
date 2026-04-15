@@ -1330,7 +1330,7 @@ export class DVRCFTVService {
   /**
    * Buscar itens do cupom no Oracle pelo número do cupom ou timestamp da transação DVR
    */
-  static async getCupomByTime(time: string, channel: number, cupomNumDirect?: number): Promise<any> {
+  static async getCupomByTime(time: string, channel: number, cupomNumDirect?: number, pdvOverride?: number): Promise<any> {
     try {
       // Bifurcar PG
       let isPg = false;
@@ -1348,7 +1348,11 @@ export class DVRCFTVService {
       }
 
       const config = await this.getConfig();
-      const pdv = this.channelToPdv(config, channel);
+      // pdvOverride ganha prioridade quando o frontend ja conhece o PDV real
+      // (ex: Vision Palavra Chave lista o PDV junto do cupom). Isso evita
+      // depender do mapeamento DVR->PDV estar configurado, que nao e o caso
+      // em clientes novos sem cameras ainda.
+      const pdv = pdvOverride ?? this.channelToPdv(config, channel);
       const [datePart, timePart] = time.split(' ');
       const [year, month, day] = datePart.split('-');
       const [hour, minute] = timePart.split(':');

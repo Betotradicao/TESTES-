@@ -159,7 +159,7 @@ export default function VisionPalavraChave2() {
     setCupomData(null);
     // show cupom panel
     setLoadingCupom(item.cupomNum);
-    api.get('/dvr-cftv/pos/cupom', { params: { channel: cam.channel, time: item.time, cupomNum: item.cupomNum } })
+    api.get('/dvr-cftv/pos/cupom', { params: { channel: cam.channel, time: item.time, cupomNum: item.cupomNum, pdv: item.pdv } })
       .then(res => setCupomData(res.data))
       .catch(() => setCupomData({ found: false, message: 'Erro ao buscar cupom' }))
       .finally(() => setLoadingCupom(null));
@@ -172,7 +172,7 @@ export default function VisionPalavraChave2() {
     setLoadingCupom(item.cupomNum);
     setCupomData(null);
     // show cupom panel
-    api.get('/dvr-cftv/pos/cupom', { params: { channel: ch, time: item.time, cupomNum: item.cupomNum } })
+    api.get('/dvr-cftv/pos/cupom', { params: { channel: ch, time: item.time, cupomNum: item.cupomNum, pdv: item.pdv } })
       .then(res => setCupomData(res.data))
       .catch(() => setCupomData({ found: false, message: 'Erro ao buscar cupom' }))
       .finally(() => setLoadingCupom(null));

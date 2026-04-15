@@ -126,7 +126,7 @@ export default function VisionPDV() {
     setShowCupom(true);
     setLoadingCupom(item.ID);
     try {
-      const data = await getCupom(item.Channel, item.Time, item.cupom);
+      const data = await getCupom(item.Channel, item.Time, item.cupom, item.PDV);
       setCupomData(data);
     } catch (err) {
       setCupomData({ found: false, message: 'Erro ao buscar cupom' });
@@ -141,7 +141,7 @@ export default function VisionPDV() {
     setCupomData(null);
     setShowCupom(true);
     try {
-      const data = await getCupom(item.Channel, item.Time, item.cupom);
+      const data = await getCupom(item.Channel, item.Time, item.cupom, item.PDV);
       setCupomData(data);
     } catch (err) {
       setCupomData({ found: false, message: 'Erro ao buscar cupom' });

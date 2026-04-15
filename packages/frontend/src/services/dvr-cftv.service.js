@@ -26,9 +26,10 @@ export async function generateClip(channel, time, duration) {
 }
 
 // Buscar cupom/nota do Oracle (por número do cupom ou timestamp DVR)
-export async function getCupom(channel, time, cupomNum) {
+export async function getCupom(channel, time, cupomNum, pdv) {
   const params = { channel, time };
   if (cupomNum) params.cupomNum = cupomNum;
+  if (pdv !== undefined && pdv !== null) params.pdv = pdv;
   const response = await api.get('/dvr-cftv/pos/cupom', { params });
   return response.data;
 }
