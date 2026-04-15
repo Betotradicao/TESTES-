@@ -779,11 +779,30 @@ export default function CompraVendaAnalise() {
           params.append('codSecao', secaoKey);
           params.append('codGrupo', grupoKey);
           params.append('codSubGrupo', subgrupoKey);
+          const paramsAnual = new URLSearchParams(params.toString());
+          const ontemItem = new Date(); ontemItem.setDate(ontemItem.getDate() - 1);
+          paramsAnual.set('dataInicio', `01/01/${ontemItem.getFullYear()}`);
+          paramsAnual.set('dataFim', `${String(ontemItem.getDate()).padStart(2,'0')}/${String(ontemItem.getMonth()+1).padStart(2,'0')}/${ontemItem.getFullYear()}`);
           console.log('📊 Buscando itens do subgrupo:', subgrupoKey, 'grupo:', grupoKey, 'seção:', secaoKey);
-          const response = await api.get(`/compra-venda/drill-down/itens?${params.toString()}`);
+          const [response, responseAnual] = await Promise.all([
+            api.get(`/compra-venda/drill-down/itens?${params.toString()}`),
+            api.get(`/compra-venda/drill-down/itens?${paramsAnual.toString()}`).catch(() => ({ data: { success: false } })),
+          ]);
           console.log('📊 Resposta itens:', response.data);
           if (response.data.success) {
-            setItensData(prev => ({ ...prev, [key]: response.data.data }));
+            const anualMap = {};
+            if (responseAnual.data.success) {
+              for (const r of (responseAnual.data.data || [])) {
+                const anualKey = `${r.COD_PRODUTO}_${r.LOJA}`;
+                anualMap[anualKey] = { DIF_ANUAL_PCT: r.DIFERENCA_PCT || 0, DIF_ANUAL_RS: r.DIFERENCA_RS || 0 };
+              }
+            }
+            const mergedData = (response.data.data || []).map(row => {
+              const anualKey = `${row.COD_PRODUTO}_${row.LOJA}`;
+              const anual = anualMap[anualKey] || { DIF_ANUAL_PCT: 0, DIF_ANUAL_RS: 0 };
+              return { ...row, DIF_ANUAL_PCT: anual.DIF_ANUAL_PCT, DIF_ANUAL_RS: anual.DIF_ANUAL_RS };
+            });
+            setItensData(prev => ({ ...prev, [key]: mergedData }));
           }
         } catch (error) {
           console.error('Erro ao carregar itens:', error);

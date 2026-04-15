@@ -1257,7 +1257,8 @@ export class GestaoInteligenteService {
   private static async buscarVendasPorSetorPeriodo(
     dataInicio: string, // DD/MM/YYYY
     dataFim: string,    // DD/MM/YYYY
-    codLoja?: number
+    codLoja?: number,
+    tiposSaida?: string
   ): Promise<any[]> {
     const dbType = await this.detectActiveDbType();
     if (dbType === 'postgresql') {
@@ -1294,6 +1295,14 @@ export class GestaoInteligenteService {
       params.codLoja = codLoja;
     }
 
+    if (tiposSaida && tiposSaida.length > 0) {
+      const colTipoSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'tipo_saida');
+      const tipos = tiposSaida.split(',').map((t: string) => parseInt(t.trim())).filter((t: number) => !isNaN(t));
+      if (tipos.length > 0) {
+        sql += ` AND pv.${colTipoSaida} IN (${tipos.join(',')})`;
+      }
+    }
+
     sql += ` GROUP BY s.COD_SECAO, s.DES_SECAO ORDER BY VENDA DESC`;
 
     return OracleService.query<any>(sql, params);
@@ -1326,12 +1335,12 @@ export class GestaoInteligenteService {
     const skipML = dbType === 'postgresql'; // Nunes nao tem historico completo pra media linear
 
     const [atual, mesPas] = await Promise.all([
-      this.buscarVendasPorSetorPeriodo(dataInicio, dataFim, filters.codLoja),
-      this.buscarVendasPorSetorPeriodo(mesPassado.inicio, mesPassado.fim, filters.codLoja)
+      this.buscarVendasPorSetorPeriodo(dataInicio, dataFim, filters.codLoja, filters.tiposSaida),
+      this.buscarVendasPorSetorPeriodo(mesPassado.inicio, mesPassado.fim, filters.codLoja, filters.tiposSaida)
     ]);
     const [anoPas, anoInteiro] = await Promise.all([
-      this.buscarVendasPorSetorPeriodo(anoPassado.inicio, anoPassado.fim, filters.codLoja),
-      skipML ? Promise.resolve([] as any[]) : this.buscarVendasPorSetorPeriodo(mlInicio, mlFim, filters.codLoja)
+      this.buscarVendasPorSetorPeriodo(anoPassado.inicio, anoPassado.fim, filters.codLoja, filters.tiposSaida),
+      skipML ? Promise.resolve([] as any[]) : this.buscarVendasPorSetorPeriodo(mlInicio, mlFim, filters.codLoja, filters.tiposSaida)
     ]);
 
     // Criar mapas por COD_SECAO com todos os campos

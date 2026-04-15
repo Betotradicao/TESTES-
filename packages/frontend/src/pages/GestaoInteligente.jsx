@@ -1626,7 +1626,8 @@ export default function GestaoInteligente() {
     try {
       const params = {
         dataInicio: filters.dataInicio,
-        dataFim: filters.dataFim
+        dataFim: filters.dataFim,
+        tiposSaida: buildTiposSaida()
       };
       if (lojaSelecionada) {
         params.codLoja = lojaSelecionada;
