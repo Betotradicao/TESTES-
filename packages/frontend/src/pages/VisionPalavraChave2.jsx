@@ -306,6 +306,14 @@ export default function VisionPalavraChave2() {
               className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${text === 'cartao debito' ? 'bg-indigo-100 border-indigo-400 text-indigo-800 ring-1 ring-indigo-300' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700'}`}>
               💳 Debito
             </button>
+            <button onClick={() => { setBarcode(''); setBarcodeProduct(''); setText('cartao pos'); }}
+              className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${text === 'cartao pos' ? 'bg-sky-100 border-sky-400 text-sky-800 ring-1 ring-sky-300' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-sky-50 hover:border-sky-300 hover:text-sky-700'}`}>
+              💳 Cartao POS
+            </button>
+            <button onClick={() => { setBarcode(''); setBarcodeProduct(''); setText('ifood'); }}
+              className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${text === 'ifood' ? 'bg-rose-100 border-rose-400 text-rose-800 ring-1 ring-rose-300' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-700'}`}>
+              🛵 iFood
+            </button>
             <button onClick={() => { setBarcode(''); setBarcodeProduct(''); setText('cartao parcelado'); }}
               className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${text === 'cartao parcelado' ? 'bg-violet-100 border-violet-400 text-violet-800 ring-1 ring-violet-300' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700'}`}>
               💳 Cred. Parcelado
