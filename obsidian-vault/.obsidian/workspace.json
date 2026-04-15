@@ -1,0 +1,228 @@
+{
+  "main": {
+    "id": "26d350af9346f32b",
+    "type": "split",
+    "children": [
+      {
+        "id": "fbaa7571efafb651",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "4812af0275230e20",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "arquitetura/estrutura-vps.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "estrutura-vps"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "6494dbf82bcbeb07",
+    "type": "split",
+    "children": [
+      {
+        "id": "c6e48e733206fe98",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "87dd5af2019c3e1d",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Explorador de arquivos"
+            }
+          },
+          {
+            "id": "2c0dc9373283d43b",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Procurar"
+            }
+          },
+          {
+            "id": "327984aaf3988d5a",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Marcadores"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "204e77a86b74b268",
+    "type": "split",
+    "children": [
+      {
+        "id": "34e0f53d6d2c8012",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "e2d399ce97a401b5",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "00-INDEX.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Links inversos para 00-INDEX"
+            }
+          },
+          {
+            "id": "7d7cb3d73e8a3bf6",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "00-INDEX.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Links de saída para 00-INDEX"
+            }
+          },
+          {
+            "id": "a3f74c11cfeb16ee",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Etiquetas"
+            }
+          },
+          {
+            "id": "ef6732b48798161f",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "Todas as propriedades"
+            }
+          },
+          {
+            "id": "b95f3516598903fc",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "00-INDEX.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Sumário de 00-INDEX"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Abrir a troca rápida": false,
+      "graph:Abrir visualização em gráfico": false,
+      "canvas:Criar novo canvas": false,
+      "daily-notes:Abrir a nota de hoje": false,
+      "templates:Inserir modelo": false,
+      "command-palette:Abrir paleta de comandos": false,
+      "bases:Criar nova base": false
+    }
+  },
+  "active": "4812af0275230e20",
+  "lastOpenFiles": [
+    "arquitetura/deploy.md",
+    "00-INDEX.md",
+    "_current-work.md",
+    "padroes/regras-ssh-windows.md",
+    "padroes/estilo-criacao.md",
+    "_current-work.md.tmp.25412.1776292144709",
+    "modulos/analise-preco.md",
+    "modulos/rh.md",
+    "00-INDEX.md.tmp.25412.1776292109658",
+    "bugs-resolvidos/2026-03-bipagens-offline-salvar.md",
+    "bugs-resolvidos/2026-03-cron-monitor-scanner.md",
+    "bugs-resolvidos/2026-03-cron-monitor-scanner.md.tmp.25412.1776292045996",
+    "bugs-resolvidos/2026-03-saude-estoque-queda-vendas.md",
+    "bugs-resolvidos/2026-03-saude-estoque-queda-vendas.md.tmp.25412.1776292042391",
+    "bugs-resolvidos/2026-03-metas-no-radar.md",
+    "bugs-resolvidos/2026-03-prevencao-acougue.md",
+    "bugs-resolvidos/2026-03-prevencao-acougue.md.tmp.25412.1776292038556",
+    "bugs-resolvidos/2026-03-venda-dia-a-dia-drill.md",
+    "bugs-resolvidos/2026-03-venda-dia-a-dia-drill.md.tmp.25412.1776292036814",
+    "bugs-resolvidos/2026-03-multi-loja-expansion.md",
+    "bugs-resolvidos/2026-03-multi-loja-expansion.md.tmp.25412.1776292034147",
+    "bugs-resolvidos/2026-03-vision-pdv-dvr.md",
+    "bugs-resolvidos/2026-03-vision-pdv-dvr.md.tmp.25412.1776292031798",
+    "bugs-resolvidos/2026-03-instalador-v5.md",
+    "bugs-resolvidos/2026-03-instalador-v5.md.tmp.25412.1776292025743",
+    "bugs-resolvidos/2026-03-white-label.md",
+    "bugs-resolvidos/2026-03-white-label.md.tmp.25412.1776291974277",
+    "bugs-resolvidos/2026-03-seguranca-cors-helmet.md",
+    "bugs-resolvidos/2026-03-gestao-inteligente-evolucoes.md",
+    "bugs-resolvidos/2026-03-garimpador-analytics.md",
+    "modulos/prevencao-caixa.md",
+    "modulos/prevencao-tributaria.md",
+    "bugs-resolvidos/2026-03-rh-radar-completo.md",
+    "bugs-resolvidos/2026-03-vision-palavra-chave-v2.md",
+    "bugs-resolvidos/2026-03-marketing-whatsapp-completo.md",
+    "Sem título 1.canvas",
+    "Sem título 2.canvas",
+    "Sem título.canvas",
+    "modulos/vision-palavra-chave.md"
+  ]
+}
