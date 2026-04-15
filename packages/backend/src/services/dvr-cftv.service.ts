@@ -1457,6 +1457,42 @@ export class DVRCFTVService {
           } catch (e: any) {
             console.log('[DVR] Erro verificando cancelamento:', e.message);
           }
+
+          // Fallback CANC. VENDA: busca itens em TAB_PRODUTO_PDV_ESTORNO
+          // (venda cancelada inteira que nao tem linhas em TAB_PRODUTO_PDV)
+          try {
+            const sqlEstorno = `
+              SELECT e.${n.C_EST_COD_PROD} as COD_PRODUTO, pr.${n.C_PROD_DESC} as DES_PRODUTO,
+                     e.${n.C_EST_VALOR} as TOTAL,
+                     TO_CHAR(e.${n.C_EST_HORA}, 'HH24:MI:SS') as HORA
+              FROM ${n.schema}.${n.T_PRODUTO_PDV_ESTORNO} e
+              LEFT JOIN ${n.schema}.${n.T_PRODUTO} pr ON e.${n.C_EST_COD_PROD} = pr.${n.C_PROD_COD}
+              WHERE e.${n.C_EST_DATA} = TO_DATE(:dateStr, 'DD/MM/YYYY')
+                AND e.${n.C_EST_NUM_PDV} = :pdv
+                AND e.${n.C_EST_CUPOM} = :cupomNum
+              ORDER BY e.${n.C_EST_HORA}`;
+            const estRows: any[] = await OracleService.query(sqlEstorno, { dateStr, pdv, cupomNum: cupomNumDirect });
+            if (estRows.length > 0) {
+              console.log(`[DVR] Cupom ${cupomNumDirect} encontrado em TAB_PRODUTO_PDV_ESTORNO (CANC. VENDA): ${estRows.length} itens`);
+              const itens = estRows.map((r: any) => ({
+                cod: r.COD_PRODUTO,
+                descricao: (r.DES_PRODUTO || 'PRODUTO').trim(),
+                qtd: 1,
+                unitario: Number(r.TOTAL) || 0,
+                total: Number(r.TOTAL) || 0,
+              }));
+              const totalCupom = itens.reduce((s: number, i: any) => s + i.total, 0);
+              return {
+                found: true, cupom: cupomNumDirect, pdv, itens,
+                total: Math.round(totalCupom * 100) / 100,
+                qtdItens: itens.length, operador: '',
+                cancelado: true, hora: estRows[0].HORA || '',
+                desconto: 0, formaPgto: '', valorRecebido: 0, troco: 0
+              };
+            }
+          } catch (e: any) {
+            console.log('[DVR] Erro buscando em ESTORNO:', e.message);
+          }
         }
         return null;
       }
