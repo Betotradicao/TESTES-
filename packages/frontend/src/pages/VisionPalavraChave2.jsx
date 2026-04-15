@@ -443,6 +443,38 @@ export default function VisionPalavraChave2() {
                         <span>{formatCurrency(cupomData.total)}</span>
                       </div>
                     </div>
+                    {cupomData.itensComDesconto?.length > 0 && (
+                      <div className="border-t border-dashed mt-1 pt-1" style={{ borderColor: '#D4A017' }}>
+                        <p className="text-[10px] font-bold mb-0.5" style={{ color: '#C62828' }}>ITENS COM DESCONTO:</p>
+                        {cupomData.itensComDesconto.map((d, i) => (
+                          <div key={`desc-${i}`} className="text-[11px]" style={{ color: '#C62828' }}>
+                            <div className="flex justify-between">
+                              <span className="truncate mr-2" style={{ maxWidth: '260px' }}>{d.descricao}</span>
+                              <span className="whitespace-nowrap font-semibold">{formatCurrency(d.totalFinal)}</span>
+                            </div>
+                            <div className="text-[10px]" style={{ color: '#8D6E63' }}>
+                              de {formatCurrency(d.totalAntes)} por {formatCurrency(d.totalFinal)} (-{formatCurrency(d.desconto)})
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {cupomData.itensCancelados?.length > 0 && (
+                      <div className="border-t border-dashed mt-1 pt-1" style={{ borderColor: '#D4A017' }}>
+                        <p className="text-[10px] font-bold mb-0.5" style={{ color: '#C62828' }}>ITENS CANCELADOS:</p>
+                        {cupomData.itensCancelados.map((c, i) => (
+                          <div key={`canc-${i}`} className="text-[11px]" style={{ color: '#C62828' }}>
+                            <div className="flex justify-between">
+                              <span className="truncate mr-2" style={{ maxWidth: '260px' }}>{c.descricao}</span>
+                              <span className="whitespace-nowrap font-semibold">-{formatCurrency(c.total)}</span>
+                            </div>
+                            <div className="text-[10px]" style={{ color: '#8D6E63' }}>
+                              {c.qtd || 1} x {formatCurrency((c.total || 0) / (c.qtd || 1))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {cupomData.formaPgto && (
                       <div className="border-t border-dashed mt-1 pt-1" style={{ borderColor: '#D4A017' }}>
                         <p className="text-[10px] font-bold mb-0.5">PAGAMENTO:</p>

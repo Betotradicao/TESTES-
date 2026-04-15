@@ -76,6 +76,7 @@ export class DVRCFTVService {
     const C_EST_NUM_PDV = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV_ESTORNO', 'numero_pdv', 'NUM_PDV');
     const C_EST_COD_PROD = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV_ESTORNO', 'codigo_produto', 'COD_PRODUTO');
     const C_EST_VALOR = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV_ESTORNO', 'valor_total', 'VAL_TOTAL_PRODUTO');
+    const C_EST_QTD = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV_ESTORNO', 'quantidade', 'QTD_TOTAL_PRODUTO');
 
     // Colunas - TAB_PRODUTO
     const C_PROD_COD = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
@@ -114,7 +115,7 @@ export class DVRCFTVService {
       C_PDV_VALOR, C_PDV_DESCONTO, C_PDV_PRECO, C_PDV_QTD, C_PDV_CANCELADO,
       C_PDV_SEQ, C_PDV_COD_ENT,
       // Colunas Estorno
-      C_EST_CUPOM, C_EST_DATA, C_EST_HORA, C_EST_NUM_PDV, C_EST_COD_PROD, C_EST_VALOR,
+      C_EST_CUPOM, C_EST_DATA, C_EST_HORA, C_EST_NUM_PDV, C_EST_COD_PROD, C_EST_VALOR, C_EST_QTD,
       // Colunas Produto
       C_PROD_COD, C_PROD_DESC, C_PROD_BARRAS,
       // Colunas Operadores
@@ -893,15 +894,23 @@ export class DVRCFTVService {
       if (keyword === 'cancelado_cupom') return { total: results.length, items: results };
     }
 
-    // CANCELAMENTO DE VENDA → TAB_PRODUTO_PDV_ESTORNO sem operador
+    // CANCELAMENTO DE VENDA → TAB_PRODUTO_PDV_ESTORNO, agrupado por cupom
+    // (uma linha por venda cancelada, nao uma por item)
+    // Operador inferido do proximo cupom fiscal do mesmo PDV/data (geralmente
+    // a venda refeita pelo mesmo operador logo apos o cancelamento)
     if (keyword === 'cancelado_venda' || keyword === 'cancelado') {
       const sqlVenda = `
         SELECT e.${n.C_EST_CUPOM} as NUM_CUPOM_FISCAL, e.${n.C_EST_NUM_PDV} as NUM_PDV,
-               TO_CHAR(e.${n.C_EST_DATA}, 'YYYY-MM-DD') || ' ' || TO_CHAR(e.${n.C_EST_HORA}, 'HH24:MI:SS') as HORA_CUPOM,
-               pr.${n.C_PROD_DESC} as DES_PRODUTO,
-               e.${n.C_EST_VALOR} as VALOR
+               TO_CHAR(e.${n.C_EST_DATA}, 'YYYY-MM-DD') || ' ' || TO_CHAR(MIN(e.${n.C_EST_HORA}), 'HH24:MI:SS') as HORA_CUPOM,
+               SUM(e.${n.C_EST_VALOR}) as VALOR, COUNT(*) as QTD_ITENS,
+               (SELECT op.${n.C_OP_NOME} FROM ${n.schema}.${n.T_CUPOM_FINALIZADORA} cfn
+                  LEFT JOIN ${n.schema}.${n.T_OPERADORES} op ON op.${n.C_OP_COD} = cfn.${n.C_CF_OPERADOR}
+                WHERE cfn.${n.C_CF_PDV} = e.${n.C_EST_NUM_PDV}
+                  AND TRUNC(cfn.${n.C_CF_DATA}) = TRUNC(e.${n.C_EST_DATA})
+                  AND cfn.${n.C_CF_CUPOM} >= e.${n.C_EST_CUPOM}
+                  AND cfn.${n.C_CF_OPERADOR} IS NOT NULL
+                  AND ROWNUM = 1) as NOM_OPERADOR
         FROM ${n.schema}.${n.T_PRODUTO_PDV_ESTORNO} e
-        LEFT JOIN ${n.schema}.${n.T_PRODUTO} pr ON e.${n.C_EST_COD_PROD} = pr.${n.C_PROD_COD}
         WHERE e.${n.C_EST_DATA} BETWEEN TO_DATE(:dateStrStart, 'DD/MM/YYYY') AND TO_DATE(:dateStrEnd, 'DD/MM/YYYY')
           ${pdvWhereE}
           AND NOT EXISTS (
@@ -910,15 +919,17 @@ export class DVRCFTVService {
               AND cf.${n.C_CF_PDV} = e.${n.C_EST_NUM_PDV}
               AND TRUNC(cf.${n.C_CF_DATA}) = TRUNC(e.${n.C_EST_DATA})
           )
-        ORDER BY e.${n.C_EST_HORA}
+        GROUP BY e.${n.C_EST_CUPOM}, e.${n.C_EST_NUM_PDV}, e.${n.C_EST_DATA}
+        ORDER BY HORA_CUPOM
       `;
       const rows = await OracleService.query(sqlVenda, params);
       for (const row of rows) {
         results.push({
           time: row.HORA_CUPOM, cupomNum: Number(row.NUM_CUPOM_FISCAL),
-          pdv: Number(row.NUM_PDV), produto: row.DES_PRODUTO || '',
+          pdv: Number(row.NUM_PDV), produto: '',
           valor: Number(row.VALOR) || 0, tipo: 'CANC. VENDA',
-          operador: ''
+          qtdItens: Number(row.QTD_ITENS) || 0,
+          operador: (row.NOM_OPERADOR || '').trim()
         });
       }
       if (keyword === 'cancelado_venda') return { total: results.length, items: results };
@@ -975,13 +986,17 @@ export class DVRCFTVService {
 
     const tipoLabel = keyword === 'desconto' ? 'DESCONTO' : keyword.startsWith('fin_') ? 'FINALIZADORA' : 'PRODUTO';
 
+    // Para 'desconto' retorna o valor do proprio desconto (nao o total do produto)
+    const valorExpr = keyword === 'desconto'
+      ? `SUM(p.${n.C_PDV_DESCONTO})`
+      : `SUM(p.${n.C_PDV_VALOR})`;
     const sql = `
       SELECT sub.NUM_CUPOM_FISCAL, sub.NUM_PDV, sub.HORA_CUPOM, sub.VALOR, sub.QTD_ITENS,
              op.${n.C_OP_NOME} as NOM_OPERADOR
       FROM (
         SELECT p.${n.C_PDV_CUPOM} as NUM_CUPOM_FISCAL, p.${n.C_PDV_NUM_PDV} as NUM_PDV, p.${n.C_PDV_DATA},
                TO_CHAR(p.${n.C_PDV_DATA}, 'YYYY-MM-DD') || ' ' || TO_CHAR(MIN(p.${n.C_PDV_HORA}), 'HH24:MI:SS') as HORA_CUPOM,
-               SUM(p.${n.C_PDV_VALOR}) as VALOR,
+               ${valorExpr} as VALOR,
                COUNT(*) as QTD_ITENS,
                (SELECT MAX(cf2.${n.C_CF_OPERADOR}) FROM ${n.schema}.${n.T_CUPOM_FINALIZADORA} cf2
                 WHERE cf2.${n.C_CF_CUPOM} = p.${n.C_PDV_CUPOM} AND cf2.${n.C_CF_PDV} = p.${n.C_PDV_NUM_PDV}
@@ -1606,9 +1621,50 @@ export class DVRCFTVService {
       // Buscar descontos do cupom
       const totalDesconto = cupomRows.reduce((s: number, r: any) => s + (Number(r.VAL_DESCONTO) || 0), 0);
 
+      // Itens com desconto (VAL_DESCONTO > 0) do cupom: produto, valor final (apos desconto) e desconto
+      const itensComDesconto = cupomRows
+        .filter((r: any) => (Number(r.VAL_DESCONTO) || 0) > 0)
+        .map((r: any) => ({
+          cod: r.COD_PRODUTO,
+          descricao: (r.DES_PRODUTO || 'PRODUTO').trim(),
+          qtd: Number(r.QTD) || 0,
+          unitario: Number(r.UNITARIO) || 0,
+          totalAntes: (Number(r.TOTAL) || 0) + (Number(r.VAL_DESCONTO) || 0),
+          desconto: Number(r.VAL_DESCONTO) || 0,
+          totalFinal: Number(r.TOTAL) || 0,
+        }));
+
+      // Buscar itens cancelados (CANC. ITEM) em TAB_PRODUTO_PDV_ESTORNO pro cupom
+      // Agrupa por produto, somando quantidade real (QTD_TOTAL_PRODUTO) e valor
+      let itensCancelados: any[] = [];
+      try {
+        const sqlEst = `
+          SELECT e.${n.C_EST_COD_PROD} as COD_PRODUTO, pr.${n.C_PROD_DESC} as DES_PRODUTO,
+                 SUM(e.${n.C_EST_QTD}) as QTD,
+                 SUM(e.${n.C_EST_VALOR}) as TOTAL
+          FROM ${n.schema}.${n.T_PRODUTO_PDV_ESTORNO} e
+          LEFT JOIN ${n.schema}.${n.T_PRODUTO} pr ON e.${n.C_EST_COD_PROD} = pr.${n.C_PROD_COD}
+          WHERE e.${n.C_EST_DATA} = TO_DATE(:dateStr, 'DD/MM/YYYY')
+            AND e.${n.C_EST_NUM_PDV} = :pdv
+            AND e.${n.C_EST_CUPOM} = :cupomNum
+          GROUP BY e.${n.C_EST_COD_PROD}, pr.${n.C_PROD_DESC}
+          ORDER BY MIN(e.${n.C_EST_HORA})`;
+        const estRows: any[] = await OracleService.query(sqlEst, { dateStr, pdv, cupomNum });
+        itensCancelados = estRows.map((r: any) => ({
+          cod: r.COD_PRODUTO,
+          descricao: (r.DES_PRODUTO || 'PRODUTO').trim(),
+          qtd: Number(r.QTD) || 0,
+          total: Number(r.TOTAL) || 0,
+        }));
+      } catch (e: any) {
+        console.log('[DVR] ESTORNO nao disponivel:', e.message);
+      }
+
       return {
         cupom: cupomNum,
         itens,
+        itensCancelados,
+        itensComDesconto,
         total: Math.round((typeof totalCupomFinal !== 'undefined' ? totalCupomFinal : totalCupom) * 100) / 100,
         qtdItens: itens.length,
         operador: nomeOperador || '',
