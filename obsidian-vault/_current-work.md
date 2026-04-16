@@ -1,39 +1,31 @@
 # 🚧 Trabalho em Andamento
 
-> Sobrescrito a cada sessão. Rascunho do que está acontecendo AGORA.
-
 ## 🎯 Tarefa Atual
-Segundo Cérebro (Obsidian Vault) **completo** com migração de março/abril.
+Correção dos filtros CANC.* e DESCONTO do Vision Palavra-Chave no cliente Nunes (RP INFO PostgreSQL).
 
-## ✅ Concluído nesta sessão
-- Vault em `obsidian-vault/` com **54 notas** organizadas
-- Skills oficiais do Kepano instaladas
-- CLAUDE.md com regra "só salva o que precisa re-aprender"
-- Grafo visual funcionando (tema escuro)
-- 2 bugs do dia 2026-04-15 resolvidos e documentados
-- Deploys validados em SuperVital e Tradição
+## ✅ Concluído (Nunes only — bifurcação isolada)
 
-### 📊 Inventário do vault (54 notas)
-- 4 clientes
-- 4 arquitetura
-- 18 módulos
-- 22 bugs/features (abril + março 2026)
-- 2 padrões
-- 1 índice + 1 current-work + CLAUDE.md
+### Backend (`dvr-cftv.service.ts` — função `searchPostgresAllPdvs`)
+- **CANC. ITEM:** `vopr_valor < 0` — lista items individuais
+- **CANC. VENDA:** cupom agregado com `HAVING SUM(vopr_valor) < 0` (parcialmente cancelado)
+- **CANC. CUPOM:** cupom agregado com `HAVING ABS(SUM)=0 AND MIN < 0` (totalmente cancelado)
+- **DESCONTO:** agregado por cupom com `SUM(vopr_desconto)` + `COUNT` itens
+- Hora formatada `HH:MM:SS` via `SUBSTR` (RP INFO vem sem `:`)
+- Nome do operador via JOIN com `funcionarios` em todos os filtros
 
-## ⏭️ Próximos passos possíveis
-- Usuário pode testar os fixes no Tradição e pedir commit+push
-- Ou migrar para trabalhar no cliente **Nunes** (Postgres, tem bifurcação)
-- Ou outro tema que o usuário queira
+### Frontend (`VisionPalavraChave2.jsx`)
+- Itens na notinha pintados em vermelho quando `total < 0`, `qtd < 0` OU `desconto > 0`
+- Linha de quantidade mostra `(desconto: -R$ X,XX)` quando aplicável
+- Tabela principal mantida sem alterações visuais
 
-## 📝 Decisões pendentes
-- Nenhuma.
+## 🛡️ Isolamento confirmado
+Todo o fix está dentro de `searchPostgresAllPdvs` — **Tradição/SuperVital/MaxValle (Oracle) não são afetados**.
 
-## ⚠️ Estado do repositório
-Branch `TESTE`, alterações **não commitadas**:
-- 2 fixes de bugs (GestaoInteligente + CompraVendaAnalise)
-- Vault inteiro (`obsidian-vault/`)
-- `CLAUDE.md` novo
-- `.claude/skills/` (skills Kepano)
+## 📝 Documentado no vault
+- [[bugs-resolvidos/2026-04-16-nunes-vision-canc-desconto]] — bug resolvido completo
+- [[clientes/nunes]] — seção "Como o RP INFO marca cancelamentos"
+- [[modulos/dvr-cameras]] — enriquecida na sessão anterior
 
-**Aguardando validação do usuário antes de commitar e pushar.**
+## ⏭️ Próximos passos
+- Commit + push dos 2 fixes (código) e da nova nota do vault
+- Depois disso: próximas telas do Nunes ou outro cliente
