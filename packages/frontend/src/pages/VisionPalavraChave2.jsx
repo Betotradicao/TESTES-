@@ -420,17 +420,22 @@ export default function VisionPalavraChave2() {
                         <span>Total</span>
                       </div>
                     </div>
-                    {cupomData.itens?.map((item, i) => (
-                      <div key={i} className="py-0.5">
+                    {cupomData.itens?.map((item, i) => {
+                      const isCanc = (Number(item.total) || 0) < 0 || (Number(item.qtd) || 0) < 0;
+                      const hasDesc = (Number(item.desconto) || 0) > 0;
+                      const highlight = isCanc || hasDesc;
+                      return (
+                      <div key={i} className="py-0.5" style={highlight ? { color: '#C62828' } : {}}>
                         <div className="flex justify-between">
                           <span className="truncate mr-2" style={{ maxWidth: '320px' }}>{item.descricao}</span>
-                          <span className="whitespace-nowrap font-semibold">{formatCurrency(item.total)}</span>
+                          <span className={`whitespace-nowrap ${highlight ? 'font-bold' : 'font-semibold'}`}>{formatCurrency(item.total)}</span>
                         </div>
-                        <div className="text-[10px]" style={{ color: '#8D6E63' }}>
-                          {item.qtd} x {formatCurrency(item.unitario)}
+                        <div className="text-[10px]" style={{ color: highlight ? '#C62828' : '#8D6E63' }}>
+                          {item.qtd} x {formatCurrency(item.unitario)}{hasDesc ? ` (desconto: -${formatCurrency(item.desconto)})` : ''}
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                     <div className="border-t border-dashed mt-1 pt-1" style={{ borderColor: '#D4A017' }}>
                       {cupomData.desconto > 0 && (
                         <div className="flex justify-between text-[11px]" style={{ color: '#C62828' }}>

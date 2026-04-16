@@ -1064,7 +1064,7 @@ export class DVRCFTVService {
       const colDesc = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
       const barcodeParams = [...params, barcode];
       const sql = `SELECT v.vopr_cupom as cupom, v.vopr_pdvs_codigo as pdv,
-        v.vopr_datamvto::text || ' ' || v.vopr_hora as hora,
+        v.vopr_datamvto::text || ' ' || SUBSTR(v.vopr_hora,1,2)||':'||SUBSTR(v.vopr_hora,3,2)||':'||SUBSTR(v.vopr_hora,5,2) as hora,
         p.${colDesc} as produto, v.vopr_valor::float as valor, v.vopr_operador as operador
         FROM public.vdonlineprod v
         JOIN ${schema}.${tabProd} p ON p.${colCodProd} = v.vopr_prod_codigo
@@ -1079,38 +1079,62 @@ export class DVRCFTVService {
       return { total: results.length, items: results };
     }
 
-    // CANCELAMENTO DE ITEM: vdonlineprod com cancmotivo preenchido
+    // CANC. ITEM (RP INFO): 1 linha por item com valor negativo em vdonlineprod
     if (keyword === 'cancelado_item' || keyword === 'cancelado') {
-      const sql = `SELECT vopr_cupom as cupom, vopr_pdvs_codigo as pdv,
-        vopr_datamvto::text || ' ' || vopr_hora as hora,
-        vopr_prod_codigo as cod_prod, vopr_valor::float as valor,
-        vopr_cancmotivo as motivo, vopr_cancsupervnome as supervisor, vopr_operador as operador
-        FROM public.vdonlineprod
-        WHERE vopr_datamvto BETWEEN $1 AND $2 AND vopr_tiporeg = 'IT'
-        AND vopr_cancmotivo IS NOT NULL AND vopr_cancmotivo != ''
-        ${lojaWhere} ${pdvWhere} ORDER BY vopr_hora`;
+      const sql = `SELECT v.vopr_cupom as cupom, v.vopr_pdvs_codigo as pdv,
+        v.vopr_datamvto::text || ' ' || SUBSTR(v.vopr_hora,1,2)||':'||SUBSTR(v.vopr_hora,3,2)||':'||SUBSTR(v.vopr_hora,5,2) as hora,
+        v.vopr_prod_codigo as cod_prod, v.vopr_valor::float as valor,
+        COALESCE(f.func_nome, v.vopr_operador::text) as operador
+        FROM public.vdonlineprod v
+        LEFT JOIN public.funcionarios f ON f.func_codigo::int = v.vopr_operador::int
+        WHERE v.vopr_datamvto BETWEEN $1 AND $2 AND v.vopr_tiporeg = 'IT'
+        AND v.vopr_valor < 0
+        ${lojaWhere.replace(/vopr_unid_codigo/g, 'v.vopr_unid_codigo')} ${pdvWhere.replace(/vopr_pdvs_codigo/g, 'v.vopr_pdvs_codigo')} ORDER BY v.vopr_hora`;
       const rows = await PostgresErpService.query<any>(sql, params);
       for (const r of rows) {
-        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: r.motivo || '', valor: Number(r.valor) || 0, tipo: 'CANC. ITEM', operador: r.supervisor || r.operador || '' });
+        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: String(r.cod_prod || ''), valor: Number(r.valor) || 0, tipo: 'CANC. ITEM', operador: (r.operador || '').trim() });
       }
       if (keyword === 'cancelado_item') return { total: results.length, items: results };
     }
 
-    // CANCELAMENTO DE CUPOM: vdonlinec com cancmotivo preenchido
-    if (keyword === 'cancelado_cupom' || keyword === 'cancelado') {
-      const sql = `SELECT c.vopc_cupom as cupom, c.vopc_pdvs_codigo as pdv,
-        c.vopc_datamvto::text || ' ' || COALESCE(c.vopc_datahoraabertura::text, '') as hora,
-        c.vopc_cancmotivo as motivo, c.vopc_cancsupervnome as supervisor,
-        COALESCE((SELECT SUM(p.vopr_valor)::float FROM public.vdonlineprod p WHERE p.vopr_cupom = c.vopc_cupom AND p.vopr_unid_codigo = c.vopc_unid_codigo AND p.vopr_datamvto = c.vopc_datamvto AND p.vopr_tiporeg = 'IT'), 0) as valor
-        FROM public.vdonlinec c
-        WHERE c.vopc_datamvto BETWEEN $1 AND $2
-        AND c.vopc_cancmotivo IS NOT NULL AND c.vopc_cancmotivo != ''
-        ${codLoja ? ` AND c.vopc_unid_codigo::int = $${params.indexOf(codLoja) + 1}::int` : ''}
-        ${pdvFilter ? ` AND c.vopc_pdvs_codigo::int = $${params.indexOf(pdvFilter) + 1}::int` : ''}
-        ORDER BY c.vopc_cupom`;
+    // CANC. VENDA (RP INFO): cupom com SUM(vopr_valor) < 0 (parcialmente cancelado, saldo negativo)
+    if (keyword === 'cancelado_venda' || keyword === 'cancelado') {
+      const sql = `SELECT v.vopr_cupom as cupom, v.vopr_pdvs_codigo as pdv,
+        v.vopr_datamvto::text || ' ' || SUBSTR(MIN(v.vopr_hora),1,2)||':'||SUBSTR(MIN(v.vopr_hora),3,2)||':'||SUBSTR(MIN(v.vopr_hora),5,2) as hora,
+        SUM(v.vopr_valor)::float as valor,
+        COUNT(*)::int as qtd_itens,
+        COALESCE(MAX(f.func_nome), MAX(v.vopr_operador::text)) as operador
+        FROM public.vdonlineprod v
+        LEFT JOIN public.funcionarios f ON f.func_codigo::int = v.vopr_operador::int
+        WHERE v.vopr_datamvto BETWEEN $1 AND $2 AND v.vopr_tiporeg = 'IT'
+        ${lojaWhere.replace(/vopr_unid_codigo/g, 'v.vopr_unid_codigo')} ${pdvWhere.replace(/vopr_pdvs_codigo/g, 'v.vopr_pdvs_codigo')}
+        GROUP BY v.vopr_cupom, v.vopr_pdvs_codigo, v.vopr_datamvto
+        HAVING SUM(v.vopr_valor) < -0.009
+        ORDER BY MIN(v.vopr_hora)`;
       const rows = await PostgresErpService.query<any>(sql, params);
       for (const r of rows) {
-        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: '', valor: Number(r.valor) || 0, tipo: 'CANC. CUPOM', operador: r.supervisor || '' });
+        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: `${r.qtd_itens} itens`, valor: Number(r.valor) || 0, tipo: 'CANC. VENDA', operador: (r.operador || '').trim(), qtdItens: Number(r.qtd_itens) || 0 });
+      }
+      if (keyword === 'cancelado_venda') return { total: results.length, items: results };
+    }
+
+    // CANC. CUPOM (RP INFO): cupom com SUM = 0 e pelo menos 1 item negativo (totalmente cancelado)
+    if (keyword === 'cancelado_cupom' || keyword === 'cancelado') {
+      const sql = `SELECT v.vopr_cupom as cupom, v.vopr_pdvs_codigo as pdv,
+        v.vopr_datamvto::text || ' ' || SUBSTR(MIN(v.vopr_hora),1,2)||':'||SUBSTR(MIN(v.vopr_hora),3,2)||':'||SUBSTR(MIN(v.vopr_hora),5,2) as hora,
+        SUM(v.vopr_valor)::float as valor,
+        COUNT(*)::int as qtd_itens,
+        COALESCE(MAX(f.func_nome), MAX(v.vopr_operador::text)) as operador
+        FROM public.vdonlineprod v
+        LEFT JOIN public.funcionarios f ON f.func_codigo::int = v.vopr_operador::int
+        WHERE v.vopr_datamvto BETWEEN $1 AND $2 AND v.vopr_tiporeg = 'IT'
+        ${lojaWhere.replace(/vopr_unid_codigo/g, 'v.vopr_unid_codigo')} ${pdvWhere.replace(/vopr_pdvs_codigo/g, 'v.vopr_pdvs_codigo')}
+        GROUP BY v.vopr_cupom, v.vopr_pdvs_codigo, v.vopr_datamvto
+        HAVING ABS(SUM(v.vopr_valor)) < 0.01 AND MIN(v.vopr_valor) < 0
+        ORDER BY MIN(v.vopr_hora)`;
+      const rows = await PostgresErpService.query<any>(sql, params);
+      for (const r of rows) {
+        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: `${r.qtd_itens} itens`, valor: Number(r.valor) || 0, tipo: 'CANC. CUPOM', operador: (r.operador || '').trim(), qtdItens: Number(r.qtd_itens) || 0 });
       }
       if (keyword === 'cancelado_cupom') return { total: results.length, items: results };
     }
@@ -1121,24 +1145,23 @@ export class DVRCFTVService {
       return { total: results.length, items: results };
     }
 
-    // DESCONTO: itens com desconto > 0, mostra produto + valor desconto + operador nome
+    // DESCONTO: agrupado por cupom/pdv (1 linha por cupom com soma de descontos)
     if (keyword === 'desconto') {
-      const colDesc = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
-      const colCodProd = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
-      const tabProd = await MappingService.getRealTableName('TAB_PRODUTO');
       const sql = `SELECT v.vopr_cupom as cupom, v.vopr_pdvs_codigo as pdv,
-        v.vopr_datamvto::text || ' ' || v.vopr_hora as hora,
-        v.vopr_desconto::float as valor, p.${colDesc} as produto,
-        COALESCE(f.func_nome, v.vopr_operador::text) as operador
+        v.vopr_datamvto::text || ' ' || SUBSTR(MIN(v.vopr_hora),1,2)||':'||SUBSTR(MIN(v.vopr_hora),3,2)||':'||SUBSTR(MIN(v.vopr_hora),5,2) as hora,
+        SUM(v.vopr_desconto)::float as valor,
+        COUNT(*)::int as qtd_itens,
+        COALESCE(MAX(f.func_nome), MAX(v.vopr_operador::text)) as operador
         FROM public.vdonlineprod v
-        LEFT JOIN ${schema}.${tabProd} p ON p.${colCodProd} = v.vopr_prod_codigo
         LEFT JOIN public.funcionarios f ON f.func_codigo::int = v.vopr_operador::int
         WHERE v.vopr_datamvto BETWEEN $1 AND $2 AND v.vopr_tiporeg = 'IT'
-        AND COALESCE(v.vopr_cancmotivo,'') = '' AND v.vopr_desconto > 0
-        ${lojaWhere} ${pdvWhere} ORDER BY v.vopr_hora`;
+        AND v.vopr_desconto > 0
+        ${lojaWhere} ${pdvWhere}
+        GROUP BY v.vopr_cupom, v.vopr_pdvs_codigo, v.vopr_datamvto
+        ORDER BY MIN(v.vopr_hora)`;
       const rows = await PostgresErpService.query<any>(sql, params);
       for (const r of rows) {
-        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: (r.produto || '').trim(), valor: Number(r.valor) || 0, tipo: 'DESCONTO', operador: (r.operador || '').trim() });
+        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: `${r.qtd_itens} ${Number(r.qtd_itens) === 1 ? 'item' : 'itens'}`, valor: Number(r.valor) || 0, tipo: 'DESCONTO', operador: (r.operador || '').trim(), qtdItens: Number(r.qtd_itens) || 0 });
       }
       return { total: results.length, items: results };
     }
@@ -1154,7 +1177,7 @@ export class DVRCFTVService {
       if (codLoja) { fpLojaWhere = ` AND f.vofi_unid_codigo::int = $${fpNext}::int`; fp.push(codLoja); fpNext++; }
       if (pdvFilter) { fpPdvWhere = ` AND f.vofi_pdvs_codigo::int = $${fpNext}::int`; fp.push(pdvFilter); fpNext++; }
       const sql = `SELECT f.vofi_cupom as cupom, f.vofi_pdvs_codigo as pdv,
-        f.vofi_datamvto::text || ' ' || f.vofi_hora as hora,
+        f.vofi_datamvto::text || ' ' || SUBSTR(f.vofi_hora,1,2)||':'||SUBSTR(f.vofi_hora,3,2)||':'||SUBSTR(f.vofi_hora,5,2) as hora,
         (f.vofi_valor - COALESCE(f.vofi_troco,0))::float as valor,
         COALESCE(fn.func_nome, vp.vopr_operador::text, '') as operador
         FROM public.vdonlinefi f
@@ -1178,7 +1201,7 @@ export class DVRCFTVService {
       const tabProd = await MappingService.getRealTableName('TAB_PRODUTO');
       const textParams = [...params, '%' + text.toUpperCase() + '%'];
       const sql = `SELECT v.vopr_cupom as cupom, v.vopr_pdvs_codigo as pdv,
-        v.vopr_datamvto::text || ' ' || MIN(v.vopr_hora) as hora,
+        v.vopr_datamvto::text || ' ' || SUBSTR(MIN(v.vopr_hora),1,2)||':'||SUBSTR(MIN(v.vopr_hora),3,2)||':'||SUBSTR(MIN(v.vopr_hora),5,2) as hora,
         SUM(v.vopr_valor - COALESCE(v.vopr_desconto,0) + COALESCE(v.vopr_acrescimo,0))::float as valor,
         COUNT(*)::int as qtd_itens, v.vopr_operador as operador
         FROM public.vdonlineprod v
