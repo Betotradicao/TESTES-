@@ -141,7 +141,7 @@ export default function VisionPalavraChave2() {
     }
   };
 
-  const handlePlayVideo = (item) => {
+  const handlePlayVideo = async (item) => {
     const cam = getCameraForPdv(item.pdv);
     if (!cam) {
       setError(`Nenhuma camera configurada para o PDV ${item.pdv}. Configure em Configuracoes.`);
@@ -150,10 +150,30 @@ export default function VisionPalavraChave2() {
     setLoadingClip(item.cupomNum);
     setVideoTime(item.time);
     setError('');
+    setVideoUrl(null);
 
-    const url = getLiveStreamUrl(cam.channel, item.time, cam.antes, cam.depois);
-    setVideoUrl(url);
-    setLoadingClip(null);
+    // Gera o MP4 completo antes de servir (transcodificacao robusta)
+    // Limitado a 30s (10 antes + 20 depois) pra feedback rapido enquanto validamos
+    const antes = Math.min(cam.antes || 15, 10);
+    const depois = Math.min(cam.depois || 120, 20);
+    const duracao = antes + depois;
+    try {
+      const res = await api.get('/dvr-cftv/pos/generate-clip', {
+        params: { channel: cam.channel, time: item.time, duration: duracao },
+        timeout: 180000
+      });
+      if (res.data?.success && res.data.filename) {
+        const baseUrl = getApiBaseUrl().replace(/\/$/, '');
+        const token = localStorage.getItem('token');
+        setVideoUrl(`${baseUrl}/dvr-cftv/pos/stream/${res.data.filename}?token=${token}`);
+      } else {
+        setError('Falha ao gerar video');
+      }
+    } catch (e) {
+      setError('Erro ao gerar clip: ' + (e?.response?.data?.error || e?.message || 'desconhecido'));
+    } finally {
+      setLoadingClip(null);
+    }
 
     // Buscar cupom automaticamente
     setCupomData(null);

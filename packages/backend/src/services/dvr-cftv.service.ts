@@ -144,7 +144,8 @@ export class DVRCFTVService {
         { key: 'dvr_canais' },
         { key: 'dvr_canal_padrao' },
         { key: 'dvr_antecedencia_segundos' },
-        { key: 'dvr_tempo_depois_segundos' }
+        { key: 'dvr_tempo_depois_segundos' },
+        { key: 'dvr_codec_mode' }
       ]
     });
     const map: Record<string, string> = {};
@@ -177,7 +178,8 @@ export class DVRCFTVService {
       canais,
       canalPadrao: parseInt(map.dvr_canal_padrao || '3'),
       antecedenciaSegundos: parseInt(map.dvr_antecedencia_segundos || '15'),
-      tempoDepoisSegundos: parseInt(map.dvr_tempo_depois_segundos || '120')
+      tempoDepoisSegundos: parseInt(map.dvr_tempo_depois_segundos || '120'),
+      codecMode: (map.dvr_codec_mode === 'copy' || map.dvr_codec_mode === 'transcode') ? map.dvr_codec_mode : 'transcode'
     };
   }
 
@@ -1791,13 +1793,18 @@ export class DVRCFTVService {
 
     console.log(`[DVR] Generating clip: channel=${dvrChannel}, start=${formatRTSP(start)}, end=${formatRTSP(end)}, duration=${clipDuration}s`);
 
-    // ffmpeg: converter RTSP para MP4
+    // ffmpeg: converter RTSP para MP4 — codec controlado pela config (copy/transcode)
+    const videoCodecArgs = config.codecMode === 'copy'
+      ? ['-c:v', 'copy']
+      : ['-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-vf', 'scale=704:480'];
     const ffmpegArgs = [
       '-y', '-rtsp_transport', 'tcp',
+      '-err_detect', 'ignore_err',
+      '-fflags', '+genpts+discardcorrupt+igndts',
       '-i', rtspUrl,
       '-t', String(clipDuration),
-      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28',
-      '-vf', 'scale=704:480',
+      ...videoCodecArgs,
+      '-avoid_negative_ts', 'make_zero',
       '-movflags', '+faststart',
       '-c:a', 'aac', '-b:a', '64k',
       outputPath
@@ -1875,12 +1882,23 @@ export class DVRCFTVService {
     console.log(`[DVR] Stream: channel=${dvrChannel}, start=${formatRTSP(start)}, end=${formatRTSP(end)}`);
 
     // ffmpeg: RTSP → fragmented MP4 no stdout (streaming progressivo)
-    // Sempre converte pra H.264 via libx264: normaliza GOP/perfil/timestamps
-    // e garante compatibilidade com browser HTML5 tanto pra DVRs H.264 quanto H.265
+    // Codec controlado por config.codecMode:
+    //  - 'copy'      -> -c:v copy (DVR H.264 nativo, mais rapido, zero CPU)
+    //  - 'transcode' -> libx264 (obrigatorio pra H.265/HEVC, browsers nao suportam HEVC)
     const totalDuration = antesSegundos + depoisSegundos;
-    console.log(`[DVR] Stream duration: ${totalDuration}s (antes=${antesSegundos}, depois=${depoisSegundos})`);
-    const videoCodec = ['-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28'];
+    console.log(`[DVR] Stream duration: ${totalDuration}s (antes=${antesSegundos}, depois=${depoisSegundos}) codec=${config.codecMode}`);
+    const videoCodec = config.codecMode === 'copy'
+      ? ['-c:v', 'copy']
+      : ['-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28'];
 
+    // Modo 'copy' replica EXATAMENTE o commit 319dc60 (que funcionava pro Tradicao):
+    // sem audio (-an), sem -t, sem re-encoding. Origem do videoCodec ja trata a bifurcacao.
+    const audioArgs = config.codecMode === 'copy'
+      ? ['-an']
+      : ['-c:a', 'aac', '-b:a', '64k'];
+    const durationArgs = config.codecMode === 'copy'
+      ? []
+      : ['-t', String(totalDuration)];
     const proc = spawn('ffmpeg', [
       '-rtsp_transport', 'tcp',
       '-fflags', '+genpts+nobuffer+discardcorrupt',
@@ -1888,10 +1906,10 @@ export class DVRCFTVService {
       '-analyzeduration', '500000',
       '-probesize', '500000',
       '-i', rtspUrl,
-      '-t', String(totalDuration),
+      ...durationArgs,
       ...videoCodec,
       '-movflags', 'frag_keyframe+empty_moov+faststart',
-      '-c:a', 'aac', '-b:a', '64k',
+      ...audioArgs,
       '-f', 'mp4',
       'pipe:1'
     ], {

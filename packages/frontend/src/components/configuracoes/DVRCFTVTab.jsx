@@ -18,7 +18,8 @@ export default function DVRCFTVTab() {
     dvr_canal_padrao: '0',
     dvr_antecedencia_segundos: '15',
     dvr_tempo_depois_segundos: '120',
-    dvr_canais: '[]'
+    dvr_canais: '[]',
+    dvr_codec_mode: 'transcode'
   });
 
   const [canais, setCanais] = useState([]);
@@ -48,7 +49,8 @@ export default function DVRCFTVTab() {
           dvr_canal_padrao: data.dvr_canal_padrao || '0',
           dvr_antecedencia_segundos: data.dvr_antecedencia_segundos || '15',
           dvr_tempo_depois_segundos: data.dvr_tempo_depois_segundos || '120',
-          dvr_canais: data.dvr_canais || '[]'
+          dvr_canais: data.dvr_canais || '[]',
+          dvr_codec_mode: data.dvr_codec_mode || 'transcode'
         }));
         try {
           const parsed = JSON.parse(data.dvr_canais || '[]');
@@ -372,6 +374,18 @@ export default function DVRCFTVTab() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
             />
             <p className="text-xs text-gray-500 mt-1">Padrao para Vision PDV. Bipagens usam config por camera abaixo.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Codec do video</label>
+            <select
+              value={config.dvr_codec_mode}
+              onChange={(e) => setConfig({ ...config, dvr_codec_mode: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            >
+              <option value="copy">Copiar (H.264 nativo) — DVR antigo, mais rapido</option>
+              <option value="transcode">Transcodificar (libx264) — H.265/HEVC, obrigatorio pra DVRs novos</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">Use "Copiar" se seu DVR ja grava em H.264. "Transcodificar" converte qualquer codec pra H.264 (ffmpeg).</p>
           </div>
         </div>
 
