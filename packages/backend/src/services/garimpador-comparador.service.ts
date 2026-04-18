@@ -1,9 +1,11 @@
 import { AppDataSource } from '../config/database';
 import { GarimpadorMensagem } from '../entities/GarimpadorMensagem';
 import { GarimpadorContato } from '../entities/GarimpadorContato';
+import { DatabaseConnection, DatabaseType, ConnectionStatus } from '../entities/DatabaseConnection';
 import { ConfigurationService } from './configuration.service';
 import { MappingService } from './mapping.service';
 import { OracleService } from './oracle.service';
+import { PostgresErpService } from './postgres-erp.service';
 import { WhatsAppService } from './whatsapp.service';
 import { GarimpadorDecomposerService } from './garimpador-decomposer.service';
 import { GarimpadorVectorStoreService } from './garimpador-vectorstore.service';
@@ -289,6 +291,128 @@ interface ResultadoComparacao {
 export class GarimpadorComparadorService {
 
   /**
+   * Detecta tipo do banco ativo (oracle/postgresql). Usa o mesmo padrao de outras telas.
+   */
+  private static async detectDbType(): Promise<'oracle' | 'postgresql'> {
+    try {
+      if (!AppDataSource.isInitialized) return 'oracle';
+      const repo = AppDataSource.getRepository(DatabaseConnection);
+      let conn = await repo.findOne({ where: { is_default: true, status: ConnectionStatus.ACTIVE } });
+      if (!conn) conn = await repo.findOne({ where: { status: ConnectionStatus.ACTIVE } });
+      if (!conn) conn = await repo.findOne({ where: {}, order: { id: 'ASC' } });
+      if (conn?.type === DatabaseType.POSTGRESQL) return 'postgresql';
+      return 'oracle';
+    } catch { return 'oracle'; }
+  }
+
+  /**
+   * Retorna helpers de SQL vendor-specific para NVL/SYSDATE/LIMIT.
+   */
+  private static sqlVendor(type: 'oracle' | 'postgresql') {
+    const isPg = type === 'postgresql';
+    return {
+      isPg,
+      nvl: (field: string, def: string | number): string => isPg ? `COALESCE(${field}, ${def})` : `NVL(${field}, ${def})`,
+      sysdateMinus: (n: number): string => isPg ? `(CURRENT_DATE - ${n})` : `(SYSDATE - ${n})`,
+      wrapLimit: (innerSql: string, n: number): string => isPg ? `${innerSql} LIMIT ${n}` : `SELECT * FROM (${innerSql}) WHERE ROWNUM <= ${n}`,
+      upper: (f: string): string => `UPPER(${f})`,
+    };
+  }
+
+  /**
+   * Executa query no banco ativo (Oracle ou PostgreSQL).
+   * Em PG, converte :nome -> $N na ordem que aparece.
+   */
+  private static async runQuery<T = any>(type: 'oracle' | 'postgresql', sql: string, params: Record<string, any>): Promise<T[]> {
+    if (type === 'postgresql') {
+      const paramArray: any[] = [];
+      const seen: Map<string, number> = new Map();
+      let counter = 0;
+      const pgSql = sql.replace(/:(\w+)/g, (_m, name) => {
+        if (seen.has(name)) return `$${seen.get(name)}`;
+        counter++;
+        seen.set(name, counter);
+        paramArray.push(params[name]);
+        return `$${counter}`;
+      });
+      return PostgresErpService.query<T>(pgSql, paramArray);
+    }
+    return OracleService.query<T>(sql, params);
+  }
+
+  /**
+   * Retorna as lojas participantes e o modo de referencia de custo/preco.
+   * Defaults: lojas=[1], refCusto='menor'
+   */
+  private static async getLojasGarimpador(): Promise<{ lojas: number[]; refCusto: 'menor' | 'medio' }> {
+    const lojasStr = (await ConfigurationService.get('garimpador_lojas_participantes', '[1]')) || '[1]';
+    const refRaw = (await ConfigurationService.get('garimpador_ref_custo', 'menor')) || 'menor';
+    let lojas: number[] = [1];
+    try {
+      const parsed = JSON.parse(lojasStr);
+      if (Array.isArray(parsed)) {
+        lojas = parsed.map((n: any) => parseInt(String(n))).filter((n: number) => !isNaN(n));
+      }
+    } catch { /* usa default */ }
+    if (lojas.length === 0) {
+      const legacy = parseInt((await ConfigurationService.get('garimpador_cod_loja', '1')) || '1');
+      lojas = [isNaN(legacy) ? 1 : legacy];
+    }
+    const refCusto: 'menor' | 'medio' = refRaw === 'medio' ? 'medio' : 'menor';
+    return { lojas, refCusto };
+  }
+
+  /**
+   * Monta o fragmento SQL da subquery de TAB_PRODUTO_LOJA agregada por lojas.
+   * Quando ha varias lojas selecionadas, aplica MIN ou AVG (refCusto) em custo/preco
+   * e SUM em estoque/cobertura/pedido. Para loja unica, agrega mesmo assim (idempotente).
+   */
+  private static buildPlSubquery(args: {
+    schema: string;
+    tabProdutoLoja: string;
+    colCodProdutoLoja: string;
+    colCodLojaLoja: string;
+    colPrecoCusto: string;
+    colPrecoVenda: string;
+    colPesquisaMedia: string;
+    colEstoque: string;
+    colCobertura: string;
+    colPedidoCompra: string;
+    colCurva: string;
+    colVendaMedia: string;
+    colMargem: string;
+    colCodFornUltCompra: string;
+    colInativo: string;
+    lojas: number[];
+    refCusto: 'menor' | 'medio';
+  }): { sql: string; params: Record<string, any> } {
+    const agg = args.refCusto === 'medio' ? 'AVG' : 'MIN';
+    const binds = args.lojas.map((_, i) => `:l${i}`).join(',');
+    const params: Record<string, any> = {};
+    args.lojas.forEach((v, i) => { params[`l${i}`] = v; });
+    const sql = `(
+      SELECT
+        ${args.colCodProdutoLoja} AS ${args.colCodProdutoLoja},
+        ${agg}(${args.colPrecoCusto}) AS ${args.colPrecoCusto},
+        ${agg}(${args.colPrecoVenda}) AS ${args.colPrecoVenda},
+        ${agg}(${args.colPesquisaMedia}) AS ${args.colPesquisaMedia},
+        SUM(${args.colEstoque}) AS ${args.colEstoque},
+        SUM(${args.colCobertura}) AS ${args.colCobertura},
+        SUM(${args.colPedidoCompra}) AS ${args.colPedidoCompra},
+        MIN(${args.colCurva}) AS ${args.colCurva},
+        ${agg}(${args.colVendaMedia}) AS ${args.colVendaMedia},
+        ${agg}(${args.colMargem}) AS ${args.colMargem},
+        MIN(${args.colCodFornUltCompra}) AS ${args.colCodFornUltCompra},
+        MIN(${args.colInativo}) AS ${args.colInativo}
+      FROM ${args.schema}.${args.tabProdutoLoja}
+      WHERE ${args.colCodLojaLoja} IN (${binds})
+      GROUP BY ${args.colCodProdutoLoja}
+    )`;
+    return { sql, params };
+  }
+
+
+  /**
    * Processa uma mensagem: busca produtos no Oracle, compara e envia para WhatsApp
    */
   static async compararEEnviar(mensagemId: number): Promise<{ total: number; enviadas: number; resultados: ResultadoComparacao[] }> {
@@ -479,7 +603,17 @@ export class GarimpadorComparadorService {
       const colCodSecaoSub = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_secao', 'COD_SECAO');
       const colCodGrupoSub = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_grupo', 'COD_GRUPO');
 
-      const codLoja = parseInt((await ConfigurationService.get('garimpador_cod_loja', '1')) || '1');
+      const { lojas, refCusto } = await this.getLojasGarimpador();
+      const plSub = this.buildPlSubquery({
+        schema, tabProdutoLoja, colCodProdutoLoja, colCodLojaLoja,
+        colPrecoCusto, colPrecoVenda, colPesquisaMedia, colEstoque, colCobertura,
+        colPedidoCompra, colCurva, colVendaMedia, colMargem, colCodFornUltCompra,
+        colInativo, lojas, refCusto,
+      });
+
+      const dbType = await this.detectDbType();
+      const vendor = this.sqlVendor(dbType);
+      const hasSubgrupo = tabSubgrupo !== 'TAB_SUBGRUPO';
 
       // ========== PASSO 1: IA DECOMPOE O PRODUTO DE ENTRADA ==========
       await GarimpadorDecomposerService.carregarMarcasOracle();
@@ -490,7 +624,7 @@ export class GarimpadorComparadorService {
       // ========== PASSO 2: SQL BUSCA AMPLA - PEGAR CANDIDATOS ==========
       // Montar termos de busca com variantes para abreviacoes
       const termosLike: string[] = [];
-      const params: any = { codLoja };
+      const params: any = { ...plSub.params };
       let pi = 0;
 
       // Marcas - buscar com variantes (ex: TRES CORACOES -> 3 CORACOES)
@@ -582,49 +716,50 @@ export class GarimpadorComparadorService {
       const scoreCalc = termosLike.map(cond => `CASE WHEN ${cond.replace(`UPPER(p.${colDescricao}) LIKE`, `UPPER(p.${colDescricao}) LIKE`)} THEN 1 ELSE 0 END`).join(' + ');
       const orConds = termosLike.join(' OR ');
 
-      const sql = `
-        SELECT * FROM (
-          SELECT
-            p.${colCodProduto} AS COD_PRODUTO,
-            p.${colCodBarras} AS CODIGO_BARRAS,
-            p.${colDescricao} AS DESCRICAO,
-            NVL(pl.${colPrecoCusto}, 0) AS PRECO_CUSTO,
-            NVL(pl.${colPrecoVenda}, 0) AS PRECO_VENDA,
-            NVL(pl.${colPesquisaMedia}, 0) AS PRECO_VENDA_CONCORRENTE,
-            NVL(pl.${colEstoque}, 0) AS ESTOQUE_ATUAL,
-            NVL(pl.${colCobertura}, 0) AS COBERTURA,
-            NVL(pl.${colPedidoCompra}, 0) AS PEDIDO_COMPRA,
-            NVL(pl.${colCurva}, '-') AS CURVA,
-            NVL(pl.${colVendaMedia}, 0) AS VENDA_MEDIA_DIA,
-            NVL(pl.${colMargem}, 0) AS MARGEM_REFERENCIA,
-            NVL(s.${colDesSecao}, '-') AS SECAO,
-            NVL(g.${colDesGrupo}, '-') AS GRUPO,
-            NVL(sg.${colDesSubgrupo}, '-') AS SUBGRUPO,
-            NVL(f.${colRazaoSocial}, '-') AS FORNECEDOR,
-            (
-              SELECT NVL(SUM(pdv.${colQtdVendaPdv}), 0)
-              FROM ${schema}.${tabProdutoPdv} pdv
-              WHERE pdv.${colCodProdutoPdv} = p.${colCodProduto}
-                AND pdv.${colDataVendaPdv} >= SYSDATE - 30
-            ) AS VENDA_30D,
-            (${scoreCalc}) AS MATCH_SCORE
-          FROM ${schema}.${tabProduto} p
-          LEFT JOIN ${schema}.${tabProdutoLoja} pl ON pl.${colCodProdutoLoja} = p.${colCodProduto} AND pl.${colCodLojaLoja} = :codLoja
-          LEFT JOIN ${schema}.${tabSecao} s ON s.${colCodSecaoSecao} = p.${colCodSecao}
-          LEFT JOIN ${schema}.${tabGrupo} g ON g.${colCodGrupoGrupo} = p.${colCodGrupo} AND g.${colCodSecaoGrupo} = p.${colCodSecao}
-          LEFT JOIN ${schema}.${tabSubgrupo} sg ON sg.${colCodSubgrupoSub} = p.${colCodSubgrupo} AND sg.${colCodSecaoSub} = p.${colCodSecao} AND sg.${colCodGrupoSub} = p.${colCodGrupo}
-          LEFT JOIN ${schema}.${tabFornecedor} f ON f.${colCodForn} = pl.${colCodFornUltCompra}
-          WHERE (${orConds})
-            AND NVL(pl.${colInativo}, 'N') != 'S'
-          ORDER BY (${scoreCalc}) DESC, NVL(pl.${colPrecoVenda}, 0) DESC
-        ) WHERE ROWNUM <= 15
+      const subgrupoSelect = hasSubgrupo ? `${vendor.nvl(`sg.${colDesSubgrupo}`, `'-'`)} AS SUBGRUPO,` : `'-' AS SUBGRUPO,`;
+      const subgrupoJoin = hasSubgrupo ? `LEFT JOIN ${schema}.${tabSubgrupo} sg ON sg.${colCodSubgrupoSub} = p.${colCodSubgrupo} AND sg.${colCodSecaoSub} = p.${colCodSecao} AND sg.${colCodGrupoSub} = p.${colCodGrupo}` : '';
+      const innerSql = `
+        SELECT
+          p.${colCodProduto} AS COD_PRODUTO,
+          p.${colCodBarras} AS CODIGO_BARRAS,
+          p.${colDescricao} AS DESCRICAO,
+          ${vendor.nvl(`pl.${colPrecoCusto}`, 0)} AS PRECO_CUSTO,
+          ${vendor.nvl(`pl.${colPrecoVenda}`, 0)} AS PRECO_VENDA,
+          ${vendor.nvl(`pl.${colPesquisaMedia}`, 0)} AS PRECO_VENDA_CONCORRENTE,
+          ${vendor.nvl(`pl.${colEstoque}`, 0)} AS ESTOQUE_ATUAL,
+          ${vendor.nvl(`pl.${colCobertura}`, 0)} AS COBERTURA,
+          ${vendor.nvl(`pl.${colPedidoCompra}`, 0)} AS PEDIDO_COMPRA,
+          ${vendor.nvl(`pl.${colCurva}`, `'-'`)} AS CURVA,
+          ${vendor.nvl(`pl.${colVendaMedia}`, 0)} AS VENDA_MEDIA_DIA,
+          ${vendor.nvl(`pl.${colMargem}`, 0)} AS MARGEM_REFERENCIA,
+          ${vendor.nvl(`s.${colDesSecao}`, `'-'`)} AS SECAO,
+          ${vendor.nvl(`g.${colDesGrupo}`, `'-'`)} AS GRUPO,
+          ${subgrupoSelect}
+          ${vendor.nvl(`f.${colRazaoSocial}`, `'-'`)} AS FORNECEDOR,
+          (
+            SELECT ${vendor.nvl(`SUM(pdv.${colQtdVendaPdv})`, 0)}
+            FROM ${schema}.${tabProdutoPdv} pdv
+            WHERE pdv.${colCodProdutoPdv} = p.${colCodProduto}
+              AND pdv.${colDataVendaPdv} >= ${vendor.sysdateMinus(30)}
+          ) AS VENDA_30D,
+          (${scoreCalc}) AS MATCH_SCORE
+        FROM ${schema}.${tabProduto} p
+        LEFT JOIN ${plSub.sql} pl ON pl.${colCodProdutoLoja} = p.${colCodProduto}
+        LEFT JOIN ${schema}.${tabSecao} s ON s.${colCodSecaoSecao} = p.${colCodSecao}
+        LEFT JOIN ${schema}.${tabGrupo} g ON g.${colCodGrupoGrupo} = p.${colCodGrupo} AND g.${colCodSecaoGrupo} = p.${colCodSecao}
+        ${subgrupoJoin}
+        LEFT JOIN ${schema}.${tabFornecedor} f ON f.${colCodForn} = pl.${colCodFornUltCompra}
+        WHERE (${orConds})
+          AND ${vendor.nvl(`pl.${colInativo}`, `'N'`)} != 'S'
+        ORDER BY (${scoreCalc}) DESC, ${vendor.nvl(`pl.${colPrecoVenda}`, 0)} DESC
       `;
+      const sql = vendor.wrapLimit(innerSql, 15);
 
       let rows: any[];
       try {
-        rows = await OracleService.query<any>(sql, params);
+        rows = await this.runQuery<any>(dbType, sql, params);
       } catch (queryErr: any) {
-        console.error(`[Garimpador] Erro na query Oracle:`, queryErr.message);
+        console.error(`[Garimpador] Erro na query ${dbType}:`, queryErr.message);
         return { match: null, candidatos: [] };
       }
 
@@ -1067,18 +1202,20 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
       const params: any = {};
       termos.forEach((t, i) => { params[`t${i}`] = `%${t}%`; });
 
-      const sql = `
+      const dbTypeFb = await this.detectDbType();
+      const vFb = this.sqlVendor(dbTypeFb);
+      const baseSql = `
         SELECT p.${colCodProduto} AS COD, p.${colDescricao} AS DESC_PROD,
-               NVL(pl.${colPrecoVenda}, 0) AS PRC_VENDA
+               ${vFb.nvl(`pl.${colPrecoVenda}`, 0)} AS PRC_VENDA
         FROM ${schema}.${tabProduto} p
         LEFT JOIN ${schema}.${tabProdutoLoja} pl ON pl.${colCodProdutoLoja} = p.${colCodProduto}
         WHERE (${likeConds})
-          AND NVL(pl.${colInativoFb}, 'N') != 'S'
-          AND ROWNUM <= 20
-        ORDER BY NVL(pl.${colPrecoVenda}, 0) DESC
+          AND ${vFb.nvl(`pl.${colInativoFb}`, `'N'`)} != 'S'
+        ORDER BY ${vFb.nvl(`pl.${colPrecoVenda}`, 0)} DESC
       `;
+      const sql = vFb.wrapLimit(baseSql, 20);
 
-      const candidatos = await OracleService.query<any>(sql, params);
+      const candidatos = await this.runQuery<any>(dbTypeFb, sql, params);
       if (candidatos.length === 0) return null;
 
       // Usa GPT para escolher o melhor match
@@ -1183,43 +1320,54 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
       const colCodSecaoSub = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_secao', 'COD_SECAO');
       const colCodGrupoSub = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_grupo', 'COD_GRUPO');
 
-      // COD_LOJA: busca da config ou default 1
-      const codLoja = parseInt((await ConfigurationService.get('garimpador_cod_loja', '1')) || '1');
+      // Multi-loja: aggregated subquery
+      const { lojas: lojasG, refCusto: refG } = await this.getLojasGarimpador();
+      const plSub = this.buildPlSubquery({
+        schema, tabProdutoLoja, colCodProdutoLoja, colCodLojaLoja,
+        colPrecoCusto, colPrecoVenda, colPesquisaMedia, colEstoque, colCobertura,
+        colPedidoCompra, colCurva, colVendaMedia, colMargem, colCodFornUltCompra,
+        colInativo: 'INATIVO', lojas: lojasG, refCusto: refG,
+      });
+      const dbTypeC = await this.detectDbType();
+      const vC = this.sqlVendor(dbTypeC);
+      const hasSubgrupoC = tabSubgrupo !== 'TAB_SUBGRUPO';
+      const subgrupoSelC = hasSubgrupoC ? `${vC.nvl(`sg.${colDesSubgrupo}`, `'-'`)} AS SUBGRUPO,` : `'-' AS SUBGRUPO,`;
+      const subgrupoJoinC = hasSubgrupoC ? `LEFT JOIN ${schema}.${tabSubgrupo} sg ON sg.${colCodSubgrupoSub} = p.${colCodSubgrupo} AND sg.${colCodSecaoSub} = p.${colCodSecao} AND sg.${colCodGrupoSub} = p.${colCodGrupo}` : '';
 
       const sql = `
         SELECT
           p.${colCodProduto} AS COD_PRODUTO,
           p.${colCodBarras} AS CODIGO_BARRAS,
           p.${colDescricao} AS DESCRICAO,
-          NVL(pl.${colPrecoCusto}, 0) AS PRECO_CUSTO,
-          NVL(pl.${colPrecoVenda}, 0) AS PRECO_VENDA,
-          NVL(pl.${colPesquisaMedia}, 0) AS PRECO_VENDA_CONCORRENTE,
-          NVL(pl.${colEstoque}, 0) AS ESTOQUE_ATUAL,
-          NVL(pl.${colCobertura}, 0) AS COBERTURA,
-          NVL(pl.${colPedidoCompra}, 0) AS PEDIDO_COMPRA,
-          NVL(pl.${colCurva}, '-') AS CURVA,
-          NVL(pl.${colVendaMedia}, 0) AS VENDA_MEDIA_DIA,
-          NVL(pl.${colMargem}, 0) AS MARGEM_REFERENCIA,
-          NVL(s.${colDesSecao}, '-') AS SECAO,
-          NVL(g.${colDesGrupo}, '-') AS GRUPO,
-          NVL(sg.${colDesSubgrupo}, '-') AS SUBGRUPO,
-          NVL(f.${colRazaoSocial}, '-') AS FORNECEDOR,
+          ${vC.nvl(`pl.${colPrecoCusto}`, 0)} AS PRECO_CUSTO,
+          ${vC.nvl(`pl.${colPrecoVenda}`, 0)} AS PRECO_VENDA,
+          ${vC.nvl(`pl.${colPesquisaMedia}`, 0)} AS PRECO_VENDA_CONCORRENTE,
+          ${vC.nvl(`pl.${colEstoque}`, 0)} AS ESTOQUE_ATUAL,
+          ${vC.nvl(`pl.${colCobertura}`, 0)} AS COBERTURA,
+          ${vC.nvl(`pl.${colPedidoCompra}`, 0)} AS PEDIDO_COMPRA,
+          ${vC.nvl(`pl.${colCurva}`, `'-'`)} AS CURVA,
+          ${vC.nvl(`pl.${colVendaMedia}`, 0)} AS VENDA_MEDIA_DIA,
+          ${vC.nvl(`pl.${colMargem}`, 0)} AS MARGEM_REFERENCIA,
+          ${vC.nvl(`s.${colDesSecao}`, `'-'`)} AS SECAO,
+          ${vC.nvl(`g.${colDesGrupo}`, `'-'`)} AS GRUPO,
+          ${subgrupoSelC}
+          ${vC.nvl(`f.${colRazaoSocial}`, `'-'`)} AS FORNECEDOR,
           (
-            SELECT NVL(SUM(pdv.${colQtdVendaPdv}), 0)
+            SELECT ${vC.nvl(`SUM(pdv.${colQtdVendaPdv})`, 0)}
             FROM ${schema}.${tabProdutoPdv} pdv
             WHERE pdv.${colCodProdutoPdv} = p.${colCodProduto}
-              AND pdv.${colDataVendaPdv} >= SYSDATE - 30
+              AND pdv.${colDataVendaPdv} >= ${vC.sysdateMinus(30)}
           ) AS VENDA_30D
         FROM ${schema}.${tabProduto} p
-        LEFT JOIN ${schema}.${tabProdutoLoja} pl ON pl.${colCodProdutoLoja} = p.${colCodProduto} AND pl.${colCodLojaLoja} = :codLoja
+        LEFT JOIN ${plSub.sql} pl ON pl.${colCodProdutoLoja} = p.${colCodProduto}
         LEFT JOIN ${schema}.${tabSecao} s ON s.${colCodSecaoSecao} = p.${colCodSecao}
         LEFT JOIN ${schema}.${tabGrupo} g ON g.${colCodGrupoGrupo} = p.${colCodGrupo} AND g.${colCodSecaoGrupo} = p.${colCodSecao}
-        LEFT JOIN ${schema}.${tabSubgrupo} sg ON sg.${colCodSubgrupoSub} = p.${colCodSubgrupo} AND sg.${colCodSecaoSub} = p.${colCodSecao} AND sg.${colCodGrupoSub} = p.${colCodGrupo}
+        ${subgrupoJoinC}
         LEFT JOIN ${schema}.${tabFornecedor} f ON f.${colCodForn} = pl.${colCodFornUltCompra}
         WHERE p.${colCodProduto} = :codProduto
       `;
 
-      const rows = await OracleService.query<any>(sql, { codProduto, codLoja });
+      const rows = await this.runQuery<any>(dbTypeC, sql, { codProduto, ...plSub.params });
       if (rows.length === 0) return null;
 
       return this.mapearProdutoOracle(rows[0]);

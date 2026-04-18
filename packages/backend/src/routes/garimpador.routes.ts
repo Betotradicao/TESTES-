@@ -35,6 +35,11 @@ router.get('/produtos-pesquisar', GarimpadorController.getProdutosPesquisar);
 router.get('/produtos-excluidos', GarimpadorController.getProdutosExcluidos);
 router.post('/produtos-excluidos', GarimpadorController.salvarProdutosExcluidos);
 
+// Multi-loja (lojas participantes + modo de referencia de custo)
+router.get('/lojas', GarimpadorController.listarLojas);
+router.get('/lojas-config', GarimpadorController.getLojasConfig);
+router.post('/lojas-config', GarimpadorController.saveLojasConfig);
+
 // Config do algoritmo de matching
 router.get('/match-config', GarimpadorController.getMatchConfig);
 router.post('/match-config', GarimpadorController.saveMatchConfig);

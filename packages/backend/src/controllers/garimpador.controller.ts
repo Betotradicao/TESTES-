@@ -6,8 +6,12 @@ import { GarimpadorAnalyticsService } from '../services/garimpador-analytics.ser
 import { GarimpadorDecomposerService } from '../services/garimpador-decomposer.service';
 import { GarimpadorVectorStoreService } from '../services/garimpador-vectorstore.service';
 import { ConfigurationService } from '../services/configuration.service';
+import { MappingService } from '../services/mapping.service';
+import { OracleService } from '../services/oracle.service';
+import { PostgresErpService } from '../services/postgres-erp.service';
 import { AppDataSource } from '../config/database';
 import { GarimpadorMensagem } from '../entities/GarimpadorMensagem';
+import { DatabaseConnection, DatabaseType, ConnectionStatus } from '../entities/DatabaseConnection';
 
 export class GarimpadorController {
 
@@ -469,6 +473,87 @@ export class GarimpadorController {
       res.json({ success: true });
     } catch (error: any) {
       console.error('[Garimpador] Erro saveMatchConfig:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/garimpador/lojas
+   * Lista lojas do ERP (TAB_LOJA) — usado no seletor de multi-loja.
+   * Bifurca entre Oracle e PostgreSQL conforme conexao ativa.
+   */
+  static async listarLojas(req: Request, res: Response) {
+    try {
+      const schema = await MappingService.getSchema();
+      const tabLoja = await MappingService.getRealTableName('TAB_LOJA', 'TAB_LOJA');
+      const colCodLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'codigo_loja', 'COD_LOJA');
+      const colDescLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'descricao_loja', 'DES_LOJA');
+
+      let dbType: 'oracle' | 'postgresql' = 'oracle';
+      try {
+        const repo = AppDataSource.getRepository(DatabaseConnection);
+        let conn = await repo.findOne({ where: { is_default: true, status: ConnectionStatus.ACTIVE } });
+        if (!conn) conn = await repo.findOne({ where: { status: ConnectionStatus.ACTIVE } });
+        if (!conn) conn = await repo.findOne({ where: {}, order: { id: 'ASC' } });
+        if (conn?.type === DatabaseType.POSTGRESQL) dbType = 'postgresql';
+      } catch { /* default oracle */ }
+
+      const sql = `SELECT ${colCodLoja} AS codigo, ${colDescLoja} AS descricao FROM ${schema}.${tabLoja} ORDER BY ${colCodLoja}`;
+      const rows: any[] = dbType === 'postgresql'
+        ? await PostgresErpService.query<any>(sql, [])
+        : await OracleService.query<any>(sql, {});
+      const lojas = rows.map((r: any) => {
+        const cod = r.codigo ?? r.CODIGO;
+        const desc = r.descricao ?? r.DESCRICAO;
+        return { codigo: Number(cod), descricao: desc || `Loja ${cod}` };
+      });
+      res.json({ success: true, lojas });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro listarLojas:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/garimpador/lojas-config
+   * Retorna configuracao de multi-loja (participantes + modo de referencia)
+   */
+  static async getLojasConfig(req: Request, res: Response) {
+    try {
+      const lojasStr = (await ConfigurationService.get('garimpador_lojas_participantes', '[1]')) || '[1]';
+      const refCusto = (await ConfigurationService.get('garimpador_ref_custo', 'menor')) || 'menor';
+      let lojas: number[] = [1];
+      try {
+        const parsed = JSON.parse(lojasStr);
+        if (Array.isArray(parsed)) lojas = parsed.map((n: any) => Number(n)).filter((n: number) => !isNaN(n));
+      } catch { /* default */ }
+      res.json({ success: true, lojas, refCusto: refCusto === 'medio' ? 'medio' : 'menor' });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro getLojasConfig:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * POST /api/garimpador/lojas-config
+   * Salva configuracao de multi-loja
+   */
+  static async saveLojasConfig(req: Request, res: Response) {
+    try {
+      const { lojas, refCusto } = req.body;
+      if (!Array.isArray(lojas) || lojas.length === 0) {
+        return res.status(400).json({ success: false, error: 'Informe pelo menos uma loja em "lojas"' });
+      }
+      const lojasNum = lojas.map((n: any) => Number(n)).filter((n: number) => !isNaN(n));
+      if (lojasNum.length === 0) {
+        return res.status(400).json({ success: false, error: 'Lojas invalidas' });
+      }
+      const ref = refCusto === 'medio' ? 'medio' : 'menor';
+      await ConfigurationService.set('garimpador_lojas_participantes', JSON.stringify(lojasNum));
+      await ConfigurationService.set('garimpador_ref_custo', ref);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro saveLojasConfig:', error);
       res.status(500).json({ success: false, error: error.message });
     }
   }

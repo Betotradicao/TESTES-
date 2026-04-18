@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import SimulatorTab from './SimulatorTab';
 import AITab from './AITab';
+import GarimpadorTab from './GarimpadorTab';
 import api from '../../utils/api';
 
 export default function APIsTab() {
@@ -64,7 +65,8 @@ export default function APIsTab() {
     { id: 'database', label: 'BANCO DE DADOS' },
     { id: 'minio', label: 'MINIO (Armazenamento)' },
     { id: 'simulator', label: 'SIMULADOR BIPAGENS' },
-    { id: 'ai', label: 'INTELIGENCIA ARTIFICIAL' }
+    { id: 'ai', label: 'INTELIGENCIA ARTIFICIAL' },
+    { id: 'garimpador', label: 'GARIMPADOR' }
   ];
 
   // Busca configurações salvas do banco ao carregar
@@ -1565,9 +1567,10 @@ AND ROWNUM &lt;= 5</pre>
         {activeSubTab === 'minio' && renderMinioForm()}
         {activeSubTab === 'simulator' && renderSimulatorForm()}
         {activeSubTab === 'ai' && <AITab />}
+        {activeSubTab === 'garimpador' && <GarimpadorTab />}
 
         {/* Save Button - Apenas para abas de configuração */}
-        {activeSubTab !== 'simulator' && activeSubTab !== 'ai' && (
+        {activeSubTab !== 'simulator' && activeSubTab !== 'ai' && activeSubTab !== 'garimpador' && (
           <div className="mt-6 flex justify-end border-t pt-4">
             <button
               onClick={handleSave}
