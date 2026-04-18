@@ -341,6 +341,19 @@ export class GarimpadorComparadorService {
   }
 
   /**
+   * Busca coluna mapeada sem fallback. Retorna null se nao mapeada.
+   * Usado pra colunas opcionais (cobertura, pedido_compra, subgrupo) que podem nao existir em todos os ERPs.
+   */
+  private static async getOptionalCol(tableId: string, fieldName: string): Promise<string | null> {
+    try {
+      const mappings = await MappingService.getMappings();
+      const t = (mappings as any)?.tabelas?.[tableId];
+      if (t?.colunas?.[fieldName]) return t.colunas[fieldName];
+      return null;
+    } catch { return null; }
+  }
+
+  /**
    * Retorna as lojas participantes e o modo de referencia de custo/preco.
    * Defaults: lojas=[1], refCusto='menor'
    */
@@ -376,10 +389,10 @@ export class GarimpadorComparadorService {
     colPrecoVenda: string;
     colPesquisaMedia: string;
     colEstoque: string;
-    colCobertura: string;
-    colPedidoCompra: string;
+    colCobertura: string | null;
+    colPedidoCompra: string | null;
     colCurva: string;
-    colVendaMedia: string;
+    colVendaMedia: string | null;
     colMargem: string;
     colCodFornUltCompra: string;
     colInativo: string;
@@ -390,6 +403,9 @@ export class GarimpadorComparadorService {
     const binds = args.lojas.map((_, i) => `:l${i}`).join(',');
     const params: Record<string, any> = {};
     args.lojas.forEach((v, i) => { params[`l${i}`] = v; });
+    // Helpers pra colunas opcionais (retornam "0 AS alias" quando nao mapeadas)
+    const aggOrZero = (col: string | null, aggFn: string, alias: string) =>
+      col ? `${aggFn}(${col}) AS ${col}` : `0 AS ${alias}`;
     const sql = `(
       SELECT
         ${args.colCodProdutoLoja} AS ${args.colCodProdutoLoja},
@@ -397,15 +413,15 @@ export class GarimpadorComparadorService {
         ${agg}(${args.colPrecoVenda}) AS ${args.colPrecoVenda},
         ${agg}(${args.colPesquisaMedia}) AS ${args.colPesquisaMedia},
         SUM(${args.colEstoque}) AS ${args.colEstoque},
-        SUM(${args.colCobertura}) AS ${args.colCobertura},
-        SUM(${args.colPedidoCompra}) AS ${args.colPedidoCompra},
+        ${aggOrZero(args.colCobertura, 'SUM', 'QTD_COBERTURA')},
+        ${aggOrZero(args.colPedidoCompra, 'SUM', 'QTD_PEDIDO_COMPRA')},
         MIN(${args.colCurva}) AS ${args.colCurva},
-        ${agg}(${args.colVendaMedia}) AS ${args.colVendaMedia},
+        ${aggOrZero(args.colVendaMedia, agg, 'VAL_VENDA_MEDIA')},
         ${agg}(${args.colMargem}) AS ${args.colMargem},
         MIN(${args.colCodFornUltCompra}) AS ${args.colCodFornUltCompra},
         MIN(${args.colInativo}) AS ${args.colInativo}
       FROM ${args.schema}.${args.tabProdutoLoja}
-      WHERE ${args.colCodLojaLoja} IN (${binds})
+      WHERE CAST(${args.colCodLojaLoja} AS INTEGER) IN (${binds})
       GROUP BY ${args.colCodProdutoLoja}
     )`;
     return { sql, params };
@@ -564,10 +580,10 @@ export class GarimpadorComparadorService {
       const colPrecoCusto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'custo_medio', 'VAL_CUSTO_MEDIO');
       const colPrecoVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda', 'VAL_VENDA');
       const colEstoque = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual', 'QTD_EST_ATUAL');
-      const colCobertura = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cobertura', 'QTD_COBERTURA');
-      const colPedidoCompra = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pedido_compra', 'QTD_PEDIDO_COMPRA');
+      const colCobertura = await this.getOptionalCol('TAB_PRODUTO_LOJA', 'cobertura');
+      const colPedidoCompra = await this.getOptionalCol('TAB_PRODUTO_LOJA', 'pedido_compra');
       const colCurva = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA');
-      const colVendaMedia = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'venda_media', 'VAL_VENDA_MEDIA');
+      const colVendaMedia = await this.getOptionalCol('TAB_PRODUTO_LOJA', 'venda_media');
       const colMargem = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem', 'VAL_MARGEM');
       const colPesquisaMedia = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pesquisa_media', 'VAL_PESQUISA_MEDIA');
       const colCodFornUltCompra = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra', 'COD_FORN_ULT_COMPRA');
@@ -727,10 +743,10 @@ export class GarimpadorComparadorService {
           ${vendor.nvl(`pl.${colPrecoVenda}`, 0)} AS PRECO_VENDA,
           ${vendor.nvl(`pl.${colPesquisaMedia}`, 0)} AS PRECO_VENDA_CONCORRENTE,
           ${vendor.nvl(`pl.${colEstoque}`, 0)} AS ESTOQUE_ATUAL,
-          ${vendor.nvl(`pl.${colCobertura}`, 0)} AS COBERTURA,
-          ${vendor.nvl(`pl.${colPedidoCompra}`, 0)} AS PEDIDO_COMPRA,
+          ${colCobertura ? vendor.nvl(`pl.${colCobertura}`, 0) : '0'} AS COBERTURA,
+          ${colPedidoCompra ? vendor.nvl(`pl.${colPedidoCompra}`, 0) : '0'} AS PEDIDO_COMPRA,
           ${vendor.nvl(`pl.${colCurva}`, `'-'`)} AS CURVA,
-          ${vendor.nvl(`pl.${colVendaMedia}`, 0)} AS VENDA_MEDIA_DIA,
+          ${colVendaMedia ? vendor.nvl(`pl.${colVendaMedia}`, 0) : '0'} AS VENDA_MEDIA_DIA,
           ${vendor.nvl(`pl.${colMargem}`, 0)} AS MARGEM_REFERENCIA,
           ${vendor.nvl(`s.${colDesSecao}`, `'-'`)} AS SECAO,
           ${vendor.nvl(`g.${colDesGrupo}`, `'-'`)} AS GRUPO,

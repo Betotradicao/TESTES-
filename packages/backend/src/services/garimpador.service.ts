@@ -111,19 +111,24 @@ export class GarimpadorService {
       const msgAtualizada = await repo.findOne({ where: { id: mensagem.id }, relations: ['contato'] });
       if (!msgAtualizada || msgAtualizada.processado) return;
 
+      // So roda IA (extracao) se contato ja estiver classificado como fornecedor ou concorrente
+      const tipo = msgAtualizada.contato?.tipo;
+      if (tipo !== 'fornecedor' && tipo !== 'concorrente') {
+        console.log(`[Garimpador] Contato nao classificado como fornecedor/concorrente - extracao pulada`);
+        return;
+      }
+
       // Etapa 1: Extrair produtos/precos da mensagem
       const extraido = await GarimpadorProcessadorService.processarMensagem(msgAtualizada);
 
-      // Etapa 2: Se extraiu dados E o contato esta classificado, comparar e enviar
-      if (extraido && msgAtualizada.contato?.tipo && msgAtualizada.contato.tipo !== 'nao_classificado') {
+      // Etapa 2: Se extraiu dados, comparar e enviar
+      if (extraido) {
         try {
           const resultado = await GarimpadorComparadorService.compararEEnviar(msgAtualizada.id);
           console.log(`[Garimpador] Auto-comparacao: ${resultado.enviadas}/${resultado.total} enviadas para WhatsApp`);
         } catch (err: any) {
           console.error('[Garimpador] Erro na auto-comparacao:', err.message);
         }
-      } else if (extraido) {
-        console.log(`[Garimpador] Dados extraidos mas contato nao classificado - aguardando classificacao`);
       }
     } catch (error: any) {
       console.error('[Garimpador] Erro no auto-processamento:', error.message);

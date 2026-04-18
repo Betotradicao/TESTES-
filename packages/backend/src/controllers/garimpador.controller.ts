@@ -498,7 +498,7 @@ export class GarimpadorController {
         if (conn?.type === DatabaseType.POSTGRESQL) dbType = 'postgresql';
       } catch { /* default oracle */ }
 
-      const sql = `SELECT ${colCodLoja} AS codigo, ${colDescLoja} AS descricao FROM ${schema}.${tabLoja} ORDER BY ${colCodLoja}`;
+      const sql = `SELECT CAST(${colCodLoja} AS INTEGER) AS codigo, ${colDescLoja} AS descricao FROM ${schema}.${tabLoja} ORDER BY CAST(${colCodLoja} AS INTEGER)`;
       const rows: any[] = dbType === 'postgresql'
         ? await PostgresErpService.query<any>(sql, [])
         : await OracleService.query<any>(sql, {});
@@ -612,17 +612,17 @@ export class GarimpadorController {
           p.${colCodProduto} AS codigo,
           p.${colDescricao} AS descricao,
           p.${colCodBarras} AS ean,
-          pl.${colCodLojaLoja} AS cod_loja,
+          CAST(pl.${colCodLojaLoja} AS INTEGER) AS cod_loja,
           u.${colDescLoja} AS nome_loja,
           ${nvl(`pl.${colPrecoCusto}`, 0)} AS custo,
           ${nvl(`pl.${colPrecoVenda}`, 0)} AS preco_venda,
           ${nvl(`pl.${colEstoque}`, 0)} AS estoque
         FROM ${schema}.${tabProduto} p
         LEFT JOIN ${schema}.${tabProdutoLoja} pl ON pl.${colCodProdutoLoja} = p.${colCodProduto}
-          AND pl.${colCodLojaLoja} IN (${binds})
-        LEFT JOIN ${schema}.${tabLoja} u ON u.${colCodLoja} = pl.${colCodLojaLoja}
+          AND CAST(pl.${colCodLojaLoja} AS INTEGER) IN (${binds})
+        LEFT JOIN ${schema}.${tabLoja} u ON CAST(u.${colCodLoja} AS INTEGER) = CAST(pl.${colCodLojaLoja} AS INTEGER)
         WHERE p.${colCodBarras} = :cod
-        ORDER BY pl.${colCodLojaLoja}
+        ORDER BY CAST(pl.${colCodLojaLoja} AS INTEGER)
       `;
 
       let rows: any[] = [];
