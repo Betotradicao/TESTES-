@@ -287,25 +287,29 @@ export class EmailMonitorService {
       const textBody = mail.text || '';
 
       console.log(`📧 Processando email: ${subject} de ${from}`);
-      // Suporte a multiplos filtros (JSON array ou string simples)
-      let filters: string[] = [];
+      // Suporte a multiplos filtros (objeto com filter/group/message ou string simples)
+      let filterObjs: { filter: string; type: string; group: string; message: string }[] = [];
       try {
         const raw = config.subject_filter?.trim() || '';
         if (raw.startsWith('[')) {
-          filters = JSON.parse(raw).filter((f: string) => f && f.trim());
+          const parsed = JSON.parse(raw);
+          filterObjs = parsed.map((f: any, i: number) => {
+            if (typeof f === 'string') return { filter: f, type: i === 0 ? 'dvr' : 'custom', group: '', message: '' };
+            return { filter: f.filter || '', type: f.type || (i === 0 ? 'dvr' : 'custom'), group: f.group || '', message: f.message || '' };
+          }).filter((f: any) => f.filter && f.filter.trim());
         } else if (raw) {
-          filters = [raw];
+          filterObjs = [{ filter: raw, type: 'dvr', group: '', message: '' }];
         }
-      } catch { filters = config.subject_filter ? [config.subject_filter] : []; }
-      console.log(`🔍 Filtros configurados (${filters.length}): ${filters.join(', ')}`);
+      } catch { filterObjs = config.subject_filter ? [{ filter: config.subject_filter, type: 'dvr', group: '', message: '' }] : []; }
+      console.log(`🔍 Filtros configurados (${filterObjs.length}): ${filterObjs.map(f => `"${f.filter}" [${f.type}]`).join(', ')}`);
 
-      const hasFilter = filters.length > 0;
+      const hasFilter = filterObjs.length > 0;
       const subjectLower = subject.trim().toLowerCase();
-      const matchedFilter = hasFilter ? filters.find(f => subjectLower.includes(f.trim().toLowerCase())) : null;
-      const matchesFilter = !!matchedFilter;
+      const matchedFilterObj = hasFilter ? filterObjs.find(f => subjectLower.includes(f.filter.trim().toLowerCase())) : null;
+      const matchesFilter = !!matchedFilterObj;
 
       if (!matchesFilter) {
-        console.log(`⏭️  Email ignorado - assunto "${subject}" nao contem nenhum dos ${filters.length} filtros`);
+        console.log(`⏭️  Email ignorado - assunto "${subject}" nao contem nenhum dos ${filterObjs.length} filtros`);
 
         await logRepository.save({
           email_subject: subject,
@@ -371,13 +375,27 @@ export class EmailMonitorService {
         console.warn(`⚠️ Imagem não foi salva para galeria (pode ser PDF ou erro de salvamento)`);
       }
 
-      // Verificar se há grupo configurado antes de enviar para WhatsApp
-      const whatsappSent = config.whatsapp_group_id && config.whatsapp_group_id.trim() !== '';
+      // Determinar grupo e mensagem baseado no filtro que bateu
+      let targetGroup = config.whatsapp_group_id;
+      let targetMessage = textBody;
+      let targetFilePath = filePath;
+
+      if (matchedFilterObj && matchedFilterObj.type === 'custom' && matchedFilterObj.group) {
+        // Filtro customizado: usa grupo e mensagem do filtro
+        targetGroup = matchedFilterObj.group;
+        targetMessage = matchedFilterObj.message
+          ? `${matchedFilterObj.message}\n\n📧 Assunto: ${subject}\n📬 De: ${from}\n\n${textBody.substring(0, 500)}`
+          : `📧 *Email recebido*\n\n*Assunto:* ${subject}\n*De:* ${from}\n\n${textBody.substring(0, 500)}`;
+        targetFilePath = ''; // Filtro custom não extrai PDF, só envia texto
+        console.log(`📨 Filtro customizado: grupo=${targetGroup}, msg="${matchedFilterObj.message?.substring(0, 50)}..."`);
+      }
+
+      const whatsappSent = targetGroup && targetGroup.trim() !== '';
       if (!whatsappSent) {
         console.log(`⏭️ WhatsApp desabilitado - nenhum grupo configurado. Email processado e imagem salva na galeria.`);
       } else {
         // Send to WhatsApp
-        await this.sendToWhatsApp(config.whatsapp_group_id, textBody, filePath);
+        await this.sendToWhatsApp(targetGroup, targetMessage, targetFilePath || '');
       }
 
       // Determinar status e mensagem do log
