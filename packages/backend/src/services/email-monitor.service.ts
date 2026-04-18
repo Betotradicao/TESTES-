@@ -373,14 +373,23 @@ export class EmailMonitorService {
       let targetMessage = textBody;
       let targetFilePath = filePath;
 
+      // ID pre-gerado para o log (usado no link curto enviado via WhatsApp)
+      const crypto = require('crypto');
+      const preLogId = crypto.randomUUID();
+
       if (matchedFilterObj && matchedFilterObj.type === 'custom' && matchedFilterObj.group) {
         // Filtro customizado: usa grupo e mensagem do filtro
         targetGroup = matchedFilterObj.group;
+        // Link publico pra ver o email completo (corpo nao vai na msg)
+        const publicUrl = (process.env.PUBLIC_URL || process.env.FRONTEND_URL || '').replace(/\/$/, '');
+        const viewLink = publicUrl
+          ? `${publicUrl}/api/email-monitor/view/${preLogId}`
+          : `/api/email-monitor/view/${preLogId}`;
         targetMessage = matchedFilterObj.message
-          ? `${matchedFilterObj.message}\n\n📧 Assunto: ${subject}\n📬 De: ${from}\n\n${textBody.substring(0, 500)}`
-          : `📧 *Email recebido*\n\n*Assunto:* ${subject}\n*De:* ${from}\n\n${textBody.substring(0, 500)}`;
+          ? `${matchedFilterObj.message}\n\n📧 *${subject}*\n🔗 Ver email: ${viewLink}`
+          : `📧 *${subject}*\n📬 De: ${from}\n🔗 Ver email: ${viewLink}`;
         targetFilePath = ''; // Filtro custom não extrai PDF, só envia texto
-        console.log(`📨 Filtro customizado: grupo=${targetGroup}, msg="${matchedFilterObj.message?.substring(0, 50)}..."`);
+        console.log(`📨 Filtro customizado: grupo=${targetGroup}, link=${viewLink}`);
       }
 
       const whatsappSent = targetGroup && targetGroup.trim() !== '';
@@ -407,11 +416,12 @@ export class EmailMonitorService {
       }
       // Filtro custom sem imagem = success (nao precisa de imagem)
 
-      // Log success
+      // Log success (para custom, usa o preLogId pra o link funcionar; body completo)
       await logRepository.save({
+        id: isCustomFilter ? preLogId : undefined,
         email_subject: subject,
         sender: from,
-        email_body: textBody.substring(0, 500),
+        email_body: textBody,
         status: logStatus,
         error_message: logMessage,
         has_attachment: mail.attachments.length > 0,
@@ -683,6 +693,12 @@ export class EmailMonitorService {
       },
       take: limit
     });
+  }
+
+  /** Retorna 1 log por id (usado na pagina publica de visualizacao) */
+  static async getLogById(id: string): Promise<EmailMonitorLog | null> {
+    const logRepository = AppDataSource.getRepository(EmailMonitorLog);
+    return await logRepository.findOne({ where: { id } });
   }
 
   /**

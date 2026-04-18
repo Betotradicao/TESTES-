@@ -5,6 +5,9 @@ import { authenticateToken } from '../middleware/auth';
 const router: Router = Router();
 const emailMonitorController = new EmailMonitorController();
 
+// Pagina PUBLICA de visualizacao (acessada via link no WhatsApp)
+router.get('/view/:id', emailMonitorController.viewEmail.bind(emailMonitorController));
+
 // Todas as rotas requerem autenticação
 router.get('/config', authenticateToken, emailMonitorController.getConfig.bind(emailMonitorController));
 router.put('/config', authenticateToken, emailMonitorController.updateConfig.bind(emailMonitorController));

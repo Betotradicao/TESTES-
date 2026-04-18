@@ -130,6 +130,51 @@ export class EmailMonitorController {
   }
 
   /**
+   * GET /api/email-monitor/view/:id
+   * Pagina publica que exibe o conteudo do email (usado em link curto no WhatsApp)
+   */
+  async viewEmail(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const log = await EmailMonitorService.getLogById(id);
+      if (!log) {
+        return res.status(404).send('<html><body style="font-family:sans-serif;padding:40px;text-align:center"><h2>❌ Email não encontrado</h2></body></html>');
+      }
+      const esc = (s: string) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const body = esc(log.email_body || '(sem corpo)').replace(/\n/g, '<br>');
+      const html = `<!DOCTYPE html>
+<html lang="pt-br"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(log.email_subject)}</title>
+<style>
+body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:0;padding:0;background:#f5f5f5;color:#222}
+.container{max-width:640px;margin:0 auto;background:white;min-height:100vh;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+.header{background:linear-gradient(135deg,#ea580c,#f97316);color:white;padding:20px}
+.header h1{margin:0;font-size:18px}
+.meta{background:#fafafa;padding:16px 20px;border-bottom:1px solid #eee;font-size:13px;color:#555}
+.meta div{margin:4px 0}
+.meta strong{color:#222;display:inline-block;min-width:72px}
+.body{padding:20px;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.footer{padding:16px 20px;border-top:1px solid #eee;font-size:11px;color:#999;text-align:center}
+</style></head>
+<body><div class="container">
+<div class="header"><h1>📧 ${esc(log.email_subject)}</h1></div>
+<div class="meta">
+<div><strong>De:</strong> ${esc(log.sender)}</div>
+<div><strong>Data:</strong> ${new Date(log.processed_at).toLocaleString('pt-BR')}</div>
+<div><strong>Status:</strong> ${esc(log.status)}</div>
+</div>
+<div class="body">${body}</div>
+<div class="footer">Radar 360 — Monitor de Emails</div>
+</div></body></html>`;
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(html);
+    } catch (error) {
+      console.error('Error viewing email:', error);
+      return res.status(500).send('<html><body><h2>Erro ao carregar email</h2></body></html>');
+    }
+  }
+
+  /**
    * GET /api/email-monitor/whatsapp-groups
    * Buscar grupos do WhatsApp via Evolution API
    */
