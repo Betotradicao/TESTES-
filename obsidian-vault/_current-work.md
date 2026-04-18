@@ -1,31 +1,33 @@
 # 🚧 Trabalho em Andamento
 
-## 🎯 Tarefa Atual
-Correção dos filtros CANC.* e DESCONTO do Vision Palavra-Chave no cliente Nunes (RP INFO PostgreSQL).
+## 🎯 Status ao encerrar sessão (16/04/2026)
 
-## ✅ Concluído (Nunes only — bifurcação isolada)
+### ✅ Concluído e commitado
+- **Gestão Inteligente**: fix tiposSaida (NF Transferência não contamina mais)
+- **Compra x Venda**: Dif Anual nos itens preenchido
+- **Obsidian Vault**: 54 notas, skills Kepano, CLAUDE.md com regras
+- **Vision Palavra-Chave (Nunes)**: CANC Item/Cupom/Venda + Desconto agrupado + hora HH:MM:SS + nome operador + itens com desconto em vermelho na notinha
+- **DVR codec toggle**: select copy/transcode na tela Config Rede DVR/CFTV
 
-### Backend (`dvr-cftv.service.ts` — função `searchPostgresAllPdvs`)
-- **CANC. ITEM:** `vopr_valor < 0` — lista items individuais
-- **CANC. VENDA:** cupom agregado com `HAVING SUM(vopr_valor) < 0` (parcialmente cancelado)
-- **CANC. CUPOM:** cupom agregado com `HAVING ABS(SUM)=0 AND MIN < 0` (totalmente cancelado)
-- **DESCONTO:** agregado por cupom com `SUM(vopr_desconto)` + `COUNT` itens
-- Hora formatada `HH:MM:SS` via `SUBSTR` (RP INFO vem sem `:`)
-- Nome do operador via JOIN com `funcionarios` em todos os filtros
+### 🔴 Pendente: vídeo DVR do Tradição
+**Problema:** DVR do Tradição atualizou firmware e agora grava em **HEVC (H.265)** — antes era H.264.
+- FFmpeg transcoda OK no CLI (gera MP4 H.264 válido, confirmado via ffprobe)
+- Streaming pipe → browser falha (browser desconecta antes de receber frames)
+- Generate-clip (arquivo primeiro) funciona no backend mas frontend precisa debug
 
-### Frontend (`VisionPalavraChave2.jsx`)
-- Itens na notinha pintados em vermelho quando `total < 0`, `qtd < 0` OU `desconto > 0`
-- Linha de quantidade mostra `(desconto: -R$ X,XX)` quando aplicável
-- Tabela principal mantida sem alterações visuais
+**Próximos passos (por ordem de facilidade):**
+1. **Reconfigurar DVR Tradição pra H.264** — painel web do DVR, trocar codec das câmeras. 5 min. Resolve definitivamente.
+2. **Debug do flow generate-clip → browser** — validar URL, autenticação, timeout no F12 Console
+3. **Testar sub-stream H.264** — se DVR mantiver HEVC no main, usar sub-stream
 
-## 🛡️ Isolamento confirmado
-Todo o fix está dentro de `searchPostgresAllPdvs` — **Tradição/SuperVital/MaxValle (Oracle) não são afetados**.
+### ⚠️ Túnel Nunes OFFLINE
+Portas 38100/38101/10835 não estão LISTEN na VPS. Provável que máquina Windows da loja desligou. Quando ligar, serviço SSH deve reconectar automático. Se não, rodar .BAT do túnel manualmente.
 
-## 📝 Documentado no vault
-- [[bugs-resolvidos/2026-04-16-nunes-vision-canc-desconto]] — bug resolvido completo
-- [[clientes/nunes]] — seção "Como o RP INFO marca cancelamentos"
-- [[modulos/dvr-cameras]] — enriquecida na sessão anterior
+### 📦 Deploys realizados
+- ✅ Nunes (backend + frontend) — filtros CANC/Desconto + codec toggle
+- ✅ Tradição (backend + frontend) — codec toggle
+- ✅ SuperVital (backend + frontend) — tiposSaida + Dif Anual (início da sessão)
+- ✅ MaxValle (frontend + backend) — deploy geral (início da sessão)
 
-## ⏭️ Próximos passos
-- Commit + push dos 2 fixes (código) e da nova nota do vault
-- Depois disso: próximas telas do Nunes ou outro cliente
+### ⚠️ Estado do repositório
+Branch `TESTE`, 4 commits pushados nesta sessão. Sem alterações pendentes de código.

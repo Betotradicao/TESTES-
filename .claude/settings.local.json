@@ -269,7 +269,6 @@
       "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"cat /root/prevencao-no-radar/InstaladorVPS/docker-compose-producao.yml | grep -A 3 ''ports:''\")",
       "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"cd /root/prevencao-no-radar/InstaladorVPS && sed -i ''/^VITE_API_URL=/d'' .env && grep -E ''BACKEND_URL|VITE'' .env\")",
       "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"curl -s http://31.97.82.235:3001/api/setup/status\")",
-      "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"docker exec -i prevencao-postgres-prod psql -U postgres -d prevencao_db\" <<'EOSQL'\n-- Criar uma empresa padrão\nINSERT INTO companies (id, nome_fantasia, razao_social, cnpj, created_at, updated_at)\nVALUES (\n  gen_random_uuid(),\n  'Empresa Padrão',\n  'Empresa Padrão LTDA',\n  '00000000000000',\n  NOW(),\n  NOW()\n)\nON CONFLICT DO NOTHING\nRETURNING id;\nEOSQL)",
       "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"cd /root/prevencao-no-radar/InstaladorVPS && docker compose -f docker-compose-producao.yml down -v\")",
       "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"ls -la /root/\")",
       "Bash(\"C:\\Program Files\\PuTTY\\plink.exe\" -batch -pw \"Beto310790@#\" root@31.97.82.235 \"cd /root/prevencao-no-radar && git pull origin main\")",
@@ -758,7 +757,10 @@
       "Bash(ssh vps2-hostinger \"cd /root/prevencao-radar-repo && git pull origin TESTE && cd /root/clientes/tradicao && docker compose build --no-cache frontend && docker compose up -d --no-deps frontend && docker builder prune -f && docker image prune -f\")",
       "Bash(pm2 restart:*)",
       "Bash(npx pm2:*)",
-      "Bash(npx pm2 list)"
+      "Bash(npx pm2 list)",
+      "Bash(cmd //c \"netstat -ano | findstr :3000 | findstr LISTENING\")",
+      "Bash(pm2 logs:*)",
+      "Bash(PGPASSWORD=TveEWnoTmocDb8N5m7Vrt4tTa2azcU psql -h 46.202.150.64 -p 6303 -U postgres -d postgres_tradicao << 'EOSQL':*)"
     ],
     "deny": [],
     "ask": []

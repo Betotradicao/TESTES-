@@ -417,9 +417,10 @@ export class GarimpadorComparadorService {
     const aggOrZero = (col: string | null, aggFn: string, alias: string) =>
       col ? `${aggFn}(${col}) AS ${col}` : `0 AS ${alias}`;
     // RP INFO guarda curva historica tipo 'AAAAAAABB' (9 chars por periodo).
-    // A curva atual e o ultimo caractere. Em Oracle (Intersolid) a curva e 1 char simples.
+    // A curva atual e o ultimo caractere. Ignora espacos/brancos (lojas sem curva definida).
+    // Em Oracle (Intersolid) a curva e 1 char simples.
     const curvaExpr = args.isPg
-      ? `RIGHT(${args.colCurva}, 1)`
+      ? `NULLIF(TRIM(RIGHT(${args.colCurva}, 1)), '')`
       : args.colCurva;
     const sql = `(
       SELECT
