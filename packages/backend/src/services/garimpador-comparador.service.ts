@@ -324,6 +324,7 @@ export class GarimpadorComparadorService {
    * Em PG, converte :nome -> $N na ordem que aparece.
    */
   private static async runQuery<T = any>(type: 'oracle' | 'postgresql', sql: string, params: Record<string, any>): Promise<T[]> {
+    let rows: any[];
     if (type === 'postgresql') {
       const paramArray: any[] = [];
       const seen: Map<string, number> = new Map();
@@ -335,9 +336,17 @@ export class GarimpadorComparadorService {
         paramArray.push(params[name]);
         return `$${counter}`;
       });
-      return PostgresErpService.query<T>(pgSql, paramArray);
+      rows = await PostgresErpService.query<any>(pgSql, paramArray);
+      // Normaliza chaves pra uppercase (codigo legado espera formato Oracle)
+      rows = rows.map(r => {
+        const up: any = {};
+        for (const k of Object.keys(r)) up[k.toUpperCase()] = r[k];
+        return up;
+      });
+    } else {
+      rows = await OracleService.query<any>(sql, params);
     }
-    return OracleService.query<T>(sql, params);
+    return rows as T[];
   }
 
   /**
