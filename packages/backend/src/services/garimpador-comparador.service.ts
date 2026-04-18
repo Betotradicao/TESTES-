@@ -245,6 +245,8 @@ interface LojaProdutoData {
   preco_venda: number;
   estoque: number;
   curva: string;
+  venda_media_dia: number;
+  cobertura: number;
 }
 
 interface ProdutoOracle {
@@ -392,11 +394,24 @@ export class GarimpadorComparadorService {
       const colCurva = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA');
       const colCodLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'codigo_loja', 'COD_LOJA');
       const colDescLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'descricao_loja', 'DES_LOJA');
+      const tabProdutoPdv = await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV');
+      const colCodProdutoPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto', 'COD_PRODUTO');
+      const colCodLojaPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_loja', 'COD_LOJA');
+      const colQtdVendaPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade', 'QTD_TOTAL_PRODUTO');
+      const colDataVendaPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda', 'DTA_SAIDA');
 
       const curvaExpr = vendor.isPg ? `NULLIF(TRIM(RIGHT(pl.${colCurva}, 1)), '')` : `pl.${colCurva}`;
       const binds = lojas.map((_, i) => `:l${i}`).join(',');
       const params: Record<string, any> = { cod: codProduto };
       lojas.forEach((v, i) => { params[`l${i}`] = v; });
+
+      const vendas30dExpr = `(
+        SELECT ${vendor.nvl(`SUM(pdv.${colQtdVendaPdv})`, 0)}
+        FROM ${schema}.${tabProdutoPdv} pdv
+        WHERE pdv.${colCodProdutoPdv} = pl.${colCodProdutoLoja}
+          AND CAST(pdv.${colCodLojaPdv} AS INTEGER) = CAST(pl.${colCodLojaLoja} AS INTEGER)
+          AND pdv.${colDataVendaPdv} >= ${vendor.sysdateMinus(30)}
+      )`;
 
       const sql = `
         SELECT
@@ -405,7 +420,11 @@ export class GarimpadorComparadorService {
           ${vendor.nvl(`pl.${colPrecoCusto}`, 0)} AS PRECO_CUSTO,
           ${vendor.nvl(`pl.${colPrecoVenda}`, 0)} AS PRECO_VENDA,
           ${vendor.nvl(`pl.${colEstoque}`, 0)} AS ESTOQUE,
-          ${vendor.nvl(curvaExpr, `'-'`)} AS CURVA
+          ${vendor.nvl(curvaExpr, `'-'`)} AS CURVA,
+          ${vendas30dExpr} / 30.0 AS VMD,
+          CASE WHEN ${vendas30dExpr} > 0
+            THEN ${vendor.nvl(`pl.${colEstoque}`, 0)} * 30.0 / ${vendas30dExpr}
+            ELSE 0 END AS COBERTURA
         FROM ${schema}.${tabProdutoLoja} pl
         LEFT JOIN ${schema}.${tabLoja} u ON CAST(u.${colCodLoja} AS INTEGER) = CAST(pl.${colCodLojaLoja} AS INTEGER)
         WHERE pl.${colCodProdutoLoja} = :cod
@@ -421,6 +440,8 @@ export class GarimpadorComparadorService {
         preco_venda: parseFloat(r.PRECO_VENDA) || 0,
         estoque: parseFloat(r.ESTOQUE) || 0,
         curva: String(r.CURVA || '-'),
+        venda_media_dia: parseFloat(r.VMD) || 0,
+        cobertura: parseFloat(r.COBERTURA) || 0,
       }));
     } catch (err: any) {
       console.error('[Garimpador] Erro buscarDadosPorLoja:', err.message);
@@ -1698,19 +1719,32 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
       msg += `🔖 Condição: ${resultado.condicao}\n`;
     }
 
-    // Curva e estoque por loja (breakdown) quando disponivel
+    // Curva, estoque, VMD e cobertura por loja (cada um em bloco separado)
     if (p.lojasData && p.lojasData.length > 0) {
       for (const l of p.lojasData) {
-        msg += `📊 Curva Loja ${l.codigoLoja}: ${l.curva}  📦 Estoque: ${fmtBRL(l.estoque)}\n`;
+        msg += `📊 Curva Loja ${l.codigoLoja}: ${l.curva}\n`;
       }
+      msg += `\n`;
+      for (const l of p.lojasData) {
+        msg += `📦 Estoque Loja ${l.codigoLoja}: ${fmtBRL(l.estoque)}\n`;
+      }
+      msg += `\n`;
+      for (const l of p.lojasData) {
+        msg += `📈 Média Venda Dia Loja ${l.codigoLoja}: ${fmtBRL(l.venda_media_dia)}\n`;
+      }
+      msg += `\n`;
+      for (const l of p.lojasData) {
+        msg += `⏳ Dias de Cobertura Loja ${l.codigoLoja}: ${fmtBRL(l.cobertura)}\n`;
+      }
+      msg += `\n`;
     } else {
       msg += `📊 Curva: ${p.curva}\n`;
       msg += `📦 Estoque Atual: ${fmtBRL(p.estoque_atual)}\n`;
+      msg += `📈 Média Venda Dia: ${fmtBRL(p.venda_media_dia)}\n`;
+      msg += `⏳ Dias de Cobertura: ${fmtBRL(p.cobertura)}\n`;
     }
-    msg += `📈 Média Venda Dia: ${fmtBRL(p.venda_media_dia)}\n`;
     msg += `📈 Média Venda Mês: ${fmtBRL(p.venda_30d)}\n`;
     msg += `📦 Pedido de Compra: ${fmtBRL(p.pedido_compra)}\n`;
-    msg += `⏳ Dias de Cobertura: ${fmtBRL(p.cobertura)}\n`;
     msg += `👨‍🌾 Fornecedor Atual: ${p.fornecedor}\n\n`;
 
     msg += `📊 Margem Meta: ${fmtBRL(resultado.margemMeta)}%\n`;
