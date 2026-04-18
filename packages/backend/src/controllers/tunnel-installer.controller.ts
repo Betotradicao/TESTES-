@@ -922,7 +922,7 @@ echo %SSH_PORT% > "C:\\ProgramData\\${tunnelDir}\\ssh-port.txt"
 
 echo [8/9] Criando tarefa agendada (inicia com Windows)...
 schtasks /delete /tn "${taskName}" /f 2>nul
-schtasks /create /tn "${taskName}" /tr "wscript.exe \\"C:\\ProgramData\\${tunnelDir}\\start-tunnel-service.vbs\\"" /sc onstart /delay 0001:00 /rl highest /f
+schtasks /create /tn "${taskName}" /tr "wscript.exe \\"C:\\ProgramData\\${tunnelDir}\\start-tunnel-service.vbs\\"" /sc onstart /delay 0000:30 /rl highest /ru SYSTEM /f
 
 if %errorLevel% neq 0 (
     echo ERRO: Falha ao criar tarefa agendada!

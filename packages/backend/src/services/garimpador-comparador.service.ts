@@ -437,7 +437,7 @@ export class GarimpadorComparadorService {
       const colCodSubgrupo = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_subgrupo', 'COD_SUBGRUPO');
 
       // Colunas TAB_PRODUTO_LOJA
-      const colPrecoCusto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo', 'VAL_CUSTO_REP');
+      const colPrecoCusto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'custo_medio', 'VAL_CUSTO_MEDIO');
       const colPrecoVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda', 'VAL_VENDA');
       const colEstoque = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual', 'QTD_EST_ATUAL');
       const colCobertura = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cobertura', 'QTD_COBERTURA');
@@ -1155,7 +1155,7 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
       const colCodFornecedor = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_fornecedor', 'COD_FORNECEDOR');
 
       const colCodProdutoLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
-      const colPrecoCusto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_custo', 'VAL_CUSTO_REP');
+      const colPrecoCusto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'custo_medio', 'VAL_CUSTO_MEDIO');
       const colPrecoVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda', 'VAL_VENDA');
       const colPesquisaMedia = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pesquisa_media', 'VAL_PESQUISA_MEDIA');
       const colEstoque = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual', 'QTD_EST_ATUAL');

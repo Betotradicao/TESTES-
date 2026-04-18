@@ -287,14 +287,25 @@ export class EmailMonitorService {
       const textBody = mail.text || '';
 
       console.log(`📧 Processando email: ${subject} de ${from}`);
-      console.log(`🔍 Filtro configurado: "${config.subject_filter}"`);
+      // Suporte a multiplos filtros (JSON array ou string simples)
+      let filters: string[] = [];
+      try {
+        const raw = config.subject_filter?.trim() || '';
+        if (raw.startsWith('[')) {
+          filters = JSON.parse(raw).filter((f: string) => f && f.trim());
+        } else if (raw) {
+          filters = [raw];
+        }
+      } catch { filters = config.subject_filter ? [config.subject_filter] : []; }
+      console.log(`🔍 Filtros configurados (${filters.length}): ${filters.join(', ')}`);
 
-      // Check if subject matches filter (match exato case-insensitive; filtro vazio ignora tudo)
-      const hasFilter = config.subject_filter && config.subject_filter.trim() !== '';
-      const matchesFilter = hasFilter && subject.trim().toLowerCase() === config.subject_filter.trim().toLowerCase();
+      const hasFilter = filters.length > 0;
+      const subjectLower = subject.trim().toLowerCase();
+      const matchedFilter = hasFilter ? filters.find(f => subjectLower.includes(f.trim().toLowerCase())) : null;
+      const matchesFilter = !!matchedFilter;
 
       if (!matchesFilter) {
-        console.log(`⏭️  Email ignorado - assunto "${subject}" nao e igual a "${config.subject_filter}"`);
+        console.log(`⏭️  Email ignorado - assunto "${subject}" nao contem nenhum dos ${filters.length} filtros`);
 
         await logRepository.save({
           email_subject: subject,

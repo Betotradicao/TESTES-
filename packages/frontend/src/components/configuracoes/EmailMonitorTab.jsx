@@ -344,17 +344,64 @@ export default function EmailMonitorTab() {
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Filtro de Assunto
+          Filtros de Assunto
         </label>
-        <input
-          type="text"
-          value={config.subject_filter}
-          onChange={(e) => setConfig({ ...config, subject_filter: e.target.value })}
-          placeholder="Ex: DVR, Alerta, Câmera"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
+        {(() => {
+          let filters = [];
+          try {
+            const raw = config.subject_filter || '';
+            filters = raw.startsWith('[') ? JSON.parse(raw) : (raw ? [raw] : ['']);
+          } catch { filters = config.subject_filter ? [config.subject_filter] : ['']; }
+          if (filters.length === 0) filters = [''];
+
+          const updateFilters = (newFilters) => {
+            setConfig({ ...config, subject_filter: JSON.stringify(newFilters) });
+          };
+
+          return (
+            <div className="space-y-2">
+              {filters.map((f, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={f}
+                    onChange={(e) => {
+                      const nf = [...filters];
+                      nf[i] = e.target.value;
+                      updateFilters(nf);
+                    }}
+                    placeholder={`Filtro ${i + 1} (ex: ALERTA DVR)`}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {filters.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => { const nf = filters.filter((_, j) => j !== i); updateFilters(nf.length ? nf : ['']); }}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                      title="Remover filtro"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => updateFilters([...filters, ''])}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Adicionar Filtro
+              </button>
+            </div>
+          );
+        })()}
         <p className="mt-1 text-xs text-gray-500">
-          Apenas emails com este texto no assunto serão processados
+          Emails que contenham QUALQUER um desses textos no assunto serão processados
         </p>
       </div>
 

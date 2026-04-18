@@ -21,7 +21,7 @@ export default function AtivarProdutos({ embedded = false }) {
   const [filterTipoEspecie, setFilterTipoEspecie] = useState('');
   const [filterTipoEvento, setFilterTipoEvento] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 25;
+  const itemsPerPage = 9999; // Sem paginação — mostra todos pra ativar em massa
 
   // Estados para seleção em massa
   const [selectedProducts, setSelectedProducts] = useState(new Set());
@@ -186,16 +186,11 @@ export default function AtivarProdutos({ embedded = false }) {
 
   const handleSelectAll = () => {
     if (selectAll) {
-      // Desmarcar todos
       setSelectedProducts(new Set());
       setSelectAll(false);
     } else {
-      // Selecionar todos os produtos da página atual
-      const currentPageProducts = filteredProducts.slice(
-        (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage
-      );
-      const newSelected = new Set(currentPageProducts.map(p => p.codigo));
+      // Selecionar TODOS os produtos filtrados (não só a página)
+      const newSelected = new Set(filteredProducts.map(p => p.codigo));
       setSelectedProducts(newSelected);
       setSelectAll(true);
     }
@@ -224,11 +219,12 @@ export default function AtivarProdutos({ embedded = false }) {
       setBulkUpdating(true);
       setError('');
 
-      // Fazer requisição em lote
+      // Fazer requisição em lote (enviar codLoja pra multi-loja)
       const selectedIds = Array.from(selectedProducts);
       await api.put('/products/bulk-activate', {
         productIds: selectedIds,
-        active: activate
+        active: activate,
+        codLoja: lojaSelecionada || undefined
       });
 
       // Atualizar produtos localmente
@@ -248,7 +244,7 @@ export default function AtivarProdutos({ embedded = false }) {
       if (err.response?.status === 401) {
         logout();
       } else {
-        setError('Erro ao processar ativação em massa. Tente novamente.');
+        setError('Erro ao processar ativação em massa: ' + (err.response?.data?.error || err.message || 'Tente novamente.'));
       }
     } finally {
       setBulkUpdating(false);
