@@ -324,51 +324,44 @@ export class EmailMonitorService {
         return;
       }
 
-      // Find PDF or Image attachment
-      const pdfAttachment = mail.attachments.find((att: Attachment) =>
-        att.contentType === 'application/pdf'
-      );
-
-      const imageAttachment = mail.attachments.find((att: Attachment) =>
-        att.contentType?.startsWith('image/')
-      );
-
+      // Filtro customizado NÃO precisa de PDF — pula extração e vai direto pro envio
+      const isCustomFilter = matchedFilterObj && matchedFilterObj.type === 'custom' && matchedFilterObj.group;
       let filePath: string | null = null;
+      let permanentImageFilename: string | null = null;
 
-      if (pdfAttachment) {
-        // Process PDF
-        console.log(`📄 Processando anexo PDF`);
-        filePath = await this.extractImageFromPDF(pdfAttachment.content);
+      if (!isCustomFilter) {
+        // DVR: precisa de PDF/imagem
+        const pdfAttachment = mail.attachments.find((att: Attachment) =>
+          att.contentType === 'application/pdf'
+        );
 
-        if (!filePath) {
-          throw new Error('Falha ao extrair imagem do PDF');
+        const imageAttachment = mail.attachments.find((att: Attachment) =>
+          att.contentType?.startsWith('image/')
+        );
+
+        if (pdfAttachment) {
+          console.log(`📄 Processando anexo PDF`);
+          filePath = await this.extractImageFromPDF(pdfAttachment.content);
+          if (!filePath) throw new Error('Falha ao extrair imagem do PDF');
+        } else if (imageAttachment) {
+          console.log(`🖼️  Processando anexo de imagem`);
+          filePath = await this.saveImageAttachment(imageAttachment);
+          if (!filePath) throw new Error('Falha ao salvar imagem');
+        } else {
+          console.log(`⚠️  Email não contém anexo PDF ou imagem`);
+          await logRepository.save({
+            email_subject: subject, sender: from,
+            email_body: textBody.substring(0, 500), status: 'error',
+            error_message: 'Nenhum anexo PDF ou imagem encontrado',
+            has_attachment: mail.attachments.length > 0,
+            whatsapp_group_id: config.whatsapp_group_id
+          });
+          return;
         }
-      } else if (imageAttachment) {
-        // Process Image directly
-        console.log(`🖼️  Processando anexo de imagem`);
-        filePath = await this.saveImageAttachment(imageAttachment);
-
-        if (!filePath) {
-          throw new Error('Falha ao salvar imagem');
-        }
+        permanentImageFilename = await this.savePermanentImage(filePath);
       } else {
-        console.log(`⚠️  Email não contém anexo PDF ou imagem`);
-
-        await logRepository.save({
-          email_subject: subject,
-          sender: from,
-          email_body: textBody.substring(0, 500),
-          status: 'error',
-          error_message: 'Nenhum anexo PDF ou imagem encontrado',
-          has_attachment: mail.attachments.length > 0,
-          whatsapp_group_id: config.whatsapp_group_id
-        });
-
-        return;
+        console.log(`📨 Filtro customizado "${matchedFilterObj!.filter}" — pulando extração de PDF`);
       }
-
-      // Salvar cópia permanente da imagem para a galeria
-      const permanentImageFilename = await this.savePermanentImage(filePath);
 
       // Log warning se imagem não foi salva para galeria
       if (!permanentImageFilename) {
@@ -429,7 +422,7 @@ export class EmailMonitorService {
       console.log(`📷 Image path salvo: ${permanentImageFilename || 'null'}`);
 
       // Clean up temp file
-      if (fs.existsSync(filePath)) {
+      if (filePath && fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
 
