@@ -246,7 +246,9 @@ interface LojaProdutoData {
   estoque: number;
   curva: string;
   venda_media_dia: number;
+  venda_mes: number;
   cobertura: number;
+  pedido_compra: number;
 }
 
 interface ProdutoOracle {
@@ -392,6 +394,7 @@ export class GarimpadorComparadorService {
       const colPrecoVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda', 'VAL_VENDA');
       const colEstoque = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual', 'QTD_EST_ATUAL');
       const colCurva = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA');
+      const colPedidoCompra = await this.getOptionalCol('TAB_PRODUTO_LOJA', 'pedido_compra');
       const colCodLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'codigo_loja', 'COD_LOJA');
       const colDescLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'descricao_loja', 'DES_LOJA');
       const tabProdutoPdv = await MappingService.getRealTableName('TAB_PRODUTO_PDV', 'TAB_PRODUTO_PDV');
@@ -422,6 +425,8 @@ export class GarimpadorComparadorService {
           ${vendor.nvl(`pl.${colEstoque}`, 0)} AS ESTOQUE,
           ${vendor.nvl(curvaExpr, `'-'`)} AS CURVA,
           ${vendas30dExpr} / 30.0 AS VMD,
+          ${vendas30dExpr} AS VENDA_MES,
+          ${colPedidoCompra ? vendor.nvl(`pl.${colPedidoCompra}`, 0) : '0'} AS PEDIDO_COMPRA,
           CASE WHEN ${vendas30dExpr} > 0
             THEN ${vendor.nvl(`pl.${colEstoque}`, 0)} * 30.0 / ${vendas30dExpr}
             ELSE 0 END AS COBERTURA
@@ -441,7 +446,9 @@ export class GarimpadorComparadorService {
         estoque: parseFloat(r.ESTOQUE) || 0,
         curva: String(r.CURVA || '-'),
         venda_media_dia: parseFloat(r.VMD) || 0,
+        venda_mes: parseFloat(r.VENDA_MES) || 0,
         cobertura: parseFloat(r.COBERTURA) || 0,
+        pedido_compra: parseFloat(r.PEDIDO_COMPRA) || 0,
       }));
     } catch (err: any) {
       console.error('[Garimpador] Erro buscarDadosPorLoja:', err.message);
@@ -1718,7 +1725,7 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
       msg += `🔖 Condição: ${resultado.condicao}\n`;
     }
 
-    // Curva, estoque, VMD e cobertura por loja (cada um em bloco separado)
+    // Curva, estoque, VMD, VMM, pedido de compra e cobertura por loja (blocos separados)
     if (p.lojasData && p.lojasData.length > 0) {
       for (const l of p.lojasData) {
         msg += `📊 Curva Loja ${l.codigoLoja}: ${l.curva}\n`;
@@ -1733,17 +1740,25 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
       }
       msg += `\n`;
       for (const l of p.lojasData) {
+        msg += `📈 Média Venda Mês Loja ${l.codigoLoja}: ${fmtBRL(l.venda_mes)}\n`;
+      }
+      msg += `\n`;
+      for (const l of p.lojasData) {
         msg += `⏳ Dias de Cobertura Loja ${l.codigoLoja}: ${fmtBRL(l.cobertura)}\n`;
+      }
+      msg += `\n`;
+      for (const l of p.lojasData) {
+        msg += `📦 Pedido de Compra Loja ${l.codigoLoja}: ${fmtBRL(l.pedido_compra)}\n`;
       }
       msg += `\n`;
     } else {
       msg += `📊 Curva: ${p.curva}\n`;
       msg += `📦 Estoque Atual: ${fmtBRL(p.estoque_atual)}\n`;
       msg += `📈 Média Venda Dia: ${fmtBRL(p.venda_media_dia)}\n`;
+      msg += `📈 Média Venda Mês: ${fmtBRL(p.venda_30d)}\n`;
       msg += `⏳ Dias de Cobertura: ${fmtBRL(p.cobertura)}\n`;
+      msg += `📦 Pedido de Compra: ${fmtBRL(p.pedido_compra)}\n`;
     }
-    msg += `📈 Média Venda Mês: ${fmtBRL(p.venda_30d)}\n`;
-    msg += `📦 Pedido de Compra: ${fmtBRL(p.pedido_compra)}\n`;
     msg += `👨‍🌾 Fornecedor Atual: ${p.fornecedor}\n\n`;
 
     msg += `📊 Margem Meta: ${fmtBRL(resultado.margemMeta)}%\n`;
