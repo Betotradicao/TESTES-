@@ -492,23 +492,29 @@ export class EmailMonitorService {
         throw new Error('Configurações Evolution API não encontradas');
       }
 
-      // Read image file
-      const imageBuffer = fs.readFileSync(imagePath);
-      const base64Image = imageBuffer.toString('base64');
-
-      // Format text with emojis
+      const hasImage = imagePath && imagePath.trim() !== '' && fs.existsSync(imagePath);
       const formattedText = this.formatEmailText(text);
 
-      // Send message with image
-      const url = `${apiUrl}/message/sendMedia/${instance}`;
+      let url: string;
+      let payload: any;
 
-      const payload = {
-        number: groupId,
-        mediatype: 'image',
-        mimetype: 'image/jpeg',
-        caption: `🚨 ALERTA DVR 🚨\n\n${formattedText}`,
-        media: base64Image
-      };
+      if (hasImage) {
+        // Enviar mídia (imagem + texto como caption)
+        const imageBuffer = fs.readFileSync(imagePath);
+        const base64Image = imageBuffer.toString('base64');
+        url = `${apiUrl}/message/sendMedia/${instance}`;
+        payload = {
+          number: groupId,
+          mediatype: 'image',
+          mimetype: 'image/jpeg',
+          caption: `🚨 ALERTA DVR 🚨\n\n${formattedText}`,
+          media: base64Image
+        };
+      } else {
+        // Enviar apenas texto (filtro customizado)
+        url = `${apiUrl}/message/sendText/${instance}`;
+        payload = { number: groupId, text: formattedText };
+      }
 
       const response = await fetch(url, {
         method: 'POST',
@@ -524,7 +530,7 @@ export class EmailMonitorService {
         throw new Error(`Evolution API Error: ${response.status} - ${errorText}`);
       }
 
-      console.log(`✅ Mensagem enviada para WhatsApp grupo ${groupId}`);
+      console.log(`✅ Mensagem enviada para WhatsApp grupo ${groupId} (${hasImage ? 'com imagem' : 'só texto'})`);
 
     } catch (error) {
       console.error(`❌ Erro ao enviar para WhatsApp:`, error);
