@@ -1692,7 +1692,6 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
         const isMenor = l.preco_custo > 0 && Math.abs(l.preco_custo - p.preco_custo) < 0.001;
         msg += `💲 Custo Loja ${l.codigoLoja}: R$ ${fmtBRL(l.preco_custo)}${isMenor ? ' ⭐' : ''}\n`;
       }
-      msg += `   ↳ *Melhor custo atual:* R$ ${fmtBRL(p.preco_custo)}\n`;
     } else {
       msg += `💲 Preço Venda Loja: R$ ${fmtBRL(p.preco_venda)}\n`;
       if (p.preco_venda_concorrente > 0) {
