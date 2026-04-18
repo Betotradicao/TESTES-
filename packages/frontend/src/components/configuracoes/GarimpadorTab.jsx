@@ -9,6 +9,10 @@ export default function GarimpadorTab() {
   const [isSaving, setIsSaving] = useState(false);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
+  const [testEan, setTestEan] = useState('');
+  const [testResult, setTestResult] = useState(null);
+  const [testLoading, setTestLoading] = useState(false);
+  const [testErro, setTestErro] = useState('');
 
   useEffect(() => {
     carregar();
@@ -39,6 +43,33 @@ export default function GarimpadorTab() {
       cur.includes(codigo) ? cur.filter((c) => c !== codigo) : [...cur, codigo].sort((a, b) => a - b)
     );
   };
+
+  const testar = async () => {
+    setTestErro('');
+    setTestResult(null);
+    if (!testEan.trim()) {
+      setTestErro('Informe o código de barras');
+      return;
+    }
+    if (selecionadas.length === 0) {
+      setTestErro('Selecione pelo menos uma loja antes de testar');
+      return;
+    }
+    setTestLoading(true);
+    try {
+      const res = await api.post('/garimpador/test-barcode', {
+        codigoBarras: testEan.trim(),
+        lojas: selecionadas,
+      });
+      setTestResult(res.data);
+    } catch (e) {
+      setTestErro(e?.response?.data?.error || e.message || 'Erro ao testar');
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
+  const formatBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   const salvar = async () => {
     setErro('');
@@ -149,6 +180,105 @@ export default function GarimpadorTab() {
         >
           {isSaving ? 'Salvando...' : 'Salvar Configuração'}
         </button>
+      </div>
+
+      <div className="border-t pt-6 mt-2">
+        <h3 className="text-base font-semibold text-gray-800 mb-2">🧪 Testar Cruzamento por Código de Barras</h3>
+        <p className="text-xs text-gray-500 mb-3">
+          Cole um EAN para ver o custo em cada loja selecionada. O menor custo é destacado em verde; quando "Custo médio" está ativo, exibe também a média das lojas.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+          <input
+            type="text"
+            value={testEan}
+            onChange={(e) => setTestEan(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') testar(); }}
+            placeholder="Ex.: 7891234567890"
+            className="flex-1 border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+          />
+          <button
+            onClick={testar}
+            disabled={testLoading}
+            className={`px-4 py-2 rounded text-sm font-medium ${
+              testLoading ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+          >
+            {testLoading ? 'Buscando...' : 'Testar'}
+          </button>
+        </div>
+
+        {testErro && (
+          <div className="mt-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{testErro}</div>
+        )}
+
+        {testResult && (
+          <div className="mt-4 bg-white border rounded p-4">
+            {testResult.produto ? (
+              <>
+                <div className="text-sm text-gray-700 mb-3">
+                  <strong>Produto:</strong> {testResult.produto.descricao}
+                  <span className="text-gray-400"> • Código {testResult.produto.codigo} • EAN {testResult.produto.ean}</span>
+                </div>
+                {testResult.lojas.length === 0 ? (
+                  <div className="text-sm text-gray-500 italic">Produto não cadastrado em nenhuma das lojas selecionadas</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 text-gray-600 text-xs uppercase">
+                        <tr>
+                          <th className="text-left px-3 py-2">Loja</th>
+                          <th className="text-right px-3 py-2">Custo</th>
+                          <th className="text-right px-3 py-2">Preço Venda</th>
+                          <th className="text-right px-3 py-2">Estoque</th>
+                          {refCusto === 'medio' && (
+                            <th className="text-right px-3 py-2 bg-orange-50">Custo Médio (ref)</th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {testResult.lojas.map((l) => {
+                          const isMenor = refCusto === 'menor' && l.custo > 0 && Math.abs(l.custo - testResult.menorCusto) < 0.001;
+                          return (
+                            <tr key={l.codigoLoja} className={isMenor ? 'bg-green-50' : ''}>
+                              <td className="px-3 py-2">
+                                <strong>Loja {l.codigoLoja}</strong>
+                                <span className="text-gray-500"> — {l.nomeLoja}</span>
+                                {isMenor && <span className="ml-2 text-xs bg-green-600 text-white px-2 py-0.5 rounded">MENOR</span>}
+                              </td>
+                              <td className={`text-right px-3 py-2 tabular-nums ${isMenor ? 'font-bold text-green-700' : ''}`}>
+                                {formatBRL(l.custo)}
+                              </td>
+                              <td className="text-right px-3 py-2 tabular-nums">{formatBRL(l.precoVenda)}</td>
+                              <td className="text-right px-3 py-2 tabular-nums">{l.estoque}</td>
+                              {refCusto === 'medio' && (
+                                <td className="text-right px-3 py-2 tabular-nums font-semibold text-orange-700 bg-orange-50">
+                                  {formatBRL(testResult.custoMedio)}
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot className="text-xs text-gray-600">
+                        <tr className="border-t">
+                          <td className="px-3 py-2" colSpan={refCusto === 'medio' ? 5 : 4}>
+                            {refCusto === 'menor' ? (
+                              <>Referência: <strong className="text-green-700">menor custo = {formatBRL(testResult.menorCusto)}</strong></>
+                            ) : (
+                              <>Referência: <strong className="text-orange-700">custo médio = {formatBRL(testResult.custoMedio)}</strong> (soma dos custos ÷ {testResult.lojas.filter(l => l.custo > 0).length} lojas com preço)</>
+                            )}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-sm text-gray-500 italic">Nenhum produto encontrado com esse código de barras</div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

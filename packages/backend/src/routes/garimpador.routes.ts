@@ -39,6 +39,7 @@ router.post('/produtos-excluidos', GarimpadorController.salvarProdutosExcluidos)
 router.get('/lojas', GarimpadorController.listarLojas);
 router.get('/lojas-config', GarimpadorController.getLojasConfig);
 router.post('/lojas-config', GarimpadorController.saveLojasConfig);
+router.post('/test-barcode', GarimpadorController.testBarcode);
 
 // Config do algoritmo de matching
 router.get('/match-config', GarimpadorController.getMatchConfig);

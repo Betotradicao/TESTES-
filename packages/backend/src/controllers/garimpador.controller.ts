@@ -559,6 +559,120 @@ export class GarimpadorController {
   }
 
   /**
+   * POST /api/garimpador/test-barcode
+   * Dado um codigo de barras e a lista de lojas, retorna custo de cada loja.
+   * Usado no card de teste da aba GARIMPADOR em Config de Rede.
+   */
+  static async testBarcode(req: Request, res: Response) {
+    try {
+      const { codigoBarras } = req.body;
+      const lojasBody: any = req.body?.lojas;
+      if (!codigoBarras) return res.status(400).json({ success: false, error: 'codigoBarras obrigatorio' });
+      let lojas: number[] = Array.isArray(lojasBody)
+        ? lojasBody.map((n: any) => Number(n)).filter((n: number) => !isNaN(n))
+        : [];
+      if (lojas.length === 0) {
+        const lojasStr = (await ConfigurationService.get('garimpador_lojas_participantes', '[1]')) || '[1]';
+        try { const p = JSON.parse(lojasStr); if (Array.isArray(p)) lojas = p.map((n: any) => Number(n)); } catch {}
+        if (lojas.length === 0) lojas = [1];
+      }
+
+      let dbType: 'oracle' | 'postgresql' = 'oracle';
+      try {
+        const repo = AppDataSource.getRepository(DatabaseConnection);
+        let conn = await repo.findOne({ where: { is_default: true, status: ConnectionStatus.ACTIVE } });
+        if (!conn) conn = await repo.findOne({ where: { status: ConnectionStatus.ACTIVE } });
+        if (!conn) conn = await repo.findOne({ where: {}, order: { id: 'ASC' } });
+        if (conn?.type === DatabaseType.POSTGRESQL) dbType = 'postgresql';
+      } catch {}
+      const isPg = dbType === 'postgresql';
+      const nvl = (f: string, d: string | number) => isPg ? `COALESCE(${f}, ${d})` : `NVL(${f}, ${d})`;
+
+      const schema = await MappingService.getSchema();
+      const tabProduto = await MappingService.getRealTableName('TAB_PRODUTO', 'TAB_PRODUTO');
+      const tabProdutoLoja = await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA');
+      const tabLoja = await MappingService.getRealTableName('TAB_LOJA', 'TAB_LOJA');
+      const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto', 'COD_PRODUTO');
+      const colDescricao = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao', 'DES_PRODUTO');
+      const colCodBarras = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras', 'COD_BARRA');
+      const colCodProdutoLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
+      const colCodLojaLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
+      const colPrecoCusto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'custo_medio', 'VAL_CUSTO_MEDIO');
+      const colPrecoVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda', 'VAL_VENDA');
+      const colEstoque = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual', 'QTD_EST_ATUAL');
+      const colCodLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'codigo_loja', 'COD_LOJA');
+      const colDescLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'descricao_loja', 'DES_LOJA');
+
+      const binds = lojas.map((_, i) => `:l${i}`).join(',');
+      const params: Record<string, any> = { cod: String(codigoBarras).trim() };
+      lojas.forEach((v, i) => { params[`l${i}`] = v; });
+
+      const sql = `
+        SELECT
+          p.${colCodProduto} AS codigo,
+          p.${colDescricao} AS descricao,
+          p.${colCodBarras} AS ean,
+          pl.${colCodLojaLoja} AS cod_loja,
+          u.${colDescLoja} AS nome_loja,
+          ${nvl(`pl.${colPrecoCusto}`, 0)} AS custo,
+          ${nvl(`pl.${colPrecoVenda}`, 0)} AS preco_venda,
+          ${nvl(`pl.${colEstoque}`, 0)} AS estoque
+        FROM ${schema}.${tabProduto} p
+        LEFT JOIN ${schema}.${tabProdutoLoja} pl ON pl.${colCodProdutoLoja} = p.${colCodProduto}
+          AND pl.${colCodLojaLoja} IN (${binds})
+        LEFT JOIN ${schema}.${tabLoja} u ON u.${colCodLoja} = pl.${colCodLojaLoja}
+        WHERE p.${colCodBarras} = :cod
+        ORDER BY pl.${colCodLojaLoja}
+      `;
+
+      let rows: any[] = [];
+      if (isPg) {
+        const paramArr: any[] = [];
+        const seen: Map<string, number> = new Map();
+        let counter = 0;
+        const pgSql = sql.replace(/:(\w+)/g, (_m, name) => {
+          if (seen.has(name)) return `$${seen.get(name)}`;
+          counter++;
+          seen.set(name, counter);
+          paramArr.push(params[name]);
+          return `$${counter}`;
+        });
+        rows = await PostgresErpService.query<any>(pgSql, paramArr);
+      } else {
+        rows = await OracleService.query<any>(sql, params);
+      }
+
+      if (rows.length === 0) {
+        return res.json({ success: true, produto: null, lojas: [] });
+      }
+
+      const produto = {
+        codigo: rows[0].codigo ?? rows[0].CODIGO,
+        descricao: rows[0].descricao ?? rows[0].DESCRICAO,
+        ean: rows[0].ean ?? rows[0].EAN,
+      };
+      const lojasData = rows
+        .filter((r: any) => (r.cod_loja ?? r.COD_LOJA) !== null && (r.cod_loja ?? r.COD_LOJA) !== undefined)
+        .map((r: any) => ({
+          codigoLoja: Number(r.cod_loja ?? r.COD_LOJA),
+          nomeLoja: r.nome_loja ?? r.NOME_LOJA ?? `Loja ${r.cod_loja ?? r.COD_LOJA}`,
+          custo: Number(r.custo ?? r.CUSTO ?? 0),
+          precoVenda: Number(r.preco_venda ?? r.PRECO_VENDA ?? 0),
+          estoque: Number(r.estoque ?? r.ESTOQUE ?? 0),
+        }));
+
+      const custos = lojasData.filter(l => l.custo > 0).map(l => l.custo);
+      const menorCusto = custos.length > 0 ? Math.min(...custos) : 0;
+      const custoMedio = custos.length > 0 ? custos.reduce((a, b) => a + b, 0) / custos.length : 0;
+
+      res.json({ success: true, produto, lojas: lojasData, menorCusto, custoMedio });
+    } catch (error: any) {
+      console.error('[Garimpador] Erro testBarcode:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
    * POST /api/garimpador/test-match
    * Testa decomposicao + matching de um produto
    */
