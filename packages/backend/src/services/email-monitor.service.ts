@@ -395,16 +395,17 @@ export class EmailMonitorService {
       let logStatus = 'success';
       let logMessage: string | null = null;
 
-      if (!whatsappSent && !permanentImageFilename) {
+      if (!whatsappSent && !permanentImageFilename && !isCustomFilter) {
         logStatus = 'partial';
         logMessage = 'WhatsApp desabilitado e imagem não salva na galeria';
       } else if (!whatsappSent) {
         logStatus = 'partial';
-        logMessage = 'WhatsApp desabilitado (nenhum grupo configurado) - imagem salva na galeria';
-      } else if (!permanentImageFilename) {
+        logMessage = 'WhatsApp desabilitado (nenhum grupo configurado)';
+      } else if (!permanentImageFilename && !isCustomFilter) {
         logStatus = 'partial';
         logMessage = 'WhatsApp enviado, mas imagem não salva na galeria';
       }
+      // Filtro custom sem imagem = success (nao precisa de imagem)
 
       // Log success
       await logRepository.save({
@@ -413,8 +414,8 @@ export class EmailMonitorService {
         email_body: textBody.substring(0, 500),
         status: logStatus,
         error_message: logMessage,
-        has_attachment: true,
-        whatsapp_group_id: config.whatsapp_group_id || null,
+        has_attachment: mail.attachments.length > 0,
+        whatsapp_group_id: targetGroup || null,
         image_path: permanentImageFilename
       });
 
