@@ -363,25 +363,15 @@ export class GarimpadorComparadorService {
   }
 
   /**
-   * Retorna as lojas participantes e o modo de referencia de custo/preco.
-   * Defaults: lojas=[1], refCusto='menor'
+   * Retorna a loja de referencia (unica, sempre Loja 1 por decisao do projeto).
+   * O garimpador trabalha com dados de uma unica loja — custos, precos, estoque,
+   * curva etc saem todos da Loja 1. Multi-loja foi descontinuado por gerar
+   * inconsistencia (ex: estoque agregado vs VMD de todas as lojas).
    */
   private static async getLojasGarimpador(): Promise<{ lojas: number[]; refCusto: 'menor' | 'medio' }> {
-    const lojasStr = (await ConfigurationService.get('garimpador_lojas_participantes', '[1]')) || '[1]';
-    const refRaw = (await ConfigurationService.get('garimpador_ref_custo', 'menor')) || 'menor';
-    let lojas: number[] = [1];
-    try {
-      const parsed = JSON.parse(lojasStr);
-      if (Array.isArray(parsed)) {
-        lojas = parsed.map((n: any) => parseInt(String(n))).filter((n: number) => !isNaN(n));
-      }
-    } catch { /* usa default */ }
-    if (lojas.length === 0) {
-      const legacy = parseInt((await ConfigurationService.get('garimpador_cod_loja', '1')) || '1');
-      lojas = [isNaN(legacy) ? 1 : legacy];
-    }
-    const refCusto: 'menor' | 'medio' = refRaw === 'medio' ? 'medio' : 'menor';
-    return { lojas, refCusto };
+    const legacyLoja = parseInt((await ConfigurationService.get('garimpador_loja_referencia', '1')) || '1');
+    const loja = isNaN(legacyLoja) ? 1 : legacyLoja;
+    return { lojas: [loja], refCusto: 'menor' };
   }
 
   /**
