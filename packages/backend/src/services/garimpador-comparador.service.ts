@@ -407,6 +407,7 @@ export class GarimpadorComparadorService {
     colInativo: string;
     lojas: number[];
     refCusto: 'menor' | 'medio';
+    isPg?: boolean;
   }): { sql: string; params: Record<string, any> } {
     const agg = args.refCusto === 'medio' ? 'AVG' : 'MIN';
     const binds = args.lojas.map((_, i) => `:l${i}`).join(',');
@@ -415,6 +416,11 @@ export class GarimpadorComparadorService {
     // Helpers pra colunas opcionais (retornam "0 AS alias" quando nao mapeadas)
     const aggOrZero = (col: string | null, aggFn: string, alias: string) =>
       col ? `${aggFn}(${col}) AS ${col}` : `0 AS ${alias}`;
+    // RP INFO guarda curva historica tipo 'AAAAAAABB' (9 chars por periodo).
+    // A curva atual e o ultimo caractere. Em Oracle (Intersolid) a curva e 1 char simples.
+    const curvaExpr = args.isPg
+      ? `RIGHT(${args.colCurva}, 1)`
+      : args.colCurva;
     const sql = `(
       SELECT
         ${args.colCodProdutoLoja} AS ${args.colCodProdutoLoja},
@@ -424,7 +430,7 @@ export class GarimpadorComparadorService {
         SUM(${args.colEstoque}) AS ${args.colEstoque},
         ${aggOrZero(args.colCobertura, 'SUM', 'QTD_COBERTURA')},
         ${aggOrZero(args.colPedidoCompra, 'SUM', 'QTD_PEDIDO_COMPRA')},
-        MIN(${args.colCurva}) AS ${args.colCurva},
+        MIN(${curvaExpr}) AS ${args.colCurva},
         ${aggOrZero(args.colVendaMedia, agg, 'VAL_VENDA_MEDIA')},
         ${agg}(${args.colMargem}) AS ${args.colMargem},
         MIN(${args.colCodFornUltCompra}) AS ${args.colCodFornUltCompra},
@@ -629,16 +635,41 @@ export class GarimpadorComparadorService {
       const colCodGrupoSub = await MappingService.getColumnFromTable('TAB_SUBGRUPO', 'codigo_grupo', 'COD_GRUPO');
 
       const { lojas, refCusto } = await this.getLojasGarimpador();
+      const dbType = await this.detectDbType();
+      const vendor = this.sqlVendor(dbType);
+      const hasSubgrupo = tabSubgrupo !== 'TAB_SUBGRUPO';
       const plSub = this.buildPlSubquery({
         schema, tabProdutoLoja, colCodProdutoLoja, colCodLojaLoja,
         colPrecoCusto, colPrecoVenda, colPesquisaMedia, colEstoque, colCobertura,
         colPedidoCompra, colCurva, colVendaMedia, colMargem, colCodFornUltCompra,
-        colInativo, lojas, refCusto,
+        colInativo, lojas, refCusto, isPg: vendor.isPg,
       });
 
-      const dbType = await this.detectDbType();
-      const vendor = this.sqlVendor(dbType);
-      const hasSubgrupo = tabSubgrupo !== 'TAB_SUBGRUPO';
+      // Para RP INFO (PG), prun_vmd/prun_diasgiro nao sao populados. Calcula via vendas 30d.
+      const vendaMediaComputedExpr = `(
+        SELECT ${vendor.nvl(`SUM(pdv.${colQtdVendaPdv})`, 0)} / 30.0
+        FROM ${schema}.${tabProdutoPdv} pdv
+        WHERE pdv.${colCodProdutoPdv} = p.${colCodProduto}
+          AND pdv.${colDataVendaPdv} >= ${vendor.sysdateMinus(30)}
+      )`;
+      const coberturaComputedExpr = `CASE WHEN (
+        SELECT ${vendor.nvl(`SUM(pdv.${colQtdVendaPdv})`, 0)}
+        FROM ${schema}.${tabProdutoPdv} pdv
+        WHERE pdv.${colCodProdutoPdv} = p.${colCodProduto}
+          AND pdv.${colDataVendaPdv} >= ${vendor.sysdateMinus(30)}
+      ) > 0 THEN ${vendor.nvl(`pl.${colEstoque}`, 0)} * 30.0 / (
+        SELECT ${vendor.nvl(`SUM(pdv.${colQtdVendaPdv})`, 0)}
+        FROM ${schema}.${tabProdutoPdv} pdv
+        WHERE pdv.${colCodProdutoPdv} = p.${colCodProduto}
+          AND pdv.${colDataVendaPdv} >= ${vendor.sysdateMinus(30)}
+      ) ELSE 0 END`;
+      // Em Oracle usa a coluna mapeada (Intersolid populou direto). Em PG calcula.
+      const vendaMediaSelect = vendor.isPg
+        ? vendaMediaComputedExpr
+        : (colVendaMedia ? vendor.nvl(`pl.${colVendaMedia}`, 0) : '0');
+      const coberturaSelect = vendor.isPg
+        ? coberturaComputedExpr
+        : (colCobertura ? vendor.nvl(`pl.${colCobertura}`, 0) : '0');
 
       // ========== PASSO 1: IA DECOMPOE O PRODUTO DE ENTRADA ==========
       await GarimpadorDecomposerService.carregarMarcasOracle();
@@ -752,10 +783,10 @@ export class GarimpadorComparadorService {
           ${vendor.nvl(`pl.${colPrecoVenda}`, 0)} AS PRECO_VENDA,
           ${vendor.nvl(`pl.${colPesquisaMedia}`, 0)} AS PRECO_VENDA_CONCORRENTE,
           ${vendor.nvl(`pl.${colEstoque}`, 0)} AS ESTOQUE_ATUAL,
-          ${colCobertura ? vendor.nvl(`pl.${colCobertura}`, 0) : '0'} AS COBERTURA,
+          ${coberturaSelect} AS COBERTURA,
           ${colPedidoCompra ? vendor.nvl(`pl.${colPedidoCompra}`, 0) : '0'} AS PEDIDO_COMPRA,
           ${vendor.nvl(`pl.${colCurva}`, `'-'`)} AS CURVA,
-          ${colVendaMedia ? vendor.nvl(`pl.${colVendaMedia}`, 0) : '0'} AS VENDA_MEDIA_DIA,
+          ${vendaMediaSelect} AS VENDA_MEDIA_DIA,
           ${vendor.nvl(`pl.${colMargem}`, 0)} AS MARGEM_REFERENCIA,
           ${vendor.nvl(`s.${colDesSecao}`, `'-'`)} AS SECAO,
           ${vendor.nvl(`g.${colDesGrupo}`, `'-'`)} AS GRUPO,
@@ -1321,10 +1352,10 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
       const colPrecoVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda', 'VAL_VENDA');
       const colPesquisaMedia = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pesquisa_media', 'VAL_PESQUISA_MEDIA');
       const colEstoque = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual', 'QTD_EST_ATUAL');
-      const colCobertura = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cobertura', 'QTD_COBERTURA');
-      const colPedidoCompra = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'pedido_compra', 'QTD_PEDIDO_COMPRA');
+      const colCobertura = await this.getOptionalCol('TAB_PRODUTO_LOJA', 'cobertura');
+      const colPedidoCompra = await this.getOptionalCol('TAB_PRODUTO_LOJA', 'pedido_compra');
       const colCurva = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA');
-      const colVendaMedia = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'venda_media', 'VAL_VENDA_MEDIA');
+      const colVendaMedia = await this.getOptionalCol('TAB_PRODUTO_LOJA', 'venda_media');
       const colMargem = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'margem', 'VAL_MARGEM');
       const colCodFornUltCompra = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'cod_forn_ult_compra', 'COD_FORN_ULT_COMPRA');
 
@@ -1347,17 +1378,37 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
 
       // Multi-loja: aggregated subquery
       const { lojas: lojasG, refCusto: refG } = await this.getLojasGarimpador();
+      const dbTypeC = await this.detectDbType();
+      const vC = this.sqlVendor(dbTypeC);
       const plSub = this.buildPlSubquery({
         schema, tabProdutoLoja, colCodProdutoLoja, colCodLojaLoja,
         colPrecoCusto, colPrecoVenda, colPesquisaMedia, colEstoque, colCobertura,
         colPedidoCompra, colCurva, colVendaMedia, colMargem, colCodFornUltCompra,
-        colInativo: 'INATIVO', lojas: lojasG, refCusto: refG,
+        colInativo: 'INATIVO', lojas: lojasG, refCusto: refG, isPg: vC.isPg,
       });
-      const dbTypeC = await this.detectDbType();
-      const vC = this.sqlVendor(dbTypeC);
       const hasSubgrupoC = tabSubgrupo !== 'TAB_SUBGRUPO';
       const subgrupoSelC = hasSubgrupoC ? `${vC.nvl(`sg.${colDesSubgrupo}`, `'-'`)} AS SUBGRUPO,` : `'-' AS SUBGRUPO,`;
       const subgrupoJoinC = hasSubgrupoC ? `LEFT JOIN ${schema}.${tabSubgrupo} sg ON sg.${colCodSubgrupoSub} = p.${colCodSubgrupo} AND sg.${colCodSecaoSub} = p.${colCodSecao} AND sg.${colCodGrupoSub} = p.${colCodGrupo}` : '';
+
+      const vmCompletoExpr = `(
+        SELECT ${vC.nvl(`SUM(pdv.${colQtdVendaPdv})`, 0)} / 30.0
+        FROM ${schema}.${tabProdutoPdv} pdv
+        WHERE pdv.${colCodProdutoPdv} = p.${colCodProduto}
+          AND pdv.${colDataVendaPdv} >= ${vC.sysdateMinus(30)}
+      )`;
+      const cobCompletoExpr = `CASE WHEN (
+        SELECT ${vC.nvl(`SUM(pdv.${colQtdVendaPdv})`, 0)}
+        FROM ${schema}.${tabProdutoPdv} pdv
+        WHERE pdv.${colCodProdutoPdv} = p.${colCodProduto}
+          AND pdv.${colDataVendaPdv} >= ${vC.sysdateMinus(30)}
+      ) > 0 THEN ${vC.nvl(`pl.${colEstoque}`, 0)} * 30.0 / (
+        SELECT ${vC.nvl(`SUM(pdv.${colQtdVendaPdv})`, 0)}
+        FROM ${schema}.${tabProdutoPdv} pdv
+        WHERE pdv.${colCodProdutoPdv} = p.${colCodProduto}
+          AND pdv.${colDataVendaPdv} >= ${vC.sysdateMinus(30)}
+      ) ELSE 0 END`;
+      const vmSelC = vC.isPg ? vmCompletoExpr : (colVendaMedia ? vC.nvl(`pl.${colVendaMedia}`, 0) : '0');
+      const cobSelC = vC.isPg ? cobCompletoExpr : (colCobertura ? vC.nvl(`pl.${colCobertura}`, 0) : '0');
 
       const sql = `
         SELECT
@@ -1368,10 +1419,10 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
           ${vC.nvl(`pl.${colPrecoVenda}`, 0)} AS PRECO_VENDA,
           ${vC.nvl(`pl.${colPesquisaMedia}`, 0)} AS PRECO_VENDA_CONCORRENTE,
           ${vC.nvl(`pl.${colEstoque}`, 0)} AS ESTOQUE_ATUAL,
-          ${vC.nvl(`pl.${colCobertura}`, 0)} AS COBERTURA,
-          ${vC.nvl(`pl.${colPedidoCompra}`, 0)} AS PEDIDO_COMPRA,
+          ${cobSelC} AS COBERTURA,
+          ${colPedidoCompra ? vC.nvl(`pl.${colPedidoCompra}`, 0) : '0'} AS PEDIDO_COMPRA,
           ${vC.nvl(`pl.${colCurva}`, `'-'`)} AS CURVA,
-          ${vC.nvl(`pl.${colVendaMedia}`, 0)} AS VENDA_MEDIA_DIA,
+          ${vmSelC} AS VENDA_MEDIA_DIA,
           ${vC.nvl(`pl.${colMargem}`, 0)} AS MARGEM_REFERENCIA,
           ${vC.nvl(`s.${colDesSecao}`, `'-'`)} AS SECAO,
           ${vC.nvl(`g.${colDesGrupo}`, `'-'`)} AS GRUPO,
