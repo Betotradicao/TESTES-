@@ -238,6 +238,15 @@ interface ProdutoExtraido {
   condicoes?: CondicaoPreco[];
 }
 
+interface LojaProdutoData {
+  codigoLoja: number;
+  nomeLoja: string;
+  preco_custo: number;
+  preco_venda: number;
+  estoque: number;
+  curva: string;
+}
+
 interface ProdutoOracle {
   codProduto: string;
   codigo_barras: string;
@@ -257,6 +266,7 @@ interface ProdutoOracle {
   subgrupo: string;
   fornecedor: string;
   matchScore: number;
+  lojasData?: LojaProdutoData[];
 }
 
 interface CandidatoInfo {
@@ -363,15 +373,77 @@ export class GarimpadorComparadorService {
   }
 
   /**
-   * Retorna a loja de referencia (unica, sempre Loja 1 por decisao do projeto).
-   * O garimpador trabalha com dados de uma unica loja — custos, precos, estoque,
-   * curva etc saem todos da Loja 1. Multi-loja foi descontinuado por gerar
-   * inconsistencia (ex: estoque agregado vs VMD de todas as lojas).
+   * Busca dados do produto em cada loja selecionada (preco, custo, estoque, curva).
+   * Retorna array ordenado por codigo_loja. Usado pra expor breakdown por loja
+   * na mensagem do WhatsApp.
+   */
+  private static async buscarDadosPorLoja(codProduto: string, lojas: number[]): Promise<LojaProdutoData[]> {
+    try {
+      const dbType = await this.detectDbType();
+      const vendor = this.sqlVendor(dbType);
+      const schema = await MappingService.getSchema();
+      const tabProdutoLoja = await MappingService.getRealTableName('TAB_PRODUTO_LOJA', 'TAB_PRODUTO_LOJA');
+      const tabLoja = await MappingService.getRealTableName('TAB_LOJA', 'TAB_LOJA');
+      const colCodProdutoLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto', 'COD_PRODUTO');
+      const colCodLojaLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja', 'COD_LOJA');
+      const colPrecoCusto = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'custo_medio', 'VAL_CUSTO_MEDIO');
+      const colPrecoVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda', 'VAL_VENDA');
+      const colEstoque = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'estoque_atual', 'QTD_EST_ATUAL');
+      const colCurva = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'curva', 'DES_RANK_PRODLOJA');
+      const colCodLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'codigo_loja', 'COD_LOJA');
+      const colDescLoja = await MappingService.getColumnFromTable('TAB_LOJA', 'descricao_loja', 'DES_LOJA');
+
+      const curvaExpr = vendor.isPg ? `NULLIF(TRIM(RIGHT(pl.${colCurva}, 1)), '')` : `pl.${colCurva}`;
+      const binds = lojas.map((_, i) => `:l${i}`).join(',');
+      const params: Record<string, any> = { cod: codProduto };
+      lojas.forEach((v, i) => { params[`l${i}`] = v; });
+
+      const sql = `
+        SELECT
+          CAST(pl.${colCodLojaLoja} AS INTEGER) AS COD_LOJA,
+          ${vendor.nvl(`u.${colDescLoja}`, `'-'`)} AS NOME_LOJA,
+          ${vendor.nvl(`pl.${colPrecoCusto}`, 0)} AS PRECO_CUSTO,
+          ${vendor.nvl(`pl.${colPrecoVenda}`, 0)} AS PRECO_VENDA,
+          ${vendor.nvl(`pl.${colEstoque}`, 0)} AS ESTOQUE,
+          ${vendor.nvl(curvaExpr, `'-'`)} AS CURVA
+        FROM ${schema}.${tabProdutoLoja} pl
+        LEFT JOIN ${schema}.${tabLoja} u ON CAST(u.${colCodLoja} AS INTEGER) = CAST(pl.${colCodLojaLoja} AS INTEGER)
+        WHERE pl.${colCodProdutoLoja} = :cod
+          AND CAST(pl.${colCodLojaLoja} AS INTEGER) IN (${binds})
+        ORDER BY CAST(pl.${colCodLojaLoja} AS INTEGER)
+      `;
+
+      const rows = await this.runQuery<any>(dbType, sql, params);
+      return rows.map((r: any) => ({
+        codigoLoja: Number(r.COD_LOJA),
+        nomeLoja: String(r.NOME_LOJA || `Loja ${r.COD_LOJA}`),
+        preco_custo: parseFloat(r.PRECO_CUSTO) || 0,
+        preco_venda: parseFloat(r.PRECO_VENDA) || 0,
+        estoque: parseFloat(r.ESTOQUE) || 0,
+        curva: String(r.CURVA || '-'),
+      }));
+    } catch (err: any) {
+      console.error('[Garimpador] Erro buscarDadosPorLoja:', err.message);
+      return [];
+    }
+  }
+
+  /**
+   * Retorna as lojas participantes do garimpo. Benchmark de custo e SEMPRE
+   * 'menor' (oportunidade real = oferta bate o melhor custo atual entre as
+   * lojas). A msg do WhatsApp expoe dados de cada loja separadamente.
    */
   private static async getLojasGarimpador(): Promise<{ lojas: number[]; refCusto: 'menor' | 'medio' }> {
-    const legacyLoja = parseInt((await ConfigurationService.get('garimpador_loja_referencia', '1')) || '1');
-    const loja = isNaN(legacyLoja) ? 1 : legacyLoja;
-    return { lojas: [loja], refCusto: 'menor' };
+    const lojasStr = (await ConfigurationService.get('garimpador_lojas_participantes', '[1]')) || '[1]';
+    let lojas: number[] = [1];
+    try {
+      const parsed = JSON.parse(lojasStr);
+      if (Array.isArray(parsed)) {
+        lojas = parsed.map((n: any) => parseInt(String(n))).filter((n: number) => !isNaN(n));
+      }
+    } catch { /* usa default */ }
+    if (lojas.length === 0) lojas = [1];
+    return { lojas, refCusto: 'menor' };
   }
 
   /**
@@ -495,7 +567,28 @@ export class GarimpadorComparadorService {
           continue;
         }
 
-        // 2. Comparar precos e calcular margens
+        // 2a. Buscar dados por loja (breakdown) pra expor na msg do WhatsApp
+        try {
+          const { lojas: lojasRef } = await this.getLojasGarimpador();
+          const lojasData = await this.buscarDadosPorLoja(busca.match.codProduto, lojasRef);
+          if (lojasData.length > 0) {
+            busca.match.lojasData = lojasData;
+            // Recalibra preco_custo e preco_venda usando o MENOR custo entre as lojas
+            // (benchmark de oportunidade real: oferta bate ate o melhor custo atual)
+            const custosValidos = lojasData.map(l => l.preco_custo).filter(c => c > 0);
+            if (custosValidos.length > 0) {
+              busca.match.preco_custo = Math.min(...custosValidos);
+            }
+            const precosValidos = lojasData.map(l => l.preco_venda).filter(p => p > 0);
+            if (precosValidos.length > 0) {
+              busca.match.preco_venda = Math.min(...precosValidos);
+            }
+          }
+        } catch (err: any) {
+          console.error('[Garimpador] Erro ao buscar dados por loja:', err.message);
+        }
+
+        // 2b. Comparar precos e calcular margens (usa preco_custo = menor das lojas)
         const resultado = this.calcularComparacao(prod, busca.match);
 
         // 3. Classificar (Ouro/Prata/Bronze)
@@ -1563,18 +1656,36 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
     msg += `🏷️ Produto *OFERTADO*: ${resultado.produtoOfertado}\n`;
     msg += `🏷️ Produto *LOJA*: ${p.descricao}\n\n`;
 
-    msg += `💲 Preço Venda Loja: R$ ${fmtBRL(p.preco_venda)}\n`;
-    if (p.preco_venda_concorrente > 0) {
-      msg += `💲 Preço Venda Concorrente: R$ ${fmtBRL(p.preco_venda_concorrente)}\n`;
+    // Se temos breakdown por loja, expor cada uma separada
+    if (p.lojasData && p.lojasData.length > 0) {
+      // Preco venda por loja
+      for (const l of p.lojasData) {
+        msg += `💲 Preço Venda Loja ${l.codigoLoja}: R$ ${fmtBRL(l.preco_venda)}\n`;
+      }
+      if (p.preco_venda_concorrente > 0) {
+        msg += `💲 Preço Venda Concorrente: R$ ${fmtBRL(p.preco_venda_concorrente)}\n`;
+      }
+      msg += `\n`;
+      // Custo por loja + destaque do menor
+      for (const l of p.lojasData) {
+        const isMenor = l.preco_custo > 0 && Math.abs(l.preco_custo - p.preco_custo) < 0.001;
+        msg += `💲 Custo Loja ${l.codigoLoja}: R$ ${fmtBRL(l.preco_custo)}${isMenor ? ' ⭐' : ''}\n`;
+      }
+      msg += `   ↳ *Melhor custo atual:* R$ ${fmtBRL(p.preco_custo)}\n`;
+    } else {
+      msg += `💲 Preço Venda Loja: R$ ${fmtBRL(p.preco_venda)}\n`;
+      if (p.preco_venda_concorrente > 0) {
+        msg += `💲 Preço Venda Concorrente: R$ ${fmtBRL(p.preco_venda_concorrente)}\n`;
+      }
+      msg += `💲 Custo Loja: R$ ${fmtBRL(p.preco_custo)}\n`;
     }
-    msg += `💲 Custo Loja: R$ ${fmtBRL(p.preco_custo)}\n`;
 
     if (tipoContato === 'concorrente') {
       msg += `💲 OFERTA Concorrente: R$ ${fmtBRL(resultado.precoOferta)}\n`;
     } else {
       msg += `💲 Custo Fornecedor: R$ ${fmtBRL(resultado.precoOferta)}\n`;
     }
-    msg += `📉 Diferença: R$ ${fmtBRL(resultado.diferenca)}\n\n`;
+    msg += `📉 Diferença vs melhor custo: R$ ${fmtBRL(resultado.diferenca)}\n\n`;
 
     // Condicoes de preco (Normal, APP, Cartao, etc)
     if (resultado.condicoes && resultado.condicoes.length > 1) {
@@ -1587,10 +1698,17 @@ Qual numero corresponde ao produto buscado? (0 se nenhum):`;
       msg += `🔖 Condição: ${resultado.condicao}\n`;
     }
 
-    msg += `📊 Curva: ${p.curva}\n`;
+    // Curva e estoque por loja (breakdown) quando disponivel
+    if (p.lojasData && p.lojasData.length > 0) {
+      for (const l of p.lojasData) {
+        msg += `📊 Curva Loja ${l.codigoLoja}: ${l.curva}  📦 Estoque: ${fmtBRL(l.estoque)}\n`;
+      }
+    } else {
+      msg += `📊 Curva: ${p.curva}\n`;
+      msg += `📦 Estoque Atual: ${fmtBRL(p.estoque_atual)}\n`;
+    }
     msg += `📈 Média Venda Dia: ${fmtBRL(p.venda_media_dia)}\n`;
     msg += `📈 Média Venda Mês: ${fmtBRL(p.venda_30d)}\n`;
-    msg += `📦 Estoque Atual: ${fmtBRL(p.estoque_atual)}\n`;
     msg += `📦 Pedido de Compra: ${fmtBRL(p.pedido_compra)}\n`;
     msg += `⏳ Dias de Cobertura: ${fmtBRL(p.cobertura)}\n`;
     msg += `👨‍🌾 Fornecedor Atual: ${p.fornecedor}\n\n`;
