@@ -16,7 +16,11 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
     cod_loja: codLoja || null,
     is_conferente: false,
     is_cpd: false,
-    is_financeiro: false
+    is_financeiro: false,
+    is_auditor: false,
+    is_auditado: false,
+    can_create_audit_templates: false,
+    can_approve_audit_actions: false
   });
   const [sectors, setSectors] = useState([]);
   const [errors, setErrors] = useState([]);
@@ -43,7 +47,11 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
         cod_loja: employee.cod_loja || codLoja || null,
         is_conferente: employee.is_conferente || false,
         is_cpd: employee.is_cpd || false,
-        is_financeiro: employee.is_financeiro || false
+        is_financeiro: employee.is_financeiro || false,
+        is_auditor: employee.is_auditor || false,
+        is_auditado: employee.is_auditado || false,
+        can_create_audit_templates: employee.can_create_audit_templates || false,
+        can_approve_audit_actions: employee.can_approve_audit_actions || false
       });
       setAvatarPreview(employee.avatar);
 
@@ -626,6 +634,51 @@ export default function EmployeeModal({ employee, onSave, onCancel, onUploadAvat
                     className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
                   />
                   <span className="text-sm text-gray-700">Financeiro</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Check List no Radar */}
+            <div className="border-t pt-4 mt-4">
+              <h4 className="text-sm font-semibold mb-3 text-gray-900">
+                ✅ Check List no Radar
+              </h4>
+              <div className="flex flex-wrap gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_auditor}
+                    onChange={(e) => setFormData({ ...formData, is_auditor: e.target.checked })}
+                    className="w-4 h-4 text-teal-500 border-gray-300 rounded focus:ring-teal-500"
+                  />
+                  <span className="text-sm text-gray-700">Pode auditar</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_auditado}
+                    onChange={(e) => setFormData({ ...formData, is_auditado: e.target.checked })}
+                    className="w-4 h-4 text-teal-500 border-gray-300 rounded focus:ring-teal-500"
+                  />
+                  <span className="text-sm text-gray-700">Pode ser auditado</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.can_create_audit_templates}
+                    onChange={(e) => setFormData({ ...formData, can_create_audit_templates: e.target.checked })}
+                    className="w-4 h-4 text-teal-500 border-gray-300 rounded focus:ring-teal-500"
+                  />
+                  <span className="text-sm text-gray-700">Pode criar templates</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.can_approve_audit_actions}
+                    onChange={(e) => setFormData({ ...formData, can_approve_audit_actions: e.target.checked })}
+                    className="w-4 h-4 text-teal-500 border-gray-300 rounded focus:ring-teal-500"
+                  />
+                  <span className="text-sm text-gray-700">Pode aprovar planos de ação</span>
                 </label>
               </div>
             </div>

@@ -49,6 +49,18 @@ export class Employee {
   @Column({ type: 'boolean', default: false })
   is_financeiro: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  is_auditor: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  is_auditado: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  can_create_audit_templates: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  can_approve_audit_actions: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 

@@ -742,11 +742,11 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       titleComponent: (
         <span>
           <span className="text-gray-700">GARIMPADOR </span>
-          <span className="text-purple-600 font-bold">360</span>
+          <span className="text-amber-500 font-bold">360</span>
         </span>
       ),
       icon: (
-        <div className="w-5 h-5 bg-purple-600 rounded-md flex items-center justify-center">
+        <div className="w-5 h-5 bg-amber-500 rounded-md flex items-center justify-center">
           <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M12 2L2 12l10 10 10-10L12 2z"/>
             <path d="M12 8l-4 4 4 4 4-4-4-4z"/>
@@ -831,6 +831,77 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
             </svg>
           )
+        }
+      ]
+    },
+    {
+      id: 'checklist-radar',
+      title: 'CHECK LIST NO RADAR',
+      titleComponent: (
+        <span>
+          <span className="text-gray-700">CHECK LIST NO </span>
+          <span className="text-teal-500 font-bold">RADAR</span>
+        </span>
+      ),
+      icon: (
+        <div className="w-5 h-5 bg-teal-500 rounded-md flex items-center justify-center">
+          <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+        </div>
+      ),
+      expandable: true,
+      items: [
+        {
+          id: 'checklist-dashboards',
+          moduleId: 'checklist-dashboards',
+          title: 'DASHBOARDS',
+          path: '/checklist/dashboards',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h7v7H3V3zm11 0h7v4h-7V3zM3 14h7v7H3v-7zm11-3h7v10h-7V11z"/>
+            </svg>
+          )
+        },
+        {
+          id: 'checklist-auditar',
+          moduleId: 'checklist-auditar',
+          title: 'AUDITAR',
+          path: '/checklist/auditar',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+            </svg>
+          )
+        },
+        {
+          id: 'checklist-finalizadas',
+          moduleId: 'checklist-finalizadas',
+          title: 'AUDITORIAS FINALIZADAS',
+          path: '/checklist/finalizadas',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+            </svg>
+          )
+        },
+        {
+          id: 'checklist-cadastros',
+          moduleId: 'checklist-cadastros',
+          title: 'CADASTROS',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+            </svg>
+          ),
+          expandable: true,
+          subItems: [
+            { id: 'checklist-templates', submenuId: 'checklist-templates', title: 'TEMPLATES', path: '/checklist/cadastros/templates' },
+            { id: 'checklist-modelos', submenuId: 'checklist-modelos', title: 'MODELOS DE ALTERNATIVAS', path: '/checklist/cadastros/modelos' },
+            { id: 'checklist-setores', submenuId: 'checklist-setores', title: 'SETORES', path: '/checklist/cadastros/setores' },
+            { id: 'checklist-auditores', submenuId: 'checklist-auditores', title: 'AUDITORES', path: '/checklist/cadastros/auditores' },
+            { id: 'checklist-auditados', submenuId: 'checklist-auditados', title: 'AUDITADOS', path: '/checklist/cadastros/auditados' }
+          ]
         }
       ]
     },

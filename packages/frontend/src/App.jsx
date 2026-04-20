@@ -54,6 +54,13 @@ import RupturaIndustria from './pages/RupturaIndustria';
 import PrazoFornecedores from './pages/PrazoFornecedores';
 import GestaoInteligente from './pages/GestaoInteligente';
 import GarimpaFornecedores from './pages/GarimpaFornecedores';
+import ChecklistTemplates from './pages/checklist/ChecklistTemplates';
+import ChecklistStub from './pages/checklist/ChecklistStub';
+import ChecklistSetoresView from './pages/checklist/ChecklistSetoresView';
+import ChecklistAuditoresView from './pages/checklist/ChecklistAuditoresView';
+import ChecklistModelos from './pages/checklist/ChecklistModelos';
+import ChecklistAuditar from './pages/checklist/ChecklistAuditar';
+import ChecklistFinalizadas from './pages/checklist/ChecklistFinalizadas';
 import GarimpadorRanking from './pages/GarimpadorRanking';
 import GarimpadorRankingConcorrentes from './pages/GarimpadorRankingConcorrentes';
 import GarimpadorProjecao from './pages/GarimpadorProjecao';
@@ -507,6 +514,15 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/checklist/cadastros/templates" element={<ProtectedRoute><ChecklistTemplates /></ProtectedRoute>} />
+            <Route path="/checklist/dashboards" element={<ProtectedRoute><ChecklistStub titulo="Dashboards" descricao="Indicadores de conformidade por loja" /></ProtectedRoute>} />
+            <Route path="/checklist/auditar" element={<ProtectedRoute><ChecklistAuditar /></ProtectedRoute>} />
+            <Route path="/checklist/finalizadas" element={<ProtectedRoute><ChecklistFinalizadas /></ProtectedRoute>} />
+            <Route path="/checklist/planos-acao" element={<ProtectedRoute><ChecklistStub titulo="Planos de Ação" descricao="Planos de ação 5W2H gerados a partir das auditorias" /></ProtectedRoute>} />
+            <Route path="/checklist/cadastros/modelos" element={<ProtectedRoute><ChecklistModelos /></ProtectedRoute>} />
+            <Route path="/checklist/cadastros/setores" element={<ProtectedRoute><ChecklistSetoresView /></ProtectedRoute>} />
+            <Route path="/checklist/cadastros/auditores" element={<ProtectedRoute><ChecklistAuditoresView modo="auditores" /></ProtectedRoute>} />
+            <Route path="/checklist/cadastros/auditados" element={<ProtectedRoute><ChecklistAuditoresView modo="auditados" /></ProtectedRoute>} />
             <Route
               path="/garimpador-ranking"
               element={
