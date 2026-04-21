@@ -76,9 +76,16 @@ const SECTIONS = [
       { id: 'controle-recebimento', name: 'Prevenção Recebimento', icon: '📄', subs: [
         { id: 'nf-a-chegar', name: 'Notas a Chegar' },
         { id: 'nf-recebimento', name: 'Notas Entregue' },
+        { id: 'pendencias-notas', name: 'Pendências de Notas' },
       ]},
-      { id: 'abastecimento', name: 'Prevenção Abastecimento', icon: '🚚' },
+      { id: 'abastecimento', name: 'Prevenção Abastecimento', icon: '🚚', subs: [
+        { id: 'prioridade-reposicao', name: 'Prioridade Reposição' },
+      ]},
       { id: 'prevencao-tributaria', name: 'Prevenção Tributária', icon: '🧾' },
+      { id: 'acougue', name: 'Prevenção Açougue', icon: '🔪', subs: [
+        { id: 'acougue-desmembramento', name: 'Desmembramento' },
+        { id: 'acougue-cadastro-rendimento', name: 'Cadastro de Rendimento' },
+      ]},
     ]
   },
   {
@@ -133,7 +140,7 @@ const SECTIONS = [
     id: 'garimpador-360',
     name: 'Garimpador 360',
     icon: '💎',
-    color: 'purple',
+    color: 'amber',
     modules: [
       { id: 'garimpa-fornecedores', name: 'Fornecedores e Concorrentes', icon: '🔎' },
       { id: 'garimpa-ranking-forn', name: 'Ranking Fornecedores', icon: '📊' },
@@ -142,6 +149,73 @@ const SECTIONS = [
       { id: 'garimpa-fora-mix', name: 'Fora do Mix', icon: '🚫' },
       { id: 'garimpa-pesquisar', name: 'Produtos a Pesquisar', icon: '🔍' },
       { id: 'garimpa-ecommerce', name: 'Ecommerce', icon: '🛍️' },
+    ]
+  },
+  {
+    id: 'checklist-radar',
+    name: 'Check List no Radar',
+    icon: '✅',
+    color: 'teal',
+    modules: [
+      { id: 'checklist-dashboards', name: 'Dashboards', icon: '📊' },
+      { id: 'checklist-auditar', name: 'Auditar', icon: '📝' },
+      { id: 'checklist-finalizadas', name: 'Auditorias Finalizadas', icon: '✅' },
+      { id: 'checklist-cadastros', name: 'Cadastros', icon: '🗂️', subs: [
+        { id: 'checklist-templates', name: 'Templates' },
+        { id: 'checklist-modelos', name: 'Modelos de Alternativas' },
+        { id: 'checklist-setores', name: 'Setores' },
+        { id: 'checklist-auditores', name: 'Auditores' },
+        { id: 'checklist-auditados', name: 'Auditados' },
+      ]},
+    ]
+  },
+  {
+    id: 'rh-radar',
+    name: 'RH no Radar',
+    icon: '👥',
+    color: 'pink',
+    modules: [
+      { id: 'rh-colaboradores', name: 'Colaboradores', icon: '👥', subs: [
+        { id: 'rh-dashboard', name: 'Dashboard RH' },
+        { id: 'rh-resultados', name: 'Resultados' },
+        { id: 'rh-cadastro-geral', name: 'Cadastro Geral' },
+        { id: 'rh-admissoes', name: 'Admissões' },
+        { id: 'rh-desligamentos', name: 'Desligamentos' },
+        { id: 'rh-documentacao', name: 'Documentação' },
+      ]},
+      { id: 'rh-saude', name: 'Saúde Ocupacional', icon: '🏥', subs: [
+        { id: 'rh-controle-aso', name: 'Controle de ASO' },
+        { id: 'rh-exames-periodicos', name: 'Exames Periódicos' },
+        { id: 'rh-vencimentos', name: 'Relatório Vencimentos' },
+      ]},
+      { id: 'rh-ponto', name: 'Ponto e Ausências', icon: '⏰', subs: [
+        { id: 'rh-jornadas', name: 'Jornadas de Trabalho' },
+        { id: 'rh-ausencias', name: 'Lançar Ausências' },
+        { id: 'rh-ferias', name: 'Controle de Férias' },
+        { id: 'rh-absenteismo', name: 'Análise Absenteísmo' },
+      ]},
+      { id: 'rh-recrutamento', name: 'Recrutamento', icon: '💼', subs: [
+        { id: 'rh-vagas', name: 'Vagas Abertas' },
+        { id: 'rh-candidatos', name: 'Candidatos' },
+        { id: 'rh-processo-seletivo', name: 'Processo Seletivo' },
+        { id: 'rh-metodo-disc', name: 'Método DISC' },
+      ]},
+      { id: 'rh-treinamentos', name: 'Treinamentos', icon: '📚', subs: [
+        { id: 'rh-cadastro-treinamento', name: 'Cadastrar Treinamento' },
+        { id: 'rh-presenca', name: 'Controle de Presença' },
+        { id: 'rh-certificados', name: 'Certificados' },
+      ]},
+      { id: 'rh-financeiro', name: 'Financeiro RH', icon: '💵', subs: [
+        { id: 'rh-lancamentos', name: 'Lançamentos' },
+        { id: 'rh-folha', name: 'Folha de Pagamento' },
+        { id: 'rh-beneficios', name: 'Benefícios' },
+      ]},
+      { id: 'rh-indicadores', name: 'Indicadores RH', icon: '📈', subs: [
+        { id: 'rh-dashboard-executivo', name: 'Dashboard Executivo' },
+        { id: 'rh-rotatividade', name: 'Rotatividade (Turnover)' },
+        { id: 'rh-perfil-demografico', name: 'Perfil Demográfico' },
+      ]},
+      { id: 'rh-configuracoes', name: 'Configurações RH', icon: '⚙️' },
     ]
   },
 ];
@@ -156,6 +230,8 @@ const SECTION_COLORS = {
   green: { bg: 'bg-green-600', bgLight: 'bg-green-50', border: 'border-green-200', text: 'text-green-800', ring: 'ring-green-500' },
   orange: { bg: 'bg-orange-600', bgLight: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-800', ring: 'ring-orange-500' },
   amber: { bg: 'bg-amber-600', bgLight: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800', ring: 'ring-amber-500' },
+  teal: { bg: 'bg-teal-600', bgLight: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-800', ring: 'ring-teal-500' },
+  pink: { bg: 'bg-pink-600', bgLight: 'bg-pink-50', border: 'border-pink-200', text: 'text-pink-800', ring: 'ring-pink-500' },
 };
 
 export default function ModulosTab() {

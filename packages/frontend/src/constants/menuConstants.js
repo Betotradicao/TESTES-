@@ -48,6 +48,11 @@ export const MENU_MODULES = {
   RH_FINANCEIRO: 'rh-financeiro',
   RH_INDICADORES: 'rh-indicadores',
   RH_CONFIGURACOES: 'rh-configuracoes',
+  // Check List no Radar
+  CHECKLIST_DASHBOARDS: 'checklist-dashboards',
+  CHECKLIST_AUDITAR: 'checklist-auditar',
+  CHECKLIST_FINALIZADAS: 'checklist-finalizadas',
+  CHECKLIST_CADASTROS: 'checklist-cadastros',
 };
 
 // IDs dos sub-menus
@@ -210,6 +215,12 @@ export const MENU_SUBMENUS = {
   RH_PERFIL_DEMOGRAFICO: 'rh-perfil-demografico',
   // RH - Configurações
   RH_CONFIG_GERAL: 'rh-config-geral',
+  // Check List - Cadastros
+  CHECKLIST_TEMPLATES: 'checklist-templates',
+  CHECKLIST_MODELOS: 'checklist-modelos',
+  CHECKLIST_SETORES: 'checklist-setores',
+  CHECKLIST_AUDITORES: 'checklist-auditores',
+  CHECKLIST_AUDITADOS: 'checklist-auditados',
 };
 
 // Estrutura completa do menu
@@ -873,6 +884,47 @@ export const MENU_STRUCTURE = [
         title: 'Dashboard de Crescimento',
         path: '/rota-crescimento'
       }
+    ]
+  },
+  // ========== CHECK LIST NO RADAR ==========
+  {
+    id: MENU_MODULES.CHECKLIST_DASHBOARDS,
+    title: 'Dashboards',
+    icon: 'chart',
+    section: 'checklist',
+    submenus: [
+      { id: 'checklist-dashboards-main', title: 'Dashboards', path: '/checklist/dashboards' },
+    ]
+  },
+  {
+    id: MENU_MODULES.CHECKLIST_AUDITAR,
+    title: 'Auditar',
+    icon: 'clipboard',
+    section: 'checklist',
+    submenus: [
+      { id: 'checklist-auditar-main', title: 'Auditar', path: '/checklist/auditar' },
+    ]
+  },
+  {
+    id: MENU_MODULES.CHECKLIST_FINALIZADAS,
+    title: 'Auditorias Finalizadas',
+    icon: 'check',
+    section: 'checklist',
+    submenus: [
+      { id: 'checklist-finalizadas-main', title: 'Auditorias Finalizadas', path: '/checklist/finalizadas' },
+    ]
+  },
+  {
+    id: MENU_MODULES.CHECKLIST_CADASTROS,
+    title: 'Cadastros',
+    icon: 'folder',
+    section: 'checklist',
+    submenus: [
+      { id: MENU_SUBMENUS.CHECKLIST_TEMPLATES, title: 'Templates', path: '/checklist/cadastros/templates' },
+      { id: MENU_SUBMENUS.CHECKLIST_MODELOS, title: 'Modelos de Alternativas', path: '/checklist/cadastros/modelos' },
+      { id: MENU_SUBMENUS.CHECKLIST_SETORES, title: 'Setores', path: '/checklist/cadastros/setores' },
+      { id: MENU_SUBMENUS.CHECKLIST_AUDITORES, title: 'Auditores', path: '/checklist/cadastros/auditores' },
+      { id: MENU_SUBMENUS.CHECKLIST_AUDITADOS, title: 'Auditados', path: '/checklist/cadastros/auditados' },
     ]
   }
 ];

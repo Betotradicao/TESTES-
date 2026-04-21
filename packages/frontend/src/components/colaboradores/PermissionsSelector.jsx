@@ -197,6 +197,19 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
     'vision-pdv': '🖥️',
     'vision-facial': '👤',
     'vision-bipagens': '📡',
+    'checklist-dashboards': '📊',
+    'checklist-auditar': '📝',
+    'checklist-finalizadas': '✅',
+    'checklist-cadastros': '🗂️',
+    'rh-colaboradores': '👥',
+    'rh-saude': '🏥',
+    'rh-ponto': '⏰',
+    'rh-recrutamento': '💼',
+    'rh-treinamentos': '📚',
+    'rh-financeiro': '💵',
+    'rh-indicadores': '📈',
+    'rh-configuracoes': '⚙️',
+    'acougue': '🔪',
   };
 
   // Separar módulos por seção
@@ -208,6 +221,8 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
   const marketingModules = MENU_STRUCTURE.filter(m => m.section === 'marketing' && m.submenus.length > 0);
   const visionModules = MENU_STRUCTURE.filter(m => m.section === 'vision' && m.submenus.length > 0);
   const iaModules = MENU_STRUCTURE.filter(m => m.section === 'ia' && m.submenus.length > 0);
+  const checklistModules = MENU_STRUCTURE.filter(m => m.section === 'checklist' && m.submenus.length > 0);
+  const rhModules = MENU_STRUCTURE.filter(m => m.section === 'rh' && m.submenus.length > 0);
 
   const renderModuleCard = (module) => {
     const moduleEmoji = moduleEmojis[module.id] || '📦';
@@ -425,6 +440,34 @@ export default function PermissionsSelector({ selectedPermissions, onChange }) {
             <div className="flex-1 border-t border-purple-200"></div>
           </div>
           {iaModules.map(module => renderModuleCard(module))}
+        </>
+      )}
+
+      {/* Seção CHECK LIST NO RADAR */}
+      {checklistModules.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 mt-6 mb-3">
+            <div className="w-6 h-6 bg-teal-500 rounded-md flex items-center justify-center">
+              <span className="text-white text-xs font-bold">✓</span>
+            </div>
+            <h4 className="text-sm font-bold text-teal-800 uppercase tracking-wide">Check List no Radar</h4>
+            <div className="flex-1 border-t border-teal-200"></div>
+          </div>
+          {checklistModules.map(module => renderModuleCard(module))}
+        </>
+      )}
+
+      {/* Seção RH NO RADAR */}
+      {rhModules.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 mt-6 mb-3">
+            <div className="w-6 h-6 bg-pink-500 rounded-md flex items-center justify-center">
+              <span className="text-white text-xs font-bold">RH</span>
+            </div>
+            <h4 className="text-sm font-bold text-pink-800 uppercase tracking-wide">RH no Radar</h4>
+            <div className="flex-1 border-t border-pink-200"></div>
+          </div>
+          {rhModules.map(module => renderModuleCard(module))}
         </>
       )}
 
