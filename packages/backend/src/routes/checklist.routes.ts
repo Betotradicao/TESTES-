@@ -51,6 +51,9 @@ router.get('/inspections/:id/pdf', ChecklistController.gerarPdfInspection);
 router.post('/inspections/:id/enviar-whatsapp', ChecklistController.enviarPdfWhatsApp);
 router.delete('/inspections/:id', isAdminOrMaster, ChecklistController.deletarInspection);
 
+// Alertas (origem='alerta_auditoria')
+router.get('/alertas', ChecklistController.listarAlertas);
+
 // Actions
 router.get('/actions', ChecklistController.listarActions);
 router.post('/actions', ChecklistController.criarAction);

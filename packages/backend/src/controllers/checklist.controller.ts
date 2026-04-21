@@ -1077,6 +1077,103 @@ export class ChecklistController {
     }
   }
 
+  // ========== ALERTAS (listagem autenticada) ==========
+
+  static async listarAlertas(req: Request, res: Response) {
+    try {
+      const codLoja = req.query.cod_loja ? parseInt(req.query.cod_loja as string) : undefined;
+      const dataIni = req.query.data_inicio ? new Date(req.query.data_inicio as string) : undefined;
+      const dataFim = req.query.data_fim ? new Date(req.query.data_fim as string) : undefined;
+      const auditorId = (req.query.auditor_id as string) || undefined;
+      const auditadoId = (req.query.auditado_id as string) || undefined;
+      const templateId = req.query.template_id ? parseInt(req.query.template_id as string) : undefined;
+      const tiposStatus = ((req.query.status as string) || '').split(',').filter(Boolean);
+      // status possiveis: aberta, em_andamento (resolucao previa), concluida (definitiva), atrasada
+
+      const qb = AppDataSource.getRepository(AuditAction).createQueryBuilder('a')
+        .leftJoinAndSelect('a.inspection', 'i')
+        .leftJoinAndSelect('i.template', 't')
+        .leftJoinAndSelect('i.auditor', 'auditor')
+        .leftJoinAndSelect('i.auditado', 'auditado')
+        .leftJoinAndSelect('a.response', 'resp')
+        .where('a.origem = :origem', { origem: 'alerta_auditoria' });
+
+      if (codLoja !== undefined) qb.andWhere('a.cod_loja = :codLoja', { codLoja });
+      if (dataIni) qb.andWhere('a.created_at >= :dataIni', { dataIni });
+      if (dataFim) {
+        const dtFim = new Date(dataFim);
+        dtFim.setHours(23, 59, 59, 999);
+        qb.andWhere('a.created_at <= :dataFim', { dataFim: dtFim });
+      }
+      if (auditorId) qb.andWhere('i.auditor_id = :auditorId', { auditorId });
+      if (auditadoId) qb.andWhere('i.auditado_id = :auditadoId', { auditadoId });
+      if (templateId) qb.andWhere('i.template_id = :templateId', { templateId });
+      if (tiposStatus.length > 0) qb.andWhere('a.status IN (:...tiposStatus)', { tiposStatus });
+
+      qb.orderBy('a.created_at', 'DESC').take(500);
+      const actions = await qb.getMany();
+
+      // Buscar perguntas de uma so vez
+      const questionIds = Array.from(new Set(actions.map(a => a.question_id).filter((x): x is number => x != null)));
+      const questions = questionIds.length > 0
+        ? await AppDataSource.getRepository(AuditTemplateQuestion).find({
+            where: questionIds.map(id => ({ id })),
+            relations: ['section'],
+          })
+        : [];
+      const questionMap = new Map(questions.map(q => [q.id, q]));
+
+      const agora = new Date();
+      const lista = actions.map(a => {
+        const q = a.question_id ? questionMap.get(a.question_id) : null;
+        const atrasada = a.status !== 'concluida' && a.when_prazo && new Date(a.when_prazo) < agora;
+        return {
+          id: a.id,
+          status: atrasada ? 'atrasada' : a.status,
+          status_raw: a.status,
+          atrasada: !!atrasada,
+          criticidade: a.criticidade,
+          created_at: a.created_at,
+          concluido_em: a.concluido_em,
+          when_prazo: a.when_prazo,
+          what: a.what,
+          why: a.why,
+          how: a.how,
+          cod_loja: a.cod_loja,
+          resolucao_historico: a.resolucao_historico || [],
+          whatsapp_group_name: a.whatsapp_group_name,
+          roteiro: a.inspection?.template?.nome || null,
+          roteiro_id: a.inspection?.template?.id || null,
+          inspection_id: a.inspection_id,
+          secao: (q as any)?.section?.nome || null,
+          pergunta: q?.texto || null,
+          question_id: a.question_id,
+          resposta: a.response?.valor_opcao || null,
+          observacao: a.response?.observacao || null,
+          fotos: Array.isArray(a.response?.fotos) ? a.response!.fotos.map((f: any) => f.url).filter(Boolean) : [],
+          auditor: a.inspection?.auditor?.name || null,
+          auditor_id: a.inspection?.auditor_id || null,
+          auditado: a.inspection?.auditado?.name || null,
+          auditado_id: a.inspection?.auditado_id || null,
+        };
+      });
+
+      // Resumo rapido
+      const resumo = {
+        total: lista.length,
+        abertas: lista.filter(l => l.status === 'aberta').length,
+        em_andamento: lista.filter(l => l.status === 'em_andamento').length,
+        concluidas: lista.filter(l => l.status === 'concluida').length,
+        atrasadas: lista.filter(l => l.status === 'atrasada').length,
+      };
+
+      res.json({ success: true, alertas: lista, resumo });
+    } catch (e: any) {
+      console.error('[Checklist] listarAlertas:', e);
+      res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
   // ========== ALERTA (resolucao publica via token) ==========
 
   static async obterAlertaPublico(req: Request, res: Response) {

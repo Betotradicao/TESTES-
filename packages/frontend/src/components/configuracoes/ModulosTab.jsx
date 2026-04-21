@@ -160,6 +160,7 @@ const SECTIONS = [
       { id: 'checklist-dashboards', name: 'Dashboards', icon: '📊' },
       { id: 'checklist-auditar', name: 'Auditar', icon: '📝' },
       { id: 'checklist-finalizadas', name: 'Auditorias Finalizadas', icon: '✅' },
+      { id: 'checklist-alertas', name: 'Alertas', icon: '🚨' },
       { id: 'checklist-arvore-conhecimento', name: 'Árvore do Conhecimento', icon: '🌳' },
       { id: 'checklist-cadastros', name: 'Cadastros', icon: '🗂️', subs: [
         { id: 'checklist-templates', name: 'Templates' },

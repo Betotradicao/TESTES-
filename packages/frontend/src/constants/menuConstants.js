@@ -52,6 +52,7 @@ export const MENU_MODULES = {
   CHECKLIST_DASHBOARDS: 'checklist-dashboards',
   CHECKLIST_AUDITAR: 'checklist-auditar',
   CHECKLIST_FINALIZADAS: 'checklist-finalizadas',
+  CHECKLIST_ALERTAS: 'checklist-alertas',
   CHECKLIST_ARVORE_CONHECIMENTO: 'checklist-arvore-conhecimento',
   CHECKLIST_CADASTROS: 'checklist-cadastros',
 };
@@ -913,6 +914,15 @@ export const MENU_STRUCTURE = [
     section: 'checklist',
     submenus: [
       { id: 'checklist-finalizadas-main', title: 'Auditorias Finalizadas', path: '/checklist/finalizadas' },
+    ]
+  },
+  {
+    id: MENU_MODULES.CHECKLIST_ALERTAS,
+    title: 'Alertas',
+    icon: 'alert',
+    section: 'checklist',
+    submenus: [
+      { id: 'checklist-alertas-main', title: 'Alertas', path: '/checklist/alertas' },
     ]
   },
   {
