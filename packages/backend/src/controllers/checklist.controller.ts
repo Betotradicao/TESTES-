@@ -10,6 +10,7 @@ import { AuditActionHistory } from '../entities/AuditActionHistory';
 import { AuditAlternativeModel } from '../entities/AuditAlternativeModel';
 import { Employee } from '../entities/Employee';
 import { Sector } from '../entities/Sector';
+import { Company } from '../entities/Company';
 import { minioService } from '../services/minio.service';
 
 export class ChecklistController {
@@ -737,6 +738,21 @@ export class ChecklistController {
           meta: Number(i.template?.minimo_esperado) || 95,
         }));
 
+      // Carregar meta/nome por loja a partir de companies (cod_loja -> {meta, nome})
+      const companiesRepo = AppDataSource.getRepository(Company);
+      const companiesAll = await companiesRepo.find({
+        select: ['id', 'codLoja', 'nomeFantasia', 'apelido', 'metaChecklist'],
+      });
+      const companyByCodLoja = new Map<number, { meta: number; nome: string; apelido: string | null }>();
+      for (const c of companiesAll) {
+        if (c.codLoja == null) continue;
+        companyByCodLoja.set(c.codLoja, {
+          meta: Number(c.metaChecklist) || 95,
+          nome: c.nomeFantasia || `Loja ${c.codLoja}`,
+          apelido: c.apelido || null,
+        });
+      }
+
       // Ranking por loja
       const rankLojaMap: Record<string, { cod_loja: number | null; total: number; soma: number }> = {};
       for (const i of inspections) {
@@ -745,11 +761,17 @@ export class ChecklistController {
         rankLojaMap[key].total += 1;
         rankLojaMap[key].soma += Number(i.percentual_conformidade) || 0;
       }
-      const rankingLojas = Object.values(rankLojaMap).map(r => ({
-        cod_loja: r.cod_loja,
-        total: r.total,
-        media: r.total > 0 ? r.soma / r.total : 0,
-      })).sort((a, b) => b.media - a.media);
+      const rankingLojas = Object.values(rankLojaMap).map(r => {
+        const info = r.cod_loja != null ? companyByCodLoja.get(r.cod_loja) : null;
+        return {
+          cod_loja: r.cod_loja,
+          nome: info?.nome || null,
+          apelido: info?.apelido || null,
+          meta: info?.meta != null ? info.meta : 95,
+          total: r.total,
+          media: r.total > 0 ? r.soma / r.total : 0,
+        };
+      }).sort((a, b) => b.media - a.media);
 
       // Ranking por questionario
       const rankTplMap: Record<string, { id: number; nome: string; total: number; soma: number; meta: number }> = {};
@@ -809,6 +831,110 @@ export class ChecklistController {
         where: { status: 'concluida', ...(codLoja !== undefined ? { cod_loja: codLoja } : {}) } as any,
       });
 
+      // Heatmap Loja x Roteiro: media por (cod_loja, template_id)
+      const heatMap: Record<string, { cod_loja: number | null; template_id: number; template_nome: string; total: number; soma: number; meta: number }> = {};
+      for (const i of inspections) {
+        const tId = i.template?.id;
+        if (!tId) continue;
+        const key = `${i.cod_loja ?? 'null'}__${tId}`;
+        if (!heatMap[key]) heatMap[key] = {
+          cod_loja: i.cod_loja,
+          template_id: tId,
+          template_nome: i.template!.nome,
+          total: 0, soma: 0,
+          meta: Number(i.template?.minimo_esperado) || 95,
+        };
+        heatMap[key].total += 1;
+        heatMap[key].soma += Number(i.percentual_conformidade) || 0;
+      }
+      const heatmap_loja_roteiro = Object.values(heatMap).map(r => ({
+        cod_loja: r.cod_loja,
+        template_id: r.template_id,
+        template_nome: r.template_nome,
+        total: r.total,
+        media: r.total > 0 ? r.soma / r.total : 0,
+        meta: r.meta,
+      }));
+
+      // Evolucao multi-loja: serie diaria por loja dentro do periodo
+      const diaFmt = (d: Date) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      };
+      const labelsSet = new Set<string>();
+      // Popula labels com todos os dias do periodo
+      for (let d = new Date(dataLimite); d <= new Date(); d.setDate(d.getDate() + 1)) {
+        labelsSet.add(diaFmt(d));
+      }
+      const labels = Array.from(labelsSet).sort();
+      // Agrupa por (loja, dia) -> media
+      const evolMap: Record<string, Record<string, { soma: number; total: number }>> = {};
+      for (const i of inspections) {
+        const dt = i.finished_at || i.created_at;
+        if (!dt) continue;
+        const dia = diaFmt(new Date(dt));
+        const key = String(i.cod_loja ?? 'null');
+        if (!evolMap[key]) evolMap[key] = {};
+        if (!evolMap[key][dia]) evolMap[key][dia] = { soma: 0, total: 0 };
+        evolMap[key][dia].soma += Number(i.percentual_conformidade) || 0;
+        evolMap[key][dia].total += 1;
+      }
+      const evolucao_multiloja = {
+        labels,
+        series: Object.entries(evolMap).map(([k, byDia]) => {
+          const codLojaNum = k === 'null' ? null : Number(k);
+          const info = codLojaNum != null ? companyByCodLoja.get(codLojaNum) : null;
+          return {
+            cod_loja: codLojaNum,
+            nome: info?.nome || null,
+            meta: info?.meta != null ? info.meta : 95,
+            data: labels.map(l => byDia[l] ? Math.round((byDia[l].soma / byDia[l].total) * 100) / 100 : null),
+          };
+        }),
+      };
+
+      // Top perguntas NC (nao-conforme) no periodo
+      const inspectionIds = inspections.map(i => i.id);
+      let top_perguntas_nc: Array<{ question_id: number; pergunta: string; template_id: number | null; template_nome: string | null; total_respostas: number; total_nc: number; pct_nc: number }> = [];
+      if (inspectionIds.length > 0) {
+        const respRepo = AppDataSource.getRepository(AuditResponse);
+        const respostas = await respRepo.createQueryBuilder('r')
+          .leftJoinAndSelect('r.question', 'q')
+          .leftJoinAndSelect('q.section', 's')
+          .leftJoinAndSelect('s.template', 't')
+          .where('r.inspection_id IN (:...ids)', { ids: inspectionIds })
+          .getMany();
+        const perguntaMap: Record<string, { pergunta: string; template_id: number | null; template_nome: string | null; total: number; nc: number }> = {};
+        for (const r of respostas) {
+          const q = (r as any).question;
+          if (!q) continue;
+          const key = String(q.id);
+          if (!perguntaMap[key]) perguntaMap[key] = {
+            pergunta: q.texto || q.pergunta || '',
+            template_id: q.section?.template?.id || null,
+            template_nome: q.section?.template?.nome || null,
+            total: 0, nc: 0,
+          };
+          perguntaMap[key].total += 1;
+          if (r.conforme === 'NC') perguntaMap[key].nc += 1;
+        }
+        top_perguntas_nc = Object.entries(perguntaMap)
+          .map(([k, v]) => ({
+            question_id: Number(k),
+            pergunta: v.pergunta,
+            template_id: v.template_id,
+            template_nome: v.template_nome,
+            total_respostas: v.total,
+            total_nc: v.nc,
+            pct_nc: v.total > 0 ? Math.round((v.nc / v.total) * 10000) / 100 : 0,
+          }))
+          .filter(p => p.total_nc > 0)
+          .sort((a, b) => b.total_nc - a.total_nc || b.pct_nc - a.pct_nc)
+          .slice(0, 10);
+      }
+
       res.json({
         success: true,
         dados_gerais: {
@@ -827,6 +953,9 @@ export class ChecklistController {
         ranking_lojas: rankingLojas,
         ranking_questionarios: rankingQuestionarios,
         ranking_auditados: rankingAuditados,
+        heatmap_loja_roteiro,
+        evolucao_multiloja,
+        top_perguntas_nc,
         planos_acao: {
           abertas: totalAcoesAbertas,
           atrasadas: totalAcoesAtrasadas,

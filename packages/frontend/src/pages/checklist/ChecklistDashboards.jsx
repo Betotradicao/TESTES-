@@ -204,6 +204,30 @@ export default function ChecklistDashboards() {
                 )}
               </div>
 
+              {/* Heatmap Loja x Roteiro */}
+              {dados.heatmap_loja_roteiro && dados.heatmap_loja_roteiro.length > 0 && (
+                <HeatmapLojaRoteiro
+                  dados={dados.heatmap_loja_roteiro}
+                  companies={dados.ranking_lojas}
+                  roteiros={dados.ranking_questionarios}
+                  corPct={corPct}
+                  bgBar={bgBar}
+                />
+              )}
+
+              {/* Grafico de Evolucao multi-loja */}
+              {dados.evolucao_multiloja && dados.evolucao_multiloja.series && dados.evolucao_multiloja.series.length > 0 && (
+                <EvolucaoMultiLoja
+                  data={dados.evolucao_multiloja}
+                  companies={dados.ranking_lojas}
+                />
+              )}
+
+              {/* Top 10 perguntas nao-conformes */}
+              {dados.top_perguntas_nc && dados.top_perguntas_nc.length > 0 && (
+                <TopPerguntasNC dados={dados.top_perguntas_nc} />
+              )}
+
               {/* Rankings lado a lado */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
                 {/* Ranking Lojas */}
@@ -211,28 +235,39 @@ export default function ChecklistDashboards() {
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-xl">🏪</span>
                     <h3 className="font-bold text-gray-700">Desempenho das Lojas</h3>
+                    <span className="ml-auto text-[10px] text-gray-400">barra x meta da loja</span>
                   </div>
                   {dados.ranking_lojas.length === 0 ? (
                     <div className="text-sm text-gray-400 italic text-center py-6">Sem dados</div>
                   ) : (
                     <div className="space-y-2">
-                      {dados.ranking_lojas.map((l, i) => (
-                        <div key={i} className="flex items-center gap-3">
-                          <div className="w-7 text-center text-sm font-bold text-gray-500">{medalha(i) || (i + 1)}</div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-sm text-gray-800">
-                              {l.cod_loja != null ? `Loja ${l.cod_loja}` : 'Sem loja'}
+                      {dados.ranking_lojas.map((l, i) => {
+                        const meta = Number(l.meta) || 95;
+                        const atingiu = Number(l.media) >= meta;
+                        return (
+                          <div key={i} className="flex items-center gap-3">
+                            <div className="w-7 text-center text-sm font-bold text-gray-500">{medalha(i) || (i + 1)}</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-sm text-gray-800 truncate">
+                                {l.cod_loja != null ? `Loja ${l.cod_loja}` : 'Sem loja'}
+                                {l.apelido && <span className="text-gray-500 font-normal"> · {l.apelido}</span>}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {l.total} auditoria(s) · meta {meta.toFixed(0)}%
+                                {atingiu ? <span className="ml-1 text-emerald-600 font-semibold">✓ atingiu</span> : <span className="ml-1 text-rose-600 font-semibold">abaixo</span>}
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-500">{l.total} auditoria(s)</div>
-                          </div>
-                          <div className="w-24 sm:w-36 shrink-0">
-                            <div className={`text-xs text-right font-bold ${corPct(l.media)} mb-0.5`}>{l.media.toFixed(1)}%</div>
-                            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                              <div className={`h-full ${bgBar(l.media)}`} style={{ width: `${Math.min(100, l.media)}%` }} />
+                            <div className="w-24 sm:w-36 shrink-0">
+                              <div className={`text-xs text-right font-bold ${corPct(l.media, meta)} mb-0.5`}>{l.media.toFixed(1)}%</div>
+                              <div className="h-2 bg-gray-200 rounded-full overflow-hidden relative">
+                                <div className={`h-full ${bgBar(l.media, meta)}`} style={{ width: `${Math.min(100, l.media)}%` }} />
+                                <div className="absolute top-0 bottom-0 w-0.5 bg-gray-600 opacity-80"
+                                  style={{ left: `${Math.min(100, meta)}%` }} title={`Meta ${meta}%`} />
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -322,6 +357,228 @@ function TileGrande({ titulo, valor, sub, emoji, grad }) {
       <div className="text-3xl font-extrabold">{valor}</div>
       <div className="text-xs font-semibold opacity-90 uppercase tracking-wide">{titulo}</div>
       <div className="text-[11px] opacity-80 mt-0.5">{sub}</div>
+    </div>
+  );
+}
+
+// Heatmap Loja x Roteiro
+function HeatmapLojaRoteiro({ dados, companies, roteiros, corPct, bgBar }) {
+  // Lojas unicas (ordenadas por media desc, como veio em ranking_lojas)
+  const lojasUnicas = Array.from(new Set(dados.map(d => d.cod_loja).filter(v => v != null))).sort((a, b) => a - b);
+  // Roteiros unicos
+  const roteirosUnicos = roteiros.map(r => ({ id: r.id, nome: r.nome, meta: r.meta }));
+
+  // Map: cod_loja -> template_id -> {media, total, meta}
+  const mapa = {};
+  for (const d of dados) {
+    if (d.cod_loja == null) continue;
+    if (!mapa[d.cod_loja]) mapa[d.cod_loja] = {};
+    mapa[d.cod_loja][d.template_id] = d;
+  }
+
+  const corCell = (pct, meta) => {
+    if (pct == null) return 'bg-gray-100 text-gray-300';
+    if (pct >= meta) return 'bg-emerald-500 text-white';
+    if (pct >= 70) return 'bg-teal-400 text-white';
+    if (pct >= 50) return 'bg-amber-400 text-amber-900';
+    return 'bg-rose-500 text-white';
+  };
+
+  return (
+    <div className="bg-white border-2 border-gray-100 rounded-xl p-5 shadow-sm mb-5">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <span className="text-xl">🗺️</span>
+        <h3 className="font-bold text-gray-700">Heatmap — Lojas × Roteiros</h3>
+        <span className="ml-auto text-xs text-gray-400">% média de conformidade</span>
+      </div>
+      {lojasUnicas.length === 0 || roteirosUnicos.length === 0 ? (
+        <div className="text-sm text-gray-400 italic text-center py-6">Sem dados suficientes</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs min-w-[500px]">
+            <thead>
+              <tr>
+                <th className="text-left px-2 py-2 text-gray-600 sticky left-0 bg-white z-10">Roteiro</th>
+                {lojasUnicas.map(cl => (
+                  <th key={cl} className="px-2 py-2 text-center text-gray-600">
+                    Loja {cl}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {roteirosUnicos.map(r => (
+                <tr key={r.id} className="border-t">
+                  <td className="px-2 py-2 font-semibold text-gray-700 sticky left-0 bg-white max-w-[180px] truncate">
+                    {r.nome}
+                  </td>
+                  {lojasUnicas.map(cl => {
+                    const cell = mapa[cl]?.[r.id];
+                    const pct = cell ? cell.media : null;
+                    const meta = cell ? cell.meta : r.meta;
+                    return (
+                      <td key={cl} className="px-1 py-1 text-center">
+                        <div className={`rounded-md py-2 px-1 font-bold ${corCell(pct, meta)}`}>
+                          {pct != null ? `${pct.toFixed(0)}%` : '—'}
+                          {cell && <div className="text-[9px] font-normal opacity-80">{cell.total}x</div>}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div className="flex items-center gap-3 mt-3 text-[11px] text-gray-600 flex-wrap">
+        <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-emerald-500 rounded" /> acima da meta</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-teal-400 rounded" /> ≥ 70%</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-amber-400 rounded" /> ≥ 50%</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-rose-500 rounded" /> abaixo</span>
+      </div>
+    </div>
+  );
+}
+
+// Grafico de linha SVG multi-loja
+function EvolucaoMultiLoja({ data, companies }) {
+  const { labels = [], series = [] } = data || {};
+  const [lojasVisiveis, setLojasVisiveis] = useState(() => series.map(s => s.cod_loja));
+
+  const toggleLoja = (cl) => {
+    setLojasVisiveis(prev => prev.includes(cl) ? prev.filter(x => x !== cl) : [...prev, cl]);
+  };
+
+  const cores = ['#0ea5e9', '#f43f5e', '#10b981', '#a855f7', '#f59e0b', '#06b6d4', '#ec4899', '#84cc16', '#6366f1', '#f97316'];
+  const serieCor = (idx) => cores[idx % cores.length];
+
+  // Dimensoes SVG
+  const W = 800, H = 260, pad = { l: 40, r: 20, t: 20, b: 40 };
+  const iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
+
+  const xFor = (i) => pad.l + (labels.length <= 1 ? iw / 2 : (i * iw) / (labels.length - 1));
+  const yFor = (pct) => pad.t + ih - (Math.max(0, Math.min(100, pct)) / 100) * ih;
+
+  const fmtLabel = (iso) => {
+    try {
+      const [, m, d] = iso.split('-');
+      return `${d}/${m}`;
+    } catch { return iso; }
+  };
+
+  const tickX = Math.max(1, Math.ceil(labels.length / 8));
+
+  return (
+    <div className="bg-white border-2 border-gray-100 rounded-xl p-5 shadow-sm mb-5">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <span className="text-xl">📈</span>
+        <h3 className="font-bold text-gray-700">Evolução de Conformidade — Multi-loja</h3>
+        <span className="ml-auto text-xs text-gray-400">% por dia</span>
+      </div>
+      {/* Legenda / toggles */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        {series.map((s, idx) => {
+          const ativo = lojasVisiveis.includes(s.cod_loja);
+          return (
+            <button
+              key={idx}
+              onClick={() => toggleLoja(s.cod_loja)}
+              className={`text-xs px-3 py-1 rounded-full border-2 font-semibold transition ${ativo ? 'text-white' : 'text-gray-400 bg-white'}`}
+              style={ativo ? { backgroundColor: serieCor(idx), borderColor: serieCor(idx) } : { borderColor: '#e5e7eb' }}
+            >
+              {s.cod_loja != null ? `Loja ${s.cod_loja}` : 'Sem loja'}{s.nome ? ` · ${s.nome.substring(0, 18)}` : ''}
+            </button>
+          );
+        })}
+      </div>
+      <div className="overflow-x-auto">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 500 }}>
+          {/* Grid */}
+          {[0, 25, 50, 75, 100].map(pct => (
+            <g key={pct}>
+              <line x1={pad.l} y1={yFor(pct)} x2={W - pad.r} y2={yFor(pct)} stroke="#f3f4f6" strokeWidth={1} />
+              <text x={pad.l - 6} y={yFor(pct) + 3} fontSize={10} textAnchor="end" fill="#9ca3af">{pct}</text>
+            </g>
+          ))}
+          {/* Eixo X */}
+          {labels.map((l, i) => (
+            i % tickX === 0 && (
+              <text key={i} x={xFor(i)} y={H - pad.b + 15} fontSize={9} textAnchor="middle" fill="#6b7280">
+                {fmtLabel(l)}
+              </text>
+            )
+          ))}
+          {/* Series */}
+          {series.map((s, idx) => {
+            if (!lojasVisiveis.includes(s.cod_loja)) return null;
+            const cor = serieCor(idx);
+            // Monta path ignorando null (quebra a linha)
+            let d = '';
+            let openSegment = false;
+            s.data.forEach((pct, i) => {
+              if (pct == null) { openSegment = false; return; }
+              const cmd = openSegment ? 'L' : 'M';
+              d += `${cmd}${xFor(i).toFixed(2)},${yFor(pct).toFixed(2)} `;
+              openSegment = true;
+            });
+            return (
+              <g key={idx}>
+                <path d={d} fill="none" stroke={cor} strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />
+                {s.data.map((pct, i) => pct != null && (
+                  <circle key={i} cx={xFor(i)} cy={yFor(pct)} r={2.5} fill={cor} />
+                ))}
+                {/* linha da meta (tracejada) */}
+                {s.meta != null && (
+                  <line x1={pad.l} y1={yFor(s.meta)} x2={W - pad.r} y2={yFor(s.meta)}
+                    stroke={cor} strokeWidth={1} strokeDasharray="4 3" opacity={0.4} />
+                )}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      <p className="text-[11px] text-gray-500 mt-1 italic">Linhas tracejadas = meta da loja correspondente.</p>
+    </div>
+  );
+}
+
+// Top 10 perguntas com mais Nao-Conforme
+function TopPerguntasNC({ dados }) {
+  return (
+    <div className="bg-white border-2 border-gray-100 rounded-xl p-5 shadow-sm mb-5">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xl">🚨</span>
+        <h3 className="font-bold text-gray-700">Top perguntas com "Não Conforme"</h3>
+        <span className="ml-auto text-xs text-gray-400">top 10 no período</span>
+      </div>
+      <div className="space-y-2">
+        {dados.map((p, i) => {
+          const maxNC = Math.max(...dados.map(x => x.total_nc), 1);
+          const widthPct = (p.total_nc / maxNC) * 100;
+          return (
+            <div key={p.question_id} className="border border-rose-100 rounded-lg p-3 hover:bg-rose-50/40 transition">
+              <div className="flex items-start gap-2">
+                <div className="w-6 text-center text-rose-600 font-bold shrink-0">{i + 1}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-gray-800 break-words">{p.pergunta}</div>
+                  {p.template_nome && (
+                    <div className="text-[11px] text-gray-500 mt-0.5">📝 {p.template_nome}</div>
+                  )}
+                  <div className="mt-2 flex items-center gap-3">
+                    <div className="flex-1 h-2 bg-rose-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-rose-500" style={{ width: `${widthPct}%` }} />
+                    </div>
+                    <div className="text-xs text-gray-600 font-semibold whitespace-nowrap">
+                      {p.total_nc} NC / {p.total_respostas} · <span className="text-rose-600">{p.pct_nc.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

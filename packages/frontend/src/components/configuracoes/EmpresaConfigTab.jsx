@@ -116,7 +116,8 @@ export default function EmpresaConfigTab() {
       email: company.email || '',
       responsavelNome: company.responsavelNome || '',
       responsavelEmail: company.responsavelEmail || '',
-      responsavelTelefone: company.responsavelTelefone || ''
+      responsavelTelefone: company.responsavelTelefone || '',
+      metaChecklist: company.metaChecklist != null ? company.metaChecklist : 95
     });
     setShowEditModal(true);
   };
@@ -1242,6 +1243,33 @@ export default function EmpresaConfigTab() {
                       onChange={(e) => setEditFormData({ ...editFormData, responsavelTelefone: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* Meta de Conformidade do Checklist */}
+              <div className="border-t border-gray-200 pt-6">
+                <h4 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <span className="text-2xl">🎯</span>
+                  Meta de Conformidade — Check List no Radar
+                </h4>
+                <p className="text-sm text-gray-500 mb-4">
+                  Percentual mínimo esperado de conformidade nas auditorias desta loja. Usado nos dashboards para colorir o ranking e avaliar se a meta foi atingida.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Meta (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.5"
+                      value={editFormData.metaChecklist ?? 95}
+                      onChange={(e) => setEditFormData({ ...editFormData, metaChecklist: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                      placeholder="95"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Padrão: 95%</p>
                   </div>
                 </div>
               </div>

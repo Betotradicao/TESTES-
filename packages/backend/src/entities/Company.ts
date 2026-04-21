@@ -62,6 +62,9 @@ export class Company {
   @Column({ default: true })
   active: boolean;
 
+  @Column({ name: 'meta_checklist', type: 'numeric', precision: 5, scale: 2, default: 95 })
+  metaChecklist: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

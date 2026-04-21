@@ -155,7 +155,8 @@ export class CompaniesController {
         nomeFantasia, razaoSocial, cnpj, identificador, codLoja, apelido, active,
         cep, rua, numero, complemento, bairro, cidade, estado,
         telefone, email,
-        responsavelNome, responsavelEmail, responsavelTelefone
+        responsavelNome, responsavelEmail, responsavelTelefone,
+        metaChecklist
       } = req.body;
 
       const company = await companyRepository.findOne({ where: { id } });
@@ -203,6 +204,14 @@ export class CompaniesController {
       if (responsavelNome !== undefined) company.responsavelNome = responsavelNome;
       if (responsavelEmail !== undefined) company.responsavelEmail = responsavelEmail;
       if (responsavelTelefone !== undefined) company.responsavelTelefone = responsavelTelefone;
+
+      // Meta de conformidade do checklist por loja
+      if (metaChecklist !== undefined && metaChecklist !== null && metaChecklist !== '') {
+        const parsed = parseFloat(String(metaChecklist));
+        if (!isNaN(parsed)) {
+          company.metaChecklist = Math.max(0, Math.min(100, parsed));
+        }
+      }
 
       await companyRepository.save(company);
 
@@ -313,7 +322,8 @@ export class CompaniesController {
         nomeFantasia, razaoSocial, cnpj, identificador, codLoja, apelido,
         cep, rua, numero, complemento, bairro, cidade, estado,
         telefone, email,
-        responsavelNome, responsavelEmail, responsavelTelefone
+        responsavelNome, responsavelEmail, responsavelTelefone,
+        metaChecklist
       } = req.body;
 
       console.log('📥 updateMyCompany - codLoja:', codLoja, 'apelido:', apelido);
@@ -390,6 +400,14 @@ export class CompaniesController {
       if (responsavelNome !== undefined) company.responsavelNome = responsavelNome;
       if (responsavelEmail !== undefined) company.responsavelEmail = responsavelEmail;
       if (responsavelTelefone !== undefined) company.responsavelTelefone = responsavelTelefone;
+
+      // Meta de conformidade do checklist por loja
+      if (metaChecklist !== undefined && metaChecklist !== null && metaChecklist !== '') {
+        const parsed = parseFloat(String(metaChecklist));
+        if (!isNaN(parsed)) {
+          company.metaChecklist = Math.max(0, Math.min(100, parsed));
+        }
+      }
 
       await companyRepository.save(company);
 
