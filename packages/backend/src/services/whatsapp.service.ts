@@ -273,6 +273,43 @@ export class WhatsAppService {
   }
 
   /**
+   * Envia imagem inline via Buffer (aparece renderizada no WhatsApp, nao como anexo).
+   */
+  static async sendImageBuffer(
+    groupId: string,
+    buffer: Buffer,
+    fileName: string,
+    caption?: string
+  ): Promise<boolean> {
+    try {
+      const { apiToken, apiUrl, instance } = await this.validateEnvironment();
+      const base64 = buffer.toString('base64');
+      const url = `${apiUrl}/message/sendMedia/${encodeURIComponent(instance)}`;
+      const payload = {
+        number: groupId,
+        mediatype: 'image',
+        media: base64,
+        fileName,
+        caption: caption || '',
+      };
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': apiToken },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Evolution sendImage Error:', errorText);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('❌ Erro ao enviar imagem (buffer):', error);
+      return false;
+    }
+  }
+
+  /**
    * Envia documento via Buffer (sem precisar salvar arquivo em disco).
    */
   static async sendDocumentBuffer(

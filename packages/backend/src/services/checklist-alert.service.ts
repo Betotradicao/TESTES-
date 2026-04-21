@@ -91,7 +91,9 @@ export class ChecklistAlertService {
         }
       }
 
-      if (!cfg || !cfg.generates_alert) continue;
+      // Dispara alerta se flag generates_alert estiver marcada OU se o icone for warning_yellow (tipo alerta nativo)
+      const ehAlerta = !!cfg?.generates_alert || alternativaEscolhida?.icone === 'warning_yellow';
+      if (!cfg || !ehAlerta) continue;
       if (!cfg.whatsapp_group_id) continue;
 
       // Evita duplicidade (mesma inspection + question ja tem AuditAction de alerta_auditoria)

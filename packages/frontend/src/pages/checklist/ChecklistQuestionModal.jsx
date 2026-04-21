@@ -172,11 +172,16 @@ export default function ChecklistQuestionModal({ sectionId, question, modelos, s
   const salvar = async () => {
     if (!form.texto.trim()) { setErro('Texto da pergunta obrigatório'); return; }
 
-    // Valida: toda alternativa com generates_alert precisa ter um grupo WhatsApp escolhido
-    const alertsSemGrupo = (form.alternativas_config || []).filter(c => c.generates_alert && !c.whatsapp_group_id);
+    // Valida: toda alternativa de alerta (flag marcada OU icone warning_yellow) precisa ter grupo WhatsApp
+    const alternativasList = modeloAtual?.alternativas || [];
+    const alertsSemGrupo = (form.alternativas_config || []).filter(c => {
+      const alt = alternativasList.find(a => a.ordem === c.ordem);
+      const ehAlerta = c.generates_alert || alt?.icone === 'warning_yellow';
+      return ehAlerta && !c.whatsapp_group_id;
+    });
     if (alertsSemGrupo.length > 0) {
       const ordens = alertsSemGrupo.map(c => c.ordem).join(', ');
-      setErro(`Alternativa(s) com alerta marcadas (ordem ${ordens}) precisam de um Grupo WhatsApp selecionado.`);
+      setErro(`Alternativa(s) de alerta (ordem ${ordens}) precisam de um Grupo WhatsApp selecionado.`);
       return;
     }
 
@@ -420,9 +425,12 @@ export default function ChecklistQuestionModal({ sectionId, question, modelos, s
                           </label>
                         </div>
 
-                        {/* Grupo WhatsApp (aparece so se generates_alert estiver marcado) */}
-                        {cfg.generates_alert && (
+                        {/* Grupo WhatsApp (aparece pra alternativa de alerta: flag marcada OU icone warning_yellow) */}
+                        {(cfg.generates_alert || a.icone === 'warning_yellow') && (
                           <div className="px-3 py-2.5 bg-amber-50 border-b border-amber-200">
+                            <div className="mb-2 text-[11px] text-amber-800 bg-amber-100 border border-amber-200 rounded px-2 py-1">
+                              🔒 <strong>Regra fixa:</strong> o auditor será obrigado a descrever o que aconteceu ao escolher esta alternativa.
+                            </div>
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-amber-600">📣</span>
                               <span className="text-xs font-semibold text-amber-800">

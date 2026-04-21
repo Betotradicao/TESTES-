@@ -345,7 +345,7 @@ export default function ChecklistTemplates() {
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <span className="text-base">💬</span>
                         <label className="text-xs font-semibold text-gray-800">
-                          Grupo WhatsApp para envio do PDF da auditoria
+                          Grupo WhatsApp para envio da auditoria
                         </label>
                         <span className="text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full font-semibold uppercase">Opcional</span>
                         <button type="button" onClick={() => carregarGruposWA(true)} disabled={loadingWaGroups}
@@ -354,7 +354,7 @@ export default function ChecklistTemplates() {
                         </button>
                       </div>
                       <p className="text-[11px] text-gray-600 mb-2">
-                        Ao finalizar qualquer auditoria deste roteiro, o PDF completo (com perguntas, respostas e evidências) será enviado automaticamente para o grupo escolhido.
+                        Ao finalizar qualquer auditoria deste roteiro, as perguntas e evidências (fotos) serão postadas em sequência no grupo escolhido, como um "feed" — pergunta por pergunta, com as fotos embaixo de cada uma.
                       </p>
                       <select
                         value={formData.whatsapp_group_pdf_id || ''}
@@ -369,7 +369,7 @@ export default function ChecklistTemplates() {
                         }}
                         onFocus={() => whatsappGroups.length === 0 && carregarGruposWA(false)}
                         className="w-full border-2 border-emerald-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400">
-                        <option value="">— não enviar PDF automaticamente —</option>
+                        <option value="">— não enviar automaticamente —</option>
                         {whatsappGroups.map(g => (
                           <option key={g.id} value={g.id}>
                             {g.subject || 'Sem nome'}{g.size ? ` (${g.size})` : ''}

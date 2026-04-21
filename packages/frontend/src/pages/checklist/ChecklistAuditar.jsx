@@ -246,6 +246,8 @@ export default function ChecklistAuditar() {
     // Preserva respondida_em original se alternativa nao mudou; atualiza quando muda
     const mudou = atual.ordemAlt !== alternativa.ordem;
     const respondida_em = mudou ? new Date().toISOString() : (atual.respondida_em || new Date().toISOString());
+    // Regra: toda alternativa de alerta (flag marcada ou icone warning_yellow) EXIGE comentario do auditor
+    const ehAlerta = !!cfg.generates_alert || alternativa.icone === 'warning_yellow';
     const nova = {
       ...atual,
       ordemAlt: alternativa.ordem,
@@ -253,7 +255,8 @@ export default function ChecklistAuditar() {
       valor_opcao: alternativa.label || String(alternativa.ordem),
       score: valor,
       requires_photo: !!cfg.requires_photo,
-      requires_comment: !!cfg.requires_comment,
+      requires_comment: !!cfg.requires_comment || ehAlerta,
+      eh_alerta: ehAlerta,
       respondida_em,
     };
     setRespostas(r => ({ ...r, [question.id]: nova }));
@@ -842,22 +845,34 @@ export default function ChecklistAuditar() {
                           })()}
                           {resp.requires_comment && (() => {
                             const temComentario = (resp.observacao || '').trim().length > 0;
+                            const ehAlerta = !!resp.eh_alerta;
+                            const borderCor = temComentario
+                              ? 'border-emerald-300 bg-emerald-50'
+                              : ehAlerta ? 'border-amber-400 bg-amber-50' : 'border-violet-300 bg-violet-50';
+                            const icone = ehAlerta ? '🚨' : '💬';
+                            const titulo = ehAlerta ? 'Descreva o que aconteceu (alerta)' : 'Comentário de evidência';
+                            const subtitulo = temComentario
+                              ? '✅ Comentário preenchido'
+                              : <span className="text-red-600 font-semibold">
+                                  ⚠️ Obrigatório — {ehAlerta ? 'descreva o problema que será enviado pro grupo WhatsApp' : 'descreva o motivo'}
+                                </span>;
+                            const placeholder = ehAlerta
+                              ? 'Ex: a impressora do PDV 2 ficou sem tinta às 14h, faltam 3 rolos de papel…'
+                              : 'Ex: item estava sem preço pq o etiquetador estava na manutenção…';
                             return (
-                              <div className={`border-2 rounded-xl p-3 ${temComentario ? 'border-emerald-300 bg-emerald-50' : 'border-violet-300 bg-violet-50'}`}>
+                              <div className={`border-2 rounded-xl p-3 ${borderCor}`}>
                                 <div className="flex items-center gap-2 mb-2">
-                                  <span className="text-xl">💬</span>
+                                  <span className="text-xl">{icone}</span>
                                   <div className="flex-1">
-                                    <div className="text-sm font-bold text-gray-800">Comentário de evidência</div>
-                                    <div className="text-xs text-gray-600">
-                                      {temComentario ? '✅ Comentário preenchido' : <span className="text-red-600 font-semibold">⚠️ Obrigatório — descreva o motivo</span>}
-                                    </div>
+                                    <div className="text-sm font-bold text-gray-800">{titulo}</div>
+                                    <div className="text-xs text-gray-600">{subtitulo}</div>
                                   </div>
                                 </div>
                                 <textarea value={resp.observacao || ''} onChange={e => atualizarObservacao(q.id, e.target.value)}
                                   onBlur={() => responder(q, { ordem: resp.ordemAlt, label: resp.valor_opcao, valor: resp.score ?? 0 })}
-                                  rows={2}
-                                  placeholder="Ex: item estava sem preço pq o etiquetador estava na manutenção…"
-                                  className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-500" />
+                                  rows={ehAlerta ? 3 : 2}
+                                  placeholder={placeholder}
+                                  className={`w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none ${ehAlerta ? 'focus:border-amber-500' : 'focus:border-violet-500'}`} />
                               </div>
                             );
                           })()}
@@ -943,8 +958,9 @@ export default function ChecklistAuditar() {
                 {/* Aviso: se o template tem grupo configurado, o envio sera automatico */}
                 {templateSelecionado?.whatsapp_group_pdf_id && (
                   <div className="rounded-lg p-3 mb-4 border-2 border-emerald-200 bg-emerald-50 text-xs text-emerald-800">
-                    💬 Ao finalizar, o PDF será enviado automaticamente para
-                    <strong> {templateSelecionado.whatsapp_group_pdf_name || 'o grupo WhatsApp configurado'}</strong>.
+                    💬 Ao finalizar, a auditoria será postada em
+                    <strong> {templateSelecionado.whatsapp_group_pdf_name || 'o grupo WhatsApp configurado'}</strong>
+                    {' '}como feed de mensagens (pergunta por pergunta, com fotos).
                   </div>
                 )}
 
@@ -992,19 +1008,13 @@ export default function ChecklistAuditar() {
                   </div>
                   {templateSelecionado?.whatsapp_group_pdf_id && (
                     <div className="mt-3 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-2">
-                      💬 PDF enviado para <strong>{templateSelecionado.whatsapp_group_pdf_name || 'o grupo configurado'}</strong> no WhatsApp.
+                      💬 Auditoria postada em <strong>{templateSelecionado.whatsapp_group_pdf_name || 'o grupo configurado'}</strong> no WhatsApp.
                     </div>
                   )}
-                  <div className="mt-5 flex flex-col sm:flex-row gap-2">
-                    <a href={`/api/checklist/inspections/${resultadoFinal.id}/pdf?token=${encodeURIComponent(localStorage.getItem('token') || '')}`} target="_blank" rel="noopener noreferrer"
-                      className="flex-1 py-3 bg-white border-2 border-teal-500 text-teal-600 rounded-lg font-bold text-sm hover:bg-teal-50 transition text-center">
-                      📄 Abrir PDF
-                    </a>
-                    <button onClick={resetar}
-                      className="flex-1 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg font-bold text-sm hover:shadow-lg hover:scale-[1.02] transition">
-                      🔁 Nova auditoria
-                    </button>
-                  </div>
+                  <button onClick={resetar}
+                    className="mt-5 w-full py-4 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg font-bold text-lg hover:shadow-lg hover:scale-[1.02] transition">
+                    🔁 Nova auditoria
+                  </button>
                 </div>
               </div>
             );
