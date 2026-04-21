@@ -377,20 +377,26 @@ export default function ChecklistAuditar() {
       setStage('executar');
       return;
     }
+    if (!assinaturaAuditor) {
+      alert('Assinatura do auditor é obrigatória para finalizar a auditoria.');
+      return;
+    }
     setFinalizando(true);
     try {
-      // Upload assinatura (se preenchida) pro MinIO antes de finalizar
+      // Upload assinatura obrigatoria pro MinIO antes de finalizar
       let assinaturaUrl = null;
-      if (assinaturaAuditor) {
-        try {
-          const blob = await (await fetch(assinaturaAuditor)).blob();
-          const fd = new FormData();
-          fd.append('imagem', blob, `assinatura_auditor_${inspection.id}.png`);
-          const up = await api.post('/checklist/upload-imagem', fd, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-          });
-          assinaturaUrl = up.data?.url || null;
-        } catch { /* ignora falha de upload e segue sem URL */ }
+      try {
+        const blob = await (await fetch(assinaturaAuditor)).blob();
+        const fd = new FormData();
+        fd.append('imagem', blob, `assinatura_auditor_${inspection.id}.png`);
+        const up = await api.post('/checklist/upload-imagem', fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        assinaturaUrl = up.data?.url || null;
+      } catch (upErr) {
+        setFinalizando(false);
+        alert('Nao foi possivel salvar a assinatura. Tente novamente.');
+        return;
       }
       const res = await api.post(`/checklist/inspections/${inspection.id}/finalizar`, {
         observacao_geral: observacaoGeral,
@@ -915,14 +921,27 @@ export default function ChecklistAuditar() {
                 </label>
                 <textarea value={observacaoGeral} onChange={e => setObservacaoGeral(e.target.value)}
                   rows={4} placeholder="Alguma observação sobre esta auditoria?"
-                  className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-sm mb-4 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition" />
+                  className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-sm mb-5 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition" />
+
+                <div className={`rounded-lg p-4 mb-4 border-2 ${assinaturaAuditor ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-300'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-gray-800">Assinatura do auditor</span>
+                    <span className="text-[11px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">OBRIGATÓRIA</span>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-3">Assine com o dedo na área abaixo para confirmar a auditoria.</p>
+                  <SignaturePad value={assinaturaAuditor} onChange={setAssinaturaAuditor} label="Assinatura" />
+                  {!assinaturaAuditor && (
+                    <p className="mt-2 text-xs text-amber-700 font-medium">⚠️ Sem assinatura não é possível finalizar.</p>
+                  )}
+                </div>
+
                 <div className="flex gap-2">
                   <button onClick={() => setStage('executar')}
                     className="flex-1 py-3 border-2 border-gray-200 bg-white rounded-lg font-semibold text-gray-700 hover:bg-gray-50">
                     ← Voltar
                   </button>
-                  <button onClick={finalizar} disabled={finalizando}
-                    className={`flex-1 py-3 rounded-lg font-bold transition ${finalizando ? 'bg-gray-200 text-gray-400' : 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white hover:shadow-lg hover:scale-[1.02]'}`}>
+                  <button onClick={finalizar} disabled={finalizando || !assinaturaAuditor}
+                    className={`flex-1 py-3 rounded-lg font-bold transition ${(finalizando || !assinaturaAuditor) ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white hover:shadow-lg hover:scale-[1.02]'}`}>
                     {finalizando ? 'Enviando…' : '🚀 Enviar auditoria'}
                   </button>
                 </div>
