@@ -12,6 +12,9 @@ import { Employee } from '../entities/Employee';
 import { Sector } from '../entities/Sector';
 import { Company } from '../entities/Company';
 import { minioService } from '../services/minio.service';
+import { ChecklistAlertService } from '../services/checklist-alert.service';
+import { ChecklistPDFService } from '../services/checklist-pdf.service';
+import { WhatsAppService } from '../services/whatsapp.service';
 
 export class ChecklistController {
 
@@ -67,6 +70,7 @@ export class ChecklistController {
     try {
       const { nome, descricao, observacao, cod_loja, ativo, minimo_esperado, grupos_acesso,
               grupos_acesso_auditados,
+              whatsapp_group_pdf_id, whatsapp_group_pdf_name,
               prazo_alta_horas, prazo_media_dias, prazo_baixa_dias, created_by } = req.body;
       if (!nome) return res.status(400).json({ success: false, error: 'Campo "nome" obrigatorio' });
       const repo = AppDataSource.getRepository(AuditTemplate);
@@ -76,6 +80,8 @@ export class ChecklistController {
         minimo_esperado: minimo_esperado ?? 95,
         grupos_acesso: Array.isArray(grupos_acesso) ? grupos_acesso : [],
         grupos_acesso_auditados: Array.isArray(grupos_acesso_auditados) ? grupos_acesso_auditados : [],
+        whatsapp_group_pdf_id: whatsapp_group_pdf_id || null,
+        whatsapp_group_pdf_name: whatsapp_group_pdf_name || null,
         prazo_alta_horas: prazo_alta_horas || 24,
         prazo_media_dias: prazo_media_dias || 7,
         prazo_baixa_dias: prazo_baixa_dias || 30,
@@ -97,6 +103,7 @@ export class ChecklistController {
       if (!t) return res.status(404).json({ success: false, error: 'Template nao encontrado' });
       const { nome, descricao, observacao, cod_loja, ativo, minimo_esperado, grupos_acesso,
               grupos_acesso_auditados,
+              whatsapp_group_pdf_id, whatsapp_group_pdf_name,
               prazo_alta_horas, prazo_media_dias, prazo_baixa_dias } = req.body;
       if (nome !== undefined) t.nome = nome;
       if (descricao !== undefined) t.descricao = descricao;
@@ -106,6 +113,8 @@ export class ChecklistController {
       if (minimo_esperado !== undefined) t.minimo_esperado = minimo_esperado;
       if (grupos_acesso !== undefined) t.grupos_acesso = Array.isArray(grupos_acesso) ? grupos_acesso : [];
       if (grupos_acesso_auditados !== undefined) t.grupos_acesso_auditados = Array.isArray(grupos_acesso_auditados) ? grupos_acesso_auditados : [];
+      if (whatsapp_group_pdf_id !== undefined) t.whatsapp_group_pdf_id = whatsapp_group_pdf_id || null;
+      if (whatsapp_group_pdf_name !== undefined) t.whatsapp_group_pdf_name = whatsapp_group_pdf_name || null;
       if (prazo_alta_horas !== undefined) t.prazo_alta_horas = prazo_alta_horas;
       if (prazo_media_dias !== undefined) t.prazo_media_dias = prazo_media_dias;
       if (prazo_baixa_dias !== undefined) t.prazo_baixa_dias = prazo_baixa_dias;
@@ -584,6 +593,50 @@ export class ChecklistController {
       if (assinatura_auditor_url !== undefined) ins.assinatura_auditor_url = assinatura_auditor_url;
       if (assinatura_auditado_url !== undefined) ins.assinatura_auditado_url = assinatura_auditado_url;
       await repo.save(ins);
+
+      // Processa alertas (cria AuditAction + envia WhatsApp) - assincrono, nao bloqueia resposta.
+      const origin = `${req.protocol}://${req.get('host')}`;
+      ChecklistAlertService.processarAlertasDaInspecao(ins.id, { baseUrl: origin })
+        .then(r => console.log(`[Checklist] Alertas da inspecao ${ins.id}:`, r))
+        .catch(err => console.error(`[Checklist] Erro processando alertas ${ins.id}:`, err));
+
+      // Se o template tem grupo WhatsApp configurado para envio do PDF, envia automaticamente
+      (async () => {
+        try {
+          const tpl = await AppDataSource.getRepository(AuditTemplate).findOne({ where: { id: ins.template_id } });
+          if (!tpl?.whatsapp_group_pdf_id) return;
+          const inspFull = await AppDataSource.getRepository(AuditInspection).findOne({
+            where: { id: ins.id },
+            relations: ['template', 'auditor'],
+          });
+          if (!inspFull) return;
+          const pdf = await ChecklistPDFService.gerarPDFAuditoria(ins.id);
+          const pct = Number(inspFull.percentual_conformidade) || 0;
+          const meta = Number(tpl.minimo_esperado) || 95;
+          const atingiu = pct >= meta;
+          const caption = [
+            '📋 *RELATÓRIO DE AUDITORIA — CHECK LIST*',
+            '',
+            `🗂️ *Roteiro:* ${tpl.nome || '—'}`,
+            `👤 *Auditor:* ${inspFull.auditor?.name || '—'}`,
+            inspFull.cod_loja != null ? `🏪 *Loja:* ${inspFull.cod_loja}` : null,
+            `${atingiu ? '✅' : '⚠️'} *Conformidade:* ${pct.toFixed(1)}% · Meta: ${meta.toFixed(0)}%`,
+            `📅 ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`,
+            '',
+            '📎 PDF completo em anexo com todas as perguntas, respostas e evidências.',
+          ].filter(Boolean).join('\n');
+          await WhatsAppService.sendDocumentBuffer(
+            tpl.whatsapp_group_pdf_id,
+            pdf,
+            `auditoria-${ins.id}.pdf`,
+            caption
+          );
+          console.log(`[Checklist] PDF enviado para grupo ${tpl.whatsapp_group_pdf_name || tpl.whatsapp_group_pdf_id} (inspection ${ins.id})`);
+        } catch (err) {
+          console.error(`[Checklist] Erro enviando PDF automatico ${ins.id}:`, err);
+        }
+      })();
+
       res.json({ success: true, inspection: ins });
     } catch (e: any) {
       console.error('[Checklist] finalizarInspection:', e);
@@ -1019,6 +1072,103 @@ export class ChecklistController {
       });
     } catch (e: any) {
       console.error('[Checklist] dashboardResumo:', e);
+      res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
+  // ========== ALERTA (resolucao publica via token) ==========
+
+  static async obterAlertaPublico(req: Request, res: Response) {
+    try {
+      const { token } = req.params;
+      if (!token) return res.status(400).json({ success: false, error: 'Token obrigatorio' });
+      const data = await ChecklistAlertService.obterPorToken(token);
+      if (!data) return res.status(404).json({ success: false, error: 'Alerta nao encontrado' });
+      res.json({ success: true, alerta: data });
+    } catch (e: any) {
+      console.error('[Checklist] obterAlertaPublico:', e);
+      res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
+  static async resolverAlertaPublico(req: Request, res: Response) {
+    try {
+      const { token } = req.params;
+      const { tipo, mensagem, autor } = req.body;
+      if (!token) return res.status(400).json({ success: false, error: 'Token obrigatorio' });
+      if (tipo !== 'previamente' && tipo !== 'definitivamente') {
+        return res.status(400).json({ success: false, error: 'tipo deve ser previamente ou definitivamente' });
+      }
+      if (!mensagem || !String(mensagem).trim()) {
+        return res.status(400).json({ success: false, error: 'Mensagem obrigatoria' });
+      }
+      if (!autor || !String(autor).trim()) {
+        return res.status(400).json({ success: false, error: 'Informe seu nome' });
+      }
+      const action = await ChecklistAlertService.aplicarResolucao({ token, tipo, mensagem, autor });
+      if (!action) return res.status(404).json({ success: false, error: 'Alerta nao encontrado' });
+      const data = await ChecklistAlertService.obterPorToken(token);
+      res.json({ success: true, alerta: data });
+    } catch (e: any) {
+      console.error('[Checklist] resolverAlertaPublico:', e);
+      res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
+  // ========== PDF DA AUDITORIA ==========
+
+  static async gerarPdfInspection(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+      const pdf = await ChecklistPDFService.gerarPDFAuditoria(id);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="auditoria-${id}.pdf"`);
+      res.send(pdf);
+    } catch (e: any) {
+      console.error('[Checklist] gerarPdfInspection:', e);
+      res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
+  static async enviarPdfWhatsApp(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+      const { whatsapp_group_id, whatsapp_group_name } = req.body;
+      if (!whatsapp_group_id) {
+        return res.status(400).json({ success: false, error: 'whatsapp_group_id obrigatorio' });
+      }
+
+      const insRepo = AppDataSource.getRepository(AuditInspection);
+      const inspection = await insRepo.findOne({
+        where: { id },
+        relations: ['template', 'auditor'],
+      });
+      if (!inspection) return res.status(404).json({ success: false, error: 'Inspecao nao encontrada' });
+
+      const pdf = await ChecklistPDFService.gerarPDFAuditoria(id);
+
+      const pct = Number(inspection.percentual_conformidade) || 0;
+      const meta = Number(inspection.template?.minimo_esperado) || 95;
+      const atingiu = pct >= meta;
+      const caption = [
+        '📋 *RELATÓRIO DE AUDITORIA — CHECK LIST*',
+        '',
+        `🗂️ *Roteiro:* ${inspection.template?.nome || '—'}`,
+        `👤 *Auditor:* ${inspection.auditor?.name || '—'}`,
+        inspection.cod_loja != null ? `🏪 *Loja:* ${inspection.cod_loja}` : null,
+        `${atingiu ? '✅' : '⚠️'} *Conformidade:* ${pct.toFixed(1)}% · Meta: ${meta.toFixed(0)}%`,
+        `📅 ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`,
+        '',
+        '📎 PDF completo em anexo com todas as perguntas, respostas e evidências.',
+      ].filter(Boolean).join('\n');
+
+      const fileName = `auditoria-${id}.pdf`;
+      const ok = await WhatsAppService.sendDocumentBuffer(whatsapp_group_id, pdf, fileName, caption);
+
+      if (!ok) return res.status(502).json({ success: false, error: 'Falha ao enviar PDF via Evolution API' });
+      res.json({ success: true, enviado: true, group: whatsapp_group_name || whatsapp_group_id });
+    } catch (e: any) {
+      console.error('[Checklist] enviarPdfWhatsApp:', e);
       res.status(500).json({ success: false, error: e.message });
     }
   }

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLoja } from '../../contexts/LojaContext';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import api from '../../utils/api';
 
 export default function ChecklistAuditoresView({ modo = 'auditores' }) {
   const { user, logout } = useAuth();
+  const { lojaSelecionada } = useLoja();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [lista, setLista] = useState([]);
@@ -18,12 +20,13 @@ export default function ChecklistAuditoresView({ modo = 'auditores' }) {
   const endpoint = isAuditor ? '/checklist/auditores' : '/checklist/auditados';
   const chave = isAuditor ? 'auditores' : 'auditados';
 
-  useEffect(() => { carregar(); /* eslint-disable-next-line */ }, [modo]);
+  useEffect(() => { carregar(); /* eslint-disable-next-line */ }, [modo, lojaSelecionada]);
 
   const carregar = async () => {
     setLoading(true);
     try {
-      const res = await api.get(endpoint);
+      const qs = lojaSelecionada != null ? `?cod_loja=${lojaSelecionada}` : '';
+      const res = await api.get(`${endpoint}${qs}`);
       setLista(res.data?.[chave] || []);
     } catch (e) {
       setErro(e?.response?.data?.error || e.message);

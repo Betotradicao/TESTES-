@@ -6,6 +6,10 @@ import { authenticateToken, isAdminOrMaster } from '../middleware/auth';
 const router: Router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
+// Rotas publicas (sem autenticacao) - resolucao de alerta via token
+router.get('/alerta/:token', ChecklistController.obterAlertaPublico);
+router.post('/alerta/:token/resolver', ChecklistController.resolverAlertaPublico);
+
 router.use(authenticateToken);
 
 // Templates
@@ -43,6 +47,8 @@ router.get('/inspections/:id', ChecklistController.obterInspection);
 router.post('/inspections', ChecklistController.criarInspection);
 router.post('/inspections/:id/responses', ChecklistController.salvarResposta);
 router.post('/inspections/:id/finalizar', ChecklistController.finalizarInspection);
+router.get('/inspections/:id/pdf', ChecklistController.gerarPdfInspection);
+router.post('/inspections/:id/enviar-whatsapp', ChecklistController.enviarPdfWhatsApp);
 router.delete('/inspections/:id', isAdminOrMaster, ChecklistController.deletarInspection);
 
 // Actions

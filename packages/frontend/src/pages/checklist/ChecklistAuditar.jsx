@@ -52,25 +52,30 @@ export default function ChecklistAuditar() {
   const [finalizando, setFinalizando] = useState(false);
   const [resultadoFinal, setResultadoFinal] = useState(null);
 
+  // Envio automatico do PDF (se template tiver grupo configurado o backend envia assincrono)
+  // Aqui mantemos estado apenas para exibir aviso no stage fim.
+
   // Lightbox
   const [lightbox, setLightbox] = useState(null);
 
   // Camera capture: { questionId } ou null
   const [cameraPara, setCameraPara] = useState(null);
 
-  // Carrega modelos e templates disponíveis
+  // Carrega modelos e templates disponíveis (filtrados por loja)
   useEffect(() => {
     (async () => {
       try {
+        const qs = lojaSelecionada != null ? `?cod_loja=${lojaSelecionada}` : '';
         const [m, t] = await Promise.all([
           api.get('/checklist/modelos'),
-          api.get('/checklist/templates'),
+          api.get(`/checklist/templates${qs}`),
         ]);
         setModelos(m.data?.modelos || []);
         setTemplates((t.data?.templates || []).filter(tpl => tpl.ativo !== false));
       } catch (e) { setErro(e?.response?.data?.error || e.message); }
     })();
-  }, []);
+    // eslint-disable-next-line
+  }, [lojaSelecionada]);
 
   // Escolher template (stage 1) → carrega auditores permitidos pra ele
   const escolherTemplate = async (t) => {
@@ -935,6 +940,14 @@ export default function ChecklistAuditar() {
                   )}
                 </div>
 
+                {/* Aviso: se o template tem grupo configurado, o envio sera automatico */}
+                {templateSelecionado?.whatsapp_group_pdf_id && (
+                  <div className="rounded-lg p-3 mb-4 border-2 border-emerald-200 bg-emerald-50 text-xs text-emerald-800">
+                    💬 Ao finalizar, o PDF será enviado automaticamente para
+                    <strong> {templateSelecionado.whatsapp_group_pdf_name || 'o grupo WhatsApp configurado'}</strong>.
+                  </div>
+                )}
+
                 <div className="flex gap-2">
                   <button onClick={() => setStage('executar')}
                     className="flex-1 py-3 border-2 border-gray-200 bg-white rounded-lg font-semibold text-gray-700 hover:bg-gray-50">
@@ -977,10 +990,21 @@ export default function ChecklistAuditar() {
                   <div className="text-sm text-gray-500">
                     Meta: <strong>{meta.toFixed(0)}%</strong> · Score: <strong>{Number(resultadoFinal.score_final || 0).toFixed(2)}</strong> / {Number(resultadoFinal.score_max || 0).toFixed(2)}
                   </div>
-                  <button onClick={resetar}
-                    className="mt-5 w-full py-4 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg font-bold text-lg hover:shadow-lg hover:scale-[1.02] transition">
-                    🔁 Nova auditoria
-                  </button>
+                  {templateSelecionado?.whatsapp_group_pdf_id && (
+                    <div className="mt-3 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-2">
+                      💬 PDF enviado para <strong>{templateSelecionado.whatsapp_group_pdf_name || 'o grupo configurado'}</strong> no WhatsApp.
+                    </div>
+                  )}
+                  <div className="mt-5 flex flex-col sm:flex-row gap-2">
+                    <a href={`/api/checklist/inspections/${resultadoFinal.id}/pdf?token=${encodeURIComponent(localStorage.getItem('token') || '')}`} target="_blank" rel="noopener noreferrer"
+                      className="flex-1 py-3 bg-white border-2 border-teal-500 text-teal-600 rounded-lg font-bold text-sm hover:bg-teal-50 transition text-center">
+                      📄 Abrir PDF
+                    </a>
+                    <button onClick={resetar}
+                      className="flex-1 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg font-bold text-sm hover:shadow-lg hover:scale-[1.02] transition">
+                      🔁 Nova auditoria
+                    </button>
+                  </div>
                 </div>
               </div>
             );

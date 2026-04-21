@@ -29,6 +29,41 @@ export default function ChecklistQuestionModal({ sectionId, question, modelos, s
   const [erro, setErro] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Grupos WhatsApp disponiveis (para alternativas com generates_alert)
+  const [whatsappGroups, setWhatsappGroups] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('wa_groups_cache');
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
+  const [loadingGroups, setLoadingGroups] = useState(false);
+  const [groupsError, setGroupsError] = useState('');
+
+  const carregarGruposWA = async (forceRefresh = false) => {
+    if (!forceRefresh && whatsappGroups.length > 0) return;
+    setLoadingGroups(true);
+    setGroupsError('');
+    try {
+      const res = await api.get('/whatsapp/fetch-groups');
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        setWhatsappGroups(res.data.data);
+        try { sessionStorage.setItem('wa_groups_cache', JSON.stringify(res.data.data)); } catch {}
+      } else {
+        setGroupsError(res.data?.error || 'Nao foi possivel carregar os grupos.');
+      }
+    } catch (e) {
+      setGroupsError(e?.response?.data?.error || e.message || 'Erro ao carregar grupos');
+    } finally {
+      setLoadingGroups(false);
+    }
+  };
+
+  useEffect(() => {
+    // Carrega grupos ao abrir o modal, nao-bloqueante.
+    carregarGruposWA(false);
+    // eslint-disable-next-line
+  }, []);
+
   useEffect(() => {
     if (question) {
       setForm({
@@ -72,6 +107,8 @@ export default function ChecklistQuestionModal({ sectionId, question, modelos, s
           mostrar_relatorio: true,
           valor_override: null,
           com_lista: false,
+          whatsapp_group_id: null,
+          whatsapp_group_name: null,
         };
       });
       if (JSON.stringify(novoCfg) === JSON.stringify(cfgAtual)) return f;
@@ -134,6 +171,15 @@ export default function ChecklistQuestionModal({ sectionId, question, modelos, s
 
   const salvar = async () => {
     if (!form.texto.trim()) { setErro('Texto da pergunta obrigatório'); return; }
+
+    // Valida: toda alternativa com generates_alert precisa ter um grupo WhatsApp escolhido
+    const alertsSemGrupo = (form.alternativas_config || []).filter(c => c.generates_alert && !c.whatsapp_group_id);
+    if (alertsSemGrupo.length > 0) {
+      const ordens = alertsSemGrupo.map(c => c.ordem).join(', ');
+      setErro(`Alternativa(s) com alerta marcadas (ordem ${ordens}) precisam de um Grupo WhatsApp selecionado.`);
+      return;
+    }
+
     setSaving(true);
     try {
       if (question) {
@@ -373,6 +419,61 @@ export default function ChecklistQuestionModal({ sectionId, question, modelos, s
                             Com lista
                           </label>
                         </div>
+
+                        {/* Grupo WhatsApp (aparece so se generates_alert estiver marcado) */}
+                        {cfg.generates_alert && (
+                          <div className="px-3 py-2.5 bg-amber-50 border-b border-amber-200">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-amber-600">📣</span>
+                              <span className="text-xs font-semibold text-amber-800">
+                                Grupo WhatsApp para este alerta <span className="text-red-600">*</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => carregarGruposWA(true)}
+                                disabled={loadingGroups}
+                                title="Atualizar lista de grupos"
+                                className="ml-auto text-[11px] text-amber-700 hover:text-amber-900 font-medium disabled:opacity-50"
+                              >
+                                {loadingGroups ? 'Carregando…' : '🔄 Atualizar'}
+                              </button>
+                            </div>
+                            <select
+                              value={cfg.whatsapp_group_id || ''}
+                              onChange={e => {
+                                const groupId = e.target.value || null;
+                                const group = whatsappGroups.find(g => g.id === groupId);
+                                setForm(f => ({
+                                  ...f,
+                                  alternativas_config: f.alternativas_config.map(c =>
+                                    c.ordem === a.ordem
+                                      ? { ...c, whatsapp_group_id: groupId, whatsapp_group_name: group?.subject || null }
+                                      : c
+                                  ),
+                                }));
+                              }}
+                              className="w-full border border-amber-300 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                            >
+                              <option value="">— selecione o grupo —</option>
+                              {whatsappGroups.map(g => (
+                                <option key={g.id} value={g.id}>
+                                  {g.subject || 'Sem nome'}{g.size ? ` (${g.size})` : ''}
+                                </option>
+                              ))}
+                            </select>
+                            {groupsError && (
+                              <div className="mt-1 text-[11px] text-red-600">{groupsError}</div>
+                            )}
+                            {!loadingGroups && whatsappGroups.length === 0 && !groupsError && (
+                              <div className="mt-1 text-[11px] text-amber-700 italic">
+                                Nenhum grupo carregado. Clique em "Atualizar" para buscar da Evolution API.
+                              </div>
+                            )}
+                            <p className="mt-1 text-[11px] text-amber-700">
+                              Esta resposta dispara uma mensagem para o grupo escolhido com a pergunta, descrição e evidências.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

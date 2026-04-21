@@ -39,6 +39,13 @@ export class AuditTemplate {
   @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
   grupos_acesso_auditados: string[]; // array de employee IDs (uuid) liberados pra serem auditados
 
+  // Grupo WhatsApp para envio automatico do PDF quando uma auditoria deste template for finalizada
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  whatsapp_group_pdf_id: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  whatsapp_group_pdf_name: string | null;
+
   @Column({ type: 'varchar', length: 100, nullable: true })
   created_by: string | null;
 

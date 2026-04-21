@@ -1,23 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLoja } from '../../contexts/LojaContext';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import api from '../../utils/api';
 
 export default function ChecklistSetoresView() {
   const { user, logout } = useAuth();
+  const { lojaSelecionada } = useLoja();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [setores, setSetores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
 
-  useEffect(() => { carregar(); }, []);
+  useEffect(() => { carregar(); /* eslint-disable-next-line */ }, [lojaSelecionada]);
 
   const carregar = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/checklist/setores');
+      const qs = lojaSelecionada != null ? `?cod_loja=${lojaSelecionada}` : '';
+      const res = await api.get(`/checklist/setores${qs}`);
       setSetores(res.data?.setores || []);
     } catch (e) {
       setErro(e?.response?.data?.error || e.message);

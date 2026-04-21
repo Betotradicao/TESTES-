@@ -64,6 +64,36 @@ export class AuditAction {
   @Column({ name: 'concluido_por', type: 'uuid', nullable: true })
   concluido_por: string | null;
 
+  // Resolucao via link publico (tokenizado)
+  @Column({ type: 'varchar', length: 64, nullable: true, unique: true })
+  resolucao_token: string | null;
+
+  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  resolucao_historico: Array<{
+    tipo: 'previamente' | 'definitivamente';
+    mensagem: string;
+    autor: string;
+    timestamp: string;
+  }>;
+
+  // Origem do plano de acao: 'manual' ou 'alerta_auditoria'
+  @Column({ type: 'varchar', length: 30, default: 'manual' })
+  origem: 'manual' | 'alerta_auditoria';
+
+  // Rastro do grupo WhatsApp notificado
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  whatsapp_group_id: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  whatsapp_group_name: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  whatsapp_sent_at: Date | null;
+
+  // Pergunta que originou o alerta (referencia solta para facilitar PDF/dashboard)
+  @Column({ type: 'int', nullable: true })
+  question_id: number | null;
+
   @CreateDateColumn()
   created_at: Date;
 

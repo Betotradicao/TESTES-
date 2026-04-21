@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLoja } from '../../contexts/LojaContext';
 import Sidebar from '../../components/Sidebar';
 import api from '../../utils/api';
 import { AlternativaIcon } from './ChecklistIcons';
@@ -7,6 +8,7 @@ import ChecklistQuestionModal from './ChecklistQuestionModal';
 
 export default function ChecklistTemplates() {
   const { user, logout } = useAuth();
+  const { lojaSelecionada } = useLoja();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [modelos, setModelos] = useState([]);
@@ -18,7 +20,25 @@ export default function ChecklistTemplates() {
   const [sucesso, setSucesso] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [formData, setFormData] = useState({ nome: '', observacao: '', minimo_esperado: 95, ativo: true, grupos_acesso: [], grupos_acesso_auditados: [] });
+  const [formData, setFormData] = useState({ nome: '', observacao: '', minimo_esperado: 95, ativo: true, grupos_acesso: [], grupos_acesso_auditados: [], whatsapp_group_pdf_id: null, whatsapp_group_pdf_name: null });
+
+  // Grupos WhatsApp (para o seletor de envio do PDF no template)
+  const [whatsappGroups, setWhatsappGroups] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('wa_groups_cache') || '[]'); } catch { return []; }
+  });
+  const [loadingWaGroups, setLoadingWaGroups] = useState(false);
+  const carregarGruposWA = async (forceRefresh = false) => {
+    if (!forceRefresh && whatsappGroups.length > 0) return;
+    setLoadingWaGroups(true);
+    try {
+      const res = await api.get('/whatsapp/fetch-groups');
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        setWhatsappGroups(res.data.data);
+        try { sessionStorage.setItem('wa_groups_cache', JSON.stringify(res.data.data)); } catch {}
+      }
+    } catch {}
+    finally { setLoadingWaGroups(false); }
+  };
   const [questionModal, setQuestionModal] = useState(null); // { section_id, question|null }
   const [filtroStatus, setFiltroStatus] = useState('ativos'); // ativos | inativos | ambos
   const [autoSaveStatus, setAutoSaveStatus] = useState(''); // '', 'saving', 'saved'
@@ -27,20 +47,27 @@ export default function ChecklistTemplates() {
 
   useEffect(() => {
     carregar();
+    // eslint-disable-next-line
+  }, [lojaSelecionada]);
+
+  // Recarrega listas filtradas por loja sempre que a loja selecionada mudar
+  useEffect(() => {
+    const qs = lojaSelecionada != null ? `?cod_loja=${lojaSelecionada}` : '';
     Promise.all([
       api.get('/checklist/modelos').then(r => setModelos(r.data?.modelos || [])),
-      api.get('/checklist/auditores').then(r => setAuditores(r.data?.auditores || [])),
-      api.get('/checklist/auditados').then(r => setAuditados(r.data?.auditados || [])),
-      api.get('/checklist/setores').then(r => setSetores(r.data?.setores || [])),
+      api.get(`/checklist/auditores${qs}`).then(r => setAuditores(r.data?.auditores || [])),
+      api.get(`/checklist/auditados${qs}`).then(r => setAuditados(r.data?.auditados || [])),
+      api.get(`/checklist/setores${qs}`).then(r => setSetores(r.data?.setores || [])),
     ]).catch(() => {});
-  }, []);
+  }, [lojaSelecionada]);
 
   const flash = (txt) => { setSucesso(txt); setTimeout(() => setSucesso(''), 2500); };
 
   const carregar = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/checklist/templates');
+      const qs = lojaSelecionada != null ? `?cod_loja=${lojaSelecionada}` : '';
+      const res = await api.get(`/checklist/templates${qs}`);
       setTemplates(res.data?.templates || []);
     } catch (e) {
       setErro(e?.response?.data?.error || e.message);
@@ -51,8 +78,9 @@ export default function ChecklistTemplates() {
 
   const abrirNovo = () => {
     setEditing(null);
-    setFormData({ nome: '', observacao: '', minimo_esperado: 95, ativo: true, grupos_acesso: [], grupos_acesso_auditados: [] });
+    setFormData({ nome: '', observacao: '', minimo_esperado: 95, ativo: true, grupos_acesso: [], grupos_acesso_auditados: [], whatsapp_group_pdf_id: null, whatsapp_group_pdf_name: null });
     setShowForm(true);
+    carregarGruposWA(false);
   };
 
   const abrirEdicao = async (id) => {
@@ -68,8 +96,11 @@ export default function ChecklistTemplates() {
         ativo: t.ativo,
         grupos_acesso: Array.isArray(t.grupos_acesso) ? t.grupos_acesso : [],
         grupos_acesso_auditados: Array.isArray(t.grupos_acesso_auditados) ? t.grupos_acesso_auditados : [],
+        whatsapp_group_pdf_id: t.whatsapp_group_pdf_id || null,
+        whatsapp_group_pdf_name: t.whatsapp_group_pdf_name || null,
       });
       setShowForm(true);
+      carregarGruposWA(false);
     } catch (e) { setErro(e?.response?.data?.error || e.message); }
   };
 
@@ -96,11 +127,16 @@ export default function ChecklistTemplates() {
   const salvarTemplate = async () => {
     if (!formData.nome.trim()) { setErro('Nome obrigatório'); return; }
     try {
+      // Sempre envia cod_loja da loja atual (preserva no update se ja houver)
+      const payload = { ...formData };
+      if (!editing && lojaSelecionada != null) {
+        payload.cod_loja = lojaSelecionada;
+      }
       if (editing) {
-        await api.put(`/checklist/templates/${editing.id}`, formData);
+        await api.put(`/checklist/templates/${editing.id}`, payload);
         flash('Template atualizado');
       } else {
-        const res = await api.post('/checklist/templates', formData);
+        const res = await api.post('/checklist/templates', payload);
         setEditing({ ...res.data.template, sections: [] });
         flash('Template criado');
       }
@@ -302,6 +338,52 @@ export default function ChecklistTemplates() {
                     <textarea value={formData.observacao} onChange={e => setFormData({ ...formData, observacao: e.target.value })}
                       rows={2} className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                   </div>
+
+                  {/* Grupo WhatsApp para envio automatico do PDF da auditoria */}
+                  <div className="md:col-span-2">
+                    <div className="border-2 border-emerald-200 bg-emerald-50 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <span className="text-base">💬</span>
+                        <label className="text-xs font-semibold text-gray-800">
+                          Grupo WhatsApp para envio do PDF da auditoria
+                        </label>
+                        <span className="text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full font-semibold uppercase">Opcional</span>
+                        <button type="button" onClick={() => carregarGruposWA(true)} disabled={loadingWaGroups}
+                          className="ml-auto text-[11px] text-emerald-700 hover:text-emerald-900 font-medium disabled:opacity-50">
+                          {loadingWaGroups ? 'Carregando…' : '🔄 Atualizar'}
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-gray-600 mb-2">
+                        Ao finalizar qualquer auditoria deste roteiro, o PDF completo (com perguntas, respostas e evidências) será enviado automaticamente para o grupo escolhido.
+                      </p>
+                      <select
+                        value={formData.whatsapp_group_pdf_id || ''}
+                        onChange={e => {
+                          const id = e.target.value || null;
+                          const grp = whatsappGroups.find(g => g.id === id);
+                          setFormData({
+                            ...formData,
+                            whatsapp_group_pdf_id: id,
+                            whatsapp_group_pdf_name: grp?.subject || null,
+                          });
+                        }}
+                        onFocus={() => whatsappGroups.length === 0 && carregarGruposWA(false)}
+                        className="w-full border-2 border-emerald-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400">
+                        <option value="">— não enviar PDF automaticamente —</option>
+                        {whatsappGroups.map(g => (
+                          <option key={g.id} value={g.id}>
+                            {g.subject || 'Sem nome'}{g.size ? ` (${g.size})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      {!loadingWaGroups && whatsappGroups.length === 0 && (
+                        <p className="mt-1 text-[11px] text-emerald-700 italic">
+                          Nenhum grupo carregado. Clique em "Atualizar" para buscar da Evolution API.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
                   <div>
                     <label className="flex items-center gap-2">
                       <input type="checkbox" checked={formData.ativo} onChange={e => setFormData({ ...formData, ativo: e.target.checked })} className="w-4 h-4 text-teal-500" />

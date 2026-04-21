@@ -57,6 +57,7 @@ import GarimpaFornecedores from './pages/GarimpaFornecedores';
 import ChecklistTemplates from './pages/checklist/ChecklistTemplates';
 import ChecklistStub from './pages/checklist/ChecklistStub';
 import ChecklistDashboards from './pages/checklist/ChecklistDashboards';
+import AlertaResolucao from './pages/AlertaResolucao';
 import ChecklistSetoresView from './pages/checklist/ChecklistSetoresView';
 import ChecklistAuditoresView from './pages/checklist/ChecklistAuditoresView';
 import ChecklistModelos from './pages/checklist/ChecklistModelos';
@@ -121,6 +122,7 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/cotacao/:token" element={<CotacaoPublica />} />
+            <Route path="/alerta/:token" element={<AlertaResolucao />} />
 
             {/* Protected Routes */}
             <Route

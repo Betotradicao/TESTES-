@@ -273,6 +273,46 @@ export class WhatsAppService {
   }
 
   /**
+   * Envia documento via Buffer (sem precisar salvar arquivo em disco).
+   */
+  static async sendDocumentBuffer(
+    groupId: string,
+    buffer: Buffer,
+    fileName: string,
+    caption?: string
+  ): Promise<boolean> {
+    try {
+      const { apiToken, apiUrl, instance } = await this.validateEnvironment();
+      const base64 = buffer.toString('base64');
+      const url = `${apiUrl}/message/sendMedia/${encodeURIComponent(instance)}`;
+      const payload = {
+        number: groupId,
+        mediatype: 'document',
+        media: base64,
+        fileName,
+        caption: caption || '',
+      };
+      console.log(`📄 Enviando ${fileName} (${Math.round(base64.length / 1024)}kb b64) para ${groupId}...`);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': apiToken },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Evolution API Error:', errorText);
+        return false;
+      }
+      const result = await response.json();
+      console.log('✅ Documento enviado:', result);
+      return true;
+    } catch (error) {
+      console.error('❌ Erro ao enviar documento (buffer):', error);
+      return false;
+    }
+  }
+
+  /**
    * Busca todos os grupos do WhatsApp da instância configurada
    */
   static async fetchGroups(): Promise<any[]> {
