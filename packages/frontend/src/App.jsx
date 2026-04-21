@@ -517,6 +517,7 @@ function App() {
             />
             <Route path="/checklist/cadastros/templates" element={<ProtectedRoute><ChecklistTemplates /></ProtectedRoute>} />
             <Route path="/checklist/dashboards" element={<ProtectedRoute><ChecklistDashboards /></ProtectedRoute>} />
+            <Route path="/checklist/arvore-conhecimento" element={<ProtectedRoute><ChecklistStub titulo="Árvore do Conhecimento" descricao="Vídeos e materiais de apoio por função da loja" /></ProtectedRoute>} />
             <Route path="/checklist/auditar" element={<ProtectedRoute><ChecklistAuditar /></ProtectedRoute>} />
             <Route path="/checklist/finalizadas" element={<ProtectedRoute><ChecklistFinalizadas /></ProtectedRoute>} />
             <Route path="/checklist/planos-acao" element={<ProtectedRoute><ChecklistStub titulo="Planos de Ação" descricao="Planos de ação 5W2H gerados a partir das auditorias" /></ProtectedRoute>} />
