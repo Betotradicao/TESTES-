@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useLoja } from '../../contexts/LojaContext';
 import Sidebar from '../../components/Sidebar';
 import api from '../../utils/api';
+import { fetchAllCompanies, updateCompany, updateMyCompany } from '../../services/companies.service';
 
 export default function ChecklistDashboards() {
   const { user, logout } = useAuth();
@@ -13,7 +14,65 @@ export default function ChecklistDashboards() {
   const [erro, setErro] = useState('');
   const [dias, setDias] = useState(30);
 
+  // Estado da meta da loja selecionada (para engrenagem)
+  const [metaLoja, setMetaLoja] = useState(null); // { id, nome, meta, codLoja }
+  const [showMetaModal, setShowMetaModal] = useState(false);
+  const [metaInput, setMetaInput] = useState('95');
+  const [savingMeta, setSavingMeta] = useState(false);
+  const [metaErro, setMetaErro] = useState('');
+
   useEffect(() => { carregar(); /* eslint-disable-next-line */ }, [lojaSelecionada, dias]);
+  useEffect(() => { carregarMetaLoja(); /* eslint-disable-next-line */ }, [lojaSelecionada]);
+
+  const carregarMetaLoja = async () => {
+    if (lojaSelecionada == null) { setMetaLoja(null); return; }
+    try {
+      const companies = await fetchAllCompanies();
+      const c = companies.find(x => x.codLoja === lojaSelecionada);
+      if (c) {
+        setMetaLoja({ id: c.id, nome: c.nomeFantasia, meta: Number(c.metaChecklist) || 95, codLoja: c.codLoja });
+      } else {
+        setMetaLoja(null);
+      }
+    } catch {
+      setMetaLoja(null);
+    }
+  };
+
+  const abrirModalMeta = () => {
+    if (lojaSelecionada == null) {
+      alert('Selecione uma loja especifica (pelo menu lateral) para editar a meta.');
+      return;
+    }
+    setMetaErro('');
+    setMetaInput(String(metaLoja?.meta ?? 95));
+    setShowMetaModal(true);
+  };
+
+  const salvarMeta = async (e) => {
+    if (e) e.preventDefault();
+    setMetaErro('');
+    const val = parseFloat(String(metaInput).replace(',', '.'));
+    if (isNaN(val) || val < 0 || val > 100) {
+      setMetaErro('Informe um valor entre 0 e 100.');
+      return;
+    }
+    try {
+      setSavingMeta(true);
+      if (user?.isMaster && metaLoja?.id) {
+        await updateCompany(metaLoja.id, { metaChecklist: val });
+      } else {
+        await updateMyCompany({ metaChecklist: val });
+      }
+      setMetaLoja(m => m ? { ...m, meta: val } : m);
+      setShowMetaModal(false);
+      await carregar();
+    } catch (err) {
+      setMetaErro(err?.response?.data?.error || 'Erro ao salvar meta');
+    } finally {
+      setSavingMeta(false);
+    }
+  };
 
   const carregar = async () => {
     setLoading(true);
@@ -99,6 +158,17 @@ export default function ChecklistDashboards() {
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-xl">🎯</span>
                     <h3 className="font-bold text-gray-700">Desempenho Geral</h3>
+                    <button
+                      type="button"
+                      onClick={abrirModalMeta}
+                      title={lojaSelecionada != null ? `Editar meta da Loja ${lojaSelecionada}` : 'Selecione uma loja no menu para editar a meta'}
+                      className={`p-1.5 rounded-lg transition ${lojaSelecionada != null ? 'text-teal-600 hover:text-white hover:bg-teal-500' : 'text-gray-300 hover:text-gray-400 hover:bg-gray-100'}`}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      </svg>
+                    </button>
                     <span className="ml-auto text-xs text-gray-400">últimos {dias}d</span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -108,8 +178,13 @@ export default function ChecklistDashboards() {
                     </div>
                     <div>
                       <div className="text-xs uppercase text-gray-500 font-semibold">Média</div>
-                      <div className={`text-3xl font-extrabold mt-1 ${corPct(dados.desempenho.percentual_medio)}`}>
-                        {dados.desempenho.percentual_medio.toFixed(1)}%
+                      <div className="flex items-baseline gap-2 mt-1 flex-wrap">
+                        <span className={`text-3xl font-extrabold ${corPct(dados.desempenho.percentual_medio, metaLoja?.meta || 95)}`}>
+                          {dados.desempenho.percentual_medio.toFixed(1)}%
+                        </span>
+                        <span className="text-xs text-gray-500 font-semibold whitespace-nowrap">
+                          / meta {(metaLoja?.meta ?? 95).toFixed(0)}%
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -159,49 +234,6 @@ export default function ChecklistDashboards() {
                     </ul>
                   )}
                 </div>
-              </div>
-
-              {/* Ranking Colaboradores Auditados */}
-              <div className="bg-white border-2 border-gray-100 rounded-xl p-5 shadow-sm mb-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-2xl">🏆</span>
-                  <h3 className="font-bold text-gray-700 text-lg">Ranking — Colaboradores Auditados</h3>
-                  <span className="ml-auto text-xs text-gray-400">Média de conformidade nas auditorias em que foi avaliado</span>
-                </div>
-                {dados.ranking_auditados.length === 0 ? (
-                  <div className="text-sm text-gray-400 italic text-center py-6">Nenhum colaborador auditado no período</div>
-                ) : (
-                  <div className="space-y-2">
-                    {dados.ranking_auditados.map((a, i) => (
-                      <div key={a.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
-                        <div className="w-8 text-center text-lg font-bold text-gray-500 shrink-0">
-                          {medalha(i) || `${i + 1}º`}
-                        </div>
-                        {a.avatar ? (
-                          <img src={a.avatar} alt={a.nome} className="w-10 h-10 rounded-full object-cover border shrink-0" />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold shrink-0">
-                            {a.nome.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-gray-800 truncate">{a.nome}</div>
-                          <div className="text-xs text-gray-500">
-                            {a.total} auditoria(s){a.cod_loja != null && ` · Loja ${a.cod_loja}`}
-                          </div>
-                        </div>
-                        <div className="w-40 sm:w-56 shrink-0">
-                          <div className="flex justify-end mb-0.5">
-                            <span className={`font-bold ${corPct(a.media)}`}>{a.media.toFixed(1)}%</span>
-                          </div>
-                          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div className={`h-full ${bgBar(a.media)}`} style={{ width: `${Math.min(100, a.media)}%` }} />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
               {/* Heatmap Loja x Roteiro */}
@@ -302,6 +334,49 @@ export default function ChecklistDashboards() {
                 </div>
               </div>
 
+              {/* Ranking Colaboradores Auditados */}
+              <div className="bg-white border-2 border-gray-100 rounded-xl p-5 shadow-sm mb-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-2xl">🏆</span>
+                  <h3 className="font-bold text-gray-700 text-lg">Ranking — Colaboradores Auditados</h3>
+                  <span className="ml-auto text-xs text-gray-400">Média de conformidade nas auditorias em que foi avaliado</span>
+                </div>
+                {dados.ranking_auditados.length === 0 ? (
+                  <div className="text-sm text-gray-400 italic text-center py-6">Nenhum colaborador auditado no período</div>
+                ) : (
+                  <div className="space-y-2">
+                    {dados.ranking_auditados.map((a, i) => (
+                      <div key={a.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
+                        <div className="w-8 text-center text-lg font-bold text-gray-500 shrink-0">
+                          {medalha(i) || `${i + 1}º`}
+                        </div>
+                        {a.avatar ? (
+                          <img src={a.avatar} alt={a.nome} className="w-10 h-10 rounded-full object-cover border shrink-0" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold shrink-0">
+                            {a.nome.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-gray-800 truncate">{a.nome}</div>
+                          <div className="text-xs text-gray-500">
+                            {a.total} auditoria(s){a.cod_loja != null && ` · Loja ${a.cod_loja}`}
+                          </div>
+                        </div>
+                        <div className="w-40 sm:w-56 shrink-0">
+                          <div className="flex justify-end mb-0.5">
+                            <span className={`font-bold ${corPct(a.media)}`}>{a.media.toFixed(1)}%</span>
+                          </div>
+                          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div className={`h-full ${bgBar(a.media)}`} style={{ width: `${Math.min(100, a.media)}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Planos de Ação em Aberto — lista */}
               {dados.planos_acao.lista.length > 0 && (
                 <div className="bg-white border-2 border-gray-100 rounded-xl p-5 shadow-sm">
@@ -346,6 +421,69 @@ export default function ChecklistDashboards() {
           )}
         </div>
       </div>
+
+      {/* Modal de edicao da meta da loja */}
+      {showMetaModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-t-xl p-4 flex items-center gap-3">
+              <span className="text-2xl">🎯</span>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold">Meta de Conformidade</h3>
+                <p className="text-xs opacity-90 truncate">
+                  Loja {metaLoja?.codLoja} · {metaLoja?.nome || '—'}
+                </p>
+              </div>
+              <button onClick={() => setShowMetaModal(false)} className="text-white/80 hover:text-white">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={salvarMeta} className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Meta de conformidade (%)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={metaInput}
+                  onChange={(e) => setMetaInput(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-lg font-semibold"
+                  autoFocus
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Percentual mínimo esperado nas auditorias desta loja.
+                </p>
+              </div>
+              {metaErro && (
+                <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
+                  {metaErro}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowMetaModal(false)}
+                  className="flex-1 py-2.5 border-2 border-gray-200 bg-white rounded-lg font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingMeta}
+                  className="flex-1 py-2.5 rounded-lg font-bold text-white bg-gradient-to-r from-teal-500 to-emerald-500 hover:shadow-lg disabled:opacity-50"
+                >
+                  {savingMeta ? 'Salvando…' : 'Salvar meta'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
