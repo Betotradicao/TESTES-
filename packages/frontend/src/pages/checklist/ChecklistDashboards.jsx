@@ -48,7 +48,7 @@ export default function ChecklistDashboards() {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar user={user} onLogout={logout} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 min-w-0 overflow-auto overflow-x-hidden">
         <div className="bg-gradient-to-r from-teal-500 to-teal-600 text-white p-4 shadow">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-3 flex-1 min-w-0">
