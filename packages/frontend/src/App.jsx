@@ -56,6 +56,7 @@ import GestaoInteligente from './pages/GestaoInteligente';
 import GarimpaFornecedores from './pages/GarimpaFornecedores';
 import ChecklistTemplates from './pages/checklist/ChecklistTemplates';
 import ChecklistStub from './pages/checklist/ChecklistStub';
+import ChecklistDashboards from './pages/checklist/ChecklistDashboards';
 import ChecklistSetoresView from './pages/checklist/ChecklistSetoresView';
 import ChecklistAuditoresView from './pages/checklist/ChecklistAuditoresView';
 import ChecklistModelos from './pages/checklist/ChecklistModelos';
@@ -515,7 +516,7 @@ function App() {
               }
             />
             <Route path="/checklist/cadastros/templates" element={<ProtectedRoute><ChecklistTemplates /></ProtectedRoute>} />
-            <Route path="/checklist/dashboards" element={<ProtectedRoute><ChecklistStub titulo="Dashboards" descricao="Indicadores de conformidade por loja" /></ProtectedRoute>} />
+            <Route path="/checklist/dashboards" element={<ProtectedRoute><ChecklistDashboards /></ProtectedRoute>} />
             <Route path="/checklist/auditar" element={<ProtectedRoute><ChecklistAuditar /></ProtectedRoute>} />
             <Route path="/checklist/finalizadas" element={<ProtectedRoute><ChecklistFinalizadas /></ProtectedRoute>} />
             <Route path="/checklist/planos-acao" element={<ProtectedRoute><ChecklistStub titulo="Planos de Ação" descricao="Planos de ação 5W2H gerados a partir das auditorias" /></ProtectedRoute>} />
