@@ -21,6 +21,10 @@ export default function ChecklistQuestionModal({ sectionId, question, modelos, s
     setor_id: null,
     hora_inicio: '',
     hora_fim: '',
+    dias_semana: [],
+    dias_mes_especificos: [],
+    primeiro_dia_mes: false,
+    ultimo_dia_mes: false,
   });
   const [erro, setErro] = useState('');
   const [saving, setSaving] = useState(false);
@@ -39,6 +43,10 @@ export default function ChecklistQuestionModal({ sectionId, question, modelos, s
         setor_id: question.setor_id || null,
         hora_inicio: question.hora_inicio || '',
         hora_fim: question.hora_fim || '',
+        dias_semana: Array.isArray(question.dias_semana) ? question.dias_semana : [],
+        dias_mes_especificos: Array.isArray(question.dias_mes_especificos) ? question.dias_mes_especificos : [],
+        primeiro_dia_mes: !!question.primeiro_dia_mes,
+        ultimo_dia_mes: !!question.ultimo_dia_mes,
       });
     } else if (modelos[0] && !form.modelo_alternativa_id) {
       setForm(f => ({ ...f, modelo_alternativa_id: modelos[0].id }));
@@ -191,6 +199,88 @@ export default function ChecklistQuestionModal({ sectionId, question, modelos, s
                 </div>
                 <div className="text-[11px] text-amber-800 mt-2 italic">
                   💡 Após o horário final, a pergunta é preenchida automaticamente como <strong>não feito</strong>. Deixe em branco pra permitir a qualquer hora.
+                </div>
+              </div>
+
+              {/* Agendamento — Dias da Semana */}
+              <div className="mb-4 border-2 border-sky-200 bg-sky-50 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">📅</span>
+                  <div className="text-sm font-bold text-sky-900">Dias da Semana</div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { n: 1, l: 'Seg' }, { n: 2, l: 'Ter' }, { n: 3, l: 'Qua' },
+                    { n: 4, l: 'Qui' }, { n: 5, l: 'Sex' }, { n: 6, l: 'Sáb' }, { n: 0, l: 'Dom' },
+                  ].map(d => {
+                    const ativo = form.dias_semana.includes(d.n);
+                    return (
+                      <label key={d.n}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 cursor-pointer text-sm font-medium transition ${ativo ? 'bg-sky-500 text-white border-sky-600' : 'bg-white text-gray-700 border-gray-200 hover:border-sky-400'}`}>
+                        <input type="checkbox" checked={ativo} className="hidden"
+                          onChange={() => setForm(f => ({
+                            ...f,
+                            dias_semana: ativo ? f.dias_semana.filter(x => x !== d.n) : [...f.dias_semana, d.n],
+                          }))}
+                        />
+                        {d.l}
+                      </label>
+                    );
+                  })}
+                </div>
+                <div className="text-[11px] text-sky-800 mt-2 italic">
+                  💡 Deixe vazio pra aparecer todos os dias. Selecionados = pergunta só aparece nesses dias.
+                </div>
+              </div>
+
+              {/* Regras Especiais — Dias do Mês */}
+              <div className="mb-4 border-2 border-violet-200 bg-violet-50 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">📆</span>
+                  <div className="text-sm font-bold text-violet-900">Regras Especiais — Dias do Mês</div>
+                </div>
+
+                <div className="mb-2">
+                  <label className="block text-xs font-medium text-violet-800 mb-1">Dias específicos do mês (ex: 5, 10, 20)</label>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {form.dias_mes_especificos.map((d, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 bg-violet-500 text-white rounded px-2 py-1 text-xs font-semibold">
+                        Dia {d}
+                        <button type="button" onClick={() => setForm(f => ({ ...f, dias_mes_especificos: f.dias_mes_especificos.filter((_, idx) => idx !== i) }))}
+                          className="hover:text-violet-200">×</button>
+                      </span>
+                    ))}
+                    <input type="number" min="1" max="31" placeholder="Dia (1-31)"
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const v = parseInt(e.target.value);
+                          if (v >= 1 && v <= 31 && !form.dias_mes_especificos.includes(v)) {
+                            setForm(f => ({ ...f, dias_mes_especificos: [...f.dias_mes_especificos, v].sort((a, b) => a - b) }));
+                            e.target.value = '';
+                          }
+                        }
+                      }}
+                      className="border border-violet-300 rounded px-2 py-1 text-sm w-24 focus:outline-none focus:border-violet-500" />
+                    <span className="text-[11px] text-violet-700">Enter pra adicionar</span>
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2 cursor-pointer mt-2">
+                  <input type="checkbox" checked={form.primeiro_dia_mes}
+                    onChange={e => setForm({ ...form, primeiro_dia_mes: e.target.checked })}
+                    className="w-4 h-4 accent-violet-500" />
+                  <span className="text-sm text-violet-900"><strong>Primeiro dia do mês</strong></span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer mt-1">
+                  <input type="checkbox" checked={form.ultimo_dia_mes}
+                    onChange={e => setForm({ ...form, ultimo_dia_mes: e.target.checked })}
+                    className="w-4 h-4 accent-violet-500" />
+                  <span className="text-sm text-violet-900"><strong>Último dia do mês</strong></span>
+                </label>
+
+                <div className="text-[11px] text-violet-800 mt-2 italic">
+                  💡 Se qualquer regra especial (dia específico / primeiro / último) estiver marcada, a pergunta só aparece nesses dias — mesmo se fora dos "dias da semana" acima.
                 </div>
               </div>
 

@@ -65,6 +65,7 @@ export class ChecklistController {
   static async criarTemplate(req: Request, res: Response) {
     try {
       const { nome, descricao, observacao, cod_loja, ativo, minimo_esperado, grupos_acesso,
+              grupos_acesso_auditados,
               prazo_alta_horas, prazo_media_dias, prazo_baixa_dias, created_by } = req.body;
       if (!nome) return res.status(400).json({ success: false, error: 'Campo "nome" obrigatorio' });
       const repo = AppDataSource.getRepository(AuditTemplate);
@@ -73,6 +74,7 @@ export class ChecklistController {
         ativo: ativo !== false,
         minimo_esperado: minimo_esperado ?? 95,
         grupos_acesso: Array.isArray(grupos_acesso) ? grupos_acesso : [],
+        grupos_acesso_auditados: Array.isArray(grupos_acesso_auditados) ? grupos_acesso_auditados : [],
         prazo_alta_horas: prazo_alta_horas || 24,
         prazo_media_dias: prazo_media_dias || 7,
         prazo_baixa_dias: prazo_baixa_dias || 30,
@@ -93,6 +95,7 @@ export class ChecklistController {
       const t = await repo.findOne({ where: { id } });
       if (!t) return res.status(404).json({ success: false, error: 'Template nao encontrado' });
       const { nome, descricao, observacao, cod_loja, ativo, minimo_esperado, grupos_acesso,
+              grupos_acesso_auditados,
               prazo_alta_horas, prazo_media_dias, prazo_baixa_dias } = req.body;
       if (nome !== undefined) t.nome = nome;
       if (descricao !== undefined) t.descricao = descricao;
@@ -101,6 +104,7 @@ export class ChecklistController {
       if (ativo !== undefined) t.ativo = ativo;
       if (minimo_esperado !== undefined) t.minimo_esperado = minimo_esperado;
       if (grupos_acesso !== undefined) t.grupos_acesso = Array.isArray(grupos_acesso) ? grupos_acesso : [];
+      if (grupos_acesso_auditados !== undefined) t.grupos_acesso_auditados = Array.isArray(grupos_acesso_auditados) ? grupos_acesso_auditados : [];
       if (prazo_alta_horas !== undefined) t.prazo_alta_horas = prazo_alta_horas;
       if (prazo_media_dias !== undefined) t.prazo_media_dias = prazo_media_dias;
       if (prazo_baixa_dias !== undefined) t.prazo_baixa_dias = prazo_baixa_dias;
@@ -193,7 +197,8 @@ export class ChecklistController {
       const section_id = parseInt(req.params.sectionId);
       const { texto, tipo, criticidade, peso, foto_obrigatoria, opcoes, ordem,
               modelo_alternativa_id, alternativas_config, imagens_referencia,
-              hora_inicio, hora_fim } = req.body;
+              hora_inicio, hora_fim,
+              dias_semana, dias_mes_especificos, primeiro_dia_mes, ultimo_dia_mes } = req.body;
       if (!texto) return res.status(400).json({ success: false, error: 'Campo "texto" obrigatorio' });
       const repo = AppDataSource.getRepository(AuditTemplateQuestion);
       const q = repo.create({
@@ -210,6 +215,10 @@ export class ChecklistController {
         imagens_referencia: Array.isArray(imagens_referencia) ? imagens_referencia : [],
         hora_inicio: hora_inicio || null,
         hora_fim: hora_fim || null,
+        dias_semana: Array.isArray(dias_semana) ? dias_semana : [],
+        dias_mes_especificos: Array.isArray(dias_mes_especificos) ? dias_mes_especificos : [],
+        primeiro_dia_mes: !!primeiro_dia_mes,
+        ultimo_dia_mes: !!ultimo_dia_mes,
       });
       await repo.save(q);
       res.json({ success: true, question: q });
@@ -227,7 +236,8 @@ export class ChecklistController {
       if (!q) return res.status(404).json({ success: false, error: 'Pergunta nao encontrada' });
       const { texto, tipo, criticidade, peso, foto_obrigatoria, opcoes, ordem,
               modelo_alternativa_id, alternativas_config, imagens_referencia,
-              hora_inicio, hora_fim } = req.body;
+              hora_inicio, hora_fim,
+              dias_semana, dias_mes_especificos, primeiro_dia_mes, ultimo_dia_mes } = req.body;
       if (texto !== undefined) q.texto = texto;
       if (tipo !== undefined) q.tipo = tipo;
       if (criticidade !== undefined) q.criticidade = criticidade;
@@ -240,6 +250,10 @@ export class ChecklistController {
       if (imagens_referencia !== undefined) q.imagens_referencia = Array.isArray(imagens_referencia) ? imagens_referencia : [];
       if (hora_inicio !== undefined) q.hora_inicio = hora_inicio || null;
       if (hora_fim !== undefined) q.hora_fim = hora_fim || null;
+      if (dias_semana !== undefined) q.dias_semana = Array.isArray(dias_semana) ? dias_semana : [];
+      if (dias_mes_especificos !== undefined) q.dias_mes_especificos = Array.isArray(dias_mes_especificos) ? dias_mes_especificos : [];
+      if (primeiro_dia_mes !== undefined) q.primeiro_dia_mes = !!primeiro_dia_mes;
+      if (ultimo_dia_mes !== undefined) q.ultimo_dia_mes = !!ultimo_dia_mes;
       await repo.save(q);
       res.json({ success: true, question: q });
     } catch (e: any) {

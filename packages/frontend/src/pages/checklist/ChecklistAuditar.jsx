@@ -21,8 +21,8 @@ export default function ChecklistAuditar() {
   const { lojaSelecionada } = useLoja();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Stage state
-  const [stage, setStage] = useState('auditor'); // auditor | templates | iniciar | executar | finalizar | fim
+  // Stage state — fluxo: template → auditor → iniciar → executar → finalizar → fim
+  const [stage, setStage] = useState('template');
   const [erro, setErro] = useState('');
 
   // Stage: auditor
@@ -56,58 +56,104 @@ export default function ChecklistAuditar() {
   // Camera capture: { questionId } ou null
   const [cameraPara, setCameraPara] = useState(null);
 
-  // Carrega modelos uma vez
+  // Carrega modelos e templates disponíveis
   useEffect(() => {
     (async () => {
       try {
-        const m = await api.get('/checklist/modelos');
+        const [m, t] = await Promise.all([
+          api.get('/checklist/modelos'),
+          api.get('/checklist/templates'),
+        ]);
         setModelos(m.data?.modelos || []);
+        setTemplates((t.data?.templates || []).filter(tpl => tpl.ativo !== false));
       } catch (e) { setErro(e?.response?.data?.error || e.message); }
     })();
   }, []);
 
-  // Recarrega auditores sempre que a loja mudar
-  useEffect(() => {
-    (async () => {
-      try {
-        const qs = lojaSelecionada != null ? `?cod_loja=${lojaSelecionada}` : '';
-        const a = await api.get(`/checklist/auditores${qs}`);
-        setAuditores(a.data?.auditores || []);
-      } catch (e) { setErro(e?.response?.data?.error || e.message); }
-    })();
-  }, [lojaSelecionada]);
+  // Escolher template (stage 1) → carrega auditores permitidos pra ele
+  const escolherTemplate = async (t) => {
+    setTemplateSelecionado(t);
+    try {
+      const qs = lojaSelecionada != null ? `?cod_loja=${lojaSelecionada}` : '';
+      const res = await api.get(`/checklist/auditores${qs}`);
+      let lista = res.data?.auditores || [];
+      // Filtrar pelos grupos_acesso do template (se definido)
+      const permitidos = Array.isArray(t.grupos_acesso) ? t.grupos_acesso : [];
+      if (permitidos.length > 0) {
+        lista = lista.filter(a => permitidos.includes(a.id));
+      }
+      setAuditores(lista);
+      setAuditorId('');
+      setAuditorSelecionado(null);
+      setStage('auditor');
+      setErro('');
+    } catch (e) { setErro(e?.response?.data?.error || e.message); }
+  };
 
+  // Confirmar auditor (stage 2) → carrega auditados permitidos pelo template
   const confirmarAuditor = async () => {
     if (!auditorId) { setErro('Selecione um auditor'); return; }
     const aud = auditores.find(x => x.id === auditorId);
     setAuditorSelecionado(aud);
     try {
-      const res = await api.get(`/checklist/templates?auditor_id=${auditorId}`);
-      setTemplates(res.data?.templates || []);
-      setStage('templates');
+      const qs = lojaSelecionada != null ? `?cod_loja=${lojaSelecionada}` : '';
+      const res = await api.get(`/checklist/auditados${qs}`);
+      let lista = res.data?.auditados || [];
+      const permitidos = Array.isArray(templateSelecionado?.grupos_acesso_auditados)
+        ? templateSelecionado.grupos_acesso_auditados : [];
+      if (permitidos.length > 0) {
+        lista = lista.filter(a => permitidos.includes(a.id));
+      }
+      setAuditados(lista);
+      setCodLoja(
+        lojaSelecionada != null
+          ? String(lojaSelecionada)
+          : (aud?.cod_loja ? String(aud.cod_loja) : '')
+      );
+      setStage('iniciar');
       setErro('');
     } catch (e) { setErro(e?.response?.data?.error || e.message); }
   };
 
-  const voltarAuditor = () => {
-    setStage('auditor');
-    setTemplates([]);
+  const voltarTemplate = () => {
+    setStage('template');
+    setAuditorId('');
     setAuditorSelecionado(null);
+    setTemplateSelecionado(null);
   };
 
-  const escolherTemplate = async (t) => {
-    setTemplateSelecionado(t);
-    try {
-      const qs = lojaSelecionada != null ? `?cod_loja=${lojaSelecionada}` : '';
-      const res = await api.get(`/checklist/auditados${qs}`);
-      setAuditados(res.data?.auditados || []);
-      setCodLoja(
-        lojaSelecionada != null
-          ? String(lojaSelecionada)
-          : (auditorSelecionado?.cod_loja ? String(auditorSelecionado.cod_loja) : '')
-      );
-      setStage('iniciar');
-    } catch (e) { setErro(e?.response?.data?.error || e.message); }
+  const voltarAuditor = () => {
+    setStage('auditor');
+  };
+
+  // Dado o dia de hoje, retorna true se a pergunta deve aparecer
+  const perguntaAplicaHoje = (q) => {
+    const agora = new Date();
+    const diaSemana = agora.getDay(); // 0=Dom, 1=Seg, ..., 6=Sab
+    const diaMes = agora.getDate();
+    const ultimoDiaDoMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0).getDate();
+    const ehUltimoDia = diaMes === ultimoDiaDoMes;
+    const ehPrimeiroDia = diaMes === 1;
+
+    const ds = Array.isArray(q.dias_semana) ? q.dias_semana : [];
+    const dm = Array.isArray(q.dias_mes_especificos) ? q.dias_mes_especificos : [];
+    const pdm = !!q.primeiro_dia_mes;
+    const udm = !!q.ultimo_dia_mes;
+
+    // Tem regra especial de dia-do-mes?
+    const temRegraMes = dm.length > 0 || pdm || udm;
+    if (temRegraMes) {
+      if (dm.includes(diaMes)) return true;
+      if (pdm && ehPrimeiroDia) return true;
+      if (udm && ehUltimoDia) return true;
+      // So aplica outras regras de semana SE houver
+      if (ds.length > 0) return ds.includes(diaSemana);
+      return false;
+    }
+    // Sem regra especial → verifica dias da semana (se tiver)
+    if (ds.length > 0) return ds.includes(diaSemana);
+    // Sem nenhuma regra → aparece sempre
+    return true;
   };
 
   const iniciarInspection = async () => {
@@ -162,8 +208,11 @@ export default function ChecklistAuditar() {
   const totalPerguntas = useMemo(() => {
     if (!inspection?.template?.sections) return 0;
     let total = 0;
-    for (const s of inspection.template.sections) total += (s.questions || []).length;
+    for (const s of inspection.template.sections) {
+      total += (s.questions || []).filter(perguntaAplicaHoje).length;
+    }
     return total;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inspection]);
 
   // Contadores por tipo de resposta
@@ -338,10 +387,9 @@ export default function ChecklistAuditar() {
   };
 
   const resetar = () => {
-    setStage('auditor');
+    setStage('template');
     setAuditorId('');
     setAuditorSelecionado(null);
-    setTemplates([]);
     setTemplateSelecionado(null);
     setInspection(null);
     setRespostas({});
@@ -355,57 +403,43 @@ export default function ChecklistAuditar() {
     <div className="flex h-screen bg-gray-50">
       <Sidebar user={user} onLogout={logout} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
       <div className="flex-1 overflow-auto">
-        <div className="bg-gradient-to-r from-teal-500 to-teal-600 text-white p-4 sticky top-0 z-20 shadow">
-          <h1 className="text-xl font-bold">✅ Auditar</h1>
-          {auditorSelecionado && (
-            <div className="text-xs opacity-90 mt-1">
-              Auditor: <strong>{auditorSelecionado.name}</strong>
-              {templateSelecionado && <> — Roteiro: <strong>{templateSelecionado.nome}</strong></>}
+        <div className="bg-gradient-to-r from-teal-500 to-teal-600 text-white p-4 shadow">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setIsMobileMenuOpen(true)}
+              className="lg:hidden bg-white/20 hover:bg-white/30 rounded-lg p-2 transition"
+              title="Abrir menu">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+              </svg>
+            </button>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-bold">✅ Auditar</h1>
+              {auditorSelecionado && (
+                <div className="text-xs opacity-90 mt-1 truncate">
+                  Auditor: <strong>{auditorSelecionado.name}</strong>
+                  {templateSelecionado && <> — Roteiro: <strong>{templateSelecionado.nome}</strong></>}
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
         <div className="p-4 max-w-3xl mx-auto">
           {erro && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">{erro}</div>}
 
-          {/* STAGE 1: selecionar auditor */}
-          {stage === 'auditor' && (
-            <div className="bg-white border-2 border-teal-200 rounded-xl p-6 shadow-lg">
-              <div className="text-5xl mb-3 text-center">👤</div>
-              <h2 className="text-2xl font-bold text-center text-gray-800 mb-1">Quem está auditando?</h2>
-              <p className="text-sm text-gray-500 text-center mb-5">Selecione o auditor responsável por esta verificação.</p>
-              <select value={auditorId} onChange={e => setAuditorId(e.target.value)}
-                className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition">
-                <option value="">— Selecione um auditor —</option>
-                {auditores.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
-              {auditores.length === 0 && (
-                <div className="mt-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  ⚠️ Nenhum auditor liberado{lojaSelecionada != null ? ` para a Loja ${lojaSelecionada}` : ''}. Marque "Pode auditar" no cadastro de colaboradores.
-                </div>
-              )}
-              <button onClick={confirmarAuditor} disabled={!auditorId}
-                className={`mt-5 w-full py-4 rounded-lg font-bold text-lg transition ${!auditorId ? 'bg-gray-200 text-gray-400' : 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white hover:shadow-lg hover:scale-[1.02]'}`}>
-                🚀 Continuar
-              </button>
-            </div>
-          )}
-
-          {/* STAGE 2: escolher template */}
-          {stage === 'templates' && (
+          {/* STAGE 1: escolher template (roteiro) */}
+          {stage === 'template' && (
             <div>
-              <button onClick={voltarAuditor} className="text-sm text-teal-600 hover:text-teal-800 mb-3 flex items-center gap-1 font-medium">← Trocar auditor</button>
-
               {/* Header colorido */}
               <div className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-xl p-5 mb-4 shadow-md">
                 <div className="flex items-center gap-3">
                   <div className="text-4xl">📋</div>
                   <div>
-                    <h2 className="text-xl font-bold">Roteiros disponíveis</h2>
+                    <h2 className="text-xl font-bold">Qual auditoria?</h2>
                     <p className="text-sm opacity-90">
                       {templates.length > 0
-                        ? `${templates.length} roteiro(s) liberado(s) para ${auditorSelecionado?.name || 'você'}`
-                        : 'Nenhum roteiro liberado para este auditor'}
+                        ? `${templates.length} roteiro(s) disponível(eis)`
+                        : 'Nenhum roteiro disponível'}
                     </p>
                   </div>
                 </div>
@@ -414,8 +448,8 @@ export default function ChecklistAuditar() {
               {templates.length === 0 ? (
                 <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-8 text-center">
                   <div className="text-5xl mb-2">🔍</div>
-                  <div className="text-amber-800 font-semibold">Sem roteiros disponíveis</div>
-                  <div className="text-sm text-amber-700 mt-1">Peça pro administrador liberar um template em Cadastros → Templates.</div>
+                  <div className="text-amber-800 font-semibold">Sem roteiros ativos</div>
+                  <div className="text-sm text-amber-700 mt-1">Crie um template em Cadastros → Templates.</div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -460,10 +494,44 @@ export default function ChecklistAuditar() {
             </div>
           )}
 
+          {/* STAGE 2: selecionar auditor (filtrado pelo template) */}
+          {stage === 'auditor' && (
+            <div>
+              <button onClick={voltarTemplate} className="text-sm text-teal-600 hover:text-teal-800 mb-3 flex items-center gap-1 font-medium">← Trocar roteiro</button>
+
+              <div className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-xl p-5 mb-4 shadow-md">
+                <div className="flex items-center gap-3">
+                  <div className="text-4xl">👤</div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-xl font-bold">Quem está auditando?</h2>
+                    <p className="text-sm opacity-90 truncate">Roteiro: <strong>{templateSelecionado?.nome}</strong></p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white border-2 border-teal-200 rounded-xl p-5 shadow-sm">
+                <select value={auditorId} onChange={e => setAuditorId(e.target.value)}
+                  className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition">
+                  <option value="">— Selecione um auditor —</option>
+                  {auditores.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+                {auditores.length === 0 && (
+                  <div className="mt-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    ⚠️ Nenhum auditor liberado pra este roteiro{lojaSelecionada != null ? ` na Loja ${lojaSelecionada}` : ''}. Ajuste em <strong>Templates → Grupos de Acesso — Auditores</strong>.
+                  </div>
+                )}
+                <button onClick={confirmarAuditor} disabled={!auditorId}
+                  className={`mt-4 w-full py-4 rounded-lg font-bold text-lg transition ${!auditorId ? 'bg-gray-200 text-gray-400' : 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white hover:shadow-lg hover:scale-[1.02]'}`}>
+                  🚀 Continuar
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* STAGE 3: iniciar (auditado + loja) */}
           {stage === 'iniciar' && (
             <div>
-              <button onClick={() => setStage('templates')} className="text-sm text-teal-600 hover:text-teal-800 mb-3 flex items-center gap-1 font-medium">← Trocar roteiro</button>
+              <button onClick={voltarAuditor} className="text-sm text-teal-600 hover:text-teal-800 mb-3 flex items-center gap-1 font-medium">← Trocar auditor</button>
 
               <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl p-5 mb-4 shadow-md">
                 <div className="flex items-center gap-3">
@@ -577,10 +645,20 @@ export default function ChecklistAuditar() {
 
               {/* Perguntas da seção */}
               <div className="space-y-4">
-                {(currentSection.questions || []).length === 0 && (
-                  <div className="text-center text-gray-500 italic py-8">Sem perguntas nesta seção</div>
-                )}
-                {(currentSection.questions || []).map((q, qIdx) => {
+                {(() => {
+                  const perguntasVisiveis = (currentSection.questions || []).filter(perguntaAplicaHoje);
+                  if (perguntasVisiveis.length === 0) {
+                    return (
+                      <div className="text-center text-gray-500 italic py-8">
+                        {(currentSection.questions || []).length === 0
+                          ? 'Sem perguntas nesta seção'
+                          : 'Nenhuma pergunta desta seção se aplica ao dia de hoje'}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+                {(currentSection.questions || []).filter(perguntaAplicaHoje).map((q, qIdx) => {
                   const modelo = modelos.find(m => m.id === q.modelo_alternativa_id);
                   const resp = respostas[q.id] || {};
                   // Verifica se a pergunta está fora do horário permitido (auto "não feito")
@@ -764,7 +842,7 @@ export default function ChecklistAuditar() {
               </div>
 
               {/* Navegação */}
-              <div className="flex gap-2 mt-5 sticky bottom-0 bg-gray-50 pt-3 pb-4">
+              <div className="flex gap-2 mt-5 pt-3 pb-4">
                 <button onClick={secaoAnterior} disabled={sectionIdx === 0}
                   className={`flex-1 py-3 rounded font-medium ${sectionIdx === 0 ? 'bg-gray-200 text-gray-400' : 'bg-white border hover:bg-gray-50'}`}>
                   ← Anterior

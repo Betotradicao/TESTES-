@@ -65,6 +65,19 @@ export class AuditTemplateQuestion {
   @Column({ type: 'varchar', length: 5, nullable: true })
   hora_fim: string | null;
 
+  // Regras de agendamento (quando a pergunta aparece). Se TODAS vazias/false = aparece sempre.
+  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  dias_semana: number[]; // 0=Dom, 1=Seg, ..., 6=Sab
+
+  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  dias_mes_especificos: number[]; // 1-31
+
+  @Column({ type: 'boolean', default: false })
+  primeiro_dia_mes: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  ultimo_dia_mes: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 }

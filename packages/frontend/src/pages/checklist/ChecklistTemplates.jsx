@@ -11,13 +11,14 @@ export default function ChecklistTemplates() {
   const [templates, setTemplates] = useState([]);
   const [modelos, setModelos] = useState([]);
   const [auditores, setAuditores] = useState([]);
+  const [auditados, setAuditados] = useState([]);
   const [setores, setSetores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [formData, setFormData] = useState({ nome: '', observacao: '', minimo_esperado: 95, ativo: true, grupos_acesso: [] });
+  const [formData, setFormData] = useState({ nome: '', observacao: '', minimo_esperado: 95, ativo: true, grupos_acesso: [], grupos_acesso_auditados: [] });
   const [questionModal, setQuestionModal] = useState(null); // { section_id, question|null }
   const [filtroStatus, setFiltroStatus] = useState('ativos'); // ativos | inativos | ambos
   const [autoSaveStatus, setAutoSaveStatus] = useState(''); // '', 'saving', 'saved'
@@ -29,6 +30,7 @@ export default function ChecklistTemplates() {
     Promise.all([
       api.get('/checklist/modelos').then(r => setModelos(r.data?.modelos || [])),
       api.get('/checklist/auditores').then(r => setAuditores(r.data?.auditores || [])),
+      api.get('/checklist/auditados').then(r => setAuditados(r.data?.auditados || [])),
       api.get('/checklist/setores').then(r => setSetores(r.data?.setores || [])),
     ]).catch(() => {});
   }, []);
@@ -49,7 +51,7 @@ export default function ChecklistTemplates() {
 
   const abrirNovo = () => {
     setEditing(null);
-    setFormData({ nome: '', observacao: '', minimo_esperado: 95, ativo: true, grupos_acesso: [] });
+    setFormData({ nome: '', observacao: '', minimo_esperado: 95, ativo: true, grupos_acesso: [], grupos_acesso_auditados: [] });
     setShowForm(true);
   };
 
@@ -65,6 +67,7 @@ export default function ChecklistTemplates() {
         minimo_esperado: Number(t.minimo_esperado) || 95,
         ativo: t.ativo,
         grupos_acesso: Array.isArray(t.grupos_acesso) ? t.grupos_acesso : [],
+        grupos_acesso_auditados: Array.isArray(t.grupos_acesso_auditados) ? t.grupos_acesso_auditados : [],
       });
       setShowForm(true);
     } catch (e) { setErro(e?.response?.data?.error || e.message); }
@@ -160,15 +163,34 @@ export default function ChecklistTemplates() {
     }));
   };
 
+  const toggleGrupoAuditados = (empId) => {
+    setFormData(fd => ({
+      ...fd,
+      grupos_acesso_auditados: fd.grupos_acesso_auditados.includes(empId)
+        ? fd.grupos_acesso_auditados.filter(x => x !== empId)
+        : [...fd.grupos_acesso_auditados, empId],
+    }));
+  };
+
   const getModeloDaQuestao = (q) => modelos.find(m => m.id === q.modelo_alternativa_id);
 
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar user={user} onLogout={logout} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
       <div className="flex-1 overflow-auto">
-        <div className="bg-gradient-to-r from-teal-500 to-teal-600 text-white p-5">
-          <h1 className="text-2xl font-bold">✅ Check List no Radar — Templates</h1>
-          <p className="text-sm opacity-90">Roteiros de auditoria (seções e perguntas)</p>
+        <div className="bg-gradient-to-r from-teal-500 to-teal-600 text-white p-4 shadow">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setIsMobileMenuOpen(true)}
+              className="lg:hidden bg-white/20 hover:bg-white/30 rounded-lg p-2 transition">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+              </svg>
+            </button>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold">✅ Templates</h1>
+              <p className="text-xs sm:text-sm opacity-90">Roteiros de auditoria (seções e perguntas)</p>
+            </div>
+          </div>
         </div>
 
         <div className="p-6">
@@ -286,7 +308,7 @@ export default function ChecklistTemplates() {
 
                 {/* Grupos de acesso — auditores liberados a aplicar este questionário */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Grupos de Acesso (auditores que podem aplicar)</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">👤 Grupos de Acesso — Auditores (podem aplicar)</label>
                   <div className="border rounded bg-white p-2 max-h-36 overflow-auto">
                     {auditores.length === 0 ? (
                       <div className="text-xs text-gray-500 italic p-2">
@@ -308,6 +330,33 @@ export default function ChecklistTemplates() {
                     {formData.grupos_acesso.length > 0
                       ? `${formData.grupos_acesso.length} auditor(es) selecionado(s)`
                       : 'Nenhum — se vazio, qualquer auditor pode aplicar'}
+                  </div>
+                </div>
+
+                {/* Grupos de acesso — auditados liberados a serem avaliados neste questionário */}
+                <div className="mt-3">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">👥 Grupos de Acesso — Auditados (podem ser avaliados)</label>
+                  <div className="border rounded bg-white p-2 max-h-36 overflow-auto">
+                    {auditados.length === 0 ? (
+                      <div className="text-xs text-gray-500 italic p-2">
+                        Nenhum colaborador liberado. Libere em <strong>Configurações → Colaboradores</strong> com a flag "Pode ser auditado".
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
+                        {auditados.map(a => (
+                          <label key={a.id} className="flex items-center gap-2 text-sm p-1.5 hover:bg-gray-50 cursor-pointer rounded">
+                            <input type="checkbox" checked={formData.grupos_acesso_auditados.includes(a.id)} onChange={() => toggleGrupoAuditados(a.id)}
+                              className="w-4 h-4 text-teal-500" />
+                            <span>{a.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {formData.grupos_acesso_auditados.length > 0
+                      ? `${formData.grupos_acesso_auditados.length} auditado(s) selecionado(s)`
+                      : 'Nenhum — se vazio, qualquer colaborador auditado aparece'}
                   </div>
                 </div>
 

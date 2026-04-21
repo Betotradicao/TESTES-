@@ -34,7 +34,10 @@ export class AuditTemplate {
   observacao: string | null;
 
   @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
-  grupos_acesso: string[]; // array de employee IDs (uuid) com permissao de aplicar
+  grupos_acesso: string[]; // array de employee IDs (uuid) com permissao de aplicar (auditores)
+
+  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  grupos_acesso_auditados: string[]; // array de employee IDs (uuid) liberados pra serem auditados
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   created_by: string | null;

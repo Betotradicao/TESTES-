@@ -106,9 +106,19 @@ export default function ChecklistFinalizadas() {
     <div className="flex h-screen bg-gray-50">
       <Sidebar user={user} onLogout={logout} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
       <div className="flex-1 overflow-auto">
-        <div className="bg-gradient-to-r from-teal-500 to-teal-600 text-white p-5">
-          <h1 className="text-2xl font-bold">✅ Auditorias Finalizadas</h1>
-          <p className="text-sm opacity-90">Histórico de auditorias concluídas</p>
+        <div className="bg-gradient-to-r from-teal-500 to-teal-600 text-white p-4 shadow">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setIsMobileMenuOpen(true)}
+              className="lg:hidden bg-white/20 hover:bg-white/30 rounded-lg p-2 transition">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+              </svg>
+            </button>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold">✅ Auditorias Finalizadas</h1>
+              <p className="text-xs sm:text-sm opacity-90">Histórico de auditorias concluídas</p>
+            </div>
+          </div>
         </div>
 
         <div className="p-4 sm:p-6">
@@ -303,7 +313,7 @@ export default function ChecklistFinalizadas() {
                                     {carregandoDet[i.id] ? (
                                       <div className="text-sm text-gray-500 italic">Carregando perguntas…</div>
                                     ) : det ? (
-                                      <DetalhesInspection det={det} onFoto={setLightbox} />
+                                      <DetalhesInspection det={det} onFoto={setLightbox} tiposResposta={tiposResposta} />
                                     ) : (
                                       <div className="text-sm text-gray-500 italic">Sem dados.</div>
                                     )}
@@ -351,8 +361,9 @@ export default function ChecklistFinalizadas() {
 
 /**
  * Renderiza as secoes/perguntas com as respostas dadas na auditoria.
+ * Se tiposResposta tiver itens, filtra apenas as perguntas que casam com os tipos.
  */
-function DetalhesInspection({ det, onFoto }) {
+function DetalhesInspection({ det, onFoto, tiposResposta = [] }) {
   const inspection = det.inspection;
   const template = det.template;
   const responses = inspection?.responses || [];
@@ -365,16 +376,47 @@ function DetalhesInspection({ det, onFoto }) {
     : conforme === 'NA' ? 'bg-sky-100 text-sky-700 border-sky-300'
     : 'bg-gray-100 text-gray-500 border-gray-300';
 
+  // Decide se uma resposta passa no filtro de tipos
+  const passaFiltroTipo = (r) => {
+    if (tiposResposta.length === 0) return true;
+    if (!r) return false;
+    const v = String(r.valor_opcao || '').toLowerCase();
+    const ehAlerta = v.includes('alerta');
+    return tiposResposta.some(tp => {
+      if (tp === 'positivo') return r.conforme === 'C';
+      if (tp === 'negativo') return r.conforme === 'NC';
+      if (tp === 'alerta') return ehAlerta;
+      if (tp === 'na') return r.conforme === 'NA' && !ehAlerta;
+      return false;
+    });
+  };
+
+  // Pre-calcula perguntas visiveis por secao (pra nao renderizar secoes vazias)
+  const secoesComPerguntas = (template?.sections || []).map(s => ({
+    ...s,
+    questionsFiltradas: (s.questions || []).filter(q => passaFiltroTipo(respMap[q.id])),
+  })).filter(s => s.questionsFiltradas.length > 0);
+
   return (
     <div className="space-y-3">
-      <div className="text-xs font-semibold text-gray-600 uppercase">Perguntas e Respostas</div>
-      {(template?.sections || []).map(s => (
+      <div className="text-xs font-semibold text-gray-600 uppercase flex items-center gap-2">
+        <span>Perguntas e Respostas</span>
+        {tiposResposta.length > 0 && (
+          <span className="text-[10px] text-orange-700 bg-orange-100 border border-orange-300 rounded px-1.5 py-0.5 normal-case">
+            filtrado por: {tiposResposta.join(', ')}
+          </span>
+        )}
+      </div>
+      {secoesComPerguntas.length === 0 && (
+        <div className="text-sm text-gray-500 italic py-3">Nenhuma pergunta corresponde aos filtros selecionados.</div>
+      )}
+      {secoesComPerguntas.map(s => (
         <div key={s.id} className="bg-white border rounded-lg">
           <div className="bg-slate-200 px-3 py-2 border-b border-slate-300 rounded-t font-semibold text-sm text-slate-800">
-            📂 {s.nome}
+            📂 {s.nome} <span className="text-xs font-normal text-slate-600">({s.questionsFiltradas.length})</span>
           </div>
           <div className="divide-y">
-            {(s.questions || []).map(q => {
+            {s.questionsFiltradas.map(q => {
               const r = respMap[q.id];
               const fotos = r?.fotos || [];
               const temRespondida_em = r?.respondida_em || r?.created_at;
