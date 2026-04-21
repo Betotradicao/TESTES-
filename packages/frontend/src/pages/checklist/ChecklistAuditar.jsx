@@ -958,9 +958,9 @@ export default function ChecklistAuditar() {
                 {/* Aviso: se o template tem grupo configurado, o envio sera automatico */}
                 {templateSelecionado?.whatsapp_group_pdf_id && (
                   <div className="rounded-lg p-3 mb-4 border-2 border-emerald-200 bg-emerald-50 text-xs text-emerald-800">
-                    💬 Ao finalizar, a auditoria será postada em
-                    <strong> {templateSelecionado.whatsapp_group_pdf_name || 'o grupo WhatsApp configurado'}</strong>
-                    {' '}como feed de mensagens (pergunta por pergunta, com fotos).
+                    💬 Ao finalizar, o PDF completo será enviado para
+                    <strong> {templateSelecionado.whatsapp_group_pdf_name || 'o grupo WhatsApp configurado'}</strong>.
+                    Alertas individuais serão enviados em mensagens separadas com link de resolução.
                   </div>
                 )}
 
@@ -1008,7 +1008,7 @@ export default function ChecklistAuditar() {
                   </div>
                   {templateSelecionado?.whatsapp_group_pdf_id && (
                     <div className="mt-3 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-2">
-                      💬 Auditoria postada em <strong>{templateSelecionado.whatsapp_group_pdf_name || 'o grupo configurado'}</strong> no WhatsApp.
+                      💬 PDF enviado para <strong>{templateSelecionado.whatsapp_group_pdf_name || 'o grupo configurado'}</strong> no WhatsApp.
                     </div>
                   )}
                   <button onClick={resetar}

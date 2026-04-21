@@ -14,7 +14,6 @@ import { Company } from '../entities/Company';
 import { minioService } from '../services/minio.service';
 import { ChecklistAlertService } from '../services/checklist-alert.service';
 import { ChecklistPDFService } from '../services/checklist-pdf.service';
-import { ChecklistFeedService } from '../services/checklist-feed.service';
 import { WhatsAppService } from '../services/whatsapp.service';
 
 export class ChecklistController {
@@ -601,16 +600,41 @@ export class ChecklistController {
         .then(r => console.log(`[Checklist] Alertas da inspecao ${ins.id}:`, r))
         .catch(err => console.error(`[Checklist] Erro processando alertas ${ins.id}:`, err));
 
-      // Se o template tem grupo WhatsApp configurado, envia a auditoria inteira como feed
-      // de mensagens sequenciais (cabecalho + por secao + pergunta com fotos embaixo).
+      // Se o template tem grupo WhatsApp configurado, envia o PDF completo da auditoria
+      // para o grupo. Os alertas individuais ja sao enviados separadamente (com link).
       (async () => {
         try {
           const tpl = await AppDataSource.getRepository(AuditTemplate).findOne({ where: { id: ins.template_id } });
           if (!tpl?.whatsapp_group_pdf_id) return;
-          const r = await ChecklistFeedService.enviarFeed(ins.id, tpl.whatsapp_group_pdf_id);
-          console.log(`[Checklist] Feed WhatsApp inspection ${ins.id}:`, r, '→ grupo', tpl.whatsapp_group_pdf_name || tpl.whatsapp_group_pdf_id);
+          const inspFull = await AppDataSource.getRepository(AuditInspection).findOne({
+            where: { id: ins.id },
+            relations: ['template', 'auditor'],
+          });
+          if (!inspFull) return;
+          const pdf = await ChecklistPDFService.gerarPDFAuditoria(ins.id);
+          const pct = Number(inspFull.percentual_conformidade) || 0;
+          const meta = Number(tpl.minimo_esperado) || 95;
+          const atingiu = pct >= meta;
+          const caption = [
+            '📋 *RELATÓRIO DE AUDITORIA — CHECK LIST*',
+            '',
+            `🗂️ *Roteiro:* ${tpl.nome || '—'}`,
+            `👤 *Auditor:* ${inspFull.auditor?.name || '—'}`,
+            inspFull.cod_loja != null ? `🏪 *Loja:* ${inspFull.cod_loja}` : null,
+            `${atingiu ? '✅' : '⚠️'} *Conformidade:* ${pct.toFixed(1)}% · Meta: ${meta.toFixed(0)}%`,
+            `📅 ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`,
+            '',
+            '📎 PDF completo com todas as perguntas, respostas e evidências.',
+          ].filter(Boolean).join('\n');
+          const ok = await WhatsAppService.sendDocumentBuffer(
+            tpl.whatsapp_group_pdf_id,
+            pdf,
+            `auditoria-${ins.id}.pdf`,
+            caption
+          );
+          console.log(`[Checklist] PDF inspection ${ins.id}: ${ok ? 'enviado' : 'falhou'} → grupo ${tpl.whatsapp_group_pdf_name || tpl.whatsapp_group_pdf_id}`);
         } catch (err) {
-          console.error(`[Checklist] Erro enviando feed automatico ${ins.id}:`, err);
+          console.error(`[Checklist] Erro enviando PDF automatico ${ins.id}:`, err);
         }
       })();
 

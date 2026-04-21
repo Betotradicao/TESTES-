@@ -345,7 +345,7 @@ export default function ChecklistTemplates() {
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <span className="text-base">💬</span>
                         <label className="text-xs font-semibold text-gray-800">
-                          Grupo WhatsApp para envio da auditoria
+                          Grupo WhatsApp para envio do PDF da auditoria
                         </label>
                         <span className="text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full font-semibold uppercase">Opcional</span>
                         <button type="button" onClick={() => carregarGruposWA(true)} disabled={loadingWaGroups}
@@ -354,7 +354,7 @@ export default function ChecklistTemplates() {
                         </button>
                       </div>
                       <p className="text-[11px] text-gray-600 mb-2">
-                        Ao finalizar qualquer auditoria deste roteiro, as perguntas e evidências (fotos) serão postadas em sequência no grupo escolhido, como um "feed" — pergunta por pergunta, com as fotos embaixo de cada uma.
+                        Ao finalizar, o PDF completo (com todas as perguntas, respostas e evidências) será enviado para o grupo escolhido. Alertas individuais continuam indo em mensagens separadas com link de resolução.
                       </p>
                       <select
                         value={formData.whatsapp_group_pdf_id || ''}
