@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/auth.controller';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, isMaster } from '../middleware/auth';
 import rateLimit from 'express-rate-limit';
 
 // Rate limiting: max 10 tentativas de login por IP a cada 15 minutos
@@ -88,5 +88,9 @@ const router: Router = Router();
 router.post('/login', loginLimiter, AuthController.login);
 router.get('/me', authenticateToken, AuthController.me);
 router.put('/update-profile', authenticateToken, AuthController.updateProfile);
+
+// Master-only: reseta a senha de um admin (gerencial) usando a senha do master
+router.get('/admin-users', authenticateToken, isMaster, AuthController.listAdminUsers);
+router.post('/master-reset-admin-password', authenticateToken, isMaster, AuthController.masterResetAdminPassword);
 
 export default router;

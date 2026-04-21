@@ -175,10 +175,11 @@ export default function ChecklistQuestionModal({ sectionId, question, modelos, s
           {abaAtiva === 'dados' && (
             <>
               <div className="mb-3">
-                <label className="block text-xs font-medium text-gray-700 mb-1">Pergunta</label>
-                <textarea value={form.texto} onChange={e => setForm({ ...form, texto: e.target.value })}
-                  rows={2} className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  placeholder="Ex: Verificar se as câmeras foram ligadas corretamente pela manhã" />
+                <label className="block text-xs font-medium text-gray-700 mb-1">Pergunta <span className="text-gray-400">(padronizado em maiúsculas)</span></label>
+                <textarea value={form.texto} onChange={e => setForm({ ...form, texto: (e.target.value || '').toUpperCase() })}
+                  rows={2}
+                  className="w-full border rounded px-3 py-2 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="EX: VERIFICAR SE AS CÂMERAS FORAM LIGADAS CORRETAMENTE PELA MANHÃ" />
               </div>
 
               {/* Horário permitido para preenchimento */}

@@ -121,7 +121,9 @@ export default function ChecklistTemplates() {
   };
 
   const addSection = async () => {
-    const nome = prompt('Nome da seção (ex: Açougue, Padaria)');
+    const raw = prompt('Nome da seção (ex: AÇOUGUE, PADARIA)');
+    if (!raw) return;
+    const nome = raw.trim().toUpperCase();
     if (!nome) return;
     try {
       await api.post(`/checklist/templates/${editing.id}/sections`, { nome, ordem: (editing.sections?.length || 0) + 1 });
@@ -136,9 +138,11 @@ export default function ChecklistTemplates() {
   };
 
   const renomearSection = async (s) => {
-    const novoNome = prompt('Novo nome da seção:', s.nome);
-    if (!novoNome || novoNome.trim() === s.nome) return;
-    try { await api.put(`/checklist/sections/${s.id}`, { nome: novoNome.trim() }); await recarregarEdicao(); }
+    const raw = prompt('Novo nome da seção:', s.nome);
+    if (!raw) return;
+    const novoNome = raw.trim().toUpperCase();
+    if (!novoNome || novoNome === s.nome) return;
+    try { await api.put(`/checklist/sections/${s.id}`, { nome: novoNome }); await recarregarEdicao(); }
     catch (e) { setErro(e?.response?.data?.error || e.message); }
   };
 

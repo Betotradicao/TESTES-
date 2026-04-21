@@ -15,6 +15,7 @@ import BarcodeInstallerTab from '../components/configuracoes/BarcodeInstallerTab
 import CadastroBancarioTab from '../components/configuracoes/CadastroBancarioTab';
 import DVRCFTVTab from '../components/configuracoes/DVRCFTVTab';
 import DisparoWhatsTab from '../components/configuracoes/DisparoWhatsTab';
+import ResetSenhaAdminTab from '../components/configuracoes/ResetSenhaAdminTab';
 
 export default function ConfiguracoesRede() {
   const { user, logout } = useAuth();
@@ -35,7 +36,7 @@ export default function ConfiguracoesRede() {
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && (tabFromUrl === 'modulos' || tabFromUrl === 'empresa' || tabFromUrl === 'apis' || tabFromUrl === 'whatsapp-groups' || tabFromUrl === 'security' || tabFromUrl === 'email' || tabFromUrl === 'email-monitor' || tabFromUrl === 'cron-monitor' || tabFromUrl === 'barcode-installer' || tabFromUrl === 'cadastro-bancario' || tabFromUrl === 'dvr-cftv')) {
+    if (tabFromUrl && (tabFromUrl === 'modulos' || tabFromUrl === 'empresa' || tabFromUrl === 'apis' || tabFromUrl === 'whatsapp-groups' || tabFromUrl === 'security' || tabFromUrl === 'email' || tabFromUrl === 'email-monitor' || tabFromUrl === 'cron-monitor' || tabFromUrl === 'barcode-installer' || tabFromUrl === 'cadastro-bancario' || tabFromUrl === 'dvr-cftv' || tabFromUrl === 'disparo-whats' || tabFromUrl === 'reset-admin')) {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -112,6 +113,7 @@ export default function ConfiguracoesRede() {
             {activeTab === 'cadastro-bancario' && <CadastroBancarioTab />}
             {activeTab === 'dvr-cftv' && <DVRCFTVTab />}
             {activeTab === 'disparo-whats' && <DisparoWhatsTab />}
+            {activeTab === 'reset-admin' && <ResetSenhaAdminTab />}
           </div>
         </div>
       </div>

@@ -407,6 +407,23 @@ export class ChecklistController {
 
   // ========== INSPECTIONS ==========
 
+  /**
+   * DELETE /api/checklist/inspections/:id — exclui auditoria e dados relacionados (cascade via FK).
+   */
+  static async deletarInspection(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+      const repo = AppDataSource.getRepository(AuditInspection);
+      const ins = await repo.findOne({ where: { id } });
+      if (!ins) return res.status(404).json({ success: false, error: 'Auditoria nao encontrada' });
+      await repo.delete(id);
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error('[Checklist] deletarInspection:', e);
+      res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
   static async listarInspections(req: Request, res: Response) {
     try {
       const codLoja = req.query.cod_loja ? parseInt(req.query.cod_loja as string) : undefined;

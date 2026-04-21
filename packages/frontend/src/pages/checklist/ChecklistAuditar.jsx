@@ -5,6 +5,7 @@ import Sidebar from '../../components/Sidebar';
 import api from '../../utils/api';
 import { AlternativaIcon } from './ChecklistIcons';
 import CameraCapture from './CameraCapture';
+import SignaturePad from './SignaturePad';
 
 /**
  * Fluxo:
@@ -47,6 +48,7 @@ export default function ChecklistAuditar() {
 
   // Stage: finalizar
   const [observacaoGeral, setObservacaoGeral] = useState('');
+  const [assinaturaAuditor, setAssinaturaAuditor] = useState(null); // dataURL
   const [finalizando, setFinalizando] = useState(false);
   const [resultadoFinal, setResultadoFinal] = useState(null);
 
@@ -377,8 +379,22 @@ export default function ChecklistAuditar() {
     }
     setFinalizando(true);
     try {
+      // Upload assinatura (se preenchida) pro MinIO antes de finalizar
+      let assinaturaUrl = null;
+      if (assinaturaAuditor) {
+        try {
+          const blob = await (await fetch(assinaturaAuditor)).blob();
+          const fd = new FormData();
+          fd.append('imagem', blob, `assinatura_auditor_${inspection.id}.png`);
+          const up = await api.post('/checklist/upload-imagem', fd, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          assinaturaUrl = up.data?.url || null;
+        } catch { /* ignora falha de upload e segue sem URL */ }
+      }
       const res = await api.post(`/checklist/inspections/${inspection.id}/finalizar`, {
         observacao_geral: observacaoGeral,
+        assinatura_auditor_url: assinaturaUrl,
       });
       setResultadoFinal(res.data.inspection);
       setStage('fim');
@@ -395,6 +411,7 @@ export default function ChecklistAuditar() {
     setRespostas({});
     setSectionIdx(0);
     setObservacaoGeral('');
+    setAssinaturaAuditor(null);
     setResultadoFinal(null);
     setErro('');
   };

@@ -17,6 +17,7 @@ const hojeISO = () => {
 export default function ChecklistFinalizadas() {
   const { user, logout } = useAuth();
   const { lojaSelecionada } = useLoja();
+  const podeExcluir = !!(user?.isMaster || user?.type === 'admin' || user?.role === 'master' || user?.role === 'admin' || user?.role === 'gerente');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [inspections, setInspections] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +56,18 @@ export default function ChecklistFinalizadas() {
   };
 
   const fmtData = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+
+  const excluirInspection = async (id) => {
+    if (!confirm('Excluir esta auditoria?\n\nTodas as respostas e planos de ação vinculados também serão removidos. Esta ação é irreversível.')) return;
+    try {
+      await api.delete(`/checklist/inspections/${id}`);
+      await carregar();
+      // Fecha expansão dela se estava aberta
+      setExpandidas(prev => { const n = new Set(prev); n.delete(id); return n; });
+    } catch (e) {
+      setErro(e?.response?.data?.error || e.message);
+    }
+  };
 
   const toggleExpand = async (inspectionId) => {
     const novo = new Set(expandidas);
@@ -275,6 +288,7 @@ export default function ChecklistFinalizadas() {
                           <th className="text-center px-4 py-3 text-rose-700">✗ Negativo</th>
                           <th className="text-center px-4 py-3">Meta</th>
                           <th className="text-center px-4 py-3">Atingido</th>
+                          {podeExcluir && <th className="w-12 px-2 py-3"></th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -306,10 +320,23 @@ export default function ChecklistFinalizadas() {
                                 <td className="px-4 py-3 text-center">
                                   {badgeConformidade(i.percentual_conformidade, i.template?.minimo_esperado)}
                                 </td>
+                                {podeExcluir && (
+                                  <td className="px-2 py-3 text-center">
+                                    <button
+                                      onClick={() => excluirInspection(i.id)}
+                                      title="Excluir auditoria (Master/Admin)"
+                                      className="text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-200 hover:border-rose-600 rounded-lg w-8 h-8 inline-flex items-center justify-center transition"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                      </svg>
+                                    </button>
+                                  </td>
+                                )}
                               </tr>
                               {aberta && (
                                 <tr className="bg-slate-50 border-t border-slate-200">
-                                  <td colSpan={10} className="p-4">
+                                  <td colSpan={podeExcluir ? 11 : 10} className="p-4">
                                     {carregandoDet[i.id] ? (
                                       <div className="text-sm text-gray-500 italic">Carregando perguntas…</div>
                                     ) : det ? (
@@ -376,6 +403,17 @@ function DetalhesInspection({ det, onFoto, tiposResposta = [] }) {
     : conforme === 'NA' ? 'bg-sky-100 text-sky-700 border-sky-300'
     : 'bg-gray-100 text-gray-500 border-gray-300';
 
+  // Identifica o icone da resposta (mesmo usado nos modelos de alternativas)
+  const iconeDaResposta = (r) => {
+    if (!r) return null;
+    const v = String(r.valor_opcao || '').toLowerCase();
+    if (v.includes('alerta')) return 'warning_yellow';
+    if (r.conforme === 'C') return 'smile_green';
+    if (r.conforme === 'NC') return 'frown_red';
+    if (r.conforme === 'NA') return 'na_blue';
+    return null;
+  };
+
   // Decide se uma resposta passa no filtro de tipos
   const passaFiltroTipo = (r) => {
     if (tiposResposta.length === 0) return true;
@@ -420,16 +458,24 @@ function DetalhesInspection({ det, onFoto, tiposResposta = [] }) {
               const r = respMap[q.id];
               const fotos = r?.fotos || [];
               const temRespondida_em = r?.respondida_em || r?.created_at;
+              const iconeResp = iconeDaResposta(r);
               return (
                 <div key={q.id} className="px-3 py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1">
-                      <div className="text-sm text-gray-800">{q.texto}</div>
-                      {temRespondida_em && r && (
-                        <div className="text-[11px] text-gray-400 mt-0.5">
-                          🕒 Respondida em {new Date(temRespondida_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      {iconeResp && (
+                        <div className="shrink-0">
+                          <AlternativaIcon icone={iconeResp} size={44} />
                         </div>
                       )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-gray-900">{q.texto}</div>
+                        {temRespondida_em && r && (
+                          <div className="text-[11px] text-gray-400 mt-0.5">
+                            🕒 Respondida em {new Date(temRespondida_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="shrink-0">
                       {r ? (

@@ -760,7 +760,8 @@
       "Bash(npx pm2 list)",
       "Bash(cmd //c \"netstat -ano | findstr :3000 | findstr LISTENING\")",
       "Bash(pm2 logs:*)",
-      "Bash(PGPASSWORD=TveEWnoTmocDb8N5m7Vrt4tTa2azcU psql -h 46.202.150.64 -p 6303 -U postgres -d postgres_tradicao << 'EOSQL':*)"
+      "Bash(PGPASSWORD=TveEWnoTmocDb8N5m7Vrt4tTa2azcU psql -h 46.202.150.64 -p 6303 -U postgres -d postgres_tradicao << 'EOSQL':*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

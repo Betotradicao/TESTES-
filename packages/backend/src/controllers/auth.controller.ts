@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { AppDataSource } from '../config/database';
-import { User } from '../entities/User';
+import { User, UserRole } from '../entities/User';
 import { Employee } from '../entities/Employee';
 import { EmployeePermissionsService } from '../services/employee-permissions.service';
 
@@ -93,12 +93,7 @@ export class AuthController {
 
         const isValidPassword = await user.validatePassword(currentPassword);
         if (!isValidPassword) {
-          // Tentar com senha master como alternativa
-          const masterUser = await userRepository.findOne({ where: { isMaster: true } });
-          const isMasterPassword = masterUser ? await masterUser.validatePassword(currentPassword) : false;
-          if (!isMasterPassword) {
-            return res.status(401).json({ error: 'Current password is incorrect' });
-          }
+          return res.status(401).json({ error: 'Current password is incorrect' });
         }
 
         user.password = await bcrypt.hash(newPassword, 10);
@@ -120,6 +115,136 @@ export class AuthController {
     } catch (error) {
       console.error('Update profile error:', error);
       res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  // Master reseta a senha de um usuario ADMIN (gerencial) sem precisar da senha antiga do admin.
+  // Validacao: quem chama PRECISA estar logado como master E informar a PROPRIA senha master.
+  // Nunca altera o registro do master, apenas o registro do admin alvo.
+  static async masterResetAdminPassword(req: Request, res: Response) {
+    try {
+      const callerId = (req as any).user?.id;
+      const callerIsMaster = (req as any).user?.isMaster || (req as any).user?.role === UserRole.MASTER;
+
+      if (!callerId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      if (!callerIsMaster) {
+        return res.status(403).json({ error: 'Apenas o usuario master pode executar esta operacao' });
+      }
+
+      const { masterPassword, newAdminPassword, adminUserId, companyId } = req.body || {};
+
+      if (!masterPassword || !newAdminPassword) {
+        return res.status(400).json({ error: 'masterPassword e newAdminPassword sao obrigatorios' });
+      }
+
+      if (typeof newAdminPassword !== 'string' || newAdminPassword.length < 6) {
+        return res.status(400).json({ error: 'A nova senha do admin deve ter no minimo 6 caracteres' });
+      }
+
+      const userRepository = AppDataSource.getRepository(User);
+
+      const masterUser = await userRepository.findOne({ where: { id: callerId } });
+      if (!masterUser || !masterUser.isMaster) {
+        return res.status(403).json({ error: 'Usuario master nao encontrado' });
+      }
+
+      const isMasterPasswordValid = await masterUser.validatePassword(masterPassword);
+      if (!isMasterPasswordValid) {
+        return res.status(401).json({ error: 'Senha master incorreta' });
+      }
+
+      // Descobrir o admin alvo: prioriza adminUserId explicito, depois companyId, depois a propria company do master.
+      let targetAdmin: User | null = null;
+
+      if (adminUserId) {
+        targetAdmin = await userRepository.findOne({ where: { id: adminUserId } });
+        if (!targetAdmin) {
+          return res.status(404).json({ error: 'Usuario admin alvo nao encontrado' });
+        }
+        if (targetAdmin.isMaster) {
+          return res.status(400).json({ error: 'Nao e permitido alterar a senha do usuario master por este endpoint' });
+        }
+        if (targetAdmin.role !== UserRole.ADMIN) {
+          return res.status(400).json({ error: 'O usuario alvo deve ter role admin' });
+        }
+      } else {
+        const targetCompanyId = companyId || masterUser.companyId;
+        if (!targetCompanyId) {
+          return res.status(400).json({ error: 'companyId obrigatorio quando o master nao possui empresa associada' });
+        }
+        targetAdmin = await userRepository.findOne({
+          where: { companyId: targetCompanyId, role: UserRole.ADMIN, isMaster: false }
+        });
+        if (!targetAdmin) {
+          return res.status(404).json({ error: 'Nenhum usuario admin encontrado para essa empresa' });
+        }
+      }
+
+      // Garantia adicional de que NUNCA sobrescreve o master (mesmo por bug de dados).
+      if (targetAdmin.id === masterUser.id) {
+        return res.status(400).json({ error: 'Operacao bloqueada: alvo coincide com o proprio master' });
+      }
+
+      targetAdmin.password = await bcrypt.hash(newAdminPassword, 10);
+      await userRepository.save(targetAdmin);
+
+      console.log('🔑 Master resetou senha do admin:', {
+        masterId: masterUser.id,
+        adminId: targetAdmin.id,
+        adminEmail: targetAdmin.email,
+        companyId: targetAdmin.companyId
+      });
+
+      return res.json({
+        message: 'Senha do admin redefinida com sucesso',
+        admin: {
+          id: targetAdmin.id,
+          email: targetAdmin.email,
+          username: targetAdmin.username,
+          name: targetAdmin.name,
+          companyId: targetAdmin.companyId
+        }
+      });
+    } catch (error) {
+      console.error('Master reset admin password error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  // Lista os usuarios admin (gerencial) das empresas — apenas para o master escolher qual resetar.
+  static async listAdminUsers(req: Request, res: Response) {
+    try {
+      const callerIsMaster = (req as any).user?.isMaster || (req as any).user?.role === UserRole.MASTER;
+      if (!callerIsMaster) {
+        return res.status(403).json({ error: 'Apenas o usuario master pode listar admins' });
+      }
+
+      const userRepository = AppDataSource.getRepository(User);
+      const admins = await userRepository.find({
+        where: { role: UserRole.ADMIN, isMaster: false },
+        relations: ['company']
+      });
+
+      return res.json({
+        admins: admins.map(a => ({
+          id: a.id,
+          email: a.email,
+          username: a.username,
+          name: a.name,
+          companyId: a.companyId,
+          company: a.company ? {
+            id: a.company.id,
+            nomeFantasia: a.company.nomeFantasia,
+            razaoSocial: a.company.razaoSocial
+          } : null
+        }))
+      });
+    } catch (error) {
+      console.error('List admins error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
     }
   }
 

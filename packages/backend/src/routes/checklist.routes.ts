@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { ChecklistController } from '../controllers/checklist.controller';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, isAdminOrMaster } from '../middleware/auth';
 
 const router: Router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -43,6 +43,7 @@ router.get('/inspections/:id', ChecklistController.obterInspection);
 router.post('/inspections', ChecklistController.criarInspection);
 router.post('/inspections/:id/responses', ChecklistController.salvarResposta);
 router.post('/inspections/:id/finalizar', ChecklistController.finalizarInspection);
+router.delete('/inspections/:id', isAdminOrMaster, ChecklistController.deletarInspection);
 
 // Actions
 router.get('/actions', ChecklistController.listarActions);
