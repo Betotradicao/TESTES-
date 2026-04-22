@@ -9,7 +9,15 @@ main() {
 # INSTALADOR MULTI-TENANT - VPS LINUX
 # Sistema: Prevenção no Radar
 # Suporte a múltiplos clientes com subdomínios
-# VERSÃO 5.1: Atualizado Abr/2026
+# VERSÃO 5.2: Atualizado Abr/2026
+#   NOVO:
+#   - Check List no Radar (auditorias + alertas WhatsApp + PDF automatico)
+#   - Reconhecimento Facial via Vision 360
+#   - Garimpador multi-loja (Oracle + PostgreSQL)
+#   - Dashboards com heatmap + evolucao multi-loja + top NC
+#   - Meta de conformidade por loja + grupo WhatsApp por template
+#   - Resolucao publica de alertas via /alerta/:token
+#   BASE (v5.1):
 #   - Sem Tailscale (usa túnel SSH direto)
 #   - Dockerfiles lidos do repo (não sobrescreve)
 #   - pgvector/pgvector:pg15 (suporte a vectors)
@@ -330,7 +338,7 @@ cat > .env << EOF
 # ============================================
 # CONFIGURAÇÃO DO CLIENTE: $CLIENT_NAME
 # Gerado em: $(date)
-# Versão do Instalador: 5.0
+# Versão do Instalador: 5.2
 # ============================================
 
 # Identificação
@@ -1066,7 +1074,7 @@ cat > "$CLIENT_DIR/INSTALACAO_INFO.txt" << EOF
 # INFORMAÇÕES DA INSTALAÇÃO
 # Cliente: $CLIENT_NAME
 # Data: $(date)
-# Instalador: v5.0
+# Instalador: v5.2
 # ============================================
 
 URLs:
@@ -1141,6 +1149,9 @@ echo "1. Primeiro acesso: https://$CLIENT_SUBDOMAIN/first-setup"
 echo "2. Acessos seguintes: https://$CLIENT_SUBDOMAIN"
 echo "3. Configurar túnel SSH para Oracle (se necessário)"
 echo "4. Configurar DVR (se necessário)"
+echo "5. Configurar Evolution API WhatsApp em Config. REDE → APIs"
+echo "6. Cadastrar grupos WhatsApp em Config. REDE → Grupos WhatsApp"
+echo "7. Criar templates de auditoria em Check List → Cadastros → Templates"
 echo ""
 echo "📄 Credenciais salvas em: $CLIENT_DIR/INSTALACAO_INFO.txt"
 echo ""
