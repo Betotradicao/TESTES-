@@ -459,6 +459,7 @@ export class ChecklistController {
           .addSelect(`SUM(CASE WHEN r.conforme = 'NC' THEN 1 ELSE 0 END)`, 'negativas')
           .addSelect(`SUM(CASE WHEN r.conforme = 'NA' AND COALESCE(r.valor_opcao,'') NOT ILIKE '%alerta%' THEN 1 ELSE 0 END)`, 'na')
           .addSelect(`SUM(CASE WHEN COALESCE(r.valor_opcao,'') ILIKE '%alerta%' THEN 1 ELSE 0 END)`, 'alertas')
+          .addSelect(`COALESCE(SUM(jsonb_array_length(COALESCE(r.fotos, '[]'::jsonb))), 0)`, 'fotos_count')
           .where('r.inspection_id IN (:...ids)', { ids })
           .groupBy('r.inspection_id')
           .getRawMany();
@@ -468,6 +469,7 @@ export class ChecklistController {
             negativas: Number(row.negativas) || 0,
             na: Number(row.na) || 0,
             alertas: Number(row.alertas) || 0,
+            fotos_count: Number(row.fotos_count) || 0,
           } as any;
         }
       }
@@ -477,6 +479,7 @@ export class ChecklistController {
         negativas: contagens[i.id]?.negativas || 0,
         nao_aplica: contagens[i.id]?.na || 0,
         alertas: (contagens[i.id] as any)?.alertas || 0,
+        fotos_count: (contagens[i.id] as any)?.fotos_count || 0,
       }));
 
       res.json({ success: true, inspections: enriched });

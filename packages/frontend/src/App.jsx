@@ -58,6 +58,7 @@ import ChecklistTemplates from './pages/checklist/ChecklistTemplates';
 import ChecklistStub from './pages/checklist/ChecklistStub';
 import ChecklistDashboards from './pages/checklist/ChecklistDashboards';
 import ChecklistAlertas from './pages/checklist/ChecklistAlertas';
+import ChecklistArvoreConhecimento from './pages/checklist/ChecklistArvoreConhecimento';
 import AlertaResolucao from './pages/AlertaResolucao';
 import ChecklistSetoresView from './pages/checklist/ChecklistSetoresView';
 import ChecklistAuditoresView from './pages/checklist/ChecklistAuditoresView';
@@ -521,7 +522,7 @@ function App() {
             <Route path="/checklist/cadastros/templates" element={<ProtectedRoute><ChecklistTemplates /></ProtectedRoute>} />
             <Route path="/checklist/dashboards" element={<ProtectedRoute><ChecklistDashboards /></ProtectedRoute>} />
             <Route path="/checklist/alertas" element={<ProtectedRoute><ChecklistAlertas /></ProtectedRoute>} />
-            <Route path="/checklist/arvore-conhecimento" element={<ProtectedRoute><ChecklistStub titulo="Árvore do Conhecimento" descricao="Vídeos e materiais de apoio por função da loja" /></ProtectedRoute>} />
+            <Route path="/checklist/arvore-conhecimento" element={<ProtectedRoute><ChecklistArvoreConhecimento /></ProtectedRoute>} />
             <Route path="/checklist/auditar" element={<ProtectedRoute><ChecklistAuditar /></ProtectedRoute>} />
             <Route path="/checklist/finalizadas" element={<ProtectedRoute><ChecklistFinalizadas /></ProtectedRoute>} />
             <Route path="/checklist/planos-acao" element={<ProtectedRoute><ChecklistStub titulo="Planos de Ação" descricao="Planos de ação 5W2H gerados a partir das auditorias" /></ProtectedRoute>} />

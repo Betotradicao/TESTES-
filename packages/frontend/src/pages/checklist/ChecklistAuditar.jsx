@@ -246,7 +246,7 @@ export default function ChecklistAuditar() {
     // Preserva respondida_em original se alternativa nao mudou; atualiza quando muda
     const mudou = atual.ordemAlt !== alternativa.ordem;
     const respondida_em = mudou ? new Date().toISOString() : (atual.respondida_em || new Date().toISOString());
-    // Regra: toda alternativa de alerta (flag marcada ou icone warning_yellow) EXIGE comentario do auditor
+    // Regra: toda alternativa de alerta (flag marcada ou icone warning_yellow) EXIGE comentario E foto
     const ehAlerta = !!cfg.generates_alert || alternativa.icone === 'warning_yellow';
     const nova = {
       ...atual,
@@ -254,7 +254,7 @@ export default function ChecklistAuditar() {
       conforme,
       valor_opcao: alternativa.label || String(alternativa.ordem),
       score: valor,
-      requires_photo: !!cfg.requires_photo,
+      requires_photo: !!cfg.requires_photo || ehAlerta,
       requires_comment: !!cfg.requires_comment || ehAlerta,
       eh_alerta: ehAlerta,
       respondida_em,
@@ -793,16 +793,30 @@ export default function ChecklistAuditar() {
                       {/* Campos obrigatórios após resposta */}
                       {resp.ordemAlt !== undefined && (
                         <div className="mt-4 space-y-3">
-                          {(resp.requires_photo || q.foto_obrigatoria) && (() => {
+                          {(() => {
                             const temFoto = (resp.fotos || []).length > 0;
+                            const fotoObrigatoria = !!(resp.requires_photo || q.foto_obrigatoria);
+                            // Se nao tem foto e nao e obrigatoria, o bloco entra em modo "opcional"
+                            const corBorda = temFoto
+                              ? 'border-emerald-300 bg-emerald-50'
+                              : fotoObrigatoria
+                                ? 'border-sky-300 bg-sky-50'
+                                : 'border-gray-200 bg-white';
                             return (
-                              <div className={`border-2 rounded-xl p-3 ${temFoto ? 'border-emerald-300 bg-emerald-50' : 'border-sky-300 bg-sky-50'}`}>
+                              <div className={`border-2 rounded-xl p-3 ${corBorda}`}>
                                 <div className="flex items-center gap-2 mb-2">
                                   <span className="text-xl">📷</span>
                                   <div className="flex-1">
-                                    <div className="text-sm font-bold text-gray-800">Foto de evidência</div>
+                                    <div className="text-sm font-bold text-gray-800">
+                                      Foto de evidência
+                                      {!fotoObrigatoria && <span className="ml-2 text-[10px] text-gray-500 font-normal uppercase">Opcional</span>}
+                                    </div>
                                     <div className="text-xs text-gray-600">
-                                      {temFoto ? `✅ ${resp.fotos.length} foto(s) anexada(s)` : <span className="text-red-600 font-semibold">⚠️ Obrigatória — tire uma foto pela câmera</span>}
+                                      {temFoto
+                                        ? `✅ ${resp.fotos.length} foto(s) anexada(s)`
+                                        : fotoObrigatoria
+                                          ? <span className="text-red-600 font-semibold">⚠️ Obrigatória — tire uma foto pela câmera</span>
+                                          : <span className="text-gray-500">Comprove com uma foto se quiser (não é obrigatório)</span>}
                                     </div>
                                   </div>
                                 </div>

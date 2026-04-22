@@ -286,6 +286,7 @@ export default function ChecklistFinalizadas() {
                           <th className="text-center px-4 py-3">Loja</th>
                           <th className="text-center px-4 py-3 text-emerald-700">✓ Positivo</th>
                           <th className="text-center px-4 py-3 text-rose-700">✗ Negativo</th>
+                          <th className="text-center px-4 py-3">📸 Fotos</th>
                           <th className="text-center px-4 py-3">Meta</th>
                           <th className="text-center px-4 py-3">Atingido</th>
                           {podeExcluir && <th className="w-12 px-2 py-3"></th>}
@@ -314,6 +315,17 @@ export default function ChecklistFinalizadas() {
                                 </td>
                                 <td className="px-4 py-3 text-center font-bold text-emerald-700">{i.positivas || 0}</td>
                                 <td className="px-4 py-3 text-center font-bold text-rose-700">{i.negativas || 0}</td>
+                                <td className="px-4 py-3 text-center">
+                                  {(i.fotos_count || 0) > 0 ? (
+                                    <button onClick={() => toggleExpand(i.id)}
+                                      title={`${i.fotos_count} foto(s) — clique para ver`}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-100 border border-sky-300 text-sky-800 font-bold text-xs hover:bg-sky-200 transition">
+                                      📸 {i.fotos_count}
+                                    </button>
+                                  ) : (
+                                    <span className="text-gray-300 text-xs">—</span>
+                                  )}
+                                </td>
                                 <td className="px-4 py-3 text-center text-gray-700">
                                   {Number(i.template?.minimo_esperado || 95).toFixed(0)}%
                                 </td>
@@ -336,7 +348,7 @@ export default function ChecklistFinalizadas() {
                               </tr>
                               {aberta && (
                                 <tr className="bg-slate-50 border-t border-slate-200">
-                                  <td colSpan={podeExcluir ? 11 : 10} className="p-4">
+                                  <td colSpan={podeExcluir ? 12 : 11} className="p-4">
                                     {carregandoDet[i.id] ? (
                                       <div className="text-sm text-gray-500 italic">Carregando perguntas…</div>
                                     ) : det ? (
