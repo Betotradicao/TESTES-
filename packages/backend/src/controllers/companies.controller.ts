@@ -77,17 +77,12 @@ export class CompaniesController {
       const {
         nomeFantasia, razaoSocial, cnpj, identificador, codLoja, apelido,
         cep, rua, numero, complemento, bairro, cidade, estado,
-        telefone, email,
+        telefone, email, fotoFachadaUrl,
         responsavelNome, responsavelEmail, responsavelTelefone,
         adminEmail, adminPassword
       } = req.body;
 
-      // Validar dados
-      if (!nomeFantasia || !razaoSocial || !cnpj) {
-        return res.status(400).json({ error: 'Missing required fields' });
-      }
-
-      // CNPJ duplicado permitido - filiais podem ter mesmo CNPJ da matriz
+      // Nenhum campo obrigatorio para loja adicional - so cadastra o que o usuario preencheu
 
       // Tratar codLoja - converter para número ou null
       let parsedCodLoja: number | null = null;
@@ -96,11 +91,11 @@ export class CompaniesController {
         parsedCodLoja = isNaN(parsed) ? null : parsed;
       }
 
-      // Criar empresa com todos os campos
+      // Criar empresa com todos os campos (tudo opcional)
       const company = companyRepository.create({
-        nomeFantasia,
-        razaoSocial,
-        cnpj,
+        nomeFantasia: nomeFantasia || '',
+        razaoSocial: razaoSocial || '',
+        cnpj: cnpj || '',
         identificador: identificador || null,
         codLoja: parsedCodLoja,
         apelido: apelido && apelido.trim() !== '' ? apelido.trim() : null,
@@ -113,6 +108,7 @@ export class CompaniesController {
         estado: estado || null,
         telefone: telefone || null,
         email: email || null,
+        fotoFachadaUrl: fotoFachadaUrl || null,
         responsavelNome: responsavelNome || null,
         responsavelEmail: responsavelEmail || null,
         responsavelTelefone: responsavelTelefone || null,

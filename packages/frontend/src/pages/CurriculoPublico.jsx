@@ -5,8 +5,8 @@ export default function CurriculoPublico() {
   const [cargos, setCargos] = useState([]);
   const [habilidades, setHabilidades] = useState([]);
   const [lojas, setLojas] = useState([]);
-  // Loja escolhida pelo candidato na tela inicial
-  const [lojaEscolhida, setLojaEscolhida] = useState(null);
+  // Loja escolhida pelo candidato na tela inicial (usa id da empresa)
+  const [lojaEscolhidaId, setLojaEscolhidaId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
@@ -51,7 +51,7 @@ export default function CurriculoPublico() {
         setLojas(listaLojas);
         // Se so existe 1 loja, seleciona ela automaticamente
         if (listaLojas.length === 1) {
-          setLojaEscolhida(listaLojas[0].cod_loja);
+          setLojaEscolhidaId(listaLojas[0].id);
         }
       } catch (e) {
         setErro('Nao foi possivel carregar o formulario. Tente novamente mais tarde.');
@@ -230,7 +230,8 @@ export default function CurriculoPublico() {
           ano_conclusao: fm.ano_conclusao === '' ? null : Number(fm.ano_conclusao),
         })),
       };
-      await api.post('/curriculos/publico/enviar', { ...payload, cod_loja: lojaEscolhida });
+      const lojaSel = lojas.find(l => l.id === lojaEscolhidaId);
+      await api.post('/curriculos/publico/enviar', { ...payload, cod_loja: lojaSel?.cod_loja ?? null });
       setEnviado(true);
       window.scrollTo(0, 0);
     } catch (err) {
@@ -252,7 +253,7 @@ export default function CurriculoPublico() {
   }
 
   // Tela inicial: selecao de loja (sempre aparece, exceto se houver apenas 1 loja cadastrada)
-  if (lojaEscolhida == null) {
+  if (lojaEscolhidaId == null) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 py-6 px-4 overflow-x-hidden">
         <div className="max-w-4xl mx-auto">
@@ -276,32 +277,33 @@ export default function CurriculoPublico() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {lojas.map(lj => (
-                <button key={lj.cod_loja} onClick={() => setLojaEscolhida(lj.cod_loja)}
-                  className="bg-white rounded-2xl shadow-md hover:shadow-xl hover:scale-[1.02] transition border-2 border-transparent hover:border-rose-400 overflow-hidden text-left">
-                  {/* Foto */}
-                  <div className="h-44 bg-gradient-to-br from-rose-100 to-pink-100 flex items-center justify-center overflow-hidden">
-                    {lj.foto_fachada_url ? (
-                      <img src={lj.foto_fachada_url} alt={lj.nome} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="text-7xl">🏪</div>
-                    )}
-                  </div>
-                  {/* Info */}
-                  <div className="p-4">
-                    <h3 className="text-lg font-bold text-gray-800 mb-1">{lj.nome || `Loja ${lj.cod_loja}`}</h3>
-                    {lj.apelido && (
-                      <p className="text-sm text-rose-600 font-semibold mb-1">{lj.apelido}</p>
-                    )}
-                    <p className="text-sm text-gray-600">
-                      📍 {[lj.bairro, lj.cidade].filter(Boolean).join(' · ') || 'Endereço não informado'}
-                    </p>
-                    <div className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-rose-600">
-                      Candidatar-se aqui <span>→</span>
+              {lojas.map(lj => {
+                const titulo = lj.apelido || (lj.is_principal ? 'MATRIZ' : (lj.cod_loja ? `LOJA ${lj.cod_loja}` : 'LOJA'));
+                return (
+                  <button key={lj.id} onClick={() => setLojaEscolhidaId(lj.id)}
+                    className="bg-white rounded-2xl shadow-md hover:shadow-xl hover:scale-[1.02] transition border-2 border-transparent hover:border-rose-400 overflow-hidden text-left">
+                    {/* Foto */}
+                    <div className="h-44 bg-gradient-to-br from-rose-100 to-pink-100 flex items-center justify-center overflow-hidden">
+                      {lj.foto_fachada_url ? (
+                        <img src={lj.foto_fachada_url} alt={titulo} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="text-7xl">🏪</div>
+                      )}
                     </div>
-                  </div>
-                </button>
-              ))}
+                    {/* Info */}
+                    <div className="p-4">
+                      <h3 className="text-xl font-extrabold text-gray-800 mb-1">{titulo}</h3>
+                      {lj.nome && <p className="text-sm text-gray-600 font-semibold mb-1">{lj.nome}</p>}
+                      <p className="text-xs text-gray-500">
+                        📍 {[lj.bairro, lj.cidade].filter(Boolean).join(' · ') || 'Endereço não informado'}
+                      </p>
+                      <div className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-rose-600">
+                        Candidatar-se aqui <span>→</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -337,19 +339,21 @@ export default function CurriculoPublico() {
           </div>
           {/* Loja selecionada com opcao de trocar */}
           {(() => {
-            const lj = lojas.find(l => l.cod_loja === lojaEscolhida);
+            const lj = lojas.find(l => l.id === lojaEscolhidaId);
             if (!lj) return null;
+            const titulo = lj.apelido || (lj.is_principal ? 'MATRIZ' : (lj.cod_loja ? `LOJA ${lj.cod_loja}` : 'LOJA'));
             return (
               <div className="mt-3 pt-3 border-t border-white/20 flex items-center justify-between gap-3 flex-wrap text-sm">
                 <div className="flex items-center gap-2">
                   <span>🏪</span>
                   <span>
-                    Candidatando-se na <strong>{lj.nome}</strong>
+                    Candidatando-se na <strong>{titulo}</strong>
+                    {lj.nome && <> · {lj.nome}</>}
                     {lj.bairro && <> · {lj.bairro}</>}
                   </span>
                 </div>
                 {lojas.length > 1 && (
-                  <button type="button" onClick={() => setLojaEscolhida(null)}
+                  <button type="button" onClick={() => setLojaEscolhidaId(null)}
                     className="text-xs px-3 py-1 bg-white/20 hover:bg-white/30 rounded-full font-semibold transition">
                     Trocar loja
                   </button>

@@ -27,7 +27,12 @@ export default function RhResultados() {
       setLoading(true);
       const status = abaAtiva === 'admissoes' ? 'ativo' : 'desligado';
       const response = await api.get(`/rh/colaboradores?status=${status}&limit=50`);
-      setColaboradores(response.data?.colaboradores || response.data || []);
+      const data = response.data;
+      const lista = Array.isArray(data?.data) ? data.data
+        : Array.isArray(data?.colaboradores) ? data.colaboradores
+        : Array.isArray(data) ? data
+        : [];
+      setColaboradores(lista);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados de colaboradores');

@@ -53,10 +53,12 @@ export default function EmpresaConfigTab() {
     estado: '',
     telefone: '',
     email: '',
+    fotoFachadaUrl: null,
     responsavelNome: '',
     responsavelEmail: '',
     responsavelTelefone: ''
   });
+  const [uploadingFachadaNew, setUploadingFachadaNew] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -176,17 +178,50 @@ export default function EmpresaConfigTab() {
     setNewStoreData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Upload da foto da fachada no cadastro de nova loja
+  const handleUploadFachadaNew = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingFachadaNew(true);
+    try {
+      const fd = new FormData();
+      fd.append('imagem', file);
+      const res = await api.post('/checklist/upload-imagem', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data?.url) {
+        setNewStoreData(f => ({ ...f, fotoFachadaUrl: res.data.url }));
+      }
+    } catch (err) {
+      setError('Erro ao enviar foto da fachada.');
+    } finally {
+      setUploadingFachadaNew(false);
+      e.target.value = '';
+    }
+  };
+
+  // Calcula o proximo numero de loja automaticamente (max + 1)
+  const getProximoCodLoja = () => {
+    const numeros = [
+      empresaPrincipal?.codLoja,
+      ...lojas.map(l => l.codLoja),
+    ].map(n => (n != null && !isNaN(Number(n)) ? Number(n) : null))
+     .filter(n => n != null);
+    return numeros.length ? Math.max(...numeros) + 1 : 1;
+  };
+
   const handleCreateStore = async (e) => {
     e.preventDefault();
     try {
       setError(null);
 
-      if (!newStoreData.nomeFantasia || !newStoreData.razaoSocial || !newStoreData.cnpj) {
-        setError('Preencha os campos obrigatórios: Nome Fantasia, Razão Social e CNPJ');
-        return;
-      }
+      // Nenhum campo obrigatorio - cod_loja e definido automaticamente
+      const payload = {
+        ...newStoreData,
+        codLoja: newStoreData.codLoja !== '' ? newStoreData.codLoja : getProximoCodLoja(),
+      };
 
-      await createCompany(newStoreData);
+      await createCompany(payload);
 
       setSuccess('Nova loja cadastrada com sucesso!');
       setShowNewStoreForm(false);
@@ -205,6 +240,7 @@ export default function EmpresaConfigTab() {
         estado: '',
         telefone: '',
         email: '',
+        fotoFachadaUrl: null,
         responsavelNome: '',
         responsavelEmail: '',
         responsavelTelefone: ''
@@ -546,23 +582,49 @@ export default function EmpresaConfigTab() {
 
           {showNewStoreForm && (
             <form onSubmit={handleCreateStore} className="space-y-4 border-t pt-4">
+              {/* Foto da Fachada */}
+              <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  🏪 Foto da Fachada da Loja
+                </label>
+                <div className="flex items-center gap-4">
+                  <div className="w-40 h-28 rounded-lg border-2 border-gray-200 bg-white overflow-hidden flex items-center justify-center shrink-0">
+                    {newStoreData.fotoFachadaUrl ? (
+                      <img src={newStoreData.fotoFachadaUrl} alt="Fachada" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="text-center text-gray-400">
+                        <div className="text-4xl">🏪</div>
+                        <div className="text-[10px] mt-1">Sem foto</div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <input type="file" accept="image/*" id="upload-fachada-new" className="hidden"
+                      onChange={handleUploadFachadaNew} />
+                    <label htmlFor="upload-fachada-new"
+                      className={`cursor-pointer px-4 py-2 rounded-lg text-sm font-bold text-white inline-block text-center ${uploadingFachadaNew ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'}`}>
+                      {uploadingFachadaNew ? 'Enviando…' : (newStoreData.fotoFachadaUrl ? '🔄 Trocar foto' : '📷 Adicionar foto')}
+                    </label>
+                    {newStoreData.fotoFachadaUrl && (
+                      <button type="button"
+                        onClick={() => setNewStoreData(f => ({ ...f, fotoFachadaUrl: null }))}
+                        className="px-4 py-2 rounded-lg text-sm font-bold bg-red-100 text-red-700 hover:bg-red-200">
+                        🗑️ Remover
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nº da Loja (ERP)
+                    Nº da Loja (automático)
                   </label>
-                  <select
-                    name="codLoja"
-                    value={newStoreData.codLoja}
-                    onChange={handleNewStoreChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Não definido</option>
-                    {[...Array(20)].map((_, i) => (
-                      <option key={i + 1} value={i + 1}>Loja {i + 1}</option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">Código usado no sistema Intersolid</p>
+                  <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-semibold">
+                    Loja {getProximoCodLoja()}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Definido automaticamente</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -580,14 +642,13 @@ export default function EmpresaConfigTab() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nome Fantasia *
+                    Nome Fantasia
                   </label>
                   <input
                     type="text"
                     name="nomeFantasia"
                     value={newStoreData.nomeFantasia}
                     onChange={handleNewStoreChange}
-                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -596,27 +657,25 @@ export default function EmpresaConfigTab() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Razão Social *
+                    Razão Social
                   </label>
                   <input
                     type="text"
                     name="razaoSocial"
                     value={newStoreData.razaoSocial}
                     onChange={handleNewStoreChange}
-                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    CNPJ *
+                    CNPJ
                   </label>
                   <input
                     type="text"
                     name="cnpj"
                     value={newStoreData.cnpj}
                     onChange={handleNewStoreChange}
-                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>

@@ -149,8 +149,8 @@ export class CurriculosController {
         cargos: cargos.map(c => c.nome),
         habilidades: habilidades.map(h => h.nome),
         lojas: (lojas || [])
-          .filter(l => l.codLoja !== null && l.codLoja !== undefined)
           .map(l => ({
+            id: l.id,
             cod_loja: l.codLoja,
             nome: l.nomeFantasia,
             apelido: l.apelido,
@@ -158,6 +158,7 @@ export class CurriculosController {
             cidade: l.cidade,
             estado: l.estado,
             foto_fachada_url: l.fotoFachadaUrl,
+            is_principal: l.codLoja == null,
           })),
       });
     } catch (e: any) {
