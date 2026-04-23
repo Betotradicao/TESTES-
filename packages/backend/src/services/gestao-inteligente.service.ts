@@ -1961,26 +1961,39 @@ export class GestaoInteligenteService {
         console.log('📍 [GESTAO INTELIGENTE] Lojas PostgreSQL ERP encontradas:', rows?.length || 0);
 
         if (rows && rows.length > 0) {
-          // Buscar apelidos das companies no banco local
+          // Auto-cria companies que existem no ERP mas nao no banco local (matriz com codLoja=null nao e afetada)
+          await GestaoInteligenteService.autoCreateMissingCompanies(
+            rows.map((r: any) => ({ cod_loja: Number(r.cod_loja), des_loja: r.des_loja }))
+          );
+
+          const erpCods = new Set(rows.map((r: any) => Number(r.cod_loja)));
+
+          // Busca apelidos + lojas locais que NAO estao no ERP (cadastradas manualmente)
           const apelidos: Map<number, string> = new Map();
+          const extrasLocais: any[] = [];
           try {
             if (AppDataSource.isInitialized) {
               const companyRepository = AppDataSource.getRepository(Company);
-              const companies = await companyRepository.find({
-                where: { active: true },
-                select: ['codLoja', 'apelido']
-              });
+              const companies = await companyRepository.find({ where: { active: true } });
               companies.forEach(c => {
                 if (c.codLoja && c.apelido) apelidos.set(c.codLoja, c.apelido);
+                if (c.codLoja && !erpCods.has(c.codLoja)) {
+                  extrasLocais.push({
+                    COD_LOJA: c.codLoja,
+                    DES_LOJA: c.nomeFantasia || c.razaoSocial || `Loja ${c.codLoja}`,
+                    APELIDO: c.apelido || null,
+                  });
+                }
               });
             }
           } catch { /* ignore */ }
 
-          return rows.map((loja: any) => ({
+          const doErp = rows.map((loja: any) => ({
             COD_LOJA: Number(loja.cod_loja),
             DES_LOJA: loja.des_loja,
             APELIDO: apelidos.get(Number(loja.cod_loja)) || null
           }));
+          return [...doErp, ...extrasLocais].sort((a, b) => a.COD_LOJA - b.COD_LOJA);
         }
       } catch (err) {
         console.error('❌ [GESTAO INTELIGENTE] Erro buscando lojas PostgreSQL ERP:', err);
@@ -2004,18 +2017,28 @@ export class GestaoInteligenteService {
       console.log('📍 [GESTAO INTELIGENTE] Lojas Oracle encontradas:', result?.length || 0);
 
       if (result && result.length > 0) {
-        // Buscar apelidos das companies no PostgreSQL
+        // Auto-cria companies que existem no Oracle mas nao no banco local (matriz com codLoja=null nao e afetada)
+        await GestaoInteligenteService.autoCreateMissingCompanies(
+          result.map((r: any) => ({ cod_loja: Number(r.COD_LOJA), des_loja: r.DES_LOJA }))
+        );
+
+        const erpCods = new Set(result.map((r: any) => Number(r.COD_LOJA)));
+
+        // Busca apelidos + lojas locais que NAO estao no Oracle (cadastradas manualmente)
         let apelidos: Map<number, string> = new Map();
+        const extrasLocais: any[] = [];
         try {
           if (AppDataSource.isInitialized) {
             const companyRepository = AppDataSource.getRepository(Company);
-            const companies = await companyRepository.find({
-              where: { active: true },
-              select: ['codLoja', 'apelido']
-            });
+            const companies = await companyRepository.find({ where: { active: true } });
             companies.forEach(c => {
-              if (c.codLoja && c.apelido) {
-                apelidos.set(c.codLoja, c.apelido);
+              if (c.codLoja && c.apelido) apelidos.set(c.codLoja, c.apelido);
+              if (c.codLoja && !erpCods.has(c.codLoja)) {
+                extrasLocais.push({
+                  COD_LOJA: c.codLoja,
+                  DES_LOJA: c.nomeFantasia || c.razaoSocial || `Loja ${c.codLoja}`,
+                  APELIDO: c.apelido || null,
+                });
               }
             });
           }
@@ -2023,10 +2046,11 @@ export class GestaoInteligenteService {
           console.warn('⚠️ [GESTAO INTELIGENTE] Não foi possível carregar apelidos:', err);
         }
 
-        return result.map((loja: any) => ({
+        const doErp = result.map((loja: any) => ({
           ...loja,
           APELIDO: apelidos.get(loja.COD_LOJA) || null
         }));
+        return [...doErp, ...extrasLocais].sort((a, b) => a.COD_LOJA - b.COD_LOJA);
       }
     } catch (error) {
       console.log('📍 [GESTAO INTELIGENTE] Oracle não disponível, usando lojas do PostgreSQL');
@@ -2057,6 +2081,52 @@ export class GestaoInteligenteService {
     }
 
     return [];
+  }
+
+  /**
+   * Cria companies automaticamente para lojas do ERP que nao existem no banco local.
+   * A matriz (codLoja = null) nunca e afetada - ela e criada pelo first setup do sistema.
+   * Apenas CREATE: nunca remove ou altera companies existentes.
+   */
+  private static async autoCreateMissingCompanies(
+    erpLojas: Array<{ cod_loja: number; des_loja: string }>
+  ): Promise<void> {
+    if (!erpLojas || erpLojas.length === 0) return;
+    if (!AppDataSource.isInitialized) return;
+
+    try {
+      const companyRepository = AppDataSource.getRepository(Company);
+      const existentes = await companyRepository.find({
+        where: { active: true },
+        select: ['codLoja']
+      });
+      const codsExistentes = new Set(
+        existentes.map(c => c.codLoja).filter(c => c != null) as number[]
+      );
+
+      const faltantes = erpLojas.filter(l =>
+        l.cod_loja != null &&
+        !isNaN(Number(l.cod_loja)) &&
+        !codsExistentes.has(Number(l.cod_loja))
+      );
+
+      if (faltantes.length === 0) return;
+
+      console.log(`📍 [GESTAO INTELIGENTE] Auto-criando ${faltantes.length} loja(s) faltante(s) em companies:`, faltantes.map(f => f.cod_loja).join(', '));
+
+      for (const loja of faltantes) {
+        const nova = companyRepository.create({
+          nomeFantasia: loja.des_loja || `Loja ${loja.cod_loja}`,
+          razaoSocial: '',
+          cnpj: '',
+          codLoja: Number(loja.cod_loja),
+          active: true,
+        });
+        await companyRepository.save(nova);
+      }
+    } catch (err) {
+      console.error('❌ [GESTAO INTELIGENTE] Erro ao auto-criar companies faltantes:', err);
+    }
   }
 
   /**
