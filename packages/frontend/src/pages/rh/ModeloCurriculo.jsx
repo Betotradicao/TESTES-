@@ -14,11 +14,8 @@ export default function ModeloCurriculo() {
   const [sucesso, setSucesso] = useState('');
   const flash = (t) => { setSucesso(t); setTimeout(() => setSucesso(''), 2000); };
 
-  // Cada loja gera um link proprio com ?loja=X - assim o curriculo enviado
-  // fica associado aquela loja especifica
-  const linkPublico = lojaSelecionada != null
-    ? `${window.location.origin}/curriculo?loja=${lojaSelecionada}`
-    : `${window.location.origin}/curriculo`;
+  // Link publico unico: o candidato escolhe a loja na tela inicial do formulario
+  const linkPublico = `${window.location.origin}/curriculo`;
 
   const carregar = async () => {
     try {

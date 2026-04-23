@@ -1,16 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import api from '../utils/api';
 
 export default function CurriculoPublico() {
-  const [searchParams] = useSearchParams();
-  const lojaDaUrl = searchParams.get('loja');
-
   const [cargos, setCargos] = useState([]);
   const [habilidades, setHabilidades] = useState([]);
   const [lojas, setLojas] = useState([]);
-  // Loja escolhida (vem do URL ou da tela inicial de selecao)
-  const [lojaEscolhida, setLojaEscolhida] = useState(lojaDaUrl ? parseInt(lojaDaUrl) : null);
+  // Loja escolhida pelo candidato na tela inicial
+  const [lojaEscolhida, setLojaEscolhida] = useState(null);
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
@@ -51,6 +47,12 @@ export default function CurriculoPublico() {
         const res = await api.get('/curriculos/publico/formulario');
         setCargos(res.data?.cargos || []);
         setHabilidades(res.data?.habilidades || []);
+        const listaLojas = res.data?.lojas || [];
+        setLojas(listaLojas);
+        // Se so existe 1 loja, seleciona ela automaticamente
+        if (listaLojas.length === 1) {
+          setLojaEscolhida(listaLojas[0].cod_loja);
+        }
       } catch (e) {
         setErro('Nao foi possivel carregar o formulario. Tente novamente mais tarde.');
       } finally {
@@ -228,7 +230,7 @@ export default function CurriculoPublico() {
           ano_conclusao: fm.ano_conclusao === '' ? null : Number(fm.ano_conclusao),
         })),
       };
-      await api.post('/curriculos/publico/enviar', payload);
+      await api.post('/curriculos/publico/enviar', { ...payload, cod_loja: lojaEscolhida });
       setEnviado(true);
       window.scrollTo(0, 0);
     } catch (err) {
@@ -244,6 +246,64 @@ export default function CurriculoPublico() {
         <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
           <div className="text-4xl mb-3">⏳</div>
           <div className="text-gray-700">Carregando formulário…</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Tela inicial: selecao de loja (sempre aparece, exceto se houver apenas 1 loja cadastrada)
+  if (lojaEscolhida == null) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 py-6 px-4 overflow-x-hidden">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-2xl shadow-lg p-6 mb-5">
+            <div className="flex items-center gap-3">
+              <div className="text-5xl">🏪</div>
+              <div>
+                <h1 className="text-2xl font-bold">Pra qual loja você quer se candidatar?</h1>
+                <p className="text-sm opacity-90 mt-1">Escolha a loja abaixo pra começar a preencher seu currículo.</p>
+              </div>
+            </div>
+          </div>
+
+          {erro && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm mb-3">{erro}</div>}
+
+          {lojas.length === 0 ? (
+            <div className="bg-white rounded-2xl shadow-md p-10 text-center">
+              <div className="text-5xl mb-3">😕</div>
+              <p className="text-gray-600 font-semibold">Nenhuma loja cadastrada no momento.</p>
+              <p className="text-sm text-gray-500 mt-1">Tente novamente mais tarde ou entre em contato pelo WhatsApp.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {lojas.map(lj => (
+                <button key={lj.cod_loja} onClick={() => setLojaEscolhida(lj.cod_loja)}
+                  className="bg-white rounded-2xl shadow-md hover:shadow-xl hover:scale-[1.02] transition border-2 border-transparent hover:border-rose-400 overflow-hidden text-left">
+                  {/* Foto */}
+                  <div className="h-44 bg-gradient-to-br from-rose-100 to-pink-100 flex items-center justify-center overflow-hidden">
+                    {lj.foto_fachada_url ? (
+                      <img src={lj.foto_fachada_url} alt={lj.nome} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="text-7xl">🏪</div>
+                    )}
+                  </div>
+                  {/* Info */}
+                  <div className="p-4">
+                    <h3 className="text-lg font-bold text-gray-800 mb-1">{lj.nome || `Loja ${lj.cod_loja}`}</h3>
+                    {lj.apelido && (
+                      <p className="text-sm text-rose-600 font-semibold mb-1">{lj.apelido}</p>
+                    )}
+                    <p className="text-sm text-gray-600">
+                      📍 {[lj.bairro, lj.cidade].filter(Boolean).join(' · ') || 'Endereço não informado'}
+                    </p>
+                    <div className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-rose-600">
+                      Candidatar-se aqui <span>→</span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -270,11 +330,33 @@ export default function CurriculoPublico() {
         <div className="bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-2xl shadow-lg p-5 mb-4">
           <div className="flex items-center gap-3">
             <div className="text-4xl">📝</div>
-            <div>
+            <div className="flex-1 min-w-0">
               <h1 className="text-xl font-bold">Cadastro de Currículo</h1>
               <p className="text-xs opacity-90 mt-0.5">Preencha como em um currículo tradicional. Quanto mais detalhes, maiores suas chances.</p>
             </div>
           </div>
+          {/* Loja selecionada com opcao de trocar */}
+          {(() => {
+            const lj = lojas.find(l => l.cod_loja === lojaEscolhida);
+            if (!lj) return null;
+            return (
+              <div className="mt-3 pt-3 border-t border-white/20 flex items-center justify-between gap-3 flex-wrap text-sm">
+                <div className="flex items-center gap-2">
+                  <span>🏪</span>
+                  <span>
+                    Candidatando-se na <strong>{lj.nome}</strong>
+                    {lj.bairro && <> · {lj.bairro}</>}
+                  </span>
+                </div>
+                {lojas.length > 1 && (
+                  <button type="button" onClick={() => setLojaEscolhida(null)}
+                    className="text-xs px-3 py-1 bg-white/20 hover:bg-white/30 rounded-full font-semibold transition">
+                    Trocar loja
+                  </button>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {erro && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm mb-3">{erro}</div>}

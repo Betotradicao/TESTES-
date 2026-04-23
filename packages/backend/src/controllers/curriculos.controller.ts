@@ -140,7 +140,7 @@ export class CurriculosController {
         AppDataSource.getRepository(CurriculoHabilidade).find({ where: { ativo: true }, order: { ordem: 'ASC', nome: 'ASC' } }),
         AppDataSource.getRepository(Company).find({
           where: { active: true },
-          select: ['id', 'codLoja', 'nomeFantasia', 'apelido'],
+          select: ['id', 'codLoja', 'nomeFantasia', 'apelido', 'bairro', 'cidade', 'estado', 'fotoFachadaUrl'],
           order: { codLoja: 'ASC' } as any,
         }),
       ]);
@@ -154,6 +154,10 @@ export class CurriculosController {
             cod_loja: l.codLoja,
             nome: l.nomeFantasia,
             apelido: l.apelido,
+            bairro: l.bairro,
+            cidade: l.cidade,
+            estado: l.estado,
+            foto_fachada_url: l.fotoFachadaUrl,
           })),
       });
     } catch (e: any) {

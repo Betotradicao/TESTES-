@@ -156,7 +156,7 @@ export class CompaniesController {
         cep, rua, numero, complemento, bairro, cidade, estado,
         telefone, email,
         responsavelNome, responsavelEmail, responsavelTelefone,
-        metaChecklist
+        metaChecklist, fotoFachadaUrl
       } = req.body;
 
       const company = await companyRepository.findOne({ where: { id } });
@@ -211,6 +211,11 @@ export class CompaniesController {
         if (!isNaN(parsed)) {
           company.metaChecklist = Math.max(0, Math.min(100, parsed));
         }
+      }
+
+      // Foto da fachada da loja
+      if (fotoFachadaUrl !== undefined) {
+        company.fotoFachadaUrl = fotoFachadaUrl || null;
       }
 
       await companyRepository.save(company);
@@ -323,7 +328,7 @@ export class CompaniesController {
         cep, rua, numero, complemento, bairro, cidade, estado,
         telefone, email,
         responsavelNome, responsavelEmail, responsavelTelefone,
-        metaChecklist
+        metaChecklist, fotoFachadaUrl
       } = req.body;
 
       console.log('📥 updateMyCompany - codLoja:', codLoja, 'apelido:', apelido);
@@ -407,6 +412,11 @@ export class CompaniesController {
         if (!isNaN(parsed)) {
           company.metaChecklist = Math.max(0, Math.min(100, parsed));
         }
+      }
+
+      // Foto da fachada da loja
+      if (fotoFachadaUrl !== undefined) {
+        company.fotoFachadaUrl = fotoFachadaUrl || null;
       }
 
       await companyRepository.save(company);

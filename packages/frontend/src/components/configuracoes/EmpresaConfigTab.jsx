@@ -117,9 +117,33 @@ export default function EmpresaConfigTab() {
       responsavelNome: company.responsavelNome || '',
       responsavelEmail: company.responsavelEmail || '',
       responsavelTelefone: company.responsavelTelefone || '',
-      metaChecklist: company.metaChecklist != null ? company.metaChecklist : 95
+      metaChecklist: company.metaChecklist != null ? company.metaChecklist : 95,
+      fotoFachadaUrl: company.fotoFachadaUrl || null
     });
     setShowEditModal(true);
+  };
+
+  // Upload da foto da fachada da loja
+  const [uploadingFachada, setUploadingFachada] = useState(false);
+  const handleUploadFachada = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingFachada(true);
+    try {
+      const fd = new FormData();
+      fd.append('imagem', file);
+      const res = await api.post('/checklist/upload-imagem', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data?.url) {
+        setEditFormData(f => ({ ...f, fotoFachadaUrl: res.data.url }));
+      }
+    } catch (err) {
+      setError('Erro ao enviar foto da fachada.');
+    } finally {
+      setUploadingFachada(false);
+      e.target.value = '';
+    }
   };
 
   const handleSaveEdit = async (e) => {
@@ -720,11 +744,19 @@ export default function EmpresaConfigTab() {
         <div className="p-6 border-b border-gray-200">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className="bg-orange-100 p-3 rounded-full">
-                <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
+              {empresaPrincipal?.fotoFachadaUrl ? (
+                <img
+                  src={empresaPrincipal.fotoFachadaUrl}
+                  alt="Fachada da loja"
+                  className="w-16 h-16 rounded-lg object-cover border-2 border-orange-200 shrink-0"
+                />
+              ) : (
+                <div className="bg-orange-100 p-3 rounded-full">
+                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+              )}
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">Empresa Principal</h2>
                 <p className="text-sm text-gray-500">Cadastrada no primeiro acesso</p>
@@ -815,7 +847,16 @@ export default function EmpresaConfigTab() {
             {lojas.map((loja) => (
               <div key={loja.id} className="p-6">
                 <div className="flex justify-between items-start">
-                  <div className="flex-1">
+                  <div className="flex-1 flex gap-4">
+                    {loja.fotoFachadaUrl ? (
+                      <img src={loja.fotoFachadaUrl} alt="Fachada"
+                        className="w-20 h-20 rounded-lg object-cover border-2 border-blue-200 shrink-0" />
+                    ) : (
+                      <div className="w-20 h-20 rounded-lg bg-blue-50 border-2 border-blue-100 flex items-center justify-center shrink-0 text-3xl text-blue-300">
+                        🏪
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-3">
                       {loja.codLoja && (
                         <span className="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full text-sm font-medium">
@@ -845,6 +886,7 @@ export default function EmpresaConfigTab() {
                         <span className="text-gray-500">Telefone:</span>
                         <span className="ml-2 text-gray-900">{loja.telefone || '-'}</span>
                       </div>
+                    </div>
                     </div>
                   </div>
                   <div className="flex gap-2 ml-4">
@@ -1083,6 +1125,55 @@ export default function EmpresaConfigTab() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                     <p className="text-xs text-gray-500 mt-1">Aparece após o nome: "Loja 1 - Nome - Apelido"</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Foto da Fachada */}
+              <div>
+                <h4 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <span className="text-xl">🏪</span>
+                  Foto da Fachada da Loja
+                </h4>
+                <p className="text-sm text-gray-500 mb-3">
+                  Aparece na tela inicial do formulário público de currículo, ajudando o candidato a identificar visualmente a loja que está escolhendo.
+                </p>
+                <div className="flex items-start gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  {/* Preview */}
+                  <div className="w-40 h-28 rounded-lg border-2 border-gray-300 bg-white overflow-hidden flex items-center justify-center shrink-0">
+                    {editFormData.fotoFachadaUrl ? (
+                      <img src={editFormData.fotoFachadaUrl} alt="Fachada" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-4xl text-gray-300">🏪</span>
+                    )}
+                  </div>
+                  {/* Ações */}
+                  <div className="flex-1 space-y-2">
+                    <input
+                      id="fachada-upload-input"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleUploadFachada}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('fachada-upload-input')?.click()}
+                      disabled={uploadingFachada}
+                      className={`px-4 py-2 rounded-lg text-sm font-bold text-white ${uploadingFachada ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'}`}
+                    >
+                      {uploadingFachada ? 'Enviando…' : (editFormData.fotoFachadaUrl ? '🔄 Trocar foto' : '📷 Adicionar foto')}
+                    </button>
+                    {editFormData.fotoFachadaUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setEditFormData(f => ({ ...f, fotoFachadaUrl: null }))}
+                        className="ml-2 px-3 py-2 text-xs font-semibold text-red-600 border border-red-200 rounded hover:bg-red-50"
+                      >
+                        🗑️ Remover
+                      </button>
+                    )}
+                    <p className="text-xs text-gray-500">Formatos: JPG, PNG, WEBP. Recomendado: foto horizontal, clara, da fachada.</p>
                   </div>
                 </div>
               </div>
