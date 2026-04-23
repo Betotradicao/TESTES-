@@ -1242,32 +1242,29 @@ export default function EmpresaConfigTab() {
                 <h4 className="text-lg font-semibold text-gray-800 mb-3">Dados Básicos</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome Fantasia *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome Fantasia</label>
                     <input
                       type="text"
-                      value={editFormData.nomeFantasia}
+                      value={editFormData.nomeFantasia || ''}
                       onChange={(e) => setEditFormData({ ...editFormData, nomeFantasia: e.target.value })}
-                      required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Razão Social *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Razão Social</label>
                     <input
                       type="text"
-                      value={editFormData.razaoSocial}
+                      value={editFormData.razaoSocial || ''}
                       onChange={(e) => setEditFormData({ ...editFormData, razaoSocial: e.target.value })}
-                      required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">CNPJ *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">CNPJ</label>
                     <input
                       type="text"
-                      value={editFormData.cnpj}
+                      value={editFormData.cnpj || ''}
                       onChange={(e) => setEditFormData({ ...editFormData, cnpj: e.target.value })}
-                      required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
