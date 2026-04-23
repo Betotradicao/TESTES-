@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLoja } from '../../contexts/LojaContext';
 import Sidebar from '../../components/Sidebar';
 import api from '../../utils/api';
 
 export default function ModeloCurriculo() {
   const { user, logout } = useAuth();
+  const { lojaSelecionada } = useLoja();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [cargos, setCargos] = useState([]);
   const [habilidades, setHabilidades] = useState([]);
@@ -12,7 +14,11 @@ export default function ModeloCurriculo() {
   const [sucesso, setSucesso] = useState('');
   const flash = (t) => { setSucesso(t); setTimeout(() => setSucesso(''), 2000); };
 
-  const linkPublico = `${window.location.origin}/curriculo`;
+  // Cada loja gera um link proprio com ?loja=X - assim o curriculo enviado
+  // fica associado aquela loja especifica
+  const linkPublico = lojaSelecionada != null
+    ? `${window.location.origin}/curriculo?loja=${lojaSelecionada}`
+    : `${window.location.origin}/curriculo`;
 
   const carregar = async () => {
     try {
@@ -88,28 +94,71 @@ export default function ModeloCurriculo() {
           </div>
         </div>
 
-        <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-4">
+        <div className="p-4 sm:p-6 space-y-4">
           {erro && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm flex justify-between"><span>{erro}</span><button onClick={() => setErro('')} className="font-bold">×</button></div>}
           {sucesso && <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded text-sm">{sucesso}</div>}
 
-          {/* Link público */}
-          <div className="bg-white border-2 border-pink-200 rounded-xl p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <span className="text-xl">🔗</span>
-              <h3 className="font-bold text-gray-800">Link público do currículo</h3>
-              <span className="text-[10px] bg-pink-100 text-pink-800 px-2 py-0.5 rounded-full font-semibold uppercase">Envie no WhatsApp dos candidatos</span>
+          {/* Link público + QR Code */}
+          <div className="bg-gradient-to-br from-white to-pink-50/30 border-2 border-pink-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="bg-gradient-to-r from-pink-100 to-rose-100 px-5 py-4 border-b-2 border-pink-200">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-2xl">🔗</span>
+                <h3 className="text-lg font-bold text-gray-800">Link público do currículo</h3>
+                <span className="text-xs bg-white text-pink-800 px-3 py-1 rounded-full font-bold uppercase border border-pink-200">
+                  Envie no WhatsApp dos candidatos
+                </span>
+              </div>
             </div>
-            <p className="text-xs text-gray-600 mb-3">
-              Qualquer pessoa com este link consegue preencher o formulário. O currículo cai direto no Banco de Currículos pra você avaliar.
-            </p>
-            <div className="flex gap-2 items-center bg-gray-50 border-2 border-gray-200 rounded-lg p-2">
-              <input type="text" value={linkPublico} readOnly className="flex-1 bg-transparent text-sm font-mono text-gray-700 outline-none" />
-              <button onClick={copiarLink} className="px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-lg text-sm font-bold hover:shadow-md">
-                📋 Copiar
-              </button>
-              <a href={linkPublico} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-white border-2 border-pink-300 text-pink-600 rounded-lg text-sm font-bold hover:bg-pink-50">
-                👁️ Visualizar
-              </a>
+
+            <div className="p-5">
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_260px] gap-5 items-center">
+                {/* Esquerda: descrição + link + botões */}
+                <div className="space-y-4">
+                  <p className="text-base text-gray-700">
+                    Qualquer pessoa com este link consegue preencher o formulário.
+                    O currículo cai direto no <strong>Banco de Currículos</strong> pra você avaliar.
+                  </p>
+
+                  <div className="flex gap-2 items-center bg-white border-2 border-gray-200 rounded-xl p-2 flex-wrap">
+                    <input type="text" value={linkPublico} readOnly
+                      className="flex-1 min-w-[160px] bg-transparent text-base font-mono text-gray-800 outline-none px-2 py-1" />
+                    <button onClick={copiarLink}
+                      className="px-4 py-2.5 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-lg text-sm font-bold hover:shadow-md hover:scale-[1.02] transition">
+                      📋 Copiar
+                    </button>
+                    <a href={linkPublico} target="_blank" rel="noopener noreferrer"
+                      className="px-4 py-2.5 bg-white border-2 border-pink-300 text-pink-600 rounded-lg text-sm font-bold hover:bg-pink-50 transition">
+                      👁️ Visualizar
+                    </a>
+                  </div>
+
+                  <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900">
+                    <span className="text-lg">💡</span>
+                    <div>
+                      <strong>Dica:</strong> imprima o QR Code ao lado e cole no mural da loja pra os candidatos escanearem direto pelo celular, sem precisar digitar o link.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Direita: QR Code */}
+                <div className="flex flex-col items-center gap-2 bg-white border-2 border-pink-200 rounded-xl p-4 shadow-inner">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(linkPublico)}&margin=8`}
+                    alt="QR Code do link"
+                    className="w-[220px] h-[220px] bg-white rounded"
+                  />
+                  <div className="text-sm text-gray-700 font-bold">📱 Escaneie com o celular</div>
+                  <a
+                    href={`https://api.qrserver.com/v1/create-qr-code/?size=600x600&format=png&data=${encodeURIComponent(linkPublico)}&margin=20`}
+                    download="qrcode-curriculo.png"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm px-3 py-2 bg-pink-100 text-pink-700 rounded-full font-bold hover:bg-pink-200 transition w-full text-center"
+                  >
+                    ⬇️ Baixar PNG pra imprimir
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
 

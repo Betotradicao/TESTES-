@@ -1,9 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../utils/api';
 
 export default function CurriculoPublico() {
+  const [searchParams] = useSearchParams();
+  const lojaDaUrl = searchParams.get('loja');
+
   const [cargos, setCargos] = useState([]);
   const [habilidades, setHabilidades] = useState([]);
+  const [lojas, setLojas] = useState([]);
+  // Loja escolhida (vem do URL ou da tela inicial de selecao)
+  const [lojaEscolhida, setLojaEscolhida] = useState(lojaDaUrl ? parseInt(lojaDaUrl) : null);
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
@@ -146,10 +153,18 @@ export default function CurriculoPublico() {
 
   // ===== Cursos complementares =====
   const addCursoAdic = () => {
-    setForm(f => ({ ...f, cursos_adicionais: [...(f.cursos_adicionais || []), ''] }));
+    setForm(f => ({ ...f, cursos_adicionais: [...(f.cursos_adicionais || []), { nome: '', instituicao: '', tempo: '' }] }));
   };
-  const updateCursoAdic = (idx, valor) => {
-    setForm(f => ({ ...f, cursos_adicionais: (f.cursos_adicionais || []).map((x, i) => i === idx ? valor : x) }));
+  const updateCursoAdic = (idx, campo, valor) => {
+    setForm(f => ({
+      ...f,
+      cursos_adicionais: (f.cursos_adicionais || []).map((x, i) => {
+        if (i !== idx) return x;
+        // Suporta valor antigo (string) convertendo pra objeto
+        const base = typeof x === 'string' ? { nome: x, instituicao: '', tempo: '' } : x;
+        return { ...base, [campo]: valor };
+      }),
+    }));
   };
   const removeCursoAdic = (idx) => {
     setForm(f => ({ ...f, cursos_adicionais: (f.cursos_adicionais || []).filter((_, i) => i !== idx) }));
@@ -250,7 +265,7 @@ export default function CurriculoPublico() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 py-6 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 py-6 px-4 overflow-x-hidden">
       <div className="max-w-3xl mx-auto">
         <div className="bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-2xl shadow-lg p-5 mb-4">
           <div className="flex items-center gap-3">
@@ -304,9 +319,9 @@ export default function CurriculoPublico() {
               <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
                 <FieldReq label="Nome completo" value={form.nome} onChange={v => setForm({ ...form, nome: v })} />
                 <Field label="Data de nascimento" type="date" value={form.data_nascimento} onChange={v => setForm({ ...form, data_nascimento: v })} />
-                <Field label="WhatsApp" placeholder="(00) 00000-0000" value={form.whatsapp} onChange={v => setForm({ ...form, whatsapp: v })} />
-                <Field label="E-mail" type="email" value={form.email} onChange={v => setForm({ ...form, email: v })} />
-                <Field label="Instagram (@)" value={form.instagram} onChange={v => setForm({ ...form, instagram: v })} />
+                <Field label="WhatsApp" placeholder="(00) 00000-0000" value={form.whatsapp} onChange={v => setForm({ ...form, whatsapp: v })} caseSensitive />
+                <Field label="E-mail" type="email" value={form.email} onChange={v => setForm({ ...form, email: v })} caseSensitive />
+                <Field label="Instagram (@)" value={form.instagram} onChange={v => setForm({ ...form, instagram: v })} caseSensitive />
               </div>
             </div>
           </section>
@@ -315,8 +330,9 @@ export default function CurriculoPublico() {
           <section>
             <h2 className="text-sm font-bold text-gray-800 mb-1">🧾 Resumo profissional</h2>
             <p className="text-xs text-gray-500 mb-2">Fale brevemente sobre você, sua experiência e o que busca.</p>
-            <textarea value={form.resumo} onChange={e => setForm({ ...form, resumo: e.target.value })} rows={3}
-              placeholder="Ex: Sou organizado, com 4 anos de experiência em atendimento e caixa. Busco uma vaga onde possa crescer na área de reposição."
+            <textarea value={form.resumo} onChange={e => setForm({ ...form, resumo: e.target.value.toUpperCase() })} rows={3}
+              placeholder="EX: SOU ORGANIZADO, COM 4 ANOS DE EXPERIÊNCIA EM ATENDIMENTO E CAIXA. BUSCO UMA VAGA ONDE POSSA CRESCER NA ÁREA DE REPOSIÇÃO."
+              style={{ textTransform: 'uppercase' }}
               className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400" />
           </section>
 
@@ -409,7 +425,7 @@ export default function CurriculoPublico() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       <Field label="Função / Cargo" value={ex.funcao} onChange={v => updateExperiencia(idx, 'funcao', v)} />
                       <Field label="Empresa" value={ex.empresa} onChange={v => updateExperiencia(idx, 'empresa', v)} />
-                      <Field label="Instagram da empresa (opcional)" value={ex.empresa_instagram} onChange={v => updateExperiencia(idx, 'empresa_instagram', v)} placeholder="@empresa" />
+                      <Field label="Instagram da empresa (opcional)" value={ex.empresa_instagram} onChange={v => updateExperiencia(idx, 'empresa_instagram', v)} placeholder="@empresa" caseSensitive />
                       <div className="grid grid-cols-2 gap-2">
                         <Field label="Anos" type="number" value={ex.tempo_anos} onChange={v => updateExperiencia(idx, 'tempo_anos', v)} />
                         <Field label="Meses" type="number" value={ex.tempo_meses} onChange={v => updateExperiencia(idx, 'tempo_meses', v)} />
@@ -530,15 +546,41 @@ export default function CurriculoPublico() {
               <p className="text-xs text-gray-400 italic">Nenhum curso adicionado.</p>
             )}
             <div className="space-y-2">
-              {(form.cursos_adicionais || []).map((curso, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <input type="text" value={curso} onChange={e => updateCursoAdic(idx, e.target.value)}
-                    placeholder="Nome do curso"
-                    className="flex-1 border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-sky-400" />
-                  <button type="button" onClick={() => removeCursoAdic(idx)}
-                    className="text-red-600 hover:text-red-800 px-2 text-sm font-bold">🗑️</button>
-                </div>
-              ))}
+              {(form.cursos_adicionais || []).map((curso, idx) => {
+                // Compat: aceita valor antigo (string)
+                const c = typeof curso === 'string' ? { nome: curso, instituicao: '', tempo: '' } : curso;
+                return (
+                  <div key={idx} className="bg-sky-50/50 border-2 border-sky-200 rounded-xl p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-bold text-sky-700 uppercase">Curso {idx + 1}</span>
+                      <button type="button" onClick={() => removeCursoAdic(idx)} className="text-xs text-red-600 hover:text-red-800 font-bold">🗑️</button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div className="md:col-span-2">
+                        <label className="block text-[11px] font-semibold uppercase text-gray-500 mb-1">Nome do curso</label>
+                        <input type="text" value={c.nome || ''} onChange={e => updateCursoAdic(idx, 'nome', e.target.value.toUpperCase())}
+                          placeholder="Ex: NR-11 EMPILHADEIRA"
+                          style={{ textTransform: 'uppercase' }}
+                          className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-sky-400" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold uppercase text-gray-500 mb-1">Escola / instituição</label>
+                        <input type="text" value={c.instituicao || ''} onChange={e => updateCursoAdic(idx, 'instituicao', e.target.value.toUpperCase())}
+                          placeholder="Ex: SENAC"
+                          style={{ textTransform: 'uppercase' }}
+                          className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-sky-400" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold uppercase text-gray-500 mb-1">Tempo / carga horária</label>
+                        <input type="text" value={c.tempo || ''} onChange={e => updateCursoAdic(idx, 'tempo', e.target.value.toUpperCase())}
+                          placeholder="Ex: 40H, 3 MESES, 1 ANO"
+                          style={{ textTransform: 'uppercase' }}
+                          className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-sky-400" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </section>
 
@@ -562,21 +604,30 @@ export default function CurriculoPublico() {
   );
 }
 
-function Field({ label, value, onChange, type = 'text', placeholder }) {
+// Campos de texto convertem automaticamente pra MAIUSCULA (padrao do sistema).
+// Use caseSensitive={true} pra email, instagram, whatsapp etc.
+function Field({ label, value, onChange, type = 'text', placeholder, caseSensitive = false }) {
+  const shouldUpper = !caseSensitive && (type === 'text' || type === undefined);
   return (
     <div>
       <label className="block text-[11px] font-semibold uppercase text-gray-500 mb-1">{label}</label>
-      <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+      <input type={type} value={value || ''}
+        onChange={e => onChange(shouldUpper ? e.target.value.toUpperCase() : e.target.value)}
+        placeholder={placeholder}
+        style={shouldUpper ? { textTransform: 'uppercase' } : undefined}
         className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400" />
     </div>
   );
 }
-function FieldReq(props) {
+function FieldReq({ label, value, onChange, type = 'text', placeholder, caseSensitive = false }) {
+  const shouldUpper = !caseSensitive && (type === 'text' || type === undefined);
   return (
     <div>
-      <label className="block text-[11px] font-semibold uppercase text-gray-500 mb-1">{props.label} <span className="text-red-500">*</span></label>
-      <input type={props.type || 'text'} value={props.value || ''} onChange={e => props.onChange(e.target.value)}
-        placeholder={props.placeholder} required
+      <label className="block text-[11px] font-semibold uppercase text-gray-500 mb-1">{label} <span className="text-red-500">*</span></label>
+      <input type={type} value={value || ''}
+        onChange={e => onChange(shouldUpper ? e.target.value.toUpperCase() : e.target.value)}
+        placeholder={placeholder} required
+        style={shouldUpper ? { textTransform: 'uppercase' } : undefined}
         className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400" />
     </div>
   );

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLoja } from '../../contexts/LojaContext';
 import Sidebar from '../../components/Sidebar';
 import api from '../../utils/api';
 
@@ -13,6 +14,7 @@ const STATUS_LABEL = {
 
 export default function BancoCurriculos() {
   const { user, logout } = useAuth();
+  const { lojaSelecionada } = useLoja();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [curriculos, setCurriculos] = useState([]);
   const [resumo, setResumo] = useState({});
@@ -33,12 +35,22 @@ export default function BancoCurriculos() {
     try {
       const params = new URLSearchParams();
       Object.entries(filtros).forEach(([k, v]) => { if (v) params.set(k, v); });
+      if (lojaSelecionada != null) params.set('cod_loja', String(lojaSelecionada));
       const r = await api.get(`/curriculos?${params.toString()}`);
       setCurriculos(r.data?.curriculos || []);
       setResumo(r.data?.resumo || {});
     } catch (e) { setErro(e?.response?.data?.error || e.message); }
     finally { setLoading(false); }
   };
+
+  // Auto-carrega sempre que filtros ou loja mudarem (com debounce pra inputs de texto)
+  const debounceRef = useRef(null);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => { carregar(); }, 350);
+    return () => debounceRef.current && clearTimeout(debounceRef.current);
+    // eslint-disable-next-line
+  }, [filtros, lojaSelecionada]);
 
   useEffect(() => {
     (async () => {
@@ -93,7 +105,7 @@ export default function BancoCurriculos() {
           </div>
         </div>
 
-        <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+        <div className="p-4 sm:p-6">
           {erro && <div className="mb-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">{erro}</div>}
 
           {/* Resumo */}
@@ -131,10 +143,12 @@ export default function BancoCurriculos() {
               <FiltroInput label="De" type="date" value={filtros.dataDe} onChange={v => setFiltros({ ...filtros, dataDe: v })} />
               <FiltroInput label="Até" type="date" value={filtros.dataAte} onChange={v => setFiltros({ ...filtros, dataAte: v })} />
             </div>
-            <div className="flex justify-end gap-2 mt-2">
-              <button onClick={() => { setFiltros({ cidade: '', bairro: '', cargo: '', habilidade: '', status: '', dataDe: '', dataAte: '', q: '', interesse_vaga: '' }); setTimeout(carregar, 0); }}
-                className="text-xs px-3 py-1.5 border-2 border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Limpar</button>
-              <button onClick={carregar} className="text-xs px-4 py-1.5 bg-rose-500 text-white rounded-lg font-bold hover:bg-rose-600">🔎 Aplicar filtros</button>
+            <div className="flex justify-end gap-2 mt-3">
+              <button
+                onClick={() => setFiltros({ cidade: '', bairro: '', cargo: '', habilidade: '', status: '', dataDe: '', dataAte: '', q: '', interesse_vaga: '' })}
+                className="text-base px-6 py-3 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 shadow hover:shadow-md transition">
+                🧹 Limpar filtros
+              </button>
             </div>
           </div>
 
@@ -148,45 +162,61 @@ export default function BancoCurriculos() {
               <div className="text-xs text-gray-400 mt-1">Envie o link público pra candidatos em <strong>Modelo de Currículo</strong>.</div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="flex flex-col gap-2">
               {curriculos.map(cv => {
                 const st = STATUS_LABEL[cv.status] || STATUS_LABEL.novo;
                 return (
                   <button key={cv.id} onClick={() => setSelecionado(cv)}
-                    className="text-left bg-white border-2 border-gray-100 rounded-xl p-3 shadow-sm hover:shadow-md hover:border-rose-200 transition">
-                    <div className="flex items-start gap-3 mb-2">
+                    className="text-left bg-white border-2 border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-rose-200 transition w-full">
+                    <div className="flex items-center gap-4 flex-wrap md:flex-nowrap">
+                      {/* Foto */}
                       {cv.foto_url ? (
-                        <img src={cv.foto_url} alt="" className="w-14 h-14 rounded-full object-cover border-2 border-rose-200 shrink-0" />
+                        <img src={cv.foto_url} alt="" className="w-20 h-20 rounded-full object-cover border-2 border-rose-200 shrink-0" />
                       ) : (
-                        <div className="w-14 h-14 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-xl shrink-0 border-2 border-rose-200">
+                        <div className="w-20 h-20 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-3xl shrink-0 border-2 border-rose-200">
                           {cv.nome?.charAt(0).toUpperCase() || '?'}
                         </div>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-bold text-gray-800 truncate">{cv.nome}</h4>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-bold border ${st.bg}`}>{st.emoji} {st.label}</span>
+
+                      {/* Nome + badges */}
+                      <div className="flex-1 min-w-[200px]">
+                        <div className="text-lg font-bold text-gray-800 truncate">{cv.nome}</div>
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          <span className={`inline-block text-xs px-2.5 py-1 rounded-full font-bold border ${st.bg}`}>{st.emoji} {st.label}</span>
                           {cv.interesse_vaga && (
-                            <span className="inline-block text-[10px] px-2 py-0.5 rounded-full font-bold border bg-slate-100 text-slate-700 border-slate-300">
+                            <span className="inline-block text-xs px-2.5 py-1 rounded-full font-bold border bg-slate-100 text-slate-700 border-slate-300">
                               {cv.interesse_vaga === 'clt' ? '💼 CLT' : '🎓 Aprendiz'}
                             </span>
                           )}
                         </div>
                       </div>
-                    </div>
-                    <div className="text-xs text-gray-600 space-y-0.5">
-                      {cv.whatsapp && <div>📱 {cv.whatsapp}</div>}
-                      {(cv.cidade || cv.bairro) && <div>📍 {[cv.bairro, cv.cidade, cv.estado].filter(Boolean).join(', ')}</div>}
-                      <div>📅 {fmtData(cv.created_at)}</div>
-                    </div>
-                    {(cv.cargos?.length > 0) && (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {cv.cargos.slice(0, 3).map((c, i) => (
-                          <span key={i} className="text-[10px] px-2 py-0.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-full">{c}</span>
-                        ))}
-                        {cv.cargos.length > 3 && <span className="text-[10px] text-gray-400">+{cv.cargos.length - 3}</span>}
+
+                      {/* Contato */}
+                      <div className="text-sm text-gray-700 min-w-[160px] space-y-0.5">
+                        {cv.whatsapp && <div>📱 {cv.whatsapp}</div>}
+                        {cv.email && <div className="truncate">✉️ {cv.email}</div>}
                       </div>
-                    )}
+
+                      {/* Localização */}
+                      <div className="text-sm text-gray-700 min-w-[200px]">
+                        {(cv.cidade || cv.bairro) && (
+                          <div>📍 {[cv.bairro, cv.cidade, cv.estado].filter(Boolean).join(', ')}</div>
+                        )}
+                      </div>
+
+                      {/* Cargos */}
+                      <div className="flex flex-wrap gap-1 flex-1 min-w-[180px]">
+                        {(cv.cargos || []).slice(0, 3).map((c, i) => (
+                          <span key={i} className="text-xs px-2.5 py-1 bg-rose-50 border border-rose-200 text-rose-700 rounded-full whitespace-nowrap font-semibold">{c}</span>
+                        ))}
+                        {cv.cargos?.length > 3 && <span className="text-xs text-gray-400 self-center font-semibold">+{cv.cargos.length - 3}</span>}
+                      </div>
+
+                      {/* Data */}
+                      <div className="text-sm text-gray-600 text-right shrink-0 min-w-[100px] font-medium">
+                        📅 {fmtData(cv.created_at)}
+                      </div>
+                    </div>
                   </button>
                 );
               })}
@@ -212,10 +242,10 @@ export default function BancoCurriculos() {
 
 function Tile({ emoji, titulo, valor, grad }) {
   return (
-    <div className={`bg-gradient-to-br ${grad} text-white rounded-xl p-3 shadow`}>
-      <div className="text-xl mb-0.5">{emoji}</div>
-      <div className="text-2xl font-extrabold">{Number(valor || 0)}</div>
-      <div className="text-[10px] font-semibold opacity-90 uppercase">{titulo}</div>
+    <div className={`bg-gradient-to-br ${grad} text-white rounded-xl p-5 shadow-md`}>
+      <div className="text-3xl mb-1">{emoji}</div>
+      <div className="text-4xl sm:text-5xl font-extrabold leading-tight">{Number(valor || 0)}</div>
+      <div className="text-base sm:text-lg font-bold opacity-95 uppercase tracking-wide mt-1">{titulo}</div>
     </div>
   );
 }
@@ -223,18 +253,18 @@ function Tile({ emoji, titulo, valor, grad }) {
 function FiltroInput({ label, value, onChange, type = 'text', placeholder }) {
   return (
     <div>
-      <label className="block text-[10px] font-semibold uppercase text-gray-500 mb-0.5">{label}</label>
+      <label className="block text-sm font-bold uppercase text-gray-600 mb-1">{label}</label>
       <input type={type} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)}
-        className="w-full border-2 border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-rose-400" />
+        className="w-full border-2 border-gray-200 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:border-rose-400" />
     </div>
   );
 }
 function FiltroSelect({ label, value, onChange, children }) {
   return (
     <div>
-      <label className="block text-[10px] font-semibold uppercase text-gray-500 mb-0.5">{label}</label>
+      <label className="block text-sm font-bold uppercase text-gray-600 mb-1">{label}</label>
       <select value={value} onChange={e => onChange(e.target.value)}
-        className="w-full border-2 border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-rose-400">
+        className="w-full border-2 border-gray-200 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:border-rose-400">
         {children}
       </select>
     </div>
@@ -260,23 +290,23 @@ function DetalheCV({ cv, onFechar, onAtualizarStatus, onAtualizarObs, onAtualiza
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-2 sm:p-4" onClick={onFechar}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-[900px] max-h-[95vh] min-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
         {/* Barra de ações do RH */}
-        <div className="bg-gradient-to-r from-pink-500 to-rose-600 text-white p-3 flex items-center justify-between flex-wrap gap-2">
+        <div className="bg-gradient-to-r from-pink-500 to-rose-600 text-white p-4 flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold border-2 border-white/30 ${st.bg}`}>{st.emoji} {st.label}</span>
+            <span className={`text-sm px-3 py-1 rounded-full font-bold border-2 border-white/30 ${st.bg}`}>{st.emoji} {st.label}</span>
             {cv.interesse_vaga && (
-              <span className="text-[11px] px-2 py-0.5 rounded-full font-bold border-2 border-white/30 bg-white/20 text-white">
+              <span className="text-sm px-3 py-1 rounded-full font-bold border-2 border-white/30 bg-white/20 text-white">
                 {cv.interesse_vaga === 'clt' ? '💼 CLT' : '🎓 APRENDIZ'}
               </span>
             )}
-            <span className="text-[11px] opacity-90">Recebido em {new Date(cv.created_at).toLocaleString('pt-BR')}</span>
+            <span className="text-sm opacity-90">Recebido em {new Date(cv.created_at).toLocaleString('pt-BR')}</span>
           </div>
-          <button onClick={onFechar} className="text-white/80 hover:text-white text-2xl">×</button>
+          <button onClick={onFechar} className="text-white/80 hover:text-white text-3xl font-bold leading-none">×</button>
         </div>
 
         {/* CV — Layout 2 colunas (igual modelo Maria Sá Vieira) */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 min-w-0 overflow-auto overflow-x-hidden">
           <div className="grid grid-cols-1 md:grid-cols-[280px_1fr]">
 
             {/* ============ Coluna esquerda (escura) ============ */}
@@ -294,8 +324,8 @@ function DetalheCV({ cv, onFechar, onAtualizarStatus, onAtualizarObs, onAtualiza
 
               {/* Contato */}
               <section>
-                <h4 className="text-xs font-bold uppercase tracking-wider border-b border-white/20 pb-1 mb-2">📞 Contato</h4>
-                <div className="text-xs space-y-1.5">
+                <h4 className="text-sm font-bold uppercase tracking-wider border-b border-white/20 pb-2 mb-3">📞 Contato</h4>
+                <div className="text-base space-y-2">
                   {cv.whatsapp && <div className="flex gap-2"><span>📱</span><span>{cv.whatsapp}</span></div>}
                   {cv.email && <div className="flex gap-2 break-all"><span>✉️</span><span>{cv.email}</span></div>}
                   {cv.instagram && <div className="flex gap-2 break-all"><span>📷</span><span>{cv.instagram}</span></div>}
@@ -311,8 +341,8 @@ function DetalheCV({ cv, onFechar, onAtualizarStatus, onAtualizarObs, onAtualiza
               {/* Habilidades */}
               {cv.habilidades?.length > 0 && (
                 <section>
-                  <h4 className="text-xs font-bold uppercase tracking-wider border-b border-white/20 pb-1 mb-2">🔧 Habilidades</h4>
-                  <ul className="text-xs space-y-1">
+                  <h4 className="text-sm font-bold uppercase tracking-wider border-b border-white/20 pb-2 mb-3">🔧 Habilidades</h4>
+                  <ul className="text-base space-y-1.5">
                     {cv.habilidades.map((h, i) => (
                       <li key={i} className="flex gap-2"><span className="text-rose-300">•</span><span>{h}</span></li>
                     ))}
@@ -323,8 +353,8 @@ function DetalheCV({ cv, onFechar, onAtualizarStatus, onAtualizarObs, onAtualiza
               {/* Formação acadêmica */}
               {formacoes.length > 0 && (
                 <section>
-                  <h4 className="text-xs font-bold uppercase tracking-wider border-b border-white/20 pb-1 mb-2">🎓 Formação</h4>
-                  <div className="text-xs space-y-2">
+                  <h4 className="text-sm font-bold uppercase tracking-wider border-b border-white/20 pb-2 mb-3">🎓 Formação</h4>
+                  <div className="text-base space-y-2.5">
                     {formacoes.map((f, i) => (
                       <div key={i}>
                         <div className="font-semibold">
@@ -332,7 +362,7 @@ function DetalheCV({ cv, onFechar, onAtualizarStatus, onAtualizarObs, onAtualiza
                           {f.status && f.status !== 'concluido' && <span className="ml-1 text-slate-300 italic font-normal">({f.status})</span>}
                         </div>
                         {f.nome_curso && (
-                          <div className="text-slate-300 text-[11px]">{f.nome_curso}</div>
+                          <div className="text-slate-300 text-sm">{f.nome_curso}</div>
                         )}
                       </div>
                     ))}
@@ -343,20 +373,33 @@ function DetalheCV({ cv, onFechar, onAtualizarStatus, onAtualizarObs, onAtualiza
               {/* Cursos complementares */}
               {Array.isArray(cv.cursos_adicionais) && cv.cursos_adicionais.length > 0 && (
                 <section>
-                  <h4 className="text-xs font-bold uppercase tracking-wider border-b border-white/20 pb-1 mb-2">📖 Cursos</h4>
-                  <ul className="text-xs space-y-1">
-                    {cv.cursos_adicionais.filter(c => c && c.trim()).map((c, i) => (
-                      <li key={i} className="flex gap-2"><span className="text-sky-300">•</span><span>{c}</span></li>
-                    ))}
-                  </ul>
+                  <h4 className="text-sm font-bold uppercase tracking-wider border-b border-white/20 pb-2 mb-3">📖 Cursos</h4>
+                  <div className="text-base space-y-2.5">
+                    {cv.cursos_adicionais
+                      .map(c => typeof c === 'string' ? { nome: c, instituicao: '', tempo: '' } : c)
+                      .filter(c => c?.nome && c.nome.trim())
+                      .map((c, i) => (
+                        <div key={i}>
+                          <div className="flex gap-2 font-semibold">
+                            <span className="text-sky-300">•</span>
+                            <span className="flex-1">{c.nome}</span>
+                          </div>
+                          {(c.instituicao || c.tempo) && (
+                            <div className="text-slate-300 text-sm ml-4">
+                              {[c.instituicao, c.tempo].filter(Boolean).join(' · ')}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                  </div>
                 </section>
               )}
 
               {/* Informações adicionais */}
               {cv.experiencia_texto && (
                 <section>
-                  <h4 className="text-xs font-bold uppercase tracking-wider border-b border-white/20 pb-1 mb-2">ℹ️ Informações</h4>
-                  <div className="text-xs whitespace-pre-wrap text-slate-200">{cv.experiencia_texto}</div>
+                  <h4 className="text-sm font-bold uppercase tracking-wider border-b border-white/20 pb-2 mb-3">ℹ️ Informações</h4>
+                  <div className="text-base whitespace-pre-wrap text-slate-200">{cv.experiencia_texto}</div>
                 </section>
               )}
             </aside>
@@ -365,33 +408,33 @@ function DetalheCV({ cv, onFechar, onAtualizarStatus, onAtualizarObs, onAtualiza
             <main className="p-6 space-y-5 bg-white">
               {/* Nome destaque */}
               <div>
-                <h2 className="text-2xl sm:text-3xl font-bold text-rose-700 leading-tight">{cv.nome}</h2>
+                <h2 className="text-3xl sm:text-4xl font-bold text-rose-700 leading-tight">{cv.nome}</h2>
                 {cv.cargos?.length > 0 && (
-                  <div className="text-sm text-gray-500 mt-1">{cv.cargos.slice(0, 3).join(' · ')}</div>
+                  <div className="text-base text-gray-600 mt-2 font-semibold">{cv.cargos.slice(0, 3).join(' · ')}</div>
                 )}
               </div>
 
               {/* Resumo */}
               {cv.resumo && (
                 <section>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-rose-700 border-b-2 border-rose-200 pb-1 mb-2">Resumo</h3>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{cv.resumo}</p>
+                  <h3 className="text-base font-bold uppercase tracking-wider text-rose-700 border-b-2 border-rose-200 pb-2 mb-3">Resumo</h3>
+                  <p className="text-base text-gray-700 whitespace-pre-wrap leading-relaxed">{cv.resumo}</p>
                 </section>
               )}
 
               {/* Experiências detalhadas */}
               {experiencias.length > 0 && (
                 <section>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-rose-700 border-b-2 border-rose-200 pb-1 mb-2">Experiências</h3>
-                  <div className="space-y-3">
+                  <h3 className="text-base font-bold uppercase tracking-wider text-rose-700 border-b-2 border-rose-200 pb-2 mb-3">Experiências</h3>
+                  <div className="space-y-4">
                     {experiencias.map((ex, i) => (
-                      <div key={i} className="border-l-4 border-rose-300 pl-3">
+                      <div key={i} className="border-l-4 border-rose-300 pl-4">
                         <div className="flex items-baseline justify-between gap-2 flex-wrap">
-                          <h4 className="text-sm font-bold text-gray-800">{ex.funcao || '(sem função)'}</h4>
-                          {tempoStr(ex) && <span className="text-xs text-gray-500">{tempoStr(ex)}</span>}
+                          <h4 className="text-lg font-bold text-gray-800">{ex.funcao || '(sem função)'}</h4>
+                          {tempoStr(ex) && <span className="text-sm text-gray-500 font-semibold">{tempoStr(ex)}</span>}
                         </div>
                         {ex.empresa && (
-                          <div className="text-xs text-gray-600">
+                          <div className="text-base text-gray-600 mt-0.5">
                             {ex.empresa}
                             {ex.empresa_instagram && (
                               <span className="ml-2 text-rose-600">· {ex.empresa_instagram}</span>
@@ -399,7 +442,7 @@ function DetalheCV({ cv, onFechar, onAtualizarStatus, onAtualizarObs, onAtualiza
                           </div>
                         )}
                         {ex.descricao && (
-                          <p className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">{ex.descricao}</p>
+                          <p className="text-base text-gray-700 mt-2 whitespace-pre-wrap leading-relaxed">{ex.descricao}</p>
                         )}
                       </div>
                     ))}
@@ -410,9 +453,9 @@ function DetalheCV({ cv, onFechar, onAtualizarStatus, onAtualizarObs, onAtualiza
               {/* Fallback: apenas lista de cargos sem detalhes */}
               {experiencias.length === 0 && cv.cargos?.length > 0 && (
                 <section>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-rose-700 border-b-2 border-rose-200 pb-1 mb-2">Experiências como</h3>
+                  <h3 className="text-base font-bold uppercase tracking-wider text-rose-700 border-b-2 border-rose-200 pb-2 mb-3">Experiências como</h3>
                   <div className="flex flex-wrap gap-2">
-                    {cv.cargos.map((c, i) => <span key={i} className="text-xs px-2 py-0.5 bg-rose-100 border border-rose-300 text-rose-800 rounded-full">{c}</span>)}
+                    {cv.cargos.map((c, i) => <span key={i} className="text-sm px-3 py-1 bg-rose-100 border border-rose-300 text-rose-800 rounded-full font-semibold">{c}</span>)}
                   </div>
                 </section>
               )}
@@ -420,8 +463,8 @@ function DetalheCV({ cv, onFechar, onAtualizarStatus, onAtualizarObs, onAtualiza
               {/* Endereço completo */}
               {(cv.rua || cv.cidade) && (
                 <section>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-rose-700 border-b-2 border-rose-200 pb-1 mb-2">Endereço completo</h3>
-                  <p className="text-sm text-gray-700">
+                  <h3 className="text-base font-bold uppercase tracking-wider text-rose-700 border-b-2 border-rose-200 pb-2 mb-3">Endereço completo</h3>
+                  <p className="text-base text-gray-700 leading-relaxed">
                     {[cv.rua, cv.numero, cv.complemento].filter(Boolean).join(', ')}
                     {cv.bairro && <>, {cv.bairro}</>}
                     <br />
@@ -432,39 +475,39 @@ function DetalheCV({ cv, onFechar, onAtualizarStatus, onAtualizarObs, onAtualiza
               )}
 
               {/* Seção de avaliação do RH */}
-              <section className="pt-4 border-t-2 border-gray-100">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">⭐ Avaliação do RH</h3>
+              <section className="pt-5 border-t-2 border-gray-100">
+                <h3 className="text-base font-bold uppercase tracking-wider text-gray-700 mb-3">⭐ Avaliação do RH</h3>
                 <div className="flex items-center gap-1 mb-3">
                   {[1, 2, 3, 4, 5].map(n => (
                     <button key={n} onClick={() => onAtualizarAvaliacao(n)}
-                      className={`text-2xl transition ${cv.avaliacao_rh >= n ? 'text-amber-400' : 'text-gray-300 hover:text-amber-300'}`}>★</button>
+                      className={`text-4xl transition ${cv.avaliacao_rh >= n ? 'text-amber-400' : 'text-gray-300 hover:text-amber-300'}`}>★</button>
                   ))}
                   {cv.avaliacao_rh != null && (
-                    <button onClick={() => onAtualizarAvaliacao(null)} className="ml-2 text-xs text-gray-500 hover:text-gray-700 underline">limpar</button>
+                    <button onClick={() => onAtualizarAvaliacao(null)} className="ml-2 text-sm text-gray-500 hover:text-gray-700 underline">limpar</button>
                   )}
                 </div>
-                <label className="text-[11px] font-semibold uppercase text-gray-500 block mb-1">Observação interna</label>
+                <label className="text-sm font-bold uppercase text-gray-600 block mb-1">Observação interna</label>
                 <textarea value={obs} onChange={e => setObs(e.target.value)} onBlur={salvarObs} rows={3}
                   placeholder="Ex: entrevistei, gostei, mandar pro gerente…"
-                  className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400" />
+                  className="w-full border-2 border-gray-200 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:border-rose-400" />
               </section>
             </main>
           </div>
         </div>
 
         {/* Rodapé com ações */}
-        <div className="p-3 border-t bg-gray-50 flex justify-between gap-2 flex-wrap">
-          <div className="flex gap-1 flex-wrap">
+        <div className="p-4 border-t bg-gray-50 flex justify-between gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap">
             {Object.entries(STATUS_LABEL).map(([key, s]) => (
               <button key={key} onClick={() => onAtualizarStatus(key)}
-                className={`text-xs px-3 py-1.5 border-2 rounded-lg font-bold ${cv.status === key ? s.bg + ' border-current' : 'border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
+                className={`text-sm px-4 py-2 border-2 rounded-lg font-bold ${cv.status === key ? s.bg + ' border-current' : 'border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
                 {s.emoji} {s.label}
               </button>
             ))}
           </div>
           <div className="flex gap-2">
-            <button onClick={onExcluir} className="text-xs px-3 py-1.5 border-2 border-red-200 text-red-600 rounded-lg font-bold hover:bg-red-50">🗑️ Excluir</button>
-            <button onClick={onFechar} className="text-xs px-3 py-1.5 bg-gray-200 rounded-lg font-bold hover:bg-gray-300">Fechar</button>
+            <button onClick={onExcluir} className="text-sm px-4 py-2 border-2 border-red-200 text-red-600 rounded-lg font-bold hover:bg-red-50">🗑️ Excluir</button>
+            <button onClick={onFechar} className="text-sm px-4 py-2 bg-gray-200 rounded-lg font-bold hover:bg-gray-300">Fechar</button>
           </div>
         </div>
       </div>

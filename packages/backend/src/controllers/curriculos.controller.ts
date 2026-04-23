@@ -3,6 +3,7 @@ import { AppDataSource } from '../config/database';
 import { CurriculoCargo } from '../entities/CurriculoCargo';
 import { CurriculoHabilidade } from '../entities/CurriculoHabilidade';
 import { Curriculo, CurriculoStatus } from '../entities/Curriculo';
+import { Company } from '../entities/Company';
 import { ILike } from 'typeorm';
 import { minioService } from '../services/minio.service';
 
@@ -131,17 +132,29 @@ export class CurriculosController {
 
   // ========== PUBLICO (formulario do candidato) ==========
 
-  /** Devolve as listas ativas de cargos e habilidades para o formulario publico */
+  /** Devolve as listas ativas de cargos, habilidades e lojas para o formulario publico */
   static async obterFormularioPublico(_req: Request, res: Response) {
     try {
-      const [cargos, habilidades] = await Promise.all([
+      const [cargos, habilidades, lojas] = await Promise.all([
         AppDataSource.getRepository(CurriculoCargo).find({ where: { ativo: true }, order: { ordem: 'ASC', nome: 'ASC' } }),
         AppDataSource.getRepository(CurriculoHabilidade).find({ where: { ativo: true }, order: { ordem: 'ASC', nome: 'ASC' } }),
+        AppDataSource.getRepository(Company).find({
+          where: { active: true },
+          select: ['id', 'codLoja', 'nomeFantasia', 'apelido'],
+          order: { codLoja: 'ASC' } as any,
+        }),
       ]);
       res.json({
         success: true,
         cargos: cargos.map(c => c.nome),
         habilidades: habilidades.map(h => h.nome),
+        lojas: (lojas || [])
+          .filter(l => l.codLoja !== null && l.codLoja !== undefined)
+          .map(l => ({
+            cod_loja: l.codLoja,
+            nome: l.nomeFantasia,
+            apelido: l.apelido,
+          })),
       });
     } catch (e: any) {
       console.error('[Curriculos] obterFormularioPublico:', e);
@@ -172,7 +185,7 @@ export class CurriculosController {
         cep, rua, numero, complemento, bairro, cidade, estado,
         cargos, habilidades, experiencia_texto,
         foto_url, resumo, experiencias_detalhadas, formacoes, cursos_adicionais,
-        interesse_vaga,
+        interesse_vaga, cod_loja,
       } = req.body;
 
       if (!nome?.trim()) return res.status(400).json({ success: false, error: 'Nome obrigatorio' });
@@ -204,6 +217,7 @@ export class CurriculosController {
         experiencias_detalhadas: Array.isArray(experiencias_detalhadas) ? experiencias_detalhadas : [],
         formacoes: Array.isArray(formacoes) ? formacoes : [],
         cursos_adicionais: Array.isArray(cursos_adicionais) ? cursos_adicionais : [],
+        cod_loja: cod_loja != null && cod_loja !== '' ? Number(cod_loja) : null,
         status: 'novo',
       });
       await repo.save(cv);
@@ -218,8 +232,12 @@ export class CurriculosController {
 
   static async listarCurriculos(req: Request, res: Response) {
     try {
-      const { cidade, bairro, cargo, habilidade, status, dataDe, dataAte, q, interesse_vaga } = req.query as any;
+      const { cidade, bairro, cargo, habilidade, status, dataDe, dataAte, q, interesse_vaga, cod_loja } = req.query as any;
       const qb = AppDataSource.getRepository(Curriculo).createQueryBuilder('c').orderBy('c.created_at', 'DESC').take(500);
+      if (cod_loja != null && cod_loja !== '') {
+        const clNum = parseInt(cod_loja as string);
+        if (!isNaN(clNum)) qb.andWhere('c.cod_loja = :codLoja', { codLoja: clNum });
+      }
       if (cidade) qb.andWhere('c.cidade ILIKE :cidade', { cidade: `%${cidade}%` });
       if (bairro) qb.andWhere('c.bairro ILIKE :bairro', { bairro: `%${bairro}%` });
       if (cargo) qb.andWhere(`c.cargos @> :cargo::jsonb`, { cargo: JSON.stringify([cargo]) });

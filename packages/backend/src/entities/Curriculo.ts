@@ -82,9 +82,13 @@ export class Curriculo {
     status?: string; // concluido | cursando | incompleto
   }>;
 
-  // Cursos complementares: lista simples de strings com nomes dos cursos
+  // Cursos complementares: objetos com nome, instituicao e tempo/carga horaria
   @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
-  cursos_adicionais: string[];
+  cursos_adicionais: Array<{
+    nome: string;
+    instituicao?: string;
+    tempo?: string; // ex: "40h", "3 meses", "1 ano"
+  }>;
 
   @Column({ type: 'text', nullable: true })
   experiencia_texto: string | null;
