@@ -110,6 +110,9 @@ import VisionOperacoesRisco from './pages/VisionOperacoesRisco';
 import VisionPalavraChave2 from './pages/VisionPalavraChave2';
 import VisionFacial from './pages/VisionFacial';
 import MargensCategoria from './pages/MargensCategoria';
+import ModeloCurriculo from './pages/rh/ModeloCurriculo';
+import BancoCurriculos from './pages/rh/BancoCurriculos';
+import CurriculoPublico from './pages/CurriculoPublico';
 
 function App() {
   return (
@@ -125,6 +128,7 @@ function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/cotacao/:token" element={<CotacaoPublica />} />
             <Route path="/alerta/:token" element={<AlertaResolucao />} />
+            <Route path="/curriculo" element={<CurriculoPublico />} />
 
             {/* Protected Routes */}
             <Route
@@ -660,6 +664,8 @@ function App() {
             <Route path="/acougue/cadastro-rendimento" element={<ProtectedRoute><AcougueCadastroRendimento /></ProtectedRoute>} />
             <Route path="/rh/treinamentos" element={<ProtectedRoute><RhTreinamentos /></ProtectedRoute>} />
             <Route path="/rh/indicadores" element={<ProtectedRoute><RhIndicadores /></ProtectedRoute>} />
+            <Route path="/rh/curriculos/modelo" element={<ProtectedRoute><ModeloCurriculo /></ProtectedRoute>} />
+            <Route path="/rh/curriculos/banco" element={<ProtectedRoute><BancoCurriculos /></ProtectedRoute>} />
             {/* RH Placeholder pages */}
             <Route path="/rh/documentacao" element={<ProtectedRoute><RhPlaceholder title="Documentacao" subtitle="Gestao de documentos dos colaboradores" features={['Contratos de trabalho', 'Termos de responsabilidade', 'Declaracoes', 'Templates personalizaveis']} /></ProtectedRoute>} />
             <Route path="/rh/exames" element={<ProtectedRoute><RhPlaceholder title="Exames Periodicos" subtitle="Controle de exames medicos" features={['Exames admissionais', 'Periodicos', 'Demissionais', 'Alertas de vencimento']} /></ProtectedRoute>} />

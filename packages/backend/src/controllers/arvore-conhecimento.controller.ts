@@ -12,8 +12,11 @@ export class ArvoreConhecimentoController {
   static async listarAbas(req: Request, res: Response) {
     try {
       const setorId = req.query.setor_id ? parseInt(req.query.setor_id as string) : undefined;
+      const codLoja = req.query.cod_loja ? parseInt(req.query.cod_loja as string) : undefined;
       const qb = AppDataSource.getRepository(ArvoreAba).createQueryBuilder('a').orderBy('a.ordem', 'ASC').addOrderBy('a.id', 'ASC');
-      if (setorId !== undefined) qb.where('a.setor_id = :setorId', { setorId });
+      if (setorId !== undefined) qb.andWhere('a.setor_id = :setorId', { setorId });
+      // Filtra por loja: mostra tanto as da loja atual quanto as "globais" (sem cod_loja)
+      if (codLoja !== undefined) qb.andWhere('(a.cod_loja = :codLoja OR a.cod_loja IS NULL)', { codLoja });
       const abas = await qb.getMany();
       res.json({ success: true, abas });
     } catch (e: any) {

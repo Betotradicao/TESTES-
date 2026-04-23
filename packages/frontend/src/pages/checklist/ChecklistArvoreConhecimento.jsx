@@ -35,18 +35,20 @@ export default function ChecklistArvoreConhecimento() {
     })();
   }, [lojaSelecionada]);
 
-  // Ao trocar setor, carrega abas
+  // Ao trocar setor OU loja, recarrega abas
   useEffect(() => {
     if (!setorId) { setAbas([]); setAbaAtivaId(null); return; }
     (async () => {
       try {
-        const r = await api.get(`/arvore-conhecimento/abas?setor_id=${setorId}`);
+        const params = new URLSearchParams({ setor_id: String(setorId) });
+        if (lojaSelecionada != null) params.set('cod_loja', String(lojaSelecionada));
+        const r = await api.get(`/arvore-conhecimento/abas?${params.toString()}`);
         const lista = r.data?.abas || [];
         setAbas(lista);
         setAbaAtivaId(lista[0]?.id || null);
       } catch (e) { setErro(e?.response?.data?.error || e.message); }
     })();
-  }, [setorId]);
+  }, [setorId, lojaSelecionada]);
 
   // Ao trocar aba, carrega notas
   useEffect(() => {
@@ -299,11 +301,28 @@ function NotaModal({ nota, onFechar, onSalva, onErro }) {
   const [titulo, setTitulo] = useState(nota.titulo || '');
   const [conteudo, setConteudo] = useState(nota.conteudo || '');
   const [anexos, setAnexos] = useState(Array.isArray(nota.anexos) ? nota.anexos : []);
+  // Anexos pendentes (ainda nao enviados ao servidor): arquivos OU links
+  const [anexosPendentes, setAnexosPendentes] = useState([]);
   const [salvando, setSalvando] = useState(false);
-  const [uploadingAnexo, setUploadingAnexo] = useState(false);
   const fileInputRef = useRef(null);
 
   const ehNova = !nota.id;
+
+  // Envia um anexo pendente (file ou link) para o servidor ligado a um notaId
+  const subirAnexoPendente = async (pend, notaId) => {
+    if (pend.tipo === 'file') {
+      const fd = new FormData();
+      fd.append('arquivo', pend.file);
+      fd.append('nota_id', String(notaId));
+      await api.post('/arvore-conhecimento/anexos/upload', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    } else if (pend.tipo === 'link') {
+      await api.post('/arvore-conhecimento/anexos/link', {
+        nota_id: notaId, url: pend.url, nome_original: pend.nome || null,
+      });
+    }
+  };
 
   const salvar = async () => {
     if (!titulo.trim()) { onErro('Título obrigatório'); return; }
@@ -318,6 +337,11 @@ function NotaModal({ nota, onFechar, onSalva, onErro }) {
       } else {
         await api.put(`/arvore-conhecimento/notas/${nota.id}`, { titulo, conteudo });
       }
+      // Sobe todos os anexos pendentes depois que a nota foi salva
+      for (const p of anexosPendentes) {
+        try { await subirAnexoPendente(p, notaId); }
+        catch (upErr) { console.error('Falha ao subir anexo', p, upErr); }
+      }
       onSalva(notaId);
     } catch (e) { onErro(e?.response?.data?.error || e.message); }
     finally { setSalvando(false); }
@@ -326,41 +350,48 @@ function NotaModal({ nota, onFechar, onSalva, onErro }) {
   const handleUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-    // Precisa que a nota exista antes de subir anexo
-    if (!nota.id) {
-      onErro('Salve o título da nota antes de adicionar anexos.');
-      return;
+
+    if (nota.id) {
+      // Nota existe: sobe direto
+      try {
+        for (const file of files) {
+          const fd = new FormData();
+          fd.append('arquivo', file);
+          fd.append('nota_id', String(nota.id));
+          const r = await api.post('/arvore-conhecimento/anexos/upload', fd, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          if (r.data?.anexo) setAnexos(a => [...a, r.data.anexo]);
+        }
+      } catch (err) { onErro(err?.response?.data?.error || err.message); }
+    } else {
+      // Nota nova: guarda pendente (sobe quando salvar)
+      setAnexosPendentes(p => [
+        ...p,
+        ...files.map(file => ({ tipo: 'file', file, nome: file.name, id: `pend_${Date.now()}_${Math.random()}` })),
+      ]);
     }
-    setUploadingAnexo(true);
-    try {
-      for (const file of files) {
-        const fd = new FormData();
-        fd.append('arquivo', file);
-        fd.append('nota_id', String(nota.id));
-        const r = await api.post('/arvore-conhecimento/anexos/upload', fd, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        if (r.data?.anexo) setAnexos(a => [...a, r.data.anexo]);
-      }
-    } catch (err) {
-      onErro(err?.response?.data?.error || err.message);
-    } finally {
-      setUploadingAnexo(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const adicionarLink = async () => {
     const url = window.prompt('URL (YouTube, Drive, site, etc):');
     if (!url?.trim()) return;
-    if (!nota.id) { onErro('Salve o título da nota antes de adicionar anexos.'); return; }
     const nome = window.prompt('Nome/descrição (opcional):', '') || null;
-    try {
-      const r = await api.post('/arvore-conhecimento/anexos/link', {
-        nota_id: nota.id, url: url.trim(), nome_original: nome,
-      });
-      if (r.data?.anexo) setAnexos(a => [...a, r.data.anexo]);
-    } catch (err) { onErro(err?.response?.data?.error || err.message); }
+
+    if (nota.id) {
+      try {
+        const r = await api.post('/arvore-conhecimento/anexos/link', {
+          nota_id: nota.id, url: url.trim(), nome_original: nome,
+        });
+        if (r.data?.anexo) setAnexos(a => [...a, r.data.anexo]);
+      } catch (err) { onErro(err?.response?.data?.error || err.message); }
+    } else {
+      setAnexosPendentes(p => [
+        ...p,
+        { tipo: 'link', url: url.trim(), nome, id: `pend_${Date.now()}_${Math.random()}` },
+      ]);
+    }
   };
 
   const removerAnexo = async (anexoId) => {
@@ -369,6 +400,10 @@ function NotaModal({ nota, onFechar, onSalva, onErro }) {
       await api.delete(`/arvore-conhecimento/anexos/${anexoId}`);
       setAnexos(a => a.filter(x => x.id !== anexoId));
     } catch (err) { onErro(err?.response?.data?.error || err.message); }
+  };
+
+  const removerAnexoPendente = (id) => {
+    setAnexosPendentes(p => p.filter(x => x.id !== id));
   };
 
   return (
@@ -395,28 +430,30 @@ function NotaModal({ nota, onFechar, onSalva, onErro }) {
 
           {/* Anexos */}
           <div className="border-t pt-3">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-[11px] font-semibold uppercase text-gray-500">Anexos ({anexos.length})</label>
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+              <label className="text-[11px] font-semibold uppercase text-gray-500">
+                Anexos ({anexos.length + anexosPendentes.length})
+                {anexosPendentes.length > 0 && <span className="ml-2 text-amber-600 normal-case font-normal">{anexosPendentes.length} pendente(s)</span>}
+              </label>
               <div className="flex gap-2">
                 <input ref={fileInputRef} type="file" multiple onChange={handleUpload} className="hidden" />
-                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingAnexo || ehNova}
-                  className={`text-xs px-3 py-1 rounded font-bold ${ehNova ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-teal-500 text-white hover:bg-teal-600'}`}
-                  title={ehNova ? 'Salve o título primeiro' : ''}>
-                  {uploadingAnexo ? '…' : '📎 Arquivo'}
+                <button type="button" onClick={() => fileInputRef.current?.click()}
+                  className="text-xs px-3 py-1 rounded font-bold bg-teal-500 text-white hover:bg-teal-600">
+                  📎 Arquivo
                 </button>
-                <button type="button" onClick={adicionarLink} disabled={ehNova}
-                  className={`text-xs px-3 py-1 rounded font-bold ${ehNova ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-indigo-500 text-white hover:bg-indigo-600'}`}
-                  title={ehNova ? 'Salve o título primeiro' : ''}>
+                <button type="button" onClick={adicionarLink}
+                  className="text-xs px-3 py-1 rounded font-bold bg-indigo-500 text-white hover:bg-indigo-600">
                   🔗 Link / YouTube
                 </button>
               </div>
             </div>
-            {ehNova && (
-              <p className="text-[11px] text-gray-500 italic mb-2">
-                Salve o título primeiro pra habilitar os anexos.
+            {ehNova && anexosPendentes.length > 0 && (
+              <p className="text-[11px] text-amber-700 italic mb-2">
+                Os anexos serão enviados ao clicar em "Criar nota".
               </p>
             )}
             <div className="flex flex-wrap gap-2">
+              {/* Anexos ja salvos */}
               {anexos.map(a => (
                 <div key={a.id} className="relative">
                   {a.tipo === 'imagem' ? (
@@ -428,6 +465,18 @@ function NotaModal({ nota, onFechar, onSalva, onErro }) {
                     </div>
                   )}
                   <button type="button" onClick={() => removerAnexo(a.id)}
+                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs font-bold shadow">×</button>
+                </div>
+              ))}
+              {/* Anexos pendentes (ainda nao subidos) */}
+              {anexosPendentes.map(p => (
+                <div key={p.id} className="relative">
+                  <div className="w-20 h-20 rounded border-2 border-dashed border-amber-400 bg-amber-50 flex flex-col items-center justify-center p-1 text-center">
+                    <div className="text-2xl">{p.tipo === 'link' ? '🔗' : '📎'}</div>
+                    <div className="text-[9px] text-amber-800 truncate w-full">{p.nome || (p.tipo === 'link' ? p.url : 'arquivo')}</div>
+                    <div className="text-[8px] text-amber-700 font-bold">pendente</div>
+                  </div>
+                  <button type="button" onClick={() => removerAnexoPendente(p.id)}
                     className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs font-bold shadow">×</button>
                 </div>
               ))}
