@@ -2087,6 +2087,8 @@ export class GestaoInteligenteService {
    * Cria companies automaticamente para lojas do ERP que nao existem no banco local.
    * A matriz (codLoja = null) nunca e afetada - ela e criada pelo first setup do sistema.
    * Apenas CREATE: nunca remove ou altera companies existentes.
+   * Convencao: nomeFantasia/razaoSocial/cnpj herdam da matriz (rede e a mesma),
+   * DES_LOJA do ERP vira APELIDO (localizacao especifica).
    */
   private static async autoCreateMissingCompanies(
     erpLojas: Array<{ cod_loja: number; des_loja: string }>
@@ -2096,12 +2098,9 @@ export class GestaoInteligenteService {
 
     try {
       const companyRepository = AppDataSource.getRepository(Company);
-      const existentes = await companyRepository.find({
-        where: { active: true },
-        select: ['codLoja']
-      });
+      const todas = await companyRepository.find({ where: { active: true } });
       const codsExistentes = new Set(
-        existentes.map(c => c.codLoja).filter(c => c != null) as number[]
+        todas.map(c => c.codLoja).filter(c => c != null) as number[]
       );
 
       const faltantes = erpLojas.filter(l =>
@@ -2112,14 +2111,18 @@ export class GestaoInteligenteService {
 
       if (faltantes.length === 0) return;
 
+      // Busca a matriz (codLoja=null) ou a primeira loja existente como base
+      const matriz = todas.find(c => c.codLoja == null) || todas[0];
+
       console.log(`📍 [GESTAO INTELIGENTE] Auto-criando ${faltantes.length} loja(s) faltante(s) em companies:`, faltantes.map(f => f.cod_loja).join(', '));
 
       for (const loja of faltantes) {
         const nova = companyRepository.create({
-          nomeFantasia: loja.des_loja || `Loja ${loja.cod_loja}`,
-          razaoSocial: '',
-          cnpj: '',
+          nomeFantasia: matriz?.nomeFantasia || loja.des_loja || `Loja ${loja.cod_loja}`,
+          razaoSocial: matriz?.razaoSocial || '',
+          cnpj: matriz?.cnpj || '',
           codLoja: Number(loja.cod_loja),
+          apelido: loja.des_loja || null,
           active: true,
         });
         await companyRepository.save(nova);

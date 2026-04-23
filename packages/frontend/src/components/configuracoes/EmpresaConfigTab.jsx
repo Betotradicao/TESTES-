@@ -807,13 +807,11 @@ export default function EmpresaConfigTab() {
                 <img
                   src={empresaPrincipal.fotoFachadaUrl}
                   alt="Fachada da loja"
-                  className="w-16 h-16 rounded-lg object-cover border-2 border-orange-200 shrink-0"
+                  className="w-20 h-20 rounded-lg object-cover border-2 border-orange-200 shrink-0"
                 />
               ) : (
-                <div className="bg-orange-100 p-3 rounded-full">
-                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
+                <div className="w-20 h-20 rounded-lg bg-orange-50 border-2 border-orange-100 flex items-center justify-center shrink-0 text-3xl text-orange-300">
+                  🏪
                 </div>
               )}
               <div>
@@ -894,95 +892,110 @@ export default function EmpresaConfigTab() {
         )}
       </div>
 
-      {/* Lista de Lojas Adicionais */}
+      {/* Lista de Lojas Adicionais - mesmo layout do card Empresa Principal */}
       {user?.isMaster && lojas.length > 0 && (
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">Lojas Cadastradas</h2>
-            <p className="text-sm text-gray-500 mt-1">{lojas.length} loja(s) adicional(is)</p>
-          </div>
+        <>
+          <div className="text-xl font-semibold text-gray-900 pt-2">Lojas Cadastradas</div>
+          <p className="text-sm text-gray-500 -mt-4">{lojas.length} loja(s) adicional(is)</p>
 
-          <div className="divide-y divide-gray-200">
-            {lojas.map((loja) => (
-              <div key={loja.id} className="p-6">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1 flex gap-4">
+          {lojas.map((loja) => (
+            <div key={loja.id} className="bg-white rounded-lg shadow">
+              {/* Header: foto + nome fantasia + apelido */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
                     {loja.fotoFachadaUrl ? (
-                      <img src={loja.fotoFachadaUrl} alt="Fachada"
-                        className="w-20 h-20 rounded-lg object-cover border-2 border-blue-200 shrink-0" />
+                      <img
+                        src={loja.fotoFachadaUrl}
+                        alt="Fachada da loja"
+                        className="w-20 h-20 rounded-lg object-cover border-2 border-orange-200 shrink-0"
+                      />
                     ) : (
-                      <div className="w-20 h-20 rounded-lg bg-blue-50 border-2 border-blue-100 flex items-center justify-center shrink-0 text-3xl text-blue-300">
+                      <div className="w-20 h-20 rounded-lg bg-orange-50 border-2 border-orange-100 flex items-center justify-center shrink-0 text-3xl text-orange-300">
                         🏪
                       </div>
                     )}
-                    <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-3">
-                      {loja.codLoja && (
-                        <span className="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full text-sm font-medium">
-                          Loja {loja.codLoja}
-                        </span>
-                      )}
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {loja.nomeFantasia}
-                        {loja.apelido && <span className="text-gray-500 font-normal"> - {loja.apelido}</span>}
-                      </h3>
-                      {loja.identificador && (
-                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">
-                          {loja.identificador}
-                        </span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-500">CNPJ:</span>
-                        <span className="ml-2 text-gray-900">{loja.cnpj}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Cidade:</span>
-                        <span className="ml-2 text-gray-900">{loja.cidade || '-'}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Telefone:</span>
-                        <span className="ml-2 text-gray-900">{loja.telefone || '-'}</span>
-                      </div>
-                    </div>
+                    <div>
+                      <h2 className="text-xl font-semibold text-gray-900">{loja.nomeFantasia || 'Loja sem nome'}</h2>
+                      <p className="text-sm text-gray-500">{loja.apelido || 'Loja adicional'}</p>
                     </div>
                   </div>
-                  <div className="flex gap-2 ml-4">
-                    <button
-                      onClick={() => handleView(loja)}
-                      className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
-                      title="Ver detalhes"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleEdit(loja)}
-                      className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition"
-                      title="Editar"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleDeleteStore(loja.id)}
-                      className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
-                      title="Excluir"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
+                  {loja.identificador && (
+                    <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                      {loja.identificador}
+                    </span>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
+
+              {/* Corpo: badge + grid 4 colunas + botoes */}
+              <div className="p-6">
+                {loja.codLoja && (
+                  <div className="mb-4 flex items-center gap-2">
+                    <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                      Loja {loja.codLoja}
+                    </span>
+                    {loja.apelido && (
+                      <span className="text-gray-600">- {loja.apelido}</span>
+                    )}
+                  </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div>
+                    <p className="text-sm text-gray-500">Nome Fantasia</p>
+                    <p className="text-lg font-semibold text-gray-900">{loja.nomeFantasia || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Razão Social</p>
+                    <p className="text-lg font-medium text-gray-900">{loja.razaoSocial || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">CNPJ</p>
+                    <p className="text-lg font-medium text-gray-900">{loja.cnpj || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Endereço</p>
+                    <p className="text-lg font-medium text-gray-900">
+                      {loja.cidade && loja.estado ? `${loja.cidade} - ${loja.estado}` : '-'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-6 pt-6 border-t border-gray-200">
+                  <button
+                    onClick={() => handleView(loja)}
+                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition flex items-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    Ver Todos os Dados
+                  </button>
+                  <button
+                    onClick={() => handleEdit(loja)}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition flex items-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Editar Dados
+                  </button>
+                  <button
+                    onClick={() => handleDeleteStore(loja.id)}
+                    className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg transition flex items-center gap-2 ml-auto"
+                    title="Excluir loja"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Excluir
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </>
       )}
 
       {/* Modal de Visualização */}

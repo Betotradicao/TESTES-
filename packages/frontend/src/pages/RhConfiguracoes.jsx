@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
@@ -7,7 +8,7 @@ import RadarLoading from '../components/RadarLoading';
 
 const TABS = [
   { key: 'cargos', label: 'Cargos', endpoint: '/rh/configuracoes/cargos', fields: ['nome', 'descricao'] },
-  { key: 'empresas', label: 'Empresas', endpoint: '/rh/configuracoes/empresas', fields: ['nome', 'cnpj', 'endereco'] },
+  { key: 'empresas', label: 'Empresas', endpoint: '/companies', fields: ['codLoja', 'apelido', 'nomeFantasia', 'cidade'], readOnly: true },
   { key: 'jornadas', label: 'Jornadas', endpoint: '/rh/configuracoes/jornadas', fields: ['nome', 'carga_horaria', 'descricao'] },
   { key: 'escolaridades', label: 'Escolaridades', endpoint: '/rh/configuracoes/escolaridades', fields: ['nome'] },
   { key: 'escalas', label: 'Escalas', endpoint: '/rh/configuracoes/escalas', fields: ['nome', 'descricao'] },
@@ -31,9 +32,14 @@ const FIELD_LABELS = {
   dias: 'Dias',
   cor: 'Cor',
   categoria: 'Categoria',
+  codLoja: 'Loja',
+  apelido: 'Apelido',
+  nomeFantasia: 'Nome Fantasia',
+  cidade: 'Cidade',
 };
 
 export default function RhConfiguracoes() {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(TABS[0].key);
@@ -54,7 +60,16 @@ export default function RhConfiguracoes() {
     try {
       setLoading(true);
       const response = await api.get(currentTab.endpoint);
-      setRecords(response.data);
+      let data = Array.isArray(response.data) ? response.data : [];
+      // Tab Empresas: ordena por codLoja ASC (matriz com codLoja null vai por ultimo)
+      if (activeTab === 'empresas') {
+        data = data.slice().sort((a, b) => {
+          const ca = a.codLoja ?? 999999;
+          const cb = b.codLoja ?? 999999;
+          return ca - cb;
+        });
+      }
+      setRecords(data);
     } catch (err) {
       console.error('Erro ao carregar registros:', err);
       toast.error('Erro ao carregar registros');
@@ -160,12 +175,21 @@ export default function RhConfiguracoes() {
             {/* Toolbar */}
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <h2 className="text-lg font-semibold text-gray-700">{currentTab.label}</h2>
-              <button
-                onClick={openAddModal}
-                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                + Adicionar
-              </button>
+              {currentTab.readOnly ? (
+                <button
+                  onClick={() => navigate('/configuracoes')}
+                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  Gerenciar em Configurações →
+                </button>
+              ) : (
+                <button
+                  onClick={openAddModal}
+                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  + Adicionar
+                </button>
+              )}
             </div>
 
             {/* Table */}
@@ -182,38 +206,44 @@ export default function RhConfiguracoes() {
                 <table className="w-full">
                   <thead>
                     <tr className="bg-gray-600 text-white">
-                      <th className="text-left px-6 py-3 text-sm font-medium">ID</th>
                       {currentTab.fields.map(f => (
                         <th key={f} className="text-left px-6 py-3 text-sm font-medium">
                           {FIELD_LABELS[f] || f}
                         </th>
                       ))}
-                      <th className="text-right px-6 py-3 text-sm font-medium">Acoes</th>
+                      <th className="text-left px-6 py-3 text-sm font-medium">ID</th>
+                      {!currentTab.readOnly && (
+                        <th className="text-right px-6 py-3 text-sm font-medium">Acoes</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {records.map(record => (
                       <tr key={record.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-3 text-sm text-gray-500">{record.id}</td>
                         {currentTab.fields.map(f => (
                           <td key={f} className="px-6 py-3 text-sm text-gray-700">
-                            {record[f] ?? '-'}
+                            {f === 'codLoja'
+                              ? (record[f] != null ? `Loja ${record[f]}` : 'Matriz')
+                              : (record[f] ?? '-')}
                           </td>
                         ))}
-                        <td className="px-6 py-3 text-right">
-                          <button
-                            onClick={() => openEditModal(record)}
-                            className="text-orange-600 hover:text-orange-800 text-sm font-medium mr-3"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => handleDelete(record)}
-                            className="text-red-600 hover:text-red-800 text-sm font-medium"
-                          >
-                            Excluir
-                          </button>
-                        </td>
+                        <td className="px-6 py-3 text-xs text-gray-400 font-mono">{record.id}</td>
+                        {!currentTab.readOnly && (
+                          <td className="px-6 py-3 text-right">
+                            <button
+                              onClick={() => openEditModal(record)}
+                              className="text-orange-600 hover:text-orange-800 text-sm font-medium mr-3"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleDelete(record)}
+                              className="text-red-600 hover:text-red-800 text-sm font-medium"
+                            >
+                              Excluir
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
