@@ -121,8 +121,20 @@ export default function BancoCurriculos() {
           <div className="bg-white border-2 border-gray-100 rounded-xl p-3 shadow-sm mb-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               <FiltroInput label="Buscar" value={filtros.q} placeholder="nome, whatsapp, email…" onChange={v => setFiltros({ ...filtros, q: v })} />
-              <FiltroInput label="Cidade" value={filtros.cidade} onChange={v => setFiltros({ ...filtros, cidade: v })} />
-              <FiltroInput label="Bairro" value={filtros.bairro} onChange={v => setFiltros({ ...filtros, bairro: v })} />
+              <FiltroSelect label="Cidade" value={filtros.cidade} onChange={v => setFiltros({ ...filtros, cidade: v })}>
+                <option value="">Todas</option>
+                {Array.from(new Set((curriculos || []).map(c => (c.cidade || '').trim()).filter(Boolean)))
+                  .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+                  .map(cid => <option key={cid} value={cid}>{cid}</option>)}
+              </FiltroSelect>
+              <FiltroSelect label="Bairro" value={filtros.bairro} onChange={v => setFiltros({ ...filtros, bairro: v })}>
+                <option value="">Todos</option>
+                {Array.from(new Set((curriculos || [])
+                    .filter(c => !filtros.cidade || (c.cidade || '').trim() === filtros.cidade)
+                    .map(c => (c.bairro || '').trim()).filter(Boolean)))
+                  .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+                  .map(b => <option key={b} value={b}>{b}</option>)}
+              </FiltroSelect>
               <FiltroSelect label="Status" value={filtros.status} onChange={v => setFiltros({ ...filtros, status: v })}>
                 <option value="">Todos</option>
                 {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v.emoji} {v.label}</option>)}
@@ -162,64 +174,118 @@ export default function BancoCurriculos() {
               <div className="text-xs text-gray-400 mt-1">Envie o link público pra candidatos em <strong>Modelo de Currículo</strong>.</div>
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
-              {curriculos.map(cv => {
-                const st = STATUS_LABEL[cv.status] || STATUS_LABEL.novo;
-                return (
-                  <button key={cv.id} onClick={() => setSelecionado(cv)}
-                    className="text-left bg-white border-2 border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-rose-200 transition w-full">
-                    <div className="flex items-center gap-4 flex-wrap md:flex-nowrap">
-                      {/* Foto */}
-                      {cv.foto_url ? (
-                        <img src={cv.foto_url} alt="" className="w-20 h-20 rounded-full object-cover border-2 border-rose-200 shrink-0" />
-                      ) : (
-                        <div className="w-20 h-20 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-3xl shrink-0 border-2 border-rose-200">
-                          {cv.nome?.charAt(0).toUpperCase() || '?'}
-                        </div>
-                      )}
-
-                      {/* Nome + badges */}
-                      <div className="flex-1 min-w-[200px]">
-                        <div className="text-lg font-bold text-gray-800 truncate">{cv.nome}</div>
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          <span className={`inline-block text-xs px-2.5 py-1 rounded-full font-bold border ${st.bg}`}>{st.emoji} {st.label}</span>
-                          {cv.interesse_vaga && (
-                            <span className="inline-block text-xs px-2.5 py-1 rounded-full font-bold border bg-slate-100 text-slate-700 border-slate-300">
-                              {cv.interesse_vaga === 'clt' ? '💼 CLT' : '🎓 Aprendiz'}
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-600 text-white text-xs uppercase">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-semibold">Candidato</th>
+                      <th className="px-4 py-3 text-left font-semibold">Status</th>
+                      <th className="px-4 py-3 text-left font-semibold">Vaga</th>
+                      <th className="px-4 py-3 text-left font-semibold">WhatsApp</th>
+                      <th className="px-4 py-3 text-left font-semibold">Email</th>
+                      <th className="px-4 py-3 text-left font-semibold">Localização</th>
+                      <th className="px-4 py-3 text-left font-semibold">Cargos de Interesse</th>
+                      <th className="px-4 py-3 text-left font-semibold">Experiências</th>
+                      <th className="px-4 py-3 text-right font-semibold">Data</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {curriculos.map(cv => {
+                      const st = STATUS_LABEL[cv.status] || STATUS_LABEL.novo;
+                      return (
+                        <tr key={cv.id} onClick={() => setSelecionado(cv)}
+                          className="hover:bg-rose-50/40 cursor-pointer transition">
+                          {/* Candidato (foto + nome) */}
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              {cv.foto_url ? (
+                                <img src={cv.foto_url} alt="" className="w-10 h-10 rounded-full object-cover border border-rose-200 shrink-0" />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center font-bold shrink-0 border border-rose-200">
+                                  {cv.nome?.charAt(0).toUpperCase() || '?'}
+                                </div>
+                              )}
+                              <span className="font-bold text-gray-800 whitespace-nowrap">{cv.nome}</span>
+                            </div>
+                          </td>
+                          {/* Status */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className={`inline-block text-xs px-2.5 py-1 rounded-full font-bold border ${st.bg}`}>
+                              {st.emoji} {st.label}
                             </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Contato */}
-                      <div className="text-sm text-gray-700 min-w-[160px] space-y-0.5">
-                        {cv.whatsapp && <div>📱 {cv.whatsapp}</div>}
-                        {cv.email && <div className="truncate">✉️ {cv.email}</div>}
-                      </div>
-
-                      {/* Localização */}
-                      <div className="text-sm text-gray-700 min-w-[200px]">
-                        {(cv.cidade || cv.bairro) && (
-                          <div>📍 {[cv.bairro, cv.cidade, cv.estado].filter(Boolean).join(', ')}</div>
-                        )}
-                      </div>
-
-                      {/* Cargos */}
-                      <div className="flex flex-wrap gap-1 flex-1 min-w-[180px]">
-                        {(cv.cargos || []).slice(0, 3).map((c, i) => (
-                          <span key={i} className="text-xs px-2.5 py-1 bg-rose-50 border border-rose-200 text-rose-700 rounded-full whitespace-nowrap font-semibold">{c}</span>
-                        ))}
-                        {cv.cargos?.length > 3 && <span className="text-xs text-gray-400 self-center font-semibold">+{cv.cargos.length - 3}</span>}
-                      </div>
-
-                      {/* Data */}
-                      <div className="text-sm text-gray-600 text-right shrink-0 min-w-[100px] font-medium">
-                        📅 {fmtData(cv.created_at)}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+                          </td>
+                          {/* Vaga */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {cv.interesse_vaga ? (
+                              <span className="inline-block text-xs px-2.5 py-1 rounded-full font-bold border bg-slate-100 text-slate-700 border-slate-300">
+                                {cv.interesse_vaga === 'clt' ? '💼 CLT' : '🎓 Aprendiz'}
+                              </span>
+                            ) : <span className="text-gray-300">—</span>}
+                          </td>
+                          {/* WhatsApp */}
+                          <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                            {cv.whatsapp || <span className="text-gray-300">—</span>}
+                          </td>
+                          {/* Email */}
+                          <td className="px-4 py-3 text-gray-700 max-w-[200px] truncate">
+                            {cv.email || <span className="text-gray-300">—</span>}
+                          </td>
+                          {/* Localização */}
+                          <td className="px-4 py-3 text-gray-700">
+                            {(cv.cidade || cv.bairro)
+                              ? [cv.bairro, cv.cidade, cv.estado].filter(Boolean).join(', ')
+                              : <span className="text-gray-300">—</span>}
+                          </td>
+                          {/* Cargos */}
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-1">
+                              {(cv.cargos || []).slice(0, 3).map((c, i) => (
+                                <span key={i} className="text-xs px-2 py-0.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-full whitespace-nowrap font-semibold">{c}</span>
+                              ))}
+                              {cv.cargos?.length > 3 && (
+                                <span className="text-xs text-gray-400 self-center font-semibold">+{cv.cargos.length - 3}</span>
+                              )}
+                              {(!cv.cargos || cv.cargos.length === 0) && <span className="text-gray-300">—</span>}
+                            </div>
+                          </td>
+                          {/* Experiencias */}
+                          <td className="px-4 py-3">
+                            {(cv.experiencias_detalhadas && cv.experiencias_detalhadas.length > 0) ? (
+                              <div className="flex flex-col gap-0.5 text-xs text-gray-700 max-w-[280px]">
+                                {cv.experiencias_detalhadas.slice(0, 2).map((exp, i) => {
+                                  const anos = Number(exp.tempo_anos) || 0;
+                                  const meses = Number(exp.tempo_meses) || 0;
+                                  const tempo = anos > 0 && meses > 0 ? `${anos}a ${meses}m`
+                                    : anos > 0 ? `${anos}a`
+                                    : meses > 0 ? `${meses}m`
+                                    : '';
+                                  return (
+                                    <div key={i} className="truncate">
+                                      <span className="font-semibold text-gray-800">{exp.funcao || '—'}</span>
+                                      {exp.empresa && <span className="text-gray-500"> · {exp.empresa}</span>}
+                                      {tempo && <span className="text-rose-600 font-semibold"> ({tempo})</span>}
+                                    </div>
+                                  );
+                                })}
+                                {cv.experiencias_detalhadas.length > 2 && (
+                                  <span className="text-xs text-gray-400 font-semibold">+{cv.experiencias_detalhadas.length - 2} experiência(s)</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-300">—</span>
+                            )}
+                          </td>
+                          {/* Data */}
+                          <td className="px-4 py-3 text-gray-600 text-right whitespace-nowrap text-xs">
+                            {fmtData(cv.created_at)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

@@ -1,8 +1,11 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { RhController } from '../controllers/rh.controller';
+import { RhDocumentacaoController } from '../controllers/rh-documentacao.controller';
 import { authenticateToken } from '../middleware/auth';
 
 const router: Router = Router();
+const uploadDoc = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024 } });
 
 router.get('/colaboradores', authenticateToken, RhController.listColaboradores);
 router.get('/colaboradores/stats', authenticateToken, RhController.getStats);
@@ -70,6 +73,12 @@ router.get('/configuracoes/motivos-desligamento', authenticateToken, RhControlle
 router.post('/configuracoes/motivos-desligamento', authenticateToken, RhController.criarMotivoDesligamento);
 router.put('/configuracoes/motivos-desligamento/:id', authenticateToken, RhController.atualizarMotivoDesligamento);
 router.delete('/configuracoes/motivos-desligamento/:id', authenticateToken, RhController.deletarMotivoDesligamento);
+
+// Configuracoes - Beneficios
+router.get('/configuracoes/beneficios', authenticateToken, RhController.listarBeneficios);
+router.post('/configuracoes/beneficios', authenticateToken, RhController.criarBeneficio);
+router.put('/configuracoes/beneficios/:id', authenticateToken, RhController.atualizarBeneficio);
+router.delete('/configuracoes/beneficios/:id', authenticateToken, RhController.deletarBeneficio);
 
 // Configuracoes - Departamentos
 router.get('/configuracoes/departamentos', authenticateToken, RhController.listarDepartamentos);
@@ -154,5 +163,28 @@ router.get('/disc-results', authenticateToken, RhController.listarDiscResultados
 router.get('/disc-results/:id', authenticateToken, RhController.getDiscResultado);
 router.post('/disc-results', authenticateToken, RhController.salvarDiscResultado);
 router.delete('/disc-results/:id', authenticateToken, RhController.deletarDiscResultado);
+
+// Documentacao - Stats
+router.get('/documentacao/stats', authenticateToken, RhDocumentacaoController.obterStats);
+
+// Documentacao - Pastas
+router.get('/documentacao/pastas', authenticateToken, RhDocumentacaoController.listarPastas);
+router.post('/documentacao/pastas', authenticateToken, RhDocumentacaoController.criarPasta);
+router.post('/documentacao/pastas/reordenar', authenticateToken, RhDocumentacaoController.reordenarPastas);
+router.post('/documentacao/pastas/:id/replicar-todos', authenticateToken, RhDocumentacaoController.replicarPastaParaTodos);
+router.get('/documentacao/pastas/:id/pdf', authenticateToken, RhDocumentacaoController.gerarPdfDaPasta);
+router.put('/documentacao/pastas/:id', authenticateToken, RhDocumentacaoController.atualizarPasta);
+router.delete('/documentacao/pastas/:id', authenticateToken, RhDocumentacaoController.deletarPasta);
+
+// Documentacao - Subpastas (itens de documento por pasta)
+router.get('/documentacao/subpastas', authenticateToken, RhDocumentacaoController.listarSubpastas);
+router.post('/documentacao/subpastas', authenticateToken, RhDocumentacaoController.criarSubpasta);
+router.put('/documentacao/subpastas/:id', authenticateToken, RhDocumentacaoController.atualizarSubpasta);
+router.delete('/documentacao/subpastas/:id', authenticateToken, RhDocumentacaoController.deletarSubpasta);
+
+// Documentacao - Arquivos
+router.get('/documentacao/documentos', authenticateToken, RhDocumentacaoController.listarDocumentos);
+router.post('/documentacao/documentos', authenticateToken, uploadDoc.single('arquivo'), RhDocumentacaoController.uploadDocumento);
+router.delete('/documentacao/documentos/:id', authenticateToken, RhDocumentacaoController.deletarDocumento);
 
 export default router;

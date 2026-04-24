@@ -8,7 +8,7 @@ import RadarLoading from '../components/RadarLoading';
 
 const TABS = [
   { key: 'cargos', label: 'Cargos', endpoint: '/rh/configuracoes/cargos', fields: ['nome', 'descricao'] },
-  { key: 'empresas', label: 'Empresas', endpoint: '/companies', fields: ['codLoja', 'apelido', 'nomeFantasia', 'cidade'], readOnly: true },
+  { key: 'empresas', label: 'Empresas', endpoint: '/companies', fields: ['codLoja', 'apelido', 'nomeFantasia', 'cidade'], readOnly: true, redirectTo: '/configuracoes?tab=empresa' },
   { key: 'jornadas', label: 'Jornadas', endpoint: '/rh/configuracoes/jornadas', fields: ['nome', 'carga_horaria', 'descricao'] },
   { key: 'escolaridades', label: 'Escolaridades', endpoint: '/rh/configuracoes/escolaridades', fields: ['nome'] },
   { key: 'escalas', label: 'Escalas', endpoint: '/rh/configuracoes/escalas', fields: ['nome', 'descricao'] },
@@ -17,10 +17,11 @@ const TABS = [
   { key: 'prazos', label: 'Prazos Exp.', endpoint: '/rh/configuracoes/prazos-experiencia', fields: ['nome', 'dias', 'descricao'] },
   { key: 'tipos_desligamento', label: 'Tipos Deslig.', endpoint: '/rh/configuracoes/tipos-desligamento', fields: ['nome', 'descricao'] },
   { key: 'motivos_desligamento', label: 'Motivos Deslig.', endpoint: '/rh/configuracoes/motivos-desligamento', fields: ['nome', 'descricao'] },
-  { key: 'departamentos', label: 'Departamentos', endpoint: '/rh/configuracoes/departamentos', fields: ['nome', 'descricao'] },
+  { key: 'departamentos', label: 'Setores', endpoint: '/rh/configuracoes/departamentos', fields: ['nome', 'descricao'] },
   { key: 'tipos_ausencia', label: 'Tipos Ausencia', endpoint: '/rh/configuracoes/tipos-ausencia', fields: ['nome', 'cor'] },
   { key: 'tipos_treinamento', label: 'Tipos Trein.', endpoint: '/rh/configuracoes/tipos-treinamento', fields: ['nome', 'categoria'] },
   { key: 'status_treinamento', label: 'Status Trein.', endpoint: '/rh/configuracoes/status-treinamento', fields: ['nome', 'cor'] },
+  { key: 'beneficios', label: 'Benefícios', endpoint: '/rh/configuracoes/beneficios', fields: ['nome', 'descricao', 'valor'] },
 ];
 
 const FIELD_LABELS = {
@@ -33,9 +34,11 @@ const FIELD_LABELS = {
   cor: 'Cor',
   categoria: 'Categoria',
   codLoja: 'Loja',
+  cod_loja: 'Loja',
   apelido: 'Apelido',
   nomeFantasia: 'Nome Fantasia',
   cidade: 'Cidade',
+  valor: 'Valor (R$)',
 };
 
 export default function RhConfiguracoes() {
@@ -67,6 +70,15 @@ export default function RhConfiguracoes() {
           const ca = a.codLoja ?? 999999;
           const cb = b.codLoja ?? 999999;
           return ca - cb;
+        });
+      }
+      // Tab Setores: ordena por cod_loja ASC e depois nome
+      if (activeTab === 'departamentos') {
+        data = data.slice().sort((a, b) => {
+          const ca = a.cod_loja ?? 999999;
+          const cb = b.cod_loja ?? 999999;
+          if (ca !== cb) return ca - cb;
+          return String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR');
         });
       }
       setRecords(data);
@@ -177,7 +189,7 @@ export default function RhConfiguracoes() {
               <h2 className="text-lg font-semibold text-gray-700">{currentTab.label}</h2>
               {currentTab.readOnly ? (
                 <button
-                  onClick={() => navigate('/configuracoes')}
+                  onClick={() => navigate(currentTab.redirectTo || '/configuracoes')}
                   className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium transition-colors"
                 >
                   Gerenciar em Configurações →
@@ -222,7 +234,7 @@ export default function RhConfiguracoes() {
                       <tr key={record.id} className="hover:bg-gray-50">
                         {currentTab.fields.map(f => (
                           <td key={f} className="px-6 py-3 text-sm text-gray-700">
-                            {f === 'codLoja'
+                            {(f === 'codLoja' || f === 'cod_loja')
                               ? (record[f] != null ? `Loja ${record[f]}` : 'Matriz')
                               : (record[f] ?? '-')}
                           </td>
@@ -272,15 +284,46 @@ export default function RhConfiguracoes() {
                   {f === 'descricao' || f === 'endereco' ? (
                     <textarea
                       value={formData[f] || ''}
-                      onChange={e => setFormData({ ...formData, [f]: e.target.value })}
+                      onChange={e => setFormData({ ...formData, [f]: e.target.value.toUpperCase() })}
                       rows={3}
+                      style={{ textTransform: 'uppercase' }}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    />
+                  ) : f === 'carga_horaria' ? (
+                    <input
+                      type="text"
+                      value={formData[f] || ''}
+                      onChange={e => {
+                        // permite apenas numeros e dois pontos, formato HH:MM
+                        const raw = e.target.value.replace(/[^\d:]/g, '');
+                        setFormData({ ...formData, [f]: raw });
+                      }}
+                      placeholder="HH:MM (ex: 06:00, 07:20, 08:48)"
+                      maxLength={5}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    />
+                  ) : f === 'cor' ? (
+                    <input
+                      type="text"
+                      value={formData[f] || ''}
+                      onChange={e => setFormData({ ...formData, [f]: e.target.value })}
+                      placeholder="#000000"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    />
+                  ) : f === 'dias' || f === 'valor' ? (
+                    <input
+                      type="number"
+                      step={f === 'valor' ? '0.01' : undefined}
+                      value={formData[f] || ''}
+                      onChange={e => setFormData({ ...formData, [f]: e.target.value })}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     />
                   ) : (
                     <input
-                      type={f === 'dias' || f === 'carga_horaria' ? 'number' : 'text'}
+                      type="text"
                       value={formData[f] || ''}
-                      onChange={e => setFormData({ ...formData, [f]: e.target.value })}
+                      onChange={e => setFormData({ ...formData, [f]: e.target.value.toUpperCase() })}
+                      style={{ textTransform: 'uppercase' }}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     />
                   )}

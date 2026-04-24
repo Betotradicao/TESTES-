@@ -15,10 +15,49 @@ export default function RhCadastroGeral() {
   const [filtroDebounced, setFiltroDebounced] = useState('');
   const [statusFiltro, setStatusFiltro] = useState('ativo');
   const [loading, setLoading] = useState(true);
-  const [paginaAtual, setPaginaAtual] = useState(1);
-  const [totalPaginas, setTotalPaginas] = useState(1);
   const [totalRegistros, setTotalRegistros] = useState(0);
-  const itensPorPagina = 20;
+
+  // Ordenacao da tabela
+  const [sortField, setSortField] = useState(null);
+  const [sortDir, setSortDir] = useState('asc'); // 'asc' | 'desc'
+  const toggleSort = (field) => {
+    if (sortField !== field) { setSortField(field); setSortDir('asc'); }
+    else if (sortDir === 'asc') setSortDir('desc');
+    else { setSortField(null); setSortDir('asc'); }
+  };
+  const sortIcon = (field) => {
+    if (sortField !== field) return <span className="opacity-30 ml-1">↕</span>;
+    return <span className="ml-1">{sortDir === 'asc' ? '▲' : '▼'}</span>;
+  };
+
+  // Filtros avancados (Todos por padrao)
+  const [filtroCargo, setFiltroCargo] = useState('');
+  const [filtroEmpresa, setFiltroEmpresa] = useState('');
+  const [filtroJornada, setFiltroJornada] = useState('');
+
+  const colaboradoresOrdenados = (() => {
+    let list = colaboradores;
+    // Filtros
+    if (filtroCargo) list = list.filter(c => String(c.cargo_id) === String(filtroCargo));
+    if (filtroEmpresa) list = list.filter(c => String(c.company_id || c.empresa_id) === String(filtroEmpresa));
+    if (filtroJornada) list = list.filter(c => String(c.jornada_id) === String(filtroJornada));
+    // Ordenacao
+    if (sortField) {
+      list = [...list];
+      const mult = sortDir === 'asc' ? 1 : -1;
+      list.sort((a, b) => {
+        let va = a[sortField];
+        let vb = b[sortField];
+        if (va == null) return 1;
+        if (vb == null) return -1;
+        if (sortField === 'salario') {
+          return (Number(va) - Number(vb)) * mult;
+        }
+        return String(va).localeCompare(String(vb), 'pt-BR', { sensitivity: 'base', numeric: true }) * mult;
+      });
+    }
+    return list;
+  })();
 
   // Estatisticas
   const [stats, setStats] = useState({ total: 0, ativos: 0, desligados: 0 });
@@ -34,6 +73,68 @@ export default function RhCadastroGeral() {
   const [empresas, setEmpresas] = useState([]);
   const [jornadas, setJornadas] = useState([]);
   const [escolaridades, setEscolaridades] = useState([]);
+  const [escalas, setEscalas] = useState([]);
+  const [regimes, setRegimes] = useState([]);
+  const [beneficiosDisponiveis, setBeneficiosDisponiveis] = useState([]);
+  const [uploadingFoto, setUploadingFoto] = useState(false);
+
+  // Calcula tempo na empresa em anos e meses
+  const tempoNaEmpresa = (dataAdmissao) => {
+    if (!dataAdmissao) return '-';
+    const admissao = new Date(dataAdmissao);
+    if (isNaN(admissao.getTime())) return '-';
+    const hoje = new Date();
+    let anos = hoje.getFullYear() - admissao.getFullYear();
+    let meses = hoje.getMonth() - admissao.getMonth();
+    if (hoje.getDate() < admissao.getDate()) meses--;
+    if (meses < 0) { anos--; meses += 12; }
+    if (anos < 0) return '-';
+    if (anos === 0 && meses === 0) return 'Menos de 1 mes';
+    const partes = [];
+    if (anos > 0) partes.push(`${anos} ano${anos > 1 ? 's' : ''}`);
+    if (meses > 0) partes.push(`${meses} ${meses > 1 ? 'meses' : 'mes'}`);
+    return partes.join(' e ');
+  };
+
+  const formatarDataBR = (iso) => {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleDateString('pt-BR');
+  };
+
+  // Calcula idade em anos baseado em data_nascimento
+  const calcularIdade = (dataNasc) => {
+    if (!dataNasc) return null;
+    const nasc = new Date(dataNasc);
+    if (isNaN(nasc.getTime())) return null;
+    const hoje = new Date();
+    let idade = hoje.getFullYear() - nasc.getFullYear();
+    const mesDiff = hoje.getMonth() - nasc.getMonth();
+    if (mesDiff < 0 || (mesDiff === 0 && hoje.getDate() < nasc.getDate())) idade--;
+    return idade < 0 ? null : idade;
+  };
+
+  const handleUploadFoto = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingFoto(true);
+    try {
+      const fd = new FormData();
+      fd.append('imagem', file);
+      const res = await api.post('/checklist/upload-imagem', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data?.url) {
+        setFormData(f => ({ ...f, foto_url: res.data.url }));
+      }
+    } catch (err) {
+      toast.error('Erro ao enviar foto');
+    } finally {
+      setUploadingFoto(false);
+      e.target.value = '';
+    }
+  };
 
   // Form data
   const initialFormData = {
@@ -64,7 +165,10 @@ export default function RhCadastroGeral() {
     // Dados Profissionais
     cargo_id: '',
     empresa_id: '',
+    company_id: '',
     jornada_id: '',
+    escala_id: '',
+    regime_trabalho_id: '',
     data_admissao: '',
     salario: '',
     status: 'ativo',
@@ -85,8 +189,11 @@ export default function RhCadastroGeral() {
     vale_refeicao: false,
     valor_vale_refeicao: '',
     plano_saude: false,
+    beneficios_ids: [],
     // Observacoes
-    observacoes: ''
+    observacoes: '',
+    // Foto do colaborador
+    foto_url: ''
   };
 
   const [formData, setFormData] = useState(initialFormData);
@@ -103,7 +210,7 @@ export default function RhCadastroGeral() {
   useEffect(() => {
     carregarColaboradores();
     carregarEstatisticas();
-  }, [paginaAtual, filtroDebounced, statusFiltro]);
+  }, [filtroDebounced, statusFiltro]);
 
   // Carregar configuracoes ao montar
   useEffect(() => {
@@ -112,16 +219,25 @@ export default function RhCadastroGeral() {
 
   const carregarConfiguracoes = async () => {
     try {
-      const [cargosRes, empRes, jorRes, escRes] = await Promise.all([
+      const [cargosRes, empRes, jorRes, escRes, escalasRes, regimesRes, beneficiosRes] = await Promise.all([
         api.get('/rh/configuracoes/cargos'),
-        api.get('/rh/configuracoes/empresas'),
+        api.get('/companies/stores/list'),
         api.get('/rh/configuracoes/jornadas'),
-        api.get('/rh/configuracoes/escolaridades')
+        api.get('/rh/configuracoes/escolaridades'),
+        api.get('/rh/configuracoes/escalas'),
+        api.get('/rh/configuracoes/regimes-trabalho'),
+        api.get('/rh/configuracoes/beneficios')
       ]);
       setCargos(cargosRes.data?.cargos || cargosRes.data || []);
-      setEmpresas(empRes.data?.empresas || empRes.data || []);
+      // /companies/stores/list retorna array: [{ id, cod_loja, nome_fantasia, razao_social, apelido, label }]
+      const empData = Array.isArray(empRes.data) ? empRes.data : (empRes.data?.companies || []);
+      setEmpresas(empData);
       setJornadas(jorRes.data?.jornadas || jorRes.data || []);
       setEscolaridades(escRes.data?.escolaridades || escRes.data || []);
+      setEscalas(escalasRes.data?.escalas || escalasRes.data || []);
+      setRegimes(regimesRes.data?.regimes || regimesRes.data || []);
+      const benData = beneficiosRes.data?.beneficios || beneficiosRes.data || [];
+      setBeneficiosDisponiveis(Array.isArray(benData) ? benData.filter(b => b.ativo !== false) : []);
     } catch (error) {
       console.error('Erro ao carregar configuracoes:', error);
     }
@@ -144,14 +260,13 @@ export default function RhCadastroGeral() {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      params.append('page', paginaAtual);
-      params.append('limit', itensPorPagina);
+      params.append('page', 1);
+      params.append('limit', 99999);
       if (filtroDebounced) params.append('search', filtroDebounced);
       if (statusFiltro !== 'todos') params.append('status', statusFiltro);
 
       const response = await api.get(`/rh/colaboradores?${params.toString()}`);
       setColaboradores(response.data?.data || response.data?.colaboradores || []);
-      setTotalPaginas(response.data?.pagination?.totalPages || response.data?.totalPages || 1);
       setTotalRegistros(response.data?.pagination?.total || response.data?.total || 0);
     } catch (error) {
       console.error('Erro ao carregar colaboradores:', error);
@@ -189,7 +304,10 @@ export default function RhCadastroGeral() {
         estado: colaborador.estado || '',
         cargo_id: colaborador.cargo_id || '',
         empresa_id: colaborador.empresa_id || '',
+        company_id: colaborador.company_id || '',
         jornada_id: colaborador.jornada_id || '',
+        escala_id: colaborador.escala_id || '',
+        regime_trabalho_id: colaborador.regime_trabalho_id || '',
         data_admissao: colaborador.data_admissao?.split('T')[0] || '',
         salario: colaborador.salario || '',
         status: colaborador.status || 'ativo',
@@ -207,7 +325,9 @@ export default function RhCadastroGeral() {
         vale_refeicao: colaborador.vale_refeicao || false,
         valor_vale_refeicao: colaborador.valor_vale_refeicao || '',
         plano_saude: colaborador.plano_saude || false,
-        observacoes: colaborador.observacoes || ''
+        beneficios_ids: Array.isArray(colaborador.beneficios_ids) ? colaborador.beneficios_ids : [],
+        observacoes: colaborador.observacoes || '',
+        foto_url: colaborador.foto_url || ''
       });
     } else {
       setEditando(null);
@@ -273,10 +393,6 @@ export default function RhCadastroGeral() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Indices para paginacao
-  const indiceInicio = (paginaAtual - 1) * itensPorPagina;
-  const indiceFim = Math.min(indiceInicio + colaboradores.length, totalRegistros);
-
   // Input class helper
   const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm";
   const selectClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm";
@@ -322,19 +438,49 @@ export default function RhCadastroGeral() {
 
         {/* Content */}
         <div className="p-6">
-          {/* Stats Cards */}
+          {/* Stats Cards - foscos (cores suaves) com icones neutros + faixa lateral */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-blue-500 rounded-lg p-4 text-white shadow-lg">
-              <p className="text-blue-100 text-sm font-medium">Total de Colaboradores</p>
-              <p className="text-3xl font-bold mt-1">{stats.total}</p>
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex items-stretch">
+              <div className="flex-1 p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500 font-medium">Total de Colaboradores</p>
+                  <p className="text-2xl font-bold text-gray-700 mt-0.5">{stats.total}</p>
+                </div>
+              </div>
+              <div className="w-2 bg-slate-400" />
             </div>
-            <div className="bg-green-500 rounded-lg p-4 text-white shadow-lg">
-              <p className="text-green-100 text-sm font-medium">Ativos</p>
-              <p className="text-3xl font-bold mt-1">{stats.ativos}</p>
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex items-stretch">
+              <div className="flex-1 p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600/70">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500 font-medium">Ativos</p>
+                  <p className="text-2xl font-bold text-emerald-700/80 mt-0.5">{stats.ativos}</p>
+                </div>
+              </div>
+              <div className="w-2 bg-emerald-300" />
             </div>
-            <div className="bg-red-500 rounded-lg p-4 text-white shadow-lg">
-              <p className="text-red-100 text-sm font-medium">Desligados</p>
-              <p className="text-3xl font-bold mt-1">{stats.desligados}</p>
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex items-stretch">
+              <div className="flex-1 p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center text-rose-500/70">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500 font-medium">Desligados</p>
+                  <p className="text-2xl font-bold text-rose-700/80 mt-0.5">{stats.desligados}</p>
+                </div>
+              </div>
+              <div className="w-2 bg-rose-300" />
             </div>
           </div>
 
@@ -352,7 +498,6 @@ export default function RhCadastroGeral() {
                       value={filtro}
                       onChange={(e) => {
                         setFiltro(e.target.value);
-                        setPaginaAtual(1);
                       }}
                     />
                     <svg className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -367,12 +512,51 @@ export default function RhCadastroGeral() {
                   value={statusFiltro}
                   onChange={(e) => {
                     setStatusFiltro(e.target.value);
-                    setPaginaAtual(1);
                   }}
                 >
                   <option value="todos">Todos os status</option>
                   <option value="ativo">Ativos</option>
                   <option value="desligado">Desligados</option>
+                </select>
+
+                {/* Filtro por Cargo */}
+                <select
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  value={filtroCargo}
+                  onChange={(e) => setFiltroCargo(e.target.value)}
+                >
+                  <option value="">Todos os cargos</option>
+                  {cargos.map(c => (
+                    <option key={c.id} value={c.id}>{c.nome}</option>
+                  ))}
+                </select>
+
+                {/* Filtro por Empresa */}
+                <select
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  value={filtroEmpresa}
+                  onChange={(e) => setFiltroEmpresa(e.target.value)}
+                >
+                  <option value="">Todas as empresas</option>
+                  {empresas.map(e => (
+                    <option key={e.id} value={e.id}>
+                      {e.apelido
+                        ? `Loja ${e.cod_loja} - ${e.apelido}`
+                        : (e.label || e.nome_fantasia || `Loja ${e.cod_loja || ''}`)}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Filtro por Jornada */}
+                <select
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  value={filtroJornada}
+                  onChange={(e) => setFiltroJornada(e.target.value)}
+                >
+                  <option value="">Todas as jornadas</option>
+                  {jornadas.map(j => (
+                    <option key={j.id} value={j.id}>{j.nome}</option>
+                  ))}
                 </select>
               </div>
 
@@ -400,19 +584,28 @@ export default function RhCadastroGeral() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-600">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Matricula</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Nome</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">CPF</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Cargo</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Empresa</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Foto</th>
+                      <th onClick={() => toggleSort('matricula')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Matricula{sortIcon('matricula')}</th>
+                      <th onClick={() => toggleSort('nome')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Nome{sortIcon('nome')}</th>
+                      <th onClick={() => toggleSort('data_nascimento')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Idade{sortIcon('data_nascimento')}</th>
+                      <th onClick={() => toggleSort('cpf')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">CPF{sortIcon('cpf')}</th>
+                      <th onClick={() => toggleSort('cargo_nome')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Cargo{sortIcon('cargo_nome')}</th>
+                      <th onClick={() => toggleSort('escolaridade_nome')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Escolaridade{sortIcon('escolaridade_nome')}</th>
+                      <th onClick={() => toggleSort('empresa_nome')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Empresa{sortIcon('empresa_nome')}</th>
+                      <th onClick={() => toggleSort('salario')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Salario{sortIcon('salario')}</th>
+                      <th onClick={() => toggleSort('jornada_nome')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Jornada{sortIcon('jornada_nome')}</th>
+                      <th onClick={() => toggleSort('escala_nome')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Escala{sortIcon('escala_nome')}</th>
+                      <th onClick={() => toggleSort('regime_trabalho_nome')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Regime{sortIcon('regime_trabalho_nome')}</th>
+                      <th onClick={() => toggleSort('data_admissao')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Admissao{sortIcon('data_admissao')}</th>
+                      <th onClick={() => toggleSort('data_admissao')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Tempo de Casa</th>
+                      <th onClick={() => toggleSort('status')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Status{sortIcon('status')}</th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Acoes</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {colaboradores.length === 0 ? (
                       <tr>
-                        <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                        <td colSpan="16" className="px-6 py-12 text-center text-gray-500">
                           <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                           </svg>
@@ -421,13 +614,29 @@ export default function RhCadastroGeral() {
                         </td>
                       </tr>
                     ) : (
-                      colaboradores.map((colab) => (
+                      colaboradoresOrdenados.map((colab) => (
                         <tr key={colab.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-2">
+                            {colab.foto_url ? (
+                              <img src={colab.foto_url} alt={colab.nome}
+                                className="w-10 h-10 rounded-full object-cover border-2 border-orange-200" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-bold border-2 border-orange-200">
+                                {(colab.nome || '?').charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {colab.matricula || '-'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {colab.nome}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
+                            {(() => {
+                              const i = calcularIdade(colab.data_nascimento);
+                              return i != null ? `${i} anos` : '-';
+                            })()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {formatarCPF(colab.cpf)}
@@ -436,7 +645,30 @@ export default function RhCadastroGeral() {
                             {colab.cargo_nome || '-'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {colab.escolaridade_nome || '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {colab.empresa_nome || '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {colab.salario != null && colab.salario !== ''
+                              ? Number(colab.salario).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                              : '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {colab.jornada_nome || '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {colab.escala_nome || '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {colab.regime_trabalho_nome || '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatarDataBR(colab.data_admissao)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
+                            {tempoNaEmpresa(colab.data_admissao)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -476,55 +708,10 @@ export default function RhCadastroGeral() {
                 </table>
               </div>
 
-              {/* Paginacao */}
+              {/* Contador total */}
               {totalRegistros > 0 && (
-                <div className="bg-gray-50 px-6 py-3 flex items-center justify-between border-t border-gray-200">
-                  <div className="text-sm text-gray-700">
-                    Mostrando <span className="font-medium">{indiceInicio + 1}</span> ate{' '}
-                    <span className="font-medium">{indiceFim}</span> de{' '}
-                    <span className="font-medium">{totalRegistros}</span> resultados
-                  </div>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => setPaginaAtual(Math.max(1, paginaAtual - 1))}
-                      disabled={paginaAtual === 1}
-                      className="px-3 py-1 rounded border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Anterior
-                    </button>
-                    {[...Array(Math.min(totalPaginas, 5))].map((_, i) => {
-                      let pageNum;
-                      if (totalPaginas <= 5) {
-                        pageNum = i + 1;
-                      } else if (paginaAtual <= 3) {
-                        pageNum = i + 1;
-                      } else if (paginaAtual >= totalPaginas - 2) {
-                        pageNum = totalPaginas - 4 + i;
-                      } else {
-                        pageNum = paginaAtual - 2 + i;
-                      }
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => setPaginaAtual(pageNum)}
-                          className={`px-3 py-1 rounded border text-sm font-medium ${
-                            paginaAtual === pageNum
-                              ? 'bg-orange-500 border-orange-500 text-white'
-                              : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    })}
-                    <button
-                      onClick={() => setPaginaAtual(Math.min(totalPaginas, paginaAtual + 1))}
-                      disabled={paginaAtual === totalPaginas}
-                      className="px-3 py-1 rounded border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Proxima
-                    </button>
-                  </div>
+                <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 text-sm text-gray-700">
+                  Total: <span className="font-medium">{totalRegistros}</span> colaborador(es)
                 </div>
               )}
             </div>
@@ -579,6 +766,63 @@ export default function RhCadastroGeral() {
                 {/* ===== ABA: Dados Pessoais ===== */}
                 {abaAtiva === 'pessoais' && (
                   <div className="space-y-4">
+                    {/* Foto do colaborador */}
+                    <div className="flex items-center gap-4">
+                      <div className="w-24 h-24 rounded-full border-4 border-orange-200 bg-orange-50 overflow-hidden flex items-center justify-center shrink-0">
+                        {formData.foto_url ? (
+                          <img src={formData.foto_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <svg className="w-12 h-12 text-orange-300" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm font-semibold text-gray-700">Foto do Colaborador</label>
+                        <input type="file" accept="image/*" id="upload-foto-colab" className="hidden" onChange={handleUploadFoto} />
+                        <div className="flex gap-2">
+                          <label htmlFor="upload-foto-colab"
+                            className={`cursor-pointer px-4 py-2 rounded-lg text-sm font-bold text-white inline-block text-center ${uploadingFoto ? 'bg-gray-400' : 'bg-orange-500 hover:bg-orange-600'}`}>
+                            {uploadingFoto ? 'Enviando…' : (formData.foto_url ? '🔄 Trocar foto' : '📷 Adicionar foto')}
+                          </label>
+                          {formData.foto_url && (
+                            <button type="button"
+                              onClick={() => setFormData(f => ({ ...f, foto_url: '' }))}
+                              className="px-4 py-2 rounded-lg text-sm font-bold bg-red-100 text-red-700 hover:bg-red-200">
+                              🗑️ Remover
+                            </button>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-500">JPG, PNG ou WEBP. Opcional.</span>
+                      </div>
+                    </div>
+
+                    {/* Empresa + Status - escolhidos antes de qualquer outra coisa */}
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div className="md:col-span-3">
+                        <label className={labelClass}>
+                          🏪 Empresa / Loja * <span className="text-xs text-gray-500 font-normal">(cadastrada em Configuracoes)</span>
+                        </label>
+                        <select required className={selectClass} value={formData.company_id || ''} onChange={(e) => handleChange('company_id', e.target.value)}>
+                          <option value="">Selecione a loja onde o colaborador trabalha...</option>
+                          {empresas.map(emp => (
+                            <option key={emp.id} value={emp.id}>
+                              {emp.apelido
+                                ? `Loja ${emp.cod_loja} - ${emp.apelido}${emp.nome_fantasia ? ' (' + emp.nome_fantasia + ')' : ''}`
+                                : (emp.label || emp.nome_fantasia || `Loja ${emp.cod_loja || ''}`)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelClass}>Status</label>
+                        <select className={selectClass} value={formData.status} onChange={(e) => handleChange('status', e.target.value)}>
+                          <option value="ativo">Ativo</option>
+                          <option value="desligado">Desligado</option>
+                        </select>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className={labelClass}>Matricula *</label>
@@ -737,22 +981,33 @@ export default function RhCadastroGeral() {
                         </select>
                       </div>
                       <div>
-                        <label className={labelClass}>Empresa *</label>
-                        <select required className={selectClass} value={formData.empresa_id} onChange={(e) => handleChange('empresa_id', e.target.value)}>
-                          <option value="">Selecione...</option>
-                          {empresas.map(emp => (
-                            <option key={emp.id} value={emp.id}>{emp.nome}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
                         <label className={labelClass}>Jornada *</label>
                         <select required className={selectClass} value={formData.jornada_id} onChange={(e) => handleChange('jornada_id', e.target.value)}>
                           <option value="">Selecione...</option>
                           {jornadas.map(jornada => (
                             <option key={jornada.id} value={jornada.id}>
-                              {jornada.nome}{jornada.horas_diarias ? ` (${jornada.horas_diarias}h/dia)` : ''}
+                              {jornada.nome}{jornada.carga_horaria ? ` (${jornada.carga_horaria})` : (jornada.horas_diarias ? ` (${jornada.horas_diarias}h/dia)` : '')}
                             </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className={labelClass}>Escala</label>
+                        <select className={selectClass} value={formData.escala_id} onChange={(e) => handleChange('escala_id', e.target.value)}>
+                          <option value="">Selecione...</option>
+                          {escalas.map(esc => (
+                            <option key={esc.id} value={esc.id}>{esc.nome}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelClass}>Regime de Trabalho</label>
+                        <select className={selectClass} value={formData.regime_trabalho_id} onChange={(e) => handleChange('regime_trabalho_id', e.target.value)}>
+                          <option value="">Selecione...</option>
+                          {regimes.map(r => (
+                            <option key={r.id} value={r.id}>{r.nome}</option>
                           ))}
                         </select>
                       </div>
@@ -765,13 +1020,6 @@ export default function RhCadastroGeral() {
                       <div>
                         <label className={labelClass}>Salario (R$)</label>
                         <input type="number" step="0.01" className={inputClass} value={formData.salario} onChange={(e) => handleChange('salario', e.target.value)} placeholder="0,00" />
-                      </div>
-                      <div>
-                        <label className={labelClass}>Status</label>
-                        <select className={selectClass} value={formData.status} onChange={(e) => handleChange('status', e.target.value)}>
-                          <option value="ativo">Ativo</option>
-                          <option value="desligado">Desligado</option>
-                        </select>
                       </div>
                     </div>
 
@@ -864,69 +1112,45 @@ export default function RhCadastroGeral() {
                   </div>
                 )}
 
-                {/* ===== ABA: Beneficios ===== */}
+                {/* ===== ABA: Beneficios (dinamico - vem de Configuracoes RH > Beneficios) ===== */}
                 {abaAtiva === 'beneficios' && (
-                  <div className="space-y-6">
-                    {/* Vale Transporte */}
-                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
-                          checked={formData.vale_transporte}
-                          onChange={(e) => handleChange('vale_transporte', e.target.checked)}
-                        />
-                        <div>
-                          <span className="text-sm font-medium text-gray-900">Vale Transporte</span>
-                          <p className="text-xs text-gray-500">Conceder vale transporte ao colaborador</p>
+                  <div className="space-y-3">
+                    {beneficiosDisponiveis.length === 0 ? (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+                        Nenhum beneficio cadastrado. Vá em <strong>Configurações RH → Benefícios</strong> para criar.
+                      </div>
+                    ) : beneficiosDisponiveis.map(ben => {
+                      const selecionado = (formData.beneficios_ids || []).includes(ben.id);
+                      return (
+                        <div key={ben.id} className={`rounded-lg p-4 border cursor-pointer transition ${selecionado ? 'bg-orange-50 border-orange-300' : 'bg-gray-50 border-gray-200 hover:border-orange-200'}`}>
+                          <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                              checked={selecionado}
+                              onChange={(e) => {
+                                const atuais = formData.beneficios_ids || [];
+                                const novos = e.target.checked
+                                  ? [...atuais, ben.id]
+                                  : atuais.filter(id => id !== ben.id);
+                                handleChange('beneficios_ids', novos);
+                              }}
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-900">{ben.nome}</span>
+                                {ben.valor != null && ben.valor !== '' && (
+                                  <span className="text-xs font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
+                                    {Number(ben.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                  </span>
+                                )}
+                              </div>
+                              {ben.descricao && <p className="text-xs text-gray-500 mt-0.5">{ben.descricao}</p>}
+                            </div>
+                          </label>
                         </div>
-                      </label>
-                    </div>
-
-                    {/* Vale Refeicao */}
-                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
-                          checked={formData.vale_refeicao}
-                          onChange={(e) => handleChange('vale_refeicao', e.target.checked)}
-                        />
-                        <div>
-                          <span className="text-sm font-medium text-gray-900">Vale Refeicao</span>
-                          <p className="text-xs text-gray-500">Conceder vale refeicao ao colaborador</p>
-                        </div>
-                      </label>
-                      {formData.vale_refeicao && (
-                        <div className="mt-3 ml-8">
-                          <label className={labelClass}>Valor do Vale Refeicao (R$)</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            className={`${inputClass} max-w-xs`}
-                            value={formData.valor_vale_refeicao}
-                            onChange={(e) => handleChange('valor_vale_refeicao', e.target.value)}
-                            placeholder="0,00"
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Plano de Saude */}
-                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
-                          checked={formData.plano_saude}
-                          onChange={(e) => handleChange('plano_saude', e.target.checked)}
-                        />
-                        <div>
-                          <span className="text-sm font-medium text-gray-900">Plano de Saude</span>
-                          <p className="text-xs text-gray-500">Incluir colaborador no plano de saude</p>
-                        </div>
-                      </label>
-                    </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

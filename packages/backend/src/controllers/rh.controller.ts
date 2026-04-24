@@ -44,14 +44,26 @@ export class RhController {
       const colaboradores = await AppDataSource.query(
         `SELECT c.*,
                 ca.nome AS cargo_nome,
-                e.nome AS empresa_nome,
+                COALESCE(
+                  comp.apelido,
+                  comp.nome_fantasia,
+                  e.nome
+                ) AS empresa_nome,
+                comp.cod_loja AS empresa_cod_loja,
                 j.nome AS jornada_nome,
-                es.nome AS escolaridade_nome
+                es.nome AS escolaridade_nome,
+                esc.nome AS escala_nome,
+                rt.nome AS regime_trabalho_nome,
+                dep.nome AS setor_nome
          FROM rh_colaboradores c
          LEFT JOIN rh_cargos ca ON ca.id = c.cargo_id
          LEFT JOIN rh_empresas e ON e.id = c.empresa_id
+         LEFT JOIN companies comp ON comp.id = c.company_id
          LEFT JOIN rh_jornadas j ON j.id = c.jornada_id
          LEFT JOIN rh_escolaridades es ON es.id = c.escolaridade_id
+         LEFT JOIN rh_escalas esc ON esc.id = c.escala_id
+         LEFT JOIN rh_regimes_trabalho rt ON rt.id = c.regime_trabalho_id
+         LEFT JOIN rh_departamentos dep ON dep.id = c.departamento_id
          ${whereClause}
          ORDER BY c.nome ASC
          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
@@ -83,6 +95,8 @@ export class RhController {
                 e.nome AS empresa_nome,
                 j.nome AS jornada_nome,
                 es.nome AS escolaridade_nome,
+                esc.nome AS escala_nome,
+                rt.nome AS regime_trabalho_nome,
                 td.nome AS tipo_desligamento_nome,
                 md.nome AS motivo_desligamento_nome
          FROM rh_colaboradores c
@@ -90,6 +104,8 @@ export class RhController {
          LEFT JOIN rh_empresas e ON e.id = c.empresa_id
          LEFT JOIN rh_jornadas j ON j.id = c.jornada_id
          LEFT JOIN rh_escolaridades es ON es.id = c.escolaridade_id
+         LEFT JOIN rh_escalas esc ON esc.id = c.escala_id
+         LEFT JOIN rh_regimes_trabalho rt ON rt.id = c.regime_trabalho_id
          LEFT JOIN rh_tipos_desligamento td ON td.id = c.tipo_desligamento_id
          LEFT JOIN rh_motivos_desligamento md ON md.id = c.motivo_desligamento_id
          WHERE c.id = $1`,
@@ -113,7 +129,7 @@ export class RhController {
         nome, cpf, rg, data_nascimento, sexo, estado_civil, nacionalidade, naturalidade,
         telefone, celular, email, email_pessoal,
         cep, endereco, numero, complemento, bairro, cidade, estado,
-        matricula, cargo_id, empresa_id, jornada_id, escolaridade_id, regime_trabalho_id,
+        matricula, cargo_id, empresa_id, company_id, jornada_id, escala_id, escolaridade_id, regime_trabalho_id,
         data_admissao, data_desligamento, salario, status,
         vale_transporte, vale_refeicao, valor_vale_refeicao, plano_saude,
         banco, agencia, conta, tipo_conta, pix,
@@ -121,11 +137,20 @@ export class RhController {
         nome_mae, nome_pai,
         observacoes, filtro1, filtro2, filtro3, foto_url,
         tipo_desligamento_id, motivo_desligamento_id, observacoes_desligamento,
+        beneficios_ids,
       } = req.body;
 
       if (!nome || !cpf) {
         return res.status(400).json({ error: 'Nome e CPF sao obrigatorios' });
       }
+
+      // Helpers para converter strings vazias em null
+      const nn = (v: any) => (v === '' || v === undefined ? null : v);
+      const nnum = (v: any) => {
+        if (v === '' || v === undefined || v === null) return null;
+        const n = Number(v);
+        return isNaN(n) ? null : n;
+      };
 
       const result = await AppDataSource.query(
         `INSERT INTO rh_colaboradores (
@@ -139,7 +164,8 @@ export class RhController {
           ctps, serie_ctps, pis_pasep, titulo_eleitor, reservista,
           nome_mae, nome_pai,
           observacoes, filtro1, filtro2, filtro3, foto_url,
-          tipo_desligamento_id, motivo_desligamento_id, observacoes_desligamento
+          tipo_desligamento_id, motivo_desligamento_id, observacoes_desligamento,
+          company_id, escala_id, beneficios_ids
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8,
           $9, $10, $11, $12,
@@ -151,20 +177,22 @@ export class RhController {
           $39, $40, $41, $42, $43,
           $44, $45,
           $46, $47, $48, $49, $50,
-          $51, $52, $53
+          $51, $52, $53,
+          $54, $55, $56
         ) RETURNING *`,
         [
-          nome, cpf, rg, data_nascimento, sexo, estado_civil, nacionalidade, naturalidade,
+          nome, cpf, rg, nn(data_nascimento), sexo, estado_civil, nacionalidade, naturalidade,
           telefone, celular, email, email_pessoal,
           cep, endereco, numero, complemento, bairro, cidade, estado,
-          matricula, cargo_id || null, empresa_id || null, jornada_id || null, escolaridade_id || null, regime_trabalho_id || null,
-          data_admissao, data_desligamento, salario, status || 'ativo',
-          vale_transporte || false, vale_refeicao || false, valor_vale_refeicao, plano_saude || false,
+          matricula, nnum(cargo_id), nnum(empresa_id), nnum(jornada_id), nnum(escolaridade_id), nnum(regime_trabalho_id),
+          nn(data_admissao), nn(data_desligamento), nnum(salario), status || 'ativo',
+          vale_transporte || false, vale_refeicao || false, nnum(valor_vale_refeicao), plano_saude || false,
           banco, agencia, conta, tipo_conta, pix,
           ctps, serie_ctps, pis_pasep, titulo_eleitor, reservista,
           nome_mae, nome_pai,
           observacoes, filtro1, filtro2, filtro3, foto_url,
-          tipo_desligamento_id || null, motivo_desligamento_id || null, observacoes_desligamento,
+          nnum(tipo_desligamento_id), nnum(motivo_desligamento_id), observacoes_desligamento,
+          nn(company_id), nnum(escala_id), Array.isArray(beneficios_ids) ? beneficios_ids : [],
         ]
       );
 
@@ -185,7 +213,7 @@ export class RhController {
         nome, cpf, rg, data_nascimento, sexo, estado_civil, nacionalidade, naturalidade,
         telefone, celular, email, email_pessoal,
         cep, endereco, numero, complemento, bairro, cidade, estado,
-        matricula, cargo_id, empresa_id, jornada_id, escolaridade_id, regime_trabalho_id,
+        matricula, cargo_id, empresa_id, company_id, jornada_id, escala_id, escolaridade_id, regime_trabalho_id,
         data_admissao, data_desligamento, salario, status,
         vale_transporte, vale_refeicao, valor_vale_refeicao, plano_saude,
         banco, agencia, conta, tipo_conta, pix,
@@ -193,7 +221,16 @@ export class RhController {
         nome_mae, nome_pai,
         observacoes, filtro1, filtro2, filtro3, foto_url,
         tipo_desligamento_id, motivo_desligamento_id, observacoes_desligamento,
+        beneficios_ids,
       } = req.body;
+
+      // Helpers para converter strings vazias em null (para campos numericos / date)
+      const nn = (v: any) => (v === '' || v === undefined ? null : v);
+      const nnum = (v: any) => {
+        if (v === '' || v === undefined || v === null) return null;
+        const n = Number(v);
+        return isNaN(n) ? null : n;
+      };
 
       const result = await AppDataSource.query(
         `UPDATE rh_colaboradores SET
@@ -208,21 +245,23 @@ export class RhController {
           nome_mae = $44, nome_pai = $45,
           observacoes = $46, filtro1 = $47, filtro2 = $48, filtro3 = $49, foto_url = $50,
           tipo_desligamento_id = $51, motivo_desligamento_id = $52, observacoes_desligamento = $53,
+          company_id = $54, escala_id = $55, beneficios_ids = $56,
           updated_at = NOW()
-        WHERE id = $54
+        WHERE id = $57
         RETURNING *`,
         [
-          nome, cpf, rg, data_nascimento, sexo, estado_civil, nacionalidade, naturalidade,
+          nome, cpf, rg, nn(data_nascimento), sexo, estado_civil, nacionalidade, naturalidade,
           telefone, celular, email, email_pessoal,
           cep, endereco, numero, complemento, bairro, cidade, estado,
-          matricula, cargo_id || null, empresa_id || null, jornada_id || null, escolaridade_id || null, regime_trabalho_id || null,
-          data_admissao, data_desligamento, salario, status || 'ativo',
-          vale_transporte || false, vale_refeicao || false, valor_vale_refeicao, plano_saude || false,
+          matricula, nnum(cargo_id), nnum(empresa_id), nnum(jornada_id), nnum(escolaridade_id), nnum(regime_trabalho_id),
+          nn(data_admissao), nn(data_desligamento), nnum(salario), status || 'ativo',
+          vale_transporte || false, vale_refeicao || false, nnum(valor_vale_refeicao), plano_saude || false,
           banco, agencia, conta, tipo_conta, pix,
           ctps, serie_ctps, pis_pasep, titulo_eleitor, reservista,
           nome_mae, nome_pai,
           observacoes, filtro1, filtro2, filtro3, foto_url,
-          tipo_desligamento_id || null, motivo_desligamento_id || null, observacoes_desligamento,
+          nnum(tipo_desligamento_id), nnum(motivo_desligamento_id), observacoes_desligamento,
+          nn(company_id), nnum(escala_id), Array.isArray(beneficios_ids) ? beneficios_ids : [],
           id,
         ]
       );
@@ -473,6 +512,20 @@ export class RhController {
   }
   static async deletarMotivoDesligamento(req: AuthRequest, res: Response) {
     return RhController.deletarConfig(req, res, 'rh_motivos_desligamento');
+  }
+
+  // --- Beneficios ---
+  static async listarBeneficios(req: AuthRequest, res: Response) {
+    return RhController.listarConfig(req, res, 'rh_beneficios');
+  }
+  static async criarBeneficio(req: AuthRequest, res: Response) {
+    return RhController.criarConfig(req, res, 'rh_beneficios', ['nome', 'descricao', 'valor']);
+  }
+  static async atualizarBeneficio(req: AuthRequest, res: Response) {
+    return RhController.atualizarConfig(req, res, 'rh_beneficios', ['nome', 'descricao', 'valor']);
+  }
+  static async deletarBeneficio(req: AuthRequest, res: Response) {
+    return RhController.deletarConfig(req, res, 'rh_beneficios');
   }
 
   // =============================================

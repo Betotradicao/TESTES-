@@ -77,7 +77,6 @@ import DisparoWhatsapp from './pages/DisparoWhatsapp';
 import RhDashboard from './pages/RhDashboard';
 import RhConfiguracoes from './pages/RhConfiguracoes';
 import RhCadastroGeral from './pages/RhCadastroGeral';
-import RhResultados from './pages/RhResultados';
 import RhControleASO from './pages/RhControleASO';
 import RhAusencias from './pages/RhAusencias';
 import RhAdmissoes from './pages/RhAdmissoes';
@@ -113,6 +112,7 @@ import MargensCategoria from './pages/MargensCategoria';
 import ModeloCurriculo from './pages/rh/ModeloCurriculo';
 import BancoCurriculos from './pages/rh/BancoCurriculos';
 import CurriculoPublico from './pages/CurriculoPublico';
+import RhDocumentacao from './pages/RhDocumentacao';
 
 function App() {
   return (
@@ -632,14 +632,6 @@ function App() {
               }
             />
             <Route
-              path="/rh/resultados"
-              element={
-                <ProtectedRoute>
-                  <RhResultados />
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/rh/aso"
               element={
                 <ProtectedRoute>
@@ -667,7 +659,7 @@ function App() {
             <Route path="/rh/curriculos/modelo" element={<ProtectedRoute><ModeloCurriculo /></ProtectedRoute>} />
             <Route path="/rh/curriculos/banco" element={<ProtectedRoute><BancoCurriculos /></ProtectedRoute>} />
             {/* RH Placeholder pages */}
-            <Route path="/rh/documentacao" element={<ProtectedRoute><RhPlaceholder title="Documentacao" subtitle="Gestao de documentos dos colaboradores" features={['Contratos de trabalho', 'Termos de responsabilidade', 'Declaracoes', 'Templates personalizaveis']} /></ProtectedRoute>} />
+            <Route path="/rh/documentacao" element={<ProtectedRoute><RhDocumentacao /></ProtectedRoute>} />
             <Route path="/rh/exames" element={<ProtectedRoute><RhPlaceholder title="Exames Periodicos" subtitle="Controle de exames medicos" features={['Exames admissionais', 'Periodicos', 'Demissionais', 'Alertas de vencimento']} /></ProtectedRoute>} />
             <Route path="/rh/vencimentos" element={<ProtectedRoute><RhPlaceholder title="Relatorio de Vencimentos" subtitle="ASOs e documentos proximos do vencimento" features={['ASOs vencidos', 'ASOs a vencer', 'Documentos pendentes']} /></ProtectedRoute>} />
             <Route path="/rh/jornadas" element={<ProtectedRoute><RhPlaceholder title="Jornadas de Trabalho" subtitle="Controle de jornadas e escalas" features={['Jornadas CLT', 'Escalas de trabalho', 'Banco de horas']} /></ProtectedRoute>} />
