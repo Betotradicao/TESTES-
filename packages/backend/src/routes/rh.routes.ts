@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { RhController } from '../controllers/rh.controller';
 import { RhDocumentacaoController } from '../controllers/rh-documentacao.controller';
+import { RhAsoController } from '../controllers/rh-aso.controller';
 import { authenticateToken } from '../middleware/auth';
 
 const router: Router = Router();
@@ -181,6 +182,15 @@ router.get('/documentacao/subpastas', authenticateToken, RhDocumentacaoControlle
 router.post('/documentacao/subpastas', authenticateToken, RhDocumentacaoController.criarSubpasta);
 router.put('/documentacao/subpastas/:id', authenticateToken, RhDocumentacaoController.atualizarSubpasta);
 router.delete('/documentacao/subpastas/:id', authenticateToken, RhDocumentacaoController.deletarSubpasta);
+
+// ASO (Saude Ocupacional)
+router.get('/asos', authenticateToken, RhAsoController.listar);
+router.get('/asos/stats', authenticateToken, RhAsoController.stats);
+router.get('/asos/colaboradores', authenticateToken, RhAsoController.listarColaboradoresComStatus);
+router.post('/asos', authenticateToken, RhAsoController.criar);
+router.put('/asos/:id', authenticateToken, RhAsoController.atualizar);
+router.post('/asos/:id/arquivo', authenticateToken, uploadDoc.single('arquivo'), RhAsoController.uploadArquivo);
+router.delete('/asos/:id', authenticateToken, RhAsoController.deletar);
 
 // Documentacao - Arquivos
 router.get('/documentacao/documentos', authenticateToken, RhDocumentacaoController.listarDocumentos);

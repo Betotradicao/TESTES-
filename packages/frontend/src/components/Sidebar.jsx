@@ -973,12 +973,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           moduleId: 'rh-saude',
           title: 'SAÚDE OCUPACIONAL',
           icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>),
-          expandable: true,
-          subItems: [
-            { id: 'rh-aso', submenuId: 'rh-controle-aso', title: 'CONTROLE DE ASO', path: '/rh/aso' },
-            { id: 'rh-exames', submenuId: 'rh-exames-periodicos', title: 'EXAMES PERIÓDICOS', path: '/rh/exames' },
-            { id: 'rh-vencimentos', submenuId: 'rh-vencimentos', title: 'RELATÓRIO VENCIMENTOS', path: '/rh/vencimentos' }
-          ]
+          path: '/rh/aso'
         },
         {
           id: 'rh-ponto',

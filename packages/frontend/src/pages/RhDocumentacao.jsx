@@ -44,6 +44,10 @@ export default function RhDocumentacao() {
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadContextSubpastaId, setUploadContextSubpastaId] = useState(null);
 
+  // Modal de upload com paste (Ctrl+V)
+  const [uploadModal, setUploadModal] = useState(null); // null | { subpastaId: number | null, label }
+  const [arquivoUpload, setArquivoUpload] = useState(null);
+
   // Subpastas (itens de documento por pasta)
   const [subpastas, setSubpastas] = useState([]);
   const [novaSubpastaNome, setNovaSubpastaNome] = useState('');
@@ -290,8 +294,36 @@ export default function RhDocumentacao() {
   };
 
   const dispararUploadSubpasta = (subpastaId) => {
-    setUploadContextSubpastaId(subpastaId);
-    fileInputRef.current?.click();
+    const sub = subpastas.find(s => s.id === subpastaId);
+    setUploadModal({ subpastaId, label: sub?.nome || 'Sub-pasta' });
+    setArquivoUpload(null);
+  };
+
+  const abrirUploadSolto = () => {
+    setUploadModal({ subpastaId: null, label: 'Arquivo solto' });
+    setArquivoUpload(null);
+  };
+
+  const confirmarUpload = async () => {
+    if (!arquivoUpload || !pastaAberta) return;
+    setUploadingFile(true);
+    try {
+      const fd = new FormData();
+      fd.append('arquivo', arquivoUpload);
+      fd.append('pasta_id', pastaAberta.id);
+      if (uploadModal?.subpastaId) fd.append('subpasta_id', String(uploadModal.subpastaId));
+      await api.post('/rh/documentacao/documentos', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      toast.success('Arquivo enviado');
+      setUploadModal(null);
+      setArquivoUpload(null);
+      await abrirPasta(pastaAberta);
+      await carregarPastas(selecionado.id);
+      await carregarStats();
+    } catch (err) {
+      toast.error('Erro ao enviar arquivo');
+    } finally {
+      setUploadingFile(false);
+    }
   };
 
   const uploadArquivo = async (e) => {
@@ -556,7 +588,7 @@ export default function RhDocumentacao() {
                             <p className="text-xs text-gray-500">{documentos.length} arquivo(s) · {subpastas.length} sub-pasta(s)</p>
                           </div>
                           <div className="flex gap-2">
-                            <button onClick={() => { setUploadContextSubpastaId(null); fileInputRef.current?.click(); }} disabled={uploadingFile}
+                            <button onClick={abrirUploadSolto} disabled={uploadingFile}
                               className={`px-4 py-2 rounded-lg text-sm font-semibold text-white ${uploadingFile ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'}`}>
                               {uploadingFile ? 'Enviando...' : '📤 Enviar Arquivo Solto'}
                             </button>
@@ -739,6 +771,87 @@ export default function RhDocumentacao() {
           </div>
         </div>
       </div>
+
+      {/* Modal Upload com Paste (Ctrl+V) */}
+      {uploadModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="text-lg font-bold text-gray-800">📤 Enviar Arquivo</h3>
+              <p className="text-xs text-gray-500">Para: <strong>{pastaAberta?.nome}</strong> {uploadModal.subpastaId && `→ ${uploadModal.label}`}</p>
+            </div>
+            <div className="p-4 space-y-3">
+              {/* Area paste */}
+              <div
+                onPaste={(e) => {
+                  const items = e.clipboardData?.items || [];
+                  for (const item of items) {
+                    if (item.type.indexOf('image') !== -1) {
+                      const blob = item.getAsFile();
+                      if (blob) {
+                        const ts = new Date().toISOString().replace(/[:.]/g, '-');
+                        const ext = blob.type.split('/')[1] || 'png';
+                        const file = new File([blob], `doc-print-${ts}.${ext}`, { type: blob.type });
+                        setArquivoUpload(file);
+                        e.preventDefault();
+                        return;
+                      }
+                    }
+                  }
+                }}
+                tabIndex={0}
+                className={`rounded-lg border-2 border-dashed p-5 text-center cursor-text outline-none transition ${
+                  arquivoUpload && arquivoUpload.type?.startsWith('image/')
+                    ? 'border-emerald-400 bg-emerald-50'
+                    : 'border-gray-300 bg-gray-50 hover:border-orange-400 hover:bg-orange-50 focus:border-orange-500 focus:bg-orange-50'
+                }`}
+              >
+                {arquivoUpload && arquivoUpload.type?.startsWith('image/') ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <img src={URL.createObjectURL(arquivoUpload)} alt="Preview"
+                      className="max-h-56 rounded border border-gray-200" />
+                    <div className="text-xs text-emerald-700 font-semibold">✔ Imagem pronta — clique em Enviar</div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500">
+                    <div className="text-3xl mb-1">📋</div>
+                    <div className="font-semibold">Clique aqui e pressione <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-xs font-mono">Ctrl + V</kbd></div>
+                    <div className="text-xs mt-1">Cole um print direto da área de transferência</div>
+                  </div>
+                )}
+              </div>
+
+              <div className="text-xs text-gray-500 text-center">— OU —</div>
+
+              <div className="flex items-center gap-2">
+                <input type="file" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx"
+                  onChange={e => setArquivoUpload(e.target.files?.[0] || null)}
+                  className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-bold file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 cursor-pointer" />
+                {arquivoUpload && (
+                  <button type="button" onClick={() => setArquivoUpload(null)}
+                    className="text-xs font-bold text-red-600 hover:text-red-800">✖</button>
+                )}
+              </div>
+
+              {arquivoUpload && !arquivoUpload.type?.startsWith('image/') && (
+                <div className="text-xs text-emerald-700 font-semibold">
+                  ✔ {arquivoUpload.name} ({(arquivoUpload.size / 1024).toFixed(1)} KB)
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
+              <button onClick={() => { setUploadModal(null); setArquivoUpload(null); }}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold">
+                Cancelar
+              </button>
+              <button onClick={confirmarUpload} disabled={!arquivoUpload || uploadingFile}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold disabled:bg-gray-300 disabled:cursor-not-allowed">
+                {uploadingFile ? 'Enviando...' : '📤 Enviar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Nova Pasta */}
       {showNovaPasta && (
