@@ -97,7 +97,7 @@ export default function RhDocumentacao() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await api.get('/companies/stores/list');
+        const r = await api.get('/rh/empresas/stores/list');
         const empData = Array.isArray(r.data) ? r.data : (r.data?.companies || []);
         setEmpresas(empData);
       } catch { /* ignore */ }

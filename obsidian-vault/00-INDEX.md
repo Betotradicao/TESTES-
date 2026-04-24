@@ -50,7 +50,8 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 - [[modulos/rota-crescimento|Rota de Crescimento]]
 
 ### RH no Radar
-- [[modulos/rh|RH (Recursos Humanos)]]
+- [[modulos/rh|RH (Recursos Humanos) — reformulado abril/2026]]
+- [[modulos/lgpd-compliance|⚖️ LGPD Compliance — plano pendente]]
 
 ### Outros
 - [[modulos/metas-rankings|Metas e Rankings]]

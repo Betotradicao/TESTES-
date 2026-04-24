@@ -10,7 +10,7 @@ export class RhController {
       const offset = (page - 1) * limit;
       const search = req.query.search as string | undefined;
       const status = req.query.status as string | undefined;
-      const empresa_id = req.query.empresa_id ? parseInt(req.query.empresa_id as string) : undefined;
+      const company_id = (req.query.company_id || req.query.empresa_id) as string | undefined;
 
       let whereClause = 'WHERE 1=1';
       const params: any[] = [];
@@ -28,9 +28,9 @@ export class RhController {
         paramIndex++;
       }
 
-      if (empresa_id) {
-        whereClause += ` AND c.empresa_id = $${paramIndex}`;
-        params.push(empresa_id);
+      if (company_id) {
+        whereClause += ` AND c.company_id = $${paramIndex}::uuid`;
+        params.push(company_id);
         paramIndex++;
       }
 
@@ -44,11 +44,7 @@ export class RhController {
       const colaboradores = await AppDataSource.query(
         `SELECT c.*,
                 ca.nome AS cargo_nome,
-                COALESCE(
-                  comp.apelido,
-                  comp.nome_fantasia,
-                  e.nome
-                ) AS empresa_nome,
+                COALESCE(comp.apelido, comp.nome_fantasia) AS empresa_nome,
                 comp.cod_loja AS empresa_cod_loja,
                 j.nome AS jornada_nome,
                 es.nome AS escolaridade_nome,
@@ -57,8 +53,7 @@ export class RhController {
                 dep.nome AS setor_nome
          FROM rh_colaboradores c
          LEFT JOIN rh_cargos ca ON ca.id = c.cargo_id
-         LEFT JOIN rh_empresas e ON e.id = c.empresa_id
-         LEFT JOIN companies comp ON comp.id = c.company_id
+         LEFT JOIN rh_empresas comp ON comp.id = c.company_id
          LEFT JOIN rh_jornadas j ON j.id = c.jornada_id
          LEFT JOIN rh_escolaridades es ON es.id = c.escolaridade_id
          LEFT JOIN rh_escalas esc ON esc.id = c.escala_id
@@ -92,7 +87,8 @@ export class RhController {
       const result = await AppDataSource.query(
         `SELECT c.*,
                 ca.nome AS cargo_nome,
-                e.nome AS empresa_nome,
+                COALESCE(e.apelido, e.nome_fantasia) AS empresa_nome,
+                e.cod_loja AS empresa_cod_loja,
                 j.nome AS jornada_nome,
                 es.nome AS escolaridade_nome,
                 esc.nome AS escala_nome,
@@ -101,7 +97,7 @@ export class RhController {
                 md.nome AS motivo_desligamento_nome
          FROM rh_colaboradores c
          LEFT JOIN rh_cargos ca ON ca.id = c.cargo_id
-         LEFT JOIN rh_empresas e ON e.id = c.empresa_id
+         LEFT JOIN rh_empresas e ON e.id = c.company_id
          LEFT JOIN rh_jornadas j ON j.id = c.jornada_id
          LEFT JOIN rh_escolaridades es ON es.id = c.escolaridade_id
          LEFT JOIN rh_escalas esc ON esc.id = c.escala_id
@@ -388,18 +384,18 @@ export class RhController {
     return RhController.deletarConfig(req, res, 'rh_cargos');
   }
 
-  // --- Empresas ---
-  static async listarEmpresas(req: AuthRequest, res: Response) {
-    return RhController.listarConfig(req, res, 'rh_empresas');
+  // --- Empresas --- (stubs legados - use /rh/empresas via RhEmpresasController) ---
+  static async listarEmpresas(_req: AuthRequest, res: Response) {
+    return res.status(410).json({ error: 'Endpoint movido para /rh/empresas' });
   }
-  static async criarEmpresa(req: AuthRequest, res: Response) {
-    return RhController.criarConfig(req, res, 'rh_empresas', ['nome', 'cnpj', 'endereco']);
+  static async criarEmpresa(_req: AuthRequest, res: Response) {
+    return res.status(410).json({ error: 'Endpoint movido para /rh/empresas' });
   }
-  static async atualizarEmpresa(req: AuthRequest, res: Response) {
-    return RhController.atualizarConfig(req, res, 'rh_empresas', ['nome', 'cnpj', 'endereco']);
+  static async atualizarEmpresa(_req: AuthRequest, res: Response) {
+    return res.status(410).json({ error: 'Endpoint movido para /rh/empresas' });
   }
-  static async deletarEmpresa(req: AuthRequest, res: Response) {
-    return RhController.deletarConfig(req, res, 'rh_empresas');
+  static async deletarEmpresa(_req: AuthRequest, res: Response) {
+    return res.status(410).json({ error: 'Endpoint movido para /rh/empresas' });
   }
 
   // --- Jornadas ---

@@ -221,7 +221,7 @@ export default function RhCadastroGeral() {
     try {
       const [cargosRes, empRes, jorRes, escRes, escalasRes, regimesRes, beneficiosRes] = await Promise.all([
         api.get('/rh/configuracoes/cargos'),
-        api.get('/companies/stores/list'),
+        api.get('/rh/empresas/stores/list'),
         api.get('/rh/configuracoes/jornadas'),
         api.get('/rh/configuracoes/escolaridades'),
         api.get('/rh/configuracoes/escalas'),
@@ -229,7 +229,7 @@ export default function RhCadastroGeral() {
         api.get('/rh/configuracoes/beneficios')
       ]);
       setCargos(cargosRes.data?.cargos || cargosRes.data || []);
-      // /companies/stores/list retorna array: [{ id, cod_loja, nome_fantasia, razao_social, apelido, label }]
+      // /rh/empresas/stores/list retorna array: [{ id, cod_loja, nome_fantasia, razao_social, apelido, label }]
       const empData = Array.isArray(empRes.data) ? empRes.data : (empRes.data?.companies || []);
       setEmpresas(empData);
       setJornadas(jorRes.data?.jornadas || jorRes.data || []);

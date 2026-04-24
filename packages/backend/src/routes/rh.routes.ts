@@ -5,6 +5,7 @@ import { RhDocumentacaoController } from '../controllers/rh-documentacao.control
 import { RhAsoController } from '../controllers/rh-aso.controller';
 import { RhDpController } from '../controllers/rh-dp.controller';
 import { RhApontamentosController } from '../controllers/rh-apontamentos.controller';
+import { RhEmpresasController } from '../controllers/rh-empresas.controller';
 import { authenticateToken } from '../middleware/auth';
 
 const router: Router = Router();
@@ -23,11 +24,12 @@ router.post('/configuracoes/cargos', authenticateToken, RhController.criarCargo)
 router.put('/configuracoes/cargos/:id', authenticateToken, RhController.atualizarCargo);
 router.delete('/configuracoes/cargos/:id', authenticateToken, RhController.deletarCargo);
 
-// Configuracoes - Empresas
-router.get('/configuracoes/empresas', authenticateToken, RhController.listarEmpresas);
-router.post('/configuracoes/empresas', authenticateToken, RhController.criarEmpresa);
-router.put('/configuracoes/empresas/:id', authenticateToken, RhController.atualizarEmpresa);
-router.delete('/configuracoes/empresas/:id', authenticateToken, RhController.deletarEmpresa);
+// Empresas do RH (tabela propria rh_empresas, independente de companies)
+router.get('/empresas', authenticateToken, RhEmpresasController.listar);
+router.get('/empresas/stores/list', authenticateToken, RhEmpresasController.listarStores);
+router.post('/empresas', authenticateToken, RhEmpresasController.criar);
+router.put('/empresas/:id', authenticateToken, RhEmpresasController.atualizar);
+router.delete('/empresas/:id', authenticateToken, RhEmpresasController.deletar);
 
 // Configuracoes - Jornadas
 router.get('/configuracoes/jornadas', authenticateToken, RhController.listarJornadas);

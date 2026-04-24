@@ -4,6 +4,7 @@ import { CurriculoCargo } from '../entities/CurriculoCargo';
 import { CurriculoHabilidade } from '../entities/CurriculoHabilidade';
 import { Curriculo, CurriculoStatus } from '../entities/Curriculo';
 import { Company } from '../entities/Company';
+import { RhEmpresa } from '../entities/RhEmpresa';
 import { ILike } from 'typeorm';
 import { minioService } from '../services/minio.service';
 
@@ -138,9 +139,10 @@ export class CurriculosController {
       const [cargos, habilidades, lojas] = await Promise.all([
         AppDataSource.getRepository(CurriculoCargo).find({ where: { ativo: true }, order: { ordem: 'ASC', nome: 'ASC' } }),
         AppDataSource.getRepository(CurriculoHabilidade).find({ where: { ativo: true }, order: { ordem: 'ASC', nome: 'ASC' } }),
-        AppDataSource.getRepository(Company).find({
+        // Fonte: rh_empresas (cadastro local do RH, independente da tabela companies global)
+        AppDataSource.getRepository(RhEmpresa).find({
           where: { active: true },
-          select: ['id', 'codLoja', 'nomeFantasia', 'apelido', 'bairro', 'cidade', 'estado', 'fotoFachadaUrl'],
+          select: ['id', 'codLoja', 'nomeFantasia', 'apelido', 'bairro', 'cidade', 'estado', 'fotoFachadaUrl', 'isPrincipal'],
           order: { codLoja: 'ASC' } as any,
         }),
       ]);
@@ -158,7 +160,7 @@ export class CurriculosController {
             cidade: l.cidade,
             estado: l.estado,
             foto_fachada_url: l.fotoFachadaUrl,
-            is_principal: l.codLoja == null,
+            is_principal: !!l.isPrincipal || l.codLoja == null,
           })),
       });
     } catch (e: any) {

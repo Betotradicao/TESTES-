@@ -7,8 +7,8 @@ import toast from 'react-hot-toast';
 import RadarLoading from '../components/RadarLoading';
 
 const TABS = [
+  { key: 'empresas', label: 'Empresas', custom: true },
   { key: 'cargos', label: 'Cargos', endpoint: '/rh/configuracoes/cargos', fields: ['nome', 'descricao'] },
-  { key: 'empresas', label: 'Empresas', endpoint: '/companies', fields: ['codLoja', 'apelido', 'nomeFantasia', 'cidade'], readOnly: true, redirectTo: '/configuracoes?tab=empresa' },
   { key: 'jornadas', label: 'Jornadas', endpoint: '/rh/configuracoes/jornadas', fields: ['nome', 'carga_horaria', 'descricao'] },
   { key: 'escolaridades', label: 'Escolaridades', endpoint: '/rh/configuracoes/escolaridades', fields: ['nome'] },
   { key: 'escalas', label: 'Escalas', endpoint: '/rh/configuracoes/escalas', fields: ['nome', 'descricao'] },
@@ -200,6 +200,8 @@ export default function RhConfiguracoes() {
         <div className="p-6">
           {currentTab?.custom && activeTab === 'feriados' ? (
             <FeriadosTab />
+          ) : currentTab?.custom && activeTab === 'empresas' ? (
+            <EmpresasTab />
           ) : (
           <div className="bg-white rounded-lg shadow">
             {/* Toolbar */}
@@ -383,11 +385,11 @@ function FeriadosTab() {
   const [loadingFer, setLoadingFer] = useState(false);
   const [modalAberto, setModalAberto] = useState(null); // null | { id, name, date } (dia-mes DD/MM)
 
-  // Carrega lojas (via /companies/stores/list)
+  // Carrega lojas (via /rh/empresas/stores/list - tabela local do RH)
   useEffect(() => {
     (async () => {
       try {
-        const r = await api.get('/companies/stores/list');
+        const r = await api.get('/rh/empresas/stores/list');
         const data = Array.isArray(r.data) ? r.data : (r.data?.companies || []);
         setLojas(data);
       } catch { /* ignore */ }
@@ -589,6 +591,370 @@ function FeriadosTab() {
               <button onClick={salvar}
                 className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-semibold">
                 Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============ Tab customizado: Empresas (CRUD inline, independente da tela de Configurações) ============
+function EmpresasTab() {
+  const [empresas, setEmpresas] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [modal, setModal] = useState(null); // null | { ...formData }
+  const [salvando, setSalvando] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const VAZIO = {
+    id: null,
+    nomeFantasia: '',
+    razaoSocial: '',
+    cnpj: '',
+    codLoja: '',
+    apelido: '',
+    cep: '',
+    rua: '',
+    numero: '',
+    complemento: '',
+    bairro: '',
+    cidade: '',
+    estado: '',
+    telefone: '',
+    email: '',
+    responsavelNome: '',
+    responsavelEmail: '',
+    responsavelTelefone: '',
+    fotoFachadaUrl: null,
+    isPrincipal: false,
+  };
+
+  const carregar = async () => {
+    setLoading(true);
+    try {
+      const r = await api.get('/rh/empresas');
+      const list = Array.isArray(r.data) ? r.data : [];
+      setEmpresas(list);
+    } catch {
+      toast.error('Erro ao carregar empresas');
+    } finally { setLoading(false); }
+  };
+  useEffect(() => { carregar(); }, []);
+
+
+  const proximoCodLoja = () => {
+    const codigos = empresas.map(e => Number(e.codLoja)).filter(n => !isNaN(n));
+    if (!codigos.length) return 1;
+    return Math.max(...codigos) + 1;
+  };
+
+  const abrirNovo = () => {
+    setModal({ ...VAZIO, codLoja: String(proximoCodLoja()) });
+  };
+  const abrirEdicao = (c) => {
+    setModal({
+      id: c.id,
+      nomeFantasia: c.nomeFantasia || '',
+      razaoSocial: c.razaoSocial || '',
+      cnpj: c.cnpj || '',
+      codLoja: c.codLoja ?? '',
+      apelido: c.apelido || '',
+      cep: c.cep || '',
+      rua: c.rua || '',
+      numero: c.numero || '',
+      complemento: c.complemento || '',
+      bairro: c.bairro || '',
+      cidade: c.cidade || '',
+      estado: c.estado || '',
+      telefone: c.telefone || '',
+      email: c.email || '',
+      responsavelNome: c.responsavelNome || '',
+      responsavelEmail: c.responsavelEmail || '',
+      responsavelTelefone: c.responsavelTelefone || '',
+      fotoFachadaUrl: c.fotoFachadaUrl || null,
+      isPrincipal: !!c.isPrincipal,
+    });
+  };
+
+  const upload = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('imagem', f);
+      const r = await api.post('/checklist/upload-imagem', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      if (r.data?.url) setModal(m => ({ ...m, fotoFachadaUrl: r.data.url }));
+    } catch {
+      toast.error('Erro ao enviar foto');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const salvar = async () => {
+    if (!modal) return;
+    setSalvando(true);
+    try {
+      const payload = { ...modal };
+      delete payload.id;
+      delete payload.isPrincipal;
+      if (payload.codLoja === '') payload.codLoja = null;
+      else payload.codLoja = Number(payload.codLoja);
+      if (modal.id) {
+        await api.put(`/rh/empresas/${modal.id}`, payload);
+        toast.success('Empresa atualizada');
+      } else {
+        await api.post('/rh/empresas', payload);
+        toast.success('Empresa criada');
+      }
+      setModal(null);
+      await carregar();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Erro ao salvar');
+    } finally { setSalvando(false); }
+  };
+
+  const excluir = async (c) => {
+    if (c.isPrincipal) { toast.error('Não é possível excluir a matriz'); return; }
+    if (!window.confirm(`Excluir "${c.nomeFantasia || c.apelido || 'empresa'}"?`)) return;
+    try {
+      await api.delete(`/rh/empresas/${c.id}`);
+      toast.success('Empresa excluída');
+      await carregar();
+    } catch {
+      toast.error('Erro ao excluir');
+    }
+  };
+
+  const setCampo = (k, v) => setModal(m => ({ ...m, [k]: v }));
+  const setCampoUp = (k, v) => setModal(m => ({ ...m, [k]: (v || '').toUpperCase() }));
+
+  return (
+    <div className="bg-white rounded-lg shadow">
+      <div className="flex items-center justify-between px-6 py-4 border-b">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-700">Empresas / Lojas</h2>
+          <p className="text-xs text-gray-500">Cadastro exclusivo do RH — independente da tela de Configurações Gerais.</p>
+        </div>
+        <button onClick={abrirNovo} className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium">+ Nova Empresa</button>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-20"><RadarLoading size="sm" message="" /></div>
+      ) : empresas.length === 0 ? (
+        <div className="text-center py-20 text-gray-400">Nenhuma empresa cadastrada</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-600 text-white">
+                <th className="text-left px-4 py-3 text-sm font-medium">Foto</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">Loja</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">Apelido</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">Nome Fantasia</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">CNPJ</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">Cidade/UF</th>
+                <th className="text-right px-4 py-3 text-sm font-medium">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {empresas.map(c => (
+                <tr key={c.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-2">
+                    {c.fotoFachadaUrl ? (
+                      <img src={c.fotoFachadaUrl} alt="" className="w-12 h-12 object-cover rounded" />
+                    ) : (
+                      <div className="w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs">sem foto</div>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-sm">
+                    {c.isPrincipal ? (
+                      <span className="inline-flex items-center gap-1 bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs font-semibold">★ Matriz</span>
+                    ) : (
+                      <span className="text-gray-700 font-medium">Loja {c.codLoja ?? '-'}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-sm text-gray-700">{c.apelido || '-'}</td>
+                  <td className="px-4 py-2 text-sm text-gray-700">{c.nomeFantasia || '-'}</td>
+                  <td className="px-4 py-2 text-sm text-gray-700">{c.cnpj || '-'}</td>
+                  <td className="px-4 py-2 text-sm text-gray-700">{[c.cidade, c.estado].filter(Boolean).join('/') || '-'}</td>
+                  <td className="px-4 py-2 text-right">
+                    <button onClick={() => abrirEdicao(c)} className="text-orange-600 hover:text-orange-800 text-sm font-medium mr-3">Editar</button>
+                    {!c.isPrincipal && (
+                      <button onClick={() => excluir(c)} className="text-red-600 hover:text-red-800 text-sm font-medium">Excluir</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Modal */}
+      {modal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-gray-200 sticky top-0 bg-white z-10">
+              <h3 className="text-lg font-bold text-gray-800">{modal.id ? (modal.isPrincipal ? 'Editar Matriz' : 'Editar Empresa') : 'Nova Empresa'}</h3>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {/* Foto da fachada */}
+              <div>
+                <label className="text-xs font-semibold uppercase text-gray-600 block mb-1">Foto da fachada</label>
+                <div className="flex items-center gap-3">
+                  {modal.fotoFachadaUrl ? (
+                    <img src={modal.fotoFachadaUrl} alt="" className="w-20 h-20 object-cover rounded border" />
+                  ) : (
+                    <div className="w-20 h-20 rounded border bg-gray-100 flex items-center justify-center text-gray-400 text-xs">sem foto</div>
+                  )}
+                  <label className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm cursor-pointer">
+                    {uploading ? 'Enviando...' : (modal.fotoFachadaUrl ? 'Trocar foto' : 'Escolher foto')}
+                    <input type="file" accept="image/*" onChange={upload} className="hidden" disabled={uploading} />
+                  </label>
+                  {modal.fotoFachadaUrl && (
+                    <button onClick={() => setCampo('fotoFachadaUrl', null)} className="px-3 py-2 text-red-600 hover:text-red-800 text-sm">Remover</button>
+                  )}
+                </div>
+              </div>
+
+              {/* Identificação */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-semibold uppercase text-gray-600">Cód. Loja</label>
+                  <input type="number" value={modal.codLoja} onChange={e => setCampo('codLoja', e.target.value)}
+                    disabled={modal.isPrincipal}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:bg-gray-100" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold uppercase text-gray-600">Apelido</label>
+                  <input type="text" value={modal.apelido} onChange={e => setCampoUp('apelido', e.target.value)}
+                    style={{ textTransform: 'uppercase' }}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold uppercase text-gray-600">CNPJ</label>
+                  <input type="text" value={modal.cnpj} onChange={e => setCampo('cnpj', e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold uppercase text-gray-600">Nome Fantasia</label>
+                  <input type="text" value={modal.nomeFantasia} onChange={e => setCampoUp('nomeFantasia', e.target.value)}
+                    style={{ textTransform: 'uppercase' }}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold uppercase text-gray-600">Razão Social</label>
+                  <input type="text" value={modal.razaoSocial} onChange={e => setCampoUp('razaoSocial', e.target.value)}
+                    style={{ textTransform: 'uppercase' }}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+
+              {/* Endereço */}
+              <div className="border-t pt-3">
+                <div className="text-xs font-bold text-gray-500 uppercase mb-2">Endereço</div>
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                  <div className="col-span-2 md:col-span-2">
+                    <label className="text-xs font-semibold uppercase text-gray-600">CEP</label>
+                    <input type="text" value={modal.cep} onChange={e => setCampo('cep', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div className="col-span-2 md:col-span-3">
+                    <label className="text-xs font-semibold uppercase text-gray-600">Rua</label>
+                    <input type="text" value={modal.rua} onChange={e => setCampoUp('rua', e.target.value)}
+                      style={{ textTransform: 'uppercase' }}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase text-gray-600">Número</label>
+                    <input type="text" value={modal.numero} onChange={e => setCampo('numero', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mt-3">
+                  <div className="col-span-2">
+                    <label className="text-xs font-semibold uppercase text-gray-600">Complemento</label>
+                    <input type="text" value={modal.complemento} onChange={e => setCampoUp('complemento', e.target.value)}
+                      style={{ textTransform: 'uppercase' }}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs font-semibold uppercase text-gray-600">Bairro</label>
+                    <input type="text" value={modal.bairro} onChange={e => setCampoUp('bairro', e.target.value)}
+                      style={{ textTransform: 'uppercase' }}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div className="col-span-1">
+                    <label className="text-xs font-semibold uppercase text-gray-600">Cidade</label>
+                    <input type="text" value={modal.cidade} onChange={e => setCampoUp('cidade', e.target.value)}
+                      style={{ textTransform: 'uppercase' }}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div className="col-span-1">
+                    <label className="text-xs font-semibold uppercase text-gray-600">UF</label>
+                    <input type="text" value={modal.estado} onChange={e => setCampoUp('estado', e.target.value.slice(0, 2))}
+                      maxLength={2} style={{ textTransform: 'uppercase' }}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Contato */}
+              <div className="border-t pt-3">
+                <div className="text-xs font-bold text-gray-500 uppercase mb-2">Contato</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold uppercase text-gray-600">Telefone</label>
+                    <input type="text" value={modal.telefone} onChange={e => setCampo('telefone', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase text-gray-600">E-mail</label>
+                    <input type="email" value={modal.email} onChange={e => setCampo('email', e.target.value.toLowerCase())}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Responsável */}
+              <div className="border-t pt-3">
+                <div className="text-xs font-bold text-gray-500 uppercase mb-2">Responsável</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold uppercase text-gray-600">Nome</label>
+                    <input type="text" value={modal.responsavelNome} onChange={e => setCampoUp('responsavelNome', e.target.value)}
+                      style={{ textTransform: 'uppercase' }}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase text-gray-600">E-mail</label>
+                    <input type="email" value={modal.responsavelEmail} onChange={e => setCampo('responsavelEmail', e.target.value.toLowerCase())}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase text-gray-600">Telefone</label>
+                    <input type="text" value={modal.responsavelTelefone} onChange={e => setCampo('responsavelTelefone', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-2 sticky bottom-0 bg-white">
+              <button onClick={() => setModal(null)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold">Cancelar</button>
+              <button onClick={salvar} disabled={salvando}
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50">
+                {salvando ? 'Salvando...' : 'Salvar'}
               </button>
             </div>
           </div>

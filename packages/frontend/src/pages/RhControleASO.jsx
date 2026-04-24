@@ -75,7 +75,7 @@ export default function RhControleASO() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await api.get('/companies/stores/list');
+        const r = await api.get('/rh/empresas/stores/list');
         const data = Array.isArray(r.data) ? r.data : (r.data?.companies || []);
         setEmpresas(data);
       } catch { /* ignore */ }
