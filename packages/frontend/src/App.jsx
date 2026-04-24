@@ -113,6 +113,8 @@ import ModeloCurriculo from './pages/rh/ModeloCurriculo';
 import BancoCurriculos from './pages/rh/BancoCurriculos';
 import CurriculoPublico from './pages/CurriculoPublico';
 import RhDocumentacao from './pages/RhDocumentacao';
+import RhDepartamentoPessoal from './pages/RhDepartamentoPessoal';
+import RhLancamentos from './pages/RhLancamentos';
 
 function App() {
   return (
@@ -660,6 +662,7 @@ function App() {
             <Route path="/rh/curriculos/banco" element={<ProtectedRoute><BancoCurriculos /></ProtectedRoute>} />
             {/* RH Placeholder pages */}
             <Route path="/rh/documentacao" element={<ProtectedRoute><RhDocumentacao /></ProtectedRoute>} />
+            <Route path="/rh/departamento-pessoal" element={<ProtectedRoute><RhDepartamentoPessoal /></ProtectedRoute>} />
             <Route path="/rh/exames" element={<ProtectedRoute><RhPlaceholder title="Exames Periodicos" subtitle="Controle de exames medicos" features={['Exames admissionais', 'Periodicos', 'Demissionais', 'Alertas de vencimento']} /></ProtectedRoute>} />
             <Route path="/rh/vencimentos" element={<ProtectedRoute><RhPlaceholder title="Relatorio de Vencimentos" subtitle="ASOs e documentos proximos do vencimento" features={['ASOs vencidos', 'ASOs a vencer', 'Documentos pendentes']} /></ProtectedRoute>} />
             <Route path="/rh/jornadas" element={<ProtectedRoute><RhPlaceholder title="Jornadas de Trabalho" subtitle="Controle de jornadas e escalas" features={['Jornadas CLT', 'Escalas de trabalho', 'Banco de horas']} /></ProtectedRoute>} />
@@ -669,7 +672,7 @@ function App() {
             <Route path="/rh/processo-seletivo" element={<ProtectedRoute><RhPlaceholder title="Processo Seletivo" subtitle="Acompanhamento de processos seletivos" features={['Etapas do processo', 'Avaliacao de candidatos', 'Feedback', 'Aprovacao final']} /></ProtectedRoute>} />
             <Route path="/rh/presenca" element={<ProtectedRoute><RhPlaceholder title="Controle de Presenca" subtitle="Presenca em treinamentos" features={['Lista de presenca', 'Frequencia por colaborador', 'Certificados automaticos']} /></ProtectedRoute>} />
             <Route path="/rh/certificados" element={<ProtectedRoute><RhPlaceholder title="Certificados" subtitle="Gestao de certificados de treinamento" features={['Emissao de certificados', 'Historico', 'Validade', 'Download PDF']} /></ProtectedRoute>} />
-            <Route path="/rh/lancamentos" element={<ProtectedRoute><RhPlaceholder title="Lancamentos Financeiros" subtitle="Lancamentos de folha e custos RH" features={['Folha de pagamento', 'Custos por departamento', 'Evolucao mensal']} /></ProtectedRoute>} />
+            <Route path="/rh/lancamentos" element={<ProtectedRoute><RhLancamentos /></ProtectedRoute>} />
             <Route path="/rh/folha" element={<ProtectedRoute><RhPlaceholder title="Folha de Pagamento" subtitle="Gestao da folha de pagamento" features={['Salarios', 'Beneficios', 'Descontos', 'Resumo mensal']} /></ProtectedRoute>} />
             <Route path="/rh/beneficios" element={<ProtectedRoute><RhPlaceholder title="Beneficios" subtitle="Gestao de beneficios dos colaboradores" features={['Vale transporte', 'Vale refeicao', 'Plano de saude', 'Outros beneficios']} /></ProtectedRoute>} />
             <Route path="/rh/rotatividade" element={<ProtectedRoute><RhPlaceholder title="Rotatividade (Turnover)" subtitle="Indicadores de rotatividade" features={['Taxa de turnover', 'Evolucao mensal', 'Por departamento', 'Motivos de saida']} /></ProtectedRoute>} />

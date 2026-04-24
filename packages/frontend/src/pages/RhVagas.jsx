@@ -110,17 +110,23 @@ export default function RhVagas() {
   };
 
   const handleSalvar = async () => {
-    if (!formData.titulo.trim()) {
-      toast.error('Titulo e obrigatorio');
+    if (!formData.cargo_id) {
+      toast.error('Cargo e obrigatorio');
       return;
     }
     try {
       setSalvando(true);
+      // Auto-gera titulo com base no cargo selecionado se nao informado
+      const cargoSelecionado = cargos.find(c => String(c.id) === String(formData.cargo_id));
+      const payload = {
+        ...formData,
+        titulo: (formData.titulo && formData.titulo.trim()) || cargoSelecionado?.nome || 'Vaga',
+      };
       if (editando) {
-        await api.put(`/rh/vagas/${editando.id}`, formData);
+        await api.put(`/rh/vagas/${editando.id}`, payload);
         toast.success('Vaga atualizada com sucesso');
       } else {
-        await api.post('/rh/vagas', formData);
+        await api.post('/rh/vagas', payload);
         toast.success('Vaga criada com sucesso');
       }
       fecharModal();
@@ -288,18 +294,8 @@ export default function RhVagas() {
 
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Titulo *</label>
-                    <input
-                      type="text"
-                      name="titulo"
-                      value={formData.titulo}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                    />
-                  </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Cargo</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cargo *</label>
                     <select
                       name="cargo_id"
                       value={formData.cargo_id}

@@ -210,8 +210,8 @@ export default function RhControleASO() {
           <p className="text-orange-100 text-sm">Atestados de Saúde Ocupacional com alertas de vencimento</p>
         </div>
 
-        {/* Dashboard Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 px-4 pt-4">
+        {/* Dashboard Stats - 2 cols mobile, 5 cols desktop */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 px-2 md:px-4 pt-2 md:pt-4">
           <StatCard emoji="👥" label="Colabs Ativos" value={stats.colaboradores_ativos} color="slate" active={filtroStatus === 'todos'} onClick={() => setFiltroStatus('todos')} />
           <StatCard emoji="✅" label="ASOs Válidos" value={stats.validos} color="emerald" active={filtroStatus === 'validos'} onClick={() => setFiltroStatus(filtroStatus === 'validos' ? 'todos' : 'validos')} />
           <StatCard emoji="⏰" label="A Vencer (30d)" value={stats.a_vencer_30d} color="amber" active={filtroStatus === 'a_vencer'} onClick={() => setFiltroStatus(filtroStatus === 'a_vencer' ? 'todos' : 'a_vencer')} />
@@ -219,9 +219,9 @@ export default function RhControleASO() {
           <StatCard emoji="❓" label="Sem ASO" value={stats.sem_aso} color="gray" active={filtroStatus === 'sem_aso'} onClick={() => setFiltroStatus(filtroStatus === 'sem_aso' ? 'todos' : 'sem_aso')} />
         </div>
 
-        <div className="flex-1 overflow-hidden flex gap-4 p-4">
+        <div className="flex-1 overflow-hidden flex gap-2 md:gap-4 p-2 md:p-4">
           {/* LISTA DE COLABORADORES */}
-          <div className="w-96 shrink-0 bg-white rounded-lg border border-gray-200 flex flex-col overflow-hidden">
+          <div className={`w-full md:w-96 md:shrink-0 bg-white rounded-lg border border-gray-200 flex-col overflow-hidden ${selecionado ? 'hidden md:flex' : 'flex'}`}>
             <div className="p-3 border-b border-gray-200 space-y-2">
               <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
                 placeholder="Buscar por nome, matricula ou cargo..."
@@ -265,7 +265,7 @@ export default function RhControleASO() {
           </div>
 
           {/* DETALHE DO COLABORADOR */}
-          <div className="flex-1 bg-white rounded-lg border border-gray-200 flex flex-col overflow-hidden">
+          <div className={`flex-1 bg-white rounded-lg border border-gray-200 flex-col overflow-hidden ${selecionado ? 'flex' : 'hidden md:flex'}`}>
             {!selecionado ? (
               <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8">
                 <div className="text-6xl mb-3">🩺</div>
@@ -275,21 +275,28 @@ export default function RhControleASO() {
             ) : (
               <>
                 {/* Cabeçalho */}
-                <div className="p-4 border-b border-gray-200 flex items-center gap-3">
+                <div className="p-3 md:p-4 border-b border-gray-200 flex items-center gap-2 md:gap-3">
+                  {/* Voltar - so mobile */}
+                  <button onClick={() => { setSelecionado(null); setAsos([]); }}
+                    className="md:hidden text-gray-500 hover:text-gray-700 p-1 shrink-0" title="Voltar">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
                   {selecionado.foto_url ? (
-                    <img src={selecionado.foto_url} alt="" className="w-14 h-14 rounded-full object-cover border border-orange-200" />
+                    <img src={selecionado.foto_url} alt="" className="w-12 h-12 md:w-14 md:h-14 rounded-full object-cover border border-orange-200 shrink-0" />
                   ) : (
-                    <div className="w-14 h-14 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-xl border border-orange-200">
+                    <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-lg md:text-xl border border-orange-200 shrink-0">
                       {(selecionado.nome || '?').charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <div className="flex-1">
-                    <div className="text-xl font-bold text-gray-800">{selecionado.nome}</div>
-                    <div className="text-sm text-gray-500">Matrícula {selecionado.matricula || '-'} · {selecionado.cargo_nome || '-'}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-base md:text-xl font-bold text-gray-800 truncate">{selecionado.nome}</div>
+                    <div className="text-xs md:text-sm text-gray-500 truncate">Mat. {selecionado.matricula || '-'} · {selecionado.cargo_nome || '-'}</div>
                   </div>
                   <button onClick={() => abrirNovoAso(abaTipo)}
-                    className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2">
-                    <span>+</span> Novo ASO
+                    className="bg-orange-500 hover:bg-orange-600 text-white px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-semibold flex items-center gap-1 md:gap-2 shrink-0">
+                    <span>+</span> <span className="hidden md:inline">Novo ASO</span><span className="md:hidden">ASO</span>
                   </button>
                 </div>
 
@@ -556,18 +563,28 @@ export default function RhControleASO() {
 
                   <div className="mt-2 text-xs text-gray-500 text-center">— OU —</div>
 
-                  <div className="mt-2 flex items-center gap-2">
-                    <input type="file" accept=".pdf,image/*" onChange={e => setArquivoModal(e.target.files?.[0] || null)}
-                      className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-bold file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 cursor-pointer" />
-                    {arquivoModal && (
-                      <button type="button" onClick={() => setArquivoModal(null)}
-                        className="text-xs font-bold text-red-600 hover:text-red-800">✖ Limpar</button>
-                    )}
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <input type="file" accept="image/*" capture="environment" id="aso-camera-input" className="hidden"
+                      onChange={e => setArquivoModal(e.target.files?.[0] || null)} />
+                    <label htmlFor="aso-camera-input"
+                      className="cursor-pointer flex items-center justify-center gap-2 px-3 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-bold">
+                      📷 Tirar Foto
+                    </label>
+                    <input type="file" accept=".pdf,image/*" id="aso-file-input" className="hidden"
+                      onChange={e => setArquivoModal(e.target.files?.[0] || null)} />
+                    <label htmlFor="aso-file-input"
+                      className="cursor-pointer flex items-center justify-center gap-2 px-3 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-bold">
+                      📁 Escolher Arquivo
+                    </label>
                   </div>
 
-                  {arquivoModal && !arquivoModal.type?.startsWith('image/') && (
-                    <div className="mt-1 text-xs text-emerald-700 font-semibold">
-                      ✔ {arquivoModal.name} ({(arquivoModal.size / 1024).toFixed(1)} KB) {modalAso.arquivo_url && '(vai substituir o atual)'}
+                  {arquivoModal && (
+                    <div className="mt-2 flex items-center gap-2 text-xs">
+                      <span className="flex-1 text-emerald-700 font-semibold truncate">
+                        ✔ {arquivoModal.name} ({(arquivoModal.size / 1024).toFixed(1)} KB) {modalAso.arquivo_url && '(vai substituir o atual)'}
+                      </span>
+                      <button type="button" onClick={() => setArquivoModal(null)}
+                        className="text-red-600 hover:text-red-800 font-bold">✖ Limpar</button>
                     </div>
                   )}
                   {!modalAso.id && !arquivoModal && (

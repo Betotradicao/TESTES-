@@ -3,6 +3,8 @@ import multer from 'multer';
 import { RhController } from '../controllers/rh.controller';
 import { RhDocumentacaoController } from '../controllers/rh-documentacao.controller';
 import { RhAsoController } from '../controllers/rh-aso.controller';
+import { RhDpController } from '../controllers/rh-dp.controller';
+import { RhApontamentosController } from '../controllers/rh-apontamentos.controller';
 import { authenticateToken } from '../middleware/auth';
 
 const router: Router = Router();
@@ -176,6 +178,30 @@ router.post('/documentacao/pastas/:id/replicar-todos', authenticateToken, RhDocu
 router.get('/documentacao/pastas/:id/pdf', authenticateToken, RhDocumentacaoController.gerarPdfDaPasta);
 router.put('/documentacao/pastas/:id', authenticateToken, RhDocumentacaoController.atualizarPasta);
 router.delete('/documentacao/pastas/:id', authenticateToken, RhDocumentacaoController.deletarPasta);
+
+// Apontamentos (Lancamentos Financeiros)
+router.get('/apontamentos', authenticateToken, RhApontamentosController.listar);
+router.post('/apontamentos/batch', authenticateToken, RhApontamentosController.salvarLote);
+router.get('/apontamentos/pdf', authenticateToken, RhApontamentosController.exportarPdf);
+router.get('/apontamentos/excel', authenticateToken, RhApontamentosController.exportarExcel);
+router.get('/apontamentos/campos', authenticateToken, RhApontamentosController.listarCampos);
+router.post('/apontamentos/campos', authenticateToken, RhApontamentosController.criarCampo);
+router.delete('/apontamentos/campos/:id', authenticateToken, RhApontamentosController.deletarCampo);
+
+// Departamento Pessoal (docs da empresa)
+router.get('/dp/pastas', authenticateToken, RhDpController.listarPastas);
+router.post('/dp/pastas', authenticateToken, RhDpController.criarPasta);
+router.post('/dp/pastas/reordenar', authenticateToken, RhDpController.reordenarPastas);
+router.post('/dp/seed/:companyId', authenticateToken, RhDpController.seedPadraoPorEmpresa);
+router.put('/dp/pastas/:id', authenticateToken, RhDpController.atualizarPasta);
+router.delete('/dp/pastas/:id', authenticateToken, RhDpController.deletarPasta);
+router.get('/dp/subpastas', authenticateToken, RhDpController.listarSubpastas);
+router.post('/dp/subpastas', authenticateToken, RhDpController.criarSubpasta);
+router.put('/dp/subpastas/:id', authenticateToken, RhDpController.atualizarSubpasta);
+router.delete('/dp/subpastas/:id', authenticateToken, RhDpController.deletarSubpasta);
+router.get('/dp/documentos', authenticateToken, RhDpController.listarDocumentos);
+router.post('/dp/documentos', authenticateToken, uploadDoc.single('arquivo'), RhDpController.uploadDocumento);
+router.delete('/dp/documentos/:id', authenticateToken, RhDpController.deletarDocumento);
 
 // Documentacao - Subpastas (itens de documento por pasta)
 router.get('/documentacao/subpastas', authenticateToken, RhDocumentacaoController.listarSubpastas);

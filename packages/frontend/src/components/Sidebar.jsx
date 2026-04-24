@@ -965,15 +965,10 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           expandable: true,
           subItems: [
             { id: 'rh-cadastro', submenuId: 'rh-cadastro-geral', title: 'CADASTRO GERAL', path: '/rh/cadastro' },
-            { id: 'rh-documentacao', submenuId: 'rh-documentacao', title: 'DOCUMENTAÇÃO', path: '/rh/documentacao' }
+            { id: 'rh-documentacao', submenuId: 'rh-documentacao', title: 'DOCUMENTAÇÃO', path: '/rh/documentacao' },
+            { id: 'rh-saude', submenuId: 'rh-saude', title: 'SAÚDE OCUPACIONAL', path: '/rh/aso' },
+            { id: 'rh-ferias', submenuId: 'rh-ferias', title: 'FÉRIAS', path: '/rh/ferias' }
           ]
-        },
-        {
-          id: 'rh-saude',
-          moduleId: 'rh-saude',
-          title: 'SAÚDE OCUPACIONAL',
-          icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>),
-          path: '/rh/aso'
         },
         {
           id: 'rh-ponto',
@@ -996,9 +991,21 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           expandable: true,
           subItems: [
             { id: 'rh-vagas', submenuId: 'rh-vagas', title: 'VAGAS ABERTAS', path: '/rh/vagas' },
-            { id: 'rh-candidatos', submenuId: 'rh-candidatos', title: 'CANDIDATOS', path: '/rh/candidatos' },
             { id: 'rh-processo', submenuId: 'rh-processo-seletivo', title: 'PROCESSO SELETIVO', path: '/rh/processo-seletivo' },
-            { id: 'rh-metodo-disc', submenuId: 'rh-metodo-disc', title: 'METODO DISC', path: '/rh/metodo-disc' }
+            { id: 'rh-metodo-disc', submenuId: 'rh-metodo-disc', title: 'METODO DISC', path: '/rh/metodo-disc' },
+            { id: 'rh-curriculo-modelo', submenuId: 'rh-curriculo-modelo', title: 'MODELO DE CURRÍCULO', path: '/rh/curriculos/modelo' },
+            { id: 'rh-curriculo-banco', submenuId: 'rh-curriculo-banco', title: 'BANCO DE CURRÍCULOS', path: '/rh/curriculos/banco' }
+          ]
+        },
+        {
+          id: 'rh-pesquisa-clima',
+          moduleId: 'rh-pesquisa-clima',
+          title: 'PESQUISA DE CLIMA',
+          icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>),
+          expandable: true,
+          subItems: [
+            { id: 'rh-clima-analise', submenuId: 'rh-clima-analise', title: 'ANÁLISE PESQUISAS', path: '/rh/pesquisa-clima/analise' },
+            { id: 'rh-clima-criar', submenuId: 'rh-clima-criar', title: 'CRIAR PESQUISAS', path: '/rh/pesquisa-clima/criar' }
           ]
         },
         {
@@ -1025,15 +1032,11 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ]
         },
         {
-          id: 'rh-banco-curriculos',
-          moduleId: 'rh-banco-curriculos',
-          title: 'BANCO DE CURRÍCULOS',
-          icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>),
-          expandable: true,
-          subItems: [
-            { id: 'rh-curriculo-modelo', submenuId: 'rh-curriculo-modelo', title: 'MODELO DE CURRÍCULO', path: '/rh/curriculos/modelo' },
-            { id: 'rh-curriculo-banco', submenuId: 'rh-curriculo-banco', title: 'BANCO DE CURRÍCULOS', path: '/rh/curriculos/banco' }
-          ]
+          id: 'rh-dp',
+          moduleId: 'rh-dp',
+          title: 'DEPARTAMENTO PESSOAL',
+          icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>),
+          path: '/rh/departamento-pessoal'
         },
         {
           id: 'rh-config',

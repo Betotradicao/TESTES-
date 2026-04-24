@@ -379,8 +379,8 @@ export default function RhDocumentacao() {
           <p className="text-orange-100 text-sm">Gestão de documentos dos colaboradores por pastas</p>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 px-4 pt-4">
+        {/* Stats Cards - 2x2 no mobile, 4 colunas no desktop */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 px-2 md:px-4 pt-2 md:pt-4">
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex items-stretch">
             <div className="flex-1 p-3 flex items-center gap-3">
               <div className="text-2xl">📁</div>
@@ -429,9 +429,9 @@ export default function RhDocumentacao() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-hidden flex gap-4 p-4">
+        <div className="flex-1 overflow-hidden flex gap-2 md:gap-4 p-2 md:p-4">
           {/* COLUNA ESQUERDA: lista de colaboradores com filtros */}
-          <div className="w-96 shrink-0 bg-white rounded-lg border border-gray-200 flex flex-col overflow-hidden">
+          <div className={`w-full md:w-96 md:shrink-0 bg-white rounded-lg border border-gray-200 flex-col overflow-hidden ${selecionado ? 'hidden md:flex' : 'flex'}`}>
             <div className="p-3 border-b border-gray-200 space-y-2">
               <input
                 type="text"
@@ -489,7 +489,7 @@ export default function RhDocumentacao() {
           </div>
 
           {/* COLUNA DIREITA: pastas e arquivos do colaborador */}
-          <div className="flex-1 bg-white rounded-lg border border-gray-200 flex flex-col overflow-hidden">
+          <div className={`flex-1 bg-white rounded-lg border border-gray-200 flex-col overflow-hidden ${selecionado ? 'flex' : 'hidden md:flex'}`}>
             {!selecionado ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-gray-400">
                 <svg className="w-16 h-16 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -501,33 +501,41 @@ export default function RhDocumentacao() {
             ) : (
               <>
                 {/* Cabeçalho do colaborador selecionado */}
-                <div className="p-4 border-b border-gray-200 flex items-center gap-3">
+                <div className="p-3 md:p-4 border-b border-gray-200 flex items-center gap-2 md:gap-3">
+                  {/* Botao voltar - so no mobile */}
+                  <button onClick={() => { setSelecionado(null); setPastaAberta(null); setDocumentos([]); setSubpastas([]); }}
+                    className="md:hidden text-gray-500 hover:text-gray-700 p-1 shrink-0" title="Voltar">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
                   {selecionado.foto_url ? (
-                    <img src={selecionado.foto_url} alt="" className="w-12 h-12 rounded-full object-cover border border-orange-200" />
+                    <img src={selecionado.foto_url} alt="" className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover border border-orange-200 shrink-0" />
                   ) : (
-                    <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-lg border border-orange-200">
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-base md:text-lg border border-orange-200 shrink-0">
                       {(selecionado.nome || '?').charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <div className="flex-1">
-                    <div className="text-lg font-bold text-gray-800">{selecionado.nome}</div>
-                    <div className="text-sm text-gray-500">
-                      Matrícula {selecionado.matricula || '-'} · {selecionado.cargo_nome || '-'} · {selecionado.empresa_nome || '-'}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-base md:text-lg font-bold text-gray-800 truncate">{selecionado.nome}</div>
+                    <div className="text-xs md:text-sm text-gray-500 truncate">
+                      Mat. {selecionado.matricula || '-'} · {selecionado.cargo_nome || '-'}
                     </div>
                   </div>
                   <button onClick={() => setShowNovaPasta(true)}
-                    className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2">
+                    className="bg-orange-500 hover:bg-orange-600 text-white px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-semibold flex items-center gap-1 md:gap-2 shrink-0">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    Criar Pasta
+                    <span className="hidden md:inline">Criar Pasta</span>
+                    <span className="md:hidden">Pasta</span>
                   </button>
                 </div>
 
                 {/* Conteúdo: lista de pastas + visualizador de arquivos */}
                 <div className="flex-1 overflow-hidden flex">
-                  {/* Pastas */}
-                  <div className="w-96 shrink-0 border-r border-gray-200 overflow-y-auto">
+                  {/* Pastas - fica full width no mobile qdo nao tem pasta aberta, esconde qdo tem */}
+                  <div className={`w-full md:w-96 md:shrink-0 border-r border-gray-200 overflow-y-auto ${pastaAberta ? 'hidden md:block' : 'block'}`}>
                     {pastas.length === 0 ? (
                       <div className="p-6 text-center text-sm text-gray-400">
                         Nenhuma pasta criada ainda.
@@ -572,8 +580,8 @@ export default function RhDocumentacao() {
                     )}
                   </div>
 
-                  {/* Arquivos */}
-                  <div className="flex-1 overflow-y-auto p-4">
+                  {/* Arquivos - full width no mobile qdo pasta aberta */}
+                  <div className={`flex-1 overflow-y-auto p-3 md:p-4 ${pastaAberta ? 'block' : 'hidden md:block'}`}>
                     {!pastaAberta ? (
                       <div className="text-center text-sm text-gray-400 mt-16">
                         Selecione uma pasta à esquerda para ver os arquivos.
@@ -583,14 +591,23 @@ export default function RhDocumentacao() {
                         <input type="file" ref={fileInputRef} onChange={uploadArquivo} className="hidden" />
 
                         <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-                          <div>
-                            <h3 className="text-lg font-bold text-gray-800">📁 {pastaAberta.nome}</h3>
-                            <p className="text-xs text-gray-500">{documentos.length} arquivo(s) · {subpastas.length} sub-pasta(s)</p>
+                          <div className="flex items-center gap-2 min-w-0">
+                            {/* Voltar pra lista de pastas - so no mobile */}
+                            <button onClick={() => { setPastaAberta(null); setDocumentos([]); setSubpastas([]); }}
+                              className="md:hidden text-gray-500 hover:text-gray-700 p-1 shrink-0" title="Voltar às pastas">
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                              </svg>
+                            </button>
+                            <div className="min-w-0">
+                              <h3 className="text-base md:text-lg font-bold text-gray-800 truncate">📁 {pastaAberta.nome}</h3>
+                              <p className="text-xs text-gray-500">{documentos.length} arquivo(s) · {subpastas.length} sub-pasta(s)</p>
+                            </div>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 flex-wrap">
                             <button onClick={abrirUploadSolto} disabled={uploadingFile}
-                              className={`px-4 py-2 rounded-lg text-sm font-semibold text-white ${uploadingFile ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'}`}>
-                              {uploadingFile ? 'Enviando...' : '📤 Enviar Arquivo Solto'}
+                              className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-semibold text-white ${uploadingFile ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'}`}>
+                              {uploadingFile ? 'Enviando...' : '📤 Enviar Arquivo'}
                             </button>
                             <a
                               href={`${api.defaults.baseURL || ''}/rh/documentacao/pastas/${pastaAberta.id}/pdf?token=${localStorage.getItem('token')}`}
@@ -610,7 +627,7 @@ export default function RhDocumentacao() {
                                   toast.error('Erro ao gerar PDF');
                                 }
                               }}
-                              className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 inline-flex items-center gap-1 cursor-pointer"
+                              className="px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-semibold text-white bg-red-600 hover:bg-red-700 inline-flex items-center gap-1 cursor-pointer"
                               title="Gerar PDF consolidado com todos os arquivos da pasta">
                               📄 Gerar PDF
                             </a>
@@ -823,21 +840,31 @@ export default function RhDocumentacao() {
 
               <div className="text-xs text-gray-500 text-center">— OU —</div>
 
-              <div className="flex items-center gap-2">
-                <input type="file" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx"
-                  onChange={e => setArquivoUpload(e.target.files?.[0] || null)}
-                  className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-bold file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 cursor-pointer" />
-                {arquivoUpload && (
-                  <button type="button" onClick={() => setArquivoUpload(null)}
-                    className="text-xs font-bold text-red-600 hover:text-red-800">✖</button>
-                )}
+              <div className="grid grid-cols-2 gap-2">
+                <input type="file" accept="image/*" capture="environment" id="doc-camera-input" className="hidden"
+                  onChange={e => setArquivoUpload(e.target.files?.[0] || null)} />
+                <label htmlFor="doc-camera-input"
+                  className="cursor-pointer flex items-center justify-center gap-2 px-3 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-bold">
+                  📷 Tirar Foto
+                </label>
+                <input type="file" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx" id="doc-file-input" className="hidden"
+                  onChange={e => setArquivoUpload(e.target.files?.[0] || null)} />
+                <label htmlFor="doc-file-input"
+                  className="cursor-pointer flex items-center justify-center gap-2 px-3 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-bold">
+                  📁 Escolher Arquivo
+                </label>
               </div>
 
-              {arquivoUpload && !arquivoUpload.type?.startsWith('image/') && (
-                <div className="text-xs text-emerald-700 font-semibold">
-                  ✔ {arquivoUpload.name} ({(arquivoUpload.size / 1024).toFixed(1)} KB)
+              {arquivoUpload && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="flex-1 text-emerald-700 font-semibold truncate">
+                    ✔ {arquivoUpload.name} ({(arquivoUpload.size / 1024).toFixed(1)} KB)
+                  </span>
+                  <button type="button" onClick={() => setArquivoUpload(null)}
+                    className="text-red-600 hover:text-red-800 font-bold">✖ Limpar</button>
                 </div>
               )}
+
             </div>
             <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
               <button onClick={() => { setUploadModal(null); setArquivoUpload(null); }}

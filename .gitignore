@@ -95,3 +95,7 @@ packages/backend/test-snapshot-*.jpg
 
 # Scripts de debug/investigação (não são do sistema)
 check-*.sh
+
+# Arquivos locais de dados
+APONTAMENTOS*.xlsx
+*.xlsx
